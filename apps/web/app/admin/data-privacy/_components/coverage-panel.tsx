@@ -7,6 +7,7 @@ import {
   CANDIDATE_UNLISTED_FLOWS,
   computePrivacyCoverage,
 } from '@/lib/privacy-coverage';
+import { formatCount } from '@/lib/format-number';
 
 const docTitle = (key: string): string =>
   NPC_DOCUMENTS.find((d) => d.key === key)?.title ?? key;
@@ -38,7 +39,7 @@ export function CoveragePanel({ controls }: { controls: PrivacyControlRow[] }) {
         control should be <strong>declared</strong> in the filing, and every declared activity
         should have a <strong>live control</strong>. Mismatches are flagged here.
         <span className="mt-1 block" style={{ color: 'var(--m-slate-3)' }}>
-          {report.declaredCount} of {report.privacySensitiveTotal} privacy-sensitive controls declared.
+          {formatCount(report.declaredCount)} of {formatCount(report.privacySensitiveTotal)} privacy-sensitive controls declared.
         </span>
       </p>
 

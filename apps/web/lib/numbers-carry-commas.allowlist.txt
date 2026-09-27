@@ -1,0 +1,34 @@
+# numbers-carry-commas.allowlist.txt — the ONLY raw renders the sweep in
+# `numbers-carry-commas.test.ts` accepts. One row exempts ONE finding.
+#
+#   <path under apps/web> :: <expression, whitespace-collapsed> :: <why it is not a raw quantity>
+#
+# Three honest reasons exist, and every row must be one of them:
+#   TEXT        the value is ALREADY a string (grouped upstream, or copy), and
+#               the scanner cannot see a property's type.
+#   IDENTIFIER  the digits are something a person or system must match exactly
+#               (a typed confirmation, a diagnostic value), not a quantity.
+#   BOUNDED     a figure that cannot reach 1,000 by construction, whose exact
+#               precision matters more than any shared formatter offers.
+# A row that no longer matches a finding FAILS the test — delete it.
+
+# ── TEXT: a string property whose digits were grouped where it was built ──
+app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — PapicFreeCreditPromise.count is built by points.toLocaleString('en-PH') in lib/papic-free-credit-promise.ts
+app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — the second render of the same grouped string
+app/realstories/[slug]/page.tsx :: wedding.guestCount :: TEXT — RealWedding.guestCount is static copy ("120 guests") in lib/real-weddings.ts
+app/vendor-dashboard/services/_components/services-manager.tsx :: congrats.count :: TEXT — buildServiceCardCongrats().count is a sentence ("You now have …"), not a number
+app/vendor-dashboard/customers/_components/customers-calendar.tsx :: monthCounts :: TEXT — a joined sentence ("3 booked · 1 held") built by useMemo in the same file
+app/_components/card-record-section.tsx :: row.pax :: TEXT — the ledger's coarse pax BAND label, a string (see the file's docblock)
+app/dashboard/[eventId]/sponsors/page.tsx :: tier :: TEXT — a sponsor tier NAME ("Principal"), not a count
+app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx :: HUB_TRANSITION_HINT.auto :: TEXT — a hint sentence constant
+app/vendor-dashboard/clients/[eventId]/page.tsx :: r.amount :: TEXT — laterRows[].amount is pesoFromCentavos(...) output, already "₱12,500"
+
+# ── IDENTIFIER: digits that must be matched exactly ──
+app/admin/website-media/clear-folder-button.tsx :: count :: IDENTIFIER — "Type 1878 to confirm": the admin types these digits and they are compared with String(count), so a comma would make the delete impossible
+app/admin/website-media/clear-folder-button.tsx :: count :: IDENTIFIER — the same typed-confirmation digits, in the input's aria-label
+app/dashboard/[eventId]/checkout/actions.ts :: chargeTotal.toString() :: IDENTIFIER — an integrity-log error_message recording the raw centavos for a mismatch investigation; never shown to a customer
+lib/package-credit.ts :: String(pkg.total_price_centavos) :: IDENTIFIER — a validation failure quoting the malformed stored value verbatim; grouping would misreport it
+lib/package-credit.ts :: String(option.per_pax_delta_centavos) :: IDENTIFIER — a validation failure quoting the malformed stored value verbatim
+
+# ── BOUNDED: cannot reach 1,000 ──
+app/admin/pricing/_components/papic-ladder-editor.tsx :: rung.ratePerCredit.toFixed(3) :: BOUNDED — a per-credit rate of a few centavos (₱0.087), shown to three decimals so admins can compare rungs; formatPhp would round it to ₱0.09

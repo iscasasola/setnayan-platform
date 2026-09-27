@@ -27,6 +27,7 @@ import type {
   AdminQueueDueState,
 } from '@/lib/admin/queue-counts';
 import { ADMIN_LANE_ORDER } from '@/lib/admin/queue-counts';
+import { formatCount } from '@/lib/format-number';
 
 export type TriageItem = {
   key: string;
@@ -157,9 +158,9 @@ function TriageRow({
           <span
             className="inline-flex h-7 min-w-[1.75rem] shrink-0 items-center justify-center rounded-full px-2 text-sm font-semibold"
             style={{ background: badgeColor(item.dueState), color: 'white' }}
-            aria-label={`${item.count} waiting${item.dueState === 'overdue' ? ', past SLA' : ''}`}
+            aria-label={`${formatCount(item.count)} waiting${item.dueState === 'overdue' ? ', past SLA' : ''}`}
           >
-            {item.count}
+            {formatCount(item.count)}
           </span>
         ) : item.count === null ? (
           <ChevronRight
@@ -352,10 +353,10 @@ export function QueuesTriageFeed({
   */
   const subtitle =
     totalOpen === 0
-      ? `Nothing waiting in the ${queueCount} ${queueCount === 1 ? 'queue' : 'queues'} tracked here. ` +
+      ? `Nothing waiting in the ${formatCount(queueCount)} ${queueCount === 1 ? 'queue' : 'queues'} tracked here. ` +
         `Other admin surfaces are not counted on this page — see All surfaces.`
       : `${totalOpen} ${totalOpen === 1 ? 'item needs' : 'items need'} your attention across the ` +
-        `${queueCount} ${queueCount === 1 ? 'queue' : 'queues'} tracked here.`;
+        `${formatCount(queueCount)} ${queueCount === 1 ? 'queue' : 'queues'} tracked here.`;
 
   // The strip + chips read the FULL list; only the rows below are filtered.
   // Opening a row keeps the lane filter; closing drops only `open`. Built here

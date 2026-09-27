@@ -39,6 +39,7 @@ import {
   voteAdminMotion,
 } from './actions';
 import { ShopNotice } from '../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Team · Vendor' };
 
@@ -189,7 +190,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                         {motionLabel(m)} · {nameOf(enriched, m.target_user_id)}
                       </p>
                       <p className="text-xs text-ink/55">
-                        Proposed by {nameOf(enriched, m.proposed_by)} · {approvals}/{needed} approvals needed
+                        Proposed by {nameOf(enriched, m.proposed_by)} · {formatCount(approvals)}/{formatCount(needed)} approvals needed
                       </p>
                     </div>
                     <span className="rounded-full bg-sky-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-sky-800">
@@ -278,7 +279,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
             <>
               {/* Just the used/cap glance here — the base + extra breakdown lives
                   once, in the Extra seats card below (deduped 2026-07-16). */}
-              <strong>{usedSeats}</strong> of <strong>{effectiveCap}</strong> team seat
+              <strong>{formatCount(usedSeats)}</strong> of <strong>{formatCount(effectiveCap)}</strong> team seat
               {effectiveCap === 1 ? '' : 's'} used — the founding admin is always
               free and doesn’t count.
             </>
@@ -302,7 +303,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
             at <strong>₱{seatFeePhp.toLocaleString('en-PH')}/28&nbsp;days</strong> each — they fold
             into your renewal. You currently have{' '}
             <strong>{extraSeats}</strong> extra seat{extraSeats === 1 ? '' : 's'} (
-            {Number.isFinite(seatsLeft) ? `${seatsLeft} seat${seatsLeft === 1 ? '' : 's'} free` : 'seats free'}
+            {Number.isFinite(seatsLeft) ? `${formatCount(seatsLeft)} seat${seatsLeft === 1 ? '' : 's'} free` : 'seats free'}
             ).
           </p>
           <form action={buyExtraSeat} className="flex flex-wrap items-end gap-3">
@@ -321,7 +322,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
       {/* ── Members ───────────────────────────────────────────────────── */}
       <section className="space-y-3">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Members ({enriched.length}) · {adminCount} admin{adminCount === 1 ? '' : 's'}
+          Members ({enriched.length}) · {formatCount(adminCount)} admin{adminCount === 1 ? '' : 's'}
         </h2>
 
         {enriched.length === 0 ? (

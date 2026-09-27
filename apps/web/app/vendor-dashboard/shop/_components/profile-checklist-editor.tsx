@@ -5,6 +5,7 @@ import { Check } from 'lucide-react';
 
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import { EditableRow, ServiceCoverageRow, type ProfileFieldData } from './editable-row';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The interactive body of the My Shop → Profile panel (2026-07-02).
@@ -59,7 +60,7 @@ export function ProfileChecklistEditor({
             </span>
           )}
           <span className="text-xs tabular-nums" style={{ color: 'var(--m-slate)' }} aria-live="polite">
-            {done} of {total} complete · {pct}%
+            {formatCount(done)} of {formatCount(total)} complete · {pct}%
           </span>
         </div>
         {/* Signature moment — the one animated element: the bar sweeps as gaps

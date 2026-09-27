@@ -25,6 +25,7 @@
  */
 
 import type { StoryAudience } from './who-can-see-your-story';
+import { formatCount } from '@/lib/format-number';
 
 /* ─── The words ──────────────────────────────────────────────────────────────
  *
@@ -196,7 +197,7 @@ export function publishBlockerSentence(
     case 'desk_undecided':
       return openCount === 1
         ? 'One thing is still waiting for you on the desk.'
-        : `${openCount} things are still waiting for you on the desk.`;
+        : `${formatCount(openCount)} things are still waiting for you on the desk.`;
     case 'desk_unknown':
       return 'We could not read your desk just now, so we cannot tell what is still waiting. Reload and try again.';
     case 'no_consent':

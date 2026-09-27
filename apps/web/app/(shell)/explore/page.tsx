@@ -147,6 +147,7 @@ import {
   browseAllVendorsHref,
 } from '@/lib/explore-event-type-scope';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { formatCount } from '@/lib/format-number';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -4223,7 +4224,7 @@ function EmptyState({
       <p className="mt-1 text-sm text-ink/55">
         {hasFilter
           ? showAllAvailable
-            ? `We have ${broadenedCount} supplier${broadenedCount === 1 ? '' : 's'} in this category — try Show all, or clear one filter to widen your search.`
+            ? `We have ${formatCount(broadenedCount)} supplier${broadenedCount === 1 ? '' : 's'} in this category — try Show all, or clear one filter to widen your search.`
             : 'Try widening your search or clearing one filter at a time.'
           : 'Check back soon — suppliers are landing every week.'}
       </p>
@@ -4315,7 +4316,7 @@ function Pagination({
       className="mt-8 flex items-center justify-between gap-2 text-sm text-ink/70"
     >
       <p>
-        Page {page} of {totalPages} · {total} vendor{total === 1 ? '' : 's'}
+        Page {formatCount(page)} of {formatCount(totalPages)} · {formatCount(total)} vendor{total === 1 ? '' : 's'}
       </p>
       <div className="flex items-center gap-2">
         <PageLink

@@ -18,6 +18,7 @@ import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { setCalendarDayState, notifyWaitlistSlot } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { shopInputClass } from '../../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Day · Calendar · Vendor' };
 
@@ -321,7 +322,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
           <p className="mt-1 text-sm text-ink/65">
             {waitingHere.pendingCount === 1
               ? '1 couple is waiting on this date.'
-              : `${waitingHere.pendingCount} couples are waiting on this date.`}{' '}
+              : `${formatCount(waitingHere.pendingCount)} couples are waiting on this date.`}{' '}
             When it frees up, let them know — a notify emails everyone waiting. (It’s free.)
           </p>
           <form action={notifyWaitlistSlot} className="mt-3">

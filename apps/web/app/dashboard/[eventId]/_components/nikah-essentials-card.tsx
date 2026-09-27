@@ -12,6 +12,7 @@ import {
   Shirt,
 } from 'lucide-react';
 import { updateNikahDetails } from '../nikah-actions';
+import { formatCount } from '@/lib/format-number';
 
 // The Five Essentials of your Nikah — the signature couple-facing surface of the
 // Muslim wedding track. It turns the five validity pillars of an Islamic
@@ -96,7 +97,7 @@ export function NikahEssentialsCard({
       done: witnessCount >= 2 ? 'done' : witnessCount === 1 ? 'partial' : 'todo',
       help:
         witnessCount >= 2
-          ? `${witnessCount} witnesses on your guest list.`
+          ? `${formatCount(witnessCount)} witnesses on your guest list.`
           : witnessCount === 1
             ? '1 of 2 witnesses added — a nikah needs at least two.'
             : 'Add at least two adult witnesses to your guest list.',

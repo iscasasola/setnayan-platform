@@ -5,6 +5,7 @@ import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { layoutReport, printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderPrintSvg } from '@/lib/print-render-svg';
+import { formatCount } from '@/lib/format-number';
 
 export const dynamic = 'force-dynamic';
 
@@ -131,7 +132,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       piece: 'caterer-report',
       title: 'Caterer meal counts',
       subtitle: [event.display_name || 'Wedding', dateLabel].filter(Boolean).join(' · '),
-      summary: `${attending.length} confirmed${tentativeCount > 0 ? ` · ${tentativeCount} tentative (pending replies)` : ''} · meal counts are confirmed guests only`,
+      summary: `${formatCount(attending.length)} confirmed${tentativeCount > 0 ? ` · ${formatCount(tentativeCount)} tentative (pending replies)` : ''} · meal counts are confirmed guests only`,
       sections: [
         {
           heading: 'Totals',
@@ -273,7 +274,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
 </head><body>
   <div class="toolbar">
     <a href="/dashboard/${esc(eventId)}/seating">← Back to seating</a>
-    <span style="color:var(--muted);font-size:12px;">Meal counts = confirmed guests${tentativeCount > 0 ? ` · ${tentativeCount} tentative (pending replies)` : ''} · linked tables count as one</span>
+    <span style="color:var(--muted);font-size:12px;">Meal counts = confirmed guests${tentativeCount > 0 ? ` · ${formatCount(tentativeCount)} tentative (pending replies)` : ''} · linked tables count as one</span>
     <span>
       <a href="/dashboard/${esc(eventId)}/seating/caterer?format=csv">Download CSV</a>
       <button type="button" onclick="window.print()">Print / Save as PDF</button>
@@ -281,7 +282,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   </div>
   <div class="doc"><section class="sheet">
     <h1>Caterer meal counts</h1>
-    <p class="sub">${esc(event.display_name || 'Wedding')}${dateStr ? ` · ${esc(dateStr)}` : ''} · ${attending.length} confirmed${tentativeCount > 0 ? ` · ${tentativeCount} tentative` : ''}</p>
+    <p class="sub">${esc(event.display_name || 'Wedding')}${dateStr ? ` · ${esc(dateStr)}` : ''} · ${formatCount(attending.length)} confirmed${tentativeCount > 0 ? ` · ${formatCount(tentativeCount)} tentative` : ''}</p>
     <h2>Totals</h2>
     <table><tbody>${totalRows || '<tr><td class="meal">No attending guests yet.</td></tr>'}</tbody></table>
     <h2>Per table</h2>

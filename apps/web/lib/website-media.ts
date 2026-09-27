@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * WEBSITE MEDIA — the read side of the media bucket.
  *
@@ -328,10 +329,10 @@ export function summarize(groups: readonly MediaGroup[]): MediaSummary {
 
 /** Human file size. Plain units — this page is read by the owner, not by ops. */
 export function humanBytes(bytes: number): string {
-  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(2)} GB`;
-  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
-  if (bytes >= 1e3) return `${Math.round(bytes / 1e3)} KB`;
-  return `${bytes} bytes`;
+  if (bytes >= 1e9) return `${formatCount(bytes / 1e9, 2)} GB`;
+  if (bytes >= 1e6) return `${formatCount(bytes / 1e6, 1)} MB`;
+  if (bytes >= 1e3) return `${formatCount(Math.round(bytes / 1e3))} KB`;
+  return `${formatCount(bytes)} bytes`;
 }
 
 /**

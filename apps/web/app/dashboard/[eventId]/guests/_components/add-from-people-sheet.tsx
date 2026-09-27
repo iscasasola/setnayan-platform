@@ -44,6 +44,7 @@ import {
   addGuestsFromPeople,
   listPeopleYouCanInvite,
 } from '../people-add-actions';
+import { formatCount } from '@/lib/format-number';
 
 const OPEN_EVENT = 'setnayan:add-from-people-open';
 
@@ -521,7 +522,7 @@ export function AddFromPeopleSheet({
           {pending
             ? 'Adding…'
             : pickedKeys.length > 1
-              ? `Add ${pickedKeys.length} guests`
+              ? `Add ${formatCount(pickedKeys.length)} guests`
               : 'Add guest'}
         </button>
       </div>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Pin, ArrowRight } from 'lucide-react';
 import { TABLE_TYPE_LABEL, type EventTableRow } from '@/lib/seating';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   eventId: string;
@@ -31,7 +32,7 @@ export function YourTableCard({ eventId, headTable, nearbyTables }: Props) {
           </h3>
           <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
             {TABLE_TYPE_LABEL[headTable.table_type] ?? headTable.table_type} ·{' '}
-            {headTable.capacity} seats
+            {formatCount(headTable.capacity)} seats
           </p>
           {nearbyTables.length > 0 ? (
             <div className="space-y-1 border-t border-ink/10 pt-3">

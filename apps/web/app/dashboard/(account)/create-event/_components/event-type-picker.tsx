@@ -30,6 +30,7 @@ import {
   type CreateSubject,
 } from '@/lib/create-subjects';
 import { stashHonoree } from '@/lib/onboarding/honoree-handoff';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The avatar glyph per subject kind. Only a PERSON (and "You") falls through to
@@ -644,7 +645,7 @@ export function EventTypePicker({
                   <span className="font-medium text-ink">
                     {pesoShort(budgetRange.lowPhp)} – {pesoShort(budgetRange.highPhp)}
                   </span>{' '}
-                  for {paxDraft} guests. We’ll start you at the top of that and you can
+                  for {formatCount(Number.parseInt(paxDraft, 10))} guests. We’ll start you at the top of that and you can
                   change it any time.
                 </p>
               ) : (

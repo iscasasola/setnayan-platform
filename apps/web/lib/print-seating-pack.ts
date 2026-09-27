@@ -21,6 +21,7 @@
 import { drawText, type PrintDoc } from '@/lib/print-layout';
 import { layoutReport, reportPage, REPORT_INK, REPORT_MUTED } from '@/lib/print-report';
 import { PT_PER_MM } from '@/lib/print-pieces';
+import { formatCount } from '@/lib/format-number';
 
 const GOLD = '#a8843f';
 const MARGIN = 14 * PT_PER_MM;
@@ -73,7 +74,7 @@ export function layoutSeatingPack(input: { coupleName: string; dateLabel: string
     y += q + 26;
     drawText(ops, 'Scan to visit our wedding', cx, y, { font: 'poppins', size: 11, color: REPORT_MUTED, align: 'center' });
     y += 18;
-    drawText(ops, `${u.guests.length} seated${input.dateLabel ? ` · ${input.dateLabel}` : ''}`, cx, y, { font: 'poppins', size: 9, color: REPORT_MUTED, align: 'center' });
+    drawText(ops, `${formatCount(u.guests.length)} seated${input.dateLabel ? ` · ${input.dateLabel}` : ''}`, cx, y, { font: 'poppins', size: 9, color: REPORT_MUTED, align: 'center' });
     pages.push(doc);
   }
 

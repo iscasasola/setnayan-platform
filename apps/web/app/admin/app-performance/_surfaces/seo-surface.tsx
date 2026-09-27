@@ -35,6 +35,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import type { HealthFinding, PriceDriftEntry, HealthStatus } from '@/lib/seo/health-checks';
 import { SeoRerunButton } from './seo-rerun-button';
+import { formatCount } from '@/lib/format-number';
 
 type Snapshot = {
   checked_at: string;
@@ -256,7 +257,7 @@ export async function SeoSurface() {
             <div className="mb-2 text-xs uppercase tracking-wide text-ink/70">
               Top queries on {latestMetric.metric_date}
               {latestMetric.top_queries.length > TOP_QUERIES_SHOWN
-                ? ` · showing ${TOP_QUERIES_SHOWN} of ${latestMetric.top_queries.length}`
+                ? ` · showing ${formatCount(TOP_QUERIES_SHOWN)} of ${formatCount(latestMetric.top_queries.length)}`
                 : ''}
             </div>
             <ul className="flex flex-wrap gap-2">

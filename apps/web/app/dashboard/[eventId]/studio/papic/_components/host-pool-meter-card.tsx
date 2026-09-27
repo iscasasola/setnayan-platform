@@ -7,6 +7,7 @@ import {
   PAPIC_POINTS_PER_SNIPPET,
   PAPIC_POINTS_PER_PHOTO,
 } from '@/lib/papic-cameras';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Host Papic Pool Meter — the couple's READ-ONLY view of the event capture
@@ -79,8 +80,8 @@ export async function HostPoolMeterCard({ eventId }: { eventId: string }) {
             Your event&rsquo;s shared pool of capture points —{' '}
             {PAPIC_POINTS_PER_PHOTO === 1
               ? 'a photo is 1 point'
-              : `a photo is ${PAPIC_POINTS_PER_PHOTO} points`}
-            , a 10-second clip is {PAPIC_POINTS_PER_SNIPPET}.
+              : `a photo is ${formatCount(PAPIC_POINTS_PER_PHOTO)} points`}
+            , a 10-second clip is {formatCount(PAPIC_POINTS_PER_SNIPPET)}.
           </p>
         </div>
         <p className="shrink-0 text-right">

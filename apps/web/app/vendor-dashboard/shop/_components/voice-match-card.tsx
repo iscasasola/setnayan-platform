@@ -22,6 +22,7 @@ import {
   updateVoiceProfile,
   type VoiceSaveResult,
 } from '../autoreply-actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * My Shop → "Your voice" — the Vendor AI **ADVANCED** voice-match panel
@@ -138,8 +139,8 @@ export function VoiceMatchCard({
         res.sampleCount === 0
           ? 'We couldn’t find any replies of yours to learn from yet — set your voice by hand below.'
           : res.confident
-            ? `Suggested from your last ${res.sampleCount} replies. Edit anything, then Save.`
-            : `Only ${res.sampleCount} of your replies to go on — treat this as a rough guess and edit it.`,
+            ? `Suggested from your last ${formatCount(res.sampleCount)} replies. Edit anything, then Save.`
+            : `Only ${formatCount(res.sampleCount)} of your replies to go on — treat this as a rough guess and edit it.`,
       );
     });
   }

@@ -12,6 +12,7 @@ import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Production Sheet · Vendor' };
 
@@ -215,7 +216,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
         ).map(([key, label, hint]) => (
           <div key={key} className="sn-row p-4 text-center">
             <p className="text-3xl font-semibold tabular-nums">
-              {metrics.headcount_scenarios[key]}
+              {formatCount(metrics.headcount_scenarios[key])}
             </p>
             <p className="mt-1 text-sm font-medium">{label}</p>
             <p className="text-xs text-ink/50">{hint}</p>
@@ -241,7 +242,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
           )}
           {metrics.dietary_restriction_count > 0 ? (
             <p className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
-              {metrics.dietary_restriction_count}{' '}
+              {formatCount(metrics.dietary_restriction_count)}{' '}
               {metrics.dietary_restriction_count === 1 ? 'guest has' : 'guests have'} dietary
               restriction notes — ask the couple for specifics.
             </p>
@@ -263,7 +264,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
                   <span>{BLOCK_LABELS[block] ?? block}</span>
                   <span className="tabular-nums">
                     <span className="font-semibold">{counts.confirmed}</span>
-                    <span className="text-ink/45"> / {counts.ceiling} max</span>
+                    <span className="text-ink/45"> / {formatCount(counts.ceiling)} max</span>
                   </span>
                 </li>
               ))}
@@ -334,9 +335,9 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
                       ) : null}
                     </td>
                     <td className="py-2 pr-2 text-xs text-ink/60">{basisNote}</td>
-                    <td className="py-2 pr-2 text-right tabular-nums">{count}</td>
+                    <td className="py-2 pr-2 text-right tabular-nums">{formatCount(count)}</td>
                     <td className="py-2 pr-2 text-right font-semibold tabular-nums">
-                      {total} {rule.unit}
+                      {formatCount(total)} {rule.unit}
                     </td>
                     <td className="py-2 text-right print:hidden">
                       <form action={deletePortionRule}>

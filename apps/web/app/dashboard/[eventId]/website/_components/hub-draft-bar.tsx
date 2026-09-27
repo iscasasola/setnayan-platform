@@ -17,6 +17,7 @@ import {
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { makerSaveStatusText, onMakerSave, type MakerSaveStatus } from '@/lib/maker-save-status';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE DRAFT CONTROLS — Restore · Undo · Apply, ALWAYS VISIBLE at the upper
@@ -166,7 +167,7 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
 
   const onlyPro = summary.proCount > 0 && summary.proCount === summary.changeCount;
   const freeCount = summary.changeCount - summary.proCount;
-  const applyLabel = pending ? 'Applying…' : summary.proCount > 0 && !onlyPro ? `Apply ${freeCount}` : 'Apply';
+  const applyLabel = pending ? 'Applying…' : summary.proCount > 0 && !onlyPro ? `Apply ${formatCount(freeCount)}` : 'Apply';
 
   return (
     <div className="flex items-center gap-1" data-maker-draft-actions="">
@@ -221,14 +222,14 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
               aria-hidden
               className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta-700 px-1 text-[10px] font-bold leading-none text-cream"
             >
-              {summary.changeCount}
+              {formatCount(summary.changeCount)}
             </span>
           ) : null}
         </summary>
         <div className="absolute right-0 top-full z-40 mt-2 flex w-80 flex-col gap-2 rounded-xl bg-cream p-3 shadow-lg">
           {summary.hasChanges ? (
             <p className="text-sm text-ink/80">
-              {summary.changeCount} {summary.changeCount === 1 ? 'change' : 'changes'} guests do not see yet.
+              {formatCount(summary.changeCount)} {summary.changeCount === 1 ? 'change' : 'changes'} guests do not see yet.
             </p>
           ) : readError ? (
             <p role="alert" className="text-sm text-terracotta-700">
@@ -240,7 +241,7 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
           {summary.proCount > 0 &&
             (storeShell ? (
               <p className="text-sm text-ink/70">
-                {summary.proCount === 1 ? 'One change' : `${summary.proCount} changes`} can be applied on the web.
+                {summary.proCount === 1 ? 'One change' : `${formatCount(summary.proCount)} changes`} can be applied on the web.
               </p>
             ) : (
               <p className="text-sm text-ink/70">

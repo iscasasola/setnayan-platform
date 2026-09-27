@@ -38,6 +38,7 @@ import type { LockImpact } from '@/lib/lock-impact';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isHardSinglePickGroup } from '@/lib/wedding-plan-groups';
 import { markCategoryComplete } from '../category-decision-actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * AccordionLockButton + ChangePickButton — the Plan + Budget card's lock /
@@ -1020,7 +1021,7 @@ function ExceptionModal({
                 {vendorName} is fully booked with soft holds for your date.
               </h3>
               <p className="text-xs leading-snug text-warn-900/85">
-                {vendorName} already has {state.existingHoldCount} confirmed soft
+                {vendorName} already has {formatCount(state.existingHoldCount)} confirmed soft
                 holds for your wedding date. They only accept {state.currentLimit}{' '}
                 at a time. Try a different vendor or come back later — they&rsquo;ll
                 free up if another couple doesn&rsquo;t downpay.

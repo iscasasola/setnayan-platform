@@ -34,6 +34,7 @@ import type {
   VendorEarningsSummary,
   WhatsNewCard,
 } from '@/lib/vendor-overview';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * overview-sections.tsx — the presentational sections of the vendor Overview.
@@ -214,7 +215,7 @@ export function VendorTodayFocal({
     inquiries > 0
       ? inquiries === 1
         ? 'A lead is warm — answer first, win first.'
-        : `${inquiries} leads are warm — answer first, win first.`
+        : `${formatCount(inquiries)} leads are warm — answer first, win first.`
       : nextBooking
         ? 'Your next booking is on the books.'
         : 'Your shop is all set for now.';
@@ -549,7 +550,7 @@ function EarnedTile({
       <span className="mt-2 flex items-center gap-1 text-xs text-ink/60">
         {bookingCount === 0
           ? 'Payments you confirm roll up here.'
-          : `${bookingCount} payment${bookingCount === 1 ? '' : 's'} confirmed`}
+          : `${formatCount(bookingCount)} payment${bookingCount === 1 ? '' : 's'} confirmed`}
         <ArrowUpRight
           className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
           strokeWidth={1.75}
@@ -987,7 +988,7 @@ function InquiryBody({
     card.descriptor,
     formatLongDate(card.eventDate),
     card.category,
-    card.paxAtInquiry ? `~${card.paxAtInquiry} guests` : null,
+    card.paxAtInquiry ? `~${formatCount(card.paxAtInquiry)} guests` : null,
   ]);
   return (
     <>
@@ -1938,7 +1939,7 @@ function SectionHeader({
             className="rounded-full px-2 py-0.5 font-mono text-[11px] font-bold"
             style={{ background: 'var(--sn-ink-900)', color: 'var(--sn-gold-100)' }}
           >
-            {count}
+            {formatCount(count)}
           </span>
         ) : null}
         {subtitle ? <span className="sn-sec-sub">{subtitle}</span> : null}

@@ -34,6 +34,7 @@ import {
   formatPhp,
   type OrderStatus,
 } from '@/lib/orders';
+import { formatCount } from '@/lib/format-number';
 
 // Iteration 0053 P4 Unit 3: per-event-type page title. Wedding → byte-identical
 // 'Your wedding documents'; non-wedding → 'Your event documents'. Converted from
@@ -198,7 +199,7 @@ export default async function EventDocumentsPage({ params }: Props) {
       <div className="mt-3 space-y-3">
         {totalDocs > 0 ? (
           <p className="sn-eye">
-            {totalDocs} {totalDocs === 1 ? 'document' : 'documents'} on file
+            {formatCount(totalDocs)} {totalDocs === 1 ? 'document' : 'documents'} on file
           </p>
         ) : null}
       </div>
@@ -692,7 +693,7 @@ function SectionHeader({
         <span>{label}</span>
         {count > 0 ? (
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
-            {count}
+            {formatCount(count)}
           </span>
         ) : null}
       </h2>

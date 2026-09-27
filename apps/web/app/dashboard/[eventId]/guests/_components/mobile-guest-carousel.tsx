@@ -47,6 +47,7 @@ import { bulkApplyRoleAndGroup, createGuestGroup } from '../groups-actions';
 import { bulkRoleSectionsFor, type RoleSection } from './guest-list-multiselect';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { formatCount } from '@/lib/format-number';
 
 type Opt = { key: string; label: string };
 type Group = { group_id: string; label: string; member_count?: number };
@@ -251,7 +252,7 @@ export function MobileGuestCarousel({
               <h2 className="text-2xl font-semibold leading-tight tracking-tight text-ink">
                 {measured ? (
                   <>
-                    {total} {total === 1 ? 'guest' : 'guests'}
+                    {formatCount(total)} {total === 1 ? 'guest' : 'guests'}
                   </>
                 ) : (
                   // A refused read must never render as a headcount of zero.
@@ -284,8 +285,8 @@ export function MobileGuestCarousel({
                 </span>
                 <span className="tabular-nums text-ink/70">
                   {paxProgress.exceeded
-                    ? `${paxProgress.headcount} · ${paxProgress.overBy} over ${paxProgress.target}`
-                    : `${paxProgress.headcount} of ${paxProgress.target} · ${paxProgress.progressPct}%`}
+                    ? `${formatCount(paxProgress.headcount)} · ${paxProgress.overBy} over ${paxProgress.target}`
+                    : `${formatCount(paxProgress.headcount)} of ${formatCount(paxProgress.target)} · ${paxProgress.progressPct}%`}
                 </span>
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink/10">
@@ -921,7 +922,7 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
         <p className="text-center text-xs font-medium text-danger-600">{addError}</p>
       ) : count > 0 ? (
         <p className="text-center text-xs text-ink/50">
-          {count} {count === 1 ? 'guest' : 'guests'} added this session
+          {formatCount(count)} {count === 1 ? 'guest' : 'guests'} added this session
         </p>
       ) : null}
 
@@ -1026,7 +1027,7 @@ function CustomizePanel({
         disabled={count === 0}
         className="inline-flex items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-2.5 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        Assign{count > 0 ? ` ${count}` : ''}
+        Assign{count > 0 ? ` ${formatCount(count)}` : ''}
       </button>
 
       <button
@@ -1122,7 +1123,7 @@ function AssignSheet({
         ? 'Set role'
         : step === 'group'
           ? 'Add to group'
-          : `Assign ${count} guest${count === 1 ? '' : 's'}`;
+          : `Assign ${formatCount(count)} guest${count === 1 ? '' : 's'}`;
 
   return (
     <div

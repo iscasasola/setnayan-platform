@@ -34,6 +34,7 @@ import {
   type TableShapeHint,
   type TableType,
 } from '@/lib/seating';
+import { formatCount } from '@/lib/format-number';
 
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -307,9 +308,9 @@ export function ShapePicker({
   const newCap = capacityOf(shown);
   const impact =
     pending && seatedCount > newCap
-      ? `${seatedCount - newCap} guest${seatedCount - newCap === 1 ? '' : 's'} will need reseating`
+      ? `${formatCount(seatedCount - newCap)} guest${seatedCount - newCap === 1 ? '' : 's'} will need reseating`
       : pending
-        ? `keeps all ${seatedCount} seated`
+        ? `keeps all ${formatCount(seatedCount)} seated`
         : null;
 
   return (
@@ -365,7 +366,7 @@ export function ShapePicker({
                           {t.label}
                         </span>
                         <span className="block font-mono text-[9px] text-ink/45">
-                          {t.defaultCapacity} seats
+                          {formatCount(t.defaultCapacity)} seats
                         </span>
                       </span>
                     </button>

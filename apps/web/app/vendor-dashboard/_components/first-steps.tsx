@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, BadgeCheck, Check, Clock, Lock } from 'lucide-react';
 
 import type { FirstStep, FirstStepsRail } from '@/lib/vendor-first-steps';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "First steps" — the vendor's order of operations, at the top of the Overview
@@ -38,7 +39,7 @@ export function VendorFirstSteps({ rail }: { rail: FirstStepsRail }) {
             className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] tabular-nums"
             style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
           >
-            {rail.doneCount} of {rail.total} done
+            {formatCount(rail.doneCount)} of {formatCount(rail.total)} done
           </span>
         </header>
 

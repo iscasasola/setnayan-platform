@@ -33,6 +33,7 @@
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Check, ImageOff, Sparkles } from 'lucide-react';
 import type { RenderPoolPage } from '@/lib/moodboard-render-pool';
+import { formatCount } from '@/lib/format-number';
 
 export type RenderPoolPickerProps = {
   eventId: string;
@@ -155,7 +156,7 @@ export function RenderPoolPicker({
               : loadError
                 ? 'We couldn’t load shared renders just now.'
                 : renders.length > 0
-                  ? `${total} ${total === 1 ? 'render' : 'renders'} couples chose to share. Saving one is free — it’s a reference photo, not a render.`
+                  ? `${formatCount(total)} ${total === 1 ? 'render' : 'renders'} couples chose to share. Saving one is free — it’s a reference photo, not a render.`
                   : withheld > 0
                     ? `${withheld} shared ${withheld === 1 ? 'render is' : 'renders are'} here but not ready to show — ${withheld === 1 ? 'it carries' : 'they carry'} no sampled colours.`
                     : 'No couple has shared a render for this yet. Nothing is wrong — the pool is new.'}
@@ -260,7 +261,7 @@ export function RenderPoolPicker({
           onClick={() => void loadPage(loadedThrough)}
           className="rounded-full border border-ink/15 px-4 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/5 disabled:opacity-50"
         >
-          {loading ? 'Loading…' : `Show more (${Math.max(0, total - loadedThrough)} left)`}
+          {loading ? 'Loading…' : `Show more (${formatCount(Math.max(0, total - loadedThrough))} left)`}
         </button>
       ) : null}
     </section>

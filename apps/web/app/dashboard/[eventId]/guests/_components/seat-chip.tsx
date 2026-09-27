@@ -18,6 +18,7 @@
  */
 
 import type { RsvpStatus } from '@/lib/guests';
+import { formatCount } from '@/lib/format-number';
 
 export function SeatChip({
   placed,
@@ -111,10 +112,10 @@ export function SeatChip({
 export function PlusBadge({ count }: { count: number }) {
   return (
     <span
-      title={count === 1 ? 'Their plus-one is seated with them' : `${count} extra seats come with them`}
+      title={count === 1 ? 'Their plus-one is seated with them' : `${formatCount(count)} extra seats come with them`}
       className="inline-flex rounded-full bg-[var(--sn-gold-100)] px-1.5 py-px text-[10px] font-semibold text-[var(--sn-gold-700)]"
     >
-      +{count}
+      +{formatCount(count)}
     </span>
   );
 }

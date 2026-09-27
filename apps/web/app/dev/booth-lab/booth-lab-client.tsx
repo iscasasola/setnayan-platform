@@ -17,6 +17,7 @@ import {
   BOOTH_TEMPLATE_KEYS,
 } from '@/app/_components/plan3d/kit/booth-templates';
 import type { Lab3DBooth, Lab3DPalette } from '@/lib/seating-3d';
+import { formatCount } from '@/lib/format-number';
 
 const PALETTE: Lab3DPalette = {
   ambient: '#f2ece1',
@@ -97,7 +98,7 @@ export default function BoothLabClient() {
           ← Prev
         </button>
         <span className="rounded-full" style={{ ...btn, cursor: 'default' }}>
-          {index + 1}/{keys.length} · <strong>{key}</strong> · {template.chassis} · {template.staff.idle}
+          {formatCount(index + 1)}/{formatCount(keys.length)} · <strong>{key}</strong> · {template.chassis} · {template.staff.idle}
         </span>
         <button type="button" className="rounded-full" onClick={() => setIndex((index + 1) % keys.length)} style={btn}>
           Next →

@@ -48,6 +48,7 @@ import type { SharedFileEntry } from '@/lib/chat-shared-files';
  */
 
 import type { ThreadView } from '@/lib/thread-view';
+import { formatCount } from '@/lib/format-number';
 export type { ThreadView } from '@/lib/thread-view';
 
 const VIEW_HINT: Record<ThreadView, string> = {
@@ -87,7 +88,7 @@ export function ThreadViewSwitch({
       >
         {label}
         {count != null ? (
-          <span className="font-mono text-[0.6rem] font-normal opacity-85">{count}</span>
+          <span className="font-mono text-[0.6rem] font-normal opacity-85">{formatCount(count)}</span>
         ) : null}
         {needs > 0 ? (
           // ⚖ A COUNT AND AN OUTLINE, NEVER A SIXTH LADDER WORD. "Needs you" is

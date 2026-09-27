@@ -31,6 +31,7 @@ import {
   type RegionEdit,
   type RegionEditMap,
 } from '@/lib/color-recolor';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   imageSrc: string;
@@ -424,7 +425,7 @@ export function RecolorStudio({
             )}
             <span className="text-[11px] text-ink/50">
               {editedCount > 0
-                ? `${editedCount} part${editedCount > 1 ? 's' : ''} recolored`
+                ? `${formatCount(editedCount)} part${editedCount > 1 ? 's' : ''} recolored`
                 : 'Pick a part, then snap or adjust'}
             </span>
           </div>

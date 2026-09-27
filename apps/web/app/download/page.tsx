@@ -10,6 +10,7 @@ import {
   MagneticDownloadButton,
   PlatformCompatBanner,
 } from './_download-motion';
+import { formatCount } from '@/lib/format-number';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -33,7 +34,7 @@ export const metadata = {
 };
 
 function formatMb(bytes: number) {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${formatCount(bytes / 1024 / 1024, 1)} MB`;
 }
 
 export default async function DownloadPage() {

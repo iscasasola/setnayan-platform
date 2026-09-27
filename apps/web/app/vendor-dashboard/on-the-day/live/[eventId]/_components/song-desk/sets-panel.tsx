@@ -45,6 +45,7 @@ import {
   deleteVendorEventSet,
   removeSongFromVendorEventSet,
 } from '../../../../actions';
+import { formatCount } from '@/lib/format-number';
 
 export function SetsPanel({
   eventId,
@@ -82,7 +83,7 @@ export function SetsPanel({
         />
         {sets.length === 0
           ? 'Your sets'
-          : `Your sets · ${sets.length} of ${MAX_SETS}`}
+          : `Your sets · ${formatCount(sets.length)} of ${formatCount(MAX_SETS)}`}
       </summary>
 
       <div className="space-y-3 pt-2">

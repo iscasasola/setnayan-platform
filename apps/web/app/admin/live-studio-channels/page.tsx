@@ -20,6 +20,7 @@ import {
   setChannelStatus,
   setChannelVerified,
 } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * ADMIN → Live Studio channels. WAVE 9 · Live_Studio_Unified_Spec § 4h.
@@ -194,7 +195,7 @@ export default async function LiveStudioChannelsPage({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink/65">
           <Radio aria-hidden className="mr-1.5 inline h-4 w-4 text-ink/40" strokeWidth={1.75} />
-          {rows.length} channel{rows.length === 1 ? '' : 's'} · {readyCount} ready to claim
+          {rows.length} channel{rows.length === 1 ? '' : 's'} · {formatCount(readyCount)} ready to claim
         </p>
         {/* A GET link, not a form: /pool/start is admin-guarded and redirects to
             Google. It is a route handler, not a page, so next/link is wrong here —

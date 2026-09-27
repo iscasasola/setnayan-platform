@@ -183,6 +183,7 @@ import {
   COMPATIBLE_VENUE_SETTING_LABEL as VENUE_SETTING_LABELS,
 } from '@/lib/vendor-compatibility';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { formatCount } from '@/lib/format-number';
 
 export const dynamic = 'force-dynamic';
 
@@ -2305,7 +2306,7 @@ export async function renderVendorBySlug({
                 className="inline-flex w-fit items-center gap-1 rounded-full border border-violet-300/50 bg-violet-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-violet-900"
                 title={
                   finalizedBookingCount && finalizedBookingCount > 0
-                    ? `${finalizedBookingCount} finalized event${finalizedBookingCount === 1 ? '' : 's'} through Setnayan.`
+                    ? `${formatCount(finalizedBookingCount)} finalized event${finalizedBookingCount === 1 ? '' : 's'} through Setnayan.`
                     : 'New to Setnayan — many excellent suppliers are.'
                 }
               >
@@ -2326,7 +2327,7 @@ export async function renderVendorBySlug({
             trustedReviewStats.trusted_avg_rating > 0 ? (
               <p
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
-                title={`${formatStarRating(trustedReviewStats.trusted_avg_rating)} average from ${trustedReviewStats.trusted_review_count} review${trustedReviewStats.trusted_review_count === 1 ? '' : 's'} by couples who booked via Setnayan.`}
+                title={`${formatStarRating(trustedReviewStats.trusted_avg_rating)} average from ${formatCount(trustedReviewStats.trusted_review_count)} review${trustedReviewStats.trusted_review_count === 1 ? '' : 's'} by couples who booked via Setnayan.`}
               >
                 <Star aria-hidden className="h-3.5 w-3.5 fill-warn-400 text-warn-500" strokeWidth={1.75} />
                 <span className="font-medium text-ink">
@@ -2334,7 +2335,7 @@ export async function renderVendorBySlug({
                 </span>
                 <span aria-hidden>·</span>
                 <span>
-                  {trustedReviewStats.trusted_review_count} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
+                  {formatCount(trustedReviewStats.trusted_review_count)} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
                 </span>
               </p>
             ) : null}
@@ -2346,10 +2347,10 @@ export async function renderVendorBySlug({
             {favoritesCount >= FAVORITES_MIN_DISPLAY ? (
               <p
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
-                title={`Saved by ${favoritesCount} couples on Setnayan.`}
+                title={`Saved by ${formatCount(favoritesCount)} couples on Setnayan.`}
               >
                 <Heart aria-hidden className="h-3.5 w-3.5 fill-mulberry/70 text-mulberry" strokeWidth={1.75} />
-                <span className="font-medium text-ink">{favoritesCount}</span>
+                <span className="font-medium text-ink">{formatCount(favoritesCount)}</span>
                 <span>saved</span>
               </p>
             ) : null}
@@ -2419,7 +2420,7 @@ export async function renderVendorBySlug({
                 href="#featured-stories"
                 className="inline-flex min-h-[44px] w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-[11px] font-medium text-link hover:underline"
               >
-                Featured in {featuredEditorials.length + featuredChapterCredits.length}{' '}
+                Featured in {formatCount(featuredEditorials.length + featuredChapterCredits.length)}{' '}
                 {featuredEditorials.length + featuredChapterCredits.length === 1
                   ? 'story'
                   : 'stories'}
@@ -3260,7 +3261,7 @@ export async function renderVendorBySlug({
                     </span>
                     <Star aria-hidden className="h-4 w-4 fill-warn-400 text-warn-500" strokeWidth={1.75} />
                     <span className="text-sm text-ink/60">
-                      {trustedReviewStats.trusted_review_count} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
+                      {formatCount(trustedReviewStats.trusted_review_count)} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
                     </span>
                   </div>
                 ) : null}
@@ -3291,7 +3292,7 @@ export async function renderVendorBySlug({
                     <div className="flex items-center gap-2">
                       <CalendarCheck aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
                       <dd>
-                        {finalizedBookingCount} event{finalizedBookingCount === 1 ? '' : 's'} through
+                        {formatCount(finalizedBookingCount)} event{finalizedBookingCount === 1 ? '' : 's'} through
                         Setnayan
                       </dd>
                     </div>
@@ -3768,7 +3769,7 @@ function ReviewsSection({
         {recommendingCouples > 0 ? (
           <p className="inline-flex items-center gap-1.5 self-start rounded-full bg-mulberry/10 px-3 py-1 text-xs font-medium text-mulberry sm:self-end">
             <Heart aria-hidden className="h-3.5 w-3.5 fill-mulberry/80" strokeWidth={2} />
-            Recommended by {recommendingCouples} couple{recommendingCouples === 1 ? '' : 's'}
+            Recommended by {formatCount(recommendingCouples)} couple{recommendingCouples === 1 ? '' : 's'}
           </p>
         ) : null}
       </header>
@@ -3875,7 +3876,7 @@ function ReviewHeroMetrics({
           </span>
         </div>
         <p className="text-xs text-ink/60">
-          {trustedCount} review{trustedCount === 1 ? '' : 's'}
+          {formatCount(trustedCount)} review{trustedCount === 1 ? '' : 's'}
         </p>
       </div>
       <ul className="space-y-1.5 text-xs">
@@ -3891,7 +3892,7 @@ function ReviewHeroMetrics({
                 style={{ width: `${(count / max) * 100}%` }}
               />
             </span>
-            <span className="text-right font-mono text-[11px] text-ink/55">{count}</span>
+            <span className="text-right font-mono text-[11px] text-ink/55">{formatCount(count)}</span>
           </li>
         ))}
       </ul>
@@ -4025,7 +4026,7 @@ function TrackRecord({ events }: { events: ReadonlyArray<VendorCompletedEventRow
           Track record
         </h3>
         <span className="text-xs text-ink/45">
-          {events.length} event{events.length === 1 ? '' : 's'} delivered through Setnayan
+          {formatCount(events.length)} event{events.length === 1 ? '' : 's'} delivered through Setnayan
         </span>
       </div>
       <ul className="grid gap-1.5 sm:grid-cols-2">

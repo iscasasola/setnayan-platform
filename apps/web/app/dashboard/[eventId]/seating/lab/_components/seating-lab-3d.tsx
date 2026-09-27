@@ -243,6 +243,7 @@ import { PLAN3D_BOOTH_ADS_ENABLED, type GhostBooth3D } from '@/lib/ghost-booths'
 import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   eventId: string;
@@ -1974,7 +1975,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       setNotice(
         res.tables === 0
           ? 'Add your guests first — then “Start my seating” lays out the whole floor for you.'
-          : `Laid out ${res.tables} tables and seated ${res.seated} guests.`,
+          : `Laid out ${res.tables} tables and seated ${formatCount(res.seated)} guests.`,
       );
     });
   }, [canEdit, tables.length, eventId, lock.lockId, persist, router]);
@@ -3183,7 +3184,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
               onClick={() => sharedRoom.greet(null)}
               className="absolute right-4 top-16 z-30 rounded-xl border border-white/20 bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/25"
             >
-              👋 Say hi · {sharedRoom.onlineCount} here
+              👋 Say hi · {formatCount(sharedRoom.onlineCount)} here
             </button>
           ) : null}
           {walking ? (
@@ -5650,7 +5651,7 @@ function Hud({
                             : 'bg-white/10 text-white/85 hover:bg-white/20'
                         }`}
                       >
-                        {gr.label} · {gr.memberCount}
+                        {gr.label} · {formatCount(gr.memberCount)}
                       </button>
                     );
                   })}
@@ -5786,7 +5787,7 @@ function Hud({
               onRemoveKeepApart={onRemoveKeepApart}
               onReorderPriority={onReorderPriority}
             />
-            <p className="mt-2 text-[11px] text-white/50">{tableCount} tables</p>
+            <p className="mt-2 text-[11px] text-white/50">{formatCount(tableCount)} tables</p>
             {/* WHETHER THE ROOM IS OPEN, SAID OUT LOUD. `published` came down
                 from page.tsx on every load and this panel read it nowhere, so
                 the only two states a couple can be in — nobody can see it /
@@ -5857,7 +5858,7 @@ function Hud({
                 ? `Tap a table to seat ${placingGuestName}`
                 : swapSelId
                   ? 'Tap another seated guest to swap'
-                  : `${seatedCount} seated · tap an empty guest to pick them up, then a table · tap two seated to swap`}
+                  : `${formatCount(seatedCount)} seated · tap an empty guest to pick them up, then a table · tap two seated to swap`}
             </p>
             <button
               type="button"
@@ -5884,7 +5885,7 @@ function Hud({
                 onClick={onClearFloor}
                 className="mb-2 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium text-white/85 transition hover:bg-white/20"
               >
-                Sit everyone down · {dancingCount} dancing
+                Sit everyone down · {formatCount(dancingCount)} dancing
               </button>
             ) : danceEnabled ? (
               <p className="mb-2 text-[11px] text-white/50">Tap the dance floor to send a guest out to dance.</p>

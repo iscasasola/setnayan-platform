@@ -29,6 +29,7 @@
  */
 
 import { SERVICE_MAKER_HREF } from './service-picker-anchor';
+import { formatCount } from '@/lib/format-number';
 
 export type FirstStepKey =
   | 'shop_details'
@@ -146,7 +147,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       body: 'Your logo, address pin, contact numbers and the services you cover. Couples see all of it, and Setnayan needs it complete before you can send your documents.',
       href: '/vendor-dashboard/shop',
       cta: 'Fill in my details',
-      meter: profileTotal > 0 ? `${profileDone} of ${profileTotal} in` : null,
+      meter: profileTotal > 0 ? `${formatCount(profileDone)} of ${formatCount(profileTotal)} in` : null,
       blockedBy: null,
       done: profileComplete,
       waiting: false,
@@ -165,7 +166,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       cta: 'Create a service',
       meter:
         serviceCount > 0
-          ? `${serviceCount} service${serviceCount === 1 ? '' : 's'} up`
+          ? `${formatCount(serviceCount)} service${serviceCount === 1 ? '' : 's'} up`
           : null,
       blockedBy: null,
       done: serviceCount > 0,
@@ -183,7 +184,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
             : 'Your DTI or SEC, BIR 2303, business permit and bank proof. You can start uploading these any time — gathering them is the slow part.',
       href: '/vendor-dashboard/shop#get-verified',
       cta: docsStatus === 'rejected' ? 'Send them again' : 'Upload documents',
-      meter: docsTotal > 0 ? `${docsIn} of ${docsTotal} uploaded` : null,
+      meter: docsTotal > 0 ? `${formatCount(docsIn)} of ${formatCount(docsTotal)} uploaded` : null,
       // The one real hard gate in the flow, quoted from the server-side check.
       blockedBy: profileComplete ? null : (submitMissing[0] ?? null),
       done: docsDone,
@@ -198,7 +199,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       cta: 'Get my QR codes',
       meter:
         customerCount > 0
-          ? `${customerCount} customer${customerCount === 1 ? '' : 's'} in`
+          ? `${formatCount(customerCount)} customer${customerCount === 1 ? '' : 's'} in`
           : null,
       blockedBy: null,
       done: customerCount > 0,

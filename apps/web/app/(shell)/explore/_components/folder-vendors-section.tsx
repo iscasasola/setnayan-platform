@@ -18,6 +18,7 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
@@ -311,7 +312,7 @@ function FolderVendorCard({
               strokeWidth={1.75}
             />
             <span className="font-mono text-ink">{formatStarRating(rating)}</span>
-            <span className="text-ink/45">({reviewCount})</span>
+            <span className="text-ink/45">({formatCount(reviewCount)})</span>
           </span>
         ) : (
           // 0 reviews — "New", never a hidden-away fake 0.0 (owner ruling

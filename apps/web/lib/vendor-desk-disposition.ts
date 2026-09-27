@@ -46,6 +46,7 @@
  */
 
 import type { WhatsNewCard } from './vendor-overview';
+import { formatCount } from '@/lib/format-number';
 
 /** An ask the supplier owes somebody, or a closed line they may want to see. */
 export type DeskDisposition = 'answer' | 'news';
@@ -138,7 +139,7 @@ export function oldestAskWaitDays(
  */
 export function deskStatusLine(count: number, oldestDays: number | null): string {
   if (count <= 0) return '';
-  const waiting = `${count} waiting`;
+  const waiting = `${formatCount(count)} waiting`;
   if (oldestDays === null) return waiting;
   if (oldestDays <= 0) return `${waiting} · oldest today`;
   return `${waiting} · oldest ${oldestDays} ${oldestDays === 1 ? 'day' : 'days'}`;

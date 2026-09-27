@@ -19,6 +19,7 @@ import {
 } from '@/lib/onboarding-family-discount';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
 import type { RowActionState } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * /admin/pricing — the three OWNER-SET controls added 2026-08-28.
@@ -301,7 +302,7 @@ export async function savePapicLadder(
     message:
       moved === 0
         ? 'Saved — no rung price changed.'
-        : `Saved — ${moved} of ${priced.length} rung prices changed.`,
+        : `Saved — ${formatCount(moved)} of ${formatCount(priced.length)} rung prices changed.`,
   };
 }
 
@@ -798,7 +799,7 @@ export async function savePapicTypeSizing(
   revalidatePath('/admin/pricing');
   return {
     ok: true,
-    message: `Saved — ${nums.points_per_guest} credits a head for a ${key.replace(/_/g, ' ')}.`,
+    message: `Saved — ${formatCount(nums.points_per_guest)} credits a head for a ${key.replace(/_/g, ' ')}.`,
   };
 }
 

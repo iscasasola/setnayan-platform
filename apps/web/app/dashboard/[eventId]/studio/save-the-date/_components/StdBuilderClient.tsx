@@ -57,6 +57,7 @@ import {
   type PreviewDevice,
 } from '@/app/dashboard/[eventId]/_components/device-frame';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   eventId: string;
@@ -732,7 +733,7 @@ export function StdBuilderClient({
                     <span />
                   )}
                   <p className={`shrink-0 ${helperCls} ${filmStory.length >= STORY_MAX ? 'text-terracotta' : ''}`}>
-                    {filmStory.length}/{STORY_MAX}
+                    {formatCount(filmStory.length)}/{formatCount(STORY_MAX)}
                   </p>
                 </div>
               </div>

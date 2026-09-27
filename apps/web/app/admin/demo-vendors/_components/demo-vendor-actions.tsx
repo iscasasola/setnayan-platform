@@ -21,6 +21,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, RotateCcw, Loader2, Check, X, Sparkles } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   totalCount: number;
@@ -227,7 +228,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
         <div className="space-y-2 rounded-md border border-mulberry/30 bg-mulberry/5 p-3">
           <p className="flex items-center gap-2 text-sm font-medium text-ink">
             <Loader2 className="h-4 w-4 animate-spin text-mulberry" />
-            Creating demo vendors… {create.offset}/{create.total || '…'} categories ·{' '}
+            Creating demo vendors… {formatCount(create.offset)}/{create.total ? formatCount(create.total) : '…'} categories ·{' '}
             {create.vendors.toLocaleString()} vendors
           </p>
           <div className="h-2 w-full overflow-hidden rounded-full bg-ink/10">

@@ -46,6 +46,7 @@ import {
   cardRecordHasSomethingToSayToTheShop,
   type CompiledCardRecord,
 } from '@/lib/service-card-record';
+import { formatCount } from '@/lib/format-number';
 
 /** Vendor-level trusted rating, when the shop has one. */
 export type CardRecordRating = {
@@ -124,7 +125,7 @@ export function CardRecordSection({
         <p className="inline-flex items-center gap-1.5 text-[12px] text-ink/70">
           <Trophy className="h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
           <span>
-            Booked <span className="font-mono font-medium text-ink">{bookedCount}×</span> on
+            Booked <span className="font-mono font-medium text-ink">{formatCount(bookedCount)}×</span> on
             Setnayan
           </span>
         </p>
@@ -147,7 +148,7 @@ export function CardRecordSection({
           <Star className="h-3 w-3 shrink-0 fill-warn-400 text-warn-500" strokeWidth={1.5} aria-hidden />
           <span className="font-mono text-ink/80">{rating.avg.toFixed(1)}</span>
           <span>
-            · {rating.count} review{rating.count === 1 ? '' : 's'} · shop rating
+            · {formatCount(rating.count)} review{rating.count === 1 ? '' : 's'} · shop rating
           </span>
         </p>
       ) : null}
@@ -267,7 +268,7 @@ export function CardRecordSection({
                   className="inline-flex items-center gap-1 rounded-full border border-terracotta/30 bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta-700"
                 >
                   <Medal className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-                  <span className="font-mono">{t}</span> events
+                  <span className="font-mono">{formatCount(t)}</span> events
                 </li>
               ))}
             </ul>
@@ -275,7 +276,7 @@ export function CardRecordSection({
 
           {milestones.next !== null ? (
             <p className="text-[11px] text-ink/50">
-              <span className="font-mono text-ink/70">{milestones.next - bookedCount}</span> more
+              <span className="font-mono text-ink/70">{formatCount(milestones.next - bookedCount)}</span> more
               to reach the <span className="font-mono">{milestones.next}</span>-event medal.
             </p>
           ) : (

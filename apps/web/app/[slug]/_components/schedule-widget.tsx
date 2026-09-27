@@ -14,6 +14,7 @@ import {
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { pickTriggerNowNext, type RunOfShowBlock } from '@/lib/run-of-show';
 import { ProgressRing } from '@/app/_components/progress-ring';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   blocks: ScheduleBlockRow[];
@@ -226,7 +227,7 @@ export function ScheduleWidget({
           >
             <span className="font-pahina text-sm leading-none text-ink">
               {completed}
-              <span className="text-ink/40">/{total}</span>
+              <span className="text-ink/40">/{formatCount(total)}</span>
             </span>
           </ProgressRing>
         ) : null}

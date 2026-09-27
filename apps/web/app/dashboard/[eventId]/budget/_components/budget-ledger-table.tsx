@@ -8,6 +8,7 @@ import {
   type BudgetLedgerRow,
   type LedgerDueTier,
 } from '@/lib/budget-ledger';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The plan and the ledger, one row per category (BA3).
@@ -139,7 +140,7 @@ function DueRollup({ totals }: { totals: BudgetLedger['totals'] }) {
             <span className="font-mono font-semibold tabular-nums">
               {formatPhp(totals.overduePhp)}
             </span>{' '}
-            overdue across {totals.overdueCount}{' '}
+            overdue across {formatCount(totals.overdueCount)}{' '}
             {totals.overdueCount === 1 ? 'payment' : 'payments'}
           </span>
         </p>
@@ -149,7 +150,7 @@ function DueRollup({ totals }: { totals: BudgetLedger['totals'] }) {
           <Clock aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
           <span>
             <span className="font-mono font-semibold tabular-nums">{formatPhp(next30Php)}</span>{' '}
-            due in the next 30 days across {next30Count}{' '}
+            due in the next 30 days across {formatCount(next30Count)}{' '}
             {next30Count === 1 ? 'payment' : 'payments'}
           </span>
         </p>

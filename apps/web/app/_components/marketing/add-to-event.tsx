@@ -38,6 +38,7 @@ import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
 import type { AddToEventOption } from './add-to-event-data';
+import { formatCount } from '@/lib/format-number';
 
 /** Below this a search box is clutter; above it, relief. */
 const SEARCH_FROM = 6;
@@ -181,7 +182,7 @@ export function AddToEvent({
                     </label>
                     <p className="mt-2 flex-none text-xs text-[var(--m-slate-2)]">
                       {q.trim()
-                        ? `${shown.length} of ${options.length} match`
+                        ? `${formatCount(shown.length)} of ${formatCount(options.length)} match`
                         : `${options.length} celebrations can take ${serviceName}`}
                     </p>
                   </>

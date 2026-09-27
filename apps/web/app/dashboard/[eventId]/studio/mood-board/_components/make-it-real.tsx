@@ -84,6 +84,7 @@ import {
   type ChoosePlanSheetProps,
   type ChoosePlanSku,
 } from '@/app/_components/app-store/choose-plan-sheet';
+import { formatCount } from '@/lib/format-number';
 
 const WHOLE_LOOK_ID = 'whole_look';
 
@@ -396,14 +397,14 @@ export function MakeItReal({
             <p className="text-sm font-semibold text-ink/75">
               Credits ·{' '}
               <strong className="text-ink">
-                {balance.creditsGranted > 0 ? `${localCreditsLeft ?? balance.creditsLeft} left` : 'none yet'}
+                {balance.creditsGranted > 0 ? `${formatCount(localCreditsLeft ?? balance.creditsLeft)} left` : 'none yet'}
               </strong>
             </p>
           )}
           <p className="max-w-[34ch] text-xs text-ink/45">
             {configUnavailable
               ? 'Make it real is temporarily unavailable.'
-              : `1 credit per part · ${config!.creditsWholeLook} for the whole look. Payment is verified by hand (~a day).`}
+              : `1 credit per part · ${formatCount(config!.creditsWholeLook)} for the whole look. Payment is verified by hand (~a day).`}
           </p>
           {!mayStartRenders ? (
             <p data-couple-only-renders className="max-w-[34ch] text-xs text-ink/55">
@@ -713,7 +714,7 @@ function RenderGallery({
                   >
                     <p className="text-[11px] font-bold">This one stopped</p>
                     <p className="text-[10px] leading-snug text-white/90">
-                      It never finished. Your {r.credits_debited}{' '}
+                      It never finished. Your {formatCount(r.credits_debited)}{' '}
                       {r.credits_debited === 1 ? 'credit' : 'credits'} {' '}
                       {r.credits_debited === 1 ? 'is' : 'are'} still held.
                     </p>
@@ -965,7 +966,7 @@ function TileChrome({
           ) : (
             <>
               <span className="font-semibold text-danger-700">
-                {hero ? 'The whole look' : 'A render'} · {vm.costLabel} — you have {localCreditsLeft ?? 0}
+                {hero ? 'The whole look' : 'A render'} · {vm.costLabel} — you have {formatCount(localCreditsLeft ?? 0)}
               </span>
               <button
                 type="button"
@@ -996,7 +997,7 @@ function TileChrome({
               </button>
             ) : (
               <span className="font-semibold text-danger-700">
-                Needs {vm.costLabel} — you have {localCreditsLeft ?? 0}
+                Needs {vm.costLabel} — you have {formatCount(localCreditsLeft ?? 0)}
               </span>
             )}
             <button type="button" onClick={onKeep} className="rounded-md px-2 py-1 font-medium text-ink/55 hover:bg-ink/5">
@@ -1051,7 +1052,7 @@ function TileChrome({
             ) : (
               <>
                 <span className="font-semibold text-danger-700">
-                  Needs {vm.costLabel} — you have {localCreditsLeft ?? 0}
+                  Needs {vm.costLabel} — you have {formatCount(localCreditsLeft ?? 0)}
                 </span>
                 <button
                   type="button"

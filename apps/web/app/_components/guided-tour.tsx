@@ -5,6 +5,7 @@ import { X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { TOURS, type TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { InfoTip } from './info-tip';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   tourKey: TourKey;
@@ -97,7 +98,7 @@ export function GuidedTour({ tourKey, completeAction, storeShell = false }: Prop
                 now) sits behind the `(i)` instead of a second always-on
                 line. */}
             <InfoTip
-              label={`Step ${step + 1} of ${slides.length}`}
+              label={`Step ${formatCount(step + 1)} of ${formatCount(slides.length)}`}
               labelClassName="font-mono text-[10px] uppercase tracking-[0.25em] text-terracotta"
               ariaLabel={`About ${tour.label}`}
               align="start"

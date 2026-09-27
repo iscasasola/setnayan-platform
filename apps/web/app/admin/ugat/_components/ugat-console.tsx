@@ -51,6 +51,7 @@ import {
 } from '../actions';
 import './ugat-console.css';
 import type { JointVerdict } from '@/lib/interconnect/verdicts';
+import { formatCount } from '@/lib/format-number';
 
 /* ── inline icon helper (SVG innerHTML, no network — same set as the map) ── */
 function Ico({ name, cls }: { name: string; cls?: string }) {
@@ -325,11 +326,11 @@ export function UgatConsole({
           type="button"
           className={`ug-healthbtn${health ? ' on' : ''}`}
           onClick={() => setHealth((h) => !h)}
-          title={`Audit overlay — ${OPEN_FINDING_COUNT} open · ${FIXED_FINDING_COUNT} fixed · last re-verified ${LAST_VERIFIED_AT}`}
+          title={`Audit overlay — ${formatCount(OPEN_FINDING_COUNT)} open · ${formatCount(FIXED_FINDING_COUNT)} fixed · last re-verified ${LAST_VERIFIED_AT}`}
         >
           <span className="ug-hb-dot" />
           Health
-          <span className="ug-hb-ct">{findingCount}</span>
+          <span className="ug-hb-ct">{formatCount(findingCount)}</span>
         </button>
 
         <div className="ug-restoggle" role="group" aria-label="Resolution">
@@ -362,7 +363,7 @@ export function UgatConsole({
           are live (updated {relTime(counts.computedAt)}); joint cards are static schema
           documentation.{' '}
           <strong>
-            {Object.keys(probeVerdicts).length} of {UGAT_JOINTS.length} joints are watched by a live
+            {Object.keys(probeVerdicts).length} of {formatCount(UGAT_JOINTS.length)} joints are watched by a live
             probe
           </strong>{' '}
           — every other edge is <em>not checked</em>, not healthy. Green here is earned.
@@ -870,11 +871,11 @@ function MapCanvas({
         {health && (
           <div className="ug-healthnote">
             <Ico name="alert" />
-            Health overlay — re-verified {LAST_VERIFIED_AT} · {OPEN_FINDING_COUNT} open ·{' '}
-            {FIXED_FINDING_COUNT} fixed (kept as history).
+            Health overlay — re-verified {LAST_VERIFIED_AT} · {formatCount(OPEN_FINDING_COUNT)} open ·{' '}
+            {formatCount(FIXED_FINDING_COUNT)} fixed (kept as history).
             {staleOpenCount > 0 && (
               <span className="ug-stale">
-                {staleOpenCount} unchecked &gt; {UGAT_FINDING_STALE_AFTER_DAYS}d — re-verify
+                {formatCount(staleOpenCount)} unchecked &gt; {UGAT_FINDING_STALE_AFTER_DAYS}d — re-verify
               </span>
             )}
           </div>
@@ -1449,7 +1450,7 @@ function Omnibox({
                       <div className="ug-nd-b">
                         <div className="ug-nd-t">{s.question}</div>
                         <div className="ug-nd-s">
-                          {s.count} match{s.count === 1 ? '' : 'es'} · opens the {s.table} table
+                          {formatCount(s.count)} match{s.count === 1 ? '' : 'es'} · opens the {s.table} table
                         </div>
                       </div>
                       <span className="ug-nd-cat">Question</span>
@@ -1616,7 +1617,7 @@ function TablesView({
                 </div>
                 <div className="ug-sub">
                   {data.total.toLocaleString('en-PH')} row{data.total === 1 ? '' : 's'} · live · page{' '}
-                  {data.page + 1} of {totalPages}
+                  {formatCount(data.page + 1)} of {formatCount(totalPages)}
                 </div>
               </div>
             </div>
@@ -1698,7 +1699,7 @@ function TablesView({
                   ← Prev
                 </button>
                 <span>
-                  Page {data.page + 1} / {totalPages}
+                  Page {formatCount(data.page + 1)} / {formatCount(totalPages)}
                 </span>
                 <button
                   type="button"

@@ -34,6 +34,7 @@ import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
 import { resolveMergedService } from '@/lib/service-merge-forward';
 import { KpiStatCard } from '../_components/kpi-stat-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Taxonomy Studio · Admin' };
 // Top-level DB reads (admin client + getTaxonomy) — keep this route dynamic so a
 // future root app/loading.tsx can't pull it into build-time static generation.
@@ -658,7 +659,7 @@ export default async function AdminTaxonomyPage({
             href="/admin/taxonomy/aliases"
             className="text-sm font-medium text-ink/60 hover:text-ink"
           >
-            Trade aliases{pendingAliasCount > 0 ? ` (${pendingAliasCount} waiting)` : ''}
+            Trade aliases{pendingAliasCount > 0 ? ` (${formatCount(pendingAliasCount)} waiting)` : ''}
           </Link>
         }
       />

@@ -13,6 +13,7 @@ import {
 } from '@/lib/vendor-team';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCount } from '@/lib/format-number';
 export const metadata = {
   title: 'Vendor team · Admin',
   robots: { index: false, follow: false },
@@ -95,7 +96,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
             </p>
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
               {(vendor as { public_id: string }).public_id} ·{' '}
-              {adminCount} admin{adminCount === 1 ? '' : 's'} · {members.length} member
+              {formatCount(adminCount)} admin{adminCount === 1 ? '' : 's'} · {formatCount(members.length)} member
               {members.length === 1 ? '' : 's'}
             </p>
           </div>

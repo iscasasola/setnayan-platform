@@ -3,6 +3,7 @@ import { Eye, PencilLine } from 'lucide-react';
 import type { HubFact } from '@/lib/event-hub-control';
 import type { Plan3dStanding } from '@/lib/plan3d-control';
 import { OB } from '@/app/dashboard/[eventId]/launch/_components/hub-stage';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * S1 · THE STAGE and S2 · THE FOUR FACTS for the 3D Plan — a living top-down
@@ -112,7 +113,7 @@ export function Plan3dStage({
         <div>
           <Miniature m={miniature} measured={standing.measured} />
           <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: OB.soft }}>
-            {tableCount == null ? '— tables' : `${tableCount} table${tableCount === 1 ? '' : 's'}`} · drawn from your seat plan
+            {tableCount == null ? '— tables' : `${formatCount(tableCount)} table${tableCount === 1 ? '' : 's'}`} · drawn from your seat plan
           </p>
         </div>
         <div className="space-y-3">

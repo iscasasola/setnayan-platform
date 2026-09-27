@@ -73,6 +73,7 @@ import {
 import { shopInitials } from '@/lib/shop-initials';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { eventNoun } from '@/lib/event-noun';
+import { formatCount } from '@/lib/format-number';
 
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
@@ -933,7 +934,7 @@ export function PlanBudgetAccordion({
                 <span className="cu-ico" aria-hidden>
                   +
                 </span>
-                Unlock {model.inactiveCategoryCount} more categor
+                Unlock {formatCount(model.inactiveCategoryCount)} more categor
                 {model.inactiveCategoryCount === 1 ? 'y' : 'ies'}
               </a>
             )}
@@ -1043,7 +1044,7 @@ function FolderSection({
             {hasLocked
               ? formatPesoCompact(folder.lockedTotal)
               : folder.pickCount > 0
-                ? `${folder.pickCount} shortlisted`
+                ? `${formatCount(folder.pickCount)} shortlisted`
                 : 'Not started'}
           </span>
           <span className="chev" aria-hidden>
@@ -1423,7 +1424,7 @@ function DeadlineChip({
     if (multiPick && lockedCount && lockedCount > 0) {
       return (
         <span className="chip locked">
-          ✓ {lockedCount} locked · add more
+          ✓ {formatCount(lockedCount)} locked · add more
         </span>
       );
     }
@@ -1507,7 +1508,7 @@ function VendorCardAtom({
   const paxNote =
     paxSurcharge !== null
       ? paxBase !== null && paxFor !== null
-        ? `+${formatPhp(paxSurcharge)} for ${paxFor} guests over the ${paxBase}-guest package`
+        ? `+${formatPhp(paxSurcharge)} for ${formatCount(paxFor)} guests over the ${paxBase}-guest package`
         : `+${formatPhp(paxSurcharge)} added-guest surcharge`
       : null;
 
@@ -1653,11 +1654,11 @@ function VendorCardAtom({
           )}
 
           {stars ? (
-            <div className="stars" aria-label={`${rating} stars`}>
+            <div className="stars" aria-label={`${formatCount(rating)} stars`}>
               {stars}
               <span style={{ color: 'rgba(30,26,18,.18)' }}>{starsEmpty}</span>
               {reviewCount !== null && (
-                <span className="rcount">{reviewCount}</span>
+                <span className="rcount">{formatCount(reviewCount)}</span>
               )}
             </div>
           ) : reviewCount !== null ? (
@@ -2151,7 +2152,7 @@ function CompareSheet({
                         ? NEW_TO_SETNAYAN_LABEL
                         : '—'}
                     {v.rating !== null && v.reviewCount !== null
-                      ? ` · ${v.reviewCount} reviews`
+                      ? ` · ${formatCount(v.reviewCount)} reviews`
                       : ''}
                     {v.rating !== null &&
                       v.rating === maxRating &&

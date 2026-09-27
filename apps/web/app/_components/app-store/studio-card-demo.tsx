@@ -13,6 +13,7 @@ import {
 import { type RichDemoSlug } from './rich-demo-slugs';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { MIN_DEMAND_COUPLE_COUNT } from '@/lib/compat-score';
+import { formatCount } from '@/lib/format-number';
 
 const MULB = 'var(--m-mulberry, #1B1A17)';
 const GOLD = '#A9834B';
@@ -817,7 +818,7 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
               smallest number this chip can honestly show, and this reads the SAME
               constant rather than a copy of its current value — a future change to
               the floor updates this mockup instead of quietly out-honesting it. */}
-          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(169,131,75,.15)', color: '#7a5a18' }}>{MIN_DEMAND_COUPLE_COUNT} couples inquired for your date</span>
+          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(169,131,75,.15)', color: '#7a5a18' }}>{formatCount(MIN_DEMAND_COUPLE_COUNT)} couples inquired for your date</span>
         </div>
       </div>
     ),

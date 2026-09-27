@@ -147,6 +147,7 @@ import {
   markHighlight,
   deleteHighlight,
 } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Live Studio controller' };
 
@@ -1414,7 +1415,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         <div className="flex min-h-0 flex-1 flex-col gap-1.5">
           <div className="flex shrink-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1">
             <h2 className="font-mono text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">
-              Camera channels · {zones.length} of {MAX_ROAM_ZONES}
+              Camera channels · {formatCount(zones.length)} of {formatCount(MAX_ROAM_ZONES)}
             </h2>
             <span className="ml-auto text-[11px] text-ink/45">tap = put on Channel 1</span>
           </div>

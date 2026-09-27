@@ -164,6 +164,7 @@ import type {
 } from '@/lib/admin/queue-counts';
 
 import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * AdminSidebar — renders the 6 admin nav groups using the shared
@@ -229,7 +230,7 @@ export function applyQueueBadges(
         badge: {
           count,
           tone: badgeTone(state),
-          label: state === 'overdue' ? `${count} overdue` : `${count} pending`,
+          label: state === 'overdue' ? `${formatCount(count)} overdue` : `${formatCount(count)} pending`,
         },
       };
     }),
@@ -327,7 +328,7 @@ export function aggregateParentBadge(children: NavItem[]): NavBadge | undefined 
   return {
     count,
     tone,
-    label: overdue ? `${count} open, some overdue` : `${count} open`,
+    label: overdue ? `${formatCount(count)} open, some overdue` : `${formatCount(count)} open`,
   };
 }
 

@@ -94,6 +94,7 @@ import {
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Verification queue · Admin' };
 
 /**
@@ -868,8 +869,8 @@ function ApplicationCard({
         <div className="space-y-0.5">
           <p>
             Checklist:{' '}
-            <span className="font-medium text-ink">{completeCount}</span>/
-            {DOC_SLOTS.length} items complete
+            <span className="font-medium text-ink">{formatCount(completeCount)}</span>/
+            {formatCount(DOC_SLOTS.length)} items complete
           </p>
           {application.submitted_at ? (
             <p>
@@ -885,7 +886,7 @@ function ApplicationCard({
           ) : null}
           {application.vendor.demotion_count > 0 ? (
             <p className="text-warn-700">
-              Prior demotions: {application.vendor.demotion_count}
+              Prior demotions: {formatCount(application.vendor.demotion_count)}
             </p>
           ) : null}
         </div>
@@ -1510,7 +1511,7 @@ function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
     if (count === 0) return null;
     return (
       <p className="ml-7 text-[11px] text-ink/60">
-        {count} photo{count === 1 ? '' : 's'} uploaded — view in the vendor&apos;s shop.
+        {formatCount(count)} photo{count === 1 ? '' : 's'} uploaded — view in the vendor&apos;s shop.
       </p>
     );
   }
@@ -1722,7 +1723,7 @@ function DemotedVendorCard({
         {vendor.business_name || 'Unnamed vendor'}
       </p>
       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-        {vendor.location_city ?? '—'} · demotions: {vendor.demotion_count}
+        {vendor.location_city ?? '—'} · demotions: {formatCount(vendor.demotion_count)}
       </p>
       <p className="text-xs text-ink/65">
         Re-verification fee:{' '}

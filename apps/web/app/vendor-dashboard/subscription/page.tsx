@@ -57,6 +57,7 @@ import { PlanChangeNotice } from './_components/plan-change-notice';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * /vendor-dashboard/subscription — the vendor Plan hub. Self-serve Pro /
@@ -472,7 +473,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-base font-semibold text-ink">
-              You have {bookingFeeDueCount} unpaid booking{' '}
+              You have {formatCount(bookingFeeDueCount)} unpaid booking{' '}
               {bookingFeeDueCount === 1 ? 'fee' : 'fees'}.
             </p>
             <p className="mt-0.5 text-sm text-ink/60">

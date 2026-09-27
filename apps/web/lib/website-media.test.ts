@@ -285,7 +285,8 @@ test('🔑 totals declare themselves INCOMPLETE when a folder was truncated or f
 /* ------------------------------------------------------------------ display */
 
 test('humanBytes reads plainly', () => {
-  assert.equal(humanBytes(1_500_000_000), '1.50 GB');
+  assert.equal(humanBytes(1_500_000_000), '1.5 GB');
+  assert.equal(humanBytes(1_234_500_000_000), '1,234.5 GB'); // grouped (owner 2026-09-27)
   assert.equal(humanBytes(2_400_000), '2.4 MB');
   assert.equal(humanBytes(4_096), '4 KB');
   assert.equal(humanBytes(12), '12 bytes');

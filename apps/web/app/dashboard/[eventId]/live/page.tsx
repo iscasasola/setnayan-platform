@@ -31,6 +31,7 @@ import { KwentoQueue } from '../studio/papic/moderation/_components/kwento-queue
 import { WallModeControl } from './_components/mode-control';
 import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Live Wall' };
 export const dynamic = 'force-dynamic';
@@ -298,12 +299,12 @@ export default async function LiveWallConsolePage({
             />
             <span>
               <span className="font-medium text-ink">
-                FaceBlock is on for {faceblockGuests}{' '}
+                FaceBlock is on for {formatCount(faceblockGuests)}{' '}
                 {faceblockGuests === 1 ? 'guest' : 'guests'}.
               </span>{' '}
               Every photo is projected with faces blurred; photos still waiting for
               their blurred copy stay off the wall automatically.{' '}
-              {bakedCount}/{feed?.length ?? 0} recent tiles are blur-ready.
+              {formatCount(bakedCount)}/{formatCount(feed?.length ?? 0)} recent tiles are blur-ready.
             </span>
           </p>
         ) : null}

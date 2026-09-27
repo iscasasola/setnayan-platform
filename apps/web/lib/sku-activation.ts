@@ -76,6 +76,7 @@ import {
   MOODBOARD_RENDER_PACK_SKU,
   readMoodboardRenderConfig,
 } from '@/lib/moodboard-render-credits';
+import { formatPhp } from '@/lib/php';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -401,7 +402,7 @@ async function grantVendorPapicCreditsForBookingFee(
       eventId: charge.event_id,
       credits: vendorPortfolioCreditsForFee(feePhp),
       source: 'booking_fee',
-      note: `5% of booking fee ₱${feePhp} · ${ctx.serviceKey}`,
+      note: `5% of booking fee ${formatPhp(feePhp)} · ${ctx.serviceKey}`,
     });
   } catch (e) {
     console.error('[sku-activation] vendor Papic booking-fee credits threw (non-fatal):', e);

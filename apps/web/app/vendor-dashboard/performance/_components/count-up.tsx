@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useReanimate } from './reanimate';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Count-up number for My Performance — ticks 0 → `value` so the figures animate
@@ -55,5 +56,5 @@ export function CountUp({
   }, [value, durationMs, played]);
 
   const n = Math.round(display);
-  return <>{format ? format(n) : n.toLocaleString('en-PH')}</>;
+  return <>{format ? format(n) : formatCount(n)}</>;
 }

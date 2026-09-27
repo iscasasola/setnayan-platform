@@ -43,6 +43,7 @@
 import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { doorTitleFit } from '@/lib/door-fold';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THRESHOLD vs DEAD-END — the one real branch a door has.
@@ -342,7 +343,7 @@ function StepRail({ steps }: { steps: DoorStep[] }) {
     <div className="mb-4 sm:mb-6">
       <p className="sr-only">
         {current
-          ? `Step ${currentIndex + 1} of ${steps.length} · ${current.label}`
+          ? `Step ${formatCount(currentIndex + 1)} of ${formatCount(steps.length)} · ${current.label}`
           : `${steps.length} steps`}
       </p>
       <ol aria-hidden className="flex items-center gap-2">

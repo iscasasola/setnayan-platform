@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
 import { revenueStatement, revenueScopeNote } from '@/lib/admin/revenue-statement';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * RevenueSummary — the answer to "what have we earned?", on the page named Money.
@@ -74,13 +75,13 @@ export async function RevenueSummary() {
         {formatPhp(s.netPhp)}
       </p>
       <div className="mt-4 divide-y divide-ink/5 border-t border-ink/10 pt-2">
-        <Row label="Software sales" value={formatPhp(s.softwarePhp)} note={`${s.paidOrderCount} paid order${s.paidOrderCount === 1 ? '' : 's'}`} />
-        <Row label="Booking fees" value={formatPhp(s.bookingFeePhp)} note={`${s.paidFeeCount} paid`} />
+        <Row label="Software sales" value={formatPhp(s.softwarePhp)} note={`${formatCount(s.paidOrderCount)} paid order${s.paidOrderCount === 1 ? '' : 's'}`} />
+        <Row label="Booking fees" value={formatPhp(s.bookingFeePhp)} note={`${formatCount(s.paidFeeCount)} paid`} />
         <Row label="Refunds" value={`− ${formatPhp(s.refundedPhp)}`} />
         {/* Outside the divide: it is NOT part of the sum above. */}
       </div>
       <div className="mt-3 border-t border-dashed border-ink/15 pt-2">
-        <Row label="Receipts issued" value={formatPhp(s.receiptPhp)} note={`${s.receiptCount} · not counted in the total`} />
+        <Row label="Receipts issued" value={formatPhp(s.receiptPhp)} note={`${formatCount(s.receiptCount)} · not counted in the total`} />
       </div>
       <p className="mt-3 text-xs leading-relaxed text-ink/55">{revenueScopeNote(s)}</p>
     </section>

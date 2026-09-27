@@ -21,6 +21,7 @@ import {
   type AdminQueueDigest,
   type AdminQueueDueState,
 } from '@/lib/admin/queue-counts';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Today' };
 
@@ -468,7 +469,7 @@ export default async function AdminOverview() {
                   ) : null}
                 </span>
                 <span className="font-mono text-sm font-semibold tabular-nums text-[color:var(--sn-gold-100)]">
-                  {qq.count}
+                  {formatCount(qq.count)}
                 </span>
               </Link>
             ))}

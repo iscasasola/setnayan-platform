@@ -65,6 +65,7 @@
 import { stripComments } from '../security/source-text';
 import { stripSqlComments } from '../security/events-column-privileges';
 import { scanSourceDetailed } from '../supabase-unread-error-scan';
+import { formatCount } from '@/lib/format-number';
 
 export type OrphanClass =
   | 'rpc-no-caller'
@@ -716,5 +717,5 @@ export function diffBaseline(findings: readonly OrphanFinding[], baseline: Reado
 }
 
 export function formatGrown(grown: readonly OrphanFinding[]): string {
-  return grown.map((f) => `  [${f.tier}] ${f.cls}  ${f.key}${f.count > 1 ? ` ×${f.count}` : ''}\n      ${f.evidence}`).join('\n');
+  return grown.map((f) => `  [${f.tier}] ${f.cls}  ${f.key}${f.count > 1 ? ` ×${formatCount(f.count)}` : ''}\n      ${f.evidence}`).join('\n');
 }

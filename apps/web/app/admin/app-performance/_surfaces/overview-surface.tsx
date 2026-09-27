@@ -35,6 +35,7 @@ import { APX_CSS } from '@/app/admin/app-performance/_components/fx-css';
 import { HealthNow } from '@/app/admin/app-performance/_components/health-now';
 import { ActionCenterZone } from '@/app/admin/app-performance/_components/action-center';
 import { ExpensesZone } from '@/app/admin/app-performance/_components/expenses';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * /admin/app-performance — the App Performance cockpit (owner lock 2026-07-03:
@@ -651,7 +652,7 @@ export async function CockpitSurface({ searchParams }: Props) {
                 { label: 'Actioned', color: 'var(--sn-success)', values: perf.reports.actioned },
                 { label: 'Dismissed', color: 'var(--sn-ink-300)', values: perf.reports.dismissed },
               ]}
-              ariaLabel={`Reports per bucket by status. Window total ${perf.reports.total}; open now ${perf.reports.openNow}.`}
+              ariaLabel={`Reports per bucket by status. Window total ${formatCount(perf.reports.total)}; open now ${perf.reports.openNow}.`}
             />
           </ChartCard>
         </div>

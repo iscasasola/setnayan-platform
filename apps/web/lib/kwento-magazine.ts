@@ -20,6 +20,7 @@
  */
 
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
+import { formatCount } from '@/lib/format-number';
 
 // ── palette (Clean Editorial · matches concept-pdf) ─────────────────────────
 const INK = rgb(0.118, 0.133, 0.161); // Deep Obsidian
@@ -511,9 +512,9 @@ export async function buildKwentoMagazine(input: MagazineInput): Promise<Uint8Ar
   c.page.drawText(sal, { x: (PAGE_W - sw) / 2, y: c.y, size: 28, font: fonts.serifBold, color: MULBERRY });
   c.y -= 40;
   const statsBits = [
-    `${input.totals.photos} ${input.totals.photos === 1 ? 'photo' : 'photos'}`,
+    `${formatCount(input.totals.photos)} ${input.totals.photos === 1 ? 'photo' : 'photos'}`,
     `${input.totals.kwentos} ${input.totals.kwentos === 1 ? 'kwento' : 'kwentos'}`,
-    ...(input.totals.guests ? [`${input.totals.guests} guests`] : []),
+    ...(input.totals.guests ? [`${formatCount(input.totals.guests)} guests`] : []),
     'one day',
   ];
   const stats = statsBits.join(' · ');

@@ -17,6 +17,7 @@ import {
   type GuestGroupWithCount,
 } from '@/lib/guests';
 import { SIDE_DOT, SIDE_ROW_TINT } from '@/lib/side-colors';
+import { formatCount } from '@/lib/format-number';
 
 // -----------------------------------------------------------------------
 // GroupsSidebar · custom-groups section beneath the locked role-group
@@ -124,7 +125,7 @@ export function GroupsSidebar({
                   <span
                     className={`tabular-nums ${isCurrent ? 'text-terracotta-700/70' : 'text-ink/40'}`}
                   >
-                    {g.member_count}
+                    {formatCount(g.member_count)}
                   </span>
                 ) : null}
               </Link>
@@ -266,7 +267,7 @@ export function GroupsSidebar({
                         className={`shrink-0 text-[10px] ${rowTint.count}`}
                         title={TEAM_SIDE_LABELS[g.team_side]}
                       >
-                        {g.member_count}
+                        {formatCount(g.member_count)}
                       </span>
                     ) : null}
                   </Link>

@@ -48,7 +48,7 @@ test('uploadOne re-checks maxBytes AFTER both compression steps, against the fil
 });
 
 test('a file that could not be compressed under the cap is still refused, with an honest sentence', () => {
-  assert.match(code, /even after compression — max \$\{maxSizeMB\} MB/);
+  assert.match(code, /even after compression — max \$\{formatCount\(maxSizeMB\)\} MB/);
 });
 
 test('a Maker video profile and silent flag are threaded through to compressVideoForWeb', () => {

@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
+import { formatCount } from '@/lib/format-number';
 
 export type PapicTypeSizingRow = {
   eventType: string;
@@ -76,7 +77,7 @@ export function PapicTypeSizingEditor({
             <p className="text-[15px] font-semibold">
               {learnedCount === 0
                 ? 'Every figure here is yours'
-                : `${learnedCount} figure${learnedCount === 1 ? ' is' : 's are'} learned`}
+                : `${formatCount(learnedCount)} figure${learnedCount === 1 ? ' is' : 's are'} learned`}
             </p>
             <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-ink/60">
               A figure is only learned from celebrations that have <em>finished</em> shooting{' '}
@@ -164,7 +165,7 @@ function TypeRow({
             learned from {row.sampleSize} finished celebration
             {row.sampleSize === 1 ? '' : 's'}
             {row.censoredCount > 0
-              ? ` (${row.censoredCount} more ran out of credits and only raised it)`
+              ? ` (${formatCount(row.censoredCount)} more ran out of credits and only raised it)`
               : ''}
             . Your own figure of {row.initialPerGuest} stays as the fallback.
           </>

@@ -97,6 +97,7 @@ import {
 } from './_components/vendor-meetings-section';
 import { venueNowMs } from '@/lib/schedule';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Schedule' };
 
@@ -759,7 +760,7 @@ function EventDayView({
   return (
     <div className="space-y-6">
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-        {blocks.length} block{blocks.length === 1 ? '' : 's'} · {publicCount} public
+        {blocks.length} block{blocks.length === 1 ? '' : 's'} · {formatCount(publicCount)} public
       </p>
 
       {/* Next-up glass strip — the imminent block, mono time. */}

@@ -190,6 +190,7 @@ import {
 import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -2594,7 +2595,7 @@ function OverviewTab(props: {
             {brief.seat_plan.published ? 'Published' : 'Not published yet'}
           </span>
           <span className="text-sm text-ink/65">
-            {brief.seat_plan.table_count} tables · {brief.seat_plan.assigned_guests} guests seated
+            {formatCount(brief.seat_plan.table_count)} tables · {formatCount(brief.seat_plan.assigned_guests)} guests seated
           </span>
         </div>
         {brief.seat_plan.published && isBooked ? (

@@ -13,6 +13,7 @@ import {
   settleSubscriptionFromWorkList,
   settlePaymentOptionFromWorkList,
 } from '@/app/admin/work/actions';
+import { formatCount } from '@/lib/format-number';
 
 /** Which server action + hidden field each kind posts. One table so a new fact
  *  queue is a row here, not another branch in the markup. */
@@ -223,7 +224,7 @@ export function QueueDrawer({
         <p className="py-2.5 text-xs text-[color:var(--sn-ink-500)]">
           {more} more in this queue ·{' '}
           <Link href={href} className="underline underline-offset-2">
-            see all {peek.total}
+            see all {formatCount(peek.total)}
           </Link>
         </p>
       ) : null}

@@ -5,6 +5,7 @@ import {
   type InquiryHeatCell,
 } from '@/lib/vendor-inquiry-analytics';
 import { CountUp } from './count-up';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "Inquiry handling" — My Performance · Phase B family 1 (Pro tier). Four
@@ -109,7 +110,7 @@ export function InquiryHandlingCard({ data }: { data: InquiryAnalytics }) {
           value={reply.answeredCount > 0 ? formatMinutes(reply.p50Minutes) : '—'}
           sub={
             reply.answeredCount > 0
-              ? `Across ${reply.answeredCount} answered inquir${reply.answeredCount === 1 ? 'y' : 'ies'}`
+              ? `Across ${formatCount(reply.answeredCount)} answered inquir${reply.answeredCount === 1 ? 'y' : 'ies'}`
               : 'No replies in this window yet'
           }
         />

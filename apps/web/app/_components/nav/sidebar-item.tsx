@@ -54,6 +54,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { NavItem, NavBadgeTone } from './types';
 import { BB_TAB_EVENT, goToBuildTab, type BudgetBuildTab } from '@/lib/budget-build';
 import { matchesPath } from './match-path';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   item: NavItem;
@@ -356,7 +357,7 @@ function Badge({
   if (tone === 'orange') {
     return (
       <span
-        aria-label={label ?? `${count} new`}
+        aria-label={label ?? `${formatCount(count)} new`}
         className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none [[data-sidebar-collapsed='1']_&]:hidden"
         style={{
           // Composites over the DARK panel now — lift to a lighter gold text on

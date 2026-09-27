@@ -25,7 +25,10 @@ export function GetInside({
   eventId,
   signedInNotListed,
   theOrganizer,
+  mayAskToJoin = true,
 }: {
+  /** The couple chose "Anyone, I approve" (`anyoneMayAskToJoin`, lib/rsvp-ask.ts). */
+  mayAskToJoin?: boolean;
   /** "the couple" / "the family" — the event type's own words. */
   theOrganizer: string;
   slug: string | null;
@@ -38,12 +41,23 @@ export function GetInside({
         <h2 id="not-on-list" className="font-serif text-2xl leading-snug text-ink">
           You&rsquo;re not on the guest list for this event yet
         </h2>
-        <p className="text-sm text-ink/70">
-          Ask {theOrganizer} — once they add you, your invitation opens here.
-        </p>
-        <Link href={`/join/${eventId}`} className="button-primary flex min-h-[52px] w-full items-center justify-center">
-          Ask to join
-        </Link>
+        {/* "Who can RSVP?" (the couple's one value, `rsvp_ask_config.whoCanRsvp`):
+            only "Anyone, I approve" opens a request; the default "Only my Guest
+            List" sends nobody to a door that would turn them away. */}
+        {mayAskToJoin ? (
+          <>
+            <p className="text-sm text-ink/70">
+              Ask {theOrganizer} — once they add you, your invitation opens here.
+            </p>
+            <Link href={`/join/${eventId}`} className="button-primary flex min-h-[52px] w-full items-center justify-center">
+              Ask to join
+            </Link>
+          </>
+        ) : (
+          <p className="text-sm text-ink/70">
+            Open the invite link or scan the QR {theOrganizer} sent you — it opens your invitation here.
+          </p>
+        )}
       </section>
     );
   }

@@ -100,6 +100,7 @@ export type TourKey =
   | 'customer_print_menu_v1'
   | 'customer_guest_reminders_v1'
   | 'customer_schedule_v1'
+  | 'customer_hero_designs_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -121,6 +122,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_print_menu_v1',
   'customer_guest_reminders_v1',
   'customer_schedule_v1',
+  'customer_hero_designs_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -657,6 +659,28 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Send,
         title: 'Announce to your guests',
         body: 'Tap <b>Announce</b> to send everyone one message &mdash; before the day or on it. Your latest announcement sits at the top of your guests&rsquo; Event Hub on the day. You and your approved coordinator can announce.',
+      },
+    ],
+  },
+  /* 🎴 THE HERO'S FOUR DESIGNS (owner 2026-09-26: "designs are the initial
+     design, they can always improve it"; 2026-09-25: every feature gets a
+     first-visit tour). Mounted on the Maker's Hero page beside the Design
+     dropdown (`maker-hero-design.tsx`); it sells nothing — a design is free,
+     and it says only what a tap on the canvas already does. */
+  customer_hero_designs_v1: {
+    key: 'customer_hero_designs_v1',
+    label: 'Your hero, four ways',
+    blurb: 'Pick a design for your hero, then change any part of it.',
+    slides: [
+      {
+        Icon: LayoutPanelLeft,
+        title: 'Four designs, one hero',
+        body: 'Design lays out your names, your mark, the line and the date four ways &mdash; The Card, The Marquee, The Crest and The Letter. Pick one from the Design dropdown; it shows on every stage and your poster.',
+      },
+      {
+        Icon: MousePointerClick,
+        title: 'A design is a starting point',
+        body: 'Tap any part of your hero on the canvas &mdash; a name, the date, your mark &mdash; to change its font, colour, size or motion. Your changes stay with each part when you switch designs.',
       },
     ],
   },

@@ -34,6 +34,8 @@
  * (`app/dashboard/[eventId]/website/editor/_components/scene-snapshot.ts`).
  */
 
+import { heroDesignCropAnchor, type HeroDesignId } from '@/lib/hero-design';
+
 /** An element's attributes, in order, as `[name, value]`. */
 export type TileAttr = readonly [name: string, value: string];
 
@@ -129,6 +131,25 @@ export const TILE_FREEZE_CSS = [
   '[data-snm-embed]{display:block;background:rgba(120,110,95,.14)}',
 ].join('');
 
+/**
+ * 🎴 A HERO DESIGN THAT SITS LOW IS CUT FROM THE BOTTOM. The tile shows the
+ * section from its top edge (`overflow:hidden`), which is right for every
+ * design but The Letter, whose names and date are anchored low — a top crop
+ * showed a mark in a corner and no names (DECISION_LOG 2026-09-26, the finding
+ * recorded with the design set: *"its cover needs its own crop (anchor on the
+ * names)"*). When the copied hero carries `data-hero-design` with a bottom
+ * anchor, the document's body is pinned to the viewport's foot, so the tile
+ * keeps the names. Pure CSS — the tile document runs no script.
+ */
+export const TILE_ANCHOR_BOTTOM_CSS =
+  'body{position:absolute!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;min-height:0!important}';
+
+/** The crop edge the copied section asks for (see `heroDesignCropAnchor`). */
+export function tileCropAnchor(sectionHtml: string): 'top' | 'bottom' {
+  const m = /\sdata-hero-design="([a-z]+)"/.exec(sectionHtml);
+  return m && heroDesignCropAnchor(m[1] as HeroDesignId) === 'bottom' ? 'bottom' : 'top';
+}
+
 /** The whole tile document. Static: the tile iframe is sandboxed WITHOUT scripts. */
 export function buildTileDocument(head: TileHead, snap: TileSnapshot): string {
   const open = snap.chain.map((a) => `<${safeTag(a.tag)}${attrString(filterTileAttrs(a.attrs))}>`).join('');
@@ -136,10 +157,11 @@ export function buildTileDocument(head: TileHead, snap: TileSnapshot): string {
     .reverse()
     .map((a) => `</${safeTag(a.tag)}>`)
     .join('');
+  const anchor = tileCropAnchor(snap.section) === 'bottom' ? `<style>${TILE_ANCHOR_BOTTOM_CSS}</style>` : '';
   return (
     `<!doctype html><html${attrString(filterTileAttrs(head.htmlAttrs))}><head><meta charset="utf-8">` +
     head.styles.join('') +
-    `<style>${TILE_FREEZE_CSS}</style></head>` +
+    `<style>${TILE_FREEZE_CSS}</style>${anchor}</head>` +
     `<body${attrString(filterTileAttrs(head.bodyAttrs))}>${open}${snap.section}${close}</body></html>`
   );
 }

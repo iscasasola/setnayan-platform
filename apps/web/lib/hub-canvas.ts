@@ -45,6 +45,7 @@ import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';
 import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style';
 import { ombreCss } from '@/lib/ombre';
 import { sanitizeDetailsOverrides, type HubDetailsOverrides } from '@/lib/details-bound';
+import { sanitizeHeroDesign, type HeroDesignId } from '@/lib/hero-design';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -320,6 +321,15 @@ export type HubSectionCanvas = {
    */
   elements?: HubElementStyles;
   /**
+   * 🎴 THE HERO'S DESIGN (owner 2026-09-26: *"designs are the initial design,
+   * they can always improve it"*) — which arrangement of the hero's parts the
+   * couple picked: The Marquee · The Crest · The Letter. Absent = The Card, the
+   * shipped default. Only meaningful on the hero row; `elements` (the couple's
+   * per-part edits) is a sibling, so a pick never touches an edit. Contract:
+   * `lib/hero-design.ts`.
+   */
+  design?: HeroDesignId;
+  /**
    * 🔗 THIS SCENE'S OWN VERSION OF A DETAILS FACT (owner 2026-09-25: *"they
    * will ask if do you want to update details and apply to all or just here"*).
    * Absent = the scene is BOUND to Details and shows its value; present = the
@@ -593,6 +603,9 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (video) out.video = video;
   const elements = sanitizeHubElements(canvas.elements);
   if (elements) out.elements = elements;
+  /* 🎴 The hero's design — a member of the closed set, off the default. */
+  const design = sanitizeHeroDesign(canvas.design);
+  if (design) out.design = design;
   const details = sanitizeDetailsOverrides(canvas.details);
   if (details) out.details = details;
   return out;

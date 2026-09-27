@@ -172,6 +172,39 @@ test('3 · a canvas tap sets the SAME selection as the navigator tile', () => {
   assert.doesNotMatch(SHELL, /select\?\.\(\{ kind: 'tool', key: tool \}\)/, 'a canvas tap must not open a workspace in place of the stage');
 });
 
+test('D · the desktop column never scrolls sideways — its ⓘ bubbles are held to its width', () => {
+  // Measured in a browser at 1309 wide: without this the 168px column held
+  // 314px of scrollable width (each closed bubble is 18rem), and focus or
+  // scrollIntoView slid it left, clipping every label. With it: 168 = 168.
+  const ol = /<ol ref=\{setNavList\} className="([^"]+)"/.exec(SHELL)?.[1];
+  assert.ok(ol, 'the navigator list moved — re-anchor this test');
+  assert.match(ol, /lg:overflow-x-hidden/);
+  assert.match(ol, /lg:\[&_\.sn-tip\]:max-w-\[calc\(var\(--maker-nav-w\)-2rem\)\]/, 'a tooltip wider than the column makes it scroll sideways');
+});
+
+test('D · every ⓘ label in the navigator can shrink to the column', () => {
+  const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('</nav>'));
+  const tips = nav.match(/<InfoTip\b[^>]*>/g) ?? [];
+  assert.ok(tips.length > 0);
+  const stuck = tips.filter((t) => !/className="min-w-0 max-w-full"/.test(t));
+  assert.deepEqual(stuck, [], 'an inline-flex label that cannot shrink widens the column past its edge');
+});
+
+test('the tools column resizes like the navigator, and the canvas keeps a usable width', async () => {
+  const { clampToolsWidth, CANVAS_MIN_W, INSPECTOR_MIN_W, INSPECTOR_MAX_W } = await import(
+    '../app/dashboard/[eventId]/website/editor/_components/tools-resize'
+  );
+  assert.equal(clampToolsWidth(2000, 1309, 168), Math.min(INSPECTOR_MAX_W, 1309 - 168 - CANVAS_MIN_W));
+  assert.equal(clampToolsWidth(10, 1309, 168), INSPECTOR_MIN_W);
+  for (const vw of [1024, 1309, 1920]) {
+    const w = clampToolsWidth(9999, vw, 320);
+    assert.ok(vw - 320 - w >= CANVAS_MIN_W || w === INSPECTOR_MIN_W, `${vw}: the canvas was squeezed below ${CANVAS_MIN_W}px`);
+  }
+  const RESIZE = readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/_components/tools-resize.tsx'), 'utf8');
+  assert.match(RESIZE, /role="separator"[\s\S]*aria-label="Drag to resize the tools"/);
+  assert.match(SHELL, /<ToolsResizeHandle onPointerDown=\{resize\.onPointerDown\} \/>/, 'the inspector carries the handle');
+});
+
 test('3 · the navigator keeps the selected tile in view, whichever side picked it', () => {
   assert.match(SHELL, /\[data-maker-tile="\$\{CSS\.escape\(selectedTileKey\)\}"\]/);
 });

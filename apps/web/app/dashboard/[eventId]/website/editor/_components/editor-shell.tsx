@@ -27,7 +27,7 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
-import { isHubElementKey } from '@/lib/element-style';
+import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
@@ -40,7 +40,14 @@ import {
   selectionForTile,
   tileIsSelected,
 } from '@/lib/maker-selection';
-import { HUB_ELEMENT_EXCLUDED_WIDGETS, HUB_ELEMENT_LABEL, HUB_HERO_ELEMENT_KEYS, HUB_SCENE_ELEMENT_KEYS, type HubElementKey } from '@/lib/element-style';
+import {
+  HUB_ELEMENT_EXCLUDED_WIDGETS,
+  HUB_ELEMENT_LABEL,
+  HUB_HERO_ELEMENT_KEYS,
+  HUB_SCENE_ELEMENT_KEYS,
+  isHubElementKey,
+  type HubElementKey,
+} from '@/lib/element-style';
 import { MakerPage, MakerPageFrame } from '../../../launch/_components/maker-page';
 import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -255,6 +262,9 @@ export function MakerWork({
   const maker = useMaker();
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const [navWidth, setNavWidth] = useState(168);
+  /* The tools column's width, beside the navigator's (owner 2026-09-27:
+     "navigation is resizable, so does the editing tool on the right"). */
+  const [toolsWidth, setToolsWidth] = useState(INSPECTOR_DEFAULT_W);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -596,6 +606,22 @@ export function MakerWork({
     window.addEventListener('pointerup', onUp);
   };
 
+  /* ── resize the tools column by its LEFT edge — the navigator's pattern,
+        mirrored. The canvas keeps at least CANVAS_MIN_W; desktop only. ──── */
+  const startToolsResize = (e: React.PointerEvent) => {
+    const x0 = e.clientX;
+    const w0 = toolsWidth;
+    const onMove = (ev: PointerEvent) =>
+      setToolsWidth(clampToolsWidth(w0 - (ev.clientX - x0), window.innerWidth, navWidth));
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+  const toolsResize = { width: toolsWidth, onPointerDown: startToolsResize };
+
   const navOpen = maker?.navOpen ?? true;
   const device = maker?.device ?? 'desktop';
   const selectedScene = selection?.kind === 'scene' ? scenes.find((s) => s.id === selection.id) ?? null : null;
@@ -763,7 +789,13 @@ export function MakerWork({
           navOpen ? '' : 'lg:hidden'
         }`}
       >
-        <ol ref={setNavList} className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4">
+        {/* 🧭 THE DESKTOP COLUMN NEVER SCROLLS SIDEWAYS (owner's page, 2026-09-27:
+            after "Edit Our love story" the column slid left and clipped every
+            label). The cause was measured, not guessed: each closed ⓘ bubble is
+            an 18rem box, so a 168px column held 314px of scrollable width, and
+            `overflow-x: hidden` still lets focus and scrollIntoView scroll it.
+            The bubbles are held to the column's own width here. */}
+        <ol ref={setNavList} className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4 lg:[&_.sn-tip]:max-w-[calc(var(--maker-nav-w)-2rem)]">
           {/* 🧭 THE STAGE'S MENU — the tabs a guest sees on this stage, never a
               generic "Main". Each lists its own scenes; a tab that opens a page of
               its own (Camera, Join, Watch) says so. The look behind every scene
@@ -813,7 +845,7 @@ export function MakerWork({
           </li>
           {activeTab?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
-              <InfoTip label={`${activeTab.label} opens its own page`} align="start">
+              <InfoTip className="min-w-0 max-w-full" label={`${activeTab.label} opens its own page`} align="start">
                 On this stage, “{activeTab.label}” takes a guest to a page of its own, so there are no scenes to arrange
                 here. Pick another tab to see its scenes.
               </InfoTip>
@@ -825,12 +857,12 @@ export function MakerWork({
           {stage === 'editorial' && navigator.postEvent ? (
             <li className="shrink-0 self-center px-1 text-[11px] font-semibold text-ink/60 lg:mb-2 lg:self-stretch" data-maker-post-event-state="">
               {navigator.postEvent === 'unreadable' ? (
-                <InfoTip label="Scenes unavailable" align="start">
+                <InfoTip className="min-w-0 max-w-full" label="Scenes unavailable" align="start">
                   Your story’s scenes could not be read just now. The story itself is unchanged — open the Maker
                   again in a moment.
                 </InfoTip>
               ) : (
-                <InfoTip
+                <InfoTip className="min-w-0 max-w-full"
                   label={`Auto · written ${new Date(navigator.postEvent.generatedAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`}
                   align="start"
                 >
@@ -994,7 +1026,7 @@ export function MakerWork({
                       ) : null}
                     </div>
                     {tile.kind === 'fixed' ? (
-                      <InfoTip label={tile.label} align="start" labelClassName="line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
+                      <InfoTip className="min-w-0 max-w-full" label={tile.label} align="start" labelClassName="min-w-0 line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
                         {tile.why}
                         {MAKER_FIXED_SOURCE[tile.fixed] ? (
                           <span className="mt-1.5 block">
@@ -1009,7 +1041,7 @@ export function MakerWork({
                         ) : null}
                       </InfoTip>
                     ) : tile.kind === 'post-event' ? (
-                      <InfoTip
+                      <InfoTip className="min-w-0 max-w-full"
                         label={tile.label}
                         align="start"
                         labelClassName={`line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight ${showing ? 'text-ink/75' : 'text-ink/45'}`}
@@ -1056,7 +1088,7 @@ export function MakerWork({
           })}
           {list.orderIsAutomatic ? (
             <li className="shrink-0 self-center px-4 text-[11px] text-ink/60 lg:mt-2 lg:self-stretch">
-              <InfoTip label="Order set for you" align="start">
+              <InfoTip className="min-w-0 max-w-full" label="Order set for you" align="start">
                 Open browsing arranges the sections by kind, so dragging cannot change what guests see.
               </InfoTip>
             </li>
@@ -1074,7 +1106,7 @@ export function MakerWork({
                     return (
                       <li key={f.key} data-maker-folded={f.key} className="flex items-center gap-1 text-[11.5px] text-ink/70">
                         <span className="min-w-0 flex-1">
-                          <InfoTip label={f.label} align="start" labelClassName="truncate">
+                          <InfoTip className="min-w-0 max-w-full" label={f.label} align="start" labelClassName="min-w-0 truncate">
                             {f.reason}
                           </InfoTip>
                         </span>
@@ -1140,7 +1172,7 @@ export function MakerWork({
               </div>
             ) : addScene && 'note' in addScene ? (
               <span className="flex items-center gap-1 pl-4 text-[11px] text-ink/60">
-                <InfoTip label="New scene" align="start">
+                <InfoTip className="min-w-0 max-w-full" label="New scene" align="start">
                   {addScene.note}
                 </InfoTip>
               </span>
@@ -1231,6 +1263,7 @@ export function MakerWork({
           palette={elementEditing.palette}
           ownsPro={ownsPro}
           draftAction={elementEditing.draftAction}
+          resize={toolsResize}
           onClose={() => {
             frameRef.current?.contentWindow?.postMessage(
               { source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null },
@@ -1259,6 +1292,7 @@ export function MakerWork({
           onClose={() => select?.(null)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
           onOpenTool={(key) => select?.({ kind: 'tool', key })}
+          resize={toolsResize}
           onElement={
             elementEditing && selectionKey
               ? (el) =>
@@ -1666,7 +1700,10 @@ function Inspector({
   onTab,
   onOpenTool,
   onElement,
+  resize,
 }: {
+  /** The tools column's width and its drag handle (desktop). */
+  resize: ToolsResize;
   /** Open a fixed scene's workspace (Hero, Reveal, Love Story, Post Event). */
   onOpenTool: (key: 'hero' | 'reveal' | 'love-story' | 'post-event') => void;
   /** 🔤 Open one element's sheet (font · colour · size · animation) — null where not offered. */
@@ -1867,8 +1904,10 @@ function Inspector({
   return (
     <aside
       aria-label="Inspector"
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[70dvh] flex-col rounded-t-3xl lg:static lg:z-auto lg:order-3 lg:max-h-none lg:w-[340px] lg:shrink-0 lg:rounded-none"
+      style={{ ['--maker-tools-w' as string]: `${resize.width}px` }}
+      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[70dvh] flex-col rounded-t-3xl lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
     >
+      <ToolsResizeHandle onPointerDown={resize.onPointerDown} />
       <div className="flex items-center gap-2 px-4 pt-3">
         <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
         <button

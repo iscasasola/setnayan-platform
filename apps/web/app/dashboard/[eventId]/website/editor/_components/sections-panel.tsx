@@ -238,7 +238,10 @@ export function SectionsPanel({
             | 'hidden';
           const hasContent = contentMap[row.widget_type] !== false;
           return (
-            <li key={row.widget_id} className="rounded-lg border border-ink/10 bg-white p-2">
+            /* No card (house rule, DESIGN_BRIEF_2026-09-24 §3; owner 2026-09-27):
+               the section's controls sit flat on the panel, grouped by space
+               and their small labels. */
+            <li key={row.widget_id} className="py-1.5">
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 text-[0.76rem] font-semibold text-ink">
                   {catalog?.label ?? row.widget_type}

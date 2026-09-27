@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "fee33ec586",
+  "generatedFromRef": "ce52c4f50",
   "routeCount": 435,
   "destinations": 947,
   "actions": 669,
-  "blocks": 4815,
+  "blocks": 4817,
   "routes": {
     "/": {
       "files": [
@@ -8409,9 +8409,11 @@
         "DressCodeFields",
         "DressCodePanel",
         "EditorialPanel",
+        "ElementButtons",
         "ElementSheet",
         "ElementTarget",
         "FileUpload",
+        "Fragment",
         "GalleryPanel",
         "HTMLDivElement",
         "HTMLElement",

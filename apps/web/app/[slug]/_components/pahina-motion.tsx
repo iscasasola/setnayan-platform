@@ -195,6 +195,22 @@ q();
  * retry is scheduled TWO ways, on `DOMContentLoaded` and on a 1.5s timer,
  * whichever lands first, and whichever loses is a no-op.
  * `the-choreography-waits-for-the-page.test.ts` pins all of it.
+ *
+ * ── ⏳ THE EVENT HUB'S "PLAYS ONCE" RIDES THE SAME OBSERVER (2026-09-27) ──
+ * A scene that "Plays once" (Calm, the default) used to start its arrival on
+ * page LOAD — so only what was on the first screen ever played; everything
+ * below had finished before the guest got there (measured: `finished`,
+ * progress 1, on every Calm scene below the fold). Now this script also marks
+ * each scene `.pahina-in` as it nears the screen — every `.hub-canvas` frame,
+ * and the scene before each element style (`style[data-hub-els]`) — and the
+ * timed rules in globals.css / `hubElementSceneCss` bind only once the mark
+ * lands. NOT a second mechanism: the same flag gate, the same class, the same
+ * fail-visible contract — no mark means nothing is bound and the words rest,
+ * visible. It fires 32px BEFORE the scene enters (threshold 0), so the frame a
+ * guest first sees is the arrival's first frame, never the rest state.
+ * 🔑 It is independent of the chapters: a page whose chapters stood down still
+ * gets its scenes, and a scene streamed in late is picked up on
+ * `DOMContentLoaded` and the 1.5s timer, the same two ways the chapters are.
  */
 export function PahinaMotionObserver() {
   return (
@@ -218,6 +234,19 @@ for(var i=0;i<es.length;i++){if(es[i].isIntersecting){es[i].target.classList.add
 },{rootMargin:'0px 0px -6% 0px',threshold:0.01});
 for(var i=0;i<n.length;i++){io.observe(n[i])}
 return true};
+var hsel='.hub-canvas, style[data-hub-els]';
+var hio=null;
+var hub=function(){try{
+var h=document.querySelectorAll(hsel);
+if(!h.length)return;
+if(!hio)hio=new IntersectionObserver(function(es){
+for(var i=0;i<es.length;i++){if(es[i].isIntersecting){es[i].target.classList.add('pahina-in');hio.unobserve(es[i].target)}}
+},{rootMargin:'0px 0px 32px 0px',threshold:0});
+for(var i=0;i<h.length;i++){var t=h[i].tagName==='STYLE'?h[i].previousElementSibling:h[i];if(t)hio.observe(t)}
+}catch(e){}};
+hub();
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',hub,{once:true})}
+setTimeout(hub,1500);
 if(!attach()){
 var retry=function(){if(done)return;if(!attach()){give(document.querySelectorAll(sel).length)}};
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',retry,{once:true})}

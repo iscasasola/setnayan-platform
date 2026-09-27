@@ -461,52 +461,157 @@ const OUT_KF: Record<Exclude<HubElOut, 'stay'>, string> = {
 };
 
 /**
- * The element's animations as ONE declaration set — In, During and Out are
- * comma-separated animations that run together. Returns nothing for an element
- * with no motion of its own (it then moves with its scene).
+ * 🧭 WHERE THE ELEMENT SITS decides which scroll its "Follows the scroll" follows.
+ *
+ *   page   an ordinary scene — `view()`, the element's own trip across the screen.
+ *   hero   the invitation card. It is ON SCREEN WHEN THE PAGE OPENS, so there is
+ *          no scroll for an In to follow: a `view()` In had already finished
+ *          before the guest saw anything (measured: `finished` at load). Its In
+ *          plays on arrival instead — exactly what the Maker's Play button
+ *          shows — and its Out still follows the scroll.
+ *   scrub  a pinned Scrub scene. The scene is a SCROLL CONTAINER
+ *          (`overflow-y: auto`, so a tall scene can scroll inside itself), and
+ *          `view()` binds to the NEAREST scroll container — one that never
+ *          scrolls. Measured: the part's In read `none` at every position
+ *          through the run. So it follows the scene's own named timeline
+ *          (`--hub-tl`, the spacer that drives the hold) instead.
+ *   auto   an armed Auto run — its scenes are scroll containers too, for the
+ *          same reason; it follows the run's timeline (`--hub-tl`).
  */
-export function hubElementMotionDeclarations(motion: HubElementMotion | undefined): Array<[string, string]> {
-  if (!motion) return [];
+export type HubElementPlace = 'page' | 'hero' | 'scrub' | 'auto';
+
+/**
+ * 🧩 A PART THE COUPLE GAVE NO In (or no Out) STILL MOVES WITH ITS SCENE.
+ * The element's own In · During · Out win; what it did NOT choose is the
+ * scene's. The scene's per-part arrival and hand-off travel as custom
+ * properties (`--hub-part-*`, set in `globals.css` "ONE PART AFTER ANOTHER"),
+ * so the element's rule — which must out-rank the scene's — can put the
+ * scene's slot back into its own list. Before this, Drift on a part of a
+ * one-after-another scene REPLACED the part's arrival (measured: the part
+ * carried `el-during-drift` and nothing else). Unset anywhere else → `none`.
+ */
+const SCENE_IN_SLOT: MotionSlot = {
+  a: 'var(--hub-part-dur, 1s) var(--hub-part-ease, linear) var(--hub-part-delay, 0s) both var(--hub-part-in, none)',
+  timeline: 'var(--hub-part-in-tl, auto)',
+  range: 'var(--hub-part-in-range, normal)',
+};
+const SCENE_OUT_SLOT: MotionSlot = {
+  a: '1s linear 0s backwards var(--hub-part-out, none)',
+  timeline: 'var(--hub-part-out-tl, auto)',
+  range: 'var(--hub-part-out-range, normal)',
+};
+
+/**
+ * One comma-separated animation. 🪤 THE NAME IS WRITTEN LAST, after the fill
+ * mode: `none` is a valid fill mode AND a valid name, and the shorthand gives
+ * an ambiguous keyword to the fill mode first. Written name-first, a slot whose
+ * `var()` fell back to `none` handed its `none` to the fill mode and its real
+ * fill (`backwards`) became the NAME — measured, `animation-name` read
+ * "none, backwards".
+ */
+type MotionSlot = { a: string; timeline: string; range: string };
+
+/** The timeline and ranges a part's OWN scroll-linked In and Out take, by where it sits. */
+const OWN_SCROLL: Record<Exclude<HubElementPlace, 'hero'>, { tl: string; in: string; out: string }> = {
+  page: { tl: 'view()', in: 'entry 0% cover 30%', out: 'exit 0% exit 100%' },
+  /* On the spacer's timeline the scene fades in over `entry 15–75%`, holds for
+     `contain`, and cross-fades from `exit 25%`: the part arrives as the scene
+     settles and leaves before the hand-over. */
+  scrub: { tl: 'var(--hub-tl)', in: 'entry 25% entry 60%', out: 'exit 0% exit 25%' },
+  auto: { tl: 'var(--hub-tl)', in: 'entry 0% cover 30%', out: 'exit 0% exit 100%' },
+};
+
+/** A part's In · During · Out as animation slots, and whether any slot is its own scroll-linked one. */
+function motionSlots(
+  motion: HubElementMotion,
+  place: HubElementPlace,
+  approached: boolean,
+): { slots: MotionSlot[]; timedIn: boolean; ownScroll: boolean } {
   const scroll = motion.timeline === 'scroll';
-  const anims: Array<{ a: string; timeline: string; range: string }> = [];
+  const slots: MotionSlot[] = [];
+  let timedIn = false;
+  let ownScroll = false;
   if (motion.in) {
-    const dur = scroll ? 1 : DURATION_S[motion.duration ?? 'normal'];
-    const delay = scroll ? 0 : DELAY_S[motion.delay ?? 'none'];
-    anims.push({
-      a: `${IN_KF[motion.in]} ${dur}s ${scroll ? 'linear' : EASE} ${delay}s backwards`,
-      timeline: scroll ? 'view()' : 'auto',
-      range: scroll ? 'entry 0% cover 30%' : 'normal',
-    });
+    if (scroll && place !== 'hero') {
+      const r = OWN_SCROLL[place];
+      ownScroll = true;
+      slots.push({ a: `1s linear 0s backwards ${IN_KF[motion.in]}`, timeline: r.tl, range: r.in });
+    } else {
+      timedIn = true;
+      const dur = scroll ? DURATION_S.normal : DURATION_S[motion.duration ?? 'normal'];
+      const delay = scroll ? 0 : DELAY_S[motion.delay ?? 'none'];
+      /* 🔑 fill `none`, NOT `backwards`: words move but are NEVER hidden while
+         they wait. `backwards` painted the from-keyframe (opacity 0) for the
+         whole Delay — measured, the hero's names read opacity 0 for 0.8 s.
+         ⏳ And a scene's timed In waits for the guest to GET there: until the
+         page's observer marks the scene `.pahina-in` the slot is `none`, and
+         the part rests where it is, visible. */
+      slots.push({
+        a: approached || place === 'hero' ? `${dur}s ${EASE} ${delay}s none ${IN_KF[motion.in]}` : '0s none none',
+        timeline: 'auto',
+        range: 'normal',
+      });
+    }
+  } else if (place !== 'hero') {
+    slots.push(SCENE_IN_SLOT);
   }
   if (motion.during === 'drift') {
-    anims.push({ a: `${DURING_KF.drift} 7s ease-in-out 0s infinite alternate`, timeline: 'auto', range: 'normal' });
+    slots.push({ a: `7s ease-in-out 0s infinite alternate ${DURING_KF.drift}`, timeline: 'auto', range: 'normal' });
   }
   if (scroll && motion.out) {
-    anims.push({ a: `${OUT_KF[motion.out]} 1s linear both`, timeline: 'view()', range: 'exit 0% exit 100%' });
+    const r = OWN_SCROLL[place === 'hero' ? 'page' : place];
+    ownScroll = true;
+    /* 🔑 `backwards`, NOT `both`. An Out that HOLDS its end state stays gone
+       whenever the timeline stops driving it — exactly what an engine without
+       scroll timelines did: it ran the Out on a one-second clock and held
+       opacity 0 for good. The gate keeps that engine away entirely; this makes
+       the Out incapable of it even so. */
+    slots.push({ a: `1s linear 0s backwards ${OUT_KF[motion.out]}`, timeline: r.tl, range: r.out });
+  } else if (place !== 'hero') {
+    slots.push(SCENE_OUT_SLOT);
   }
-  if (anims.length === 0) return [['animation', 'none']];
-  const out: Array<[string, string]> = [['animation', anims.map((x) => x.a).join(', ')]];
-  if (anims.some((x) => x.timeline !== 'auto')) {
-    out.push(['animation-timeline', anims.map((x) => x.timeline).join(', ')]);
-    out.push(['animation-range', anims.map((x) => x.range).join(', ')]);
-  }
-  return out;
+  return { slots, timedIn, ownScroll };
 }
 
 /**
- * The CSS declarations one style contributes, as `property → value` in CSS
+ * The element's animations as ONE declaration set — In, During and Out are
+ * comma-separated animations that run together. Returns nothing for an element
+ * with no motion of its own (it then moves with its scene).
+ *
+ * 🔑 ALWAYS ALL THREE PROPERTIES — `animation`, `animation-timeline`,
+ * `animation-range`. The shorthand alone left the SCENE's more specific
+ * `animation-timeline: view()` in charge: a part set to "Plays once" inside an
+ * Editorial scene silently became scroll-driven (measured: `ViewTimeline`,
+ * `finished`, on a part meant to play on the clock).
+ *
+ * ⛔ NEVER WRITTEN BARE. The guest page only ever puts these inside
+ * `@supports (animation-timeline: view())` AND
+ * `@media (prefers-reduced-motion: no-preference)` — `hubElementSceneCss` for a
+ * scene, the `[data-el-motion]` rule in `globals.css` for the hero.
+ */
+export function hubElementMotionDeclarations(
+  motion: HubElementMotion | undefined,
+  place: HubElementPlace = 'page',
+  approached = true,
+): Array<[string, string]> {
+  if (!motion) return [];
+  const { slots } = motionSlots(motion, place, approached);
+  if (slots.length === 0) return [['animation', 'none']];
+  return [
+    ['animation', slots.map((x) => x.a).join(', ')],
+    ['animation-timeline', slots.map((x) => x.timeline).join(', ')],
+    ['animation-range', slots.map((x) => x.range).join(', ')],
+  ];
+}
+
+/**
+ * The element's LOOK — font · colour · size — as `property → value` in CSS
  * spelling. An empty style contributes nothing, so an element the couple never
- * touched renders exactly as before.
+ * touched renders exactly as before. Its MOTION is deliberately not here: it
+ * is only ever written behind the two gates (`hubElementMotionDeclarations`).
  *
  * `zoom` for size: it scales the element from ITS OWN size (a 3rem heading
  * becomes 3.6rem at L) where `font-size: 1.2em` would scale from the parent's.
- *
- * No transform is HELD once an arrival lands (`backwards` fill,
- * `an-identity-transform-unpins-every-fixed-child.test.ts`); Drift moves the
- * separate `translate` property, so it composes with an In's transform instead
- * of replacing it. A guest who asked for less motion gets the global
- * reduced-motion freeze in `globals.css`, whose `!important` lives in a layer
- * and so outranks anything written here.
  */
 export function hubElementDeclarations(style: HubElementStyle | null | undefined): Array<[string, string]> {
   if (!style) return [];
@@ -517,19 +622,40 @@ export function hubElementDeclarations(style: HubElementStyle | null | undefined
   }
   if (style.color) out.push(['color', style.color]);
   if (style.size) out.push(['zoom', String(HUB_ELEMENT_SIZE_SCALE[style.size])]);
-  out.push(...hubElementMotionDeclarations(style.motion));
   return out;
 }
 
 const camel = (prop: string) => prop.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
 
-/** The same declarations as a React inline style (the hero's parts). */
+/**
+ * The hero part's inline style: its look, plus its motion as THREE CUSTOM
+ * PROPERTIES — `--el-anim` · `--el-tl` · `--el-range`.
+ *
+ * 🔑 WHY PROPERTIES AND NOT `animation`: an inline style cannot sit inside
+ * `@supports`, and an ungated inline animation is what made words VANISH on
+ * older iPhones. An engine without scroll timelines drops
+ * `animation-timeline`, plays every animation on a one-second clock, and the
+ * Out's old `both` fill then held opacity 0 for good (measured: the date, the
+ * line and the time at opacity 0 at rest). A custom property does nothing by
+ * itself; ONE gated rule in `globals.css` (`[data-el-motion]`) turns it into
+ * motion, so an engine that fails the gate simply shows the words.
+ * The part carries `data-el-motion` (`hubElementMotionAttr`) for that rule.
+ */
 export function hubElementInlineStyle(style: HubElementStyle | null | undefined): Record<string, string> | undefined {
-  const decls = hubElementDeclarations(style);
-  if (decls.length === 0) return undefined;
   const out: Record<string, string> = {};
-  for (const [prop, value] of decls) out[camel(prop)] = value;
-  return out;
+  for (const [prop, value] of hubElementDeclarations(style)) out[camel(prop)] = value;
+  const motion = Object.fromEntries(hubElementMotionDeclarations(style?.motion, 'hero'));
+  if (motion.animation) {
+    out['--el-anim'] = motion.animation;
+    out['--el-tl'] = motion['animation-timeline'] ?? 'auto';
+    out['--el-range'] = motion['animation-range'] ?? 'normal';
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** `data-el-motion` on a hero part that moves on its own — the hook the one gated rule reads. */
+export function hubElementMotionAttr(style: HubElementStyle | null | undefined): { 'data-el-motion'?: '' } {
+  return style?.motion ? { 'data-el-motion': '' } : {};
 }
 
 /** A run's inline style — font · colour · size (`em`, so it scales from the element's own size). */
@@ -582,28 +708,76 @@ export function hubElementScope(widgetType: string): string | null {
 }
 
 /**
+ * 🎯 THE ELEMENT'S MOTION OUT-RANKS EVERY SCENE RULE — by one ID's worth of
+ * specificity, from a `:not()` of an id nothing carries.
+ *
+ * The scene addresses the same parts with rules up to (0,5,0) — the Scrub
+ * run's first-child `animation: none`, the one-after-another nth-child
+ * ranges — and the element's rule was (0,2,1). Measured, three ways the
+ * couple's own choice lost: a part's own In inside a Scrub scene was switched
+ * off, "Plays once" inside Editorial followed the scroll, and Drift replaced a
+ * part's arrival. `!important` is NOT the fix: it would also beat the Maker's
+ * Play button, which replays an element by writing its inline style.
+ */
+const OWN = ':not(#el-own)';
+const GATE_OPEN = '@supports (animation-timeline: view()){@media (prefers-reduced-motion: no-preference){';
+const SCENES_GATE_OPEN = '@supports (animation-range: entry 0% exit 100%) and (timeline-scope: none){';
+
+/**
  * THE GUEST PAGE'S STYLE FOR ONE SCENE — CSS text, or null when there is none.
  *
  * Rendered as `<style hidden data-hub-els="<scope>">` IMMEDIATELY AFTER the
  * scene, and addressed with `:has(+ style[data-hub-els="…"])`, so no widget is
  * wrapped or edited and the scene keeps its place as its parent's direct child
- * (`.hub-scene > section` draws the card). `!important` because this is the
- * element's OWN choice: the Keynote rule is that it wins over the theme's.
+ * (`.hub-scene > section` draws the card). The LOOK is `!important` because it
+ * is the element's OWN choice: the Keynote rule is that it wins over the
+ * theme's.
+ *
+ * 🔒 THE MOTION IS WRITTEN ONLY INSIDE BOTH GATES — `@supports
+ * (animation-timeline: view())` and `prefers-reduced-motion: no-preference` —
+ * the canvas's own fail-visible rule (`globals.css`, "THE EVENT HUB CANVAS").
+ * An engine that fails either shows every word, at rest. Then, per place:
+ *
+ *   · a timed In waits for `.pahina-in` — the page's one observer
+ *     (`PahinaMotionObserver`) marks the scene as the guest reaches it;
+ *   · inside a pinned Scrub scene or an armed Auto run, the part's own
+ *     scroll-linked In and Out follow `--hub-tl` (`HubElementPlace`).
  */
 export function hubElementSceneCss(scope: string, elements: HubElementStyles | null | undefined): string | null {
   const safe = hubElementScope(scope);
   if (!safe || !elements) return null;
-  const rules: string[] = [];
+  const host = `:has(+ style[data-hub-els="${safe}"])`;
+  const looks: string[] = [];
+  const moving: string[] = [];
+  const scenes: string[] = [];
+  const decl = (d: Array<[string, string]>) => d.map(([p, v]) => `${p}:${v}`).join(';');
   for (const key of HUB_SCENE_ELEMENT_KEYS) {
-    const decls = hubElementDeclarations(elements[key]);
-    if (decls.length === 0) continue;
+    const style = elements[key];
     const target = `:is(${HUB_SCENE_ELEMENT_SELECTOR[key]})`;
-    const body = decls
-      .map(([p, v]) => `${p}:${v}${p === 'font-family' || p === 'color' || p === 'zoom' ? ' !important' : ''}`)
-      .join(';');
-    rules.push(`:has(+ style[data-hub-els="${safe}"]) ${target}{${body}}`);
+    const look = hubElementDeclarations(style);
+    if (look.length > 0) looks.push(`${host} ${target}{${look.map(([p, v]) => `${p}:${v} !important`).join(';')}}`);
+    const motion = style?.motion;
+    if (!motion) continue;
+    const { timedIn, ownScroll } = motionSlots(motion, 'page', true);
+    const at = (place: HubElementPlace, approached: boolean) => decl(hubElementMotionDeclarations(motion, place, approached));
+    moving.push(`${host} ${target}${OWN}{${at('page', false)}}`);
+    if (timedIn) moving.push(`.pahina-in${host} ${target}${OWN}{${at('page', true)}}`);
+    if (!ownScroll) continue;
+    for (const [place, prefix] of [
+      ['scrub', '.hub-scrub > '],
+      ['auto', '.hub-arun[data-armed] > .hub-auto > '],
+    ] as const) {
+      scenes.push(`${prefix}${host} ${target}${OWN}{${at(place, false)}}`);
+      if (timedIn) scenes.push(`${prefix}.pahina-in${host} ${target}${OWN}{${at(place, true)}}`);
+    }
   }
-  return rules.length > 0 ? rules.join('\n') : null;
+  const css = [...looks];
+  if (moving.length > 0 || scenes.length > 0) {
+    css.push(
+      `${GATE_OPEN}\n${moving.join('\n')}${scenes.length > 0 ? `\n${SCENES_GATE_OPEN}\n${scenes.join('\n')}\n}` : ''}\n}}`,
+    );
+  }
+  return css.length > 0 ? css.join('\n') : null;
 }
 
 /* ── THE SHEET'S HELPERS ────────────────────────────────────────────────── */

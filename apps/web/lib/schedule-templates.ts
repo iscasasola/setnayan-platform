@@ -19,7 +19,7 @@
  * Pure data + pure builders; unit-tested in schedule-templates.test.ts.
  */
 
-import type { ScheduleBlockType } from '@/lib/schedule';
+import { anchorIso, type ScheduleBlockType } from '@/lib/schedule';
 
 export type ScheduleTemplateRow = {
   label: string;
@@ -106,19 +106,18 @@ export function templatesForEventType(eventType: string | null): ScheduleTemplat
   return SCHEDULE_TEMPLATES.filter((t) => t.eventTypes.includes(eventType));
 }
 
-/** Anchor a wall-clock time to the event date — same convention as
- *  lib/schedule.ts' seed anchor: event date when set, else six months out as
- *  the planning-runway placeholder the host edits once they pick a date. */
+/** Anchor a wall-clock time to the event date — THE SAME anchor as the seed
+ *  (`anchorIso`, lib/schedule.ts): event date when set, else six months out as
+ *  the planning-runway placeholder the host edits once they pick a date.
+ *
+ *  ⏱ This used to be its own copy of the old `new Date(date).setHours(h, m)`
+ *  form — LOCAL setters, so the digits it stored depended on the machine that
+ *  ran it. On Vercel (UTC) that happens to write the venue wall clock the rest
+ *  of the product reads (13:30 → `13:30Z` = 1:30 PM); anywhere else it moved
+ *  every templated block by that machine's offset. One anchor, built from
+ *  components, cannot drift. */
 function templateAnchorIso(eventDate: string | null, hour: number, minute: number): string {
-  const base = eventDate ? new Date(eventDate) : null;
-  if (base && !Number.isNaN(base.getTime())) {
-    base.setHours(hour, minute, 0, 0);
-    return base.toISOString();
-  }
-  const fallback = new Date();
-  fallback.setMonth(fallback.getMonth() + 6);
-  fallback.setHours(hour, minute, 0, 0);
-  return fallback.toISOString();
+  return anchorIso(eventDate, hour, minute);
 }
 
 export type TemplateInsertRow = {

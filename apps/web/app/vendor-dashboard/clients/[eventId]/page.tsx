@@ -189,6 +189,7 @@ import {
 } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -312,9 +313,10 @@ function fmtShortDate(iso: string | null): string {
   });
 }
 
+/** ⏱ A schedule time is the venue wall clock — read its digits, never re-zone. */
 function fmtTime(iso: string | null): string | null {
   if (!iso) return null;
-  return new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+  return formatWallClock(iso) || null;
 }
 
 function fmtCODate(iso: string | null): string {

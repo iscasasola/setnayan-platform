@@ -625,7 +625,7 @@ export type ScheduleSeedChild = {
  * Output is byte-identical under UTC, so nothing about a seeded event changes.
  * What changes is that it is now the same everywhere.
  */
-function anchorIso(eventDate: string | null, hour: number, minute = 0): string {
+export function anchorIso(eventDate: string | null, hour: number, minute = 0): string {
   const m = eventDate ? /^(\d{4})-(\d{2})-(\d{2})/.exec(eventDate) : null;
   if (m) {
     const [, y, mo, d] = m;

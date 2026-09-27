@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, Lock, Sparkles } from 'lucide-react';
 import type { DayOfFrameModel } from '@/lib/vendor-dayof-frame';
 import { roleRunOfDay, type RunBlock } from '@/lib/role-run-of-day';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 import type { VendorSpecializationSet } from '@/lib/vendor-specialization-gate';
 import {
   ConsoleEyebrow,
@@ -103,13 +104,9 @@ function RunOfDay({
             className={`flex items-baseline gap-2 ${e.yours ? '' : 'opacity-45'}`}
           >
             <span className="font-mono text-xs text-ink/60">
-              {e.startAt
-                ? new Date(e.startAt).toLocaleTimeString('en-PH', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    timeZone: 'Asia/Manila',
-                  })
-                : '—'}
+              {/* ⏱ The venue wall clock — re-zoning it into Asia/Manila
+                  added eight hours a second time (1:30 PM read 9:30 PM). */}
+              {e.startAt ? formatWallClock(e.startAt) || '—' : '—'}
             </span>
             <span className={`text-sm ${e.relevance === 'primary' ? 'font-semibold text-ink' : 'text-ink/80'}`}>
               {e.label}

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { blockRelevance, deriveCallTime, type LensBlock } from '@/lib/vendor-timeline';
 import { formatCentavos, type ProposalLineItem, type ProposalTokenKey } from '@/lib/vendor-proposals';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 
 /**
  * Proposal merge-token resolution — extracted from createProposal so the
@@ -45,9 +46,10 @@ function fmtLongDate(iso: string | null): string | null {
   });
 }
 
+/** ⏱ A schedule time is the venue wall clock — read its digits, never re-zone. */
 function fmtTime(iso: string | null): string | null {
   if (!iso) return null;
-  return new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+  return formatWallClock(iso) || null;
 }
 
 /** A booked-event brief with no shared planning data — for inquiry-stage proposals. */

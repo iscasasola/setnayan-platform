@@ -112,6 +112,7 @@ import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/l
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
 import { buildMakerNavigatorData } from './_components/maker-navigator-data';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { resolveHubPhase } from '@/lib/event-hub-control';
 import { readPostEventForMaker } from '@/lib/post-event-compile.server';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
@@ -1050,12 +1051,10 @@ export default async function WebsiteEditorPage({
       firstBlock: firstBlock
         ? {
             label: firstBlock.label,
-            time: (() => {
-              const d = new Date(firstBlock.start_at);
-              return Number.isNaN(d.getTime())
-                ? null
-                : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: eventTz });
-            })(),
+            // ⏱ The venue wall clock, read the way the guest page and the
+            // Schedule read it. This tile used to re-zone it into `eventTz` and
+            // told the couple "Guests arrive · 9:30 PM" for a 1:30 PM arrival.
+            time: formatWallClock(firstBlock.start_at) || null,
           }
         : null,
       dressTitle: dressCodeConfig.title || null,

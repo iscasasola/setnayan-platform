@@ -7,6 +7,7 @@ import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 
 export const metadata = { title: 'Seat Plan · Vendor' };
 
@@ -78,9 +79,10 @@ const MEAL_LABELS: Record<string, string> = {
   no_preference: 'No pref.',
 };
 
+/** ⏱ A schedule time is the venue wall clock — read its digits, never re-zone. */
 function fmtWindowTime(iso: string | null): string | null {
   if (!iso) return null;
-  return new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+  return formatWallClock(iso) || null;
 }
 
 function PinMarker({ o }: { o: PlanObject }) {

@@ -7,7 +7,7 @@ import { readGuestSession, type GuestSessionPayload } from '@/lib/guest-session'
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import { INVITE_LINK_SENT_COOKIE } from '@/lib/invite-arrival';
-import { resolveGuestViewer, shouldSendKeepLink } from '@/lib/guest-one-path';
+import { resolveGuestViewer, shouldSendKeepLink, type GuestViewer } from '@/lib/guest-one-path';
 
 /**
  * guest-one-path.server.ts — the reads and the one send behind the guest's one
@@ -33,16 +33,26 @@ import { resolveGuestViewer, shouldSendKeepLink } from '@/lib/guest-one-path';
 export async function readGuestSessionForEvent(
   eventId: string,
 ): Promise<GuestSessionPayload | null> {
+  const viewer = await readGuestViewerForEvent(eventId);
+  return viewer.kind === 'anonymous' ? null : viewer.session;
+}
+
+/**
+ * The same answer with its KIND kept — `cookie` (a key was used on this
+ * browser) or `seat` (a signed-in account bound to a seat here), or
+ * `anonymous`. `/[slug]/find-seat` needs the kind to say "Signed in · Ana"
+ * rather than "For Ana"; everything else wants only the session.
+ */
+export async function readGuestViewerForEvent(eventId: string): Promise<GuestViewer> {
   const cookie = await readGuestSession();
-  if (cookie && cookie.event_id === eventId) return cookie;
+  if (cookie && cookie.event_id === eventId) return resolveGuestViewer({ eventId, cookie, seat: null });
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) return resolveGuestViewer({ eventId, cookie, seat: null });
   const seat = await findGuestSeatForUser(eventId, user.id);
-  const viewer = resolveGuestViewer({ eventId, cookie, seat });
-  return viewer.kind === 'anonymous' ? null : viewer.session;
+  return resolveGuestViewer({ eventId, cookie, seat });
 }
 
 /**

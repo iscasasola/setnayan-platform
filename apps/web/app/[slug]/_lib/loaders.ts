@@ -46,7 +46,7 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
-import { eventOwnsCustomQrGuest, eventSeatingPublished } from '@/lib/seat-pass';
+import { eventSeatingPublished } from '@/lib/seat-pass';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
@@ -1263,12 +1263,13 @@ export const loadGuestContext = cache(
     // people, and has the couple published the seating? Same two facts the
     // room footer's "Find your seat" uses (room-links.ts), from the same
     // cached loader.
-    const [ownsCustomQr, doorway] = await Promise.all([
-      eventOwnsCustomQrGuest(admin, event.event_id),
-      loadDoorwayFacts(admin, event.event_id, event.event_type ?? null),
-    ]);
-    const seatPassActive =
-      ownsCustomQr && doorway.seatingSurfaceEnabled && doorway.seatingPublished;
+    //
+    // 💰 2026-09-27 ("FIND YOUR SEAT, REDESIGNED" (5), owner "ok to all"): the
+    // link now opens `/find-seat` — the table, the map and the on-screen door
+    // pass are FREE, so ownership is no longer one of its questions. Only the
+    // PRINTED branded QR cards stay paid (`/[slug]/seat`, `eventOwnsCustomQrGuest`).
+    const doorway = await loadDoorwayFacts(admin, event.event_id, event.event_type ?? null);
+    const seatPassActive = doorway.seatingSurfaceEnabled && doorway.seatingPublished;
 
     // Per-guest gallery (owner 2026-06-12: "the gallery must be on the on-the-day
     // part") — the photos THIS guest is tagged in. Shown through the LIVE window

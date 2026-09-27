@@ -7,8 +7,15 @@ import {
   sanitizeSeatLookupQuery,
   SEAT_LOOKUP_MAX_MATCHES,
   type SeatLookupRow,
-  type SeatMatch,
 } from '@/lib/seat-lookup';
+import {
+  openSeatMatches,
+  seatLookupDeviceKey,
+  SEAT_DEVICE_HEADER,
+  SEAT_LOOKUP_DEVICE_BUCKET,
+  SEAT_LOOKUP_DEVICE_LIMIT,
+  SEAT_LOOKUP_DEVICE_WINDOW_SECS,
+} from '@/lib/find-your-seat';
 
 // GET /api/seat-lookup/[slug]?q=<name> — the FREE, public guest seat finder
 // (seat-finding PR 1). No session, no SKU: a guest who scanned the shared
@@ -22,6 +29,13 @@ import {
 // table never goes anon-readable. Keys are deduped (a zone's clip is shared by
 // all its tables) and resolved in parallel; a presign failure degrades to "no
 // clip", never a 500.
+//
+// 🔒 2026-09-27 ("FIND YOUR SEAT, REDESIGNED", owner "ok to all"): the response
+// carries NO NAME — only the table and its walk. The RPC still returns
+// `display_name` (the exact match runs on it); `openSeatMatches` builds the
+// response field by field so it never leaves this route. And a QUIET
+// per-device limit (~10 tries a minute) sits beside the older per-connection
+// one, so nobody runs a list of names through the open search.
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +56,20 @@ export async function GET(
   });
   if (!rl.ok) return rateLimited429(rl.retryAfterSecs);
 
+  // The quiet one: per DEVICE on this event, so a whole reception sharing one
+  // wifi address is not throttled as one person (lib/find-your-seat.ts).
+  const device = await enforceRateLimit(
+    SEAT_LOOKUP_DEVICE_BUCKET,
+    seatLookupDeviceKey({
+      slug,
+      deviceId: req.headers.get(SEAT_DEVICE_HEADER),
+      ip: clientIp(req.headers),
+      userAgent: req.headers.get('user-agent'),
+    }),
+    { limit: SEAT_LOOKUP_DEVICE_LIMIT, windowSecs: SEAT_LOOKUP_DEVICE_WINDOW_SECS },
+  );
+  if (!device.ok) return rateLimited429(device.retryAfterSecs);
+
   const query = sanitizeSeatLookupQuery(new URL(req.url).searchParams.get('q'));
   // Too short / empty → empty result, never an error or a roster dump.
   if (!query) return NextResponse.json({ matches: [] });
@@ -51,8 +79,14 @@ export async function GET(
     p_slug: slug,
     p_query: query,
   });
-  // Pre-migration DB (function absent) or any read error → empty, not a 500.
-  if (error) return NextResponse.json({ matches: [] });
+  // 🔴 A FAILED READ IS NOT "NO TABLE FOR THAT NAME". This used to answer an
+  // error with `{ matches: [] }`, which the page rendered as the not-found
+  // message — telling a seated guest standing at the door that their name is
+  // not on anyone's table. The page says "try again" for this instead.
+  if (error) {
+    console.error('[supabase-error] app/api/seat-lookup/[slug]/route.ts · rpc:public_seat_lookup', error);
+    return NextResponse.json({ error: 'lookup_failed' }, { status: 503 });
+  }
 
   const rows = ((data ?? []) as SeatLookupRow[]).slice(0, SEAT_LOOKUP_MAX_MATCHES);
 
@@ -72,11 +106,6 @@ export async function GET(
     ),
   );
 
-  const matches: SeatMatch[] = rows.map((r) => ({
-    display_name: r.display_name,
-    table_label: r.table_label,
-    walk_zone_label: r.walk_video_key ? r.walk_zone_label : null,
-    walk_video_url: r.walk_video_key ? (keyToUrl.get(r.walk_video_key) ?? null) : null,
-  }));
+  const matches = openSeatMatches(rows, keyToUrl);
   return NextResponse.json({ matches });
 }

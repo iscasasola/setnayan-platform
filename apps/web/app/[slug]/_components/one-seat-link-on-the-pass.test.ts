@@ -24,9 +24,14 @@ function passCard(): string {
   return body.slice(start, end);
 }
 
-test('the pass card holds exactly one seat link, to the personal seat pass', () => {
+// 🪑 2026-09-27 ("FIND YOUR SEAT, REDESIGNED", owner "ok to all"): the one seat
+// page is `/find-seat` — free, and it knows the guest by the same resolver as
+// the event page, so the /seat/claim hop is no longer the way there. `/seat`
+// stays the landing of the PRINTED branded QR cards.
+test('the pass card holds exactly one seat link, to the free seat page', () => {
   const card = passCard();
-  const seatLinks = (card.match(/\/seat\/claim\?t=/g) ?? []).length;
+  const seatLinks = (card.match(/\/find-seat`/g) ?? []).length;
+  assert.equal((card.match(/\/seat\/claim\?t=/g) ?? []).length, 0, 'the card still sends guests through the paid pass hop');
   const mapLinks = (card.match(/find-my-table/g) ?? []).length;
   assert.equal(seatLinks, 1, `one link to the seat pass (found ${seatLinks})`);
   assert.equal(mapLinks, 0, `no second seat door on the card (found ${mapLinks} find-my-table)`);

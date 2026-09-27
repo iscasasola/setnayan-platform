@@ -103,6 +103,7 @@ import { songRequestCardShows, type SongRequestDoor } from '@/lib/guest-song-req
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
 import { GuestHubCard } from './guest-hub-card';
 import { YourSeatBlock } from './your-seat-block';
+import { SeatDoorLine } from './seat-door-line';
 import {
   type InvitationWidgetRow,
   type LifecyclePhase,
@@ -1732,16 +1733,19 @@ export async function SiteBody({
             "Find my table" (the Indoor Blueprint map) and "Your seat pass"
             (this guest's exact seat, the same map, their tablemates and the
             arrival bloom). Both are free now, and the pass does everything the
-            map does, so they were two doors to one question. The pass is the
-            one: it goes through /seat/claim so the guest-session cookie is set
-            before it lands. `seatPassActive` already asks whether this kind of
+            map does, so they were two doors to one question.
+            🪑 2026-09-27 ("FIND YOUR SEAT, REDESIGNED"): the one seat page is
+            now `/find-seat`, which knows this guest by the SAME resolver as this
+            page (cookie OR signed-in seat) — so no /seat/claim hop is needed,
+            and its table, map and door pass are free. `/seat` stays the landing
+            of the PRINTED branded QR cards. `seatPassActive` already asks whether this kind of
             event seats people and whether the seating is published, so the
             link never opens a notFound() or an empty plan.
             The Indoor Blueprint map stays reachable from the everything-else
             sheet's own "Find my table" row. */}
-        {seatPassActive && guest.qr_token ? (
+        {seatPassActive ? (
           <Link
-            href={`/${event.slug}/seat/claim?t=${guest.qr_token}`}
+            href={`/${event.slug}/find-seat`}
             className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-sm font-medium text-ink/75 hover:border-terracotta hover:text-terracotta-700"
           >
             <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -2337,6 +2341,13 @@ export async function SiteBody({
                   at least one such widget rendered, matching menuSections.details. */}
               {menuOn && plan.hideableInOrder.length > 0 ? (
                 <span id={SITE_MENU_ANCHORS.details} aria-hidden className="sr-only" />
+              ) : null}
+              {/* 🪑 "Your seat · Table 3 →" — the Details scene's seat line (owner
+                  2026-09-27, "FIND YOUR SEAT, REDESIGNED" (4): no new bar slot;
+                  Details carries it, Me repeats it). Same two facts the pass
+                  card's link asks: this kind seats people, the plan is posted. */}
+              {seatPassActive && !isMakerCanvas ? (
+                <SeatDoorLine slug={event.slug ?? ''} tableLabel={guestHubData.tableLabel} />
               ) : null}
               {/* 🎬 Scroll · Scrub per section (owner 2026-09-24). Byte-identical
                   children unless a section scrubs AND the event owns Event Hub

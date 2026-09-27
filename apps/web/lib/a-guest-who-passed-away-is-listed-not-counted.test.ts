@@ -128,7 +128,15 @@ test('the guest card is where the couple sets it — never for the couple themse
   );
   const update = action.slice(action.indexOf(".from('guests')\n    .update({"));
   assert.match(update.slice(0, 900), /\bpassed_away,/, 'updateGuest reads the toggle and never writes it');
-  assert.match(action, /\.from\('event_seat_assignments'\)\s*\.delete\(\)\s*\.eq\('event_id', eventId\)\s*\.eq\('guest_id', guestId\)/, 'a chair is kept for a guest who passed away');
+  // Anchored on the passed-away branch itself — `softDeleteGuest` releases a
+  // seat with the same statement, so a file-wide match would stay green.
+  const release = action.slice(action.indexOf('if (passedAwayMoved && passed_away) {'));
+  assert.ok(release.length > 0 && action.includes('if (passedAwayMoved && passed_away) {'), 'the passed-away seat release is gone');
+  assert.match(
+    release.slice(0, 400),
+    /^if \(passedAwayMoved && passed_away\) \{\s*const \{ error: seatError \} = await supabase\s*\.from\('event_seat_assignments'\)\s*\.delete\(\)\s*\.eq\('event_id', eventId\)\s*\.eq\('guest_id', guestId\)/,
+    'a chair is kept for a guest who passed away',
+  );
 });
 
 test('the prints: "the late <name>" in the parents’ lines, and "In loving memory" at the desk, counted nowhere', () => {

@@ -24,7 +24,13 @@
  * declaration it sits in. The message is also origin-checked by the bridge.
  */
 
-export type SceneBgPreviewScene = { key: string; classes: string[]; vars: Record<string, string> };
+/**
+ * `bare` (optional): the server's answer (`sceneWidgetIsBare`) for the new
+ * canvas — the widget draws no card of its own. The bridge swaps the card to
+ * that look at once (`lib/scene-card-look.ts` `applySceneCardPreview`); absent
+ * when the Maker could not answer, and the reload decides.
+ */
+export type SceneBgPreviewScene = { key: string; classes: string[]; vars: Record<string, string>; bare?: boolean };
 
 const CLASS = /^hub-[a-z0-9_-]{1,60}$/;
 /** The frame's own variables (`--hub-…`) and the legibility tokens its words are painted through (`--color-…`, `color`). */
@@ -47,7 +53,7 @@ export function sanitizeSceneBgPreview(raw: unknown): SceneBgPreviewScene[] {
         if (VAR.test(k) && typeof v === 'string' && v.length <= 2000 && !UNSAFE.test(v)) vars[k] = v;
       }
     }
-    out.push({ key: r.key, classes, vars });
+    out.push(typeof r.bare === 'boolean' ? { key: r.key, classes, vars, bare: r.bare } : { key: r.key, classes, vars });
   }
   return out;
 }

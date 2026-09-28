@@ -243,7 +243,8 @@ test('the row sends the uploads’ URL map; the bridge swaps the card after layi
   assert.match(msg, /const bare = mediaUrls \? sceneCardBareFor\(canvas, mediaUrls\) : null;/, 'the message asks the one function');
   const preview = read('app/dashboard/[eventId]/website/editor/_components/element-preview.ts');
   const fn = preview.slice(preview.indexOf('export function sceneCardBareFor'), preview.indexOf('export function canvasesFingerprint'));
-  assert.match(fn, /return sceneWidgetIsBare\(\{ config_json: \{ canvas \} \}, mediaUrls\);/);
+  // The Maker canvas is the couple's own — their clip plays there (`ownClipPlays`).
+  assert.match(fn, /return sceneWidgetIsBare\(\{ config_json: \{ canvas \} \}, mediaUrls, \{ ownClipPlays: true \}\);/);
   const bridge = read('app/[slug]/_components/editor-bridge.tsx');
   const at = bridge.indexOf("data.t === 'sceneBg'");
   const onBg = bridge.slice(at, bridge.indexOf('return;', at));

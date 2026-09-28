@@ -564,6 +564,14 @@ export function SceneBackgroundRow({
               ))}
             </div>
           </IRow>
+          {bg?.kind === 'photo' || bg?.kind === 'snippet' ? (
+            /* 🔓 Taking a photo or clip OFF is never gated — back to the Event Hub's own look. */
+            <IRow data="scene-media-off">
+              <IButton data="media-off" disabled={pending} onClick={() => put({}, false)}>
+                {bg.kind === 'snippet' ? 'Remove this scene’s video' : 'Remove this scene’s photo'}
+              </IButton>
+            </IRow>
+          ) : null}
           <div className="border-b border-ink/[0.07] py-2.5" data-inspector-row="scene-upload">
             <FileUpload
               bucket="media"

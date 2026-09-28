@@ -18,7 +18,8 @@
  *   1. a pick that flips the widget's bare-ness (`backgroundPickRedrawsBox`,
  *      asked of the SAME `sceneWidgetIsBare` the dispatchers ask) makes the
  *      shell release the hold, so the save's render reloads the canvas — and
- *      the server's HTML for that render really does drop the card;
+ *      the server's HTML for that render really does drop the card — and the
+ *      countdown's four per-number tiles with it;
  *   2. a pick that does not flip it is held as before (the instant paint);
  *   3. the reverse: a background taken off entirely flips it back, and that
  *      pick reloads too, so the card comes back;
@@ -131,6 +132,16 @@ test('the owner’s pick: "No background" on the Countdown releases the hold, an
   assert.equal(cardOf(after.countdown), 'bare', 'the server drops the card — the canvas must show THAT');
   assert.equal(hold, NO_CANVAS_HOLD, 'the pick flips bare-ness: the shell must not hold');
   assert.equal(canvasKeepsItsPage(hold, after.canvases, NOW + 3_000, after.order), false, 'a kept page would still show the pink card');
+});
+
+/* ═══ 1b · THE PER-NUMBER TILES GO WITH THE CARD (DECISION_LOG 2026-09-27, "NO BACKGROUND" MEANS NO BOX) ═══ */
+
+test('with "No background" the countdown’s per-number tiles go too — the numbers stand on their own', () => {
+  /** Every element carrying a border in the Countdown's HTML — the card and each tile. */
+  const bordered = (bare: boolean) =>
+    (renderToStaticMarkup(React.createElement(CountdownWidget, { targetIso: '2099-12-12', bare })).match(/class="[^"]*\bborder\b[^"]*"/g) ?? []).length;
+  assert.equal(bordered(false), 5, 'anti-vacuity: the card as it always looked — one card, four tiles');
+  assert.equal(bordered(true), 0, 'No background: no card and no tile — no border anywhere');
 });
 
 /* ═══ 2 · A PICK THAT LEAVES THE BOX WITH THE SAME OWNER IS STILL INSTANT ═══ */

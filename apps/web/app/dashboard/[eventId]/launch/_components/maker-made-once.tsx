@@ -27,6 +27,9 @@ import { HubDraftField } from '../../website/_components/hub-draft-bar';
 import { removeHeroPhoto, uploadHeroPhoto } from '../../website/hero-photo/actions';
 import { MakerRevealPicker } from './maker-reveal';
 import { MakerLogoDoor } from './maker-logo';
+import { MakerHeroDesignPicker } from './maker-hero-design';
+import { MiniTour } from '@/app/_components/mini-tour';
+import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 
 /**
@@ -131,10 +134,20 @@ export async function MakerHeroPanel({
   eventId,
   ownsPro,
   storeShell,
+  heroCanvas = {},
+  liveHeroCanvas = {},
 }: {
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /**
+   * 🎴 The hero row's canvas, draft over live, and the live one — the Design
+   * dropdown reads its design off it and writes the whole canvas back
+   * (`maker-hero-design.tsx`). The page hands them in from the same
+   * `overlayHubDraftWidgets` read every other hero control uses.
+   */
+  heroCanvas?: HubSectionCanvas;
+  liveHeroCanvas?: HubSectionCanvas;
 }) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="hero" />;
@@ -167,6 +180,12 @@ export async function MakerHeroPanel({
         {PUBLIC_STAGE_LABELS.event} and your poster. {PUBLIC_STAGE_LABELS.editorial} starts from it until you choose
         a cover from the day.
       </p>
+
+      {/* 🎴 Design 1 The Card · 2 The Marquee · 3 The Crest · 4 The Letter —
+          one dropdown; a starting point whose every part is tap-to-edit on
+          the canvas (owner 2026-09-26). First visit: its own mini-tour. */}
+      <MiniTour tourKey="customer_hero_designs_v1" storeShell={storeShell} />
+      <MakerHeroDesignPicker eventId={eventId} canvas={heroCanvas} liveCanvas={liveHeroCanvas} />
 
       <div className="flex items-start gap-3">
         <div className="relative aspect-[3/4] w-32 shrink-0 overflow-hidden rounded-md shadow-sm" data-made-once-poster="">

@@ -353,7 +353,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
       </p>
       {themed && access.offerPro ? (
         <p data-prints-go-pro="" className="text-sm font-medium text-mulberry">
-          <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} className="mr-1 align-middle" />
+          <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} className="mr-1 align-middle" />
           Go Pro to print in {t.name}.
         </p>
       ) : null}

@@ -17,6 +17,7 @@ import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/stud
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
 
 export const metadata = { title: 'Event Hub PRO' };
 
@@ -65,7 +66,7 @@ const SKU_CODE = 'COUPLE_WEBSITE_PRO';
  * Event Hub PRO is the top tier, so there's no cross-sell line up from it.
  */
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string }> };
 
 const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
 
@@ -92,8 +93,22 @@ const BENEFITS = [
   'The Setnayan mark taken off everywhere your guests see it — the page, the printable version, your story and the recap.',
 ];
 
-export default async function WebsiteProBuyPage({ params }: Props) {
+export default async function WebsiteProBuyPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  /* 💎 From the Maker's Apply sheet (`?from=maker`, owner 2026-09-28): the way
+     back is the Maker, where the draft — every Pro effect they tried — waits
+     untouched. A closed value, never a URL from the request. */
+  const search = (await searchParams) ?? {};
+  const fromMaker = search.from === 'maker';
+  /* "Unlock Pro and Apply" (owner 2026-09-28): back in the Maker with
+     `?apply=1`, which applies the draft once Pro is active — or reopens the
+     sheet, draft untouched, when it is not (`unlockAndApplyOnReturn`). */
+  const back = fromMaker
+    ? {
+        href: `/dashboard/${eventId}/launch${search.then === 'apply' ? `?${UNLOCK_AND_APPLY_PARAM}=1` : ''}`,
+        label: 'Back to the Maker',
+      }
+    : { href: `/dashboard/${eventId}/studio`, label: 'Back to services' };
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -118,11 +133,8 @@ export default async function WebsiteProBuyPage({ params }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
-      <Link
-        href={`/dashboard/${eventId}/studio`}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services
+      <Link href={back.href} className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink">
+        <ArrowLeft aria-hidden className="h-4 w-4" /> {back.label}
       </Link>
 
       {/*
@@ -162,7 +174,7 @@ export default async function WebsiteProBuyPage({ params }: Props) {
             Event Hub PRO is active. Every premium touch is on across your Event Hub, watermark-free.
           </p>
           <Link
-            href={WEBSITE_HUB_HREF(eventId)}
+            href={fromMaker ? back.href : WEBSITE_HUB_HREF(eventId)}
             className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
           >
             Open your Event Hub
@@ -186,6 +198,14 @@ export default async function WebsiteProBuyPage({ params }: Props) {
           >
             Track your order
           </Link>
+          {fromMaker ? (
+            <Link
+              href={back.href}
+              className="mt-3 ml-4 inline-flex items-center gap-1.5 text-sm font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-600"
+            >
+              {back.label}
+            </Link>
+          ) : null}
         </div>
       ) : priceCentavos != null && pricePhp != null ? (
         /* ── NOT OWNED — the working buy drawer. ── */

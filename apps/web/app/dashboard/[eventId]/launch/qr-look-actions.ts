@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/auth';
 import { requireHostMembership } from '@/lib/host-gate';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -68,6 +67,9 @@ export async function updateQrStyle(eventId: string, patch: StoredQrStyle): Prom
     logQueryError('updateQrStyle.write', error, { event_id: eventId }, 'graceful_degrade');
     return { ok: false, reason: 'failed' };
   }
-  revalidatePath(`/dashboard/${eventId}/launch`);
+  /* ⚡ No `revalidatePath` here (owner 2026-09-29, "no slow response on the
+     maker"): the control saves through `makerSave`, which refreshes the Maker
+     ONCE after the save lands. Revalidating here as well made this response
+     carry a whole Maker render that the refresh then rendered again. */
   return { ok: true };
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { makerSave } from '@/lib/maker-refresh';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
 import { QR_PATTERNS, QR_SHAPES, type QrPattern, type QrShape, type StoredQrStyle } from '@/lib/qr-look';
@@ -28,8 +29,17 @@ import type { UpdateQrStyleResult } from '../qr-look-actions';
  *     worse than a plain one.
  *
  * The preview beside these is the real `/api/website/qr/<slug>` PNG with a
- * version query; `router.refresh()` after a save re-renders the page with a
- * new stamp, so the couple sees their choice on the actual code.
+ * version query; the refresh after a save re-renders the page with a new
+ * stamp, so the couple sees their choice on the actual code.
+ *
+ * ⚡ THE PICK SHOWS AT ONCE, AND IT IS ONE RENDER (owner 2026-09-29: *"make
+ * sure 100% that there is no slow response on the maker"*). The dropdowns
+ * read the couple's choice from local state the moment it is picked — not from
+ * the server's props after the round trip — and it is put back, with the
+ * reason, if the save is refused. The save goes through `makerSave` (one
+ * refresh per burst, `lib/maker-refresh.ts`); the action no longer
+ * `revalidatePath`s the Maker as well, which made every pick render the whole
+ * Maker twice.
  */
 export function QrLookControls({
   eventId,
@@ -54,6 +64,17 @@ export function QrLookControls({
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
   const mark = paidMarkState({ owns: ownsPro, storeShell });
+  /* What the dropdowns show: the pick at once, the server's answer once it lands. */
+  const [shown, setShown] = useState<StoredQrStyle>(style);
+  const latest = useRef<StoredQrStyle>(style);
+  const inflight = useRef(0);
+  const styleJson = JSON.stringify(style);
+  useEffect(() => {
+    if (inflight.current > 0) return;
+    latest.current = style;
+    setShown(style);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by value
+  }, [styleJson]);
 
   // The store shell shows no paid door to a free couple (App Review 3.1.1).
   if (!ownsPro && storeShell) return null;
@@ -65,9 +86,23 @@ export function QrLookControls({
       return;
     }
     setNote(null);
+    const before = latest.current;
+    const next: StoredQrStyle = { ...before, ...patch };
+    for (const k of Object.keys(patch) as Array<keyof StoredQrStyle>) if (patch[k] === undefined) delete next[k];
+    latest.current = next;
+    setShown(next);
+    inflight.current += 1;
     startTransition(async () => {
-      const r = await action(patch);
+      const r = await makerSave(() => action(patch), () => router.refresh()).catch(
+        () => ({ ok: false, reason: 'failed' }) as const,
+      );
+      inflight.current -= 1;
       if (!r.ok) {
+        /* ↩ Refused: the dropdowns go back to what is saved, and say why. */
+        if (latest.current === next) {
+          latest.current = before;
+          setShown(before);
+        }
         setNote(
           r.reason === 'not_pro'
             ? 'This is part of Event Hub Pro.'
@@ -75,9 +110,7 @@ export function QrLookControls({
               ? 'Sign in again to change your QR.'
               : 'That did not save. Nothing changed — please try again.',
         );
-        return;
       }
-      router.refresh();
     });
   };
 
@@ -86,7 +119,7 @@ export function QrLookControls({
     { key: INK_KEY, label: 'Ink' },
     ...inks.map((hex, i) => ({ key: hex, label: `Mood Board colour ${i + 1} · ${hex}` })),
   ];
-  const currentInk = style.ink && inks.includes(style.ink) ? style.ink : INK_KEY;
+  const currentInk = shown.ink && inks.includes(shown.ink) ? shown.ink : INK_KEY;
 
   const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="flex min-h-11 items-center justify-between gap-3" data-qr-look-row={label.toLowerCase()}>
@@ -103,7 +136,7 @@ export function QrLookControls({
       <Row label="Shape">
         <PickMenu
           label="QR shape"
-          value={style.shape ?? 'square'}
+          value={shown.shape ?? 'square'}
           options={QR_SHAPES.map((s) => ({ key: s.key, label: s.label }))}
           onPick={(k) => save({ shape: k as QrShape })}
           dataAttr="data-qr-shape-pick"
@@ -113,7 +146,7 @@ export function QrLookControls({
       <Row label="Pattern">
         <PickMenu
           label="QR pattern"
-          value={style.pattern ?? 'classic'}
+          value={shown.pattern ?? 'classic'}
           options={QR_PATTERNS.map((p) => ({ key: p.key, label: p.label }))}
           onPick={(k) => save({ pattern: k as QrPattern })}
           dataAttr="data-qr-pattern-pick"

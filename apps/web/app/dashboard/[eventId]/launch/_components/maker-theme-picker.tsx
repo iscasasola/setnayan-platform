@@ -160,25 +160,45 @@ export function MakerThemePicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open
   }, []);
 
+  /* ⚡ EVERY TAP COUNTS, THE LAST ONE WINS (owner 2026-09-29: *"make sure 100%
+     that there is no slow response on the maker"*). A tap while a save is on
+     its way used to be dropped without a word. Now the tile is picked at once,
+     and the saves run one after another; a pick already overtaken by a newer
+     tap is never sent. A refused save puts back what is saved — only if no
+     newer tap has replaced it. */
+  const lastTap = useRef<string | null>(null);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const saved = useRef(current);
+  useEffect(() => {
+    saved.current = current;
+  }, [current]);
   const pick = (id: string) => {
-    if (id === picked || pending) return;
-    const before = picked;
+    if (id === picked) return;
+    lastTap.current = id;
     setPicked(id);
     setError(null);
-    start(async () => {
+    queue.current = queue.current.then(async () => {
+      if (lastTap.current !== id) return; // overtaken — the newer tap is sent instead
+      let r: { ok: boolean; error?: string };
       try {
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { invite_theme: id } }));
-        const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
-        if (!r.ok) {
-          setPicked(before);
-          setError(r.error);
-        }
+        r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
       } catch {
-        setPicked(before);
-        setError('That did not save. Please try again.');
+        r = { ok: false, error: 'That did not save. Please try again.' };
       }
+      if (r.ok) {
+        saved.current = id;
+        return;
+      }
+      if (lastTap.current === id) {
+        setPicked(saved.current);
+        setError(r.error ?? 'That did not save. Please try again.');
+      }
+    });
+    start(async () => {
+      await queue.current;
     });
   };
 

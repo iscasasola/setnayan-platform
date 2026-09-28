@@ -59,11 +59,11 @@ export type MakerRevealOpening = { id: string; label: string; blurb: string };
 
 export function MakerRevealPicker({
   eventId,
-  current,
+  current: currentProp,
   drafted,
-  stages,
+  stages: stagesProp,
   stagesDrafted,
-  effects,
+  effects: effectsProp,
   effectsDrafted,
   tuneHouse,
   themeName,
@@ -105,13 +105,31 @@ export function MakerRevealPicker({
   storeShell: boolean;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /* ⚡ A PICK SHOWS AT ONCE (owner 2026-09-29: *"make sure 100% that there is
+     no slow response on the maker"*): the opening, where it plays and its
+     effects read the couple's pick here the moment it is made, not the server's
+     props after the round trip. The server's values take over again as soon as
+     a render brings them; a refused save puts the saved value back. */
+  const [mine, setMine] = useState<{ current?: string | null; stages?: readonly RevealStage[]; effects?: RevealEffects }>({});
+  const serverKey = JSON.stringify([currentProp, stagesProp, effectsProp]);
+  useEffect(() => setMine({}), [serverKey]);
+  const current = 'current' in mine ? (mine.current ?? null) : currentProp;
+  const stages = mine.stages ?? stagesProp;
+  const effects = mine.effects ?? effectsProp;
+  const forget = (key: 'current' | 'stages' | 'effects') =>
+    setMine((m) => {
+      const next = { ...m };
+      delete next[key];
+      return next;
+    });
   /* What guests meet when nothing is chosen: the theme's opening for a Pro
      couple, and no reveal at all without Pro (`revealAllowedFor`). */
   const effective = current ?? (ownsPro ? defaultOpening : 'none');
 
-  const choose = (value: string | null) =>
+  const choose = (value: string | null) => {
+    setMine((m) => ({ ...m, current: value }));
     start(async () => {
       setError(null);
       try {
@@ -119,13 +137,19 @@ export function MakerRevealPicker({
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { std_reveal_template: value } }));
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
-        if (!r.ok) setError(r.error);
+        if (!r.ok) {
+          forget('current');
+          setError(r.error);
+        }
       } catch {
+        forget('current');
         setError('Your reveal could not be saved. Please try again.');
       }
     });
+  };
 
-  const setStages = (next: RevealStage[]) =>
+  const setStages = (next: RevealStage[]) => {
+    setMine((m) => ({ ...m, stages: next }));
     start(async () => {
       setError(null);
       try {
@@ -133,15 +157,21 @@ export function MakerRevealPicker({
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { reveal_stages: next } }));
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
-        if (!r.ok) setError(r.error);
+        if (!r.ok) {
+          forget('stages');
+          setError(r.error);
+        }
       } catch {
+        forget('stages');
         setError('Where your reveal plays could not be saved. Please try again.');
       }
     });
+  };
   /* 🎛 FINE-TUNING (owner 2026-09-25: "pick a reveal and see the effects, fine
      tune it to your liking") — the couple's own effects, the same keys the
      Save-the-Date studio sets, saved to the DRAFT; the canvas replays with them. */
-  const setEffects = (next: RevealEffects) =>
+  const setEffects = (next: RevealEffects) => {
+    setMine((m) => ({ ...m, effects: next }));
     start(async () => {
       setError(null);
       try {
@@ -149,11 +179,16 @@ export function MakerRevealPicker({
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { std_reveal_effects: next } }));
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
-        if (!r.ok) setError(r.error);
+        if (!r.ok) {
+          forget('effects');
+          setError(r.error);
+        }
       } catch {
+        forget('effects');
         setError('Your reveal’s effects could not be saved. Please try again.');
       }
     });
+  };
 
   const toggleStage = (s: RevealStage) =>
     setStages(REVEAL_STAGE_CHOICES.filter((x) => (x === s ? !stages.includes(s) : stages.includes(x))));
@@ -164,7 +199,7 @@ export function MakerRevealPicker({
        PREVIEW (`?preview=draft`, `makerPageCanvasSrc`), never the editing
        canvas — the canvas skips the opening by design (owner 2026-09-26:
        *"that role is for the preview stage"*). */
-    const frame = document.querySelector<HTMLIFrameElement>('[data-maker-page="reveal"] iframe');
+    const frame = document.querySelector<HTMLIFrameElement>('[data-maker-page="reveal"] iframe[data-maker-page-frame]');
     try {
       frame?.contentWindow?.location.reload();
     } catch {
@@ -188,7 +223,6 @@ export function MakerRevealPicker({
           type="button"
           aria-pressed={on}
           aria-label={label}
-          disabled={pending}
           data-maker-reveal={id}
           onClick={() => choose(id)}
           className="sn-press absolute inset-0 rounded-md disabled:cursor-wait"
@@ -253,7 +287,8 @@ export function MakerRevealPicker({
           effects={effects}
           tuneHouse={tuneHouse}
           drafted={effectsDrafted}
-          pending={pending}
+          /* Never locked: each change is shown at once and saved behind it. */
+          pending={false}
           onChange={setEffects}
         />
       ) : null}
@@ -274,7 +309,6 @@ export function MakerRevealPicker({
                 type="button"
                 role="switch"
                 aria-checked={on}
-                disabled={pending}
                 data-maker-reveal-stage={s}
                 onClick={() => toggleStage(s)}
                 className={`sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn disabled:opacity-60 ${

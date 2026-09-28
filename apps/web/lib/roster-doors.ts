@@ -25,7 +25,9 @@
  *   Share ▾           after the event, when there is a join link — the quick
  *                     copy survives the day, because the link still lets
  *                     guests into the event page afterwards
- *   QR codes (PDF)    always — the free do-it-yourself sheet (owner 09-25)
+ *   (QR codes (PDF) left on 2026-09-29 — owner, DECISION_LOG "THE GUEST LIST
+ *   KEEPS PEOPLE…": its home is the Maker's Details › For the day › Guest QR
+ *   codes, the same free sheet from the same route.)
  *
  * The ONE removal in the move was a duplicate: before the event, "Invite
  * guests" and the Share dropdown both handed out the same join link.
@@ -34,9 +36,7 @@
 export type RosterDoor =
   | { kind: 'tab'; key: 'roster' | 'walk' | 'share'; label: string; href: string; current: boolean }
   | { kind: 'link'; key: 'arrange' | 'checkin'; label: string; href: string }
-  | { kind: 'shareMenu'; key: 'share-menu' }
-  /** A FILE, not a page — rendered as a plain `<a download>`, never a Link. */
-  | { kind: 'download'; key: 'qr-pdf'; label: string; href: string };
+  | { kind: 'shareMenu'; key: 'share-menu' };
 
 export function rosterDoors({
   eventId,
@@ -75,17 +75,10 @@ export function rosterDoors({
     ? [{ kind: 'link', key: 'checkin', label: 'Check-in', href: `${base}/checkin` }]
     : [{ kind: 'link', key: 'arrange', label: 'Arrange the room', href: `/dashboard/${eventId}/seating` }];
   if (finished && hasJoinLink) trailing.push({ kind: 'shareMenu', key: 'share-menu' });
-  // ⚖ THE FREE DO-IT-YOURSELF QR PDF LIVES HERE (owner 2026-09-25: "the free
-  // version is the PDF of QRs if they want to do it themselves" → "found on
-  // Guestlist"). Every guest's QR with their name, before AND after the day, for
-  // every event, store shell included — a QR is not a purchase. Prints &
-  // Tickets (the themed, print-ready set) only points back here.
-  trailing.push({
-    kind: 'download',
-    key: 'qr-pdf',
-    label: 'Download QR codes (PDF)',
-    href: `/api/hub-print/qr-codes?event=${encodeURIComponent(eventId)}`,
-  });
+  // The free do-it-yourself QR sheet is NOT here any more (owner 2026-09-29,
+  // DECISION_LOG "THE GUEST LIST KEEPS PEOPLE…"): the Guest list keeps people;
+  // every print — this sheet included — lives in the Maker's Details, For the
+  // day › Guest QR codes (`lib/free-prints.ts`, the same route).
 
   return { tabs, trailing };
 }

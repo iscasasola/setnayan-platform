@@ -16,7 +16,7 @@
  *   Arrange the room  before the event
  *   Check-in          after the event
  *   Share ▾           after the event, with a join link
- *   QR codes (PDF)    always — the free do-it-yourself sheet (a download)
+ *   (QR codes (PDF) moved to Details › For the day on 2026-09-29.)
  *
  * 🔑 THE ONE THING REMOVED IS A DUPLICATE. Before the event the masthead held
  * BOTH "Invite guests" and a Share dropdown, and both handed out the same join
@@ -38,7 +38,6 @@
 import Link from 'next/link';
 import { ClipboardCheck, LayoutGrid, Send } from 'lucide-react';
 import { rosterDoors } from '@/lib/roster-doors';
-import { GuestQrPdfLink } from './guest-save-links';
 
 export type RosterView = 'list' | 'map' | 'walk' | 'share';
 
@@ -128,15 +127,6 @@ export function RosterTabs({
             </Link>
           ) : d.kind === 'shareMenu' ? (
             <span key={d.key}>{shareMenu}</span>
-          ) : d.kind === 'download' ? (
-            // The free QR sheet — a FILE from /api/hub-print, so this must
-            // never be a `Link` (which would try to ROUTE to a PDF) or a bare
-            // `<a download>` (which iOS Safari / the Capacitor shell can
-            // ignore, opening the PDF as a page instead of saving it — the
-            // owner's report, 2026-09-25). SaveFileLink still renders an
-            // anchor with `download` set (the no-JS fallback); it just also
-            // intercepts the click to fetch → blob → save/share.
-            <GuestQrPdfLink key={d.key} href={d.href} label={d.label} />
           ) : null,
         )}
       </div>

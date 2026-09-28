@@ -30,7 +30,7 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 /** Every surface with a QR "download" control on the Guest list or its drawer. */
 const GUEST_LIST_QR_SURFACES = [
-  'app/dashboard/[eventId]/guests/_components/roster-tabs.tsx', // QR codes (PDF)
+  'app/dashboard/[eventId]/guests/_components/roster-tabs.tsx', // the tab row (its QR sheet moved to Details, 2026-09-29)
   'app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx', // the drawer's own QR
   'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', // mounts the drawer body
   'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx', // Guest list's Share tab join-link QR
@@ -66,7 +66,7 @@ test('the Guest list + drawer QR downloads all go through SaveFileLink, not a ba
 
 test('the Guest list and the drawer mount the client wrappers, not SaveFileLink directly', () => {
   const WRAPPED: Array<[string, string]> = [
-    ['app/dashboard/[eventId]/guests/_components/roster-tabs.tsx', '<GuestQrPdfLink'],
+    // (roster-tabs.tsx's QR-sheet door left the Guest list on 2026-09-29 — its home is Details › For the day.)
     ['app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx', '<GuestQrDownloadLink'],
   ];
   for (const [rel, tag] of WRAPPED) {

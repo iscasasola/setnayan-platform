@@ -104,7 +104,7 @@ test('countdown · a solemn event gets no countdown in ANY style', async () => {
   // The widget's own guard runs after mount; the SERVER shell for a solemn
   // event is already empty because `w.solemn` is read before any style.
   for (const id of [null, 'big-number', 'calendar']) {
-    const out = html(h(EventWordsProvider, { words }, h(CountdownWidget, { targetIso: '2026-12-18', sceneStyle: id })));
+    const out = html(h(EventWordsProvider, { words, children: h(CountdownWidget, { targetIso: '2026-12-18', sceneStyle: id }) }));
     assert.equal(out, '', `a wake drew a countdown in style ${id}`);
   }
 });

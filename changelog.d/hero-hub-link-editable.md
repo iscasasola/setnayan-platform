@@ -12,7 +12,7 @@ Card and in Designs 2–4.
   (`HUB_ELEMENT_PRO_FIELDS`: font and motion Pro; words, colour, size free).
 - The words ride the EXISTING `HubElementStyle.word` (the joiner's field), in
   the hero row's `canvas.elements` — no migration, no new action.
-  `sanitizeHubLinkWords`: one line ≤ 60 characters, no control characters.
+  `sanitizeHubPartLine`: one line ≤ 60 characters, no control characters.
   Cleared → the card's own words (an absence — the joiner's rule).
 - The part is a wrapper around the `<a>`, so the colour and face reach the
   words and the ↓, and the hero's alignment moves it. The href (`#details`) is
@@ -30,7 +30,11 @@ Card and in Designs 2–4.
   colour (`font-pahina … text-ink`, The Crest's `text-ink/60` and tracking),
   so a colour or font chosen for the Date never reached the words — FIXED here
   by moving them onto the part, in The Card and Designs 2–4; and the photo
-  caption repeats the venue outside any part (named exemption, owner decision
-  pending).
+  caption repeated the venue outside any part.
+- **`caption`** (the small line under the hero photo) is a part too — owner,
+  on that finding: *"make it editable"*. Its own words (the same one-line rule,
+  `sanitizeHubPartLine`), the venue by default, cleared → the venue again;
+  listed in Part ▾ only when there is a hero photo/video. The guard now has no
+  exemptions and no known-blocked parts.
 
 SPEC IMPACT: None — extends the 2026-09-26/27 per-element editing decision to one more hero part.

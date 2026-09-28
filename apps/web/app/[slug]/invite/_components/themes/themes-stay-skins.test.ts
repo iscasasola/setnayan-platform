@@ -105,17 +105,21 @@ test('a skin never restyles the card’s controls — its only reach inside the 
   }
 });
 
-test('saving a Pro theme is re-checked on the server, after the couple check, before the write', () => {
-  const src = stripComments(read('app/dashboard/[eventId]/guests/invite/actions.ts'));
-  const start = src.indexOf('export async function setInviteTheme(');
-  assert.notEqual(start, -1, 'setInviteTheme is gone or renamed');
-  const body = src.slice(start);
-  const couple = body.indexOf('assertCouple(eventId)');
-  const pro = body.indexOf('eventCoupleWebsiteProActive(');
-  const write = body.indexOf(".update({ invite_theme");
-  assert.ok(couple > -1 && pro > -1 && write > -1, 'a step of the save is missing');
-  assert.ok(couple < pro && pro < write, 'the Pro re-check must come after the couple check and before the write');
-  assert.match(body, /!INVITE_THEMES\[raw\]\.ready/, 'an unshipped theme could be saved');
+test('saving a Pro theme is re-checked on the server, after the host check, before the write', () => {
+  // 🪤 RE-ANCHORED 2026-09-28: the theme is picked on the Maker's Details page
+  // into the DRAFT; Apply (`hub-draft-actions.ts`) is its one live writer.
+  const src = stripComments(read('app/dashboard/[eventId]/website/hub-draft-actions.ts'));
+  const host = src.indexOf('requireHostMembershipOrThrow(eventId');
+  const pro = src.indexOf('planHubDraftApply(current, live, ownsPro)');
+  const write = src.indexOf('.update({ invite_theme');
+  assert.ok(host > -1 && pro > -1 && write > -1, 'a step of the save is missing');
+  assert.ok(host < pro && pro < write, 'the Pro re-check must come after the host check and before the write');
+  // An unshipped theme can never reach the draft (the sanitizer every save passes).
+  assert.match(
+    stripComments(read('lib/hub-draft.ts')),
+    /case 'invite_theme':\s*return isInviteThemeId\(raw\) && INVITE_THEMES\[raw\]\.ready \? raw : undefined;/,
+    'an unshipped theme could be saved',
+  );
 });
 
 test('the ground honours a genuine upload only, and never mistakes "unset" for a colour', async () => {

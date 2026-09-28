@@ -127,3 +127,24 @@ export function makerPageCanvasSrc(
   if (key === 'hero') return `${publicLandingUrl}?phase=${phase}&editor=1&only=hero`;
   return `${publicLandingUrl}?phase=${phase}&editor=1${anchor}`;
 }
+
+/**
+ * 🎨 ONE THEME TILE ON THE DETAILS PAGE — the couple's own page, on the stage
+ * they are editing, in one theme (owner 2026-09-28: *"a complete preview of what
+ * each theme would look like"*). The SAME host-only canvas door a stage uses
+ * (`?editor=1`, so the page is drawn as the canvas draws it — the scenes, the
+ * couple's draft laid over live, no opening, no chrome) plus `theme=`, which the
+ * guest page honours for a verified host only (`canvasTriedTheme`) and which
+ * keeps the click-to-edit bridge OUT of the tile.
+ *
+ * No render stamp: a tile's address never changes while the Details page is
+ * open, so a save elsewhere (which re-renders the Maker) never reloads it.
+ */
+export function makerThemeTileSrc(
+  publicLandingUrl: string | null,
+  stage: LifecyclePhase,
+  theme: string,
+): string | null {
+  if (!publicLandingUrl) return null;
+  return `${publicLandingUrl}?phase=${stage}&editor=1&theme=${encodeURIComponent(theme)}`;
+}

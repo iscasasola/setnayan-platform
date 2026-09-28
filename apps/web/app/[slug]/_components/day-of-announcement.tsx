@@ -18,12 +18,21 @@ import { latestAnnouncementForGuest } from '../announcement-actions';
  * ── WHY IT LOOKS LIKE THIS ──────────────────────────────────────────────────
  * Loud enough to be seen by someone glancing at a phone in a dim reception,
  * quiet enough not to shout over the couple's own page. It sits at the top of
- * the guest's view during the live window and nowhere else.
+ * the guest's view.
+ *
+ * TWO LOOKS, ONE CARD (owner 2026-09-28: *"an announcement shows to guests as
+ * soon as it is sent"*). `stage='live'` is the day-of look above — terracotta,
+ * "From the coordinator". `stage='before'` is the same card in the calm
+ * Invitation-stage register — ink-toned, labelled "Announcement" — because a
+ * week out the words are "the ceremony moved to 3pm", not "phones down", and
+ * they sit over the couple's invitation rather than over a seat card. Same
+ * structure, same rules (not dismissible, text only, one message); only the
+ * colour and the eyebrow change. The layout decides the stage.
  *
  * It is deliberately NOT dismissible. An announcement is not a notification —
  * "phones down" that a guest can swipe away is worse than none, because the
  * coordinator has no way to know it was dismissed. It disappears on its own
- * when the day-of window closes, or when a newer one replaces it.
+ * once the event is over, or when a newer one replaces it.
  *
  * ── WHAT IT IS NOT ──────────────────────────────────────────────────────────
  * Not a feed and not a conversation. One message, the latest. Anything
@@ -49,11 +58,15 @@ import { latestAnnouncementForGuest } from '../announcement-actions';
 export function DayOfAnnouncement({
   body,
   eventId,
+  stage = 'live',
 }: {
   body: string;
   /** Which event to listen on. Absent → the component stays exactly as it was,
    *  server-rendered and static, so nothing regresses if a caller forgets. */
   eventId?: string;
+  /** 'live' = the day-of look (default, so no caller regresses); 'before' =
+   *  the calm Invitation-stage look. The layout resolves it. */
+  stage?: 'before' | 'live';
 }) {
   const [text, setText] = useState(body);
   // The server value wins on navigation — otherwise a guest moving between
@@ -105,10 +118,11 @@ export function DayOfAnnouncement({
     };
   }, [eventId]);
 
-  return <AnnouncementCard body={text} />;
+  return <AnnouncementCard body={text} stage={stage} />;
 }
 
-function AnnouncementCard({ body }: { body: string }) {
+function AnnouncementCard({ body, stage }: { body: string; stage: 'before' | 'live' }) {
+  const live = stage === 'live';
   return (
     <aside
       // `role="status"` + polite: a screen reader announces it when it appears
@@ -118,13 +132,29 @@ function AnnouncementCard({ body }: { body: string }) {
       aria-live="polite"
       className="mx-auto mt-4 w-full max-w-3xl px-4"
     >
-      <div className="flex items-start gap-3 rounded-2xl border border-terracotta/35 bg-terracotta/[0.06] px-4 py-3.5">
-        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta/12 text-terracotta-700">
+      <div
+        className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 ${
+          live ? 'border-terracotta/35 bg-terracotta/[0.06]' : 'border-ink/12 bg-ink/[0.03]'
+        }`}
+      >
+        <span
+          className={
+            live
+              ? 'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta/12 text-terracotta-700'
+              : 'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-ink/70'
+          }
+        >
           <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <div className="min-w-0">
-          <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-terracotta-700">
-            From the coordinator
+          <p
+            className={
+              live
+                ? 'font-mono text-xs font-bold uppercase tracking-[0.14em] text-terracotta-700'
+                : 'font-mono text-xs font-bold uppercase tracking-[0.14em] text-ink/60'
+            }
+          >
+            {live ? 'From the coordinator' : 'Announcement'}
           </p>
           {/* The coordinator's own words, rendered as text. Never markdown,
               never HTML — this is typed by a person on a phone under pressure

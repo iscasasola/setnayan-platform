@@ -1144,9 +1144,11 @@ export function SectionsPanel({
         nextFreeCustomSlot(rows.map((r) => r.widget_type)) ? (
           /* 🎬 "+" OPENS THE 25 TEMPLATES — and nothing else (owner
              2026-09-24: "we do not have the blank anymore"). Each tile posts
-             this same `addCustomAction` with its `template`. */
+             this same `addCustomAction` with its `template` — into the DRAFT
+             (the row is inserted hidden; guests meet it at Apply). */
           <SceneTemplatePicker
             overlay
+            draft
             action={addCustomAction}
             hidden={{ event_id: eventId, return_to: back }}
             stageLabel={sceneStage}

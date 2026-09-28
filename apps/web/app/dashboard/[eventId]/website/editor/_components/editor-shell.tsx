@@ -23,7 +23,7 @@ import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-m
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
-import { swapsForDrop, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
+import { swapsForDrop, stageTakesOwnScenes, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
@@ -295,7 +295,15 @@ export function MakerWork({
    * here (not Pro, all six in use, or the store shell) — the `note` form then
    * says why, in the same place, instead of a button that would be refused.
    */
-  addScene?: { action: FormAction; returnTo: string } | { note: string } | null;
+  addScene?:
+    | {
+        action: FormAction;
+        returnTo: string;
+        /** The first-visit tour (`MiniTour`), server-rendered and handed down; mounts when the sheet opens. */
+        tour?: ReactNode;
+      }
+    | { note: string; locked?: boolean }
+    | null;
   proUnlockHref: string;
   /** The live catalogue price, formatted — null when unread (never remembered). */
   proPriceLabel: string | null;
@@ -341,6 +349,10 @@ export function MakerWork({
   const [dropAt, setDropAt] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [moreHost, setMoreHost] = useState<HTMLElement | null>(null);
+  /* ＋ ADD A SCENE — one sheet, two doors: the toolbar's ＋ (the shell draws it
+     from what is registered below) and "+ Add a scene" at the end of the
+     navigator. Both open this. */
+  const [addOpen, setAddOpen] = useState(false);
 
   const stage = maker?.stage ?? 'rsvp';
   const selection = maker?.selection ?? null;
@@ -422,6 +434,48 @@ export function MakerWork({
   useEffect(() => {
     setMoreHost(document.getElementById(MAKER_MORE_ROWS_ID));
   }, []);
+
+  /* ＋ ADD A SCENE — the shell's ＋ (desktop) and More ▾ row (phone) cannot know
+     whether a scene may be added here, so the work area REGISTERS the answer
+     (`MakerAddScene`, `maker-context.tsx`): ready opens the sheet below; refused
+     carries the note (padlocked when it is Event Hub Pro); null where the
+     navigator offers nothing either (the store shell, a stage without scenes
+     of their own — `stageTakesOwnScenes`). */
+  const setAddScene = maker?.setAddScene;
+  useEffect(() => {
+    if (!setAddScene) return;
+    if (!addScene || !stageTakesOwnScenes(stage)) {
+      setAddScene(null);
+      return;
+    }
+    setAddScene(
+      'action' in addScene
+        ? { kind: 'ready', open: () => setAddOpen(true) }
+        : { kind: 'refused', note: addScene.note, locked: addScene.locked === true, unlockHref: proUnlockHref },
+    );
+    return () => setAddScene(null);
+  }, [setAddScene, addScene, stage, proUnlockHref]);
+
+  /* The scene just added is SELECTED once the render that carries it lands.
+     A tile's post lands back on this very address (`lib/maker-stay.ts` — the
+     shell stamps `return_to` + `maker_stay`), so nothing remounts and `?scene=`
+     cannot seed it; instead the work area remembers which scenes it had when
+     the tile was tapped and picks the one that appeared. */
+  const scenesBeforeAdd = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const before = scenesBeforeAdd.current;
+    if (!before || !select) return;
+    // The scene whose type was not here at the tap — only the add can bring one
+    // (nothing else inserts a row between the tap and the render).
+    const added = scenes.find((s) => !before.has(s.type));
+    if (!added) return;
+    scenesBeforeAdd.current = null;
+    select({ kind: 'scene', id: added.id });
+  }, [scenes, select]);
+  const onPickTemplate = useCallback(() => {
+    scenesBeforeAdd.current = new Set(scenes.map((s) => s.type));
+    setAddOpen(false);
+  }, [scenes]);
 
   /* ── the preview ─────────────────────────────────────────────────────── */
   /* 🖼 The canvas is ONLY the page (`isEditorCanvas` on the guest page). The
@@ -1682,12 +1736,19 @@ export function MakerWork({
               move(from, swapsForDrop(fullOrder, from, afterLastShown));
             }}
           >
-            {addScene && 'action' in addScene ? (
+            {!stageTakesOwnScenes(stage) ? null : addScene && 'action' in addScene ? (
               /* 🎬 "+" opens the 25 templates, headed with the stage being
-                 edited and drawn in the view being edited (owner 2026-09-24). */
+                 edited and drawn in the view being edited (owner 2026-09-24).
+                 💾 A tile ADDS INTO THE DRAFT (`draft`): the scene is on the
+                 canvas and here at once, and guests meet it at Apply. */
               <div className="pl-4">
                 <SceneTemplatePicker
                   overlay
+                  draft
+                  open={addOpen}
+                  onOpenChange={setAddOpen}
+                  onPick={onPickTemplate}
+                  tour={addScene.tour ?? null}
                   action={addScene.action}
                   hidden={{ event_id: eventId, return_to: addScene.returnTo }}
                   stageLabel={stage === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[stage]}

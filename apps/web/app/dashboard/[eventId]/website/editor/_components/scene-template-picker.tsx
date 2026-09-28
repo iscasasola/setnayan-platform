@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   SCENE_BUILT_ON_LABEL,
   SCENE_FAMILIES,
@@ -10,6 +10,14 @@ import {
   type SceneThumbBox,
 } from '@/lib/scene-templates';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
+import { PickMenu } from './pick-menu';
+
+/** Desktop · Phone · Both — one dropdown (owner: a set of choices is one PickMenu, never a pill row). */
+const SCENE_VIEW_OPTIONS = [
+  { key: 'desktop', label: 'Desktop' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'both', label: 'Both' },
+] as const;
 
 /**
  * "+" — ADD A SCENE: THE 25 TEMPLATES, IN THE VIEW YOU ARE EDITING.
@@ -41,12 +49,32 @@ export function SceneTemplatePicker({
   overlay = false,
   facts = null,
   draft = false,
+  open: openProp,
+  onOpenChange,
+  onPick,
+  tour = null,
 }: {
   /**
+   * Controlled open state, for a sheet with a second door (the Maker's toolbar
+   * ＋ opens the same "Add a scene" sheet as the navigator's button). Absent →
+   * the picker keeps its own.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /**
+   * A tile was tapped and its form is posting (the post itself is untouched —
+   * the tile stays a submit button). The Maker uses it to remember which
+   * scenes it had, so it can select the one that appears.
+   */
+  onPick?: (template: number) => void;
+  /** The first-visit tour (`MiniTour`), server-rendered and handed down; mounts with the sheet. */
+  tour?: ReactNode;
+  /**
    * 💾 The tiles save to the Event Hub DRAFT (`draft=1`). True for "Change
-   * template" (`saveCustomSection` `intent=template` has a draft door); false
-   * for "+ Add a scene", which inserts a new row at once — and then the sheet
-   * says "Saves immediately" (`every-maker-form-drafts-or-says-so.test.ts`).
+   * template" (`saveCustomSection` `intent=template`) and for the Maker's
+   * "+ Add a scene" (`addCustomSection` inserts the row HIDDEN and drafts it
+   * shown — guests meet it at Apply). A picker without it says "Saves
+   * immediately" (`every-maker-form-drafts-or-says-so.test.ts`).
    */
   draft?: boolean;
   /**
@@ -76,16 +104,24 @@ export function SceneTemplatePicker({
    */
   hideMediaSlots?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = openProp ?? ownOpen;
+  const setOpen = (next: boolean | ((was: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(open) : next;
+    if (openProp === undefined) setOwnOpen(value);
+    onOpenChange?.(value);
+  };
   const [view, setView] = useState<SceneView>(initialView);
   // The view follows the one being edited each time the picker opens.
   useEffect(() => {
     if (open) setView(initialView);
   }, [open, initialView]);
+  const closeRef = useRef(() => setOpen(false));
+  closeRef.current = () => setOpen(false);
   useEffect(() => {
     if (!open || !overlay) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') closeRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -115,7 +151,9 @@ export function SceneTemplatePicker({
           aria-label={`${heading} ${stageLabel}`}
           className={
             overlay
-              ? 'fixed inset-x-3 bottom-3 top-16 z-[91] mx-auto max-w-3xl overflow-y-auto rounded-md border border-ink/10 bg-cream p-3 shadow-lg sm:inset-x-6'
+              ? /* 📱 A bottom sheet on a phone (rounded top, from the bottom
+                   edge, the page still peeking above); a panel from sm up. */
+                'fixed inset-x-0 bottom-0 top-auto z-[91] mx-auto max-h-[85dvh] max-w-3xl overflow-y-auto rounded-t-3xl border border-ink/10 bg-cream p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg sm:inset-x-6 sm:bottom-3 sm:top-16 sm:max-h-none sm:rounded-md'
               : 'mt-2 rounded-md border border-ink/10 bg-cream p-3 shadow-sm'
           }
         >
@@ -124,21 +162,13 @@ export function SceneTemplatePicker({
               {heading} <span className="italic">{stageLabel}</span>
             </p>
             {!draft ? <HubSavesImmediately /> : null}
-            <div role="group" aria-label="Show the templates as on" className="flex items-center rounded-full bg-ink/5 p-0.5">
-              {(['desktop', 'phone', 'both'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  aria-pressed={view === v}
-                  onClick={() => setView(v)}
-                  className={`inline-flex h-7 items-center rounded-full px-2.5 text-[0.65rem] font-semibold ${
-                    view === v ? 'bg-ink text-cream' : 'text-ink/60 hover:text-ink'
-                  }`}
-                >
-                  {v === 'desktop' ? 'Desktop' : v === 'phone' ? 'Phone' : 'Both'}
-                </button>
-              ))}
-            </div>
+            <PickMenu
+              label="Show the templates as on"
+              value={view}
+              options={SCENE_VIEW_OPTIONS}
+              onPick={(k) => setView(k as SceneView)}
+              dataAttr="data-scene-view"
+            />
             {overlay ? (
               <button
                 type="button"
@@ -149,6 +179,7 @@ export function SceneTemplatePicker({
               </button>
             ) : null}
           </div>
+          {tour}
           <p className="mt-1 text-[0.62rem] text-ink/50">
             ★ the four approved arrangements · shown{' '}
             {view === 'desktop' ? 'as on a desktop' : view === 'phone' ? 'as on a phone' : 'desktop · phone'} · each
@@ -165,7 +196,7 @@ export function SceneTemplatePicker({
                 }`}
               >
                 {sceneTemplatesIn(family).map((t) => (
-                  <form key={t.id} action={action}>
+                  <form key={t.id} action={action} onSubmit={() => onPick?.(t.id)}>
                     {draft ? <HubDraftField /> : null}
                     {Object.entries(hidden).map(([k, v]) => (
                       <input key={k} type="hidden" name={k} value={v} />

@@ -193,8 +193,11 @@ test('5 · Announce is mounted for the announcement policy’s people, through t
   assert.match(button, /from '\.\.\/\.\.\/_actions\/day-of-broadcast'/, 'no second announcement channel');
   assert.match(button, /sendCoordinatorBroadcast\(/);
   assert.doesNotMatch(button, /\.from\('coordinator_broadcasts'\)/, 'never writes the table itself');
-  // Before the day it must not claim guests already have it.
-  assert.match(button, /at the top of their Event Hub on the day/);
+  // Owner 2026-09-28: guests see it AS SOON AS IT IS SENT. Before the day the
+  // sheet must say so — and must no longer say "on the day", which was the old
+  // rule and would now under-promise a delivery that is actually made.
+  assert.match(button, /at the top of their Event Hub right away/);
+  assert.doesNotMatch(button, /Event Hub on the day/);
 });
 
 test('5b · the rail writes only through the existing actions the page hands it', () => {

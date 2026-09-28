@@ -100,6 +100,7 @@ export type TourKey =
   | 'customer_print_menu_v1'
   | 'customer_guest_reminders_v1'
   | 'customer_schedule_v1'
+  | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
@@ -122,6 +123,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_print_menu_v1',
   'customer_guest_reminders_v1',
   'customer_schedule_v1',
+  'customer_add_scene_v1',
   'customer_hero_designs_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
@@ -427,7 +429,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'What Event Hub Pro adds',
-        body: 'Themes beyond Classic, the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.',
+        body: 'Themes beyond Classic, scenes of your own from the templates (tap + at the top &mdash; each one waits in your draft until you Apply), the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.',
         sells: true,
       },
     ],
@@ -658,7 +660,37 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Send,
         title: 'Announce to your guests',
-        body: 'Tap <b>Announce</b> to send everyone one message &mdash; before the day or on it. Your latest announcement sits at the top of your guests&rsquo; Event Hub on the day. You and your approved coordinator can announce.',
+        body: 'Tap <b>Announce</b> to send everyone one message &mdash; before the day or on it. Your latest announcement sits at the top of your guests&rsquo; Event Hub as soon as you send it, and comes down once the event is over. You and your approved coordinator can announce.',
+      },
+    ],
+  },
+  /*
+    "+ ADD A SCENE" WORKS IN THE EVENT HUB MAKER (DECISION_LOG 2026-09-27; owner:
+    *"yes add the add a scene"*). Mounted inside the template sheet
+    (`scene-template-picker.tsx`), so it fires the first time a couple opens it
+    — from the toolbar's ＋, the phone's More ▾ row, or the navigator's button.
+    The sheet is already Pro's (a free couple sees the padlock, never the sheet),
+    so this sells nothing.
+  */
+  customer_add_scene_v1: {
+    key: 'customer_add_scene_v1',
+    label: 'Add a scene',
+    blurb: 'Pick a template; the scene joins this stage in your draft.',
+    slides: [
+      {
+        Icon: LayoutPanelLeft,
+        title: 'Pick a template',
+        body: 'Twenty-five templates in five families, drawn as they will look on a desktop or a phone. Tap one and it becomes a scene of your own on the stage you are editing.',
+      },
+      {
+        Icon: MousePointerClick,
+        title: 'It lands on the canvas, selected',
+        body: 'The new scene appears at the end of this stage and opens for editing at once &mdash; change its words, its look and its effect from the panel. Up to six scenes of your own.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Nothing goes live yet',
+        body: 'The scene waits in your draft. Guests meet it after you Apply; Restore folds it away as hidden until you show it again.',
       },
     ],
   },

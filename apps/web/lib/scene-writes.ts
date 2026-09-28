@@ -139,3 +139,30 @@ export function applySceneVideo(
   next.video = open === 'inplace' ? { play: 'tap', open: 'inplace' } : { play: 'tap' };
   return { canvas: next, putsUp: true };
 }
+
+/**
+ * "+ ADD A SCENE" INTO THE DRAFT (DECISION_LOG 2026-09-27: *"yes add the add a
+ * scene"*). What the new row carries LIVE, and what the draft says about it.
+ *
+ * A draft cannot make a row (`classifyHubDraft` calls a drafted section with no
+ * live row an orphan), so the row is inserted, but HIDDEN: `is_visible: false`
+ * under the column's default `mode = 'auto'` is hidden on both guest paths
+ * (`widgetShouldRender` and `openBrowseSectionVisible`). The draft then says
+ * "shown", so only the host's canvas (`overlayHubDraftWidgets`) draws it, and
+ * Apply is what writes `is_visible: true` for guests. Showing a section is never
+ * a Pro key at Apply; adding one is already Pro at the door (`addCustomSection`).
+ *
+ * Every field the draft can hold for a section is set, so nothing drafted for an
+ * earlier scene in the same slot (removed, then added again) leaks onto the new
+ * one: the mode back to Auto, the place at the end, the template's canvas.
+ */
+export const ADDED_SCENE_LIVE = { is_visible: false } as const;
+
+export function addedSceneDraft(input: { displayOrder: number; canvas: HubSectionCanvas | null }): {
+  mode: 'auto';
+  is_visible: true;
+  display_order: number;
+  canvas: HubSectionCanvas | null;
+} {
+  return { mode: 'auto', is_visible: true, display_order: input.displayOrder, canvas: input.canvas };
+}

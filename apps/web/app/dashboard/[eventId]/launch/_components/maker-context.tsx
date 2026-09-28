@@ -55,6 +55,9 @@ export type MakerState = {
    * canvas iframe loads this instead of `?editor=1` while it is set.
    */
   viewAsHref: string | null;
+  /** ＋ Add a scene, as the work area registered it — see `MakerAddScene` below. */
+  addScene: MakerAddScene | null;
+  setAddScene: (next: MakerAddScene | null) => void;
 };
 
 export const MakerContext = createContext<MakerState | null>(null);
@@ -65,3 +68,18 @@ export function useMaker(): MakerState | null {
 
 /** The element id the ⋯ sheet keeps for the work area's address rows. */
 export const MAKER_MORE_ROWS_ID = 'maker-more-rows';
+
+/**
+ * ＋ ADD A SCENE — what the toolbar's ＋ (and, on a phone, the More ▾ row) does.
+ * Only the work area knows whether a scene may be added here — the templates,
+ * Pro, the six, the stage, the store shell — so it REGISTERS the answer
+ * (`setAddScene`) and the shell draws the button from it. `ready` opens the
+ * work area's own template sheet (the same one as the navigator's "+ Add a
+ * scene"); `refused` says why, and wears the padlock when the reason is Event
+ * Hub Pro; null = no button (the store shell, a stage without scenes of their
+ * own). A client registration only — the write is still the tile's form,
+ * posting to `addCustomSection`.
+ */
+export type MakerAddScene =
+  | { kind: 'ready'; open: () => void }
+  | { kind: 'refused'; note: string; locked: boolean; unlockHref: string };

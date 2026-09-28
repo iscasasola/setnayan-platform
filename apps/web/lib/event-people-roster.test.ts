@@ -299,12 +299,15 @@ test('the day-of announcement runs end to end: composer → row → the Event Hu
     'the announcement still renders in site-body — it mounts once now, in the layout');
 });
 
-test('an announcement is for the day, and is the latest one — not a feed', () => {
+test('an announcement shows until the event is over, and is the latest one — not a feed', () => {
   const loaders = read('app/[slug]/_lib/loaders.ts');
-  // Outside the live window it returns nothing, so a stale "we are running
-  // late" cannot haunt the page for a month.
-  assert.match(loaders, /if \(!isLive\) return null;/,
-    'the announcement outlived the day — a stale one now sits on the page forever');
+  // Owner 2026-09-28: shown AS SOON AS IT IS SENT — before the day and on it
+  // (this used to pin a day-of-only `isLive` gate). What is kept is the
+  // conservative half: once the event has ENDED it returns nothing, so a stale
+  // "we are running late" cannot haunt the Post Event page for a month.
+  // `day-of-announcement.test.ts` holds the stage rule behaviourally.
+  assert.match(loaders, /if \(stage === 'after'\) return null;/,
+    'the announcement outlived the event — a stale one now sits on the page forever');
   // One, never a scrollback of operational chatter competing with the couple.
   assert.match(loaders, /\.limit\(1\)/);
 });

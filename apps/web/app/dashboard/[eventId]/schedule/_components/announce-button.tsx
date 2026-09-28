@@ -16,11 +16,14 @@
  *
  * ⚠ WHEN A GUEST SEES IT IS STATED, NOT IMPLIED. The guest-side reader
  * (`app/[slug]/_lib/loaders.ts` → `loadDayOfBroadcast`) shows the latest
- * announcement, to identified guests only, inside the day-of window. So an
- * announcement typed a week early is SAVED now and shown on the day. The sheet
- * says exactly that rather than "Sent to your guests" — a composer that implied
- * delivery it did not make would be the failure-that-looks-like-success this
- * repo has paid for repeatedly.
+ * announcement, to identified guests only, AS SOON AS IT IS SENT — owner
+ * 2026-09-28 (DECISION_LOG "OWNER ANSWERS — ANNOUNCEMENTS…", item 1). Before
+ * the day it sits at the top of the guest's Invitation in the calm look; on
+ * the day at the top of the Event Hub in the day-of look; once the event is
+ * over it comes down. The sheet says exactly that — until 2026-09-28 it read
+ * "shown on the day", which was true then and would be a lie now. A composer
+ * whose helper line disagrees with the reader is the failure-that-looks-like-
+ * success this repo has paid for repeatedly, in either direction.
  */
 
 import { useState, useTransition } from 'react';
@@ -129,7 +132,7 @@ export function AnnounceButton({
             <p className="text-xs text-ink/55">
               {isEventDay
                 ? 'Guests see it at the top of their Event Hub right away.'
-                : 'Guests see your latest announcement at the top of their Event Hub on the day.'}
+                : 'Guests see your latest announcement at the top of their Event Hub right away, and it stays there through the day.'}
             </p>
             <span className="font-mono text-[11px] text-ink/45">
               {formatCount(text.length)}/{formatCount(BROADCAST_MAX_LENGTH)}
@@ -142,7 +145,7 @@ export function AnnounceButton({
           ) : null}
           {sent ? (
             <p role="status" className="text-sm font-medium text-success-700">
-              {isEventDay ? 'Announced.' : 'Saved — it goes up on your guests’ Event Hub on the day.'}
+              {isEventDay ? 'Announced.' : 'Announced — it’s at the top of your guests’ Event Hub now.'}
             </p>
           ) : null}
           <div className="flex justify-end">

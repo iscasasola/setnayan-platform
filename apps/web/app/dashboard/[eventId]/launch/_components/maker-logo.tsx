@@ -610,7 +610,7 @@ export function MakerLogoDoor({
                     className="sn-press flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 text-left text-[13px] font-semibold"
                   >
                     <KindIcon kind={l.kind} />
-                    <span className="min-w-0 truncate">{l.kind === 'text' ? l.text || 'Text' : l.name}</span>
+                    <span className="min-w-0 truncate">{l.kind === 'text' && l.name === LOGO_LAYER_KIND_LABEL.text ? l.text || 'Text' : l.name}</span>
                   </button>
                   <IconBtn label={`Move ${l.name} up`} disabled={idx === 0} onClick={() => setLayers((c) => retimeLayers(moveLayer(c, l.id, 'up')))}>
                     <ChevronUp aria-hidden className="h-4 w-4" />
@@ -844,6 +844,25 @@ function LayerTools({
 }) {
   return (
     <>
+      {/* ✎ A layer's own name (owner 2026-09-28: *"we should be able to rename
+          these layers so we can identify them easier"* — two uploads arrived as
+          "monogram.005" and "monogram.006"). The navigator shows it. */}
+      <Field label="Name">
+        <input
+          type="text"
+          value={layer.name}
+          maxLength={40}
+          onChange={(e) => onChange({ name: e.target.value.replace(/[<>"'`]/g, '') })}
+          onBlur={() => {
+            if (!layer.name.trim()) onChange({ name: LOGO_LAYER_KIND_LABEL[layer.kind] });
+          }}
+          placeholder={LOGO_LAYER_KIND_LABEL[layer.kind]}
+          aria-label="Layer name"
+          className="min-h-11 w-full rounded-md border border-ink/15 bg-white px-3 text-[15px] text-ink"
+          data-logo-layer-name=""
+        />
+      </Field>
+
       {layer.kind === 'text' ? (
         <Field label="Words">
           <input

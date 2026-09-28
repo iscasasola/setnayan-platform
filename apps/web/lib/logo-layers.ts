@@ -377,10 +377,42 @@ export function writeRevealPlan(
   let whole: Array<{ t: number; d: string }> | null = null;
   const plan: Array<Array<{ t: number; d: string }>> = [];
   for (let k = 0; k < parts; k++) {
-    const on = samples.filter((q) => covers(k, q.x, q.y));
+    const on = penAlong(samples, (x, y) => covers(k, x, y));
     plan.push(on.length ? cellsOf(on, w, h) : (whole ??= cellsOf(samples, w, h)));
   }
   return plan;
+}
+
+/** A pass this many times shorter than the longest pass over the same part is
+ *  the pen CROSSING it, not drawing it. */
+export const LOGO_CROSSING_RATIO = 3;
+
+/**
+ * ✖ CROSSING IS NOT DRAWING (owner 2026-09-28, of the thin stroke that passes
+ * the C's big diagonal: *"i have to pass the big stroke but it cannot build
+ * yet. can't you predict the size of the previous stroke and connect them first
+ * before we turn and scope that bigger loop?"*). The pen's samples on a part
+ * come in RUNS; when the pen crosses a part on its way along another, that run
+ * is short — about the part's width — while the pass that draws it runs its
+ * length. A run `LOGO_CROSSING_RATIO`× shorter than the part's longest run is
+ * dropped, so the big stroke waits for its own pass and the thin stroke carries
+ * straight on across its gap. A part with only short runs (a dot, a serif)
+ * keeps them all.
+ */
+function penAlong<T extends { t: number }>(samples: T[], on: (x: number, y: number) => boolean): T[] {
+  const runs: T[][] = [];
+  let run: T[] = [];
+  for (const q of samples as Array<T & { x: number; y: number }>) {
+    if (on(q.x, q.y)) run.push(q);
+    else if (run.length) {
+      runs.push(run);
+      run = [];
+    }
+  }
+  if (run.length) runs.push(run);
+  const span = (r: T[]) => (r.length > 1 ? (r[r.length - 1] as T).t - (r[0] as T).t : 0) + 1 / LOGO_WRITE_CELLS;
+  const longest = Math.max(0, ...runs.map(span));
+  return runs.filter((r) => span(r) * LOGO_CROSSING_RATIO >= longest).flat();
 }
 
 /**
@@ -399,7 +431,7 @@ export function writePartPassages(
 ): Array<{ order: number; start: { x: number; y: number; t: number }; end: { x: number; y: number; t: number } } | null> {
   const samples = resampleWrite(write, LOGO_WRITE_CELLS);
   const raw = Array.from({ length: parts }, (_, k) => {
-    const on = samples.filter((q) => covers(k, q.x, q.y));
+    const on = penAlong(samples, (x, y) => covers(k, x, y));
     return on.length ? { start: on[0] as { x: number; y: number; t: number }, end: on[on.length - 1] as { x: number; y: number; t: number } } : null;
   });
   const byStart = raw
@@ -490,19 +522,57 @@ export function defaultWriteWidth(w: number, h: number): number {
   return Math.round(Math.max(w, h) * 0.09);
 }
 
+/* 🧈 ONE SHAPE PER PART, GROWING — NEVER A CELL PER ANIMATION (owner
+   2026-09-28: *"i see unsmooth effects"*). The first build gave every cell its
+   own fade: ~240 animations per part (1,400+ for the owner's C), each
+   re-rasterising the mask — a phone dropped frames — and while they faded,
+   neighbouring cells sat at different opacities with hairline seams between
+   them, so the letter drew in STRIPES. Now the cells the pen has passed are
+   ONE path (`revealD`): abutting polygons of one path share their edges, so
+   there is no seam to see, and the player changes one `d` per part per frame.
+   The pen's tip is soft (`LOGO_WRITE_FEATHER`): the next few cells show faintly
+   ahead of it, so the front glides instead of stepping. */
+
+/** How far ahead of the pen (0 … 1 of the path) the soft tip reaches. */
+export const LOGO_WRITE_FEATHER = 0.035;
+
+/** The cells from progress `from` (exclusive) to `to` (inclusive), as ONE path.
+ *  `cells` are in pen order, as `writeRevealCells`/`writeRevealPlan` give them. */
+export function revealD(cells: ReadonlyArray<{ t: number; d: string }>, from: number, to: number): string {
+  let out = '';
+  for (const c of cells) {
+    if (c.t > to) break;
+    if (c.t > from) out += c.d;
+  }
+  return out;
+}
+
+/** The reveal at progress `p`: the solid part the pen has passed, and the two
+ *  fainter bands of its soft tip ahead of it. */
+export function revealLayersAt(cells: ReadonlyArray<{ t: number; d: string }>, p: number): { solid: string; near: string; far: string } {
+  const f = LOGO_WRITE_FEATHER;
+  if (p >= 1) return { solid: revealD(cells, -1, 2), near: '', far: '' };
+  if (p <= 0) return { solid: '', near: '', far: '' };
+  return { solid: revealD(cells, -1, p), near: revealD(cells, p, p + f / 2), far: revealD(cells, p + f / 2, p + f) };
+}
+
+/** The soft tip's two bands, as opacity. */
+export const LOGO_WRITE_TIP_OPACITY = { near: 0.5, far: 0.2 } as const;
+
 /**
- * THE REVEAL WHEN THE PEN IS `p` OF THE WAY ALONG (0 … 1) — a mask of every
- * cell the pen has reached. The player builds the same cells and shows each
- * as the pen arrives; tests render this at a fixed `p` to prove the letter
- * appears in the order it was written, and that nothing is left for the end.
- * The thin white edge on each cell closes the hairline seams between them.
+ * THE REVEAL WHEN THE PEN IS `p` OF THE WAY ALONG (0 … 1) — the same one path
+ * (and soft tip) the player draws at that moment. Tests render this at a fixed
+ * `p` to prove the letter appears in the order it was written, and that
+ * nothing is left for the end.
  */
 export function writeMaskMarkup(id: string, l: Pick<LogoLayer, 'w' | 'h'> & { write: LogoWritePath }, p: number): string {
-  const cells = writeRevealCells(l.write, l.w, l.h).filter((c) => c.t <= p);
-  const seam = R(Math.max(l.w, l.h) * 0.002);
+  const r = revealLayersAt(writeRevealCells(l.write, l.w, l.h), p);
+  const band = (d: string, o: number) => (d ? `<path d="${d}" fill="#FFFFFF" fill-opacity="${o}"/>` : '');
   return (
     `<mask id="${id}" maskUnits="userSpaceOnUse" x="${R(-l.w)}" y="${R(-l.h)}" width="${R(l.w * 3)}" height="${R(l.h * 3)}">` +
-    cells.map((c) => `<path d="${c.d}" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="${seam}"/>`).join('') +
+    band(r.solid, 1) +
+    band(r.near, LOGO_WRITE_TIP_OPACITY.near) +
+    band(r.far, LOGO_WRITE_TIP_OPACITY.far) +
     `</mask>`
   );
 }

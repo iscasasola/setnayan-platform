@@ -14,11 +14,17 @@ part — arrived as a single block.
   `.pahina-in` as it nears the screen, numbering rows that arrive together `--hub-row-at` 1…8
   (`HUB_SEQUENCE_DEPTH`), so they come in turn one stagger apart. **Follows the scroll:** each row
   rides its own `view()`, arriving as it enters and handing off as it leaves.
+- **Runs too** (owner: *"yes, make pinned rows arrive one by one too"*). In a pinned Scrub run
+  row i of n takes the i-th slice of the scene's hold on the spacer's timeline (the window the
+  scene's parts already arrive in, ending before the hand-over); in an Auto run the rows arrive
+  one stagger apart from the scene's own fade-in on the run's clock and pause with it (a run the
+  guest STOPPED lets its rows finish). The observer tells every row its place, `--hub-row-i` of
+  `--hub-row-n`.
 - **Fail-visible:** inside the scroll-timeline and no-reduced-motion gates and `@media screen`;
-  no script → no mark → the row simply sits there. Still / All at once, free scenes (no
-  `sequence` without Pro), the Maker tiles (frozen), and pinned Scrub / Auto runs are unchanged —
-  inside a run the list still arrives as one part (a pinned row's `view()` never moves).
-- Guard: `lib/list-rows-arrive-one-by-one.test.ts` (17 tests, 12 sabotages caught).
+  every row binds only once the page's observer marked it (scrolled or pinned) or inside an ARMED
+  auto run — no script → the row simply sits there. Still / All at once, free scenes (no
+  `sequence` without Pro) and the Maker tiles (frozen) are unchanged.
+- Guard: `lib/list-rows-arrive-one-by-one.test.ts` (22 tests, 25 sabotages caught).
 
-SPEC IMPACT: None — implements the 2026-09-28 DECISION_LOG row as written. Open for the owner:
-inside a pinned Scrub or Auto run the list keeps arriving as one part (see PR body).
+SPEC IMPACT: DECISION_LOG.md — one-line "As built" note appended to the 2026-09-28 row "LIST ROWS
+ARRIVE ONE BY ONE AS THE GUEST SCROLLS" (what was marked, and the pinned/auto timelines).

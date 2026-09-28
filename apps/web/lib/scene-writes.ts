@@ -149,8 +149,13 @@ export function applySceneVideo(
  * under the column's default `mode = 'auto'` is hidden on both guest paths
  * (`widgetShouldRender` and `openBrowseSectionVisible`). The draft then says
  * "shown", so only the host's canvas (`overlayHubDraftWidgets`) draws it, and
- * Apply is what writes `is_visible: true` for guests. Showing a section is never
- * a Pro key at Apply; adding one is already Pro at the door (`addCustomSection`).
+ * Apply is what writes `is_visible: true` for guests.
+ *
+ * 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28): a couple without Event Hub Pro
+ * may add a scene in the Maker too. Showing one of their OWN scenes that guests
+ * do not see today is the Pro key at Apply (`classifyHubDraft`, "A SCENE OF
+ * THEIR OWN, SHOWN FOR THE FIRST TIME"); outside the Maker the door still
+ * refuses (`addCustomSection` without `draft=1`).
  *
  * Every field the draft can hold for a section is set, so nothing drafted for an
  * earlier scene in the same slot (removed, then added again) leaks onto the new

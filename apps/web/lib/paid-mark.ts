@@ -23,23 +23,53 @@
  * gate that works. Pass the caller's real `ownsPro` / `entitled` boolean.
  */
 
-export type PaidMarkState = 'locked' | 'unlocked';
+/**
+ *   • try      → ◆ PRO — a Pro control the couple may USE before paying: its
+ *                pick lives in the Event Hub Maker's draft and Apply asks for
+ *                Pro (owner 2026-09-28, verbatim: *"they can edit it with pro
+ *                features. but need to upgrade to pro when clicked on apply"*;
+ *                DECISION_LOG "A FREE COUPLE MAY USE EVERY PRO FEATURE IN THE
+ *                MAKER …": *"Small ◆ PRO marks stay on the controls as
+ *                information, never as a lock."*). Information, never a door.
+ */
+export type PaidMarkState = 'locked' | 'unlocked' | 'try';
 
 export function paidMarkState({
   owns,
   storeShell = false,
+  tryable = false,
 }: {
   /** The caller's MEASURED entitlement — true once the feature is paid / granted. */
   owns: boolean;
   /** Inside the app-store shell a locked door is absent — no padlock. */
   storeShell?: boolean;
+  /**
+   * The control works before paying (a Maker control whose pick is drafted and
+   * held at Apply) — it wears ◆ PRO, not a padlock. Still absent in the store
+   * shell: a Pro hint there is a purchase hint.
+   */
+  tryable?: boolean;
 }): PaidMarkState | null {
   if (owns) return 'unlocked';
   if (storeShell) return null;
-  return 'locked';
+  return tryable ? 'try' : 'locked';
+}
+
+/**
+ * 💎 A Pro control in the Event Hub MAKER: its mark, and whether it can be used.
+ * Usable by everyone on the web (the pick is drafted; Apply is the gate —
+ * `planHubDraftApply`); in the app-store shell a couple without Pro is not
+ * shown it at all (the shell rule above, unchanged).
+ */
+export function makerProMark({ owns, storeShell }: { owns: boolean; storeShell: boolean }): PaidMarkState | null {
+  return paidMarkState({ owns, storeShell, tryable: true });
+}
+export function makerProUsable({ owns, storeShell }: { owns: boolean; storeShell: boolean }): boolean {
+  return owns || !storeShell;
 }
 
 /** The accessible name for a mark, when the caller has no better one. */
 export function paidMarkLabel(state: PaidMarkState, product = 'a paid feature'): string {
+  if (state === 'try') return `Part of ${product} — try it here; Apply asks for it`;
   return state === 'locked' ? `Locked — part of ${product}` : `Unlocked — ${product} is yours`;
 }

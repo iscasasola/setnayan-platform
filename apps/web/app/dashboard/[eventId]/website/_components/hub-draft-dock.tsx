@@ -1,6 +1,7 @@
 import { loadHubDraftBarData } from '@/lib/hub-draft-store';
 import { hubDraftSaveFailureText } from '@/lib/hub-draft';
 import { HubDraftToolbar } from './hub-draft-bar';
+import { MiniTour } from '@/app/_components/mini-tour';
 
 /**
  * THE ONE MOUNT for the Event Hub Maker's toolbar (Phase 2):
@@ -18,5 +19,13 @@ export async function HubDraftDock({ eventId, saveError }: { eventId: string; sa
   const bar = await loadHubDraftBarData(eventId);
   /* `?draft_error=` — a form's draft save that did not land came back here
      instead of crashing the page; only the two known words become text. */
-  return <HubDraftToolbar {...bar} saveError={hubDraftSaveFailureText(saveError)} />;
+  return (
+    <HubDraftToolbar
+      {...bar}
+      saveError={hubDraftSaveFailureText(saveError)}
+      /* 💎 First visit to the Apply sheet — drawn only inside the open sheet,
+         which never opens in the app-store shell (no effects reach it there). */
+      applyTour={bar.proEffects.length > 0 ? <MiniTour tourKey="customer_apply_pro_v1" storeShell={bar.storeShell} /> : null}
+    />
+  );
 }

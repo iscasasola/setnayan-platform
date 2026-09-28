@@ -1,12 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { EyeOff } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   VIEW_AS_FREE_HELP,
   VIEW_AS_FREE_ON_LABEL,
+  VIEW_AS_FREE_STOP_LABEL,
   viewAsFreeCookieString,
 } from '@/lib/view-as-free';
 
@@ -34,8 +35,10 @@ export function useViewAsFreeToggle(): (on: boolean) => void {
 
 /**
  * The state, said on the Maker itself for as long as the switch is on — so the
- * owner can never mistake the free view for his own page. One line, one way
- * out; the why sits behind ⓘ.
+ * owner can never mistake the free view for his own page. A full-width BAR, not
+ * a quiet strip (owner 2026-09-28, via the controller: *"too easy to miss — make
+ * it a clear bar reading 'You're seeing the free version' with a prominent
+ * 'Back to Pro' button"*). The why sits behind ⓘ.
  */
 export function ViewAsFreeStrip() {
   const setViewAsFree = useViewAsFreeToggle();
@@ -43,20 +46,53 @@ export function ViewAsFreeStrip() {
     <div
       role="status"
       data-maker-view-as-free=""
-      className="flex shrink-0 items-center justify-between gap-3 border-b border-mulberry/25 bg-mulberry/10 px-3 py-0.5 text-[13px] text-ink"
+      className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-mulberry bg-mulberry/15 px-3 py-1.5 text-[14px] text-ink"
     >
-      <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold">
-        <EyeOff aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2} />
-        <InfoTip label={VIEW_AS_FREE_ON_LABEL}>{VIEW_AS_FREE_HELP}</InfoTip>
+      <span className="inline-flex min-w-0 items-center gap-2 font-semibold">
+        <EyeOff aria-hidden className="h-5 w-5 shrink-0 text-mulberry" strokeWidth={2} />
+        <InfoTip label={VIEW_AS_FREE_ON_LABEL} ariaLabel="About the free version">
+          {VIEW_AS_FREE_HELP}
+        </InfoTip>
       </span>
       <button
         type="button"
         onClick={() => setViewAsFree(false)}
         data-maker-view-as-free-stop=""
-        className="sn-press inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold text-mulberry hover:bg-mulberry/10 lg:min-h-8"
+        className="sn-press inline-flex min-h-11 shrink-0 items-center rounded-full bg-mulberry px-4 text-[14px] font-semibold text-cream hover:bg-mulberry-600"
       >
-        Stop
+        {VIEW_AS_FREE_STOP_LABEL}
       </button>
     </div>
   );
+}
+
+/**
+ * ⏱ THE SWITCH ENDS WITH THE MAKER (owner 2026-09-28, via the controller: it
+ * "must switch itself off when the owner leaves the Maker"). Mounted by the
+ * Maker shell for an internal viewer whenever the switch is ON:
+ *
+ *   · leaving by the app's own links unmounts the Maker → the cookie is cleared;
+ *   · leaving the page any other way (a typed address, closing the tab) fires
+ *     `pagehide` → the cookie is cleared;
+ *   · a RELOAD of the Maker keeps it: the reload's request goes out before the
+ *     old page hides, so it still carries the cookie, and this component writes
+ *     it again as the Maker comes back.
+ *
+ * It renders nothing. It is a cookie in this browser only — nothing on the
+ * server, no route, no action.
+ */
+export function ViewAsFreeKeeper() {
+  useEffect(() => {
+    const secure = window.location.protocol === 'https:';
+    document.cookie = viewAsFreeCookieString(true, secure);
+    const off = () => {
+      document.cookie = viewAsFreeCookieString(false, secure);
+    };
+    window.addEventListener('pagehide', off);
+    return () => {
+      window.removeEventListener('pagehide', off);
+      off();
+    };
+  }, []);
+  return null;
 }

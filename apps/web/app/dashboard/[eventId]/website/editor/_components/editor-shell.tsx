@@ -14,6 +14,7 @@ import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
 import {
   MAKER_MORE_ROWS_ID,
+  MAKER_OPEN_PART_EVENT,
   useMaker,
   type MakerSceneTab,
   type MakerSelection,
@@ -249,7 +250,6 @@ export function MakerWork({
     hubTheme: string;
     openBrowse: boolean;
     hideLocked: boolean;
-    lookLock: ReactNode;
     /** Two people at the centre — the hero has a Joiner to style. */
     twoPeople: boolean;
     /**
@@ -309,8 +309,10 @@ export function MakerWork({
         returnTo: string;
         /** The first-visit tour (`MiniTour`), server-rendered and handed down; mounts when the sheet opens. */
         tour?: ReactNode;
+        /** 💎 No Event Hub Pro: the scene is tried free and Apply asks — the ＋ wears ◆ PRO. */
+        tried?: boolean;
       }
-    | { note: string; locked?: boolean }
+    | { note: string }
     | null;
   proUnlockHref: string;
   /** The live catalogue price, formatted — null when unread (never remembered). */
@@ -374,6 +376,18 @@ export function MakerWork({
   useEffect(() => {
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
   }, [selectionKey, stage]);
+  /* 💎 The Apply sheet's "Go to" a part's own font or motion (owner 2026-09-28):
+     the toolbar selects the scene, then asks for the part's sheet here. */
+  useEffect(() => {
+    const onOpenPart = (e: Event) => {
+      const d = (e as CustomEvent<{ key?: unknown; widgetType?: unknown; el?: unknown }>).detail;
+      if (d && typeof d.key === 'string' && typeof d.widgetType === 'string' && isHubElementKey(d.el)) {
+        setElementTarget({ key: d.key, widgetType: d.widgetType, el: d.el });
+      }
+    };
+    window.addEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
+    return () => window.removeEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
+  }, []);
 
   /* ⚡ THE CANVAS HOLD (`element-preview.ts`). The canvas iframe is keyed on
      `canvasStamp`, not on every server render's `renderStamp`: an element
@@ -457,11 +471,11 @@ export function MakerWork({
     }
     setAddScene(
       'action' in addScene
-        ? { kind: 'ready', open: () => setAddOpen(true) }
-        : { kind: 'refused', note: addScene.note, locked: addScene.locked === true, unlockHref: proUnlockHref },
+        ? { kind: 'ready', open: () => setAddOpen(true), tried: addScene.tried === true }
+        : { kind: 'refused', note: addScene.note },
     );
     return () => setAddScene(null);
-  }, [setAddScene, addScene, stage, proUnlockHref]);
+  }, [setAddScene, addScene, stage]);
 
   /* The scene just added is SELECTED once the render that carries it lands.
      A tile's post lands back on this very address (`lib/maker-stay.ts` — the
@@ -539,7 +553,8 @@ export function MakerWork({
   /* …and what a pick will need: every face in the Font dropdown and, for a
      couple who can pick one, their photos as backgrounds (`lib/maker-preload.ts`
      — the Maker's own document only, never a guest page). Same device gate. */
-  const photoUrlsKey = ownsPro ? (sceneFormat?.photoChoices ?? []).map((p) => p.url).join('\n') : '';
+  const photoUrlsKey =
+    ownsPro || !sceneFormat?.hideLocked ? (sceneFormat?.photoChoices ?? []).map((p) => p.url).join('\n') : '';
   useEffect(() => {
     if (warmBudget === 0) return;
     return whenIdle(() => {
@@ -1138,6 +1153,7 @@ export function MakerWork({
               photoChoices={sceneFormat.photoChoices}
               videoChoice={sceneFormat.videoChoice}
               ownsPro={ownsPro}
+              storeShell={sceneFormat.hideLocked}
               mediaHref={sceneFormat.mediaHref}
               hubTheme={sceneFormat.hubTheme as never}
               onPreview={(message) => {
@@ -1179,7 +1195,6 @@ export function MakerWork({
           ownsPro={ownsPro}
           hideLocked={sceneFormat?.hideLocked ?? false}
           isLast={at === shownSceneIds.length - 1}
-          lookLock={sceneFormat?.lookLock}
           onPreview={() => window.dispatchEvent(new Event(MAKER_PLAY_SCENE_EVENT))}
         />
       ) : null,
@@ -2317,7 +2332,7 @@ function MoreExtras({
       {showProCta ? (
         <section className="rounded-md bg-ink px-4 py-3.5 text-cream">
           <p className="text-[13px] font-semibold text-cream">
-            <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} text="Event Hub Pro" size="md" tone="current" />
+            <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Event Hub Pro" size="md" tone="current" />
           </p>
           <p className="mt-0.5 text-[12px] leading-relaxed text-cream/80">
             One unlock for every stage — the look, the reveal, your own photos and film, music and the

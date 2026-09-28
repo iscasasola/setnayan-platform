@@ -24,6 +24,8 @@ import { TeaCeremonyCard } from './tea-ceremony-card';
 import { TierComparisonWidget } from './tier-comparison-widget';
 import { VenueWidget } from './venue-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
+import type { HubStage } from '@/lib/hub-canvas';
+import { sceneStyleOfRow } from '@/lib/scene-style-of-row';
 
 /**
  * Per-widget renderer for the anonymous public landing path. Mirrors the
@@ -59,6 +61,9 @@ type PublicHideableWidgetProps = {
   canvasMediaUrls?: Readonly<Record<string, string>>;
   /** The live theme, so a scene's text follows its own background (free). */
   hubTheme?: InviteThemeId;
+  /** 🎨 The stage this page draws — the scene's style (`canvas.style`) is
+   *  resolved for it. Absent → every widget keeps its shipped look. */
+  stage?: HubStage | null;
 };
 
 /**
@@ -91,10 +96,13 @@ function PublicHideableWidgetBody({
   ourPhotoUrls,
   canvasMediaUrls,
   guestView = false,
+  stage = null,
 }: PublicHideableWidgetProps) {
   /* 🖼 The scene background owns the box — the widget then draws no card of
      its own (owner 2026-09-27, "no background means no box"). */
   const bare = sceneWidgetIsBare(widget, canvasMediaUrls);
+  /* 🎨 The style this scene is drawn in on this stage — null draws the shipped look. */
+  const sceneStyle = sceneStyleOfRow(widget, stage, event.event_type);
   switch (widget.widget_type) {
     case 'countdown':
       // Match InvitationSite's per-widget skip — no event date, no
@@ -108,6 +116,7 @@ function PublicHideableWidgetBody({
           targetIso={event.event_date}
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
           bare={bare}
+          sceneStyle={sceneStyle}
         />
       ) : null;
 
@@ -130,13 +139,14 @@ function PublicHideableWidgetBody({
             nowTrigger={isGuestNowTriggerEnabled()}
             estimated={scheduleEstimated}
             eventType={event.event_type}
+            sceneStyle={sceneStyle}
           />
           {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
         </>
       ) : null;
 
     case 'venue_map':
-      return <VenueWidget event={event} />;
+      return <VenueWidget event={event} sceneStyle={sceneStyle} />;
 
     case 'dress_code':
       /* 🎨 The stranger's door reads the Mood Board too (owner 2026-09-28: "if
@@ -144,23 +154,23 @@ function PublicHideableWidgetBody({
          nobody is identified here — so this is always the general view.
          `role_palette` is already on this row: `loadEventShell` selects it
          with the admin client, the same read the page's theme colours use. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} hideWhenEmpty={guestView} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} hideWhenEmpty={guestView} sceneStyle={sceneStyle} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;
 
     case 'special_message':
       // 🔗 Bound to Details — this scene's own version where the couple chose
       // "Just this scene", else Details' message (`lib/details-bound.ts`).
-      return <SpecialMessageWidget text={sceneBoundTextOf('message', widget.config_json, event.special_message).text} />;
+      return <SpecialMessageWidget text={sceneBoundTextOf('message', widget.config_json, event.special_message).text} sceneStyle={sceneStyle} signedBy={event.display_name} />;
 
     case 'what_to_bring':
-      return <WhatToBringWidget text={event.what_to_bring ?? null} />;
+      return <WhatToBringWidget text={event.what_to_bring ?? null} sceneStyle={sceneStyle} />;
 
     case 'our_photos':
       // Couple-curated gallery (Increment A.4) — event-level, no PII, so it
       // renders on the anonymous path too. Resolved display URLs threaded in.
-      return <OurPhotosWidget urls={ourPhotoUrls} />;
+      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} />;
 
     // The couple's own sections. One case for all six: the words live in the
     // row's own `config_json`, so the slot number is only which SEAT it takes
@@ -179,7 +189,7 @@ function PublicHideableWidgetBody({
       });
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} />;
+      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} sceneStyle={sceneStyle} />;
 
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are

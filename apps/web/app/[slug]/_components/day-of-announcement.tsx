@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Megaphone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { latestAnnouncementForGuest } from '../announcement-actions';
+import { AnnouncementLine, AnnouncementNotice } from './announcement-styles';
 
 /**
  * DayOfAnnouncement — what the coordinator says, where the guests are.
@@ -59,6 +60,7 @@ export function DayOfAnnouncement({
   body,
   eventId,
   stage = 'live',
+  sceneStyle = null,
 }: {
   body: string;
   /** Which event to listen on. Absent → the component stays exactly as it was,
@@ -67,6 +69,8 @@ export function DayOfAnnouncement({
   /** 'live' = the day-of look (default, so no caller regresses); 'before' =
    *  the calm Invitation-stage look. The layout resolves it. */
   stage?: 'before' | 'live';
+  /** 🎨 `banner` (the default) · `notice` · `line` — `announcement-styles.tsx`. Same words, same tones. */
+  sceneStyle?: string | null;
 }) {
   const [text, setText] = useState(body);
   // The server value wins on navigation — otherwise a guest moving between
@@ -118,6 +122,8 @@ export function DayOfAnnouncement({
     };
   }, [eventId]);
 
+  if (sceneStyle === 'notice') return <AnnouncementNotice body={text} stage={stage} />;
+  if (sceneStyle === 'line') return <AnnouncementLine body={text} stage={stage} />;
   return <AnnouncementCard body={text} stage={stage} />;
 }
 

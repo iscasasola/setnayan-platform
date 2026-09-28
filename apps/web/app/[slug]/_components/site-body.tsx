@@ -159,6 +159,7 @@ import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { HubScenes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
+import { sceneStyleOfRow } from '@/lib/scene-style-of-row';
 import { RsvpSheet } from './rsvp-sheet';
 import { rsvpSheetHeading, rsvpSheetTrigger } from './rsvp-sheet-state';
 import { PahinaKeepsake } from './pahina-keepsake';
@@ -1118,6 +1119,7 @@ export async function SiteBody({
       {makerMark(`w:${widget.widget_type}`)}
       <PublicHideableWidget
         widget={widget}
+        stage={pageStage}
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
         guestView={!isMakerCanvas}
@@ -1412,6 +1414,12 @@ export async function SiteBody({
                   venueName={event.venue_name}
                   venueAddress={event.venue_address}
                   venues={event.venues}
+                  dateIso={event.event_date ?? null}
+                  sceneStyle={sceneStyleOfRow(
+                    widgets.find((w) => w.widget_type === 'event_details'),
+                    pageStage,
+                    event.event_type,
+                  )}
                 />
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
                 {plan.publicSafeWidgets.length === 0 ? (
@@ -2395,6 +2403,7 @@ export async function SiteBody({
                 <HideableWidgetRender
                   key={widget.widget_id}
                   widget={widget}
+                  stage={pageStage}
                   canvasMediaUrls={canvasMediaUrls}
                   hubTheme={sceneTheme}
                   guestView={!isMakerCanvas}
@@ -2537,6 +2546,12 @@ export async function SiteBody({
                    screen"). In the Maker's canvas `event` is the couple's DRAFT,
                    so the switch shows here before Apply. */
                 oneAtATime={askOneAtATime(event.rsvp_ask_config)}
+                /* 🎨 The reply card's style — the RSVP row's `canvas.style`. */
+                sceneStyle={sceneStyleOfRow(
+                  widgets.find((w) => w.widget_type === 'rsvp'),
+                  pageStage,
+                  event.event_type,
+                )}
               />
             </div>
           </RsvpSheet>

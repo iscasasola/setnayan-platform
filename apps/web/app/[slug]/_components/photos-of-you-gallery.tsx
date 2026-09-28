@@ -8,6 +8,7 @@ import type { WallTileState } from '@/lib/guest-wall-unpost';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
+import { PhotosOfYouLead, PhotosOfYouPolaroids } from './photos-of-you-styles';
 
 /**
  * "PHOTOS OF YOU" — the guest's own photographs on the event's public page.
@@ -44,6 +45,7 @@ export function PhotosOfYouGallery({
   occasion,
   eventWord,
   timeZone,
+  sceneStyle = null,
 }: {
   /** null means the read FAILED. An empty `photos` array means nobody has
    *  tagged this guest yet — a real answer, and the commonest one early in a
@@ -57,6 +59,8 @@ export function PhotosOfYouGallery({
   eventWord: string;
   /** The VENUE's zone. Absent ⇒ credits drop the time, never guess it. */
   timeZone?: string | null;
+  /** 🎨 `grid` (the default) · `lead` · `polaroids` — `photos-of-you-styles.tsx`. */
+  sceneStyle?: string | null;
 }) {
   const photos = gallery?.photos ?? [];
   const [openedId, setOpenedId] = useState<string | null>(null);
@@ -70,6 +74,75 @@ export function PhotosOfYouGallery({
   */
   const [wallSaid, setWallSaid] = useState<Record<string, WallTileState>>({});
   const wallOf = (id: string, fallback: WallTileState): WallTileState => wallSaid[id] ?? fallback;
+
+  /* 🎨 ONE TILE, BUILT ONCE — photo, "Not me", "Take it down", the wall
+     badge and the credit — then placed by the scene's style
+     (`photos-of-you-styles.tsx`). A style moves pictures, never consent. */
+  const tileOf = (p: (typeof photos)[number]) => (
+    <figure key={p.id} className="sn-gal-tile group aspect-square">
+      {/* Tapping the photo opens it here rather than navigating away to a
+          raw presigned URL in a new tab. "Click any tile for the lightbox"
+          — and the save is an action inside it, so the guest keeps their
+          place on the page instead of losing it to a browser tab. */}
+      <button
+        type="button"
+        onClick={() => setOpenedId(p.id)}
+        aria-label="Open this photo"
+        className="block h-full w-full"
+      >
+        {/* Presigned URL — raw <img> (the optimizer would cache expiry). */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+      </button>
+      {/*
+        TWO DIFFERENT WISHES, TWO CONTROLS — and until 2026-08-28 there was
+        one, which could not act on either.
+
+        "Not me"  → that is somebody else, stop filing it under my name.
+                    Removes the TAG, never the photograph. This used to
+                    work only on face-recognition guesses, of which
+                    production has never held a single one, so it rendered
+                    on every photo and did nothing on any of them.
+
+        "Take it down" → that IS me, and I do not want it up. The tag comes
+                    off in the same press (that part is theirs), and the
+                    photograph goes to a person, because it was taken by
+                    somebody else and may hold four other guests.
+
+        Both are real ≥44px labelled controls, legible over the photo.
+      */}
+      {/*
+        IS IT ON THE SCREEN IN THIS ROOM RIGHT NOW? A one-word answer, on
+        the tile, because the wall is a thing happening in front of her —
+        and it is the state she needs BEFORE she decides to open anything.
+
+        ⚠ It is a BADGE, not a button, and `pointer-events-none` is
+        load-bearing for the same reason it is on the credit: the whole
+        tile opens the lightbox, and a control here would swallow the tap
+        on exactly the photographs that have one. The wall control itself
+        lives in the lightbox, where there is room for a ≥44px labelled
+        button and where she can see the photograph full size before
+        deciding. A third pill up there does not fit — two 44px pills
+        already fill a ~111px tile on a phone.
+      */}
+      <WallBadge state={wallOf(p.id, p.wall)} />
+      <div className="absolute right-1.5 top-1.5 z-10 flex flex-col items-end gap-1.5">
+        <form action={removeMyTag.bind(null, eventId, p.sourceTable, p.id)}>
+          <SubmitButton
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-full bg-[rgb(23_22_15/0.7)] px-3 text-sm font-semibold text-[var(--sn-ob-text)] shadow-sm backdrop-blur-sm transition hover:bg-[rgb(23_22_15/0.85)] focus-visible:bg-[rgb(23_22_15/0.85)]"
+            pendingLabel="Removing…"
+          >
+            <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+            Not me
+          </SubmitButton>
+        </form>
+        <TakeItDown eventId={eventId} sourceTable={p.sourceTable} sourceId={p.id} />
+      </div>
+      {/* WHO GOT THIS SHOT OF YOU — the question a guest actually has, and
+          one this page could not answer at all before. Silent when unknown. */}
+      <GalleryCredit name={p.capturedBy} capturedAt={p.capturedAt} timeZone={timeZone} />
+    </figure>
+  );
 
   return (
     <section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">
@@ -114,73 +187,16 @@ export function PhotosOfYouGallery({
 
       {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —
           are big enough for an older guest (Guest Legibility Floor). */}
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        {photos.map((p) => (
-          <figure key={p.id} className="sn-gal-tile group aspect-square">
-            {/* Tapping the photo opens it here rather than navigating away to a
-                raw presigned URL in a new tab. "Click any tile for the lightbox"
-                — and the save is an action inside it, so the guest keeps their
-                place on the page instead of losing it to a browser tab. */}
-            <button
-              type="button"
-              onClick={() => setOpenedId(p.id)}
-              aria-label="Open this photo"
-              className="block h-full w-full"
-            >
-              {/* Presigned URL — raw <img> (the optimizer would cache expiry). */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-            </button>
-            {/*
-              TWO DIFFERENT WISHES, TWO CONTROLS — and until 2026-08-28 there was
-              one, which could not act on either.
-
-              "Not me"  → that is somebody else, stop filing it under my name.
-                          Removes the TAG, never the photograph. This used to
-                          work only on face-recognition guesses, of which
-                          production has never held a single one, so it rendered
-                          on every photo and did nothing on any of them.
-
-              "Take it down" → that IS me, and I do not want it up. The tag comes
-                          off in the same press (that part is theirs), and the
-                          photograph goes to a person, because it was taken by
-                          somebody else and may hold four other guests.
-
-              Both are real ≥44px labelled controls, legible over the photo.
-            */}
-            {/*
-              IS IT ON THE SCREEN IN THIS ROOM RIGHT NOW? A one-word answer, on
-              the tile, because the wall is a thing happening in front of her —
-              and it is the state she needs BEFORE she decides to open anything.
-
-              ⚠ It is a BADGE, not a button, and `pointer-events-none` is
-              load-bearing for the same reason it is on the credit: the whole
-              tile opens the lightbox, and a control here would swallow the tap
-              on exactly the photographs that have one. The wall control itself
-              lives in the lightbox, where there is room for a ≥44px labelled
-              button and where she can see the photograph full size before
-              deciding. A third pill up there does not fit — two 44px pills
-              already fill a ~111px tile on a phone.
-            */}
-            <WallBadge state={wallOf(p.id, p.wall)} />
-            <div className="absolute right-1.5 top-1.5 z-10 flex flex-col items-end gap-1.5">
-              <form action={removeMyTag.bind(null, eventId, p.sourceTable, p.id)}>
-                <SubmitButton
-                  className="inline-flex min-h-[44px] items-center gap-1 rounded-full bg-[rgb(23_22_15/0.7)] px-3 text-sm font-semibold text-[var(--sn-ob-text)] shadow-sm backdrop-blur-sm transition hover:bg-[rgb(23_22_15/0.85)] focus-visible:bg-[rgb(23_22_15/0.85)]"
-                  pendingLabel="Removing…"
-                >
-                  <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-                  Not me
-                </SubmitButton>
-              </form>
-              <TakeItDown eventId={eventId} sourceTable={p.sourceTable} sourceId={p.id} />
-            </div>
-            {/* WHO GOT THIS SHOT OF YOU — the question a guest actually has, and
-                one this page could not answer at all before. Silent when unknown. */}
-            <GalleryCredit name={p.capturedBy} capturedAt={p.capturedAt} timeZone={timeZone} />
-          </figure>
-        ))}
-      </div>
+      {sceneStyle === 'lead' && photos.length > 0 ? (
+        <PhotosOfYouLead tiles={photos.map((p) => ({ key: p.id, node: tileOf(p), capturedAt: p.capturedAt }))} />
+      ) : sceneStyle === 'polaroids' && photos.length > 0 ? (
+        <PhotosOfYouPolaroids
+          tiles={photos.map((p) => ({ key: p.id, node: tileOf(p), capturedAt: p.capturedAt }))}
+          timeZone={timeZone}
+        />
+      ) : (
+        <div className="mt-4 grid grid-cols-3 gap-2">{photos.map((p) => tileOf(p))}</div>
+      )}
 
       {photos.length > 0 ? (
         <p className="sn-gal-soft mt-3 text-sm">

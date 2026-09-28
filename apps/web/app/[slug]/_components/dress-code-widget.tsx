@@ -11,6 +11,7 @@ import {
 import { dressCodeForEveryone, ourColoursWith, speaksToThisReader } from '@/lib/dress-code-for-everyone';
 import { STYLE_UNSET_LINE, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { roleLabel } from '@/lib/entourage';
+import { DressCodeLine, DressCodePalette } from './dress-code-styles';
 
 /*
  * 🧵 THE SILK CHIP, VISIBLE ON ANY GROUND. `.pahina-swatch` shades a chip with
@@ -82,6 +83,7 @@ export function DressCodeWidget({
   guestRole = null,
   rolePalette = null,
   hideWhenEmpty = false,
+  sceneStyle = null,
 }: {
   words: EventWords;
   /** A GUEST's view (owner 2026-09-26): with nothing authored, the section is
@@ -96,6 +98,12 @@ export function DressCodeWidget({
   rolePalette?: unknown;
   ceremonyType?: string | null;
   genderSeparation?: string | null;
+  /**
+   * 🎨 `colours-and-roles` (this, the default) · `palette` · `line`
+   * (`dress-code-styles.tsx`). Arranges the GENERAL view only: a guest the
+   * page knows still sees just their own role's panel, in every style.
+   */
+  sceneStyle?: string | null;
 }) {
   // The couple's walima seating posture, surfaced to guests so they know what to
   // expect at the reception. Muslim-only; 'none' (default) shows nothing. Neutral
@@ -273,6 +281,11 @@ export function DressCodeWidget({
     ceremonyType === 'inc' ? MODEST_GUIDANCE.inc : ceremonyType === 'muslim' ? MODEST_GUIDANCE.muslim : null;
   const shownTitle = title || (!description && modest ? modest.heading : 'Dress with us');
   const shownDescription = description || (!title && modest ? modest.body : '');
+
+  if (!mine && (sceneStyle === 'palette' || sceneStyle === 'line')) {
+    const general = { title: shownTitle, description: shownDescription, palette, rows: everyone.rows, dos, donts, genderNote };
+    return sceneStyle === 'palette' ? <DressCodePalette {...general} /> : <DressCodeLine {...general} />;
+  }
 
   return (
     <section className="space-y-5">

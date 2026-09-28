@@ -13,16 +13,19 @@ Slice 3 of three, stacked on slice 2 (#6110). Brief `POST_EVENT_SCENES_BUILD_BRI
   padlock; a free couple places a preset in the draft and tries it; Apply holds just that scene — named
   "Post Event · your scene “The Toast”" — and applies everything else beside it. Reorder / hide / styles /
   words stay free. `canvas.postEventPreset` is not a look key, so a preset scene never frames by itself.
-- **Order is free in the story workroom too** (E4): its order card no longer sends the couple to buy Pro to
-  move a scene; it says ordering is free in the Maker.
+- **Section order is free on the story page too** (owner E4; controller ruling 2026-09-29): the move buttons
+  work for every couple and the save action takes the order from anyone — it may only name columns the story
+  already holds, so a free couple cannot author a column through the order. Moments, own columns and guest
+  wishes stay Pro (the 2026-09-09 guard, now pinned both ways).
+- **App-store shell** (#6091's Maker rule, owns || !storeShell): a couple without Pro sees no preset tile,
+  diamond or note there; the tour's presets slide is marked `sells`, so the shell drops it.
 - **Tour** (`customer_post_event_v1`): scenes and their styles, "Not yet" before the day, the after-the-day bar
   (Recap · Film · Suppliers · Gallery), and the presets — shown from the first visit, not only after the day.
 - Owner names applied: Kwento → "Photo Notes"; the Live Stream scene → "Watch Live".
 
 Gaps, listed not invented: the "Unlock Pro and Apply" sheet is Builder J's #6091 — not merged yet, so a held
 preset shows in the shipped held list until it lands; presets draw after the story's own scenes on the page
-(they are widget rows, not story blocks); The Toast has no clip store (template 6 stands in); the story
-workroom's own order card still reads the 2026-09-09 Pro guard for its move buttons. No migration. +0
+(they are widget rows, not story blocks); The Toast has no clip store (template 6 stands in). No migration. +0
 exported server actions.
 
 SPEC IMPACT: `DECISION_LOG.md` — an "AS BUILT" row for slice 3 (the twelve preset ids and templates, Pro at

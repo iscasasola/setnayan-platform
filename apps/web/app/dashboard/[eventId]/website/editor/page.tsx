@@ -1295,9 +1295,11 @@ export default async function WebsiteEditorPage({
       }}
       /* 🎞 Post Event's twelve presets — every couple may try one in the draft
          (Pro is asked for at Apply, E3); six of their own, shared across stages
-         (E5). Hidden in the store shell (a Pro feature there is a paid pitch). */
+         (E5). #6091's Maker rule (`makerProUsable`: owns || !storeShell): in the
+         store shell a couple WITHOUT Pro is shown no tile, diamond or note — a
+         Pro hint there is a purchase hint; a couple who owns Pro keeps them. */
       postEventPresets={
-        storeShell
+        storeShell && !ownsPro
           ? null
           : {
               action: addCustomSection,

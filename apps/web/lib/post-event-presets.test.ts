@@ -140,6 +140,14 @@ test('4 · Pro at Apply: a free couple tries a preset in the draft — Apply hol
   const { items } = classifyHubDraft(hide, liveShown);
   assert.deepEqual(items.map((i) => (i.kind === 'widget' ? [i.field, i.pro] : [])), [['is_visible', false]]);
 
+  // App-store shell (#6091's Maker rule, `makerProUsable`: owns || !storeShell):
+  // a couple WITHOUT Pro there is shown no tile, diamond or note — a Pro hint in
+  // the store app is a purchase hint. A couple who owns Pro keeps them.
+  const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
+  assert.match(page, /postEventPresets=\{\s*storeShell && !ownsPro\s*\?\s*null/, 'the presets reach a store-shell couple without Pro');
+  const tours = readFileSync(join(WEB, 'lib/tours.ts'), 'utf8');
+  assert.match(tours, /title: 'Add scenes made for after the day',[\s\S]{0,700}?sells: true/, 'the presets tour slide must be dropped in the store shell');
+
   // The Apply names a held preset by its preset and place.
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   assert.match(action, /`Post Event · your scene “\$\{preset\.name\}”`/);

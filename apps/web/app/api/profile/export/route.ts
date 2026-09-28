@@ -225,6 +225,8 @@ export async function GET() {
     coordinatorConsentsRes,
     marketingShareConsentsRes,
     papicFreeGrantClaimsRes,
+    userUnfollowsRes,
+    inviteMutesRes,
     vendorReuseRequestsRes,
     workingNotesRes,
     broadcastsSentRes,
@@ -461,6 +463,25 @@ export async function GET() {
       .from('papic_free_grant_claims')
       .select('user_id, event_id, claimed_at')
       .eq('user_id', user.id),
+    // RA 10173 (2026-09-28) — the subject's own "I unfollowed them" memory
+    // (migration 20271251336140): which accounts THIS person chose to stop
+    // following, so automatic follows never re-follow them. Their stated
+    // preference, keyed to them alone (follower_user_id) — exported, not
+    // excluded. The OTHER side (followed_user_id) is never read here.
+    supabase
+      .from('user_unfollows')
+      .select('followed_user_id, created_at')
+      .eq('follower_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-28) — "Don't show me invites from this person"
+    // (migration 20271252896804): the subject's own private mute list, keyed to
+    // them (user_id). Exported as their stated preference; the muted person
+    // never sees it and is never told.
+    supabase
+      .from('invite_mutes')
+      .select('muted_user_id, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
     // RA 10173 (2026-08-04) — RE-BOOKING REQUESTS the subject initiated
     // (migration 20271103100614). AUTHOR-scoped on requested_by_user_id, not
     // event-scoped: the row records a request THIS person made, and a co-host
@@ -733,6 +754,8 @@ export async function GET() {
   const coordinatorConsents = listOutcome('coordinator_access_consents', coordinatorConsentsRes);
   const marketingShareConsents = listOutcome('marketing_share_consents', marketingShareConsentsRes);
   const papicFreeGrantClaims = listOutcome('papic_free_grant_claims', papicFreeGrantClaimsRes);
+  const userUnfollows = listOutcome('user_unfollows', userUnfollowsRes);
+  const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
@@ -925,6 +948,8 @@ export async function GET() {
     coordinator_access_consents: coordinatorConsents.rows,
     marketing_share_consents: marketingShareConsents.rows,
     papic_free_grant_claims: papicFreeGrantClaims.rows,
+    user_unfollows: userUnfollows.rows,
+    invite_mutes: inviteMutes.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).

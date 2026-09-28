@@ -1327,6 +1327,22 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'The subject’s OUTBOUND follow list. Inbound edges (followed_user_id) are another account’s list — left, and flagged in the PR.',
   },
   {
+    table: 'invite_mutes',
+    column: 'user_id',
+    why:
+      'The subject’s own private "Don’t show me invites from this person" list (owner 2026-09-28; ' +
+      'migration 20271252896804) — their preference, keyed to them. Rows where they are the MUTED ' +
+      'person are another account’s private list — left, and never shown to them.',
+  },
+  {
+    table: 'user_unfollows',
+    column: 'follower_user_id',
+    why:
+      'The subject’s own "I unfollowed them" memory (owner 2026-09-28: a guest "can unfollow any ' +
+      'time"; migration 20271251336140) — their preference, keyed to them. Inbound rows ' +
+      '(followed_user_id) are another account’s memory — left, like user_follows.',
+  },
+  {
     table: 'vendor_follows',
     column: 'follower_user_id',
     why: 'The subject’s outbound vendor-follow list.',

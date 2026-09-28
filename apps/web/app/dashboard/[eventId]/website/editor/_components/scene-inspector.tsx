@@ -243,7 +243,12 @@ export function SceneAnimateTab({
         </>
       ) : null}
 
-      <ISection>Into the next scene</ISection>
+      <ISection>
+        <span className="inline-flex items-center gap-1.5">
+          Into the next scene
+          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
+        </span>
+      </ISection>
       {isLast ? (
         <IHint data="last-scene">The last scene — nothing comes after it, so there is no move to set.</IHint>
       ) : (

@@ -104,7 +104,8 @@ export function ApplyProSheet({
           <ul className="mt-2 flex-1 overflow-y-auto px-2" data-apply-pro-effects="">
             {effects.map((e) => (
               <li key={e.id} data-apply-pro-effect={e.id} className="flex min-h-12 items-center gap-2 rounded-2xl px-2 py-1">
-                <PaidMark state="try" label="Event Hub Pro" size="xs" />
+                {/* Every row here is Pro — the diamond alone, no word repeated seven times. */}
+                <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
                 <span className="min-w-0 flex-1 text-sm text-ink">
                   <span className="font-semibold">{e.what}</span>
                   <span className="text-ink/60"> · {e.where}</span>

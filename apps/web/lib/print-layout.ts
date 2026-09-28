@@ -58,8 +58,20 @@ export type PrintOp =
   | { t: 'image'; ref: string; x: number; y: number; w: number; h: number; opacity?: number }
   | { t: 'circle'; cx: number; cy: number; r: number; fill?: string; stroke?: string; sw?: number; opacity?: number; dash?: boolean; nfc?: boolean };
 
+/**
+ * ✍ THE WORDS A COUPLE CAN TAP ON A CARD (owner 2026-09-28, "tap it, edit it on
+ * the right"): the print-only lines typed in Details — the opening line (The
+ * Invitation) and "Kindly reply" (The Finer Details). Every other word on a card
+ * is a fact with its own home; these two live only in `events.print_details`.
+ */
+export type PrintField = 'opening_line' | 'rsvp';
+/** Where a field was drawn, in the doc's own points (screen: no bleed). */
+export type PrintFieldBox = { field: PrintField; x: number; y: number; w: number; h: number };
+
 export type PrintDoc = {
   piece: PrintPieceKey;
+  /** The tappable print-only words, where they landed — see `PrintField`. */
+  fields?: PrintFieldBox[];
   /** Trim size, points. */
   w: number;
   h: number;
@@ -592,10 +604,13 @@ function drawInvitation(ctx: Ctx, k: number, band: number): { doc: PrintDoc; end
   }
   const d = data.details;
   if (d.openingLine) {
+    const top = y - 8.4 * k;
     for (const line of wrap(d.openingLine, look.bodyFont, 8.4 * k, inner)) {
       text(ops, line, cx, y, { font: look.bodyFont, size: 8.4 * k, color: look.muted, align: 'center' });
       y += 11 * k;
     }
+    // The box the couple taps: the lines' full measure, cap to descender.
+    doc.fields = [{ field: 'opening_line', x: cx - inner / 2, y: top, w: inner, h: y - 11 * k + 8.4 * k * DESC_EM - top }];
     y += 4 * k;
   }
   const groom = d.parents.filter((p) => p.side === 'groom');
@@ -984,8 +999,25 @@ type FlowRow = {
   x1: number;
   /** A heading never ends a side — it moves with the line under it. */
   keepWithNext?: boolean;
+  /** The print-only words this row draws, so the Maker can make them tappable. */
+  field?: PrintField;
   draw: (ops: PrintOp[], y: number) => void;
 };
+
+/** The tappable boxes of the rows placed on one side — one box per field, their union. */
+function fieldBoxes(placed: Array<{ row: FlowRow; y: number }>): PrintFieldBox[] {
+  const out = new Map<PrintField, { x0: number; y0: number; x1: number; y1: number }>();
+  for (const { row, y } of placed) {
+    if (!row.field) continue;
+    const b = { x0: row.x0, y0: y - row.top, x1: row.x1, y1: y + row.below };
+    const had = out.get(row.field);
+    out.set(
+      row.field,
+      had ? { x0: Math.min(had.x0, b.x0), y0: Math.min(had.y0, b.y0), x1: Math.max(had.x1, b.x1), y1: Math.max(had.y1, b.y1) } : b,
+    );
+  }
+  return [...out].map(([field, b]) => ({ field, x: b.x0, y: b.y0, w: b.x1 - b.x0, h: b.y1 - b.y0 }));
+}
 
 type FlowGeo = { die: DieCut; w: number; h: number; top: (page: number) => number; floor: (page: number) => number };
 
@@ -1139,8 +1171,11 @@ function layoutDetails(ctx: Ctx): PrintDoc[] {
       }
     }
     if (data.details.rsvpContact) {
-      rows.push(headRow(look, 'Kindly reply', cx, inner, 16 * f, 2 * f, head));
-      rows.push(...paraRows(look, data.details.rsvpContact, body, look.ink, cx, inner));
+      rows.push(
+        ...[headRow(look, 'Kindly reply', cx, inner, 16 * f, 2 * f, head), ...paraRows(look, data.details.rsvpContact, body, look.ink, cx, inner)].map(
+          (r) => ({ ...r, field: 'rsvp' as const }),
+        ),
+      );
     }
     if (data.details.giftLines.length) {
       rows.push(headRow(look, 'Gifts', cx, inner, 16 * f, 2 * f, head));
@@ -1176,6 +1211,8 @@ function layoutDetails(ctx: Ctx): PrintDoc[] {
       continuedHead(doc, ctx, 'The Finer Details');
     }
     for (const { row, y } of placed) row.draw(doc.ops, y);
+    const boxes = fieldBoxes(placed);
+    if (boxes.length) doc.fields = boxes;
     safeGuide(doc, ctx);
     docs.push(doc);
   });
@@ -1615,8 +1652,10 @@ export function spreadDocs(docs: PrintDoc[]): PrintDoc {
   const W = docs.reduce((a, d) => a + d.w, 0) + gap * (docs.length - 1);
   const ops: PrintOp[] = [];
   const dies: string[] = [];
+  const fields: PrintFieldBox[] = [];
   let ox = 0;
   docs.forEach((d, i) => {
+    for (const b of d.fields ?? []) fields.push({ ...b, x: b.x + ox });
     for (const o of d.ops) {
       if (o.t === 'rect' || o.t === 'image') ops.push({ ...o, x: o.x + ox });
       else if (o.t === 'circle') ops.push({ ...o, cx: o.cx + ox });
@@ -1627,7 +1666,7 @@ export function spreadDocs(docs: PrintDoc[]): PrintDoc {
     ox += d.w + gap;
   });
   dies.push(`M0 ${f2(H)}H${f2(W)}V${f2(H + labelH)}H0Z`);
-  return { ...docs[0]!, w: W, h: H + labelH, diePath: dies.join(' '), ops };
+  return { ...docs[0]!, w: W, h: H + labelH, diePath: dies.join(' '), ops, ...(fields.length ? { fields } : {}) };
 }
 
 /** What the Maker draws for a piece: the front alone, or "Front · Back". */

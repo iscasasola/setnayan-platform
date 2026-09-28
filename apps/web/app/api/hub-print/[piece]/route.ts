@@ -9,7 +9,7 @@ import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type Pri
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
-import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { renderImposedPdf, renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderSampleJpeg, renderSampleSheetJpeg } from '@/lib/print-sample-raster';
@@ -36,8 +36,8 @@ import {
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { formatCount } from '@/lib/format-number';
-import { previewCacheControl, samplePreviewCacheControl } from '@/lib/print-preview-cache';
-import { findSampleEventId } from '@/app/tour/_lib/sample-event';
+import { previewCacheControl } from '@/lib/print-preview-cache';
+import { sampleView } from '@/lib/print-sample-door.server';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -106,6 +106,19 @@ function fileName(slug: string | null, piece: string, theme: InviteThemeId): str
   return printFileName(slug, `${piece}${t}`);
 }
 
+/**
+ * ✍ THE TAPPABLE WORDS (owner 2026-09-28, "tap it, edit it on the right"): an
+ * on-screen picture carries where its print-only words landed (`PrintDoc.fields`,
+ * in the doc's points, with the doc's size to scale by). The Maker's Details
+ * body lays a tap target over each. A header, so the picture itself — SVG or
+ * the sample JPEG — is unchanged and its cache is the picture's.
+ */
+function fieldsHeader(doc: PrintDoc): Record<string, string> {
+  return doc.fields?.length
+    ? { 'x-print-fields': JSON.stringify({ w: doc.w, h: doc.h, fields: doc.fields.map((b) => ({ ...b, x: +b.x.toFixed(1), y: +b.y.toFixed(1), w: +b.w.toFixed(1), h: +b.h.toFixed(1) })) }) }
+    : {};
+}
+
 function pdfResponse(bytes: Uint8Array, name: string, inline: boolean): NextResponse {
   return new NextResponse(Buffer.from(bytes), {
     status: 200,
@@ -114,42 +127,6 @@ function pdfResponse(bytes: Uint8Array, name: string, inline: boolean): NextResp
       'content-disposition': `${inline ? 'inline' : 'attachment'}; filename="${name}"`,
       'cache-control': 'private, no-store',
     },
-  });
-}
-
-/**
- * 🖼 THE SAMPLE DOOR — `?sample=1&theme=<id>&mode=screen` (owner 2026-09-28,
- * "THE THEME GALLERY SHOWS A CLEAN SAMPLE EVENT HUB"). The Details gallery shows
- * the curated sample event's prints in each theme, the same for every couple.
- *
- * ⛔ IT CAN ONLY EVER DRAW THE SAMPLE. The event is found by the tour's one
- * pinned read (`findSampleEventId`: `is_sample = TRUE` + the hardcoded slug),
- * never from the request — an `event=` beside `sample=1` is IGNORED. So no
- * sign-in is asked: there is nothing here but the public sample page's own
- * content. Only the on-screen pictures of the gallery's three pieces; never a
- * PDF, a pass batch, the whole set or any free-group document.
- */
-const SAMPLE_PIECES = ['invitation', 'details', 'pass'] as const;
-
-async function sampleView(rawPiece: string, url: URL): Promise<NextResponse> {
-  const piece = (SAMPLE_PIECES as readonly string[]).includes(rawPiece) ? (rawPiece as (typeof SAMPLE_PIECES)[number]) : null;
-  if (!piece || url.searchParams.get('mode') !== 'screen') {
-    return new NextResponse('The sample shows its invitation, details and pass on screen only.', { status: 404 });
-  }
-  const sampleId = await findSampleEventId();
-  if (!sampleId) return new NextResponse('No sample.', { status: 404 });
-  const theme = normalizeThemeId(url.searchParams.get('theme')) ?? 'house';
-  const set = await loadPrintSet(sampleId, { mode: 'screen', previewTheme: theme });
-  if (!set) return new NextResponse('No sample.', { status: 404 });
-  const spot = spotLayersFor(set.theme);
-  const svg = renderPrintSvg(
-    layoutPieceView(piece, { look: set.look, data: set.data, mode: 'screen', foil: spot.foil, whiteInk: spot.whiteInk, format: null }),
-    set.images,
-    { compact: true },
-  );
-  return new NextResponse(svg, {
-    status: 200,
-    headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': samplePreviewCacheControl(url.searchParams.get('v')) },
   });
 }
 
@@ -287,7 +264,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false);
     }
     if (mode === 'screen') {
-      const svg = renderPrintSvg(layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images, { compact: true });
+      const view = layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) });
+      const svg = renderPrintSvg(view, set.images, { compact: true });
       return new NextResponse(svg, {
         status: 200,
         // ⚡ A VERSIONED ADDRESS IS IMMUTABLE (owner 2026-09-28: the
@@ -296,7 +274,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         // address can only ever mean the same picture — a year, `immutable`.
         // Without a `v`, the old 60 s + `stale-while-revalidate` (a couple
         // flipping between theme chips paints the last render instantly).
-        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': previewCacheControl(url.searchParams.get('v')) },
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': previewCacheControl(url.searchParams.get('v')), ...fieldsHeader(view) },
       });
     }
     // THE MENU IS NEVER PRINTED BLANK: with no dishes it is refused on its own
@@ -327,12 +305,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   if (!set) return new NextResponse('Event not found.', { status: 404 });
   const spot = spotLayersFor(set.theme);
   const input = { look: set.look, data: set.data, mode: 'sample' as const, foil: spot.foil };
+  const pieceView = wantsSet ? null : layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) });
   const jpeg = wantsSet
     ? await renderSampleSheetJpeg(
         PRINT_SET_KEYS.filter((k) => k !== 'menu' || menuHasDishes(set.data.menu)).map((k) => layoutPieceView(k, { ...input, format: formatParam(k) })),
         set.images,
       )
-    : await renderSampleJpeg(layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
+    : await renderSampleJpeg(pieceView!, set.images);
   const name = `${(set.event.slug || 'event').replace(/[^a-z0-9-]/gi, '').slice(0, 40) || 'event'}-${wantsSet ? 'set' : piece}-sample.jpg`;
   return new NextResponse(Buffer.from(jpeg), {
     status: 200,
@@ -342,6 +321,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       // See the `screen` SVG branch above — the on-screen sample is versioned
       // the same way; a download (`mode=sample`) carries no `v` and keeps 60 s.
       'cache-control': mode === 'screen' ? previewCacheControl(url.searchParams.get('v')) : previewCacheControl(null),
+      ...(mode === 'screen' && pieceView ? fieldsHeader(pieceView) : {}),
     },
   });
 }

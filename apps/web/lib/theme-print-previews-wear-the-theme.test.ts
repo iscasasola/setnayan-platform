@@ -58,19 +58,20 @@ test('3 · the print route still takes the theme from `theme=`', () => {
 // ═══ The sample door — the gallery's prints, the same for every couple ═══
 test('4 · the sample door can only ever draw the pinned sample, on screen, and is shared', () => {
   const route = stripComments(readFileSync(join(__dirname, '..', 'app', 'api', 'hub-print', '[piece]', 'route.ts'), 'utf8'));
-  const start = route.indexOf('async function sampleView(');
+  const mod = stripComments(readFileSync(join(__dirname, 'print-sample-door.server.ts'), 'utf8'));
+  const start = mod.indexOf('export async function sampleView(');
+  assert.ok(start > 0, 'the sample door moved — re-anchor this guard');
+  const door = mod.slice(start);
   const end = route.indexOf('export async function GET(');
-  assert.ok(start > 0 && end > start, 'the sample door moved — re-anchor this guard');
-  const door = route.slice(start, end);
   // The event comes ONLY from the tour's pinned read — never from the request.
   assert.match(door, /const sampleId = await findSampleEventId\(\);/);
   assert.doesNotMatch(door, /searchParams\.get\('event'\)/, 'the sample door reads an event from the request');
   assert.match(door, /loadPrintSet\(sampleId, /);
   assert.equal([...door.matchAll(/loadPrintSet\(/g)].length, 1);
   // On-screen pictures of three pieces only — never a PDF, passes or the set.
-  assert.match(route, /const SAMPLE_PIECES = \['invitation', 'details', 'pass'\] as const;/);
+  assert.match(mod, /export const SAMPLE_PIECES = \['invitation', 'details', 'pass'\] as const;/);
+  assert.doesNotMatch(mod, /print-render-pdf|renderPrintPdf|renderImposedPdf|loadGuestPasses/, 'the sample door can make a file');
   assert.match(door, /url\.searchParams\.get\('mode'\) !== 'screen'/);
-  assert.doesNotMatch(door, /renderPrintPdf|renderImposedPdf|loadGuestPasses/, 'the sample door can make a file');
   assert.match(door, /samplePreviewCacheControl\(url\.searchParams\.get\('v'\)\)/);
   // It is asked before the host gate, and only by `sample=1`.
   const get = route.slice(end);

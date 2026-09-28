@@ -190,7 +190,7 @@ export function MakerRevealPicker({
     return (
       <li
         className={`relative flex min-h-12 items-center gap-3 rounded-md px-3 py-2 text-ink transition-colors duration-sn-control ease-sn ${
-          part === 'options' ? 'w-52 shrink-0 lg:w-auto' : ''
+          part === 'options' ? 'w-52 shrink-0 self-center lg:w-auto lg:self-auto' : ''
         } ${on ? 'bg-white ring-2 ring-ink' : 'bg-white/70 hover:bg-white'}`}
       >
         <button

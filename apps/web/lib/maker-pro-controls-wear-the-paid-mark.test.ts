@@ -99,8 +99,30 @@ test('no Maker Pro control draws its own lock', () => {
   assert.deepEqual(offenders, [], 'a paid lock is <PaidMark state="locked" />, not a lucide <Lock>');
 });
 
+/**
+ * A file that only CARRIES `ownsPro` — a type field, or a prop handed straight
+ * to a component that itself draws the mark — draws no Pro control of its own
+ * (Details part 3: the Maker context carries the hero parts' `ownsPro`, and
+ * Details hands it to the same `ElementSheet` a scene tap opens). Every other
+ * use still counts as a reader. The target is checked, so forwarding to a
+ * component WITHOUT the mark is still missing.
+ */
+function onlyCarriesOwnsPro(src: string): boolean {
+  const lines = src.split('\n');
+  return lines.every((line, i) => {
+    if (!/\bownsPro\b/.test(line)) return true;
+    if (/^\s*ownsPro\??:\s*boolean;?\s*$/.test(line)) return true;
+    const prop = /^\s*ownsPro=\{[^}]*\}\s*$/.test(line);
+    if (!prop) return false;
+    const before = lines.slice(Math.max(0, i - 12), i).join('\n');
+    const tag = [...before.matchAll(/<([A-Z]\w+)\b/g)].pop()?.[1];
+    if (!tag) return false;
+    return FILES.some((f) => new RegExp(`export function ${tag}\\b`).test(code(f)) && /<PaidMark\b/.test(code(f)));
+  });
+}
+
 test('every Maker component that reads ownsPro renders the PaidMark', () => {
-  const readers = FILES.filter((f) => !f.endsWith('/page.tsx') && /\bownsPro\b/.test(code(f)));
+  const readers = FILES.filter((f) => !f.endsWith('/page.tsx') && /\bownsPro\b/.test(code(f)) && !onlyCarriesOwnsPro(code(f)));
   const missing = readers.filter((f) => !/<PaidMark\b/.test(code(f)));
   console.log(`[paid-mark] ownsPro readers=${readers.length} missing the mark=${missing.length}`);
   assert.ok(readers.length >= 5, `only ${readers.length} readers — did ownsPro get renamed?`);
@@ -113,4 +135,9 @@ test('the detectors catch what they are for (sabotage, in memory)', () => {
   assert.deepEqual(bareProPills('<PaidMark state="locked" label="x" text="Pro" />'), []);
   assert.deepEqual(proLocks('<p>\n<Lock aria-hidden />\nPart of Event Hub Pro\n</p>'), [2]);
   assert.deepEqual(proLocks('<p>\n<Lock aria-hidden />\nThis scene is fixed\n</p>'), []);
+  // Carrying is not reading only when the target draws the mark.
+  assert.equal(onlyCarriesOwnsPro('  ownsPro: boolean;'), true);
+  assert.equal(onlyCarriesOwnsPro('<ElementSheet\n  ownsPro={x.ownsPro}\n/>'), true);
+  assert.equal(onlyCarriesOwnsPro('<NoMarkHere\n  ownsPro={x.ownsPro}\n/>'), false);
+  assert.equal(onlyCarriesOwnsPro('const shown = ownsPro ? a : b;'), false);
 });

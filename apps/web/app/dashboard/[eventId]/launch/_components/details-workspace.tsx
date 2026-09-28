@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import type { PrintField } from '@/lib/print-layout';
@@ -208,7 +208,9 @@ export function DetailsWorkspace({
                       ) : null}
                     </header>
                   )}
-                  {bodies[i.key] ?? null}
+                  {/* A server-made body can arrive as a lazy client reference; one keyed
+                     fragment keeps it out of the header's list (React's key check). */}
+                  <Fragment key="body">{bodies[i.key] ?? null}</Fragment>
                 </div>
               ) : null,
             )}

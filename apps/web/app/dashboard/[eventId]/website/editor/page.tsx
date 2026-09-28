@@ -4,7 +4,7 @@ import OurStoryEditorPage from '../our-story/page';
 import { resolveMonogram } from '@/lib/monogram';
 import { countdownTargetMs } from '@/lib/countdown-target';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
-import { isCustomSectionType, nextFreeCustomSlot, sanitizeCustomSection } from '@/lib/custom-sections';
+import { customSectionHasContent, isCustomSectionType, nextFreeCustomSlot, sanitizeCustomSection } from '@/lib/custom-sections';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';

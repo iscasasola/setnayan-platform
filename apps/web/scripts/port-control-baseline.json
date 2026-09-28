@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0f36e74ed",
+  "generatedFromRef": "295ac1b16",
   "routeCount": 435,
   "destinations": 942,
   "actions": 671,
-  "blocks": 4965,
+  "blocks": 4966,
   "routes": {
     "/": {
       "files": [
@@ -898,6 +898,7 @@
         "[slug]/_lib/everything-else-rows.ts",
         "[slug]/_lib/guest-checklist-facts.ts",
         "[slug]/_lib/guest-details-changed.ts",
+        "[slug]/_lib/hero-design-of.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/hub-look.ts",
         "[slug]/_lib/icon-source.ts",
@@ -1073,6 +1074,7 @@
         "HTMLSpanElement",
         "HTMLVideoElement",
         "HeroBackgroundMedia",
+        "HeroDesignId",
         "HeroMonogram",
         "HeroPhoto",
         "HideableWidgetRender",

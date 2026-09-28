@@ -133,6 +133,7 @@ import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { heroDesignOf } from '@/lib/hero-design';
 import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
 import { stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
@@ -601,9 +602,14 @@ export async function SiteBody({
   // 🔤 The hero's parts in the couple's own font · colour · size · animation
   // (`lib/element-style.ts`, on the hero row's canvas), and — in the Maker's
   // canvas only — the `data-el` keys that tell the Maker which part was tapped.
+  // 🎴 …and which of the four designs arranges them (`lib/hero-design.ts`, on
+  // the same canvas) — every masthead mount below spreads this ONE object, so
+  // the design and the edits can never reach one mount and not another.
+  const heroCanvas = sanitizeHubCanvas(heroRow?.config_json);
   const heroElements = {
-    elements: sanitizeHubCanvas(heroRow?.config_json).elements ?? null,
+    elements: heroCanvas.elements ?? null,
     stampElements: isMakerCanvas,
+    design: heroDesignOf(heroCanvas),
   };
 
   /*

@@ -1138,7 +1138,16 @@ export default async function WebsiteEditorPage({
       madeOnce={{
         hero: (
           <>
-            <MakerHeroPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />
+            <MakerHeroPanel
+              eventId={eventId}
+              ownsPro={ownsPro}
+              storeShell={storeShell}
+              /* 🎴 The hero's design lives on the hero row's canvas, read
+                 drafted over live like `mainNow` above, and live for "in
+                 your draft". */
+              heroCanvas={sanitizeHubCanvas(allWidgets.find((r) => r.widget_type === 'hero')?.config_json)}
+              liveHeroCanvas={sanitizeHubCanvas(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json)}
+            />
             {/* 🎞 The hero is also the Main background (owner 2026-09-25 item 6):
                 a new hero photo is measured HERE, where it was made, so the page
                 behind every scene follows it without a second step. Themed, and

@@ -8,10 +8,23 @@ import {
   type HubElementStyles,
   type HubHeroElementKey,
 } from '@/lib/element-style';
+import { HERO_DESIGN_ATTR, HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
 
 /**
  * PahinaMasthead — the typographic hero of the Pahina guest site
  * (design 2026-07-25 spec §3/§7 · wave A PR-2).
+ *
+ * 🎴 FOUR DESIGNS, ONE SET OF PARTS (owner 2026-09-26, `lib/hero-design.ts`):
+ * `design` picks the ARRANGEMENT of the same parts — 1 The Card (the default,
+ * every line of it byte-identical to before the designs existed) · 2 The
+ * Marquee (the names are the art, a small mark between two rules) · 3 The
+ * Crest (the mark in a ring, the names on one line under it like a seal) · 4
+ * The Letter (ranged left, anchored low, the mark in the corner). Drawn from
+ * `prototypes/hero_scene_templates_2026-09-25.html`. Every part keeps its
+ * `data-el` key and its `data-motion` hook, so a part is the same tap-to-edit
+ * element in every design and the couple's per-part edits ride across designs.
+ * The root carries `data-hero-design` off the default, which the navigator's
+ * tile reads to crop The Letter from the foot (`lib/maker-tile-preview.ts`).
  *
  * ONE component for every hero call-site (anonymous banner, anonymous text,
  * guest media, guest text) so the two identity trees cannot drift — the same
@@ -81,7 +94,13 @@ export function PahinaMasthead({
   card,
   elements = null,
   stampElements = false,
+  design = HERO_DESIGN_DEFAULT,
 }: {
+  /**
+   * 🎴 Which arrangement of the parts (`lib/hero-design.ts`). Absent → The
+   * Card, the shipped hero, byte-identical to before.
+   */
+  design?: HeroDesignId;
   /**
    * 🔤 THE HERO'S PARTS IN THE COUPLE'S OWN LOOK — font · colour · size ·
    * animation per part (`lib/element-style.ts`), read off the hero row's
@@ -172,6 +191,251 @@ export function PahinaMasthead({
   const plainJoiner = ownJoiner ?? names.joiner ?? '';
   const cardNames = `${names.first}${names.second ? `${cardJoiner}${names.second}` : ''}`;
   const plainNames = `${names.first}${names.second ? `${plainJoiner}${names.second}` : ''}`;
+
+  /* ── THE COVER PLATE (photo/video demoted below the type) — one markup for
+     every design of the plain masthead. See the note inside. */
+  const coverPlate = mediaSlot ? (
+    <figure className="relative -mx-4 mt-8 sm:-mx-0">
+      {/* ⚠ The `aspect-*` pair is LOAD-BEARING, not decoration. `mediaSlot`
+          is always `HeroBackgroundMedia`, whose <img>/<video> is
+          `absolute inset-0` — it was written for the OLD hero, a banner
+          that held the names + date in flow and therefore had a height of
+          its own. PR-2 demoted the media into this standalone box, which
+          has no in-flow child at all, so it computed to zero content
+          height: the couple's hero photo has not been visible on the plate
+          since. A ratio restores the plate AND is what gives the parallax
+          below a box to translate inside. Portrait on a phone (it reads as
+          a cover), 3:2 from `sm` up so a 720px column doesn't become a
+          900px-tall photo. */}
+      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink/10 sm:aspect-[3/2]">
+        {/* Parallax layer (design §6 — "±6%, rAF-throttled transform on the
+            media wrapper"). This div carries the transform; the media keeps
+            filling it via its own `absolute inset-0` (an absolutely
+            positioned box is a containing block for its abspos children).
+
+            SAFETY IS THE FEATURE. The transform lives entirely in CSS,
+            behind the SAME `.pahina-js` root flag as the scroll reveal, and
+            the script writes only a custom property — never `transform`
+            itself. So every path that drops the flag (no
+            IntersectionObserver, reduced motion, the 2s self-heal, a script
+            that throws) also drops the scale and the offset in the same
+            frame, and this becomes an ordinary static `object-cover` photo.
+            There is no state in which JS has moved the image and CSS cannot
+            take it back. See pahina-motion.tsx + globals.css §6 for the
+            scale/translate geometry that keeps the box always covered. */}
+        <div data-pahina-parallax className="absolute inset-0">
+          {mediaSlot}
+        </div>
+      </div>
+      {mediaCaption ? (
+        <figcaption
+          /* The plate bleeds `-mx-4` past the column; a centred caption (The
+             Card) sits inside it anyway, a ranged-left one (The Letter) would
+             start 16px off the phone's edge — so off the default the caption
+             keeps the column's own gutter. */
+          className={`mt-2 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/55${
+            design === HERO_DESIGN_DEFAULT ? '' : ' px-4 sm:px-0'
+          }`}
+        >
+          {mediaCaption}
+        </figcaption>
+      ) : null}
+    </figure>
+  ) : null;
+
+  /* ═══ DESIGNS 2 · 3 · 4 — the same parts, arranged (`lib/hero-design.ts`). ═══
+     The Card below is untouched; these three share its helpers (`el`, `txt`)
+     so a part is the same element with the same key, motion hook and runs.
+     With `card`: eyebrow · mark · names · line · date · time · the hub link.
+     Without (a hero photo): eyebrow · mark · names · date · venue · the plate.
+     🔒 Every text part may wrap (`[overflow-wrap:anywhere]`, no nowrap): long
+     names ("Maria Clara Concepcion") must fit a 375px phone in every design. */
+  if (design !== HERO_DESIGN_DEFAULT) {
+    const joinerWord = card ? cardJoiner : plainJoiner;
+    const whole = card ? cardNames : plainNames;
+    const eyebrowText = card ? card.eyebrow : eyebrow;
+    const HUB_LINK = card ? (
+      <a
+        href={card.hubHref}
+        className={`mt-4 inline-flex min-h-[44px] flex-col justify-center gap-1 text-mulberry hover:text-mulberry-600 ${
+          design === 'letter' ? 'items-start' : 'mx-auto items-center'
+        }`}
+      >
+        <span className="font-pahina text-base italic">{card.hubLabel}</span>
+        <span aria-hidden>↓</span>
+      </a>
+    ) : null;
+    const TIME = card?.timeLabel ? (
+      <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">
+        {txt('time', card.timeLabel)}
+      </p>
+    ) : null;
+    const VENUE = !card && venueName ? <p className="mt-2 text-base text-ink/70">{venueName}</p> : null;
+    const LINE = card?.line ? (
+      <p
+        {...el('line')}
+        className={`mt-4 text-base leading-relaxed text-ink/80 ${design === 'letter' ? 'max-w-[24ch]' : 'mx-auto max-w-[26ch]'}`}
+      >
+        {txt('line', card.line)}
+      </p>
+    ) : null;
+    /* The names, stacked on a phone; from `sm` The Marquee and The Crest set
+       them on one wrapping row with the joiner inline, as the prototype does. */
+    const NAMES = (
+      <h1
+        {...el('names')}
+        data-motion="arrive-names"
+        className={
+          design === 'marquee'
+            ? 'mt-5 font-pahina text-[clamp(2.75rem,15vw,5.5rem)] font-light leading-[0.98] tracking-tight text-ink [overflow-wrap:anywhere] [text-wrap:balance] sm:flex sm:flex-wrap sm:items-baseline sm:justify-center sm:gap-x-[0.24em] sm:text-[5.5rem]'
+            : design === 'crest'
+              ? 'mt-6 flex flex-wrap items-baseline justify-center gap-x-[0.3em] font-pahina text-[clamp(1.5rem,7vw,2.25rem)] font-light leading-[1.1] text-ink [overflow-wrap:anywhere] sm:text-[2.5rem]'
+              : 'mt-3 font-pahina text-[clamp(2.75rem,14vw,5.5rem)] font-light leading-[0.98] tracking-tight text-ink [overflow-wrap:anywhere] sm:text-[5.5rem]'
+        }
+      >
+        <span className={design === 'crest' ? undefined : 'block sm:inline'}>{txt('names', names.first, whole, 0)}</span>
+        {names.second ? (
+          <>
+            <span
+              {...el('joiner')}
+              className={
+                design === 'marquee'
+                  ? 'block font-pahina text-[0.5em] italic leading-[1.1] text-gild sm:inline sm:text-[0.55em]'
+                  : design === 'crest'
+                    ? 'font-pahina text-[0.9em] italic text-gild'
+                    : 'ml-[0.06em] block font-pahina text-[0.4em] italic leading-[1.1] text-gild'
+              }
+              aria-hidden
+            >
+              {txt('names', joinerWord, whole, names.first.length)}
+            </span>
+            <span className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
+              {txt('names', names.second, whole, names.first.length + joinerWord.length)}
+            </span>
+          </>
+        ) : null}
+      </h1>
+    );
+    const DATE = dateLabel ? (
+      <p
+        {...el('date')}
+        data-motion="arrive-date"
+        className={`flex items-center gap-3 ${design === 'letter' ? 'mt-2 justify-start' : 'mt-3 justify-center'}`}
+      >
+        {design === 'crest' ? (
+          <span className="text-xs uppercase tracking-[0.26em] text-ink/60">{txt('date', dateLabel)}</span>
+        ) : (
+          <span className="font-pahina text-2xl text-ink sm:text-[1.65rem]">{txt('date', dateLabel)}</span>
+        )}
+      </p>
+    ) : null;
+
+    if (design === 'marquee') {
+      return (
+        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design }} className="text-center">
+          {badgeSlot}
+          <div>
+            {eyebrowText ? (
+              <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">
+                {txt('eyebrow', eyebrowText)}
+              </p>
+            ) : null}
+            {monogramSlot ? (
+              <div {...el('mark')} data-motion="arrive-mark" className="mt-5 flex items-center justify-center gap-4">
+                <span aria-hidden className="h-px w-14 bg-gild/60 sm:w-24" />
+                {/* The mark renders at its own 80px; The Marquee shows it small
+                    (~48px) between two rules — a scale, the card's own trick. */}
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center">
+                  <span className="block scale-[0.6]">{monogramSlot}</span>
+                </span>
+                <span aria-hidden className="h-px w-14 bg-gild/60 sm:w-24" />
+              </div>
+            ) : null}
+            {NAMES}
+            {LINE}
+            {DATE}
+            {TIME}
+            {VENUE}
+          </div>
+          {HUB_LINK}
+          {coverPlate}
+        </header>
+      );
+    }
+
+    if (design === 'crest') {
+      return (
+        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design }} className="text-center">
+          {badgeSlot}
+          <div>
+            {eyebrowText ? (
+              <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">
+                {txt('eyebrow', eyebrowText)}
+              </p>
+            ) : null}
+            {monogramSlot ? (
+              <div
+                {...el('mark')}
+                data-motion="arrive-mark"
+                /* The crest: a double ring (a chip radius on a pressable-sized
+                   circle, not a card), the mark large inside it. */
+                className="relative mx-auto mt-5 flex h-56 w-56 items-center justify-center rounded-full border border-gild/70 bg-cream/60 shadow-[0_0_0_10px_rgba(255,255,255,0.22),0_30px_60px_-30px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:h-72 sm:w-72"
+              >
+                <span aria-hidden className="pointer-events-none absolute inset-2 rounded-full border border-gild/35" />
+                <span className="block scale-[1.65] sm:scale-[2.1]">{monogramSlot}</span>
+              </div>
+            ) : null}
+            {NAMES}
+            {LINE}
+            {DATE}
+            {TIME}
+            {VENUE}
+          </div>
+          {HUB_LINK}
+          {coverPlate}
+        </header>
+      );
+    }
+
+    /* The Letter — ranged left, anchored low on a phone (the header fills
+       most of the first screen and its words sit at the foot); from `sm` it is
+       a left column with the mark above the words. */
+    return (
+      <header
+        data-pahina-first-screen=""
+        {...{ [HERO_DESIGN_ATTR]: design }}
+        className="relative flex min-h-[70svh] flex-col justify-end text-left sm:min-h-0 sm:justify-start"
+      >
+        {monogramSlot ? (
+          <div
+            {...el('mark')}
+            data-motion="arrive-mark"
+            /* `mb-auto`: in the phone's justify-end column the mark stays at the
+               head of the screen while the words sit at the foot — in flow, so
+               the Happening-now pill below it never lands on top of it. */
+            className="mb-auto flex h-12 w-12 items-center justify-center sm:mb-6 sm:h-16 sm:w-16"
+          >
+            <span className="block scale-[0.6] sm:scale-[0.8]">{monogramSlot}</span>
+          </div>
+        ) : null}
+        <div className="pr-[14%] sm:max-w-[60%] sm:pr-0">
+          {badgeSlot ? <div className="mb-4 flex justify-start">{badgeSlot}</div> : null}
+          {eyebrowText ? (
+            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.26em] text-ink/60">
+              {txt('eyebrow', eyebrowText)}
+            </p>
+          ) : null}
+          {NAMES}
+          {LINE}
+          {DATE}
+          {TIME}
+          {VENUE}
+          {HUB_LINK}
+        </div>
+        {coverPlate}
+      </header>
+    );
+  }
 
   if (card) {
     return (
@@ -266,46 +530,7 @@ export function PahinaMasthead({
 
       {/* Cover plate — the photo/video demoted below the type, framed like a
           printed plate with a mono caption. Only when media exists. */}
-      {mediaSlot ? (
-        <figure className="relative -mx-4 mt-8 sm:-mx-0">
-          {/* ⚠ The `aspect-*` pair is LOAD-BEARING, not decoration. `mediaSlot`
-              is always `HeroBackgroundMedia`, whose <img>/<video> is
-              `absolute inset-0` — it was written for the OLD hero, a banner
-              that held the names + date in flow and therefore had a height of
-              its own. PR-2 demoted the media into this standalone box, which
-              has no in-flow child at all, so it computed to zero content
-              height: the couple's hero photo has not been visible on the plate
-              since. A ratio restores the plate AND is what gives the parallax
-              below a box to translate inside. Portrait on a phone (it reads as
-              a cover), 3:2 from `sm` up so a 720px column doesn't become a
-              900px-tall photo. */}
-          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink/10 sm:aspect-[3/2]">
-            {/* Parallax layer (design §6 — "±6%, rAF-throttled transform on the
-                media wrapper"). This div carries the transform; the media keeps
-                filling it via its own `absolute inset-0` (an absolutely
-                positioned box is a containing block for its abspos children).
-
-                SAFETY IS THE FEATURE. The transform lives entirely in CSS,
-                behind the SAME `.pahina-js` root flag as the scroll reveal, and
-                the script writes only a custom property — never `transform`
-                itself. So every path that drops the flag (no
-                IntersectionObserver, reduced motion, the 2s self-heal, a script
-                that throws) also drops the scale and the offset in the same
-                frame, and this becomes an ordinary static `object-cover` photo.
-                There is no state in which JS has moved the image and CSS cannot
-                take it back. See pahina-motion.tsx + globals.css §6 for the
-                scale/translate geometry that keeps the box always covered. */}
-            <div data-pahina-parallax className="absolute inset-0">
-              {mediaSlot}
-            </div>
-          </div>
-          {mediaCaption ? (
-            <figcaption className="mt-2 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/55">
-              {mediaCaption}
-            </figcaption>
-          ) : null}
-        </figure>
-      ) : null}
+      {coverPlate}
     </header>
   );
 }

@@ -117,3 +117,56 @@ DROP TRIGGER IF EXISTS a_request_from_an_event_is_from_the_event ON public.perso
 CREATE TRIGGER a_request_from_an_event_is_from_the_event
 BEFORE INSERT OR UPDATE OF created_by_event_id ON public.person_connections
 FOR EACH ROW EXECUTE FUNCTION public.a_request_from_an_event_is_from_the_event();
+
+-- ── 4 · the recipient reads WHICH event a request came from ────────────────
+-- Owner 2026-09-28 (DECISION_LOG "A CONNECTION REQUEST FROM AN EVENT ALWAYS
+-- NAMES THE EVENT"), verbatim: "Ana is trying to add you from your Indalecio &
+-- Claire wedding event" — for ANY celebrant recipient, co-host or not.
+-- `events_host` answers only co-hosts, so a bride who is not a co-host read the
+-- plain "Ana is trying to add you." This is the narrow door: per request, the
+-- event's display name and kind — no other event column — and only when:
+--   · the caller is the RECIPIENT (the to_person they have claimed),
+--   · the request is still pending and carries created_by_event_id,
+--   · the caller is a celebrant of that event (`is_event_celebrant`), or already
+--     hosts it (a host could read the same two columns through events_host, so
+--     that branch exposes nothing new — it covers a creator whose own guest row
+--     carries no account link).
+CREATE OR REPLACE FUNCTION public.connection_request_events()
+RETURNS TABLE (
+  connection_id uuid,
+  event_name    text,
+  event_type    text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT pc.connection_id,
+         e.display_name::text,
+         replace(e.event_type::text, '_', ' ')
+    FROM public.person_connections pc
+    JOIN public.people p
+      ON p.person_id = pc.to_person_id
+     AND p.claimed_by_user_id = auth.uid()
+     AND p.deleted_at IS NULL
+    JOIN public.events e
+      ON e.event_id = pc.created_by_event_id
+   WHERE auth.uid() IS NOT NULL
+     AND pc.deleted_at IS NULL
+     AND pc.status = 'pending'
+     AND pc.created_by_event_id IS NOT NULL
+     AND (
+       public.is_event_celebrant(pc.created_by_event_id, auth.uid())
+       OR pc.created_by_event_id IN (SELECT public.current_couple_event_ids())
+       OR pc.created_by_event_id IN (SELECT public.current_moderator_event_ids())
+     );
+$$;
+
+COMMENT ON FUNCTION public.connection_request_events() IS
+  'Owner 2026-09-28: a connection request from an event always names the event. For each PENDING request '
+  'addressed to the caller that carries created_by_event_id, the event''s display name and kind — nothing else — '
+  'when the caller is a celebrant of that event (is_event_celebrant) or already hosts it.';
+
+REVOKE ALL ON FUNCTION public.connection_request_events() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.connection_request_events() TO authenticated;

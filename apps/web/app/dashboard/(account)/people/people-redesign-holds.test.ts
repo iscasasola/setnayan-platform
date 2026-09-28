@@ -84,10 +84,13 @@ test('the facet pill row is gone, "Confirm" became Accept, and alaga are not dra
   assert.ok(sections.lastIndexOf("key: 'waiting_them'") > sections.lastIndexOf("key: 'unlabelled'"));
 });
 
-test('🔴 a request says where it came from — read through events_host, never events', () => {
+test('🔴 a request says where it came from — through the narrow recipient door, never events', () => {
   const c = ROSTER_LIB.code;
   assert.match(c, /created_by_event_id/, 'the roster no longer reads where a request came from');
-  assert.match(c, /\.from\('events_host'\)/);
+  // Owner 2026-09-28: ANY celebrant recipient sees the event name — events_host
+  // answers hosts only, so it cannot be the door.
+  assert.match(c, /rpc\('connection_request_events'\)/);
+  assert.equal(/\.from\('events_host'\)/.test(c), false, 'the co-host-only read came back');
   assert.equal(/\.from\('events'\)/.test(c), false, 'a bare events read — authenticated is denied columns there');
   assert.match(ROSTER_VIEW.code, /connectionRequestSentence\(p\.name, p\.fromEvent\)/);
 });

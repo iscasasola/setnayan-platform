@@ -63,11 +63,13 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
  * ── A REQUEST SAYS WHERE IT CAME FROM ──────────────────────────────────────
  * Owner: *"{name} is trying to add you from your {event} event · Accept /
  * Decline"*. The event is `person_connections.created_by_event_id`, and its
- * name is read through `events_host` under the reader's own session — never
- * `events`: `authenticated` is denied columns on the base table, and the view
- * is scoped to events the reader HOSTS, so an event they do not host can never
- * name itself on their screen (the database also refuses a request that names
- * an event its sender is not at — migration 20271253740454).
+ * name is read through `connection_request_events()` under the reader's own
+ * session — never `events` (`authenticated` is denied columns on the base
+ * table). That function answers only the RECIPIENT of a pending request, only
+ * with the event's name and kind, and only when they are a celebrant of it or
+ * host it (owner 2026-09-28: a request from an event always names the event,
+ * co-host or not). The database also refuses a request that names an event its
+ * sender is not at — migration 20271253740454.
  */
 
 export type RosterState = 'connected' | 'waiting_them' | 'waiting_you' | 'in_your_care';
@@ -200,30 +202,27 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
     }
   }
 
-  // The events requests came FROM — only those asking ME, and only through
-  // `events_host` (see the header). A refusal leaves the plain request copy,
-  // which is still true: somebody is trying to add you.
-  const eventById = new Map<string, { name: string; type: string }>();
-  const askedFromEvents = [
-    ...new Set(
-      pendingRows
-        .filter((r) => r.status === 'pending' && r.to_person_id === myPerson && r.created_by_event_id)
-        .map((r) => r.created_by_event_id as string),
-    ),
-  ];
-  if (askedFromEvents.length > 0) {
-    const { data, error } = await supabase
-      .from('events_host')
-      .select('event_id, display_name, event_type')
-      .in('event_id', askedFromEvents);
+  // The events requests came FROM — only those asking ME, through the one
+  // narrow door (`connection_request_events`, migration 20271253740454): the
+  // event's name and kind, for a pending request addressed to me, when I am a
+  // celebrant of that event or host it. Owner 2026-09-28: "a connection request
+  // from an event always names the event" — co-host or not, which `events_host`
+  // (hosts only) could not do. A refusal, or nothing returned, leaves the plain
+  // request copy, which is still true: somebody is trying to add you.
+  const eventByConnection = new Map<string, { name: string; type: string }>();
+  const askedFromAnEvent = pendingRows.some(
+    (r) => r.status === 'pending' && r.to_person_id === myPerson && r.created_by_event_id,
+  );
+  if (askedFromAnEvent) {
+    const { data, error } = await supabase.rpc('connection_request_events');
     if (error) logQueryError('getPeopleRoster.fromEvents', error, {}, 'graceful_degrade');
     for (const e of (data ?? []) as Array<{
-      event_id: string;
-      display_name: string | null;
+      connection_id: string;
+      event_name: string | null;
       event_type: string | null;
     }>) {
-      const name = (e.display_name ?? '').trim();
-      if (name) eventById.set(e.event_id, { name, type: (e.event_type ?? '').replace(/_/g, ' ') });
+      const name = (e.event_name ?? '').trim();
+      if (name) eventByConnection.set(e.connection_id, { name, type: e.event_type ?? '' });
     }
   }
 
@@ -330,10 +329,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       relation: (r.relation as ConnectionRelation | null) ?? null,
       careLabel: null,
       state,
-      fromEvent:
-        state === 'waiting_you' && r.created_by_event_id
-          ? (eventById.get(r.created_by_event_id) ?? null)
-          : null,
+      fromEvent: state === 'waiting_you' ? (eventByConnection.get(r.connection_id) ?? null) : null,
       samahan: (otherUser && samahanByUser.get(otherUser)) || [],
       canLabel: iDeclared,
     });

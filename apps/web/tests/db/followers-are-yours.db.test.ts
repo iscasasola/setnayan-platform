@@ -273,3 +273,81 @@ test('the recipient reads the event’s name only through events_host — and on
   );
   assert.equal(notTheirs.length, 0, 'an event the reader does not host never names itself');
 });
+
+// ── 4 · a request from an event ALWAYS names the event (owner 2026-09-28) ────
+
+/** A guest row on the event with this role, linked to this account. */
+async function seatAs(eventId: string, uid: string, role: 'bride' | 'guest', first: string): Promise<void> {
+  const g = await db.query<{ guest_id: string }>(
+    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category, role)
+     VALUES ($1, $2, 'Reyes', 'both', 'friends', $3::public.guest_role) RETURNING guest_id`,
+    [eventId, first, role],
+  );
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type, joined_via, guest_id)
+     VALUES ($1, $2, 'guest', 'guest_signup', $3)
+     ON CONFLICT (event_id, user_id) DO UPDATE SET guest_id = EXCLUDED.guest_id`,
+    [eventId, uid, g.rows[0]!.guest_id],
+  );
+}
+
+async function requestFrom(sender: string, recipient: string, eventId: string): Promise<string> {
+  const from = await personOf(sender);
+  const to = await personOf(recipient);
+  const r = await asUser(sender, async () =>
+    (await db.query<{ connection_id: string }>(
+      `INSERT INTO public.person_connections
+         (from_person_id, to_person_id, status, created_by_user_id, created_by_event_id)
+       VALUES ($1, $2, 'pending', $3, $4) RETURNING connection_id`,
+      [from, to, sender, eventId],
+    )).rows,
+  );
+  return r[0]!.connection_id;
+}
+
+async function namedEvents(uid: string) {
+  return asUser(uid, async () =>
+    (await db.query<{ connection_id: string; event_name: string; event_type: string }>(
+      `SELECT connection_id, event_name, event_type FROM public.connection_request_events()`,
+    )).rows,
+  );
+}
+
+test('🔴 a celebrant who is NOT a co-host still reads which event the request came from', async () => {
+  const groom = await newUser('groom-n@follows.test', 'Indalecio');
+  const bride = await newUser('bride-n@follows.test', 'Claire');
+  const ana = await newUser('ana-n2@follows.test', 'Ana');
+  const eventId = await newEvent('Indalecio & Claire', groom);
+  await seatAs(eventId, bride, 'bride', 'Claire'); // a bride, NOT a host
+  await seatAs(eventId, ana, 'guest', 'Ana');
+  const conn = await requestFrom(ana, bride, eventId);
+
+  const hosted = await asUser(bride, async () =>
+    (await db.query(`SELECT 1 FROM public.events_host WHERE event_id = $1`, [eventId])).rows,
+  );
+  assert.equal(hosted.length, 0, 'fixture: the bride is not a host — events_host would name nothing');
+
+  const rows = await namedEvents(bride);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.connection_id, conn);
+  assert.equal(rows[0]!.event_name, 'Indalecio & Claire');
+  assert.equal(rows[0]!.event_type, 'birthday');
+});
+
+test('🔴 a recipient who is not a celebrant, and anybody else, reads nothing', async () => {
+  const host = await newUser('host-z@follows.test', 'Host');
+  const tito = await newUser('tito-z@follows.test', 'Tito');
+  const ana = await newUser('ana-z@follows.test', 'Ana');
+  const outsider = await newUser('out-z@follows.test', 'Outsider');
+  const eventId = await newEvent('Not about Tito', host);
+  await seatAs(eventId, tito, 'guest', 'Tito'); // a guest, not a celebrant
+  await seatAs(eventId, ana, 'guest', 'Ana');
+  await requestFrom(ana, tito, eventId);
+  assert.equal((await namedEvents(tito)).length, 0, 'a non-celebrant recipient is told nothing about the event');
+  assert.equal((await namedEvents(outsider)).length, 0, 'a third party reads nothing');
+  assert.equal((await namedEvents(ana)).length, 0, 'the SENDER reads nothing through the recipient’s door');
+  const anon = await db.query<{ ok: boolean }>(
+    `SELECT has_function_privilege('anon', 'public.connection_request_events()', 'EXECUTE') AS ok`,
+  );
+  assert.equal(anon.rows[0]!.ok, false, 'anon can call it');
+});

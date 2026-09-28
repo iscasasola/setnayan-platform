@@ -29,9 +29,11 @@ the top of Connected and first in the picker (with a dot) while any wait.
   `setFollowByPublicId` resolves the public handle server-side (never a raw user_id from the browser).
   `follow-button.tsx`'s one-way sentence — which its own docblock said becomes a lie the day a follower
   list ships — is retired: *"No request needed — they'll see you among their followers. Unfollow any time."*
-- **Requests say where they came from** — the roster reads `created_by_event_id` and names the event only
-  through `events_host` (never `events`); the `connection_request` bell title is the owner's sentence
-  (`connectionRequestSentence`, one function for the row and the bell).
+- **Requests say where they came from — always** (owner 2026-09-28: *"Ana is trying to add you from your
+  Indalecio & Claire wedding event"*, for any celebrant recipient, co-host or not). The roster reads the
+  event's name through `connection_request_events()` (never `events`, and no longer the hosts-only
+  `events_host`); the `connection_request` bell title is the same sentence (`connectionRequestSentence`, one
+  function for the row and the bell).
 - **The celebrants, on the guest's Me tab** — for a guest whose seat is linked to their own account: this
   event's celebrants (`isHonoreeRole`) who hold accounts, with Follow and Add. Add (`addCelebrantFromEvent`)
   re-checks the sender is on the event and the target is its celebrant, then sends the ordinary request
@@ -41,10 +43,12 @@ the top of Connected and first in the picker (with a dot) while any wait.
 - **Migration `20271253740454_followers_are_yours_and_requests_say_where_from`** — `user_follows` SELECT
   policy `followed_user_id = auth.uid()` (you read only edges pointing at you); `follow_people_names(uuid[])`
   SECURITY DEFINER, answers only for ids with a live edge to/from the caller (anon revoked); a BEFORE
-  INSERT/UPDATE trigger refusing a `created_by_event_id` whose sender does not belong to that event.
-  Tested in `tests/db/followers-are-yours.db.test.ts` (8).
+  INSERT/UPDATE trigger refusing a `created_by_event_id` whose sender does not belong to that event;
+  `connection_request_events()` SECURITY DEFINER — per pending request addressed to the caller, the event's
+  display name and kind only, when the caller is a celebrant of it (`is_event_celebrant`) or hosts it (anon
+  revoked). Tested in `tests/db/followers-are-yours.db.test.ts` (10).
 
 SPEC IMPACT: DECISION_LOG.md — an "AS BUILT — THE PEOPLE REDESIGN" row is owed under the 2026-09-28 People
-rows (views by URL, the migration's three parts, the celebrants list's account rule, and the known limit
-below); left for the controller to record at merge. Known limit: a celebrant who is NOT a co-host sees the
-plain "is trying to add you." (no event name), because the name is read only through `events_host`.
+rows (views by URL, the migration's four parts, the celebrants list's account rule); left for the controller
+to record at merge. The 2026-09-28 row "A CONNECTION REQUEST FROM AN EVENT ALWAYS NAMES THE EVENT" is built
+here (`connection_request_events()`).

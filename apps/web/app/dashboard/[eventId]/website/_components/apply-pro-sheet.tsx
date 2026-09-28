@@ -6,7 +6,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ArrowUpRight, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { hubProEffectLine, type HubProEffectView } from '@/lib/hub-pro-effects';
+import { hubProEffectLine, unlockAndApplyHref, type HubProEffectView } from '@/lib/hub-pro-effects';
 
 /**
  * 💎 THE APPLY SHEET — Apply is where Event Hub Pro is asked for.
@@ -149,12 +149,15 @@ export function ApplyProSheet({
             </button>
           ) : (
             <>
+              {/* Owner 2026-09-28, verbatim: "Unlock Pro and Apply". The one
+                  purchase page, asked to come back and finish the Apply
+                  (`unlockAndApplyOnReturn`); the price is the catalogue's. */}
               <Link
-                href={proHref}
+                href={unlockAndApplyHref(proHref)}
                 data-apply-pro-unlock=""
                 className="button-primary sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center"
               >
-                Unlock Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''}
+                Unlock Pro and Apply{priceLabel ? ` · ${priceLabel}` : ''}
               </Link>
               <button
                 type="button"

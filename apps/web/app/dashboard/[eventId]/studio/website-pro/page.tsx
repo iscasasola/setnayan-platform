@@ -17,6 +17,7 @@ import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/stud
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
 
 export const metadata = { title: 'Event Hub PRO' };
 
@@ -65,7 +66,7 @@ const SKU_CODE = 'COUPLE_WEBSITE_PRO';
  * Event Hub PRO is the top tier, so there's no cross-sell line up from it.
  */
 
-type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string }> };
 
 const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
 
@@ -97,9 +98,16 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
   /* 💎 From the Maker's Apply sheet (`?from=maker`, owner 2026-09-28): the way
      back is the Maker, where the draft — every Pro effect they tried — waits
      untouched. A closed value, never a URL from the request. */
-  const fromMaker = (await searchParams)?.from === 'maker';
+  const search = (await searchParams) ?? {};
+  const fromMaker = search.from === 'maker';
+  /* "Unlock Pro and Apply" (owner 2026-09-28): back in the Maker with
+     `?apply=1`, which applies the draft once Pro is active — or reopens the
+     sheet, draft untouched, when it is not (`unlockAndApplyOnReturn`). */
   const back = fromMaker
-    ? { href: `/dashboard/${eventId}/launch`, label: 'Back to the Maker' }
+    ? {
+        href: `/dashboard/${eventId}/launch${search.then === 'apply' ? `?${UNLOCK_AND_APPLY_PARAM}=1` : ''}`,
+        label: 'Back to the Maker',
+      }
     : { href: `/dashboard/${eventId}/studio`, label: 'Back to services' };
 
   const user = await getCurrentUser();

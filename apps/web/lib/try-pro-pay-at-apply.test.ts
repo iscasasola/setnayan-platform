@@ -33,7 +33,7 @@ import {
   type HubDraft,
   type HubLiveState,
 } from './hub-draft';
-import { hubDraftProEffects, hubProEffectLine } from './hub-pro-effects';
+import { hubDraftProEffects, hubProEffectLine, unlockAndApplyHref, unlockAndApplyOnReturn } from './hub-pro-effects';
 import { lookWriteAllowed } from './hub-look-pro';
 import type { InvitationWidgetRow } from './invitation-widgets';
 import type { HubSectionCanvas } from './hub-canvas';
@@ -255,7 +255,7 @@ test('the bar’s list comes from the one plan, as the viewer is shown it — an
   assert.match(bar, /onClick=\{\(\) => \(asksForPro \? setSheetOpen\(true\) : act\(\{ intent: 'apply' \}\)\)\}/);
   // The price is the catalogue's, never typed.
   const sheet = code('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
-  assert.match(sheet, /Unlock Event Hub Pro\{priceLabel \? ` · \$\{priceLabel\}` : ''\}/);
+  assert.match(sheet, /Unlock Pro and Apply\{priceLabel \? ` · \$\{priceLabel\}` : ''\}/);
   assert.doesNotMatch(sheet, /₱\s?\d/, 'a price is typed into the sheet');
 });
 
@@ -279,4 +279,46 @@ test('a drafted Pro theme is worn on the verified host’s canvas — never on a
   const page = code('app/[slug]/page.tsx');
   assert.match(page, /const triesDraftedTheme = hostDraft !== null && 'invite_theme' in hostDraft\.events;/);
   assert.match(page, /: triesDraftedTheme\s*\?\s*\{ \.\.\.draftedEvent, theme_try_on: true \}\s*: draftedEvent;/);
+});
+
+/* ═══ "UNLOCK PRO AND APPLY" — ONE TAP, BOTH THINGS ═══════════════════════ */
+
+test('Unlock Pro and Apply · back WITH Pro → the draft is applied, every effect with it (no second tap)', () => {
+  const d = triedDraft();
+  // Pro is now active: the bar measures it, so it names no Pro effect…
+  const effects = hubDraftProEffects(d, LIVE, true);
+  assert.deepEqual(effects, []);
+  const next = unlockAndApplyOnReturn({ asked: true, proEffects: effects.length, hasChanges: true, storeShell: false });
+  assert.equal(next, 'apply', 'back with Pro, the Maker did not apply');
+  // …and the Apply it presses writes every change, Pro effects included.
+  const plan = planHubDraftApply(d, LIVE, true);
+  assert.equal(plan.refused.length, 0, 'Apply with Pro still held something');
+  assert.ok(plan.apply.some((i) => i.kind === 'event' && i.column === 'invite_theme'), 'the theme did not go live');
+  // The toolbar presses the one Apply — the same intent the button sends.
+  const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
+  assert.match(bar, /if \(next === 'apply'\) act\(\{ intent: 'apply' \}\);\s*else if \(next === 'sheet'\) setSheetOpen\(true\);/);
+  // Once, even though the toolbar is mounted twice: the param comes off first.
+  const effect = bar.slice(bar.indexOf('url.searchParams.get(UNLOCK_AND_APPLY_PARAM)'), bar.indexOf("if (next === 'apply')"));
+  assert.ok(effect.indexOf('window.history.replaceState') < effect.indexOf('unlockAndApplyOnReturn('), 'the param must come off before it acts');
+});
+
+test('Unlock Pro and Apply · back WITHOUT Pro (cancelled / under review) → the sheet again, nothing applied, draft intact', () => {
+  const d = triedDraft();
+  const effects = hubDraftProEffects(d, LIVE, false);
+  const next = unlockAndApplyOnReturn({ asked: true, proEffects: effects.length, hasChanges: true, storeShell: false });
+  assert.equal(next, 'sheet', 'back without Pro, the Maker applied anyway');
+  // Nothing about the return writes: the draft is the draft it was.
+  assert.equal(d.events.invite_theme, 'velvet');
+  // Never on a normal visit, never in the shell, never with nothing to apply.
+  assert.equal(unlockAndApplyOnReturn({ asked: false, proEffects: 0, hasChanges: true, storeShell: false }), 'none');
+  assert.equal(unlockAndApplyOnReturn({ asked: true, proEffects: 0, hasChanges: true, storeShell: true }), 'none');
+  assert.equal(unlockAndApplyOnReturn({ asked: true, proEffects: 0, hasChanges: false, storeShell: false }), 'none');
+});
+
+test('Unlock Pro and Apply · the button goes through the ONE purchase page and asks it to come back', () => {
+  assert.equal(unlockAndApplyHref('/dashboard/E/studio/website-pro?from=maker'), '/dashboard/E/studio/website-pro?from=maker&then=apply');
+  const sheet = code('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
+  assert.match(sheet, /href=\{unlockAndApplyHref\(proHref\)\}/);
+  const buy = code('app/dashboard/[eventId]/studio/website-pro/page.tsx');
+  assert.match(buy, /search\.then === 'apply' \? `\?\$\{UNLOCK_AND_APPLY_PARAM\}=1` : ''/, 'the purchase page does not come back to finish the Apply');
 });

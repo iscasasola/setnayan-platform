@@ -11,7 +11,7 @@ import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
 import { ApplyProSheet } from './apply-pro-sheet';
-import type { HubProEffectView } from '@/lib/hub-pro-effects';
+import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effects';
 import {
   HUB_RESET_NEVER_TOUCHES,
   hubDraftPanelStaysOpen,
@@ -234,6 +234,27 @@ export function HubDraftToolbar({
     else if (j.kind === 'row') maker.select({ kind: 'row', key: j.key });
     else maker.select({ kind: 'tool', key: j.key });
   };
+  /* 💎 BACK FROM "UNLOCK PRO AND APPLY" (owner 2026-09-28). The purchase page
+     returns with `?apply=1`. Pro active → Apply now, no second tap; still no
+     Pro (cancelled, or under review) → the sheet again, the draft untouched.
+     The toolbar is mounted twice (phone + desktop): the first mount to run
+     takes the param off the address before it acts, so only one ever does. */
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(UNLOCK_AND_APPLY_PARAM) !== '1') return;
+    url.searchParams.delete(UNLOCK_AND_APPLY_PARAM);
+    window.history.replaceState(window.history.state, '', url.toString());
+    const next = unlockAndApplyOnReturn({
+      asked: true,
+      proEffects: proEffects.length,
+      hasChanges: summary.hasChanges,
+      storeShell,
+    });
+    if (next === 'apply') act({ intent: 'apply' });
+    else if (next === 'sheet') setSheetOpen(true);
+    // Once, on the render the purchase page lands on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /* The ⋯ panel follows the ANSWER, not the press: it opens when there is
      something to read (an error, a key Apply held back, Reset's note) and
      closes on a clean Apply · Undo · Restore — owner 2026-09-27, the panel

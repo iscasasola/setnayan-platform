@@ -255,3 +255,48 @@ export function buildOurServices(input: OurServicesInput): OurService[] {
   ];
   return cards.filter((c): c is OurService => c != null);
 }
+
+/*
+  ─── EVERYTHING ELSE GOES HOME (owner "yes", 2026-09-29) ─────────────────────
+  The Suite's leftovers — the tools under "More for your event" — each move to
+  the place that already carries them, and leave this page. A tool leaves ONLY
+  when that home exists on main today and offers it; a tool with no home yet
+  stays on this page, so nothing becomes unreachable. When every tool has gone
+  home, the section is gone too.
+
+  Each entry names the home a person reaches it from. `needsWebsite`: the home
+  is the Event Hub Maker, whose menu row exists only where the event type has
+  the website surface — anywhere else the tool stays here.
+
+  STILL HERE, NO HOME YET (report, not a decision):
+    · Find your date   → Details › Date (Details part 2a, not merged yet)
+    · Playlist         → no page links /studio/playlist except this one
+    · Indoor Blueprint → no event page links /studio/indoor-blueprint
+    · Thank-You Video  → Papic names it but does not link /studio/thank-you
+*/
+export type ToolHome = { home: string; needsWebsite?: true };
+
+export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
+  // Free planning tools (the Suite's FREE_TOOLS) — each is its own menu row,
+  // or a door on a page that is one.
+  guests: { home: 'the Guests menu row' },
+  budget: { home: 'the Budget menu row' },
+  schedule: { home: 'the Schedule menu row' },
+  checklist: { home: 'Overview — "View your full checklist"' },
+  compare: { home: 'Your Team — its Compare tab' },
+  // Catalogue tools.
+  'mood-board': { home: 'the Mood Board menu row' },
+  seating: { home: 'the Seat plan menu row' },
+  'landing-page': { home: 'the Event Hub Maker menu row', needsWebsite: true },
+  'save-the-date': { home: 'the Event Hub Maker — Save the Date', needsWebsite: true },
+  rsvp: { home: 'the Event Hub Maker — the invitation editor', needsWebsite: true },
+  'website-pro': { home: 'the Event Hub Maker — its Pro offer', needsWebsite: true },
+  'animated-monogram': { home: 'the Event Hub Maker — Logo', needsWebsite: true },
+};
+
+/** Has this tool (a catalogue key or a free-tool key) gone home for this event? */
+export function toolHasGoneHome(key: string, websiteEnabled: boolean): boolean {
+  const h = TOOL_HOMES[key];
+  if (!h) return false;
+  return !h.needsWebsite || websiteEnabled;
+}

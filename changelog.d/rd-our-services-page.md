@@ -13,10 +13,17 @@ card showing added / add.
   Each card opens the page its event-menu row opens (`addOnHref`). A paid
   service not yet added reads "◆ Add for ₱…"; a missing price reads "See the
   price", never free.
-- Everything else the Suite carried stays below under "More for your event"
-  (recommendations, the other add-ons, the free tools, search), minus the six,
-  so no doorway is lost and nothing shows twice. The search's tag pill row is
-  now one `PickMenu` dropdown.
+- Every other tool the Suite carried goes to its home and leaves this page
+  (owner "yes", 2026-09-29) — only where that home carries it on main today,
+  each proven by a test (`TOOL_HOMES` in `lib/our-services.ts`): Guest List ·
+  Budget · Schedule · Mood Board · Seat Plan → their menu rows; Checklist →
+  Overview's "View your full checklist"; Compare suppliers → Your Team's
+  Compare tab; Event Hub · Save the Date · RSVP · Event Hub PRO · Monogram
+  Maker → the Event Hub Maker (only where the event type has one).
+- Tools with no home yet stay under "More for your event", which disappears
+  once empty: Find your date (→ Details › Date, part 2a not merged), Playlist,
+  Indoor Blueprint, Thank-You Video. The search's tag pill row is now one
+  `PickMenu` dropdown.
 - Same route, so every old /suite link lands here. The event menu's `studio`
   row (key unchanged) and its nav-registry slot default now read "Our
   Services"; the finished-event summary card and the clearance page say it too.

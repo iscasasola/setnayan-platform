@@ -19,7 +19,7 @@ import { SuiteServiceCard } from './_components/suite-service-card';
 import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { OurServicesGrid } from './_components/our-services-grid';
-import { buildOurServices, OUR_SERVICE_ADD_ON_KEYS } from '@/lib/our-services';
+import { buildOurServices, OUR_SERVICE_ADD_ON_KEYS, toolHasGoneHome } from '@/lib/our-services';
 import { PAPIC_INCLUSIVE_SKUS } from '@/lib/papic-seats';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -375,7 +375,12 @@ export default async function SuitePage({ params }: Props) {
     if (t.requiresMarketplace && profile.marketplaceEnabled !== true) return false;
     return true;
   };
-  const freeTools = FREE_TOOLS.filter(freeToolOk);
+  // A tool whose home already carries it has moved there (lib/our-services.ts
+  // `TOOL_HOMES`); only the ones with no home yet stay on this page.
+  const websiteOn = surfaceEnabled(profile, 'website');
+  const freeTools = FREE_TOOLS.filter(
+    (t) => freeToolOk(t) && !toolHasGoneHome(t.key, websiteOn),
+  );
 
   // The two earliest saved marketplace vendors → a real side-by-side comparison;
   // fewer than two means there is nothing to compare, so the doorway falls back
@@ -501,9 +506,10 @@ export default async function SuitePage({ params }: Props) {
     papicOwnedBy: PAPIC_INCLUSIVE_SKUS,
     refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p),
   });
-  /** Not one of the six — the lists below leave those out, so a service is
-   *  never on this page twice. */
-  const notOurs = (a: AddOnEntry) => !OUR_SERVICE_ADD_ON_KEYS.has(a.key);
+  /** Not one of the six (never on this page twice), and not a tool that has
+   *  moved to its home (`TOOL_HOMES`) — what is left has no home yet. */
+  const notOurs = (a: AddOnEntry) =>
+    !OUR_SERVICE_ADD_ON_KEYS.has(a.key) && !toolHasGoneHome(a.key, websiteOn);
 
   // ── The secretary's lead: the phase-aware "what to set up next" picks. ─────
   const monthsToDate = roadmapState?.months ?? null;
@@ -635,6 +641,8 @@ export default async function SuitePage({ params }: Props) {
   // non-utility). SuiteSearch dedups by key.
   const hay = (label: string, blurb: string, tags: readonly string[] = []) =>
     `${label} ${blurb} ${tags.join(' ')}`.toLowerCase();
+  const moreCount =
+    recommended.length + active.length + addable.length + freeSkus.length + freeTools.length;
   const searchItems: SuiteSearchItem[] = [
     ...[...active, ...addable, ...freeSkus].map((a) => ({
       key: a.key,
@@ -663,6 +671,10 @@ export default async function SuitePage({ params }: Props) {
       {/* The six services — the page's reason for being (owner 2026-09-29). */}
       <OurServicesGrid services={ourServices} />
 
+      {/* What is left has no home yet. Once every tool has gone home this is
+          empty, and the whole section — heading, search and lists — goes. */}
+      {moreCount > 0 ? (
+      <>
       <div className="border-t border-ink/10 pt-6">
         <h2 className="sn-sec text-xl">More for your event</h2>
       </div>
@@ -741,6 +753,7 @@ export default async function SuitePage({ params }: Props) {
       ) : null}
 
       {/* Free to use — the complete free layer, every tool a real doorway. */}
+      {freeTools.length + freeSkus.length > 0 ? (
       <section aria-label="Free to use" className="space-y-4">
         <div className="border-t border-ink/10 pt-6">
           <h2 className="sn-sec text-xl">Free to use</h2>
@@ -757,8 +770,11 @@ export default async function SuitePage({ params }: Props) {
           {freeSkus.map(cardFor)}
         </RevealList>
         </section>
+      ) : null}
         </div>
       </SuiteSearch>
+      </>
+      ) : null}
     </section>
   );
 }

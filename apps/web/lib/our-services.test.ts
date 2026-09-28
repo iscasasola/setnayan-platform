@@ -16,7 +16,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ADD_ONS, addOnHref, type AddOnEntry } from './add-ons-catalog';
-import { buildOurServices, OUR_SERVICE_ADD_ON_KEYS, type OurServicesInput } from './our-services';
+import {
+  buildOurServices,
+  OUR_SERVICE_ADD_ON_KEYS,
+  TOOL_HOMES,
+  toolHasGoneHome,
+  type OurServicesInput,
+} from './our-services';
+import { buildEventMenuSections, eventMenuRows, STUDIO_ABSORBED } from './customer-menu';
 
 const LIB = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(LIB, '..', 'app');
@@ -176,4 +183,70 @@ test('the lists below leave the six out, so nothing shows twice', () => {
   for (const k of ['papic', 'papic-guest', 'panood', 'live-studio-roam', 'patiktok', 'pakanta', 'setnayan-ai']) {
     assert.ok(OUR_SERVICE_ADD_ON_KEYS.has(k), `${k} would show twice`);
   }
+});
+
+/* ── Everything else goes home ────────────────────────────────────────────── */
+
+const EV = path.join(APP, 'dashboard', '[eventId]');
+
+/** How each home is PROVEN to carry its tool on main — one check per key. */
+const HOME_PROOF: Record<string, () => boolean> = (() => {
+  const menu = eventMenuRows(
+    buildEventMenuSections(EVENT, {
+      websiteEnabled: true,
+      studioRows: [{ key: 'mood-board', href: addOnHref('mood-board', EVENT), name: 'Mood Board' }],
+    }),
+  );
+  const row = (key: string) => menu.find((r) => r.key === key);
+  const base = `/dashboard/${EVENT}`;
+  return {
+    guests: () => row('guests')?.href === `${base}/guests`,
+    budget: () => row('budget')?.href === `${base}/budget`,
+    schedule: () => row('schedule')?.href === `${base}/schedule`,
+    'mood-board': () => !!row('mood-board'),
+    seating: () => row('seat')?.href === `${base}/seating`,
+    'landing-page': () => row('launch')?.href === addOnHref('landing-page', EVENT),
+    rsvp: () =>
+      addOnHref('rsvp', EVENT).startsWith(`${base}/website/`) &&
+      row('launch')?.matchPrefix === `${base}/website`,
+    checklist: () =>
+      read(EV, '_components', 'event-dashboard.tsx').includes('href={`${base}/checklist`}'),
+    compare: () => read(EV, 'vendors', 'page.tsx').includes('<BuildCompare'),
+    'save-the-date': () =>
+      read(EV, 'website', 'editor', 'page.tsx').includes('`${base}/studio/save-the-date`'),
+    'website-pro': () =>
+      read(EV, 'launch', 'page.tsx').includes('proHref: `/dashboard/${eventId}/studio/website-pro`'),
+    'animated-monogram': () =>
+      STUDIO_ABSORBED.palogo?.into === 'launch' &&
+      fs.existsSync(path.join(EV, 'launch', '_components', 'maker-logo.tsx')),
+  };
+})();
+
+test('a tool leaves this page only for a home that carries it on main', () => {
+  assert.deepEqual(
+    Object.keys(TOOL_HOMES).sort(),
+    Object.keys(HOME_PROOF).sort(),
+    'every tool sent home needs a proof its home carries it',
+  );
+  for (const [key, proof] of Object.entries(HOME_PROOF)) {
+    assert.ok(proof(), `${key} was sent to ${TOOL_HOMES[key]!.home}, which does not carry it`);
+  }
+});
+
+test('a tool whose home is the Maker stays here where there is no Maker', () => {
+  assert.equal(toolHasGoneHome('save-the-date', false), false);
+  assert.equal(toolHasGoneHome('save-the-date', true), true);
+  assert.equal(toolHasGoneHome('guests', false), true);
+});
+
+test('the tools with no home yet stay on this page', () => {
+  for (const key of ['find-date', 'playlist', 'indoor-blueprint', 'thank-you']) {
+    assert.equal(toolHasGoneHome(key, true), false, `${key} has no home yet and must stay`);
+  }
+});
+
+test('the page sends both lists home, and drops the section when it is empty', () => {
+  assert.match(PAGE, /freeToolOk\(t\) && !toolHasGoneHome\(t\.key, websiteOn\)/);
+  assert.match(PAGE, /!OUR_SERVICE_ADD_ON_KEYS\.has\(a\.key\) && !toolHasGoneHome\(a\.key, websiteOn\)/);
+  assert.match(PAGE, /\{moreCount > 0 \? \(/);
 });

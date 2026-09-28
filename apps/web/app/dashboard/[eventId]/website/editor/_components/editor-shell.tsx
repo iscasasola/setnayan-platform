@@ -1139,7 +1139,16 @@ export function MakerWork({
                    brings is held (`onSaving` below), never reloaded. */
                 postToCanvas(message);
               }}
-              onSaving={(canvases) => {
+              onSaving={(canvases, redrawsBox) => {
+                /* 🖼 A pick that changes who draws the box — a widget's own card
+                   on or off (`backgroundPickRedrawsBox`) — is NOT on the canvas:
+                   the bridge paints the frame, never the card (owner 2026-09-28,
+                   "No background" on the Countdown kept its pink card). Release,
+                   so the save's render reloads the canvas, buffered, as before. */
+                if (redrawsBox) {
+                  releaseCanvas();
+                  return;
+                }
                 canvasHold.current = holdChange(
                   canvasHold.current,
                   { canvases: elementEditing.canvases, order: canvasOrder },

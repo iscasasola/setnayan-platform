@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "308c2f98e",
+  "generatedFromRef": "c86925687",
   "routeCount": 435,
   "destinations": 942,
   "actions": 671,
-  "blocks": 4965,
+  "blocks": 4966,
   "routes": {
     "/": {
       "files": [
@@ -6201,6 +6201,7 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
+        "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "WebsiteEditorPage"
       ]

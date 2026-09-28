@@ -24,51 +24,12 @@ import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke
 // /dashboard/[eventId]/hosts surfaces the invite form + the list of
 // pending/accepted hosts. These actions are the form posts.
 //
-// Inviter check: caller must be a current host on the event. We accept
-// rows from EITHER event_moderators (the V1.2 source of truth, backfilled
-// by PR #135) OR event_members.member_type='couple' (V1 backwards-compat
-// for events created before the 0048 invite UI existed).
+// Inviter check: caller must be a host — `requireCoupleMembership` below.
+// Every accepted host is a `couple` member (20271251336140); a hired
+// planner (`coordinator`) is not, and cannot add hosts.
 
 const INVITE_TTL_DAYS = 7;
 const MS_PER_DAY = 86_400_000;
-
-async function requireHostMembership(eventId: string): Promise<{
-  userId: string;
-  email: string;
-}> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // Source 1 — event_moderators (canonical going forward).
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .is('removed_at', null)
-    .maybeSingle();
-
-  if (moderator) {
-    return { userId: user.id, email: user.email ?? '' };
-  }
-
-  // Source 2 — event_members couple row (V1 backwards-compat).
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (legacy && (legacy as { member_type: string }).member_type === 'couple') {
-    return { userId: user.id, email: user.email ?? '' };
-  }
-
-  throw new Error('Forbidden — only current hosts can invite new hosts.');
-}
 
 function nullIfBlank(raw: FormDataEntryValue | null, max = 80): string | null {
   if (typeof raw !== 'string') return null;
@@ -91,11 +52,10 @@ function parseRole(raw: FormDataEntryValue | null): RoleSubtype {
 }
 
 /**
- * Create a pending host invitation. Returns by redirect with an URL
- * search param the page picks up to surface the share URL inline (V1
- * doesn't send the email automatically — the inviter copies the URL
- * and sends it via whatever channel they prefer; Resend integration
- * is a V1.1 follow-up).
+ * Invite the HIRED PLANNER by email (the "Promote your coordinator" doors).
+ * Co-hosts are NOT invited here — they are chosen from the guest list
+ * (owner 2026-09-28). Returns by redirect with the share URL: the planner
+ * accepts from their link after the RA 10173 consent step.
  */
 export async function inviteHost(formData: FormData) {
   const rawEventId = formData.get('event_id');
@@ -108,10 +68,22 @@ export async function inviteHost(formData: FormData) {
   let role: RoleSubtype;
   let displayLabel: string | null;
   try {
-    const { userId } = await requireHostMembership(eventId);
+    // 🔑 ONLY A CO-HOST INVITES (owner 2026-09-28: "being a host gives the
+    // same power to add new hosts as well"). A co-host is `couple`; the old
+    // gate also admitted any accepted seat — a planner or a limited helper —
+    // which could then hand out access they do not hold.
+    const userId = await requireCoupleMembership(eventId);
     email = parseEmail(formData.get('invitation_email'));
     role = parseRole(formData.get('role_subtype'));
     displayLabel = nullIfBlank(formData.get('display_label'), 80);
+    // 🔑 THIS DOOR IS THE HIRED PLANNER'S ONLY (owner 2026-09-28: "accepted
+    // guests can be assigned as host" — co-hosts come FROM THE GUEST LIST,
+    // `setGuestAccess` in guests/[guestId]/access-actions.ts). A planner is a
+    // supplier, "not host supplier": they still come in by email, through the
+    // RA 10173 consent step, and accept from their link.
+    if (role !== 'wedding_planner_external') {
+      throw new Error('Co-hosts are chosen from your guest list.');
+    }
 
     const admin = createAdminClient();
     const now = new Date();
@@ -199,7 +171,7 @@ export async function inviteHost(formData: FormData) {
 
     revalidatePath(`/dashboard/${eventId}/hosts`);
     redirect(
-      `/dashboard/${eventId}/hosts?invite_sent=1&token=${encodeURIComponent(token)}`,
+      `/dashboard/${eventId}/hosts?invite_sent=1&token=${encodeURIComponent(token)}&planner=1`,
     );
   } catch (e) {
     // redirect() works by throwing a NEXT_REDIRECT error. The success and
@@ -217,10 +189,12 @@ export async function inviteHost(formData: FormData) {
 }
 
 /**
- * Couple-only gate for grant changes + host removal. Stricter than
- * requireHostMembership: per locked D1 only the COUPLE raises/lowers a
- * delegate's budget visibility, and only the couple removes an accepted
- * host (a planner shouldn't be able to remove the bride).
+ * The HOST gate — adding, revoking and removing hosts, and grant changes.
+ * A host's membership is `couple` whatever their role (owner 2026-09-28,
+ * migration 20271251336140), so this admits every host and never a hired
+ * planner (`coordinator`): per locked D1 only a host raises/lowers a
+ * delegate's budget visibility, and a planner shouldn't be able to remove
+ * the bride — or add hosts above themselves.
  */
 async function requireCoupleMembership(eventId: string): Promise<string> {
   const supabase = await createClient();
@@ -237,7 +211,7 @@ async function requireCoupleMembership(eventId: string): Promise<string> {
     .eq('member_type', 'couple')
     .maybeSingle();
   if (!data) {
-    throw new Error('Forbidden — only the couple can change host access.');
+    throw new Error('Forbidden — only a host can change who hosts this event.');
   }
   return user.id;
 }
@@ -405,7 +379,11 @@ export async function removeHost(formData: FormData) {
     redirect(`/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent('You cannot remove yourself.')}`);
   }
 
-  await admin
+  // 🔑 READ THE ANSWER. A celebrant co-host cannot be removed — the database
+  // refuses it (`a_celebrant_cohost_stays`, 20271251336140). Ignoring this
+  // error used to fall through to "Host removed — their access ended
+  // immediately", a success banner over a refusal.
+  const { error: removeError } = await admin
     .from('event_moderators')
     .update({
       removed_at: new Date().toISOString(),
@@ -414,6 +392,12 @@ export async function removeHost(formData: FormData) {
     })
     .eq('moderator_id', moderatorId)
     .eq('event_id', eventId);
+  if (removeError) {
+    const msg = /celebrant_cohost_locked/.test(removeError.message)
+      ? 'A celebrant stays a co-host. A celebrant can change their role first.'
+      : 'Could not remove them. Try again.';
+    redirect(`/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent(msg)}`);
+  }
 
   // Drop the coordinator membership (never a couple row — guarded above by
   // member_type check at insert time; we only delete coordinator rows).
@@ -449,7 +433,7 @@ export async function revokeHostInvite(formData: FormData) {
   const eventId = rawEventId as string;
   const moderatorId = rawModeratorId as string;
 
-  await requireHostMembership(eventId);
+  await requireCoupleMembership(eventId);
 
   const admin = createAdminClient();
   await admin

@@ -420,18 +420,17 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             </span>
             <div className="space-y-2">
               <p className="text-sm font-semibold text-success-950">
-                Invitation created.
+                Host seat saved.
               </p>
               <p className="text-xs text-success-900/85">
-                Share this link with the host you invited. They&apos;ll sign up or sign
-                in, then land on the accept page.
+                {/* The only email invite left is the hired planner's (owner
+                    2026-09-28: co-hosts come from the guest list). */}
+                Share this link with your coordinator. They&apos;ll sign in, then accept.
               </p>
               <code className="block break-all rounded-md bg-cream/80 px-2 py-1.5 font-mono text-[11px] text-success-950">
                 {shareUrl}
               </code>
-              <p className="text-[11px] text-success-900/60">
-                Link expires in 7 days. (Email send via Resend ships in V1.1 — for now copy + send via any channel.)
-              </p>
+
             </div>
           </div>
         </section>
@@ -560,10 +559,11 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         <section className="sn-tile space-y-3 p-5">
           <header className="space-y-1">
             <p className="sn-eye">
-              Pending invitations · {pending.length}
+              Waiting to join · {pending.length}
             </p>
             <p className="text-sm text-ink/65">
-              Sent but not yet accepted. The link expires 7 days after sending.
+              Each starts as soon as they say yes to the invitation and sign in —
+              nothing for them to accept. A hired planner accepts from their link.
             </p>
           </header>
           <ul className="divide-y divide-ink/10">
@@ -588,6 +588,8 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                       /host/accept/{row.invitation_token.slice(0, 12)}…
                     </code>
                   ) : null}
+                  {/* Only a host may revoke — the action's gate is `couple`. */}
+                  {isCouple ? (
                   <form action={revokeHostInvite}>
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="moderator_id" value={row.moderator_id} />
@@ -599,6 +601,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                       Revoke
                     </SubmitButton>
                   </form>
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -806,75 +809,25 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      {/* Invite form */}
-      <section className="sn-tile space-y-4 p-5 sm:p-6">
-        <header className="space-y-1">
-          <p className="sn-eye">
-            Invite a new host
-          </p>
-          <h2 className="text-xl font-semibold tracking-tight">
-            Add a co-planner
-          </h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            Email is required so the invitee knows who sent the link. Roles default to
-            sensible permission templates — you can change permissions per host later.
-          </p>
-        </header>
-
-        <ConsentGatedInviteForm enabled={consentGateEnabled} className="space-y-4">
-          <input type="hidden" name="event_id" value={eventId} />
-
-          <label className="flex flex-col gap-1">
-            <span className="sn-eye">
-              Email
-            </span>
-            <input
-              type="email"
-              name="invitation_email"
-              required
-              maxLength={200}
-              placeholder="parent@example.com"
-              className="input-field"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="sn-eye">
-              Role
-            </span>
-            <select name="role_subtype" required defaultValue="" className="input-field">
-              <option value="" disabled>
-                Pick a role
-              </option>
-              {roleChoices.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_SUBTYPE_LABEL[r]} — {ROLE_SUBTYPE_HINT[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="sn-eye">
-              Display label (optional)
-            </span>
-            <input
-              type="text"
-              name="display_label"
-              maxLength={80}
-              placeholder="Tita Lita (Mom's cousin)"
-              className="input-field"
-            />
-            <span className="text-xs text-ink/55">
-              Shown alongside the role so the host knows who&apos;s who.
-            </span>
-          </label>
-
-          <SubmitButton pendingLabel="Inviting…" className="button-primary h-11 px-5">
-            Send invitation
-          </SubmitButton>
-        </ConsentGatedInviteForm>
+      {/* CO-HOSTS COME FROM THE GUEST LIST (owner 2026-09-28: "accepted guests
+          can be assigned as host"). There is no email form here any more: the
+          person picks a guest's Access on their card, and it goes live once that
+          guest has said yes and signed in. Hired planners still come in through
+          "Promote your coordinator" above, with the RA 10173 consent step. */}
+      {isCouple ? (
+      <section className="sn-tile space-y-3 p-5 sm:p-6" data-cohosts-from-guest-list>
+        <p className="sn-eye">Add a co-host</p>
+        <h2 className="text-xl font-semibold tracking-tight">Co-hosts come from your guest list</h2>
+        <p className="max-w-prose text-sm text-ink/65">
+          Open a guest and set their <b className="font-semibold text-ink">Access</b> to
+          Co-host (the same access as you) or Limited helper (can view, can&apos;t change
+          anything). It starts as soon as they say yes to the invitation and sign in.
+        </p>
+        <Link href={`/dashboard/${eventId}/guests`} className="button-primary inline-flex h-11 items-center px-5">
+          Open the guest list
+        </Link>
       </section>
+      ) : null}
     </section>
   );
 }

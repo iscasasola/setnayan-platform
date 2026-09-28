@@ -244,7 +244,7 @@ export function ScheduleWidget({
   })();
 
   return (
-    <section className="space-y-4" data-scene-style={styled ? sceneStyle! : 'programme-rail'}>
+    <section className="space-y-4" data-scene-style={styled ? sceneStyle! : undefined}>
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <p className="pahina-eyebrow">

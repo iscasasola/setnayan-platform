@@ -17,10 +17,11 @@ pins · Full map — OSM tiles already in `img-src`, no drive time) · Dress cod
 The line — the general view only; a known guest still sees only their own role) · What to bring (The note ·
 The list · The gift line) · Camera cues (Cards · Down the day · Yes and no) · RSVP (The reply card · The
 question · The ticket — same fields, same three answers, same action, one-at-a-time and the Privacy Notice
-kept) · Photos you add (Mosaic · Grid · Film strip — the Post Event gallery's ids). Defaults per the
-prototype's Recommended where the registry can say it per stage: Save the Date countdown = Big number, Save the
-Date love story = The years, The Day schedule = One chapter per screen, The Day camera cues = Down the day,
-RSVP = The question.
+kept) · Photos you add (Mosaic · Grid · Film strip — the Post Event gallery's ids). **The default is always style A — today's look — on every stage** (controller, 2026-09-29: no surprise changes to a live
+page). The prototype's Recommended shows as a "Recommended" hint on that option in the Style dropdown instead
+(`recommendedStageSceneStyle`, passed to `SceneStyleRow` as `recommendedId`). An event with no stored style
+renders byte-identically to `main` — held by `every-scene-style-draws.test.ts` and checked once against a
+`main` checkout (all 12 scenes × 3 stages, `cmp` identical).
 
 **Drawn but NOT registered** (no section row → no `canvas.style` for a pick to live in): Entourage (Roll call ·
 Two sides · The march), Find your seat (The map · The table number · The place card), each guest's own photos
@@ -37,5 +38,5 @@ controls kept), `lib/scene-styles-stages.test.ts` (≥3 per stage, every registe
 `lib/details-bound.test.ts`'s mount regex now allows props beside the bound `text` (the property is unchanged).
 
 SPEC IMPACT: DECISION_LOG.md "AS BUILT — EVERY SCENE'S THREE STYLES (Save the Date · Invitation · The Day)"
-row, with the owner sign-offs it raises (defaults that change live pages; the five unregistered parts; "The big
-one" in place of "the best one", since nothing counts keeps).
+row (defaults = style A, Recommended as a hint; the five unregistered parts and the proposed home for their pick;
+"The big one" in place of "the best one", since nothing counts keeps).

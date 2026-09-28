@@ -220,7 +220,7 @@ test('schedule · one chapter per screen and the clock face draw every moment, a
     assert.doesNotMatch(out, /data-clock-hand/, `${id}: no hand before the day has begun`);
   }
   const rail = html(h(ScheduleWidget, { blocks: BLOCKS, eventTz: 'Asia/Manila' } as never));
-  assert.match(rail, /data-scene-style="programme-rail"/, 'no style is the shipped rail');
+  assert.doesNotMatch(rail, /data-scene-style=/, 'no style is the shipped rail, attribute for attribute');
 });
 
 // ── VENUE MAP ────────────────────────────────────────────────────────────────
@@ -476,4 +476,55 @@ test('live hub · the same player and wall, placed three ways; one missing draws
   assert.deepEqual(order(html(h(LiveHubArrangement, { sceneStyle: 'wall-first', player, wall }))), ['wall', 'player']);
   assert.deepEqual(order(html(h(LiveHubArrangement, { sceneStyle: 'theatre', player: null, wall }))), ['wall']);
   assert.equal(html(h(LiveHubArrangement, { sceneStyle: 'theatre', player: null, wall: null })), '');
+});
+
+// ── NO STORED STYLE = TODAY'S PAGE, BYTE FOR BYTE (controller 2026-09-29) ────
+
+test('🔒 an event with no stored style renders byte-identically to the shipped scene on every stage', async () => {
+  const { sceneStyleOfRow } = await import('@/lib/scene-style-of-row');
+  const { CountdownWidget } = await import('./countdown');
+  const { SpecialMessageWidget } = await import('./special-message-widget');
+  const { WhatToBringWidget } = await import('./what-to-bring-widget');
+  const { OurLoveStoryWidget } = await import('./our-love-story-widget');
+  const { PublicEventDetails } = await import('./empty-states');
+  const { ScheduleWidget } = await import('./schedule-widget');
+  const { VenueWidget } = await import('./venue-widget');
+  const { DressCodeWidget } = await import('./dress-code-widget');
+  const { PhotoMomentsWidget } = await import('./photo-moments-widget');
+  const { OurPhotosWidget } = await import('./our-photos-widget');
+
+  // Each scene: its row type and the SHIPPED call (no style prop) — the markup
+  // every live page draws today. The same call with the style the page now
+  // resolves for an unstyled row must be identical.
+  const scenes: Array<[string, (style?: string | null) => React.ReactElement]> = [
+    ['countdown', (sceneStyle) => h(CountdownWidget, { targetIso: '2026-12-18', ...(sceneStyle === undefined ? {} : { sceneStyle }) })],
+    ['special_message', (sceneStyle) => h(SpecialMessageWidget, { text: MESSAGE, ...(sceneStyle === undefined ? {} : { sceneStyle, signedBy: 'Indalecio & Claire' }) })],
+    ['what_to_bring', (sceneStyle) => h(WhatToBringWidget, { text: BRING, ...(sceneStyle === undefined ? {} : { sceneStyle }) })],
+    ['our_love_story', (sceneStyle) => h(OurLoveStoryWidget, { config: STORY, ...(sceneStyle === undefined ? {} : { sceneStyle }) })],
+    ['event_details', (sceneStyle) => h(PublicEventDetails, { dateLabel: 'December 18, 2026', venueName: null, venueAddress: null, venues: VENUES, ...(sceneStyle === undefined ? {} : { sceneStyle, dateIso: '2026-12-18' }) })],
+    ['schedule', (sceneStyle) => h(ScheduleWidget, { blocks: BLOCKS, eventTz: 'Asia/Manila', estimated: true, ...(sceneStyle === undefined ? {} : { sceneStyle }) } as never)],
+    ['venue_map', (sceneStyle) => h(VenueWidget, { event: EVENT, ...(sceneStyle === undefined ? {} : { sceneStyle }) } as never)],
+    ['dress_code', (sceneStyle) => h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS, rolePalette: BOARD, ...(sceneStyle === undefined ? {} : { sceneStyle }) } as never)],
+    ['photo_moments', (sceneStyle) => h(PhotoMomentsWidget, { words: WEDDING_WORDS, config: MOMENTS, ...(sceneStyle === undefined ? {} : { sceneStyle }) } as never)],
+    ['our_photos', (sceneStyle) => h(OurPhotosWidget, { urls: URLS, ...(sceneStyle === undefined ? {} : { sceneStyle }) })],
+  ];
+  for (const [type, draw] of scenes) {
+    const shipped = html(draw(undefined));
+    assert.ok(shipped.length > 0, `${type}: the fixture renders`);
+    for (const stage of ['save_the_date', 'rsvp', 'event'] as const) {
+      for (const eventType of ['wedding', 'birthday']) {
+        for (const config_json of [null, {}, { canvas: {} }, { canvas: { style: 'no-such-style' } }]) {
+          const style = sceneStyleOfRow({ widget_type: type, config_json }, stage, eventType);
+          assert.equal(html(draw(style)), shipped, `${type} on ${stage} (${eventType}, ${JSON.stringify(config_json)}) drew ${style} instead of today's scene`);
+        }
+      }
+    }
+  }
+  const { RsvpWidget } = await import('./rsvp-widget');
+  const rsvpProps = { words: RSVP_WORDS, guest: GUEST, eventId: 'e-1', eventPublicId: 'S89E-X', faceMode: 'mode_b', termsOnSend: true };
+  const shippedReply = renderToStaticMarkup(h(RsvpWidget as never, rsvpProps as never));
+  for (const stage of ['save_the_date', 'rsvp', 'event'] as const) {
+    const style = sceneStyleOfRow({ widget_type: 'rsvp', config_json: null }, stage, 'wedding');
+    assert.equal(renderToStaticMarkup(h(RsvpWidget as never, { ...rsvpProps, sceneStyle: style } as never)), shippedReply, `rsvp on ${stage} drew ${style}`);
+  }
 });

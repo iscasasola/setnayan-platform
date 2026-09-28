@@ -25,6 +25,14 @@
  * data to them. A style re-arranges the scene's EXISTING data — no new field,
  * no new question, no new query.
  *
+ * ── THE DEFAULT IS ALWAYS THE SHIPPED LOOK (controller, 2026-09-29) ───────
+ * No surprise changes to a live page: every scene's default on every stage is
+ * its style A — today's look — so an event with no stored style draws exactly
+ * what it drew before this file had any sets. The prototype's
+ * "Recommended" is a HINT on that option in the Style dropdown
+ * (`recommendedStageSceneStyle`, read by `scene-style-row.tsx`), never a
+ * default.
+ *
  * ── NOT REGISTERED HERE, ON PURPOSE ────────────────────────────────────────
  * The entourage, Find your seat, each guest's own photos, the announcements and
  * the live hub have their three styles drawn (`entourage-styles.tsx`,
@@ -53,8 +61,6 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'big-number', name: 'Big number', line: 'The days, large; the rest in one line.', template: 12, stages: STD_INV },
       { id: 'calendar', name: 'The calendar', line: 'The month, the day marked, the count under it.', stages: STD_INV },
     ],
-    // On the Save the Date the number is the whole message.
-    defaults: { save_the_date: 'big-number' },
   },
   {
     type: 'special_message',
@@ -73,7 +79,6 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'essay', name: 'The essay', line: 'A drop cap, a pull quote, the milestones as a list.', stages: STD_INV },
       { id: 'years', name: 'The years', line: 'A rail of years — tap one and its line opens. One screen.', stages: STD_INV },
     ],
-    defaults: { save_the_date: 'years' },
   },
   {
     type: 'event_details',
@@ -92,8 +97,9 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'one-per-screen', name: 'One chapter per screen', line: 'One moment fills the screen; the live one opens first.', stages: INV_DAY },
       { id: 'clock-face', name: 'Clock face', line: 'The day around a dial; tap a moment for the rest.', stages: INV_DAY },
     ],
-    // On The Day a guest wants "now" and nothing else.
-    defaults: { rsvp: 'programme-rail', event: 'one-per-screen' },
+    // Post Event registers its styles first, so without this the first style
+    // drawn here would be theirs — the shipped rail stays the default.
+    defaults: { rsvp: 'programme-rail', event: 'programme-rail' },
   },
   {
     type: 'venue_map',
@@ -130,8 +136,6 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'down-the-day', name: 'Down the day', line: 'In time order, one row each.', stages: DAY },
       { id: 'yes-and-no', name: 'Yes and no', line: 'When to shoot, and when to put the phone away.', stages: DAY },
     ],
-    // Time order is what a guest checks on the day.
-    defaults: { event: 'down-the-day' },
   },
   {
     type: 'rsvp',
@@ -141,8 +145,6 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'question', name: 'The question', line: 'One question by name, with big answers.', stages: BEFORE_AFTER },
       { id: 'ticket', name: 'The ticket', line: 'A tear-off ticket; the answers as stamps.', stages: BEFORE_AFTER },
     ],
-    // One tap answers the one thing the hosts need; the rest follows on "yes".
-    defaults: { save_the_date: 'question', rsvp: 'question', event: 'question' },
   },
   {
     type: 'gallery',
@@ -152,6 +154,35 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'grid', name: 'Grid', line: 'Three across, every photo the same size.', stages: STD },
       { id: 'film-strip', name: 'Film strip', line: 'Strips that slide sideways.', stages: STD },
     ],
+    // Post Event's Grid is listed first; the shipped Save the Date look stays the default.
     defaults: { save_the_date: 'mosaic' },
   },
 ];
+
+/**
+ * THE PROTOTYPE'S "RECOMMENDED", AS A HINT — never a default.
+ * (`prototypes/every_scene_three_styles_2026-09-29.html`, each scene's
+ * Recommended line.) Only the recommendations the Maker can know from the
+ * stage and the event type are here; the data-dependent ones (two venues, a
+ * saved march order, a Save the Date that leads with its film) are not
+ * guessed. Absent = the stage's default carries the hint, as for Post Event.
+ */
+const RECOMMENDED: Readonly<Record<string, (stage: HubStage, eventType: string | null) => string | null>> = {
+  countdown: (stage) => (stage === 'save_the_date' ? 'big-number' : 'four-tiles'),
+  our_love_story: (stage) => (stage === 'save_the_date' ? 'years' : 'chapters'),
+  event_details: (_s, t) => (t === 'wedding' || t === 'debut' ? 'card' : 'plate'),
+  schedule: (stage) => (stage === 'event' ? 'one-per-screen' : stage === 'rsvp' ? 'programme-rail' : null),
+  photo_moments: (stage) => (stage === 'event' ? 'down-the-day' : null),
+  rsvp: () => 'question',
+};
+
+/** The style the prototype recommends for this scene here, or null for "the default". */
+export function recommendedStageSceneStyle(type: string, stage: HubStage, eventType: string | null): string | null {
+  const rule = RECOMMENDED[type];
+  if (!rule) return null;
+  const id = rule(stage, eventType);
+  if (!id) return null;
+  const set = STAGE_SCENE_STYLE_SETS.find((x) => x.type === type);
+  const st = set?.styles.find((x) => x.id === id);
+  return st && (!st.stages || st.stages.includes(stage)) ? id : null;
+}

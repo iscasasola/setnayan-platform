@@ -16,8 +16,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { STAGE_SCENE_STYLE_SETS } from './scene-styles-stages';
-import { defaultSceneStyle, sceneStyleSet, sceneStylesOn, sceneStyleTypeOfWidget } from './scene-styles';
+import { STAGE_SCENE_STYLE_SETS, recommendedStageSceneStyle } from './scene-styles-stages';
+import { defaultSceneStyle, resolveSceneStyle, sceneStyleSet, sceneStylesOn, sceneStyleTypeOfWidget } from './scene-styles';
 import { stripComments } from './strip-comments';
 
 const COMPONENTS = join(__dirname, '..', 'app', '[slug]', '_components');
@@ -62,24 +62,39 @@ test('2 · every style registered here is DRAWN — its id is dispatched by the 
   }
 });
 
-test('3 · the defaults are the prototype’s Recommended', () => {
-  const cases: Array<[string, 'save_the_date' | 'rsvp' | 'event', string]> = [
-    ['countdown', 'save_the_date', 'big-number'],
-    ['countdown', 'rsvp', 'four-tiles'],
-    ['our_love_story', 'save_the_date', 'years'],
-    ['our_love_story', 'rsvp', 'chapters'],
-    ['special_message', 'rsvp', 'note'],
-    ['event_details', 'rsvp', 'plate'],
-    ['schedule', 'rsvp', 'programme-rail'],
-    ['schedule', 'event', 'one-per-screen'],
-    ['venue_map', 'rsvp', 'map-and-plate'],
-    ['dress_code', 'rsvp', 'colours-and-roles'],
-    ['what_to_bring', 'rsvp', 'note'],
-    ['photo_moments', 'event', 'down-the-day'],
-    ['rsvp', 'rsvp', 'question'],
-    ['gallery', 'save_the_date', 'mosaic'],
+test('3 · the DEFAULT is the shipped look (style A) on every stage — a live page does not change on deploy', () => {
+  for (const set of STAGE_SCENE_STYLE_SETS) {
+    const shipped = set.styles[0]!.id;
+    const stages = new Set(set.styles.flatMap((s) => s.stages ?? []));
+    for (const stage of stages) {
+      for (const eventType of [null, 'wedding', 'debut', 'birthday', 'funeral']) {
+        assert.equal(defaultSceneStyle(set.type, stage, eventType), shipped, `${set.type} on ${stage} (${eventType}) defaults to ${defaultSceneStyle(set.type, stage, eventType)}`);
+      }
+    }
+  }
+});
+
+test('3b · the prototype’s Recommended is a HINT, and only ever names a style drawn there', () => {
+  const cases: Array<[string, 'save_the_date' | 'rsvp' | 'event', string | null, string | null]> = [
+    ['countdown', 'save_the_date', null, 'big-number'],
+    ['countdown', 'rsvp', null, 'four-tiles'],
+    ['our_love_story', 'save_the_date', null, 'years'],
+    ['event_details', 'rsvp', 'wedding', 'card'],
+    ['event_details', 'rsvp', 'birthday', 'plate'],
+    ['schedule', 'event', null, 'one-per-screen'],
+    ['schedule', 'rsvp', null, 'programme-rail'],
+    ['photo_moments', 'event', null, 'down-the-day'],
+    ['rsvp', 'rsvp', null, 'question'],
+    ['dress_code', 'rsvp', null, null],
   ];
-  for (const [type, stage, id] of cases) assert.equal(defaultSceneStyle(type, stage), id, `${type} on ${stage}`);
+  for (const [type, stage, eventType, id] of cases) {
+    assert.equal(recommendedStageSceneStyle(type, stage, eventType), id, `${type} on ${stage}`);
+    if (id) assert.ok(sceneStylesOn(type, stage, eventType).some((s) => s.id === id), `${type}.${id} is drawn on ${stage}`);
+    const shipped = STAGE_SCENE_STYLE_SETS.find((x) => x.type === type)!.styles[0]!.id;
+    assert.equal(resolveSceneStyle(type, stage, undefined, eventType), shipped, `${type}: with no pick the shipped look draws, not the recommendation`);
+  }
+  const row = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'scene-style-row.tsx'), 'utf8');
+  assert.match(stripComments(row), /recommendedId=\{recommendedStageSceneStyle\(type, stage, eventType\)\}/, 'the Style row carries the hint');
 });
 
 test('4 · names shared with Post Event are ONE style, drawn on both', () => {

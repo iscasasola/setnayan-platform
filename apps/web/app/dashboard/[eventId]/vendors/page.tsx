@@ -15,7 +15,7 @@
  */
 
 import { redirect } from 'next/navigation';
-import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { MiniTour } from '@/app/_components/mini-tour';
 
 import { getCurrentUser } from '@/lib/auth';
@@ -227,11 +227,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // under the part picker; `/budget` now lands here. It returns before the
   // team's reads: the budget page reads what it needs itself, and the bench's
   // fan-out would be fetched and thrown away.
+  const teamParts = yourTeamParts({ eventId, budgetEnabled: surfaceEnabled(profile, 'budget') });
   if (sp.part === YOUR_TEAM_BUDGET_PART) {
     return (
       <section className="sn-col space-y-6">
         <PageMasthead title="Your Team" />
-        <PillarPartPicker label="Your Team part" parts={yourTeamParts({ eventId })} current="budget" />
+        <PillarPartPicker label="Your Team part" parts={teamParts} current="budget" />
         <BudgetPage
           params={Promise.resolve({ eventId })}
           searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART })}
@@ -240,7 +241,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
   }
   const teamPartPicker = (
-    <PillarPartPicker label="Your Team part" parts={yourTeamParts({ eventId })} current="team" />
+    <PillarPartPicker label="Your Team part" parts={teamParts} current="team" />
   );
   const supabase = await createClient();
 

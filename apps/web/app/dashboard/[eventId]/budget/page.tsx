@@ -51,7 +51,7 @@ import {
   type PaymentDoor,
 } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
+import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { formatCount } from '@/lib/format-number';
@@ -96,7 +96,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   // this page exactly as it was rather than being sent to a page that would
   // send it home.
   if (YOUR_TEAM_BUDGET_PART !== (await searchParams)?.part && profile.marketplaceEnabled === true) {
-    redirect(yourTeamParts({ eventId }).find((p) => p.key === 'budget')!.href);
+    redirect(yourTeamBudgetHref(eventId));
   }
   const supabase = await createClient();
 

@@ -12,8 +12,8 @@ the SHIPPED screen rendered whole — nothing re-drawn.
   `hosts/page.tsx`; Check-in renders the shipped `guests/checkin/page.tsx`.
   Both parts return before the roster's fan-out, so neither pays for it.
 - **Your Team** (`/vendors`): a "Your team ▾" picker at the top of the
-  takeover offers **Budget** (`?part=budget`), which renders the shipped
-  `budget/page.tsx`. The Payments lens's "Open budget" doorway and the
+  takeover offers **Budget** (`?part=budget`, wherever the event type has the
+  budget surface), which renders the shipped `budget/page.tsx`. The Payments lens's "Open budget" doorway and the
   accordion's "Adjust" link now open that part instead of leaving the page.
 - **Old routes:** `/hosts` lands in the Guest list's Hosts part (every param
   carried, so the invite-sent banner and its link still show) for anybody who

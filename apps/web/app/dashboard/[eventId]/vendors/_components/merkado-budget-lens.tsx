@@ -6,7 +6,7 @@ import { formatPhp } from '@/lib/orders';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
 import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
-import { yourTeamParts } from '@/lib/pillar-parts';
+import { yourTeamBudgetHref } from '@/lib/pillar-parts';
 
 /**
  * MerkadoBudgetLens — the Budget tab inside the Merkado (Services takeover).
@@ -85,7 +85,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
 
   // The doorway is Your Team's own Budget part (owner 2026-09-29) — the same
   // page, so opening the full budget no longer leaves Your Team.
-  const budgetHref = yourTeamParts({ eventId }).find((p) => p.key === 'budget')!.href;
+  const budgetHref = yourTeamBudgetHref(eventId);
 
   if (!snapshot) {
     return (

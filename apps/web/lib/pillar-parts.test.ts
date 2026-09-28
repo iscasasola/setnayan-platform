@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { guestListParts, partHref, yourTeamParts } from './pillar-parts';
+import { guestListParts, partHref, yourTeamBudgetHref, yourTeamParts } from './pillar-parts';
 
 /**
  * ⚖ The pillars' parts, pinned (owner 2026-09-29: "this is what an event
@@ -41,12 +41,18 @@ test('every Guest list part stays on the guest list page', () => {
 
 test('Your Team holds the team and the Budget, both on the Your Team page', () => {
   assert.deepEqual(
-    yourTeamParts({ eventId: 'E' }).map((p) => [p.key, p.label, p.href]),
+    yourTeamParts({ eventId: 'E', budgetEnabled: true }).map((p) => [p.key, p.label, p.href]),
     [
       ['team', 'Your team', '/dashboard/E/vendors'],
       ['budget', 'Budget', '/dashboard/E/vendors?part=budget'],
     ],
   );
+  assert.equal(yourTeamBudgetHref('E'), '/dashboard/E/vendors?part=budget');
+});
+
+test('an event type without the budget surface is never offered a Budget that sends it home', () => {
+  assert.deepEqual(keys(yourTeamParts({ eventId: 'E', budgetEnabled: false })), ['team']);
+  assert.match(read('vendors', 'page.tsx'), /yourTeamParts\(\{ eventId, budgetEnabled: surfaceEnabled\(profile, 'budget'\) \}\)/, 'Your Team no longer asks the budget surface');
 });
 
 test('an old route lands in its part with every param it carried', () => {

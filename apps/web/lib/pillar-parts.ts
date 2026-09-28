@@ -30,8 +30,8 @@
  *               The union of the two, never earlier — a check-in desk before
  *               anybody can arrive is a screen with nothing to do.
  *   Your team   always
- *   Budget      always — Your Team exists only where the event has suppliers
- *               (`marketplace_enabled`), and every such type has a budget.
+ *   Budget      wherever the event type has the budget surface — the same
+ *               switch the Budget page itself gates on.
  */
 
 import type { MenuLifecyclePhase } from './day-of-mode';
@@ -73,12 +73,26 @@ export type YourTeamPartKey = 'team' | 'budget';
 /** The `?part=` value that renders the Budget part in the Your Team page. */
 export const YOUR_TEAM_BUDGET_PART = 'budget';
 
-export function yourTeamParts({ eventId }: { eventId: string }): PillarPart<YourTeamPartKey>[] {
-  const base = `/dashboard/${eventId}/vendors`;
-  return [
-    { key: 'team', label: 'Your team', href: base },
-    { key: 'budget', label: 'Budget', href: `${base}?part=${YOUR_TEAM_BUDGET_PART}` },
+/** Your Team's Budget part — the one address every budget doorway uses. */
+export function yourTeamBudgetHref(eventId: string): string {
+  return `/dashboard/${eventId}/vendors?part=${YOUR_TEAM_BUDGET_PART}`;
+}
+
+export function yourTeamParts({
+  eventId,
+  budgetEnabled,
+}: {
+  eventId: string;
+  /** The event type's `budget` surface (`surfaceEnabled(profile, 'budget')`) —
+   *  the switch the Budget page itself gates on. Off, the part is not offered,
+   *  rather than offered and then sent home. */
+  budgetEnabled: boolean;
+}): PillarPart<YourTeamPartKey>[] {
+  const parts: PillarPart<YourTeamPartKey>[] = [
+    { key: 'team', label: 'Your team', href: `/dashboard/${eventId}/vendors` },
   ];
+  if (budgetEnabled) parts.push({ key: 'budget', label: 'Budget', href: yourTeamBudgetHref(eventId) });
+  return parts;
 }
 
 /**

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { makerSave } from '@/lib/maker-refresh';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { QR_PATTERNS, QR_SHAPES, type QrPattern, type QrShape, type StoredQrStyle } from '@/lib/qr-look';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
@@ -17,10 +17,11 @@ import type { UpdateQrStyleResult } from '../qr-look-actions';
  *   · ONE dropdown per set of choices, on the shared PickMenu (owner
  *     2026-09-28: "if there are choices, again. us drop down menu") — never a
  *     pill row.
- *   · Paid-to-unlock wears a PADLOCK; unlocked wears the diamond (owner
- *     2026-09-25). A free couple sees the three dropdowns with the padlock
- *     beside each and, on a tap, is taken to the Event Hub Pro page instead of
- *     a save that would be refused — the server refuses too (qr-look-actions).
+ *   · ◆ PRO, never a padlock (owner 2026-09-28: *"let us remove padlock and
+ *     just show that these tools are for pro with the diamond icon"*); the
+ *     diamond once owned. ⚠ The QR look still saves LIVE (it is not in the
+ *     draft), so a free couple's pick is still taken to the Event Hub Pro page
+ *     — the server refuses too (qr-look-actions). Drafting it is its own build.
  *   · In the app-store shell a locked door is ABSENT, not locked (the same rule
  *     maker-made-once follows): nothing here renders for a free couple there.
  *   · Colour offers only the couple's Mood Board colours that clear the
@@ -63,7 +64,7 @@ export function QrLookControls({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
-  const mark = paidMarkState({ owns: ownsPro, storeShell });
+  const mark = makerProMark({ owns: ownsPro, storeShell });
   /* What the dropdowns show: the pick at once, the server's answer once it lands. */
   const [shown, setShown] = useState<StoredQrStyle>(style);
   const latest = useRef<StoredQrStyle>(style);

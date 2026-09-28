@@ -372,6 +372,11 @@ type SiteBodyProps = {
   /** 🖼 The Maker's made-once Hero page (`?only=hero`) — draw that ONE scene.
    *  Resolved by `canvasOnlyScene`, which is null off the host canvas. */
   canvasOnly?: CanvasOnlyScene | null;
+  /** 🎨 A theme TILE on the Maker's Details page (`canvasTriedTheme`): drawn as
+   *  the canvas, but the click-to-edit bridge is NEVER mounted — the tile's
+   *  parent is the Maker, which would hear its `ready` / `edit` as the canvas's
+   *  (`browsing-themes-never-moves-the-canvas.test.ts`). */
+  themeTile?: boolean;
   /** OWNER LAYER · FOUNDATION (2026-07-26). Non-null ONLY when the page
    *  server-verified this viewer's host membership of THIS event via
    *  `loadHostMembership` (see the owner-layer block in page.tsx). It travels
@@ -440,6 +445,7 @@ export async function SiteBody({
   editorBridge = false,
   canvasGuestBars = false,
   canvasOnly = null,
+  themeTile = false,
   ownerCapability = null,
   vendorCapability = null,
   supplierDesk = null,
@@ -2796,7 +2802,7 @@ export async function SiteBody({
           editor's preview iframe. `editorMode` is TRUE only for a verified host
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
-      {isEditorCanvas && editorBridge ? <EditorBridge /> : null}
+      {isEditorCanvas && editorBridge && !themeTile ? <EditorBridge /> : null}
       </EventWordsProvider>
     </InvitationShell>
   );

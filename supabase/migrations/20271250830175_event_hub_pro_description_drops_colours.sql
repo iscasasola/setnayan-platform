@@ -25,8 +25,10 @@
 -- (`NOT_SOLD_ON`), and this product may not be sold on it.
 --
 -- ⚖ COPY ONLY. The price, `is_active`, the ownership aliases and every gate are
--- untouched. `updated_at` is set by the table's own BEFORE UPDATE trigger
--- (20260713000000). Idempotent: re-applying changes nothing, and the
+-- untouched. `updated_at = NOW()` is kept in the shape every earlier copy
+-- migration used (the table's BEFORE UPDATE trigger, 20260713000000, sets it
+-- too) — and `says-what-it-includes.test.ts` reads the description as the text
+-- between `SET description =` and `updated_at`. Idempotent: the
 -- `IS DISTINCT FROM` keeps a re-run from touching the row at all.
 BEGIN;
 
@@ -39,7 +41,8 @@ SET description =
       'fonts and animation, an animated logo, and your logo on every QR code — '
       'plus the Setnayan mark taken off everywhere your guests see it: the page, '
       'the printable version, your story and the recap. The cinematic reveal '
-      'comes only with this.'
+      'comes only with this.',
+    updated_at = NOW()
 WHERE service_code = 'COUPLE_WEBSITE_PRO'
   AND description IS DISTINCT FROM
       'Every premium touch on your Event Hub in one unlock — the cinematic '

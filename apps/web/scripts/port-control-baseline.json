@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "dff11e8da",
+  "generatedFromRef": "2e1f16183",
   "routeCount": 435,
   "destinations": 941,
   "actions": 671,
@@ -7973,7 +7973,7 @@
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/launch",
+        "/dashboard/[seg]/launch${search.then === 'apply' ?",
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/studio"
       ],

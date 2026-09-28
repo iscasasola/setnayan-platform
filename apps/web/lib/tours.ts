@@ -102,6 +102,7 @@ export type TourKey =
   | 'customer_schedule_v1'
   | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
+  | 'customer_people_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -125,6 +126,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_schedule_v1',
   'customer_add_scene_v1',
   'customer_hero_designs_v1',
+  'customer_people_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -713,6 +715,30 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: MousePointerClick,
         title: 'A design is a starting point',
         body: 'Tap any part of your hero on the canvas &mdash; a name, the date, your mark &mdash; to change its font, colour, size or motion. Your changes stay with each part when you switch designs.',
+      },
+    ],
+  },
+  // People, one place, one picker (owner 2026-09-28, the People redesign —
+  // slides ①②③ on frame B of people-redesign.html).
+  customer_people_v1: {
+    key: 'customer_people_v1',
+    label: 'Your people',
+    blurb: 'Who you’re connected with, who you follow, and who follows you.',
+    slides: [
+      {
+        Icon: Users,
+        title: 'One place for your people',
+        body: 'The picker at the top switches between Connected, Following, Followers, Alaga and Samahan. When somebody asks to add you, Requests shows up first &mdash; with a dot.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Connected means you both said yes',
+        body: 'Add someone and they get a request. Once they accept, you’re connected &mdash; and you follow each other. Nothing connects until they say so.',
+      },
+      {
+        Icon: Heart,
+        title: 'Following needs no request',
+        body: 'Follow anyone with a public profile. Say yes to an event and you follow its hosts on your own. Only you can see who follows you, and you can unfollow any time &mdash; even someone you’re connected with.',
       },
     ],
   },

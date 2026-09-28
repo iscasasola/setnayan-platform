@@ -4,10 +4,20 @@ import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { getSpouseContext } from '@/lib/people-spouse-context';
 import { getPeopleRoster } from '@/lib/people-roster';
+import { getFollowCounts, getFollowers, getFollowing } from '@/lib/people-follows';
+import {
+  defaultPeopleView,
+  peopleViewOptions,
+  resolvePeopleView,
+  type PeopleViewGates,
+} from '@/lib/people-views';
 import { offerableRelations, spouseAbsenceNote, type SpouseContext } from '@/lib/people-add';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { MiniTour } from '@/app/_components/mini-tour';
 import { PeopleRosterView } from './_components/people-roster-view';
+import { PeopleViewPicker } from './_components/people-view-picker';
+import { FollowListView } from './_components/follow-list-view';
 import { AddAlagaButton } from './_components/add-alaga-button';
 import { DependentsSection } from './_components/dependents-section';
 import { SamahanPeopleSection } from './_components/samahan-people-section';
@@ -41,11 +51,36 @@ const FENCE_ERROR: Record<string, string> = {
  * renders the roster (<PeopleRosterView>) — add first, label after — wiring the
  * shipped propose/confirm/decline actions. The preview + functional modes share
  * this one route so nothing repaints on the flip.
+ *
+ * ── ONE PAGE, ONE PICKER (owner 2026-09-28, the People redesign) ──────────
+ * *"People is same as Alaga and Samahan."* The page is six views by URL —
+ * `?view=` requests · connected (default) · following · followers · alaga ·
+ * samahan — chosen with ONE shared `PickMenu` (owner: any set of choices is a
+ * dropdown), which is the ONLY thing in the header. The rail's rows are the
+ * same `?view=` links (`account-rail-context.tsx`), resolved by the same
+ * `lib/people-views.ts`, so the lit row and the open view cannot disagree.
+ *
+ * ── EACH DOOR AT THE HEAD OF ITS OWN VIEW, AND NOWHERE ELSE ──────────────
+ * Owner 2026-09-28, pointing at the prototype's header row:
+ *   *"we already agreed this will be on the alaga and samahan row."*
+ * So "Add an alaga" heads the Alaga view and "New samahan" heads the Samahan
+ * view — once each. This
+ * SUPERSEDES the 2026-08-22 header action row (*"where the buttons live"*),
+ * which is why `the-buttons-live-together.test.ts` now pins the opposite of
+ * what it used to: each door in its own view, never in the header.
+ *
+ * ⚠ "IMPORT CONTACTS" IS STILL DELIBERATELY ABSENT. It cannot be built honestly
+ * under the rule the owner locked on 2026-08-21: a person must hold an account
+ * to be listed. A pasted address book is mostly people who do not, so the
+ * feature reduces to either telling you which of your contacts have Setnayan
+ * accounts — an enumeration oracle over a list you supply, exactly what the
+ * name search was built NOT to be — or bulk-emailing strangers who never asked.
+ * A button that opens neither is a fake door.
  */
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string; removed?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; removed?: string; view?: string }>;
 }) {
   const showConnections = peopleConnectionsEnabled();
   // Dependents (minors' SPI) surface only when the env flag AND the
@@ -61,60 +96,80 @@ export default async function PeoplePage({
 
   const sp = await searchParams;
   const errorMsg = sp.error ? (FENCE_ERROR[sp.error] ?? sp.error) : null;
+  const gates: PeopleViewGates = { showConnections, showDependents };
+  const view = resolvePeopleView(sp.view, gates);
 
   // ONE ROSTER for connections + alaga, shaped like the guest list (owner
-  // 2026-08-21). The read is skipped entirely when nobody is signed in.
+  // 2026-08-21). The read is skipped entirely when nobody is signed in. It is
+  // read on every view because the picker's counts come from it.
   const user = await getCurrentUser();
-  const roster = user ? await getPeopleRoster(user.id) : null;
+  const [roster, followCounts] = await Promise.all([
+    user ? getPeopleRoster(user.id) : Promise.resolve(null),
+    user ? getFollowCounts(user.id) : Promise.resolve({ following: null, followers: null }),
+  ]);
+  const followList =
+    user && view === 'following'
+      ? await getFollowing(user.id)
+      : user && view === 'followers'
+        ? await getFollowers(user.id)
+        : null;
 
   // THE SPOUSE RULE (owner 2026-08-21). Read once here and handed to the card,
   // which never decides it — `addPersonConnection` recomputes the same rule from
   // the same helper, so a chip that was never drawn is still refused if posted.
   // No user (or connections off) → the not-married context, which is where a
   // failed read lands too: the chip can be hidden by a denial, never invented.
-  const spouseCtx: SpouseContext = user
-    ? await getSpouseContext(user.id)
-    : { civilStatus: null, weddingHasHappened: false };
+  const spouseCtx: SpouseContext =
+    user && view === 'connected'
+      ? await getSpouseContext(user.id)
+      : { civilStatus: null, weddingHasHappened: false };
+
+  // The picker's counts. A count that could not be read is NULL and is left
+  // off its label — never printed as 0 (a refused read is not an empty list).
+  const waiting = roster?.counts.waitingYou ?? 0;
+  const options = peopleViewOptions(
+    gates,
+    {
+      requests: roster?.connectionsUnavailable && waiting === 0 ? null : waiting,
+      connected: roster && !roster.connectionsUnavailable ? roster.counts.connected : null,
+      following: followCounts.following,
+      followers: followCounts.followers,
+      alaga: roster?.counts.alaga ?? null,
+      samahan: roster?.counts.samahan ?? null,
+    },
+    view,
+  );
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <PageMasthead
-        title="People"
-      />
+      <PageMasthead title="People" />
+      {/* First visit only — the shipped MiniTour (owner rule 2026-09-25: every
+          feature gets a first-visit tour). */}
+      <MiniTour tourKey="customer_people_v1" />
       {errorMsg ? (
         <p
           role="alert"
-          className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          className="mb-6 rounded-md bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
           {errorMsg}
         </p>
       ) : null}
-      {/* THE PAGE'S OWN ACTIONS, TOGETHER (owner 2026-08-22, comparing the live
-          page against the approved mock: "where the buttons live"). One row, at
-          the top, in the order the mock draws them — the two doors this page
-          owns that are not "add a person".
 
-          ⚠ THE MOCK'S THIRD BUTTON, "Import contacts", IS DELIBERATELY ABSENT.
-          It cannot be built honestly under the rule the owner locked the day
-          before: a person must hold an account to be listed. A pasted address
-          book is mostly people who do not, so the feature reduces to either
-          telling you which of your contacts have Setnayan accounts — an
-          enumeration oracle over a list you supply, exactly what the name search
-          was built NOT to be — or bulk-emailing strangers who never asked. A
-          button that opens neither is a fake door, and this codebase has already
-          removed one product for being sold and undeliverable.
+      {/* THE HEADER HOLDS ONLY THE PICKER. */}
+      <div className="mb-6" data-people-header>
+        <PeopleViewPicker view={view} options={options} gates={gates} />
+      </div>
 
-          `New samahan` goes to the page that already exists; nothing here is a
-          new destination. */}
-      {showConnections || showDependents ? (
-        <div className="mb-4 flex flex-wrap justify-end gap-2">
-          {showDependents ? <AddAlagaButton /> : null}
-          <Link href="/dashboard/samahan/new" className="button-secondary text-sm">
-            New samahan
-          </Link>
-        </div>
+      {view === 'requests' && roster ? (
+        <PeopleRosterView
+          mode="requests"
+          roster={roster}
+          relations={offerableRelations(spouseCtx)}
+          spouseNote={null}
+        />
       ) : null}
-      {showConnections && roster ? (
+
+      {view === 'connected' && roster ? (
         <PeopleRosterView
           roster={roster}
           relations={offerableRelations(spouseCtx)}
@@ -122,21 +177,51 @@ export default async function PeoplePage({
         />
       ) : null}
       {/* THE TREE. `kinship-derive.ts` shipped on 2026-07-31 and had NO CONSUMER
-          until now — the derivation ran for nobody. It renders under the roster
+          until then — the derivation ran for nobody. It renders under the roster
           because the roster is where you ADD someone and this is what those
           additions add up to (spec §6: "Do not build a new page — the People
-          surface exists"). Gated on `showConnections` alone: it derives from
-          person_connections only, so alaga-only accounts have nothing to draw. */}
-      {showConnections && user ? <ConnectionTreeSection userId={user.id} /> : null}
-      {/* The alaga CARDS keep their own section: hand-over links, godparents and
-          the sharing switch live per alaga, and the roster row is a summary of
-          them, not a replacement. */}
-      {showDependents ? <DependentsSection /> : null}
-      {/* Samahan (owner degree model 2026-07-17): groups are FIRST degree
-          beside connections + alaga; their members are SECOND degree. Not
-          flag-gated — samahan is live product. */}
-      <YourStorySection />
-      <SamahanPeopleSection />
+          surface exists"). The redesign keeps it under Connected: the picker
+          has no Connection tree row. */}
+      {view === 'connected' && user ? <ConnectionTreeSection userId={user.id} /> : null}
+
+      {(view === 'following' || view === 'followers') && followList ? (
+        <FollowListView
+          which={view}
+          list={followList}
+          total={view === 'following' ? followCounts.following : followCounts.followers}
+        />
+      ) : null}
+
+      {/* ALAGA — "Add an alaga" at the head of its own view, its only home. */}
+      {view === 'alaga' ? (
+        <div data-people-view="alaga">
+          <div className="mb-5" data-view-door="alaga">
+            <AddAlagaButton />
+          </div>
+          <DependentsSection />
+        </div>
+      ) : null}
+
+      {/* SAMAHAN — "New samahan" at the head of its own view, its only home. It
+          goes to the page that already creates one; nothing here is a new
+          destination. Samahan is live product and never flag-gated. */}
+      {view === 'samahan' ? (
+        <div data-people-view="samahan">
+          <div className="mb-5" data-view-door="samahan">
+            <Link href="/dashboard/samahan/new" className="button-secondary inline-flex min-h-11 items-center text-sm">
+              New samahan
+            </Link>
+          </div>
+          <SamahanPeopleSection heading={false} />
+        </div>
+      ) : null}
+
+      {/* Your story stays on the page — on its default view. */}
+      {view === defaultPeopleView(gates) ? (
+        <div className="mt-10">
+          <YourStorySection />
+        </div>
+      ) : null}
     </div>
   );
 }

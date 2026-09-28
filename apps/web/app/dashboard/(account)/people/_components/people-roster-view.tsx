@@ -1,18 +1,13 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { Check, Clock, Plus, Send, Users, X } from 'lucide-react';
+import { Fragment, useRef, useState, useTransition } from 'react';
+import { Check, Plus, Send, X } from 'lucide-react';
 import { Popover } from '@/app/dashboard/[eventId]/guests/_components/overlay-primitives';
 import type { ConnectionRelation } from '@/lib/people-connections';
-import { RELATION_LABEL, addConfirmation, normalizeEmail } from '@/lib/people-add';
-import { parsePersonLine } from '@/lib/people-parse';
+import { RELATION_LABEL, connectionRequestSentence } from '@/lib/people-add';
 import type { PeopleRoster, RosterPerson, RosterState } from '@/lib/people-roster';
-import type { PersonHit } from '@/lib/people-search-query';
 import {
-  addPersonByPublicId,
-  addPersonConnection,
   confirmConnection,
-  findPeopleByName,
   declineConnection,
   invitePersonToSamahan,
   resendConnectionInvitation,
@@ -20,6 +15,8 @@ import {
   withdrawConnection,
 } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { FindOrInvite } from './find-or-invite';
+import { PersonAvatar } from './person-avatar';
 
 /**
  * people-roster-view.tsx — People, wearing the Guest List's clothes.
@@ -31,33 +28,47 @@ import { formatCount } from '@/lib/format-number';
  *
  * ── WHAT IS BORROWED, DELIBERATELY, RATHER THAN INVENTED ───────────────────
  * The Living Roster's grammar, element for element: a CAPTURE BAR that takes one
- * typed line and keeps focus so you can add several in a row · a FACET row of
- * counted chips · a table whose head is the same mono/uppercase/tracking rule ·
- * tier header rows · pill CHIPS in the same tint vocabulary (`role-groups.ts`
+ * typed line and keeps focus so you can add several in a row (`find-or-invite.tsx`)
+ * · a table whose head is the same mono/uppercase/tracking rule · tier header
+ * rows · pill CHIPS in the same tint vocabulary (`role-groups.ts`
  * ROLE_GROUP_CHIP) · and a chip that is itself the editor, opening the shared
  * `<Popover>` primitive — the same one the guest rows use, imported rather than
  * copied so the two can never drift apart in behaviour or a11y.
  *
  * The tint mapping is chosen for MEANING, not for variety: ninong/ninang take
- * the violet the roster already gives principal sponsors, an alaga takes the
- * green it gives the bearers and flower girl, and a friend takes the neutral it
- * gives an ordinary guest. Somebody who knows the guest list already knows this
- * page.
+ * the violet the roster already gives principal sponsors, and a friend takes
+ * the neutral it gives an ordinary guest. Somebody who knows the guest list
+ * already knows this page.
+ *
+ * ── THE PEOPLE REDESIGN (owner 2026-09-28, people-redesign.html) ──────────
+ *   · THE FACET PILL ROW IS GONE. "Any set of choices is one dropdown" — the
+ *     page's own view picker (Requests · Connected · Following · Followers ·
+ *     Alaga · Samahan) replaced it, one level up.
+ *   · REQUESTS ARE PINNED AT THE TOP of Connected, and are the whole of the
+ *     Requests view, in the owner's words: "{name} is trying to add you from
+ *     your {event} event · Accept / Decline". "Confirm" became Accept.
+ *   · "Waiting for them" is its own section, LAST.
+ *   · ALAGA ARE NOT DRAWN HERE — the Alaga view owns them (one alaga was on
+ *     this page three times). They stay in the roster DATA for the guest
+ *     list's "Add from people" sheet.
+ *   · A REFUSED READ SAYS SO. `connectionsUnavailable` renders its own
+ *     sentence; "Nobody here yet" is only ever said about an account that
+ *     really has nobody.
  *
  * ── THE ONE THING THAT IS NOT LIKE THE GUEST LIST ──────────────────────────
  * A guest is the host's own record and changes the moment they type. A person
  * here is somebody else's account, and the row's STATE says whose move it is:
- * *waiting for your answer* carries Confirm and Decline, *waiting for them*
- * carries Send again and Withdraw. Optimism is deliberately absent — a row
- * flipping to "connected" before the other person has agreed would be the
- * product telling a lie about somebody else's decision.
+ * a request carries Accept and Decline, *waiting for them* carries Send again
+ * and Withdraw. Optimism is deliberately absent — a row flipping to
+ * "connected" before the other person has agreed would be the product telling
+ * a lie about somebody else's decision.
  */
 
 const STATE_LABEL: Record<RosterState, string> = {
   connected: 'Connected',
   waiting_them: 'Waiting for them',
   waiting_you: 'Waiting for your answer',
-  in_your_care: 'You hold this',
+  in_your_care: 'In your care',
 };
 
 const STATE_PIP: Record<RosterState, string> = {
@@ -67,9 +78,13 @@ const STATE_PIP: Record<RosterState, string> = {
   in_your_care: 'bg-mulberry',
 };
 
+/** ONE heading style for the whole page (the redesign's problem 5 — four
+ *  styles lived on one page). The roster's own rule, used everywhere. */
+export const PEOPLE_SECTION_HEADING =
+  'font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55';
+
 /** The label chip's tint, taken from the roster's own vocabulary by MEANING. */
-function chipTint(relation: ConnectionRelation | null, kind: 'connection' | 'alaga'): string {
-  if (kind === 'alaga') return 'bg-success-100 text-success-800 ring-1 ring-success-200';
+function chipTint(relation: ConnectionRelation | null): string {
   switch (relation) {
     case 'spouse':
       return 'bg-danger-100 text-danger-900 ring-1 ring-danger-200';
@@ -87,120 +102,53 @@ function chipTint(relation: ConnectionRelation | null, kind: 'connection' | 'ala
   }
 }
 
-type Facet = 'all' | RosterState | 'unlabelled';
-
-const FACETS: Array<{ key: Facet; label: string }> = [
-  { key: 'all', label: 'Everyone' },
-  { key: 'connected', label: 'Connected' },
-  { key: 'waiting_them', label: 'Waiting' },
-  { key: 'waiting_you', label: 'Needs you' },
-  { key: 'in_your_care', label: 'In your care' },
-  { key: 'unlabelled', label: 'No label yet' },
-];
-
-/** Section order — whose move it is first, then the shape of a family. */
+/** Section order — the shape of a family, then whose move it is, LAST. */
 const SECTIONS: Array<{ key: string; label: string; match: (p: RosterPerson) => boolean }> = [
-  { key: 'needs', label: 'Waiting for your answer', match: (p) => p.state === 'waiting_you' },
   {
     key: 'family',
     label: 'Family',
     match: (p) =>
-      p.kind === 'connection' &&
-      p.state !== 'waiting_you' &&
-      ['spouse', 'parent', 'child', 'sibling'].includes(p.relation ?? ''),
+      p.state === 'connected' && ['spouse', 'parent', 'child', 'sibling'].includes(p.relation ?? ''),
   },
   {
     key: 'ritual',
     label: 'Ninong & Ninang',
-    match: (p) =>
-      p.kind === 'connection' &&
-      p.state !== 'waiting_you' &&
-      ['godparent', 'godchild'].includes(p.relation ?? ''),
+    match: (p) => p.state === 'connected' && ['godparent', 'godchild'].includes(p.relation ?? ''),
   },
   {
     key: 'friends',
     label: 'Friends',
-    match: (p) => p.kind === 'connection' && p.state !== 'waiting_you' && p.relation === 'friend',
+    match: (p) => p.state === 'connected' && p.relation === 'friend',
   },
   {
     key: 'unlabelled',
     label: 'No label yet',
-    match: (p) => p.kind === 'connection' && p.state !== 'waiting_you' && p.relation === null,
+    match: (p) => p.state === 'connected' && p.relation === null,
   },
-  { key: 'alaga', label: 'In your care · alaga', match: (p) => p.kind === 'alaga' },
+  { key: 'waiting_them', label: 'Waiting for them', match: (p) => p.state === 'waiting_them' },
 ];
+
+const EMPTY_LINE = 'Nobody here yet. Add the first person above — a name is enough to find them.';
+const REFUSED_LINE = 'We couldn’t load your people just now. Nothing is lost — refresh in a moment.';
+const PARTLY_REFUSED_LINE =
+  'We couldn’t load all of your people just now. Nothing is lost — refresh in a moment.';
 
 export function PeopleRosterView({
   roster,
   relations,
   spouseNote,
+  mode = 'connected',
 }: {
   roster: PeopleRoster;
   /** Offerable labels — the server decides, by the spouse rule. */
   relations: ConnectionRelation[];
   spouseNote: string | null;
+  /** 'requests' draws the requests and nothing else (the Requests view). */
+  mode?: 'connected' | 'requests';
 }) {
   const [pending, startTransition] = useTransition();
-  const [line, setLine] = useState('');
-  const [facet, setFacet] = useState<Facet>('all');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const draft = useMemo(() => parsePersonLine(line), [line]);
-  const canAdd = draft.name.length > 0 && normalizeEmail(draft.email) !== null;
-
-  // ── FIND SOMEBODY BY NAME (owner 2026-08-21, "just like facebook") ───────
-  // The same one line does both: type an address and it invites, type a name
-  // and it looks. No mode switch, because a person typing a name should not
-  // first have to tell the app what kind of thing they are typing.
-  const [hits, setHits] = useState<PersonHit[]>([]);
-  const [looking, setLooking] = useState(false);
-  // Who you have ALREADY asked in this sitting. Facebook's "Requested": the row
-  // stays put and its button changes, so the ask is something you can SEE
-  // happening rather than a row that vanishes and a sentence somewhere else.
-  const [asked, setAsked] = useState<Set<string>>(new Set());
-  const nameQuery = draft.email ? '' : line.trim();
-
-  useEffect(() => {
-    // An address is not a name — while one is being typed, nothing is searched.
-    if (nameQuery.length < 2) {
-      setHits([]);
-      setLooking(false);
-      return;
-    }
-    // Debounced, and every stale answer is dropped: `cancelled` is what stops a
-    // slow response for "Ma" landing on top of the results for "Maria".
-    let cancelled = false;
-    setLooking(true);
-    const t = setTimeout(async () => {
-      const found = await findPeopleByName(nameQuery);
-      if (cancelled) return;
-      setHits(found);
-      setLooking(false);
-    }, 250);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [nameQuery]);
-
-  function addPicked(hit: PersonHit) {
-    setError(null);
-    setNotice(null);
-    startTransition(async () => {
-      const res = await addPersonByPublicId({ publicId: hit.publicId });
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      // The result list is deliberately NOT cleared. Tapping Add is half of a
-      // handshake, so the row stays and says so — clearing it would look like
-      // the connection had been made.
-      setAsked((prev) => new Set(prev).add(hit.publicId));
-      setNotice(`Asked ${hit.name}. You're connected when they say yes.`);
-    });
-  }
 
   function run(fn: () => Promise<{ ok: true } | { ok: false; error: string }>) {
     setError(null);
@@ -211,142 +159,13 @@ export function PeopleRosterView({
     });
   }
 
-  function submitAdd() {
-    if (!canAdd || pending) return;
-    const { name, email } = draft;
-    setError(null);
-    setNotice(null);
-    startTransition(async () => {
-      const res = await addPersonConnection({ name, email });
-      if (!res.ok) {
-        // Keep the line so they can fix the address rather than retype it.
-        setError(res.error);
-        return;
-      }
-      setNotice(addConfirmation(name, res.delivered));
-      setLine('');
-      inputRef.current?.focus();
-    });
-  }
+  // Alaga rows stay in the data (the guest list's sheet reads them) and are
+  // never drawn here — the Alaga view owns them.
+  const connections = roster.people.filter((p) => p.kind === 'connection');
+  const requests = connections.filter((p) => p.state === 'waiting_you');
 
-  const shown = roster.people.filter((p) => {
-    if (facet === 'all') return true;
-    if (facet === 'unlabelled') return p.kind === 'connection' && p.relation === null;
-    return p.state === facet;
-  });
-
-  const sections = SECTIONS.map((s) => ({ ...s, rows: shown.filter(s.match) })).filter(
-    (s) => s.rows.length > 0,
-  );
-
-  const counts: Record<Facet, number> = {
-    all: roster.counts.all,
-    connected: roster.counts.connected,
-    waiting_them: roster.counts.waitingThem,
-    waiting_you: roster.counts.waitingYou,
-    in_your_care: roster.counts.inYourCare,
-    unlabelled: roster.counts.unlabelled,
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* CAPTURE — one line, then Enter, exactly like the roster's own. */}
-      <div className="flex flex-col gap-2 rounded-tile border border-ink/10 bg-paper p-3 sm:flex-row sm:items-center">
-        <span
-          aria-hidden
-          className="hidden h-7 w-7 shrink-0 place-items-center rounded-lg bg-terracotta/15 text-terracotta-700 sm:grid"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.2} />
-        </span>
-        <input
-          ref={inputRef}
-          value={line}
-          onChange={(e) => setLine(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              submitAdd();
-            }
-          }}
-          disabled={pending}
-          placeholder="Type a name to find them — or a name and their email to invite"
-          aria-label="Add someone by name and email"
-          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
-        />
-        <button
-          type="button"
-          onClick={submitAdd}
-          disabled={pending || !canAdd}
-          className="button-primary shrink-0 text-sm disabled:opacity-50"
-        >
-          {pending ? 'Adding…' : 'Add'}
-        </button>
-      </div>
-
-      {nameQuery.length >= 2 ? (
-        <div className="rounded-tile border border-ink/10 bg-paper">
-          {looking && hits.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-ink/45">Looking…</p>
-          ) : hits.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-ink/55">
-              {/* An opted-out person, a name nobody has, and a name only
-                  half-finished accounts carry all land HERE — the empty result
-                  must never say which of the three happened. */}
-              Nobody by that name. Add their email instead and we’ll invite them.
-            </p>
-          ) : (
-            <ul className="flex list-none flex-col">
-              {hits.map((h) => (
-                <li
-                  key={h.publicId}
-                  className="flex items-center gap-3 border-b border-ink/[0.06] px-4 py-2.5 last:border-b-0"
-                >
-                  <Avatar name={h.name} kind="connection" photoUrl={h.photoUrl} />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium text-ink">
-                      {h.name}
-                      {h.handle ? (
-                        <span className="ml-1.5 font-mono text-[11.5px] font-normal text-ink/45">
-                          {h.handle}
-                        </span>
-                      ) : null}
-                    </span>
-                    {h.fullName ? (
-                      <span className="truncate text-[11.5px] text-ink/65">{h.fullName}</span>
-                    ) : null}
-                    {h.hint ? (
-                      <span className="truncate text-[11.5px] text-ink/50">{h.hint}</span>
-                    ) : null}
-                  </span>
-                  {asked.has(h.publicId) ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warn-100 px-2.5 py-1 text-[11px] font-medium text-warn-900">
-                      <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
-                      Asked
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => addPicked(h)}
-                      disabled={pending}
-                      className="button-secondary shrink-0 text-xs disabled:opacity-50"
-                    >
-                      Add
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
-
-      <p className="text-xs text-ink/55">
-        {/* Said the same way whether or not that address has an account — the
-            alternative is a box that answers "is this address registered?". */}
-        They get an email either way. If they aren’t on Setnayan yet it invites them to join — add
-        them again once they’re in. You set what they are to you <em className="not-italic font-medium text-ink/70">after</em> they’re on your list.
-      </p>
-
+  const messages = (
+    <>
       {error ? (
         <p role="alert" className="text-sm text-red-700">
           {error}
@@ -357,30 +176,42 @@ export function PeopleRosterView({
           {notice}
         </p>
       ) : null}
+    </>
+  );
 
-      {/* FACETS — counted chips, the roster's summary row. */}
-      {roster.counts.all > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {FACETS.map((f) =>
-            counts[f.key] === 0 && f.key !== 'all' ? null : (
-              <button
-                key={f.key}
-                type="button"
-                aria-pressed={facet === f.key}
-                onClick={() => setFacet(f.key)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-medium transition-colors ${
-                  facet === f.key
-                    ? 'bg-terracotta/15 text-terracotta-700 ring-1 ring-terracotta/25'
-                    : 'bg-paper text-ink/70 ring-1 ring-ink/10 hover:bg-ink/[0.04]'
-                }`}
-              >
-                {f.label}
-                <span className="tabular-nums opacity-60">{formatCount(counts[f.key])}</span>
-              </button>
-            ),
-          )}
-        </div>
-      ) : null}
+  if (mode === 'requests') {
+    return (
+      <div className="space-y-4" data-people-view="requests">
+        {requests.length > 0 ? (
+          <RequestsBlock requests={requests} pending={pending} run={run} />
+        ) : (
+          <p className="py-6 text-sm text-ink/55">
+            {roster.connectionsUnavailable
+              ? 'We couldn’t load your requests just now. Nothing is lost — refresh in a moment.'
+              : 'Nobody is waiting on your answer right now.'}
+          </p>
+        )}
+        {messages}
+      </div>
+    );
+  }
+
+  const shown = connections.filter((p) => p.state !== 'waiting_you');
+  const sections = SECTIONS.map((s) => ({ ...s, rows: shown.filter(s.match) })).filter(
+    (s) => s.rows.length > 0,
+  );
+  // 🔴 A REFUSED READ IS NOT AN EMPTY LIST. The same `[]` arrives either way;
+  // only `connectionsUnavailable` tells them apart, so it decides the sentence.
+  const emptyLine = roster.connectionsUnavailable ? REFUSED_LINE : EMPTY_LINE;
+
+  return (
+    <div className="space-y-5" data-people-view="connected">
+      {/* PINNED — while anybody waits on you, before everything else (owner
+          2026-09-28: "Requests pinned at top of Connected"). The bell lands on
+          this page, so this is where the ask is met. */}
+      {requests.length > 0 ? <RequestsBlock requests={requests} pending={pending} run={run} /> : null}
+
+      <FindOrInvite />
 
       {spouseNote ? <p className="text-xs text-ink/45">{spouseNote}</p> : null}
       {roster.samahanUnavailable ? (
@@ -388,6 +219,12 @@ export function PeopleRosterView({
           We couldn’t read your samahan just now, so the groups column may be missing some.
         </p>
       ) : null}
+      {roster.connectionsUnavailable && sections.length > 0 ? (
+        <p role="status" className="text-sm text-ink/60" data-people-refused>
+          {PARTLY_REFUSED_LINE}
+        </p>
+      ) : null}
+      {messages}
 
       {/* DESKTOP — the roster table.
           IT RENDERS EMPTY (owner 2026-08-21: "we want to see the empty table if
@@ -399,7 +236,7 @@ export function PeopleRosterView({
           rendering fault. */}
       <div className="hidden overflow-hidden rounded-tile border border-ink/10 bg-paper sm:block">
           <table className="w-full table-fixed text-left text-sm">
-            <thead className="border-b border-ink/[0.07] font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
+            <thead className={`border-b border-ink/[0.07] ${PEOPLE_SECTION_HEADING}`}>
               <tr>
                 <th className="px-4 py-2.5 font-medium">Name</th>
                 <th className="w-[20%] px-3 py-2.5 font-medium">Label</th>
@@ -414,18 +251,15 @@ export function PeopleRosterView({
               {sections.map((sec) => (
                 <Fragment key={sec.key}>
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-3 font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55"
-                    >
-                      {sec.label} <span className="ml-1 tabular-nums text-ink/35">{sec.rows.length}</span>
+                    <td colSpan={5} className={`border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-3 ${PEOPLE_SECTION_HEADING}`}>
+                      {sec.label} <span className="ml-1 tabular-nums text-ink/35">{formatCount(sec.rows.length)}</span>
                     </td>
                   </tr>
                   {sec.rows.map((p) => (
                     <tr key={p.key} className="border-t border-ink/[0.06]">
                       <td className="px-4 py-2.5">
                         <span className="flex min-w-0 items-center gap-2.5">
-                          <Avatar name={p.name} kind={p.kind} />
+                          <PersonAvatar name={p.name} />
                           <span className="min-w-0 truncate font-medium text-ink">{p.name}</span>
                         </span>
                       </td>
@@ -459,10 +293,8 @@ export function PeopleRosterView({
               ))}
               {sections.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-ink/55">
-                    {roster.counts.all === 0
-                      ? 'Nobody here yet. Add the first person above — a name is enough to find them.'
-                      : 'Nobody in this view. Try another chip.'}
+                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-ink/55" data-people-empty>
+                    {emptyLine}
                   </td>
                 </tr>
               ) : null}
@@ -472,29 +304,23 @@ export function PeopleRosterView({
 
       {/* PHONE — the same rows, stacked. People is one of the five thumb targets. */}
       {sections.length === 0 ? (
-        <p className="rounded-tile border border-dashed border-ink/15 bg-paper px-4 py-8 text-center text-sm text-ink/55 sm:hidden">
-          {roster.counts.all === 0
-            ? 'Nobody here yet. Add the first person above — a name is enough to find them.'
-            : 'Nobody in this view. Try another chip.'}
-        </p>
+        <p className="py-8 text-center text-sm text-ink/55 sm:hidden">{emptyLine}</p>
       ) : null}
       {sections.length > 0 ? (
-        <div className="space-y-4 sm:hidden">
+        <div className="space-y-6 sm:hidden">
           {sections.map((sec) => (
             <section key={sec.key}>
-              <h3 className="mb-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
-                {sec.label} <span className="tabular-nums text-ink/35">{sec.rows.length}</span>
+              <h3 className={`mb-1.5 ${PEOPLE_SECTION_HEADING}`}>
+                {sec.label} <span className="tabular-nums text-ink/35">{formatCount(sec.rows.length)}</span>
               </h3>
-              <ul className="flex list-none flex-col gap-2">
+              <ul className="flex list-none flex-col divide-y divide-ink/[0.07]">
                 {sec.rows.map((p) => (
-                  <li
-                    key={p.key}
-                    className="flex flex-col gap-2 rounded-tile border border-ink/10 bg-paper p-3"
-                  >
+                  <li key={p.key} className="flex flex-col gap-2 py-3">
                     <span className="flex min-w-0 items-center gap-2.5">
-                      <Avatar name={p.name} kind={p.kind} />
+                      <PersonAvatar name={p.name} />
                       <span className="min-w-0 flex-1 truncate font-medium text-ink">{p.name}</span>
-                      <StateCell state={p.state} compact />
+                      {/* The status pip only when the row is NOT simply connected. */}
+                      {p.state !== 'connected' ? <StateCell state={p.state} /> : null}
                     </span>
                     <span className="flex flex-wrap items-center gap-1.5">
                       <LabelCell person={p} relations={relations} disabled={pending} />
@@ -526,53 +352,73 @@ export function PeopleRosterView({
   );
 }
 
-function Avatar({
-  name,
-  kind,
-  photoUrl,
+/**
+ * REQUESTS — somebody asked to add you. The owner's words, one row each:
+ * *"{name} is trying to add you from your {event} {type} event"* · Accept ·
+ * Decline — or, with no event, *"{name} is trying to add you."* The sentence is
+ * `connectionRequestSentence`, the same function the bell's title uses.
+ */
+function RequestsBlock({
+  requests,
+  pending,
+  run,
 }: {
-  name: string;
-  kind: 'connection' | 'alaga';
-  photoUrl?: string | null;
+  requests: RosterPerson[];
+  pending: boolean;
+  run: (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => void;
 }) {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('');
-  // A stored photo may be an `r2://` reference rather than a URL — those never
-  // render, so only an http(s) value is used and everything else falls back to
-  // initials rather than a broken glyph (the logo_url lesson, 2026-08-08).
-  const src = photoUrl && /^https?:\/\//.test(photoUrl) ? photoUrl : null;
-  if (src) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        className="h-7 w-7 shrink-0 rounded-full object-cover"
-      />
-    );
-  }
   return (
-    <span
-      aria-hidden
-      className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${
-        kind === 'alaga' ? 'bg-success-100 text-success-800' : 'bg-ink/[0.06] text-ink/60'
-      }`}
-    >
-      {initials || '·'}
-    </span>
+    <section aria-labelledby="people-requests-heading" data-people-requests>
+      <h2 id="people-requests-heading" className={`mb-2 ${PEOPLE_SECTION_HEADING}`}>
+        Waiting for your answer{' '}
+        <span className="tabular-nums text-ink/35">{formatCount(requests.length)}</span>
+      </h2>
+      <ul className="flex list-none flex-col divide-y divide-ink/[0.07]">
+        {requests.map((p) => (
+          <li key={p.key} className="flex flex-col gap-2.5 py-3 sm:flex-row sm:items-center sm:gap-3">
+            <span className="flex min-w-0 flex-1 items-start gap-2.5">
+              <PersonAvatar name={p.name} />
+              <span className="min-w-0 text-sm leading-snug text-ink" data-request-sentence>
+                {connectionRequestSentence(p.name, p.fromEvent)}
+              </span>
+            </span>
+            <span className="flex shrink-0 gap-2 pl-9 sm:pl-0">
+              <button
+                type="button"
+                onClick={() => run(() => confirmConnection(p.connectionId ?? ''))}
+                disabled={pending}
+                className="button-primary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
+              >
+                <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Accept
+              </button>
+              <button
+                type="button"
+                onClick={() => run(() => declineConnection(p.connectionId ?? ''))}
+                disabled={pending}
+                className="button-secondary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
+              >
+                <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Decline
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1 text-xs text-ink/55">
+        Accepting connects you — and you follow each other. Nothing connects until you say so.
+      </p>
+    </section>
   );
 }
 
-function StateCell({ state, compact }: { state: RosterState; compact?: boolean }) {
+/** One word per state, everywhere — "Waiting for them" is never shortened to
+ *  "Waiting", which was also the name of a different state (problem 2). */
+function StateCell({ state }: { state: RosterState }) {
   return (
     <span className="inline-flex items-center gap-2 whitespace-nowrap text-[12.5px] text-ink/70">
       <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${STATE_PIP[state]}`} />
-      {compact && state === 'waiting_them' ? 'Waiting' : STATE_LABEL[state]}
+      {STATE_LABEL[state]}
     </span>
   );
 }
@@ -687,9 +533,9 @@ function SamahanCell({
 }
 
 /**
- * The label IS the editor — click the chip, pick the word. An alaga's word is
- * not editable here: it is set in the alaga's own card, where the age fence and
- * the consent stamps live.
+ * The label IS the editor — click the chip, pick the word. (Alaga are not drawn
+ * on this list: their word lives in the Alaga view's card, where the age fence
+ * and the consent stamps live.)
  */
 function LabelCell({
   person,
@@ -707,12 +553,7 @@ function LabelCell({
 
   const chipClass = `inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${chipTint(
     person.relation,
-    person.kind,
   )}`;
-
-  if (person.kind === 'alaga') {
-    return <span className={chipClass}>{person.careLabel}</span>;
-  }
   if (!person.canLabel) {
     // They added YOU — the claim is theirs to word, yours to answer.
     return person.relation ? (
@@ -811,31 +652,7 @@ function RowActions({
   const [busy, startTransition] = useTransition();
   const id = person.connectionId ?? '';
 
-  if (person.state === 'waiting_you') {
-    return (
-      <span className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => run(() => confirmConnection(id))}
-          disabled={pending || busy}
-          className="button-primary inline-flex items-center gap-1 text-xs disabled:opacity-50"
-        >
-          <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Confirm
-        </button>
-        <button
-          type="button"
-          onClick={() => run(() => declineConnection(id))}
-          disabled={pending || busy}
-          className="button-secondary inline-flex items-center gap-1 text-xs disabled:opacity-50"
-        >
-          <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Decline
-        </button>
-      </span>
-    );
-  }
-
+  // A request is answered in <RequestsBlock> (Accept / Decline), never here.
   if (person.state === 'waiting_them') {
     return (
       <span className="flex justify-end gap-3">
@@ -854,7 +671,7 @@ function RowActions({
             })
           }
           disabled={pending || busy}
-          className="inline-flex items-center gap-1 text-xs text-mulberry-600 underline underline-offset-2 disabled:opacity-50"
+          className="inline-flex min-h-11 items-center gap-1 px-1 text-xs text-mulberry-600 underline underline-offset-2 disabled:opacity-50"
         >
           <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Send again
@@ -863,7 +680,7 @@ function RowActions({
           type="button"
           onClick={() => run(() => withdrawConnection(id))}
           disabled={pending || busy}
-          className="text-xs text-ink/45 underline underline-offset-2 hover:text-ink disabled:opacity-50"
+          className="min-h-11 px-1 text-xs text-ink/45 underline underline-offset-2 hover:text-ink disabled:opacity-50"
         >
           Withdraw
         </button>
@@ -878,7 +695,7 @@ function RowActions({
           type="button"
           onClick={() => run(() => withdrawConnection(id))}
           disabled={pending || busy}
-          className="text-xs text-ink/45 underline underline-offset-2 hover:text-ink disabled:opacity-50"
+          className="min-h-11 px-1 text-xs text-ink/45 underline underline-offset-2 hover:text-ink disabled:opacity-50"
         >
           Remove
         </button>
@@ -886,11 +703,5 @@ function RowActions({
     );
   }
 
-  // An alaga is managed in its own card below — nothing to do from the roster.
-  return (
-    <span className="flex items-center justify-end gap-1 text-[11.5px] text-ink/40">
-      <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      in your care
-    </span>
-  );
+  return null;
 }

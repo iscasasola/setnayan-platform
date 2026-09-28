@@ -17,19 +17,24 @@ import {
 // account being viewed; the follow write is RLS-guarded to the viewer's own
 // rows server-side.
 //
-// E6 — the one-way note ("Following a storyteller is one-way — they publish on
-// purpose.") is rendered by THIS island, past the `return null` gate below, so
-// it is structurally impossible for it to appear where the button doesn't. A
-// sibling in the server page would print it to signed-out strangers and to the
-// storyteller reading their own profile.
+// E6 — the note under the button is rendered by THIS island, past the `return
+// null` gate below, so it is structurally impossible for it to appear where the
+// button doesn't. A sibling in the server page would print it to signed-out
+// strangers and to the storyteller reading their own profile.
 //
-// THE SENTENCE MUST STAY TRUE OF THE CODE. Verified 2026-08-08: follow rows are
-// written through the AUTHENTICATED client (RLS Pattern A confines a caller to
-// their own rows), users.followers_count is the ONLY public audience number,
-// the follow GRAPH is never exposed, and the sole fan-out is
-// notifyFollowersOfNewChapter — creator → followers, on publish. If anyone ever
-// ships a follower LIST or a "X follows you" surface, this line becomes a lie
-// and must be retired in the SAME PR.
+// THE SENTENCE MUST STAY TRUE OF THE CODE — and on 2026-09-28 the old one
+// stopped being true, so it was retired in the same PR, exactly as this note
+// said it must be. It read "Following a storyteller is one-way — they publish
+// on purpose." Two things changed under it (the People redesign):
+//   · a FOLLOWER LIST now exists — People → Followers shows each account who
+//     follows it (visible to that account ALONE: `user_follows_followed_reads_own`
+//     + the edge-scoped `follow_people_names`, migration 20271253740454);
+//   · follows are no longer only chosen here — a guest who says yes to an event
+//     follows its hosts, and connected people follow each other.
+// What is still true, and what the new sentence says: following needs no
+// request, the person you follow can see you among their followers (nobody else
+// can — strangers still see only users.followers_count), and you can unfollow
+// any time (the unfollow sticks: `user_unfollows`, PR #6077).
 
 export function FollowButton({
   followedUserId,
@@ -90,7 +95,7 @@ export function FollowButton({
         {state.following ? 'Following' : 'Follow'}
       </button>
       <span className={noteClassName}>
-        Following a storyteller is one-way — they publish on purpose.
+        No request needed — they’ll see you among their followers. Unfollow any time.
       </span>
     </>
   );

@@ -118,9 +118,8 @@ export type EventRow = {
   // Mood-Board-derived --color-cream / --color-mulberry tokens on the guest
   // site (`[slug]/layout.tsx` paints them on every page of the guest tree via
   // `proSiteVarsFor`). NULL = inert. ⚠ owner 2026-09-25 "drop the numbers" /
-  // bg-colour fix: `site_bg_color` is FREE and applies for every event now;
-  // `site_button_color` still applies only when the event owns active Website
-  // Pro (`proSiteVarsFor` gates that one alone).
+  // bg-colour fix: `site_bg_color` is FREE and applies for every event now,
+  // and `site_button_color` joined it 2026-09-28 (the free-vs-Pro redraw).
   /** Pahina art direction (migration 20271003190000). 'candlelight' flips the
    *  guest site to the dark direction; absent/'daylight' = today's look. */
   site_art_direction?: 'daylight' | 'candlelight' | null;

@@ -241,8 +241,8 @@ test('⛔ the face is Pro-gated, in the SAME place the colours are', () => {
   // 🪤 owner 2026-09-25 bg-colour fix moved `proSiteVarsFor` out of
   // `loaders.ts` into its own pure `_lib/pro-site-vars.ts` (so its math is
   // directly unit-testable without `loaders.ts`'s request-scoped import
-  // graph) and made the BACKGROUND colour free — only the button colour and
-  // the face still ride the Pro gate. The anchor moves with the code it
+  // graph) and made the BACKGROUND colour free; 2026-09-28 freed the button
+  // colour too — only the face still rides the Pro gate. The anchor moves with the code it
   // anchors; the PROPERTY it checks does not change.
   const proSiteVars = readFileSync(
     join(__dirname, '..', 'app', '[slug]', '_lib', 'pro-site-vars.ts'),
@@ -252,11 +252,13 @@ test('⛔ the face is Pro-gated, in the SAME place the colours are', () => {
   assert.ok(at > 0, 'the face rides the Pro-gated bag');
   const block = proSiteVars.slice(at, at + 400);
   assert.match(block, /hubFontVars\(/, 'and the face is in it');
-  assert.match(block, /buildCustomSiteColorVars\(/, 'beside the colours, under one check');
+  // 💎 2026-09-28: the button colour left this block — it is free now (the
+  // free-vs-Pro redraw) and paints beside the background, for every event.
+  assert.doesNotMatch(block.slice(0, block.indexOf('}') + 1), /site_button_color/, 'the free button colour is back behind Pro');
 
   // ONE gate, not two: exactly one `if (proWatermarkHidden)` in the module,
-  // so a future edit that guards the face separately from the button colour
-  // — two opinions about who owns the look — cannot pass unnoticed.
+  // so a future edit that grows a second Pro guard — two opinions about who
+  // owns the look — cannot pass unnoticed.
   const gates = [...proSiteVars.matchAll(/if \(proWatermarkHidden\)/g)].length;
   assert.equal(gates, 1, `there is ${gates} Pro gates in pro-site-vars.ts, expected exactly one`);
 

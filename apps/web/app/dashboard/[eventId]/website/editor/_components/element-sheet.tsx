@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
 import { makerSave } from '@/lib/maker-refresh';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
@@ -44,8 +44,11 @@ import { elementPreview, revertAfterFailedSave, type ElementPreviewMessage } fro
  * Every choice posts `hubDraftAction` intent=save with the scene's WHOLE canvas
  * (the draft replaces a canvas whole — `mergeHubDraft`), built from the
  * draft-over-live canvas the page handed in, so the scene's arrangement, motion
- * and background ride along untouched. A free couple may try it; it goes live
- * at Apply, where Event Hub Pro is asked for (`canvasLookChange`).
+ * and background ride along untouched. Colour, size and every other Text row
+ * are free (owner 2026-09-28); the part's own FONT and its ANIMATION are Event
+ * Hub Pro — a free couple may try them, and they are held at Apply
+ * (`canvasLookChange`) while the free edits beside them go live
+ * (`canvasFreePart`).
  *
  * 🔑 THE LATEST CANVAS IS A REF, NOT THE PROP. Two quick taps would otherwise
  * both build on the canvas from before the first save, and the second would
@@ -126,7 +129,10 @@ export function ElementSheet({
   sceneLabel,
   onOpenHero,
   usedColours = [],
+  hideLocked = false,
 }: {
+  /** The app-store shell: a Pro row is hidden, never shown locked. */
+  hideLocked?: boolean;
   /** 🔤 Part ▾ — every part of this scene, in order (like Pages' "Body ▾"). */
   parts?: readonly HubElementKey[];
   /** Switch the sheet to another part of the same scene. */
@@ -178,6 +184,16 @@ export function ElementSheet({
 
   /* 🧰 Text · Animate · Arrange (Pages' inspector + Keynote's Animate). */
   const [tab, setTab] = useState<PartTab>('text');
+  /* 💎 Font ▾ and Animate are the part's only Pro rows (owner 2026-09-28) —
+     the mark sits on them, never on the whole sheet. In the store shell a
+     couple without Pro is not shown them at all. */
+  const proMark = paidMarkState({ owns: ownsPro, storeShell: hideLocked });
+  const hidePro = hideLocked && !ownsPro;
+  const fontMark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null;
+  const animateMark = proMark ? (
+    <PaidMark state={proMark} text="Event Hub Pro" label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" />
+  ) : null;
+  const tabs = hidePro ? PART_TABS.filter((t) => t.key !== 'animate') : PART_TABS;
 
   const commit = (elements: HubSectionCanvas['elements'] | null) => {
     const before = latest.current;
@@ -280,17 +296,11 @@ export function ElementSheet({
           {sceneLabel ? (
             <span className="ml-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink/45">on {sceneLabel}</span>
           ) : null}
-          <PaidMark
-            state={ownsPro ? 'unlocked' : 'locked'}
-            text="Pro"
-            label={paidMarkLabel(ownsPro ? 'unlocked' : 'locked', 'Event Hub Pro')}
-            className="ml-2 align-middle"
-          />
         </p>
         <InfoTip label="" ariaLabel="About this part" align="end">
           Changes this part only — the rest keeps the Event Hub&rsquo;s look. Until you choose, it wears the
           Event Hub font and colour and moves with its scene.
-          {ownsPro ? '' : ' Try it here; it goes live when you Apply with Event Hub Pro.'}
+          {ownsPro || hidePro ? '' : ' Font and animation come with Event Hub Pro — try them here; they go live when you Apply with it.'}
         </InfoTip>
         <button
           type="button"
@@ -322,7 +332,7 @@ export function ElementSheet({
           </div>
         ) : null}
       </div>
-      <InspectorTabs tabs={PART_TABS} value={tab} onChange={setTab} label="Edit this part" />
+      <InspectorTabs tabs={tabs} value={tab} onChange={setTab} label="Edit this part" />
 
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4" aria-busy={pending} data-element-tab={tab}>
         {tab === 'text' ? (
@@ -341,6 +351,8 @@ export function ElementSheet({
               contrast={contrast}
               eventId={eventId}
               onPreviewColour={previewColour}
+              fontMark={fontMark}
+              hideFont={hidePro}
             />
             {range && run ? (
               <div className="py-1.5">
@@ -348,8 +360,9 @@ export function ElementSheet({
               </div>
             ) : null}
           </>
-        ) : tab === 'animate' ? (
+        ) : tab === 'animate' && !hidePro ? (
           <PartAnimateTab
+            proMark={animateMark}
             motion={motion}
             moveTo={moveTo}
             onPreview={onPlay}

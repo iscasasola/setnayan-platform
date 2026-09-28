@@ -373,7 +373,7 @@ export function resolveAdaptiveTheme(theme: InviteTheme, tint: HubTint | null): 
  * values are simply not overridden, which is what "Keep the theme's colours"
  * means.
  *
- * `ownButton`: the couple chose their own button colour (a Pro hex) — the one
+ * `ownButton`: the couple chose their own button colour (free since 2026-09-28) — the one
  * choice more deliberate than an automatic tint, so the button is left alone.
  */
 export function adaptiveThemeVars(

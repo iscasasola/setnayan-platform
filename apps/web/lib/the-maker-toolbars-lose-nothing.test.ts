@@ -58,8 +58,10 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // draws it from the work area's registration; "coming next" is gone.
   ['＋ Add a scene', 'topBar', ['tool="Add"', '<AddSceneTool addScene={addScene} />']],
   ['"● Invitation ▾" — Stages + Pages in one picker', 'topBar', ['<MakerBar']],
-  ['Desktop · Phone · Both', 'topBar', ['label="View"', "setDevice('desktop')", "setDevice('phone')", 'MAKER_COMING_NEXT.both']],
-  ['⊞ Snap grid (a note only)', 'topBar', ['Snap grid', 'MAKER_COMING_NEXT.snap']],
+  // "Both" was never a view — only a disabled row promising "the next build".
+  // It came out 2026-09-28 (App Review rejects "coming soon"); nothing it did is lost.
+  ['Desktop · Phone', 'topBar', ['label="View"', "setDevice('desktop')", "setDevice('phone')"]],
+  ['⊞ Snap grid (a note only)', 'topBar', ['Snap grid', 'MAKER_SNAP_NOTE']],
   ['ⓘ About the Maker', 'topBar', ['About the Maker', "setTour('again')"]],
   ['⋯ address, who can view', 'topBar', ['Your Event Hub address', 'Who can view', 'setMoreOpen(true)']],
   ['View as (Guest · Supplier)', 'topBar', ['See it as…', 'setViewAsRole(r.role)']],
@@ -89,9 +91,12 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['▶ Play', 'part', ['Preview']],
   ['Resets: font · colour · motion · element', 'part', ['Use the Event Hub style', 'Move with the scene']],
   ['Saved + theme colours', 'colour', ['Theme colours', 'Saved colours', 'Save the current colour']],
-  ['Title: the part’s name + the Pro mark', 'sheet', ['<PaidMark', '<PartPicker', 'HUB_ELEMENT_LABEL[target.el]']],
+  // 💎 2026-09-28: the Pro mark moved off the title onto the only Pro rows.
+  ['Title: the part’s name', 'sheet', ['<PartPicker', 'HUB_ELEMENT_LABEL[target.el]']],
+  ['The Pro mark on Font ▾ and on Animate', 'part', ['fontMark ?', 'data-part-animate-pro']],
+  ['…drawn by the sheet, which reads ownsPro', 'sheet', ['fontMark={fontMark}', 'proMark={animateMark}', '<PaidMark']],
   ['"Whole part / this selection" (a run of letters)', 'sheet', ['data-element-range', 'Whole {HUB_ELEMENT_LABEL', 'Clear this selection']],
-  ['The sheet’s tabs — Text · Animate · Arrange', 'sheet', ['<InspectorTabs tabs={PART_TABS}', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
+  ['The sheet’s tabs — Text · Animate · Arrange', 'sheet', ['PART_TABS', '<InspectorTabs tabs={tabs}', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
   // ── The wiring: every tab is mounted in the Maker, and #6048's words stay ──
   ['Scene tabs mounted: Format · Animate · Arrange · Content', 'shell', ['<InspectorTabs tabs={tabs}', '<SceneBackgroundRow', '<SceneAnimateTab', '<SceneArrangeTab', '<SceneLayoutRow', '<SceneParts']],
   ['Transition folded into Animate (an old address opens Animate)', 'shell', ["asked === 'transition' ? 'animate' : asked", "tab: 'animate' })"]],

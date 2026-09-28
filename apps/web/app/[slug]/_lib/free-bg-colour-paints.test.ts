@@ -36,13 +36,16 @@ test('a free (non-Pro) event still paints its saved background colour', () => {
   assert.equal(vars!['--color-cream'], '245 240 230', 'the free bg colour is not the one the couple saved');
 });
 
-test('button colour and the couple’s font stay Pro-only on the free path', () => {
+test('the button colour paints on the free path too; the couple’s font stays Pro-only', () => {
+  // 2026-09-28 redraw (owner: "free to change … color, background color, only
+  // when you start adding themes will it be pro"): the button colour is free,
+  // so a free event's saved one must reach its guests; the font is still Pro.
   const vars = proSiteVarsFor(
     { site_bg_color: LIGHT_BG, site_button_color: '#ab1122', site_font_key: 'playfair' },
     false,
   );
   assert.ok(vars, 'expected the free bg colour to still paint');
-  assert.equal(vars!['--color-mulberry'], undefined, 'a free event painted the Pro-only button colour');
+  assert.equal(vars!['--color-mulberry'], '171 17 34', 'a free event’s saved button colour never reached its guests');
   assert.equal(vars!['--pahina-face'], undefined, 'a free event painted the Pro-only font');
 });
 

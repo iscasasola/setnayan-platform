@@ -186,12 +186,15 @@ async function paintColors(proLocked: boolean): Promise<string> {
   );
 }
 
-test('a free couple can recolour the background — and sees no Pro field to post', async () => {
+test('a free couple can recolour the background and the buttons — and sees no Pro field to post', async () => {
   const html = await paintColors(true);
   assert.match(html, /name="bg_color"/, 'the background colour is free');
+  // 💎 The button colour joined it 2026-09-28 (owner: "change … color … only
+  // when you start adding themes will it be pro").
+  assert.match(html, /name="button_color"/, 'the button colour is free');
   assert.equal(count(html, LOCK), 1);
   // Absent fields are "unchanged" in updateSiteColors — so NONE may render.
-  for (const f of ['button_color', 'site_art_direction', 'site_font_key', 'site_magic_traveller']) {
+  for (const f of ['site_art_direction', 'site_font_key', 'site_magic_traveller']) {
     assert.doesNotMatch(html, new RegExp(`name="${f}"`), f);
   }
   assert.match(html, /type="submit"/, 'the background can still be saved');

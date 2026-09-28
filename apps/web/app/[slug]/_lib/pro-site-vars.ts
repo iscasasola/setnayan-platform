@@ -35,8 +35,9 @@ function channels(hex: string): string {
  * colour is FREE and paints for EVERY event (Event Hub Pro feature list:
  * "Free: … bg colour") — it used to be gated behind `proWatermarkHidden` along
  * with everything else here, so a free couple's saved `site_bg_color` was
- * silently never painted for a guest. Button colour, the couple's font and
- * (elsewhere) Candlelight/face/magic-move all stay Pro-only, unchanged below.
+ * silently never painted for a guest. The BUTTON colour joined it 2026-09-28
+ * (the free-vs-Pro redraw). The couple's font and (elsewhere) Candlelight /
+ * magic move stay Pro-only, unchanged below.
  *
  * 🔑 TEXT COLOUR ADAPTS TO THE COUPLE'S OWN BACKGROUND TOO (lib/hub-legibility.ts
  * — owner 2026-09-25: *"did you already make the font color adapt also based
@@ -80,7 +81,10 @@ export function proSiteVarsFor(
   // FREE, for every event: the background colour itself, plus the page ink
   // that keeps text legible on it, plus a PINNED plate ink so a plate's own
   // still-light paper never inherits that adapted (possibly light) page ink.
-  const bgVars = buildCustomSiteColorVars(bgHex, null);
+  // 🎨 AND THE BUTTON COLOUR, since 2026-09-28 (owner: *"free to change …
+  // color, background color, only when you start adding themes will it be
+  // pro"*) — built in the same call as the background, for every event.
+  const bgVars = buildCustomSiteColorVars(bgHex, (event.site_button_color as string | null) ?? null);
   if (bgVars) {
     Object.assign(proSiteVars, bgVars);
     if (bgHex) {
@@ -90,8 +94,8 @@ export function proSiteVarsFor(
     }
   }
 
-  // 🔤 THE COUPLE'S OWN TYPEFACE RIDES THE SAME BAG AND THE SAME GATE AS THE
-  // BUTTON. `hubFontVars` contributes `--pahina-face` / `--font-display`, which
+  // 🔤 THE COUPLE'S OWN TYPEFACE RIDES THE SAME BAG, BEHIND THE PRO GATE (the
+  // button colour shared this gate until 2026-09-28). `hubFontVars` contributes `--pahina-face` / `--font-display`, which
   // `globals.css` and `tailwind.config.ts` already read; a theme's MATERIAL
   // (its colour tokens) is untouched, because a theme carries colour and this
   // carries type. One bag rather than two: it is delivered to the same
@@ -101,8 +105,6 @@ export function proSiteVarsFor(
   // markup byte-identical to before this existed — and `null` still means
   // "add no style attribute at all".
   if (proWatermarkHidden) {
-    const buttonVars = buildCustomSiteColorVars(null, event.site_button_color as string | null);
-    if (buttonVars) Object.assign(proSiteVars, buttonVars);
     Object.assign(proSiteVars, hubFontVars(event.site_font_key));
   }
 

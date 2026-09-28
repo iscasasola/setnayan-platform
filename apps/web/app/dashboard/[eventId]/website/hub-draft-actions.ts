@@ -217,7 +217,9 @@ export async function hubDraftAction(
           (r): r is string => Boolean(r),
         );
         if (refs.some((r) => !ownRefs.has(r))) {
-          held.push({ item, reason: 'not_your_photo' });
+          // A held scene's free part (`canvasFreePart`) is already reported,
+          // and kept whole in the draft, by its refused twin — skip it quietly.
+          if (!item.freePart) held.push({ item, reason: 'not_your_photo' });
           continue;
         }
       }

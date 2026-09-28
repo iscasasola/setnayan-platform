@@ -82,9 +82,10 @@ export function InviteThemePicker({
             the reveal background the Pro themes are painted on)
           · your mark and its colour → Invitation    (`monogram_text` /
             `monogram_color`, the seal on the card's edge)
-          · the button → Event Hub → Colours         (`site_button_color`, the
-            Event Hub Pro "Button color" item, which since 2026-09-11 is also
-            the colour of the one button on the invite doors)
+          · the button → Event Hub → Colours         (`site_button_color`, free
+            for every couple since 2026-09-28 — it was the Pro "Button color"
+            item until then — and since 2026-09-11 also the colour of the one
+            button on the invite doors)
 
         ⚠ THE THIRD ONE IS NOT THE SECOND ONE. "In your colour" used to mean one
         colour; Q2 made the button a second, separately-set one. A sentence that

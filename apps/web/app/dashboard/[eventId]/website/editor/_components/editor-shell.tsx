@@ -18,7 +18,7 @@ import {
   type MakerSceneTab,
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
-import { MAKER_COMING_NEXT, MAKER_DETAILS_LABEL } from '../../../launch/_components/maker-bar';
+import { MAKER_DETAILS_LABEL } from '../../../launch/_components/maker-bar';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
@@ -1197,11 +1197,7 @@ export function MakerWork({
         <>
           {ownScene ? scenePanels[id] : null}
           {elementEditing && partsKeys.length > 0 ? (
-            <SceneParts
-              keys={partsKeys}
-              onElement={openPart}
-              proMark={sceneFormat?.hideLocked && !ownsPro ? null : ownsPro ? 'unlocked' : 'locked'}
-            />
+            <SceneParts keys={partsKeys} onElement={openPart} />
           ) : null}
         </>
       ),
@@ -1877,6 +1873,7 @@ export function MakerWork({
           }
           palette={elementEditing.palette}
           ownsPro={ownsPro}
+          hideLocked={maker.storeShell}
           draftAction={elementEditing.draftAction}
           resize={toolsResize}
           parts={elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}
@@ -2266,7 +2263,7 @@ function RowBlock({ row }: { row: MakerRowPanel }) {
  * Scan-to-view and the one Pro CTA — the rail's topbar and foot, ported into
  * the Maker's ⋯ sheet. The QR is the master event QR `/api/website/qr` already
  * serves, with the one control strip every link-QR carries. The CTA is the
- * umbrella unlock — one CTA for all ten Pro items (`WEBSITE_PRO_ITEMS`) — shown
+ * umbrella unlock — one CTA for all nine Pro items (`WEBSITE_PRO_ITEMS`) — shown
  * only while they do not own it, and never in the store shell.
  */
 function MoreExtras({
@@ -2569,10 +2566,6 @@ function Inspector({
        inspector keeps only Post Event's tool and a workspace that did not load
        (the hero then falls back to its row). */
     const keys = selection.kind === 'tool' ? (TOOL_ROWS[selection.key] ?? []) : [selection.key];
-    const note =
-      selection.kind === 'tool' && selection.key === 'hero'
-        ? MAKER_COMING_NEXT[selection.key]
-        : null;
     body = (
       <>
         {keys.filter((k) => rows[k]).map((k) => (
@@ -2580,13 +2573,6 @@ function Inspector({
         ))}
         {keys.every((k) => !rows[k]) ? (
           <p className="px-1 text-[13px] text-ink/70">Nothing to set here for this event.</p>
-        ) : null}
-        {note ? (
-          <p className="px-1 text-[12px] text-ink/60">
-            <InfoTip label="Coming next" align="start">
-              {note}
-            </InfoTip>
-          </p>
         ) : null}
       </>
     );
@@ -2624,10 +2610,10 @@ function Inspector({
 }
 
 /**
- * THE THEME PANEL — a placeholder that reads the theme registry as it stands.
- * The whole-hub picker (ten themes) is Phase 3's; until it lands this names the
- * themes that ship, marks the couple's, and opens the picker that already
- * writes `events.invite_theme`.
+ * THE THEME PANEL — reads the theme registry as it stands: names the themes
+ * that ship, marks the couple's, and opens the picker that already writes
+ * `events.invite_theme`. (Its "Coming next · all ten themes arrive in the next
+ * build" line came out 2026-09-28 — App Review rejects "coming soon".)
  */
 function ThemePanel({
   themes,
@@ -2664,11 +2650,6 @@ function ThemePanel({
       {/* `events.invite_theme` is painted by the guest layout, which cannot see
           the host's draft — so the picker writes live, and says so here. */}
       <HubSavesImmediately className="ml-2" />
-      <p className="mt-2 text-[12px] text-ink/60">
-        <InfoTip label="Coming next" align="start">
-          All ten themes, each dressing every stage at once, arrive in the next build.
-        </InfoTip>
-      </p>
     </section>
   );
 }

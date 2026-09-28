@@ -9,7 +9,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import {
   MAKER_BAR,
-  MAKER_COMING_NEXT,
+  MAKER_SNAP_NOTE,
   isStagePhase,
   makerPlaceItem,
   makerPlacePick,
@@ -57,8 +57,9 @@ import { paidMarkLabel } from '@/lib/paid-mark';
  * "label change only").
  *
  * ⛔ NO DEAD BUTTONS. Every bar item does something: a stage switches the
- * canvas, a tool opens a panel that already ships, and an item with no build
- * yet opens ONE line saying it is coming in the next build.
+ * canvas, a tool opens a panel that already ships — and a control with no build
+ * is not drawn at all (never a "coming in the next build" line; App Review
+ * rejects "coming soon", 2026-09-28).
  *
  * 🧩 THE APPLY BAR MOUNTS HERE, ONCE. Restore · Undo · Apply (`applySlot`,
  * `website/_components/hub-draft-bar.tsx`) must stay visible at the upper
@@ -404,9 +405,6 @@ export function MakerShell({
                     <MenuItem on={device === 'phone'} onClick={() => { setDevice('phone'); close(); }}>
                       Phone
                     </MenuItem>
-                    <MenuItem disabled note={MAKER_COMING_NEXT.both}>
-                      Both
-                    </MenuItem>
                   </>
                 )}
               </ToolMenu>
@@ -456,7 +454,7 @@ export function MakerShell({
                       </span>
                     </MenuItem>
                   ) : null}
-                  <MenuItem disabled note={MAKER_COMING_NEXT.snap}>
+                  <MenuItem disabled note={MAKER_SNAP_NOTE}>
                     Snap grid
                   </MenuItem>
                   <MenuItem onClick={() => { close(); setTour('again'); }}>About the Maker</MenuItem>

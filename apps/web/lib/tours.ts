@@ -97,6 +97,7 @@ export type TourKey =
   | 'customer_ombre_background_v1'
   | 'customer_details_bound_v1'
   | 'customer_pro_qr_v1'
+  | 'customer_theme_picker_v1'
   | 'customer_print_menu_v1'
   | 'customer_guest_reminders_v1'
   | 'customer_schedule_v1'
@@ -120,6 +121,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_ombre_background_v1',
   'customer_details_bound_v1',
   'customer_pro_qr_v1',
+  'customer_theme_picker_v1',
   'customer_print_menu_v1',
   'customer_guest_reminders_v1',
   'customer_schedule_v1',
@@ -574,6 +576,35 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     ],
   },
   /*
+    🎨 THE THEME PICKER, ON DETAILS (owner 2026-09-28: *"a complete preview of
+    what each theme would look like"*). Mounted beside the picker in the
+    Maker's Details page (`maker-details.tsx`); the QR tour on the same page
+    waits for this one (`MiniTour` `after`), so two never stack.
+  */
+  customer_theme_picker_v1: {
+    key: 'customer_theme_picker_v1',
+    label: 'Your theme',
+    blurb: 'First visit to Details: each theme shown as your own page, and a tap to wear it.',
+    slides: [
+      {
+        Icon: Palette,
+        title: 'Your page, in every theme',
+        body: 'Each preview is <strong>your own Event Hub</strong> — your names, your photos, your scenes — dressed in that theme. Swipe the row to look; looking changes nothing.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Tap to wear it',
+        body: 'A tap puts the theme on your page in the Maker. <strong>Undo</strong> steps it back, and guests see it when you press <strong>Apply</strong>.',
+      },
+      {
+        Icon: Sparkles,
+        title: 'Classic is free',
+        // A pitch: dropped in the app-store shell, price never written here.
+        sells: true,
+        body: 'The other themes come with <strong>Event Hub Pro</strong>. They carry a padlock until then — a tap on one opens Event Hub Pro.',
+      },
+    ],
+  },
   /*
     THE MENU CARD (owner 2026-09-28: *"add to print out our meals for tonight.
     from vendors from ceremony, to cocktail to the buffet."*). Mounted in Prints

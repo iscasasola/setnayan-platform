@@ -108,6 +108,7 @@ import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground }
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -271,13 +272,26 @@ export function hubDraftBounceHref(formData: FormData, fallback: string, reason:
  *     studio's own rule); the film's `music` switch is not the Maker's and Apply
  *     keeps the live one (`hub-draft-actions.ts`).
  */
-/** The Colors panel's five columns — `updateSiteColors`, all of it. */
+/**
+ * The Colors panel's five columns — `updateSiteColors`, all of it — and the
+ * THEME (owner 2026-09-28, "THE THEME PICKER MOVES INTO THE MAKER'S DETAILS"):
+ * `invite_theme`, picked on the Maker's Details page (`maker-theme-picker.tsx`)
+ * and drafted like every other Maker edit, with Undo. The host canvas re-wears
+ * the look from the overlaid row whenever the draft holds any of these, so a
+ * picked theme is seen on the canvas before Apply.
+ *
+ * ⚠ `invite_theme` HAS NO SESSION UPDATE GRANT (20271219583821: its only writer
+ * goes through the admin client after the host check and the Pro re-check), so
+ * Apply writes it on its own, through that same shape — never inside the
+ * session `events` UPDATE, which would refuse the whole patch.
+ */
 export const HUB_DRAFT_LOOK_COLUMNS = [
   'site_bg_color',
   'site_button_color',
   'site_art_direction',
   'site_font_key',
   'site_magic_traveller',
+  'invite_theme',
 ] as const;
 
 /**
@@ -426,6 +440,10 @@ export function sanitizeHubDraftEventValue(
       return sanitizeHubFontKey(raw) ?? undefined;
     case 'site_magic_traveller':
       return sanitizeMagicTraveller(raw) ?? undefined;
+    // 🎨 The theme — only a live id of a SHIPPED theme (`setInviteTheme`'s old
+    // rule: `isInviteThemeId` + `ready`). A retired alias is never written.
+    case 'invite_theme':
+      return isInviteThemeId(raw) && INVITE_THEMES[raw].ready ? raw : undefined;
     // ✍ Words: the writers' own caps (trimmed; '' is "clear" → null).
     case 'special_message':
     case 'what_to_bring':
@@ -755,6 +773,12 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       const hex = (v: unknown) => (typeof v === 'string' && v.length > 0 ? v.toLowerCase() : null);
       return refChange(hex(live), hex(next));
     }
+    case 'invite_theme': {
+      // Compared as guests meet it: never chosen and Classic are the same page,
+      // and a retired id is its alias (`capiz` is Vintage).
+      const theme = (v: unknown) => normalizeThemeId(v) ?? 'house';
+      return theme(live) === theme(next) ? refChange('same', 'same') : refChange(theme(live), theme(next));
+    }
     default: {
       // The face, the magic move and every words column: compared as written,
       // with '' read as unset (an empty text column renders nothing).
@@ -793,6 +817,13 @@ export function eventItemIsPro(
     return (
       momentCapRefusal({ before: resolveMoments(live), after: resolveMoments(value), ownsPro: false }) !== null
     );
+  }
+  if (column === 'invite_theme') {
+    // 🎨 Classic is free; every other theme is Event Hub Pro (owner 2026-09-28,
+    // "WHAT IS FREE VS PRO … REDRAWN": "only when you start adding themes will
+    // it be pro"). Going back to Classic is always free.
+    const id = normalizeThemeId(value);
+    return id !== null && INVITE_THEMES[id].tier === 'pro';
   }
   if (column === 'site_bg_color') {
     // 🌈 A plain colour is free (owner 2026-09-24). An OMBRÉ is free too unless
@@ -1155,7 +1186,14 @@ export function isHubDraftIntent(v: unknown): v is HubDraftIntent {
 }
 
 /** Why Apply held a key back. */
-export type HubDraftRefusal = 'needs_pro' | 'apply_on_the_web' | 'not_your_photo' | 'empty_section' | 'missing_section';
+export type HubDraftRefusal =
+  | 'needs_pro'
+  | 'apply_on_the_web'
+  | 'not_your_photo'
+  | 'empty_section'
+  | 'missing_section'
+  /** 🎨 A Pro theme on a celebration that may not wear one (weddings only, owner Q7 = A). */
+  | 'not_for_this_celebration';
 
 export type HubDraftActionResult =
   | {
@@ -1195,6 +1233,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_art_direction: 'Candlelight',
   site_font_key: 'Your typeface',
   site_magic_traveller: 'Magic move',
+  invite_theme: 'Your theme',
   special_message: 'Your special message',
   what_to_bring: 'What to bring',
   love_story: 'Your Love Story',

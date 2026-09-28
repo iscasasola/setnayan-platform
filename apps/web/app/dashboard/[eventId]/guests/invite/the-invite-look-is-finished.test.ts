@@ -32,6 +32,10 @@ const WEB = join(HERE, '..', '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const PICKER = 'app/dashboard/[eventId]/guests/invite/_components/invite-theme-picker.tsx';
+// 🎨 The theme is chosen here since 2026-09-28, drafted and applied by the one draft action.
+const MAKER_PICKER = 'app/dashboard/[eventId]/launch/_components/maker-theme-picker.tsx';
+const LAUNCH = 'app/dashboard/[eventId]/launch/page.tsx';
+const APPLY = 'app/dashboard/[eventId]/website/hub-draft-actions.ts';
 const PAGE = 'app/dashboard/[eventId]/guests/invite/page.tsx';
 // 🪤 The invite page's reads and markup MOVED (2026-09-21) into a panel both
 // doors render — the invite page and the guest list's Share the link tab. The
@@ -42,63 +46,25 @@ const GUESTS = 'app/dashboard/[eventId]/guests/page.tsx';
 const ACTIONS = 'app/dashboard/[eventId]/guests/invite/actions.ts';
 
 /* ══════════════════════════════════════════════════════════════════════════
-   1 · WHERE TO CHANGE THE LOOK
+   1 · WHERE THE LOOK IS CHOSEN — MOVED (owner 2026-09-28)
    ══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * THE THREE ARE THREE DIFFERENT PAGES, WHICH IS THE WHOLE PROBLEM. The picker
- * described a background, a colour and (since Q2) a button colour, and pointed
- * at none of them — so the only way to change how the invite looks was to
- * already know which other page owned which.
- *
- * Each destination is checked to EXIST on disk as well as to be linked: a link
- * to a route that has been moved is a 404 dressed as help, and this repo has
- * shipped exactly that.
+ * 🪤 RE-ANCHORED 2026-09-28. This section held the Guest list picker's
+ * sentence, which linked the reveal background, the mark colour and the button
+ * colour. The owner moved the theme choice out of the Guest list and into Event
+ * Hub Maker → Details (*"it should not be inside guestlist, it should be on
+ * event hub maker on details"*), where each theme is shown as the couple's own
+ * page — so the page itself shows the background, the mark and the button, and
+ * the sentence that described them from afar is gone with the picker. What the
+ * Guest list keeps is one line and one link, held by
+ * `../the-guest-list-holds-no-theme-picker.test.ts`.
  */
-const LOOK_LINKS: ReadonlyArray<{ what: string; href: string; route: string }> = [
-  {
-    what: 'the reveal background the Pro themes are painted on (events.std_background)',
-    href: '/studio/save-the-date',
-    route: 'app/dashboard/[eventId]/studio/save-the-date/page.tsx',
-  },
-  {
-    what: 'the mark and its colour (events.monogram_text / monogram_color)',
-    href: '/invitation',
-    route: 'app/dashboard/[eventId]/invitation/page.tsx',
-  },
-  {
-    what: 'the button colour (events.site_button_color — Q2 made this a SECOND colour)',
-    href: '/website/colors',
-    route: 'app/dashboard/[eventId]/website/colors/page.tsx',
-  },
-];
-
-test('the picker links each thing it names to the page that owns it', () => {
-  const src = read(PICKER);
-  for (const { what, href, route } of LOOK_LINKS) {
-    assert.match(
-      src,
-      new RegExp(`href=\\{\`/dashboard/\\$\\{eventId\\}${href.replace(/\//g, '\\/')}\``),
-      `the picker names ${what} but does not link it — a couple is told what their ` +
-        'invite shows and left to find the page themselves',
-    );
-    assert.ok(existsSync(join(WEB, route)), `${href} is linked but ${route} does not exist — a dead link dressed as help`);
-  }
-});
-
-test('the sentence still reads as a sentence — the links are IN the copy, not a row of buttons', () => {
-  const src = read(PICKER);
-  assert.match(
-    src,
-    /What guests see when they open your link\. It opens on your\b/,
-    'the opening sentence was rewritten — it is the one line a couple reads here, and ' +
-      'the owner’s own framing ("it opens on your reveal background, in your colour")',
-  );
-  // Anti-vacuity: three links, not one reused three times.
-  const hrefs = [...src.matchAll(/href=\{`\/dashboard\/\$\{eventId\}([^`]*)`\}/g)].map((m) => m[1]);
-  for (const { href } of LOOK_LINKS) {
-    assert.ok(hrefs.includes(href), `${href} is missing from the picker’s links`);
-  }
+test('the Guest list points at the one place the theme is chosen', () => {
+  const panel = read(PANEL);
+  assert.match(panel, /href=\{`\/dashboard\/\$\{eventId\}\/launch\?tool=details`\}/);
+  assert.ok(!existsSync(join(WEB, PICKER)), 'the Guest list picker is back');
+  assert.ok(existsSync(join(WEB, MAKER_PICKER)), 'the Maker picker is gone — the theme can be chosen nowhere');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -212,51 +178,41 @@ test('the buy page already names the invite link — and must keep naming it', (
    ══════════════════════════════════════════════════════════════════════════ */
 
 test('the picker MEASURES the fence and hands it down — it is never assumed', () => {
-  const page = read(PANEL);
-  assert.match(
-    page,
-    /resolveWeddingOnlyParts\(p\)\.save_the_date_film/,
-    'the page no longer asks the reveal’s own fence',
-  );
+  // 🪤 RE-ANCHORED 2026-09-28: the picker moved to the Maker's Details page;
+  // the Maker page measures the fence and hands the fenced list down.
+  const page = read(LAUNCH);
   /*
-    🪤 ANCHORED TO THIS CHAIN, NOT TO THE FILE. This page holds TWO
-    `.catch(() => false)` — the ownership read has one too — and a bare match on
-    the string was satisfied by the OTHER one: the sabotage that turns THIS
-    fallback into `true` left the guard green. Measured, then narrowed.
+    🪤 ANCHORED TO THIS CHAIN, NOT TO THE FILE — the page holds other
+    `.catch(() => false)` reads, and a bare match on the string was once
+    satisfied by a different one.
   */
   assert.match(
     page,
     /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/,
     'an unreadable profile must fall to the free door, not open a paid one',
   );
-  assert.match(page, /mayShowStdFilm=\{mayShowStdFilm\}/, 'the answer is measured and then not passed');
-  const picker = read(PICKER);
-  assert.match(picker, /pickableInviteThemes\(\{ mayShowStdFilm \}\)/, 'the picker offers themes without asking the fence');
+  assert.match(page, /pickableInviteThemes\(\{ mayShowStdFilm \}\)/, 'the picker is handed themes without asking the fence');
+  assert.match(page, /theme=\{theme\}/, 'the answer is measured and then not passed');
 });
 
-test('🔒 the SAVE refuses a Pro theme there — after the couple check, before the write', () => {
+test('🔒 APPLY refuses a Pro theme there — after the host check, before the write', () => {
   /*
-    The picker hiding a radio is a courtesy; a crafted post is not. The order is
-    the claim: an auth check that runs after the write protects nothing, and the
-    fence must precede the write for the same reason. `themes-stay-skins.test.ts`
-    pins couple → ownership → write; this adds the wedding fence to that spine
-    WITHOUT restating the other two.
+    The picker hiding a tile is a courtesy; a crafted draft POST is not. Since
+    2026-09-28 the theme is drafted, and Apply is its one live writer. The order
+    is the claim: host check → Pro gate → wedding fence → write.
   */
-  const src = read(ACTIONS);
-  const start = src.indexOf('export async function setInviteTheme(');
-  assert.notEqual(start, -1, 'setInviteTheme is gone or renamed');
-  const body = src.slice(start);
-  const couple = body.indexOf('assertCouple(eventId)');
-  const fence = body.indexOf('resolveWeddingOnlyParts(');
-  const refusal = body.indexOf('if (!mayShowStdFilm) redirect(');
-  const write = body.indexOf('.update({ invite_theme');
-  assert.ok(couple > -1, 'the couple check is gone');
-  assert.ok(fence > -1, 'setInviteTheme does not ask whether this celebration may have a Pro theme at all');
+  const src = read(APPLY);
+  const host = src.indexOf('requireHostMembershipOrThrow(eventId');
+  const fence = src.indexOf('resolveWeddingOnlyParts(');
+  const refusal = src.indexOf("reason: 'not_for_this_celebration'");
+  const write = src.indexOf('.update({ invite_theme');
+  assert.ok(host > -1, 'the host check is gone');
+  assert.ok(fence > -1, 'Apply does not ask whether this celebration may have a Pro theme at all');
   assert.ok(refusal > -1, 'the fence is measured and then not acted on');
-  assert.ok(couple < fence, 'the fence runs before the caller is known to be the couple');
+  assert.ok(host < fence, 'the fence runs before the caller is known to host this event');
   assert.ok(refusal < write, 'a Pro theme could be written onto a celebration that can never show it');
   assert.match(
-    body,
+    src,
     /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/,
     'a refused profile read must refuse the save — an unmeasured type is not a wedding',
   );
@@ -375,83 +331,30 @@ test('no invite door names a look column twice in its own select', () => {
    5 · THE SAVE MUST PROVE A ROW CHANGED
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('🔑 setInviteTheme counts the rows it wrote — a zero-row UPDATE is not a save', () => {
+test('🔑 the theme write counts the rows it wrote — a zero-row UPDATE is not a save', () => {
   /*
     A PostgREST UPDATE matching ZERO rows returns NO error. Without `.select()`
-    the action cannot tell a real write from a write that hit nothing, so it
-    redirected to `?theme=saved` and the couple was told their invite link now
-    opens in a look that was never stored. Success and silence rendered
-    identically.
-
-    The sibling `regenerateInviteQr` IN THIS SAME FILE already counted rows; this
-    pins that `setInviteTheme` does too, and that the count is what decides.
+    the writer cannot tell a real write from a write that hit nothing. Since
+    2026-09-28 the one writer is Apply (`hub-draft-actions.ts`).
   */
-  const src = read(ACTIONS);
-  const start = src.indexOf('export async function setInviteTheme(');
-  assert.notEqual(start, -1, 'setInviteTheme is gone or renamed');
-  const body = src.slice(start);
-
-  const write = body.indexOf('.update({ invite_theme');
+  const src = read(APPLY);
+  const write = src.indexOf('.update({ invite_theme');
   assert.ok(write > -1, 'the theme write is gone or reshaped');
-  // The window is the write's own chain and the decision that follows it — not
-  // the whole file, where `regenerateInviteQr`'s correct row-count would satisfy
-  // every one of these on its own.
-  const tail = body.slice(write);
-
+  const tail = src.slice(write);
   assert.match(
     tail,
-    /\.update\(\{ invite_theme: theme \}\)\s*\.eq\('event_id', eventId\)\s*\.select\(/,
+    /\.update\(\{ invite_theme: themeWrite \}\)\s*\.eq\('event_id', eventId\)\s*\.select\(/,
     'the theme UPDATE does not ask for the rows back — a zero-row write is indistinguishable from a save',
   );
-  assert.match(
-    tail,
-    /data\.length === 0/,
-    'the rows come back and are never counted',
-  );
-  assert.match(
-    tail,
-    // The outcome travels through lib/invite-return so it lands on whichever
-    // door the couple saved from; the count still decides WHICH outcome.
-    /if \(error \|\| !data \|\| data\.length === 0\) \{\s*redirect\(inviteReturnPath\(eventId, back, 'error'\)\)/,
-    'a write that changed nothing must not redirect to ?theme=saved',
-  );
-  // …and the happy path is still reachable, so the assertions above are not
-  // satisfied by an action that can only ever fail.
-  assert.match(tail, /redirect\(inviteReturnPath\(eventId, back, 'saved'\)\)/, 'the successful save no longer reports itself');
+  assert.match(tail, /themeRows\.length === 0/, 'the rows come back and are never counted');
 });
 
-test('🔑 a failed save SAYS so on screen — ?theme=error is rendered, not just redirected to', () => {
+test('🔑 a failed pick SAYS so on screen, and the tile goes back', () => {
   /*
-    `setInviteTheme` has redirected to `?theme=error` since it shipped, and the
-    picker rendered a banner for `saved` and NOTHING for `error`. So a refusal
-    came back as a plain page: same radio, same copy, no banner — which reads as
-    "my click did not register", and invites the couple to press Save again into
-    the same failure. A log line never changed a pixel; the measurement has to
-    reach the render.
+    A refused save must reach the render: the picker shows the draft action's
+    own error and puts the selection back — a log line never changed a pixel.
   */
-  const picker = read(PICKER);
-  assert.match(picker, /notice === 'saved'/, 'the picker no longer renders the successful save');
-  assert.match(picker, /notice === 'error'/, 'a refused save renders nothing — it looks exactly like a page reload');
-  assert.match(picker, /role="alert"/, 'the failure is drawn, but not announced as a failure');
-  // The words a couple actually reads must not claim the look changed.
-  const errorBlock = picker.slice(picker.indexOf("notice === 'error'"));
-  assert.match(
-    errorBlock,
-    /didn’t save/,
-    'the failure banner does not say the save failed',
-  );
-
-  // …and the page must actually hand both outcomes over. A picker that can draw
-  // the alert is worth nothing if the prop is always null.
-  // Both doors must hand BOTH outcomes to the panel, and the panel to the
-  // picker — a door that forwarded only 'saved' would make a refused save on
-  // that door look exactly like a reload.
-  for (const [door, file] of [['the invite page', PAGE], ['the Share the link tab', GUESTS]] as const) {
-    assert.match(
-      read(file),
-      /themeNotice=\{search\.theme === 'saved' \? 'saved' : search\.theme === 'error' \? 'error' : null\}/,
-      `${door} drops one of the two outcomes on its way to the picker`,
-    );
-  }
-  assert.match(read(PANEL), /notice=\{themeNotice\}/, 'the panel drops the outcome on its way to the picker');
+  const picker = read(MAKER_PICKER);
+  assert.match(picker, /role="alert"/, 'a refused pick renders nothing');
+  assert.match(picker, /if \(!r\.ok\) \{\s*setPicked\(before\);\s*setError\(r\.error\);/, 'a refused pick keeps showing the theme that did not take');
 });

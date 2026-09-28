@@ -116,7 +116,9 @@ test('the flag is a VERIFIED host — the param only asks', () => {
   // The click-to-edit bridge is the Maker's iframe only, never the preview tab.
   assert.equal(asksForEditorBridge({ preview: 'draft' }), false);
   assert.equal(asksForEditorBridge({ editor: '1' }), true);
-  assert.match(BODY, /\{isEditorCanvas && editorBridge \? <EditorBridge \/> : null\}/);
+  // …and never inside a theme TILE on Details (2026-09-28 — its parent is the
+  // Maker, which would hear its bridge as the canvas's).
+  assert.match(BODY, /\{isEditorCanvas && editorBridge && !themeTile \? <EditorBridge \/> : null\}/);
 });
 
 test('the guest page never redirects a host into the dashboard', () => {

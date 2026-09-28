@@ -15,7 +15,19 @@ import { TOURS, type TourKey } from '@/lib/tours';
 //   - The user is not signed in
 //   - The user has already dismissed (or completed) this tour
 //   - We can't read the profile row (defensive — never blocks the page)
-export async function MiniTour({ tourKey, storeShell = false }: { tourKey: TourKey; storeShell?: boolean }) {
+export async function MiniTour({
+  tourKey,
+  storeShell = false,
+  after,
+}: {
+  tourKey: TourKey;
+  storeShell?: boolean;
+  /**
+   * Another tour on the SAME surface that goes first — this one waits until
+   * that one has been seen, so two tours never stack on one first visit.
+   */
+  after?: TourKey;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -30,6 +42,7 @@ export async function MiniTour({ tourKey, storeShell = false }: { tourKey: TourK
 
   const seen = (row?.tour_seen_keys ?? []) as string[];
   if (seen.includes(tourKey)) return null;
+  if (after && !seen.includes(after)) return null;
 
   if (!TOURS[tourKey]) return null;
 

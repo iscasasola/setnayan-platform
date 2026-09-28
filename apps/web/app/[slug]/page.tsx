@@ -1,4 +1,5 @@
-import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene } from './_lib/editor-canvas';
+import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme } from './_lib/editor-canvas';
+import type { InviteThemeId } from '@/lib/invite-themes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -147,6 +148,10 @@ type Props = {
     // 🖼 The Maker's made-once Hero page — `?only=hero` draws one scene alone.
     // Canvas-only (host-verified); inert everywhere else.
     only?: string;
+    // 🎨 A theme tile on the Maker's Details page — `?theme=<id>` draws the
+    // couple's page in that theme, bridge-less. Canvas-only (host-verified,
+    // `canvasTriedTheme`); inert everywhere else.
+    theme?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
@@ -563,17 +568,31 @@ async function InvitationBody({
   // share ONE auth round-trip per request instead of five in a row.
   // Timed here because this is the FIRST call — every later `getCurrentUser()`
   // in this render resolves to the same memoized Promise for free.
+  let triedTheme: InviteThemeId | null = null;
   if (asksForHostCanvas(search)) {
     const previewer = await timer.track('auth', () => getCurrentUser());
-    if (previewer) hostDraft = await loadHostPreviewDraft(admin, liveEvent.event_id, previewer.id);
+    if (previewer) {
+      hostDraft = await loadHostPreviewDraft(admin, liveEvent.event_id, previewer.id);
+      // 🎨 A THEME TILE (`canvasTriedTheme`): only for a VERIFIED host, asked
+      // only when the tile's param is present — React.cache'd, so it shares
+      // the membership lookup `isEditorCanvas` makes below.
+      if (search.theme) {
+        triedTheme = canvasTriedTheme(search, await loadHostMembership(admin, liveEvent.event_id, previewer.id));
+      }
+    }
   }
-  const event = overlayHubDraftEvent(liveEvent, hostDraft);
+  /* The tile's theme is laid over the drafted row — the tile shows the couple's
+     page as they are editing it, in the theme they are looking at. Nothing is
+     written; `theme_try_on` lets the one theme gate paint a Pro theme the
+     couple does not own yet (the fence still answers). */
+  const draftedEvent = overlayHubDraftEvent(liveEvent, hostDraft);
+  const event = triedTheme ? { ...draftedEvent, invite_theme: triedTheme, theme_try_on: true } : draftedEvent;
   /* 🎨 THE DRAFTED COLOURS AND FACE — worn again, from the overlaid row, by
      `HostDraftLook` (the layout that wears them for guests cannot see the
      draft). Only when the host's draft holds a Colors-panel column; for every
      guest `hostDraft` is null and `wearDraft` returns its input untouched. */
   const draftLook =
-    hostDraft && HUB_DRAFT_LOOK_COLUMNS.some((c) => c in hostDraft.events)
+    triedTheme || (hostDraft && HUB_DRAFT_LOOK_COLUMNS.some((c) => c in hostDraft.events))
       ? await resolveHubTheme(event)
           .then((hub) => guestLookFrom(event, hub, true))
           .catch(() => null)
@@ -1192,6 +1211,9 @@ async function InvitationBody({
     isEditorCanvas,
     // The click-to-edit bridge: the Maker's iframe only, never the preview tab.
     editorBridge: isEditorCanvas && asksForEditorBridge(search),
+    // 🎨 …and never a theme TILE: it is drawn as the canvas, but its parent is
+    // the Maker, which would hear its bridge as the canvas's.
+    themeTile: triedTheme !== null,
     canvasGuestBars: isEditorCanvas && search.bars === '1',
     // 🖼 `?only=hero` — the Maker's Hero page draws the hero alone. Host canvas
     // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's

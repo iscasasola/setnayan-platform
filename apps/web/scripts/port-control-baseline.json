@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5d25332b9",
+  "generatedFromRef": "0d26d7c2f",
   "routeCount": 436,
-  "destinations": 939,
-  "actions": 673,
-  "blocks": 5002,
+  "destinations": 938,
+  "actions": 671,
+  "blocks": 5022,
   "routes": {
     "/": {
       "files": [
@@ -815,7 +815,6 @@
         "[slug]/_components/pahina-motion.tsx",
         "[slug]/_components/photo-moments-widget.tsx",
         "[slug]/_components/photos-of-you-gallery.tsx",
-        "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -1146,8 +1145,6 @@
         "PhotoMomentsWidget",
         "PhotosOfYouGallery",
         "PreviewPerson",
-        "PreviewWayBack",
-        "PreviewWayBackLink",
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
@@ -4831,11 +4828,9 @@
         "dashboard/(launcher)/_components/event-scene.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/home-pill-nav.tsx",
-        "dashboard/(launcher)/_components/incoming-requests.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
-        "dashboard/(launcher)/incoming-request-actions.ts",
         "dashboard/(launcher)/layout.tsx",
         "dashboard/(launcher)/loading.tsx",
         "dashboard/(launcher)/page.tsx"
@@ -4853,10 +4848,7 @@
         "/dashboard/samahan/[seg]",
         "/vendor-dashboard"
       ],
-      "actions": [
-        "answerIncomingRequest",
-        "muteInviter"
-      ],
+      "actions": [],
       "blocks": [
         "AccountSwitcher",
         "AppRailShell",
@@ -4873,7 +4865,6 @@
         "EventMonogram",
         "EventPoster",
         "EventScene",
-        "Flash",
         "GlassEventCard",
         "HTMLDialogElement",
         "HTMLDivElement",
@@ -4882,7 +4873,6 @@
         "Icon",
         "Image",
         "ImpactLines",
-        "IncomingRequests",
         "Link",
         "MomentRow",
         "NewEventButton",
@@ -6080,6 +6070,8 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/_components/details-go.tsx",
+        "dashboard/[eventId]/launch/_components/details-look-pages.tsx",
         "dashboard/[eventId]/launch/_components/details-tap.ts",
         "dashboard/[eventId]/launch/_components/details-workspace.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
@@ -6132,19 +6124,31 @@
       "blocks": [
         "AddBtn",
         "AddSceneTool",
+        "CanvasStaysOnThePage",
         "Chip",
         "ColourRow",
         "ComingNext",
         "CouldNotLoad",
+        "CouldNotOpen",
+        "DetailsGoTo",
         "DetailsItemKey",
+        "DetailsLookBody",
+        "DetailsLookEditor",
+        "DetailsLookPieces",
+        "DetailsPieceButton",
+        "DetailsPieceContext.Provider",
+        "DetailsPieces",
+        "DetailsSelectContext.Provider",
         "DetailsTapContext.Provider",
         "DetailsWorkspace",
         "DraftNote",
+        "ElementSheet",
         "EventPoster",
         "Face",
         "Field",
         "FileUpload",
         "FineTune",
+        "Fragment",
         "GridPageSkeleton",
         "GuestCardBody",
         "HTMLAnchorElement",
@@ -6157,6 +6161,7 @@
         "HTMLOListElement",
         "HTMLSpanElement",
         "HTMLUListElement",
+        "HeroPartSheet",
         "HubDraftDock",
         "HubDraftField",
         "HubProOffer",
@@ -6173,6 +6178,7 @@
         "LifecyclePhase",
         "Link",
         "LogoLayer",
+        "LookFrame",
         "MadeOnce",
         "MakerAddScene",
         "MakerBar",
@@ -6181,6 +6187,7 @@
         "MakerDevice",
         "MakerHeroDesignPicker",
         "MakerLogoDoor",
+        "MakerLookPages",
         "MakerPage",
         "MakerPageFrame",
         "MakerPageSwitch",
@@ -6197,6 +6204,9 @@
         "MenuHeading",
         "MenuItem",
         "MiniTour",
+        "MoodBoardMakerBody",
+        "MoodBoardMakerControls",
+        "MoodBoardPieces",
         "MoreSheet",
         "OpeningLineField",
         "PabuyaMessageEditor",
@@ -6207,7 +6217,6 @@
         "PickContext.Provider",
         "PickMenu",
         "PickOption",
-        "PreviewStageLink",
         "PrintChoicePicker",
         "PrintMenuEditor",
         "PrintPieceBody",
@@ -6232,6 +6241,7 @@
         "SlugField",
         "SoftPost",
         "State",
+        "Suspense",
         "Switch",
         "SwitchRow",
         "ThemePickProvider",
@@ -6241,9 +6251,9 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
-        "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
+        "Waiting",
         "WebsiteEditorPage"
       ]
     },
@@ -7186,6 +7196,8 @@
         "dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/majors-editor.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/mood-board-parts.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/moodboard-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-board-context.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx",
@@ -7221,7 +7233,9 @@
         "ClipboardEntry",
         "ClosedRoundNote",
         "ConceptPdfButton",
+        "CouldNotLoad",
         "CustomRolesEditor",
+        "DetailsPieceButton",
         "EventLinkedBadge",
         "FinalizationActionResult",
         "GalleryPage",
@@ -7235,6 +7249,9 @@
         "Link",
         "MajorsEditor",
         "MakeItReal",
+        "MoodBoardEditor",
+        "MoodPart",
+        "MoodPartNote",
         "MoodboardBoard",
         "MoodboardMoodTag",
         "MoodboardStyleFamily",
@@ -8002,7 +8019,6 @@
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/launch${search.then === 'apply' ?",
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/studio"
       ],
@@ -8421,7 +8437,6 @@
     },
     "/dashboard/[eventId]/website": {
       "files": [
-        "dashboard/[eventId]/website/_components/apply-pro-sheet.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-bar.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-button.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-dock.tsx",
@@ -8435,15 +8450,12 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "ApplyProSheet",
         "DraftButton",
-        "HTMLDivElement",
         "HubDraftActionResult",
         "HubDraftToolbar",
         "InfoTip",
         "Link",
         "MakerSaveStatus",
-        "MiniTour",
         "PaidMark",
         "ResultLine"
       ]
@@ -8607,7 +8619,6 @@
         "K",
         "LaunchPhasePanel",
         "LaunchStdButton",
-        "LifecyclePhase",
         "Link",
         "LoveStoryChaptersPanel",
         "LoveStoryControls",
@@ -8632,7 +8643,6 @@
         "PartPicker",
         "PartTab",
         "PartTextTab",
-        "PartWordsRow",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "PickListPlacement",
@@ -8806,7 +8816,6 @@
         "MiniTour",
         "MomentAnchor",
         "MomentSheet",
-        "PaidMark",
         "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",
@@ -8963,12 +8972,20 @@
     },
     "/dev/details-lab": {
       "files": [
+        "dev/details-lab/look-lab.tsx",
         "dev/details-lab/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "MakerDetails"
+        "DetailsItemKey",
+        "DetailsPieceButton",
+        "LookLab",
+        "MakerContext.Provider",
+        "MakerDetails",
+        "MakerLookPages",
+        "MakerState",
+        "Stand"
       ]
     },
     "/dev/hero-lab": {

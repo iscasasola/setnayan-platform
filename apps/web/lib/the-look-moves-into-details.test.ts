@@ -20,7 +20,12 @@
  *   (4) Details draws them, and a page that has not arrived SAYS so;
  *   (5) the Mood Board is one component: Details draws it for the couple, its
  *       old page redirects the couple there, and the supplier side is intact;
- *   (6) a birthday and a wake get all of it, with no wedding word.
+ *   (6) a birthday and a wake get all of it, with no wedding word;
+ *   (7) each tool is laid in the Maker's THREE PARTS (DECISION_LOG "A TOOL
+ *       MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS" — owner: *"make
+ *       sure they are just not link to another page but those page are there
+ *       making use of the 3 parts"*): its pieces in the navigator, the picked
+ *       piece in the middle, that piece's controls on the right.
  *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
@@ -68,13 +73,14 @@ test('(1) the Look is Theme · Mood Board · Logo · Hero · Reveal, in the owne
   assert.equal(new Set(DETAILS_ITEM_KEYS).size, DETAILS_ITEM_KEYS.length, 'one key names two items');
 });
 
-test('(1) each page keeps the split it shipped with', () => {
-  // The Hero and the Reveal: a live page fills the body, their controls on the right.
+test('(1) each tool fills the body with its picked piece; only the Logo studio carries its own columns', () => {
+  // Hero, Reveal, Mood Board: the picked piece fills the middle, its controls on the right.
   assert.equal(detailsItemLayout('hero'), 'fill');
   assert.equal(detailsItemLayout('reveal'), 'fill');
-  // The Logo studio lays its own panel beside its canvas; the Mood Board is one board.
+  assert.equal(detailsItemLayout('mood-board'), 'fill');
+  // The Logo studio already IS the three parts: its layers, the logo, the layer's tools.
   assert.equal(detailsItemLayout('logo'), 'whole');
-  assert.equal(detailsItemLayout('mood-board'), 'whole');
+  assert.match(read(`${L}/maker-logo.tsx`), /data-logo-navigator=""/, 'the studio lost its layers navigator');
   // Everything else is the picture-and-editor it was.
   for (const k of ['theme', 'address', 'qr', 'invitation', 'download'] as const) assert.equal(detailsItemLayout(k), 'flow', k);
   // …and the workspace hides the editor column for a page that carries its own tools.
@@ -165,15 +171,21 @@ test('(3) the work area builds Logo, Hero and Reveal once and hands the SAME nod
   assert.match(reg, /\{madeOnce\.hero\}/);
   assert.match(reg, /<RowBlock row=\{mainBackgroundRow\} \/>/, 'the Main background left the hero with the move');
   assert.match(reg, /reveal: madeOnce\?\.reveal \?\? null/);
+  assert.match(reg, /revealOptions: madeOnce\?\.\['reveal-options'\] \?\? null/);
+  assert.match(reg, /heroParts: elementEditing/, 'the hero parts are not handed to Details');
   // …and draws none of them as a page of its own — nor, since part 2b, Love
   // Story (Details › Story & plans): the work area draws no made-once page.
   assert.doesNotMatch(work, /function madeOncePageKey\(|<MakerPage\b/, 'a made-once page is still drawn by the work area');
   assert.doesNotMatch(work, /pageKey === 'logo'|pageKey === 'reveal'|pageKey === 'hero'/, 'a Look page is still drawn by the work area');
   // The panels are still built where they always were — one build, not two.
   const editor = read('app/dashboard/[eventId]/website/editor/page.tsx');
-  for (const panel of ['<MakerHeroPanel', '<MakerRevealPanel', '<MakerLogoPanel']) {
+  for (const panel of ['<MakerHeroPanel', '<MakerLogoPanel']) {
     assert.equal(editor.split(panel).length - 1, 1, `${panel} is built ${editor.split(panel).length - 1} times`);
   }
+  // The Reveal once per part: its settings (right) and its openings (navigator) — one cached read.
+  assert.match(editor, /reveal: <MakerRevealPanel [^>]*part="settings" \/>/);
+  assert.match(editor, /'reveal-options': <MakerRevealPanel [^>]*part="options" \/>/);
+  assert.equal(editor.split('<MakerRevealPanel').length - 1, 2);
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.doesNotMatch(launch, /<Maker(Hero|Reveal|Logo)Panel\b/, 'Details built a second copy of a Look page');
 });
@@ -217,6 +229,14 @@ const LOOK = {
   logo: React.createElement('div', { 'data-stub': 'logo-studio' }),
   hero: React.createElement('div', { 'data-stub': 'hero-controls' }),
   reveal: React.createElement('div', { 'data-stub': 'reveal-controls' }),
+  revealOptions: React.createElement('button', { 'data-stub': 'reveal-options' }),
+  heroParts: {
+    keys: ['eyebrow', 'names', 'date'],
+    canvases: {},
+    palette: { ink: '#111', heading: '#222', accent: '#a55', muted: '#999' },
+    draftAction: async () => ({ ok: true }),
+    ownsPro: true,
+  },
   revealStages: ['rsvp', 'event'],
   publicLandingUrl: '/ana-ben',
 };
@@ -254,9 +274,10 @@ test('(4) Details wires each Look item: its body, its editor, and the Mood Board
   assert.match(details, /hero: <DetailsLookEditor item="hero" \/>/);
   assert.match(details, /reveal: <DetailsLookEditor item="reveal" \/>/);
   assert.match(details, /bodies\['mood-board'\] = \(/);
+  assert.match(details, /'mood-board': look\.moodBoardControls,/, 'the Mood Board has no right column');
   // "Build your Mood Board first" opens the item — it no longer links out of the Maker.
   assert.match(details, /<DetailsGoTo item="mood-board">Build your Mood Board first<\/DetailsGoTo>/);
-  assert.doesNotMatch(details, /studio\/mood-board/, 'a link out to the old Mood Board page is back');
+  assert.doesNotMatch(details, /href=\{`[^`]*studio\/mood-board/, 'a link out to the old Mood Board page is back');
   // The Play menu knows the Hero and the Reveal play inside Details.
   assert.match(read(`${L}/maker-shell.tsx`), /selection\.key === 'details' && \(detailsItem === 'hero' \|\| detailsItem === 'reveal'\)/);
 });
@@ -265,7 +286,8 @@ test('(4) Details wires each Look item: its body, its editor, and the Mood Board
 
 test('(5) the Mood Board is ONE component — Details draws it, and its old page lands the couple there', () => {
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardEditor eventId=\{eventId\} inMaker \/>/, 'Details does not stream the board');
+  assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardMakerBody eventId=\{eventId\} \/>/, 'Details does not stream the board');
+  assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardMakerControls eventId=\{eventId\} \/>/, 'Details does not stream the board’s controls');
   const page = read(`${MB}/page.tsx`);
   assert.match(page, /if \(makerHasWork\(memberType, websiteOn\)\) redirect\(detailsItemHref\(eventId, 'mood-board'\)\);/);
   assert.match(page, /return <MoodBoardEditor eventId=\{eventId\} \/>;/, 'everyone else keeps the page');
@@ -279,13 +301,16 @@ test('(5) the Mood Board is ONE component — Details draws it, and its old page
 
 test('(5) inside the Maker the board keeps the Maker’s rules — and its supplier side is untouched', () => {
   const ed = read(`${MB}/_components/mood-board-editor.tsx`);
-  assert.match(ed, /\{inMaker \? null : <PageMasthead title="Mood Board" \/>\}/, 'a second masthead inside Details');
-  assert.match(ed, /\{storeShell \|\| inMaker \? null : \(\s*<Link\s*\n\s*href=\{`\/dashboard\/\$\{eventId\}\/studio`\}/, '"Back to add-ons" inside the Maker');
-  assert.match(ed, /\{inMaker \? \(\s*<p[^>]*>You design the room in your Seat plan\.<\/p>\s*\) : \(\s*<Link/, 'a link out of the Maker to the seat plan');
-  assert.match(ed, /\$\{inMaker \? 'sticky[^']*' : 'fixed inset-x-0'\}/, 'the save bar sits over the Maker’s own chrome');
+  const maker = ed.slice(ed.indexOf('export async function MoodBoardMakerBody('));
+  assert.ok(maker.length > 200, 'anti-vacuity: the Maker views were not found');
+  // No masthead, no "Back to", no fixed bar and no link out in the Maker's views.
+  assert.doesNotMatch(maker, /PageMasthead|Back to|<Link\b|\bfixed\b/);
+  // The reception part says where the room is designed, without a link (part 4 moves the Seat plan in).
+  assert.match(ed, /\{inMaker \? \(\s*<p[^>]*>You design the room in your Seat plan\.<\/p>\s*\) : \(\s*<Link/);
   // A refused read inside the Maker is said — a 404 would take the whole Maker down.
-  assert.match(ed, /if \(inMaker\) \{\s*return \(\s*<p role="alert"/);
-  // The supplier side: both sign-off panels and Share with vendors, as before.
+  assert.match(ed, /if \(inMaker\) return \{ ok: false as const \};/);
+  assert.match(ed, /function CouldNotLoad\(\) \{\s*return \(\s*<p role="alert"/);
+  // The supplier side: both sign-off panels and Share with vendors, built once, as before.
   assert.equal((ed.match(/<PartFinalizationPanel\b/g) ?? []).length, 2);
   assert.equal((ed.match(/<ShareWithVendorsButton\b/g) ?? []).length, 1);
   assert.match(ed, /requestAction=\{requestPartFinalization\.bind\(null, eventId\)\}/);
@@ -334,4 +359,84 @@ test('(6) no Look item, and no part-3 file, types a wedding word', () => {
   const labels = details.slice(details.indexOf('function lookLabel('), details.indexOf('function lookLabel(') + 1400);
   assert.ok(labels.includes("label: 'Mood Board'"), 'anti-vacuity: lookLabel not found');
   assert.doesNotMatch(labels, /\b(wedding|couple|bride|groom)\b/i);
+});
+
+/* ── (7) the three parts ──────────────────────────────────────────────── */
+
+test('(7) the navigator lists the picked tool’s pieces under it — and only while it is picked', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
+  const paint = (initial: string) =>
+    renderToStaticMarkup(
+      React.createElement(DetailsWorkspace, {
+        groups: [
+          {
+            key: 'look',
+            label: 'Look',
+            items: ['theme', 'hero'].map((k) => ({ key: k, group: 'look', label: k, icon: null })),
+          },
+        ],
+        bodies: { theme: 'THEME', hero: 'HERO' },
+        editors: {},
+        initial,
+        pieces: { hero: React.createElement('b', { 'data-stub': 'hero-pieces' }) },
+      }),
+    );
+  const onHero = paint('hero');
+  assert.match(onHero, /data-details-pieces="hero"[^>]*>[\s\S]*data-stub="hero-pieces"/, 'the Hero’s pieces are not in the navigator');
+  const navAt = onHero.indexOf('aria-label="Details — what to edit"');
+  assert.ok(navAt >= 0 && onHero.indexOf('data-stub="hero-pieces"') > navAt, 'the pieces are drawn outside the navigator');
+  assert.doesNotMatch(paint('theme'), /hero-pieces/, 'a tool’s pieces show while another item is picked');
+});
+
+test('(7) Hero: its parts in the navigator; a pick opens that part’s style on the right, above the design', async () => {
+  const pieces = await (async () => {
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { MakerContext } = await import(`../${L}/maker-context`);
+    const { DetailsLookPieces } = await import(`../${L}/details-look-pages`);
+    const noop = () => {};
+    return renderToStaticMarkup(
+      React.createElement(
+        MakerContext.Provider,
+        { value: { eventId: 'e', stage: 'rsvp', setStage: noop, device: 'phone', navOpen: true, selection: null, select: noop, moreOpen: false, renderStamp: '1', storeShell: false, viewAsHref: null, addScene: null, setAddScene: noop, lookPages: LOOK } },
+        React.createElement(DetailsLookPieces, { item: 'hero' }),
+        React.createElement(DetailsLookPieces, { item: 'reveal' }),
+      ),
+    );
+  })();
+  for (const k of ['eyebrow', 'names', 'date']) assert.match(pieces, new RegExp(`data-details-piece="hero:${k}"`), `the hero part ${k} is not listed`);
+  assert.match(pieces, /data-stub="reveal-options"/, 'the Reveal’s openings are not the navigator');
+  const look = read(`${L}/details-look-pages.tsx`);
+  // The part's style is the SAME sheet a tap on the hero scene opens, laid in the right column's flow.
+  assert.match(look, /<ElementSheet\b[\s\S]{0,400}target=\{\{ key: HERO_KEY, widgetType: 'hero', el \}\}/);
+  assert.match(look, /\{item === 'hero' \? <HeroPartSheet \/> : null\}\s*\{node\}/, 'the part’s style is not above the design dropdown');
+});
+
+test('(7) Reveal: the openings are the navigator, the rest the right column — one picker, one set of saves', () => {
+  const rv = read(`${L}/maker-reveal.tsx`);
+  assert.match(rv, /if \(part === 'options'\) \{/);
+  assert.match(rv, /\{part === 'all' \? choices : null\}/, 'the right column still lists the openings');
+  // Play the opening finds the reveal's frame inside Details too.
+  assert.match(rv, /\[data-details-look="reveal"\] iframe/);
+});
+
+test('(7) Mood Board: its parts in the navigator, the picked part in the middle, its controls on the right', () => {
+  const ed = read(`${MB}/_components/mood-board-editor.tsx`);
+  const body = ed.slice(ed.indexOf('export async function MoodBoardMakerBody('), ed.indexOf('export async function MoodBoardMakerControls('));
+  const controls = ed.slice(ed.indexOf('export async function MoodBoardMakerControls('));
+  const parts = read(`${MB}/_components/mood-board-parts.tsx`);
+  for (const p of ['theme', 'inspiration', 'palette', 'reception', 'colours', 'make-it-real', 'share']) {
+    assert.match(parts, new RegExp(`key: '${p}'`), `${p} is not a part in the navigator`);
+    assert.match(body, new RegExp(`<MoodPart part="${p}">`), `${p} has no middle`);
+  }
+  // One provider around theme → palette, so the main colours still derive the palette live.
+  assert.equal((body.match(/<PaletteBoardProvider \{\.\.\.provider\}>/g) ?? []).length, 1);
+  // The right column: each part's own controls — the sign-offs beside the palette and the room, sharing.
+  assert.match(controls, /<MoodPart part="palette">\{parts\.peopleAgreed\}<\/MoodPart>/);
+  assert.match(controls, /<MoodPart part="reception">\{parts\.roomAgreed\}<\/MoodPart>/);
+  assert.match(controls, /<MoodPart part="share">\{parts\.shareButton\}<\/MoodPart>/);
+  // Parts stay mounted — hidden, never unmounted — so nothing typed is lost by switching.
+  assert.match(parts, /hidden=\{on !== part\} className=\{on === part \? 'block' : 'hidden'\}/);
+  // "Make it real" is sold nowhere it is not offered.
+  assert.match(read(`${L}/maker-details.tsx`), /<MoodBoardPieces makeItReal=\{!theme\.storeShell\} \/>/);
 });

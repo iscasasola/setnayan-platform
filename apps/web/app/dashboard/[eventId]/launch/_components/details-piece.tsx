@@ -1,44 +1,29 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
+import { DetailsPieceButton, DetailsPieceContext, useDetailsPiece } from './details-go';
 
 /**
- * 🧩 A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS (owner
- * 2026-09-29, DECISION_LOG row of that name: *"make sure they are just not link
- * to another page but those page are there making use of the 3 parts"*).
+ * 🧩 THE PIECES OF THE TOOLS PART 2b MOVED IN — Love Story, Schedule, RSVP —
+ * on part 3's ONE mechanism (`details-go.tsx`: `DetailsPieceContext`,
+ * `DetailsPieceButton`, the workspace's `pieces` prop). DECISION_LOG "A TOOL
+ * MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS": LEFT the tool's
+ * pieces, MIDDLE the picked one, RIGHT its controls.
  *
- * A Details item that is a whole tool (the Schedule, the Love Story, RSVP) has
- * PIECES — the schedule's moments, the story's chapters, RSVP's settings. The
- * navigator lists them under the item (LEFT), the item's picture shows the
- * picked piece (MIDDLE), and the right column shows that piece's controls
- * (RIGHT). The pieces are the tool's own — nothing is re-drawn: the shipped
- * components read the picked piece here and show or focus it.
- *
- *   · `DetailsPieceContext` — provided by `DetailsWorkspace`: the picked piece
- *     of each item, and `pick`. Null outside Details (the stage's inspector, the
- *     standalone pages): every piece then shows, exactly as before.
- *   · `pickDetailsPiece` — a tool picks from inside its own picture (a moment
- *     tapped on the rail, a chapter tapped in the book), so the navigator
- *     follows the page as well as the other way round.
- *   · `DetailsPieceOnly` — wraps one piece's controls; hidden (never unmounted
- *     — a form's other fields still post) while another piece is picked.
- *   · `InSlot` — a shipped component's own panel, drawn into the right column
+ *   · `ItemPieces` — a list of pieces in the navigator (the schedule's
+ *     moments, the story's chapters, RSVP's settings); the first is picked when
+ *     the item opens, and a tool may pick from inside its own picture
+ *     (`pickDetailsPiece` — a moment on the rail, a chapter in the book).
+ *   · `DetailsPieceOnly` — one piece's controls, shown while it is picked
+ *     (hidden, never unmounted, so one form still posts every field). Outside
+ *     Details nothing is picked and every piece shows, exactly as before.
+ *   · `InSlot` — a shipped component's own panel drawn into the right column
  *     (the schedule's moment inspector, its Announce): the same component, the
  *     same state, in the Maker's third part.
  */
-export type DetailsPieceApi = {
-  pieceOf: (item: DetailsItemKey) => string | null;
-  pick: (item: DetailsItemKey, piece: string) => void;
-};
-
-export const DetailsPieceContext = createContext<DetailsPieceApi | null>(null);
-
-/** The picked piece of an item, or null outside Details (show everything). */
-export function useDetailsPiece(item: DetailsItemKey): string | null {
-  return useContext(DetailsPieceContext)?.pieceOf(item) ?? null;
-}
+export type ItemPiece = { key: string; label: string; sub?: string };
 
 export const DETAILS_PIECE_EVENT = 'setnayan:details-piece';
 
@@ -48,13 +33,45 @@ export function pickDetailsPiece(item: DetailsItemKey, piece: string): void {
   window.dispatchEvent(new CustomEvent<{ item: DetailsItemKey; piece: string }>(DETAILS_PIECE_EVENT, { detail: { item, piece } }));
 }
 
-/** One piece's controls: shown while it is the picked one (or outside Details). */
+export function ItemPieces({ item, pieces }: { item: DetailsItemKey; pieces: readonly ItemPiece[] }) {
+  const [picked, setPicked] = useDetailsPiece(item);
+  const first = pieces[0]?.key ?? null;
+  const current = picked && pieces.some((p) => p.key === picked) ? picked : first;
+  useEffect(() => {
+    if (current && current !== picked) setPicked(current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the setter is rebuilt every render; only the pick matters
+  }, [current, picked]);
+  useEffect(() => {
+    const onPick = (e: Event) => {
+      const d = (e as CustomEvent<{ item: DetailsItemKey; piece: string }>).detail;
+      if (d?.item === item && pieces.some((p) => p.key === d.piece)) setPicked(d.piece);
+    };
+    window.addEventListener(DETAILS_PIECE_EVENT, onPick);
+    return () => window.removeEventListener(DETAILS_PIECE_EVENT, onPick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- as above
+  }, [item, pieces]);
+  return (
+    <>
+      {pieces.map((p) => (
+        <DetailsPieceButton key={p.key} on={p.key === current} onPick={() => setPicked(p.key, { openEditor: true })} data={p.key}>
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate">{p.label}</span>
+            {p.sub ? <small className="truncate text-[11px] opacity-70">{p.sub}</small> : null}
+          </span>
+        </DetailsPieceButton>
+      ))}
+    </>
+  );
+}
+
+/** One piece's controls: shown while it is the picked one (or while nothing is picked). */
 export function DetailsPieceOnly({ item, piece, children }: { item: DetailsItemKey; piece: string | readonly string[]; children: ReactNode }) {
-  const picked = useDetailsPiece(item);
+  const ctx = useContext(DetailsPieceContext);
+  const picked = ctx?.piece(item) ?? null;
   const mine = typeof piece === 'string' ? [piece] : piece;
   const shown = picked === null || mine.includes(picked);
   return (
-    <div hidden={!shown} className={shown ? 'contents' : 'hidden'} data-details-piece={mine.join(' ')}>
+    <div hidden={!shown} className={shown ? 'contents' : 'hidden'} data-details-piece-only={mine.join(' ')}>
       {children}
     </div>
   );
@@ -62,9 +79,8 @@ export function DetailsPieceOnly({ item, piece, children }: { item: DetailsItemK
 
 /**
  * Draw `children` into the element with this id — the right column's slot for
- * a tool's own panel. No id: drawn where it stands. An id with no element on
- * the page (the tool opened outside Details): drawn where it stands too, so a
- * panel is never lost.
+ * a tool's own panel. No id, or no such element on the page (the tool opened
+ * outside Details): drawn where it stands, so a panel is never lost.
  */
 export function InSlot({ id, children }: { id?: string | null; children: ReactNode }) {
   const [target, setTarget] = useState<HTMLElement | null | 'none'>(null);

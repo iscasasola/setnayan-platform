@@ -1187,7 +1187,10 @@ export default async function WebsiteEditorPage({
             ) : null}
           </>
         ),
-        reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
+        /* 🧩 The Reveal in Details' three parts: its settings on the right, its
+           openings in the navigator (the same picker, the same saves). */
+        reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="settings" />,
+        'reveal-options': <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="options" />,
         logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} />,
         /* 💌 Love Story's own page (the scrapbook) moved INTO Details — Story &
            plans › Love Story, drawn by the launch page (Details part 2b). */

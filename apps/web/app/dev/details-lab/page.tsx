@@ -108,7 +108,12 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
             ? {
                 moodBoard: (
                   <div data-lab-stand="mood-board" className="flex min-h-[1400px] items-start justify-center bg-white/70 pt-10 text-sm text-ink/60">
-                    Mood Board — the whole board (palette, inspirations, reception, sign-offs, share)
+                    Mood Board — the picked part (theme, inspirations, palette, reception…)
+                  </div>
+                ),
+                moodBoardControls: (
+                  <div data-lab-stand="mood-board-controls" className="rounded-md bg-white/70 p-4 text-sm text-ink/60">
+                    Mood Board — the part’s controls (supplier sign-off, share, downloads)
                   </div>
                 ),
                 logoDone: true,

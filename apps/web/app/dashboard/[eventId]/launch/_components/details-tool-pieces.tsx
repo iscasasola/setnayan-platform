@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 import { DETAILS_SCHEDULE_ANNOUNCE_SLOT, DETAILS_SCHEDULE_INSPECTOR_SLOT, SCHEDULE_ANNOUNCE_PIECE } from '@/lib/maker-details-items';
 import { askScheduleFocus } from '../../schedule/_components/schedule-focus';
-import { pickDetailsPiece, useDetailsPiece } from './details-piece';
+import { pickDetailsPiece } from './details-piece';
+import { useDetailsPiece } from './details-go';
 import { useMaker } from './maker-context';
 
 /**
@@ -15,7 +16,7 @@ import { useMaker } from './maker-context';
  * Announce button. Nothing re-drawn, no new save path.
  */
 export function ScheduleSlots() {
-  const piece = useDetailsPiece('schedule');
+  const [piece] = useDetailsPiece('schedule');
   const active = useMaker()?.detailsItem === 'schedule';
   useEffect(() => {
     if (active && piece && piece !== SCHEDULE_ANNOUNCE_PIECE) askScheduleFocus(piece);
@@ -38,7 +39,7 @@ export function ScheduleSlots() {
  * shown). A chapter tapped in the book is picked in the navigator too.
  */
 export function LoveStoryPieceFocus() {
-  const piece = useDetailsPiece('love-story');
+  const [piece] = useDetailsPiece('love-story');
   const active = useMaker()?.detailsItem === 'love-story';
   useEffect(() => {
     if (!active || !piece) return;

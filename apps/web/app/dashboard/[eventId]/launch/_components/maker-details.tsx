@@ -69,7 +69,9 @@ import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
 import { updateOurStory } from '../../website/our-story/actions';
 
-import { DetailsLookBody, DetailsLookEditor } from './details-look-pages';
+import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-look-pages';
+import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
+import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
@@ -202,7 +204,9 @@ export type MakerDetailsProps = {
    * read from data that already exists. Null = not offered (the lab).
    */
   look?: {
+    /** The Mood Board's middle (its picked part) and right (that part's controls). */
     moodBoard: ReactNode;
+    moodBoardControls: ReactNode;
     logoDone: boolean;
     heroDone: boolean;
     /** Undefined: the reveal always plays something (the theme's own opening) — "done" means nothing for it. */
@@ -362,15 +366,6 @@ export function MakerDetails(props: MakerDetailsProps) {
           scheduleMoments: schedule?.moments ?? null,
         }),
         icon: (WORDS_ICON as Record<string, ReactNode>)[w] ?? (STORY_ICON as Record<string, ReactNode>)[w],
-        /* 🧩 A tool's pieces — LEFT of the three parts (DECISION_LOG "A TOOL
-           MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
-        ...(w === 'love-story'
-          ? { pieces: LOVE_STORY_CHAPTERS.map((c) => ({ key: c, label: LOVE_STORY_CHAPTER_LABEL[c] })) }
-          : w === 'schedule' && schedule?.pieces.length
-            ? { pieces: schedule.pieces }
-            : w === 'rsvp'
-              ? { pieces: RSVP_PIECES }
-              : {}),
       };
     }
     if ((PRINT_SET_KEYS as readonly string[]).includes(k)) {
@@ -666,6 +661,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(rsvp ? { rsvp: rsvp.settings } : {}),
     ...(look
       ? {
+          'mood-board': look.moodBoardControls,
           hero: <DetailsLookEditor item="hero" />,
           reveal: <DetailsLookEditor item="reveal" />,
         }
@@ -694,6 +690,23 @@ export function MakerDetails(props: MakerDetailsProps) {
         bodies={bodies}
         editors={editors}
         initial={initialItem}
+        /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
+           MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
+        pieces={{
+          ...(look
+            ? {
+                'mood-board': <MoodBoardPieces makeItReal={!theme.storeShell} />,
+                hero: <DetailsLookPieces item="hero" />,
+                reveal: <DetailsLookPieces item="reveal" />,
+              }
+            : {}),
+          /* Part 2b: Love Story's chapters, the Schedule's moments, RSVP's settings. */
+          ...(loveStory
+            ? { 'love-story': <ItemPieces item="love-story" pieces={LOVE_STORY_CHAPTERS.map((c) => ({ key: c, label: LOVE_STORY_CHAPTER_LABEL[c] }))} /> }
+            : {}),
+          ...(schedule?.pieces.length ? { schedule: <ItemPieces item="schedule" pieces={schedule.pieces} /> } : {}),
+          ...(rsvp ? { rsvp: <ItemPieces item="rsvp" pieces={RSVP_PIECES} /> } : {}),
+        }}
         persistent={
           <>
             {flash === 'saved' ? (

@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { MakerContext, type MakerLookPages, type MakerState } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
+import { DetailsPieceButton } from '@/app/dashboard/[eventId]/launch/_components/details-go';
 
 /**
  * `/dev/details-lab?look=1` — the Look items (Details part 3) on fixtures. The
@@ -36,7 +37,17 @@ export function LookLab({ children }: { children: ReactNode }) {
         </div>
       ),
       hero: <Stand name="Hero — Designs 1–4, parts, photo, Main background" tall />,
-      reveal: <Stand name="Reveal — the opening, where it plays, fine-tune" />,
+      reveal: <Stand name="Reveal — play it, fine-tune, where it plays" />,
+      revealOptions: (
+        <>
+          {['No reveal', 'Four flaps', 'Two doors', 'The veil'].map((o, i) => (
+            <DetailsPieceButton key={o} on={i === 0} onPick={() => {}} data={`lab:${o}`}>
+              {o}
+            </DetailsPieceButton>
+          ))}
+        </>
+      ),
+      heroParts: null,
       revealStages: ['save_the_date', 'rsvp'],
       publicLandingUrl: '/dev/hero-lab',
     }),

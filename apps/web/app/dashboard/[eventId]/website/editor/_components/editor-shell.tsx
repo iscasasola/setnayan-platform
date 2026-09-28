@@ -190,7 +190,7 @@ const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
  * registered into Details (part 3). Love Story's page, the scrapbook, is Details
  * › Story & plans › Love Story, built by the launch page (part 2b).
  */
-export type MadeOnceKey = 'logo' | 'hero' | 'reveal';
+export type MadeOnceKey = 'logo' | 'hero' | 'reveal' | 'reveal-options';
 
 const TOOL_ROWS: Record<string, string[]> = {
   hero: ['hero'],
@@ -511,6 +511,7 @@ export function MakerWork({
   const setLookPages = maker?.setLookPages;
   const mainBackgroundRow = rows['main-background'] ?? null;
   const revealStagesKey = revealStages.join();
+  const twoPeopleOff = sceneFormat?.twoPeople === false;
   useEffect(() => {
     if (!setLookPages) return;
     setLookPages({
@@ -523,10 +524,21 @@ export function MakerWork({
         </>
       ) : null,
       reveal: madeOnce?.reveal ?? null,
+      revealOptions: madeOnce?.['reveal-options'] ?? null,
+      /* The hero's parts, edited by the same sheet a tap on the hero scene opens. */
+      heroParts: elementEditing
+        ? {
+            keys: HUB_HERO_ELEMENT_KEYS.filter((k) => k !== 'joiner' || !twoPeopleOff),
+            canvases: elementEditing.canvases,
+            palette: elementEditing.palette,
+            draftAction: elementEditing.draftAction,
+            ownsPro,
+          }
+        : null,
       revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
       publicLandingUrl,
     });
-  }, [setLookPages, madeOnce, mainBackgroundRow, revealStagesKey, publicLandingUrl]);
+  }, [setLookPages, madeOnce, mainBackgroundRow, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {
@@ -2557,7 +2569,7 @@ function Inspector({
       </>
     );
   } else {
-    /* Logo · Hero · Reveal · Love Story open as PAGES (`madeOncePageKey`); the
+    /* Logo · Hero · Reveal · Love Story are items of Details (drawn by the shell); the
        inspector keeps only Post Event's tool and a workspace that did not load
        (the hero then falls back to its row). */
     const keys = selection.kind === 'tool' ? (TOOL_ROWS[selection.key] ?? []) : [selection.key];

@@ -1,14 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
-import { DetailsSelectContext } from './details-go';
+import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
-import { DETAILS_PIECE_EVENT, DetailsPieceContext, type DetailsPieceApi } from './details-piece';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
 export type DetailsNavItem = DetailsItemModel & {
@@ -58,9 +57,6 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  * ✍ TAP IT, EDIT IT ON THE RIGHT: a tap on a card's print-only words
  * (`PrintPreview`, via `DetailsTapContext`) opens the editor and puts the caret
  * in that one field.
- *
- * 🚪 ONE FIELD, TWO DOORS: a fact in two items (the thank-you, the opening
- * line…) is one value — `useSameFieldDoors` keeps its doors in step.
  */
 export function DetailsWorkspace({
   groups,
@@ -68,7 +64,15 @@ export function DetailsWorkspace({
   editors,
   initial,
   persistent = null,
+  pieces = {},
 }: {
+  /**
+   * 🧩 A tool's own pieces, listed in the navigator under its item while it is
+   * picked (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE
+   * PARTS"): on a desk, rows under the item; on a phone, chips in the strip
+   * right after it. Mounted once, only while the item is picked.
+   */
+  pieces?: Partial<Record<DetailsItemKey, ReactNode>>;
   groups: DetailsNavGroup[];
   bodies: Partial<Record<DetailsItemKey, ReactNode>>;
   editors: Partial<Record<DetailsItemKey, ReactNode>>;
@@ -87,6 +91,18 @@ export function DetailsWorkspace({
   const [visited, setVisited] = useState<ReadonlySet<DetailsItemKey>>(() => new Set([first]));
   const tellMaker = maker?.setDetailsItem;
   const [sheetOpen, setSheetOpen] = useState(false);
+  /* The piece picked under each item (the three columns meet here). */
+  const [pieceMap, setPieceMap] = useState<Partial<Record<DetailsItemKey, string | null>>>({});
+  const pieceCtx = useMemo<DetailsPieces>(
+    () => ({
+      piece: (item) => pieceMap[item] ?? null,
+      setPiece: (item, piece, opts) => {
+        setPieceMap((m) => (m[item] === piece ? m : { ...m, [item]: piece }));
+        if (piece && opts?.openEditor) setSheetOpen(true);
+      },
+    }),
+    [pieceMap],
+  );
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const current = items.find((i) => i.key === selected) ?? items[0]!;
@@ -120,34 +136,6 @@ export function DetailsWorkspace({
   /* 🚪 One field, two doors: a fact drawn in two items is one value (part 2b). */
   useSameFieldDoors();
 
-  /* 🧩 A TOOL'S PIECES (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT
-     INTO THE THREE PARTS"): the schedule's moments, the story's chapters,
-     RSVP's settings — listed under their item on the left, the picked one
-     focused in the middle, its controls on the right (`details-piece.tsx`).
-     An item's first piece is picked until the couple picks another. */
-  const [pickedPieces, setPickedPieces] = useState<Partial<Record<DetailsItemKey, string>>>({});
-  const pieceApi = useMemo<DetailsPieceApi>(
-    () => ({
-      pieceOf: (item) => {
-        const list = items.find((i) => i.key === item)?.pieces;
-        if (!list?.length) return null;
-        const p = pickedPieces[item];
-        return p && list.some((x) => x.key === p) ? p : list[0]!.key;
-      },
-      pick: (item, piece) => setPickedPieces((cur) => (cur[item] === piece ? cur : { ...cur, [item]: piece })),
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `items` is rebuilt every render; the pieces are data
-    [pickedPieces, JSON.stringify(items.map((i) => [i.key, i.pieces?.map((x) => x.key)]))],
-  );
-  useEffect(() => {
-    const onPick = (e: Event) => {
-      const d = (e as CustomEvent<{ item: DetailsItemKey; piece: string }>).detail;
-      if (d?.item && d.piece) pieceApi.pick(d.item, d.piece);
-    };
-    window.addEventListener(DETAILS_PIECE_EVENT, onPick);
-    return () => window.removeEventListener(DETAILS_PIECE_EVENT, onPick);
-  }, [pieceApi]);
-
   /* The picked item stays in view in the navigator — by scrolling the NAVIGATOR
      only (`scrollLeft`/`scrollTop`), never `scrollIntoView`, which also scrolls
      every ancestor, the Maker included. */
@@ -172,8 +160,8 @@ export function DetailsWorkspace({
 
   return (
     <DetailsTapContext.Provider value={tap}>
-      <DetailsPieceContext.Provider value={pieceApi}>
       <DetailsSelectContext.Provider value={select}>
+      <DetailsPieceContext.Provider value={pieceCtx}>
       <div
         data-details-workspace=""
         data-details-item={selected}
@@ -224,7 +212,9 @@ export function DetailsWorkspace({
                       ) : null}
                     </header>
                   )}
-                  {bodies[i.key] ?? null}
+                  {/* A server-made body can arrive as a lazy client reference; one keyed
+                     fragment keeps it out of the header's list (React's key check). */}
+                  <Fragment key="body">{bodies[i.key] ?? null}</Fragment>
                 </div>
               ) : null,
             )}
@@ -244,13 +234,13 @@ export function DetailsWorkspace({
                   {g.items.map((i) => {
                     const on = i.key === selected;
                     return (
-                      <li key={i.key} className={on && i.pieces?.length ? 'contents lg:block' : 'shrink-0'}>
+                      <li key={i.key} className={on && pieces[i.key] ? 'contents lg:block' : 'shrink-0'}>
                         <button
                           type="button"
                           aria-pressed={on}
                           onClick={() => select(i.key)}
                           data-details-nav-item={i.key}
-                          className={`sn-press flex shrink-0 min-h-11 w-[84px] flex-col items-center gap-1 rounded-lg px-1.5 py-1.5 text-center transition-colors duration-sn-control ease-sn lg:w-full lg:flex-row lg:gap-2.5 lg:px-2 lg:text-left ${
+                          className={`sn-press flex min-h-11 w-[84px] shrink-0 flex-col items-center gap-1 rounded-lg px-1.5 py-1.5 text-center transition-colors duration-sn-control ease-sn lg:w-full lg:flex-row lg:gap-2.5 lg:px-2 lg:text-left ${
                             on ? 'bg-ink/[0.07] text-ink' : 'text-ink/75 hover:bg-ink/[0.04]'
                           }`}
                         >
@@ -271,30 +261,15 @@ export function DetailsWorkspace({
                             {i.sub ? <small className="hidden truncate text-[11.5px] text-ink/55 lg:block">{i.sub}</small> : null}
                           </span>
                         </button>
-                        {/* 🧩 The picked item's own pieces, under it — a column
-                            on a desk, the next chips of the strip on a phone. */}
-                        {on && i.pieces?.length ? (
-                          <ul className="contents lg:mb-1 lg:ml-6 lg:mt-0.5 lg:flex lg:flex-col lg:gap-0.5 lg:border-l lg:border-ink/10 lg:pl-2" data-details-pieces={i.key}>
-                            {i.pieces.map((p) => {
-                              const pOn = pieceApi.pieceOf(i.key) === p.key;
-                              return (
-                                <li key={p.key} className="shrink-0">
-                                  <button
-                                    type="button"
-                                    aria-pressed={pOn}
-                                    onClick={() => pieceApi.pick(i.key, p.key)}
-                                    data-details-piece-item={p.key}
-                                    className={`sn-press flex min-h-11 w-[96px] flex-col justify-center rounded-lg px-2 py-1 text-left transition-colors duration-sn-control ease-sn lg:w-full ${
-                                      pOn ? 'bg-ink/[0.07] text-ink' : 'text-ink/70 hover:bg-ink/[0.04]'
-                                    }`}
-                                  >
-                                    <span className="line-clamp-2 text-[11.5px] font-medium leading-tight lg:truncate lg:text-[13px]">{p.label}</span>
-                                    {p.sub ? <small className="truncate text-[11px] text-ink/55">{p.sub}</small> : null}
-                                  </button>
-                                </li>
-                              );
-                            })}
-                          </ul>
+                        {on && pieces[i.key] ? (
+                          /* 🧩 The tool's pieces — rows under it on a desk; on a phone they
+                             follow it in the strip (this li is `contents` there). */
+                          <div
+                            data-details-pieces={i.key}
+                            className="contents lg:flex lg:flex-col lg:gap-0.5 lg:py-1 lg:pl-11 lg:pr-1"
+                          >
+                            {pieces[i.key]}
+                          </div>
                         ) : null}
                       </li>
                     );
@@ -342,8 +317,8 @@ export function DetailsWorkspace({
           </div>
         </aside>
       </div>
-      </DetailsSelectContext.Provider>
       </DetailsPieceContext.Provider>
+      </DetailsSelectContext.Provider>
     </DetailsTapContext.Provider>
   );
 }

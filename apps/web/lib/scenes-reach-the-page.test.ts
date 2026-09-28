@@ -98,15 +98,20 @@ test('🔒 the couple’s words are text, never markup', async () => {
 });
 
 test('🎬 a clip slot loops silently by default; a tap-to-play clip waits behind ▶', async () => {
-  const { renderToStaticMarkup, renderScene } = await load();
+  const { React, renderToStaticMarkup, renderScene } = await load();
   const clip = { template: 14 as const, slots: [{ media: REF(0), kind: 'snippet' as const }] };
-  const loop = renderToStaticMarkup(renderScene({ canvas: clip, words: { title: '', body: '' }, mediaUrls: URLS, facts: FACTS })!);
+  /* 🔒 Drawn on the couple's own Maker canvas (`ownClipPlays`). A GUEST gets
+     no unscreened clip at all (SEC-6) — its still instead, held by
+     `scene-upload-media.test.ts` §6 — so the player is asserted where it plays. */
+  const guest = renderToStaticMarkup(renderScene({ canvas: clip, words: { title: '', body: '' }, mediaUrls: URLS, facts: FACTS }) ?? React.createElement('i'));
+  assert.doesNotMatch(guest, /<video/i, 'a guest never gets the unscreened clip');
+  const loop = renderToStaticMarkup(renderScene({ canvas: clip, words: { title: '', body: '' }, mediaUrls: URLS, facts: FACTS, ownClipPlays: true })!);
   // (React does not serialise `muted` into server HTML; the prop is on the element.)
   assert.match(loop, /<video[^>]*loop=""/i);
   assert.match(loop, /playsinline=""/i);
   assert.doesNotMatch(loop, /autoplay|controls/i, 'no autoplay attribute — it plays only on screen, never under reduced motion');
   const tap = renderToStaticMarkup(
-    renderScene({ canvas: { ...clip, video: { play: 'tap' } }, words: { title: 'Our first dance', body: '' }, mediaUrls: URLS, facts: FACTS })!,
+    renderScene({ canvas: { ...clip, video: { play: 'tap' } }, words: { title: 'Our first dance', body: '' }, mediaUrls: URLS, facts: FACTS, ownClipPlays: true })!,
   );
   assert.match(tap, /class="hub-tpl-play"[^>]*aria-label="Play: Our first dance"/);
   assert.doesNotMatch(tap, /loop=""/i, 'a tap-to-play video is not a loop');

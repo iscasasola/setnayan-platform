@@ -51,7 +51,7 @@ const WEDDING_WORDS = /\b(wedding|couple|bride|groom|bridal|ninong|ninang|entour
 
 test('a wedding shows all five, in the navigator’s order, in the “Your event” group', () => {
   assert.deepEqual(yourEventItems(WEDDING), ['names', 'date', 'venues', 'parents', 'march']);
-  assert.equal(yourEventLabel('march', WEDDING), 'Wedding march', 'the march is named from EventWords.eventWord');
+  assert.equal(yourEventLabel('march', WEDDING), 'Wedding March', 'the march is named from EventWords.eventWord');
   assert.equal(yourEventLabel('parents', WEDDING), 'Parents & hosts');
   assert.deepEqual(peopleLabels(WEDDING_PROFILE.terminology.personA, WEDDING_PROFILE.terminology.personB), ['Bride', 'Groom']);
   const group = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
@@ -116,16 +116,21 @@ test('every editor saves through the writer its own screen uses — +0 server ac
   assert.match(EDITORS, /await updateEventDate\(fd\)/, 'a month goes through the same date writer');
   assert.match(EDITORS, /makerSave\(\(\) => saveAllStdContent\(eventId, data\), requestMakerRefresh\)/, 'venues: the typed names the hub already reads');
   assert.match(EDITORS, /const data: Parameters<typeof saveAllStdContent>\[1\] = \{ launchDate \}/, 'the launch date is posted back, never cleared');
-  assert.match(EDITORS, /<FindYourDate eventId=\{eventId\} matrix=\{m\} embedded=/, '"Help me choose" is the shipped Find your date');
+  // "Help me choose" is the shipped finder's ranking and words, in the three parts.
+  const finder = read(`${L}details-date-finder.tsx`);
+  assert.match(finder, /from '\.\.\/\.\.\/find-date\/_components\/find-your-date'/);
+  assert.match(finder, /rankWithPin\(m\.dates, pinned\)/);
+  assert.match(EDITORS, /<FindDatePicked matrix=\{matrix\}/, 'the picked day and "Use" are on the right');
+  assert.match(EDITORS, /<FindDateCandidates matrix=\{matrix\} \/>/, 'the candidate days are in the middle');
 });
 
 test('nothing in Your event sends the couple elsewhere to finish it', () => {
   for (const [name, src] of [['editors', EDITORS], ['parts', PARTS]] as const) {
     assert.doesNotMatch(src, /<Link\b|href=|↗/, `${name}: a link-out`);
   }
-  const finder = read('app/dashboard/[eventId]/find-date/_components/find-your-date.tsx');
-  const embedded = finder.slice(finder.indexOf('if (embedded) {'), finder.indexOf('if (!matrix.hasDate) {', finder.indexOf('if (embedded) {') + 20));
-  assert.doesNotMatch(embedded, /<Link\b/, 'in place, the finder links nowhere');
+  for (const f of ['details-date-finder.tsx', 'details-march.tsx', 'details-people.tsx']) {
+    assert.doesNotMatch(read(`${L}${f}`), /<Link\b|href=|↗/, `${f}: a link-out`);
+  }
   const governed = read('app/dashboard/[eventId]/details/_components/governed-fields.tsx');
   assert.match(governed, /\{embedded \? null : \(\s*<p className="text-\[11px\] text-ink\/50">\s*Need a flexible window/, 'in place, the date row drops "More date options"');
 });

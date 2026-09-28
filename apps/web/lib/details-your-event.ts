@@ -75,7 +75,7 @@ export function yourEventLabel(key: EventItemKey, kind: YourEventKind): string {
     case 'parents':
       return parentsOffered(kind) ? 'Parents & hosts' : 'Hosts';
     case 'march':
-      return `${capital(kind.words.eventWord) || 'The'} march`;
+      return `${capital(kind.words.eventWord) || 'The'} March`;
   }
 }
 

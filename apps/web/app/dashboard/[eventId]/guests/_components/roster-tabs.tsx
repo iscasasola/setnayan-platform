@@ -39,7 +39,7 @@ import Link from 'next/link';
 import { ClipboardCheck, LayoutGrid, Send } from 'lucide-react';
 import { rosterDoors } from '@/lib/roster-doors';
 
-export type RosterView = 'list' | 'map' | 'walk' | 'share';
+export type RosterView = 'list' | 'map' | 'share';
 
 const ICON: Record<'share' | 'arrange' | 'checkin', React.ReactNode> = {
   share: <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />,
@@ -51,17 +51,14 @@ export function RosterTabs({
   eventId,
   view,
   finished,
-  hasProcessional,
   hasJoinLink,
   shareMenu,
   viewSwitch,
 }: {
   eventId: string;
   view: RosterView;
-  /** The event has happened. Invite / arrange / walk stop making sense. */
+  /** The event has happened. Invite / arrange stop making sense. */
   finished: boolean;
-  /** The event has a processional — a Wedding March is only offered then. */
-  hasProcessional: boolean;
   /** A join link exists — the after-the-event Share menu needs one. */
   hasJoinLink: boolean;
   /** The Share dropdown, rendered by the page; shown only when the rules say. */
@@ -73,7 +70,7 @@ export function RosterTabs({
   // `lib/roster-doors.ts` — pure, and executed by its test — so a door cannot
   // quietly vanish from this row the way nothing noticed it could have when
   // the masthead's buttons moved in.
-  const { tabs, trailing } = rosterDoors({ eventId, view, finished, hasProcessional, hasJoinLink });
+  const { tabs, trailing } = rosterDoors({ eventId, view, finished, hasJoinLink });
 
   return (
     <div className="flex items-center gap-2 border-b border-ink/[0.07]">

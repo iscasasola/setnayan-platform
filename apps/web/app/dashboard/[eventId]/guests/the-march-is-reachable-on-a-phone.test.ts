@@ -7,59 +7,37 @@ import { rosterDoors } from '@/lib/roster-doors';
 
 /**
  * ⚖ OWNER 2026-09-23: *"the guest list on mobile mode is different from the
- * desktop mode. seems like the mobile mode was not edited properly."*
+ * desktop mode."* — the Wedding March once had exactly one door, the Guest
+ * list's doors row, and that row shipped `hidden lg:block`, so a phone could
+ * not reach the march at all.
  *
- * He was right, and the gap was worse than cosmetic. `rosterDoors` is the ONLY
- * producer of `?gview=walk` in the app; the phone's own control surface
- * (`mobile-guest-carousel.tsx`) emits `gview: null` and reads
- * `gview === 'map'`, never `walk`. With the doors row mounted `hidden
- * lg:block`, a phone had NO control that could reach the Wedding March — the
- * only way in was to type the URL.
+ * ⚖ OWNER 2026-09-29 (DECISION_LOG "THE GUEST LIST KEEPS PEOPLE…"): the march
+ * LEFT the Guest list. Its one home is the Maker's Details › Your event, in the
+ * three parts, and an old Guest list link lands there. The same lesson holds
+ * in its new home: on a phone the Details navigator — the only way to the
+ * item, and to the march's own lines — must not be hidden.
  *
- * 🔑 AND THE MOBILE DESIGN WAS ALREADY BUILT. RosterTabs is a snap carousel
- * measured at 380px with an edge fade, and "Arrange the room" is an icon on
- * mobile because the owner asked for that on 2026-09-20. It all shipped behind
- * a `hidden`.
- *
- * ⚠ THIS IS A REACHABILITY TEST, NOT A LAYOUT ONE. It does not claim the row
- * looks right on a phone — it claims the phone HAS the row, and that the door
- * it carries is the only one that exists.
+ * ⚠ A REACHABILITY TEST, NOT A LAYOUT ONE.
  */
 
 const GUESTS = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests');
-const read = (...p: string[]) => stripComments(readFileSync(join(GUESTS, ...p), 'utf8'));
+const LAUNCH = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components');
+const read = (dir: string, ...p: string[]) => stripComments(readFileSync(join(dir, ...p), 'utf8'));
 
-test('the Wedding March has exactly one door, and it is the doors row', () => {
-  const doors = rosterDoors({
-    eventId: 'e1',
-    view: 'list',
-    finished: false,
-    hasProcessional: true,
-    hasJoinLink: true,
-  });
-  const walk = doors.tabs.find((d) => d.kind === 'tab' && d.key === 'walk');
-  assert.ok(walk, 'rosterDoors no longer offers the Wedding March');
-
-  // The phone's own surface does not offer it, so hiding the row hides the
-  // feature. If that ever changes, this line is the place to say so.
-  const carousel = read('_components', 'mobile-guest-carousel.tsx');
-  assert.doesNotMatch(
-    carousel,
-    /gview:\s*'walk'|gview=walk/,
-    'the mobile carousel now links to the walk view — update this test, it is no longer the only door',
-  );
+test('the Wedding March has one home — Details — and the Guest list hands old links to it', () => {
+  const doors = rosterDoors({ eventId: 'e1', view: 'list', finished: false, hasJoinLink: true });
+  assert.ok(!doors.tabs.some((d) => /walk|march/i.test(d.key)), 'the Guest list offers the march again');
+  const page = read(GUESTS, 'page.tsx');
+  assert.match(page, /redirect\(detailsItemHref\(eventId, 'march'\)\)/, 'an old ?gview=walk link no longer lands on Details');
+  const carousel = read(GUESTS, '_components', 'mobile-guest-carousel.tsx');
+  assert.doesNotMatch(carousel, /gview:\s*'walk'|gview=walk/, 'the phone carousel links to a march view that no longer exists');
 });
 
-test('the doors row is not hidden from phones', () => {
-  const page = read('page.tsx');
-  const at = page.indexOf('<RosterTabs');
-  assert.ok(at > -1, 'the page no longer mounts the doors row');
-  // The wrapper element immediately before the mount.
-  const open = page.lastIndexOf('<div', at);
-  const wrapper = page.slice(open, at);
-  assert.doesNotMatch(
-    wrapper,
-    /\bhidden\b/,
-    'the doors row is hidden again — on a phone that removes the Wedding March entirely, because nothing else links to it',
-  );
+test('on a phone, the Details navigator — and the march’s own lines in it — is not hidden', () => {
+  const ws = read(LAUNCH, 'details-workspace.tsx');
+  const nav = ws.slice(ws.indexOf('<nav aria-label="Details'), ws.indexOf('>', ws.indexOf('<nav aria-label="Details')));
+  assert.ok(nav.length > 0, 'the Details navigator is gone');
+  assert.doesNotMatch(nav.replace(/lg:[\w-]+/g, ''), /\bhidden\b/, 'the Details navigator is hidden on a phone');
+  // The march's lines ride in that same navigator while the item is open.
+  assert.match(ws, /\{pieces\[selected\] && !allItems \? \(/);
 });

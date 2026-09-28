@@ -13,18 +13,27 @@ import { rosterDoors } from './roster-doors';
  */
 
 const doors = (o: Partial<Parameters<typeof rosterDoors>[0]> = {}) =>
-  rosterDoors({ eventId: 'E', view: 'list', finished: false, hasProcessional: true, hasJoinLink: true, ...o });
+  rosterDoors({ eventId: 'E', view: 'list', finished: false, hasJoinLink: true, ...o });
 const keys = (d: ReturnType<typeof doors>) => ({
   tabs: d.tabs.map((x) => x.key),
   trailing: d.trailing.map((x) => x.key),
 });
 
-test('before a wedding: Roster · Wedding March · Share the link, and Arrange the room', () => {
-  assert.deepEqual(keys(doors()), { tabs: ['roster', 'walk', 'share'], trailing: ['arrange'] });
+test('before the event: Roster · Share the link, and Arrange the room', () => {
+  assert.deepEqual(keys(doors()), { tabs: ['roster', 'share'], trailing: ['arrange'] });
 });
 
-test('no processional, no Wedding March — a birthday walks down no aisle', () => {
-  assert.deepEqual(keys(doors({ hasProcessional: false })).tabs, ['roster', 'share']);
+test('the Wedding March is not a Guest list tab — its home is Details › Your event', () => {
+  // Owner 2026-09-29 (DECISION_LOG "THE GUEST LIST KEEPS PEOPLE…"): the march
+  // left the Guest list for the Maker; an old `?gview=walk` link lands there.
+  for (const d of [doors(), doors({ finished: true })]) {
+    assert.ok(![...d.tabs, ...d.trailing].some((x) => /walk|march/i.test(x.key)), 'the march came back to the Guest list');
+  }
+  const page = stripComments(
+    readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'), 'utf8'),
+  );
+  assert.match(page, /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(detailsItemHref\(eventId, 'march'\)\);/);
+  assert.doesNotMatch(page, /<EntourageOrderPanel/, 'the Guest list draws the march again');
 });
 
 test('after the event: inviting and arranging stop; Check-in and the quick Share remain', () => {
@@ -47,7 +56,6 @@ test('each door goes where it always went', () => {
   const all = [...doors().tabs, ...doors().trailing, ...doors({ finished: true }).trailing];
   const href = (k: string) => (all.find((x) => x.key === k) as { href?: string } | undefined)?.href;
   assert.equal(href('roster'), '/dashboard/E/guests');
-  assert.equal(href('walk'), '/dashboard/E/guests?gview=walk');
   // ⚖ Deliberately NOT /guests/invite any more (owner 2026-09-21: "should not
   // clear the whole page. only the body"). That link removed the whole guest
   // list 185ms after the click, measured on the live page. It is a tab on this
@@ -58,8 +66,8 @@ test('each door goes where it always went', () => {
 });
 
 test('exactly one tab is current, and the mind map keeps Roster lit', () => {
-  const expected = { list: 'roster', map: 'roster', walk: 'walk', share: 'share' } as const;
-  for (const view of ['list', 'map', 'walk', 'share'] as const) {
+  const expected = { list: 'roster', map: 'roster', share: 'share' } as const;
+  for (const view of ['list', 'map', 'share'] as const) {
     const current = doors({ view }).tabs.filter((x) => x.kind === 'tab' && x.current).map((x) => x.key);
     assert.deepEqual(current, [expected[view]], `view=${view}`);
   }
@@ -83,7 +91,7 @@ test('the page MOUNTS the row, and feeds it the real conditions', () => {
   const mounts = page.match(/<RosterTabs[\s/>]/g) ?? [];
   assert.equal(mounts.length, 1, `found ${mounts.length} <RosterTabs> mounts`);
   const tag = page.slice(page.indexOf('<RosterTabs'), page.indexOf('/>', page.indexOf('<RosterTabs')));
-  for (const prop of ['finished={finished}', 'hasProcessional={hasProcessional}', 'view={gview}']) {
+  for (const prop of ['finished={finished}', 'view={gview}']) {
     assert.ok(tag.includes(prop), `<RosterTabs> is not given ${prop} — its doors would ignore the event's real state`);
   }
   // And the doors did not ALSO stay in the masthead, which would be every
@@ -95,7 +103,7 @@ test('the page MOUNTS the row, and feeds it the real conditions', () => {
 test('the QR sheet is NOT on the Guest list — its home is Details › For the day', () => {
   // Owner 2026-09-29 (DECISION_LOG "THE GUEST LIST KEEPS PEOPLE…"): the Guest list
   // keeps people; every print lives in the Maker's Details. "Share the link" stays.
-  for (const d of [doors(), doors({ finished: true }), doors({ hasProcessional: false, hasJoinLink: false })]) {
+  for (const d of [doors(), doors({ finished: true }), doors({ hasJoinLink: false })]) {
     assert.ok(![...d.tabs, ...d.trailing].some((x) => /qr/i.test(x.key)), 'the QR sheet came back to the Guest list');
   }
   assert.ok(doors().tabs.some((x) => x.key === 'share'), '"Share the link" left the Guest list');

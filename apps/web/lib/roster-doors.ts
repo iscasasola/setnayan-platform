@@ -16,8 +16,7 @@
  *
  * ── THE RULES, EACH MOVED WITH ITS REASON ──────────────────────────────────
  *   Roster            always
- *   Wedding March     before the event, and only with a processional — a
- *                     birthday's guests walk down no aisle
+ *   (Wedding March    moved to the Maker's Details, owner 2026-09-29)
  *   Share the link    before the event (it was "Invite guests"); after it,
  *                     inviting people "is the one door that stops making sense"
  *   Arrange the room  before the event
@@ -34,7 +33,7 @@
  */
 
 export type RosterDoor =
-  | { kind: 'tab'; key: 'roster' | 'walk' | 'share'; label: string; href: string; current: boolean }
+  | { kind: 'tab'; key: 'roster' | 'share'; label: string; href: string; current: boolean }
   | { kind: 'link'; key: 'arrange' | 'checkin'; label: string; href: string }
   | { kind: 'shareMenu'; key: 'share-menu' };
 
@@ -42,25 +41,25 @@ export function rosterDoors({
   eventId,
   view,
   finished,
-  hasProcessional,
   hasJoinLink,
 }: {
   eventId: string;
-  view: 'list' | 'map' | 'walk' | 'share';
+  view: 'list' | 'map' | 'share';
   finished: boolean;
-  hasProcessional: boolean;
   hasJoinLink: boolean;
 }): { tabs: RosterDoor[]; trailing: RosterDoor[] } {
   const base = `/dashboard/${eventId}/guests`;
   // `map` is a way of LOOKING at the roster, not a different task — it keeps
   // the Roster tab lit rather than leaving the row with nothing selected.
   const tabs: RosterDoor[] = [
-    // `map` is a way of LOOKING at the roster; walk and share are their own tabs.
+    // `map` is a way of LOOKING at the roster; share is its own tab.
     { kind: 'tab', key: 'roster', label: 'Roster', href: base, current: view === 'list' || view === 'map' },
   ];
-  if (!finished && hasProcessional) {
-    tabs.push({ kind: 'tab', key: 'walk', label: 'Wedding March', href: `${base}?gview=walk`, current: view === 'walk' });
-  }
+  // ⚖ NO WEDDING MARCH TAB (owner 2026-09-29, DECISION_LOG "THE GUEST LIST
+  // KEEPS PEOPLE…"): its home is the Maker — Details › Your event › the march,
+  // in the three parts. An old `?gview=walk` link lands there (`page.tsx`). The
+  // order data (`guests.entourage_order`, `events.entourage_section_order`) is
+  // untouched.
   // ⚖ A REAL TAB NOW (owner 2026-09-21: "pressing buttons inside the guest list
   // should not clear the whole page. only the body."). It was a link to
   // /guests/invite, which measured on the live page removed the whole guest

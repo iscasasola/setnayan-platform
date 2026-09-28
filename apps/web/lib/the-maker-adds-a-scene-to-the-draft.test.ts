@@ -8,16 +8,19 @@
  * Apply. This holds:
  *
  *   D. the added scene is in the DRAFT: live it is hidden on both guest paths,
- *      the host's overlay shows it, Apply publishes it (never held as Pro), and
- *      Restore / a stale draft for the same slot cannot leak into it;
+ *      the host's overlay shows it, Apply publishes it for an owning couple —
+ *      and, since 2026-09-28 ("A FREE COUPLE MAY USE EVERY PRO FEATURE IN THE
+ *      MAKER — PRO IS ASKED FOR AT APPLY"), HOLDS it for a couple without Pro,
+ *      keeping it shown in their draft and naming it on the Apply sheet —
+ *      and Restore / a stale draft for the same slot cannot leak into it;
  *   N. it appears in the navigator (the overlaid rows), and not on live;
- *   W. `addCustomSection` takes the draft door AFTER the Pro refusal and the
- *      six-cap, inserts the row hidden, drafts it shown, and lands back on the
+ *   W. `addCustomSection` takes the draft door AFTER the Pro refusal (which the
+ *      draft door passes — Apply is its gate) and the six-cap, inserts the row hidden, drafts it shown, and lands back on the
  *      address the couple is on (`lib/maker-stay.ts` — never a `?scene=` that
  *      would remount the Maker); the work area selects the scene that appeared;
  *   C. the six-cap holds;
- *   P. the Pro lock holds: a free couple gets the note with the padlock, never
- *      the sheet; the store shell gets nothing;
+ *   P. a free couple on the web gets the sheet (tried free, paid at Apply); the
+ *      store shell gets nothing;
  *   T. the toolbar ＋ is no longer "coming next": the work area registers what
  *      it may do (`MakerAddScene`), the shell's ＋ (desktop) and More ▾ row
  *      (phone) open the SAME sheet as the navigator's button, and every
@@ -88,19 +91,22 @@ test('D · the added scene is hidden from guests live, and shown only through th
   assert.equal(openBrowseSectionVisible(host!), true);
   assert.deepEqual((host!.config_json as { canvas?: unknown }).canvas, CANVAS);
 
-  // Apply publishes it — and a free couple's Apply does not hold it as Pro.
+  // Apply publishes it for an owning couple — and HOLDS it for a free one
+  // (2026-09-28: tried free, paid at Apply), keeping it shown in their draft.
   const live = { events: {}, widgets: [liveAdded] };
   const { items, orphans } = classifyHubDraft(draft, live);
   assert.deepEqual(orphans, []);
   const show = items.find((i) => i.kind === 'widget' && i.field === 'is_visible');
   assert.ok(show && show.value === true, 'Apply must write is_visible: true for the added scene');
-  for (const ownsPro of [false, true]) {
-    const plan = planHubDraftApply(draft, live, ownsPro);
-    const isShow = (i: (typeof plan.apply)[number]) =>
-      i.kind === 'widget' && i.widgetType === 'custom_1' && i.field === 'is_visible' && i.value === true;
-    assert.ok(plan.apply.some(isShow), `Apply (ownsPro=${ownsPro}) must publish the added scene`);
-    assert.ok(!plan.refused.some(isShow), `Apply (ownsPro=${ownsPro}) held the added scene back`);
-  }
+  const isShow = (i: { kind: string; widgetType?: string; field?: string; value?: unknown }) =>
+    i.kind === 'widget' && i.widgetType === 'custom_1' && i.field === 'is_visible' && i.value === true;
+  const owner = planHubDraftApply(draft, live, true);
+  assert.ok(owner.apply.some(isShow), 'Apply (ownsPro) must publish the added scene');
+  assert.ok(!owner.refused.some(isShow), 'Apply (ownsPro) held the added scene back');
+  const free = planHubDraftApply(draft, live, false);
+  assert.ok(!free.apply.some(isShow), 'Apply WITHOUT Pro put a scene of their own in front of guests');
+  assert.ok(free.refused.some(isShow), 'the scene of their own is not held for Pro');
+  assert.equal(free.remaining.widgets.custom_1?.is_visible, true, 'a held scene must stay SHOWN in the draft');
 
   // Restore throws the draft away: the preview matches the guest link again.
   const [restored] = overlayHubDraftWidgets([liveAdded], null);
@@ -137,7 +143,8 @@ test('W · addCustomSection: Pro refusal → six-cap → draft door → hidden i
   const at = {
     pro: body.search(/refuseCustomSectionWithoutPro\(eventId,/),
     cap: body.search(/nextFreeCustomSlot\(used\)/),
-    door: body.search(/if \(isHubDraftWrite\(formData\)\) \{/),
+    door: body.search(/if \(drafting\) \{/),
+    drafting: body.search(/const drafting = isHubDraftWrite\(formData\)/),
     insert: body.search(/\.\.\.ADDED_SCENE_LIVE,/),
     drafted: body.search(/saveHubDraftPatch\(\s*eventId,\s*\{\s*widgets: \{ \[slot as string\]: addedSceneDraft\([\s\S]{0,160}\{ formData, fallback: DRAFT_FALLBACK\(eventId\) \}/),
     back: body.search(/redirect\(resolveReturnTo\(formData, `\/dashboard\/\$\{eventId\}\/launch\?drafted=1`/),
@@ -145,6 +152,9 @@ test('W · addCustomSection: Pro refusal → six-cap → draft door → hidden i
   };
   console.log(`[add-a-scene] addCustomSection anchors: ${JSON.stringify(at)}`);
   assert.ok(at.pro > 0, 'the Pro refusal is gone');
+  assert.ok(at.drafting > 0 && at.drafting < at.pro, 'the draft decision must be made before the Pro refusal');
+  // 💎 Outside the Maker the door still refuses a free couple; in it, Apply does.
+  assert.match(body, /refuseCustomSectionWithoutPro\(eventId, \{\s*intent: 'add',\s*ownsPro: ownsPro \|\| drafting,/);
   assert.ok(at.cap > at.pro, 'the six-cap must be read after the Pro refusal');
   assert.ok(at.door > at.cap, 'the draft door must come AFTER the Pro refusal and the six-cap');
   assert.ok(at.insert > at.door, 'the draft door must insert the row hidden (ADDED_SCENE_LIVE)');
@@ -173,13 +183,14 @@ test('C · the six-cap holds: a seventh scene has no slot', () => {
   assert.match(read(PAGE), /!nextFreeCustomSlot\(allWidgets\.map\(\(w\) => w\.widget_type\)\)\s*\?\s*\{ note:/);
 });
 
-test('P · the Pro lock holds: free → the note with the padlock; the store shell → nothing; only an owner gets the sheet', () => {
+test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); the store shell → nothing', () => {
   const page = read(PAGE);
   assert.match(
     page,
-    /addScene=\{\s*storeShell\s*\?\s*null\s*:\s*!ownsPro\s*\?\s*\{ note: '[^']*Event Hub Pro\.', locked: true \}/,
-    'a free couple must get the Pro note (locked), and the store shell nothing',
+    /addScene=\{\s*storeShell\s*\?\s*null\s*:\s*!nextFreeCustomSlot\(/,
+    'the store shell must get nothing, and every other couple the sheet (or the six-cap note)',
   );
+  assert.doesNotMatch(page, /Scenes of your own, from 25 templates, come with Event Hub Pro/, 'a free couple is still turned away at the door');
   // The work area registers the answer — ready opens the sheet, refused
   // carries the note and whether it is the Pro padlock.
   const work = read(`${C}editor-shell.tsx`);

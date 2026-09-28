@@ -14,6 +14,7 @@ import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
 import {
   MAKER_MORE_ROWS_ID,
+  MAKER_OPEN_PART_EVENT,
   useMaker,
   type MakerSceneTab,
   type MakerSelection,
@@ -248,7 +249,6 @@ export function MakerWork({
     hubTheme: string;
     openBrowse: boolean;
     hideLocked: boolean;
-    lookLock: ReactNode;
     /** Two people at the centre — the hero has a Joiner to style. */
     twoPeople: boolean;
   } | null;
@@ -365,6 +365,18 @@ export function MakerWork({
   useEffect(() => {
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
   }, [selectionKey, stage]);
+  /* 💎 The Apply sheet's "Go to" a part's own font or motion (owner 2026-09-28):
+     the toolbar selects the scene, then asks for the part's sheet here. */
+  useEffect(() => {
+    const onOpenPart = (e: Event) => {
+      const d = (e as CustomEvent<{ key?: unknown; widgetType?: unknown; el?: unknown }>).detail;
+      if (d && typeof d.key === 'string' && typeof d.widgetType === 'string' && isHubElementKey(d.el)) {
+        setElementTarget({ key: d.key, widgetType: d.widgetType, el: d.el });
+      }
+    };
+    window.addEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
+    return () => window.removeEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
+  }, []);
 
   /* ⚡ THE CANVAS HOLD (`element-preview.ts`). The canvas iframe is keyed on
      `canvasStamp`, not on every server render's `renderStamp`: an element
@@ -530,7 +542,8 @@ export function MakerWork({
   /* …and what a pick will need: every face in the Font dropdown and, for a
      couple who can pick one, their photos as backgrounds (`lib/maker-preload.ts`
      — the Maker's own document only, never a guest page). Same device gate. */
-  const photoUrlsKey = ownsPro ? (sceneFormat?.photoChoices ?? []).map((p) => p.url).join('\n') : '';
+  const photoUrlsKey =
+    ownsPro || !sceneFormat?.hideLocked ? (sceneFormat?.photoChoices ?? []).map((p) => p.url).join('\n') : '';
   useEffect(() => {
     if (warmBudget === 0) return;
     return whenIdle(() => {
@@ -1129,6 +1142,7 @@ export function MakerWork({
               photoChoices={sceneFormat.photoChoices}
               videoChoice={sceneFormat.videoChoice}
               ownsPro={ownsPro}
+              storeShell={sceneFormat.hideLocked}
               mediaHref={sceneFormat.mediaHref}
               hubTheme={sceneFormat.hubTheme as never}
               onPreview={(message) => {
@@ -1170,7 +1184,6 @@ export function MakerWork({
           ownsPro={ownsPro}
           hideLocked={sceneFormat?.hideLocked ?? false}
           isLast={at === shownSceneIds.length - 1}
-          lookLock={sceneFormat?.lookLock}
           onPreview={() => window.dispatchEvent(new Event(MAKER_PLAY_SCENE_EVENT))}
         />
       ) : null,

@@ -58,7 +58,7 @@ import { SceneSlotsPanel } from './scene-slots-panel';
 import { detailsFactOfScene } from '@/lib/details-bound';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * SectionsPanel — show / hide / reorder every section of the website, inline
@@ -109,7 +109,7 @@ export function SectionsPanel({
   photoChoices = [],
   ownsPro = true,
   customLock = null,
-  lookLock = null,
+  hiddenLive = [],
   videoChoice = null,
   colorChoices = [],
   only = null,
@@ -181,6 +181,9 @@ export function SectionsPanel({
    * feature). A boolean, never a component — nothing callable crosses here.
    * `setWidgetMotion` refuses a free couple independently; Scroll is never
    * locked, so a look can always be taken off.
+   * 💎 Since 2026-09-28 every form here drafts, so the lock holds only where
+   * `hideLocked` does (the app-store shell); on the web the chips work and
+   * Apply asks for Pro.
    */
   transitionLocked?: boolean;
   /** Set or clear one section's background photo. */
@@ -217,10 +220,13 @@ export function SectionsPanel({
    */
   customLock?: React.ReactNode;
   /**
-   * The lock shown ONCE above the list for a free couple, naming the look
-   * controls (photo, crop, motion). Same panel, same element rule.
+   * 💎 The couple's own scenes guests do NOT see live (a scene just added in the
+   * Maker is inserted hidden). Their words may be written without Pro — no guest
+   * meets them, and showing the scene is what Apply asks Pro for
+   * (`saveCustomSection`'s `hiddenFromGuests`). Read from the LIVE rows by the
+   * page: `rows` here are the draft laid over live, which says "shown".
    */
-  lookLock?: React.ReactNode;
+  hiddenLive?: readonly string[];
 }) {
   if (rows.length === 0) {
     return (
@@ -233,6 +239,13 @@ export function SectionsPanel({
   }
 
   const back = returnTo ?? RETURN_TO(eventId);
+  /* 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28, verbatim: *"they can edit
+     it with pro features. but need to upgrade to pro when clicked on apply"*).
+     Every form here posts `draft=1`, and Apply holds each Pro pick for a couple
+     without Event Hub Pro — so on the web every look control is USABLE, wearing
+     ◆ PRO. Only the app-store shell still hides them (`hideLocked`). */
+  const proUsable = makerProUsable({ owns: ownsPro, storeShell: hideLocked });
+  const proMark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
   return (
     <div className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
       {only ? null : (
@@ -242,11 +255,6 @@ export function SectionsPanel({
           content.
         </p>
       )}
-      {/* Free: order, show and hide are the page we write. How each section
-          looks and moves is named and locked here ONCE — never hidden, never
-          repeated on every row. What a couple already chose stays, and each row
-          below still offers to take it off. */}
-      {!ownsPro && lookLock && !hideLocked ? <div className="mb-2">{lookLock}</div> : null}
       <ul className="flex flex-col gap-1.5">
         {rows.map((row, i) => {
           if (only && row.widget_id !== only) return null;
@@ -401,7 +409,7 @@ export function SectionsPanel({
                   ⚠ AUTO IS AN ABSENCE. The Auto chip posts `timeline=auto`,
                   which DELETES the key — so a later change to what "Editorial"
                   means still reaches a couple who never overrode it. */}
-              {setMotionAction && !ownsPro ? (
+              {setMotionAction && !proUsable ? (
                 /* 🔓 A FREE COUPLE MAY ALWAYS TAKE A LOOK OFF. Motion chosen
                    before (or while Pro) stays until they reset it; `reset=1`
                    is the one motion write `setWidgetMotion` never gates. */
@@ -426,8 +434,9 @@ export function SectionsPanel({
                   const preset = canvas.preset ?? null;
                   return (
                     <div data-maker-part="animate" className="mt-2 border-t border-dashed border-ink/10 pt-2">
-                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                      <p className="mb-1 inline-flex items-center gap-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
                         How it moves
+                        {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null}
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
                         {HUB_MOTION_PRESETS.map((p) => (
@@ -484,7 +493,7 @@ export function SectionsPanel({
                               </span>
                               {HUB_TRANSITIONS.map((t) => {
                                 const on = transition === t;
-                                const locked = transitionLocked && t !== 'scroll' && !on;
+                                const locked = transitionLocked && !proUsable && t !== 'scroll' && !on;
                                 if (locked && hideLocked) return null;
                                 return (
                                   <form key={t} action={setMotionAction}>
@@ -514,7 +523,7 @@ export function SectionsPanel({
                                   </form>
                                 );
                               })}
-                              {transitionLocked && !hideLocked ? (
+                              {transitionLocked && !proUsable && !hideLocked ? (
                                 <a
                                   href={`/dashboard/${eventId}/studio/website-pro`}
                                   className="text-[0.58rem] font-semibold text-ink/60 underline underline-offset-2 hover:text-ink"
@@ -541,7 +550,7 @@ export function SectionsPanel({
                                       <button
                                         type="submit"
                                         aria-pressed={on}
-                                        disabled={transitionLocked && !on}
+                                        disabled={transitionLocked && !proUsable && !on}
                                         className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
                                           on
                                             ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
@@ -745,7 +754,10 @@ export function SectionsPanel({
                   /* The grandfather rule, the same one `lockedIf` states for
                      every other Pro row: a couple who already has words here
                      keeps editing them. Only an EMPTY section is locked. */
-                  const locked = !ownsPro && !customSectionHasContent(row.config_json);
+                  const locked =
+                    !ownsPro &&
+                    !customSectionHasContent(row.config_json) &&
+                    !(proUsable && hiddenLive.includes(row.widget_id));
                   const arrangement =
                     sanitizeHubCanvas(row.config_json).arrangement ?? HUB_DEFAULT_ARRANGEMENT;
                   const removeForm = (
@@ -899,20 +911,21 @@ export function SectionsPanel({
                   colorChoices={colorChoices}
                   photoChoices={photoChoices}
                   videoChoice={videoChoice}
-                  ownsPro={ownsPro}
+                  ownsPro={proUsable}
                   action={setBackgroundAction}
                   returnTo={back}
-                  showSwatches={ownsPro && photoChoices.length === 0}
+                  showSwatches={proUsable && photoChoices.length === 0}
                 />
               ) : null}
 
-              {setBackgroundAction && !ownsPro ? (
+              {setBackgroundAction && !proUsable ? (
                 /* 🔓 A FREE COUPLE MAY ALWAYS TAKE MEDIA OFF, AND MAY ALWAYS
                    CHOOSE A COLOUR (owner 2026-09-24: "changing background
                    color is free. making media a background is pro."). A photo
                    or video already set stays, and removing it (media='') is
                    never gated. No photo picker, no crop — putting media up or
-                   moving it is Pro, named once by `lookLock` above. */
+                   moving it is Pro — in the app-store shell only; on the web
+                   every look control is usable and Apply asks for Pro. */
                 (() => {
                   const canvas = sanitizeHubCanvas(row.config_json);
                   if (!canvas.media && colorChoices.length === 0) return null;
@@ -1133,14 +1146,7 @@ export function SectionsPanel({
           names the same six — so there is no seventh to create, by this button
           or by a hand-crafted POST. It says WHY it is gone rather than sitting
           there refusing. */}
-      {only ? null : addCustomAction && !ownsPro && hideLocked ? null : addCustomAction && !ownsPro ? (
-        /* Named and locked — never hidden. A free couple learns the feature
-           exists; the lock shows exactly what every other Pro row shows. */
-        <div className="mt-2">
-          <p className="mb-1 text-[0.7rem] font-medium text-ink/70">A section of your own</p>
-          {customLock}
-        </div>
-      ) : addCustomAction ? (
+      {only ? null : addCustomAction && !proUsable ? null : addCustomAction ? (
         nextFreeCustomSlot(rows.map((r) => r.widget_type)) ? (
           /* 🎬 "+" OPENS THE 25 TEMPLATES — and nothing else (owner
              2026-09-24: "we do not have the blank anymore"). Each tile posts

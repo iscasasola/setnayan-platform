@@ -84,7 +84,6 @@ export function MakerDetails({
     current: string;
     ownsPro: boolean;
     storeShell: boolean;
-    proHref: string;
     /** Mount the picker's first-visit tour (off on the Maker's own first visit). */
     tour: boolean;
   } | null;
@@ -135,7 +134,6 @@ export function MakerDetails({
               current={theme.current}
               ownsPro={theme.ownsPro}
               storeShell={theme.storeShell}
-              proHref={theme.proHref}
             />
             {theme.tour ? <MiniTour tourKey="customer_theme_picker_v1" storeShell={theme.storeShell} /> : null}
           </>

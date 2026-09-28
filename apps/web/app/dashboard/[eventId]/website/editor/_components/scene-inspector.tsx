@@ -2,7 +2,7 @@
 
 import { makerSave } from '@/lib/maker-refresh';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Lock, PencilLine, Play } from 'lucide-react';
@@ -66,10 +66,14 @@ import { IButton, IHint, IReset, IRow, ISection, ISeg, ISegmented } from './insp
  * own draft form (the shell's `post` / `move`), exactly as the navigator's ⋯
  * menu does. Remove is the scene's existing confirm-first form.
  *
- * 🔓 PRO, UNCHANGED: how a scene looks and moves is Event Hub Pro. A free couple
- * sees the panel's one lock and, where they already chose motion, "Reset how it
- * moves" — the one motion change that is always free. In the store shell a Pro
- * control is hidden, never shown locked.
+ * 💎 PRO, TRIED HERE, PAID AT APPLY (owner 2026-09-28, verbatim: *"they can edit
+ * it with pro features. but need to upgrade to pro when clicked on apply and
+ * point out the effect chosen that caused them to upgrade to pro"*). How a scene
+ * moves is still Event Hub Pro, but every row saves to the DRAFT, so a couple
+ * without it uses the same controls — marked ◆ PRO, never locked — and the
+ * Apply sheet names what they chose ("Animation · Schedule"). In the app-store
+ * shell a couple without Pro is shown only "Reset how it moves" (the one motion
+ * change that is always free); a Pro control there is hidden, never locked.
  */
 
 export type SceneTab = 'format' | 'animate' | 'arrange' | 'content';
@@ -135,7 +139,6 @@ export function SceneAnimateTab({
   ownsPro,
   hideLocked,
   isLast,
-  lookLock,
   onPreview,
 }: {
   eventId: string;
@@ -147,17 +150,15 @@ export function SceneAnimateTab({
   hideLocked: boolean;
   /** The stage's last scene has no next scene — no transition to set. */
   isLast: boolean;
-  /** The page's one Pro lock, named once (an element, never a function). */
-  lookLock?: React.ReactNode;
   /** ▶ Preview — play this scene, then the move into the next. */
   onPreview: () => void;
 }) {
   const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
 
-  if (!ownsPro) {
+  const mark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
+  if (!makerProUsable({ owns: ownsPro, storeShell: hideLocked })) {
     return (
       <div data-scene-tab="animate" aria-busy={pending}>
-        {!hideLocked && lookLock ? <div className="py-2">{lookLock}</div> : null}
         {canvasHasMotion(shown as Record<string, unknown>) ? (
           /* 🔓 A free couple may always take a look off. */
           <IReset data="scene-motion" onClick={() => save((c) => { for (const k of HUB_CANVAS_MOTION_KEYS) delete c[k]; })}>
@@ -184,12 +185,12 @@ export function SceneAnimateTab({
 
   return (
     <div data-scene-tab="animate" aria-busy={pending}>
-      {/* 💎 How a scene moves is Event Hub Pro — this branch is the owning couple's,
-          so it wears the diamond (a free couple sees the page's one lock above). */}
+      {/* 💎 How a scene moves is Event Hub Pro — the diamond for an owning couple,
+          ◆ PRO for one trying it (their pick waits in the draft for Apply). */}
       <ISection>
         <span className="inline-flex items-center gap-1.5">
           How it moves
-          <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="xs" />
+          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
         </span>
       </ISection>
       <IRow wrap data="scene-preset">

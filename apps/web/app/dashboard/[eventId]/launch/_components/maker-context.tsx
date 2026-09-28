@@ -83,3 +83,11 @@ export const MAKER_MORE_ROWS_ID = 'maker-more-rows';
 export type MakerAddScene =
   | { kind: 'ready'; open: () => void }
   | { kind: 'refused'; note: string; locked: boolean; unlockHref: string };
+
+/**
+ * 💎 "Go to" from the Apply sheet (owner 2026-09-28): after the scene is
+ * selected, open ONE part's own sheet on it — the part whose font or motion is
+ * the Pro effect. `detail` = `{ key, widgetType, el }` (an `ElementTarget`
+ * without a range); the work area (`editor-shell.tsx`) answers.
+ */
+export const MAKER_OPEN_PART_EVENT = 'maker:open-part';

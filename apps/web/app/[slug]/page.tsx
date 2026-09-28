@@ -644,7 +644,17 @@ async function InvitationBody({
      written; `theme_try_on` lets the one theme gate paint a Pro theme the
      couple does not own yet (the fence still answers). */
   const draftedEvent = overlayHubDraftEvent(liveEvent, hostDraft);
-  const event = triedTheme ? { ...draftedEvent, invite_theme: triedTheme, theme_try_on: true } : draftedEvent;
+  /* 💎 A THEME PICKED INTO THE DRAFT IS WORN ON THE HOST'S CANVAS, Pro or not
+     (owner 2026-09-28: *"they can edit it with pro features. but need to
+     upgrade to pro when clicked on apply"*). `hostDraft` is non-null only for a
+     verified host on `?editor=1`, so a guest never reaches this; the wedding
+     fence still answers; Apply holds the theme without Pro. */
+  const triesDraftedTheme = hostDraft !== null && 'invite_theme' in hostDraft.events;
+  const event = triedTheme
+    ? { ...draftedEvent, invite_theme: triedTheme, theme_try_on: true }
+    : triesDraftedTheme
+      ? { ...draftedEvent, theme_try_on: true }
+      : draftedEvent;
   /* 🎨 THE DRAFTED COLOURS AND FACE — worn again, from the overlaid row, by
      `HostDraftLook` (the layout that wears them for guests cannot see the
      draft). Only when the host's draft holds a Colors-panel column; for every

@@ -24,7 +24,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { unlockLabel } from './unlock-label';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import { ColourWell } from './colour-well';
 
 /**
@@ -99,6 +99,7 @@ export function ColorsPanel({
   magicTraveller = null,
   proLocked = false,
   proLock = null,
+  proMark = null,
   themeId = 'house',
   moodBoard = null,
 }: {
@@ -131,7 +132,14 @@ export function ColorsPanel({
   proLocked?: boolean;
   /** The lock shown in place of the Pro half — an ELEMENT, never a function. */
   proLock?: React.ReactNode;
+  /**
+   * 💎 The Pro half's mark (`makerProMark`): ◆ PRO while a couple without Pro
+   * tries it (owner 2026-09-28 — the pick is drafted; Apply asks), the diamond
+   * once owned, none in the store shell.
+   */
+  proMark?: PaidMarkState | null;
 }) {
+  const mark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null;
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
       {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the
@@ -172,7 +180,7 @@ export function ColorsPanel({
           direction impossible to turn back off from this panel. */}
       <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
         <legend className="sr-only">Art direction</legend>
-        <p className="text-[0.72rem] font-semibold text-ink/80">Art direction</p>
+        <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Art direction{mark}</p>
         <div className="mt-1.5 flex gap-4">
           {(
             [
@@ -214,7 +222,7 @@ export function ColorsPanel({
           reads as "clear", distinct from an absent field meaning "unchanged". */}
       <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
         <legend className="sr-only">Typeface</legend>
-        <p className="text-[0.72rem] font-semibold text-ink/80">Typeface</p>
+        <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Typeface{mark}</p>
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
           <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-ink/12 px-2 py-1.5">
             <input
@@ -281,7 +289,7 @@ export function ColorsPanel({
           moves an element ACROSS the viewport. */}
       <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
         <legend className="sr-only">Magic Move</legend>
-        <p className="text-[0.72rem] font-semibold text-ink/80">Magic Move</p>
+        <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Magic Move{mark}</p>
         <p className="mt-0.5 text-[0.62rem] leading-snug text-ink/45">
           One thing stays on screen and travels as your guests scroll — not a fade from one
           section to the next.

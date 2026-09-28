@@ -27,9 +27,12 @@ import {
   HUB_ELEMENT_WEIGHT_LABEL,
   HUB_JOINER_MAX,
   HUB_JOINER_WORDS,
+  HUB_PART_LINE_MAX,
+  HUB_PART_WORDS_HINT,
   hasTextStyle,
   hubSpacingLabel,
   sanitizeHubJoinerWord,
+  sanitizeHubPartLine,
   stepHubElementSize,
   stepHubSpacing,
   type HubElementAlign,
@@ -157,7 +160,10 @@ export function PartTextTab({
 
   return (
     <div data-part-tab="text">
-      {has('word') ? <JoinerRow word={style.word ?? null} onWord={(w) => choose('word', w)} /> : null}
+      {has('word') && el === 'joiner' ? <JoinerRow word={style.word ?? null} onWord={(w) => choose('word', w)} /> : null}
+      {has('word') && el !== 'joiner' ? (
+        <PartWordsRow word={style.word ?? null} hint={HUB_PART_WORDS_HINT[el] ?? ''} onWord={(w) => choose('word', w)} />
+      ) : null}
 
       {has('font') && !hideFont ? (
         <IRow
@@ -382,6 +388,44 @@ function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string |
         </form>
       ) : null}
     </>
+  );
+}
+
+/**
+ * 🔗 A part's own line — the link's, the photo caption's. `hint` is what the
+ * part draws while it is empty. Cleared, it goes back to that (an absence, the
+ * joiner's rule); taking the part off the page is Arrange → Hidden.
+ */
+function PartWordsRow({ word, hint, onWord }: { word: string | null; hint: string; onWord: (w: string | null) => void }) {
+  const [text, setText] = useState(word ?? '');
+  useEffect(() => setText(word ?? ''), [word]);
+  const blank = text.trim().length === 0;
+  const ok = blank ? null : sanitizeHubPartLine(text);
+  const changed = (ok ?? null) !== word;
+  return (
+    <form
+      className="flex items-center gap-2 border-b border-ink/[0.07] py-2.5"
+      data-row="part-words"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (blank || ok) onWord(blank ? null : ok);
+      }}
+    >
+      <label className="sr-only" htmlFor="part-own-words">
+        Words
+      </label>
+      <input
+        id="part-own-words"
+        value={text}
+        maxLength={HUB_PART_LINE_MAX}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={hint}
+        className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
+      />
+      <IButton type="submit" fill disabled={!changed || (!blank && !ok)}>
+        Use it
+      </IButton>
+    </form>
   );
 }
 

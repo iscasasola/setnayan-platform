@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { ImageIcon, RotateCcw } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 import { makerSave } from '@/lib/maker-refresh';
 import {
   HUB_DEFAULT_FOCAL,
@@ -64,12 +64,14 @@ import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-pr
  * scene" is ONE save of every scene of the stage (`everySceneBackgroundPatch`).
  * Apply re-checks every photo is the couple's own (`hubDraftAction`).
  *
- * 🔓 PRO, UNCHANGED: No background, Plain, both ombrés, both glasses, opacity
- * and the shape are free (owner 2026-09-24: *"changing background color is
- * free. making media a background is pro."*); Upload media is offered to a
- * couple who owns Event Hub Pro only — a free couple is shown no photo to pick
- * (`a-free-section-shows-no-look-controls.test.ts`), and the panel's one lock
- * above names it. A photo already up stays, and can always be taken off.
+ * 🔓 No background, Plain, both ombrés, both glasses, opacity and the shape are
+ * free (owner 2026-09-24: *"changing background color is free. making media a
+ * background is pro."*). Media behind a scene is Pro — 💎 TRIED FREE, PAID AT
+ * APPLY (owner 2026-09-28): on the web every couple may pick it (◆ PRO), the
+ * pick is drafted, and the Apply sheet names it "Photo background · <scene>";
+ * only the app-store shell hides it from a couple without Pro
+ * (`a-free-section-tries-every-look-control.test.ts`). A photo already up can
+ * always be taken off.
  */
 
 type Choice = 'none' | 'color' | 'diagonal' | 'glow' | 'glass' | 'frost' | 'media';
@@ -96,6 +98,7 @@ export function SceneBackgroundRow({
   photoChoices = [],
   videoChoice = null,
   ownsPro,
+  storeShell = false,
   mediaHref,
   onPreview,
   onSaving,
@@ -136,6 +139,12 @@ export function SceneBackgroundRow({
   photoChoices?: readonly { ref: string; url: string }[];
   videoChoice?: { ref: string; url: string } | null;
   ownsPro: boolean;
+  /**
+   * 💎 The app-store shell. On the web media behind a scene is TRIED without Pro
+   * (the pick is drafted; Apply names it "Photo background · <scene>" and asks
+   * for Pro — owner 2026-09-28); only the shell hides it from a free couple.
+   */
+  storeShell?: boolean;
   /** Where the couple adds photos (the gallery), for "Upload a photo or clip". */
   mediaHref: string;
 }) {
@@ -247,7 +256,9 @@ export function SceneBackgroundRow({
   const scenes = stageScenes.map((s) => (s.type === widgetType ? { ...s, canvas: shown } : s));
   const scope = sceneBackgroundScope(scenes, widgetType, shown);
   const hasMedia = Boolean(photoChoices.length || videoChoice);
-  const offerMedia = ownsPro && hasMedia;
+  const mediaUsable = makerProUsable({ owns: ownsPro, storeShell });
+  const mediaMark = makerProMark({ owns: ownsPro, storeShell });
+  const offerMedia = mediaUsable && hasMedia;
 
   const pick = (c: Choice) => {
     if (c === 'none') return put({ kind: 'none' as HubBackgroundKind });
@@ -290,9 +301,9 @@ export function SceneBackgroundRow({
               <span aria-hidden className="h-6 w-10 rounded border border-black/10" style={preview(c, tint, photoChoices[0]?.url)} />
               <span className="inline-flex items-center gap-1">
                 {CHOICE_LABEL[c]}
-                {/* 💎 Media behind a scene is Event Hub Pro — the chip is drawn only for a couple who owns it. */}
-                {c === 'media' ? (
-                  <PaidMark state={ownsPro ? 'unlocked' : 'locked'} label={paidMarkLabel(ownsPro ? 'unlocked' : 'locked', 'Event Hub Pro')} size="xs" tone="current" />
+                {/* 💎 Media behind a scene is Event Hub Pro — ◆ PRO while tried, the diamond once owned. */}
+                {c === 'media' && mediaMark ? (
+                  <PaidMark state={mediaMark} label={paidMarkLabel(mediaMark, 'Event Hub Pro')} size="xs" tone="current" />
                 ) : null}
               </span>
             </button>
@@ -424,7 +435,7 @@ export function SceneBackgroundRow({
         </IRow>
       ) : null}
 
-      {current === 'media' && !ownsPro ? (
+      {current === 'media' && !mediaUsable ? (
         /* 🔓 A free couple may always take a photo or clip OFF (never gated). */
         <IRow label="Media" data="scene-media-off">
           <IButton data="media-off" disabled={pending} onClick={() => put({}, false)}>

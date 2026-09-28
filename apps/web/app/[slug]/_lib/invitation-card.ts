@@ -12,6 +12,7 @@
 import type { EventWords } from './event-words';
 import { formatBlockTimeRange } from '@/lib/schedule';
 import { SITE_MENU_ANCHORS } from './site-menu';
+import { HUB_LINK_DEFAULT_WORDS } from '@/lib/element-style';
 
 export type InvitationCard = {
   eyebrow: string;
@@ -60,6 +61,7 @@ export function invitationCard(input: {
     // read one clock (the pass once added eight hours by converting twice).
     timeLabel: input.firstStartAt ? formatBlockTimeRange(input.firstStartAt, null) || null : null,
     hubHref: `#${SITE_MENU_ANCHORS.details}`,
-    hubLabel: 'the day, the place, the story',
+    // The couple may put their own words in its place (the `link` part).
+    hubLabel: HUB_LINK_DEFAULT_WORDS,
   };
 }

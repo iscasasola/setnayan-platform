@@ -13,6 +13,7 @@ import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
 import {
   MAKER_MORE_ROWS_ID,
+  MAKER_OPEN_PART_EVENT,
   useMaker,
   type MakerSceneTab,
   type MakerSelection,
@@ -64,6 +65,7 @@ import {
   HUB_ELEMENT_LABEL,
   HUB_HERO_ELEMENT_KEYS,
   HUB_SCENE_ELEMENT_KEYS,
+  heroPartsFor,
   isHubElementKey,
   type HubElementKey,
 } from '@/lib/element-style';
@@ -247,9 +249,16 @@ export function MakerWork({
     hubTheme: string;
     openBrowse: boolean;
     hideLocked: boolean;
-    lookLock: ReactNode;
     /** Two people at the centre — the hero has a Joiner to style. */
     twoPeople: boolean;
+    /**
+     * The hero is the invitation card (no hero photo, not the solemn register)
+     * — it draws the line, time and link; otherwise the venue. Absent = every
+     * part is listed.
+     */
+    heroCard?: boolean;
+    /** A hero photo/video — its cover plate draws the Photo caption. Absent = listed. */
+    heroPhoto?: boolean;
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -299,8 +308,10 @@ export function MakerWork({
         returnTo: string;
         /** The first-visit tour (`MiniTour`), server-rendered and handed down; mounts when the sheet opens. */
         tour?: ReactNode;
+        /** 💎 No Event Hub Pro: the scene is tried free and Apply asks — the ＋ wears ◆ PRO. */
+        tried?: boolean;
       }
-    | { note: string; locked?: boolean }
+    | { note: string }
     | null;
   proUnlockHref: string;
   /** The live catalogue price, formatted — null when unread (never remembered). */
@@ -364,6 +375,18 @@ export function MakerWork({
   useEffect(() => {
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
   }, [selectionKey, stage]);
+  /* 💎 The Apply sheet's "Go to" a part's own font or motion (owner 2026-09-28):
+     the toolbar selects the scene, then asks for the part's sheet here. */
+  useEffect(() => {
+    const onOpenPart = (e: Event) => {
+      const d = (e as CustomEvent<{ key?: unknown; widgetType?: unknown; el?: unknown }>).detail;
+      if (d && typeof d.key === 'string' && typeof d.widgetType === 'string' && isHubElementKey(d.el)) {
+        setElementTarget({ key: d.key, widgetType: d.widgetType, el: d.el });
+      }
+    };
+    window.addEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
+    return () => window.removeEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
+  }, []);
 
   /* ⚡ THE CANVAS HOLD (`element-preview.ts`). The canvas iframe is keyed on
      `canvasStamp`, not on every server render's `renderStamp`: an element
@@ -447,11 +470,11 @@ export function MakerWork({
     }
     setAddScene(
       'action' in addScene
-        ? { kind: 'ready', open: () => setAddOpen(true) }
-        : { kind: 'refused', note: addScene.note, locked: addScene.locked === true, unlockHref: proUnlockHref },
+        ? { kind: 'ready', open: () => setAddOpen(true), tried: addScene.tried === true }
+        : { kind: 'refused', note: addScene.note },
     );
     return () => setAddScene(null);
-  }, [setAddScene, addScene, stage, proUnlockHref]);
+  }, [setAddScene, addScene, stage]);
 
   /* The scene just added is SELECTED once the render that carries it lands.
      A tile's post lands back on this very address (`lib/maker-stay.ts` — the
@@ -568,7 +591,8 @@ export function MakerWork({
   /* …and what a pick will need: every face in the Font dropdown and, for a
      couple who can pick one, their photos as backgrounds (`lib/maker-preload.ts`
      — the Maker's own document only, never a guest page). Same device gate. */
-  const photoUrlsKey = ownsPro ? (sceneFormat?.photoChoices ?? []).map((p) => p.url).join('\n') : '';
+  const photoUrlsKey =
+    ownsPro || !sceneFormat?.hideLocked ? (sceneFormat?.photoChoices ?? []).map((p) => p.url).join('\n') : '';
   useEffect(() => {
     if (warmBudget === 0) return;
     return whenIdle(() => {
@@ -1160,6 +1184,7 @@ export function MakerWork({
               photoChoices={sceneFormat.photoChoices}
               videoChoice={sceneFormat.videoChoice}
               ownsPro={ownsPro}
+              storeShell={sceneFormat.hideLocked}
               mediaHref={sceneFormat.mediaHref}
               hubTheme={sceneFormat.hubTheme as never}
               onPreview={(message) => {
@@ -1201,7 +1226,6 @@ export function MakerWork({
           ownsPro={ownsPro}
           hideLocked={sceneFormat?.hideLocked ?? false}
           isLast={at === shownSceneIds.length - 1}
-          lookLock={sceneFormat?.lookLock}
           onPreview={() => window.dispatchEvent(new Event(MAKER_PLAY_SCENE_EVENT))}
         />
       ) : null,
@@ -1232,8 +1256,9 @@ export function MakerWork({
       ),
     };
   })();
-  /** 🔤 The part sheet's Part ▾: this scene's parts (the hero's has a Joiner only for two people). */
-  const heroParts = HUB_HERO_ELEMENT_KEYS.filter((k) => k !== 'joiner' || sceneFormat?.twoPeople !== false);
+  /** 🔤 The part sheet's Part ▾: the parts this hero draws (a Joiner only for two people; the card's
+   *  line · time · link, or the plain masthead's venue — `heroPartsFor`). */
+  const heroParts = heroPartsFor(sceneFormat?.heroCard, sceneFormat?.twoPeople, sceneFormat?.heroPhoto);
   /* 🧭 EVERY scene of the stage, in canvas order, the tabs as headers between
      the groups (`navigatorRows`) — never a tab that hides the rest. */
   const navRows = navigatorRows(tabs, list.shown.map((t) => t.key));
@@ -1988,6 +2013,7 @@ export function MakerWork({
           onClose={() => select?.(null)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
           onOpenTool={(key) => select?.({ kind: 'tool', key })}
+          heroParts={heroParts}
           resize={toolsResize}
           onElement={
             elementEditing && selectionKey
@@ -2303,7 +2329,7 @@ function MoreExtras({
       {showProCta ? (
         <section className="rounded-md bg-ink px-4 py-3.5 text-cream">
           <p className="text-[13px] font-semibold text-cream">
-            <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} text="Event Hub Pro" size="md" tone="current" />
+            <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Event Hub Pro" size="md" tone="current" />
           </p>
           <p className="mt-0.5 text-[12px] leading-relaxed text-cream/80">
             One unlock for every stage — the look, the reveal, your own photos and film, music and the
@@ -2373,8 +2399,11 @@ function Inspector({
   onTab,
   onOpenTool,
   onElement,
+  heroParts = HUB_HERO_ELEMENT_KEYS,
   resize,
 }: {
+  /** 🔤 The parts this hero draws (`heroPartsFor`) — its "Style a part" buttons. */
+  heroParts?: readonly HubElementKey[];
   /** The tools column's width and its drag handle (desktop). */
   resize: ToolsResize;
   /** 🧰 The scene's Format · Animate · Arrange tabs, and what Content adds (its own words, its parts). */
@@ -2541,7 +2570,7 @@ function Inspector({
             </Link>
           </p>
         ) : null}
-        {fixed === 'hero' && onElement ? <ElementButtons keys={HUB_HERO_ELEMENT_KEYS} onElement={onElement} /> : null}
+        {fixed === 'hero' && onElement ? <ElementButtons keys={heroParts} onElement={onElement} /> : null}
       </section>
     );
   } else if (selection.kind === 'main') {

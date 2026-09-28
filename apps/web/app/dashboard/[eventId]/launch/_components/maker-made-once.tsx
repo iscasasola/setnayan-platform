@@ -22,7 +22,7 @@ import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates
 import { EventPoster } from '@/app/_components/event-poster';
 import { FileUpload } from '@/app/_components/file-upload';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HubDraftField } from '../../website/_components/hub-draft-bar';
 import { removeHeroPhoto, uploadHeroPhoto } from '../../website/hero-photo/actions';
 import { MakerRevealPicker } from './maker-reveal';
@@ -171,7 +171,7 @@ export async function MakerHeroPanel({
   const markSvg = resolveEventMonogramSvg(drafted);
   const returnTo = `/dashboard/${eventId}/launch?tool=hero`;
   const canUpload = ownsPro || !storeShell;
-  const photoMark = paidMarkState({ owns: ownsPro, storeShell });
+  const photoMark = makerProMark({ owns: ownsPro, storeShell });
 
   return (
     <section className="flex flex-col gap-3 px-1" data-made-once="hero">
@@ -363,7 +363,7 @@ export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId:
     <MakerLogoDoor
       eventId={eventId}
       opening={opening}
-      motionMark={paidMarkState({ owns: ownsMotion, storeShell })}
+      motionMark={makerProMark({ owns: ownsMotion, storeShell })}
     />
   );
 }

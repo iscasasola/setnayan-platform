@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { makerSave } from '@/lib/maker-refresh';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
@@ -185,9 +185,10 @@ export function ElementSheet({
   /* 🧰 Text · Animate · Arrange (Pages' inspector + Keynote's Animate). */
   const [tab, setTab] = useState<PartTab>('text');
   /* 💎 Font ▾ and Animate are the part's only Pro rows (owner 2026-09-28) —
-     the mark sits on them, never on the whole sheet. In the store shell a
-     couple without Pro is not shown them at all. */
-  const proMark = paidMarkState({ owns: ownsPro, storeShell: hideLocked });
+     the mark sits on them, never on the whole sheet: ◆ PRO while a couple
+     without Pro tries them (the pick is drafted; Apply asks), the diamond once
+     owned. In the store shell a couple without Pro is not shown them at all. */
+  const proMark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
   const hidePro = hideLocked && !ownsPro;
   const fontMark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null;
   const animateMark = proMark ? (

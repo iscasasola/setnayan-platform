@@ -16,7 +16,7 @@ import {
 import { InfoTip } from '@/app/_components/info-tip';
 import { useMaker } from './maker-context';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * THE REVEAL — chosen once, in the Maker (Phase 6).
@@ -183,7 +183,7 @@ export function MakerRevealPicker({
 
   const Row = ({ id, label, note, pro }: { id: string; label: string; note: string; pro: boolean }) => {
     const on = effective === id;
-    const mark = pro ? paidMarkState({ owns: ownsPro, storeShell }) : null;
+    const mark = pro ? makerProMark({ owns: ownsPro, storeShell }) : null;
     /* The whole row picks (a button laid over it); the ⓘ sits above that
        button, so the note opens without picking. A picked row is ringed, not
        inked, so the ⓘ stays readable on it. */

@@ -1042,7 +1042,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
       /** One events column as the couple is editing it — the draft's, else live. */
-      const drafted = (col: keyof typeof printEvent): unknown => (col in draftedEvents ? draftedEvents[col] : printEvent[col]);
+      const drafted = (
+        col: 'monogram_custom_svg' | 'monogram_uploaded_svg' | 'landing_page_hero_image_url' | 'landing_page_hero_video_r2_key',
+      ): unknown => (col in draftedEvents ? draftedEvents[col] : printEvent[col]);
       /* ══ DETAILS (made-once) ══ what the stages and prints include, and every
          line of wording — each read from its one home. A PAGE in the Maker's
          body (owner 2026-09-25): what the details feed is the page, these

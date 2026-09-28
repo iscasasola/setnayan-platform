@@ -30,6 +30,7 @@ import { DetailsBoundField } from './details-bound-field';
 import { detailsItemForSection, detailsItemForTap } from '@/lib/maker-details-selection';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
+import { askScheduleFocus } from '../../../schedule/_components/schedule-focus';
 import { detailsFactOfScene, sceneBoundText, type DetailsFact } from '@/lib/details-bound';
 import { isWordsScene, tapOpensWords } from '@/lib/maker-scene-words';
 import { CanvasWordsContext, type CanvasWords } from './canvas-words';
@@ -600,6 +601,11 @@ export function MakerWork({
   const factEditors = maker?.factEditors ?? null;
   const factEditorsRef = useRef(factEditors);
   factEditorsRef.current = factEditors;
+  /* 🗓 A tapped schedule MOMENT: the Schedule is a whole page (its rail and its
+     inspector) — too big for this panel — so Details › Schedule opens with that
+     moment selected (`schedule-focus.ts`). */
+  const openDetailsItemRef = useRef(maker?.setDetailsItem);
+  openDetailsItemRef.current = maker?.setDetailsItem;
   const factEditorFor = (item: DetailsItemKey, sceneKey: string | null): ReactNode => {
     const node = factEditors?.[item];
     if (!node) return null;
@@ -655,6 +661,14 @@ export function MakerWork({
           { source: 'setnayan-editor', t: 'markEl', key: data.key, el: null },
           window.location.origin,
         );
+        return;
+      }
+      const moment = (data as { moment?: unknown }).moment;
+      if (data.key === 'w:schedule' && typeof moment === 'string' && moment && openDetailsItemRef.current) {
+        setElementTarget(null);
+        openDetailsItemRef.current('schedule');
+        select?.({ kind: 'tool', key: 'details' });
+        askScheduleFocus(moment);
         return;
       }
       /* ✍ A FACT tapped (`detailsItemForTap`): its Details editor, on the right. */

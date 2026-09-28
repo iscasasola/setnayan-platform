@@ -40,6 +40,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { SCHEDULE_FOCUS_EVENT, takeQueuedScheduleFocus } from './schedule-focus';
 import { CalendarClock, Check, Eye, EyeOff, MessageSquare, Mic, MoveVertical, Plus } from 'lucide-react';
 import { useIsDesktop } from '@/lib/use-responsive';
 import { formatCount } from '@/lib/format-number';
@@ -161,6 +162,27 @@ export function ScheduleDay({
   // A fresh server answer supersedes every optimistic guess.
   useEffect(() => {
     setOverrides({});
+  }, [moments]);
+
+  /* 🎯 A moment tapped on a stage of the Event Hub Maker (Details part 2b,
+     `schedule-focus.ts`): select it here — its own inspector opens — and bring
+     it into view. Taken on mount (Details drew this page just now) and heard
+     while mounted. An id that is not one of these moments is ignored. */
+  useEffect(() => {
+    const focus = (id: string | null) => {
+      if (!id || !moments.some((m) => m.block_id === id)) return;
+      setSelectedId(id);
+      window.setTimeout(() => {
+        document.querySelector<HTMLElement>(`[data-rail-moment="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center' });
+      }, 60);
+    };
+    focus(takeQueuedScheduleFocus());
+    const onAsk = (e: Event) => {
+      takeQueuedScheduleFocus();
+      focus((e as CustomEvent<string>).detail ?? null);
+    };
+    window.addEventListener(SCHEDULE_FOCUS_EVENT, onAsk);
+    return () => window.removeEventListener(SCHEDULE_FOCUS_EVENT, onAsk);
   }, [moments]);
 
   // The venue's wall clock, read after mount (never during render, so the
@@ -643,6 +665,7 @@ export function ScheduleDay({
                     return (
                       <div
                         key={m.block_id}
+                        data-rail-moment={m.block_id}
                         role="button"
                         tabIndex={faded ? -1 : 0}
                         aria-pressed={isSel}

@@ -45,6 +45,16 @@ import {
 import { detailsItemForSection, detailsItemForTap } from './maker-details-selection';
 
 (globalThis as unknown as { React: unknown }).React = React;
+/* The RSVP settings import the draft action, whose module is `server-only`:
+   stubbed for this render, as `the-rsvp-page-follows-the-maker.test.ts` does. */
+{
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -130,6 +140,56 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   // The first-visit reminder tour rides the RSVP PICTURE (mounted on first open), never the always-mounted editor.
   const rsvpItem = launch.slice(launch.indexOf('const rsvpItem = {'), launch.indexOf('settings: ('));
   assert.match(rsvpItem, /<MiniTour tourKey="customer_guest_reminders_v1"/);
+});
+
+test('RSVP links out to nothing: "Reply by" is a date field right there, and the Requests rows are in place', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { MakerRsvpSettings } = await import(`../${L}/maker-rsvp-ask`);
+  const html = renderToStaticMarkup(
+    React.createElement(MakerRsvpSettings, {
+      eventId: 'e-1',
+      current: {},
+      drafted: false,
+      replyBy: { date: '2026-11-18', isDefault: false },
+      replyByOwn: { deadline: '2026-11-18', pricingMode: 'final_only' },
+      requests: { count: 2, list: React.createElement('ul', { 'data-stub': 'the-shipped-requests-rows' }) },
+    }),
+  );
+  assert.doesNotMatch(html, /<a\b[^>]*href=/, 'the RSVP settings still link out');
+  const replyBy = html.slice(html.indexOf('data-rsvp-setting="reply-by"'), html.indexOf('data-rsvp-setting="guest-reminders"'));
+  assert.match(replyBy, /<input[^>]*type="date"[^>]*value="2026-11-18"/, 'reply-by is not a field here');
+  assert.match(replyBy, /data-hub-saves-immediately/, 'a live write must say it saves immediately');
+  assert.match(html, /data-rsvp-requests-list=""[\s\S]*data-stub="the-shipped-requests-rows"/, 'the Requests rows are not in place');
+  // The one writer of that column, with the pricing view posted back unchanged.
+  const src = read(`${L}/maker-rsvp-ask.tsx`);
+  assert.match(src, /import \{ updatePaxSettings \} from '\.\.\/\.\.\/actions';/);
+  assert.match(src, /fd\.set\('adaptive_pricing_mode', pricingMode\);/, 'a reply-by save would reset the pricing view');
+  // The rows are the Requests page itself, drawn with `maker=1` (no way back, saves stay put).
+  const launch = read('app/dashboard/[eventId]/launch/page.tsx');
+  assert.match(launch, /<RequestsPage params=\{Promise\.resolve\(\{ eventId \}\)\} searchParams=\{Promise\.resolve\(\{ maker: '1' \}\)\} \/>/);
+  const claims = read('app/dashboard/[eventId]/guests/claims/page.tsx');
+  assert.match(claims, /\{inMaker \? null : <input type="hidden" name="from" value="requests" \/>\}/, 'a save in the Maker would leave it');
+});
+
+test('a schedule MOMENT tapped on a stage opens Details › Schedule with that moment selected', () => {
+  const widget = read('app/[slug]/_components/schedule-widget.tsx');
+  assert.match(widget, /data-schedule-moment=\{b\.block_id\}/, 'the guest schedule does not name its moments');
+  const bridge = read('app/[slug]/_components/editor-bridge.tsx');
+  assert.match(bridge, /closest\?\.\('\[data-schedule-moment\]'\)/);
+  assert.match(bridge, /t: 'edit', key, \.\.\.empty, \.\.\.moment \}/, 'the tap does not carry the moment');
+  const shell = read(SHELL);
+  const at = shell.indexOf("if (data.key === 'w:schedule' && typeof moment === 'string'");
+  assert.ok(at > 0, 'the Maker does not act on a tapped moment');
+  const branch = shell.slice(at, at + 400);
+  assert.match(branch, /openDetailsItemRef\.current\('schedule'\)/);
+  assert.match(branch, /select\?\.\(\{ kind: 'tool', key: 'details' \}\)/);
+  assert.match(branch, /askScheduleFocus\(moment\)/);
+  const rail = read('app/dashboard/[eventId]/schedule/_components/day-rail.tsx');
+  assert.match(rail, /focus\(takeQueuedScheduleFocus\(\)\);/, 'the rail does not take an ask made before it mounted');
+  assert.match(rail, /setSelectedId\(id\);/);
+  assert.match(rail, /data-rail-moment=\{m\.block_id\}/);
+  // …and in the Maker the Schedule opens on the day itself, where the rail is.
+  assert.match(read('app/dashboard/[eventId]/schedule/page.tsx'), /inMaker\s*\? 'event-day'/);
 });
 
 /* ── 2 · a tapped fact opens the SAME component ───────────────────────── */

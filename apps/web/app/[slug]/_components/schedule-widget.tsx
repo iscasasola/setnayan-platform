@@ -247,6 +247,9 @@ export function ScheduleWidget({
           return (
             <li
               key={b.block_id}
+              /* The Maker's canvas names the moment a tap lands on (the bridge's
+                 `edit` · `moment`), so it opens in Details › Schedule. */
+              data-schedule-moment={b.block_id}
               className={`grid grid-cols-[4.75rem_1fr] gap-x-4 border-b border-ink/12 py-5 transition-colors sm:grid-cols-[7rem_1fr] ${
                 isNow ? 'border-l-2 border-l-terracotta bg-veil/60 pl-3 sm:pl-4' : ''
               }`}

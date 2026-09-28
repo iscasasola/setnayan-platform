@@ -51,6 +51,7 @@ import { MakerRsvpCanvas } from './_components/maker-page';
 import { MakerRsvpSettings } from './_components/maker-rsvp-ask';
 import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
+import RequestsPage from '../guests/claims/page';
 import type { LoveStoryBlob } from '../website/our-story/_components/story-fields';
 import { resolveMoments } from '@/lib/love-story-moments';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
@@ -1121,7 +1122,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             .is('deleted_at', null)
         : null;
       const [deadlineRes, requestsRes] = await Promise.all([
-        printAdmin.from('events').select('guest_list_edit_deadline').eq('event_id', eventId).maybeSingle(),
+        printAdmin.from('events').select('guest_list_edit_deadline, adaptive_pricing_mode').eq('event_id', eventId).maybeSingle(),
         requestsCountRead,
       ]);
       if (deadlineRes.error) logQueryError('LaunchPage.rsvpDeadline', deadlineRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -1162,11 +1163,30 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                     eventDate: printEvent.event_date,
                   })
             }
-            replyByHref={`/dashboard/${eventId}/details`}
+            /* ✍ Typed right here (no link out): the couple's own date and the
+               pricing view its one writer (`updatePaxSettings`) posts beside it. */
+            replyByOwn={
+              deadlineRes.error
+                ? null
+                : {
+                    deadline: (deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null,
+                    pricingMode:
+                      (deadlineRes.data as { adaptive_pricing_mode?: string | null } | null)?.adaptive_pricing_mode === 'final_only'
+                        ? 'final_only'
+                        : 'realtime',
+                  }
+            }
             requests={{
               /* A refused (or unasked) read is SAID (null), never a "0" that reads as nobody. */
               count: !requestsRes || requestsRes.error ? null : (requestsRes.count ?? 0),
-              href: `/dashboard/${eventId}/guests/claims`,
+              /* The shipped Requests rows (Keep · Remove · Link), in place — only
+                 for a viewer who may read the guest list (the page checks the
+                 couple itself). */
+              list: mayReadGuestList ? (
+                <Suspense fallback={<p className="text-sm text-ink/60">Opening your requests…</p>}>
+                  <RequestsPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: '1' })} />
+                </Suspense>
+              ) : null,
             }}
           />
         ),

@@ -339,7 +339,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const active: ScheduleView =
     viewParam === 'journey' || viewParam === 'preparation' || viewParam === 'event-day'
       ? viewParam
-      : agenda.items.length > 0
+      : /* In the Event Hub Maker (Details › Schedule) the page opens on the day
+           itself — the moments guests see, the ones a tap on a stage selects. */
+        inMaker
+        ? 'event-day'
+        : agenda.items.length > 0
         ? 'preparation'
         : 'event-day';
 

@@ -368,7 +368,7 @@ export async function updateCommunityIdentity(formData: FormData) {
   };
   if (rawName) {
     if (rawName.length < 2 || rawName.length > 80) {
-      redirect(`${back}?error=${encodeURIComponent('A samahan name is 2 to 80 characters.')}`);
+      redirect(`${back}?error=${encodeURIComponent('A group name is 2 to 80 characters.')}`);
     }
     patch.name = rawName;
   }

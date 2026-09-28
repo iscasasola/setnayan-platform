@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c81e502bc",
+  "generatedFromRef": "c619f9824",
   "routeCount": 435,
-  "destinations": 939,
+  "destinations": 940,
   "actions": 670,
-  "blocks": 4968,
+  "blocks": 4974,
   "routes": {
     "/": {
       "files": [
@@ -6185,6 +6185,7 @@
         "QrLookControls",
         "Row",
         "RsvpAskConfig",
+        "SVGGElement",
         "SVGSVGElement",
         "SaveState",
         "Segmented",
@@ -6201,6 +6202,7 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
+        "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "WebsiteEditorPage"
@@ -7961,6 +7963,7 @@
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/studio"
       ],
@@ -8379,6 +8382,7 @@
     },
     "/dashboard/[eventId]/website": {
       "files": [
+        "dashboard/[eventId]/website/_components/apply-pro-sheet.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-bar.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-button.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-dock.tsx",
@@ -8392,12 +8396,15 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ApplyProSheet",
         "DraftButton",
+        "HTMLDivElement",
         "HubDraftActionResult",
         "HubDraftToolbar",
         "InfoTip",
         "Link",
         "MakerSaveStatus",
+        "MiniTour",
         "PaidMark",
         "ResultLine"
       ]
@@ -8759,6 +8766,7 @@
         "MiniTour",
         "MomentAnchor",
         "MomentSheet",
+        "PaidMark",
         "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",

@@ -234,3 +234,124 @@ test('4 · the scenes are real scene cards, and nothing says "Loading…" out lo
   const visible = skeleton.replace(/<p role="status"[^>]*>[^<]*<\/p>/, '').replace(/<[^>]+>/g, ' ');
   assert.doesNotMatch(visible, /loading/i, 'a visible "loading" word is back on the skeleton');
 });
+
+/* ── 5 · THE LOADING SCREEN WEARS THE PAGE'S HERO DESIGN ─────────────────────
+ * Hero Designs 2–4 (The Marquee · The Crest · The Letter) shipped after the
+ * skeleton, and the skeleton never learned them: it always drew Design 1 · The
+ * Card, so a page on any other design loaded as the wrong design and jumped —
+ * worst in the Maker, whose canvas reloads right after a design is picked.
+ * Held three ways: the render (same design → same hero), the resolver (the
+ * body's rows, draft over live, through the body's own functions), and the
+ * wiring (page.tsx hands the resolved design to the fallback; site-body reads
+ * the hero canvas through the one shared function). */
+
+/** Design-agnostic version of `slowPartsAside`: each design wraps the mark
+ *  slot differently, so the slot's CONTENT is the token — the skeleton's
+ *  shimmer stand-in on one side, the stand-in mark on the other. */
+function markAside(hero: string): string {
+  return hero
+    .replace(/<span aria-hidden="true" class="skeleton relative inline-flex[^"]*" style="[^"]*"><\/span>/, 'MARK')
+    .replace('<span>the couple’s mark</span>', 'MARK')
+    .replace(/(<div data-pahina-parallax="[^"]*" class="absolute inset-0">)[\s\S]*?(<\/div>)/, '$1MEDIA$2');
+}
+
+for (const design of ['card', 'marquee', 'crest', 'letter'] as const) {
+  for (const heroMedia of [false, true]) {
+    test(`5 · the loading hero wears the page's design — ${design}${heroMedia ? ' (hero photo)' : ''}`, async () => {
+      const { renderToStaticMarkup } = await import('react-dom/server');
+      const { InvitationSkeleton } = await import('./invitation-skeleton');
+      const { PahinaMasthead } = await import('./pahina-masthead');
+      const words = eventWordsFromProfile(WEDDING_PROFILE);
+      const skeleton = renderToStaticMarkup(
+        React.createElement(InvitationSkeleton, {
+          displayName: EVENT.displayName,
+          monogramText: null,
+          words,
+          eventDate: EVENT.eventDate,
+          heroMedia,
+          venueName: EVENT.venueName,
+          design,
+        }),
+      );
+      const card = heroMedia ? null : invitationCard({ words, firstStartAt: null });
+      const real = renderToStaticMarkup(
+        React.createElement(PahinaMasthead, {
+          eyebrow: mastheadEyebrow(words),
+          displayName: EVENT.displayName,
+          twoPeople: words.twoPeople,
+          eventDate: EVENT.eventDate,
+          venueName: EVENT.venueName,
+          card: card ?? undefined,
+          design,
+          monogramSlot: React.createElement('span', null, 'the couple’s mark'),
+          ...(heroMedia ? { mediaSlot: React.createElement('img', { alt: '' }), mediaCaption: EVENT.venueName } : {}),
+        }),
+      );
+      const a = markAside(heroOf(skeleton));
+      const b = markAside(heroOf(real));
+      assert.match(a, /MARK/, 'the mark slot was not found in the skeleton — rewrite markAside');
+      assert.match(b, /MARK/, 'the mark slot was not found in the masthead — rewrite markAside');
+      if (heroMedia) assert.match(a, /MEDIA/, 'the cover plate was not found in the skeleton');
+      assert.equal(
+        a,
+        b,
+        `The loading hero is not the page's hero on ${design}: the skeleton must draw the design the page wears.`,
+      );
+      // Off the default the design is stamped on the hero root — the proof the
+      // comparison above is of two designed heroes, not of two Cards.
+      if (design !== 'card') assert.match(heroOf(skeleton), new RegExp(`data-hero-design="${design}"`));
+    });
+  }
+}
+
+test('5b · the skeleton’s design is the body’s design: the same rows, draft over live, the same resolver', async () => {
+  const { heroDesignForSkeleton, heroCanvasOf } = await import('../_lib/hero-design-of');
+  const { heroDesignOf } = await import('@/lib/hero-design');
+  const { emptyHubDraft } = await import('@/lib/hub-draft');
+  type Row = import('@/lib/invitation-widgets').InvitationWidgetRow;
+  const row = (widget_type: Row['widget_type'], config_json: unknown): Row => ({
+    widget_id: `w-${widget_type}`,
+    event_id: 'e',
+    widget_type,
+    display_order: 0,
+    is_visible: true,
+    is_always_on: widget_type === 'hero',
+    tier: 'basic',
+    config_json,
+    created_at: '',
+    updated_at: '',
+  });
+  const live = [row('greeting', { canvas: { design: 'letter' } }), row('hero', { canvas: { design: 'marquee' } })];
+
+  // A guest: no draft → the live row's design, found on the HERO row only.
+  assert.equal(heroDesignForSkeleton(live, null), 'marquee');
+  assert.equal(heroDesignForSkeleton(live, null), heroDesignOf(heroCanvasOf(live)));
+  // No hero row / no canvas / an invented design → The Card.
+  assert.equal(heroDesignForSkeleton([row('greeting', {})], null), 'card');
+  assert.equal(heroDesignForSkeleton([row('hero', { canvas: { design: 'poster' } })], null), 'card');
+
+  // The Maker canvas: the couple just picked The Crest in their draft.
+  const draft = { ...emptyHubDraft(), widgets: { hero: { canvas: { design: 'crest' as const } } } };
+  assert.equal(heroDesignForSkeleton(live, draft), 'crest', 'the Maker canvas reloads in the LIVE design, not the one just picked');
+  // …and picking The Card in the draft (an absence) is honoured too.
+  const backToCard = { ...emptyHubDraft(), widgets: { hero: { canvas: {} } } };
+  assert.equal(heroDesignForSkeleton(live, backToCard), 'card');
+});
+
+test('5c · SOURCE: page.tsx hands the fallback the resolved design; site-body reads the hero canvas through the shared function', () => {
+  const page = stripComments(read('app/[slug]/page.tsx'));
+  const fallback = /fallback=\{\s*<InvitationSkeleton([\s\S]*?)\/>/.exec(page);
+  assert.ok(fallback, 'page.tsx no longer renders InvitationSkeleton as the fallback — rewrite this guard');
+  const designProp = /\bdesign=\{(\w+)\}/.exec(fallback[1]!);
+  assert.ok(designProp, 'the fallback is not handed a design — the loading screen is back to always drawing The Card');
+  assert.match(
+    page,
+    new RegExp(`const ${designProp[1]} = await \\w+;`),
+    `the fallback's design (${designProp[1]}) is not the awaited skeleton design`,
+  );
+  assert.match(page, /heroDesignForSkeleton\(widgets, draft\)/, 'page.tsx resolves the skeleton design some other way');
+
+  const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
+  assert.match(body, /const heroCanvas = heroCanvasOf\(widgets\);/, 'site-body reads the hero canvas its own way — a second resolver');
+  assert.doesNotMatch(body, /sanitizeHubCanvas\(heroRow/, 'site-body sanitises the hero row itself again — a second resolver');
+});

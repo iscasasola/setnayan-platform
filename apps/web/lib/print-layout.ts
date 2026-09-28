@@ -1242,7 +1242,7 @@ function layoutMenu(ctx: Ctx): PrintDoc[] {
   const moments = (data.menu ?? []).filter((m) => m.dishes.length > 0);
   if (!menuHasDishes(moments)) {
     let y = firstTop + 20;
-    for (const line of wrap('Add your menu in Prints & Tickets — the moments of your night, and the dishes of each.', look.bodyFont, 8.4, w - 80)) {
+    for (const line of wrap('Add your menu in Details — the moments of your night, and the dishes of each.', look.bodyFont, 8.4, w - 80)) {
       text(front.ops, line, cx, y, { font: look.bodyFont, size: 8.4, color: look.muted, align: 'center' });
       y += 11;
     }

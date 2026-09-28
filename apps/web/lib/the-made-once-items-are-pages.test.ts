@@ -284,15 +284,19 @@ test('Love Story: Our Love Story is the body, and a moment is added and edited I
   assert.match(read(`${S}/_components/in-maker-return-to.tsx`), /launch\?tool=love-story/);
 });
 
-test('the Details page shows what the details feed — the address and its QR, and the cards', () => {
+test('the Details page shows what the details feed — the address and its QR, and every print', () => {
+  // Since 2026-09-28 Details is the Maker's three columns (navigator · picture ·
+  // editor) with Prints & Tickets folded in: ONE component is the whole page.
   const src = read(`${L}/maker-details.tsx`);
-  assert.match(src, /export function MakerDetailsPage\(/);
+  assert.match(src, /export function MakerDetails\(/);
   assert.match(src, /\/api\/website\/qr\/\$\{encodeURIComponent\(slug\)\}/, 'the address QR every print carries');
-  assert.match(src, /\/api\/hub-print\/\$\{piece\}\?event=/, 'the cards, from the route Prints & Tickets uses');
-  assert.match(src, /piece: 'invitation'/);
-  assert.match(src, /piece: 'details'/);
+  assert.match(src, /<PrintPieceBody input=\{prints\} piece=\{k\}/, 'every piece of the set, drawn as Prints & Tickets drew it');
+  assert.match(src, /for \(const k of PRINT_SET_KEYS\)/);
+  const prints = read(`${L}/maker-prints.tsx`);
+  assert.match(prints, /`\/api\/hub-print\/\$\{piece\}\?event=\$\{eventId\}&mode=\$\{mode\}/, 'the cards, from the one print route');
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(launch, /page: <MakerDetailsPage /, 'the launch page hands Details its page');
+  assert.match(launch, /page: \(\s*<MakerDetails\b/, 'the launch page hands Details its page');
+  assert.match(launch, /controls: null,/, 'the editor is the page’s own right column, not the shared strip');
 });
 
 test('RSVP renders as a page in the Maker’s body — the guest’s RSVP, its settings beside it', async () => {

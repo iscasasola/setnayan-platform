@@ -90,3 +90,32 @@ test('5 · a sample picture is public (one render for every couple); a couple’
   assert.match(samplePreviewCacheControl(null), /^public, max-age=300/);
   assert.match(previewCacheControl(V), /^private/);
 });
+
+test('6 · Details draws the couple’s own prints in the theme being edited — named in every address, drafted or not', async () => {
+  const React = (await import('react')).default;
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { PrintPieceBody, PrintSetBody } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
+  const { PRINT_FORMATS, PRINT_SET_KEYS } = await import('./print-pieces');
+  const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
+  const input = {
+    eventId: 'E1',
+    slug: 'ana-ben',
+    theme: 'velvet' as const,
+    ownsPro: false,
+    storeShell: false,
+    previewVersion: V,
+    formats: { pass: first('pass'), invitation: first('invitation'), card: first('card') } as never,
+  };
+  const html = renderToStaticMarkup(
+    React.createElement(
+      React.Fragment,
+      null,
+      ...PRINT_SET_KEYS.map((k) => React.createElement(PrintPieceBody, { key: k, input, piece: k })),
+      React.createElement(PrintSetBody, { key: 'set', input }),
+    ),
+  );
+  const srcs = [...html.matchAll(/(?:src|data-print-preview-src)="(\/api\/hub-print\/[^"]+)"/g)].map((m) => m[1]!.replace(/&amp;/g, '&'));
+  assert.ok(srcs.length >= PRINT_SET_KEYS.length * 2, `${srcs.length} print addresses`);
+  for (const s of srcs) assert.match(s, /[?&]theme=velvet(&|$)/, `${s} does not ask for the theme being edited`);
+});

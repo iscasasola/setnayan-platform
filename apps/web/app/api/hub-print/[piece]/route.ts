@@ -349,7 +349,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   const admin = createAdminClient();
   const current = await readPrintEvent(admin, eventId);
   const back = new URL(`/dashboard/${eventId}/launch`, req.url);
-  back.searchParams.set('tool', piece === 'menu' ? 'prints' : 'details');
+  // Both land on Details (Prints & Tickets folded in, 2026-09-28) — the Menu on its own item.
+  back.searchParams.set('tool', 'details');
+  back.searchParams.set('item', piece === 'menu' ? 'menu' : 'invitation');
   if (!current) {
     back.searchParams.set(piece === 'menu' ? 'menu_error' : 'print_error', '1');
     return NextResponse.redirect(back, 303);

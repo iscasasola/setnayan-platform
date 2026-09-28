@@ -84,7 +84,6 @@ export function MakerShell({
   renderStamp,
   more,
   applySlot = null,
-  prints = null,
   details = null,
   rsvp = null,
   hasWork,
@@ -114,9 +113,6 @@ export function MakerShell({
   more: ReactNode;
   /** Phase 2's Apply · Restore · Reset bar. */
   applySlot?: ReactNode;
-  /** Phase 9: the Prints & Tickets workspace, shown over the work area while
-   *  the bar's "Prints & Tickets" is selected. */
-  prints?: ReactNode;
   /** Details as a PAGE (Maker bar's Details): `page` is what the details feed —
    *  the address and its QR, and the printed cards they fill — and `controls`
    *  the fields (what the prints include, and every line of wording). */
@@ -489,13 +485,6 @@ export function MakerShell({
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
         <div className="relative min-h-0 flex-1">
           {children}
-          {/* Prints & Tickets covers the work area rather than replacing it, so
-              the editor keeps its state (and its draft) underneath. */}
-          {prints && selection?.kind === 'tool' && selection.key === 'prints' ? (
-            <div className="absolute inset-0 z-30" data-maker-prints-layer="">
-              {prints}
-            </div>
-          ) : null}
           {/* 🖼 DETAILS IS A PAGE (owner 2026-09-25: *"we do not want a pop up for
               details, logo, hero, reveal and love story"*): what the details
               feed is the body, the fields sit where a stage's controls sit. It

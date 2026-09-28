@@ -8,12 +8,17 @@ import { TOURS, type TourKey } from '@/lib/tours';
  * Owner-final (DECISION_LOG 2026-09-24/25, `EVENT_HUB_MAKER_BUILD_PLAN_2026-09-25.md`
  * Phase 1):
  *
- *     Details · Logo · Hero · Reveal · Love Story · RSVP │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
+ *     Details · Logo · Hero · Reveal · Love Story · RSVP │ Save the Date · Invitation · On the Day · Post Event
  *
  * Owner, FINAL order (2026-09-25, verbatim): *"DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
  * INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS"*. `MAKER_BAR` below is the one array.
  *
- * Three groups, two dividers. The middle group is the four stages of the ONE
+ * 🖨 PRINTS & TICKETS FOLDED INTO DETAILS (owner 2026-09-28, verbatim: *"1 fold
+ * prints and tickets into details"*): every print is an item of the Details
+ * page now (`lib/maker-details-items.ts`), so the third group is gone, and an
+ * old `?tool=prints` link opens Details at the same piece (`makerToolFor`).
+ *
+ * Two groups, one divider. The middle group is the four stages of the ONE
  * public link and its words are NOT typed here — they are `PUBLIC_STAGE_LABELS`
  * in `PUBLIC_STAGE_ORDER`, the one stage vocabulary (owner 2026-09-24). A second
  * spelling of "Invitation" in this file is how two vocabularies came back.
@@ -30,7 +35,7 @@ import { TOURS, type TourKey } from '@/lib/tours';
  * holds it.
  */
 
-export type MakerBarGroup = 'made-once' | 'stages' | 'prints';
+export type MakerBarGroup = 'made-once' | 'stages';
 
 /**
  * The made-once home of every line of wording (owner 2026-09-25: *"the other
@@ -42,8 +47,7 @@ export const MAKER_DETAILS_LABEL = 'Details';
 
 export type MakerBarItem =
   | { key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'details' | 'rsvp-page'; label: string; group: 'made-once'; kind: 'tool' }
-  | { key: LifecyclePhase; label: string; group: 'stages'; kind: 'stage' }
-  | { key: 'prints'; label: string; group: 'prints'; kind: 'tool' };
+  | { key: LifecyclePhase; label: string; group: 'stages'; kind: 'stage' };
 
 export const MAKER_BAR: readonly MakerBarItem[] = [
   // Owner-final order: DETAILS first ("DETAILS LOGO HERO REVEAL LOVE STORY / …").
@@ -60,8 +64,6 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
     (phase) =>
       ({ key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' }) as const,
   ),
-  // Phase 9: opens the Prints & Tickets workspace (it said "coming next" until then).
-  { key: 'prints', label: 'Prints & Tickets', group: 'prints', kind: 'tool' },
 ];
 
 /**
@@ -105,8 +107,8 @@ export function isStagePhase(value: unknown): value is LifecyclePhase {
  *   · the button names where they ARE — the open page, else the stage;
  *   · the list is two labelled groups, Stages then Pages, in `MAKER_BAR`'s own
  *     words; Stages keep the live-today dot;
- *   · Prints & Tickets stays under Pages, where the old Pages picker listed it,
- *     so collapsing the bar never hides a door;
+ *   · (Prints & Tickets was under Pages until 2026-09-28; it is part of
+ *     Details now — "PRINTS & TICKETS FOLDS INTO DETAILS".)
  *   · a viewer who is not the couple sees the pages, each saying why it is shut.
  *
  * Every key is a `MAKER_BAR` key, and `makerPlaceItem` hands back THAT item, so

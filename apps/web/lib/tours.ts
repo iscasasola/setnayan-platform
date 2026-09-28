@@ -584,32 +584,33 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_theme_picker_v1: {
     key: 'customer_theme_picker_v1',
     label: 'Your theme',
-    blurb: 'First visit to Details: each theme shown as your own page, and a tap to wear it.',
+    blurb: 'First visit to Details: each theme on our sample wedding, and a tap to wear it.',
     slides: [
       {
         Icon: Palette,
-        title: 'Your page, in every theme',
-        body: 'Each preview is <strong>your own Event Hub</strong> — your names, your photos, your scenes — dressed in that theme. Swipe the row to look; looking changes nothing.',
+        title: 'Every theme, on a sample wedding',
+        body: 'Each entry is our sample wedding, <strong>Maria &amp; Jose</strong>, in that theme — its Event Hub and its prints. Tap &#10530; to see one full screen; looking changes nothing.',
       },
       {
         Icon: CheckCircle2,
         title: 'Tap to wear it',
-        body: 'A tap puts the theme on your page in the Maker. <strong>Undo</strong> steps it back, and guests see it when you press <strong>Apply</strong>.',
+        body: 'A tap puts the theme on your own Event Hub and every print. <strong>Undo</strong> steps it back, and guests see it when you press <strong>Apply</strong>.',
       },
       {
         Icon: Sparkles,
-        title: 'Classic is free',
+        title: 'Try any theme',
         // A pitch: dropped in the app-store shell, price never written here.
         sells: true,
-        body: 'The other themes come with <strong>Event Hub Pro</strong>. They carry a padlock until then — a tap on one opens Event Hub Pro.',
+        body: 'The themes marked &#9670; come with <strong>Event Hub Pro</strong>. Pick one anyway — it waits in your draft, and Apply asks for Pro.',
       },
     ],
   },
   /*
     THE MENU CARD (owner 2026-09-28: *"add to print out our meals for tonight.
-    from vendors from ceremony, to cocktail to the buffet."*). Mounted in Prints
-    & Tickets (`maker-prints.tsx`), so it fires the first time a couple opens
-    it after the Menu arrived. Sells nothing — the Menu prints free in Classic.
+    from vendors from ceremony, to cocktail to the buffet."*). Mounted on the
+    Details page's Menu item (`maker-details.tsx` — Prints & Tickets folded into
+    Details 2026-09-28), so it fires the first time a couple opens the Menu.
+    Sells nothing — the Menu prints free in Classic.
   */
   customer_print_menu_v1: {
     key: 'customer_print_menu_v1',

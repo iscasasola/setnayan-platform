@@ -17,7 +17,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
-import { pickableInviteThemes, resolveInviteTheme } from '@/lib/invite-themes';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { INVITE_THEMES, pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
@@ -53,11 +54,14 @@ import { completeTour } from '@/lib/tour-actions';
 import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
-import { MakerPrints } from './_components/maker-prints';
-import { MakerDetails, MakerDetailsPage } from './_components/maker-details';
+import { MakerDetails } from './_components/maker-details';
+import { detailsItemFor, makerToolFor } from '@/lib/maker-details-items';
+import { findSampleEventId } from '@/app/tour/_lib/sample-event';
+import { GuestCardBody } from '../guests/_components/guest-card-body';
+import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
-import { hasPalette, parentsFromEntourageForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { hasPalette, parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
@@ -125,10 +129,12 @@ type Props = {
     scene?: string | string[];
     chain?: string | string[];
     /** Phase 6: `?tool=hero|reveal|logo` opens that made-once workspace.
-     *  Phase 9: `?tool=prints` opens Prints & Tickets, `?tool=details` the
-     *  Details panel (its saves land back on it); `print_theme` previews the set
-     *  in another theme — never saved. */
+     *  `?tool=details&item=<key>` opens Details on one item; an old
+     *  `?tool=prints` (Prints & Tickets, folded into Details 2026-09-28) opens
+     *  Details at the same piece, and an old `print_theme` on its Theme item
+     *  (`lib/maker-details-items.ts`). */
     tool?: string | string[];
+    item?: string | string[];
     print_theme?: string | string[];
     print_saved?: string | string[];
     print_error?: string | string[];
@@ -955,20 +961,27 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      read (the theme and the card words) and the Pro question — the pieces
      themselves are drawn by /api/hub-print, which asks the Pro question again
      and refuses on its own. */
-  let prints: ReactNode = null;
   let details: { page: ReactNode; controls: ReactNode } | null = null;
   let rsvp: { page: ReactNode; controls: ReactNode } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
-      parentsFromEntourageForEvent(eventId),
+      parentGuestsForEvent(eventId),
       fetchEgiftMethods(printAdmin, eventId, { enabledOnly: true }),
       // ⚡ What the print previews are drawn from, hashed — their cache key.
       printInputsVersion(eventId).catch(() => null),
+      // 🖼 The SAMPLE's print inputs, hashed — the theme gallery's prints are the
+      // sample's (the same for every couple), cached once by this key.
+      findSampleEventId()
+        .then((id) => (id ? printInputsVersion(id) : null))
+        .catch(() => null),
+      // 💡 The onboarding feel — the gallery's "Suggested for you" label only.
+      printAdmin.from('events').select('mood_feel_key').eq('event_id', eventId).maybeSingle(),
     ]);
+    if (feelRes.error) logQueryError('LaunchPage.moodFeel', feelRes.error, { event_id: eventId }, 'graceful_degrade');
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
       // The Menu card's other sources (a booked caterer's lines, the schedule's food moments).
@@ -1006,39 +1019,96 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       const mayShowStdFilm = await resolveProfile(printEvent.event_type ?? '')
         .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
         .catch(() => false);
-      const theme = {
-        home: printEvent.slug ? `/${printEvent.slug}` : null,
-        themes: pickableInviteThemes({ mayShowStdFilm }).map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
-        current: resolveInviteTheme({ saved: themeSaved, ownsPro: printPro, mayShowStdFilm }),
+      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro, mayShowStdFilm });
+      const themes = pickableInviteThemes({ mayShowStdFilm });
+      /* 🖨 THE COUPLE'S OWN PRINTS, folded in from Prints & Tickets (owner
+         2026-09-28: "1 fold prints and tickets into details") — drawn in the
+         theme being edited; the access is part of each picture's cache key. */
+      const prints = {
+        eventId,
+        slug: printEvent.slug,
+        theme: printThemeFor(printEvent, themeCurrent),
         ownsPro: printPro,
         storeShell,
-        proHref: `/dashboard/${eventId}/studio/website-pro`,
-        // Never on the Maker's very first visit — its own welcome is showing.
-        tour: !firstVisit,
+        previewVersion: printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null,
+        formats: {
+          pass: formatFor('pass', one(search.pass_format))!,
+          invitation: formatFor('invitation', one(search.invitation_format))!,
+          card: formatFor('card', one(search.card_format))!,
+        },
       };
+      /* 👪 Each parent's OWN guest card (Details → The Invitation, option (a)):
+         the one loader the Guest list uses, so the card posts every column. */
+      const invitationBase = await fetchInvitationBase(eventId, printEvent.slug).catch(() => null);
+      const parentCards = await Promise.all(
+        printParents.map(async (p) => {
+          const data = p.guestId ? await loadGuestCard(supabase, eventId, p.guestId).catch(() => null) : null;
+          return {
+            guestId: data ? p.guestId : null,
+            name: p.name,
+            card: data ? (
+              <GuestCardBody
+                eventId={eventId}
+                data={data}
+                invitationBase={invitationBase}
+                photoDisplayUrl={null}
+                variant="panel"
+                returnTo={`/dashboard/${eventId}/launch?tool=details&item=invitation`}
+                errorMessage={null}
+                inviteFlash={null}
+              />
+            ) : null,
+          };
+        }),
+      );
       details = {
-        page: <MakerDetailsPage eventId={eventId} slug={printEvent.slug} stamp={String(Date.now())} />,
-        controls: (
-        <MakerDetails
-          eventId={eventId}
-          stored={stored}
-          hosts={rsvpHosts}
-          parents={printParents}
-          pabuyaMessage={printEvent.pabuya_message}
-          specialMessage={specialMessage}
-          specialMessageAction={updateSpecialMessage.bind(null, eventId)}
-          hasPalette={hasPalette(printEvent.role_palette)}
-          hasGifts={egifts.length > 0}
-          flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
-          slug={printEvent.slug}
-          slugAction={updateEventSlug.bind(null, eventId, 'launch')}
-          // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
-          // it, the saved choices, and the contrast-passing Mood Board colours.
-          qr={{ ...qrLookChoicesFromRow(printEvent, printPro), storeShell }}
-          qrStyleAction={updateQrStyle.bind(null, eventId)}
-          theme={theme}
-        />
+        page: (
+          <MakerDetails
+            eventId={eventId}
+            slug={printEvent.slug}
+            slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+            // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
+            // it, the saved choices, and the contrast-passing Mood Board colours.
+            qr={{ ...qrLookChoicesFromRow(printEvent, printPro), storeShell }}
+            qrStyleAction={updateQrStyle.bind(null, eventId)}
+            theme={{
+              themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
+              current: themeCurrent,
+              ownsPro: printPro,
+              storeShell,
+              suggested: themeMatchingFeel(feelRes.data?.mood_feel_key, { mayShowStdFilm }),
+              sampleVersion,
+              blurbs: Object.fromEntries(themes.map((t) => [t.id, INVITE_THEMES[t.id].blurb])),
+              // Each theme's SAVED poster (already on R2) — the gallery's picture until a page is there.
+              posters: Object.fromEntries(themes.map((t) => [t.id, t.media ? publicUrlForStoredAsset(t.media.poster) : null])),
+              // Never on the Maker's very first visit — its own welcome is showing.
+              tour: !firstVisit,
+              chosen: themeSaved !== null && themeSaved !== undefined,
+            }}
+                  menu={{
+              saved: stored.menu,
+              ...menuSources,
+              flash: one(search.menu_saved) ? 'saved' : one(search.menu_error) ? 'error' : null,
+            }}
+            stored={stored}
+            hosts={rsvpHosts}
+            parents={parentCards}
+            pabuyaMessage={printEvent.pabuya_message}
+            specialMessage={specialMessage}
+            specialMessageAction={updateSpecialMessage.bind(null, eventId)}
+            hasPalette={hasPalette(printEvent.role_palette)}
+            hasGifts={egifts.length > 0}
+            flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
+            stamp={String(Date.now())}
+            initialItem={detailsItemFor({
+              tool: one(search.tool),
+              item: one(search.item),
+              printTheme: one(search.print_theme),
+              menuFlash: Boolean(one(search.menu_saved) || one(search.menu_error)),
+            })}
+          />
         ),
+        controls: null,
       };
       /* ══ RSVP (made-once, guest pathway — owner 2026-09-27) ══ The guest's
          RSVP as they meet it is the page (the Invitation on the SAMPLE
@@ -1107,34 +1177,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           </>
         ),
       };
-      prints = (
-        <>
-        {/* First visit to Prints & Tickets since the Menu arrived: what it is and where its dishes come from. */}
-        <MiniTour tourKey="customer_print_menu_v1" storeShell={storeShell} />
-        <MakerPrints
-          eventId={eventId}
-          slug={printEvent.slug}
-          theme={printThemeFor(printEvent, one(search.print_theme))}
-          savedTheme={printThemeFor(printEvent)}
-          ownsPro={printPro}
-          storeShell={storeShell}
-          flash={null}
-          /* ⚡ The access is part of the picture (a sample or the real piece). */
-          previewVersion={printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null}
-          seatPlan={stored.include.seatPlan}
-          menu={{
-            saved: stored.menu,
-            ...menuSources,
-            flash: one(search.menu_saved) ? 'saved' : one(search.menu_error) ? 'error' : null,
-          }}
-          formats={{
-            pass: formatFor('pass', one(search.pass_format))!,
-            invitation: formatFor('invitation', one(search.invitation_format))!,
-            card: formatFor('card', one(search.card_format))!,
-          }}
-        />
-        </>
-      );
     }
   }
 
@@ -1148,15 +1190,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          `?tool=details|prints` the Phase 9 panels — a save lands back on the
          panel the couple was using. */
       initialSelection={(() => {
-        const tool = one(search.tool);
+        // An old `?tool=prints` (Prints & Tickets) is Details now.
+        const tool = makerToolFor(one(search.tool));
         return hasWork &&
           (tool === 'hero' ||
             tool === 'reveal' ||
             tool === 'logo' ||
             tool === 'love-story' ||
             tool === 'details' ||
-            tool === 'rsvp-page' ||
-            tool === 'prints')
+            tool === 'rsvp-page')
           ? ({ kind: 'tool', key: tool } as const)
           : null;
       })()}

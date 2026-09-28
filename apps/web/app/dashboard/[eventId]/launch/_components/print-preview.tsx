@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { printPreviewLoad, printPreviewView, type PrintPreviewStatus } from '@/lib/print-preview-view';
+import { PRINT_FIELD_LABEL, parsePrintFields, useDetailsTap, type PrintFieldsHeader } from './details-tap';
 
 /**
  * PrintPreview — the one place a Prints & Tickets sample is drawn on screen
@@ -38,6 +39,13 @@ import { printPreviewLoad, printPreviewView, type PrintPreviewStatus } from '@/l
  * without a DOM (this repo's `tsx --test` has none). This component only
  * wires that mapping to `useState` and the `<img>`'s own events.
  *
+ * ✍ TAPPABLE (owner 2026-09-28: the print-only words are edited by tapping
+ * them on the card — "tap it, edit it on the right"). The words are outlines
+ * inside one picture, so the picture is FETCHED once instead of handed to an
+ * `<img>`: the route's `x-print-fields` header says where each field landed,
+ * and a tap target is laid over it (`details-tap.ts`). The same address, so the
+ * same cache; a picture without the header just has no targets.
+ *
  * Client component ONLY for this box; the panel around it stays a server
  * component with no writes (`maker-prints.tsx`'s own rule).
  */
@@ -48,6 +56,7 @@ export function PrintPreview({
   label,
   priority = false,
   prefetch = [],
+  tappable = false,
 }: {
   /** `/api/hub-print/<piece>?event=…&mode=screen…` */
   src: string;
@@ -58,7 +67,12 @@ export function PrintPreview({
   priority?: boolean;
   /** The same piece in its OTHER sizes — warmed once this one has drawn. */
   prefetch?: readonly string[];
+  /** Its print-only words open their field on the right (Details only). */
+  tappable?: boolean;
 }) {
+  const tap = useDetailsTap();
+  const fetched = tappable && tap !== null;
+  const [shown, setShown] = useState<{ src: string; url: string; fields: PrintFieldsHeader | null } | null>(null);
   // The status belongs to ONE address: a new size (a new `src`) starts at
   // "loading" by construction, never by an effect that could run after the
   // cached image had already fired `load`.
@@ -94,6 +108,31 @@ export function PrintPreview({
 
   const settle = (next: PrintPreviewStatus) => setState({ src, status: next });
 
+  /* ✍ The tappable picture: fetched once (the same cached address), its boxes read from the header. */
+  useEffect(() => {
+    if (!fetched) return;
+    let dead = false;
+    let url: string | null = null;
+    fetch(src)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        const fields = parsePrintFields(r.headers.get('x-print-fields'));
+        const blob = await r.blob();
+        if (dead) return;
+        url = URL.createObjectURL(blob);
+        setShown({ src, url, fields });
+      })
+      .catch(() => {
+        if (!dead) setState({ src, status: 'error' });
+      });
+    return () => {
+      dead = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [fetched, src, attempt]);
+  const imgSrc = fetched ? (shown?.src === src ? shown.url : null) : src;
+  const boxes = fetched && shown?.src === src ? shown.fields : null;
+
   /* 🧊 A PICTURE THAT WAS ALREADY THERE. The previews are cached for good now
      (versioned addresses), so an `<img>` in the page's HTML often finishes
      from the cache BEFORE React has hydrated — and a `load` that fired before
@@ -113,22 +152,61 @@ export function PrintPreview({
       data-print-prefetch={prefetch.join(' ')}
       className="relative flex h-[340px] w-full items-center justify-center overflow-hidden rounded-xl bg-ink/[0.04] p-4"
     >
-      {view.showImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- the piece IS a generated SVG/JPEG from our own route, sized by its own viewBox
-        <img
-          key={attempt}
-          ref={imgRef}
-          src={src}
-          alt={alt}
-          loading={plan.loading}
-          fetchPriority={plan.fetchPriority}
-          decoding="async"
-          onLoad={() => settle('loaded')}
-          onError={() => settle('error')}
-          className={`max-h-full max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
-            view.imageVisible ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
+      {view.showImage && imgSrc ? (
+        fetched ? (
+          <span className="relative inline-flex max-w-full">
+            {/* eslint-disable-next-line @next/next/no-img-element -- the piece IS a generated SVG/JPEG from our own route, fetched for its field boxes */}
+            <img
+              key={attempt}
+              ref={imgRef}
+              src={imgSrc}
+              alt={alt}
+              loading={plan.loading}
+              fetchPriority={plan.fetchPriority}
+              decoding="async"
+              onLoad={() => settle('loaded')}
+              onError={() => settle('error')}
+              className={`max-h-[308px] max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
+                view.imageVisible ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+            {boxes && view.imageVisible
+              ? boxes.fields.map((b) => (
+                  <button
+                    key={b.field}
+                    type="button"
+                    data-print-field-tap={b.field}
+                    aria-label={PRINT_FIELD_LABEL[b.field]}
+                    onClick={() => tap?.(b.field)}
+                    className="absolute rounded-md outline-dashed outline-1 outline-mulberry/40 transition-colors hover:bg-mulberry/10 focus-visible:bg-mulberry/10 focus-visible:outline-2 focus-visible:outline-mulberry"
+                    style={{
+                      left: `${(b.x / boxes.w) * 100}%`,
+                      width: `${(b.w / boxes.w) * 100}%`,
+                      // At least a thumb tall (44 px), centred on the words.
+                      top: `calc(${((b.y + b.h / 2) / boxes.h) * 100}% - max(22px, ${(b.h / boxes.h) * 50}%))`,
+                      height: `max(44px, ${(b.h / boxes.h) * 100}%)`,
+                    }}
+                  />
+                ))
+              : null}
+          </span>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- the piece IS a generated SVG/JPEG from our own route, sized by its own viewBox
+          <img
+            key={attempt}
+            ref={imgRef}
+            src={imgSrc}
+            alt={alt}
+            loading={plan.loading}
+            fetchPriority={plan.fetchPriority}
+            decoding="async"
+            onLoad={() => settle('loaded')}
+            onError={() => settle('error')}
+            className={`max-h-full max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
+              view.imageVisible ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        )
       ) : null}
 
       {view.showShimmer || view.loadingLabel ? (

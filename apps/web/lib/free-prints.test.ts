@@ -43,11 +43,13 @@ test('the free group names every print the owner and the controller listed', () 
   assert.ok(!freePrints(EVENT, null).some((p) => p.key === 'event-qr'));
 });
 
-test('every free print is REACHABLE from Prints & Tickets, outside any Pro or store-shell condition', () => {
+test('every free print is REACHABLE from Details (Prints & Tickets folded in), outside any Pro or store-shell condition', () => {
   const ws = read(WORKSPACE);
-  const start = ws.indexOf('data-prints-free-group');
+  // The free group is its own function (`freePrintParts`), before the invitation set.
+  const start = ws.indexOf('export function freePrintParts(');
   const end = ws.indexOf('data-prints-set', start);
-  assert.ok(start > 0 && end > start, 'the free group is its own section, before the invitation set');
+  assert.ok(start > 0 && end > start, 'the free group is its own part, before the invitation set');
+  assert.ok(ws.indexOf('data-prints-free-group', start) < end, 'the free group marks its pictures');
   const group = ws.slice(start, end);
   assert.match(group, /freePrints\(eventId, slug\)\.map\(/, 'the section renders the whole list — no entry is picked out');
   assert.match(group, /fp\.saves\.map\(/, 'every save of every entry gets a button');
@@ -56,6 +58,12 @@ test('every free print is REACHABLE from Prints & Tickets, outside any Pro or st
   // …and the section itself is not wrapped in one: nothing between the return and the section tests access.
   const before = ws.slice(ws.indexOf('return ('), start);
   assert.doesNotMatch(before, /\{\s*(access\.|ownsPro|storeShell|!storeShell)[^}]*&&\s*\(/, 'the free group is not rendered conditionally');
+  // …and Details draws EVERY entry as an item — navigator, picture, saves — with no condition.
+  const details = read('app/dashboard/[eventId]/launch/_components/maker-details.tsx');
+  assert.match(details, /const free = freePrintParts\(eventId, slug\);/);
+  assert.match(details, /\.\.\.free\.map\(\(f\) => f\.key\)\]/, 'every free print is an item of the navigator');
+  assert.match(details, /for \(const f of free\) bodies\[f\.key\] = f\.body;/, 'every free print has its picture');
+  assert.match(details, /for \(const f of free\) \{\s*editors\[f\.key\] =/, 'every free print has its saves');
 });
 
 test('no free print’s route asks the Pro question', () => {
@@ -77,7 +85,7 @@ test('no free print’s route asks the Pro question', () => {
 });
 
 test('the store shell shows every free print — its link guard hides none of them', () => {
-  const here = 'https://setnayan.com/dashboard/x/launch?tool=prints';
+  const here = 'https://setnayan.com/dashboard/x/launch?tool=details&item=guest-registry';
   for (const fp of freePrints(EVENT, 'cale-ice')) {
     for (const href of [fp.preview, ...fp.saves.map((s) => s.href)]) {
       assert.equal(storeShellHidesHref(href, here), false, `${fp.key}: the store shell would hide ${href}`);

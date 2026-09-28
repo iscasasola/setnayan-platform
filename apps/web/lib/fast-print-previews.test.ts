@@ -66,20 +66,26 @@ test('2 · the version follows the inputs — every input, the build, and not th
 });
 
 async function paintPrints(previewVersion: string | null, pass = 'boarding'): Promise<string> {
-  const { MakerPrints } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
+  // Prints & Tickets folded into Details (2026-09-28): each piece is an item, its
+  // picture drawn by `PrintPieceBody` — here all seven, the first one first.
+  const { PrintPieceBody } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
+  const { PRINT_SET_KEYS } = await import('./print-pieces');
   const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
+  const input = {
+    eventId: 'E1',
+    slug: 'rosa-ben',
+    theme: 'vintage' as const,
+    ownsPro: true,
+    storeShell: false,
+    previewVersion,
+    formats: { pass: PRINT_FORMATS[pass as keyof typeof PRINT_FORMATS], invitation: first('invitation'), card: first('card') } as never,
+  };
   return renderToStaticMarkup(
-    React.createElement(MakerPrints, {
-      eventId: 'E1',
-      slug: 'rosa-ben',
-      theme: 'vintage',
-      savedTheme: 'vintage',
-      ownsPro: true,
-      storeShell: false,
-      flash: null,
-      previewVersion,
-      formats: { pass: PRINT_FORMATS[pass as keyof typeof PRINT_FORMATS], invitation: first('invitation'), card: first('card') } as never,
-    }),
+    React.createElement(
+      React.Fragment,
+      null,
+      PRINT_SET_KEYS.map((k, i) => React.createElement(PrintPieceBody, { key: k, input, piece: k, priority: i === 0 })),
+    ),
   );
 }
 
@@ -183,5 +189,6 @@ test('6 · the version and the drawing read the SAME inputs — one reader, no s
   }
   // …and the Maker hands the version to the panel, with the access folded in.
   const page = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/page.tsx'), 'utf8'));
-  assert.match(page, /previewVersion=\{printInputs \? printPreviewVersion\(\{ printInputs, ownsPro: printPro, storeShell \}\) : null\}/);
+  // (Details' prints since the fold, 2026-09-28 — the same key, handed in as the prints' input.)
+  assert.match(page, /previewVersion: printInputs \? printPreviewVersion\(\{ printInputs, ownsPro: printPro, storeShell \}\) : null,/);
 });

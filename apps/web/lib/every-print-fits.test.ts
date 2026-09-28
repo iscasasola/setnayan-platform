@@ -413,9 +413,11 @@ test('GUARD: the menu is never printed blank, and a Details save never erases it
   assert.match(editor, /id="print-menu"/, 'the "Add your menu" link has somewhere to land');
 });
 
-test('every choice on Prints & Tickets is ONE dropdown — the shared PickMenu, never a row of pills', () => {
+test('every choice on the prints is ONE dropdown — the shared PickMenu, never a row of pills', () => {
   const maker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
-  assert.equal((maker.match(/<PrintChoicePicker\b/g) ?? []).length, 2, 'the size and the theme preview are each one dropdown');
+  // The size is one dropdown. (The "Preview in <theme>" dropdown left with the fold, 2026-09-28:
+  // themes are looked at in the Details theme gallery — one theme picker in the Maker.)
+  assert.equal((maker.match(/<PrintChoicePicker\b/g) ?? []).length, 1, 'the size is one dropdown');
   assert.doesNotMatch(maker, /formatsFor\(fam\)\.map\(\(f\) => \(\s*<Link/, 'no pill row of sizes');
   assert.doesNotMatch(maker, /HUB_THEMES\.filter\(\(x\) => x\.ready\)\.map\(\(x\) => \(\s*<Link/, 'no pill row of themes');
   const picker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/print-choice-picker.tsx'), 'utf8'));

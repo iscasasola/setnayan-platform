@@ -18,11 +18,13 @@
 import { PRINT_SET_KEYS, type PrintSetKey } from '@/lib/print-pieces';
 import type { FreePrint } from '@/lib/free-prints';
 
-export type HubItemKey = 'theme' | 'address' | 'qr';
+export type HubItemKey = 'address' | 'qr';
 export type FreePrintKey = FreePrint['key'];
-export type DetailsItemKey = HubItemKey | PrintSetKey | FreePrintKey;
+/** The whole invitation set in one download — every piece, every guest's pass. */
+export type DownloadItemKey = 'download';
+export type DetailsItemKey = 'theme' | HubItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
 
-export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['theme', 'address', 'qr'];
+export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
   'guest-registry',
   'qr-codes',
@@ -32,11 +34,29 @@ export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
   'event-qr',
 ];
 
-export type DetailsItemGroup = 'hub' | 'set' | 'day';
-export const DETAILS_ITEM_GROUPS: ReadonlyArray<{ group: DetailsItemGroup; keys: readonly DetailsItemKey[] }> = [
-  { group: 'hub', keys: HUB_ITEM_KEYS },
-  { group: 'set', keys: PRINT_SET_KEYS },
-  { group: 'day', keys: FREE_PRINT_KEYS },
+/**
+ * The navigator's groups, in the owner's FINAL order (2026-09-28, DECISION_LOG
+ * "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS…"):
+ *
+ *   Look (Theme · Logo · Hero · Reveal) · Your event · Words · Story & plans
+ *   (Love Story · Schedule · RSVP) · Your Event Hub (Address · QR) ·
+ *   Invitation set · For the day · Download the set
+ *
+ * DATA, not markup. Part 1 (this build) fills Theme, Your Event Hub, the
+ * Invitation set, For the day and Download; Details parts 2 and 3 add their
+ * items to these rows (and their bodies and editors) — nothing else moves. A
+ * group with no items yet is simply not drawn.
+ */
+export type DetailsItemGroup = 'look' | 'event' | 'words' | 'story' | 'hub' | 'set' | 'day' | 'download';
+export const DETAILS_ITEM_GROUPS: ReadonlyArray<{ group: DetailsItemGroup; label: string; keys: readonly DetailsItemKey[] }> = [
+  { group: 'look', label: 'Look', keys: ['theme'] },
+  { group: 'event', label: 'Your event', keys: [] },
+  { group: 'words', label: 'Words', keys: [] },
+  { group: 'story', label: 'Story & plans', keys: [] },
+  { group: 'hub', label: 'Your Event Hub', keys: HUB_ITEM_KEYS },
+  { group: 'set', label: 'Invitation set', keys: PRINT_SET_KEYS },
+  { group: 'day', label: 'For the day', keys: FREE_PRINT_KEYS },
+  { group: 'download', label: 'Download the set', keys: ['download'] },
 ];
 
 export const DETAILS_ITEM_KEYS: readonly DetailsItemKey[] = DETAILS_ITEM_GROUPS.flatMap((g) => g.keys);
@@ -45,7 +65,8 @@ export function isDetailsItemKey(v: unknown): v is DetailsItemKey {
   return typeof v === 'string' && (DETAILS_ITEM_KEYS as readonly string[]).includes(v);
 }
 
-/** Details opens on its first item; an old Prints & Tickets link on the first print. */
+/** Details opens on its first item — Theme, the first choice (owner-approved
+ *  prototype); an old Prints & Tickets link on the first print. */
 export const DETAILS_FIRST_ITEM: DetailsItemKey = 'theme';
 export const DETAILS_FIRST_PRINT: DetailsItemKey = PRINT_SET_KEYS[0];
 
@@ -75,6 +96,27 @@ export function detailsItemFor(search: {
 }
 
 /** The address of one item — every link into Details names its item this way. */
+/**
+ * ONE ITEM, AS THE NAVIGATOR DRAWS IT — every builder's items carry the same
+ * shape: its label, its small picture, whether it is DONE (derived from data
+ * that already exists — never a new column), and where it is USED (the stages
+ * and prints that read it).
+ */
+export type DetailsItemModel = {
+  key: DetailsItemKey;
+  group: DetailsItemGroup;
+  label: string;
+  sub?: string;
+  /** Filled in, as the data already says — undefined when "done" means nothing for it. */
+  done?: boolean;
+  /** Where it shows — "Every stage", "The Invitation", "Every pass". */
+  usedOn?: readonly string[];
+};
+
+export function groupOfItem(key: DetailsItemKey): DetailsItemGroup {
+  return DETAILS_ITEM_GROUPS.find((g) => g.keys.includes(key))!.group;
+}
+
 export function detailsItemHref(eventId: string, item: DetailsItemKey, extra = ''): string {
   return `/dashboard/${eventId}/launch?tool=details&item=${item}${extra}`;
 }

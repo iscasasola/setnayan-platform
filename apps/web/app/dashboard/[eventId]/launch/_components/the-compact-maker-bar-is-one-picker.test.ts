@@ -27,7 +27,9 @@ import { pickRuns } from '../../website/editor/_components/pick-menu-place';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STAGES = PUBLIC_STAGE_ORDER.map((p) => PUBLIC_STAGE_LABELS[p]);
-const PAGES = ['Details', 'Logo', 'Hero', 'Reveal', 'Love Story', 'RSVP', 'Prints & Tickets'];
+// Prints & Tickets left the list on 2026-09-28 — folded into Details (DECISION_LOG
+// "PRINTS & TICKETS FOLDS INTO DETAILS"); every print is an item there.
+const PAGES = ['Details', 'Logo', 'Hero', 'Reveal', 'Love Story', 'RSVP'];
 
 const labelOf = (m: ReturnType<typeof makerPlacePick>) => m.options.find((o) => o.key === m.value)?.label;
 

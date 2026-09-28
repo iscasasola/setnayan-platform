@@ -1,470 +1,532 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import {
+  Bookmark,
+  CalendarDays,
+  ClipboardList,
+  Download,
+  FileText,
+  Grid3x3,
+  Image as ImageIcon,
+  LayoutGrid,
+  Link2,
+  Mail,
+  Palette,
+  QrCode,
+  ScrollText,
+  Ticket,
+  UtensilsCrossed,
+  Users,
+} from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import type { PrintParent, StoredPrintDetails } from '@/lib/print-pieces';
+import type { MenuMoment, PrintSetKey, StoredPrintDetails } from '@/lib/print-pieces';
+import { PRINT_PIECES, PRINT_SET_KEYS } from '@/lib/print-pieces';
 import { HubDraftField, HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PabuyaMessageEditor } from '../../pabuya/_components/pabuya-message-editor';
 import { OpeningLineField } from './opening-line-field';
 import { SoftPost } from './soft-post';
-import { MAKER_DETAILS_LABEL } from './maker-bar';
 import { SlugField } from '../../invitation/_components/slug-field';
 import { siteOrigin } from '@/lib/site-origin';
 import { publicEventPath } from '@/lib/public-event-url';
-import { PRINT_PIECES } from '@/lib/print-pieces';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { QrLookControls } from './qr-look-controls';
-import { MakerThemePicker } from './maker-theme-picker';
+import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-theme-picker';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
+import { DETAILS_ITEM_GROUPS, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
+import { themeStillSrc } from '@/lib/theme-sample-stills';
+import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
+import { ParentCards } from './parent-cards';
+import {
+  PrintPieceBody,
+  PrintPieceEditor,
+  PrintSetBody,
+  PrintSetDownloads,
+  SeatPlan3dNote,
+  freePrintParts,
+  type PrintsInput,
+} from './maker-prints';
 
 /**
- * DETAILS — the made-once panel of the Event Hub Maker: WHAT the stages and the
- * printed set include, and every line of wording (owner 2026-09-25, verbatim:
- * *"So they will check on what they want added from the sidebar menu. Guest List
- * · 3D Plan / 2D Plan / List · EGifts · Love Story · Schedule · Event Hub Link -
- * QR or place sticker here"* · *"yes mood board"* · *"toggles are better"*).
+ * DETAILS — the Event Hub Maker's one fill-in area (owner 2026-09-28,
+ * DECISION_LOG "DETAILS IS THE ONE FILL-IN AREA…"), drawn as the Maker's own
+ * three columns (DECISION_LOG "THE DETAILS PAGE WEARS THE MAKER'S THREE
+ * COLUMNS") from the approved prototype
+ * `Setnayan/prototypes/details_themes_page_2026-09-28.html`:
  *
- * 🔑 NOTHING IS RE-ENTERED. Each toggle names a source that already has a home
- * and reads it from there:
- *   Guest list → names on passes, parents on the card · Seat plan → the shipped
- *   seating print (3D · 2D · List) · E-Gifts → gift details + the thank-you
- *   message (`events.pabuya_message`, ONE source, edited here or on E-Gifts) ·
- *   Love Story · Schedule (guest-visible moments) · Mood Board → "Our colours"
- *   · Event Hub link → its QR, or a marked spot for an NFC sticker.
- * The written lines (opening line with templates, "Kindly reply" as a host /
- * coordinator / manual pick) and the special message live here too — and, at
- * the top, the Event Hub ADDRESS (owner: "Add the slug to details"), edited with
- * the shipped `SlugField` and shown with the QR every print carries.
+ *   Theme                 — the first choice: the sample gallery (`maker-theme-picker.tsx`)
+ *   Your Event Hub        — the address and its QR
+ *   Invitation set        — every piece (Prints & Tickets FOLDED IN, owner:
+ *                           *"1 fold prints and tickets into details"*)
+ *   For the day           — the free prints
+ *   Download              — the whole set
  *
- * The special message saves into the DRAFT (guests read it on the Event Hub).
- * The rest writes live and says so (`every-maker-form-drafts-or-says-so.test.ts`):
- * the address is never drafted; the include toggles, opening line and "Kindly
- * reply" (`events.print_details`) shape only the printed set the couple
- * downloads — no guest page reads them; and the thank-you message is the
- * E-Gifts page's own column, edited there too.
+ * Each item: its picture in the body, its editor on the right
+ * (`details-workspace.tsx`). The fact groups (Your event · Words · Love Story ·
+ * Schedule) are Details PART 2 — `DETAILS_ITEM_GROUPS` takes them as rows.
  *
- * ── WHAT DO YOU ASK YOUR GUESTS? MOVED TO THE RSVP PAGE (owner 2026-09-27) ──
- * It lived here from 2026-09-25; it is now a section of the Maker's own RSVP
- * page (`maker-rsvp-ask.tsx` → `MakerRsvpSettings`), beside "Who can RSVP?",
- * "Reply by" and "Requests waiting". Details keeps the event facts.
+ * 🔑 NOTHING IS RE-ENTERED. Each switch names a source that already has a home
+ * and reads it from there; a text-carrying switch shows the SAME field under
+ * it, saving through its own shipped path (owner: *"NO 'GO EDIT IT OVER THERE'
+ * LINKS — EDIT IT WHERE YOU ARE"*):
+ *   · the thank-you message → `PabuyaMessageEditor` (`events.pabuya_message`,
+ *     the E-Gifts page's own column), live;
+ *   · the special message → its drafted form (`updateSpecialMessage`), the same
+ *     column the Maker's words editor drafts;
+ *   · parents → each parent's own guest card (`GuestCardBody`, which posts every
+ *     column), live;
+ *   · the opening line and "Kindly reply" — print-only (`events.print_details`),
+ *     typed here, and tappable on the card itself.
  *
- * 🖼 DETAILS IS A PAGE (owner 2026-09-25: *"we do not want a pop up for details,
- * logo, hero, reveal and love story. we want their actual page to be on the body
- * of the editor"*). `MakerDetails` is the CONTROLS — these fields, where a
- * stage's controls sit — and `MakerDetailsPage` is the body: what the details
- * FEED, drawn as guests and printers will meet it (see its note for why).
+ * 📮 THE PRINT WORDS ARE ONE FORM, IN MANY ITEMS. `/api/hub-print/words` writes
+ * the whole `print_details` from one post, so its switches and lines — spread
+ * over the Invitation, The Finer Details, the pass, the QR and the seat plan —
+ * are joined to ONE `<form>` by `form=` (`WORDS_FORM`), and every item's editor
+ * stays mounted (hidden when not showing), so a Save anywhere posts them all.
+ *
+ * Saves: the address, the QR's look, the print words, the thank-you and a
+ * parent's card write live and say "Saves immediately"; the theme and the
+ * special message are drafted (`every-maker-form-drafts-or-says-so.test.ts`).
  */
-export function MakerDetails({
-  eventId,
-  stored,
-  hosts,
-  parents,
-  pabuyaMessage,
-  specialMessage,
-  specialMessageAction,
-  hasPalette,
-  hasGifts,
-  flash,
-  slug,
-  slugAction,
-  qr,
-  qrStyleAction,
-  theme = null,
-}: {
-  /**
-   * 🎨 THE THEME (owner 2026-09-28: the picker moved here from the Guest list).
-   * Null = not offered (no workspace). See `maker-theme-picker.tsx`.
-   */
-  theme?: {
-    home: string | null;
+
+/** The one print-words form every item's switches post through. */
+const WORDS_FORM = 'details-print-words';
+
+export type MakerDetailsProps = {
+  eventId: string;
+  slug: string | null;
+  /** `updateEventSlug` bound to this event (the one writer, `findSlugConflict` behind it). */
+  slugAction: (formData: FormData) => Promise<void>;
+  /** The QR's look choices (lib/qr-look.server.ts qrLookChoicesFromRow). */
+  qr: { ownsPro: boolean; style: StoredQrStyle; inks: string[]; storeShell: boolean };
+  /** `updateQrStyle` bound to this event. */
+  qrStyleAction: (patch: StoredQrStyle) => Promise<UpdateQrStyleResult>;
+  /** 🎨 The theme (null = not offered). */
+  theme: {
     themes: ThemeTile[];
     current: string;
     ownsPro: boolean;
     storeShell: boolean;
-    proHref: string;
-    /** Mount the picker's first-visit tour (off on the Maker's own first visit). */
+    suggested: string | null;
+    sampleVersion: string | null;
+    blurbs: Record<string, string>;
+    /** Each theme's saved poster, resolved (`INVITE_THEMES[id].media.poster`). */
+    posters: Record<string, string | null>;
+    /** Mount the first-visit tours (off on the Maker's own first visit). */
     tour: boolean;
-  } | null;
-  /** The event's address — owner: "Add the slug to details". */
-  slug: string | null;
-  /** `updateEventSlug` bound to this event (the one writer, `findSlugConflict` behind it). */
-  slugAction: (formData: FormData) => Promise<void>;
-  /** The QR's look choices (lib/qr-look.server.ts qrLookChoicesFromRow) — Pro
-   *  measured by the caller, the saved choices, the contrast-passing palette. */
-  qr: { ownsPro: boolean; style: StoredQrStyle; inks: string[]; storeShell: boolean };
-  /** `updateQrStyle` bound to this event. */
-  qrStyleAction: (patch: StoredQrStyle) => Promise<UpdateQrStyleResult>;
-  eventId: string;
+    /** The couple has chosen a theme (saved or drafted) — the item's "done". */
+    chosen: boolean;
+  };
+  /** The couple's own prints, in the theme being edited. */
+  prints: PrintsInput;
+  menu: { saved: MenuMoment[]; caterer: MenuMoment[]; suggestions: string[]; flash: 'saved' | 'error' | null };
   stored: StoredPrintDetails;
   hosts: Array<{ moderatorId: string; label: string; contact: string | null }>;
-  parents: PrintParent[];
+  /** The parents on the invitation, each with their own guest card. */
+  parents: Array<{ guestId: string | null; name: string; card: ReactNode }>;
   pabuyaMessage: string | null;
   specialMessage: string | null;
   specialMessageAction: (formData: FormData) => Promise<void>;
-  /** The couple has a Mood Board palette to print. */
   hasPalette: boolean;
-  /** The couple has E-Gifts set up. */
   hasGifts: boolean;
   flash: 'saved' | 'error' | null;
-}) {
+  /** Changes on every server render, so a new QR look shows at once. */
+  stamp: string;
+  initialItem: DetailsItemKey;
+};
+
+const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
+  invitation: <Mail aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  entourage: <Users aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  details: <ScrollText aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  menu: <UtensilsCrossed aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  pass: <Ticket aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  poster: <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  card: <Bookmark aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+};
+const FREE_ICON: Record<string, ReactNode> = {
+  'guest-registry': <ClipboardList aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'qr-codes': <Grid3x3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'seat-plan': <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'seating-pack': <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  caterer: <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'event-qr': <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+};
+
+export function MakerDetails(props: MakerDetailsProps) {
+  const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
+  const { pabuyaMessage, specialMessage, specialMessageAction, hasPalette, hasGifts, flash, stamp, initialItem } = props;
   const PRINT_WORDS_ENDPOINT = '/api/hub-print/words';
   const inc = stored.include;
-  const current = stored.rsvp?.kind === 'host' ? `host:${stored.rsvp.moderatorId}` : stored.rsvp?.kind === 'manual' ? 'manual' : '';
-  const back = `/dashboard/${eventId}/launch?tool=details`;
+  const replyChoice = stored.rsvp?.kind === 'host' ? `host:${stored.rsvp.moderatorId}` : stored.rsvp?.kind === 'manual' ? 'manual' : '';
+  const back = detailsBack(eventId);
   const base = `/dashboard/${eventId}`;
-  return (
-    <div data-maker-details="" className="px-1">
-      <div className="flex flex-col gap-5">
-        <p className="text-[13.5px] text-ink/75">
-          Turn on what your printed set includes — each part is read from where it already lives, so nothing is typed
-          twice. Your wording lives here too.
-        </p>
+  const address = slug ? `${siteOrigin().replace(/^https?:\/\//, '')}${publicEventPath(slug)}` : null;
+  const qrSrc = slug ? `/api/website/qr/${encodeURIComponent(slug)}?v=${encodeURIComponent(stamp)}` : null;
+  const qrMark = paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell });
+  const free = freePrintParts(eventId, slug);
+  const save = <SaveWords />;
 
-        {/* ── 🎨 Your theme — the ONE place it is chosen (owner 2026-09-28).
-            Each tile is the couple's own page in that theme; a tap drafts it,
-            like every other Maker edit (Undo · Apply in the toolbar). ── */}
-        {theme ? (
-          <>
-            <MakerThemePicker
-              eventId={eventId}
-              home={theme.home}
-              themes={theme.themes}
-              current={theme.current}
-              ownsPro={theme.ownsPro}
-              storeShell={theme.storeShell}
-              proHref={theme.proHref}
-            />
-            {theme.tour ? <MiniTour tourKey="customer_theme_picker_v1" storeShell={theme.storeShell} /> : null}
-          </>
+  /* ══ THE NAVIGATOR — groups are data (`DETAILS_ITEM_GROUPS`) ══ */
+  const still = themeStillSrc(theme.current);
+  /* Each item's model (`DetailsItemModel`): done and used-on are derived from
+     data that already exists — part 1 fills them for its own items. */
+  const menuDone = menu.saved.some((m) => m.dishes.length > 0) || menu.caterer.some((m) => m.dishes.length > 0);
+  const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } => {
+    if (k === 'theme') {
+      return {
+        label: 'Theme',
+        sub: 'Samples · Maria & Jose',
+        done: theme.chosen,
+        usedOn: ['Every stage', 'Every print'],
+        icon: still ? (
+          // eslint-disable-next-line @next/next/no-img-element -- the committed still of the couple's theme on the sample
+          <img src={still} alt="" className="h-full w-full object-cover object-top" />
+        ) : (
+          <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        ),
+      };
+    }
+    if (k === 'address') {
+      return { label: 'Event Hub address', sub: address ?? 'Not set yet', done: Boolean(slug), usedOn: ['Every print', 'Every pass'], icon: <Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    }
+    if (k === 'qr') return { label: 'QR code', done: Boolean(slug), usedOn: ['Every print', 'Every pass'], icon: <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    if (k === 'download') return { label: 'Download the set', sub: 'PDF · every pass', icon: <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    if ((PRINT_SET_KEYS as readonly string[]).includes(k)) {
+      const p = k as PrintSetKey;
+      // A piece is "done" once it would print — the Menu only with a dish (it is never printed blank).
+      return { label: PRINT_PIECES[p].label, sub: PRINT_PIECES[p].size, done: p === 'menu' ? menuDone : undefined, icon: PIECE_ICON[p] };
+    }
+    const fp = free.find((f) => f.key === k);
+    return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+  };
+  const present = new Set<DetailsItemKey>(['theme', 'address', 'qr', 'download', ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const groups: DetailsNavGroup[] = DETAILS_ITEM_GROUPS.map((g) => ({
+    key: g.group,
+    label: g.label,
+    items: g.keys.filter((k) => present.has(k)).map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
+  })).filter((g) => g.items.length > 0);
+
+  /* ══ BODIES — each item's picture ══ */
+  const bodies: Partial<Record<DetailsItemKey, ReactNode>> = {
+    theme: (
+      <>
+        <MakerThemeGallery
+          themes={theme.themes}
+          ownsPro={theme.ownsPro}
+          storeShell={theme.storeShell}
+          suggested={theme.suggested}
+          sampleVersion={theme.sampleVersion}
+          posters={theme.posters}
+        />
+        {theme.tour ? <MiniTour tourKey="customer_theme_picker_v1" storeShell={theme.storeShell} /> : null}
+      </>
+    ),
+    address: (
+      <section
+        data-details-page-address=""
+        className="flex flex-col items-center gap-3 rounded-md bg-white/80 p-4 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)] sm:flex-row sm:text-left"
+      >
+        {qrSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG
+          <img src={qrSrc} alt="QR code for your Event Hub address" width={176} height={176} className="h-40 w-40 shrink-0 bg-white p-1 sm:h-44 sm:w-44" />
         ) : null}
-
-        {/* ── Your Event Hub address — the one place it is edited (owner:
-            "Add the slug to details"). The shipped SlugField: 3–32 characters,
-            live availability, old links forward. Its QR — the one every print
-            carries — is drawn on the page beside these fields. ── */}
-        <section data-details-address="" className="flex flex-col gap-2 border-b border-ink/10 pb-5">
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-ink">Your Event Hub address</p>
-          <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
-          <HubSavesImmediately className="mt-1" />
-        </section>
-
-        {/* ── Your QR (owner 2026-09-27) — the code every print and pass carries.
-            Free: the Setnayan mark in the centre, square, classic. Event Hub Pro:
-            YOUR logo in the centre, and Shape · Pattern · Colour — each ONE
-            dropdown (owner 2026-09-28), wearing the padlock until Pro. Saves
-            live (the QR is a picture on prints, not a drafted guest page) and
-            says so. Drawn beside these fields on the page. ── */}
-        <section data-details-qr="" className="flex flex-col gap-2 border-b border-ink/10 pb-5">
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            Your QR code
-            {paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell }) ? (
-              <PaidMark
-                state={paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell })!}
-                label={paidMarkLabel(paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell })!, 'Event Hub Pro')}
-                text="Event Hub Pro"
-                size="xs"
-              />
-            ) : null}
-          </p>
-          <p className="text-xs text-ink/60">
-            {qr.ownsPro
-              ? 'Your logo sits in the centre of every guest QR. Pick its shape, pattern and colour — every print and pass follows.'
-              : 'Every guest QR carries the Setnayan mark in the centre. With Event Hub Pro it carries your own logo, and you choose the shape, pattern and colour.'}
-          </p>
-          <QrLookControls
-            eventId={eventId}
-            ownsPro={qr.ownsPro}
-            storeShell={qr.storeShell}
-            style={qr.style}
-            inks={qr.inks}
-            action={qrStyleAction}
-          />
-          <HubSavesImmediately className="mt-1" />
-          {/* Waits for the theme's tour, so two never stack on one first visit. */}
-          <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} after={theme ? 'customer_theme_picker_v1' : undefined} />
-        </section>
-
-        {flash === 'saved' ? (
-          <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-2 text-sm text-success-800">
-            Saved.
-          </p>
-        ) : flash === 'error' ? (
-          <p role="alert" className="rounded-md border border-danger-300/60 bg-danger-50 px-4 py-2 text-sm text-danger-800">
-            That did not save. Nothing changed — please try again.
-          </p>
-        ) : null}
-
-        <form action={PRINT_WORDS_ENDPOINT} method="post" data-details-include="" className="flex flex-col gap-1">
-          <HubSavesImmediately />
-          <input type="hidden" name="event_id" value={eventId} />
-          {/* The include marker: a posted form ALWAYS carries it, so an
-              all-off form still saves "off" instead of looking like no answer. */}
-          <input type="hidden" name="include_form" value="1" />
-
-          <Toggle name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
-          <Toggle
-            name="inc_parents"
-            label="Guest list — parents on the invitation"
-            on={inc.parents}
-            tip="Guests with the role Parents of the Bride or Parents of the Groom. Parents are optional — with none, the card leaves that part out."
-          >
-            {parents.length ? (
-              <p className="text-xs text-ink/65">{parents.map((p) => p.name).join(' · ')}</p>
-            ) : (
-              <p className="text-xs text-ink/65">No parents on your guest list yet.</p>
-            )}
-            <Link href={`${base}/guests`} className="text-xs font-medium text-mulberry underline underline-offset-2">
-              {parents.length ? 'Edit on Guest list' : 'Add parents on your Guest list'}
-            </Link>
-          </Toggle>
-          <Toggle name="inc_seat_plan" label="Seat plan" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
-            <Segmented name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
-          </Toggle>
-          <Toggle
-            name="inc_gift_details"
-            label="E-Gifts — gift details"
-            on={inc.giftDetails && hasGifts}
-            disabled={!hasGifts}
-            note={hasGifts ? null : (
-              <Link href={`${base}/pabuya`} className="underline underline-offset-2">
-                Set up E-Gifts
-              </Link>
-            )}
-            tip="Account numbers print masked (•••• 1234)."
-          />
-          <Toggle name="inc_thank_you" label="E-Gifts — thank-you message" on={inc.thankYou} />
-          <Toggle name="inc_love_story" label="Love Story" on={inc.loveStory !== 'none'} tip="A short excerpt of your story on the Finer Details card." />
-          <Toggle name="inc_schedule" label="Schedule — the program" on={inc.schedule} tip="Only the moments your guests can see." />
-          <Toggle
-            name="inc_mood_board"
-            label="Mood Board — our colours"
-            on={inc.moodBoard && hasPalette}
-            disabled={!hasPalette}
-            note={hasPalette ? null : (
-              <Link href={`${base}/studio/mood-board`} className="underline underline-offset-2">
-                Build your Mood Board first
-              </Link>
-            )}
-          />
-          {/* The QR is automatic (owner: "QR is automatic. NFC is optional. we need
-              that QR code since it is universal and works for all") — stated,
-              never a switch. The NFC spot is the optional extra. */}
-          <div data-include="qr-always" className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/5 py-2.5">
-            <span className="text-sm text-ink">Event Hub QR code</span>
-            <span className="text-xs font-medium text-ink/60">Always printed</span>
-          </div>
-          <Toggle
-            name="inc_nfc"
-            label="Add an NFC sticker spot"
-            on={inc.nfc}
-            tip="Use 25 mm round NFC stickers (NTAG213/215). Write your Event Hub link to them first. The spot prints beside the QR — on the calling card it takes the corner; where a format has no room for both, the QR stays and the spot is left off."
-          />
-          <Toggle name="inc_special_message" label="Special message" on={inc.specialMessage} />
-
-          <div className="mt-3 flex flex-col gap-4 border-t border-ink/10 pt-4">
-            <Toggle name="inc_opening_line" label="Opening line" on={inc.openingLine}>
-              <OpeningLineField initial={stored.openingLine} />
-            </Toggle>
-            <Toggle name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip="A host or your coordinator, read from their account — or type it in.">
-              <select
-                name="rsvp_choice"
-                defaultValue={current}
-                aria-label="Who guests reply to"
-                className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-              >
-                <option value="">Choose…</option>
-                {hosts.map((h) => (
-                  <option key={h.moderatorId} value={`host:${h.moderatorId}`}>
-                    {h.label}
-                    {h.contact ? ` — ${h.contact}` : ' — no number on their account'}
-                  </option>
-                ))}
-                <option value="manual">Type it in…</option>
-              </select>
-              <input
-                name="rsvp_manual"
-                defaultValue={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''}
-                maxLength={160}
-                aria-label="Reply line, typed in"
-                placeholder="If you chose “Type it in”: e.g. Reply by Nov 18 · Claire, 0917 …"
-                className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-              />
-            </Toggle>
-          </div>
-          <div className="flex items-center gap-3 pt-2">
-            <button type="submit" className="button-primary text-sm">
-              Save
-            </button>
-            {/* 🧷 Saves in place — never a whole-page reload (owner 2026-09-28). */}
-            <SoftPost />
-          </div>
-        </form>
-
-        {/* ── The thank-you message: ONE source, `events.pabuya_message` — the E-Gifts page reads the same column ── */}
-        <div data-details-thank-you="" className="flex flex-col gap-1">
-          <HubSavesImmediately />
-          <PabuyaMessageEditor eventId={eventId} initialMessage={pabuyaMessage} />
-          <p className="text-xs text-ink/55">
-            The message on your{' '}
-            <Link href={`${base}/pabuya`} className="underline underline-offset-2">
-              E-Gifts
-            </Link>{' '}
-            page — one message, edited here or there.
-          </p>
+          {address ? (
+            <p className="mt-1 break-all font-serif text-xl text-ink" data-details-page-url="">
+              {address}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-ink/70">No address yet — choose one in the editor.</p>
+          )}
+          <p className="mt-2 text-[12.5px] text-ink/60">Every printed piece and every guest pass carries this address and its QR.</p>
         </div>
+      </section>
+    ),
+    /* ── Your QR (owner 2026-09-27): large, with Shape · Pattern · Colour right
+       under it — each ONE dropdown, ◆ Pro until owned. Saves live (the QR is a
+       picture on prints, not a drafted guest page) and says so. ── */
+    qr: (
+      <section data-details-qr="" className="flex flex-col items-center gap-4">
+        {qrSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG; `v` is the render stamp so a new look shows at once
+          <img src={qrSrc} alt="Your Event Hub QR code" width={240} height={240} className="h-56 w-56 bg-white p-2 shadow-[0_1px_2px_rgba(40,34,24,.08)]" />
+        ) : (
+          <p className="text-sm text-ink/70">Set your Event Hub address first — the QR opens it.</p>
+        )}
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          Your QR code
+          {qrMark ? <PaidMark state={qrMark} label={paidMarkLabel(qrMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" /> : null}
+        </p>
+        <div className="w-full max-w-md">
+          <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
+          <HubSavesImmediately className="mt-1" />
+        </div>
+        {/* Waits for the theme's tour, so two never stack on one first visit. */}
+        {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} after="customer_theme_picker_v1" /> : null}
+      </section>
+    ),
+    download: <PrintSetBody input={prints} />,
+  };
+  for (const k of PRINT_SET_KEYS) {
+    bodies[k] = (
+      <>
+        <PrintPieceBody input={prints} piece={k} priority={k === initialItem} menu={menu} tappable={k === 'invitation' || k === 'details'} />
+        {k === 'invitation' || k === 'details' ? (
+          <p className="text-center text-xs text-ink/55">Tap your words on the card to edit them.</p>
+        ) : null}
+      </>
+    );
+  }
+  // The Menu's first-visit tour (it lived on Prints & Tickets): what it is and where its dishes come from.
+  bodies.menu = (
+    <>
+      {bodies.menu}
+      {theme.tour ? <MiniTour tourKey="customer_print_menu_v1" storeShell={theme.storeShell} /> : null}
+    </>
+  );
+  for (const f of free) bodies[f.key] = f.body;
 
-        {/* ── Special message → events.special_message ── */}
-        <form action={specialMessageAction} data-details-special="" className="flex flex-col gap-3 border-t border-ink/10 pt-4">
-          <HubDraftField />
-          <input type="hidden" name="return_to" value={back} />
-          <label className="flex flex-col gap-1 text-sm text-ink/80">
-            Special message — your closing words to guests
+  /* ══ EDITORS — each item's controls; every one stays mounted ══ */
+  const qrAlways = (
+    <div data-include="qr-always" className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/5 py-2">
+      <span className="text-sm text-ink">Event Hub QR code</span>
+      <span className="text-xs font-medium text-ink/60">Always printed</span>
+    </div>
+  );
+  const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
+    theme: <MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} blurbs={theme.blurbs} />,
+    /* ── Your Event Hub address — the one place it is edited (owner: "Add the
+       slug to details"). The shipped SlugField: 3–32 characters, live
+       availability, old links forward. ── */
+    address: (
+      <section data-details-address="" className="flex flex-col gap-2">
+        <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
+        <HubSavesImmediately className="mt-1" />
+      </section>
+    ),
+    qr: (
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-ink/60">
+          {qr.ownsPro
+            ? 'Your logo sits in the centre of every guest QR. Its shape, pattern and colour are under the code.'
+            : 'Every guest QR carries the Setnayan mark in the centre. With Event Hub Pro it carries your own logo, and you choose the shape, pattern and colour.'}
+        </p>
+        {qrAlways}
+        <Toggle
+          form={WORDS_FORM}
+          name="inc_nfc"
+          label="Add an NFC sticker spot"
+          on={inc.nfc}
+          tip="Use 25 mm round NFC stickers (NTAG213/215). Write your Event Hub link to them first. The spot prints beside the QR — on the calling card it takes the corner; where a format has no room for both, the QR stays and the spot is left off."
+        />
+        {save}
+      </div>
+    ),
+    invitation: (
+      <PrintPieceEditor input={prints} piece="invitation">
+        <Toggle
+          form={WORDS_FORM}
+          name="inc_parents"
+          label="Parents on the invitation"
+          on={inc.parents}
+          tip="Guests with the role Parents of the Bride or Parents of the Groom. Parents are optional — with none, the card leaves that part out."
+        >
+          <ParentCards parents={parents} guestsHref={`${base}/guests`} />
+        </Toggle>
+        <Toggle form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
+          <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} />
+        </Toggle>
+        {qrAlways}
+        {save}
+      </PrintPieceEditor>
+    ),
+    details: (
+      <PrintPieceEditor input={prints} piece="details">
+        <Toggle
+          form={WORDS_FORM}
+          name="inc_gift_details"
+          label="E-Gifts — gift details"
+          on={inc.giftDetails && hasGifts}
+          disabled={!hasGifts}
+          note={hasGifts ? null : (
+            <Link href={`${base}/pabuya`} className="underline underline-offset-2">
+              Set up E-Gifts
+            </Link>
+          )}
+          tip="Account numbers print masked (•••• 1234)."
+        />
+        <Toggle form={WORDS_FORM} name="inc_thank_you" label="E-Gifts — thank-you message" on={inc.thankYou}>
+          {/* ── The thank-you message: ONE source, `events.pabuya_message` — the E-Gifts page reads the same column ── */}
+          <div data-details-thank-you="" className="flex flex-col gap-1">
+            <HubSavesImmediately />
+            <PabuyaMessageEditor eventId={eventId} initialMessage={pabuyaMessage} />
+          </div>
+        </Toggle>
+        <Toggle form={WORDS_FORM} name="inc_love_story" label="Love Story" on={inc.loveStory !== 'none'} tip="A short excerpt of your story on the Finer Details card." />
+        <Toggle form={WORDS_FORM} name="inc_schedule" label="Schedule — the program" on={inc.schedule} tip="Only the moments your guests can see." />
+        <Toggle
+          form={WORDS_FORM}
+          name="inc_mood_board"
+          label="Mood Board — our colours"
+          on={inc.moodBoard && hasPalette}
+          disabled={!hasPalette}
+          note={hasPalette ? null : (
+            <Link href={`${base}/studio/mood-board`} className="underline underline-offset-2">
+              Build your Mood Board first
+            </Link>
+          )}
+        />
+        <Toggle form={WORDS_FORM} name="inc_special_message" label="Special message" on={inc.specialMessage}>
+          {/* ── Special message → events.special_message, drafted like the Maker's words editor ── */}
+          <form action={specialMessageAction} data-details-special="" className="flex flex-col gap-2">
+            <HubDraftField />
+            <input type="hidden" name="return_to" value={back} />
             <textarea
               name="message"
               defaultValue={specialMessage ?? ''}
               maxLength={600}
               rows={3}
+              aria-label="Special message — your closing words to guests"
               placeholder="A heartfelt note to everyone joining you…"
               className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
             />
-          </label>
-          {/* 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — bound, not copied:
-              every scene showing the message follows this field, except one the
-              couple changed "just here" (`lib/details-bound.ts`). */}
-          <p className="text-xs text-ink/60" data-details-bound-note="">
-            Every scene that shows your message follows this. A scene you changed “just here” keeps its own words
-            until you tap ↺ Use Details on it.
-          </p>
-          <div>
-            <button type="submit" className="button-primary text-sm">
-              Save
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            <p className="text-xs text-ink/60" data-details-bound-note="">
+              Every scene that shows your message follows this. A scene you changed “just here” keeps its own words
+              until you tap ↺ Use your message on it.
+            </p>
+            <div>
+              <button type="submit" className="button-secondary text-sm">
+                Save message
+              </button>
+            </div>
+          </form>
+        </Toggle>
+        <Toggle form={WORDS_FORM} name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip="A host or your coordinator, read from their account — or type it in.">
+          <select
+            form={WORDS_FORM}
+            name="rsvp_choice"
+            defaultValue={replyChoice}
+            aria-label="Who guests reply to"
+            className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+          >
+            <option value="">Choose…</option>
+            {hosts.map((h) => (
+              <option key={h.moderatorId} value={`host:${h.moderatorId}`}>
+                {h.label}
+                {h.contact ? ` — ${h.contact}` : ' — no number on their account'}
+              </option>
+            ))}
+            <option value="manual">Type it in…</option>
+          </select>
+          <input
+            form={WORDS_FORM}
+            name="rsvp_manual"
+            defaultValue={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''}
+            maxLength={160}
+            aria-label="Reply line, typed in"
+            placeholder="If you chose “Type it in”: e.g. Reply by Nov 18 · Claire, 0917 …"
+            className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+          />
+        </Toggle>
+        {qrAlways}
+        {save}
+      </PrintPieceEditor>
+    ),
+    pass: (
+      <PrintPieceEditor input={prints} piece="pass">
+        <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
+        {qrAlways}
+        {save}
+      </PrintPieceEditor>
+    ),
+    entourage: <PrintPieceEditor input={prints} piece="entourage" />,
+    menu: <PrintPieceEditor input={prints} piece="menu" menu={menu} />,
+    poster: <PrintPieceEditor input={prints} piece="poster" />,
+    card: <PrintPieceEditor input={prints} piece="card" />,
+    download: <PrintSetDownloads input={prints} />,
+  };
+  for (const f of free) {
+    editors[f.key] =
+      f.key === 'seat-plan' ? (
+        <div className="flex flex-col gap-3">
+          {f.editor}
+          <Toggle form={WORDS_FORM} name="inc_seat_plan" label="Offer a seat plan with the set" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
+            <Segmented form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
+          </Toggle>
+          {inc.seatPlan === '3d' ? <SeatPlan3dNote eventId={eventId} /> : null}
+          {save}
+        </div>
+      ) : (
+        f.editor
+      );
+  }
+
+  return (
+    <ThemePickProvider eventId={eventId} current={theme.current}>
+      <DetailsWorkspace
+        groups={groups}
+        bodies={bodies}
+        editors={editors}
+        initial={initialItem}
+        persistent={
+          <>
+            {flash === 'saved' ? (
+              <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-2 text-sm text-success-800">
+                Saved.
+              </p>
+            ) : flash === 'error' ? (
+              <p role="alert" className="rounded-md border border-danger-300/60 bg-danger-50 px-4 py-2 text-sm text-danger-800">
+                That did not save. Nothing changed — please try again.
+              </p>
+            ) : null}
+            {/* The print words form: its switches and lines sit in the items
+                above (`form=`); this is the one post they all go through. */}
+            <form id={WORDS_FORM} action={PRINT_WORDS_ENDPOINT} method="post" data-details-include="" className="mt-2">
+              <HubSavesImmediately />
+              <input type="hidden" name="event_id" value={eventId} />
+              {/* The include marker: a posted form ALWAYS carries it, so an
+                  all-off form still saves "off" instead of looking like no answer. */}
+              <input type="hidden" name="include_form" value="1" />
+              {/* 🧷 Saves in place — never a whole-page reload (owner 2026-09-28). */}
+              <SoftPost />
+            </form>
+          </>
+        }
+      />
+    </ThemePickProvider>
   );
 }
 
-/**
- * DETAILS' PAGE — the Maker's body while Details is picked.
- *
- * 🔑 WHY THIS IS THE "ACTUAL PAGE". Details has no page of its own on the guest
- * site; it FEEDS two things, and both are drawn here as they will be met:
- *
- *   1 · the Event Hub ADDRESS and its QR — the one every printed piece carries
- *       (`/api/website/qr/<slug>`, the same PNG the prints embed);
- *   2 · the two cards the wording fills — The Invitation (opening line, parents,
- *       "Kindly reply") and The Finer Details (E-Gifts, the thank-you message,
- *       the Love Story, the program, your colours, the special message) — drawn
- *       by the SAME route and layout Prints & Tickets uses (`/api/hub-print`,
- *       screen mode: a marked sample for a free couple, the real piece for Pro).
- *
- * Fields laid out as a page would only repeat the controls beside it; this shows
- * what they DO. Each save redirects back here and the cards redraw (`stamp`).
- */
-export function MakerDetailsPage({
-  eventId,
-  slug,
-  stamp,
-}: {
-  eventId: string;
-  slug: string | null;
-  /** Changes on every server render, so a save redraws the cards. */
-  stamp: string;
-}) {
-  const card = (piece: 'invitation' | 'details') =>
-    `/api/hub-print/${piece}?event=${encodeURIComponent(eventId)}&mode=screen&v=${encodeURIComponent(stamp)}`;
-  const address = slug ? `${siteOrigin().replace(/^https?:\/\//, '')}${publicEventPath(slug)}` : null;
-  const CARDS = [
-    { piece: 'invitation', fed: 'Your opening line, your parents and “Kindly reply”.' },
-    { piece: 'details', fed: 'E-Gifts, the thank-you message, your Love Story, the program, your colours and your special message.' },
-  ] as const;
+/** Where a no-script save of the special message lands — back on Details. */
+function detailsBack(eventId: string): string {
+  return `/dashboard/${eventId}/launch?tool=details&item=details`;
+}
+
+/** Save for the print words form — every item that has switches shows one. */
+function SaveWords() {
   return (
-    <div
-      data-maker-details-page=""
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-4 py-5 sm:px-6"
-    >
-      <div className="mx-auto flex max-w-4xl flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">What your details make</p>
-          <p className="font-serif text-2xl text-ink">{MAKER_DETAILS_LABEL}</p>
-          <p className="max-w-xl text-sm text-ink/70">
-            Your address and its QR, and the cards your wording fills. Change a field and save — the cards redraw.
-          </p>
-        </header>
-
-        <section
-          data-details-page-address=""
-          className="flex flex-col items-center gap-3 rounded-md bg-white/80 p-4 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)] sm:flex-row sm:text-left"
-        >
-          {slug ? (
-            // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG
-            <img
-              // `v=` is the render stamp: the route's PNG is shared-cached, and
-              // a couple who just changed the shape must see it here at once.
-              src={`/api/website/qr/${encodeURIComponent(slug)}?v=${encodeURIComponent(stamp)}`}
-              alt="QR code for your Event Hub address"
-              width={176}
-              height={176}
-              className="h-40 w-40 shrink-0 bg-white p-1 sm:h-44 sm:w-44"
-            />
-          ) : null}
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-ink">Your Event Hub address</p>
-            {address ? (
-              <p className="mt-1 break-all font-serif text-xl text-ink" data-details-page-url="">
-                {address}
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-ink/70">No address yet — choose one beside this page.</p>
-            )}
-            <p className="mt-2 text-[12.5px] text-ink/60">
-              Every printed piece and every guest pass carries this QR. Guests scan it to open your Event Hub. Its
-              shape, pattern and colour are chosen beside this page.
-            </p>
-          </div>
-        </section>
-
-        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2" data-details-page-cards="">
-          {CARDS.map(({ piece, fed }) => (
-            <li key={piece} className="flex flex-col items-center gap-2" data-details-page-card={piece}>
-              <div className="flex h-[320px] w-full items-center justify-center rounded-md bg-ink/[0.04] p-4 sm:h-[380px]">
-                {/* eslint-disable-next-line @next/next/no-img-element -- the piece IS a generated image from our own route */}
-                <img
-                  src={card(piece)}
-                  alt={PRINT_PIECES[piece].label}
-                  loading="lazy"
-                  className="max-h-full max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)]"
-                />
-              </div>
-              <p className="text-sm font-semibold text-ink">{PRINT_PIECES[piece].label}</p>
-              <p className="max-w-xs text-center text-xs text-ink/60">{fed}</p>
-            </li>
-          ))}
-        </ul>
-
-        <p className="text-sm text-ink/70">
-          The whole set — passes, the poster, sizes and downloads — is in{' '}
-          <Link href={`/dashboard/${eventId}/launch?tool=prints`} className="font-medium text-mulberry underline underline-offset-2">
-            Prints &amp; Tickets
-          </Link>
-          .
-        </p>
-      </div>
+    <div className="flex items-center gap-3 pt-1">
+      <button type="submit" form={WORDS_FORM} className="button-primary text-sm">
+        Save
+      </button>
+      <span className="text-xs text-ink/55">The card redraws.</span>
     </div>
   );
 }
 
 /**
  * One include item: its name on the left, an ⓘ when it needs one, a single-knob
- * switch on the right (owner: "toggles are better"). Sub-options show under it
+ * switch on the right (owner: "toggles are better"). Its field shows under it
  * only while it is ON — CSS alone (`group-has`), so it works before hydration.
+ * `form` joins it to the print words form wherever it is drawn.
  */
 function Toggle({
+  form,
   name,
   label,
   on,
@@ -473,6 +535,7 @@ function Toggle({
   note = null,
   children,
 }: {
+  form: string;
   name: string;
   label: string;
   on: boolean;
@@ -494,7 +557,7 @@ function Toggle({
             label
           )}
         </span>
-        <input type="checkbox" role="switch" name={name} defaultChecked={on} disabled={disabled} className="peer sr-only" />
+        <input form={form} type="checkbox" role="switch" name={name} defaultChecked={on} disabled={disabled} className="peer sr-only" />
         <span
           aria-hidden
           className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry peer-disabled:opacity-40"
@@ -509,12 +572,12 @@ function Toggle({
 }
 
 /** A small segmented choice (radio buttons that look like one control). */
-function Segmented({ name, value, options }: { name: string; value: string; options: Array<[string, string]> }) {
+function Segmented({ form, name, value, options }: { form: string; name: string; value: string; options: Array<[string, string]> }) {
   return (
     <div role="radiogroup" className="inline-flex w-fit rounded-full bg-ink/5 p-0.5">
       {options.map(([v, label]) => (
         <label key={v} className="cursor-pointer">
-          <input type="radio" name={name} value={v} defaultChecked={value === v} className="peer sr-only" />
+          <input form={form} type="radio" name={name} value={v} defaultChecked={value === v} className="peer sr-only" />
           <span className="inline-flex min-h-9 items-center rounded-full px-3 text-[13px] font-medium text-ink/65 peer-checked:bg-white peer-checked:text-ink peer-checked:shadow-sm">
             {label}
           </span>

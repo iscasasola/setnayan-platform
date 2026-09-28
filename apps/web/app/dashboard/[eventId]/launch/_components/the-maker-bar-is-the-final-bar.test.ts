@@ -13,7 +13,11 @@ import { TOURS } from '@/lib/tours';
 /**
  * THE BAR IS THE OWNER'S FINAL BAR — in order, with its two dividers.
  *
- *   Details · Logo · Hero · Reveal · Love Story │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
+ *   Details · Logo · Hero · Reveal · Love Story · RSVP │ Save the Date · Invitation · On the Day · Post Event
+ *
+ * 🖨 Prints & Tickets left the bar on 2026-09-28 (owner, verbatim: *"1 fold
+ * prints and tickets into details"*; DECISION_LOG "PRINTS & TICKETS FOLDS INTO
+ * DETAILS") — every print is an item of Details, so the third group is gone.
  *
  * (DECISION_LOG 2026-09-24/25; EVENT_HUB_MAKER_BUILD_PLAN Phase 1.) Asserted on
  * the RENDERED bar, not only the list: a list can be right while the component
@@ -36,7 +40,6 @@ const FINAL = [
   'Invitation',
   'On the Day',
   'Post Event',
-  'Prints & Tickets',
 ];
 
 async function paint(
@@ -59,18 +62,17 @@ test('the list is the final bar', () => {
   assert.deepEqual(MAKER_BAR.map((i) => i.label), FINAL);
 });
 
-test('the rendered bar has the eleven items in order and exactly two dividers', async () => {
+test('the rendered bar has the ten items in order and exactly one divider', async () => {
   const html = await paint();
   const order = FINAL.map((label) => html.indexOf(label.replace('&', '&amp;')));
   for (const [i, at] of order.entries()) assert.ok(at > -1, `"${FINAL[i]}" is missing from the bar`);
   for (let i = 1; i < order.length; i++) {
     assert.ok(order[i]! > order[i - 1]!, `"${FINAL[i]}" renders before "${FINAL[i - 1]}"`);
   }
-  assert.equal((html.match(/data-maker-divider/g) ?? []).length, 2, 'two dividers, three groups');
+  assert.equal((html.match(/data-maker-divider/g) ?? []).length, 1, 'one divider, two groups');
   const firstDivider = html.indexOf('data-maker-divider');
-  const secondDivider = html.indexOf('data-maker-divider', firstDivider + 1);
-  assert.ok(order[5]! < firstDivider && firstDivider < order[6]!, 'the first divider sits after RSVP');
-  assert.ok(order[9]! < secondDivider && secondDivider < order[10]!, 'the second sits before Prints & Tickets');
+  assert.ok(order[5]! < firstDivider && firstDivider < order[6]!, 'the divider sits after RSVP');
+  assert.doesNotMatch(html, /Prints &amp; Tickets/, 'Prints & Tickets is part of Details now — not a page of its own');
 });
 
 test('the live stage wears the red dot, and only it', async () => {
@@ -80,8 +82,7 @@ test('the live stage wears the red dot, and only it', async () => {
 
 test('no bar item is a dead button', async () => {
   const html = await paint();
-  // Phase 9: Details and Prints & Tickets are real tools — each opens its workspace, not a coming-next line.
-  assert.match(html, /<button[^>]*data-maker-bar-item="prints"[^>]*aria-pressed=/, 'Prints & Tickets opens its workspace');
+  // Details is a real tool — it opens its page (which holds every print since the fold).
   assert.match(html, /<button[^>]*data-maker-bar-item="details"[^>]*aria-pressed=/, 'Details opens its panel');
   assert.equal((html.match(/data-maker-bar-item=/g) ?? []).length, FINAL.length, 'every item is a button');
 });
@@ -110,9 +111,10 @@ test('every bar item is reachable by scrolling — the bar never centres by just
   assert.doesNotMatch(nav, /justify-(center|around|evenly|end)|justify-content:\s*center/, 'the scrolling bar must not justify-center');
   assert.match(nav, /overflow-x-auto/, 'the bar must scroll when it overflows');
   const groups = [...html.matchAll(/<span class="flex shrink-0 items-center gap-0\.5([^"]*)"/g)].map((m) => m[1]!);
-  assert.equal(groups.length, 3, 'three groups');
+  // Two groups since Prints & Tickets folded into Details (2026-09-28).
+  assert.equal(groups.length, 2, 'two groups');
   assert.match(groups[0]!, /\bms-auto\b/, 'the first group centres with margin-inline-start:auto');
-  assert.match(groups[2]!, /\bme-auto\b/, 'the last group centres with margin-inline-end:auto');
+  assert.match(groups[1]!, /\bme-auto\b/, 'the last group centres with margin-inline-end:auto');
 });
 
 test('ONE highlight in every state — a tool takes it from the stage, and any item can hold it', async () => {

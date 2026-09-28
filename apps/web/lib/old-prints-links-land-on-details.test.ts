@@ -28,7 +28,10 @@ test('every piece Prints & Tickets drew is an item of Details — none lost', ()
     for (const fp of freePrints('e-1', slug)) assert.ok(isDetailsItemKey(fp.key), `${fp.key} left the fold`);
   }
   assert.equal(new Set(DETAILS_ITEM_KEYS).size, DETAILS_ITEM_KEYS.length, 'one key names two items');
-  assert.deepEqual(DETAILS_ITEM_GROUPS.map((g) => g.group), ['hub', 'set', 'day']);
+  // The owner's final order ("OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS"); parts 2–3 fill the empty rows.
+  assert.deepEqual(DETAILS_ITEM_GROUPS.map((g) => g.group), ['look', 'event', 'words', 'story', 'hub', 'set', 'day', 'download']);
+  // Theme is the FIRST item (the owner-approved prototype), and Details opens on it cold.
+  assert.equal(DETAILS_ITEM_KEYS[0], 'theme');
 });
 
 test('?tool=prints is Details now; every other tool is untouched', () => {

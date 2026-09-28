@@ -573,7 +573,6 @@ export async function EditorialContent({
   const todayManila = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   const dayHappened = /^\d{4}-\d{2}-\d{2}$/.test(lastDay) ? todayManila > lastDay : false;
   const placeholderOf = (scene: string) => (hostPreview ? (POST_EVENT_WAITING[scene] ?? null) : null);
-  const wedding = !data.eventType || data.eventType === 'wedding';
   const dateDots = data.eventDate && /^\d{4}-\d{2}-\d{2}/.test(data.eventDate)
     ? `${data.eventDate.slice(8, 10)} · ${data.eventDate.slice(5, 7)} · ${data.eventDate.slice(0, 4)}`
     : null;
@@ -594,7 +593,7 @@ export async function EditorialContent({
           words={wordsOf('cover')}
           facts={{
             names: data.displayName,
-            wedding,
+            vows: w.twoPeople,
             solemn: w.solemn,
             eventWord: w.eventWord,
             dateLong: data.eventDateFormatted,

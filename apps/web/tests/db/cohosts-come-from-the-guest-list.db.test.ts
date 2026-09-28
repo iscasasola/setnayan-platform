@@ -339,3 +339,36 @@ test('a confirmed connection makes both people follow each other', async () => {
   await db.exec('RESET ROLE');
   assert.ok(await follows(a, b) && await follows(b, a), 'connected people follow each other');
 });
+
+test('an UNFOLLOW STICKS — the next guest’s YES does not re-follow somebody who unfollowed', async () => {
+  // Owner 2026-09-28: the guest "can unfollow any time". The automatic follows
+  // are recomputed whole, so without a tombstone this re-follow was certain.
+  const { eventId, creator } = await newEvent('unfollow');
+  const g = await newUser('unfollower@cohost.test');
+  const gid = await newGuest(eventId, 'Unfollower');
+  await link(eventId, gid, g);
+  await sayYes(gid);
+  assert.ok(await follows(g, creator), 'fixture: joined → following the host');
+
+  await db.exec('SET ROLE authenticated');
+  await setAuthUid(db, g);
+  await db.query(`DELETE FROM public.user_follows WHERE follower_user_id = $1 AND followed_user_id = $2`, [g, creator]);
+  await db.exec('RESET ROLE');
+  assert.equal(await follows(g, creator), false);
+
+  // Somebody else joins — every event follow is recomputed.
+  const other = await newUser('other-joiner@cohost.test');
+  const oid = await newGuest(eventId, 'Other');
+  await link(eventId, oid, other);
+  await sayYes(oid);
+  assert.ok(await follows(other, creator), 'the new guest follows the host');
+  assert.equal(await follows(g, creator), false, 're-followed a person who had unfollowed');
+
+  // Following again BY HAND clears the tombstone.
+  await db.exec('SET ROLE authenticated');
+  await setAuthUid(db, g);
+  await db.query(`INSERT INTO public.user_follows (follower_user_id, followed_user_id) VALUES ($1, $2)`, [g, creator]);
+  await db.exec('RESET ROLE');
+  const t = await db.query(`SELECT 1 FROM public.user_unfollows WHERE follower_user_id = $1`, [g]);
+  assert.equal(t.rows.length, 0, 'a hand-made follow forgets the unfollow');
+});

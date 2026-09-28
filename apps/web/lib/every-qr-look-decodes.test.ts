@@ -25,7 +25,10 @@
  *     whose Pro lapsed gets the free look regardless of what they saved;
  *   · the three finder patterns are solid squares whatever the pattern, and no
  *     styled module is ever drawn inside a finder;
- *   · a circle ground contains the whole code AND its quiet zone;
+ *   · a circle is a DISC OF MODULES (owner 2026-09-28: "the QR should be
+ *     Circle following the shape and not just the frame"): filler ink in
+ *     every sector of the disc, none in the light ring round the real code,
+ *     and the same filler for the same payload on every render;
  *   · the centre badge never exceeds its cap;
  *   · an ink below the contrast floor is refused everywhere it could enter;
  *   · every guest-facing renderer call in the app passes the event's look.
@@ -36,7 +39,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import QRCode from 'qrcode';
-import { QUIET, logoCentreSvg, styledQrSvg } from '@/lib/qr-style-svg';
+import { CIRCLE_GAP, QUIET, circleFillerCells, circleGeometry, logoCentreSvg, styledQrSvg } from '@/lib/qr-style-svg';
 import { styledQrPng } from '@/lib/qr-style-raster';
 import { decodeQrPayloadFromImage } from '@/lib/qr-decode';
 import {
@@ -109,7 +112,10 @@ async function forwarded(png: Buffer): Promise<Uint8Array> {
  *  while passing on the long url). Both are checked, always. */
 const SHORT_URL = 'https://x.test/ana-at-marco?invite=tok-abc';
 
-test('every shape × pattern × centre renders and decodes to the exact url — long and short payloads, full size and forwarded', async () => {
+/** The print set's width for a printed code (lib/print-set.server.ts, `mode === 'print'`). */
+const PRINT_PX = 900;
+
+test('every shape × pattern × centre renders and decodes to the exact url — long and short payloads, saved, print size and forwarded', async () => {
   const looks = everyLook();
   assert.equal(looks.length, 18, 'the matrix is 2 × 3 × 3 — a shape or pattern was added without joining this suite');
   for (const { name, look } of looks) {
@@ -120,6 +126,9 @@ test('every shape × pattern × centre renders and decodes to the exact url — 
       const png = await styledQrPng(url, look, 512);
       assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', `${name}: not a PNG`);
       assert.equal(await decodeQrPayloadFromImage(new Uint8Array(png)), url, `${name} (${url.length} chars): the saved picture does not decode to its url`);
+      const print = await styledQrPng(url, look, PRINT_PX);
+      assert.equal(await decodeQrPayloadFromImage(new Uint8Array(print)), url, `${name} (${url.length} chars): the ${PRINT_PX}-px print copy does not decode`);
+      assert.equal(await decodeQrPayloadFromImage(await forwarded(print)), url, `${name} (${url.length} chars): the forwarded (320px JPEG) copy of the print does not decode`);
       assert.equal(await decodeQrPayloadFromImage(await forwarded(png)), url, `${name} (${url.length} chars): the forwarded (320px JPEG) copy does not decode`);
     }
   }
@@ -170,33 +179,119 @@ test('the FREE look draws the Setnayan mark, in gold, in the centre pixels of th
 
 // ── 3 · FINDERS STAY SQUARE; NO MODULE INSIDE THEM ────────────────────────
 
-test('the three finder patterns are solid squares in every pattern, and no styled module lands inside one', () => {
+/** Every module cell an SVG draws, in the CODE's own grid (col, row) — the
+ *  classic path's `M x y h1v1h-1z` segments and the `<use>` of every other
+ *  pattern alike, so the same assertion reads all three. */
+function drawnCells(svg: string, off: number): Array<readonly [number, number]> {
+  const classic = [...svg.matchAll(/M([\d.]+) ([\d.]+)h1v1h-1z/g)];
+  const uses = [...svg.matchAll(/<use href="#qm-\w+" x="([\d.]+)" y="([\d.]+)"\/>/g)];
+  return [...classic, ...uses].map((m) => [Math.round(parseFloat(m[1]!) - off), Math.round(parseFloat(m[2]!) - off)] as const);
+}
+
+test('the three finder patterns are solid squares in every shape and pattern, and no styled module lands inside one', () => {
   const n = QRCode.create(URL_, { errorCorrectionLevel: 'H' }).modules.size;
-  for (const p of QR_PATTERNS) {
-    const svg = styledQrSvg(URL_, { ...FREE_QR_LOOK, pattern: p.key });
-    // One evenodd path holding exactly three 7×7 rings + hearts, in the ink.
-    const finders = (svg.match(/h7v7h-7z/g) ?? []).length;
-    assert.equal(finders, 3, `${p.key}: expected 3 square finders, found ${finders}`);
-    if (p.key === 'classic') continue;
-    const uses = [...svg.matchAll(/<use href="#qm-\w+" x="([\d.]+)" y="([\d.]+)"\/>/g)].map((m) => [parseFloat(m[1]!) - QUIET, parseFloat(m[2]!) - QUIET] as const);
-    assert.ok(uses.length > 200, `${p.key}: only ${uses.length} modules drawn — the matrix walk is broken`);
-    const inFinder = uses.filter(([c, r]) => (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7));
-    assert.deepEqual(inFinder, [], `${p.key}: ${inFinder.length} styled module(s) drawn inside a finder pattern`);
+  for (const s of QR_SHAPES) {
+    for (const p of QR_PATTERNS) {
+      const svg = styledQrSvg(URL_, { ...FREE_QR_LOOK, shape: s.key, pattern: p.key });
+      const tag = `${s.key} · ${p.key}`;
+      // One evenodd path holding exactly three 7×7 rings + hearts, in the ink.
+      const finders = (svg.match(/h7v7h-7z/g) ?? []).length;
+      assert.equal(finders, 3, `${tag}: expected 3 square finders, found ${finders}`);
+      const off = s.key === 'circle' ? circleGeometry(n).off : QUIET;
+      const cells = drawnCells(svg, off);
+      assert.ok(cells.length > 200, `${tag}: only ${cells.length} modules drawn — the matrix walk is broken`);
+      const inFinder = cells.filter(([c, r]) => r >= 0 && c >= 0 && ((r < 7 && c < 7) || (r < 7 && c >= n - 7 && c < n) || (r >= n - 7 && r < n && c < 7)));
+      assert.deepEqual(inFinder, [], `${tag}: ${inFinder.length} styled module(s) drawn inside a finder pattern`);
+    }
   }
 });
 
-// ── 4 · THE CIRCLE HOLDS THE WHOLE CODE AND ITS QUIET ZONE ────────────────
+// ── 4 · SHAPE = CIRCLE IS A DISC OF MODULES, NOT A SQUARE CODE IN A BADGE ─
 
-test('a circle ground is large enough for the code plus the quiet zone, and the finders keep their quiet zone', () => {
+test('a circle\'s disc holds the code, its light ring and the filler, inside a thin ink ring', () => {
   const n = QRCode.create(URL_, { errorCorrectionLevel: 'H' }).modules.size;
+  const g = circleGeometry(n);
   const svg = styledQrSvg(URL_, { ...FREE_QR_LOOK, shape: 'circle' });
   const vb = /viewBox="0 0 ([\d.]+) [\d.]+"/.exec(svg);
   const disc = /<circle cx="([\d.]+)" cy="[\d.]+" r="([\d.]+)" fill="#FAF7F2"\/>/.exec(svg);
-  assert.ok(vb && disc, 'circle shape did not emit a canvas and a disc');
-  const r = parseFloat(disc![2]!);
-  const need = (n / 2 + QUIET) * Math.SQRT2;
-  assert.ok(r >= need - 0.01, `disc radius ${r} < ${need.toFixed(2)} needed to hold the code and its ${QUIET}-module quiet zone`);
-  assert.ok(parseFloat(vb![1]!) >= 2 * r, 'the canvas is smaller than the disc');
+  const ring = /<circle cx="[\d.]+" cy="[\d.]+" r="([\d.]+)" fill="none" stroke="[^"]+"[^>]*data-qr-ring=""\/>/.exec(svg);
+  assert.ok(vb && disc && ring, 'circle shape did not emit a canvas, a disc and a ring');
+  assert.ok(CIRCLE_GAP >= 1, 'a circle must keep a light ring between the real code and its filler');
+  // The filler disc reaches past the corners of the code + its light ring…
+  assert.ok(g.fillR >= (n / 2 + CIRCLE_GAP) * Math.SQRT2, `filler radius ${g.fillR} does not clear the code's corners`);
+  // …the ink ring sits outside every filler cell, the cream disc under the ring, and the canvas holds the disc.
+  assert.ok(parseFloat(ring![1]!) > g.fillR, 'the ink ring cuts through the filler');
+  assert.ok(parseFloat(disc![2]!) > parseFloat(ring![1]!), 'the ring hangs off the cream disc');
+  assert.ok(parseFloat(vb![1]!) >= 2 * parseFloat(disc![2]!), 'the canvas is smaller than the disc');
+});
+
+/** Rasterise and read one pixel's darkness (0 light … 255 ink) by canvas unit. */
+async function inkSampler(svg: string, px: number): Promise<(x: number, y: number) => number> {
+  const { data, info } = await sharp(Buffer.from(svg)).flatten({ background: '#fff' }).greyscale().raw().toBuffer({ resolveWithObject: true });
+  const canvas = parseFloat(/viewBox="0 0 ([\d.]+)/.exec(svg)![1]!);
+  const k = px / canvas;
+  return (x, y) => 255 - data[Math.floor(y * k) * info.width + Math.floor(x * k)]!;
+}
+
+test('a circle\'s modules FILL the disc — ink in every sector, none in the light ring round the code', async () => {
+  for (const url of [URL_, SHORT_URL]) {
+    const n = QRCode.create(url, { errorCorrectionLevel: 'H' }).modules.size;
+    const g = circleGeometry(n);
+    const mid = g.canvas / 2;
+    for (const p of QR_PATTERNS) {
+      const tag = `circle · ${p.key} (${url.length} chars)`;
+      const svg = styledQrSvg(url, { ...FREE_QR_LOOK, shape: 'circle', pattern: p.key }, { width: 600 });
+      const ink = await inkSampler(svg, 600);
+      // Every cell outside the code + light ring and inside the filler disc,
+      // sampled at its centre, sorted into eight 45° sectors round the disc.
+      const dark = new Array(8).fill(0);
+      const all = new Array(8).fill(0);
+      const lo = -CIRCLE_GAP;
+      const hi = n + CIRCLE_GAP;
+      for (let r = -Math.ceil(g.fillR); r < n + Math.ceil(g.fillR); r += 1) {
+        for (let c = -Math.ceil(g.fillR); c < n + Math.ceil(g.fillR); c += 1) {
+          if (r >= lo && r < hi && c >= lo && c < hi) continue;
+          const x = g.off + c + 0.5;
+          const y = g.off + r + 0.5;
+          if (Math.hypot(x - mid, y - mid) > g.fillR - 0.75) continue;
+          const sector = Math.floor(((Math.atan2(y - mid, x - mid) + Math.PI) / (2 * Math.PI)) * 8) % 8;
+          all[sector] += 1;
+          if (ink(x, y) > 128) dark[sector] += 1;
+        }
+      }
+      for (let i = 0; i < 8; i += 1) {
+        const share = dark[i] / all[i];
+        assert.ok(all[i] > 20 && share > 0.3 && share < 0.7, `${tag}: sector ${i} of the disc is ${Math.round(share * 100)}% ink over ${all[i]} cells — the modules do not fill the circle`);
+      }
+      // The light ring between the real code and the filler stays light, cell by cell.
+      const inked: string[] = [];
+      for (let r = lo; r < hi; r += 1) {
+        for (let c = lo; c < hi; c += 1) {
+          if (r >= 0 && r < n && c >= 0 && c < n) continue;
+          if (ink(g.off + c + 0.5, g.off + r + 0.5) > 128) inked.push(`${r},${c}`);
+        }
+      }
+      assert.deepEqual(inked, [], `${tag}: ${inked.length} cell(s) of the light ring round the code carry ink`);
+    }
+  }
+});
+
+test('the filler is the same for the same payload on every render, and differs between payloads', async () => {
+  const look: QrLook = { ...FREE_QR_LOOK, shape: 'circle', pattern: 'rounded', centre: { kind: 'monogram', monogram: MONO } };
+  // Same payload, same picture — screen string twice, and the saved file twice, byte for byte.
+  assert.equal(styledQrSvg(URL_, look), styledQrSvg(URL_, look), 'two renders of one payload drew different filler');
+  assert.ok((await styledQrPng(URL_, look, 400)).equals(await styledQrPng(URL_, look, 400)), 'two saved files of one payload differ');
+  // The screen (real <text>) and the file (outlined type) differ ONLY in the centre, never in the modules.
+  const modulesOf = (svg: string) => /<g fill="[^"]+">(<use[\s\S]*?)<\/g>/.exec(svg)?.[1];
+  const screen = styledQrSvg(URL_, look);
+  const file = styledQrSvg(URL_, look, { renderText: () => '<path d="M0 0"/>' });
+  assert.ok(modulesOf(screen) && modulesOf(screen) === modulesOf(file), 'the screen code and the saved code carry different modules');
+  // Two payloads of one size get their own filler (the seed is the payload, not a constant).
+  const a = 'https://x.test/ana-at-marco?invite=tok-abc';
+  const b = 'https://x.test/ana-at-marco?invite=tok-abd';
+  const n = QRCode.create(a, { errorCorrectionLevel: 'H' }).modules.size;
+  assert.equal(QRCode.create(b, { errorCorrectionLevel: 'H' }).modules.size, n, 'fixture: both payloads must make one size of code');
+  assert.notDeepEqual(circleFillerCells(a, n), circleFillerCells(b, n), 'two payloads drew identical filler — the seed ignores the payload');
 });
 
 // ── 5 · THE BADGE IS CAPPED ───────────────────────────────────────────────

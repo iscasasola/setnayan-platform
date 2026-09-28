@@ -15,9 +15,13 @@ NEON BECOME FREE THEMES (WITH CLASSIC)…", 2026-09-29).
   Modern / Cyber Neon print-ready and unwatermarked (screen view unmarked too);
   Prints & Tickets says "Classic, Modern and Cyber Neon prints are free and
   print-ready" (from the registry) and offers no sample or Go Pro for them.
-- The couple's OWN photo stays Pro media: `heroMayBePageGround` (tier-keyed) now also
-  gates the invite-door photo (`resolveHubLook`) and the print still
-  (`loadPrintSet`), so a free theme shows its own loop/still everywhere.
+- The couple's OWN photo is Pro media on EVERY theme (owner 2026-09-29, "yes" —
+  DECISION_LOG "A PRO COUPLE KEEPS THEIR OWN PHOTO/VIDEO BACKGROUND ON EVERY THEME"):
+  `heroMayBePageGround(theme, ownsPro)` — Classic never; a Pro theme yes (already
+  ownership-gated); Modern / Cyber Neon only while the event owns Event Hub Pro,
+  measured as viewed (`websiteProActiveFor` / `printOwnsPro`). The page ground
+  (Event Hub + RSVP), the invite-door photo and the print still all ask it; a free
+  or lapsed couple on a free theme gets the theme's own loop/still.
 - Copy: the Pro list item is `PRO_THEMES_ITEM` (`${PRO_THEMES.length} Event Hub
   themes, invite link included` — now 7), and its pitch names the Pro themes from
   the registry. No catalogue migration: the `COUPLE_WEBSITE_PRO` description names

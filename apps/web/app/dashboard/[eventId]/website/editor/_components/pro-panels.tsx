@@ -71,7 +71,8 @@ export function ProLockPanel({
   return (
     <div className="border-t border-dashed border-amber-300/60 bg-amber-50/60 p-3">
       <p className="flex items-center gap-1.5 text-[0.72rem] font-semibold text-amber-900">
-        <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" tone="current" />
+        {/* ◆ never a padlock (owner 2026-09-28: "remove padlock … the diamond icon"). */}
+        <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" tone="current" />
         {featureName} is part of Event Hub PRO
       </p>
       <p className="mt-1 text-[0.7rem] leading-relaxed text-ink/60">

@@ -116,11 +116,15 @@ test('the themed prints wear the mark their owner has earned — both directions
   const owned = await paintPrints(true, false);
   const free = await paintPrints(false, false);
   const shellFree = await paintPrints(false, true);
-  const marks = (h: string) => `locked=${count(h, 'data-paid-mark="locked"')} unlocked=${count(h, 'data-paid-mark="unlocked"')}`;
+  const marks = (h: string) =>
+    `locked=${count(h, 'data-paid-mark="locked"')} try=${count(h, 'data-paid-mark="try"')} unlocked=${count(h, 'data-paid-mark="unlocked"')}`;
   console.log(`[paid-mark] prints owned{${marks(owned)}} free{${marks(free)}} shell-free{${marks(shellFree)}}`);
+  // 💎 Owner 2026-09-28: "let us remove padlock and just show that these tools
+  // are for pro with the diamond icon" — no padlock anywhere in the Maker.
   assert.equal(count(owned, 'data-paid-mark="unlocked"'), 1);
   assert.equal(count(owned, 'data-paid-mark="locked"'), 0);
-  assert.equal(count(free, 'data-paid-mark="locked"'), 1);
+  assert.equal(count(free, 'data-paid-mark="try"'), 1, 'a free couple is not shown ◆ PRO on the themed prints');
+  assert.equal(count(free, 'data-paid-mark="locked"'), 0, 'a padlock in the Maker');
   assert.equal(count(free, 'data-paid-mark="unlocked"'), 0);
   assert.equal(count(shellFree, 'data-paid-mark='), 0, 'no padlock and no purchase hint in the store shell');
 });
@@ -133,11 +137,49 @@ async function paintEditorial(ownsPro: boolean): Promise<string> {
   );
 }
 
-test('the editor’s desk heading follows ownsPro — padlock free, diamond owned', async () => {
+test('the editor’s desk heading follows ownsPro — ◆ PRO free (never a padlock), diamond owned', async () => {
   const owned = await paintEditorial(true);
   const free = await paintEditorial(false);
   assert.match(owned, /data-paid-mark="unlocked"/);
   assert.doesNotMatch(owned, /data-paid-mark="locked"/);
-  assert.match(free, /data-paid-mark="locked"/);
+  assert.match(free, /data-paid-mark="try"/);
+  assert.doesNotMatch(free, /data-paid-mark="locked"/, 'a padlock in the Maker');
   assert.doesNotMatch(free, /data-paid-mark="unlocked"/);
+});
+
+test('💎 no padlock on any Maker Pro control — the diamond is the only Pro sign (owner 2026-09-28)', async () => {
+  // Owner: "let us remove padlock and just show that these tools are for pro
+  // with the diamond icon". Every Maker file that draws a Pro mark is read
+  // whole; a literal padlock state, or the padlock-by-default reader, is a fail.
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { stripComments } = await import('./strip-comments');
+  const WEB = join(__dirname, '..');
+  const MAKER = [
+    'app/dashboard/[eventId]/launch/_components/maker-details.tsx',
+    'app/dashboard/[eventId]/launch/_components/qr-look-controls.tsx',
+    'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx',
+    'app/dashboard/[eventId]/launch/_components/maker-prints.tsx',
+    'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx',
+    'app/dashboard/[eventId]/launch/_components/maker-theme-picker.tsx',
+    'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
+    'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
+    'app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/authoring-panels.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/scene-slots-panel.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx',
+  ];
+  const offenders: string[] = [];
+  for (const rel of MAKER) {
+    const src = stripComments(readFileSync(join(WEB, rel), 'utf8'));
+    if (/state="locked"|state=\{'locked'\}|\?\s*'unlocked'\s*:\s*'locked'|paidMarkState\(/.test(src)) offenders.push(rel);
+  }
+  console.log(`[paid-mark] Maker files checked for a padlock: ${MAKER.length} · offenders ${offenders.length}`);
+  assert.deepEqual(offenders, [], 'a Maker Pro control still wears a padlock');
 });

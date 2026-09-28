@@ -516,7 +516,7 @@ export function SectionsPanel({
                                       }`}
                                     >
                                       {locked ? (
-                                        <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" tone="current" />
+                                        <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" tone="current" />
                                       ) : null}
                                       {HUB_TRANSITION_LABEL[t]}
                                     </button>

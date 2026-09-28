@@ -349,7 +349,7 @@ export function HubDraftToolbar({
               </p>
             ) : (
               <p className="text-sm text-ink/70">
-                <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} className="mr-1 align-middle" />
+                <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Hub Pro')} className="mr-1 align-middle" />
                 Apply needs Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
                 {proHref && (
                   <>

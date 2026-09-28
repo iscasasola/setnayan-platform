@@ -97,7 +97,11 @@ test('2b · a tile NEVER mounts the click-to-edit bridge', () => {
     /triedTheme = canvasTriedTheme\(search, await loadHostMembership\(admin, liveEvent\.event_id, previewer\.id\)\)/,
     'the tile theme is taken without the host check',
   );
-  assert.equal([...page.matchAll(/triedTheme = /g)].length, 1, 'a second writer of the tile theme appeared');
+  // …and the curated SAMPLE answers `theme=` to anyone — keyed on the row's own
+  // `is_sample`, never on a param, so a real couple's page cannot be asked.
+  assert.match(page, /const sampleTile = liveEvent\.is_sample === true;/, 'the sample tile is keyed on something other than the row');
+  assert.match(page, /if \(search\.theme && sampleTile\) \{\s*triedTheme = canvasTriedTheme\(search, sampleTile\);/);
+  assert.equal([...page.matchAll(/triedTheme = /g)].length, 2, 'a third writer of the tile theme appeared');
 });
 
 test('2c · the tile wears the theme through the ONE gate — the fence still answers', () => {

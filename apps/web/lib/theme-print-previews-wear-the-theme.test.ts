@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { THEME_PRINT_PIECES, themePrintSrc } from './maker-theme-tiles';
-import { isPreviewVersion, previewCacheControl, PREVIEW_IMMUTABLE } from './print-preview-cache';
+import { isPreviewVersion, previewCacheControl, PREVIEW_IMMUTABLE, samplePreviewCacheControl } from './print-preview-cache';
 import { stripComments } from './strip-comments';
 
 const V = '0123456789abcdef';
@@ -53,4 +53,39 @@ test('2 · each theme is its own cached address, answered immutable', () => {
 test('3 · the print route still takes the theme from `theme=`', () => {
   const route = stripComments(readFileSync(join(__dirname, '..', 'app', 'api', 'hub-print', '[piece]', 'route.ts'), 'utf8'));
   assert.match(route, /printThemeFor\(printEvent, url\.searchParams\.get\('theme'\)\)/);
+});
+
+// ═══ The sample door — the gallery's prints, the same for every couple ═══
+test('4 · the sample door can only ever draw the pinned sample, on screen, and is shared', () => {
+  const route = stripComments(readFileSync(join(__dirname, '..', 'app', 'api', 'hub-print', '[piece]', 'route.ts'), 'utf8'));
+  const start = route.indexOf('async function sampleView(');
+  const end = route.indexOf('export async function GET(');
+  assert.ok(start > 0 && end > start, 'the sample door moved — re-anchor this guard');
+  const door = route.slice(start, end);
+  // The event comes ONLY from the tour's pinned read — never from the request.
+  assert.match(door, /const sampleId = await findSampleEventId\(\);/);
+  assert.doesNotMatch(door, /searchParams\.get\('event'\)/, 'the sample door reads an event from the request');
+  assert.match(door, /loadPrintSet\(sampleId, /);
+  assert.equal([...door.matchAll(/loadPrintSet\(/g)].length, 1);
+  // On-screen pictures of three pieces only — never a PDF, passes or the set.
+  assert.match(route, /const SAMPLE_PIECES = \['invitation', 'details', 'pass'\] as const;/);
+  assert.match(door, /url\.searchParams\.get\('mode'\) !== 'screen'/);
+  assert.doesNotMatch(door, /renderPrintPdf|renderImposedPdf|loadGuestPasses/, 'the sample door can make a file');
+  assert.match(door, /samplePreviewCacheControl\(url\.searchParams\.get\('v'\)\)/);
+  // It is asked before the host gate, and only by `sample=1`.
+  const get = route.slice(end);
+  assert.ok(
+    get.indexOf("if (url.searchParams.get('sample') === '1') return sampleView(rawPiece, url);") < get.indexOf('await gate('),
+    'the sample door sits behind the host gate, or is asked another way',
+  );
+  // The pinned read is still pinned.
+  const sample = stripComments(readFileSync(join(__dirname, '..', 'app', 'tour', '_lib', 'sample-event.ts'), 'utf8'));
+  assert.match(sample, /\.eq\('is_sample', true\)\s*\.eq\('slug', SAMPLE_SLUG\)/);
+  assert.match(sample, /data\.is_sample !== true \|\| data\.slug !== SAMPLE_SLUG\) return null;/);
+});
+
+test('5 · a sample picture is public (one render for every couple); a couple’s stays private', () => {
+  assert.equal(samplePreviewCacheControl(V), 'public, max-age=31536000, immutable');
+  assert.match(samplePreviewCacheControl(null), /^public, max-age=300/);
+  assert.match(previewCacheControl(V), /^private/);
 });

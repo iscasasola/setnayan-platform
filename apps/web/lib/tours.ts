@@ -536,13 +536,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     slides: [
       {
         Icon: MessageSquare,
-        title: 'Written once, in Details',
-        body: 'Your special message lives in Details, and every scene that shows it follows. Change it in Details and every scene changes with it.',
+        title: 'Written once',
+        body: 'Your special message is written once, and every scene that shows it follows — and so does your printed Finer Details card.',
       },
       {
         Icon: MousePointerClick,
         title: 'Everywhere, or just here',
-        body: 'Change it on a scene and we ask: <strong>Change it everywhere</strong> updates Details, or <strong>Just this scene</strong> keeps a version for this scene only. Tap <strong>&#8634; Use Details</strong> to bring the scene back in line.',
+        body: 'Change it on a scene and we ask: <strong>Change it everywhere</strong> changes it on every scene and your prints, or <strong>Just this scene</strong> keeps a version for this scene only. Tap <strong>&#8634; Use your message</strong> to bring the scene back in line.',
       },
       {
         Icon: CheckCircle2,

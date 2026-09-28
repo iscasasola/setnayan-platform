@@ -9,7 +9,7 @@ import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type Pri
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
-import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { renderImposedPdf, renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderSampleJpeg, renderSampleSheetJpeg } from '@/lib/print-sample-raster';
@@ -36,7 +36,8 @@ import {
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { formatCount } from '@/lib/format-number';
-import { previewCacheControl } from '@/lib/print-preview-cache';
+import { previewCacheControl, samplePreviewCacheControl } from '@/lib/print-preview-cache';
+import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -116,9 +117,46 @@ function pdfResponse(bytes: Uint8Array, name: string, inline: boolean): NextResp
   });
 }
 
+/**
+ * 🖼 THE SAMPLE DOOR — `?sample=1&theme=<id>&mode=screen` (owner 2026-09-28,
+ * "THE THEME GALLERY SHOWS A CLEAN SAMPLE EVENT HUB"). The Details gallery shows
+ * the curated sample event's prints in each theme, the same for every couple.
+ *
+ * ⛔ IT CAN ONLY EVER DRAW THE SAMPLE. The event is found by the tour's one
+ * pinned read (`findSampleEventId`: `is_sample = TRUE` + the hardcoded slug),
+ * never from the request — an `event=` beside `sample=1` is IGNORED. So no
+ * sign-in is asked: there is nothing here but the public sample page's own
+ * content. Only the on-screen pictures of the gallery's three pieces; never a
+ * PDF, a pass batch, the whole set or any free-group document.
+ */
+const SAMPLE_PIECES = ['invitation', 'details', 'pass'] as const;
+
+async function sampleView(rawPiece: string, url: URL): Promise<NextResponse> {
+  const piece = (SAMPLE_PIECES as readonly string[]).includes(rawPiece) ? (rawPiece as (typeof SAMPLE_PIECES)[number]) : null;
+  if (!piece || url.searchParams.get('mode') !== 'screen') {
+    return new NextResponse('The sample shows its invitation, details and pass on screen only.', { status: 404 });
+  }
+  const sampleId = await findSampleEventId();
+  if (!sampleId) return new NextResponse('No sample.', { status: 404 });
+  const theme = normalizeThemeId(url.searchParams.get('theme')) ?? 'house';
+  const set = await loadPrintSet(sampleId, { mode: 'screen', previewTheme: theme });
+  if (!set) return new NextResponse('No sample.', { status: 404 });
+  const spot = spotLayersFor(set.theme);
+  const svg = renderPrintSvg(
+    layoutPieceView(piece, { look: set.look, data: set.data, mode: 'screen', foil: spot.foil, whiteInk: spot.whiteInk, format: null }),
+    set.images,
+    { compact: true },
+  );
+  return new NextResponse(svg, {
+    status: 200,
+    headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': samplePreviewCacheControl(url.searchParams.get('v')) },
+  });
+}
+
 export async function GET(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece: rawPiece } = await ctx.params;
   const url = new URL(req.url);
+  if (url.searchParams.get('sample') === '1') return sampleView(rawPiece, url);
   const g = await gate(url.searchParams.get('event'));
   if (!g.ok) return g.res;
   const eventId = g.eventId;

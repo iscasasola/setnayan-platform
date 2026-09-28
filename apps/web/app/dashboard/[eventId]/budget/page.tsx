@@ -51,13 +51,18 @@ import {
   type PaymentDoor,
 } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Budget' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  /** `part=budget` = rendered as Your Team's Budget part (see below). */
+  searchParams?: Promise<{ part?: string }>;
+};
 
 // Per-vendor itemization renders only vendors at-or-past 'contracted'.
 // Considering / shortlisted vendors are still being shopped — line-item
@@ -67,7 +72,7 @@ type Props = { params: Promise<{ eventId: string }> };
 // "committed" (CONFIRMED_VENDOR_STATUSES in lib/events.ts).
 const CONFIRMED_STATUS_SET = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
 
-export default async function BudgetPage({ params }: Props) {
+export default async function BudgetPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -81,6 +86,18 @@ export default async function BudgetPage({ params }: Props) {
   // `budget` is byte-identical.
   const profile = await resolveProfileByEvent(eventId);
   if (!surfaceEnabled(profile, 'budget')) redirect(`/dashboard/${eventId}`);
+
+  // ── YOUR TEAM'S BUDGET PART (owner 2026-09-29) ───────────────────────────
+  // Budget moved into the Your Team pillar (`lib/pillar-parts.ts`): Your Team
+  // renders THIS page whole at `?part=budget`, and passes that same param here
+  // so the two know which one is drawing. Visited on its own, the page lands in
+  // that part — but only where Your Team exists: `marketplace_enabled` is the
+  // column Your Team itself gates on, so an event type without suppliers keeps
+  // this page exactly as it was rather than being sent to a page that would
+  // send it home.
+  if (YOUR_TEAM_BUDGET_PART !== (await searchParams)?.part && profile.marketplaceEnabled === true) {
+    redirect(yourTeamParts({ eventId }).find((p) => p.key === 'budget')!.href);
+  }
   const supabase = await createClient();
 
   // ── WHO IS READING THE MONEY ──────────────────────────────────────────────

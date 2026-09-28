@@ -134,6 +134,12 @@ import {
   rangeFromPrecision,
 } from '@/lib/vendor-availability';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { PillarPartPicker } from '../_components/pillar-part-picker';
+import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
+// Your Team's Budget part IS the shipped Budget page, rendered whole — never a
+// second copy of it (owner 2026-09-29).
+import BudgetPage from '../budget/page';
 
 export const metadata = { title: 'Vendors' };
 
@@ -148,7 +154,9 @@ type Props = {
   // caterer" → ?tab=shortlist&open=catering jumps right to that category).
   // inspect (2026-07-15) = the Shortlist bench vendor to open in the desktop
   // inspector column (`v:<vendorId>`); resolved server-side to a quick-view body.
-  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string }>;
+  // part (2026-09-29) = which of Your Team's parts is showing — absent is the
+  // team itself, `budget` is the shipped Budget page (lib/pillar-parts.ts).
+  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string; part?: string }>;
 };
 
 type EventBudgetRow = {
@@ -212,6 +220,28 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // covered without editing this file.
   const profile = await resolveProfileByEvent(eventId);
   if (profile.marketplaceEnabled !== true) redirect(`/dashboard/${eventId}`);
+
+  // ⚖ YOUR TEAM'S BUDGET PART — owner 2026-09-29: "this is what an event
+  // needs. Guestlist · Your Team · Event Hub Maker · Our Services", with Budget
+  // placed inside Your Team. It is the SHIPPED Budget page, rendered whole
+  // under the part picker; `/budget` now lands here. It returns before the
+  // team's reads: the budget page reads what it needs itself, and the bench's
+  // fan-out would be fetched and thrown away.
+  if (sp.part === YOUR_TEAM_BUDGET_PART) {
+    return (
+      <section className="sn-col space-y-6">
+        <PageMasthead title="Your Team" />
+        <PillarPartPicker label="Your Team part" parts={yourTeamParts({ eventId })} current="budget" />
+        <BudgetPage
+          params={Promise.resolve({ eventId })}
+          searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART })}
+        />
+      </section>
+    );
+  }
+  const teamPartPicker = (
+    <PillarPartPicker label="Your Team part" parts={yourTeamParts({ eventId })} current="team" />
+  );
   const supabase = await createClient();
 
   // No-cron lazy review-request sweep (PR #47, 2026-05-14). Any vendor still
@@ -1317,6 +1347,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // taxonomy browser below instead.
   const services = (
     <>
+      {teamPartPicker}
       {aiOfferBanner}
       <PlanBudgetAccordion
         model={model}
@@ -2322,6 +2353,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           eventId={eventId}
           initialTab={initialTab}
           premium={aiActive}
+          partPicker={teamPartPicker}
           shortlistSlot={shortlistContent}
           buildSlot={buildSlot}
           budgetSlot={<MerkadoBudgetLens eventId={eventId} />}

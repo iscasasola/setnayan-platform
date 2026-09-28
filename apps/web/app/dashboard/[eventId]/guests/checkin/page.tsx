@@ -15,7 +15,18 @@ import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 export const metadata = { title: 'Check-in desk' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  /**
+   * `gview=checkin` means this desk is the Guest list's Check-in PART
+   * (`lib/pillar-parts.ts`, owner 2026-09-29): the guest list renders this
+   * very page in its body, so the "Back to guest list" link and the page's own
+   * frame step aside — the guest list already frames it. Visited on its own,
+   * `/guests/checkin` renders exactly as it always has: it is the door-crew's
+   * page and the day-of menu row's destination.
+   */
+  searchParams?: Promise<{ gview?: string }>;
+};
 
 type GuestRow = {
   guest_id: string;
@@ -30,8 +41,9 @@ type GuestRow = {
   qr_token: string;
 };
 
-export default async function CheckinDeskPage({ params }: Props) {
+export default async function CheckinDeskPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const embedded = (await searchParams)?.gview === 'checkin';
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -147,13 +159,15 @@ export default async function CheckinDeskPage({ params }: Props) {
   const expected = guests.filter((g) => g.rsvpStatus === 'attending').length;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
-      <Link
-        href={`/dashboard/${eventId}/guests`}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to guest list
-      </Link>
+    <div className={embedded ? 'mx-auto w-full max-w-2xl' : 'mx-auto w-full max-w-2xl px-4 py-6 sm:px-6'}>
+      {embedded ? null : (
+        <Link
+          href={`/dashboard/${eventId}/guests`}
+          className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to guest list
+        </Link>
+      )}
 
       {somethingRefused ? (
         <ReadRefusedNotice
@@ -163,10 +177,18 @@ export default async function CheckinDeskPage({ params }: Props) {
         />
       ) : null}
 
-      <header className="mt-3 space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <QrCode className="h-6 w-6 text-terracotta" /> Check-in desk
-        </h1>
+      <header className={embedded ? 'space-y-1' : 'mt-3 space-y-1'}>
+        {/* Inside the guest list the page already has its <h1>, so the desk's
+            title steps down a level — same words, same look. */}
+        {embedded ? (
+          <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <QrCode className="h-6 w-6 text-terracotta" /> Check-in desk
+          </h2>
+        ) : (
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <QrCode className="h-6 w-6 text-terracotta" /> Check-in desk
+          </h1>
+        )}
         <p className="text-sm text-ink/60">
           Scan a guest&rsquo;s QR (or search their name) as they arrive — you&rsquo;ll see their
           table and party at a glance, and the headcount keeps itself.

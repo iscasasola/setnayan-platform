@@ -258,6 +258,8 @@ export function MakerWork({
      * part is listed.
      */
     heroCard?: boolean;
+    /** A hero photo/video — its cover plate draws the Photo caption. Absent = listed. */
+    heroPhoto?: boolean;
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -1210,7 +1212,7 @@ export function MakerWork({
   })();
   /** 🔤 The part sheet's Part ▾: the parts this hero draws (a Joiner only for two people; the card's
    *  line · time · link, or the plain masthead's venue — `heroPartsFor`). */
-  const heroParts = heroPartsFor(sceneFormat?.heroCard, sceneFormat?.twoPeople);
+  const heroParts = heroPartsFor(sceneFormat?.heroCard, sceneFormat?.twoPeople, sceneFormat?.heroPhoto);
   /* 🧭 EVERY scene of the stage, in canvas order, the tabs as headers between
      the groups (`navigatorRows`) — never a tab that hides the rest. */
   const navRows = navigatorRows(tabs, list.shown.map((t) => t.key));

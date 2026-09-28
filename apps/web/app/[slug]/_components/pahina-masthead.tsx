@@ -226,6 +226,11 @@ export function PahinaMasthead({
     </p>
   );
 
+  /* 🖼 THE PHOTO CAPTION — a part (owner 2026-09-28, "make it editable"): the
+     couple's own words, else the venue it has always repeated. In the Maker
+     the part keeps the venue (`data-el-word`) so clearing puts it back. */
+  const captionWords = elements?.caption?.word ?? mediaCaption ?? null;
+
   /* ── THE COVER PLATE (photo/video demoted below the type) — one markup for
      every design of the plain masthead. See the note inside. */
   const coverPlate = mediaSlot ? (
@@ -261,8 +266,10 @@ export function PahinaMasthead({
           {mediaSlot}
         </div>
       </div>
-      {mediaCaption ? (
+      {captionWords ? (
         <figcaption
+          {...el('caption')}
+          {...(stampElements ? { 'data-el-word': mediaCaption ?? '' } : {})}
           /* The plate bleeds `-mx-4` past the column; a centred caption (The
              Card) sits inside it anyway, a ranged-left one (The Letter) would
              start 16px off the phone's edge — so off the default the caption
@@ -271,7 +278,7 @@ export function PahinaMasthead({
             design === HERO_DESIGN_DEFAULT ? '' : ' px-4 sm:px-0'
           }`}
         >
-          {mediaCaption}
+          {txt('caption', captionWords)}
         </figcaption>
       ) : null}
     </figure>

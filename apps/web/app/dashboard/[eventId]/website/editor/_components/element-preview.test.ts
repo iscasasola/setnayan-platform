@@ -577,3 +577,27 @@ test('a run on the link’s words: the canvas cuts it exactly as the guest page 
   bridge.applyElementPreview(live as unknown as HTMLElement, 'f:hero', 'link', { link: style! }, false, doc);
   assert.equal(serialize(live.find('data-el', 'link')), serialize(server));
 });
+
+test('the photo caption’s words are on the canvas at once, and clearing them puts the VENUE back', () => {
+  const plate = (elements: Styles | null) =>
+    parse(
+      renderToStaticMarkup(
+        React.createElement(PahinaMasthead, {
+          displayName: 'Maria & Jose',
+          eventDate: '2026-12-12',
+          twoPeople: true,
+          stampElements: true,
+          elements,
+          mediaSlot: React.createElement('img', { alt: '' }),
+          mediaCaption: 'San Agustin Church',
+        }),
+      ),
+    );
+  const own = plate({ caption: { word: 'Where it all began' } });
+  assert.equal(own.find('data-el', 'caption').textContent, 'Where it all began');
+  bridge.applyElementPreview(own as unknown as HTMLElement, 'f:hero', 'caption', null, false, doc);
+  assert.equal(own.find('data-el', 'caption').textContent, 'San Agustin Church', 'the venue is back');
+  const live = plate(null);
+  bridge.applyElementPreview(live as unknown as HTMLElement, 'f:hero', 'caption', { caption: { word: 'Hi' } }, false, doc);
+  assert.equal(serialize(live.find('data-el', 'caption')), serialize(plate({ caption: { word: 'Hi' } }).find('data-el', 'caption')), 'canvas = guest page');
+});

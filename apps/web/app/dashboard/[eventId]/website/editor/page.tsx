@@ -1237,6 +1237,7 @@ export default async function WebsiteEditorPage({
            picks its masthead by (`site-body.tsx`). */
         heroCard:
           !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
+        heroPhoto: Boolean(heroRef || videoRef),
       }}
       rows={rows}
       themes={themes}

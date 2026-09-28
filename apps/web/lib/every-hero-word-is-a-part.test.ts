@@ -32,9 +32,10 @@ import {
   HUB_ELEMENT_FIELDS,
   HUB_HERO_ELEMENT_KEYS,
   HUB_LINK_DEFAULT_WORDS,
-  HUB_LINK_WORDS_MAX,
+  HUB_PART_LINE_MAX,
+  heroPartsFor,
   sanitizeHubElements,
-  sanitizeHubLinkWords,
+  sanitizeHubPartLine,
 } from './element-style';
 import { HERO_DESIGNS, type HeroDesignId } from './hero-design';
 import { invitationCard } from '../app/[slug]/_lib/invitation-card';
@@ -110,13 +111,13 @@ test('3 · the link’s colour and size sit on the part the words and ↓ inheri
 /* ═══ 4 · PLAIN TEXT, ONE SHORT LINE ═══ */
 
 test('4 · the link’s words are plain text, one short line', () => {
-  assert.equal(sanitizeHubLinkWords('  see   you\nthere '), 'see you there');
-  assert.equal(sanitizeHubLinkWords('x'.repeat(HUB_LINK_WORDS_MAX)), 'x'.repeat(HUB_LINK_WORDS_MAX));
-  assert.equal(sanitizeHubLinkWords('x'.repeat(HUB_LINK_WORDS_MAX + 1)), null);
-  assert.equal(sanitizeHubLinkWords('a\u0000b'), null, 'no control characters');
-  assert.equal(sanitizeHubLinkWords('a‮b'), null, 'no direction overrides');
-  assert.equal(sanitizeHubLinkWords(42), null);
-  assert.equal(sanitizeHubLinkWords('ang araw, ang lugar ✨'), 'ang araw, ang lugar ✨');
+  assert.equal(sanitizeHubPartLine('  see   you\nthere '), 'see you there');
+  assert.equal(sanitizeHubPartLine('x'.repeat(HUB_PART_LINE_MAX)), 'x'.repeat(HUB_PART_LINE_MAX));
+  assert.equal(sanitizeHubPartLine('x'.repeat(HUB_PART_LINE_MAX + 1)), null);
+  assert.equal(sanitizeHubPartLine('a\u0000b'), null, 'no control characters');
+  assert.equal(sanitizeHubPartLine('a‮b'), null, 'no direction overrides');
+  assert.equal(sanitizeHubPartLine(42), null);
+  assert.equal(sanitizeHubPartLine('ang araw, ang lugar ✨'), 'ang araw, ang lugar ✨');
 });
 
 /* ═══ 5 · THE VENUE IS STYLE ONLY ═══ */
@@ -156,11 +157,11 @@ test('6 · the Part sheet offers the link its words (the card’s as the hint) a
       }),
     );
   const link = tab('link');
-  assert.match(link, /data-row="link-words"/);
+  assert.match(link, /data-row="part-words"/);
   assert.match(link, new RegExp(`placeholder="${HUB_LINK_DEFAULT_WORDS}"`));
-  assert.match(link, new RegExp(`maxLength="${HUB_LINK_WORDS_MAX}"`));
+  assert.match(link, new RegExp(`maxLength="${HUB_PART_LINE_MAX}"`));
   assert.match(tab('link', 'See you there'), /value="See you there"/, 'their words, ready to change');
-  assert.doesNotMatch(tab('venue'), /data-row="link-words"|id="link-own-words"|data-inspector-row="joiner"/, 'the venue’s words are the event’s');
+  assert.doesNotMatch(tab('venue'), /data-row="part-words"|id="part-own-words"|data-inspector-row="joiner"/, 'the venue’s words are the event’s');
 });
 
 /* ═══ 7 · 🔒 THE GUARD — EVERY WORD ON THE HERO IS A PART ═══ */
@@ -210,10 +211,8 @@ const KNOWN_BLOCKED = new Set<string>([]);
 
 /** Text the masthead writes that is deliberately NOT a part, with why. */
 const NOT_A_PART_BY_DESIGN: ReadonlyArray<{ tag: string; why: string }> = [
-  {
-    tag: 'figcaption',
-    why: 'the cover plate’s caption repeats the venue under the photo; reported to the owner (drop it, or make it the Venue part too)',
-  },
+  // EMPTY. The cover plate's caption was here until the owner answered
+  // "make it editable" (2026-09-28) — it is the `caption` part now.
 ];
 
 async function everyMasthead(): Promise<Array<{ name: string; html: string }>> {
@@ -319,4 +318,56 @@ test('8 · the couple’s Date colour and font sit on the part, and no inner spa
     }
     assert.match(m![2]!, /December 18, 2026/);
   }
+});
+
+/* ═══ 9 · THE PHOTO CAPTION IS THE COUPLE'S (owner 2026-09-28: "make it editable") ═══ */
+
+const PHOTO = { card: undefined, mediaSlot: React.createElement('img', { alt: '' }), mediaCaption: 'San Agustin Church' };
+const captionOf = (html: string) => /<figcaption[^>]*>([\s\S]*?)<\/figcaption>/.exec(html);
+
+test('9 · a guest reads the couple’s own caption under the photo, in every design; none or cleared → the venue', async () => {
+  for (const design of HERO_DESIGNS) {
+    const own = captionOf(await hero({ ...PHOTO, design, elements: sanitizeHubElements({ caption: { word: 'Where it all began' } }) }));
+    assert.ok(own, `${design}: no caption`);
+    assert.equal(own![1], 'Where it all began', `${design}: the couple’s words replace the venue`);
+    assert.doesNotMatch(own![0], /data-el/, 'a guest’s markup never carries data-el');
+    const before = await hero({ ...PHOTO, design });
+    assert.equal(captionOf(before)![1], 'San Agustin Church', `${design}: the venue while they wrote none`);
+    assert.equal(sanitizeHubElements({ caption: { word: '  ' } }), null, 'cleared is an absence');
+  }
+});
+
+test('9b · the caption takes a look like any part, and the Maker keeps the venue on it to put back', async () => {
+  const html = await hero({ ...PHOTO, stampElements: true, elements: sanitizeHubElements({ caption: { word: 'Hi', color: '#123456' } }) });
+  const tag = /<figcaption[^>]*>/.exec(html)![0];
+  assert.match(tag, /data-el="caption"/);
+  assert.match(tag, /data-el-word="San Agustin Church"/, 'the default the canvas puts back when the words are cleared');
+  assert.match(tag, /color:#123456/);
+  assert.match(await hero({ ...PHOTO, elements: sanitizeHubElements({ caption: { hidden: true } }) }), /<figcaption style="display:none"/);
+});
+
+test('9c · the Part sheet offers the caption its words, the venue as the hint; Part ▾ lists it only under a photo', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { PartTextTab } = await import('../app/dashboard/[eventId]/website/editor/_components/part-inspector');
+  const html = renderToStaticMarkup(
+    React.createElement(PartTextTab, {
+      el: 'caption',
+      face: {},
+      style: {},
+      onRange: false,
+      choose: () => {},
+      chooseAlign: () => {},
+      resetText: () => {},
+      themeColours: [],
+      usedColours: [],
+      shownColour: '#000000',
+      contrast: null,
+      eventId: 'e',
+    }),
+  );
+  assert.match(html, /data-row="part-words"/);
+  assert.match(html, /placeholder="The venue"/);
+  assert.ok(heroPartsFor(false, true, true).includes('caption'), 'a hero photo lists its caption');
+  assert.ok(!heroPartsFor(false, true, false).includes('caption'), 'no photo, no caption to style');
+  assert.ok(!heroPartsFor(true, true, false).includes('caption'), 'the card draws no caption');
 });

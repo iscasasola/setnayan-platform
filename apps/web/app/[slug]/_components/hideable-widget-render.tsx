@@ -25,6 +25,7 @@ import { VenueWidget } from './venue-widget';
 import { VENUE_ROLE_LABEL } from '@/lib/event-venues';
 import { WhatToBringWidget } from './what-to-bring-widget';
 import { YourPhotosWidget } from './your-photos-widget';
+import { sceneCardClass } from '@/lib/scene-card-look';
 
 /**
  * Dispatch on widget_type to render the right widget. Owns the per-widget
@@ -97,7 +98,7 @@ function HideableWidgetBody({
   switch (widget.widget_type) {
     case 'event_details':
       return (
-        <section data-scene-card={bare ? 'bare' : 'own'} className={bare ? 'space-y-4' : 'space-y-4 rounded-xl border border-ink/10 bg-cream p-6'}>
+        <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
             Event details
           </p>

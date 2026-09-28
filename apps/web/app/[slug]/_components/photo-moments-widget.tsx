@@ -1,5 +1,6 @@
 import type { EventWords } from '../_lib/event-words';
 import { Camera, CircleSlash, Sparkles } from 'lucide-react';
+import { sceneCardClass } from '@/lib/scene-card-look';
 
 /*
  * ✉️ 2026-08-24 (AP-3) — THE INVITATION STOPPED READING LIKE A RECEIPT.
@@ -90,7 +91,7 @@ export function PhotoMomentsWidget({
   if (moments.length === 0) {
     if (hideWhenEmpty) return null;
     return (
-      <section data-scene-card={bare ? 'bare' : 'own'} className={bare ? 'space-y-4' : 'space-y-4 rounded-xl border border-ink/10 bg-cream p-6'}>
+      <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
         <header>
           <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
             Savour the moments
@@ -107,7 +108,7 @@ export function PhotoMomentsWidget({
   }
 
   return (
-    <section data-scene-card={bare ? 'bare' : 'own'} className={bare ? 'space-y-4' : 'space-y-4 rounded-xl border border-ink/10 bg-cream p-6'}>
+    <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
       <header>
         <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
           Savour the moments

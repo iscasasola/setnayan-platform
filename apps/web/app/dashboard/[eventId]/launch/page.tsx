@@ -1162,7 +1162,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         ),
       };
       /* 💌 LOVE STORY, moved whole (Details part 2b): only where this event type
-         has two named people (`detailsItemApplies`) and the story was read. */
+         has two named people (`detailsItemApplies`). Its WORDS editor only when
+         the story was read — a form built on an unread story would save it
+         empty; Details then says it could not be read. */
       const eventContext = { profile: detailsProfile, solemn: eventWordsFromProfile(detailsProfile).solemn };
       const story: LoveStoryBlob | null =
         storyLiveRes.error && storyRaw == null
@@ -1170,7 +1172,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           : storyRaw && typeof storyRaw === 'object' && !Array.isArray(storyRaw)
             ? (storyRaw as LoveStoryBlob)
             : {};
-      const withStory = story !== null && detailsItemApplies('love-story', eventContext);
+      const storyApplies = detailsItemApplies('love-story', eventContext);
+      const withStory = story !== null && storyApplies;
       factEditors = detailsFactEditors({
         eventId,
         specialMessage,
@@ -1195,7 +1198,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           />
         </Suspense>
       );
-      const loveStoryBook = withStory ? (
+      const loveStoryBook = storyApplies ? (
         <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening your Love Story…</p>}>
           <OurStoryEditorPage
             params={Promise.resolve({ eventId })}
@@ -1246,7 +1249,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             pabuyaMessage={printEvent.pabuya_message}
             specialMessage={specialMessage}
             facts={factEditors}
-            loveStory={loveStoryBook ? { book: loveStoryBook, moments: resolveMoments(story ?? {}).length } : null}
+            loveStory={loveStoryBook ? { book: loveStoryBook, moments: story ? resolveMoments(story).length : null } : null}
             schedule={{ page: schedulePage, moments: scheduleCountRes.error ? null : (scheduleCountRes.count ?? 0) }}
             rsvp={rsvpItem}
             hasPalette={hasPalette(printEvent.role_palette)}

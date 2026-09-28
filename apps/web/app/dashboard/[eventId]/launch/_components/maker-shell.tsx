@@ -73,6 +73,9 @@ import type { DetailsItemKey } from '@/lib/maker-details-items';
  * `md` it sits at the row's right end. One mount — so one draft bar listens
  * for More ▾'s "Reset this stage…" (`maker-open-reset.ts`).
  */
+/** One stable empty set, so the context keeps its identity when none is handed in. */
+const NO_FACT_EDITORS: Partial<Record<DetailsItemKey, ReactNode>> = {};
+
 export function MakerShell({
   eventId,
   slug,
@@ -87,7 +90,7 @@ export function MakerShell({
   more,
   applySlot = null,
   details = null,
-  factEditors = {},
+  factEditors = NO_FACT_EDITORS,
   hasWork,
   viewAs = {},
   viewAsFree = null,

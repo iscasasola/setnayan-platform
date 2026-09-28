@@ -171,8 +171,8 @@ export type MakerDetailsProps = {
   hasGifts: boolean;
   /** ✍ `detailsFactEditors(…)` — the SAME nodes the stage's inspector shows for a tapped fact. */
   facts: Partial<Record<DetailsItemKey, ReactNode>>;
-  /** 💌 Love Story, moved whole: the scrapbook page (its picture). Null = not read, or not this type. */
-  loveStory?: { book: ReactNode; moments: number } | null;
+  /** 💌 Love Story, moved whole: the scrapbook page (its picture). Null = not this type. `moments` null = unread. */
+  loveStory?: { book: ReactNode; moments: number | null } | null;
   /** 🗓 The shipped Schedule page, whole (it is its own editor). `moments` null = unread. */
   schedule?: { page: ReactNode; moments: number | null } | null;
   /** 🗳 RSVP, moved whole: the guest's RSVP (its picture) and its settings (its editor). */
@@ -325,7 +325,7 @@ export function MakerDetails(props: MakerDetailsProps) {
             loveStory: inc.loveStory !== 'none',
             schedule: inc.schedule,
           },
-          loveStoryMoments: loveStory?.moments ?? 0,
+          loveStoryMoments: loveStory ? loveStory.moments : 0,
           scheduleMoments: schedule?.moments ?? null,
         }),
         icon: (WORDS_ICON as Record<string, ReactNode>)[w] ?? (STORY_ICON as Record<string, ReactNode>)[w],
@@ -342,7 +342,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* Story & plans: each page is drawn only where it was read; which items this
      event type gets is `detailsNavigatorKeys`' (a birthday has no Love Story). */
   const storyPresent: StoryItemKey[] = [
-    ...(loveStory && facts['love-story'] ? (['love-story'] as const) : []),
+    ...(loveStory ? (['love-story'] as const) : []),
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
@@ -584,7 +584,16 @@ export function MakerDetails(props: MakerDetailsProps) {
       </div>
     ),
     /* ── Story & plans (the Schedule is its own editor: it has none here) ── */
-    ...(loveStory && facts['love-story'] ? { 'love-story': facts['love-story'] } : {}),
+    ...(loveStory
+      ? {
+          'love-story': facts['love-story'] ?? (
+            /* An unread story is SAID — never a words form that would save it empty. */
+            <p role="alert" className="text-sm text-terracotta-700">
+              Your story’s words could not be read just now. Nothing was changed — please reopen this in a moment.
+            </p>
+          ),
+        }
+      : {}),
     ...(rsvp ? { rsvp: rsvp.settings } : {}),
   };
   for (const f of free) {

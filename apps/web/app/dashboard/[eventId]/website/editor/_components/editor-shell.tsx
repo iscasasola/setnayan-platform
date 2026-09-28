@@ -1935,7 +1935,7 @@ export function MakerWork({
                DECISION_LOG "…TAP IS A SHORTCUT"). A scene the couple changed
                "just here" keeps the box that asked, so its ↺ is never lost. */
             const sceneKey = `w:${selectedScene.type}`;
-            const sceneCanvas = elementEditing?.canvases[selectedScene.type] ?? {};
+            const sceneCanvas: HubSectionCanvas = elementEditing?.canvases[selectedScene.type] ?? {};
             const ownWords = detailsBound?.ownWords.includes(selectedScene.type) ?? false;
             const boundItem: DetailsItemKey | null = ownWords
               ? null

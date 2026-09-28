@@ -228,8 +228,8 @@ export type WordsAndPlansInput = {
   kindlyReply: boolean;
   /** The print switches (`print_details.include`) that carry each one. */
   include: { specialMessage: boolean; thankYou: boolean; openingLine: boolean; rsvp: boolean; loveStory: boolean; schedule: boolean };
-  /** Moments in the Love Story (drafted over live). */
-  loveStoryMoments: number;
+  /** Moments in the Love Story (drafted over live); null = could not be read (never "0"). */
+  loveStoryMoments: number | null;
   /** Moments on the schedule; null = could not be read (never "0"). */
   scheduleMoments: number | null;
 };
@@ -273,8 +273,13 @@ export function wordsAndPlansItem(
     case 'love-story':
       return {
         label: 'Love Story',
-        sub: input.loveStoryMoments > 0 ? `${input.loveStoryMoments} ${input.loveStoryMoments === 1 ? 'moment' : 'moments'}` : not,
-        done: input.loveStoryMoments > 0,
+        sub:
+          input.loveStoryMoments === null
+            ? 'Could not be read just now'
+            : input.loveStoryMoments > 0
+              ? `${input.loveStoryMoments} ${input.loveStoryMoments === 1 ? 'moment' : 'moments'}`
+              : not,
+        done: input.loveStoryMoments === null ? undefined : input.loveStoryMoments > 0,
         usedOn: [...stagesOf('our_love_story'), ...(input.include.loveStory ? [finer] : [])],
       };
     case 'schedule':

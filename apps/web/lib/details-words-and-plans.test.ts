@@ -151,7 +151,7 @@ test('🔑 a tapped fact opens the SAME component its Details item shows — one
   assert.match(details, /'special-message': \(\s*<SpecialMessageField\b/, 'the special message editor is not the shared component');
   assert.match(details, /'special-message': facts\['special-message'\],/, 'the Words item draws its own copy');
   assert.match(details, /'thank-you': facts\['thank-you'\],/);
-  assert.match(details, /\.\.\.\(loveStory && facts\['love-story'\] \? \{ 'love-story': facts\['love-story'\] \} : \{\}\)/);
+  assert.match(details, /'love-story': facts\['love-story'\] \?\? \(/, 'the Love Story item draws its own words editor');
   const shell = read(SHELL);
   assert.match(shell, /const node = factEditors\?\.\[item\];/, 'the stage builds its own editor');
   assert.doesNotMatch(shell, /<SpecialMessageField\b|<StoryPanel\b/, 'the stage draws a second copy of a Details editor');
@@ -227,7 +227,7 @@ test('no wedding word — and nothing celebratory — in any Words or Story & pl
       openingLine: null,
       kindlyReply: false,
       include: { specialMessage: false, thankYou: false, openingLine: false, rsvp: false, loveStory: false, schedule: false },
-      loveStoryMoments: 0,
+      loveStoryMoments: null,
       scheduleMoments: null,
     },
     {

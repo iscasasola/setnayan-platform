@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
-import type { DetailsItemKey, DetailsItemModel } from '@/lib/maker-details-items';
+import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
+import { DetailsSelectContext } from './details-go';
+import { useMaker } from './maker-context';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
 export type DetailsNavItem = DetailsItemModel & {
@@ -43,6 +45,13 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  *
  * Picking an item changes no data and loads no page: the address is kept in
  * step (`?tool=details&item=<key>`, `replaceState`) so a reload lands back here.
+ * Inside the Maker the item is ALSO the Maker's (`detailsItem`), so a door
+ * elsewhere in it — a scene's "Open the hero" — opens Details on that item.
+ *
+ * 🎨 THE PAGES THAT MOVED IN KEEP THEIR SPLIT (`detailsItemLayout`): the Hero
+ * and the Reveal are a live page that FILLS the body, their controls on the
+ * right; the Logo studio and the Mood Board carry their own tools, so they fill
+ * the body AND the editor's column — no second editor beside them.
  *
  * ✍ TAP IT, EDIT IT ON THE RIGHT: a tap on a card's print-only words
  * (`PrintPreview`, via `DetailsTapContext`) opens the editor and puts the caret
@@ -64,25 +73,44 @@ export function DetailsWorkspace({
 }) {
   const items = groups.flatMap((g) => g.items);
   const first = items.some((i) => i.key === initial) ? initial : items[0]!.key;
-  const [selected, setSelected] = useState<DetailsItemKey>(first);
+  const maker = useMaker();
+  /* The Maker's word wins when it names one of these items (a door elsewhere
+     in the Maker asked for it); otherwise the page's own pick. */
+  const asked = maker?.detailsItem && items.some((i) => i.key === maker.detailsItem) ? maker.detailsItem : null;
+  const [own, setOwn] = useState<DetailsItemKey>(first);
+  const selected = asked ?? own;
   const [visited, setVisited] = useState<ReadonlySet<DetailsItemKey>>(() => new Set([first]));
+  const tellMaker = maker?.setDetailsItem;
   const [sheetOpen, setSheetOpen] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const current = items.find((i) => i.key === selected) ?? items[0]!;
 
-  const select = useCallback((key: DetailsItemKey) => {
-    setSelected(key);
-    setVisited((v) => (v.has(key) ? v : new Set(v).add(key)));
+  const select = useCallback(
+    (key: DetailsItemKey) => {
+      setOwn(key);
+      tellMaker?.(key);
+    },
+    [tellMaker],
+  );
+
+  /* The item showing — whoever picked it — is mounted, told to the Maker, and
+     kept in the address. */
+  useEffect(() => {
+    setVisited((v) => (v.has(selected) ? v : new Set(v).add(selected)));
+    if (maker && maker.detailsItem !== selected) tellMaker?.(selected);
     try {
       const url = new URL(window.location.href);
+      if (url.searchParams.get('item') === selected && url.searchParams.get('tool') === 'details') return;
       url.searchParams.set('tool', 'details');
-      url.searchParams.set('item', key);
+      url.searchParams.set('item', selected);
       window.history.replaceState(window.history.state, '', url);
     } catch {
       /* the address is a convenience; the page works without it */
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `maker` changes on every Maker render; only the item matters
+  }, [selected, tellMaker]);
+  const layout = detailsItemLayout(selected);
 
   /* The picked item stays in view in the navigator — by scrolling the NAVIGATOR
      only (`scrollLeft`/`scrollTop`), never `scrollIntoView`, which also scrolls
@@ -108,28 +136,58 @@ export function DetailsWorkspace({
 
   return (
     <DetailsTapContext.Provider value={tap}>
-      <div data-details-workspace="" data-details-item={selected} className="flex h-full min-h-0 w-full flex-1 flex-col lg:flex-row">
-        {/* ══ BODY — the picked item's picture ══ */}
+      <DetailsSelectContext.Provider value={select}>
+      <div
+        data-details-workspace=""
+        data-details-item={selected}
+        data-details-layout={layout}
+        className="flex h-full min-h-0 w-full flex-1 flex-col lg:flex-row"
+      >
+        {/* ══ BODY — the picked item's picture (or, for a page that moved in, the page) ══ */}
         <section
           aria-label={`${current.label} — preview`}
           data-details-body=""
-          className="order-1 min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-4 py-5 sm:px-6 lg:order-2"
+          className={`order-1 flex min-h-0 flex-1 flex-col overscroll-contain bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] lg:order-2 ${
+            layout === 'flow' ? 'overflow-y-auto px-4 py-5 sm:px-6' : 'overflow-hidden'
+          }`}
         >
-          <div className="mx-auto flex max-w-4xl flex-col gap-4">
+          <div className={layout === 'flow' ? 'mx-auto flex w-full max-w-4xl flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'}>
             {items.map((i) =>
-              visited.has(i.key) ? (
-                <div key={i.key} hidden={i.key !== selected} data-details-body-item={i.key} className="flex flex-col gap-4">
-                  <header className="flex flex-col gap-0.5">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                      {groups.find((g) => g.items.some((x) => x.key === i.key))?.label}
-                    </p>
-                    <h2 className="font-serif text-2xl text-ink">{i.label}</h2>
-                    {i.usedOn?.length ? (
-                      <p className="text-xs text-ink/60" data-details-used-on={i.key}>
-                        Used on {i.usedOn.join(' · ')}
+              visited.has(i.key) || i.key === selected ? (
+                <div
+                  key={i.key}
+                  hidden={i.key !== selected}
+                  data-details-body-item={i.key}
+                  /* The CLASS hides it too: Tailwind's preflight `[hidden]` rule loses
+                     to a `flex` utility (same specificity, later), so `hidden` alone
+                     left every visited item showing at once. */
+                  className={
+                    i.key !== selected ? 'hidden' : detailsItemLayout(i.key) === 'flow' ? 'flex flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'
+                  }
+                >
+                  {detailsItemLayout(i.key) === 'flow' ? (
+                    <header className="flex flex-col gap-0.5">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                        {groups.find((g) => g.items.some((x) => x.key === i.key))?.label}
                       </p>
-                    ) : null}
-                  </header>
+                      <h2 className="font-serif text-2xl text-ink">{i.label}</h2>
+                      {i.usedOn?.length ? (
+                        <p className="text-xs text-ink/60" data-details-used-on={i.key}>
+                          Used on {i.usedOn.join(' · ')}
+                        </p>
+                      ) : null}
+                    </header>
+                  ) : (
+                    /* A page that moved in keeps its room: one line, not a masthead. */
+                    <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 px-4 pb-1 pt-2.5 sm:px-6">
+                      <h2 className="font-serif text-lg text-ink">{i.label}</h2>
+                      {i.usedOn?.length ? (
+                        <p className="text-xs text-ink/60" data-details-used-on={i.key}>
+                          Used on {i.usedOn.join(' · ')}
+                        </p>
+                      ) : null}
+                    </header>
+                  )}
                   {bodies[i.key] ?? null}
                 </div>
               ) : null,
@@ -191,7 +249,11 @@ export function DetailsWorkspace({
           aria-label={`${current.label} — edit`}
           data-details-editor-panel=""
           data-open={sheetOpen ? '' : undefined}
-          className={`order-3 flex min-h-0 shrink-0 flex-col border-t border-ink/10 bg-cream lg:max-h-none lg:w-[360px] lg:border-l lg:border-t-0 ${
+          /* A page that carries its own tools (the Logo studio, the Mood Board)
+             has no second editor beside it — the column is hidden, never
+             unmounted, so every other item's fields still post. */
+          hidden={layout === 'whole'}
+          className={`order-3 ${layout === 'whole' ? 'hidden' : 'flex'} min-h-0 shrink-0 flex-col border-t border-ink/10 bg-cream lg:max-h-none lg:w-[360px] lg:border-l lg:border-t-0 ${
             sheetOpen ? 'max-h-[72%]' : 'max-h-14 lg:max-h-none'
           }`}
         >
@@ -211,7 +273,7 @@ export function DetailsWorkspace({
             className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2 ${sheetOpen ? '' : 'hidden lg:block'}`}
           >
             {items.map((i) => (
-              <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className="flex flex-col gap-3">
+              <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className={i.key !== selected ? 'hidden' : 'flex flex-col gap-3'}>
                 {editors[i.key] ?? null}
               </div>
             ))}
@@ -219,6 +281,7 @@ export function DetailsWorkspace({
           </div>
         </aside>
       </div>
+      </DetailsSelectContext.Provider>
     </DetailsTapContext.Provider>
   );
 }

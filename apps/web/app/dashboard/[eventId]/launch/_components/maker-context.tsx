@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import type { DetailsItemKey } from '@/lib/maker-details-items';
 
 /**
  * THE MAKER'S SHARED STATE — what the toolbar says, the navigator, canvas and
@@ -58,6 +59,39 @@ export type MakerState = {
   /** ＋ Add a scene, as the work area registered it — see `MakerAddScene` below. */
   addScene: MakerAddScene | null;
   setAddScene: (next: MakerAddScene | null) => void;
+  /**
+   * 🧭 The item Details is on (or will open on) — Details reports it as the
+   * couple moves, and a door elsewhere in the Maker (an old Hero or Reveal
+   * button, `select({ kind: 'tool', key: 'hero' })`) sets it before Details
+   * opens. Null until Details has said. Optional: a harness may leave it out.
+   */
+  detailsItem?: DetailsItemKey | null;
+  setDetailsItem?: (key: DetailsItemKey) => void;
+  /** 🎨 The Look pages the work area moved into Details — see `MakerLookPages`. */
+  lookPages?: MakerLookPages | null;
+  setLookPages?: (next: MakerLookPages | null) => void;
+};
+
+/**
+ * 🎨 THE LOOK PAGES THAT MOVED INTO DETAILS (Details part 3, owner 2026-09-28
+ * "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS"). Logo, Hero and Reveal
+ * are built by the WORK AREA's server page (`website/editor/page.tsx`
+ * `madeOnce`), with every read and bound action they always had; Details is
+ * built by the launch page. The two trees meet only here, so the work area
+ * REGISTERS the three — the same nodes, moved whole, never a second build —
+ * and Details draws them (`details-look-pages.tsx`).
+ */
+export type MakerLookPages = {
+  /** The Logo studio — canvas and panel, its own split. */
+  logo: ReactNode | null;
+  /** The Hero's controls: Designs 1–4, its parts, the photo — and the Main background it carries. */
+  hero: ReactNode | null;
+  /** The Reveal's controls: the opening, where it plays, its fine-tune. */
+  reveal: ReactNode | null;
+  /** Where the reveal plays (drafted over live) — its page previews the first. */
+  revealStages: readonly LifecyclePhase[];
+  /** The guest page's address (`/<slug>`), or null before there is one. */
+  publicLandingUrl: string | null;
 };
 
 export const MakerContext = createContext<MakerState | null>(null);

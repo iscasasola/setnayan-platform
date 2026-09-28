@@ -6,11 +6,14 @@ import {
   ClipboardList,
   Download,
   FileText,
+  Gem,
   Grid3x3,
   Image as ImageIcon,
   LayoutGrid,
   Link2,
   Mail,
+  MailOpen,
+  PanelTop,
   Palette,
   QrCode,
   ScrollText,
@@ -36,7 +39,9 @@ import { QrLookControls } from './qr-look-controls';
 import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-theme-picker';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
-import { DETAILS_ITEM_GROUPS, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
+import { DETAILS_ITEM_GROUPS, LOOK_ITEM_KEYS, type DetailsItemKey, type DetailsItemModel, type LookItemKey } from '@/lib/maker-details-items';
+import { DetailsLookBody, DetailsLookEditor } from './details-look-pages';
+import { DetailsGoTo } from './details-go';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import { ParentCards } from './parent-cards';
@@ -136,6 +141,24 @@ export type MakerDetailsProps = {
   /** Changes on every server render, so a new QR look shows at once. */
   stamp: string;
   initialItem: DetailsItemKey;
+  /**
+   * 🎨 THE LOOK AFTER THEME (Details part 3) — Mood Board · Logo · Hero ·
+   * Reveal, the shipped pages moved in whole. `moodBoard` is the Mood Board
+   * studio, built by the launch page; Logo, Hero and Reveal are the work
+   * area's own (`details-look-pages.tsx`). What "done" and "used on" say is
+   * read from data that already exists. Null = not offered (the lab).
+   */
+  look?: {
+    moodBoard: ReactNode;
+    logoDone: boolean;
+    heroDone: boolean;
+    /** Undefined: the reveal always plays something (the theme's own opening) — "done" means nothing for it. */
+    revealDone?: boolean;
+    /** The stages the reveal plays on, in their own words. */
+    revealOn: string[];
+    /** The stages the hero leads, in their own words. */
+    heroOn: string[];
+  } | null;
 };
 
 const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
@@ -159,6 +182,7 @@ const FREE_ICON: Record<string, ReactNode> = {
 export function MakerDetails(props: MakerDetailsProps) {
   const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
   const { pabuyaMessage, specialMessage, specialMessageAction, hasPalette, hasGifts, flash, stamp, initialItem } = props;
+  const look = props.look ?? null;
   const PRINT_WORDS_ENDPOINT = '/api/hub-print/words';
   const inc = stored.include;
   const replyChoice = stored.rsvp?.kind === 'host' ? `host:${stored.rsvp.moderatorId}` : stored.rsvp?.kind === 'manual' ? 'manual' : '';
@@ -176,6 +200,7 @@ export function MakerDetails(props: MakerDetailsProps) {
      data that already exists — part 1 fills them for its own items. */
   const menuDone = menu.saved.some((m) => m.dishes.length > 0) || menu.caterer.some((m) => m.dishes.length > 0);
   const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } => {
+    if (look && (LOOK_ITEM_KEYS as readonly string[]).includes(k)) return lookLabel(k as LookItemKey, look, hasPalette);
     if (k === 'theme') {
       return {
         label: 'Theme',
@@ -203,7 +228,15 @@ export function MakerDetails(props: MakerDetailsProps) {
     const fp = free.find((f) => f.key === k);
     return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
   };
-  const present = new Set<DetailsItemKey>(['theme', 'address', 'qr', 'download', ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>([
+    'theme',
+    ...(look ? LOOK_ITEM_KEYS : []),
+    'address',
+    'qr',
+    'download',
+    ...PRINT_SET_KEYS,
+    ...free.map((f) => f.key),
+  ]);
   const groups: DetailsNavGroup[] = DETAILS_ITEM_GROUPS.map((g) => ({
     key: g.group,
     label: g.label,
@@ -290,6 +323,20 @@ export function MakerDetails(props: MakerDetailsProps) {
     </>
   );
   for (const f of free) bodies[f.key] = f.body;
+  /* 🎨 THE LOOK — each shipped page moved in whole, in the split it shipped
+     with (`detailsItemLayout`): the Mood Board and the Logo studio carry their
+     own tools; the Hero and the Reveal are a live page with their controls on
+     the right. */
+  if (look) {
+    bodies['mood-board'] = (
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 sm:px-6" data-details-mood-board="">
+        {look.moodBoard}
+      </div>
+    );
+    bodies.logo = <DetailsLookBody item="logo" />;
+    bodies.hero = <DetailsLookBody item="hero" />;
+    bodies.reveal = <DetailsLookBody item="reveal" />;
+  }
 
   /* ══ EDITORS — each item's controls; every one stays mounted ══ */
   const qrAlways = (
@@ -376,9 +423,8 @@ export function MakerDetails(props: MakerDetailsProps) {
           on={inc.moodBoard && hasPalette}
           disabled={!hasPalette}
           note={hasPalette ? null : (
-            <Link href={`${base}/studio/mood-board`} className="underline underline-offset-2">
-              Build your Mood Board first
-            </Link>
+            /* The Mood Board is an item of Details now — opened here, not linked out to. */
+            <DetailsGoTo item="mood-board">Build your Mood Board first</DetailsGoTo>
           )}
         />
         <Toggle form={WORDS_FORM} name="inc_special_message" label="Special message" on={inc.specialMessage}>
@@ -449,6 +495,12 @@ export function MakerDetails(props: MakerDetailsProps) {
     poster: <PrintPieceEditor input={prints} piece="poster" />,
     card: <PrintPieceEditor input={prints} piece="card" />,
     download: <PrintSetDownloads input={prints} />,
+    ...(look
+      ? {
+          hero: <DetailsLookEditor item="hero" />,
+          reveal: <DetailsLookEditor item="reveal" />,
+        }
+      : {}),
   };
   for (const f of free) {
     editors[f.key] =
@@ -500,6 +552,50 @@ export function MakerDetails(props: MakerDetailsProps) {
       />
     </ThemePickProvider>
   );
+}
+
+/**
+ * A Look item as the navigator draws it — plain words that fit every kind of
+ * event (DECISION_LOG 2026-09-29 "THE PLAN ADAPTS TO EVERY EVENT TYPE"): no
+ * item here names a wedding, a couple or a bride. "Used on" names the stages
+ * in their one vocabulary (`PUBLIC_STAGE_LABELS`, handed in) and the prints.
+ */
+function lookLabel(
+  k: LookItemKey,
+  look: NonNullable<MakerDetailsProps['look']>,
+  hasPalette: boolean,
+): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } {
+  switch (k) {
+    case 'mood-board':
+      return {
+        label: 'Mood Board',
+        sub: 'Your colours',
+        done: hasPalette,
+        usedOn: ['The Finer Details', 'QR code colours', 'Your suppliers'],
+        icon: <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+      };
+    case 'logo':
+      return {
+        label: 'Logo',
+        done: look.logoDone,
+        usedOn: ['Hero', 'QR code'],
+        icon: <Gem aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+      };
+    case 'hero':
+      return {
+        label: 'Hero',
+        done: look.heroDone,
+        usedOn: look.heroOn,
+        icon: <PanelTop aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+      };
+    case 'reveal':
+      return {
+        label: 'Reveal',
+        done: look.revealDone,
+        usedOn: look.revealOn,
+        icon: <MailOpen aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+      };
+  }
 }
 
 /** Where a no-script save of the special message lands — back on Details. */

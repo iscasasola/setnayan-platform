@@ -9,7 +9,7 @@ import {
   PencilLine,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -44,6 +44,9 @@ import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
+import { readMakerRevealStages } from './_components/maker-made-once';
+import { MoodBoardEditor } from '../studio/mood-board/_components/mood-board-editor';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 import { MakerRsvpSettings } from './_components/maker-rsvp-ask';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
@@ -55,7 +58,7 @@ import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails } from './_components/maker-details';
-import { detailsItemFor, makerToolFor } from '@/lib/maker-details-items';
+import { detailsItemFor, makerHasWork, makerToolFor } from '@/lib/maker-details-items';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { GuestCardBody } from '../guests/_components/guest-card-body';
 import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
@@ -729,7 +732,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     couple-only, and it still is (its own gate redirects anybody else).
   */
   const memberType = (membership as { member_type?: string | null } | null)?.member_type;
-  const hasWork = memberType === 'couple' && websiteOn;
+  const hasWork = makerHasWork(memberType, websiteOn);
 
   /* First visit = the tour (owner 2026-09-25). The same read `MiniTour` makes.
      ⚠ A refused read shows NO tour: an unread row must not replay a welcome on
@@ -997,8 +1000,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let rsvpAskDrafted = false;
       // 🎨 The theme being edited — drafted over live (picked on Details).
       let themeSaved: unknown = printEvent.invite_theme;
+      // 🎨 The Look's "done" marks read the draft over live too (Details part 3).
+      let draftedEvents: Record<string, unknown> = {};
       try {
         const d = await readHubDraft(supabase, eventId);
+        if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
         if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
         if (d && 'rsvp_ask_config' in d.events) {
@@ -1008,6 +1014,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       } catch (e) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
+      /** One events column as the couple is editing it — the draft's, else live. */
+      const drafted = (col: keyof typeof printEvent): unknown => (col in draftedEvents ? draftedEvents[col] : printEvent[col]);
       /* ══ DETAILS (made-once) ══ what the stages and prints include, and every
          line of wording — each read from its one home. A PAGE in the Maker's
          body (owner 2026-09-25): what the details feed is the page, these
@@ -1106,6 +1114,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               printTheme: one(search.print_theme),
               menuFlash: Boolean(one(search.menu_saved) || one(search.menu_error)),
             })}
+            /* 🎨 THE LOOK (Details part 3, DECISION_LOG "OPTION B …" + "SCHEDULE,
+               MOOD BOARD AND SEAT PLAN MOVE INSIDE…"): the Mood Board studio,
+               streamed so the Maker never waits on it; Logo, Hero and Reveal
+               come from the work area. "Done" is read from the columns they
+               already write, drafted over live. */
+            look={{
+              moodBoard: (
+                <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your Mood Board…</p>}>
+                  <MoodBoardEditor eventId={eventId} inMaker />
+                </Suspense>
+              ),
+              logoDone: Boolean(drafted('monogram_custom_svg') || drafted('monogram_uploaded_svg')),
+              heroDone: Boolean(drafted('landing_page_hero_image_url') || drafted('landing_page_hero_video_r2_key')),
+              // The hero panel's own claim: made once, shown on these three and the poster.
+              heroOn: [PUBLIC_STAGE_LABELS.save_the_date, PUBLIC_STAGE_LABELS.rsvp, PUBLIC_STAGE_LABELS.event, 'The poster'],
+              revealOn: (await readMakerRevealStages(eventId)).map((s) => PUBLIC_STAGE_LABELS[s]),
+            }}
           />
         ),
         controls: null,

@@ -20,9 +20,11 @@ import {
   MAKER_MORE_ROWS_ID,
   type MakerAddScene,
   type MakerDevice,
+  type MakerLookPages,
   type MakerSelection,
   type MakerState,
 } from './maker-context';
+import { movedPageItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import { MakerTour } from './maker-tour';
 import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
@@ -128,7 +130,12 @@ export function MakerShell({
   const [stage, setStage] = useState<LifecyclePhase>(initialStage);
   const [device, setDevice] = useState<MakerDevice>('desktop');
   const [navOpen, setNavOpen] = useState(true);
-  const [selection, setSelection] = useState<MakerSelection>(initialSelection);
+  /* 🧭 A page that moved into Details (Logo · Hero · Reveal, part 3) opens
+     Details on its item — from the address, from memory, or from a door in
+     the Maker (`movedSelection`). */
+  const [detailsItem, setDetailsItem] = useState<DetailsItemKey | null>(() => movedSelection(initialSelection).item);
+  const [selection, setSelection] = useState<MakerSelection>(() => movedSelection(initialSelection).selection);
+  const [lookPages, setLookPages] = useState<MakerLookPages | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [tour, setTour] = useState<'first' | 'again' | null>(firstVisit ? 'first' : null);
   const [viewAsRole, setViewAsRole] = useState<string | null>(null);
@@ -149,6 +156,8 @@ export function MakerShell({
   */
   const memoryKey = `sn-maker:${eventId}`;
   const restored = useRef(false);
+  /** The address named what to open — memory then never moves Details' item. */
+  const addressNamed = useRef(initialSelection !== null);
   useEffect(() => {
     let saved: { stage?: string; device?: string; navOpen?: boolean; selection?: MakerSelection } | null = null;
     try {
@@ -161,7 +170,11 @@ export function MakerShell({
     else if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
     // An address that names what to open (a save's `?scene=`) wins over memory.
-    if (saved?.selection) setSelection((cur) => cur ?? saved!.selection ?? null);
+    if (saved?.selection) {
+      const moved = movedSelection(saved.selection);
+      setSelection((cur) => cur ?? moved.selection);
+      if (moved.item && !addressNamed.current) setDetailsItem((d) => d ?? moved.item);
+    }
     restored.current = true;
   }, [memoryKey]);
   useEffect(() => {
@@ -248,7 +261,11 @@ export function MakerShell({
     return () => el.removeEventListener('submit', onSubmit, true);
   }, [eventId]);
 
-  const select = useCallback((next: MakerSelection) => setSelection(next), []);
+  const select = useCallback((next: MakerSelection) => {
+    const moved = movedSelection(next);
+    if (moved.item) setDetailsItem(moved.item);
+    setSelection(moved.selection);
+  }, []);
   /* ＋ ADD A SCENE — registered by the work area (`MakerAddScene`); the toolbar's
      ＋ and the phone's More ▾ row are drawn from it below. */
   const [addScene, setAddScene] = useState<MakerAddScene | null>(null);
@@ -268,8 +285,12 @@ export function MakerShell({
       viewAsHref,
       addScene,
       setAddScene,
+      detailsItem,
+      setDetailsItem,
+      lookPages,
+      setLookPages,
     }),
-    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene],
+    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, lookPages],
   );
 
   /* ONE HIGHLIGHT (owner 2026-09-25: "there should also be only one highlighted
@@ -345,7 +366,9 @@ export function MakerShell({
                 stageLabel={PUBLIC_STAGE_LABELS[stage]}
                 sceneSelected={
                   selection?.kind === 'scene' ||
-                  (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event', 'love-story'].includes(selection.key))
+                  (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event', 'love-story'].includes(selection.key)) ||
+                  /* The Hero and the Reveal play in their frame inside Details (`details-look-pages.tsx`). */
+                  (selection?.kind === 'tool' && selection.key === 'details' && (detailsItem === 'hero' || detailsItem === 'reveal'))
                 }
               />
             ) : null}
@@ -553,7 +576,7 @@ export function MakerShell({
 }
 
 /**
- * The bar itself — three groups, two dividers, exported so a test can render
+ * The bar itself — the four stages, a divider, then Details; exported so a test can render
  * it and count what a couple sees.
  */
 export function MakerBar({
@@ -623,8 +646,8 @@ export function MakerBar({
     screens?"* — and then, on the two pickers that shipped: *"combine them in 1
     dropdown"*). Decided by MEASURED overflow, never a breakpoint: the full row
     is drawn, its natural width is read, and only when it is wider than the
-    room the bar has does it collapse to "● Invitation ▾" (or "Logo ▾" while a
-    page is open), listing Stages and Pages. The room is watched
+    room the bar has does it collapse to "● Invitation ▾" (or "Details ▾" while
+    it is open), listing the four stages and Details. The room is watched
     (ResizeObserver) and the row comes back the moment it fits. The picker runs
     the SAME `onPress` the buttons do.
   */
@@ -690,8 +713,9 @@ export function MakerBar({
       >
         {/* ▾ ONE PICKER, NOT TWO (owner 2026-09-27, on "● Invitation ▾" +
             "Logo ▾": *"combine them in 1 dropdown"*). The button names where
-            the couple IS — the open page, else the stage — and the list holds
-            both, under "Stages" and "Pages" (`makerPlacePick`, maker-bar.ts). */}
+            the couple IS — Details, else the stage — and the list is one flat
+            list: the four stages, then Details (`makerPlacePick`, maker-bar.ts;
+            DECISION_LOG "OPTION B …"). */}
         <PickMenu
           label="Stage or page"
           dataAttr="data-maker-place-pick"
@@ -1110,4 +1134,16 @@ function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => 
       </aside>
     </div>
   );
+}
+
+/**
+ * 🧭 A selection of a page that moved into Details (DECISION_LOG 2026-09-28
+ * "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS") is Details, open on that
+ * page's item — so every door that still says `{ kind: 'tool', key: 'hero' }`
+ * (a scene's "Open the hero", an old address, the tab's memory) lands there.
+ * A page whose item has not landed yet (`movedPageItem` → null) opens as before.
+ */
+function movedSelection(next: MakerSelection): { selection: MakerSelection; item: DetailsItemKey | null } {
+  const item = next?.kind === 'tool' ? movedPageItem(next.key) : null;
+  return item ? { selection: { kind: 'tool', key: 'details' }, item } : { selection: next, item: null };
 }

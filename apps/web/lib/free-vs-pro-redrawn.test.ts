@@ -132,7 +132,7 @@ test('💎 colour + font on one part: the colour goes live, the font stays in th
   });
   const plan = planHubDraftApply(d, LIVE, false);
   assert.equal(plan.refused.length, 1, 'the font must be held');
-  const written = plan.apply.find((i) => i.kind === 'widget' && i.field === 'canvas');
+  const written = plan.apply.find((i): i is Extract<typeof i, { kind: 'widget' }> => i.kind === 'widget' && i.field === 'canvas');
   assert.ok(written, 'the free colour was held along with the Pro font — "colour is free" was a lie here');
   const canvas = written.value as HubSectionCanvas;
   assert.equal(canvas.elements?.heading?.color, '#8a1c2b', 'the colour did not reach the write');

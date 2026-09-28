@@ -1,4 +1,5 @@
 import 'server-only';
+import { fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -258,21 +259,32 @@ const WIDGET_LIVE_SELECT ='widget_id, widget_type, is_always_on, is_visible, dis
  * Apply must never classify against a guessed "live".
  */
 export async function readHubLiveState(supabase: SessionClient, eventId: string): Promise<HubLiveState> {
-  const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }, { data: story, error: storyErr }] = await Promise.all([
+  const [
+    { data: ev, error: evErr },
+    { data: rows, error: rowsErr },
+    { data: story, error: storyErr },
+    { data: prefs, error: prefsErr },
+  ] = await Promise.all([
     supabase.from('events').select(HUB_DRAFT_EVENT_COLUMNS.join(', ')).eq('event_id', eventId).maybeSingle(),
     supabase.from('invitation_widgets').select(WIDGET_LIVE_SELECT).eq('event_id', eventId),
     // 📖 Post Event's live arrangement — the story's own row (RLS: the couple's own).
     supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),
+    // 🎨 The fixed parts' live style picks — `events_host`, the couple-scoped read
+    // of `events` (the dashboard reads `style_preferences` through it already).
+    supabase.from('events_host').select('style_preferences').eq('event_id', eventId).maybeSingle(),
   ]);
   if (evErr) throw new Error(`Could not read the live Event Hub: ${evErr.message}`);
   if (rowsErr) throw new Error(`Could not read the live sections: ${rowsErr.message}`);
   // ⚠ Unread is NOT "the default arrangement": Apply would classify against a
   // guessed live story and could write a key it never compared. Refuse instead.
   if (storyErr) throw new Error(`Could not read the live Post Event story: ${storyErr.message}`);
+  // Unread is not "no picks" either — Apply would compare against a guess.
+  if (prefsErr) throw new Error(`Could not read the live scene styles: ${prefsErr.message}`);
   return {
     events: (ev ?? {}) as HubLiveState['events'],
     widgets: (rows ?? []) as unknown as HubLiveState['widgets'],
     editorial: (story as { draft_json?: unknown } | null)?.draft_json ?? null,
+    fixedStyles: fixedSceneStylesFromPreferences((prefs as { style_preferences?: unknown } | null)?.style_preferences),
   };
 }
 

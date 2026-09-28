@@ -528,3 +528,32 @@ test('🔒 an event with no stored style renders byte-identically to the shipped
     assert.equal(renderToStaticMarkup(h(RsvpWidget as never, { ...rsvpProps, sceneStyle: style } as never)), shippedReply, `rsvp on ${stage} drew ${style}`);
   }
 });
+
+test('🔒 the five fixed parts with no pick render byte-identically to the shipped part', async () => {
+  const { fixedSceneStyleOf } = await import('@/lib/fixed-scene-styles');
+  const { EntourageSection } = await import('./entourage-section');
+  const { YourSeatBlock } = await import('./your-seat-block');
+  const { DayOfAnnouncement } = await import('./day-of-announcement');
+  const { PhotosOfYouGallery } = await import('./photos-of-you-gallery');
+  const gallery = {
+    total: 2,
+    photos: ['a', 'b'].map((id) => ({ id, sourceTable: 'papic_photos', url: `https://m/${id}.jpg`, capturedAt: null, capturedBy: null, wall: 'off' })),
+  };
+  const galleryProps = { gallery, eventId: 'e', isLive: true, isPost: false, showClaimAccountCta: false, occasion: 'celebration', eventWord: 'wedding' };
+  const parts: Array<[Parameters<typeof fixedSceneStyleOf>[1], 'rsvp' | 'event', (style?: string | null) => React.ReactElement]> = [
+    ['entourage', 'rsvp', (s) => h(EntourageSection, { groups: GROUPS, ...(s === undefined ? {} : { sceneStyle: s, myGuestId: 'g7' }) } as never)],
+    ['entourage', 'event', (s) => h(EntourageSection, { groups: GROUPS, ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
+    ['find_your_seat', 'event', (s) => h(YourSeatBlock, { ...SEAT, ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
+    ['announcements', 'event', (s) => h(DayOfAnnouncement, { body: 'Be seated by 2:45.', ...(s === undefined ? {} : { sceneStyle: s }) })],
+    ['announcements', 'rsvp', (s) => h(DayOfAnnouncement, { body: 'Be seated by 2:45.', stage: 'before', ...(s === undefined ? {} : { sceneStyle: s }) })],
+    ['photos_of_you', 'event', (s) => h(PhotosOfYouGallery, { ...galleryProps, ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
+  ];
+  for (const [scene, stage, draw] of parts) {
+    const shipped = html(draw(undefined));
+    assert.ok(shipped.length > 0, `${scene}: the fixture renders`);
+    for (const prefs of [{}, null, { scene_styles: {} }, { qr: { shape: 'circle' } }, { scene_styles: { [scene]: 'no-such' } }]) {
+      const style = fixedSceneStyleOf(prefs, scene, stage, 'wedding');
+      assert.equal(html(draw(style)), shipped, `${scene} on ${stage} with ${JSON.stringify(prefs)} drew ${style}`);
+    }
+  }
+});

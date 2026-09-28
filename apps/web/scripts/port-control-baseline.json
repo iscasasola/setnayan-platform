@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e961c15a2",
+  "generatedFromRef": "a0b149cbc",
   "routeCount": 435,
   "destinations": 940,
   "actions": 671,
-  "blocks": 5017,
+  "blocks": 5020,
   "routes": {
     "/": {
       "files": [
@@ -812,6 +812,7 @@
         "[slug]/_components/magic-move.tsx",
         "[slug]/_components/main-ground.tsx",
         "[slug]/_components/maker-empty-scene.tsx",
+        "[slug]/_components/maker-fixed-parts.tsx",
         "[slug]/_components/maker-guest-scenes.tsx",
         "[slug]/_components/not-you-switch.tsx",
         "[slug]/_components/our-love-story-styles.tsx",
@@ -1128,6 +1129,7 @@
         "LeadArticle",
         "LeadMedia",
         "Link",
+        "LiveHubArrangement",
         "LiveLayerData",
         "LivePhotoWall",
         "LiveWallBlock",
@@ -1140,6 +1142,7 @@
         "LoveStoryYears",
         "MagicMove",
         "MainGround",
+        "MakerDayPartStandIn",
         "MakerEmptyScene",
         "MakerGuestScenes",
         "Marked",
@@ -8519,6 +8522,7 @@
         "dashboard/[eventId]/website/editor/_components/editor-shell.tsx",
         "dashboard/[eventId]/website/editor/_components/element-preview.ts",
         "dashboard/[eventId]/website/editor/_components/element-sheet.tsx",
+        "dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx",
         "dashboard/[eventId]/website/editor/_components/inspector-kit.tsx",
         "dashboard/[eventId]/website/editor/_components/launch-phase-choices.ts",
         "dashboard/[eventId]/website/editor/_components/main-background-panel.tsx",
@@ -8597,6 +8601,7 @@
         "ElementTarget",
         "ErrorLine",
         "FileUpload",
+        "FixedSceneStyleRow",
         "Fragment",
         "GalleryPanel",
         "HTMLButtonElement",

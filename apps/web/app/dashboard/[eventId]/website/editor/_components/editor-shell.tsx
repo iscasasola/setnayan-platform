@@ -74,6 +74,8 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
 import { SceneStyleCanvasRow } from './scene-style-row';
+import { FixedSceneStyleRow } from './fixed-scene-style-row';
+import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import {
   PostEventScenePanel,
   PostEventWordsField,
@@ -263,6 +265,8 @@ export function MakerWork({
     twoPeople: boolean;
     /** 🎨 The event type — a scene's styles adapt to it (`lib/scene-styles.ts`). */
     eventType?: string | null;
+    /** 🎨 The five fixed parts' style picks, live with the draft laid on (`lib/fixed-scene-styles.ts`). */
+    fixedStyles?: FixedSceneStyles;
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -1584,7 +1588,7 @@ export function MakerWork({
                       aria-label={
                         tile.kind === 'post-event'
                           ? postEventTileLabel(tile)
-                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ' (always here on this stage · comes from your guest list)' : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
+                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ` (always here on this stage · comes from ${MAKER_FIXED_SOURCE[tile.fixed]!.from ?? 'your guest list'})` : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
                       }
                       onClick={() => {
                         select?.(selectionForTile(tile));
@@ -2088,6 +2092,22 @@ export function MakerWork({
               />
             );
           })()}
+          fixedStylePanel={(() => {
+            if (selection.kind !== 'row' || !elementEditing) return null;
+            const fixed = fixedOfKey(selection.key);
+            if (!fixed || !isFixedStyleScene(fixed)) return null;
+            return (
+              <FixedSceneStyleRow
+                key={`${fixed}:${stage}`}
+                eventId={eventId}
+                scene={fixed}
+                stage={stage}
+                eventType={sceneFormat?.eventType ?? null}
+                picked={sceneFormat?.fixedStyles?.[fixed] ?? null}
+                draftAction={elementEditing.draftAction}
+              />
+            );
+          })()}
           scene={selectedScene}
           scenePanel={selectedScene ? scenePanels[selectedScene.id] : null}
           sceneTabs={sceneTabs}
@@ -2449,6 +2469,7 @@ function Inspector({
   contentBound = null,
   postEventTile = null,
   postEventPanel = null,
+  fixedStylePanel = null,
   scene,
   scenePanel,
   rows,
@@ -2479,6 +2500,8 @@ function Inspector({
   postEventTile?: PostEventTile | null;
   /** 🎞 The selected Post Event scene's own panel (`post-event-scene-panel.tsx`). */
   postEventPanel?: ReactNode;
+  /** 🎨 A fixed part's Style row (the entourage and the day's own parts) — its Format, Style only. */
+  fixedStylePanel?: ReactNode;
   scene: MakerScene | null;
   scenePanel: ReactNode;
   rows: Record<string, MakerRowPanel>;
@@ -2572,6 +2595,8 @@ function Inspector({
     const f = fixedScenePanel(fixed);
     body = (
       <section className="space-y-3 px-1" data-maker-fixed-panel={fixed}>
+        {/* 🎨 Its Style first — the same one row every scene wears. */}
+        {fixedStylePanel}
         <p className="text-[13px] text-ink/75">{f.line}</p>
         {f.tool && f.button ? (
           <button

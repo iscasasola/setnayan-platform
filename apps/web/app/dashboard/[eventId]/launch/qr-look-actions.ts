@@ -1,5 +1,6 @@
 'use server';
 
+import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/auth';
 import { requireHostMembership } from '@/lib/host-gate';
@@ -42,30 +43,18 @@ export async function updateQrStyle(eventId: string, patch: StoredQrStyle): Prom
   // Re-check every field: a patch is data a browser sent, not a promise about shape.
   const next = sanitizeQrStyle(patch);
 
-  const { data: row, error: readErr } = await admin
-    .from('events')
-    .select('style_preferences')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (readErr) {
-    logQueryError('updateQrStyle.read', readErr, { event_id: eventId }, 'graceful_degrade');
-    return { ok: false, reason: 'failed' };
-  }
-  const prefs =
-    row?.style_preferences && typeof row.style_preferences === 'object'
-      ? { ...(row.style_preferences as Record<string, unknown>) }
-      : {};
-  const current = sanitizeQrStyle(prefs[QR_STYLE_PREF_KEY]);
-  const merged: StoredQrStyle = { ...current, ...next };
-  // An explicit reset (`ink: undefined` from "Ink") drops the key rather than storing undefined.
-  for (const k of Object.keys(patch) as Array<keyof StoredQrStyle>) {
-    if (patch[k] === undefined) delete merged[k];
-  }
-  prefs[QR_STYLE_PREF_KEY] = merged;
-
-  const { error } = await admin.from('events').update({ style_preferences: prefs }).eq('event_id', eventId);
-  if (error) {
-    logQueryError('updateQrStyle.write', error, { event_id: eventId }, 'graceful_degrade');
+  /* 🔁 The ONE read-merge-write for `style_preferences` (shared with the scene
+     styles' Apply): only `.qr` changes; every other key of the blob is kept. */
+  const res = await writeStylePreferenceKey(admin, eventId, QR_STYLE_PREF_KEY, (raw) => {
+    const merged: StoredQrStyle = { ...sanitizeQrStyle(raw), ...next };
+    // An explicit reset (`ink: undefined` from "Ink") drops the key rather than storing undefined.
+    for (const k of Object.keys(patch) as Array<keyof StoredQrStyle>) {
+      if (patch[k] === undefined) delete merged[k];
+    }
+    return merged;
+  });
+  if (!res.ok) {
+    logQueryError(`updateQrStyle.${res.stage}`, { message: res.message }, { event_id: eventId }, 'graceful_degrade');
     return { ok: false, reason: 'failed' };
   }
   revalidatePath(`/dashboard/${eventId}/launch`);

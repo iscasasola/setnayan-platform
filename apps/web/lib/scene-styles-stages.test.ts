@@ -35,6 +35,11 @@ const RENDERER: Record<string, string> = {
   photo_moments: 'photo-moments-widget.tsx',
   rsvp: 'rsvp-widget.tsx',
   gallery: 'our-photos-widget.tsx',
+  entourage: 'entourage-section.tsx',
+  find_your_seat: 'your-seat-block.tsx',
+  photos_of_you: 'photos-of-you-gallery.tsx',
+  announcements: 'day-of-announcement.tsx',
+  live_hub: 'live-hub-styles.tsx',
 };
 
 test('1 · every registered scene offers at least three styles on every stage it is drawn on', () => {
@@ -111,8 +116,18 @@ test('4 · names shared with Post Event are ONE style, drawn on both', () => {
   }
 });
 
-test('5 · a part with no section row has no dropdown — its pick would have nowhere to live', () => {
-  for (const type of ['entourage', 'find_your_seat', 'photos_of_you', 'announcements', 'live_hub']) {
-    assert.equal(sceneStyleSet(type), null, `${type} is registered but has no canvas.style to save a pick in`);
+test('5 · the five fixed parts are registered, three styles each where guests meet them', () => {
+  for (const [type, stages] of [
+    ['entourage', ['rsvp', 'event']],
+    ['find_your_seat', ['event']],
+    ['photos_of_you', ['event']],
+    ['announcements', ['rsvp', 'event']],
+    ['live_hub', ['event']],
+  ] as const) {
+    assert.ok(sceneStyleSet(type), `${type} is registered`);
+    for (const stage of stages) assert.ok(sceneStylesOn(type, stage, 'wedding').length >= 3, `${type} on ${stage}`);
+    assert.equal(sceneStylesOn(type, 'save_the_date').length, 0, `${type} is not on the Save the Date`);
   }
+  assert.ok(!sceneStylesOn('entourage', 'event', 'birthday').some((s) => s.id === 'two-sides'), 'two sides is a wedding style');
+  assert.equal(recommendedStageSceneStyle('find_your_seat', 'event', null), 'table-number');
 });

@@ -110,6 +110,7 @@ import {
 import { updateSpecialMessage } from '../special-message/actions';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { hubDraftAction } from '../hub-draft-actions';
+import { fixedSceneStylesAfter, fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
 import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
@@ -367,6 +368,20 @@ export default async function WebsiteEditorPage({
     console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
   }
   const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
+
+  /* 🎨 THE FIVE FIXED PARTS' STYLE PICKS — live (`events.style_preferences
+     .scene_styles`, read through `events_host`, the couple-scoped read) with the
+     draft laid on, so the Style row shows what the canvas draws. A failed read
+     shows the defaults, which is what the page draws without a pick. */
+  const { data: prefsRow } = await supabase
+    .from('events_host')
+    .select('style_preferences')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const fixedStyles = fixedSceneStylesAfter(
+    fixedSceneStylesFromPreferences((prefsRow as { style_preferences?: unknown } | null)?.style_preferences),
+    hubDraft?.fixedStyles,
+  );
 
   /* 🎞 THE MAIN BACKGROUND (Maker Phase 10) — BY DEFAULT THE HERO (owner,
      2026-09-25 item 6: "whatever they make on the hero scene will be their
@@ -1071,6 +1086,9 @@ export default async function WebsiteEditorPage({
       solemn: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn,
       hasHeroMedia: Boolean(heroRef || videoRef),
       hasEntourage: entourageCount === null ? true : entourageCount > 0,
+      // 🎨 The day's own parts (find your seat, photos, announcements, live hub):
+      // the canvas draws their stand-ins, so the navigator lists them.
+      dayParts: true,
       storyRenders: ourStoryRenders(event.love_story),
       countdownPast: countdownMs !== null && countdownMs <= Date.now(),
     },
@@ -1257,6 +1275,7 @@ export default async function WebsiteEditorPage({
         lookLock: lockPanel('How each section looks and moves'),
         twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
         eventType: (event.event_type as string | null) ?? null,
+        fixedStyles,
       }}
       rows={rows}
       themes={themes}

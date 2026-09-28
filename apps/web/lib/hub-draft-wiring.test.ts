@@ -104,7 +104,7 @@ test('a Pro gate in a draftable writer is skipped ONLY on the draft path', () =>
       // Either the gate itself is conditioned on the live path, or the draft
       // path has already left (redirected) before the gate is reached.
       const conditioned = /if\s*\(\s*!drafting\s*\)/.test(line);
-      const draftLeftFirst = firstDivert >= 0 && firstDivert < pos && /isHubDraftWrite\(formData\)\)\s*await/.test(body.slice(0, pos));
+      const draftLeftFirst = firstDivert >= 0 && firstDivert < pos && /isHubDraftWrite\(formData\)\)\s*return/.test(body.slice(0, pos));
       assert.ok(conditioned || draftLeftFirst, `${name}: a Pro gate the draft path can reach — "${line.trim()}"`);
     }
     const tx = body.split('\n').find((l) => /step\.needsPro/.test(l));
@@ -141,8 +141,9 @@ test('the eye diverts on draft=1: toggleWidgetVisibility drafts is_visible AFTER
   assert.ok(gate > alwaysOn, 'the draft door must come after the always-on refusal (a draft may not hide Home either)');
   assert.ok(door > gate, 'on draft=1 the eye must save { is_visible: nextVisible } to the draft');
   assert.ok(live > door, 'the live is_visible write must come after the door, so a drafted eye never reaches it');
-  // `saveWidgetToDraft` redirects (returns never), so the live write is unreachable on the draft path.
-  assert.match(fn(read(WIDGETS), 'saveWidgetToDraft'), /Promise<never>/);
+  // The door is RETURNED (`a-maker-save-lands-in-place.test.ts` holds it for every lander), so the live write is unreachable on the draft path.
+  assert.match(body, /return saveWidgetToDraft\(formData,\s*eventId,\s*row\.widget_type/);
+  assert.match(fn(read(WIDGETS), 'saveWidgetToDraft'), /return finishDraftSave\(formData, eventId\);/);
 });
 
 test('a custom section drafts ONLY its canvas (layout, template, slots, clip); its words and removal stay live', () => {
@@ -162,7 +163,7 @@ test('a template scene (Phase 5) drafts its template, slot and clip writes, buil
   assert.ok(drafting > 0 && drafting < scene, 'the draft decision must be made before the scene branch');
   const base = body.search(/sanitizeHubCanvas\(drafting \? await canvasBase\(true, eventId, row\) : existing\)/);
   assert.ok(base > scene, 'a drafted scene edit must build on the drafted canvas, not the live one');
-  const door = body.indexOf('if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, nextCanvas)');
+  const door = body.indexOf('if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, nextCanvas)');
   const arrange = body.indexOf("intent === 'arrange'");
   assert.ok(door > base && door < arrange, 'the scene door must sit at the end of the scene branch');
   const gates = body.split('\n').filter((l) => /\brequireLookPro\s*\(/.test(l));

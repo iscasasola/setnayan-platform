@@ -46,13 +46,13 @@
  * Only NEW refs are screened — re-ordering or removing within an existing gallery
  * re-screens nothing, so the cost tracks what the host actually just uploaded.
  */
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
 import { galleryChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
-import { resolveReturnTo } from '@/lib/editor-return';
 import { formatCount } from '@/lib/format-number';
 
 /** Hard cap on the gallery size — keeps the page light + bounds R2 cost. */
@@ -156,7 +156,5 @@ export async function updateOurPhotos(
     );
   }
 
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/our-photos?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/our-photos?saved=1`, '?saved=1');
 }

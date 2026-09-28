@@ -194,7 +194,7 @@ test('4 · SOURCE: every scene drags, each move names its stage, no "order is fi
   assert.match(SHELL, /aria-label="What opens your Save the Date"/);
   assert.match(SHELL, /\{ widgets: \{ our_photos: \{ std_lead: next \} \} \}/, 'the switch saves through the draft');
   const ACTIONS = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/website/widgets/actions.ts'), 'utf8'));
-  assert.match(ACTIONS, /await moveWithinStage\(formData, supabase, eventId, widgetId, stageRaw as LifecyclePhase, direction\);/);
+  assert.match(ACTIONS, /return moveWithinStage\(formData, supabase, eventId, widgetId, stageRaw as LifecyclePhase, direction\);/);
   const exportsIn = (src: string) => (src.match(/^export async function /gm) ?? []).length;
   assert.equal(exportsIn(ACTIONS), 9, 'no new server action');
 });

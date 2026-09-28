@@ -12,11 +12,21 @@ import { OPENING_LINE_TEMPLATES } from '@/lib/print-pieces';
  * one writes its words into the field, where they can be edited, and what the
  * form posts is always the text.
  */
-export function OpeningLineField({ initial, form }: { initial: string | null; /** The form it posts with, when drawn outside it (Details' items). */ form?: string }) {
+export function OpeningLineField({
+  initial,
+  form,
+  titled = true,
+}: {
+  initial: string | null;
+  /** The form it posts with, when drawn outside it (Details' items). */
+  form?: string;
+  /** False where its switch already names it (Details). */
+  titled?: boolean;
+}) {
   const [text, setText] = useState(initial ?? '');
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm text-ink/80">Opening line</span>
+      {titled ? <span className="text-sm text-ink/80">Opening line</span> : null}
       <div className="flex flex-wrap gap-2" role="group" aria-label="Opening line templates">
         {OPENING_LINE_TEMPLATES.map((t) => (
           <button

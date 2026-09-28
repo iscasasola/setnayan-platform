@@ -1,6 +1,5 @@
 import 'server-only';
 import { cache } from 'react';
-import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveReturnTo } from '@/lib/editor-return';
@@ -195,8 +194,13 @@ export async function draftEventsAndReturn(
   fallback: string,
 ): Promise<never> {
   await saveHubDraftPatch(eventId, { events }, { formData, fallback });
-  revalidatePath(`/dashboard/${eventId}/website`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/launch`);
+  /* ⚡ NO `revalidatePath` — and never the Maker's whole LAYOUT. A draft write
+     changes nothing a guest can see (guests meet the draft only at Apply), and
+     the redirect below already carries a fresh render of where it lands in
+     this same response; revalidating `/website` as a 'layout' re-rendered and
+     invalidated every Maker route under it on every keystroke-save (owner
+     2026-09-28: *"picking something takes a lot of time before the website
+     reacts"*). Held by `a-maker-pick-never-reloads-what-it-drew.test.ts`. */
   redirect(resolveReturnTo(formData, fallback));
 }
 

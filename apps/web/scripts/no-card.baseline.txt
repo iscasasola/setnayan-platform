@@ -2,14 +2,14 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 767 files · 2178 lines
+# 759 files · 2153 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
 1 apps/web/app/_components/anon-gate/save-to-continue.tsx
 2 apps/web/app/_components/app-store/choose-plan-sheet.tsx
 12 apps/web/app/_components/app-store/layout.tsx
-35 apps/web/app/_components/app-store/studio-card-demo.tsx
+32 apps/web/app/_components/app-store/studio-card-demo.tsx
 10 apps/web/app/_components/appointments-section.tsx
 3 apps/web/app/_components/booking-fee-notice.tsx
 1 apps/web/app/_components/chat-amendment-card.tsx
@@ -30,7 +30,6 @@
 1 apps/web/app/_components/event-day-prep-cta.tsx
 2 apps/web/app/_components/facebook-dual-stream-card.tsx
 6 apps/web/app/_components/file-upload.tsx
-1 apps/web/app/_components/guest-to-host-cta.tsx
 1 apps/web/app/_components/live-studio-recordings-card.tsx
 1 apps/web/app/_components/live-studio/broadcast-readiness.tsx
 2 apps/web/app/_components/marketing/_doorway-tone.ts
@@ -96,7 +95,6 @@
 2 apps/web/app/[slug]/_components/day-of-face-enroll.tsx
 2 apps/web/app/[slug]/_components/editorial/editorial-content.tsx
 2 apps/web/app/[slug]/_components/empty-states.tsx
-2 apps/web/app/[slug]/_components/face-data-notice.tsx
 1 apps/web/app/[slug]/_components/face-receipt-card.tsx
 4 apps/web/app/[slug]/_components/guest-column-form.tsx
 2 apps/web/app/[slug]/_components/guest-doorway-strip.tsx
@@ -110,10 +108,8 @@
 2 apps/web/app/[slug]/_components/photos-of-you-gallery.tsx
 1 apps/web/app/[slug]/_components/private-landing.tsx
 1 apps/web/app/[slug]/_components/public-event-day-bar.tsx
-2 apps/web/app/[slug]/_components/rsvp-widget.tsx
-1 apps/web/app/[slug]/_components/scan-trail-notice.tsx
 4 apps/web/app/[slug]/_components/selfie-capture.tsx
-9 apps/web/app/[slug]/_components/site-body.tsx
+5 apps/web/app/[slug]/_components/site-body.tsx
 1 apps/web/app/[slug]/_components/site-menu-bar.tsx
 4 apps/web/app/[slug]/_components/song-request-card.tsx
 1 apps/web/app/[slug]/_components/spotlight-card.tsx
@@ -134,7 +130,6 @@
 1 apps/web/app/[slug]/find-seat/page.tsx
 11 apps/web/app/[slug]/hub/page.tsx
 1 apps/web/app/[slug]/invite/_components/invite-qr-panel.tsx
-1 apps/web/app/[slug]/invite/enter/page.tsx
 2 apps/web/app/[slug]/pabuya/page.tsx
 3 apps/web/app/[slug]/recap/page.tsx
 1 apps/web/app/[slug]/seat/_components/guest-push-prompt.tsx
@@ -369,7 +364,6 @@
 1 apps/web/app/dashboard/[eventId]/guests/_components/walking-order-lines.tsx
 7 apps/web/app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx
 2 apps/web/app/dashboard/[eventId]/guests/claims/link-picker.tsx
-4 apps/web/app/dashboard/[eventId]/guests/claims/page.tsx
 1 apps/web/app/dashboard/[eventId]/guests/import/page.tsx
 1 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-link.tsx
 5 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx
@@ -433,7 +427,6 @@
 4 apps/web/app/dashboard/[eventId]/story/_components/theme-step.tsx
 4 apps/web/app/dashboard/[eventId]/story/_components/whats-next-step.tsx
 1 apps/web/app/dashboard/[eventId]/story/page.tsx
-6 apps/web/app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx
 4 apps/web/app/dashboard/[eventId]/studio/editorial-pro/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/guest-columns/_components/column-queue-controls.tsx
 1 apps/web/app/dashboard/[eventId]/studio/guest-columns/page.tsx
@@ -549,7 +542,6 @@
 2 apps/web/app/dashboard/[eventId]/website/dress-code/_components/role-attire-field.tsx
 4 apps/web/app/dashboard/[eventId]/website/dress-code/page.tsx
 2 apps/web/app/dashboard/[eventId]/website/editor/_components/media-panels.tsx
-1 apps/web/app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx
 1 apps/web/app/dashboard/[eventId]/website/editor/_components/text-panel.tsx
 2 apps/web/app/dashboard/[eventId]/website/hero-photo/page.tsx
 3 apps/web/app/dashboard/[eventId]/website/living-hero/_components/living-hero-studio.tsx

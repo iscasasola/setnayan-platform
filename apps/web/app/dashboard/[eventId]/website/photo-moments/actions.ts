@@ -145,7 +145,10 @@ export async function updatePhotoMoments(
           : 'Couldn’t save to your draft. Nothing changed — please try again.',
       };
     }
-    revalidatePath(`/dashboard/${eventIdRaw}/website`, 'layout');
+    /* ⚡ The Maker only — this door RETURNS (no redirect), so the one
+       revalidation left is what re-renders the Maker for the caller. Never
+       the `/website` LAYOUT: a draft changes nothing a guest sees (owner
+       2026-09-28, `a-maker-pick-never-reloads-what-it-drew.test.ts`). */
     revalidatePath(`/dashboard/${eventIdRaw}/launch`);
     return { ok: true };
   }

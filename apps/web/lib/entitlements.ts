@@ -755,12 +755,21 @@ export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
   // in this set is what makes the published claim true; a ₱0 price never did.
   // (The same lesson as the LIVE_WALL row: only this list decides.)
   //
-  // ⚠ THE CATALOGUE ROW STAYS ACTIVE AT ₱0, DELIBERATELY, UNLIKE SEATING_3D
-  // ABOVE. `REQUIRED_RETAIL` in `llms-txt.ts` names CUSTOM_QR_GUEST, and that
-  // renderer throws `MissingSkuError` on a SKU it cannot resolve — which is how
-  // production ends up serving the 603-byte fallback stub. Deactivating the row
-  // to match the 3D Plan's shape would break the very document that carries the
-  // free claim. Free is decided here; the row's job is to exist.
+  // ⚠ CORRECTED 2026-09-28 — THE PRODUCT IS RETIRED, THE KEY IS NOT. The
+  // "Custom QR per guest" PRODUCT (palette-tinted guest codes) folded into
+  // Event Hub Pro (owner 2026-09-27); its catalogue row is off sale (migration
+  // `_custom_qr_guest_folds_into_event_hub_pro`), it left `REQUIRED_RETAIL` in
+  // llms-txt.ts, and no QR surface reads this SKU any more — the QR's look is
+  // decided by `eventCoupleWebsiteProActive` (lib/qr-look.server.ts).
+  //
+  // The KEY stays in this set for ONE reader only: the seat pass
+  // (`/[slug]/seat`, lib/seat-pass.ts `eventOwnsCustomQrGuest`, the loaders'
+  // `seatPassActive`, the sku-activation hook) still gates on it, and the owner
+  // ruled the on-screen pass FREE (2026-09-27 "FIND YOUR SEAT, REDESIGNED").
+  // Removing the key here would lock a free door. When `rd/find-your-seat`
+  // lands its own gate for the pass, delete this entry with it — a free entry
+  // for a SKU nothing reads is the "free and retired are opposite products"
+  // trap kwento-is-free.test.ts describes.
   new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO', 'SEATING_3D', 'CUSTOM_QR_GUEST']),
 ) as ReadonlySet<string>;
 

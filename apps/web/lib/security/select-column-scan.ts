@@ -589,6 +589,118 @@ export function resolveConstantAliases(
   return out;
 }
 
+/**
+ * `export const A_COLUMNS = \`${B_COLUMNS}, extra_one, extra_two\`;` — a canonical
+ * list EXTENDED under a second name: the template names another constant and
+ * adds literal columns, with no copy of the base list's text.
+ *
+ * 🔴 WHY THIS EXISTS. On 2026-09-28 the Pro QR build lifted the QR's select
+ * fragment into `QR_LOOK_COLUMNS = \`${HERO_MONOGRAM_COLUMNS}, role_palette,
+ * style_preferences\`` and EIGHT live `.select()` sites went dark at once —
+ * T20 caught it. The obvious "fix" was a literal copy of the canonical list,
+ * which resolved here and then made the dup-rule scanner file 52 new "omit"
+ * facts about unrelated selects, because a literal `*_COLUMNS` IS a canonical
+ * list to that scanner. The composite is the shape this repo recommends (one
+ * list, extended, never copied), so the scanner has to read it.
+ *
+ * Only `${IDENT_COLUMNS}` / `${IDENT_SELECT}` parts are followed; any other
+ * expression leaves the constant unresolved, where T20 will count it.
+ */
+export type SelectConstantComposite = {
+  name: string;
+  file: string;
+  /** In order: a referenced constant, or literal column text. */
+  parts: Array<{ ref: string } | { literal: string }>;
+  exported: boolean;
+};
+
+const COMPOSITE_CONST_RE =
+  /(export\s+)?const\s+([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*(?::[^=]*)?=\s*`([^`]*\$\{[^`]*)`\s*(?:as\s+const\s*)?;/g;
+
+/** Every template `const A_COLUMNS = \`…${B_COLUMNS}…\`` in one file. */
+export function extractSelectConstantComposites(sourceRaw: string, file: string): SelectConstantComposite[] {
+  const source = stripComments(sourceRaw);
+  const out: SelectConstantComposite[] = [];
+  const re = new RegExp(COMPOSITE_CONST_RE.source, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source))) {
+    const name = m[2];
+    const body = m[3];
+    if (!name || body === undefined) continue;
+    const parts: SelectConstantComposite['parts'] = [];
+    let ok = true;
+    let last = 0;
+    const hole = /\$\{\s*([A-Za-z_$][\w$]*)\s*\}/g;
+    let h: RegExpExecArray | null;
+    while ((h = hole.exec(body))) {
+      const literal = body.slice(last, h.index);
+      if (literal.trim()) parts.push({ literal });
+      const ref = h[1] ?? '';
+      if (!/^[A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS)$/.test(ref)) {
+        ok = false; // an expression, not a canonical constant — leave it unresolved
+        break;
+      }
+      parts.push({ ref });
+      last = h.index + h[0].length;
+    }
+    if (!ok) continue;
+    const tail = body.slice(last);
+    if (tail.trim()) parts.push({ literal: tail });
+    if (parts.some((p) => 'ref' in p)) out.push({ name, file, parts, exported: Boolean(m[1]) });
+  }
+  return out;
+}
+
+/**
+ * Materialise each composite against the constants it names — after aliases,
+ * with the same scope rule and the same fixed-point-with-ceiling loop as
+ * `resolveConstantAliases`, and for the same reasons.
+ */
+export function resolveConstantComposites(
+  constants: readonly ScopedSelectConstant[],
+  composites: readonly SelectConstantComposite[],
+): ScopedSelectConstant[] {
+  const out = [...constants];
+  const known = () => {
+    const sameFile = new Map<string, ScopedSelectConstant>();
+    const exported = new Map<string, ScopedSelectConstant>();
+    for (const c of out) {
+      sameFile.set(`${c.file}\u0000${c.name}`, c);
+      if (c.exported && !exported.has(c.name)) exported.set(c.name, c);
+    }
+    return { sameFile, exported };
+  };
+  let pending = [...composites];
+  for (let hop = 0; hop < 5 && pending.length > 0; hop++) {
+    const { sameFile, exported } = known();
+    const still: SelectConstantComposite[] = [];
+    for (const comp of pending) {
+      const columns: string[] = [];
+      let complete = true;
+      for (const part of comp.parts) {
+        if ('literal' in part) {
+          columns.push(...parseSelectList(part.literal));
+          continue;
+        }
+        const target = sameFile.get(`${comp.file}\u0000${part.ref}`) ?? exported.get(part.ref);
+        if (!target) {
+          complete = false;
+          break;
+        }
+        columns.push(...target.columns);
+      }
+      if (!complete) {
+        still.push(comp);
+        continue;
+      }
+      out.push({ name: comp.name, file: comp.file, columns, exported: comp.exported });
+    }
+    if (still.length === pending.length) break;
+    pending = still;
+  }
+  return out;
+}
+
 export function resolveConstantSelectSites(
   constantSites: readonly ConstantSelectSite[],
   constants: readonly ScopedSelectConstant[],
@@ -647,6 +759,7 @@ export function scanAllSelectSites(root: string = APP_ROOT): {
   const constantSites: ConstantSelectSite[] = [];
   const constants: ScopedSelectConstant[] = [];
   const aliases: SelectConstantAlias[] = [];
+  const composites: SelectConstantComposite[] = [];
   const refSites: RefSelectSite[] = [];
   const tableConstants: ScopedTableConstant[] = [];
 
@@ -663,6 +776,7 @@ export function scanAllSelectSites(root: string = APP_ROOT): {
     if (src.includes('const ')) {
       constants.push(...extractAllSelectConstants(src, rel));
       aliases.push(...extractSelectConstantAliases(src, rel));
+      composites.push(...extractSelectConstantComposites(src, rel));
       /*
         \u26a0 COLLECTED BEFORE THE `.from(` EARLY-EXIT, DELIBERATELY. A file can
         DECLARE the table constant and never read a table itself — which is
@@ -686,7 +800,7 @@ export function scanAllSelectSites(root: string = APP_ROOT): {
     has no literal of its own, so without this pass every site naming it is
     reported unresolved and silently drops out of the phantom check.
   */
-  const withAliases = resolveConstantAliases(constants, aliases);
+  const withAliases = resolveConstantComposites(resolveConstantAliases(constants, aliases), composites);
   const { resolved, unresolved } = resolveConstantSelectSites(constantSites, withAliases);
   const fromRefs = resolveRefSelectSites(refSites, tableConstants);
   return {

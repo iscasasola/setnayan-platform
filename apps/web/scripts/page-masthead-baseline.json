@@ -8,7 +8,6 @@
   "app/dashboard/[eventId]/launch/page.tsx",
   "app/dashboard/[eventId]/orders/[orderId]/page.tsx",
   "app/dashboard/[eventId]/sponsors/page.tsx",
-  "app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx",
   "app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx",
   "app/dashboard/[eventId]/studio/patiktok/booth/page.tsx",
   "app/dashboard/[eventId]/studio/photo-delivery/page.tsx",

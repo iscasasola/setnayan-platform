@@ -19,7 +19,8 @@
  * do, so the tests measure real layouts instead of flags.
  */
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
-import { roleLabel, type EntourageGroup } from '@/lib/entourage';
+import type { FlatMark } from '@/lib/print-mark';
+import { roleLabel, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
 import {
   BLEED_MM,
   PRINT_FONT_FILES,
@@ -32,9 +33,11 @@ import {
   dieCutFor,
   formatFor,
   maskAccountLine,
+  menuHasDishes,
   parentLine,
   printableText,
   type DieCut,
+  type MenuMoment,
   type PrintDetails,
   type PrintFontKey,
   type PrintFormat,
@@ -51,7 +54,7 @@ export type PrintLayer = 'foil' | 'white' | 'die';
 
 export type PrintOp =
   | { t: 'rect'; x: number; y: number; w: number; h: number; fill?: string; stroke?: string; sw?: number; opacity?: number; dash?: boolean; layer?: PrintLayer }
-  | { t: 'path'; d: string; fill?: string; stroke?: string; sw?: number; opacity?: number; layer?: PrintLayer }
+  | { t: 'path'; d: string; fill?: string; stroke?: string; sw?: number; opacity?: number; layer?: PrintLayer; evenOdd?: boolean }
   | { t: 'image'; ref: string; x: number; y: number; w: number; h: number; opacity?: number }
   | { t: 'circle'; cx: number; cy: number; r: number; fill?: string; stroke?: string; sw?: number; opacity?: number; dash?: boolean; nfc?: boolean };
 
@@ -73,7 +76,15 @@ export type PrintImages = Record<string, { bytes: Uint8Array; mime: 'image/png' 
 
 // ─── What a piece prints ────────────────────────────────────────────────────
 
-export type PrintMonogram = { viewBox: [number, number, number, number]; paths: string[] };
+/**
+ * The couple's logo, ready for paper: the ONE resolved mark (`resolveEventMonogram`,
+ * the Event Hub hero's resolver) flattened to outlines by `lib/print-mark.ts`
+ * (`kind: 'outline'`), or the uploaded raster logo handed to the backends as the
+ * `mark` image (`kind: 'image'`). Null → the card prints the couple's initials.
+ */
+export type PrintMonogram =
+  | ({ kind: 'outline' } & FlatMark)
+  | { kind: 'image'; w: number; h: number };
 
 export type PrintSetData = {
   names: { first: string; second: string | null };
@@ -92,6 +103,8 @@ export type PrintSetData = {
   swatches: string[];
   /** Printed under the event QR — the address guests can type. */
   hubAddress: string | null;
+  /** The Menu card's moments, in order (the couple's own, else their caterer's package lines). */
+  menu?: MenuMoment[];
   /** Is the theme's still (or the couple's hero) in `images.still`? */
   hasStill: boolean;
   hasEventQr: boolean;
@@ -279,21 +292,59 @@ function rule(ops: PrintOp[], cx: number, y: number, half: number, color: string
   ops.push({ t: 'path', d: `M${f2(cx)} ${f2(y - 2.6)}L${f2(cx + 2.6)} ${f2(y + 0.25)}L${f2(cx)} ${f2(y + 3.1)}L${f2(cx - 2.6)} ${f2(y + 0.25)}Z`, fill: color });
 }
 
-/** The couple's mark inside a circle, or their initials when there is no mark. */
+/** Relative luminance of `#rrggbb` (WCAG). */
+function luminance(hex: string): number {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return 0;
+  const v = parseInt(m[1]!, 16);
+  const ch = (c: number) => {
+    const x = c / 255;
+    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * ch((v >> 16) & 255) + 0.7152 * ch((v >> 8) & 255) + 0.0722 * ch(v & 255);
+}
+function contrast(a: string, b: string): number {
+  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p) as [number, number];
+  return (x + 0.05) / (y + 0.05);
+}
+
+/**
+ * THE COUPLE'S LOGO ON PAPER — drawn in its own colours, fitted to the crest's
+ * box (a little wider than tall, so a wordmark is not shrunk to a coin). Parts
+ * with no colour of their own (`currentColor` — the ink policy's "follow our
+ * mood board") take the theme's accent. A logo whose every colour would vanish
+ * into this paper (a black mark on Luxe's black stock) is painted in the accent
+ * instead — a mark nobody can see is not the couple's mark either.
+ */
+function drawMark(ops: PrintOp[], look: PrintLook, m: PrintMonogram, cx: number, cy: number, r: number) {
+  const boxW = r * 2.4;
+  const boxH = r * 2;
+  if (m.kind === 'image') {
+    const s = Math.min(boxW / m.w, boxH / m.h);
+    ops.push({ t: 'image', ref: 'mark', x: cx - (m.w * s) / 2, y: cy - (m.h * s) / 2, w: m.w * s, h: m.h * s });
+    return;
+  }
+  const { x: bx, y: by, w: bw, h: bh } = m.bounds;
+  const s = Math.min(boxW / bw, boxH / bh);
+  const ox = cx - (bx + bw / 2) * s;
+  const oy = cy - (by + bh / 2) * s;
+  const own = m.parts.map((p) => p.fill).filter((f): f is string => Boolean(f));
+  const vanishes = own.length > 0 && own.every((f) => contrast(f, look.paper) < 1.6);
+  for (const p of m.parts) {
+    ops.push({ t: 'path', d: scalePath(p.d, s, ox, oy), fill: vanishes || !p.fill ? look.accent : p.fill, evenOdd: p.evenOdd || undefined });
+  }
+}
+
+/** The couple's logo (the Maker's Logo tool), or their initials in a ring when they have none. */
 function medallion(ops: PrintOp[], look: PrintLook, data: PrintSetData, cx: number, cy: number, r: number, plate: boolean) {
   if (plate) ops.push({ t: 'circle', cx, cy, r: r + 3, fill: look.paper });
-  ops.push({ t: 'circle', cx, cy, r, stroke: look.accent, sw: Math.max(0.6, r / 40) });
   const m = data.monogram;
-  if (m && m.paths.length) {
-    const [vx, vy, vw, vh] = m.viewBox;
-    const box = r * 1.25;
-    const scale = box / Math.max(vw, vh);
-    const ox = cx - (vw * scale) / 2 - vx * scale;
-    const oy = cy - (vh * scale) / 2 - vy * scale;
-    ops.push({ t: 'path', d: scalePath(m.paths.join(' '), scale, ox, oy), fill: look.accent });
-  } else {
-    text(ops, data.initials, cx, cy + r * 0.28, { font: look.headFont, size: r * 0.8, color: look.accent, align: 'center' });
+  if (m) {
+    drawMark(ops, look, m, cx, cy, r);
+    return;
   }
+  ops.push({ t: 'circle', cx, cy, r, stroke: look.accent, sw: Math.max(0.6, r / 40) });
+  text(ops, data.initials, cx, cy + r * 0.28, { font: look.headFont, size: r * 0.8, color: look.accent, align: 'center' });
 }
 
 /** Scale + translate SVG path data (absolute or relative commands, no arcs'
@@ -383,7 +434,7 @@ function sheet(piece: PrintPieceKey, ctx: Ctx, size?: { w: number; h: number }):
   const w = size?.w ?? spec.widthPt;
   const h = size?.h ?? spec.heightPt;
   const bleed = ctx.mode === 'print' ? BLEED_MM * PT_PER_MM : 0;
-  const die = dieCutFor(ctx.look.theme, piece);
+  const die = dieCutFor(ctx.look.theme, piece, size && size.w > size.h ? { wMm: size.w / PT_PER_MM, hMm: size.h / PT_PER_MM } : null);
   const doc: PrintDoc = { piece, w, h, bleed, die, diePath: diePathFor(die, w, h), ops: [] };
   doc.ops.push({ t: 'rect', x: -bleed, y: -bleed, w: doc.w + 2 * bleed, h: doc.h + 2 * bleed, fill: ctx.look.paper });
   return doc;
@@ -396,90 +447,253 @@ function safeGuide(doc: PrintDoc, ctx: Ctx) {
   doc.ops.push({ t: 'rect', x: s, y: s, w: doc.w - 2 * s, h: doc.h - 2 * s, stroke: ctx.look.ink, sw: 0.4, opacity: 0.22, dash: true });
 }
 
-function layoutInvitation(ctx: Ctx): PrintDoc {
+// ─── The safe area, as the print shop cuts it ──────────────────────────────
+
+/** The safe inset, points (5 mm — THEMES-2026-09-24.md "Print"). */
+export const SAFE_PT = SAFE_MM * PT_PER_MM;
+
+/**
+ * THE SMALLEST TYPE A CARD MAY PRINT — 6 pt.
+ *
+ * Owner 2026-09-28: *"make sure prints out fit properly"*, looking at The
+ * Entourage running off the foot of the card. The old fit shrank the names
+ * toward a hard floor of 5 pt and then drew anyway. 6 pt is the floor US
+ * federal labelling law sets for text the public must read on printed
+ * packaging (21 CFR 101.9(d)(1)(iii): Nutrition Facts information "in type
+ * size no smaller than 6 point"), and the smallest body size print shops
+ * accept for a serif. Below it the card continues on its BACK (a second page)
+ * — a name is never shrunk to nothing and never dropped.
+ */
+export const PRINT_MIN_BODY_PT = 6;
+
+/** Ink above / below a baseline, in ems — generous enough for an accented
+ *  capital (Á) and a descender (g, j, J) in every bundled face. */
+const ASC_EM = 1;
+const DESC_EM = 0.42;
+
+/** Is (x, y) — trim coordinates — inside the safe area of this die-cut sheet? */
+export function safeContains(die: DieCut, w: number, h: number, x: number, y: number, eps = 0.01): boolean {
+  const s = SAFE_PT;
+  if (x < s - eps || x > w - s + eps || y < s - eps || y > h - s + eps) return false;
+  switch (die) {
+    case 'rounded': {
+      const r = Math.min(w, h) * 0.055;
+      if (r <= s) return true;
+      const rr = r - s;
+      const corners: Array<[number, number, boolean]> = [
+        [r, r, x < r && y < r],
+        [w - r, r, x > w - r && y < r],
+        [r, h - r, x < r && y > h - r],
+        [w - r, h - r, x > w - r && y > h - r],
+      ];
+      for (const [ccx, ccy, inCorner] of corners) {
+        if (inCorner && Math.hypot(x - ccx, y - ccy) > rr + eps) return false;
+      }
+      return true;
+    }
+    case 'arch': {
+      const r = w / 2;
+      return y >= r || Math.hypot(x - r, y - r) <= r - s + eps;
+    }
+    case 'chevron': {
+      const c = w * 0.18;
+      const k = (2 * c) / w;
+      const x2 = Math.min(x, w - x); // the two slopes are mirror images
+      return (y - c + k * x2) / Math.sqrt(1 + k * k) >= s - eps;
+    }
+    case 'scallop': {
+      const n = Math.max(8, Math.round(w / 26));
+      const r = w / n / 2;
+      return y >= r + s - eps && y <= h - r - s + eps;
+    }
+    case 'deckle':
+      return y >= 3.2 + s - eps;
+    default:
+      return true;
+  }
+}
+
+/** Is this whole box inside the safe area? (Every safe region here is convex along each edge.) */
+export function safeContainsBox(die: DieCut, w: number, h: number, b: { x: number; y: number; w: number; h: number }): boolean {
+  const xs = [b.x, b.x + b.w / 2, b.x + b.w];
+  const ys = [b.y, b.y + b.h / 2, b.y + b.h];
+  return xs.every((x) => ys.every((y) => safeContains(die, w, h, x, y)));
+}
+
+// ─── The corner QR ──────────────────────────────────────────────────────────
+
+/**
+ * THE QR IS ALWAYS PRINTED — owner 2026-09-25: *"QR is automatic. NFC is
+ * optional. we need that QR code since it is universal and works for all"*.
+ * Every card carries the Event Hub QR in a reserved corner (inside the safe
+ * area, on a white plate so it scans on any paper); the Finer Details card and
+ * the poster carry it large, and a pass carries the guest's own code.
+ *
+ * WHICH CORNER DEPENDS ON THE CUT. Top-right — unless the theme's die cuts it
+ * away: an ARCH (Cinderella, Regency) and a CHEVRON (Great Gatsby) remove the
+ * top corners, and a QR drawn there was trimmed off by the print shop
+ * (measured 2026-09-28 by `every-print-fits.test.ts`). Those cards carry it
+ * bottom-right, and the card's words stop above it (`wordsFloor`).
+ */
+export const CORNER_QR_PT = 34;
+const QR_PLATE = 3;
+export type QrSlot = { x: number; y: number; size: number; at: 'top' | 'bottom' };
+
+export function cornerQrSlot(die: DieCut, w: number, h: number): QrSlot {
+  const q = CORNER_QR_PT;
+  const plate = (x: number, y: number) => ({ x: x - QR_PLATE, y: y - QR_PLATE, w: q + 2 * QR_PLATE, h: q + 2 * QR_PLATE });
+  const base = SAFE_PT + 4;
+  for (const at of ['top', 'bottom'] as const) {
+    for (let nudge = 0; nudge <= 14; nudge += 1) {
+      const x = w - base - q - nudge;
+      const y = at === 'top' ? base + nudge : h - base - q - nudge;
+      if (safeContainsBox(die, w, h, plate(x, y))) return { x, y, size: q, at };
+    }
+  }
+  return { x: w - base - q, y: h - base - q, size: q, at: 'bottom' };
+}
+
+function cornerQr(doc: PrintDoc) {
+  const slot = cornerQrSlot(doc.die, doc.w, doc.h);
+  doc.ops.push({ t: 'rect', x: slot.x - QR_PLATE, y: slot.y - QR_PLATE, w: slot.size + 2 * QR_PLATE, h: slot.size + 2 * QR_PLATE, fill: '#ffffff' });
+  doc.ops.push({ t: 'image', ref: 'eventqr', x: slot.x, y: slot.y, w: slot.size, h: slot.size });
+}
+
+/** The lowest baseline a card's words may use — clear of the safe line and of a bottom-corner QR. */
+function wordsFloor(doc: PrintDoc, ctx: Ctx, descender: number): number {
+  let floor = doc.h - SAFE_PT - descender;
+  if (ctx.data.hasEventQr) {
+    const slot = cornerQrSlot(doc.die, doc.w, doc.h);
+    if (slot.at === 'bottom') floor = Math.min(floor, slot.y - QR_PLATE - 6 - descender);
+  }
+  return floor;
+}
+
+/**
+ * THE INVITATION, drawn at a type scale `k` and a still band `band`. Returns
+ * the card and the lowest ink it drew, so `layoutInvitation` can MEASURE the
+ * card it would print rather than estimate it.
+ */
+function drawInvitation(ctx: Ctx, k: number, band: number): { doc: PrintDoc; end: number } {
   const { look, data } = ctx;
   const doc = sheet('invitation', ctx);
   const { w, h, bleed, ops } = doc;
-  const placed = still(ops, look, data, w, h, bleed);
+  const placed = still(ops, look, data, w, h, bleed, band);
   const left = placed.left;
   const cx = left + (w - left) / 2;
   const inner = w - left - 52;
   let y: number;
   if (placed.top > 0) {
-    medallion(ops, look, data, cx, placed.top, 30, true);
-    y = placed.top + 50;
+    medallion(ops, look, data, cx, placed.top, 30 * k, true);
+    y = placed.top + 50 * k;
   } else {
-    medallion(ops, look, data, cx, 64, 30, false);
-    y = 118;
+    medallion(ops, look, data, cx, 64, 30 * k, false);
+    y = 64 + 54 * k;
   }
   const d = data.details;
   if (d.openingLine) {
-    for (const line of wrap(d.openingLine, look.bodyFont, 8.4, inner)) {
-      text(ops, line, cx, y, { font: look.bodyFont, size: 8.4, color: look.muted, align: 'center' });
-      y += 11;
+    for (const line of wrap(d.openingLine, look.bodyFont, 8.4 * k, inner)) {
+      text(ops, line, cx, y, { font: look.bodyFont, size: 8.4 * k, color: look.muted, align: 'center' });
+      y += 11 * k;
     }
-    y += 4;
+    y += 4 * k;
   }
   const groom = d.parents.filter((p) => p.side === 'groom');
   const bride = d.parents.filter((p) => p.side === 'bride');
   if (groom.length || bride.length) {
-    const rows = Math.max(groom.length, bride.length);
     const colW = inner / 2 - 6;
-    for (let i = 0; i < rows; i += 1) {
-      const g = groom[i];
-      const b = bride[i];
-      if (g) text(ops, parentLine(g), cx - 6, y, { font: look.bodyFont, size: 8, color: look.ink, align: 'right', maxWidth: colW });
-      if (b) text(ops, parentLine(b), cx + 6, y, { font: look.bodyFont, size: 8, color: look.ink, align: 'left', maxWidth: colW });
-      y += 10.5;
+    // Each column wraps its own long names (a title and a suffix can pass 40
+    // characters); the row is as tall as its taller side.
+    for (let i = 0; i < Math.max(groom.length, bride.length); i += 1) {
+      const gl = groom[i] ? wrap(parentLine(groom[i]!), look.bodyFont, 8 * k, colW) : [];
+      const bl = bride[i] ? wrap(parentLine(bride[i]!), look.bodyFont, 8 * k, colW) : [];
+      for (let j = 0; j < Math.max(gl.length, bl.length); j += 1) {
+        if (gl[j]) text(ops, gl[j]!, cx - 6, y, { font: look.bodyFont, size: 8 * k, color: look.ink, align: 'right', maxWidth: colW });
+        if (bl[j]) text(ops, bl[j]!, cx + 6, y, { font: look.bodyFont, size: 8 * k, color: look.ink, align: 'left', maxWidth: colW });
+        y += 10.5 * k;
+      }
     }
-    y += 6;
+    y += 6 * k;
   }
-  eyebrow(ops, look, data.eyebrow, cx, y, 7.2);
-  y += 30;
-  y = lockup(ops, look, data, cx, y, 27, ctx.foil, inner);
-  y += 14;
+  eyebrow(ops, look, data.eyebrow, cx, y, 7.2 * k);
+  y += 30 * k;
+  y = lockup(ops, look, data, cx, y, 27 * k, ctx.foil, inner);
+  y += 14 * k;
   rule(ops, cx, y, 40, look.accent);
-  y += 16;
+  y += 16 * k;
+  let end = y;
   if (data.dateLabel) {
-    text(ops, data.dateLabel, cx, y, { font: look.bodyFont, size: 9, color: look.ink, align: 'center', caps: true, tracking: 0.12, maxWidth: inner });
-    y += 12;
+    text(ops, data.dateLabel, cx, y, { font: look.bodyFont, size: 9 * k, color: look.ink, align: 'center', caps: true, tracking: 0.12, maxWidth: inner });
+    end = y + 9 * k * DESC_EM;
+    y += 12 * k;
   }
   if (data.ceremonyTime) {
-    text(ops, `Ceremony at ${data.ceremonyTime}`, cx, y, { font: look.bodyFont, size: 8.4, color: look.muted, align: 'center' });
-    y += 14;
+    text(ops, `Ceremony at ${data.ceremonyTime}`, cx, y, { font: look.bodyFont, size: 8.4 * k, color: look.muted, align: 'center' });
+    end = y + 8.4 * k * DESC_EM;
+    y += 14 * k;
   }
+  // Every line of a venue prints — a long church name is not cut to two lines.
   if (data.ceremonyVenue) {
-    for (const line of wrap(data.ceremonyVenue, look.bodyFont, 9.2, inner).slice(0, 2)) {
-      text(ops, line, cx, y, { font: look.bodyFont, size: 9.2, color: look.heading, align: 'center' });
-      y += 11.5;
+    for (const line of wrap(data.ceremonyVenue, look.bodyFont, 9.2 * k, inner)) {
+      text(ops, line, cx, y, { font: look.bodyFont, size: 9.2 * k, color: look.heading, align: 'center' });
+      end = y + 9.2 * k * DESC_EM;
+      y += 11.5 * k;
     }
-    y += 4;
+    y += 4 * k;
   }
   if (data.receptionVenue || data.receptionTime) {
     const bits = ['Reception to follow', data.receptionVenue, data.receptionTime].filter(Boolean).join(' · ');
-    for (const line of wrap(bits, look.bodyFont, 8.2, inner).slice(0, 2)) {
-      text(ops, line, cx, y, { font: look.bodyFont, size: 8.2, color: look.muted, align: 'center' });
-      y += 10.5;
+    for (const line of wrap(bits, look.bodyFont, 8.2 * k, inner)) {
+      text(ops, line, cx, y, { font: look.bodyFont, size: 8.2 * k, color: look.muted, align: 'center' });
+      end = y + 8.2 * k * DESC_EM;
+      y += 10.5 * k;
     }
   }
-  if (data.hasEventQr) cornerQr(ops, w);
+  if (data.hasEventQr) cornerQr(doc);
   safeGuide(doc, ctx);
-  return doc;
+  return { doc, end };
+}
+
+/**
+ * The invitation at the largest type that ends above its floor (the safe line,
+ * this die's foot, a bottom-corner QR) — first by shrinking the type toward
+ * `PRINT_MIN_BODY_PT` (its smallest line is the 7.2 pt eyebrow), then by giving
+ * a theme's photo band less of the card. Measured on the drawn card.
+ */
+function layoutInvitation(ctx: Ctx): PrintDoc {
+  const kMin = PRINT_MIN_BODY_PT / 7.2;
+  let last: { doc: PrintDoc; end: number } | null = null;
+  for (const band of [0.44, 0.38, 0.32, 0.26]) {
+    for (let k = 1; k >= kMin - 1e-9; k = Math.round((k - 0.02) * 1000) / 1000) {
+      const drawn = drawInvitation(ctx, k, band);
+      const floor = Math.min(wordsFloor(drawn.doc, ctx, 0), safeBottom(drawn.doc, 26, drawn.doc.w - 26));
+      if (drawn.end <= floor) return drawn.doc;
+      last = drawn;
+    }
+    if (!ctx.data.hasStill || ctx.look.still !== 'top') break;
+  }
+  return last!.doc;
 }
 
 function cardHead(ctx: Ctx, doc: PrintDoc, small: string, title: string): number {
   const { look, data } = ctx;
   const cx = doc.w / 2;
-  medallion(doc.ops, look, data, cx, 44, 17, false);
-  eyebrow(doc.ops, look, small, cx, 78, 7);
-  text(doc.ops, title, cx, 102, { font: look.headFont, size: 22, color: look.heading, align: 'center', caps: look.capsNames, maxWidth: doc.w - 60, layer: ctx.foil ? 'foil' : undefined });
-  rule(doc.ops, cx, 114, 30, look.accent);
-  return 132;
+  // The crest sits 44 pt down — lower when this die's edge (a scallop's
+  // cusps, a deckle's tear) needs it to clear the safe line.
+  const r = 17;
+  let cy = 44;
+  for (let k = 0; k < 60 && !safeContainsBox(doc.die, doc.w, doc.h, { x: cx - r * 1.2, y: cy - r, w: r * 2.4, h: r * 2 }); k += 1) cy += 1;
+  const d = cy - 44;
+  medallion(doc.ops, look, data, cx, cy, r, false);
+  eyebrow(doc.ops, look, small, cx, 78 + d, 7);
+  text(doc.ops, title, cx, 102 + d, { font: look.headFont, size: 22, color: look.heading, align: 'center', caps: look.capsNames, maxWidth: doc.w - 60, layer: ctx.foil ? 'foil' : undefined });
+  rule(doc.ops, cx, 114 + d, 30, look.accent);
+  return 132 + d;
 }
 
-function sectionHead(ops: PrintOp[], look: PrintLook, s: string, cx: number, y: number, half: number) {
-  const width = measure(s.toUpperCase(), look.bodyFont, 7, 0.24 * 7);
-  text(ops, s, cx, y, { font: look.bodyFont, size: 7, color: look.accent, align: 'center', caps: true, tracking: 0.24 });
+function sectionHead(ops: PrintOp[], look: PrintLook, s: string, cx: number, y: number, half: number, size = 7) {
+  const width = measure(s.toUpperCase(), look.bodyFont, size, 0.24 * size);
+  text(ops, s, cx, y, { font: look.bodyFont, size, color: look.accent, align: 'center', caps: true, tracking: 0.24, maxWidth: half * 2 });
   const gap = width / 2 + 7;
   if (half > gap + 6) {
     ops.push({ t: 'rect', x: cx - half, y: y - 2.6, w: half - gap, h: 0.5, fill: look.accent, opacity: 0.6 });
@@ -487,58 +701,236 @@ function sectionHead(ops: PrintOp[], look: PrintLook, s: string, cx: number, y: 
   }
 }
 
-function layoutEntourage(ctx: Ctx): PrintDoc {
-  const { look, data } = ctx;
-  const doc = sheet('entourage', ctx);
-  const { w, h, ops } = doc;
-  if (look.still === 'full' && data.hasStill) still(ops, look, data, w, h, doc.bleed);
-  let y = cardHead(ctx, doc, 'The', 'Entourage');
-  const cx = w / 2;
-  const groups = data.entourage;
-  if (!groups.length) {
-    for (const line of wrap('Your entourage prints here once roles are set on the Guest list.', look.bodyFont, 8.4, w - 80)) {
-      text(ops, line, cx, y + 20, { font: look.bodyFont, size: 8.4, color: look.muted, align: 'center' });
-      y += 11;
-    }
-    if (data.hasEventQr) cornerQr(ops, w);
-    safeGuide(doc, ctx);
-    return doc;
+// ─── The Entourage: measured, balanced, never off the card ─────────────────
+
+/** One printed line of a group: a pair across the middle, or one name down it. */
+export type EntourageLine = { l?: string; r?: string; c?: string };
+
+/**
+ * A group as printed lines.
+ *
+ * ⚖ Owner 2026-09-14: *"two columns, paired across"* — a real pair (both halves
+ * in this group) keeps its shared line, in the columns their roles say.
+ * ⚖ Owner 2026-09-28: *"make sure prints out fit properly"* — on cale-ice's card
+ * the twelve bridesmaids ran down the left column and the twelve groomsmen
+ * started in the right column only BELOW them, one long ragged list. So the
+ * UNPAIRED halves now stack per column, side by side, and the two columns end
+ * together; a long one-sided remainder flows into two columns. Nobody is moved
+ * to the other family's side of a real pair, and nobody is dropped.
+ *
+ * A group with no pairs whose people all sit on one side (bearers, flower
+ * girls, the secondary sponsors) reads down the middle — or, when `flow` is on
+ * because the card is full, in two balanced columns.
+ */
+export function printedEntourageLines(g: EntourageGroup, flow: boolean): EntourageLine[] {
+  const pairs: EntourageLine[] = [];
+  const left: string[] = [];
+  const right: string[] = [];
+  const withRole = (p: EntouragePerson) => {
+    const label = roleLabel(p.role);
+    return g.key === 'secondary_sponsors' && label ? `${p.name} · ${label}` : p.name;
+  };
+  for (const [l, r] of g.rows) {
+    if (l && r) pairs.push({ l: l.name, r: r.name });
+    else if (l) left.push(withRole(l));
+    else if (r) right.push(withRole(r));
   }
-  // Fit: every name prints. The size comes down before anybody is dropped.
-  const rowCount = groups.reduce((a, g) => a + g.rows.length, 0);
-  const avail = h - y - 22;
-  const perGroup = 22;
-  let size = 8.4;
-  while (size > 5 && rowCount * size * 1.36 + groups.length * perGroup * (size / 8.4) > avail) size -= 0.2;
-  const lead = size * 1.36;
-  const gap = perGroup * (size / 8.4);
+  const twoCols = (list: string[]): EntourageLine[] => {
+    const half = Math.ceil(list.length / 2);
+    return list.slice(0, half).map((l, i) => ({ l, r: list[half + i] }));
+  };
+  if (!pairs.length && (!left.length || !right.length)) {
+    const list = left.length ? left : right;
+    return flow && list.length >= 3 ? twoCols(list) : list.map((c) => ({ c }));
+  }
+  const out = [...pairs];
+  if (left.length && right.length) {
+    for (let i = 0; i < Math.max(left.length, right.length); i += 1) out.push({ l: left[i], r: right[i] });
+  } else if (left.length + right.length > 1) out.push(...twoCols(left.length ? left : right));
+  else if (left.length) out.push({ l: left[0] });
+  else if (right.length) out.push({ r: right[0] });
+  return out;
+}
+
+type PlacedText = { s: string; x: number; y: number; align: 'left' | 'right' | 'center'; width: number };
+
+/**
+ * One name → its printed line(s) in a column this wide. A name a hair too long
+ * is set a touch tighter (never below 88 % of the size, never below the floor)
+ * rather than stranding its "Jr." on a line of its own; a genuinely long one
+ * breaks into two BALANCED lines.
+ */
+export function nameLines(s: string, font: PrintFontKey, size: number, width: number): string[] {
+  const full = measure(printableText(s), font, size);
+  if (full <= width) return [s];
+  if (size * (width / full) >= Math.max(PRINT_MIN_BODY_PT, size * 0.88)) return [s];
+  const lines = wrap(s, font, size, width);
+  if (lines.length !== 2) return lines;
+  // "Name · Candle Sponsor" breaks at its separator — the role on its own line.
+  const dot = s.lastIndexOf(' · ');
+  if (dot > 0) {
+    const a = s.slice(0, dot);
+    const b = s.slice(dot + 3);
+    if (measure(a, font, size) <= width && measure(b, font, size) <= width) return [a, b];
+  }
+  const words = printableText(s).split(/\s+/).filter(Boolean);
+  let best = lines;
+  let bestW = Math.max(...lines.map((l) => measure(l, font, size)));
+  for (let i = 1; i < words.length; i += 1) {
+    const a = words.slice(0, i).join(' ');
+    const b = words.slice(i).join(' ');
+    const wMax = Math.max(measure(a, font, size), measure(b, font, size));
+    if (wMax <= width && wMax < bestW) {
+      best = [a, b];
+      bestW = wMax;
+    }
+  }
+  return best;
+}
+type PlannedPage = { heads: Array<{ label: string; y: number }>; texts: PlacedText[] };
+
+/**
+ * Where every line of the Entourage goes — computed with the SAME widths,
+ * leading and wrapping the drawing uses, so "it fits" is a measurement of the
+ * card that will be drawn, not an estimate of it. Returns one page per side.
+ */
+function planEntourage(
+  groups: EntourageGroup[],
+  size: number,
+  flow: boolean,
+  geo: { w: number; h: number; die: DieCut; font: PrintFontKey; top: (page: number) => number; floor: (page: number) => number },
+): PlannedPage[] {
+  const { w } = geo;
+  const cx = w / 2;
   const colW = (w - 56) / 2 - 6;
+  const fullW = w - 60;
+  const lead = size * 1.36;
+  const gap = 22 * (size / 8.4);
+  const desc = size * DESC_EM;
+  const pages: PlannedPage[] = [{ heads: [], texts: [] }];
+  let page = 0;
+  let y = geo.top(0);
+  // A line's ink must sit inside the die's safe area at BOTH ends (arch and
+  // chevron cuts narrow the top of the card).
+  const lineSafe = (base: number, x0: number, x1: number) =>
+    [x0, x1].every((x) => safeContains(geo.die, geo.w, geo.h, x, base - size * ASC_EM) && safeContains(geo.die, geo.w, geo.h, x, base + desc));
+  const newPage = () => {
+    page += 1;
+    pages.push({ heads: [], texts: [] });
+    y = geo.top(page);
+  };
   for (const g of groups) {
-    y += gap * 0.78;
-    sectionHead(ops, look, g.label, cx, y, (w - 56) / 2);
-    y += gap * 0.2;
-    for (const [l, r] of g.rows) {
-      y += lead;
-      if (l && r) {
-        text(ops, l.name, cx - 6, y, { font: look.bodyFont, size, color: look.ink, align: 'right', maxWidth: colW });
-        text(ops, r.name, cx + 6, y, { font: look.bodyFont, size, color: look.ink, align: 'left', maxWidth: colW });
-      } else if (l || r) {
-        const p = (l ?? r)!;
-        const one = g.rows.every(([a, b]) => !(a && b));
-        // A group with no pairs at all reads down the middle; an unpartnered
-        // line in a paired group keeps its column (owner 2026-09-14).
-        if (one) {
-          const label = roleLabel(p.role);
-          const withRole = g.key === 'secondary_sponsors' && label ? `${p.name} · ${label}` : p.name;
-          text(ops, withRole, cx, y, { font: look.bodyFont, size, color: look.ink, align: 'center', maxWidth: w - 60 });
-        } else if (l) text(ops, l.name, cx - 6, y, { font: look.bodyFont, size, color: look.ink, align: 'right', maxWidth: colW });
-        else text(ops, p.name, cx + 6, y, { font: look.bodyFont, size, color: look.ink, align: 'left', maxWidth: colW });
+    const lines = printedEntourageLines(g, flow);
+    let headDone = false;
+    for (let i = 0; i < lines.length; i += 1) {
+      const row = lines[i]!;
+      const wrapped = row.c !== undefined
+        ? { c: nameLines(row.c, geo.font, size, fullW) }
+        : { l: row.l ? nameLines(row.l, geo.font, size, colW) : [], r: row.r ? nameLines(row.r, geo.font, size, colW) : [] };
+      const n = 'c' in wrapped ? wrapped.c!.length : Math.max(wrapped.l!.length, wrapped.r!.length);
+      const headH = headDone ? 0 : gap;
+      if (y + headH + n * lead + desc > geo.floor(page) && (pages[page]!.texts.length > 0 || pages[page]!.heads.length > 0)) {
+        newPage();
+        headDone = false;
+      }
+      const x0 = row.c !== undefined ? cx - fullW / 2 : cx - 6 - colW;
+      const x1 = row.c !== undefined ? cx + fullW / 2 : cx + 6 + colW;
+      if (!headDone) {
+        y += gap * 0.78;
+        for (let k = 0; k < 400 && !lineSafe(y, cx - (w - 56) / 2, cx + (w - 56) / 2); k += 1) y += 1;
+        pages[page]!.heads.push({ label: i > 0 ? `${g.label} · continued` : g.label, y });
+        y += gap * 0.2;
+        headDone = true;
+      }
+      for (let k = 0; k < n; k += 1) {
+        y += lead;
+        for (let t = 0; t < 400 && !lineSafe(y, x0, x1); t += 1) y += 1;
+        if ('c' in wrapped) {
+          const s = wrapped.c![k]!;
+          pages[page]!.texts.push({ s, x: cx, y, align: 'center', width: fullW });
+        } else {
+          const l = wrapped.l![k];
+          const r = wrapped.r![k];
+          if (l) pages[page]!.texts.push({ s: l, x: cx - 6, y, align: 'right', width: colW });
+          if (r) pages[page]!.texts.push({ s: r, x: cx + 6, y, align: 'left', width: colW });
+        }
       }
     }
   }
-  if (data.hasEventQr) cornerQr(ops, w);
-  safeGuide(doc, ctx);
-  return doc;
+  // A plan whose last line still overflows (one enormous row) reports it by
+  // having a text below the floor — the chooser rejects it.
+  return pages;
+}
+
+function planFits(pages: PlannedPage[], floor: (page: number) => number, size: number): boolean {
+  return pages.every((p, i) => p.texts.every((t) => t.y + size * DESC_EM <= floor(i) + 0.01) && p.heads.every((hd) => hd.y <= floor(i)));
+}
+
+/**
+ * THE ENTOURAGE — every name, inside the safe area, as large as it can be.
+ *
+ * The size is CHOSEN by laying the card out (`planEntourage`) at each size from
+ * 8.4 pt down to `PRINT_MIN_BODY_PT`, straight and then flowed into two
+ * columns, and keeping the largest that fits on the fewest sides. When even the
+ * floor will not fit one side, the card continues on its BACK — a second page
+ * of the same PDF, shown in the Maker as "Front · Back". It never draws past
+ * the safe line and never drops a name (owner 2026-09-28, "make sure prints out
+ * fit properly").
+ */
+function layoutEntourage(ctx: Ctx): PrintDoc[] {
+  const { look, data } = ctx;
+  const front = sheet('entourage', ctx);
+  const { w, h } = front;
+  const cx = w / 2;
+  if (look.still === 'full' && data.hasStill) still(front.ops, look, data, w, h, front.bleed);
+  const firstTop = cardHead(ctx, front, 'The', 'Entourage');
+  const groups = data.entourage;
+  if (!groups.length) {
+    let y = firstTop;
+    for (const line of wrap('Your entourage prints here once roles are set on the Guest list.', look.bodyFont, 8.4, w - 80)) {
+      text(front.ops, line, cx, y + 20, { font: look.bodyFont, size: 8.4, color: look.muted, align: 'center' });
+      y += 11;
+    }
+    if (data.hasEventQr) cornerQr(front);
+    safeGuide(front, ctx);
+    return [front];
+  }
+  const backTop = continuedHead(sheet('entourage', ctx), ctx, 'The Entourage');
+  const geo = {
+    w,
+    h,
+    die: front.die,
+    font: look.bodyFont,
+    top: (p: number) => (p === 0 ? firstTop : backTop),
+    // The back carries no QR (it rides the front), so only the safe line binds it.
+    floor: (p: number) => (p === 0 ? wordsFloor(front, ctx, 0) : h - SAFE_PT),
+  };
+  let best: { pages: PlannedPage[]; size: number } | null = null;
+  for (let size = 8.4; size >= PRINT_MIN_BODY_PT - 1e-9; size = Math.round((size - 0.2) * 10) / 10) {
+    for (const flow of [false, true]) {
+      const pages = planEntourage(groups, size, flow, geo);
+      if (!planFits(pages, geo.floor, size)) continue;
+      if (!best || pages.length < best.pages.length) best = { pages, size };
+    }
+    if (best && best.pages.length === 1) break;
+  }
+  // Nothing fits even across sides (a single impossible row) — draw at the floor anyway; the fit test names it.
+  if (!best) best = { pages: planEntourage(groups, PRINT_MIN_BODY_PT, true, geo), size: PRINT_MIN_BODY_PT };
+  const size = best.size;
+  const docs: PrintDoc[] = [];
+  best.pages.forEach((p, i) => {
+    const doc = i === 0 ? front : sheet('entourage', ctx);
+    if (i > 0) {
+      if (look.still === 'full' && data.hasStill) still(doc.ops, look, data, w, h, doc.bleed);
+      continuedHead(doc, ctx, 'The Entourage');
+    }
+    for (const hd of p.heads) sectionHead(doc.ops, look, hd.label, cx, hd.y, (w - 56) / 2);
+    for (const t of p.texts) text(doc.ops, t.s, t.x, t.y, { font: look.bodyFont, size, color: look.ink, align: t.align, maxWidth: t.width });
+    if (i === 0 && data.hasEventQr) cornerQr(doc);
+    safeGuide(doc, ctx);
+    docs.push(doc);
+  });
+  return docs;
 }
 
 /** Radius of the NFC sticker spot, in points — true to the 25 mm sticker. */
@@ -575,118 +967,283 @@ function nfcSpot(ops: PrintOp[], look: PrintLook, cx: number, cy: number) {
   text(ops, 'Tap here', cx, cy + r * 0.52, { font: look.bodyFont, size: Math.max(5, r * 0.2), color: look.muted, align: 'center', caps: true, tracking: 0.14 });
 }
 
+// ─── A card of flowing words: measured, paged, never off the card ──────────
+
 /**
- * THE QR IS ALWAYS PRINTED — owner 2026-09-25: *"QR is automatic. NFC is
- * optional. we need that QR code since it is universal and works for all"*.
- * Every card carries the Event Hub QR in its reserved top-right corner (inside
- * the safe area, on a white plate so it scans on any paper); the Finer Details
- * card and the poster carry it large, and a pass carries the guest's own code.
+ * One line (or one small figure) of a flowing card. `adv` is the space above
+ * its baseline, `after` the space below it before the next row; `top`/`below`
+ * are its ink above and below the baseline; `x0`/`x1` its horizontal extent,
+ * so a die cut that narrows the card (an arch, a chevron) can push it down.
  */
-export const CORNER_QR_PT = 34;
-function cornerQr(ops: PrintOp[], w: number) {
-  const inset = SAFE_MM * PT_PER_MM + 4;
-  ops.push({ t: 'rect', x: w - inset - CORNER_QR_PT - 3, y: inset - 3, w: CORNER_QR_PT + 6, h: CORNER_QR_PT + 6, fill: '#ffffff' });
-  ops.push({ t: 'image', ref: 'eventqr', x: w - inset - CORNER_QR_PT, y: inset, w: CORNER_QR_PT, h: CORNER_QR_PT });
+type FlowRow = {
+  adv: number;
+  after: number;
+  top: number;
+  below: number;
+  x0: number;
+  x1: number;
+  /** A heading never ends a side — it moves with the line under it. */
+  keepWithNext?: boolean;
+  draw: (ops: PrintOp[], y: number) => void;
+};
+
+type FlowGeo = { die: DieCut; w: number; h: number; top: (page: number) => number; floor: (page: number) => number };
+
+/** Place rows side by side down the card, continuing on a new side when the floor is reached. */
+function flowPages(rows: FlowRow[], geo: FlowGeo): { pages: Array<Array<{ row: FlowRow; y: number }>>; fits: boolean } {
+  const pages: Array<Array<{ row: FlowRow; y: number }>> = [[]];
+  let page = 0;
+  let y = geo.top(0);
+  let fits = true;
+  const safeAt = (r: FlowRow, base: number) =>
+    [r.x0, r.x1].every((x) => safeContains(geo.die, geo.w, geo.h, x, base - r.top) && safeContains(geo.die, geo.w, geo.h, x, base + r.below));
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i]!;
+    const next = rows[i + 1];
+    const need = (base: number) => base + r.below <= geo.floor(page) && (!r.keepWithNext || !next || base + r.after + next.adv + next.below <= geo.floor(page));
+    let base = y + r.adv;
+    if (!need(base) && pages[page]!.length > 0) {
+      page += 1;
+      pages.push([]);
+      y = geo.top(page);
+      base = y + r.adv;
+    }
+    for (let k = 0; k < 400 && !safeAt(r, base); k += 1) base += 1;
+    if (base + r.below > geo.floor(page) + 0.01) fits = false;
+    pages[page]!.push({ row: r, y: base });
+    y = base + r.after;
+  }
+  return { pages, fits };
 }
 
-function layoutDetails(ctx: Ctx): PrintDoc {
+/**
+ * The head of a card's BACK: "<Title> · continued" and the theme's rule, placed
+ * where the die cut leaves room for it. Returns where the words may start.
+ */
+function continuedHead(doc: PrintDoc, ctx: Ctx, title: string): number {
+  const { look } = ctx;
+  const cx = doc.w / 2;
+  const label = `${title} · continued`;
+  const half = measure(label.toUpperCase(), look.bodyFont, 7, 0.22 * 7) / 2;
+  let y = SAFE_PT + 22;
+  for (let k = 0; k < 200 && !safeContainsBox(doc.die, doc.w, doc.h, { x: cx - half, y: y - 6, w: half * 2, h: 8 }); k += 1) y += 1;
+  eyebrow(doc.ops, look, label, cx, y, 7);
+  rule(doc.ops, cx, y + 10, 30, look.accent);
+  return y + 22;
+}
+
+/** The lowest y the words may reach at the foot of the card, across [x0, x1], for this die. */
+function safeBottom(doc: PrintDoc, x0: number, x1: number): number {
+  let y = doc.h - SAFE_PT;
+  while (y > 0 && ![x0, x1].every((x) => safeContains(doc.die, doc.w, doc.h, x, y))) y -= 1;
+  return y;
+}
+
+/**
+ * Choose the largest type scale (1 → the floor where the smallest line is
+ * `PRINT_MIN_BODY_PT`) at which the rows fit on the FEWEST sides.
+ */
+function chooseScale(build: (f: number) => FlowRow[], geo: FlowGeo, smallest: number): { f: number; pages: ReturnType<typeof flowPages>['pages'] } {
+  const fMin = Math.min(1, PRINT_MIN_BODY_PT / smallest);
+  let best: { f: number; pages: ReturnType<typeof flowPages>['pages'] } | null = null;
+  for (let f = 1; f >= fMin - 1e-9; f = Math.round((f - 0.02) * 1000) / 1000) {
+    const { pages, fits } = flowPages(build(f), geo);
+    if (!fits) continue;
+    if (!best || pages.length < best.pages.length) best = { f, pages };
+    if (best.pages.length === 1) break;
+  }
+  return best ?? { f: fMin, pages: flowPages(build(fMin), geo).pages };
+}
+
+/** Rows for one wrapped, centred paragraph. */
+function paraRows(look: PrintLook, s: string, size: number, color: string, cx: number, inner: number, lead = size * 1.4, first = 0): FlowRow[] {
+  return wrap(s, look.bodyFont, size, inner).map((line, i) => ({
+    adv: (i === 0 ? first : 0) + lead,
+    after: 0,
+    top: size * ASC_EM,
+    below: size * DESC_EM,
+    x0: cx - inner / 2,
+    x1: cx + inner / 2,
+    draw: (ops: PrintOp[], y: number) => {
+      text(ops, line, cx, y, { font: look.bodyFont, size, color, align: 'center', maxWidth: inner });
+    },
+  }));
+}
+
+function headRow(look: PrintLook, label: string, cx: number, inner: number, before: number, after: number, size = 7): FlowRow {
+  return {
+    adv: before,
+    after,
+    top: size * 0.8,
+    below: 1,
+    x0: cx - inner / 2,
+    x1: cx + inner / 2,
+    keepWithNext: true,
+    draw: (ops, y) => sectionHead(ops, look, label, cx, y, inner / 2, size),
+  };
+}
+
+function layoutDetails(ctx: Ctx): PrintDoc[] {
   const { look, data } = ctx;
-  const doc = sheet('details', ctx);
-  const { w, h, ops } = doc;
-  if (look.still === 'full' && data.hasStill) still(ops, look, data, w, h, doc.bleed);
-  let y = cardHead(ctx, doc, 'The', 'Finer Details');
+  const front = sheet('details', ctx);
+  const { w, h } = front;
+  if (look.still === 'full' && data.hasStill) still(front.ops, look, data, w, h, front.bleed);
+  const firstTop = cardHead(ctx, front, 'The', 'Finer Details');
   const cx = w / 2;
   const inner = w - 68;
-  const para = (s: string, size = 8.2, color = look.ink) => {
-    for (const line of wrap(s, look.bodyFont, size, inner)) {
-      y += size * 1.4;
-      text(ops, line, cx, y, { font: look.bodyFont, size, color, align: 'center' });
-    }
-  };
-  let any = false;
-  if (data.attire.length || data.swatches.length) {
-    any = true;
-    y += 14;
-    sectionHead(ops, look, 'Dress code', cx, y, inner / 2);
-    y += 4;
-    for (const a of data.attire.slice(0, 7)) para(`${a.label} — ${a.line}`);
-    if (data.swatches.length) {
-      y += 13;
-      const n = Math.min(6, data.swatches.length);
-      const step = 15;
-      let sx = cx - ((n - 1) * step) / 2;
-      for (const c of data.swatches.slice(0, n)) {
-        ops.push({ t: 'circle', cx: sx, cy: y - 3, r: 5, fill: c, stroke: look.ink, sw: 0.3 });
-        sx += step;
-      }
-      y += 6;
-    }
-  }
-  if (data.details.rsvpContact) {
-    any = true;
-    y += 16;
-    sectionHead(ops, look, 'Kindly reply', cx, y, inner / 2);
-    y += 2;
-    para(data.details.rsvpContact);
-  }
-  if (data.details.giftLines.length) {
-    any = true;
-    y += 16;
-    sectionHead(ops, look, 'Gifts', cx, y, inner / 2);
-    y += 2;
-    for (const g of data.details.giftLines) para(maskAccountLine(g));
-  }
-  if (data.details.thankYou) {
-    any = true;
-    y += 6;
-    for (const line of wrap(data.details.thankYou, look.bodyFont, 7.4, inner).slice(0, 3)) {
-      y += 10;
-      text(ops, line, cx, y, { font: look.bodyFont, size: 7.4, color: look.muted, align: 'center' });
-    }
-  }
-  if (data.details.program?.length) {
-    any = true;
-    y += 16;
-    sectionHead(ops, look, 'The program', cx, y, inner / 2);
-    y += 2;
-    for (const line of data.details.program) para(line, 7.6);
-  }
-  if (data.details.storyExcerpt) {
-    any = true;
-    y += 16;
-    sectionHead(ops, look, 'Our story', cx, y, inner / 2);
-    y += 2;
-    para(data.details.storyExcerpt, 7.6, look.muted);
-  }
-  if (data.details.specialMessage) {
-    any = true;
-    y += 10;
-    for (const line of wrap(data.details.specialMessage, look.bodyFont, 7.6, inner).slice(0, 3)) {
-      y += 10.5;
-      text(ops, line, cx, y, { font: look.bodyFont, size: 7.6, color: look.ink, align: 'center' });
-    }
-  }
+
   // The Event Hub: the one address every guest can use — RSVP, the schedule,
-  // the venue map. The QR is ALWAYS printed (its room is reserved at the foot);
-  // an NFC sticker spot sits beside it when the couple adds one.
+  // the venue map. The QR is ALWAYS printed; its room is reserved at the foot
+  // of the FRONT, placed on this die's safe line, and the words stop above it.
+  const q = 56;
+  const hubBase = Math.min(h - 18, safeBottom(front, cx - inner / 2, cx + inner / 2) - 2.5);
+  const qy = hubBase - 26 - q;
+  const withNfc = data.details.nfc === true;
   {
-    const q = 56;
-    const qy = h - q - 44;
-    const withNfc = data.details.nfc === true;
+    const ops = front.ops;
     const qx = withNfc ? cx - q / 2 - NFC_SPOT_CLEAR_R - 4 : cx;
     ops.push({ t: 'rect', x: qx - q / 2 - 4, y: qy - 4, w: q + 8, h: q + 8, fill: '#ffffff' });
     ops.push({ t: 'image', ref: 'eventqr', x: qx - q / 2, y: qy, w: q, h: q });
     if (withNfc) nfcSpot(ops, look, cx + q / 2 + 4, qy + q / 2);
     eyebrow(ops, look, withNfc ? 'Scan or tap for our Event Hub' : 'Scan for our Event Hub', cx, qy + q + 16, 6.6);
-    if (data.hubAddress) text(ops, data.hubAddress, cx, qy + q + 26, { font: look.bodyFont, size: 7, color: look.muted, align: 'center', maxWidth: inner });
-    any = true;
+    if (data.hubAddress) text(ops, data.hubAddress, cx, hubBase, { font: look.bodyFont, size: 7, color: look.muted, align: 'center', maxWidth: inner });
   }
-  if (!any) {
-    y += 20;
-    para('Add a dress code, a reply contact and your gift lines — they print here.', 8.2, look.muted);
+  const frontFloor = Math.min(qy - 4, withNfc ? qy + q / 2 - NFC_SPOT_R : qy - 4) - 8;
+
+  const build = (f: number): FlowRow[] => {
+    const rows: FlowRow[] = [];
+    const body = 8.2 * f;
+    const small = 7.6 * f;
+    const head = Math.max(PRINT_MIN_BODY_PT, 7 * f);
+    if (data.attire.length || data.swatches.length) {
+      rows.push(headRow(look, 'Dress code', cx, inner, 14 * f, 4 * f, head));
+      for (const a of data.attire) rows.push(...paraRows(look, `${a.label} — ${a.line}`, body, look.ink, cx, inner));
+      if (data.swatches.length) {
+        const n = Math.min(6, data.swatches.length);
+        const step = 15;
+        rows.push({
+          adv: 13 * f,
+          after: 6 * f,
+          top: 8,
+          below: 2,
+          x0: cx - ((n - 1) * step) / 2 - 5,
+          x1: cx + ((n - 1) * step) / 2 + 5,
+          draw: (ops, y) => {
+            let sx = cx - ((n - 1) * step) / 2;
+            for (const c of data.swatches.slice(0, n)) {
+              ops.push({ t: 'circle', cx: sx, cy: y - 3, r: 5, fill: c, stroke: look.ink, sw: 0.3 });
+              sx += step;
+            }
+          },
+        });
+      }
+    }
+    if (data.details.rsvpContact) {
+      rows.push(headRow(look, 'Kindly reply', cx, inner, 16 * f, 2 * f, head));
+      rows.push(...paraRows(look, data.details.rsvpContact, body, look.ink, cx, inner));
+    }
+    if (data.details.giftLines.length) {
+      rows.push(headRow(look, 'Gifts', cx, inner, 16 * f, 2 * f, head));
+      for (const g of data.details.giftLines) rows.push(...paraRows(look, maskAccountLine(g), body, look.ink, cx, inner));
+    }
+    if (data.details.thankYou) rows.push(...paraRows(look, data.details.thankYou, 7.4 * f, look.muted, cx, inner, 10 * f, 6 * f));
+    if (data.details.program?.length) {
+      rows.push(headRow(look, 'The program', cx, inner, 16 * f, 2 * f, head));
+      for (const line of data.details.program) rows.push(...paraRows(look, line, small, look.ink, cx, inner));
+    }
+    if (data.details.storyExcerpt) {
+      rows.push(headRow(look, 'Our story', cx, inner, 16 * f, 2 * f, head));
+      rows.push(...paraRows(look, data.details.storyExcerpt, small, look.muted, cx, inner));
+    }
+    if (data.details.specialMessage) rows.push(...paraRows(look, data.details.specialMessage, small, look.ink, cx, inner, 10.5 * f, 10 * f));
+    return rows;
+  };
+
+  const backTopProbe = sheet('details', ctx);
+  const geo: FlowGeo = {
+    die: front.die,
+    w,
+    h,
+    top: (p) => (p === 0 ? firstTop : continuedHead(backTopProbe, ctx, 'The Finer Details')),
+    floor: (p) => (p === 0 ? frontFloor : h - SAFE_PT),
+  };
+  const { pages } = chooseScale(build, geo, 7.4);
+  const docs: PrintDoc[] = [];
+  pages.forEach((placed, i) => {
+    const doc = i === 0 ? front : sheet('details', ctx);
+    if (i > 0) {
+      if (look.still === 'full' && data.hasStill) still(doc.ops, look, data, w, h, doc.bleed);
+      continuedHead(doc, ctx, 'The Finer Details');
+    }
+    for (const { row, y } of placed) row.draw(doc.ops, y);
+    safeGuide(doc, ctx);
+    docs.push(doc);
+  });
+  return docs;
+}
+
+/**
+ * THE MENU — owner 2026-09-28: *"add to print out our meals for tonight. from
+ * vendors from ceremony, to cocktail to the buffet."* Each moment of the night
+ * as a heading (in the order the couple set), its dishes beneath, in the same
+ * theme, crest and QR corner as the Entourage and the Finer Details. Measured
+ * and paged by the same engine: the largest type that fits, a back side when
+ * a long buffet needs one, never past the safe line.
+ *
+ * With no dishes the card is NEVER printed (the route refuses it and the Maker
+ * offers no download); the Maker's picture of it carries the "add your menu"
+ * prompt instead, so a couple sees where the card will be.
+ */
+function layoutMenu(ctx: Ctx): PrintDoc[] {
+  const { look, data } = ctx;
+  const front = sheet('menu', ctx);
+  const { w, h } = front;
+  if (look.still === 'full' && data.hasStill) still(front.ops, look, data, w, h, front.bleed);
+  const firstTop = cardHead(ctx, front, 'The', 'Menu');
+  const cx = w / 2;
+  const inner = w - 68;
+  const moments = (data.menu ?? []).filter((m) => m.dishes.length > 0);
+  if (!menuHasDishes(moments)) {
+    let y = firstTop + 20;
+    for (const line of wrap('Add your menu in Prints & Tickets — the moments of your night, and the dishes of each.', look.bodyFont, 8.4, w - 80)) {
+      text(front.ops, line, cx, y, { font: look.bodyFont, size: 8.4, color: look.muted, align: 'center' });
+      y += 11;
+    }
+    if (data.hasEventQr) cornerQr(front);
+    safeGuide(front, ctx);
+    return [front];
   }
-  safeGuide(doc, ctx);
-  return doc;
+  const build = (f: number): FlowRow[] => {
+    const rows: FlowRow[] = [];
+    const dish = 9 * f;
+    const head = Math.max(PRINT_MIN_BODY_PT, 7.4 * f);
+    moments.forEach((m, i) => {
+      const before = (i === 0 ? 12 : 22) * f;
+      if (m.title) rows.push(headRow(look, m.title, cx, inner, before, 4 * f, head));
+      m.dishes.forEach((d, j) => rows.push(...paraRows(look, d, dish, look.ink, cx, inner, dish * 1.5, !m.title && j === 0 ? before : 0)));
+    });
+    return rows;
+  };
+  const backProbe = sheet('menu', ctx);
+  const geo: FlowGeo = {
+    die: front.die,
+    w,
+    h,
+    top: (p) => (p === 0 ? firstTop : continuedHead(backProbe, ctx, 'The Menu')),
+    floor: (p) => (p === 0 ? wordsFloor(front, ctx, 0) : h - SAFE_PT),
+  };
+  const { pages } = chooseScale(build, geo, 9);
+  return pages.map((placed, i) => {
+    const doc = i === 0 ? front : sheet('menu', ctx);
+    if (i > 0) {
+      if (look.still === 'full' && data.hasStill) still(doc.ops, look, data, w, h, doc.bleed);
+      continuedHead(doc, ctx, 'The Menu');
+    }
+    for (const { row, y } of placed) row.draw(doc.ops, y);
+    if (i === 0 && data.hasEventQr) cornerQr(doc);
+    safeGuide(doc, ctx);
+    return doc;
+  });
 }
 
 /**
@@ -708,12 +1265,61 @@ function layoutPass(ctx: Ctx, pass: PrintPass, fmt: PrintFormat = PRINT_FORMATS[
     const veil = look.scrim ?? { color: look.paper, opacity: 0.8 };
     ops.push({ t: 'rect', x: -bleed, y: -bleed, w: mainW + bleed, h: h + 2 * bleed, fill: veil.color, opacity: Math.max(veil.opacity, 0.72) });
   }
-  const pad = 14 * k;
+  // Never inside the 5 mm safe line — the composition's 14 pt pad sat 0.2 pt
+  // outside it, and a glyph's overhang further (every-print-fits.test.ts).
+  const pad = Math.max(14 * k, SAFE_PT + 2);
+  const nfcOn = data.details.nfc === true && nfcFits(mainW, h);
+  const nfcRoom = nfcOn ? NFC_SPOT_CLEAR_R * 2 : 0;
+  /**
+   * The date / time / venue lines — WRAPPED, not squeezed: a long church name
+   * used to be shrunk to fit one line, down to 3.5 pt. Lines beside the NFC
+   * spot are narrower than the lines above it. The type comes down toward
+   * `PRINT_MIN_BODY_PT` only if the lines would pass the safe line.
+   */
+  const passMeta = (meta: string[], y0: number) => {
+    const spotTop = nfcOn ? h - SAFE_PT - 2 * NFC_SPOT_R - NFC_STICKER_MARGIN_MM * PT_PER_MM : Infinity;
+    const floor = h - SAFE_PT;
+    const plan = (size: number) => {
+      const lead = size * 1.31;
+      const out: Array<{ s: string; y: number; width: number }> = [];
+      let yy = y0;
+      for (const m of meta) {
+        const words = printableText(m).split(/\s+/).filter(Boolean);
+        let line = '';
+        const widthAt = (base: number) => (base + size * DESC_EM < spotTop - 2 ? mainW - pad * 2 : mainW - pad * 2 - nfcRoom);
+        for (const wd of words) {
+          const next = line ? `${line} ${wd}` : wd;
+          if (line && measure(next, look.bodyFont, size) > widthAt(yy)) {
+            out.push({ s: line, y: yy, width: widthAt(yy) });
+            yy += lead;
+            line = wd;
+          } else line = next;
+        }
+        if (line) {
+          out.push({ s: line, y: yy, width: widthAt(yy) });
+          yy += lead;
+        }
+      }
+      return out;
+    };
+    const top = 6.4 * k;
+    let lines = plan(top);
+    for (let size = top; size >= PRINT_MIN_BODY_PT - 1e-9; size = Math.round((size - 0.2) * 10) / 10) {
+      lines = plan(size);
+      if (lines.every((l) => l.y + size * DESC_EM <= floor)) {
+        for (const l of lines) text(ops, l.s, pad, l.y, { font: look.bodyFont, size, color: look.muted, align: 'left', maxWidth: l.width });
+        return;
+      }
+    }
+    // Nothing fits even at the floor: set the lines as they are and let the
+    // width-fit shrink them — the fit test names the card that needs it.
+    for (const l of lines) text(ops, l.s, pad, Math.min(l.y, floor - 2), { font: look.bodyFont, size: PRINT_MIN_BODY_PT, color: look.muted, align: 'left', maxWidth: l.width });
+  };
   const kind = style === 'boarding' ? 'Boarding pass' : style === 'train' ? 'Admit one' : 'Event pass';
   eyebrow(ops, look, kind, pad, pad + 6 * k, 5.8 * k, 'left');
   if (pass.serial) text(ops, pass.serial, mainW - 10 * k, pad + 6 * k, { font: 'poppins', size: 5.4 * k, color: look.muted, align: 'right' });
   let y = pad + 32 * k;
-  y = lockup(ops, look, data, pad, y, 15 * k, ctx.foil, mainW - pad * 2, 'left');
+  y = lockup(ops, look, data, pad, y, 15 * k, ctx.foil, mainW - pad * 2 - nfcRoom, 'left');
   y += 10 * k;
   if (style === 'boarding') {
     // Gate · Seat · Boarding → Table · Seat · Time, each a small labelled field.
@@ -729,37 +1335,35 @@ function layoutPass(ctx: Ctx, pass: PrintPass, fmt: PrintFormat = PRINT_FORMATS[
       text(ops, value ?? '—', fx, y + 12 * k, { font: look.headFont, size: 11 * k, color: look.heading, align: 'left', maxWidth: colW - 4 });
     });
     y += 26 * k;
-    const meta = [data.dateLabel, data.ceremonyVenue].filter(Boolean) as string[];
-    for (const m of meta) {
-      text(ops, m, pad, y, { font: look.bodyFont, size: 6.4 * k, color: look.muted, align: 'left', maxWidth: mainW - pad * 2 });
-      y += 8.4 * k;
-    }
+    passMeta([data.dateLabel, data.ceremonyVenue].filter(Boolean) as string[], y);
   } else {
-    const nfcRoom = data.details.nfc === true && nfcFits(mainW, h) ? NFC_SPOT_CLEAR_R * 2 : 0;
-    const meta = [data.dateLabel, data.ceremonyTime ? `Ceremony ${data.ceremonyTime}` : null, data.ceremonyVenue].filter(Boolean) as string[];
-    for (const m of meta.slice(0, 3)) {
-      text(ops, m, pad, y, { font: look.bodyFont, size: 6.4 * k, color: look.muted, align: 'left', maxWidth: mainW - pad * 2 - nfcRoom });
-      y += 8.4 * k;
-    }
+    passMeta([data.dateLabel, data.ceremonyTime ? `Ceremony ${data.ceremonyTime}` : null, data.ceremonyVenue].filter(Boolean) as string[], y);
   }
   // An NFC sticker spot, 25 mm true to size, in the main area's corner (on a
   // calling card that is the only place a 25 mm sticker fits).
-  if (data.details.nfc === true && nfcFits(mainW, h)) nfcSpot(ops, look, mainW - NFC_SPOT_CLEAR_R, h - NFC_SPOT_CLEAR_R);
+  // Its ring sits on the safe line, never past it.
+  if (nfcOn) nfcSpot(ops, look, mainW - NFC_SPOT_CLEAR_R, h - SAFE_PT - NFC_SPOT_R);
   // the stub, and its tear line
   ops.push({ t: 'rect', x: mainW, y: -bleed, w: stubW + bleed, h: h + 2 * bleed, fill: look.paper });
   const dash = style === 'train' ? 3 : 5;
-  for (let py = 8 * k; py < h - 8 * k; py += dash * k) ops.push({ t: 'rect', x: mainW - 0.3, y: py, w: 0.6, h: (dash / 2) * k, fill: look.ink, opacity: 0.45 });
-  const sx = mainW + stubW / 2;
-  eyebrow(ops, look, style === 'boarding' ? 'Passenger' : 'Admit', sx, 18 * k, 5.4 * k);
+  for (let py = SAFE_PT; py + (dash / 2) * k <= h - SAFE_PT; py += dash * k) ops.push({ t: 'rect', x: mainW - 0.3, y: py, w: 0.6, h: (dash / 2) * k, fill: look.ink, opacity: 0.45 });
+  // The stub's words and QR are centred in what is SAFE of it: from the tear
+  // line to 5 mm inside the card's right edge.
+  const stubRight = w - SAFE_PT;
+  const stubInner = stubRight - mainW - 8;
+  const sx = (mainW + stubRight) / 2;
+  eyebrow(ops, look, style === 'boarding' ? 'Passenger' : 'Admit', sx, Math.max(18 * k, SAFE_PT + 6), 5.4 * k);
   // The Guest list toggle: a couple may print passes without names (hand-written, or for walk-ins).
-  if (data.details.guestNames !== false) text(ops, pass.name, sx, 34 * k, { font: look.headFont, size: 10.5 * k, color: look.heading, align: 'center', maxWidth: stubW - 12 * k });
-  if (pass.seat && style !== 'boarding') text(ops, pass.seat, sx, 45 * k, { font: look.bodyFont, size: 6.4 * k, color: look.accent, align: 'center', caps: true, tracking: 0.18, maxWidth: stubW - 12 * k });
-  const q = Math.min(50 * k, stubW - 16 * k);
+  if (data.details.guestNames !== false) text(ops, pass.name, sx, 34 * k, { font: look.headFont, size: 10.5 * k, color: look.heading, align: 'center', maxWidth: stubInner });
+  if (pass.seat && style !== 'boarding') text(ops, pass.seat, sx, 45 * k, { font: look.bodyFont, size: 6.4 * k, color: look.accent, align: 'center', caps: true, tracking: 0.18, maxWidth: stubInner });
+  const q = Math.min(50 * k, stubInner - 6 * k);
+  const footY = h - SAFE_PT - 1.5; // "Scan at the door", on the safe line
+  const qy = footY - 8 * k - q - 3 * k;
   if (pass.qrRef) {
-    ops.push({ t: 'rect', x: sx - q / 2 - 3 * k, y: h - q - 30 * k, w: q + 6 * k, h: q + 6 * k, fill: '#ffffff' });
-    ops.push({ t: 'image', ref: pass.qrRef, x: sx - q / 2, y: h - q - 27 * k, w: q, h: q });
+    ops.push({ t: 'rect', x: sx - q / 2 - 3 * k, y: qy - 3 * k, w: q + 6 * k, h: q + 6 * k, fill: '#ffffff' });
+    ops.push({ t: 'image', ref: pass.qrRef, x: sx - q / 2, y: qy, w: q, h: q });
   }
-  eyebrow(ops, look, 'Scan at the door', sx, h - 12 * k, 4.8 * k);
+  eyebrow(ops, look, 'Scan at the door', sx, footY, 4.8 * k);
   return doc;
 }
 
@@ -792,19 +1396,25 @@ function layoutPoster(ctx: Ctx): PrintDoc {
   }
   {
     // The QR is always printed; an NFC spot rides beside the panel when added.
-    const q = 150;
-    const panelW = 440;
+    // Panel + spot are centred TOGETHER in what the still leaves of the sheet
+    // — beside a left-hand still (Modern) a 440 pt panel plus the spot ran off
+    // the poster's right edge (every-print-fits.test.ts).
+    const nfcW = data.details.nfc ? NFC_SPOT_CLEAR_R * 2 + 12 : 0;
+    const avail = w - left - 2 * (SAFE_PT + 24);
+    const panelW = Math.min(440, avail - nfcW);
+    const q = Math.min(150, Math.round(panelW * 0.4));
+    const gx = cx - (panelW + nfcW) / 2 + panelW / 2; // the panel's centre, with the spot to its right
     // Reserved at the foot, always inside the sheet.
     const py = Math.min(Math.max(y + 24, h - q - 110), h - q - 36 - SAFE_MM * PT_PER_MM - 20);
-    ops.push({ t: 'rect', x: cx - panelW / 2, y: py, w: panelW, h: q + 36, fill: look.paper, stroke: look.accent, sw: 1 });
-    ops.push({ t: 'rect', x: cx - panelW / 2 + 16, y: py + 16, w: q + 4, h: q + 4, fill: '#ffffff' });
-    ops.push({ t: 'image', ref: 'eventqr', x: cx - panelW / 2 + 18, y: py + 18, w: q, h: q });
-    const tx = cx - panelW / 2 + q + 42;
-    text(ops, 'Scan for our', tx, py + 70, { font: look.bodyFont, size: 16, color: look.ink, align: 'left', caps: true, tracking: 0.14 });
-    text(ops, 'Event Hub', tx, py + 94, { font: look.bodyFont, size: 16, color: look.ink, align: 'left', caps: true, tracking: 0.14 });
+    ops.push({ t: 'rect', x: gx - panelW / 2, y: py, w: panelW, h: q + 36, fill: look.paper, stroke: look.accent, sw: 1 });
+    ops.push({ t: 'rect', x: gx - panelW / 2 + 16, y: py + 16, w: q + 4, h: q + 4, fill: '#ffffff' });
+    ops.push({ t: 'image', ref: 'eventqr', x: gx - panelW / 2 + 18, y: py + 18, w: q, h: q });
+    const tx = gx - panelW / 2 + q + 42;
+    text(ops, 'Scan for our', tx, py + 70, { font: look.bodyFont, size: 16, color: look.ink, align: 'left', caps: true, tracking: 0.14, maxWidth: panelW - q - 60 });
+    text(ops, 'Event Hub', tx, py + 94, { font: look.bodyFont, size: 16, color: look.ink, align: 'left', caps: true, tracking: 0.14, maxWidth: panelW - q - 60 });
     text(ops, 'Photos · your table · the schedule', tx, py + 118, { font: look.bodyFont, size: 11, color: look.muted, align: 'left', maxWidth: panelW - q - 60 });
     if (data.hubAddress) text(ops, data.hubAddress, tx, py + 136, { font: look.bodyFont, size: 10, color: look.muted, align: 'left', maxWidth: panelW - q - 60 });
-    if (data.details.nfc) nfcSpot(ops, look, cx + panelW / 2 + NFC_SPOT_CLEAR_R + 12, py + (q + 36) / 2);
+    if (data.details.nfc) nfcSpot(ops, look, gx + panelW / 2 + 12 + NFC_SPOT_CLEAR_R, py + (q + 36) / 2);
   }
   safeGuide(doc, ctx);
   return doc;
@@ -831,7 +1441,7 @@ function layoutCard(ctx: Ctx): PrintDoc {
     y += 12;
   }
   if (data.ceremonyVenue) text(ops, data.ceremonyVenue, cx, y, { font: look.bodyFont, size: 8.2, color: look.muted, align: 'center', maxWidth: inner });
-  if (data.hasEventQr) cornerQr(ops, w);
+  if (data.hasEventQr) cornerQr(doc);
   safeGuide(doc, ctx);
   return doc;
 }
@@ -852,6 +1462,8 @@ function layoutCardLandscape(ctx: Ctx, fmt: PrintFormat): PrintDoc {
   const cx = left + (w - left) / 2;
   const inner = w - left - 28 * k;
   let y = 40 * k;
+  // Lower when this die's edge (a scallop's cusps) needs the crest to clear the safe line.
+  for (let n = 0; n < 60 && !safeContainsBox(doc.die, w, h, { x: cx - 18 * k * 1.2, y: y - 18 * k, w: 36 * k * 1.2, h: 36 * k }); n += 1) y += 1;
   medallion(ops, look, data, cx, y, 18 * k, false);
   y += 36 * k;
   eyebrow(ops, look, data.eyebrow, cx, y, 6.4 * k);
@@ -865,7 +1477,7 @@ function layoutCardLandscape(ctx: Ctx, fmt: PrintFormat): PrintDoc {
     y += 10 * k;
   }
   if (data.ceremonyVenue) text(ops, data.ceremonyVenue, cx, y, { font: look.bodyFont, size: 7 * k, color: look.muted, align: 'center', maxWidth: inner });
-  if (data.hasEventQr) cornerQr(ops, w);
+  if (data.hasEventQr) cornerQr(doc);
   safeGuide(doc, ctx);
   return doc;
 }
@@ -947,35 +1559,80 @@ type LayoutInput = {
   format?: string | null;
 };
 
-export function layoutPiece(
-  piece: PrintSetKey,
-  input: LayoutInput & { pass?: PrintPass },
-): PrintDoc {
+/**
+ * EVERY SIDE OF A PIECE — the front, and a back when the words need one (the
+ * Entourage of a large wedding, `layoutEntourage`). The print-ready PDF prints
+ * every side, one per page; nothing that draws a piece for a couple may keep
+ * only the first (`every-print-fits.test.ts` holds the route to this).
+ */
+export function layoutPieceDocs(piece: PrintSetKey, input: LayoutInput & { pass?: PrintPass }): PrintDoc[] {
   const ctx: Ctx = { look: input.look, data: input.data, mode: input.mode, foil: input.foil };
   const fmt = formatFor(piece, input.format);
   const w = (fmt?.wMm ?? 0) * PT_PER_MM;
   const h = (fmt?.hMm ?? 0) * PT_PER_MM;
-  const doc = (() => {
+  const docs = ((): PrintDoc[] => {
     switch (piece) {
       case 'invitation':
-        return fitDoc(layoutInvitation(ctx), w, h, ctx);
+        return [fitDoc(layoutInvitation(ctx), w, h, ctx)];
       case 'entourage':
-        return fitDoc(layoutEntourage(ctx), w, h, ctx);
+        return layoutEntourage(ctx).map((d) => fitDoc(d, w, h, ctx));
       case 'details':
-        return fitDoc(layoutDetails(ctx), w, h, ctx);
+        return layoutDetails(ctx).map((d) => fitDoc(d, w, h, ctx));
+      case 'menu':
+        return layoutMenu(ctx).map((d) => fitDoc(d, w, h, ctx));
       case 'pass':
-        return layoutPass(
-          ctx,
-          input.pass ?? { name: 'Your guest’s name', seat: 'Table 1', seatNumber: '3', qrRef: 'eventqr', serial: 'Nº 0001' },
-          fmt ?? PRINT_FORMATS['calling-card'],
-        );
+        return [
+          layoutPass(
+            ctx,
+            input.pass ?? { name: 'Your guest’s name', seat: 'Table 1', seatNumber: '3', qrRef: 'eventqr', serial: 'Nº 0001' },
+            fmt ?? PRINT_FORMATS['calling-card'],
+          ),
+        ];
       case 'poster':
-        return layoutPoster(ctx);
+        return [layoutPoster(ctx)];
       case 'card':
-        return fmt && fmt.wMm > fmt.hMm ? layoutCardLandscape(ctx, fmt) : fitDoc(layoutCard(ctx), w, h, ctx);
+        return [fmt && fmt.wMm > fmt.hMm ? layoutCardLandscape(ctx, fmt) : fitDoc(layoutCard(ctx), w, h, ctx)];
     }
   })();
-  return input.mode === 'print' && input.whiteInk ? underprintWhite(doc) : doc;
+  return input.mode === 'print' && input.whiteInk ? docs.map(underprintWhite) : docs;
+}
+
+/** The FRONT of a piece. A caller that prints or shows a piece uses `layoutPieceDocs` / `layoutPieceView`. */
+export function layoutPiece(piece: PrintSetKey, input: LayoutInput & { pass?: PrintPass }): PrintDoc {
+  return layoutPieceDocs(piece, input)[0]!;
+}
+
+/**
+ * A piece as the Maker SHOWS it: one sheet, or — when it has a back — both
+ * sides side by side, labelled "Front" and "Back", in one picture (the sample
+ * JPEG and the on-screen SVG are single images).
+ */
+export function spreadDocs(docs: PrintDoc[]): PrintDoc {
+  if (docs.length <= 1) return docs[0]!;
+  const gap = 18;
+  const labelH = 18;
+  const H = Math.max(...docs.map((d) => d.h));
+  const W = docs.reduce((a, d) => a + d.w, 0) + gap * (docs.length - 1);
+  const ops: PrintOp[] = [];
+  const dies: string[] = [];
+  let ox = 0;
+  docs.forEach((d, i) => {
+    for (const o of d.ops) {
+      if (o.t === 'rect' || o.t === 'image') ops.push({ ...o, x: o.x + ox });
+      else if (o.t === 'circle') ops.push({ ...o, cx: o.cx + ox });
+      else ops.push({ ...o, d: scalePath(o.d, 1, ox, 0) });
+    }
+    dies.push(scalePath(d.diePath, 1, ox, 0));
+    text(ops, i === 0 ? 'Front' : i === 1 ? 'Back' : `Side ${i + 1}`, ox + d.w / 2, H + 13, { font: 'poppinsMedium', size: 9, color: '#6b6b6b', align: 'center', caps: true, tracking: 0.18 });
+    ox += d.w + gap;
+  });
+  dies.push(`M0 ${f2(H)}H${f2(W)}V${f2(H + labelH)}H0Z`);
+  return { ...docs[0]!, w: W, h: H + labelH, diePath: dies.join(' '), ops };
+}
+
+/** What the Maker draws for a piece: the front alone, or "Front · Back". */
+export function layoutPieceView(piece: PrintSetKey, input: LayoutInput & { pass?: PrintPass }): PrintDoc {
+  return spreadDocs(layoutPieceDocs(piece, input));
 }
 
 export function layoutPasses(input: LayoutInput, passes: PrintPass[]): PrintDoc[] {

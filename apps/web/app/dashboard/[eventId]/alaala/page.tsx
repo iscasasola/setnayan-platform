@@ -44,7 +44,7 @@ const ARC: ReadonlyArray<Stage> = [
     eyebrow: 'The opening',
     title: 'How it begins',
     line: 'The first glimpse — your save-the-date and the branded invite that set the tone before anyone arrives.',
-    chips: [{ key: 'save-the-date' }, { key: 'custom-qr-guest' }],
+    chips: [{ key: 'save-the-date' }],
   },
   {
     eyebrow: 'The moment',

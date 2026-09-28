@@ -1,5 +1,6 @@
 'use client';
 
+import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { RotateCcw } from 'lucide-react';
@@ -129,13 +130,14 @@ export function DetailsBoundField({
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify(patch));
-      const res = await draftAction(eventId, fd);
+      /* `held`: the shell decides in `onSaving` (above) — it holds the canvas
+         for words the bridge drew, and releases it for what it could not. */
+      const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true });
       if (!res.ok) {
         setError(res.error);
         return;
       }
       setAsking(false);
-      router.refresh();
     });
   };
 

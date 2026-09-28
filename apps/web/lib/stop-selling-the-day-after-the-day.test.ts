@@ -36,7 +36,6 @@ const MUST_CLOSE = [
   'papic-guest',
   'panood',
   'patiktok',
-  'custom-qr-guest',
   'save-the-date',
   'indoor-blueprint',
   'event',

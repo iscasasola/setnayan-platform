@@ -27,6 +27,9 @@ import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
+import { MAKER_STAY_FIELD, makerStayReturn } from '@/lib/maker-stay';
+import { announceUnheldWrite } from '@/lib/maker-refresh';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -134,6 +137,9 @@ export function MakerShell({
     the open navigator all snapped back to their defaults. What the couple was
     looking at is kept for the tab in sessionStorage and put back on mount (a
     convenience only: every fact the Maker shows is re-read from the server).
+    ✅ 2026-09-28: a Maker save no longer remounts it at all — the submit
+    listener below lands every save on the address the couple is already on
+    (`lib/maker-stay.ts`). The memory stays for a real reload and a fresh visit.
   */
   const memoryKey = `sn-maker:${eventId}`;
   const restored = useRef(false);
@@ -196,6 +202,45 @@ export function MakerShell({
       vv.removeEventListener('scroll', fit);
     };
   }, []);
+
+  /* 🧷 A MAKER SAVE NEVER REMOUNTS THE MAKER (owner 2026-09-28: *"a lot of
+     times. it reloads the whole page. which shouldn't"*). Every Maker panel
+     posts to an action that redirects to its `return_to` + `?saved=1`; a new
+     query is a new page key, so the App Router swapped the whole Maker for the
+     launch route's grid skeleton and mounted it fresh. Here, in the CAPTURE
+     phase — before React reads the form into its action — a Maker form is
+     pointed back at the address the couple is already on, verbatim
+     (`lib/maker-stay.ts`). Nothing remounts; only the data changes. Every form
+     is also announced as a write the canvas did not draw (its hold is
+     dropped), unless the form says the bridge drew it (`data-maker-held`). */
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const onSubmit = (e: Event) => {
+      const form = e.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      const here = `${window.location.pathname}${window.location.search}`;
+      const returnTo = form.querySelector<HTMLInputElement>('input[name="return_to"]');
+      const next = makerStayReturn({
+        eventId,
+        here,
+        returnTo: returnTo?.value ?? null,
+        drafts: Boolean(form.querySelector(`input[name="${HUB_DRAFT_FIELD}"]`)),
+        /* A React action form carries NO method attribute (a client-rendered
+           one reads `form.method` as 'get'); only an explicit GET is a search. */
+        method: form.getAttribute('method') ?? 'post',
+      });
+      if (next) {
+        setHiddenField(form, 'return_to', next);
+        setHiddenField(form, MAKER_STAY_FIELD, '1');
+      }
+      if ((form.getAttribute('method') ?? 'post').toLowerCase() !== 'get' && form.dataset.makerHeld !== '1') {
+        announceUnheldWrite();
+      }
+    };
+    el.addEventListener('submit', onSubmit, true);
+    return () => el.removeEventListener('submit', onSubmit, true);
+  }, [eventId]);
 
   const select = useCallback((next: MakerSelection) => setSelection(next), []);
 
@@ -913,6 +958,20 @@ function MenuItem({
       {on ? <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.4} /> : null}
     </button>
   );
+}
+
+/** Set (or add) one hidden field on a form, before React reads it. */
+function setHiddenField(form: HTMLFormElement, name: string, value: string) {
+  const existing = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+  if (existing) {
+    existing.value = value;
+    return;
+  }
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = name;
+  input.value = value;
+  form.appendChild(input);
 }
 
 function MenuHeading({ children }: { children: ReactNode }) {

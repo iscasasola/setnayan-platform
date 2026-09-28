@@ -13,16 +13,12 @@ export const SEAT_LOOKUP_MIN_LEN = 2;
  *  rare same-name pair — never the old up-to-25 substring roster. */
 export const SEAT_LOOKUP_MAX_MATCHES = 5;
 
-export type SeatMatch = {
-  display_name: string;
-  table_label: string;
-  // Seat-finding PR 6 — the zone walkthrough clip for this guest's table, when
-  // the couple/coordinator has recorded + published one. `walk_video_url` is a
-  // short-lived presigned GET URL the route resolves from the stored r2:// ref;
-  // null/absent when the table has no published zone clip (the common case).
-  walk_zone_label?: string | null;
-  walk_video_url?: string | null;
-};
+/**
+ * What `/api/seat-lookup/[slug]` sends a stranger's browser. ⛔ NO NAME — see
+ * `OpenSeatMatch` in lib/find-your-seat.ts (owner 2026-09-27, "FIND YOUR SEAT,
+ * REDESIGNED" (1): the open search reveals a table and the room, never a name).
+ */
+export type { OpenSeatMatch as SeatMatch } from '@/lib/find-your-seat';
 
 /** Shape the `public_seat_lookup` RPC returns (pre-presign — raw r2:// key). */
 export type SeatLookupRow = {

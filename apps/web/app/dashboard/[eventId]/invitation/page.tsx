@@ -6,15 +6,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
-import {
-  buildInvitationUrl,
-  renderBrandedInvitationQrSvg,
-  renderInvitationQrSvg,
-  resolveBrandedQrColors,
-} from '@/lib/qr';
+import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
+import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
-import { eventSkuActive } from '@/lib/entitlements';
 import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
 import { getDayOfPhase } from '@/lib/day-of-mode';
 import { SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
@@ -31,7 +25,7 @@ import { SlugField } from './_components/slug-field';
 import { ReissueQrButton } from './_components/reissue-qr-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { QrActions } from '@/app/_components/qr-actions';
-import { qrFileName, svgDataUri } from '@/lib/qr-download';
+import { qrFileName } from '@/lib/qr-download';
 import { TagListDownload } from '@/app/_components/tag-list-download';
 import { invitationReach, unreachableSentence } from '@/lib/invitation-reach';
 import { formatCount } from '@/lib/format-number';
@@ -76,7 +70,9 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
       /* `venue_name` joins the read for ONE reason: the message names where the
          wedding is. The sponsors page already reads it for its own invitation
          template, so this is the same host-only fact on a second host-only page. */
-      'event_id, public_id, display_name, event_date, slug, venue_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, role_palette',
+      // + the CANONICAL monogram list and the QR look's two columns
+      // (lib/qr-look.server.ts) — every code on this page wears the event's look.
+      `event_id, public_id, event_date, slug, venue_name, ${QR_LOOK_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -94,41 +90,18 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
   const monogram = resolveMonogram(event);
 
-  // Auto-show the paid CUSTOM_QR_GUEST upgrade in context: when the event has an
-  // ADMIN-APPROVED order (eventSkuActive, not the pending-inclusive
-  // eventOwnsSku — owner-locked 2026-06-22), every guest's QR on this surface
-  // renders BRANDED (palette-tinted modules + monogram) instead of the plain
-  // default, and the print sheet + per-guest downloads point at the branded
-  // PNG endpoint. When NOT active, the plain QR renders exactly as before — zero
-  // change for non-owners.
+  // THE LOOK every code on this page wears (owner 2026-09-27, lib/qr-look.ts):
+  // the Setnayan mark in the centre for a free event; the couple's own logo,
+  // shape, pattern and palette ink on Event Hub Pro. The old "Custom QR per
+  // guest" product (palette-tinted modules behind its own SKU) folded into Pro,
+  // so there is no second branch here any more — one look, one renderer.
   //
-  // Read ownership with the ADMIN client: ownership is an EVENT-level fact, but
-  // `orders` RLS is purchaser-scoped (user_id = auth.uid()), so reading it under
-  // the user client would mis-gate a co-host who didn't personally place the
-  // order. The !event redirect above is the membership authorization.
-  // eventSkuActive throws on a non-graceful DB error, so we degrade to the plain
-  // (default) QR on any failure rather than crashing this always-rendered page.
-  let brandedActive = false;
-  try {
-    brandedActive = await eventSkuActive(createAdminClient(), eventId, 'CUSTOM_QR_GUEST');
-  } catch {
-    brandedActive = false;
-  }
+  // Resolved with the ADMIN client: Pro is an EVENT-level fact, but `orders`
+  // RLS is purchaser-scoped, so a co-host who didn't personally place the order
+  // would otherwise be shown the free look. The !event redirect above is the
+  // membership authorization. A failed read degrades to the free look.
+  const look = await resolveEventQrLook(createAdminClient(), eventId, event);
 
-  // Branded palette color (only resolved/used when the upgrade is active) —
-  // same source order as the studio surface + PNG endpoint: reception → bride →
-  // ceremony → monogram color. resolveBrandedQrColors keeps the QR scannable.
-  const palette = sanitizeRolePalette(event.role_palette ?? {});
-  const brandColor =
-    getPrimaryColor(palette, 'reception') ??
-    getPrimaryColor(palette, 'bride') ??
-    getPrimaryColor(palette, 'ceremony') ??
-    event.monogram_color ??
-    null;
-  const brandedColors = resolveBrandedQrColors(brandColor);
-
-  // Render QR thumbnails server-side with monogram composited in the center —
-  // branded (palette-tinted) when the upgrade is active, plain default otherwise.
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   // Canonical URL form for the printed/shared QRs — nested /u/ under the cutover
@@ -138,22 +111,13 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
     guests.map(async (g) => ({
       guestId: g.guest_id,
       url: buildInvitationUrl({ appUrl, slug: event.slug ?? eventId, qrToken: g.qr_token, ownerSlug }),
-      svg: brandedActive
-        ? await renderBrandedInvitationQrSvg({
-            appUrl,
-            slug: event.slug ?? eventId,
-            qrToken: g.qr_token,
-            monogram,
-            colors: brandedColors,
-            ownerSlug,
-          })
-        : await renderInvitationQrSvg({
-            appUrl,
-            slug: event.slug ?? eventId,
-            qrToken: g.qr_token,
-            monogram,
-            ownerSlug,
-          }),
+      svg: await renderInvitationQrSvg({
+        appUrl,
+        slug: event.slug ?? eventId,
+        qrToken: g.qr_token,
+        look,
+        ownerSlug,
+      }),
     })),
   );
   const qrByGuest = new Map(qrEntries.map((e) => [e.guestId, e]));
@@ -214,22 +178,13 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   // current monogram + color.
   const previewGuest = guests[0];
   const previewQrSvg = previewGuest
-    ? brandedActive
-      ? await renderBrandedInvitationQrSvg({
-          appUrl,
-          slug: event.slug ?? eventId,
-          qrToken: previewGuest.qr_token,
-          monogram,
-          colors: brandedColors,
-          ownerSlug,
-        })
-      : await renderInvitationQrSvg({
-          appUrl,
-          slug: event.slug ?? eventId,
-          qrToken: previewGuest.qr_token,
-          monogram,
-          ownerSlug,
-        })
+    ? await renderInvitationQrSvg({
+        appUrl,
+        slug: event.slug ?? eventId,
+        qrToken: previewGuest.qr_token,
+        look,
+        ownerSlug,
+      })
     : null;
   const defaultDerived = deriveMonogram(event.display_name);
 
@@ -244,11 +199,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         actions={
           <div className="flex gap-2">
             <Link
-              href={
-                brandedActive
-                  ? `/dashboard/${eventId}/studio/custom-qr-guest/print`
-                  : `/dashboard/${eventId}/invitation/print`
-              }
+              href={`/dashboard/${eventId}/invitation/print`}
               className="button-secondary"
               target="_blank"
             >
@@ -504,15 +455,13 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                       {qr ? (
                         <QrActions
                           url={qr.url}
-                          download={
-                            brandedActive
-                              ? {
-                                  href: `/api/website/qr/guest/${guest.guest_id}`,
-                                  filename: qrFileName(guestDisplayName(guest), 'png'),
-                                  label: 'PNG',
-                                }
-                              : { href: svgDataUri(qr.svg), filename: qrFileName(guestDisplayName(guest)) }
-                          }
+                          download={{
+                            // The same PNG route the guest drawer shows and every
+                            // guest surface saves — in the event's look.
+                            href: `/api/website/qr/guest/${guest.guest_id}`,
+                            filename: qrFileName(guestDisplayName(guest), 'png'),
+                            label: 'PNG',
+                          }}
                         />
                       ) : null}
                       {/* ⚖ SEND SITS BEFORE RE-ISSUE, and not only for reading order:
@@ -600,15 +549,11 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                 {qr ? (
                   <QrActions
                     url={qr.url}
-                    download={
-                      brandedActive
-                        ? {
-                            href: `/api/website/qr/guest/${guest.guest_id}`,
-                            filename: qrFileName(guestDisplayName(guest), 'png'),
-                            label: 'Download PNG',
-                          }
-                        : { href: svgDataUri(qr.svg), filename: qrFileName(guestDisplayName(guest)) }
-                    }
+                    download={{
+                      href: `/api/website/qr/guest/${guest.guest_id}`,
+                      filename: qrFileName(guestDisplayName(guest), 'png'),
+                      label: 'Download PNG',
+                    }}
                   />
                 ) : null}
               </div>

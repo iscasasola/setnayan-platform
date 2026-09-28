@@ -1291,7 +1291,9 @@ const DRAFT_FALLBACK = (eventId: string) => `/dashboard/${eventId}/website/widge
 
 /** Back to where the couple was, marked as a draft save. Never returns. */
 function finishDraftSave(formData: FormData, eventId: string): never {
-  revalidateWebsiteEditor(eventId, 'widgets');
+  /* ⚡ Draft only — nothing a guest sees changed, and the redirect carries the
+     fresh render back in this response. No `revalidatePath` (owner 2026-09-28,
+     `a-maker-pick-never-reloads-what-it-drew.test.ts`). */
   redirect(resolveReturnTo(formData, DRAFT_FALLBACK(eventId), '?drafted=1'));
 }
 

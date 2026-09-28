@@ -42,7 +42,8 @@ export async function yourGuestsFor(
   admin: AdminClient,
   event: { event_id: string; slug: string },
   bringerGuestId: string,
-  opts: { withPasses: boolean; monogram?: Parameters<typeof renderInvitationQrSvg>[0]['monogram'] },
+  /** `look` — the event's QR look (lib/qr-look.ts); the free look when absent. */
+  opts: { withPasses: boolean; look?: Parameters<typeof renderInvitationQrSvg>[0]['look'] },
 ): Promise<{
   guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
   passes: Record<string, string>;
@@ -57,7 +58,7 @@ export async function yourGuestsFor(
       if (!s.qrToken) return { guestId: s.guest_id, name: s.name, inviteUrl: null };
       const params = { appUrl, slug: event.slug, qrToken: s.qrToken, ownerSlug };
       if (opts.withPasses) {
-        passes[s.guest_id] = await renderInvitationQrSvg({ ...params, monogram: opts.monogram });
+        passes[s.guest_id] = await renderInvitationQrSvg({ ...params, look: opts.look });
       }
       return { guestId: s.guest_id, name: s.name, inviteUrl: buildInvitationUrl(params) };
     }),

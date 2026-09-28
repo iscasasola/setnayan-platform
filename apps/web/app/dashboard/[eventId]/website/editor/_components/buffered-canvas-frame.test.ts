@@ -42,7 +42,12 @@ test('quick saves never stack frames: a newer render REPLACES the one loading', 
 
 test('a new stage or "view as" swaps at once — the couple asked for a different page', () => {
   const s = planCanvasFrames(planCanvasFrames(start, f('rsvp:2:')), f('save_the_date:2:', 'save_the_date:'));
-  assert.deepEqual(s, { shown: f('save_the_date:2:', 'save_the_date:'), loading: null });
+  assert.deepEqual(s.shown, f('save_the_date:2:', 'save_the_date:'));
+  assert.equal(s.loading, null, 'shown at once, never buffered behind the old stage');
+  // 🔥 2026-09-28: the stage LEFT stays warm behind it (switching back is instant);
+  // the render that was still loading for it is dropped. `nextWarmFrame` trims
+  // whatever the Maker does not want kept (switching-stage-or-page-never-navigates.test.ts).
+  assert.deepEqual(s.warm, [f('rsvp:1:')]);
 });
 
 test('the same render again settles: nothing loads', () => {
@@ -65,8 +70,10 @@ test('the wiring: the shell draws the canvas through the buffer, and skips a loa
   const ready = shell.slice(shell.indexOf('const onReady = '), shell.indexOf("window.addEventListener('message', onReady)"));
   assert.match(ready, /event\.source === loadingCanvas\.current\) return;/, 'a loading frame’s ready must not scroll the shown page');
   assert.match(buffer, /loadingRef\.current = frames\.loading/, 'the buffer names its loading window');
-  // The loading frame is invisible and untappable; the shown one is untouched.
-  assert.match(buffer, /loading \? 'pointer-events-none opacity-0' : ''/);
+  // The loading frame is invisible and untappable (a warm one too); the shown one is untouched.
+  assert.match(buffer, /loading \? 'pointer-events-none opacity-0' : role === 'warm' \? 'pointer-events-none invisible' : ''/);
+  // …and a warm stage's `ready` is not the shown page's either.
+  assert.match(ready, /backgroundCanvases\.current\.has\(event\.source as Window\)\) return;/);
   // The swap carries the scroll before the new page is shown.
   const promote = buffer.slice(buffer.indexOf('const promote = '), buffer.indexOf('setFrames((prev) => promoteCanvasFrame(prev, key))'));
   assert.match(promote, /carryScroll\(/);

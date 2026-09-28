@@ -99,7 +99,7 @@ export async function hubDraftAction(
     if (intent === 'restore') {
       const { error } = await supabase.from('event_site_drafts').delete().eq('event_id', eventId);
       if (error) return { ok: false, intent, error: 'Could not discard the draft. Please try again.' };
-      revalidateWebsiteEditor(eventId);
+      // No revalidatePath — see "ONE RENDER PER SAVE" below.
       return done();
     }
 
@@ -114,19 +114,30 @@ export async function hubDraftAction(
         return { ok: false, intent, error: 'That change could not be read.' };
       }
       await writeHubDraft(supabase, eventId, mergeHubDraft(current, patch));
-      revalidateWebsiteEditor(eventId);
+      /* ⚡ ONE RENDER PER SAVE, AND NOT THE WHOLE MAKER (owner 2026-09-28:
+         *"picking something takes a lot of time before the website reacts"*).
+         A draft write changes nothing a guest can see — guests meet the draft
+         only after Apply — so there is no guest path to revalidate. And a
+         `revalidatePath` here made this action's response carry a FULL render
+         of the Maker route, which the caller then threw away and asked for
+         again with its own `router.refresh()`: two whole-Maker renders per
+         pick. The caller refreshes once, after its last save in flight
+         (`lib/maker-refresh.ts`), and the canvas keeps its page for what the
+         bridge already drew (`element-preview.ts`). The client router cache is
+         cleared by that refresh, so nothing stale is served on a revisit.
+         Held by `a-maker-pick-never-reloads-what-it-drew.test.ts`. */
       return done();
     }
     if (intent === 'reset') {
       const scope = formData.get('stage');
       if (!isHubResetScope(scope)) return { ok: false, intent, error: 'Choose which stage to reset.' };
       await writeHubDraft(supabase, eventId, mergeHubDraft(current, hubResetPatch(scope)));
-      revalidateWebsiteEditor(eventId);
+      // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
       return done();
     }
     if (intent === 'undo') {
       await writeHubDraft(supabase, eventId, undoHubDraft(current));
-      revalidateWebsiteEditor(eventId);
+      // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
       return done();
     }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -96,9 +97,12 @@ function useDraftIntent(eventId: string) {
     start(async () => {
       const fd = new FormData();
       for (const [k, v] of Object.entries(fields)) fd.set(k, v);
-      const r = await hubDraftAction(eventId, fd);
+      /* Undo · Restore · Reset · Apply are never drawn by the bridge: the
+         canvas reloads (double-buffered) for the render they bring — ONE render,
+         after the write, since the action no longer re-renders the Maker in its
+         own response for a draft-only intent. */
+      const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
       setResult(r);
-      if (r.ok) router.refresh();
     });
   return { pending, result, run };
 }
@@ -163,6 +167,15 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
      Apply — `lib/maker-save-status.ts`. An error stays until a save succeeds. */
   const [saveStatus, setSaveStatus] = useState<MakerSaveStatus | null>(null);
   useEffect(() => onMakerSave(setSaveStatus), []);
+  /* 🔁 A Maker control with no router of its own (the RSVP settings) asks for
+     the one refresh after its save (`requestMakerRefresh`); this bar is mounted
+     once in every Maker with a work area, so it answers. */
+  const router = useRouter();
+  useEffect(() => {
+    const refresh = () => router.refresh();
+    window.addEventListener(MAKER_REFRESH_EVENT, refresh);
+    return () => window.removeEventListener(MAKER_REFRESH_EVENT, refresh);
+  }, [router]);
   /* More ▾ → "Reset this stage…" in the Maker toolbar opens THIS confirm. */
   useEffect(() => {
     const open = () => {

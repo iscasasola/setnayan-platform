@@ -10,7 +10,7 @@ import { arrivalDestinationFor, arrivalDestinationWords } from '@/lib/invite-des
 import { resolveProfile } from '@/lib/event-type-profile';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
-import { resolveMonogram } from '@/lib/monogram';
+import { QR_LOOK_COLUMNS_AFTER_INVITE_MARK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { guestAccountState } from '@/lib/guest-one-path';
 import { keepLinkSentFor, readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.server';
@@ -58,7 +58,11 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
+      // + the QR look's remaining columns (the invite look and the invite mark
+      // already carry display_name · monogram_text · monogram_color · the two
+      // SVGs · role_palette): the pass drawn below wears the event's look —
+      // lib/qr-look.server.ts.
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -140,7 +144,11 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     qrToken: guest.qr_token as string,
     ownerSlug,
   };
-  const qrSvg = await renderInvitationQrSvg({ ...qrParams, monogram: resolveMonogram(event) });
+  const qrSvg = await renderInvitationQrSvg({
+    ...qrParams,
+    // The event's look (lib/qr-look.ts): the Setnayan mark, or the couple's own on Pro.
+    look: await resolveEventQrLook(admin, event.event_id as string, event as QrLookRow),
+  });
   const invitationUrl = buildInvitationUrl(qrParams);
   const words = await eventWordsFor(event.event_type as string);
   const guestName =

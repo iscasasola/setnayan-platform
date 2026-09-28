@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "dec8d0aea",
-  "routeCount": 435,
-  "destinations": 948,
-  "actions": 669,
-  "blocks": 4902,
+  "generatedFromRef": "03323e8fa8",
+  "routeCount": 434,
+  "destinations": 942,
+  "actions": 671,
+  "blocks": 4958,
   "routes": {
     "/": {
       "files": [
@@ -847,6 +847,7 @@
         "[slug]/_components/scene-clip.tsx",
         "[slug]/_components/scene-template.tsx",
         "[slug]/_components/schedule-widget.tsx",
+        "[slug]/_components/seat-door-line.tsx",
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/send-their-invite.tsx",
         "[slug]/_components/site-body.tsx",
@@ -902,6 +903,7 @@
         "[slug]/_lib/icon-source.ts",
         "[slug]/_lib/invitation-card.ts",
         "[slug]/_lib/loaders.ts",
+        "[slug]/_lib/main-ground-layer.tsx",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/plus-one-seats.server.ts",
         "[slug]/_lib/preview-person.server.ts",
@@ -939,7 +941,6 @@
         "/[seg]/invite",
         "/[seg]/print",
         "/[seg]/recap",
-        "/[seg]/seat/claim?t=[seg]",
         "/[seg]/welcome",
         "/api/guest/qr",
         "/dashboard/profile",
@@ -1150,6 +1151,7 @@
         "PublicHideableWidget",
         "PublicPageActions",
         "ReactElement",
+        "ReactNode",
         "Relive",
         "Remaining",
         "RevealFeatures",
@@ -1188,6 +1190,7 @@
         "SceneClip",
         "ScenePlaceholder",
         "ScheduleWidget",
+        "SeatDoorLine",
         "SectionEmptyPlate",
         "SectionRule",
         "Select",
@@ -1335,7 +1338,11 @@
     },
     "/[slug]/find-seat": {
       "files": [
+        "[slug]/find-seat/_components/door-pass.tsx",
         "[slug]/find-seat/_components/name-search.tsx",
+        "[slug]/find-seat/_components/refresh-on-return.tsx",
+        "[slug]/find-seat/_components/seat-frame.tsx",
+        "[slug]/find-seat/_components/your-seat.tsx",
         "[slug]/find-seat/page.tsx"
       ],
       "destinations": [
@@ -1344,13 +1351,36 @@
       "actions": [],
       "blocks": [
         "AbortController",
+        "BeforeTheDay",
+        "ClockGlyph",
+        "DoorGlyph",
+        "DoorPass",
+        "Eyebrow",
+        "FoundCard",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "Lace",
         "Link",
-        "Logo",
-        "MatchCard",
+        "LiveRefresher",
+        "LockGlyph",
         "NameSearch",
-        "PromptCard",
+        "NotPostedYet",
+        "NotSeatedYet",
+        "OnTheDay",
+        "Outcome",
+        "PersonGlyph",
+        "Postmark",
+        "QrGlyph",
+        "RefreshOnReturn",
         "RoomFooter",
-        "Shell"
+        "RoomPlaceholder",
+        "ScriptWord",
+        "SearchGlyph",
+        "SeatFrame",
+        "StepUp",
+        "WalkIn3D",
+        "WayfindingMap",
+        "YourSeat"
       ]
     },
     "/[slug]/hub": {
@@ -1376,11 +1406,13 @@
     },
     "/[slug]/invite": {
       "files": [
+        "[slug]/invite/_components/hub-door-skin.tsx",
         "[slug]/invite/_components/invite-qr-panel.tsx",
         "[slug]/invite/_components/themes/abaca.tsx",
         "[slug]/invite/_components/themes/capiz.tsx",
         "[slug]/invite/_components/themes/galeriya.tsx",
         "[slug]/invite/_components/themes/invite-skin.tsx",
+        "[slug]/invite/_components/themes/seal-mark.tsx",
         "[slug]/invite/_components/themes/velvet.tsx",
         "[slug]/invite/_lib/load-invite-look.ts",
         "[slug]/invite/actions.ts",
@@ -1389,10 +1421,12 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "BespokeMonogramMark",
         "GuestCodeKeepers",
         "InvalidTokenScreen",
         "JoinFlow",
-        "RevealOverlayServer"
+        "RevealOverlayServer",
+        "SealMark"
       ]
     },
     "/[slug]/invite/enter": {
@@ -1421,6 +1455,7 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "GuestLookScope",
         "Link",
         "NotYouSwitch",
         "RsvpWidget"
@@ -5587,9 +5622,9 @@
         "/dashboard/[seg]/guests/quick",
         "/dashboard/[seg]/guests?inspect=[seg]",
         "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/seating",
-        "/dashboard/[seg]/story",
-        "/dashboard/[seg]/studio/custom-qr-guest"
+        "/dashboard/[seg]/story"
       ],
       "actions": [
         "action",
@@ -5993,7 +6028,8 @@
       ],
       "destinations": [
         "/api/website/qr/guest/[seg]",
-        "/dashboard/[seg]/guests/[seg]"
+        "/dashboard/[seg]/guests/[seg]",
+        "/dashboard/[seg]/invitation/print"
       ],
       "actions": [
         "markSent",
@@ -6044,10 +6080,15 @@
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
+        "dashboard/[eventId]/launch/_components/print-choice-picker.tsx",
+        "dashboard/[eventId]/launch/_components/print-menu-editor.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
+        "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
+        "dashboard/[eventId]/launch/_components/soft-post.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
-        "dashboard/[eventId]/launch/page.tsx"
+        "dashboard/[eventId]/launch/page.tsx",
+        "dashboard/[eventId]/launch/qr-look-actions.ts"
       ],
       "destinations": [
         "/[seg]",
@@ -6061,7 +6102,9 @@
         "/marketplace"
       ],
       "actions": [
+        "PRINT_MENU_ENDPOINT",
         "PRINT_WORDS_ENDPOINT",
+        "qrStyleAction",
         "removeHeroPhoto",
         "specialMessageAction",
         "uploadHeroPhoto"
@@ -6128,8 +6171,12 @@
         "PageMasthead",
         "PaidMark",
         "PickMenu",
+        "PickOption",
+        "PrintChoicePicker",
+        "PrintMenuEditor",
         "PrintPreview",
         "PrintSaveButton",
+        "QrLookControls",
         "Row",
         "RsvpAskConfig",
         "SVGSVGElement",
@@ -6139,6 +6186,7 @@
         "SiteStage",
         "Slider",
         "SlugField",
+        "SoftPost",
         "State",
         "Switch",
         "SwitchRow",
@@ -6146,6 +6194,7 @@
         "ToolMenu",
         "TuneFold",
         "TuneSlider",
+        "UpdateQrStyleResult",
         "WebsiteEditorPage"
       ]
     },
@@ -6500,11 +6549,17 @@
     },
     "/dashboard/[eventId]/schedule": {
       "files": [
+        "dashboard/[eventId]/schedule/_components/announce-button.tsx",
         "dashboard/[eventId]/schedule/_components/block-time-editor.tsx",
+        "dashboard/[eventId]/schedule/_components/day-rail.tsx",
+        "dashboard/[eventId]/schedule/_components/day-sheets.tsx",
+        "dashboard/[eventId]/schedule/_components/day-types.ts",
+        "dashboard/[eventId]/schedule/_components/day-ui.tsx",
         "dashboard/[eventId]/schedule/_components/emcee-picks.tsx",
         "dashboard/[eventId]/schedule/_components/emcee-script-button.tsx",
         "dashboard/[eventId]/schedule/_components/host-questions.tsx",
         "dashboard/[eventId]/schedule/_components/journey-view.tsx",
+        "dashboard/[eventId]/schedule/_components/moment-inspector.tsx",
         "dashboard/[eventId]/schedule/_components/note-flash.ts",
         "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
         "dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx",
@@ -6545,16 +6600,25 @@
       ],
       "blocks": [
         "AddBlockForm",
+        "AddMomentSheet",
         "AddPreparationItem",
+        "AnnounceButton",
         "BlockCard",
         "BlockTimeEditor",
         "BulkRetimePanel",
+        "DayActions",
+        "DayActionsContext.Provider",
+        "DayMoment",
         "DeletePreparationItemButton",
+        "DragState",
         "EmceePicks",
         "EmceePicksUnread",
         "EmceeScriptButton",
+        "EmptyRail",
         "EventDayView",
+        "Eyebrow",
         "FeedPageSkeleton",
+        "Glance",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -6565,29 +6629,45 @@
         "JourneyEmptyState",
         "JourneyRow",
         "JourneyView",
+        "Lens",
         "LensChip",
         "Link",
+        "MiniTour",
+        "MomentInspector",
+        "NoDateYet",
         "PageMasthead",
         "PhaseSection",
+        "PickMenu",
         "PrepKind",
         "PrepKindPicker",
         "PreparationAgendaView",
         "PreparationEmptyState",
         "PreparationLegend",
         "PreparationRow",
+        "RequestsSheet",
         "ResponsiblePartyEditor",
         "RosLensBar",
         "RosLensPreview",
         "RunOfShowHeader",
+        "SaveState",
         "ScheduleBlockRow",
         "ScheduleBlockType",
+        "ScheduleDay",
         "ScheduleModeToggle",
         "Segment",
         "SentList",
+        "Sheet",
+        "SheetHead",
+        "SheetState",
+        "ShiftSheet",
+        "Stepper",
         "SubmitButton",
+        "Switch",
         "TellTheHost",
         "TemplatePicker",
         "TimelineNode",
+        "Tip",
+        "ToolButton",
         "TravelClashGuard",
         "TravelItineraryView",
         "VendorMeetingsSection",
@@ -6963,45 +7043,6 @@
       "destinations": [],
       "actions": [],
       "blocks": []
-    },
-    "/dashboard/[eventId]/studio/custom-qr-guest": {
-      "files": [
-        "dashboard/[eventId]/studio/custom-qr-guest/loading.tsx",
-        "dashboard/[eventId]/studio/custom-qr-guest/page.tsx"
-      ],
-      "destinations": [
-        "/api/website/qr/guest/[seg]",
-        "/dashboard/[seg]/guests",
-        "/dashboard/[seg]/invitation",
-        "/dashboard/[seg]/studio",
-        "/dashboard/[seg]/studio/custom-qr-guest/print"
-      ],
-      "actions": [],
-      "blocks": [
-        "GridPageSkeleton",
-        "InlineCheckoutDrawer",
-        "Link",
-        "OwnedView",
-        "PageMasthead",
-        "PaymentUnderReview",
-        "QrActions",
-        "StudioBuyHero",
-        "UnownedView"
-      ]
-    },
-    "/dashboard/[eventId]/studio/custom-qr-guest/print": {
-      "files": [
-        "dashboard/[eventId]/studio/custom-qr-guest/print/loading.tsx",
-        "dashboard/[eventId]/studio/custom-qr-guest/print/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/studio/custom-qr-guest"
-      ],
-      "actions": [],
-      "blocks": [
-        "GridPageSkeleton",
-        "Link"
-      ]
     },
     "/dashboard/[eventId]/studio/editorial-pro": {
       "files": [
@@ -8862,6 +8903,24 @@
         "Environment",
         "Lab3DBooth",
         "OrbitControls"
+      ]
+    },
+    "/dev/schedule-lab": {
+      "files": [
+        "dev/schedule-lab/page.tsx",
+        "dev/schedule-lab/schedule-lab-client.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DayActions",
+        "DayMoment",
+        "DayRole",
+        "PickMenu",
+        "RunOfShowHeader",
+        "ScheduleDay",
+        "ScheduleLabClient",
+        "Switch"
       ]
     },
     "/download": {

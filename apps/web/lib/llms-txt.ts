@@ -218,7 +218,10 @@ const REQUIRED_RETAIL = [
   'PAPIC_GUEST_1K', 'PAPIC_GUEST_2K', 'PAPIC_GUEST', 'PAPIC_GUEST_4K', 'PAPIC_GUEST_5K', // gitleaks:allow — catalog service_codes, not secrets
   'PAPIC_GUEST_6K', 'PAPIC_GUEST_7K', 'PAPIC_GUEST_10K', 'PAPIC_GUEST_20K', // gitleaks:allow — catalog service_codes, not secrets
   'PAPIC_GUEST_30K', 'PAPIC_GUEST_50K', 'PAPIC_GUEST_100K', // gitleaks:allow — catalog service_codes, not secrets
-  'CUSTOM_QR_GUEST',
+  // CUSTOM_QR_GUEST left this list 2026-09-28: the "Custom QR per guest"
+  // product folded into Event Hub Pro (owner 2026-09-27) and its row is off
+  // sale. A retired code kept here throws MissingSkuError and drops this whole
+  // document to its stub — the PAPIC_ADDON_STORIES lesson.
 ] as const;
 
 const REQUIRED_VENDOR = [
@@ -512,7 +515,7 @@ What is LIVE today: every event type listed above; an event automatically becomi
 
 ## Planning tiers (couple-side)
 
-- **Free — Explore** — ${R('CUSTOM_QR_GUEST')}. Browse the marketplace, see a personalized match preview, and plan with the free workspace: schedule, budget, guest list, seat plan, mood board. No card required.
+- **Free — Explore** — ₱0. Browse the marketplace, see a personalized match preview, and plan with the free workspace: schedule, budget, guest list, seat plan, mood board. No card required.
 - **Setnayan AI** — one-time, access until the event date. Priced by event type, because the planning load differs: ${aiLadderLine}. Simple events have no vendors, so Setnayan AI is not present and nothing is charged. Beyond this tier everything is à la carte — there are no package bundles.
 
 ## Customer software services (à la carte)
@@ -533,7 +536,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Kwento** — free. Guest-contributed stories and messages.
 - **Papic** — one shared pot of credits every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 credits free on your first celebration, then ${papicLadderPhrase(R)}, added on top and repeatable — the regular rate is one peso a shot and every rung is a bundle discount off it, 50% at the bottom to 80% at the top. Cameras are free and unlimited. The host can also cap how many credits any one guest may spend — naming the few who should have more, with the rest splitting what is left evenly; nothing is carved out of the pot, so whatever a guest does not use is still there for everyone else. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
-- **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).
+- **Guest QR codes** — free. Every guest gets their own code (RSVP, seating, photo tagging) with the Setnayan mark in the centre; Event Hub Pro puts the couple's own logo there and adds shape, pattern and colour choices.
 
 ## The mood board is free
 

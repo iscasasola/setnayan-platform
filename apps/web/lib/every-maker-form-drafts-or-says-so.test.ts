@@ -66,6 +66,8 @@ const MAKER_FILES = [
   'app/dashboard/[eventId]/launch/_components/maker-logo.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-prints.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-details.tsx',
+  // Prints & Tickets' Menu editor (owner 2026-09-28, "add to print out our meals for tonight").
+  'app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx',
 ];
 
 /**
@@ -181,6 +183,9 @@ const LIVE: Record<string, string> = {
   // line, the "Kindly reply" choice).
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx#MakerDetails#PRINT_WORDS_ENDPOINT']:
     'the printed set\'s settings (events.print_details) — read only by the prints the couple downloads (lib/print-set.server.ts), never by a guest page, so there is nothing for a guest to see before Apply',
+  // The Menu card's moments and dishes — the same column, the same reason.
+  ['app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx#PrintMenuEditor#PRINT_MENU_ENDPOINT']:
+    'the Menu card\'s moments and dishes (events.print_details.menu) — read only by the prints the couple downloads, never by a guest page, so there is nothing for a guest to see before Apply',
 };
 
 /** Writers the Maker's page may bind that go live — each behind a LIVE form above. */
@@ -362,6 +367,10 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // the E-Gifts thank-you message (PabuyaMessageEditor posts from a transition).
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<HubSavesImmediately\s*\/>[\s{}]*<PabuyaMessageEditor\b/, 'the thank-you message is the E-Gifts message, written live'],
+  // The Pro QR build (2026-09-28): Shape · Pattern · Colour post from a
+  // transition into events.style_preferences.qr — the picture on every print
+  // and pass, not a drafted guest page — and say so beside the dropdowns.
+  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<QrLookControls\b[\s\S]*?\/>[\s{}]*<HubSavesImmediately\b/, 'the QR look writes live and must say so'],
 ];
 
 test('controls that write without a form of their own say "Saves immediately" beside them', () => {

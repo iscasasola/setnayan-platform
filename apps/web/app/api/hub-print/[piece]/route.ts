@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadGuestPasses, loadPrintSet, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
-import { layoutPasses, layoutPiece, layoutQrCodes, type PrintDoc, type PrintImages } from '@/lib/print-layout';
+import { resolveEventQrLook } from '@/lib/qr-look.server';
+import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages } from '@/lib/print-layout';
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
@@ -21,6 +22,8 @@ import {
   isPrintSetKey,
   isThemedPrint,
   mayServe,
+  menuHasDishes,
+  parseMenu,
   parsePrintDetails,
   printAccess,
   printFileName,
@@ -53,7 +56,7 @@ import { formatCount } from '@/lib/format-number';
  *                  without Pro;
  *       `print`  — the print-ready PDF (bleed, crop marks, Foil / White ink /
  *                  Die cut layers), no watermark. Classic: everyone. A theme: Pro.
- *   · `set` — the six pieces: one print-ready PDF, or one sample sheet JPEG.
+ *   · `set` — the themed pieces (the Menu only once it has a dish): one print-ready PDF, or one sample sheet JPEG.
  *   · `passes` — every guest's pass, ganged on A4, each QR the guest's own
  *     invitation code. Classic: everyone. A theme: Pro.
  *   · the FREE GROUP (`kind: 'free'`, no themed version, store shell included):
@@ -148,6 +151,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         event,
         appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
         ownerSlug: await resolveEventOwnerSlug(admin, eventId).catch(() => null),
+        // The free QR sheet wears the event's look too — the Setnayan mark, or
+        // the couple's own on Event Hub Pro (lib/qr-look.ts).
+        qrLook: await resolveEventQrLook(admin, eventId, event),
       };
       const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, limit: thumb ? 12 : undefined });
       if (!loaded.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
@@ -242,7 +248,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false);
     }
     if (mode === 'screen') {
-      const svg = renderPrintSvg(layoutPiece(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
+      const svg = renderPrintSvg(layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
       return new NextResponse(svg, {
         status: 200,
         // 🕐 `stale-while-revalidate` — the couple flips between the Maker's
@@ -254,8 +260,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60, stale-while-revalidate=300' },
       });
     }
-    const keys = wantsSet ? [...PRINT_SET_KEYS] : [piece as PrintSetKey];
-    const docs: PrintDoc[] = keys.map((k) => layoutPiece(k, { ...input, format: formatParam(k) }));
+    // THE MENU IS NEVER PRINTED BLANK: with no dishes it is refused on its own
+    // and left out of the whole set.
+    const hasMenu = menuHasDishes(set.data.menu);
+    if (!wantsSet && piece === 'menu' && !hasMenu) {
+      return new NextResponse('Add your menu first — the moments of your night and their dishes — in Prints & Tickets.', { status: 409 });
+    }
+    const keys = wantsSet ? PRINT_SET_KEYS.filter((k) => k !== 'menu' || hasMenu) : [piece as PrintSetKey];
+    // EVERY SIDE prints — a piece with a back (a large Entourage) is two pages.
+    const docs: PrintDoc[] = keys.flatMap((k) => layoutPieceDocs(k, { ...input, format: formatParam(k) }));
     const label = wantsSet ? 'The print set' : PRINT_PIECES[piece].label;
     const bytes = await renderPrintPdf(docs, set.images, {
       mode: 'print',
@@ -276,8 +289,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   const spot = spotLayersFor(set.theme);
   const input = { look: set.look, data: set.data, mode: 'sample' as const, foil: spot.foil };
   const jpeg = wantsSet
-    ? await renderSampleSheetJpeg(PRINT_SET_KEYS.map((k) => layoutPiece(k, { ...input, format: formatParam(k) })), set.images)
-    : await renderSampleJpeg(layoutPiece(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
+    ? await renderSampleSheetJpeg(
+        PRINT_SET_KEYS.filter((k) => k !== 'menu' || menuHasDishes(set.data.menu)).map((k) => layoutPieceView(k, { ...input, format: formatParam(k) })),
+        set.images,
+      )
+    : await renderSampleJpeg(layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
   const name = `${(set.event.slug || 'event').replace(/[^a-z0-9-]/gi, '').slice(0, 40) || 'event'}-${wantsSet ? 'set' : piece}-sample.jpg`;
   return new NextResponse(Buffer.from(jpeg), {
     status: 200,
@@ -290,10 +306,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   });
 }
 
-/** `words` — the form in Prints & Tickets. Everything else is refused. */
+/**
+ * `words` — the Details form; `menu` — the Menu editor in Prints & Tickets.
+ * Everything else is refused. Both write `events.print_details`, and each
+ * keeps what the OTHER owns: a Details save never erases the menu, a menu save
+ * never touches the words. So both first READ the stored value — and if it
+ * cannot be read, nothing is written (a blind write would wipe the other half).
+ */
 export async function POST(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece } = await ctx.params;
-  if (piece !== 'words') return new NextResponse('Not found.', { status: 404 });
+  if (piece !== 'words' && piece !== 'menu') return new NextResponse('Not found.', { status: 404 });
 
   // A form post from another site carries no Origin of ours.
   const origin = req.headers.get('origin');
@@ -304,6 +326,40 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   const g = await gate(String(form.get('event_id') ?? ''));
   if (!g.ok) return g.res;
   const eventId = g.eventId;
+  const admin = createAdminClient();
+  const current = await readPrintEvent(admin, eventId);
+  const back = new URL(`/dashboard/${eventId}/launch`, req.url);
+  back.searchParams.set('tool', piece === 'menu' ? 'prints' : 'details');
+  if (!current) {
+    back.searchParams.set(piece === 'menu' ? 'menu_error' : 'print_error', '1');
+    return NextResponse.redirect(back, 303);
+  }
+  const stored = parsePrintDetails(current.print_details);
+
+  if (piece === 'menu') {
+    // The editor posts the whole menu as JSON; the parser drops anything unknown
+    // and caps it, so what is stored is exactly what can print.
+    let raw: unknown = [];
+    try {
+      raw = JSON.parse(String(form.get('menu_json') ?? '[]'));
+    } catch {
+      raw = null;
+    }
+    if (!Array.isArray(raw)) {
+      back.searchParams.set('menu_error', '1');
+      return NextResponse.redirect(back, 303);
+    }
+    const { error } = await admin
+      .from('events')
+      .update({ print_details: serializePrintDetails({ ...stored, menu: parseMenu(raw) }) })
+      .eq('event_id', eventId);
+    if (error) {
+      logQueryError('hub-print.menu', error, { event_id: eventId }, 'graceful_degrade');
+      back.searchParams.set('menu_error', '1');
+    } else back.searchParams.set('menu_saved', '1');
+    back.hash = 'print-menu';
+    return NextResponse.redirect(back, 303);
+  }
 
   // The reply line is a CHOICE: `host:<moderator_id>` (a host or the
   // coordinator, read from their own account at print time) or `manual` with
@@ -335,19 +391,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
         specialMessage: on('inc_special_message'),
       }
     : undefined;
-  // Round-trip through the parser: what is stored is exactly what prints.
-  const details = parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include });
+  // Round-trip through the parser: what is stored is exactly what prints. The
+  // menu is carried over untouched — it is the Menu editor's, not this form's.
+  const details = { ...parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include }), menu: stored.menu };
 
-  const admin = createAdminClient();
   const { error } = await admin
     .from('events')
     .update({ print_details: serializePrintDetails(details) })
     .eq('event_id', eventId);
-  const back = new URL(`/dashboard/${eventId}/launch`, req.url);
-  back.searchParams.set('tool', 'details');
-  if (error) {
-    logQueryError('hub-print.words', error, { event_id: eventId }, 'graceful_degrade');
-    back.searchParams.set('print_error', '1');
-  } else back.searchParams.set('print_saved', '1');
+  if (error) logQueryError('hub-print.words', error, { event_id: eventId }, 'graceful_degrade');
+  /* 🧷 The Maker saves this form IN PLACE (`launch/_components/soft-post.tsx`,
+     owner 2026-09-28: *"it reloads the whole page. which shouldn't"*): asked
+     for JSON, it gets the answer, not a 303 that reloads the whole document.
+     A plain form post (no JavaScript) still comes back to the Maker. */
+  if ((req.headers.get('accept') ?? '').includes('application/json')) {
+    return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
+  }
+  if (error) back.searchParams.set('print_error', '1');
+  else back.searchParams.set('print_saved', '1');
   return NextResponse.redirect(back, 303);
 }

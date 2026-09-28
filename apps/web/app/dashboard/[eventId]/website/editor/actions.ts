@@ -186,6 +186,6 @@ async function draftBackdrop(
 ): Promise<never> {
   const fallback = `/dashboard/${eventId}/website/editor?open=backdrop&drafted=1`;
   await saveHubDraftPatch(eventId, { events: { rsvp_backdrop: value } }, { formData, fallback });
-  revalidatePath(`/dashboard/${eventId}/website/editor`);
+  // ⚡ Draft only; the redirect carries the fresh render (no revalidatePath — owner 2026-09-28).
   redirect(resolveReturnTo(formData, fallback, '?drafted=1'));
 }

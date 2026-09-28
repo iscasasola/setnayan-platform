@@ -7,7 +7,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import { ArrowUpRight, Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
-import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
 import { REVEAL_STAGE_CHOICES } from '@/lib/reveal-stages';
 import type { RowStatus } from './rail-rows';
@@ -32,8 +32,20 @@ import { DetailsBoundField } from './details-bound-field';
 import { detailsFactOfScene, sceneBoundText, type DetailsFact } from '@/lib/details-bound';
 import { isWordsScene, tapOpensWords } from '@/lib/maker-scene-words';
 import { CanvasWordsContext, type CanvasWords } from './canvas-words';
-import { NO_CANVAS_HOLD, canvasKeepsItsPage, heldCanvasFor, holdCanvas, type CanvasHold } from './element-preview';
-import { BufferedCanvasFrame } from './buffered-canvas-frame';
+import {
+  NO_CANVAS_HOLD,
+  canvasKeepsItsPage,
+  canvasOrderOf,
+  heldCanvasFor,
+  holdCanvas,
+  holdChange,
+  orderWithout,
+  sceneDrawEffect,
+  type CanvasHold,
+} from './element-preview';
+import { makerSave, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { preloadMakerFonts, preloadMakerImages, whenIdle } from '@/lib/maker-preload';
+import { BufferedCanvasFrame, warmCanvasBudget, type CanvasFrame } from './buffered-canvas-frame';
 import { PickMenu } from './pick-menu';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -309,6 +321,18 @@ export function MakerWork({
 }) {
   const maker = useMaker();
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+  /** A made-once page's own frame (Hero · Reveal · Love Story) — the stage canvas stays mounted beside it. */
+  const pageFrameRef = useRef<HTMLIFrameElement | null>(null);
+  const pageOpenRef = useRef(false);
+  /* 🔥 A PICK THE BRIDGE DRAWS GOES TO EVERY STAGE THE MAKER HOLDS WARM — the
+     shown canvas and the stages loaded behind it (`buffered-canvas-frame.tsx`),
+     so switching stage after a pick shows the pick, not the page from before
+     it. A warm frame that could not take it is reloaded by the buffer. */
+  const canvasBroadcast = useRef<((message: unknown) => void) | null>(null);
+  const broadcastToCanvas = (message: unknown) => {
+    if (canvasBroadcast.current) canvasBroadcast.current(message);
+    else frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+  };
   const [navWidth, setNavWidth] = useState(168);
   /* The tools column's width, beside the navigator's (owner 2026-09-27:
      "navigation is resizable, so does the editing tool on the right"). */
@@ -343,16 +367,35 @@ export function MakerWork({
   const serverCanvases = elementEditing?.canvases;
   const serverCanvasesRef = useRef(serverCanvases);
   serverCanvasesRef.current = serverCanvases;
+  /* 🧭 …and WHICH scenes each stage's canvas draws, in order — the other half
+     of what the canvas shows (`canvasOrderOf`). Every hold carries it (owner
+     2026-09-28: every pick the bridge already drew keeps the page; a render
+     that drew other scenes still reloads). */
+  const canvasOrder = canvasOrderOf(navigator.stageLists);
+  const canvasOrderRef = useRef(canvasOrder);
+  canvasOrderRef.current = canvasOrder;
   useEffect(() => {
     const next = maker?.renderStamp ?? '';
-    if (canvasKeepsItsPage(canvasHold.current, serverCanvasesRef.current ?? {}, Date.now())) return;
+    if (canvasKeepsItsPage(canvasHold.current, serverCanvasesRef.current ?? {}, Date.now(), canvasOrderRef.current)) return;
     canvasHold.current = NO_CANVAS_HOLD;
     setCanvasStamp(next);
   }, [maker?.renderStamp]);
-  /** A write that is not an element choice: the next render reloads the canvas. */
+  /** A write the bridge did not draw: the next render reloads the canvas. */
   const releaseCanvas = () => {
     canvasHold.current = NO_CANVAS_HOLD;
   };
+  /* 🔓 EVERY OTHER WRITE RELEASES THE HOLD. A Maker form (the shell's submit
+     listener) and every draft save not drawn by the bridge (`makerSave` without
+     `held`) announce themselves — otherwise a colour or wording save landing
+     inside a hold, with the canvases unchanged, would be absorbed and the
+     canvas would keep a page that no longer matches the draft. */
+  useEffect(() => {
+    const release = () => {
+      canvasHold.current = NO_CANVAS_HOLD;
+    };
+    window.addEventListener(MAKER_UNHELD_WRITE_EVENT, release);
+    return () => window.removeEventListener(MAKER_UNHELD_WRITE_EVENT, release);
+  }, []);
   /* The sheet closed: its last save's refresh may still land (a few seconds),
      then the hold ends — a later write elsewhere must reload the canvas. */
   useEffect(() => {
@@ -413,6 +456,44 @@ export function MakerWork({
   /* VIEW AS (toolbar) re-points the canvas at a role's own door; otherwise the
      host's editing preview, which shows the draft. */
   const canvasSrc = maker?.viewAsHref ?? previewSrc;
+  /* 🔥 LOAD EVERYTHING UP FRONT (owner 2026-09-28: *"is it possible to load
+     everything so it runs smoothly?"*). The other three stages, as the host's
+     editing canvas, loaded hidden behind this one once it is up and the tab is
+     idle (`buffered-canvas-frame.tsx`) — nearest stage first — so a stage
+     switch shows a page that is already loaded. Keyed exactly as the shown
+     frame would be, so a switch finds its frame. None while "view as" is on,
+     and none on a small-memory phone or a save-data connection
+     (`warmCanvasBudget`, decided once the device is known). */
+  const [warmBudget, setWarmBudget] = useState(0);
+  useEffect(() => {
+    const nav = window.navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+    setWarmBudget(
+      warmCanvasBudget({
+        phone: window.matchMedia('(max-width: 767px), (pointer: coarse)').matches,
+        deviceMemory: nav.deviceMemory ?? null,
+        saveData: nav.connection?.saveData ?? null,
+      }),
+    );
+  }, []);
+  /* …and what a pick will need: every face in the Font dropdown and, for a
+     couple who can pick one, their photos as backgrounds (`lib/maker-preload.ts`
+     — the Maker's own document only, never a guest page). Same device gate. */
+  const photoUrlsKey = ownsPro ? (sceneFormat?.photoChoices ?? []).map((p) => p.url).join('\n') : '';
+  useEffect(() => {
+    if (warmBudget === 0) return;
+    return whenIdle(() => {
+      preloadMakerFonts(document);
+      if (photoUrlsKey) preloadMakerImages(photoUrlsKey.split('\n'));
+    });
+  }, [warmBudget, photoUrlsKey]);
+  const warmStages: CanvasFrame[] =
+    publicLandingUrl && !maker?.viewAsHref
+      ? warmStageOrder(stage).map((s) => ({
+          key: `${s}:${canvasStamp}:`,
+          group: `${s}:`,
+          src: `${publicLandingUrl}?phase=${s}&editor=1${guestBars ? '&bars=1' : ''}`,
+        }))
+      : [];
   const scrollPreviewTo = useCallback((anchor?: string) => {
     if (!anchor) return;
     frameRef.current?.contentWindow?.postMessage(
@@ -435,8 +516,7 @@ export function MakerWork({
     const { canvases, ownWords } = wordsInfo.current;
     return tapOpensWords({ wordsScene: isWordsScene(type, canvases[type], ownWords), el, empty });
   };
-  const postWords = (key: string, text: string) =>
-    frameRef.current?.contentWindow?.postMessage({ source: 'setnayan-editor', t: 'words', key, text }, window.location.origin);
+  const postWords = (key: string, text: string) => broadcastToCanvas({ source: 'setnayan-editor', t: 'words', key, text });
   useEffect(() => {
     const onWordsReady = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -630,6 +710,8 @@ export function MakerWork({
      a frame still loading behind the page — its `ready` is the buffer's to
      handle (it swaps and carries the scroll), so it is skipped here. */
   const loadingCanvas = useRef<Window | null>(null);
+  /** Every canvas frame NOT shown — loading or warm (`buffered-canvas-frame.tsx`). */
+  const backgroundCanvases = useRef<Set<Window>>(new Set());
   const [shownFrameKey, setShownFrameKey] = useState('');
   /** A buffered swap: the page kept its place, so only re-read and re-mark. */
   const onCanvasSwapped = (ready: unknown) => {
@@ -648,6 +730,10 @@ export function MakerWork({
     const onReady = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       if (event.source && event.source === loadingCanvas.current) return;
+      // 🔥 …nor a warm stage loaded behind the canvas: its `ready` is not this page's.
+      if (event.source && backgroundCanvases.current.has(event.source as Window)) return;
+      // …nor a made-once page's own frame, now that the stage stays mounted beside it.
+      if (event.source && event.source !== frameRef.current?.contentWindow) return;
       const data = event.data as { source?: string; t?: string; bar?: unknown } | null;
       if (!data || data.source !== 'setnayan-site' || data.t !== 'ready') return;
       scheduleSnapshots(700);
@@ -699,10 +785,12 @@ export function MakerWork({
      canvas: the bridge replays the selected section's entrance where it sits. */
   useEffect(() => {
     const onPlay = () => {
+      /* A made-once page plays in ITS frame; the stage canvas stays mounted under it. */
+      const target = pageOpenRef.current ? pageFrameRef.current : frameRef.current;
       /* The Reveal's page IS the opening: playing it again is loading it again. */
       if (selection?.kind === 'tool' && selection.key === 'reveal') {
         try {
-          frameRef.current?.contentWindow?.location.reload();
+          target?.contentWindow?.location.reload();
         } catch {
           /* a frame we cannot reach is left as it is */
         }
@@ -710,7 +798,7 @@ export function MakerWork({
       }
       const key = canvasKeyOfSelection(selection, scenes);
       if (!key) return;
-      frameRef.current?.contentWindow?.postMessage(
+      target?.contentWindow?.postMessage(
         { source: 'setnayan-editor', t: 'play', key },
         window.location.origin,
       );
@@ -722,74 +810,156 @@ export function MakerWork({
   /* ── the one hidden form every navigator write goes through ────────────── */
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, setPending] = useState(false);
+  /** The guard, as a ref — a chain step fired from the render effect must not
+      read the `pending` of the render before it. */
+  const pendingRef = useRef(false);
   const back = (sceneId: string, rest?: string) => {
     const q = new URLSearchParams({ stage, scene: sceneId });
     if (rest) q.set('chain', rest);
     return `/dashboard/${eventId}/launch?${q.toString()}`;
   };
+  /* 🧷 THE REST OF A DRAG OR AN EYE PRESS, HELD HERE — not in the address. A
+     Maker save now lands back on the address the couple is already on
+     (`lib/maker-stay.ts`, so the Maker is never remounted), which means
+     `?chain=` never arrives; the remaining steps wait here and fire once, on
+     the render the step brings (below). `back()` still writes them into
+     `return_to` for a browser without the shell's listener. */
+  const pendingChain = useRef<string | null>(null);
+  /* 🙈 TAKING A SCENE OFF THE PAGE IS INSTANT. The bridge hides it on the canvas
+     now (`sceneShow`), and the hold expects the render without it on any stage
+     (`orderWithout` — a hidden scene moves to every stage's fold), so that
+     render keeps the page. Putting one BACK cannot be drawn by the bridge (the
+     page never drew it), so that write reloads, double-buffered, as before. */
+  const hideOnCanvas = (scene: MakerScene) => {
+    const key = `w:${scene.type}`;
+    broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key, shown: false });
+    canvasHold.current = holdChange(
+      canvasHold.current,
+      { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+      { order: (o) => orderWithout(o, key) },
+      Date.now(),
+    );
+    scheduleSnapshots(400);
+  };
+  /** How one eye / Auto·Shown·Hidden write reaches the canvas (`sceneDrawEffect`). */
+  const drawHow = (scene: MakerScene, after: Partial<Pick<MakerScene, 'mode' | 'isVisible'>>) => {
+    const effect = sceneDrawEffect(
+      scene,
+      { mode: after.mode ?? scene.mode, isVisible: after.isVisible ?? scene.isVisible },
+      sceneFormat?.openBrowse,
+    );
+    return effect === 'hide' ? { hide: scene } : effect === 'none' ? { still: true } : {};
+  };
   const post = (
     which: 'toggle' | 'mode' | 'up' | 'down',
     fields: Record<string, string>,
+    how: { rest?: string; hide?: MakerScene; still?: boolean } = {},
   ) => {
     const form = formRef.current;
-    if (!form || pending) return;
-    releaseCanvas();
+    if (!form || pendingRef.current) return;
+    if (how.hide) hideOnCanvas(how.hide);
+    else if (how.still) {
+      /* Nothing the canvas draws changes (Hidden with open browsing off — the
+         page reads the eye alone): the render keeps the page as it is. */
+      canvasHold.current = holdChange(
+        canvasHold.current,
+        { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+        {},
+        Date.now(),
+      );
+    } else releaseCanvas();
+    // The shell's submit listener leaves a held write's hold alone.
+    form.dataset.makerHeld = how.hide || how.still ? '1' : '';
+    pendingChain.current = how.rest ?? null;
     for (const [name, val] of Object.entries(fields)) {
       const input = form.elements.namedItem(name) as HTMLInputElement | null;
       if (input) input.value = val;
     }
+    pendingRef.current = true;
     setPending(true);
     /* A refused write redirects nowhere new; never leave the controls locked. */
-    window.setTimeout(() => setPending(false), 10_000);
+    window.setTimeout(() => {
+      pendingRef.current = false;
+      setPending(false);
+    }, 10_000);
     (form.querySelector(`button[data-op="${which}"]`) as HTMLButtonElement | null)?.click();
   };
 
+  /* Each write is drawn as the PAGE reads it (`drawHow`): a scene taken off is
+     hidden now and held; one put back reloads. */
   const eyeWrite = (scene: MakerScene) => {
     const showing = sceneShowing(scene);
     if (showing && scene.mode === 'shown') {
-      post('mode', { widget_id: scene.id, next_mode: 'hidden', return_to: back(scene.id, `vis.${scene.id}.0`) });
+      const rest = `vis.${scene.id}.0`;
+      post('mode', { widget_id: scene.id, next_mode: 'hidden', return_to: back(scene.id, rest) }, { rest, ...drawHow(scene, { mode: 'hidden' }) });
     } else if (!showing && scene.mode === 'hidden') {
-      post('mode', { widget_id: scene.id, next_mode: 'auto', return_to: back(scene.id, `vis.${scene.id}.1`) });
+      const rest = `vis.${scene.id}.1`;
+      post('mode', { widget_id: scene.id, next_mode: 'auto', return_to: back(scene.id, rest) }, { rest, ...drawHow(scene, { mode: 'auto' }) });
     } else {
-      post('toggle', {
-        widget_id: scene.id,
-        widget_type: scene.type,
-        next_visible: scene.isVisible ? '0' : '1',
-        return_to: back(scene.id),
-      });
+      post(
+        'toggle',
+        {
+          widget_id: scene.id,
+          widget_type: scene.type,
+          next_visible: scene.isVisible ? '0' : '1',
+          return_to: back(scene.id),
+        },
+        drawHow(scene, { isVisible: !scene.isVisible }),
+      );
     }
   };
+  /** Auto · Shown · Hidden. */
+  const modeWrite = (scene: MakerScene, next: MakerScene['mode']) =>
+    post('mode', { widget_id: scene.id, next_mode: next, return_to: back(scene.id) }, drawHow(scene, { mode: next }));
 
   const move = (id: string, delta: number) => {
     if (delta === 0) return;
     const dir = delta < 0 ? 'up' : 'down';
     const n = Math.abs(delta);
-    post(dir, { widget_id: id, return_to: back(id, n > 1 ? `${dir}.${id}.${n - 1}` : undefined) });
+    const rest = n > 1 ? `${dir}.${id}.${n - 1}` : undefined;
+    post(dir, { widget_id: id, return_to: back(id, rest) }, { rest });
   };
 
-  /* The rest of a chain, fired once per arrival. */
-  const fired = useRef<string | null>(null);
-  useEffect(() => {
-    if (!chain || fired.current === chain) return;
-    fired.current = chain;
-    const [op, id, arg] = chain.split('.');
+  /** One step of a chain — from the shell's own hold (`pendingChain`) or a deep link's `?chain=`. */
+  const runChain = (step: string) => {
+    const [op, id, arg] = step.split('.');
     const scene = scenes.find((s) => s.id === id);
     if (!scene || !op) return;
     if (op === 'vis') {
       const want = arg === '1';
       if (scene.isVisible === want) return;
-      post('toggle', { widget_id: id!, widget_type: scene.type, next_visible: want ? '1' : '0', return_to: back(id!) });
+      // Hiding's second half — off the canvas already (open browsing), or now (the eye alone).
+      post(
+        'toggle',
+        { widget_id: id!, widget_type: scene.type, next_visible: want ? '1' : '0', return_to: back(id!) },
+        drawHow(scene, { isVisible: want }),
+      );
     } else if (op === 'up' || op === 'down') {
       const n = Number(arg);
       if (!Number.isFinite(n) || n < 1 || n > 40) return;
-      post(op, { widget_id: id!, return_to: back(id!, n > 1 ? `${op}.${id}.${n - 1}` : undefined) });
+      const rest = n > 1 ? `${op}.${id}.${n - 1}` : undefined;
+      post(op, { widget_id: id!, return_to: back(id!, rest) }, { rest });
     }
+  };
+
+  /* The rest of a chain from a deep link's address, fired once per arrival. */
+  const fired = useRef<string | null>(null);
+  useEffect(() => {
+    if (!chain || fired.current === chain) return;
+    fired.current = chain;
+    runChain(chain);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once per chain value
   }, [chain]);
 
-  /* A new server render means the write landed — unlock the controls. */
+  /* A new server render means the write landed — unlock the controls, and fire
+     the next step of a chain the shell is holding. */
   useEffect(() => {
+    pendingRef.current = false;
     setPending(false);
+    const step = pendingChain.current;
+    pendingChain.current = null;
+    if (step) runChain(step);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per render
   }, [maker?.renderStamp]);
 
   /* ── resize the navigator by its edge ─────────────────────────────────── */
@@ -877,7 +1047,7 @@ export function MakerWork({
     return [...out].slice(0, 15);
   })();
   const postToCanvas = (message: unknown) => {
-    frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+    broadcastToCanvas(message);
     scheduleSnapshots(600);
   };
   const sceneTabs = (() => {
@@ -910,9 +1080,18 @@ export function MakerWork({
               mediaHref={sceneFormat.mediaHref}
               hubTheme={sceneFormat.hubTheme as never}
               onPreview={(message) => {
-                /* ⚡ The background is on the canvas now; the save's reload confirms it. */
-                releaseCanvas();
+                /* ⚡ The background is on the canvas now — laid by the server's own
+                   functions (`scene-bg-preview-message.ts`), so the render the save
+                   brings is held (`onSaving` below), never reloaded. */
                 postToCanvas(message);
+              }}
+              onSaving={(canvases) => {
+                canvasHold.current = holdChange(
+                  canvasHold.current,
+                  { canvases: elementEditing.canvases, order: canvasOrder },
+                  { canvases },
+                  Date.now(),
+                );
               }}
             />
             {ownScene ? (
@@ -941,7 +1120,7 @@ export function MakerWork({
           hasContent={selectedScene.hasContent}
           openBrowse={sceneFormat?.openBrowse ?? true}
           pending={pending}
-          onMode={(m) => post('mode', { widget_id: id, next_mode: m, return_to: back(id) })}
+          onMode={(m) => modeWrite(selectedScene, m)}
           onEye={() => eyeWrite(selectedScene)}
           canUp={at > 0}
           canDown={at >= 0 && at < shownSceneIds.length - 1}
@@ -1001,6 +1180,7 @@ export function MakerWork({
      where the inspector sits. Details is the shell's (it is built by the
      launch page), the other four are here. */
   const pageKey = madeOncePageKey(selection, madeOnce);
+  pageOpenRef.current = Boolean(pageKey);
   const revealStage = revealPreview && revealStages.includes(revealPreview) ? revealPreview : (revealStages[0] ?? null);
   const pageSrc = pageKey
     ? makerPageCanvasSrc(publicLandingUrl, pageKey, stage, { guestView: storyGuestView, revealStage })
@@ -1009,14 +1189,14 @@ export function MakerWork({
   const pageFrame = (title: string) =>
     pageSrc && publicLandingUrl ? (
       <>
-        <MakerPageFrame src={pageSrc} title={title} device={device} frameKey={pageFrameKey} frameRef={frameRef} />
+        <MakerPageFrame src={pageSrc} title={title} device={device} frameKey={pageFrameKey} frameRef={pageFrameRef} />
         <CanvasStaysOnThePage
-          frameRef={frameRef}
+          frameRef={pageFrameRef}
           pagePath={publicLandingUrl}
           resetKey={pageFrameKey}
           stageLabel={title}
           onBack={() => {
-            const f = frameRef.current;
+            const f = pageFrameRef.current;
             const src = f?.getAttribute('src');
             if (f && src) f.src = src;
           }}
@@ -1087,6 +1267,8 @@ export function MakerWork({
     />
   ) : null;
 
+  /** A page (Hero · Reveal · Logo · Love Story here; Details · RSVP drawn by the shell) is open. */
+  const workHidden = Boolean(pageView) || (selection?.kind === 'tool' && isShellPage(selection.key));
   return (
     <div className="flex h-full min-h-0 flex-col lg:flex-row">
       {/* 🪞 The Maker never draws inside a frame of itself. */}
@@ -1095,7 +1277,16 @@ export function MakerWork({
           and reveal and love story has no navigation since it is just full
           create your logo"*) — and none under Details, which the shell draws
           over this area: the navigator belongs to the four stages only. */}
-      {pageView ?? (selection?.kind === 'tool' && isShellPage(selection.key) ? null : <>
+      {pageView}
+      {/* 🔥 THE STAGE STAYS LOADED UNDER A PAGE (owner 2026-09-28: *"load
+          everything so it runs smoothly"*). Opening Hero, Logo, Reveal, Love
+          Story, Details or RSVP used to UNMOUNT the navigator and the canvas, so
+          coming back loaded the stage — and every warm stage — from nothing.
+          Now they are hidden, never removed: back from a page is instant. */}
+      <div className={workHidden ? 'hidden' : 'contents'} data-maker-work-area="">
+      {/* Only the CANVAS is kept under a page — the navigator and the inspector
+          belong to the four stages and are not drawn while a page is open. */}
+      {workHidden ? null : (<>
       {/* ══ 2 · THE NAVIGATOR ══ */}
       <nav
         aria-label="Scenes"
@@ -1525,6 +1716,7 @@ export function MakerWork({
         />
       </nav>
 
+      </>)}
       {/* ══ 3 · THE CANVAS — the real page, one stage at a time ══ */}
       {/* A labelled <section>, not a second <main>: the event layout owns the
           one landmark (`couple-screens-keep-the-shell.test.ts`). */}
@@ -1544,6 +1736,11 @@ export function MakerWork({
             title={`Your Event Hub — ${PUBLIC_STAGE_LABELS[stage]}`}
             frameRef={frameRef}
             loadingRef={loadingCanvas}
+            backgroundRef={backgroundCanvases}
+            broadcastRef={canvasBroadcast}
+            warm={warmStages}
+            warmMax={warmBudget}
+            warmGen={maker.renderStamp}
             anchorKey={() => selectedKeyRef.current}
             onShown={setShownFrameKey}
             onSwapped={onCanvasSwapped}
@@ -1599,7 +1796,7 @@ export function MakerWork({
       </section>
 
       {/* ══ 4 · THE INSPECTOR — only when something is selected ══ */}
-      {elementTarget && elementEditing ? (
+      {workHidden ? null : elementTarget && elementEditing ? (
         <ElementSheet
           eventId={eventId}
           target={elementTarget}
@@ -1626,12 +1823,12 @@ export function MakerWork({
           onOpenHero={elementTarget.widgetType === 'hero' ? () => select?.({ kind: 'tool', key: 'hero' }) : undefined}
           usedColours={usedColours}
           onPreview={(message) => {
-            frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+            broadcastToCanvas(message);
             // The navigator's tiles are pictures of the canvas — re-take them.
             scheduleSnapshots(600);
           }}
           onSaving={(widgetType, canvas) => {
-            canvasHold.current = holdCanvas(canvasHold.current, elementEditing.canvases, widgetType, canvas, Date.now());
+            canvasHold.current = holdCanvas(canvasHold.current, elementEditing.canvases, widgetType, canvas, Date.now(), canvasOrder);
           }}
           onPlay={() =>
             frameRef.current?.contentWindow?.postMessage(
@@ -1703,6 +1900,7 @@ export function MakerWork({
                     type,
                     patch.widgets?.[type as WidgetType]?.canvas ?? shown,
                     now,
+                    canvasOrder,
                   );
                   for (const t of others) postWords(`w:${t}`, text);
                 }}
@@ -1744,7 +1942,7 @@ export function MakerWork({
         />
         </CanvasWordsContext.Provider>
       ) : null}
-      </>)}
+      </div>
 
       {/* The one form every navigator write goes through. 💾 It carries the
           draft field: the eye, Auto/Shown/Hidden and every drag step land in the
@@ -1792,6 +1990,15 @@ export function MakerWork({
  * (the scrapbook, or the story as guests see it). Details is the shell's.
  */
 /** Details and RSVP are drawn by the SHELL (`maker-shell.tsx`) over this area. */
+/** The other stages, nearest first (`PUBLIC_STAGE_ORDER`) — the order they are warmed in. */
+function warmStageOrder(stage: LifecyclePhase): LifecyclePhase[] {
+  const order: readonly LifecyclePhase[] = PUBLIC_STAGE_ORDER;
+  const at = order.indexOf(stage);
+  return order
+    .filter((s) => s !== stage)
+    .sort((a, b) => Math.abs(order.indexOf(a) - at) - Math.abs(order.indexOf(b) - at) || order.indexOf(a) - order.indexOf(b));
+}
+
 function isShellPage(key: string): key is 'details' | 'rsvp-page' {
   return key === 'details' || key === 'rsvp-page';
 }
@@ -1989,7 +2196,7 @@ function RowBlock({ row }: { row: MakerRowPanel }) {
  * Scan-to-view and the one Pro CTA — the rail's topbar and foot, ported into
  * the Maker's ⋯ sheet. The QR is the master event QR `/api/website/qr` already
  * serves, with the one control strip every link-QR carries. The CTA is the
- * umbrella unlock — one CTA for all nine Pro items (`WEBSITE_PRO_ITEMS`) — shown
+ * umbrella unlock — one CTA for all ten Pro items (`WEBSITE_PRO_ITEMS`) — shown
  * only while they do not own it, and never in the store shell.
  */
 function MoreExtras({
@@ -2422,10 +2629,9 @@ function StdLeadSwitch({
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { our_photos: { std_lead: next } } }));
-    const res = await draftAction(eventId, fd).catch(() => null);
+    const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => null);
     setBusy(false);
-    if (res?.ok) router.refresh();
-    else setFailed(true);
+    if (!res?.ok) setFailed(true);
   };
   return (
     <>

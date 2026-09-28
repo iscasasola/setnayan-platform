@@ -65,15 +65,6 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     (eventRow as { slug?: string | null } | null)?.slug ?? null,
   );
 
-  // Is the paid CUSTOM_QR_GUEST upgrade admin-approved for this event? The
-  // branded PNG route 403s otherwise, so the card routes to the Invitation
-  // page rather than dangling a download that can only fail.
-  const brandedQrActive = await eventSkuActive(
-    createAdminClient(),
-    eventId,
-    'CUSTOM_QR_GUEST',
-  ).catch(() => false);
-
   /* The face. `guests.photo_url` holds an `r2://…` REFERENCE — handing a raw one
      to an <img> is a broken-image glyph, which is the defect three sibling
      screens shipped with. Both sources go through the same resolver, and the
@@ -119,7 +110,6 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         eventId={eventId}
         data={data}
         invitationBase={invitationBase}
-        brandedQrActive={brandedQrActive}
         photoDisplayUrl={photoDisplayUrl}
         variant="page"
         returnTo={`/dashboard/${eventId}/guests/${guestId}`}

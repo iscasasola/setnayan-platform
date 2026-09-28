@@ -108,7 +108,6 @@ export const STORE_SHELL_HIDDEN_ADDON_KEYS: ReadonlySet<string> = new Set([
   'website-pro',
   'pakanta',
   'animated-monogram',
-  'custom-qr-guest',
   'papic',
   'papic-guest',
   'panood',

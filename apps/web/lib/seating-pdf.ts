@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, degrees, type PDFPage, type RGB } from 'pdf-lib';
-import QRCode from 'qrcode';
+import { renderStyledUrlQrPng } from '@/lib/qr';
+import type { QrLook } from '@/lib/qr-look';
 import { lockupForEvent, drawLockupBadge } from '@/lib/lockup-pdf';
 import { deriveMonogram } from '@/lib/monogram';
 import { publicEventPath } from '@/lib/public-event-url';
@@ -48,6 +49,9 @@ export type SeatingPdfInput = {
   floorPlan: FloorPlanRow;
   palette: string[]; // mood-board hex colours (may be empty)
   logoPng: Uint8Array | null;
+  /** The event's QR look (lib/qr-look.ts) — the Setnayan mark for a free event,
+   *  the couple's own for Event Hub Pro. Absent → the free look. */
+  qrLook?: QrLook;
 };
 
 // A4 portrait, points.
@@ -196,18 +200,13 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
     }
   }
 
-  // QR for the couple's website.
+  // QR for the couple's Event Hub — in the event's look (lib/qr-look.ts), the
+  // same code every other print carries.
   let qr = null;
   if (event.slug) {
     try {
       const url = `${input.appUrl}${publicEventPath(event.slug, input.ownerSlug)}`;
-      const png = await QRCode.toBuffer(url, {
-        type: 'png',
-        width: 360,
-        margin: 1,
-        errorCorrectionLevel: 'H',
-        color: { dark: '#1A1A1A', light: '#FFFFFF' },
-      });
+      const png = await renderStyledUrlQrPng(url, input.qrLook, 360);
       qr = await doc.embedPng(new Uint8Array(png));
     } catch {
       qr = null;

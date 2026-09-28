@@ -11,6 +11,8 @@ import {
   dieCutFor,
   formatFamilyOf,
   formatsFor,
+  menuHasDishes,
+  type MenuMoment,
   type PrintFormat,
   type PrintFormatId,
 } from '@/lib/print-pieces';
@@ -20,6 +22,8 @@ import { PrintSaveButton } from './print-save-button';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { PrintPreview } from './print-preview';
+import { PrintChoicePicker } from './print-choice-picker';
+import { PrintMenuEditor } from './print-menu-editor';
 
 /**
  * PRINTS & TICKETS — the third group of the Event Hub Maker's bar (Phase 9).
@@ -60,7 +64,15 @@ export function MakerPrints({
   flash,
   formats,
   seatPlan = 'none',
+  menu = { saved: [], caterer: [], suggestions: [], flash: null },
 }: {
+  /**
+   * THE MENU CARD'S SOURCES (owner 2026-09-28, "add to print out our meals for
+   * tonight"): the couple's saved menu, their booked caterer's package lines
+   * (read, not copied), and their schedule's food moments to name the moments
+   * by. `flash` is the editor's own save result.
+   */
+  menu?: { saved: MenuMoment[]; caterer: MenuMoment[]; suggestions: string[]; flash: 'saved' | 'error' | null };
   /** The Details toggle: which seating print the couple offers beside the set. */
   seatPlan?: 'none' | '3d' | '2d' | 'list';
   /** The event's address — names every saved file and draws the event QR. */
@@ -77,6 +89,8 @@ export function MakerPrints({
   flash: 'saved' | 'error' | null;
 }) {
   const access = printAccess({ ownsPro, storeShell });
+  // What the Menu card prints: the couple's own menu, else their caterer's lines.
+  const menuPrints = menuHasDishes(menu.saved) ? menu.saved : menu.caterer;
   const t = INVITE_THEMES[theme];
   const themed = isThemedPrint(theme);
   const spot = spotLayersFor(theme);
@@ -235,28 +249,30 @@ export function MakerPrints({
             <p className="text-xs text-ink/55">Passes print {formats.pass.label} size, ganged on A4 with cut lines.</p>
           </div>
 
-          {/* Preview the set in another theme — a preview only; the theme is chosen in the Maker's Theme panel. */}
-          <nav aria-label="Preview the set in a theme" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
-            {HUB_THEMES.filter((x) => x.ready).map((x) => (
-              <Link
-                key={x.id}
-                href={previewHref(x.id)}
-                aria-current={x.id === theme ? 'true' : undefined}
-                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13px] font-medium transition-colors ${
-                  x.id === theme ? 'bg-ink text-cream' : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
-                }`}
-              >
-                <span aria-hidden className="h-3 w-3 rounded-full border border-ink/15" style={{ background: x.palette.accent }} />
-                {x.name}
-                {x.id === savedTheme ? <span className="text-[11px] opacity-70">· yours</span> : null}
-              </Link>
-            ))}
-          </nav>
+          {/* Preview the set in another theme — a preview only; the theme is chosen in
+              the Maker's Theme panel. ONE dropdown, not a row of pills (owner
+              2026-09-28: "if there are choices, again. us drop down menu"). */}
+          <div className="flex flex-wrap items-center gap-2" data-prints-theme-preview="">
+            <span className="text-sm text-ink/65">Preview in</span>
+            <PrintChoicePicker
+              label="Preview the set in a theme"
+              value={theme}
+              dataAttr="data-prints-theme-picker"
+              options={HUB_THEMES.filter((x) => x.ready).map((x) => ({
+                key: x.id,
+                label: x.id === savedTheme ? `${x.name} · yours` : x.name,
+                href: previewHref(x.id),
+              }))}
+            />
+          </div>
 
           <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" data-prints-pieces="">
             {PRINT_SET_KEYS.map((k) => {
               const spec = PRINT_PIECES[k];
               const fam = formatFamilyOf(k);
+              // The Menu is NEVER offered blank: with no dishes its card shows the
+              // "add your menu" prompt and its buttons open the editor instead.
+              const menuEmpty = k === 'menu' && !menuHasDishes(menuPrints);
               return (
                 <li key={k} data-print-piece={k} className="flex flex-col items-center gap-2">
                   {/* The server render takes real seconds — PrintPreview shows
@@ -270,24 +286,34 @@ export function MakerPrints({
                   <p className="text-sm font-semibold text-ink">{spec.label}</p>
                   <p className="text-xs text-ink/60">
                     {fam ? `${formats[fam].label} · ${formats[fam].wMm} × ${formats[fam].hMm} mm` : spec.size}
-                    {dieCutFor(theme, k) !== 'rect' ? ` · ${dieCutFor(theme, k)} cut` : ''}
+                    {dieCutFor(theme, k, fam ? formats[fam] : null) !== 'rect' ? ` · ${dieCutFor(theme, k, fam ? formats[fam] : null)} cut` : ''}
                   </p>
                   {fam && (k === 'invitation' || k === 'pass' || k === 'card') ? (
-                    <div role="group" aria-label={`${spec.label} size`} data-print-formats={fam} className="flex flex-wrap justify-center gap-1">
-                      {formatsFor(fam).map((f) => (
-                        <Link
-                          key={f.id}
-                          href={hrefWith({ family: fam, format: f.id })}
-                          aria-current={f.id === formats[fam].id ? 'true' : undefined}
-                          className={`inline-flex min-h-8 items-center rounded-full px-2.5 text-[12px] font-medium ${
-                            f.id === formats[fam].id ? 'bg-ink text-cream' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-                          }`}
-                        >
-                          {f.label}
-                        </Link>
-                      ))}
+                    // The size is ONE dropdown showing the current choice (owner
+                    // 2026-09-28: "if there are choices, again. us drop down menu").
+                    <div data-print-formats={fam}>
+                      <PrintChoicePicker
+                        label={`${spec.label} size`}
+                        value={formats[fam].id}
+                        dataAttr="data-print-format-picker"
+                        options={formatsFor(fam).map((f) => ({ key: f.id, label: f.label, href: hrefWith({ family: fam, format: f.id }) }))}
+                      />
                     </div>
                   ) : null}
+                  {menuEmpty ? (
+                    <Link
+                      href="#print-menu"
+                      data-print-menu-add-link=""
+                      className="inline-flex min-h-11 items-center font-medium text-link underline-offset-2 hover:underline"
+                    >
+                      Add your menu
+                    </Link>
+                  ) : k === 'menu' ? (
+                    <Link href="#print-menu" className="inline-flex min-h-10 items-center text-sm font-medium text-link underline-offset-2 hover:underline">
+                      Edit your menu
+                    </Link>
+                  ) : null}
+                  {menuEmpty ? null : (
                   <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
                     <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="link">
                       {themed ? 'Save · Classic (PDF)' : 'Save PDF'}
@@ -302,10 +328,20 @@ export function MakerPrints({
                       </PrintSaveButton>
                     ) : null}
                   </div>
+                  )}
                 </li>
               );
             })}
           </ul>
+
+          {/* ══ THE MENU — its moments and dishes (owner 2026-09-28). ══ */}
+          <PrintMenuEditor
+            eventId={eventId}
+            initial={menuHasDishes(menu.saved) || menu.saved.length ? menu.saved : menu.caterer}
+            fromCaterer={!menuHasDishes(menu.saved) && !menu.saved.length && menu.caterer.length > 0}
+            suggestions={menu.suggestions}
+            flash={menu.flash}
+          />
         </section>
 
         {seatPlan === '3d' ? (

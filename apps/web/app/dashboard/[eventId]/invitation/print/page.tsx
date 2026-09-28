@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent, printedCardName, ROLE_LABELS } from '@/lib/guests';
 import { renderInvitationQrSvg } from '@/lib/qr';
+import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { resolveMonogram } from '@/lib/monogram';
 
 export const metadata = { title: 'Print sheet' };
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,8 @@ export default async function PrintSheetPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, event_date, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key')
+    // The CANONICAL monogram list + the QR look's two columns (lib/qr-look.server.ts).
+    .select(`event_id, display_name, event_date, slug, ${QR_LOOK_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -31,15 +32,18 @@ export default async function PrintSheetPage({ params }: Props) {
   const guests = await fetchGuestsByEvent(supabase, eventId);
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-  const monogram = resolveMonogram(event);
+  const admin = createAdminClient();
+  // Every printed code wears the event's look — the Setnayan mark, or the
+  // couple's own logo · shape · pattern · ink on Event Hub Pro (lib/qr-look.ts).
+  const look = await resolveEventQrLook(admin, event.event_id, event);
   // Canonical URL form for the printed QRs — nested /u/ under the cutover flag,
   // bare root otherwise (resolve self-noops OFF, so no query pre-cutover).
-  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
+  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
 
   const qrCards = await Promise.all(
     guests.map(async (g) => ({
       guest: g,
-      svg: await renderInvitationQrSvg({ appUrl, slug, qrToken: g.qr_token, monogram, ownerSlug }),
+      svg: await renderInvitationQrSvg({ appUrl, slug, qrToken: g.qr_token, look, ownerSlug }),
     })),
   );
 

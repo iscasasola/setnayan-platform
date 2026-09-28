@@ -30,11 +30,12 @@
  *
  * ─── THE THINGS THIS PAGE MUST NEVER GROW ────────────────────────────────
  * 🔴 A PRICE, A TIER PILL, OR AN UPGRADE PROMPT. The guest list is free with
- * every account (`lib/help.ts` says so in public). The branded / monogram QR
- * is deliberately NOT claimed: `guests/page.tsx` treats it as the paid
- * CUSTOM_QR_GUEST upgrade while `lib/llms-txt.ts` calls it free — a conflict
- * surfaced to the owner, not resolved in copy. Only the per-guest personal QR
- * (which always renders, free) is described.
+ * every account (`lib/help.ts` says so in public). The QR's LOOK is deliberately
+ * NOT claimed here: every guest's personal QR is free and always renders (with
+ * the Setnayan mark in the centre), while the couple's own logo, shape, pattern
+ * and colour on it are Event Hub Pro (owner 2026-09-27, lib/qr-look.ts) — a
+ * paid perk this free page must not advertise. Only the per-guest personal QR
+ * is described.
  * 🔴 PER-GUEST INVITATION SENDING. There is no per-guest send in this product —
  * the Invite stage hands out ONE link for everybody. Say "share one link" or
  * "copy a guest's link", never "send each guest their invitation".

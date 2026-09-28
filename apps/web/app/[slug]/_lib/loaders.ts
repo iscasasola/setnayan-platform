@@ -46,7 +46,7 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
-import { eventOwnsCustomQrGuest, eventSeatingPublished } from '@/lib/seat-pass';
+import { eventSeatingPublished } from '@/lib/seat-pass';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { DEFAULT_STUDIO_ANIM, heroMarkSvg } from '@/lib/hero-monogram-data';
@@ -89,7 +89,7 @@ import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
-import type { MonogramConfig } from '@/lib/monogram';
+import { resolveEventQrLook } from '@/lib/qr-look.server';
 import type { DayOfPhase } from '@/lib/day-of-mode';
 import type { GuestSessionPayload } from '@/lib/guest-session';
 import {
@@ -137,7 +137,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -1164,10 +1164,6 @@ export const loadGuestContext = cache(
     dayOfPhase: DayOfPhase,
     slug: string,
     scheduleBlocks: Awaited<ReturnType<typeof fetchPublicScheduleBlocks>>,
-    // The couple's resolved mark (loadMedia's `monogram`) — the QR SVG centers
-    // it. Threaded in (not re-resolved) so the QR uses the EXACT object the
-    // hero renders with, as the inline block did.
-    monogram: MonogramConfig,
   ): Promise<GuestContext> => {
     if (session.event_id !== event.event_id) {
       // Defensive invariant — the orchestrator's wrong-event branch returns
@@ -1220,7 +1216,9 @@ export const loadGuestContext = cache(
       appUrl,
       slug: canonicalSlug,
       qrToken: guest.qr_token,
-      monogram,
+      // The event's look (lib/qr-look.ts): the Setnayan mark for a free event,
+      // the couple's own logo · shape · pattern · ink on Event Hub Pro.
+      look: await resolveEventQrLook(admin, event.event_id, event),
       ownerSlug,
     });
     const invitationUrl = buildInvitationUrl({ appUrl, slug: canonicalSlug, qrToken: guest.qr_token, ownerSlug });
@@ -1262,12 +1260,13 @@ export const loadGuestContext = cache(
     // people, and has the couple published the seating? Same two facts the
     // room footer's "Find your seat" uses (room-links.ts), from the same
     // cached loader.
-    const [ownsCustomQr, doorway] = await Promise.all([
-      eventOwnsCustomQrGuest(admin, event.event_id),
-      loadDoorwayFacts(admin, event.event_id, event.event_type ?? null),
-    ]);
-    const seatPassActive =
-      ownsCustomQr && doorway.seatingSurfaceEnabled && doorway.seatingPublished;
+    //
+    // 💰 2026-09-27 ("FIND YOUR SEAT, REDESIGNED" (5), owner "ok to all"): the
+    // link now opens `/find-seat` — the table, the map and the on-screen door
+    // pass are FREE, so ownership is no longer one of its questions. Only the
+    // PRINTED branded QR cards stay paid (`/[slug]/seat`, `eventOwnsCustomQrGuest`).
+    const doorway = await loadDoorwayFacts(admin, event.event_id, event.event_type ?? null);
+    const seatPassActive = doorway.seatingSurfaceEnabled && doorway.seatingPublished;
 
     // Per-guest gallery (owner 2026-06-12: "the gallery must be on the on-the-day
     // part") — the photos THIS guest is tagged in. Shown through the LIVE window

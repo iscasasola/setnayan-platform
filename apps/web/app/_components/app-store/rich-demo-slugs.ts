@@ -21,7 +21,6 @@ export const RICH_DEMO_SLUGS = [
   'save-the-date',
   'animated-monogram',
   'mood-board',
-  'custom-qr-guest',
   'photo-delivery',
   'patiktok',
   // 'led' removed 2026-08-11 with the LED wall backdrop.

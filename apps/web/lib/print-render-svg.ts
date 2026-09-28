@@ -39,7 +39,8 @@ function op(o: PrintOp, images: PrintImages, clipId: string): string {
     case 'path': {
       const fill = o.fill ? ` fill="${esc(o.fill)}"` : ' fill="none"';
       const stroke = o.stroke ? ` stroke="${esc(o.stroke)}" stroke-width="${n(o.sw ?? 0.5)}"` : '';
-      return `<path d="${esc(o.d)}"${fill}${stroke}${opacity}/>`;
+      const rule = o.evenOdd ? ' fill-rule="evenodd"' : '';
+      return `<path d="${esc(o.d)}"${fill}${rule}${stroke}${opacity}/>`;
     }
     case 'image': {
       const img = images[o.ref];

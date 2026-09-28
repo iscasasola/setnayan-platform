@@ -135,14 +135,19 @@ test('the page that mounts it has already matched the cookie to THIS event', () 
   assert.doesNotMatch(ENTER, /search\.guest|params\.guestId/, 'a guest id is being taken from the URL');
 });
 
-test('the free guest download is used, never the gated branded-PNG route', () => {
-  // /api/website/qr/guest/[guestId] needs a SUPABASE AUTH USER plus the paid
-  // CUSTOM_QR_GUEST order. An invite-link guest holds a guest-session cookie and
-  // usually no account at all, so pointing this door there would 401 every one
-  // of them. Asserted on the route itself so the reason cannot rot silently.
+test('the free guest download is used, never the member-only guest-PNG route', () => {
+  // /api/website/qr/guest/[guestId] needs a SUPABASE AUTH USER who is a member
+  // of the event (it is the couple's side: the guest drawer and the Invitation
+  // page). An invite-link guest holds a guest-session cookie and usually no
+  // account at all, so pointing this door there would 401 every one of them.
+  // Asserted on the route itself so the reason cannot rot silently.
+  // 🔄 2026-09-28: the route no longer asks about the CUSTOM_QR_GUEST SKU — that
+  // product folded into Event Hub Pro and the route draws the event's LOOK
+  // (lib/qr-look.server.ts) — but it still requires the account, which is the
+  // reason this door cannot use it.
   const branded = readWeb('app/api/website/qr/guest/[guestId]/route.ts');
-  assert.match(branded, /supabase\.auth\.getUser\(\)/, 'the branded route stopped requiring an account — re-read this decision');
-  assert.match(branded, /eventSkuActive\(/, 'the branded route stopped requiring the paid SKU — re-read this decision');
+  assert.match(branded, /supabase\.auth\.getUser\(\)/, 'the member route stopped requiring an account — re-read this decision');
+  assert.match(branded, /resolveEventQrLook\(/, 'the member route stopped resolving the event look — re-read this decision');
   assert.doesNotMatch(PANEL, /\/api\/website\/qr\/guest/, 'the door is pointing a cookie-only guest at the account-gated PNG');
   assert.doesNotMatch(ENTER, /\/api\/website\/qr\/guest/, 'the door is pointing a cookie-only guest at the account-gated PNG');
 });

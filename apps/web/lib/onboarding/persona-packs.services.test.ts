@@ -69,7 +69,9 @@ test('ONLY-VALID-KEYS: every authored service id is a real in-app service key', 
 });
 
 test('the registry itself is non-trivial (guards against an empty import)', () => {
-  assert.ok(VALID_SERVICE_KEYS.size >= 10);
+  // 9 since 2026-09-28: `custom_qr` left the onboarding picks when the "Custom
+  // QR per guest" product folded into Event Hub Pro (its SKU is off sale).
+  assert.ok(VALID_SERVICE_KEYS.size >= 9);
   // Spot-check a few canonical keys exist.
   for (const k of ['papic_seats', 'animated_monogram', 'advanced_website', 'panood']) {
     assert.ok(VALID_SERVICE_KEYS.has(k), `expected canonical key ${k}`);

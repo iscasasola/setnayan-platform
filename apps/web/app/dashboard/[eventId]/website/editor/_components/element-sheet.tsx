@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerSave } from '@/lib/maker-refresh';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
@@ -193,7 +194,10 @@ export function ElementSheet({
     start(async () => {
       let res: HubDraftActionResult;
       try {
-        res = await saveCanvas(draftAction, eventId, target.widgetType, next);
+        /* ⚡ ONE refresh after the last save in flight (`lib/maker-refresh.ts`):
+           the render that comes back holds every quick tap, so the canvas hold
+           matches it and the canvas keeps its page. */
+        res = await makerSave(() => saveCanvas(draftAction, eventId, target.widgetType, next), () => router.refresh(), { held: true });
       } catch {
         res = { ok: false, intent: 'save', error: 'That change could not be saved. Please try again.' };
       } finally {
@@ -213,9 +217,9 @@ export function ElementSheet({
       }
       saved.current = next;
       /* The toolbar's Apply · Undo · Restore count reads the draft on the
-         server, so the page still refreshes — the shell's canvas hold keeps
-         the canvas from reloading for a render that shows what it shows. */
-      router.refresh();
+         server, so the page still refreshes — once, by `makerSave` above — and
+         the shell's canvas hold keeps the canvas from reloading for a render
+         that shows what it shows. */
     });
   };
   /* ✍ A selection inside the part's text makes font · colour · size a RUN; the

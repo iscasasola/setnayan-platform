@@ -211,6 +211,10 @@ const PARTS = [
     line: 'The real shape of the space, doors and all — not a generic box.',
   },
   {
+    // The FILM's name under public/add-ons/demo, not an add-on key: the
+    // "Custom QR per guest" product folded into Event Hub Pro (2026-09-27) and
+    // its page is gone, but the recording — every guest holding their own
+    // code — is still what this part says.
     slug: 'custom-qr-guest',
     title: 'Your guest list',
     line: 'Everyone gets a seat, and their own code to walk in through.',

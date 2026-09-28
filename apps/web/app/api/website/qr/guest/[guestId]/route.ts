@@ -1,42 +1,34 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
-import { renderBrandedInvitationQrPng, resolveBrandedQrColors } from '@/lib/qr';
-import { resolveMonogram } from '@/lib/monogram';
-import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
+import { renderInvitationQrPng } from '@/lib/qr';
+import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { eventSkuActive } from '@/lib/entitlements';
 import { guestQrFileName } from '@/app/api/guest/qr/route';
 
 /**
- * GET /api/website/qr/guest/[guestId] — serves a single guest's BRANDED
- * invitation QR as a palette-tinted PNG. Drives the "Download PNG" affordance
- * on the owned Custom QR per guest surface
- * (/dashboard/[eventId]/studio/custom-qr-guest).
+ * GET /api/website/qr/guest/[guestId] — a single guest's invitation QR as a
+ * PNG, in the event's LOOK, for the couple's side: the guest drawer's preview
+ * and its Download button, and the Invitation page's per-guest downloads.
  *
- * Closes the partial CUSTOM_QR_GUEST SKU (₱1,499) — the PNG carries the
- * couple's Mood Board palette color in its modules AND their monogram in the
- * centre, the same mark the on-screen card shows.
+ * ── THE LOOK, NOT A PRODUCT (owner 2026-09-27) ─────────────────────────────
+ * Until this build the route served the "Custom QR per guest" product — the
+ * couple's palette in the modules — and was GATED on that SKU
+ * (`CUSTOM_QR_GUEST`). That product folded into Event Hub Pro: a free event's
+ * code carries the Setnayan mark; a Pro event's carries the couple's logo,
+ * shape, pattern and palette ink. `resolveEventQrLook` decides, so this route
+ * no longer asks about any SKU — it draws whatever the event's look is, which
+ * is exactly what the guest's own /api/guest/qr and every print draw.
  *
- * ⚠ CORRECTED 2026-09-16 (owner decision #19). This docblock used to say the
- * PNG path "does NOT composite the center monogram (compositeMonogram operates
- * on raw SVG)" and called the bare file "the bulletproof shareable PNG". The
- * cause was a real limitation of one function; the conclusion was wrong about
- * the product, because the downloaded picture is the one that gets printed and
- * handed to a guest who has no email address. See lib/qr-monogram-raster.ts.
- *
- * GATED — unlike the public master-QR endpoint, this is authenticated:
- *   1. We read the guest via the USER-scoped Supabase client, so RLS blocks
- *      anyone who isn't a member of the guest's event (no public read).
- *   2. We additionally require the event to OWN a paid CUSTOM_QR_GUEST order
- *      (not cancelled/refunded/lapsed) — so an event member who hasn't
- *      purchased the upgrade can't pull the branded PNG.
- *
- * This is the ONLY place a NEW per-guest QR query runs for the branded
- * variant, and it never executes on an always-rendered page — it fires only
- * when a user clicks Download on the owned (gated) surface.
+ * AUTHENTICATED, still — this is the couple's side:
+ *   1. The guest is read via the USER-scoped Supabase client, so RLS blocks
+ *      anyone who isn't a member of the guest's event (no public read). A
+ *      non-member (or signed-out caller) gets no row → 404.
+ *   2. The event row and the ownership read run with the admin client AFTER
+ *      that authorization — Pro is an event-level fact while `orders` RLS is
+ *      purchaser-scoped, so a co-host who didn't place the order would
+ *      otherwise be shown the free look.
  */
 export async function GET(
   _req: Request,
@@ -56,8 +48,7 @@ export async function GET(
     return new NextResponse('Sign in to download this QR.', { status: 401 });
   }
 
-  // RLS scopes this read to events the user is a member of. A non-member
-  // (or signed-out caller) gets no row → 404.
+  // RLS scopes this read to events the user is a member of.
   const { data: guest } = await supabase
     .from('guests')
     // first_name/display_name are read ONLY so the saved file is named after
@@ -70,68 +61,38 @@ export async function GET(
     return new NextResponse('Guest not found.', { status: 404 });
   }
 
-  const { data: event } = await supabase
+  const admin = createAdminClient();
+  const { data: event } = await admin
     .from('events')
-    // The CANONICAL monogram list — see the note in /api/guest/qr.
-    .select(`event_id, slug, role_palette, ${HERO_MONOGRAM_COLUMNS}`)
+    // The CANONICAL monogram list + the look's own two columns.
+    .select(`event_id, slug, ${QR_LOOK_COLUMNS}`)
     .eq('event_id', guest.event_id)
     .maybeSingle();
   if (!event) {
     return new NextResponse('Event not found.', { status: 404 });
   }
 
-  // Ownership gate — the branded PNG is a paid feature. The guest + event reads
-  // above (under the user's RLS) ARE the authorization: a non-member can't see
-  // the guest row → 404, so by here the caller is an authorized event member.
-  // Ownership is an EVENT-level fact, but orders RLS is purchaser-scoped
-  // (user_id = auth.uid()), so reading it with the user client would deny a
-  // co-host member who didn't personally place the order (PR4d). Read it with
-  // the admin client instead — event-scoped, post-authorization, safe.
-  // eventOwnsSku is bundle-aware + refund-aware; it THROWS on a non-graceful DB
-  // error, so we wrap it to keep this route's existing 500 (not an uncaught throw).
-  let owns = false;
-  try {
-    owns = await eventSkuActive(createAdminClient(), guest.event_id, 'CUSTOM_QR_GUEST');
-  } catch {
-    return new NextResponse('Could not verify your upgrade.', { status: 500 });
-  }
-  if (!owns) {
-    return new NextResponse('This branded QR is part of the Custom QR upgrade.', {
-      status: 403,
-    });
-  }
-
-  const palette = sanitizeRolePalette(event.role_palette ?? {});
-  const brandColor =
-    getPrimaryColor(palette, 'reception') ??
-    getPrimaryColor(palette, 'bride') ??
-    getPrimaryColor(palette, 'ceremony') ??
-    event.monogram_color ??
-    null;
-  const colors = resolveBrandedQrColors(brandColor);
+  const look = await resolveEventQrLook(admin, event.event_id, event);
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const slug = event.slug ?? event.event_id;
-  // Canonical URL form — nested /u/ under the cutover flag, bare root otherwise
-  // (resolve self-noops OFF; no query pre-cutover). Read with admin: ownership
-  // is event-level and event_members/users may be RLS-invisible to a co-host.
-  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
+  // Canonical URL form — nested /u/ under the cutover flag, bare root otherwise.
+  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
 
   // 1024px keeps the printed PNG crisp at postcard / table-card sizes. The url
-  // is built by buildInvitationUrl inside the renderer — this route no longer
-  // spells it, so the branded card and the branded download cannot drift apart.
+  // is built by buildInvitationUrl inside the renderer — this route never
+  // spells it, so the card and the download cannot drift apart.
   let markError: unknown = null;
-  const png = await renderBrandedInvitationQrPng({
+  const png = await renderInvitationQrPng({
     appUrl,
     slug,
     qrToken: guest.qr_token,
     ownerSlug,
-    colors,
-    monogram: resolveMonogram(event),
+    look,
     onMonogramError: (err) => {
       markError = err;
-      logQueryError('BrandedGuestQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade');
+      logQueryError('GuestQrPng.look', err, { eventId: event.event_id }, 'graceful_degrade');
     },
   });
 
@@ -140,8 +101,8 @@ export async function GET(
     headers: {
       'Content-Type': 'image/png',
       'X-Setnayan-Monogram': markError ? 'fallback' : 'composited',
-      // Private cache only — this is a per-guest, gated asset. Re-derived each
-      // visit (slug/palette/token can change), so keep the window short.
+      // Private cache only — this is a per-guest, member-only asset. Re-derived
+      // each visit (slug/look/token can change), so keep the window short.
       'Cache-Control': 'private, max-age=300',
       // 🚨 THIS WAS MISSING (owner, 2026-09-25: "when we try to download the
       // QR code... it should just save and not open a new page"). Every other

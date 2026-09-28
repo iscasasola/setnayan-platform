@@ -200,7 +200,14 @@ test('no navigator renders while any of the five is picked — it belongs to the
   for (const key of MAKER_PAGE_KEYS) {
     const html = await paintWork({ kind: 'tool', key });
     assert.doesNotMatch(html, /aria-label="Scenes"/, `${key}: the scene navigator rendered`);
-    assert.doesNotMatch(html, /data-maker-stage="/, `${key}: the stage canvas rendered`);
+    /* 🔥 2026-09-28 (owner: *"load everything so it runs smoothly"*): the stage
+       CANVAS stays loaded under a page, so coming back is instant — but hidden
+       (display: none), never shown beside the page. */
+    const stage = html.indexOf('data-maker-stage="');
+    if (stage >= 0) {
+      const area = html.lastIndexOf('data-maker-work-area=""', stage);
+      assert.ok(area >= 0 && /<div class="hidden" $/.test(html.slice(0, area)), `${key}: the stage canvas is SHOWN under the page`);
+    }
   }
   // …and with a stage picked, it is back.
   assert.match(await paintWork(null), /aria-label="Scenes"/, 'the navigator is missing on a stage');

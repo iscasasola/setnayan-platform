@@ -53,7 +53,9 @@ import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerPrints } from './_components/maker-prints';
 import { MakerDetails, MakerDetailsPage } from './_components/maker-details';
-import { hasPalette, parentsFromEntourageForEvent, printOwnsPro, printThemeFor, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
+import { updateQrStyle } from './qr-look-actions';
+import { hasPalette, parentsFromEntourageForEvent, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
@@ -132,6 +134,9 @@ type Props = {
     pass_format?: string | string[];
     invitation_format?: string | string[];
     card_format?: string | string[];
+    /** The Menu editor's save result (`/api/hub-print/menu`). */
+    menu_saved?: string | string[];
+    menu_error?: string | string[];
   }>;
 };
 
@@ -443,7 +448,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   /*
     ══ THE ONE UNLOCK, RESOLVED FOR THE CHANNEL THE COUPLE IS STANDING ON ══
-    § 5.3: the nine Pro items are ONE purchase, so the controller does not grow
+    § 5.3: the ten Pro items are ONE purchase, so the controller does not grow
     nine upgrade slots — it grows one, and moves it to whichever of the four
     public pages is live. `resolveHubProOffer` returns null far more often than
     not: when the couple owns it, when the read did not happen, on the day, and
@@ -954,6 +959,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     ]);
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
+      // The Menu card's other sources (a booked caterer's lines, the schedule's food moments).
+      const menuSources = await readMenuSources(eventId, stored.menu);
       /* 💾 The special message AND "what do you ask your guests?" both save
          into the DRAFT from here (the same door the editor's Text panel and
          the reveal picker use), so each shows the drafted value when the
@@ -993,6 +1000,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
           slug={printEvent.slug}
           slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+          // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
+          // it, the saved choices, and the contrast-passing Mood Board colours.
+          qr={{ ...qrLookChoicesFromRow(printEvent, printPro), storeShell }}
+          qrStyleAction={updateQrStyle.bind(null, eventId)}
         />
         ),
       };
@@ -1032,6 +1043,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           </p>
         ),
         controls: (
+          <>
+          {/* 📮 First open of the RSVP page after the Maker welcome: the
+              reminder-emails hint (owner 2026-09-25 rule — every feature gets a
+              first-visit tour). Rendered only while this page is open (the
+              shell mounts `controls` for the open page alone), and never on
+              the Maker's very first visit, so two tours cannot stack. */}
+          {!firstVisit ? <MiniTour tourKey="customer_guest_reminders_v1" storeShell={storeShell} /> : null}
           <MakerRsvpSettings
             eventId={eventId}
             current={rsvpAsk}
@@ -1053,9 +1071,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               href: `/dashboard/${eventId}/guests/claims`,
             }}
           />
+          </>
         ),
       };
       prints = (
+        <>
+        {/* First visit to Prints & Tickets since the Menu arrived: what it is and where its dishes come from. */}
+        <MiniTour tourKey="customer_print_menu_v1" storeShell={storeShell} />
         <MakerPrints
           eventId={eventId}
           slug={printEvent.slug}
@@ -1065,12 +1087,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           storeShell={storeShell}
           flash={null}
           seatPlan={stored.include.seatPlan}
+          menu={{
+            saved: stored.menu,
+            ...menuSources,
+            flash: one(search.menu_saved) ? 'saved' : one(search.menu_error) ? 'error' : null,
+          }}
           formats={{
             pass: formatFor('pass', one(search.pass_format))!,
             invitation: formatFor('invitation', one(search.invitation_format))!,
             card: formatFor('card', one(search.card_format))!,
           }}
         />
+        </>
       );
     }
   }

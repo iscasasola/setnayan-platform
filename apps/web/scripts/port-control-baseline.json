@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c86925687",
+  "generatedFromRef": "a1352aaf4",
   "routeCount": 435,
   "destinations": 942,
   "actions": 671,
-  "blocks": 4966,
+  "blocks": 4967,
   "routes": {
     "/": {
       "files": [
@@ -1341,8 +1341,10 @@
         "[slug]/find-seat/_components/door-pass.tsx",
         "[slug]/find-seat/_components/name-search.tsx",
         "[slug]/find-seat/_components/refresh-on-return.tsx",
+        "[slug]/find-seat/_components/seat-back-link.tsx",
         "[slug]/find-seat/_components/seat-frame.tsx",
         "[slug]/find-seat/_components/your-seat.tsx",
+        "[slug]/find-seat/_lib/back-to-the-invitation.ts",
         "[slug]/find-seat/page.tsx"
       ],
       "destinations": [
@@ -1376,6 +1378,7 @@
         "RoomPlaceholder",
         "ScriptWord",
         "SearchGlyph",
+        "SeatBackLink",
         "SeatFrame",
         "StepUp",
         "WalkIn3D",

@@ -107,7 +107,9 @@ export function GalleryPanel({
 }) {
   return (
     <form action={action} className={PANEL}>
-      <HubSavesImmediately />
+      {/* Into the draft (`updateOurPhotos`' door, owner 2026-09-29) — tried by
+          every couple; Apply puts the photos live, with Event Hub Pro. */}
+      <HubDraftField />
       <ReturnTo eventId={eventId} rowKey="gallery" />
       <FileUpload
         bucket="media"
@@ -154,7 +156,9 @@ export function SiteChromePanel({
 }) {
   return (
     <form action={action} className={PANEL}>
-      <HubSavesImmediately />
+      {/* Into the draft (`updateSiteChrome`'s door, owner 2026-09-29) — the song
+          and the video are tried by every couple; Apply puts them live, with Pro. */}
+      <HubDraftField />
       <ReturnTo eventId={eventId} rowKey="music" />
       <FileUpload
         bucket="media"

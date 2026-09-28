@@ -1,73 +1,71 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/auth';
 import { requireHostMembership } from '@/lib/host-gate';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { QR_STYLE_PREF_KEY, sanitizeQrStyle, type StoredQrStyle } from '@/lib/qr-look';
+import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle, type StoredQrStyle } from '@/lib/qr-look';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { draftedEventColumn, saveHubDraftPatch } from '@/lib/hub-draft-store';
 
 /**
  * updateQrStyle — the Maker's Details page saving the couple's QR choices
- * (shape · pattern · colour) into `events.style_preferences.qr`.
+ * (shape · pattern · colour).
  *
- * ── WHY `style_preferences`, AND WHY LIVE ──────────────────────────────────
- * The blob already holds the couple's onboarding preferences under their own
- * keys (`interested_categories`, `refinements`, `basic_moodboard`, …) and is
- * read-modify-written by lib/pending-inquiries.ts the same way this does. A
- * new `events` column would have cost a GRANT block, an `events_host` rebuild
- * and an exposure-baseline widening for one small object (Rule 0: a flag flip
- * beats new schema). Live, not drafted: the QR is not a page a guest reads
- * before Apply — it is the picture on every print and pass — and the control
- * says so on the page (`HubSavesImmediately`).
+ * ── 💾 INTO THE DRAFT, NOT LIVE (owner 2026-09-29, "yes to all 3") ─────────
+ * It used to write `events.style_preferences.qr` straight away and refuse a
+ * couple without Event Hub Pro. Now every couple's pick goes into the Event Hub
+ * DRAFT as `style_preferences: { qr }` — the Details preview draws it for the
+ * host (`/api/website/qr/<slug>?draft=1`), the Apply sheet names it ("QR look ·
+ * Your QR code"), and Apply MERGES it into the live blob only with Pro
+ * (`planHubDraftApply` → `hub-draft-actions.ts`). The blob's other keys (the
+ * couple's onboarding answers) are never drafted and never overwritten.
  *
- * ── THE GATE IS HERE, NOT ONLY ON THE BUTTON ───────────────────────────────
- * The controls wear a padlock for a free couple and never call this; but a
- * padlock is a picture, so this refuses too. `eventCoupleWebsiteProActive` —
- * the same reader every Event Hub Pro perk gates on, bundle-aware and true for
- * §10a internal-hosted events.
+ * Same export, same signature: the controls' save path is the only thing that
+ * moved (+0 server actions).
  */
-export type UpdateQrStyleResult = { ok: true } | { ok: false; reason: 'signed_out' | 'not_pro' | 'failed' };
+export type UpdateQrStyleResult = { ok: true } | { ok: false; reason: 'signed_out' | 'failed' };
 
 export async function updateQrStyle(eventId: string, patch: StoredQrStyle): Promise<UpdateQrStyleResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, reason: 'signed_out' };
   await requireHostMembership(eventId);
 
-  const admin = createAdminClient();
-  const ownsPro = await eventCoupleWebsiteProActive(admin, eventId).catch(() => false);
-  if (!ownsPro) return { ok: false, reason: 'not_pro' };
-
   // Re-check every field: a patch is data a browser sent, not a promise about shape.
   const next = sanitizeQrStyle(patch);
 
-  const { data: row, error: readErr } = await admin
-    .from('events')
-    .select('style_preferences')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (readErr) {
-    logQueryError('updateQrStyle.read', readErr, { event_id: eventId }, 'graceful_degrade');
+  /* Build on what is DRAFTED when the draft holds the QR, otherwise on live —
+     a second pick must not drop the first. A refused draft read fails closed. */
+  let current: StoredQrStyle;
+  try {
+    const drafted = await draftedEventColumn(eventId, 'style_preferences');
+    if (drafted.drafted) current = qrStyleFromPreferences(drafted.value);
+    else {
+      const { data: row, error: readErr } = await createAdminClient()
+        .from('events')
+        .select('style_preferences')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (readErr) {
+        logQueryError('updateQrStyle.read', readErr, { event_id: eventId }, 'graceful_degrade');
+        return { ok: false, reason: 'failed' };
+      }
+      current = qrStyleFromPreferences(row?.style_preferences);
+    }
+  } catch {
     return { ok: false, reason: 'failed' };
   }
-  const prefs =
-    row?.style_preferences && typeof row.style_preferences === 'object'
-      ? { ...(row.style_preferences as Record<string, unknown>) }
-      : {};
-  const current = sanitizeQrStyle(prefs[QR_STYLE_PREF_KEY]);
+
   const merged: StoredQrStyle = { ...current, ...next };
   // An explicit reset (`ink: undefined` from "Ink") drops the key rather than storing undefined.
   for (const k of Object.keys(patch) as Array<keyof StoredQrStyle>) {
     if (patch[k] === undefined) delete merged[k];
   }
-  prefs[QR_STYLE_PREF_KEY] = merged;
 
-  const { error } = await admin.from('events').update({ style_preferences: prefs }).eq('event_id', eventId);
-  if (error) {
-    logQueryError('updateQrStyle.write', error, { event_id: eventId }, 'graceful_degrade');
+  try {
+    await saveHubDraftPatch(eventId, { events: { style_preferences: { [QR_STYLE_PREF_KEY]: merged } } });
+  } catch (e) {
+    console.error('[qr-look] draft save failed:', e instanceof Error ? e.message : e);
     return { ok: false, reason: 'failed' };
   }
-  revalidatePath(`/dashboard/${eventId}/launch`);
   return { ok: true };
 }

@@ -1,4 +1,4 @@
-import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme } from './_lib/editor-canvas';
+import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { notFound, redirect } from 'next/navigation';
@@ -154,6 +154,11 @@ type Props = {
     // couple's page in that theme, bridge-less. Canvas-only (host-verified,
     // `canvasTriedTheme`); inert everywhere else.
     theme?: string;
+    // ↩ The Maker's place, carried by "Preview the whole stage" so the preview's
+    // "Back to the Maker" lands where the couple was (`previewWayBackHref`).
+    // Read only for a verified host's `?preview=draft`; inert everywhere else.
+    scene?: string;
+    tool?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
@@ -1277,6 +1282,10 @@ async function InvitationBody({
     // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's
     // `?only=` is ignored). See `_lib/editor-canvas.ts`.
     canvasOnly: canvasOnlyScene(search, isEditorCanvas),
+    // ↩ "Back to the Maker" — the preview tab only (`?preview=draft`), a
+    // verified host only; null for a guest, the canvas, a tile or a one-scene
+    // page. See `_lib/editor-canvas.ts`.
+    makerWayBack: previewWayBackHref(search, event.event_id, isEditorCanvas),
     // ⚠ NO LONGER "declared but unconsumed", which this line claimed long after
     // both had consumers. `ownerCapability` drives the read-only owner ribbon
     // and the host's own body copy (lib/owner-ribbon.ts, site-body.tsx);

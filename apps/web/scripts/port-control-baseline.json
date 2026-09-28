@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "79126dae1",
+  "generatedFromRef": "3e02e5dc5",
   "routeCount": 436,
   "destinations": 938,
   "actions": 671,
-  "blocks": 5005,
+  "blocks": 5011,
   "routes": {
     "/": {
       "files": [
@@ -8963,12 +8963,19 @@
     },
     "/dev/details-lab": {
       "files": [
+        "dev/details-lab/look-lab.tsx",
         "dev/details-lab/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "MakerDetails"
+        "DetailsItemKey",
+        "LookLab",
+        "MakerContext.Provider",
+        "MakerDetails",
+        "MakerLookPages",
+        "MakerState",
+        "Stand"
       ]
     },
     "/dev/hero-lab": {

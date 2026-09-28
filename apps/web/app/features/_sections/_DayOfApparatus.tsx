@@ -55,7 +55,7 @@ const META: { Icon: LucideIcon; sku: string }[] = [
   { Icon: Camera, sku: 'Papic' },
   { Icon: Video, sku: 'Patiktok (Reel Booth)' },
   { Icon: Palette, sku: 'Pakulay' },
-  { Icon: Music, sku: 'Pakanta (Your Wedding Song)' },
+  { Icon: Music, sku: 'Music Maker (Your Wedding Song)' },
   { Icon: CloudUpload, sku: 'Photo Delivery' },
   { Icon: ShoppingBag, sku: 'Supplies Marketplace' },
 ];
@@ -100,7 +100,7 @@ const COPY: Record<
       },
       {
         tagline: 'A wedding song written for the two of you',
-        body: 'Custom song composition + recording for your wedding day. Tell Setnayan your story, one original, full-production, AI-generated song, royalty-free and yours forever. Pakanta becomes the soundtrack for every Setnayan-rendered video at your wedding.',
+        body: 'Custom song composition + recording for your wedding day. Tell Setnayan your story, one original, full-production, AI-generated song, royalty-free and yours forever. Music Maker becomes the soundtrack for every Setnayan-rendered video at your wedding.',
       },
       {
         tagline: 'Full-res handoff after the day',
@@ -143,7 +143,7 @@ const COPY: Record<
       },
       {
         tagline: 'Isang kasal na kanta, ginawa para sa inyong dalawa',
-        body: 'Custom song composition + recording para sa wedding day mo. Ibahagi ang inyong kwento kay Setnayan, isang original, full-production, AI-generated na kanta, royalty-free at sa inyo habambuhay. Nagiging soundtrack ng bawat Setnayan-rendered video sa kasal ninyo ang Pakanta.',
+        body: 'Custom song composition + recording para sa wedding day mo. Ibahagi ang inyong kwento kay Setnayan, isang original, full-production, AI-generated na kanta, royalty-free at sa inyo habambuhay. Nagiging soundtrack ng bawat Setnayan-rendered video sa kasal ninyo ang Music Maker.',
       },
       {
         tagline: 'Full-res handoff pagkatapos ng araw',

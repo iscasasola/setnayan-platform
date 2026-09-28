@@ -131,7 +131,7 @@ test('llms.txt stops requiring a price and stops printing one', () => {
     !/R\('KWENTO'\)/.test(code('lib/llms-txt.ts')),
     'and the prose price call must go with it',
   );
-  assert.match(src, /\*\*Kwento\*\* — free\./, 'the line stays, describing a free feature');
+  assert.match(src, /\*\*Photo Notes\*\* — free\./, 'the line stays, describing a free feature');
 });
 
 /*

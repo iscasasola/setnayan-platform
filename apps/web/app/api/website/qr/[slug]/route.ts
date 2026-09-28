@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
+import { QR_LOOK_COLUMNS, qrLookFromRow, resolveEventQrLook } from '@/lib/qr-look.server';
+import { getHostUserId } from '@/lib/host-gate';
+import { readHubDraftForHostPreview } from '@/lib/hub-draft-store';
+import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { renderEventLandingQrPng } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -26,7 +29,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  * is limited to fields that already render on the public landing page itself.
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await ctx.params;
@@ -48,7 +51,22 @@ export async function GET(
     return new NextResponse('Event Hub not found.', { status: 404 });
   }
 
-  const look = await resolveEventQrLook(supabase, event.event_id, event);
+  /* 💾 THE HOST'S DRAFT PREVIEW (`?draft=1`, owner 2026-09-29 "yes to all 3").
+     The Maker's Details page draws the QR look the couple is TRYING — their
+     drafted shape · pattern · colour, worn as Pro would wear it — for a VERIFIED
+     host only (`getHostUserId`), never cached, never for a guest. Without the
+     param, or for anyone else, this is the live code exactly as before. */
+  const draftAsked = new URL(req.url).searchParams.get('draft') === '1';
+  let look = null as Awaited<ReturnType<typeof resolveEventQrLook>> | null;
+  let preview = false;
+  if (draftAsked && (await getHostUserId(event.event_id).catch(() => null))) {
+    const draft = await readHubDraftForHostPreview(supabase, event.event_id);
+    if (draft && 'style_preferences' in draft.events) {
+      look = qrLookFromRow(overlayHubDraftEvent(event as Record<string, unknown>, draft) as typeof event, true);
+      preview = true;
+    }
+  }
+  if (!look) look = await resolveEventQrLook(supabase, event.event_id, event);
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
@@ -87,7 +105,8 @@ export async function GET(
       // couple can change from the Maker and expects to see at once, so the
       // shared cache is short (5 min) where it used to be a day. The Maker's
       // own preview adds a version query so it never waits even that long.
-      'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600',
+      // A host's draft preview is theirs alone — never stored by a shared cache.
+      'Cache-Control': preview ? 'private, no-store' : 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600',
     },
   });
 }

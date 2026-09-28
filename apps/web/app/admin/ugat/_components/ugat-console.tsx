@@ -86,7 +86,7 @@ const TABLE_LABELS: Record<UgatTableKey, { label: string; type: UgatEntityType }
   orders: { label: 'Orders', type: 'order' },
   threads: { label: 'Threads', type: 'thread' },
   billing: { label: 'Billing', type: 'billing' },
-  communities: { label: 'Samahan', type: 'community' },
+  communities: { label: 'Groups', type: 'community' },
 };
 
 const TABLE_META: Array<{ key: UgatTableKey; label: string; type: UgatEntityType }> =

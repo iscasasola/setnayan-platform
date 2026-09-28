@@ -457,7 +457,130 @@ export function flattenSvgMark(svg: string | null | undefined): FlatMark | null 
     if (!selfClosing) stack.push({ name, m, fill, evenOdd });
   }
   if (!parts.length || !Number.isFinite(minX) || maxX - minX <= 0 || maxY - minY <= 0) return null;
-  return { bounds: { x: minX, y: minY, w: maxX - minX, h: maxY - minY }, parts };
+  /* The box above holds every CONTROL point — a curve's handles can reach far
+   * past the ink it draws (a swash's tail, a traced bowl with no point on its
+   * extreme). The bounds a mark is CENTRED by are the ink's own. */
+  const ink = partsBounds(parts);
+  const bounds = ink ?? { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  return { bounds, parts };
+}
+
+/** The ink box of several parts (`pathDataBounds` of each), or null. */
+export function partsBounds(parts: ReadonlyArray<{ d: string }>): { x: number; y: number; w: number; h: number } | null {
+  let box: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  for (const p of parts) {
+    const b = pathDataBounds(p.d);
+    if (!b) continue;
+    box = box
+      ? { x0: Math.min(box.x0, b.x), y0: Math.min(box.y0, b.y), x1: Math.max(box.x1, b.x + b.w), y1: Math.max(box.y1, b.y + b.h) }
+      : { x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h };
+  }
+  if (!box || !(box.x1 - box.x0 > 0) || !(box.y1 - box.y0 > 0)) return null;
+  return { x: box.x0, y: box.y0, w: box.x1 - box.x0, h: box.y1 - box.y0 };
+}
+
+/** The parameters in (0, 1) where one axis of a Bézier turns (its extrema). */
+function turns(p: readonly number[]): number[] {
+  const out: number[] = [];
+  const inside = (t: number) => t > 0 && t < 1 && out.push(t);
+  if (p.length === 3) {
+    // quadratic: B'(t) = 2[(p1 - p0) + t(p0 - 2p1 + p2)]
+    const den = p[0]! - 2 * p[1]! + p[2]!;
+    if (Math.abs(den) > 1e-12) inside((p[0]! - p[1]!) / den);
+    return out;
+  }
+  // cubic: B'(t) = a t² + b t + c
+  const a = 3 * (-p[0]! + 3 * p[1]! - 3 * p[2]! + p[3]!);
+  const b = 6 * (p[0]! - 2 * p[1]! + p[2]!);
+  const c = 3 * (p[1]! - p[0]!);
+  if (Math.abs(a) < 1e-12) {
+    if (Math.abs(b) > 1e-12) inside(-c / b);
+    return out;
+  }
+  const disc = b * b - 4 * a * c;
+  if (disc < 0) return out;
+  const q = Math.sqrt(disc);
+  inside((-b + q) / (2 * a));
+  inside((-b - q) / (2 * a));
+  return out;
+}
+
+function bez(p: readonly number[], t: number): number {
+  const u = 1 - t;
+  if (p.length === 3) return u * u * p[0]! + 2 * u * t * p[1]! + t * t * p[2]!;
+  return u * u * u * p[0]! + 3 * u * u * t * p[1]! + 3 * u * t * t * p[2]! + t * t * t * p[3]!;
+}
+
+/**
+ * THE INK BOX of absolute `M · L · C · Q · Z` path data (what
+ * `transformPathData` writes) — every curve measured at its own extrema, so a
+ * handle that reaches past the stroke never widens the box. Null when there is
+ * no ink (empty data, or data this reader does not know).
+ */
+export function pathDataBounds(d: string): { x: number; y: number; w: number; h: number } | null {
+  const tokens = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) ?? [];
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const add = (x: number, y: number) => {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  };
+  let i = 0;
+  let cmd = '';
+  let cx = 0;
+  let cy = 0;
+  let sx = 0;
+  let sy = 0;
+  const take = (n: number): number[] | null => {
+    const v: number[] = [];
+    for (let k = 0; k < n; k += 1) {
+      const t = tokens[i];
+      if (t === undefined || /^[a-zA-Z]$/.test(t)) return null;
+      v.push(Number(t));
+      i += 1;
+    }
+    return v;
+  };
+  while (i < tokens.length) {
+    if (/^[a-zA-Z]$/.test(tokens[i]!)) {
+      cmd = tokens[i]!;
+      i += 1;
+      // Absolute M · L · C · Q · Z only — anything else is not ours to guess.
+      if (!/^[MLCQZ]$/.test(cmd)) return null;
+    } else if (!cmd) return null;
+    if (cmd === 'Z') {
+      cx = sx;
+      cy = sy;
+      cmd = ''; // a number straight after Z is malformed, never a loop
+      continue;
+    }
+    if (cmd === 'M' || cmd === 'L') {
+      const v = take(2);
+      if (!v) return null;
+      [cx, cy] = [v[0]!, v[1]!];
+      if (cmd === 'M') [sx, sy] = [cx, cy];
+      add(cx, cy);
+      continue;
+    }
+    if (cmd === 'C' || cmd === 'Q') {
+      const v = take(cmd === 'C' ? 6 : 4);
+      if (!v) return null;
+      const xs = [cx, ...v.filter((_, k) => k % 2 === 0)];
+      const ys = [cy, ...v.filter((_, k) => k % 2 === 1)];
+      add(xs[xs.length - 1]!, ys[ys.length - 1]!);
+      for (const t of turns(xs)) add(bez(xs, t), bez(ys, t));
+      for (const t of turns(ys)) add(bez(xs, t), bez(ys, t));
+      [cx, cy] = [xs[xs.length - 1]!, ys[ys.length - 1]!];
+      continue;
+    }
+    return null;
+  }
+  if (!Number.isFinite(minX)) return null;
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
 /** The machine-built raster wrapper (`monogram-svg-safe.ts` RASTER_MARK) → its image bytes. */

@@ -7,7 +7,7 @@ import s from './event-poster.module.css';
  *
  * Owner-approved 2026-09-24 ("the template is good"). Which treatment an event
  * wears, and every word on it, is decided by `posterFor` (`lib/event-poster.ts`)
- * from the resolvers that own each fact; this component only draws the five
+ * from the resolvers that own each fact; this component only draws the
  * treatments. The drawing is `event-poster.module.css`, in `cqw`, so one poster
  * reads the same at every column count.
  *
@@ -50,15 +50,33 @@ export function EventPoster({
     );
   }
 
+  // 🖼 The photo and theme covers read in the Event Hub's legibility tones
+  // (`hubLegibilityVars`, decided in `posterFor`) — never a fixed white on a
+  // guessed dark gradient.
+  const legible = poster.legibility ? (poster.legibility as CSSProperties) : undefined;
+
   if (poster.kind === 'photo') {
     return (
-      <div aria-hidden className={`${s.poster} ${s.photoGround}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- presigned, already narrowed by renderableImageSrc */}
+      <div aria-hidden className={`${s.poster} ${s.photoGround}`} style={legible} data-poster-ground={poster.ground ?? undefined}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- presigned hero / reveal background, narrowed by the resolver that signed it */}
         <img src={poster.photoSrc ?? ''} alt="" className={s.photo} draggable={false} />
         <div className={s.over}>
           <PosterNames names={names} amp="&" />
           <PosterWhen weekday={poster.weekday} date={poster.date} />
         </div>
+      </div>
+    );
+  }
+
+  if (poster.kind === 'theme') {
+    // The hub's invitation card, in their theme: the theme's still under its
+    // measured scrim, the card's words in the theme's own inks.
+    return (
+      <div aria-hidden className={`${s.poster} ${s.themeGround}`} style={legible} data-poster-ground="theme">
+        {/* eslint-disable-next-line @next/next/no-img-element -- the theme's public still (resolveThemeGround) */}
+        <img src={poster.photoSrc ?? ''} alt="" className={s.photo} draggable={false} />
+        <i className={s.themeScrim} />
+        <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} />
       </div>
     );
   }
@@ -103,20 +121,35 @@ export function EventPoster({
   // invitation — the hub's own card
   return (
     <div aria-hidden className={`${s.poster} ${s.invGround}`}>
-      <div className={s.paper}>
-        {poster.eyebrow ? <p className={s.eb}>{poster.eyebrow}</p> : null}
-        <div className={s.circ}>
-          {markSvgUri ? (
-            // eslint-disable-next-line @next/next/no-img-element -- inert data: URI, gated by resolveEventMonogramSvg
-            <img src={markSvgUri} alt="" draggable={false} />
-          ) : (
-            markText
-          )}
-        </div>
-        <PosterNames names={names} amp="and" />
-        {poster.line ? <p className={s.ln}>{poster.line}</p> : null}
-        {poster.date ? <p className={s.dt}>{poster.date}</p> : <p className={`${s.dt} ${s.tbd}`}>Date to be set</p>}
+      <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} />
+    </div>
+  );
+}
+
+/** The hub's invitation card — eyebrow, their mark in a circle, the names, the line, the date. */
+function InvitationPaper({
+  poster,
+  markText,
+  markSvgUri,
+}: {
+  poster: EventPosterFacts;
+  markText: string;
+  markSvgUri: string | null;
+}) {
+  return (
+    <div className={s.paper}>
+      {poster.eyebrow ? <p className={s.eb}>{poster.eyebrow}</p> : null}
+      <div className={s.circ}>
+        {markSvgUri ? (
+          // eslint-disable-next-line @next/next/no-img-element -- inert data: URI, gated by resolveEventMonogramSvg
+          <img src={markSvgUri} alt="" draggable={false} />
+        ) : (
+          markText
+        )}
       </div>
+      <PosterNames names={poster.names} amp="and" />
+      {poster.line ? <p className={s.ln}>{poster.line}</p> : null}
+      {poster.date ? <p className={s.dt}>{poster.date}</p> : <p className={`${s.dt} ${s.tbd}`}>Date to be set</p>}
     </div>
   );
 }

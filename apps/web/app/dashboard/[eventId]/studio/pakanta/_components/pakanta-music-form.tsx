@@ -168,7 +168,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, paid = 
             <InlineCheckoutDrawer
               eventId={eventId}
               serviceKey="PAKANTA"
-              displayName="Pakanta · Your wedding song"
+              displayName="Music Maker · Your wedding song"
               originalPriceCentavos={String(Math.round(pricePhp * 100))}
               settings={settings}
               triggerLabel={`Pay · ₱${pricePhp.toLocaleString('en-PH')}`}

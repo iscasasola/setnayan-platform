@@ -45,6 +45,9 @@ import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { GuestMe } from './_components/guest-me';
+import { celebrantsForViewer } from '@/lib/event-celebrants.server';
+import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { addCelebrantFromEvent, setFollowByPublicId } from '@/app/dashboard/(account)/people/actions';
 import { loadPreviewPerson } from './_lib/preview-person.server';
 import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
 import { AdoptSeatSession } from './_components/adopt-seat-session';
@@ -1549,6 +1552,13 @@ async function InvitationBody({
           look: await resolveEventQrLook(admin, event.event_id, event),
         })
       : { guests: [], passes: {} };
+  // "The celebrants" (owner 2026-09-28) — Follow or Add the people this event
+  // is for. Only for a viewer whose OWN account holds this seat; nothing is read
+  // for anybody else. Add re-checks all of it server-side.
+  const celebrants =
+    !isEditorCanvas && viewerAccount?.id && account.kind === 'linked'
+      ? await celebrantsForViewer(admin, event.event_id, viewerAccount.id)
+      : [];
   const meSlot = isEditorCanvas ? null : (
     <>
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
@@ -1569,6 +1579,9 @@ async function InvitationBody({
       hasEmail={Boolean(guest.email?.trim())}
       userAgent={(await headers()).get('user-agent')}
       termsCarried={rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value)}
+      celebrants={celebrants}
+      canAddCelebrants={peopleConnectionsEnabled()}
+      celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
     />
     </>
   );

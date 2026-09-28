@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8e826b146e",
-  "routeCount": 434,
-  "destinations": 942,
-  "actions": 671,
-  "blocks": 4960,
+  "generatedFromRef": "ce1ce0bb0",
+  "routeCount": 435,
+  "destinations": 943,
+  "actions": 674,
+  "blocks": 4979,
   "routes": {
     "/": {
       "files": [
@@ -773,6 +773,7 @@
         "[slug]/_components/editorial/voices.ts",
         "[slug]/_components/empty-states.tsx",
         "[slug]/_components/entourage-section.tsx",
+        "[slug]/_components/event-celebrants.tsx",
         "[slug]/_components/event-words-provider.tsx",
         "[slug]/_components/everything-else-sheet.tsx",
         "[slug]/_components/face-data-notice.tsx",
@@ -982,6 +983,7 @@
         "ByTheNumbers",
         "CaptureTile",
         "CapturesByHour",
+        "CelebrantItem",
         "Cell",
         "ChallengeAnswerColumn",
         "ChallengeBanner",
@@ -1018,6 +1020,7 @@
         "EditorialOrderKey",
         "EditorialSections",
         "EntourageSection",
+        "EventCelebrants",
         "EventIconSource",
         "EventMedia",
         "EventWords",
@@ -4581,7 +4584,11 @@
         "dashboard/(account)/people/_components/add-alaga-fields.tsx",
         "dashboard/(account)/people/_components/connection-tree-section.tsx",
         "dashboard/(account)/people/_components/dependents-section.tsx",
+        "dashboard/(account)/people/_components/find-or-invite.tsx",
+        "dashboard/(account)/people/_components/follow-list-view.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
+        "dashboard/(account)/people/_components/people-view-picker.tsx",
+        "dashboard/(account)/people/_components/person-avatar.tsx",
         "dashboard/(account)/people/_components/samahan-people-section.tsx",
         "dashboard/(account)/people/_components/your-story-section.tsx",
         "dashboard/(account)/people/actions.ts",
@@ -4610,14 +4617,15 @@
         "ActionResult",
         "AddAlagaButton",
         "AddAlagaFields",
-        "Avatar",
         "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
         "DependentKind",
         "DependentsSection",
         "Drawer",
-        "Facet",
+        "FindOrInvite",
+        "FollowListView",
+        "FollowRowItem",
         "Fragment",
         "Frame",
         "HTMLButtonElement",
@@ -4626,12 +4634,17 @@
         "Layer",
         "LifeStorySection",
         "Link",
+        "MiniTour",
         "PageMasthead",
         "PeoplePreview",
         "PeopleRosterView",
+        "PeopleViewPicker",
         "Person",
+        "PersonAvatar",
+        "PickMenu",
         "Popover",
         "PreviewRow",
+        "RequestsBlock",
         "RowActions",
         "SamahanCell",
         "SamahanPeopleSection",
@@ -4823,9 +4836,11 @@
         "dashboard/(launcher)/_components/event-scene.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/home-pill-nav.tsx",
+        "dashboard/(launcher)/_components/incoming-requests.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
+        "dashboard/(launcher)/incoming-request-actions.ts",
         "dashboard/(launcher)/layout.tsx",
         "dashboard/(launcher)/loading.tsx",
         "dashboard/(launcher)/page.tsx"
@@ -4843,7 +4858,10 @@
         "/dashboard/samahan/[seg]",
         "/vendor-dashboard"
       ],
-      "actions": [],
+      "actions": [
+        "answerIncomingRequest",
+        "muteInviter"
+      ],
       "blocks": [
         "AccountSwitcher",
         "AppRailShell",
@@ -4860,6 +4878,7 @@
         "EventMonogram",
         "EventPoster",
         "EventScene",
+        "Flash",
         "GlassEventCard",
         "HTMLDialogElement",
         "HTMLDivElement",
@@ -4868,6 +4887,7 @@
         "Icon",
         "Image",
         "ImpactLines",
+        "IncomingRequests",
         "Link",
         "MomentRow",
         "NewEventButton",
@@ -4910,6 +4930,7 @@
         "dashboard/[eventId]/_components/address-pin-field.tsx",
         "dashboard/[eventId]/_components/after/finished-event-summary.tsx",
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
+        "dashboard/[eventId]/_components/cohost-welcome.tsx",
         "dashboard/[eventId]/_components/connect-supplier-modal.tsx",
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
         "dashboard/[eventId]/_components/customer-nav-config.ts",
@@ -4996,6 +5017,7 @@
         "deletePayment",
         "grantShareConsent",
         "logPayment",
+        "markNotificationRead",
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
         "toggleChecklistItem"
@@ -5021,6 +5043,7 @@
         "ChannelToggle",
         "ChecklistItemView",
         "ChecklistPhaseGroup",
+        "CohostWelcome",
         "ColorRow",
         "ColourAccessResult",
         "ConfirmForm",
@@ -5574,6 +5597,7 @@
         "dashboard/[eventId]/guests/_components/filter-popover.tsx",
         "dashboard/[eventId]/guests/_components/find-add-row.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
+        "dashboard/[eventId]/guests/_components/guest-access-control.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
@@ -5666,6 +5690,8 @@
         "GridPageSkeleton",
         "GroupChipList",
         "GroupsSidebar",
+        "GuestAccessControl",
+        "GuestAccessTagContext.Provider",
         "GuestCardBody",
         "GuestCardData",
         "GuestListFinalizedContext.Provider",
@@ -5726,6 +5752,7 @@
         "PageMasthead",
         "PairSelectedForm",
         "PartnerLine",
+        "PickMenu",
         "PlusBadge",
         "PlusOneChipEditor",
         "Popover",
@@ -5778,6 +5805,7 @@
     },
     "/dashboard/[eventId]/guests/[guestId]": {
       "files": [
+        "dashboard/[eventId]/guests/[guestId]/access-actions.ts",
         "dashboard/[eventId]/guests/[guestId]/actions.ts",
         "dashboard/[eventId]/guests/[guestId]/loading.tsx",
         "dashboard/[eventId]/guests/[guestId]/page.tsx"
@@ -5791,6 +5819,7 @@
         "FormPageSkeleton",
         "GuestCardBody",
         "Link",
+        "SetGuestAccessResult",
         "UndoToastHost"
       ]
     },
@@ -5990,6 +6019,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]",
+        "/dashboard/[seg]/guests",
         "/dashboard/[seg]/people"
       ],
       "actions": [
@@ -6070,6 +6100,7 @@
         "dashboard/[eventId]/launch/_components/maker-bar.ts",
         "dashboard/[eventId]/launch/_components/maker-context.tsx",
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
+        "dashboard/[eventId]/launch/_components/maker-hero-design.tsx",
         "dashboard/[eventId]/launch/_components/maker-logo.tsx",
         "dashboard/[eventId]/launch/_components/maker-made-once.tsx",
         "dashboard/[eventId]/launch/_components/maker-page.tsx",
@@ -6134,6 +6165,7 @@
         "HubDraftField",
         "HubProOffer",
         "HubSavesImmediately",
+        "HubSectionCanvas",
         "HubStage",
         "Icon",
         "IconBtn",
@@ -6151,6 +6183,7 @@
         "MakerDetails",
         "MakerDetailsPage",
         "MakerDevice",
+        "MakerHeroDesignPicker",
         "MakerLogoDoor",
         "MakerPage",
         "MakerPageFrame",
@@ -8905,6 +8938,18 @@
         "Environment",
         "Lab3DBooth",
         "OrbitControls"
+      ]
+    },
+    "/dev/hero-lab": {
+      "files": [
+        "dev/hero-lab/mark.ts",
+        "dev/hero-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BespokeMonogramMark",
+        "PahinaMasthead"
       ]
     },
     "/dev/schedule-lab": {

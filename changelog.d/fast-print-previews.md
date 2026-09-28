@@ -19,7 +19,8 @@ preview requested at once, and every preview requested AGAIN on each size pick.
   `fetchpriority="high"`, the rest lazily at low priority — all plain `<img>`s
   in the HTML. (A script-held queue was tried and measured SLOWER on a cached
   size pick, because a held image cannot start before hydration.) Once drawn,
-  each piece warms its other sizes while idle, so a size pick finds its
+  each piece with its own size picker (invitation · pass · event card) warms
+  its other sizes while idle, so a size pick finds its
   picture already cached. A picture that finished from the cache before
   hydration — whose `load` React never delivers — is now read off the element
   on mount instead of sitting at opacity 0 under "Drawing your…".

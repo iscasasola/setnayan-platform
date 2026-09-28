@@ -122,6 +122,9 @@ test('4 · the first preview asks eagerly and high; the rest lazily and low; eac
   const pass = /data-print-piece="pass"[\s\S]*?data-print-prefetch="([^"]*)"/.exec(html)?.[1] ?? '';
   const warmed = pass.replace(/&amp;/g, '&').split(' ').filter(Boolean);
   assert.equal(warmed.length, formatsFor('pass').length - 1, pass);
+  // A piece without its own size picker warms nothing (it would only add requests).
+  const entourage = /data-print-piece="entourage"[\s\S]*?data-print-prefetch="([^"]*)"/.exec(html)?.[1];
+  assert.equal(entourage, '', 'the entourage has no size picker of its own — nothing to warm');
   for (const u of warmed) {
     assert.match(u, /\/api\/hub-print\/pass\?/);
     assert.doesNotMatch(u, /pass_format=boarding/, 'not the size already on screen');

@@ -309,8 +309,15 @@ export function MakerPrints({
                     label={spec.label.toLowerCase()}
                     /* ⚡ The first piece draws first; the rest wait their turn. */
                     priority={i === 0}
-                    /* …and each warms its OTHER sizes, so a size pick is instant. */
-                    prefetch={fam ? formatsFor(fam).filter((f) => f.id !== formats[fam].id).map((f) => q(k, 'screen', f.id)) : []}
+                    /* …and a piece with its OWN size picker warms its other sizes, so a
+                       pick is instant. Only those three: warming every piece of the
+                       invitation family too doubled the first open's server requests
+                       (9 → 18, local harness) for pictures nobody had asked to see. */
+                    prefetch={
+                      fam && (k === 'invitation' || k === 'pass' || k === 'card')
+                        ? formatsFor(fam).filter((f) => f.id !== formats[fam].id).map((f) => q(k, 'screen', f.id))
+                        : []
+                    }
                   />
                   <p className="text-sm font-semibold text-ink">{spec.label}</p>
                   <p className="text-xs text-ink/60">

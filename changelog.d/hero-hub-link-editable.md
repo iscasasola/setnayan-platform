@@ -26,8 +26,11 @@ Card and in Designs 2–4.
 - New guard `lib/every-hero-word-is-a-part.test.ts`: every word a guest can
   read in the masthead (every design, card and plain) sits in a registered
   part, and nothing between a part and its words carries its own colour or
-  face. It found two more: the Date's inner span blocks a colour/font choice
-  (listed as KNOWN, must shrink), and the photo caption repeats the venue
-  outside any part (named exemption) — both reported to the owner.
+  face. It found two more: the **Date**'s inner span carried its own face and
+  colour (`font-pahina … text-ink`, The Crest's `text-ink/60` and tracking),
+  so a colour or font chosen for the Date never reached the words — FIXED here
+  by moving them onto the part, in The Card and Designs 2–4; and the photo
+  caption repeats the venue outside any part (named exemption, owner decision
+  pending).
 
 SPEC IMPACT: None — extends the 2026-09-26/27 per-element editing decision to one more hero part.

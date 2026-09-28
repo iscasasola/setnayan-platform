@@ -19,10 +19,17 @@ import { PRINT_SET_KEYS, type PrintSetKey } from '@/lib/print-pieces';
 import type { FreePrint } from '@/lib/free-prints';
 
 export type HubItemKey = 'address' | 'qr';
+/**
+ * Details part 2a — "Your event" (owner 2026-09-28, DECISION_LOG "OPTION B…"):
+ * Names · Date · Venues · Parents & hosts · the march. Which of them an event
+ * shows is decided per event type (`lib/details-your-event.ts`), never here.
+ */
+export type EventItemKey = 'names' | 'date' | 'venues' | 'parents' | 'march';
+export const EVENT_ITEM_KEYS: readonly EventItemKey[] = ['names', 'date', 'venues', 'parents', 'march'];
 export type FreePrintKey = FreePrint['key'];
 /** The whole invitation set in one download — every piece, every guest's pass. */
 export type DownloadItemKey = 'download';
-export type DetailsItemKey = 'theme' | HubItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
+export type DetailsItemKey = 'theme' | EventItemKey | HubItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
@@ -50,7 +57,7 @@ export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
 export type DetailsItemGroup = 'look' | 'event' | 'words' | 'story' | 'hub' | 'set' | 'day' | 'download';
 export const DETAILS_ITEM_GROUPS: ReadonlyArray<{ group: DetailsItemGroup; label: string; keys: readonly DetailsItemKey[] }> = [
   { group: 'look', label: 'Look', keys: ['theme'] },
-  { group: 'event', label: 'Your event', keys: [] },
+  { group: 'event', label: 'Your event', keys: EVENT_ITEM_KEYS },
   { group: 'words', label: 'Words', keys: [] },
   { group: 'story', label: 'Story & plans', keys: [] },
   { group: 'hub', label: 'Your Event Hub', keys: HUB_ITEM_KEYS },

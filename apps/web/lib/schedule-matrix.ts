@@ -28,7 +28,7 @@ import {
   formatDayKey,
   type EventDatePrecision,
 } from './vendor-availability';
-import { displayServiceLabel } from './vendors';
+import { displayServiceLabel, type EventVendorRow, type VendorStatus } from './vendors';
 
 export type MatrixVendorState = 'open' | 'booked' | 'unknown';
 
@@ -78,6 +78,37 @@ export type SchedulePick = {
   /** Lower = more committed / earlier; index 0 within a category = top pick. */
   rank: number;
 };
+
+/**
+ * Top pick within a category = most committed, then earliest added. The
+ * commitment tier dominates (×1e13 ≫ any epoch-ms), so a paid vendor always
+ * outranks a still-considering one regardless of when each was added.
+ *
+ * Moved here from `find-date/page.tsx` (2026-09-29) so the Find your date page
+ * and Details › Date › "Help me choose" rank one way — two copies of this
+ * table would agree today and drift the first time a status is added.
+ */
+const LOCK_RANK: Record<VendorStatus, number> = {
+  complete: 0,
+  delivered: 0,
+  deposit_paid: 0,
+  contracted: 1,
+  shortlisted: 2,
+  considering: 2,
+};
+
+/** The couple's suppliers as the matrix reads them (`fetchEventVendors` rows). */
+export function schedulePicksFromVendors(
+  vendors: ReadonlyArray<Pick<EventVendorRow, 'vendor_id' | 'category' | 'vendor_name' | 'marketplace_vendor_id' | 'status' | 'created_at'>>,
+): SchedulePick[] {
+  return vendors.map((v) => ({
+    key: v.vendor_id,
+    category: v.category,
+    name: v.vendor_name,
+    marketplaceVendorId: v.marketplace_vendor_id,
+    rank: (LOCK_RANK[v.status] ?? 2) * 1e13 + new Date(v.created_at).getTime(),
+  }));
+}
 
 const MAX_CANDIDATE_COLUMNS = 6;
 

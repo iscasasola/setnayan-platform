@@ -825,7 +825,7 @@ const PASSES_THROUGH: Record<string, string> = {
 const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }> = {
   fetchEventVendors: {
     folds: ['app/dashboard/[eventId]/vendors/page.tsx', 'app/dashboard/[eventId]/date-selection/page.tsx'],
-    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'lib/event-preload.ts'],
+    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/event-preload.ts'],
   },
   buildShortlistFolders: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },

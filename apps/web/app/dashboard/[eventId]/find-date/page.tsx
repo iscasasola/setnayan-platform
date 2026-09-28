@@ -24,26 +24,14 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchEventVendors, type VendorStatus } from '@/lib/vendors';
-import { buildScheduleMatrix, type SchedulePick } from '@/lib/schedule-matrix';
+import { fetchEventVendors } from '@/lib/vendors';
+import { buildScheduleMatrix, schedulePicksFromVendors } from '@/lib/schedule-matrix';
 import type { EventDatePrecision } from '@/lib/events';
 import { FindYourDate } from './_components/find-your-date';
 
 export const metadata = { title: 'Find your date' };
 
 type Props = { params: Promise<{ eventId: string }> };
-
-// Top pick within a category = most committed, then earliest added. The
-// commitment tier dominates (×1e13 ≫ any epoch-ms), so a paid vendor always
-// outranks a still-considering one regardless of when each was added.
-const LOCK_RANK: Record<VendorStatus, number> = {
-  complete: 0,
-  delivered: 0,
-  deposit_paid: 0,
-  contracted: 1,
-  shortlisted: 2,
-  considering: 2,
-};
 
 function coercePrecision(value: unknown): EventDatePrecision | null {
   return value === 'year' || value === 'month' || value === 'day' ? value : null;
@@ -87,13 +75,7 @@ export default async function FindDatePage({ params }: Props) {
     ? (coercePrecision(ev?.event_date_precision) ?? 'day')
     : null;
 
-  const picks: SchedulePick[] = vendors.map((v) => ({
-    key: v.vendor_id,
-    category: v.category,
-    name: v.vendor_name,
-    marketplaceVendorId: v.marketplace_vendor_id,
-    rank: (LOCK_RANK[v.status] ?? 2) * 1e13 + new Date(v.created_at).getTime(),
-  }));
+  const picks = schedulePicksFromVendors(vendors);
 
   const matrix = await buildScheduleMatrix({ admin, eventDate, precision, picks });
 

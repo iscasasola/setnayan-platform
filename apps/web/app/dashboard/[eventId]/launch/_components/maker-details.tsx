@@ -36,7 +36,8 @@ import { QrLookControls } from './qr-look-controls';
 import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-theme-picker';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
-import { DETAILS_ITEM_GROUPS, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
+import { DETAILS_ITEM_GROUPS, type DetailsItemKey, type DetailsItemModel, type EventItemKey } from '@/lib/maker-details-items';
+import { yourEventParts, type YourEventInput } from './details-your-event-parts';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import { ParentCards } from './parent-cards';
@@ -136,6 +137,8 @@ export type MakerDetailsProps = {
   /** Changes on every server render, so a new QR look shows at once. */
   stamp: string;
   initialItem: DetailsItemKey;
+  /** 🗓 Details part 2a — "Your event" (Names · Date · Venues · Parents & hosts · the march); null = not offered. */
+  yourEvent?: YourEventInput | null;
 };
 
 const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
@@ -169,6 +172,8 @@ export function MakerDetails(props: MakerDetailsProps) {
   const qrMark = paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell });
   const free = freePrintParts(eventId, slug);
   const save = <SaveWords />;
+  /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
+  const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
 
   /* ══ THE NAVIGATOR — groups are data (`DETAILS_ITEM_GROUPS`) ══ */
   const still = themeStillSrc(theme.current);
@@ -176,6 +181,8 @@ export function MakerDetails(props: MakerDetailsProps) {
      data that already exists — part 1 fills them for its own items. */
   const menuDone = menu.saved.some((m) => m.dishes.length > 0) || menu.caterer.some((m) => m.dishes.length > 0);
   const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } => {
+    const yeRow = ye?.rows[k as EventItemKey];
+    if (yeRow) return yeRow;
     if (k === 'theme') {
       return {
         label: 'Theme',
@@ -203,7 +210,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     const fp = free.find((f) => f.key === k);
     return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
   };
-  const present = new Set<DetailsItemKey>(['theme', 'address', 'qr', 'download', ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...(ye?.keys ?? []), 'address', 'qr', 'download', ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   const groups: DetailsNavGroup[] = DETAILS_ITEM_GROUPS.map((g) => ({
     key: g.group,
     label: g.label,
@@ -290,6 +297,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     </>
   );
   for (const f of free) bodies[f.key] = f.body;
+  if (ye) Object.assign(bodies, ye.bodies);
 
   /* ══ EDITORS — each item's controls; every one stays mounted ══ */
   const qrAlways = (
@@ -465,6 +473,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         f.editor
       );
   }
+  if (ye) Object.assign(editors, ye.editors);
 
   return (
     <ThemePickProvider eventId={eventId} current={theme.current}>

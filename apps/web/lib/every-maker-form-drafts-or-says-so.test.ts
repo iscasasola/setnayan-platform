@@ -375,6 +375,15 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // transition into events.style_preferences.qr — the picture on every print
   // and pass, not a drafted guest page — and say so beside the dropdowns.
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<QrLookControls\b[\s\S]*?\/>[\s{}]*<HubSavesImmediately\b/, 'the QR look writes live and must say so'],
+  // Details part 2a · Your event (2026-09-29): the event's facts, each through
+  // its own screen's writer, none with a draft door — names
+  // (updateEventMatchCriteria), the date (GovernedFields → updateEventDate),
+  // the typed venue names (saveAllStdContent) and the march's order (the Guest
+  // list's own island).
+  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-names=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the names write live and must say so'],
+  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /<\/Suspense>\s*\)\}[\s{}]*<HubSavesImmediately\b/, 'the date writes live and must say so'],
+  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-venues=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the venue names write live and must say so'],
+  ['app/dashboard/[eventId]/launch/_components/details-your-event-parts.tsx', /\{input\.march\.panel \? <HubSavesImmediately \/> : null\}[\s{}]*\{input\.march\.panel\}/, 'the march order writes live and must say so'],
 ];
 
 test('controls that write without a form of their own say "Saves immediately" beside them', () => {

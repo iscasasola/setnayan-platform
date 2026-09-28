@@ -55,6 +55,7 @@ import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails } from './_components/maker-details';
+import { loadYourEvent } from './_components/details-your-event-load';
 import { detailsItemFor, makerToolFor } from '@/lib/maker-details-items';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { GuestCardBody } from '../guests/_components/guest-card-body';
@@ -1061,9 +1062,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           };
         }),
       );
+      /* 🗓 Details part 2a — "Your event": names, date, venues, parents &
+         hosts, the march — each read from the column its own screen reads. */
+      const yourEvent = await loadYourEvent({
+        supabase,
+        admin: printAdmin,
+        eventId,
+        mayShowStdFilm,
+        parentCount: printParents.length,
+        hostCount: rsvpHosts.length,
+      }).catch((e: unknown) => {
+        console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
+        return null;
+      });
       details = {
         page: (
           <MakerDetails
+            yourEvent={yourEvent}
             eventId={eventId}
             slug={printEvent.slug}
             slugAction={updateEventSlug.bind(null, eventId, 'launch')}

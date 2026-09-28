@@ -214,8 +214,12 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
     compare: () => read(EV, 'vendors', 'page.tsx').includes('<BuildCompare'),
     'save-the-date': () =>
       read(EV, 'website', 'editor', 'page.tsx').includes('`${base}/studio/save-the-date`'),
+    // The Maker mounts the Apply dock; the dock's data carries the Pro page;
+    // the Apply sheet's one button is "Unlock Pro and Apply" to that page.
     'website-pro': () =>
-      read(EV, 'launch', 'page.tsx').includes('proHref: `/dashboard/${eventId}/studio/website-pro`'),
+      read(EV, 'launch', 'page.tsx').includes('<HubDraftDock ') &&
+      read(LIB, 'hub-draft-store.ts').includes('`/dashboard/${eventId}/studio/website-pro?from=maker`') &&
+      read(EV, 'website', '_components', 'apply-pro-sheet.tsx').includes('href={unlockAndApplyHref(proHref)}'),
     'animated-monogram': () =>
       STUDIO_ABSORBED.palogo?.into === 'launch' &&
       fs.existsSync(path.join(EV, 'launch', '_components', 'maker-logo.tsx')),

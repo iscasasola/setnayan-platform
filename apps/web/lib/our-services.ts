@@ -290,7 +290,12 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   'landing-page': { home: 'the Event Hub Maker menu row', needsWebsite: true },
   'save-the-date': { home: 'the Event Hub Maker — Save the Date', needsWebsite: true },
   rsvp: { home: 'the Event Hub Maker — the invitation editor', needsWebsite: true },
-  'website-pro': { home: 'the Event Hub Maker — its Pro offer', needsWebsite: true },
+  // Pro is not bought from a page of its own any more (#6091, owner
+  // 2026-09-28 "Try Pro, pay at Apply"): a couple uses ◆ effects freely and
+  // the Maker's Apply sheet asks — "Unlock Pro and Apply". That sheet only
+  // opens once a ◆ effect is in the draft, which IS the owner's rule: Apply
+  // is the gate, so a couple who has used no Pro effect has nothing to buy.
+  'website-pro': { home: 'the Event Hub Maker — Apply ("Unlock Pro and Apply")', needsWebsite: true },
   'animated-monogram': { home: 'the Event Hub Maker — Logo', needsWebsite: true },
 };
 

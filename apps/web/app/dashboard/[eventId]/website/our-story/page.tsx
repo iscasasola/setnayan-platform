@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { makerProUsable } from '@/lib/paid-mark';
 import { CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -165,6 +166,10 @@ export default async function OurStoryEditorPage({
   const action = loveStoryMomentAction.bind(null, eventId);
   const updateAction = updateOurStory.bind(null, eventId);
   const proPrice = !storeShell && proSku?.price_php != null ? formatPhp(proSku.price_php) : null;
+  /* 💎 Every save here drafts, so on the web more stories and photos are TRIED
+     without Pro (◆ PRO) and Apply asks (owner 2026-09-28); the app-store shell
+     keeps the free cap in the UI. */
+  const proUsable = makerProUsable({ owns: proActive, storeShell });
   const refused = search.pro === 'photos' ? 'photos' : search.pro === 'stories' ? 'stories' : null;
   const p = theme.palette;
 
@@ -238,7 +243,8 @@ export default async function OurStoryEditorPage({
         motionLabel={HUB_MOTION_PRESET_LABEL[theme.motion]}
         makerHref={`${base}/launch`}
         guestHref={event.slug ? `/${event.slug}?phase=rsvp` : null}
-        ownsPro={proActive}
+        ownsPro={proUsable}
+        tryingPro={proUsable && !proActive}
         storeShell={storeShell}
         proHref={proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`}
         proPrice={proPrice}
@@ -250,7 +256,7 @@ export default async function OurStoryEditorPage({
           <PickFromOurEvents
             events={otherEvents}
             moments={moments}
-            ownsPro={proActive}
+            ownsPro={proUsable}
             storeShell={storeShell}
             proHref={`${base}/studio/website-pro`}
             proPrice={proPrice}

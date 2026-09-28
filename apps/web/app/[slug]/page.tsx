@@ -1,4 +1,4 @@
-import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme } from './_lib/editor-canvas';
+import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { notFound, redirect } from 'next/navigation';
@@ -154,6 +154,11 @@ type Props = {
     // couple's page in that theme, bridge-less. Canvas-only (host-verified,
     // `canvasTriedTheme`); inert everywhere else.
     theme?: string;
+    // ↩ The Maker's place, carried by "Preview the whole stage" so the preview's
+    // "Back to the Maker" lands where the couple was (`previewWayBackHref`).
+    // Read only for a verified host's `?preview=draft`; inert everywhere else.
+    scene?: string;
+    tool?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
@@ -644,7 +649,17 @@ async function InvitationBody({
      written; `theme_try_on` lets the one theme gate paint a Pro theme the
      couple does not own yet (the fence still answers). */
   const draftedEvent = overlayHubDraftEvent(liveEvent, hostDraft);
-  const event = triedTheme ? { ...draftedEvent, invite_theme: triedTheme, theme_try_on: true } : draftedEvent;
+  /* 💎 A THEME PICKED INTO THE DRAFT IS WORN ON THE HOST'S CANVAS, Pro or not
+     (owner 2026-09-28: *"they can edit it with pro features. but need to
+     upgrade to pro when clicked on apply"*). `hostDraft` is non-null only for a
+     verified host on `?editor=1`, so a guest never reaches this; the wedding
+     fence still answers; Apply holds the theme without Pro. */
+  const triesDraftedTheme = hostDraft !== null && 'invite_theme' in hostDraft.events;
+  const event = triedTheme
+    ? { ...draftedEvent, invite_theme: triedTheme, theme_try_on: true }
+    : triesDraftedTheme
+      ? { ...draftedEvent, theme_try_on: true }
+      : draftedEvent;
   /* 🎨 THE DRAFTED COLOURS AND FACE — worn again, from the overlaid row, by
      `HostDraftLook` (the layout that wears them for guests cannot see the
      draft). Only when the host's draft holds a Colors-panel column; for every
@@ -1277,6 +1292,10 @@ async function InvitationBody({
     // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's
     // `?only=` is ignored). See `_lib/editor-canvas.ts`.
     canvasOnly: canvasOnlyScene(search, isEditorCanvas),
+    // ↩ "Back to the Maker" — the preview tab only (`?preview=draft`), a
+    // verified host only; null for a guest, the canvas, a tile or a one-scene
+    // page. See `_lib/editor-canvas.ts`.
+    makerWayBack: previewWayBackHref(search, event.event_id, isEditorCanvas),
     // ⚠ NO LONGER "declared but unconsumed", which this line claimed long after
     // both had consumers. `ownerCapability` drives the read-only owner ribbon
     // and the host's own body copy (lib/owner-ribbon.ts, site-body.tsx);

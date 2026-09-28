@@ -8,16 +8,19 @@
  * Apply. This holds:
  *
  *   D. the added scene is in the DRAFT: live it is hidden on both guest paths,
- *      the host's overlay shows it, Apply publishes it (never held as Pro), and
- *      Restore / a stale draft for the same slot cannot leak into it;
+ *      the host's overlay shows it, Apply publishes it for an owning couple —
+ *      and, since 2026-09-28 ("A FREE COUPLE MAY USE EVERY PRO FEATURE IN THE
+ *      MAKER — PRO IS ASKED FOR AT APPLY"), HOLDS it for a couple without Pro,
+ *      keeping it shown in their draft and naming it on the Apply sheet —
+ *      and Restore / a stale draft for the same slot cannot leak into it;
  *   N. it appears in the navigator (the overlaid rows), and not on live;
- *   W. `addCustomSection` takes the draft door AFTER the Pro refusal and the
- *      six-cap, inserts the row hidden, drafts it shown, and lands back on the
+ *   W. `addCustomSection` takes the draft door AFTER the Pro refusal (which the
+ *      draft door passes — Apply is its gate) and the six-cap, inserts the row hidden, drafts it shown, and lands back on the
  *      address the couple is on (`lib/maker-stay.ts` — never a `?scene=` that
  *      would remount the Maker); the work area selects the scene that appeared;
  *   C. the six-cap holds;
- *   P. the Pro lock holds: a free couple gets the note with the padlock, never
- *      the sheet; the store shell gets nothing;
+ *   P. a free couple on the web gets the sheet (tried free, paid at Apply); the
+ *      store shell gets nothing;
  *   T. the toolbar ＋ is no longer "coming next": the work area registers what
  *      it may do (`MakerAddScene`), the shell's ＋ (desktop) and More ▾ row
  *      (phone) open the SAME sheet as the navigator's button, and every
@@ -41,6 +44,7 @@ import {
 import { openBrowseSectionVisible, widgetShouldRender, type InvitationWidgetRow, type WidgetType } from './invitation-widgets';
 import { CUSTOM_SECTION_TYPES, nextFreeCustomSlot } from './custom-sections';
 import { makerStageList, stageTakesOwnScenes } from './maker-scene-list';
+import { makerAddShowsOn } from './maker-selection';
 import { PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
 import type { HubSectionCanvas } from './hub-canvas';
 
@@ -88,19 +92,22 @@ test('D · the added scene is hidden from guests live, and shown only through th
   assert.equal(openBrowseSectionVisible(host!), true);
   assert.deepEqual((host!.config_json as { canvas?: unknown }).canvas, CANVAS);
 
-  // Apply publishes it — and a free couple's Apply does not hold it as Pro.
+  // Apply publishes it for an owning couple — and HOLDS it for a free one
+  // (2026-09-28: tried free, paid at Apply), keeping it shown in their draft.
   const live = { events: {}, widgets: [liveAdded] };
   const { items, orphans } = classifyHubDraft(draft, live);
   assert.deepEqual(orphans, []);
   const show = items.find((i) => i.kind === 'widget' && i.field === 'is_visible');
   assert.ok(show && show.value === true, 'Apply must write is_visible: true for the added scene');
-  for (const ownsPro of [false, true]) {
-    const plan = planHubDraftApply(draft, live, ownsPro);
-    const isShow = (i: (typeof plan.apply)[number]) =>
-      i.kind === 'widget' && i.widgetType === 'custom_1' && i.field === 'is_visible' && i.value === true;
-    assert.ok(plan.apply.some(isShow), `Apply (ownsPro=${ownsPro}) must publish the added scene`);
-    assert.ok(!plan.refused.some(isShow), `Apply (ownsPro=${ownsPro}) held the added scene back`);
-  }
+  const isShow = (i: { kind: string; widgetType?: string; field?: string; value?: unknown }) =>
+    i.kind === 'widget' && i.widgetType === 'custom_1' && i.field === 'is_visible' && i.value === true;
+  const owner = planHubDraftApply(draft, live, true);
+  assert.ok(owner.apply.some(isShow), 'Apply (ownsPro) must publish the added scene');
+  assert.ok(!owner.refused.some(isShow), 'Apply (ownsPro) held the added scene back');
+  const free = planHubDraftApply(draft, live, false);
+  assert.ok(!free.apply.some(isShow), 'Apply WITHOUT Pro put a scene of their own in front of guests');
+  assert.ok(free.refused.some(isShow), 'the scene of their own is not held for Pro');
+  assert.equal(free.remaining.widgets.custom_1?.is_visible, true, 'a held scene must stay SHOWN in the draft');
 
   // Restore throws the draft away: the preview matches the guest link again.
   const [restored] = overlayHubDraftWidgets([liveAdded], null);
@@ -137,7 +144,8 @@ test('W · addCustomSection: Pro refusal → six-cap → draft door → hidden i
   const at = {
     pro: body.search(/refuseCustomSectionWithoutPro\(eventId,/),
     cap: body.search(/nextFreeCustomSlot\(used\)/),
-    door: body.search(/if \(isHubDraftWrite\(formData\)\) \{/),
+    door: body.search(/if \(drafting\) \{/),
+    drafting: body.search(/const drafting = isHubDraftWrite\(formData\)/),
     insert: body.search(/\.\.\.ADDED_SCENE_LIVE,/),
     drafted: body.search(/saveHubDraftPatch\(\s*eventId,\s*\{\s*widgets: \{ \[slot as string\]: addedSceneDraft\([\s\S]{0,160}\{ formData, fallback: DRAFT_FALLBACK\(eventId\) \}/),
     back: body.search(/redirect\(resolveReturnTo\(formData, `\/dashboard\/\$\{eventId\}\/launch\?drafted=1`/),
@@ -145,6 +153,9 @@ test('W · addCustomSection: Pro refusal → six-cap → draft door → hidden i
   };
   console.log(`[add-a-scene] addCustomSection anchors: ${JSON.stringify(at)}`);
   assert.ok(at.pro > 0, 'the Pro refusal is gone');
+  assert.ok(at.drafting > 0 && at.drafting < at.pro, 'the draft decision must be made before the Pro refusal');
+  // 💎 Outside the Maker the door still refuses a free couple; in it, Apply does.
+  assert.match(body, /refuseCustomSectionWithoutPro\(eventId, \{\s*intent: 'add',\s*ownsPro: ownsPro \|\| drafting,/);
   assert.ok(at.cap > at.pro, 'the six-cap must be read after the Pro refusal');
   assert.ok(at.door > at.cap, 'the draft door must come AFTER the Pro refusal and the six-cap');
   assert.ok(at.insert > at.door, 'the draft door must insert the row hidden (ADDED_SCENE_LIVE)');
@@ -173,27 +184,29 @@ test('C · the six-cap holds: a seventh scene has no slot', () => {
   assert.match(read(PAGE), /!nextFreeCustomSlot\(allWidgets\.map\(\(w\) => w\.widget_type\)\)\s*\?\s*\{ note:/);
 });
 
-test('P · the Pro lock holds: free → the note with the padlock; the store shell → nothing; only an owner gets the sheet', () => {
+test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); the store shell → nothing', () => {
   const page = read(PAGE);
   assert.match(
     page,
-    /addScene=\{\s*storeShell\s*\?\s*null\s*:\s*!ownsPro\s*\?\s*\{ note: '[^']*Event Hub Pro\.', locked: true \}/,
-    'a free couple must get the Pro note (locked), and the store shell nothing',
+    /addScene=\{\s*storeShell\s*\?\s*null\s*:\s*!nextFreeCustomSlot\(/,
+    'the store shell must get nothing, and every other couple the sheet (or the six-cap note)',
   );
+  assert.doesNotMatch(page, /Scenes of your own, from 25 templates, come with Event Hub Pro/, 'a free couple is still turned away at the door');
   // The work area registers the answer — ready opens the sheet, refused
-  // carries the note and whether it is the Pro padlock.
+  // carries only the six-cap note: there is no Pro refusal any more.
   const work = read(`${C}editor-shell.tsx`);
   const reg = work.slice(work.indexOf('const setAddScene = maker?.setAddScene'), work.indexOf('const scenesBeforeAdd'));
   assert.ok(reg.length > 0, 'the work area no longer registers ＋ Add a scene with the shell');
-  assert.match(reg, /'action' in addScene\s*\?\s*\{ kind: 'ready', open: \(\) => setAddOpen\(true\) \}\s*:\s*\{ kind: 'refused', note: addScene\.note, locked: addScene\.locked === true, unlockHref: proUnlockHref \}/);
-  // …and the shell draws the padlock from it, on both doors, with nothing to post.
+  assert.match(reg, /'action' in addScene\s*\?\s*\{ kind: 'ready', open: \(\) => setAddOpen\(true\), tried: addScene\.tried === true \}\s*:\s*\{ kind: 'refused', note: addScene\.note \}/);
+  // …and the shell draws no padlock and no link to the buy page on either door
+  // (owner 2026-09-28: "they can Add. only pay when apply is tirggered").
   const shell = read(SHELL);
   const tool = fn(shell, 'AddSceneTool');
-  assert.match(tool, /addScene\.locked \? \(\s*<PaidMark state="locked"/, 'the toolbar ＋ must wear the padlock on a Pro refusal');
-  assert.match(tool, /link=\{addScene\.locked \? \{ href: addScene\.unlockHref/, 'the Pro bubble must link to the unlock');
+  assert.doesNotMatch(tool, /state="locked"|See Event Hub Pro|unlockHref/, 'the toolbar ＋ still wears a Pro padlock');
+  assert.match(tool, /state="try"/, 'the toolbar ＋ does not wear ◆ PRO for a couple trying it');
   assert.doesNotMatch(tool, /<form\b|formAction|action=/, 'the refused ＋ must not be able to post anything');
-  const row = shell.slice(shell.indexOf("addScene?.kind === 'refused' ? ("), shell.indexOf('Snap grid'));
-  assert.match(row, /<MenuItem disabled note=\{addScene\.note\} className="md:hidden">[\s\S]*<PaidMark state="locked"/, 'the phone row must say why and wear the padlock');
+  const row = shell.slice(shell.indexOf("stageAdd?.kind === 'refused' ? ("), shell.indexOf('Snap grid'));
+  assert.doesNotMatch(row, /state="locked"/, 'the phone row still wears a Pro padlock');
 });
 
 test('T · the toolbar ＋ is not "coming next" any more — it opens the same drafted sheet', () => {
@@ -202,11 +215,11 @@ test('T · the toolbar ＋ is not "coming next" any more — it opens the same d
   assert.doesNotMatch(shell, /MAKER_COMING_NEXT\.add|<ComingNext label="Add a scene"/);
   // Two doors in the shell, both drawn from the registration: the desktop
   // toolbar's ＋ and the phone's More ▾ row.
-  assert.match(shell, /<AddSceneTool addScene=\{addScene\} \/>/, 'the toolbar has no ＋');
+  assert.match(shell, /<AddSceneTool addScene=\{stageAdd\} \/>/, 'the toolbar has no ＋');
   assert.match(fn(shell, 'AddSceneTool'), /onClick=\{addScene\.open\}/, 'the ready ＋ must open the work area\'s sheet');
   assert.match(
     shell,
-    /addScene\?\.kind === 'ready' \? \(\s*<MenuItem className="md:hidden" onClick=\{\(\) => \{ close\(\); addScene\.open\(\); \}\}>/,
+    /stageAdd\?\.kind === 'ready' \? \(\s*<MenuItem className="md:hidden" onClick=\{\(\) => \{ close\(\); stageAdd\.open\(\); \}\}>/,
     'the phone has no Add a scene row',
   );
   // …and the same sheet: the navigator's picker is controlled by the state the registration opens.
@@ -233,4 +246,20 @@ test('the stage rule: a scene of their own may be added on every stage today (on
   // Both doors ask it.
   const work = read(`${C}editor-shell.tsx`);
   assert.ok((work.match(/stageTakesOwnScenes\(stage\)/g) ?? []).length >= 2);
+});
+
+test('S · ＋ Add a scene shows ONLY on a stage — hidden on every page (owner 2026-09-28: "it should only show on stages")', () => {
+  // A stage: nothing, a scene, a row or the Main background selected.
+  for (const sel of [null, { kind: 'scene', id: 'W1' }, { kind: 'row', key: 'colors' }, { kind: 'main' }] as const) {
+    assert.equal(makerAddShowsOn(sel as never), true, `＋ hidden on a stage (${JSON.stringify(sel)})`);
+  }
+  // Every page: Logo · Hero · Reveal · Love Story · Post Event · Prints · Details · RSVP.
+  for (const key of ['logo', 'hero', 'reveal', 'love-story', 'post-event', 'prints', 'details', 'rsvp-page'] as const) {
+    assert.equal(makerAddShowsOn({ kind: 'tool', key }), false, `＋ shows on the ${key} page`);
+  }
+  // Both doors ask it — the toolbar ＋ and the phone's More ▾ row read ONE value.
+  const shell = read(SHELL);
+  assert.match(shell, /const stageAdd = makerAddShowsOn\(selection\) \? addScene : null;/);
+  const doors = shell.slice(shell.indexOf('const stageAdd'));
+  assert.doesNotMatch(doors, /<AddSceneTool addScene=\{addScene\}|addScene\?\.kind === 'ready'|addScene\?\.kind === 'refused'/, 'a door reads the registration without asking the stage rule');
 });

@@ -18,8 +18,10 @@ card showing added / add.
   each proven by a test (`TOOL_HOMES` in `lib/our-services.ts`): Guest List ·
   Budget · Schedule · Mood Board · Seat Plan → their menu rows; Checklist →
   Overview's "View your full checklist"; Compare suppliers → Your Team's
-  Compare tab; Event Hub · Save the Date · RSVP · Event Hub PRO · Monogram
-  Maker → the Event Hub Maker (only where the event type has one).
+  Compare tab; Event Hub · Save the Date · RSVP · Monogram Maker → the Event
+  Hub Maker (only where the event type has one); Event Hub PRO → the Maker's
+  Apply sheet, "Unlock Pro and Apply" (#6091 — Pro is bought at Apply, once a
+  ◆ effect is in the draft).
 - Tools with no home yet stay under "More for your event", which disappears
   once empty: Find your date (→ Details › Date, part 2a not merged), Playlist,
   Indoor Blueprint, Thank-You Video. The search's tag pill row is now one

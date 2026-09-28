@@ -261,8 +261,8 @@ export function EditorialPanel({
       </ul>
       <p className="mt-2 flex items-center gap-1 text-[0.7rem] font-semibold text-amber-800">
         <PaidMark
-          state={ownsPro ? 'unlocked' : 'locked'}
-          label={paidMarkLabel(ownsPro ? 'unlocked' : 'locked', 'Event Hub Pro')}
+          state={ownsPro ? 'unlocked' : 'try'}
+          label={paidMarkLabel(ownsPro ? 'unlocked' : 'try', 'Event Hub Pro')}
           size="xs"
         />
         Event Hub PRO — the editor&rsquo;s desk

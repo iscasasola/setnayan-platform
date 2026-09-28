@@ -15,7 +15,7 @@ import {
 import { PakantaDeliver } from './pakanta-deliver';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-export const metadata = { title: 'Pakanta queue · Admin' };
+export const metadata = { title: 'Music Maker queue · Admin' };
 
 /**
  * /admin/pakanta — the back-office Pakanta songwriting + DELIVERY queue.
@@ -236,16 +236,16 @@ export default async function AdminPakantaPage() {
           ⚖ The sentence survives: it is the WORKFLOW — the brief is already
           composed from what the couple told us, so you copy it into Suno and
           never re-interview anybody. */}
-      <PageMasthead title="Pakanta queue" />
+      <PageMasthead title="Music Maker queue" />
       <p className="mb-6 max-w-2xl text-sm text-ink/70">
         Each couple’s custom-song brief, auto-composed from the love story they told in
-        onboarding plus any Pakanta music preferences. Copy the brief into Suno to write the
+        onboarding plus any Music Maker preferences. Copy the brief into Suno to write the
         song — no re-interview needed.
       </p>
 
       {queryError ? (
         <div className="mb-6 rounded-lg border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
-          Couldn’t load the Pakanta queue ({queryError}). The table may not be migrated on this
+          Couldn’t load the Music Maker queue ({queryError}). The table may not be migrated on this
           environment yet.
         </div>
       ) : null}
@@ -253,9 +253,9 @@ export default async function AdminPakantaPage() {
       {rows.length === 0 ? (
         <div className="sn-tile p-8 text-center">
           <Sparkles aria-hidden className="mx-auto mb-3 h-8 w-8 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-ink">No Pakanta orders yet.</p>
+          <p className="text-sm font-medium text-ink">No Music Maker orders yet.</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-ink/60">
-            When a couple buys Pakanta (on its own or inside a bundle), their brief — built from
+            When a couple buys Music Maker (on its own or inside a bundle), their brief — built from
             the onboarding love story — appears here for the music team to write and deliver.
           </p>
         </div>
@@ -295,7 +295,7 @@ export default async function AdminPakantaPage() {
                 {!brief.hasMaterial ? (
                   <p className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-800">
                     No story material yet — the couple hasn’t finished the love-story onboarding or
-                    a Pakanta intake.
+                    a Music Maker intake.
                   </p>
                 ) : (
                   <>

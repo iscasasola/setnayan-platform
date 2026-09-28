@@ -85,8 +85,8 @@ test('🔴 an empty Alaga list is answered, never rendered as nothing', () => {
     'the empty branch is back to `: null` — a heading with nothing under it',
   );
   assert.ok(
-    /No alaga yet/.test(SECTION_CODE),
-    'the empty state stopped saying anything — Samahan answers its own, this must too',
+    /No loved ones yet/.test(SECTION_CODE),
+    'the empty state stopped saying anything — Groups answers its own, this must too',
   );
 });
 

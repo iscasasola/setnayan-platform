@@ -527,9 +527,9 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   appointment_reminder: 'Appointment confirmed',
   connection_request: 'Someone added you',
   connection_confirmed: 'Connection confirmed',
-  samahan_story: 'New in your samahan',
+  samahan_story: 'New in your group',
   samahan_message: 'New in Usapan',
-  samahan_join: 'Someone joined your samahan',
+  samahan_join: 'Someone joined your group',
   guest_takedown_honored: 'Photo taken down at a guest’s request',
   // Tray copy for the free-5 receipt. It says WAIVED, not "Free" — a row that
   // reads only "Free" teaches the shop there is no fee, and booking 6 then

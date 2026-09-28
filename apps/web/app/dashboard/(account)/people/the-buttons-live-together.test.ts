@@ -33,11 +33,11 @@ test('the fixture is real — the page source was actually read', () => {
 });
 
 test('🔴 both of the page’s own doors are in the action row', () => {
-  assert.ok(CODE.includes('<AddAlagaButton />'), 'Add an alaga left the action row');
-  assert.ok(CODE.includes('New samahan'), 'New samahan is not offered at the top of the page');
+  assert.ok(CODE.includes('<AddAlagaButton />'), 'Add a loved one left the action row');
+  assert.ok(CODE.includes('New group'), 'New group is not offered at the top of the page');
   assert.ok(
     CODE.includes('href="/dashboard/samahan/new"'),
-    'New samahan does not point at the page that creates one',
+    'New group does not point at the page that creates one',
   );
 });
 

@@ -1371,7 +1371,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               Everything Papic, one price
             </h2>
             <p className="max-w-prose text-sm text-ink/70">
-              Unlimited cameras for the whole {papicEventWord} + every add-on (Kwento,
+              Unlimited cameras for the whole {papicEventWord} + every add-on (Photo Notes,
               Photo Wall, Thank You, Stories, Camera Bridge).
             </p>
           </div>

@@ -733,7 +733,7 @@ export default async function PapicModerationPage({
         */
         <section className="space-y-3 sn-tile p-5 sm:p-6">
           <div className="space-y-1">
-            <p className="sn-eye">Kwento · words on a photo</p>
+            <p className="sn-eye">Photo Notes · words on a photo</p>
             <h2 className="text-xl font-semibold tracking-tight">
               Let guests leave a message
             </h2>
@@ -744,7 +744,7 @@ export default async function PapicModerationPage({
             your editorial page. It comes with Papic, free.
           </p>
           <p className="text-sm text-ink/70">
-            Kwento adds words to your Papic photos, so set up your Papic crew
+            Photo Notes add words to your Papic photos, so set up your Papic crew
             first.{' '}
             <Link
               href={`/dashboard/${eventId}/studio/papic`}

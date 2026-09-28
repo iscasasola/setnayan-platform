@@ -11,7 +11,7 @@ import {
 import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
-  title: 'Samahan',
+  title: 'Groups',
 };
 
 // Samahan index — "Your samahans" (plan §4a). Chrome-less (account) spoke:
@@ -19,8 +19,8 @@ export const metadata = {
 // DARK until PR-4 links it from the launcher's Spaces tile.
 
 const BANNER_COPY: Record<string, string> = {
-  left: 'You left the samahan.',
-  archived: 'The samahan was archived. Members keep their accounts and events.',
+  left: 'You left the group.',
+  archived: 'The group was archived. Members keep their accounts and events.',
 };
 
 export default async function SamahanIndexPage({
@@ -41,7 +41,7 @@ export default async function SamahanIndexPage({
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
-        title="Samahan"
+        title="Groups"
       />
 
       {banner ? (
@@ -56,7 +56,7 @@ export default async function SamahanIndexPage({
            extracted, never redrawn. */
         <QuietStart
           Icon={HeartHandshake}
-          title="Wala ka pang samahan."
+          title="Wala ka pang group."
           blurb="One shared space for your barkada, parish, or clan — their reunions, tournaments, and outings all in one place."
           action={
             <Link
@@ -64,7 +64,7 @@ export default async function SamahanIndexPage({
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
             >
               <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Create a Samahan
+              Create a group
             </Link>
           }
         />
@@ -84,7 +84,7 @@ export default async function SamahanIndexPage({
               <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
             </span>
             <span className="text-sm font-medium text-ink/70 group-hover:text-ink">
-              Create a Samahan
+              Create a group
             </span>
           </Link>
         </div>

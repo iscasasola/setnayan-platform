@@ -4,7 +4,7 @@ import { createCommunity } from '../actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = {
-  title: 'Create a Samahan',
+  title: 'Create a group',
 };
 
 // Create flow (plan §5) — one glass card, three fields, zero friction.
@@ -13,7 +13,7 @@ export const metadata = {
 // (create-event precedent).
 
 const ERROR_COPY: Record<string, string> = {
-  missing_name: 'Please give the samahan a name (2–80 characters).',
+  missing_name: 'Please give the group a name (2–80 characters).',
   description_too_long: 'Keep the description under 280 characters.',
 };
 
@@ -29,7 +29,7 @@ export default async function NewSamahanPage({
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
-        title="Create a Samahan"
+        title="Create a group"
       />
 
       {errorMessage ? (
@@ -75,7 +75,7 @@ export default async function NewSamahanPage({
             id="description"
             maxLength={280}
             name="description"
-            placeholder="Ano'ng samahan 'to? (optional)"
+            placeholder="Ano'ng group 'to? (optional)"
           />
         </div>
 
@@ -83,7 +83,7 @@ export default async function NewSamahanPage({
           pendingLabel="Creating…"
           className="button-primary w-full sm:w-auto"
         >
-          Create samahan
+          Create group
         </SubmitButton>
       </form>
     </div>

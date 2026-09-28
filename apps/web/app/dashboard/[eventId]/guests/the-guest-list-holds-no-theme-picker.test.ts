@@ -66,7 +66,7 @@ test('2 · the Guest list keeps ONE quiet line — the theme, and the way to Det
   const at = panel.indexOf('data-invite-theme-line');
   assert.ok(at > 0, 'the theme line is gone — a couple can no longer see which theme guests meet');
   const line = panel.slice(at, panel.indexOf('</p>', at));
-  assert.match(line, /href=\{`\/dashboard\/\$\{eventId\}\/launch\?tool=details`\}/, 'the link does not open Details');
+  assert.match(line, /href=\{`\/dashboard\/\$\{eventId\}\/launch\?tool=details&item=theme`\}/, 'the link does not open Details');
   assert.match(line, /Change in Event Hub Maker ↗/);
   assert.match(line, /INVITE_THEMES\[liveTheme\]\.name/, 'the line names a theme it did not resolve');
   // What guests meet — through the one theme rule, not the pre-selection guess.

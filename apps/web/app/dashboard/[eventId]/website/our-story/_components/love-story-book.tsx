@@ -170,7 +170,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
             <span className="text-[color:var(--ls-muted)]">Change it in Details</span>
           ) : (
             <Link
-              href={`${p.makerHref}?tool=details`}
+              href={`${p.makerHref}?tool=details&item=theme`}
               className="text-[color:var(--ls-heading)] underline decoration-1 underline-offset-4"
             >
               Change in Event Hub Maker ↗

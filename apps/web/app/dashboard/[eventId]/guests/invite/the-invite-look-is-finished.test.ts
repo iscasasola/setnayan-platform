@@ -62,7 +62,7 @@ const ACTIONS = 'app/dashboard/[eventId]/guests/invite/actions.ts';
  */
 test('the Guest list points at the one place the theme is chosen', () => {
   const panel = read(PANEL);
-  assert.match(panel, /href=\{`\/dashboard\/\$\{eventId\}\/launch\?tool=details`\}/);
+  assert.match(panel, /href=\{`\/dashboard\/\$\{eventId\}\/launch\?tool=details&item=theme`\}/);
   assert.ok(!existsSync(join(WEB, PICKER)), 'the Guest list picker is back');
   assert.ok(existsSync(join(WEB, MAKER_PICKER)), 'the Maker picker is gone — the theme can be chosen nowhere');
 });
@@ -194,7 +194,9 @@ test('the picker MEASURES the fence and hands it down — it is never assumed', 
     'an unreadable profile must fall to the free door, not open a paid one',
   );
   assert.match(page, /pickableInviteThemes\(\{ mayShowStdFilm \}\)/, 'the picker is handed themes without asking the fence');
-  assert.match(page, /theme=\{theme\}/, 'the answer is measured and then not passed');
+  // (Since 2026-09-28 the fenced list is `themes`, handed to Details' gallery as `theme={{ themes: … }}`.)
+  assert.match(page, /const themes = pickableInviteThemes\(\{ mayShowStdFilm \}\);/);
+  assert.match(page, /theme=\{\{\s*themes: themes\.map\(/, 'the answer is measured and then not passed');
 });
 
 test('🔒 APPLY refuses a Pro theme there — after the host check, before the write', () => {

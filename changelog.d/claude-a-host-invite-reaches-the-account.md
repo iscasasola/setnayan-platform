@@ -19,6 +19,11 @@ stayed a guest to every table, because `sync_delegate_membership` inserted with 
 - **They are told, and their open page updates.** New `host_added` notification (in-app + email); its
   arrival makes `UnreadBellBadge` call `router.refresh()`, so the event appears without a sign-in or
   reload. The Hosts page says "Added — they're a host now" instead of handing over a link.
+- **Only a host adds hosts — and every host can.** Owner: *"being a host gives the same power to add
+  new hosts as well."* `inviteHost` / `revokeHostInvite` now use the host (`couple`) gate. The old gate
+  admitted ANY accepted seat, planner included — and since an added host is now `couple` at once, a
+  planner could have handed out more access than they hold. The add-a-host form and Revoke button are
+  hidden from a planner; the form's copy no longer describes a link to send.
 - Backfill measured first: 0 pending seats; of 12 accepted hosts only the bride's row changes
   (`joined_via` → `invited`).
 

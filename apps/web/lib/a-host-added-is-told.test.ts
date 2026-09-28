@@ -90,3 +90,23 @@ test('the bell refreshes the open page when it arrives — no sign-in, no reload
   assert.match(BELL, /'host_added'/, 'UnreadBellBadge no longer reacts to host_added');
   assert.match(BELL, /router\.refresh\(\)/, 'UnreadBellBadge no longer refreshes on arrival');
 });
+
+test('only a host adds or revokes hosts — never a hired planner', () => {
+  // Owner 2026-09-28: "being a host gives the same power to add new hosts as
+  // well". Every host is `couple`; the old gate admitted ANY accepted seat,
+  // planner included — and an added host is now `couple` at once, so a planner
+  // could have handed out more access than they hold.
+  const fn = (name: string) => {
+    const at = ACTIONS.indexOf(`export async function ${name}(`);
+    assert.ok(at >= 0, `${name} not found`);
+    return ACTIONS.slice(at, ACTIONS.indexOf('\nexport async function', at + 1));
+  };
+  for (const name of ['inviteHost', 'revokeHostInvite', 'removeHost']) {
+    assert.match(fn(name), /await requireCoupleMembership\(eventId\)/, `${name} is not host-gated`);
+  }
+  assert.doesNotMatch(
+    ACTIONS,
+    /function requireHostMembership\(/,
+    'the any-seat gate is back in hosts/actions.ts — a planner could add hosts again',
+  );
+});

@@ -26,51 +26,12 @@ import { emitNotification } from '@/lib/notification-emit';
 // /dashboard/[eventId]/hosts surfaces the invite form + the list of
 // pending/accepted hosts. These actions are the form posts.
 //
-// Inviter check: caller must be a current host on the event. We accept
-// rows from EITHER event_moderators (the V1.2 source of truth, backfilled
-// by PR #135) OR event_members.member_type='couple' (V1 backwards-compat
-// for events created before the 0048 invite UI existed).
+// Inviter check: caller must be a host — `requireCoupleMembership` below.
+// Every accepted host is a `couple` member (20271251336140); a hired
+// planner (`coordinator`) is not, and cannot add hosts.
 
 const INVITE_TTL_DAYS = 7;
 const MS_PER_DAY = 86_400_000;
-
-async function requireHostMembership(eventId: string): Promise<{
-  userId: string;
-  email: string;
-}> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // Source 1 — event_moderators (canonical going forward).
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .is('removed_at', null)
-    .maybeSingle();
-
-  if (moderator) {
-    return { userId: user.id, email: user.email ?? '' };
-  }
-
-  // Source 2 — event_members couple row (V1 backwards-compat).
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (legacy && (legacy as { member_type: string }).member_type === 'couple') {
-    return { userId: user.id, email: user.email ?? '' };
-  }
-
-  throw new Error('Forbidden — only current hosts can invite new hosts.');
-}
 
 function nullIfBlank(raw: FormDataEntryValue | null, max = 80): string | null {
   if (typeof raw !== 'string') return null;
@@ -110,7 +71,12 @@ export async function inviteHost(formData: FormData) {
   let role: RoleSubtype;
   let displayLabel: string | null;
   try {
-    const { userId } = await requireHostMembership(eventId);
+    // 🔑 ONLY A HOST ADDS HOSTS (owner 2026-09-28: "being a host gives the
+    // same power to add new hosts as well"). Every host is `couple` now; the
+    // old gate also admitted an accepted PLANNER seat, and since an added host
+    // is now accepted as `couple` at once, a planner could have handed out more
+    // access than they hold. Host = couple; the planner is not one.
+    const userId = await requireCoupleMembership(eventId);
     email = parseEmail(formData.get('invitation_email'));
     role = parseRole(formData.get('role_subtype'));
     displayLabel = nullIfBlank(formData.get('display_label'), 80);
@@ -253,10 +219,12 @@ export async function inviteHost(formData: FormData) {
 }
 
 /**
- * Couple-only gate for grant changes + host removal. Stricter than
- * requireHostMembership: per locked D1 only the COUPLE raises/lowers a
- * delegate's budget visibility, and only the couple removes an accepted
- * host (a planner shouldn't be able to remove the bride).
+ * The HOST gate — adding, revoking and removing hosts, and grant changes.
+ * A host's membership is `couple` whatever their role (owner 2026-09-28,
+ * migration 20271251336140), so this admits every host and never a hired
+ * planner (`coordinator`): per locked D1 only a host raises/lowers a
+ * delegate's budget visibility, and a planner shouldn't be able to remove
+ * the bride — or add hosts above themselves.
  */
 async function requireCoupleMembership(eventId: string): Promise<string> {
   const supabase = await createClient();
@@ -273,7 +241,7 @@ async function requireCoupleMembership(eventId: string): Promise<string> {
     .eq('member_type', 'couple')
     .maybeSingle();
   if (!data) {
-    throw new Error('Forbidden — only the couple can change host access.');
+    throw new Error('Forbidden — only a host can change who hosts this event.');
   }
   return user.id;
 }
@@ -485,7 +453,7 @@ export async function revokeHostInvite(formData: FormData) {
   const eventId = rawEventId as string;
   const moderatorId = rawModeratorId as string;
 
-  await requireHostMembership(eventId);
+  await requireCoupleMembership(eventId);
 
   const admin = createAdminClient();
   await admin

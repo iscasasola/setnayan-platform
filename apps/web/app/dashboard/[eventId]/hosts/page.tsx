@@ -569,10 +569,12 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         <section className="sn-tile space-y-3 p-5">
           <header className="space-y-1">
             <p className="sn-eye">
-              Pending invitations · {pending.length}
+              Waiting to join · {pending.length}
             </p>
             <p className="text-sm text-ink/65">
-              Sent but not yet accepted. The link expires 7 days after sending.
+              Not on Setnayan yet. Each becomes a host the moment they sign up with
+              that email — nothing to accept. A hired planner still accepts from
+              their link.
             </p>
           </header>
           <ul className="divide-y divide-ink/10">
@@ -597,6 +599,8 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                       /host/accept/{row.invitation_token.slice(0, 12)}…
                     </code>
                   ) : null}
+                  {/* Only a host may revoke — the action's gate is `couple`. */}
+                  {isCouple ? (
                   <form action={revokeHostInvite}>
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="moderator_id" value={row.moderator_id} />
@@ -608,6 +612,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                       Revoke
                     </SubmitButton>
                   </form>
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -815,18 +820,23 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      {/* Invite form */}
+      {/* Add-a-host form. ONLY A HOST ADDS HOSTS (owner 2026-09-28: "being a
+          host gives the same power to add new hosts as well") — the action's
+          gate is `couple`, so a hired planner never sees a form it would
+          refuse. */}
+      {isCouple ? (
       <section className="sn-tile space-y-4 p-5 sm:p-6">
         <header className="space-y-1">
           <p className="sn-eye">
-            Invite a new host
+            Add a host
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
-            Add a co-planner
+            Add a co-host
           </h2>
           <p className="max-w-prose text-sm text-ink/65">
-            Email is required so the invitee knows who sent the link. Roles default to
-            sensible permission templates — you can change permissions per host later.
+            They&apos;re a host as soon as you add them — nothing for them to accept —
+            and they can add hosts too. Not on Setnayan yet? They become a host the
+            moment they sign up with this email.
           </p>
         </header>
 
@@ -879,11 +889,12 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             </span>
           </label>
 
-          <SubmitButton pendingLabel="Inviting…" className="button-primary h-11 px-5">
-            Send invitation
+          <SubmitButton pendingLabel="Adding…" className="button-primary h-11 px-5">
+            Add host
           </SubmitButton>
         </ConsentGatedInviteForm>
       </section>
+      ) : null}
     </section>
   );
 }

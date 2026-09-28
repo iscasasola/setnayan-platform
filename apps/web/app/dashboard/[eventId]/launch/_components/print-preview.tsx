@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { FIRST_PREVIEW_GRACE_MS, printPreviewLoad, printPreviewView, type PrintPreviewStatus } from '@/lib/print-preview-view';
+import { printPreviewLoad, printPreviewView, type PrintPreviewStatus } from '@/lib/print-preview-view';
 
 /**
  * PrintPreview — the one place a Prints & Tickets sample is drawn on screen
@@ -25,17 +25,13 @@ import { FIRST_PREVIEW_GRACE_MS, printPreviewLoad, printPreviewView, type PrintP
  *             silent grey box — the couple should never wonder whether the
  *             app is still trying.
  *
- * ⚡ THE FIRST PREVIEW DRAWS FIRST (owner 2026-09-28: the boarding pass took
- * ~8 s). Every preview used to ask the server at once — seven set pieces plus
- * the free group, each ~1 s of server work — so the one the couple was looking
- * at queued behind the ones they were not. Now (`printPreviewLoad`):
- *   · the FIRST piece asks straight away, `fetchpriority="high"`;
- *   · every other piece waits until it is within a screen of view AND the first
- *     has drawn (or `FIRST_PREVIEW_GRACE_MS` has passed, so nothing waits on a
- *     preview that is off screen or slow);
- *   · once a piece has drawn, its OTHER sizes are fetched while the page is
- *     idle, so picking a size from the dropdown finds the picture already here
- *     (the addresses are versioned and immutable — `lib/print-preview-cache.ts`).
+ * ⚡ THE FIRST PREVIEW DRAWS FIRST (owner 2026-09-28: the boarding-pass
+ * preview took ~8 s). Every preview used to ask the server at once, at the
+ * same priority. Now (`printPreviewLoad`) the first piece asks eagerly with
+ * `fetchpriority="high"` and the others lazily at low priority; and once a
+ * piece has drawn, its OTHER sizes are fetched while the page is idle, so
+ * picking a size from the dropdown finds the picture already here (the
+ * addresses are versioned and immutable — `lib/print-preview-cache.ts`).
  *
  * The status → copy/flags mapping is `lib/print-preview-view.ts`, a PURE
  * function, so the loading and error states are provable in the unit suite
@@ -45,16 +41,6 @@ import { FIRST_PREVIEW_GRACE_MS, printPreviewLoad, printPreviewView, type PrintP
  * Client component ONLY for this box; the panel around it stays a server
  * component with no writes (`maker-prints.tsx`'s own rule).
  */
-
-// ── ONE GATE FOR THE PANEL — opened by the first preview's load (or error). ──
-let firstDrawn = false;
-const waiting = new Set<() => void>();
-function openGate() {
-  if (firstDrawn) return;
-  firstDrawn = true;
-  for (const go of waiting) go();
-  waiting.clear();
-}
 
 export function PrintPreview({
   src,
@@ -82,45 +68,7 @@ export function PrintPreview({
   // re-requesting a URL the browser may have already cached as a failure.
   const [attempt, setAttempt] = useState(0);
   const plan = printPreviewLoad(priority);
-  const [go, setGo] = useState(!plan.deferred);
-  const box = useRef<HTMLDivElement>(null);
   const view = printPreviewView(status, label);
-
-  // Deferred: within a screen of view AND the first preview has drawn.
-  useEffect(() => {
-    if (go) return;
-    const el = box.current;
-    let visible = false;
-    let gated = firstDrawn;
-    const tryGo = () => {
-      if (visible && gated) setGo(true);
-    };
-    const onGate = () => {
-      gated = true;
-      tryGo();
-    };
-    if (!gated) waiting.add(onGate);
-    const grace = window.setTimeout(openGate, FIRST_PREVIEW_GRACE_MS);
-    let io: IntersectionObserver | null = null;
-    if (el && typeof IntersectionObserver !== 'undefined') {
-      io = new IntersectionObserver(
-        (entries) => {
-          visible = entries.some((e) => e.isIntersecting);
-          tryGo();
-        },
-        { rootMargin: plan.rootMargin },
-      );
-      io.observe(el);
-    } else {
-      visible = true;
-      tryGo();
-    }
-    return () => {
-      waiting.delete(onGate);
-      window.clearTimeout(grace);
-      io?.disconnect();
-    };
-  }, [go, plan.rootMargin]);
 
   // Warm the other sizes once this one is on screen — idle time only.
   const prefetchKey = prefetch.join('\n');
@@ -144,23 +92,32 @@ export function PrintPreview({
     return () => window.clearTimeout(t);
   }, [status, prefetchKey]);
 
-  const settle = (next: PrintPreviewStatus) => {
-    setState({ src, status: next });
-    if (priority) openGate();
-  };
+  const settle = (next: PrintPreviewStatus) => setState({ src, status: next });
+
+  /* 🧊 A PICTURE THAT WAS ALREADY THERE. The previews are cached for good now
+     (versioned addresses), so an `<img>` in the page's HTML often finishes
+     from the cache BEFORE React has hydrated — and a `load` that fired before
+     hydration is never delivered to `onLoad`. The box would then hold the
+     picture at opacity 0 under "Drawing your…" forever. So on mount, and on
+     every new address, ask the element itself. */
+  const imgRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const el = imgRef.current;
+    if (el && el.complete) setState({ src, status: el.naturalWidth > 0 ? 'loaded' : 'error' });
+  }, [src, attempt]);
 
   return (
     <div
-      ref={box}
-      data-print-preview={priority ? 'first' : 'deferred'}
+      data-print-preview={priority ? 'first' : 'later'}
       data-print-preview-src={src}
       data-print-prefetch={prefetch.join(' ')}
       className="relative flex h-[340px] w-full items-center justify-center overflow-hidden rounded-xl bg-ink/[0.04] p-4"
     >
-      {view.showImage && go ? (
+      {view.showImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- the piece IS a generated SVG/JPEG from our own route, sized by its own viewBox
         <img
           key={attempt}
+          ref={imgRef}
           src={src}
           alt={alt}
           loading={plan.loading}

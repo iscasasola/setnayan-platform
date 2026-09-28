@@ -15,10 +15,14 @@ preview requested at once, and every preview requested AGAIN on each size pick.
   all three families' sizes, so a pass-size pick changed all seven addresses.
   Now it changes the pass preview's and nothing else (the whole set still
   carries all three).
-- **The first piece draws first.** The first preview asks at once with
-  `fetchpriority="high"`; the rest wait until on screen AND the first has drawn
-  (or 1.5 s). Once drawn, each piece warms its other sizes while idle, so a size
-  pick finds its picture already cached.
+- **The first piece draws first.** The first preview asks eagerly with
+  `fetchpriority="high"`, the rest lazily at low priority — all plain `<img>`s
+  in the HTML. (A script-held queue was tried and measured SLOWER on a cached
+  size pick, because a held image cannot start before hydration.) Once drawn,
+  each piece warms its other sizes while idle, so a size pick finds its
+  picture already cached. A picture that finished from the cache before
+  hydration — whose `load` React never delivers — is now read off the element
+  on mount instead of sitting at opacity 0 under "Drawing your…".
 - **A smaller screen SVG.** Measured locally, the photo was not the weight: the
   still is already a 420 px, q52 copy on screen (24.6 KB). About 73% of the
   boarding-pass SVG was outlined type. The Maker's on-screen SVG (only) now

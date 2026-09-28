@@ -17,26 +17,24 @@ export type PrintPreviewStatus = 'loading' | 'loaded' | 'error';
 
 /**
  * ⚡ HOW A PREVIEW ASKS (owner 2026-09-28: the boarding-pass preview took
- * ~8 s — every piece asked the server at once). The first piece asks at once
- * and high; every other one waits until it is within one screen of view AND
- * the first has drawn — or `FIRST_PREVIEW_GRACE_MS` has passed, so no piece
- * ever waits on a first preview that is slow or off screen. One screen, not
- * "in view": on a desktop the pass sits in the second row, just below the
- * fold, and must not wait for a scroll to start drawing.
+ * ~8 s — every piece asked the server at once, at the same priority). The
+ * first piece asks eagerly and HIGH; every other one is the browser's own lazy
+ * load at LOW priority, so the one the couple is looking at is served first.
+ *
+ * 🔴 NOT A SCRIPT-HELD QUEUE — MEASURED. A first cut held the other pieces
+ * back in JavaScript until the first had drawn. On the local harness it made
+ * the cached case SLOWER (a size pick: pass on screen 1.9 s → 2.4 s desktop,
+ * 1.5 s → 3.3 s at 390 px) with ZERO server requests, because a held image
+ * cannot start until the page has hydrated, while a plain `<img>` in the HTML
+ * paints straight from the cache. The browser's own priority does the ordering.
  */
-export const FIRST_PREVIEW_GRACE_MS = 1500;
-
 export type PrintPreviewLoad = {
-  deferred: boolean;
   loading: 'eager' | 'lazy';
   fetchPriority: 'high' | 'low';
-  rootMargin: string;
 };
 
 export function printPreviewLoad(priority: boolean): PrintPreviewLoad {
-  return priority
-    ? { deferred: false, loading: 'eager', fetchPriority: 'high', rootMargin: '0px' }
-    : { deferred: true, loading: 'lazy', fetchPriority: 'low', rootMargin: '100% 0px' };
+  return priority ? { loading: 'eager', fetchPriority: 'high' } : { loading: 'lazy', fetchPriority: 'low' };
 }
 
 export type PrintPreviewView = {

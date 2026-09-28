@@ -8,7 +8,8 @@
  *       (a Set JSONs as `{}`) — and with the build, and never for key order;
  *   3 · a piece's address carries ITS OWN size only, so picking a pass size
  *       leaves every other piece's address — and its cached picture — alone;
- *   4 · the first piece asks at once and high; every other piece waits; each
+ *   4 · the first piece asks eagerly and high, the rest lazily and low — all
+ *       in the page's HTML, so a cached piece paints before hydration; each
  *       warms its other sizes;
  *   5 · the Maker's on-screen SVG is smaller and draws the same shapes; the
  *       sample raster, the free thumbnails and the PDF are untouched.
@@ -107,14 +108,16 @@ test('3 · each preview carries the version and ITS OWN size only', async () => 
   for (const p of previews(await paintPrints(null))) assert.doesNotMatch(p.src, /[?&]v=/);
 });
 
-test('4 · the first preview asks at once and high; the rest wait; each warms its other sizes', async () => {
-  assert.deepEqual(printPreviewLoad(true), { deferred: false, loading: 'eager', fetchPriority: 'high', rootMargin: '0px' });
-  const rest = printPreviewLoad(false);
-  assert.equal(rest.deferred, true);
-  assert.equal(rest.fetchPriority, 'low');
+test('4 · the first preview asks eagerly and high; the rest lazily and low; each warms its other sizes', async () => {
+  assert.deepEqual(printPreviewLoad(true), { loading: 'eager', fetchPriority: 'high' });
+  assert.deepEqual(printPreviewLoad(false), { loading: 'lazy', fetchPriority: 'low' });
   const html = await paintPrints(printPreviewVersion({ x: 1 }, 'b'));
   assert.equal((html.match(/data-print-preview="first"/g) ?? []).length, 1, 'exactly one piece goes first');
-  assert.equal((html.match(/<img[^>]*fetchpriority="high"/gi) ?? []).length, 1, 'and only it is in the page’s first HTML');
+  const imgs = [...html.matchAll(/<img[^>]*src="\/api\/hub-print\/[a-z]+\?[^"]*mode=screen[^"]*"[^>]*>/g)].map((m) => m[0]);
+  // Every preview is an <img> in the HTML — none waits for a script to be asked for.
+  assert.equal(imgs.length, 7, `${imgs.length} preview images in the HTML`);
+  assert.equal(imgs.filter((t) => /fetchpriority="high"/i.test(t) && /loading="eager"/.test(t)).length, 1);
+  assert.equal(imgs.filter((t) => /fetchpriority="low"/i.test(t) && /loading="lazy"/.test(t)).length, 6);
   // The pass warms its other sizes — and only its own family's.
   const pass = /data-print-piece="pass"[\s\S]*?data-print-prefetch="([^"]*)"/.exec(html)?.[1] ?? '';
   const warmed = pass.replace(/&amp;/g, '&').split(' ').filter(Boolean);

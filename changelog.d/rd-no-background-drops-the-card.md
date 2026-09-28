@@ -19,9 +19,15 @@ the shell releases the hold instead of holding, so the save's render reloads the
 existing double-buffered swap (no flash, scroll kept). Every other background pick stays instant. A
 photo or snippet the Maker holds no URL for is never guessed — that pick reloads too.
 
+What the couple sees: the card (and the countdown's four per-number tiles) goes when the save's
+render lands — about the time of a save plus a page load — with the old page kept on screen until
+the new one is ready (no blank, no manual reload). Plain · Glow · Frosted · Framed ↔ Full width
+after that stay instant (the bridge paints them, nothing reloads).
+
 Tests: `lib/no-background-drops-the-card.test.ts` (new — the owner's pick releases and the server's
-HTML really drops the card; non-flipping picks are still held; the reverse direction brings the
-card back; unknown media reloads; the wiring). `lib/a-maker-pick-never-reloads-what-it-drew.test.ts`
-wiring anchors updated to the new `onSaving` shape.
+HTML really drops the card; the countdown's per-number tiles go with it; non-flipping picks are
+still held; the reverse direction brings the card back; unknown media reloads; the wiring).
+`lib/a-maker-pick-never-reloads-what-it-drew.test.ts` wiring anchors updated to the new `onSaving`
+shape.
 
 SPEC IMPACT: None

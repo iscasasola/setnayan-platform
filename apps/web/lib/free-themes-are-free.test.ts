@@ -1,0 +1,225 @@
+/**
+ * 🎨 MODERN AND CYBER NEON ARE FREE — owner 2026-09-29, verbatim, after the
+ * measured loop weights: *"Okay use modern and cyber FREE"* (DECISION_LOG
+ * "MODERN AND CYBER NEON BECOME FREE THEMES (WITH CLASSIC)").
+ *
+ * `tier` in `lib/invite-themes.ts` is the one place the decision is written.
+ * Each block below holds that one consequence of it is REAL, executed rather
+ * than read, so a gate that still means "not Classic" when it should mean
+ * "Pro" goes red:
+ *
+ *   1 · the registry: Classic, Modern and Cyber Neon free; Rustic still Pro;
+ *   2 · a free couple can PICK them — any celebration, the store shell too —
+ *       and the guest page wears them without the unlock;
+ *   3 · Apply writes them without asking for Pro; a Pro theme still asks;
+ *   4 · a free couple PRINTS them print-ready and unwatermarked (the route's
+ *       gate, and what Prints & Tickets draws); Rustic is still a sample;
+ *   5 · the couple's own photo stays Pro media — a free theme never lays it
+ *       under the page, the door or the print;
+ *   6 · no copy counts or names the Pro themes by hand — the Pro list's count
+ *       and its pitch are the registry's, and no typed "N themes" survives.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { stripComments } from './strip-comments';
+import {
+  FREE_THEMES,
+  HUB_THEMES,
+  INVITE_THEMES,
+  PRO_THEMES,
+  pickableInviteThemes,
+  resolveInviteTheme,
+  suggestedInviteTheme,
+  themeNames,
+  type InviteThemeId,
+} from './invite-themes';
+import { tilesShown } from './maker-theme-tiles';
+import { eventItemIsPro } from './hub-draft';
+import { PRINT_FORMATS, PRINT_SET_KEYS, isProPrint, mayServe, printAccess } from './print-pieces';
+import { heroMayBePageGround, pageGround } from './page-ground';
+import { PRO_THEMES_ITEM, WEBSITE_PRO_ITEMS } from './website-pro-items';
+import { hubProPitchFor } from './event-hub-pro';
+
+// The .tsx under test compiles to classic `React.createElement` in this runner.
+(globalThis as unknown as { React: unknown }).React = React;
+
+const WEB = join(__dirname, '..');
+const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+
+const NEWLY_FREE: InviteThemeId[] = ['galeriya', 'cyber'];
+const FREE_COUPLE = { ownsPro: false } as const;
+
+/* ══ 1 · THE REGISTRY ══════════════════════════════════════════════════════ */
+
+test('1 · Classic, Modern and Cyber Neon are free; Rustic and the rest are Pro', () => {
+  assert.deepEqual(FREE_THEMES.map((t) => t.id), ['house', 'galeriya', 'cyber']);
+  assert.deepEqual(FREE_THEMES.map((t) => t.name), ['Classic', 'Modern', 'Cyber Neon']);
+  assert.equal(INVITE_THEMES.abaca.tier, 'pro', 'Rustic is still Event Hub Pro');
+  assert.ok(PRO_THEMES.some((t) => t.id === 'abaca'));
+  assert.equal(FREE_THEMES.length + PRO_THEMES.length, HUB_THEMES.length, 'every shipped theme is free or Pro');
+  assert.equal(themeNames(FREE_THEMES), 'Classic, Modern and Cyber Neon');
+});
+
+/* ══ 2 · PICK — and the guest page wears it ═════════════════════════════════ */
+
+test('2 · a free couple picks Modern and Cyber Neon, and their guests see them — any celebration', () => {
+  for (const mayShowStdFilm of [true, false]) {
+    const pickable = pickableInviteThemes({ mayShowStdFilm }).map((t) => t.id);
+    for (const id of NEWLY_FREE) {
+      assert.ok(pickable.includes(id), `${id} is not pickable (mayShowStdFilm=${mayShowStdFilm})`);
+      // The one theme rule the guest page, the door and the poster all ask.
+      assert.equal(resolveInviteTheme({ saved: id, ...FREE_COUPLE, mayShowStdFilm }), id, `${id} fell back to Classic`);
+    }
+    // Rustic without the unlock is still Classic on the page.
+    assert.equal(resolveInviteTheme({ saved: 'abaca', ...FREE_COUPLE, mayShowStdFilm }), 'house', 'Rustic leaked without Pro');
+  }
+  // The onboarding feel "modern" now suggests Modern to a couple without Pro.
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ...FREE_COUPLE, mayShowStdFilm: true }), 'galeriya');
+  // The store shell hides the Pro doors — never a free theme.
+  const shown = tilesShown(HUB_THEMES, { ownsPro: false, storeShell: true, current: 'house' }).map((t) => t.id);
+  for (const id of NEWLY_FREE) assert.ok(shown.includes(id), `${id} hidden in the store shell`);
+  assert.ok(!shown.includes('abaca'), 'Rustic shown in the store shell to a couple without Pro');
+});
+
+/* ══ 3 · APPLY ═════════════════════════════════════════════════════════════ */
+
+test('3 · Apply writes Modern and Cyber Neon without Pro; Rustic still asks for it', () => {
+  for (const id of NEWLY_FREE) {
+    assert.equal(eventItemIsPro('invite_theme', id, 'change', 'house'), false, `${id} held for Pro at Apply`);
+  }
+  assert.equal(eventItemIsPro('invite_theme', 'abaca', 'change', 'house'), true, 'Rustic applied without Pro');
+});
+
+/* ══ 4 · PRINT — print-ready, unwatermarked ═════════════════════════════════ */
+
+test('4a · the route serves Modern and Cyber Neon print-ready to a free couple; Rustic only to Pro', () => {
+  for (const storeShell of [false, true]) {
+    const access = printAccess({ ownsPro: false, storeShell });
+    for (const id of NEWLY_FREE) {
+      assert.equal(isProPrint(id), false);
+      for (const piece of [...PRINT_SET_KEYS, 'passes' as const]) {
+        assert.ok(mayServe(piece, 'print', access, id), `${piece} in ${id} refused to a free couple (storeShell=${storeShell})`);
+      }
+    }
+    assert.equal(mayServe('invitation', 'print', access, 'abaca'), false, 'Rustic print-ready served without Pro');
+    assert.equal(mayServe('passes', 'print', access, 'abaca'), false, 'Rustic passes served without Pro');
+  }
+  // The route's on-screen branch: the UNMARKED vector goes to a free theme, the
+  // watermarked JPEG only to a Pro theme without Pro. It must ask the tier, not
+  // "is it Classic".
+  const route = read('app/api/hub-print/[piece]/route.ts');
+  assert.match(route, /const freeTheme = !isProPrint\(theme\);/, 'the route no longer asks the tier');
+  assert.match(route, /\(mode === 'screen' && \(access\.printReady \|\| freeTheme\)\)/, 'the screen view is not unmarked for a free theme');
+  assert.doesNotMatch(route, /Classic prints are free/, 'the refusal types the free list by hand');
+});
+
+async function paintPrints(theme: InviteThemeId, ownsPro: boolean): Promise<string> {
+  const { MakerPrints } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
+  const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
+  return renderToStaticMarkup(
+    React.createElement(MakerPrints, {
+      eventId: 'E1',
+      slug: 'rosa-ben',
+      theme,
+      savedTheme: theme,
+      ownsPro,
+      storeShell: false,
+      flash: null,
+      formats: { pass: first('pass'), invitation: first('invitation'), card: first('card') } as never,
+    }),
+  );
+}
+
+test('4b · Prints & Tickets hands a free couple the Modern and Cyber Neon files — no sample, no Go Pro', async () => {
+  for (const id of NEWLY_FREE) {
+    const html = await paintPrints(id, false);
+    const name = INVITE_THEMES[id].name;
+    assert.match(html, /data-prints-access="free-theme"/, `${id}: the access line`);
+    assert.match(html, /data-prints-print-ready=""/, `${id}: no print-ready set`);
+    assert.match(html, /data-prints-passes=""/, `${id}: no print-ready passes`);
+    assert.ok(html.includes(`Save · ${name} (PDF)`), `${id}: a piece has no print-ready save`);
+    assert.ok(!html.includes(`Sample · ${name} (JPG)`), `${id}: still offered as a watermarked sample`);
+    assert.doesNotMatch(html, /data-prints-go-pro/, `${id}: still pitched Pro`);
+    assert.match(html, /Classic, Modern and Cyber Neon prints are free and print-ready/);
+  }
+  // Rustic without Pro: still the sample, still the pitch.
+  const rustic = await paintPrints('abaca', false);
+  assert.match(rustic, /data-prints-access="sample"/);
+  assert.match(rustic, /data-prints-go-pro/);
+  assert.ok(rustic.includes('Sample · Rustic (JPG)'));
+  assert.doesNotMatch(rustic, /data-prints-print-ready/);
+});
+
+/* ══ 5 · THE COUPLE'S OWN MEDIA STAYS PRO ═══════════════════════════════════ */
+
+test('5 · a free theme plays its own loop, never the couple’s photo — page, door and print', () => {
+  for (const id of NEWLY_FREE) {
+    assert.equal(heroMayBePageGround(id), false, `${id} lays the couple's own media under the page`);
+    const g = pageGround({ theme: id, ombre: false, heroGround: true });
+    assert.equal(g.heroOnTop, false);
+    assert.equal(g.themeLoop, true, `${id} lost its own loop`);
+  }
+  assert.equal(heroMayBePageGround('abaca'), true);
+  // The door and the print ask the same one rule.
+  assert.match(read('app/[slug]/_lib/hub-look.ts'), /if \(!heroMayBePageGround\(look\.theme\)\)/);
+  assert.match(read('lib/print-set.server.ts'), /heroMayBePageGround\(theme\)\s*\?\s*heroStill\(/);
+});
+
+/* ══ 6 · NO TYPED COUNT, NO TYPED LIST ══════════════════════════════════════ */
+
+test('6a · the Pro list counts the Pro themes from the registry, and its pitch names exactly them', () => {
+  assert.equal(PRO_THEMES_ITEM, `${PRO_THEMES.length} Event Hub themes, invite link included`);
+  assert.ok((WEBSITE_PRO_ITEMS as readonly string[]).includes(PRO_THEMES_ITEM));
+  const blurb = hubProPitchFor(PRO_THEMES_ITEM)!.blurb;
+  for (const t of PRO_THEMES) assert.ok(blurb.includes(t.name), `the pitch drops ${t.name}`);
+  for (const t of FREE_THEMES) assert.ok(!blurb.includes(t.name), `the pitch sells ${t.name}, which is free`);
+  // The source carries no digit and no list — both come from the registry.
+  const items = read('lib/website-pro-items.ts');
+  assert.doesNotMatch(items, /'\d+ Event Hub themes/, 'a typed count is back in the Pro list');
+  assert.doesNotMatch(read('lib/event-hub-pro.ts'), /Rustic, /, 'a typed list of themes is back in the pitch');
+});
+
+function* sourceFiles(dir: string): Generator<string> {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.next' || name === 'blog-batches') continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) yield* sourceFiles(p);
+    else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) yield p;
+  }
+}
+
+test('6b · no code a couple reads counts the themes by hand', () => {
+  /*
+    Two nets. ANYWHERE: a count qualified as the Event Hub's ("9 Event Hub
+    themes", "seven Pro themes", "ten invite themes"). And in any file that
+    KNOWS the registry (imports it, or the Pro list built on it), an
+    unqualified count too ("the other nine themes"). The profile's dashboard
+    skins ("five themes" in lib/help.ts) are a different thing and import
+    neither, so they are not this sweep's business.
+  */
+  const N = '(?:\\d+|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)';
+  const QUALIFIED = new RegExp(`\\b${N}\\s+(?:more\\s+|other\\s+)?(?:Event Hub|Pro|invite)\\s+themes\\b`, 'i');
+  const ANY = new RegExp(`\\b${N}\\s+(?:(?:more|other|Event Hub|Pro|invite)\\s+)?themes\\b`, 'i');
+  const KNOWS = /from '(?:@\/lib\/|\.\/|\.\.\/)*(?:invite-themes|website-pro-items|event-hub-pro)'/;
+  const hits: string[] = [];
+  let scanned = 0;
+  let knowing = 0;
+  for (const root of ['app', 'lib']) {
+    for (const file of sourceFiles(join(WEB, root))) {
+      scanned += 1;
+      const raw = readFileSync(file, 'utf8');
+      const src = stripComments(raw);
+      const knows = KNOWS.test(raw);
+      if (knows) knowing += 1;
+      const m = QUALIFIED.exec(src) ?? (knows ? ANY.exec(src) : null);
+      if (m) hits.push(`${relative(WEB, file)}: "${m[0]}"`);
+    }
+  }
+  assert.ok(scanned > 500, `scanned only ${scanned} files — the sweep is looking at nothing`);
+  assert.ok(knowing > 20, `only ${knowing} files import the registry — the KNOWS net matches nothing`);
+  assert.deepEqual(hits, [], 'a typed theme count — derive it from FREE_THEMES / PRO_THEMES');
+});

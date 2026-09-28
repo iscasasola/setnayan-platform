@@ -11,6 +11,7 @@ import {
   type InviteThemeId,
 } from '@/lib/invite-themes';
 import { resolveInviteGround } from '@/lib/invite-ground';
+import { heroMayBePageGround } from '@/lib/page-ground';
 import { resolveMonogram } from '@/lib/monogram';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
@@ -159,9 +160,14 @@ export async function resolveHubTheme(event: HubLookEvent): Promise<Omit<HubLook
 export async function resolveHubLook(event: HubLookEvent): Promise<HubLook> {
   const look = await resolveHubTheme(event);
 
-  if (look.theme === 'house') {
-    // No presign for a House event — the ground is never drawn, and signing a
-    // URL nothing renders is a round trip per page view for nothing.
+  // 📷 THE COUPLE'S OWN PHOTO BEHIND THE DOOR IS PRO MEDIA — the same one rule
+  // the page ground asks (`heroMayBePageGround`, keyed on the theme's `tier`).
+  // Classic never drew it; neither do Modern and Cyber Neon, free since
+  // 2026-09-29: a free theme shows its own ground. Without this, a lapsed couple
+  // on a free theme would keep a Pro photo on the door their guests meet.
+  if (!heroMayBePageGround(look.theme)) {
+    // No presign — the ground is never drawn, and signing a URL nothing
+    // renders is a round trip per page view for nothing.
     return { ...look, photo: null };
   }
 

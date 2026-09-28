@@ -28,7 +28,10 @@
  *      hide it behind a gradient costs a guest's phone for nothing).
  *   3. HERO ON TOP — the couple's hero photo/video as the page background,
  *      ONLY on a Pro theme. Classic (free) NEVER shows it (owner: *"classic has
- *      no photo or video"*) — whatever the Maker stored.
+ *      no photo or video"*) — whatever the Maker stored. Nor do Modern and
+ *      Cyber Neon, free since 2026-09-29: they play their OWN loop (layer 2),
+ *      and the couple's own media stays Pro. The door photo
+ *      (`resolveHubLook`) and the print still (`loadPrintSet`) ask this too.
  *
  * Pure. No I/O. Client-safe (the layout's scope is a client component).
  */

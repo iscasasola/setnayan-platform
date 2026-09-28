@@ -47,8 +47,10 @@ import { hubOffersAllowed } from '@/lib/event-hub-control';
 import {
   WEBSITE_PRO_ITEMS,
   NOT_SOLD_ON,
+  PRO_THEMES_ITEM,
   type WebsiteProItem,
 } from '@/lib/website-pro-items';
+import { PRO_THEMES, themeNames } from '@/lib/invite-themes';
 
 /** One chip in the nine — `here` is the item this channel is being sold on. */
 export type HubProChip = {
@@ -163,14 +165,15 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
     here for totality (the `Record` is exhaustive) and for the day a channel is
     added — the same reason 'Editorial editing' carries copy it never shows.
   */
-  '9 Event Hub themes, invite link included': {
+  [PRO_THEMES_ITEM]: {
     // Drafted with the Fable model (the owner's standing preference for product
     // copy), 2026-09-13. Its opening clause — "With Event Hub Pro," — is the one
     // edit: this chip is rendered INSIDE the Event Hub Pro offer, so the words
     // named the panel the reader is already looking at.
     headline: 'Your whole Event Hub, in the look you pictured.',
-    blurb:
-      'Choose Rustic, Modern, Cinderella, Luxe, Vintage, Whimsical, Regency, Great Gatsby or Cyber Neon. Each one sets the background film, the colours, the lettering and how every section moves, from your invite link to the last page.',
+    // 🎨 The NAMES come from the registry (owner 2026-09-29: Modern and Cyber
+    // Neon are free now) — a typed list sold two free themes as Pro.
+    blurb: `Choose ${themeNames(PRO_THEMES, 'or')}. Each one sets the background film, the colours, the lettering and how every section moves, from your invite link to the last page.`,
   },
   /*
     THE NINTH (owner "A then", 2026-09-24): Event Hub Pro also unlocks the
@@ -261,4 +264,9 @@ export function resolveHubProOffer(args: {
     // `ProLockPanel`. No new checkout, no new route.
     ctaPath: '/studio/website-pro',
   };
+}
+
+/** The headline + blurb an item is pitched with — read by the tests, which hold the copy to the registry. */
+export function hubProPitchFor(item: WebsiteProItem): { headline: string; blurb: string } | undefined {
+  return PITCH[item];
 }

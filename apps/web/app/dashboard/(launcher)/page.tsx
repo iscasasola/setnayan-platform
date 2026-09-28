@@ -952,7 +952,7 @@ export default async function LauncherPage({
       href: '/dashboard/samahan',
       icon: Users,
       title: `${moreCount} more ${moreCount === 1 ? 'samahan' : 'samahans'}`,
-      subtitle: 'See all your samahans',
+      subtitle: 'See all your groups',
       tone: 'default',
     });
   }

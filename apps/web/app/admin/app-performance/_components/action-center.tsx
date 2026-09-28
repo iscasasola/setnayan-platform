@@ -52,7 +52,7 @@ const QUEUE_CARDS: QueueCardDef[] = [
 
 /** The credits · limits · renewals the DB can't see — named, never numbered. */
 const MANUAL_WATCHLIST: { label: string; todo: string }[] = [
-  { label: 'Suno credits', todo: 'Top up before the next Pakanta batch — no balance API.' },
+  { label: 'Suno credits', todo: 'Top up before the next Music Maker batch — no balance API.' },
   { label: 'Claude API headroom', todo: 'Setnayan AI + contract intelligence draw on this.' },
   { label: 'OpenAI / DALL·E balance', todo: 'Empty balance blocks Animated Monogram generation.' },
   { label: 'Recraft credits', todo: 'Marketing / editorial image generation.' },

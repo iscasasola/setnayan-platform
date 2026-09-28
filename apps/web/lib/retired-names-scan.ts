@@ -1,0 +1,160 @@
+/**
+ * retired-names-scan.ts — finds a RETIRED FEATURE NAME where a person would
+ * read it, and ignores it where only code reads it.
+ *
+ * ── THE RULE (owner, 2026-09-29) ────────────────────────────────────────────
+ * *"Only Papic is customized and all other namings should be generic."*
+ * Pakanta → **Music Maker** · Samahan → **Group** · Alaala → **Memories** ·
+ * Alaga → **Loved ones**. Papic and Patiktok keep their names.
+ * The rename is of WORDS ON A SCREEN. Identifiers are deliberately NOT renamed:
+ * `/studio/pakanta`, `pakanta_song_r2_key`, `samahan_stories`, the `PAKANTA`
+ * SKU code and `lib/alaala-wall.ts` all stay, so old links keep working and
+ * history keeps its keys (DECISION_LOG "ONLY PAPIC KEEPS A CUSTOM NAME").
+ *
+ * So the question a scanner must answer is per OCCURRENCE, not per file: is
+ * this spelling a thing a couple, guest, supplier or admin reads — or is it a
+ * key, a route, a column, a class name, an import path?
+ *
+ * ── HOW IT DECIDES (by AST position, never by a word list of files) ────────
+ * Only two AST positions can put text on a screen: a JSX text child, and a
+ * string/template literal. Comments are never visited, so prose ABOUT the old
+ * names (every docblock in this area has some) cannot trip it.
+ *
+ *   · JSX text                         → every whole-word hit is visible.
+ *   · a literal containing whitespace  → it is prose; a whole-word hit is
+ *                                        visible UNLESS it is glued to code
+ *                                        punctuation (`/pakanta`, `samahan_id`,
+ *                                        `alaala-orb`, `admin.sidebar.pakanta`).
+ *   · a literal with NO whitespace     → it is a key/route/path, EXCEPT when
+ *                                        the whole literal is the Title-case
+ *                                        word itself (`'Pakanta'`, `'Samahans'`)
+ *                                        — that is a label. ALL-CAPS
+ *                                        (`'PAKANTA'`) is the SKU code, kept.
+ *   · an argument to `console.*`       → a server log line; skipped.
+ *
+ * A lowercase bare literal (`'pakanta'`, `'samahan'`) is a key by construction
+ * and is allowed. A capitalised one is a label and is not.
+ *
+ * ── ADDING A NAME LATER IS ONE LINE ─────────────────────────────────────────
+ * Panood is pending the owner's choice of plain-English name. When he picks one, add a row to `RETIRED_NAMES` and fix what the guard
+ * then prints — nothing else in this file changes.
+ */
+import ts from 'typescript';
+
+export interface RetiredName {
+  /** The retired spelling, as it used to be written on screen. */
+  readonly was: string;
+  /** What a person reads now. */
+  readonly now: string;
+  /** Regex SOURCE for the word, case-insensitive; an optional plural `s` is added. */
+  readonly pattern: string;
+}
+
+export const RETIRED_NAMES: readonly RetiredName[] = [
+  { was: 'Pakanta', now: 'Music Maker', pattern: 'pakanta' },
+  { was: 'Samahan', now: 'Group', pattern: 'samahan' },
+  // "Alaala" was also written "Ala Ala" / "Ala-ala" on screen.
+  { was: 'Alaala', now: 'Memories', pattern: 'ala[- ]?ala' },
+  { was: 'Alaga', now: 'Loved ones', pattern: 'alaga' },
+  // Papic and Patiktok KEEP their names (DECISION_LOG 2026-09-29 "PATIKTOK
+  // KEEPS ITS NAME") — never add them here.
+  // PENDING the owner — one line when named:
+  // { was: 'Panood', now: '…', pattern: 'panood' },
+];
+
+export interface RetiredNameFinding {
+  readonly was: string;
+  readonly now: string;
+  readonly line: number;
+  /** The literal / JSX text the hit sits in, collapsed to one line. */
+  readonly text: string;
+}
+
+/** Code punctuation that glues a word into a key, route, path or class name. */
+const GLUED_BEFORE = /[A-Za-z0-9_/.\-@#=?&:$]$/;
+const GLUED_AFTER = /^(?:[A-Za-z0-9_/\-(]|!(?:inner|left)|\.[a-z_])/;
+
+function wordRe(name: RetiredName): RegExp {
+  return new RegExp(`${name.pattern}(?:s)?`, 'gi');
+}
+
+/**
+ * Is the hit at `index` (length `len`) inside `text` a word a person reads?
+ * `jsx` = the text is a JSX child (always prose).
+ */
+function isVisibleHit(text: string, index: number, len: number, jsx: boolean): boolean {
+  const before = text.slice(0, index);
+  const after = text.slice(index + len);
+  // Part of a longer word ("pakantaSong", "xsamahan") is never this name.
+  if (/[A-Za-z0-9]$/.test(before) || /^[A-Za-z0-9]/.test(after)) return false;
+  if (jsx) return true;
+  if (/\s/.test(text.trim())) {
+    return !GLUED_BEFORE.test(before) && !GLUED_AFTER.test(after);
+  }
+  // No whitespace: a key, route or path — unless the literal IS the
+  // capitalised word (a label such as `'Pakanta'`).
+  // ALL-CAPS bare (`'PAKANTA'`) is a SKU code, which is kept on purpose.
+  const bare = text.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '');
+  return bare.length === len && /^[A-Z][a-z]/.test(bare);
+}
+
+function collapse(s: string): string {
+  return s.replace(/\s+/g, ' ').trim().slice(0, 140);
+}
+
+/** Scan one file's SOURCE. `fileName` decides only the parser mode. */
+export function scanRetiredNames(
+  fileName: string,
+  source: string,
+  names: readonly RetiredName[] = RETIRED_NAMES,
+): RetiredNameFinding[] {
+  const kind = fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, kind);
+  const out: RetiredNameFinding[] = [];
+
+  const check = (node: ts.Node, text: string, jsx: boolean) => {
+    for (const name of names) {
+      for (const m of text.matchAll(wordRe(name))) {
+        if (!isVisibleHit(text, m.index!, m[0].length, jsx)) continue;
+        out.push({
+          was: name.was,
+          now: name.now,
+          line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
+          text: collapse(text),
+        });
+      }
+    }
+  };
+
+  const visit = (node: ts.Node) => {
+    // `console.*(…)` text goes to a server log, never to a screen.
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(node.expression.expression) &&
+      node.expression.expression.text === 'console'
+    ) {
+      return;
+    }
+    if (ts.isJsxText(node)) {
+      check(node, node.text, true);
+    } else if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      // An import/export specifier is a path, never a word on a screen.
+      const p = node.parent;
+      if (!(p && (ts.isImportDeclaration(p) || ts.isExportDeclaration(p) || ts.isExternalModuleReference(p)))) {
+        check(node, node.text, false);
+      }
+    } else if (ts.isTemplateExpression(node)) {
+      // Judge the template as ONE piece of prose — its whitespace lives in the
+      // head/spans together — with each `${…}` hole collapsed to a placeholder.
+      const joined =
+        node.head.text + node.templateSpans.map((s) => `\u0000${s.literal.text}`).join('');
+      check(node, joined, false);
+      for (const s of node.templateSpans) visit(s.expression);
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+}

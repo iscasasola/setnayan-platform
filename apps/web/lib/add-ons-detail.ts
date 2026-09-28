@@ -151,7 +151,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
   // add-ons-detail's "no detail key is orphaned" test).
 
   pakanta: {
-    eyebrow: 'Pakanta',
+    eyebrow: 'Music Maker',
     heroTitle: 'A song that’s only yours.',
     tagline:
       'An original wedding song, written from your love story — and the music behind your videos.',

@@ -25,7 +25,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
  * Canonical pillar def: spec corpus `03_Strategy/Alaala_Pillar_2026-06-15.md`.
  */
 
-export const metadata = { title: 'Alaala' };
+export const metadata = { title: 'Memories' };
 export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ eventId: string }> };
@@ -101,7 +101,7 @@ const ARC: ReadonlyArray<Stage> = [
     .map((c) => c.key);
   if (stale.length > 0) {
     throw new Error(
-      `alaala: chip key(s) ${stale.join(', ')} are not in ADD_ONS. They would render ` +
+      `memories: chip key(s) ${stale.join(', ')} are not in ADD_ONS. They would render ` +
         `as their raw slug and link to a 404. Remove the chip, or give it an explicit ` +
         `label + href.`,
     );
@@ -446,7 +446,7 @@ export default async function AlaalaPage({ params }: Props) {
       {/* ── Close — every piece adds to the Alaala ── */}
       <footer className="rounded-2xl border p-5 text-center sm:p-6" style={{ borderColor: 'var(--m-line)' }}>
         <p className="text-[15px]" style={{ color: 'var(--m-slate)' }}>
-          Every piece you add becomes part of your <span className="italic">Alaala</span>.
+          Every piece you add becomes part of your <span className="italic">Memories</span>.
         </p>
         <div className="mt-4">
           <Link
@@ -454,7 +454,7 @@ export default async function AlaalaPage({ params }: Props) {
             className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium"
             style={{ background: 'var(--m-mulberry)', color: '#fff' }}
           >
-            Add to your Alaala
+            Add to your Memories
           </Link>
         </div>
       </footer>

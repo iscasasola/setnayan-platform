@@ -147,7 +147,7 @@ export async function DependentsSection() {
     <section className="mt-10">
       <header className="mb-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
-          Alaga
+          Loved ones
         </h2>
       </header>
 
@@ -199,7 +199,7 @@ export async function DependentsSection() {
                           ? DEPENDENT_KIND_LABELS[d.dependent_kind]
                           : d.relationship
                             ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS]
-                            : 'My alaga'}
+                            : 'My loved one'}
                       {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
                       {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
                     </p>
@@ -424,7 +424,7 @@ export async function DependentsSection() {
            answered its own empty state with a sentence and a way in; the two
            sections disagreed about what an empty list looks like. */
         <p className="mb-4 rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
-          No alaga yet. Add a child, an elder, a pet, or anything else you look
+          No loved ones yet. Add a child, an elder, a pet, or anything else you look
           after — their profile lives inside yours until they take it over.
         </p>
       )}

@@ -185,7 +185,7 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     key: 'samahan-story-sweep',
     kind: 'retention',
     gapMs: 60 * 60 * 1000,
-    what: 'Expired Samahan stories and their files reclaimed',
+    what: 'Expired group stories and their files reclaimed',
     reportsCount: true,
   },
   // ── Operational ──────────────────────────────────────────────────────────

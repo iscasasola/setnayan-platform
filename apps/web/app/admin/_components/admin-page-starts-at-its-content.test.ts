@@ -337,7 +337,7 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
     file: 'live-studio-channels/page.tsx',
     namesItself: 'title="Setnayan channel pool"',
   },
-  { file: 'pakanta/page.tsx', namesItself: 'title="Pakanta queue"' },
+  { file: 'pakanta/page.tsx', namesItself: 'title="Music Maker queue"' },
   { file: 'demand/page.tsx', namesItself: 'title="Demand Radar"' },
   {
     file: 'vendor-recommendations/page.tsx',

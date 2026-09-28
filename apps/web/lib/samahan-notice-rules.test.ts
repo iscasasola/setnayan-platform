@@ -91,7 +91,7 @@ test('the words say who, where, and how long it will be there', () => {
 
   // A missing display name must never render as a blank or "undefined".
   const anon = samahanNoticeCopy('story', '  ', '');
-  assert.match(anon.title, /^Someone added to your samahan$/);
+  assert.match(anon.title, /^Someone added to your group$/);
 });
 
 test('nothing can carry the message text into a notice', () => {

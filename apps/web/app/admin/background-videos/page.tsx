@@ -38,7 +38,7 @@ export default async function AdminBackgroundVideosPage() {
         <p className="text-[14px] leading-relaxed text-ink/70 mt-2 max-w-2xl">
           Six looping background videos for the homepage. The first is the{' '}
           <strong>main background video</strong> (the full-screen looping hero). The other five are the{' '}
-          <strong>pillar icons</strong> shown in the dock at the bottom of the page — Ala Ala, Likha, Plano,
+          <strong>pillar icons</strong> shown in the dock at the bottom of the page — Memories, Likha, Plano,
           Sai, and Tiangge. Upload a clip to a slot, then click <strong>Publish</strong> to make it live. Until a
           slot is published, the homepage keeps its current hero / hides that icon.
         </p>

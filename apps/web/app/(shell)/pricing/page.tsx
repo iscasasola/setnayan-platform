@@ -514,7 +514,7 @@ export default async function PricingPage() {
         { n: 'Browse suppliers + match preview' },
         { n: 'Single-camera livestream', note: 'to YouTube, auto-archived' },
         { n: 'Custom QR for every guest', note: 'free per-guest QR' },
-        { n: 'Ala Ala memory hub' },
+        { n: 'Memories hub' },
         { n: '0% commission on supplier bookings' },
       ],
     },

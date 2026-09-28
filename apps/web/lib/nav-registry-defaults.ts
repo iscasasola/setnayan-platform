@@ -2038,7 +2038,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "admin",
     area: "admin-sidebar",
     route: "/admin/pakanta",
-    label: "Pakanta queue",
+    label: "Music Maker queue",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Music",

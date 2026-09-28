@@ -150,7 +150,7 @@ export const routeMeta = {
     offline: { icon: WifiOff, label: 'Offline daemon' },
     onboarding: { icon: Compass, label: 'Onboarding' },
     operationsHiring: { icon: TrendingUp, label: 'Operations & Hiring' },
-    pakanta: { icon: Music, label: 'Pakanta queue' },
+    pakanta: { icon: Music, label: 'Music Maker queue' },
     paxChanges: { icon: UsersRound, label: 'Pax changes' },
     paymentOptions: { icon: CreditCard, label: 'Payment options' },
     payments: { icon: Banknote, label: 'Payments' },
@@ -202,7 +202,7 @@ export const routeMeta = {
       led: { icon: Sparkles, label: 'LED Background' },
       moodBoard: { icon: Palette, label: 'Mood Board' },
       musicCreator: { icon: Music, label: 'Music Creator' },
-      pakanta: { icon: Music, label: 'Pakanta' },
+      pakanta: { icon: Music, label: 'Music Maker' },
       panood: {
         index: { icon: Tv, label: 'Live Studio' },
         broadcast: { icon: Tv, label: 'Open broadcaster preview' },

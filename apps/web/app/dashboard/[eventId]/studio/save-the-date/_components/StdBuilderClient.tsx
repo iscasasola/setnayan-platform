@@ -892,7 +892,7 @@ export function StdBuilderClient({
                   href={`/dashboard/${eventId}/studio/pakanta`}
                   className="inline-flex items-center gap-1 text-xs font-medium text-ink/55 hover:text-terracotta"
                 >
-                  Use your Pakanta song
+                  Use your Music Maker song
                   <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 </Link>
                 <Link

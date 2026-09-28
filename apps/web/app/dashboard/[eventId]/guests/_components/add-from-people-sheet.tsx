@@ -289,7 +289,7 @@ export function AddFromPeopleSheet({
           </h2>
           <p className="mt-1 text-sm text-ink/60">
             Everyone Setnayan already knows for you — your other events, your
-            People page, and your samahan.
+            People page, and your groups.
           </p>
         </div>
         <button
@@ -317,7 +317,7 @@ export function AddFromPeopleSheet({
       {samahanGroups.length > 0 ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-            Samahan
+            Groups
           </span>
           {samahanGroups.map((g) => {
             const active = activeGroup === g;
@@ -416,7 +416,7 @@ export function AddFromPeopleSheet({
           <p className="py-6 text-center text-sm text-ink/60">
             No one to pick yet. People show up here once you have invited them to
             another of your events, added them on your People page, or joined a
-            samahan with them.
+            group with them.
           </p>
         ) : null}
 

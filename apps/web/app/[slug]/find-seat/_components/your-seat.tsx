@@ -5,6 +5,7 @@ import type { EventTableRow } from '@/lib/seating';
 import type { EntrancePos } from '@/lib/indoor-blueprint';
 import { DoorPass, type DoorPassData } from './door-pass';
 import { Lace, RoomPlaceholder } from './seat-frame';
+import { SeatBackLink } from './seat-back-link';
 
 /**
  * Section A of the prototype — a guest the page already KNOWS (their account is
@@ -41,7 +42,10 @@ export type YourSeatProps = {
   seatsOpen: number;
   /** The 3D room, when this event has one — a quiet link, never a button. */
   venueHref: string | null;
+  /** "Back to the invitation" — `findSeatBackHref`, never a bare `/${slug}`. */
   inviteHref: string;
+  /** The event's address — lets the back link recognise the Maker's canvas. */
+  slug: string;
   /** Two people at the centre (a wedding): "once Indalecio & Claire seat you". */
   plural: boolean;
   pass: DoorPassData | null;
@@ -195,9 +199,9 @@ function NotSeatedYet(p: YourSeatProps) {
       ) : (
         <RoomPlaceholder veil="Your table will appear here" />
       )}
-      <Link href={p.inviteHref} className="mx-6 mt-3.5 block text-center text-sm text-terracotta-700 underline underline-offset-[3px]">
+      <SeatBackLink href={p.inviteHref} slug={p.slug} className="mx-6 mt-3.5 block text-center text-sm text-terracotta-700 underline underline-offset-[3px]">
         Back to the invitation
-      </Link>
+      </SeatBackLink>
     </div>
   );
 }

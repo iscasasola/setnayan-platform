@@ -54,7 +54,9 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['✕ Exit', 'topBar', ['data-maker-tool="exit"', '>Exit<']],
   ['▤ Show / hide the scenes', 'topBar', ['data-maker-tool="scenes"', '>Scenes<']],
   ['▶ Play menu (this scene · the whole stage)', 'play', ['data-maker-tool="play"', 'Play this scene', 'Preview the whole']],
-  ['＋ Add a scene (says "coming next")', 'topBar', ['tool="Add"', 'MAKER_COMING_NEXT.add']],
+  // 2026-09-28 — the ＋ WORKS (DECISION_LOG 2026-09-27 "+ ADD A SCENE"): the shell
+  // draws it from the work area's registration; "coming next" is gone.
+  ['＋ Add a scene', 'topBar', ['tool="Add"', '<AddSceneTool addScene={addScene} />']],
   ['"● Invitation ▾" — Stages + Pages in one picker', 'topBar', ['<MakerBar']],
   ['Desktop · Phone · Both', 'topBar', ['label="View"', "setDevice('desktop')", "setDevice('phone')", 'MAKER_COMING_NEXT.both']],
   ['⊞ Snap grid (a note only)', 'topBar', ['Snap grid', 'MAKER_COMING_NEXT.snap']],

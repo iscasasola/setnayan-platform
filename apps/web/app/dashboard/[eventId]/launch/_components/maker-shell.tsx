@@ -18,6 +18,7 @@ import {
 import {
   MakerContext,
   MAKER_MORE_ROWS_ID,
+  type MakerAddScene,
   type MakerDevice,
   type MakerSelection,
   type MakerState,
@@ -30,6 +31,8 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { MAKER_STAY_FIELD, makerStayReturn } from '@/lib/maker-stay';
 import { announceUnheldWrite } from '@/lib/maker-refresh';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -243,6 +246,9 @@ export function MakerShell({
   }, [eventId]);
 
   const select = useCallback((next: MakerSelection) => setSelection(next), []);
+  /* ＋ ADD A SCENE — registered by the work area (`MakerAddScene`); the toolbar's
+     ＋ and the phone's More ▾ row are drawn from it below. */
+  const [addScene, setAddScene] = useState<MakerAddScene | null>(null);
 
   const value = useMemo<MakerState>(
     () => ({
@@ -257,8 +263,10 @@ export function MakerShell({
       renderStamp,
       storeShell,
       viewAsHref,
+      addScene,
+      setAddScene,
     }),
-    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref],
+    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene],
   );
 
   /* ONE HIGHLIGHT (owner 2026-09-25: "there should also be only one highlighted
@@ -338,10 +346,12 @@ export function MakerShell({
                 }
               />
             ) : null}
+            {/* ＋ ADD A SCENE (DECISION_LOG 2026-09-27 — it works): drawn from
+                what the work area registered. Ready opens its template sheet;
+                refused says why (padlocked when it is Event Hub Pro); nothing
+                in the store shell. On a phone it is the More ▾ row below. */}
             <span className="hidden md:inline-flex">
-              <ComingNext label="Add a scene" note={MAKER_COMING_NEXT.add} align="start" tool="Add">
-                <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </ComingNext>
+              <AddSceneTool addScene={addScene} />
             </span>
           </div>
           <i aria-hidden className="mx-1 hidden h-7 w-px shrink-0 bg-ink/15 md:block" />
@@ -430,9 +440,22 @@ export function MakerShell({
                       Reset this stage…
                     </MenuItem>
                   ) : null}
-                  <MenuItem disabled note={MAKER_COMING_NEXT.add} className="md:hidden">
-                    Add a scene
-                  </MenuItem>
+                  {/* ＋ Add a scene on a phone — the toolbar has no room for it
+                      there, so it is a row here (the same registration). */}
+                  {addScene?.kind === 'ready' ? (
+                    <MenuItem className="md:hidden" onClick={() => { close(); addScene.open(); }}>
+                      <span data-maker-add-scene="">Add a scene</span>
+                    </MenuItem>
+                  ) : addScene?.kind === 'refused' ? (
+                    <MenuItem disabled note={addScene.note} className="md:hidden">
+                      <span data-maker-add-scene="refused" className="inline-flex items-center gap-1.5">
+                        Add a scene
+                        {addScene.locked ? (
+                          <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" />
+                        ) : null}
+                      </span>
+                    </MenuItem>
+                  ) : null}
                   <MenuItem disabled note={MAKER_COMING_NEXT.snap}>
                     Snap grid
                   </MenuItem>
@@ -757,6 +780,50 @@ export function barShouldCollapse(naturalWidth: number, room: number): boolean {
  * A control whose build is the next one: pressing it says so, in one line, in
  * the same glass bubble the house `(i)` uses (`.sn-tip`). Never a dead button.
  */
+/**
+ * ＋ ADD A SCENE in the toolbar, from the work area's registration
+ * (`MakerAddScene`): ready → a tool button that opens its sheet; refused → the
+ * house bubble saying why (`ComingNext`), wearing the padlock and linking to
+ * the unlock when the reason is Event Hub Pro; null → nothing. It can post
+ * nothing itself — the write is the sheet's tile form.
+ */
+function AddSceneTool({ addScene }: { addScene: MakerAddScene | null }) {
+  if (!addScene) return null;
+  if (addScene.kind === 'ready') {
+    return (
+      <button
+        type="button"
+        data-maker-tool="add"
+        data-maker-add-scene=""
+        aria-label="Add a scene"
+        title="Add a scene"
+        onClick={addScene.open}
+        className={MAKER_TOOL_BUTTON}
+      >
+        <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        <span className={MAKER_TOOL_WORD}>Add</span>
+      </button>
+    );
+  }
+  return (
+    <ComingNext
+      label={addScene.locked ? `Add a scene — ${paidMarkLabel('locked', 'Event Hub Pro')}` : 'Add a scene'}
+      note={addScene.note}
+      align="start"
+      tool="Add"
+      dataAttr="refused"
+      mark={
+        addScene.locked ? (
+          <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" />
+        ) : null
+      }
+      link={addScene.locked ? { href: addScene.unlockHref, label: 'See Event Hub Pro' } : null}
+    >
+      <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+    </ComingNext>
+  );
+}
+
 export function ComingNext({
   label,
   note,
@@ -765,6 +832,9 @@ export function ComingNext({
   small = false,
   itemKey,
   tool,
+  mark = null,
+  link = null,
+  dataAttr,
   children,
 }: {
   /** The bar item this chip is (`data-maker-bar-item`). */
@@ -776,6 +846,12 @@ export function ComingNext({
   align?: 'center' | 'start' | 'end';
   chip?: boolean;
   small?: boolean;
+  /** A mark worn over the icon's corner — the padlock (`PaidMark`) when the note is a Pro refusal. */
+  mark?: ReactNode;
+  /** A link after the note — the unlock, when the note is a Pro refusal. */
+  link?: { href: string; label: string } | null;
+  /** The value of `data-maker-add-scene` on the button (the ＋'s tests). */
+  dataAttr?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -821,9 +897,10 @@ export function ComingNext({
           setOpen((o) => !o);
         }}
         data-maker-tool={tool ? tool.toLowerCase() : undefined}
+        data-maker-add-scene={dataAttr}
         className={
           tool
-            ? MAKER_TOOL_BUTTON
+            ? `${MAKER_TOOL_BUTTON} relative`
             : chip
             ? 'sn-press inline-flex min-h-10 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[13.5px] font-semibold text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink md:px-3.5'
             : small
@@ -834,6 +911,7 @@ export function ComingNext({
         {children}
         {tool ? <span className={MAKER_TOOL_WORD}>{tool}</span> : null}
         {chip ? <span aria-hidden className="text-[10px] text-ink/45">ⓘ</span> : null}
+        {mark ? <span className="absolute right-1 top-1 inline-flex rounded-full bg-cream">{mark}</span> : null}
       </button>
       <span
         role="status"
@@ -841,7 +919,17 @@ export function ComingNext({
         style={at ? { position: 'fixed', top: at.top, left: at.left, width: at.width } : undefined}
         className="z-50"
       >
-        <span className="sn-tip-body sn-glass-bare block">{note}</span>
+        <span className="sn-tip-body sn-glass-bare block">
+          {note}
+          {link ? (
+            <>
+              {' '}
+              <Link href={link.href} className="font-semibold text-ink underline underline-offset-2">
+                {link.label}
+              </Link>
+            </>
+          ) : null}
+        </span>
       </span>
     </span>
   );

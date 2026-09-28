@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "03323e8fa8",
+  "generatedFromRef": "8e826b146e",
   "routeCount": 434,
   "destinations": 942,
   "actions": 671,
-  "blocks": 4958,
+  "blocks": 4960,
   "routes": {
     "/": {
       "files": [
@@ -6111,6 +6111,7 @@
       ],
       "blocks": [
         "AddBtn",
+        "AddSceneTool",
         "Chip",
         "ColourRow",
         "ComingNext",
@@ -6144,6 +6145,7 @@
         "Link",
         "LogoLayer",
         "MadeOnce",
+        "MakerAddScene",
         "MakerBar",
         "MakerContext.Provider",
         "MakerDetails",

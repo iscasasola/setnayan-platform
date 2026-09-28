@@ -43,7 +43,7 @@ export function ViewAsFreeStrip() {
     <div
       role="status"
       data-maker-view-as-free=""
-      className="flex shrink-0 items-center justify-between gap-3 border-b border-mulberry/25 bg-mulberry/10 px-3 py-1.5 text-[13px] text-ink"
+      className="flex shrink-0 items-center justify-between gap-3 border-b border-mulberry/25 bg-mulberry/10 px-3 py-0.5 text-[13px] text-ink"
     >
       <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold">
         <EyeOff aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2} />

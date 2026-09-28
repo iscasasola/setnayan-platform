@@ -34,6 +34,7 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
+import { CohostWelcome } from './_components/cohost-welcome';
 
 type Props = {
   children: React.ReactNode;
@@ -635,6 +636,9 @@ export default async function EventLayout({ children, params }: Props) {
               {/* Live "free this weekend" promo announcement (self-gates to null
                   when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
               <PromoFreeWindowBanner />
+              {/* "You are now a co-host…" · CONFIRM — shows until acknowledged
+                  (owner 2026-09-28). Renders nothing for everyone else. */}
+              <CohostWelcome eventId={eventId} userId={user.id} />
               {children}
             </div>
           </div>

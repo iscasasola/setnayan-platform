@@ -196,6 +196,7 @@ export async function isCurrentEventHost(
     .eq('event_id', eventId)
     .eq('user_id', userId)
     .not('accepted_at', 'is', null)
+    .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
     .is('removed_at', null)
     .maybeSingle();
   void data;

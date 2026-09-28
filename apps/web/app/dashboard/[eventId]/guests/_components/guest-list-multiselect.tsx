@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 // Union of both sides of a merge: Mail/Phone are the contact-column icons,
@@ -638,6 +638,8 @@ type Props = {
   recentlyApplied?: boolean;
   /** The guest list is finalized — extra seats stop being editable (owner 2026-09-21). */
   listFinalized?: boolean;
+  /** guest_id → "Co-host" / "Limited helper" (· waiting…) from the live seats. */
+  accessTagByGuest?: Record<string, string>;
 };
 
 export function GuestListMultiselect({
@@ -657,6 +659,7 @@ export function GuestListMultiselect({
   recentlyDeleted,
   recentlyApplied,
   listFinalized = false,
+  accessTagByGuest = {},
 }: Props) {
   // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5). Reused as
   // the role-editor popover's option groups (P2).
@@ -888,6 +891,7 @@ export function GuestListMultiselect({
 
   return (
     <GuestListFinalizedContext.Provider value={listFinalized}>
+    <GuestAccessTagContext.Provider value={accessTagByGuest}>
     <div className="space-y-4">
       {/* Floating bulk-action bar — DESKTOP ONLY (lg+). On phones + tablets
           the carousel's Customize panel + Assign bottom sheet own bulk
@@ -1192,6 +1196,7 @@ export function GuestListMultiselect({
         ))}
       </div>
     </div>
+    </GuestAccessTagContext.Provider>
     </GuestListFinalizedContext.Provider>
   );
 }
@@ -1610,33 +1615,9 @@ function BulkApplyForm({
         />
       </div>
 
-      {/* ⚖ Part of the host — owner 2026-09-20: *"on guestlist. we can also
-          assign if they will be part of the host."* Rides the SAME Apply as
-          role/side/group, because one Apply button is the decision (owner
-          2026-05-23 PM), and writes the `host` hat into `extra_roles` rather
-          than a column — see lib/host-hat.ts for why.
-          ⛔ It does not pin anybody to the top of the list; the CELEBRANT does
-          that, and at most celebrations they are different people. */}
-      <label className="sr-only" htmlFor="bulk-host">
-        Mark selected guests as part of the host
-      </label>
-      <div className="relative">
-        <select
-          id="bulk-host"
-          name="host"
-          defaultValue=""
-          className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-        >
-          <option value="">Hosting…</option>
-          <option value="yes">Part of the host</option>
-          <option value="no">Not part of the host</option>
-        </select>
-        <ChevronDown
-          aria-hidden
-          className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
-          strokeWidth={1.75}
-        />
-      </div>
+      {/* The bulk "Part of the host" picker is RETIRED (owner 2026-09-28:
+          "+Co-host" must be TRUE, so it is derived from a real seat, set one
+          guest at a time on their card's Access line — never a bulk label). */}
 
       {/* Group select — owner directive 2026-05-23 PM: "New Group can be
           placed on the dropdown of Groups". The sentinel option opens
@@ -2286,9 +2267,14 @@ function RsvpText({ status }: { status: RsvpStatus }) {
   );
 }
 
+/** guest_id → "Co-host" / "Limited helper" (· waiting…) — TRUE by construction,
+ *  derived from the live seat (owner 2026-09-28 "make it true"); absent = none. */
+const GuestAccessTagContext = createContext<Record<string, string>>({});
+
 function RoleTexts({ guest, palette }: { guest: GuestRow; palette: RolePalette }) {
   const primary = roleTextStyle(guest.role, palette);
   const extras = guest.extra_roles ?? [];
+  const accessTag = useContext(GuestAccessTagContext)[guest.guest_id];
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
       <span className={`text-xs font-medium ${primary.textClass ?? ''}`} style={primary.style ?? undefined}>
@@ -2307,6 +2293,15 @@ function RoleTexts({ guest, palette }: { guest: GuestRow; palette: RolePalette }
           </span>
         );
       })}
+      {accessTag ? (
+        <span
+          title={accessTag}
+          className="text-[10px] font-medium text-success-800"
+          data-guest-access-tag
+        >
+          +{accessTag}
+        </span>
+      ) : null}
     </span>
   );
 }

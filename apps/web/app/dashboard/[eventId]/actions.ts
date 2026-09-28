@@ -365,6 +365,7 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
       .eq('user_id', user.id)
       .is('removed_at', null)
       .not('accepted_at', 'is', null)
+      .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
       .maybeSingle();
     isHost = !!modRow;
   }
@@ -629,6 +630,7 @@ export async function updateEventMatchCriteria(
       .eq('user_id', user.id)
       .is('removed_at', null)
       .not('accepted_at', 'is', null)
+      .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
       .maybeSingle();
     isHost = !!modRow;
   }
@@ -887,6 +889,7 @@ async function isEventHost(
     .eq('user_id', userId)
     .is('removed_at', null)
     .not('accepted_at', 'is', null)
+    .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
     .maybeSingle();
   return !!modRow;
 }

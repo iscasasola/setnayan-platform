@@ -24,7 +24,7 @@ const USER = 'usr-1';
 type Rows = {
   member?: { member_type: string } | null;
   memberError?: unknown;
-  moderator?: { permissions_json: unknown } | null;
+  moderator?: { permissions_json: unknown; role_subtype?: string } | null;
   coordinatorEvents?: unknown;
   coordinatorError?: unknown;
   me?: unknown;
@@ -40,7 +40,19 @@ function stub(rows: Rows) {
     for (const m of ['select', 'eq', 'not', 'is', 'order', 'limit']) {
       self[m] = () => self;
     }
-    self.maybeSingle = async () => ({ data: result.data, error: result.error ?? null });
+    // `.neq` is HONOURED, not just accepted: the edit gate excludes a limited
+    // helper with `.neq('role_subtype', 'viewer')` (owner 2026-09-28), and a stub
+    // that ignored it would let this suite pass while a helper walked through.
+    const excluded: Array<[string, unknown]> = [];
+    self.neq = (col: string, val: unknown) => {
+      excluded.push([col, val]);
+      return self;
+    };
+    self.maybeSingle = async () => {
+      const row = result.data as Record<string, unknown> | null;
+      const out = row && excluded.some(([c, v]) => row[c] === v) ? null : row;
+      return { data: out, error: result.error ?? null };
+    };
     return self;
   };
 
@@ -105,6 +117,17 @@ test('a view-only delegate is refused, coordinator membership row and all', asyn
   });
   const res = await runAdvance(clients, USER, EVENT, BLOCK);
   assert.equal(res.status, ADVANCE_REFUSED_NOT_COORDINATOR);
+  assert.ok(!advanced(rpcCalls));
+});
+
+test('a LIMITED HELPER is refused even with schedule:edit — they view, never edit', async () => {
+  // Owner 2026-09-28: "Limited Helper … may view but may not edit". The gate
+  // excludes their seat kind outright; the area map is not consulted.
+  const { clients, rpcCalls } = stub({
+    member: { member_type: 'coordinator' },
+    moderator: { permissions_json: { areas: { schedule: 'edit' } }, role_subtype: 'viewer' },
+  });
+  assert.equal((await runAdvance(clients, USER, EVENT, BLOCK)).status, ADVANCE_REFUSED_NOT_COORDINATOR);
   assert.ok(!advanced(rpcCalls));
 });
 

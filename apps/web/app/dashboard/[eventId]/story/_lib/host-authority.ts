@@ -40,6 +40,7 @@ export async function hostUserId(eventId: string): Promise<string | null> {
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .not('accepted_at', 'is', null)
+    .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
     .is('removed_at', null)
     .maybeSingle();
   if (modError) {

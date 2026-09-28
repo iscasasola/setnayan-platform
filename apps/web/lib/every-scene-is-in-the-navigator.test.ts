@@ -196,7 +196,11 @@ test('🛑 a tap only SELECTS — no tile or canvas tap leaves the stage (owner:
   assert.equal(hero.button, 'Open Hero editor');
   assert.equal(fixedScenePanel('story').button, 'Open Love Story editor');
   assert.equal(fixedScenePanel('entourage').button, null, 'the entourage has no editor — it says where it comes from');
-  assert.equal((SHELL.match(/onOpenTool\(/g) ?? []).length, 1, 'only the "Open … editor" button opens a page');
+  // Two deliberate buttons open a page: "Open … editor", and (2026-09-28) the
+  // Main panel's "Change in Details" beside the theme's name — the theme is
+  // chosen on Details. Neither is a tap on a tile or on the canvas.
+  assert.equal((SHELL.match(/onOpenTool\(/g) ?? []).length, 2, 'a new path opens a page');
+  assert.match(SHELL, /<ThemePanel themes=\{themes\} onOpen=\{\(\) => onOpenTool\('details'\)\} \/>/);
   assert.match(SHELL, /data-maker-open-editor=\{f\.tool\}\s+onClick=\{\(\) => onOpenTool\(f\.tool!\)\}/);
 });
 

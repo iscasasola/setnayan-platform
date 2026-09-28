@@ -365,7 +365,8 @@ test('every writer the Maker page binds is either a draft door or a reasoned liv
 const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   [PAGE, /<HubSavesImmediately\b[^>]*\/>[\s{}]*<LaunchStdButton\b/, 'go-live publishes the page'],
   ['app/dashboard/[eventId]/launch/_components/hub-stage.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
-  [`${C}editor-shell.tsx`, /Choose your theme[\s\S]{0,200}<\/Link>[\s{}]*<HubSavesImmediately\b/, 'the theme picker writes events.invite_theme live'],
+  // (The Main panel's theme link left this list on 2026-09-28: the theme is
+  // picked on Details into the DRAFT now — `the-theme-is-drafted.test.ts`.)
   // Phase 9 · Details: the address (the shipped SlugField — never drafted) and
   // the E-Gifts thank-you message (PabuyaMessageEditor posts from a transition).
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],

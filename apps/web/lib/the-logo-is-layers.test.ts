@@ -48,6 +48,7 @@ import {
   writeMaskMarkup,
   writeRevealCells,
   writeRevealPlan,
+  revealLayersAt,
   writePartPassages,
   reversedWrite,
   logoInSeconds,
@@ -280,6 +281,34 @@ test('5 · each part follows only the pen that is on it — never early because 
   assert.equal(untouched?.length, whole.length);
 });
 
+test('5 · one path per band — no cell seams, and the soft tip leads the pen', () => {
+  const write = { w: 60, pts: [{ x: 100, y: 500 }, { x: 900, y: 500 }] };
+  const mask = writeMaskMarkup('m', { w: 1000, h: 1000, write }, 0.5);
+  assert.equal((mask.match(/<path /g) ?? []).length, 3, 'the reveal must be at most three paths (solid + a two-band tip), not a path per cell');
+  const cells = writeRevealCells(write, 1000, 1000);
+  const r = revealLayersAt(cells, 0.5);
+  assert.ok(r.solid && r.near && r.far, 'the tip is missing');
+  assert.equal(revealLayersAt(cells, 0).solid, '', 'something shows before the pen starts');
+  assert.equal(revealLayersAt(cells, 1).near, '', 'the tip outlives the pen');
+});
+
+test('5 · the pen CROSSING a part does not draw it — the pass along it does', () => {
+  // A thin line (y 490…510, x 100…900, with a gap at x 440…560) and a big
+  // stroke across it (x 450…550, every y). The pen runs along the thin line —
+  // crossing the big stroke — then turns and runs down the big stroke.
+  const thinL = (x: number, y: number) => y >= 490 && y <= 510 && x >= 100 && x <= 440;
+  const thinR = (x: number, y: number) => y >= 490 && y <= 510 && x >= 560 && x <= 900;
+  const big = (x: number, y: number) => x >= 450 && x <= 550 && y >= 0 && y <= 1000;
+  const covers = (k: number, x: number, y: number) => [thinL, thinR, big][k]!(x, y);
+  const write = { w: 60, pts: [{ x: 100, y: 500 }, { x: 900, y: 500 }, { x: 900, y: 100 }, { x: 500, y: 100 }, { x: 500, y: 950 }] };
+  const plan = writeRevealPlan(write, 1000, 1000, 3, covers);
+  const firstBig = Math.min(...(plan[2] ?? []).map((c) => c.t));
+  const lastThinR = Math.max(...(plan[1] ?? []).map((c) => c.t));
+  assert.ok(firstBig > lastThinR, `the big stroke starts at ${firstBig.toFixed(3)}, before the thin line has finished (${lastThinR.toFixed(3)}) — the crossing drew it`);
+  const [, , pBig] = writePartPassages(write, 3, covers);
+  assert.ok((pBig?.start.y ?? 0) < 200, 'the big stroke is numbered at the crossing, not where its own pass begins');
+});
+
 test('5 · the editor numbers each part where the pen first reaches it — and can flip a backwards trace', () => {
   // Parts A (x 100…480) and B (x 500…900); a third part C the pen never touches.
   const inA = (x: number, y: number) => x >= 100 && x <= 480 && y >= 400 && y <= 600;
@@ -308,6 +337,9 @@ test('5 · the editor and the player find the parts the same way', () => {
   }
   assert.match(editor, /data-logo-write-ends/, 'the trace no longer shows its Start and End');
   assert.match(editor, /reversedWrite\(layer\.write/, 'a backwards trace can no longer be flipped');
+  // owner 2026-09-28 "we should be able to rename these layers"
+  assert.match(editor, /data-logo-layer-name/, 'a layer can no longer be renamed');
+  assert.match(editor, /onChange\(\{ name: /);
 });
 
 test('5 · a long, slow trace keeps its END — thinned evenly, never cut', () => {
@@ -353,7 +385,11 @@ test('5 · the player follows the pen with a path, and traces the outline withou
   assert.match(src, /createElementNS\(NS, 'mask'\)/);
   assert.match(src, /writeRevealPlan\(write, w, h, parts\.length, covers\)/, 'the reveal must be the pen’s cells per part, not a brush');
   assert.match(src, /part\.setAttribute\('mask'/, 'each part must carry its own reveal');
-  assert.match(src, /penTime\(cell\.t\)/, 'each cell must show when the pen reaches it');
+  // 🧈 owner 2026-09-28 "i see unsmooth effects": one growing shape per part,
+  // redrawn once a frame — never an animation per cell (that stuttered and striped).
+  assert.match(src, /revealLayersAt\(b\.cells, p\)/, 'the reveal is not one growing shape per part');
+  assert.match(src, /requestAnimationFrame\(paint\)/);
+  assert.doesNotMatch(src, /piece\.animate\(/, 'an animation per cell is back — it stutters on a phone');
   assert.match(src, /strokeDashoffset: len \+ 1 \}, \{ strokeDashoffset: 0 \}/, 'without a path the outline must trace on');
   // owner 2026-09-28 "the start started with 2 points. i should have started on
   // one": each outline waits for the one before it — one pen, one start.

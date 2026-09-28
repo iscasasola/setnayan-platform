@@ -39,7 +39,9 @@ const SCOPE_DIRS = [
   `${EVENT}/website/_components`,
   `${EVENT}/story/_components`,
 ];
-const SCOPE_FILES = [`${EVENT}/website/widgets/page.tsx`, `${EVENT}/guests/invite/_components/invite-theme-picker.tsx`];
+// The theme picker moved into the Maker's Details (launch/_components, walked
+// above) on 2026-09-28 — the Guest list no longer holds one.
+const SCOPE_FILES = [`${EVENT}/website/widgets/page.tsx`];
 
 function walk(rel: string): string[] {
   const out: string[] = [];

@@ -18,12 +18,14 @@ const read = (...p: string[]) => stripComments(readFileSync(join(G, ...p), 'utf8
 test('the guest list renders the invite panel in its own body for the share tab', () => {
   const page = read('page.tsx');
   assert.match(page, /gview === 'share' \? \(\s*<InvitePanel\b/, 'the share tab no longer renders the panel in the body');
-  assert.match(page, /returnTo="guests-share"/, 'saving a look from the tab would throw the couple off the guest list');
+  // (`returnTo` left with the look picker on 2026-09-28 — the panel saves nothing
+  // that redirects now; the theme is chosen in the Maker's Details.)
+  assert.match(page, /<InvitePanel eventId=\{eventId\} \/>/, 'the share tab passes the panel something it no longer takes');
 });
 
 test('both doors render ONE panel — no second copy of the invite to drift', () => {
   const invitePage = read('invite', 'page.tsx');
-  assert.match(invitePage, /<InvitePanel\b[\s\S]*?returnTo="invite"/, 'the invite page stopped using the shared panel');
+  assert.match(invitePage, /<InvitePanel eventId=\{eventId\} \/>/, 'the invite page stopped using the shared panel');
   // The markup lives once. If the invite page grows its own QR again, the two
   // doors can show two different links.
   assert.ok(!/QRCode\.toString\(/.test(invitePage), 'the invite page builds its own QR again — a second copy of the panel');

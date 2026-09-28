@@ -11,6 +11,7 @@ import {
   dieCutFor,
   formatFamilyOf,
   formatsFor,
+  isPrintPieceKey,
   menuHasDishes,
   type MenuMoment,
   type PrintFormat,
@@ -65,7 +66,14 @@ export function MakerPrints({
   formats,
   seatPlan = 'none',
   menu = { saved: [], caterer: [], suggestions: [], flash: null },
+  previewVersion = null,
 }: {
+  /**
+   * ⚡ The hash of everything the pieces are drawn from (`printInputsVersion`),
+   * put in each on-screen preview's address as `v` — a versioned preview is
+   * cached `immutable` by the route. Null (the read failed): the old 60 s.
+   */
+  previewVersion?: string | null;
   /**
    * THE MENU CARD'S SOURCES (owner 2026-09-28, "add to print out our meals for
    * tonight"): the couple's saved menu, their booked caterer's package lines
@@ -94,12 +102,29 @@ export function MakerPrints({
   const t = INVITE_THEMES[theme];
   const themed = isThemedPrint(theme);
   const spot = spotLayersFor(theme);
-  const sizes = `&pass_format=${formats.pass.id}&invitation_format=${formats.invitation.id}&card_format=${formats.card.id}`;
+  /**
+   * ⚡ A PIECE'S ADDRESS CARRIES ITS OWN SIZE ONLY (owner 2026-09-28: the
+   * boarding-pass preview took ~8 s). Every address used to carry all three
+   * families' sizes, so picking a PASS size changed the invitation's address
+   * too, and every preview on the panel was fetched again. The whole set
+   * (`set`) is drawn in every family's size, so it alone carries all three.
+   */
+  const sizesFor = (piece: string, family?: PrintFormat['for'], format?: PrintFormatId) => {
+    const f = { pass: formats.pass.id, invitation: formats.invitation.id, card: formats.card.id };
+    if (family && format) f[family] = format;
+    if (piece === 'set') return `&pass_format=${f.pass}&invitation_format=${f.invitation}&card_format=${f.card}`;
+    const fam = isPrintPieceKey(piece) ? formatFamilyOf(piece) : null;
+    return fam ? `&${fam}_format=${f[fam]}` : '';
+  };
   /** A piece in the theme on screen (the saved one unless previewing). */
-  const q = (piece: string, mode: 'screen' | 'sample' | 'print') =>
-    `/api/hub-print/${piece}?event=${eventId}&mode=${mode}${theme !== savedTheme ? `&theme=${theme}` : ''}${sizes}`;
+  const q = (piece: string, mode: 'screen' | 'sample' | 'print', format?: PrintFormatId) =>
+    `/api/hub-print/${piece}?event=${eventId}&mode=${mode}${theme !== savedTheme ? `&theme=${theme}` : ''}${sizesFor(
+      piece,
+      format && isPrintPieceKey(piece) ? (formatFamilyOf(piece) ?? undefined) : undefined,
+      format,
+    )}${mode === 'screen' && previewVersion ? `&v=${previewVersion}` : ''}`;
   /** The same piece in CLASSIC — print-ready and free for every event. */
-  const classic = (piece: string) => `/api/hub-print/${piece}?event=${eventId}&mode=print&theme=${CLASSIC_PRINT_THEME}${sizes}`;
+  const classic = (piece: string) => `/api/hub-print/${piece}?event=${eventId}&mode=print&theme=${CLASSIC_PRINT_THEME}${sizesFor(piece)}`;
   const themeWord = t.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const file = {
     classic: (p: string) => printFileName(slug, p),
@@ -267,7 +292,7 @@ export function MakerPrints({
           </div>
 
           <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" data-prints-pieces="">
-            {PRINT_SET_KEYS.map((k) => {
+            {PRINT_SET_KEYS.map((k, i) => {
               const spec = PRINT_PIECES[k];
               const fam = formatFamilyOf(k);
               // The Menu is NEVER offered blank: with no dishes its card shows the
@@ -282,6 +307,17 @@ export function MakerPrints({
                     src={q(k, 'screen')}
                     alt={`${spec.label} — ${t.name}`}
                     label={spec.label.toLowerCase()}
+                    /* ⚡ The first piece draws first; the rest wait their turn. */
+                    priority={i === 0}
+                    /* …and a piece with its OWN size picker warms its other sizes, so a
+                       pick is instant. Only those three: warming every piece of the
+                       invitation family too doubled the first open's server requests
+                       (9 → 18, local harness) for pictures nobody had asked to see. */
+                    prefetch={
+                      fam && (k === 'invitation' || k === 'pass' || k === 'card')
+                        ? formatsFor(fam).filter((f) => f.id !== formats[fam].id).map((f) => q(k, 'screen', f.id))
+                        : []
+                    }
                   />
                   <p className="text-sm font-semibold text-ink">{spec.label}</p>
                   <p className="text-xs text-ink/60">

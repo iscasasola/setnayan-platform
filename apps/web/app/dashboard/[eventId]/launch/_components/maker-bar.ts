@@ -67,7 +67,7 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
    ＋ opens the template sheet, and the scene goes into the draft. */
 export const MAKER_COMING_NEXT: Record<'hero' | 'snap' | 'both', string> = {
   hero: 'One hero for every stage and the poster is coming in the next build — for now this sets the photo at the top.',
-  snap: 'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone. Placing things freely comes in the next build.',
+  snap: 'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone.',
   both: 'Desktop and phone side by side is coming in the next build — switch between them for now.',
 };
 

@@ -1223,10 +1223,12 @@ export function EditorialEditor({
           {isPro ? 'Move any section up or down.' : 'This is the default order.'} Your words and
           your song always close the paper.
         </p>
+        {/* E4 (owner 2026-09-25): reordering and hiding Post Event's scenes is
+            FREE in the Event Hub Maker — say so here instead of selling it. */}
         {!isPro ? (
-          <ProUpsellLine eventId={eventId}>
-            Arrange your story your way with Editorial PRO.
-          </ProUpsellLine>
+          <p className="mt-1 text-xs text-ink/60">
+            Move your story&rsquo;s scenes earlier or later — free — in the Event Hub Maker, on Post Event.
+          </p>
         ) : null}
 
         <ol className="mt-4 space-y-1.5">

@@ -1,5 +1,6 @@
 'use client';
 
+import { PaidMark } from '@/app/_components/paid-mark';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   SCENE_BUILT_ON_LABEL,
@@ -11,6 +12,13 @@ import {
 } from '@/lib/scene-templates';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { PickMenu } from './pick-menu';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { CUSTOM_SECTION_TYPES } from '@/lib/custom-sections';
+
+/** The six scenes of their own, shared across every stage (E5). */
+const MAX_OWN_SCENES = CUSTOM_SECTION_TYPES.length;
+import type { PostEventPreset } from '@/lib/post-event-presets';
 
 /** Desktop · Phone · Both — one dropdown (owner: a set of choices is one PickMenu, never a pill row). */
 const SCENE_VIEW_OPTIONS = [
@@ -53,7 +61,17 @@ export function SceneTemplatePicker({
   onOpenChange,
   onPick,
   tour = null,
+  presets = null,
 }: {
+  /**
+   * 🎞 POST EVENT'S OWN "+" (owner 2026-09-25: *"scene creation will have
+   * different preset scenes as well"*) — the twelve presets instead of the 25
+   * templates. Each tile posts the SAME form, plus `post_event_preset`; every
+   * one is ◆ Pro (E3) and a tap still places it in the draft (try-then-pay —
+   * Apply is where Pro is asked). `used` = the couple's own scenes across every
+   * stage (six, shared — E5).
+   */
+  presets?: { items: readonly PostEventPreset[]; used: number; ownsPro: boolean } | null;
   /**
    * Controlled open state, for a sheet with a second door (the Maker's toolbar
    * ＋ opens the same "Add a scene" sheet as the navigator's button). Absent →
@@ -180,6 +198,18 @@ export function SceneTemplatePicker({
             ) : null}
           </div>
           {tour}
+          {presets ? (
+            <PresetTiles
+              presets={presets}
+              action={action}
+              hidden={hidden}
+              draft={draft}
+              view={view}
+              onPick={onPick}
+            />
+          ) : null}
+          {presets ? null : (
+          <>
           <p className="mt-1 text-[0.62rem] text-ink/50">
             ★ the four approved arrangements · shown{' '}
             {view === 'desktop' ? 'as on a desktop' : view === 'phone' ? 'as on a phone' : 'desktop · phone'} · each
@@ -227,8 +257,90 @@ export function SceneTemplatePicker({
               </div>
             </div>
           ))}
+          </>
+          )}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * THE TWELVE, as tiles — a real mini picture of the template each is drawn
+ * with, its name, the template's name small, ◆ (Pro — never a padlock: a tap
+ * still places it), and ⓘ for its purpose. The used slots are dots, not a
+ * warning; with all six used the tiles say so and post nothing.
+ */
+function PresetTiles({
+  presets,
+  action,
+  hidden,
+  draft,
+  view,
+  onPick,
+}: {
+  presets: { items: readonly PostEventPreset[]; used: number; ownsPro: boolean };
+  action: (formData: FormData) => void | Promise<void>;
+  hidden: Readonly<Record<string, string>>;
+  draft: boolean;
+  view: SceneView;
+  onPick?: (template: number) => void;
+}) {
+  const full = presets.used >= MAX_OWN_SCENES;
+  return (
+    <div data-post-event-presets="">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="text-[0.7rem] font-semibold text-ink">Six slots</span>
+        <span aria-label={`${presets.used} of ${MAX_OWN_SCENES} used`} className="flex gap-1">
+          {Array.from({ length: MAX_OWN_SCENES }, (_, i) => (
+            <span key={i} aria-hidden className={`h-2 w-2 rounded-full ${i < presets.used ? 'bg-ink' : 'bg-ink/15'}`} />
+          ))}
+        </span>
+        <span className="text-[0.7rem] text-ink/60">{presets.used} used · shared with your other stages</span>
+      </div>
+      <p className="mt-1 text-[0.7rem] text-ink/65" data-post-event-presets-note="">
+        {full
+          ? 'You have all six of your own scenes. Remove one you are not using to add another.'
+          : presets.ownsPro
+            ? 'Each goes into your draft — guests see it when you press Apply.'
+            : 'Every preset is part of Event Hub Pro — try it now; Pro is asked for when you press Apply.'}
+      </p>
+      <div className={`mt-2 grid gap-2 ${view === 'desktop' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
+        {presets.items.map((p) => {
+          const t = SCENE_TEMPLATES[p.template];
+          return (
+            <form key={p.id} action={action} onSubmit={() => onPick?.(p.template)} className="relative">
+              {draft ? <HubDraftField /> : null}
+              {Object.entries(hidden).map(([k, v]) => (
+                <input key={k} type="hidden" name={k} value={v} />
+              ))}
+              <input type="hidden" name="template" value={String(p.template)} />
+              <input type="hidden" name="post_event_preset" value={p.id} />
+              <button
+                type="submit"
+                disabled={full}
+                data-post-event-preset={p.id}
+                className="flex w-full flex-col gap-1 rounded-md p-1.5 text-left transition-colors duration-sn-control ease-sn hover:bg-ink/5 disabled:opacity-45"
+              >
+                <span className="flex justify-center">
+                  <Thumb boxes={view === 'desktop' ? t.thumb.desk : t.thumb.phone} shape={view === 'desktop' ? 'desk' : 'phone'} hideMedia={false} word={p.name} />
+                </span>
+                <span className="flex items-center gap-1 pr-7 text-[0.7rem] font-semibold leading-tight text-ink">
+                  {/* ◆ marks what Pro covers — the diamond, never a padlock: the tap still places it (2026-09-29). */}
+                  <PaidMark state="unlocked" size="xs" label="Part of Event Hub Pro — asked for when you press Apply" />
+                  {p.name}
+                </span>
+                <span className="text-[0.62rem] leading-tight text-ink/60">{p.fields}</span>
+              </button>
+              <span className="absolute right-1 top-[calc(100%-2.6rem)]">
+                <InfoTip label="" ariaLabel={`About ${p.name}`} align="end">
+                  {p.purpose}
+                </InfoTip>
+              </span>
+            </form>
+          );
+        })}
+      </div>
     </div>
   );
 }

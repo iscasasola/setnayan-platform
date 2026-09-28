@@ -70,6 +70,7 @@ import {
   isHubResetScope,
   mergeHubDraft,
   planHubDraftApply,
+  presetSceneOf,
   undoHubDraft,
   type HubDraftActionResult,
   type HubDraftItem,
@@ -78,12 +79,13 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
-import { HUB_MAIN_GROUND_KEY, isHubMainFollow, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { HUB_MAIN_GROUND_KEY, isHubMainFollow, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import { applyPostEventItems, postEventArrangementOf } from '@/lib/post-event-draft';
+import { postEventPreset } from '@/lib/post-event-presets';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -448,6 +450,9 @@ export async function hubDraftAction(
         (remaining.widgets[item.widgetType] ??= {}).main = item.value as HubMainGround | null;
       } else if (item.field === 'mode') {
         (remaining.widgets[item.widgetType] ??= {}).mode = item.value as 'auto' | 'shown' | 'hidden';
+      } else if (item.field === 'is_visible') {
+        // 🎞 A held Post Event preset scene keeps its drafted showing for the Apply after Pro.
+        (remaining.widgets[item.widgetType] ??= {}).is_visible = item.value as boolean;
       }
     }
     await writeHubDraft(supabase, eventId, { v: 1, ...remaining, history: [] }, snapshot);
@@ -456,7 +461,15 @@ export async function hubDraftAction(
     revalidateGuestSite(typeof ownRow.slug === 'string' ? ownRow.slug : null);
     revalidatePath(`/dashboard/${eventId}/launch`);
 
-    const label = (t: WidgetType) => WIDGET_CATALOG_BY_TYPE[t]?.label ?? 'A section';
+    /* 🎞 A held Post Event preset scene is named by its preset, where it lives —
+       "Post Event · your scene “The Toast”" — so the Apply sheet can say what
+       Pro unlocks, by name and place. */
+    const label = (t: WidgetType) => {
+      const row = live.widgets.find((r) => r.widget_type === t);
+      const drafted = current.widgets[t]?.canvas;
+      const preset = postEventPreset(presetSceneOf(drafted !== undefined ? (drafted ?? {}) : sanitizeHubCanvas(row?.config_json)));
+      return preset ? `Post Event · your scene “${preset.name}”` : (WIDGET_CATALOG_BY_TYPE[t]?.label ?? 'A section');
+    };
     return done(
       toWrite.length,
       [

@@ -1293,6 +1293,19 @@ export default async function WebsiteEditorPage({
           return d !== null && d >= 0 ? d : null;
         })(),
       }}
+      /* 🎞 Post Event's twelve presets — every couple may try one in the draft
+         (Pro is asked for at Apply, E3); six of their own, shared across stages
+         (E5). Hidden in the store shell (a Pro feature there is a paid pitch). */
+      postEventPresets={
+        storeShell
+          ? null
+          : {
+              action: addCustomSection,
+              returnTo: `/dashboard/${eventId}/launch`,
+              used: allWidgets.filter((w) => isCustomSectionType(w.widget_type)).length,
+              ownsPro,
+            }
+      }
       addScene={
         storeShell
           ? null

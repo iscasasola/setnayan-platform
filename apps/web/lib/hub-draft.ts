@@ -1040,6 +1040,11 @@ export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas): 
 
 const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(config);
 
+/** The Post Event preset a scene was seeded from, or null (`lib/post-event-presets.ts`). */
+export function presetSceneOf(canvas: HubSectionCanvas): string | null {
+  return canvas.postEventPreset ?? null;
+}
+
 /**
  * The Main background, live → drafted (Maker Phase 10). All of it is LOOK — the
  * owner's "making media a background is pro", and "Adaptive theme is for PRO":
@@ -1102,11 +1107,18 @@ export function classifyHubDraft(
       orphans.push(type);
       continue;
     }
+    /* 🎞 A POST EVENT PRESET SCENE IS PRO TO SHOW (owner 2026-09-25, E3 —
+       all twelve, word-only ones included). It was added HIDDEN and drafted
+       shown (`addCustomSection`), so a free couple tries it in the draft and
+       Apply holds the showing; hiding it again is always free. */
+    const preset = presetSceneOf(w.canvas !== undefined ? (w.canvas ?? {}) : liveCanvasOf(row.config_json));
     if (w.mode !== undefined && !row.is_always_on && w.mode !== (row.mode ?? 'auto')) {
-      items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'mode', value: w.mode, change: 'change', pro: false });
+      const showing = preset && w.mode !== 'hidden';
+      items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'mode', value: w.mode, change: showing ? 'add' : 'change', pro: Boolean(showing) });
     }
     if (w.is_visible !== undefined && !row.is_always_on && w.is_visible !== (row.is_visible ?? true)) {
-      items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'is_visible', value: w.is_visible, change: 'change', pro: false });
+      const showing = preset && w.is_visible === true;
+      items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'is_visible', value: w.is_visible, change: showing ? 'add' : 'change', pro: Boolean(showing) });
     }
     if (w.display_order !== undefined && !row.is_always_on && w.display_order !== row.display_order) {
       items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'display_order', value: w.display_order, change: 'change', pro: false });
@@ -1236,6 +1248,9 @@ export function planHubDraftApply(
       const w = (remaining.widgets[item.widgetType] ??= {});
       if (item.field === 'canvas') w.canvas = item.value as HubSectionCanvas | null;
       else if (item.field === 'main') w.main = item.value as HubMainGround | null;
+      // A held preset scene keeps its drafted showing, so Apply after Pro finds it.
+      else if (item.field === 'is_visible') w.is_visible = item.value as boolean;
+      else if (item.field === 'mode') w.mode = item.value as HubSectionMode;
     }
   }
   return { apply, refused, remaining, orphans };

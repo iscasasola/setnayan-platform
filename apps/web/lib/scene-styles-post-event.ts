@@ -71,7 +71,7 @@ export const POST_EVENT_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
   },
   {
     type: 'photo-notes',
-    label: 'Photo notes',
+    label: 'Photo Notes',
     styles: [
       { id: 'photo-note', name: 'Photo + note card', line: 'The photo on top, what they said under it, signed.', stages: PE },
       { id: 'scrapbook-pairs', name: 'Scrapbook pairs', line: 'Photo and note side by side, alternating sides.', stages: PE },
@@ -128,7 +128,7 @@ export const POST_EVENT_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
   },
   {
     type: 'live-stream',
-    label: 'Live Stream',
+    label: 'Watch Live',
     styles: [
       { id: 'replay-card', name: 'Watch-the-replay card', line: 'A poster, one line, one button.', stages: PE },
       { id: 'full-replay', name: 'Full replay', line: 'The replay large, with the broadcast’s own numbers under it.', template: 14, stages: PE },

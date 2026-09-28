@@ -74,6 +74,7 @@ import {
 } from '@/lib/hub-draft-store';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { postEventPreset } from '@/lib/post-event-presets';
 import {
   SECTION_CONTENT_EVENT_COLUMNS,
   computeSectionContentMap,
@@ -1020,17 +1021,28 @@ export async function addCustomSection(formData: FormData): Promise<void> {
 
   await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
 
+  /* 🎞 ONE OF POST EVENT'S TWELVE PRESETS (`lib/post-event-presets.ts`) — Pro,
+     but TRIED IN THE DRAFT, PAID AT APPLY (owner 2026-09-25, E3; strategy §4:
+     "a free couple can place The Toast in the draft … Apply refuses the Pro
+     keys without the unlock"). So a preset is refused only when it is NOT a
+     draft write: the row goes in HIDDEN (a guest never meets it), and showing
+     it is the Pro key `planHubDraftApply` holds (`presetSceneShowing`). */
+  const preset = postEventPreset(formData.get('post_event_preset'));
+  const triedInDraft = preset !== null && isHubDraftWrite(formData);
+
   /* ⛔ PRO, CHECKED HERE AND NOT ONLY IN THE EDITOR. Adding a section is
      arranging the page, not fixing a word we wrote (owner 2026-09-22). The
      editor hides the button for a free couple; this refuses the hand-crafted
      POST. Admin client for the SKU read, as `website/colors/actions.ts` does:
      orders RLS is purchaser-scoped, and a co-host who did not place the order
      must still resolve the event's Pro. */
-  await refuseCustomSectionWithoutPro(eventId, {
-    intent: 'add',
-    ownsPro: await eventCoupleWebsiteProActive(createAdminClient(), eventId),
-    hadContent: false,
-  });
+  if (!triedInDraft) {
+    await refuseCustomSectionWithoutPro(eventId, {
+      intent: 'add',
+      ownsPro: await eventCoupleWebsiteProActive(createAdminClient(), eventId),
+      hadContent: false,
+    });
+  }
   const supabase = await createClient();
 
   const { data: rows, error: readErr } = await supabase
@@ -1059,7 +1071,8 @@ export async function addCustomSection(formData: FormData): Promise<void> {
      with that template and its default effect. Adding is already Pro (above),
      so the default motion is written too. A POST with no template (an older
      form) still adds the plain section it always did. */
-  const template = sceneTemplateIdFromForm(formData.get('template'));
+  // A preset carries its own template — the form's is never trusted over it.
+  const template = preset ? preset.template : sceneTemplateIdFromForm(formData.get('template'));
 
   /* 💾 THE MAKER ADDS INTO THE DRAFT (DECISION_LOG 2026-09-27, "+ ADD A SCENE"
      WORKS IN THE EVENT HUB MAKER). The row is inserted HIDDEN
@@ -1070,7 +1083,9 @@ export async function addCustomSection(formData: FormData): Promise<void> {
   if (isHubDraftWrite(formData)) {
     const drafted = await draftedDisplayOrders(eventId);
     const end = Math.max(bottom, ...Object.values(drafted)) + 1;
-    const canvas = template ? (sceneTemplateDefaults(template, true) as HubSectionCanvas) : null;
+    const canvas = template
+      ? ({ ...sceneTemplateDefaults(template, true), ...(preset ? { postEventPreset: preset.id } : {}) } as HubSectionCanvas)
+      : null;
     const { data: added, error: addErr } = await supabase
       .from('invitation_widgets')
       .insert({
@@ -1079,7 +1094,9 @@ export async function addCustomSection(formData: FormData): Promise<void> {
         display_order: end,
         ...ADDED_SCENE_LIVE,
         is_always_on: false,
-        ...(canvas ? { config_json: { canvas } } : {}),
+        /* A preset starts pre-titled with its own name; its words are the
+           couple's to write (an empty scene is never shown to a guest). */
+        ...(canvas ? { config_json: { canvas, ...(preset ? { title: preset.name } : {}) } } : {}),
       })
       .select('widget_id')
       .single();

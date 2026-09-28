@@ -225,7 +225,8 @@ test('T · the toolbar ＋ is not "coming next" any more — it opens the same d
     }
   }
   console.log(`[add-a-scene] "+ Add a scene" sheets, all drafted: ${adds}`);
-  assert.equal(adds, 2);
+  // 3 since 2026-09-29: Post Event's own "+" (its twelve presets) is the third.
+  assert.equal(adds, 3);
 });
 
 test('the stage rule: a scene of their own may be added on every stage today (one function to re-point)', () => {

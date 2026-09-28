@@ -36,7 +36,7 @@
 import { resolveSceneStyle, sanitizeSceneStyleId, sceneStyleOptions, type SceneStyle } from '@/lib/scene-styles';
 
 /** The owner's proposed plain name for Papic's photo-anchored guest messages ("Kwento"). */
-export const PHOTO_NOTES_LABEL = 'Photo notes';
+export const PHOTO_NOTES_LABEL = 'Photo Notes';
 /** The Post Event bar's word for the team (owner 2026-09-27: "Suppliers", never "Vendors"). */
 export const SUPPLIERS_LABEL = 'Suppliers';
 
@@ -65,7 +65,7 @@ export const POST_EVENT_SCENE_TYPE_LABEL: Readonly<Record<string, string>> = {
   'specific-memory': 'Specific Memory',
   'papic-challenge': 'Papic Challenge',
   'thank-you': 'Thank You',
-  'live-stream': 'Live Stream',
+  'live-stream': 'Watch Live',
   videos: 'Videos',
   clips: 'Clips',
 };

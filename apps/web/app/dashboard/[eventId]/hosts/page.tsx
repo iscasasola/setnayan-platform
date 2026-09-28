@@ -31,6 +31,8 @@ import { eventNoun } from '@/lib/event-noun';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { isOffPlatformSupplier } from '@/lib/supplier-invite-eligibility';
 import { routes } from '@/lib/routes';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { GUEST_LIST_PART_VIEW, partHref } from '@/lib/pillar-parts';
 
 export const metadata = { title: 'Hosts' };
 
@@ -43,6 +45,8 @@ type Props = {
     grant_updated?: string;
     host_removed?: string;
     token?: string;
+    /** `hosts` = rendered as the Guest list's Hosts part (see below). */
+    gview?: string;
   }>;
 };
 
@@ -124,6 +128,25 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
     (legacy as { member_type: string } | null)?.member_type === 'couple';
   if (isCouple) isHost = true;
   if (!isHost) redirect('/dashboard');
+
+  // ── THE GUEST LIST'S HOSTS PART (owner 2026-09-29) ──────────────────────
+  // Hosts moved into the Guest list pillar (`lib/pillar-parts.ts`): the guest
+  // list renders THIS page in its body at `?gview=hosts`, and passes that same
+  // param here so the two know which one is drawing.
+  //
+  // Visited on its own, the page sends anybody who can see the guest list into
+  // that part — every param carried, because the actions below redirect HERE
+  // with `?invite_sent=1&token=…` and that banner must still show. A helper the
+  // couple never shared the guest list with keeps this page exactly as it was:
+  // the guest list would only tell them it isn't theirs to see, and managing
+  // hosts would have no door left.
+  const embedded = search.gview === 'hosts';
+  if (!embedded) {
+    const viewer = await fetchEventViewer(supabase, eventId, user.id);
+    if (!isDelegateWithoutArea(viewer, 'guest_list')) {
+      redirect(partHref(`/dashboard/${eventId}/guests`, search, { gview: GUEST_LIST_PART_VIEW.hosts }));
+    }
+  }
 
   const admin = createAdminClient();
   // Event name + moderator rows both key off eventId and don't depend on each
@@ -369,13 +392,16 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
 
   return (
     <section className="sn-col space-y-6">
-      <Link
-        href={`/dashboard/${eventId}`}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to {eventName}
-      </Link>
+      {/* Inside the guest list the page already has its way back — the menu. */}
+      {embedded ? null : (
+        <Link
+          href={`/dashboard/${eventId}`}
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Back to {eventName}
+        </Link>
+      )}
 
       {hostsPartlyRefused ? (
         <ReadRefusedNotice partial what="everyone who helps run this event" />

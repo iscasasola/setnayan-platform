@@ -1233,7 +1233,7 @@ function ChildRail({
           {child.label}: <strong>{formatPhpRounded(child.planned.php)}</strong>
           {child.planned.source === 'saved' ? '' : ' from your budget split'}
           {' · '}
-          <Link href={`/dashboard/${eventId}/budget#budget-allocate`}>Adjust</Link>
+          <Link href={`/dashboard/${eventId}/vendors?part=budget#budget-allocate`}>Adjust</Link>
         </p>
       ) : null}
 

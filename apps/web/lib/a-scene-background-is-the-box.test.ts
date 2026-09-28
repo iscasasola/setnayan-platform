@@ -238,7 +238,8 @@ test('7 · a photo covers the scene in proportion and never sets its height', ()
 test('both dispatchers ask the frame whether the widget draws its own card', () => {
   for (const f of ['hideable-widget-render.tsx', 'public-hideable-widget.tsx']) {
     const src = stripComments(readFileSync(join(ROOT, 'app/[slug]/_components', f), 'utf8'));
-    assert.match(src, /const bare = sceneWidgetIsBare\(widget, canvasMediaUrls\);/, `${f} does not ask`);
+    // 🎞 …telling it whether this is the couple's own Maker canvas (their clip plays there).
+    assert.match(src, /const bare = sceneWidgetIsBare\(widget, canvasMediaUrls, \{ ownClipPlays \}\);/, `${f} does not ask`);
     assert.match(src, /<CountdownWidget[\s\S]*?bare=\{bare\}/, `${f}: the countdown is not told`);
   }
   assert.equal(hubBackgroundOwnsBox(sanitizeHubCanvas({ canvas: { kind: 'none' } }), false), true);

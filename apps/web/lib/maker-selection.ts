@@ -56,6 +56,19 @@ export function selectionForCanvasKey(key: string, scenes: readonly SelectableSc
   return fixed ? { kind: 'row', key: `f:${fixed}` } : null;
 }
 
+/**
+ * ＋ ADD A SCENE SHOWS ONLY ON A STAGE (owner 2026-09-28, on the Logo page:
+ * *"cannot see the scenes. and it should only show on stages."*). A stage is
+ * what the canvas is showing — Save the Date · Invitation · The Day · Post
+ * Event — with a scene, a row or nothing selected; every PAGE (Logo · Hero ·
+ * Reveal · Love Story · Post Event's page · Prints · Details · RSVP) is a
+ * `tool` selection, which replaces the stage, so a scene added there could
+ * not be seen. The toolbar ＋ and the phone's More ▾ row both ask this.
+ */
+export function makerAddShowsOn(selection: MakerSelection): boolean {
+  return selection?.kind !== 'tool';
+}
+
 /** The canvas key of what is selected — what the canvas scrolls to. */
 export function canvasKeyOfSelection(selection: MakerSelection, scenes: readonly SelectableScene[]): string | null {
   if (!selection) return null;

@@ -29,6 +29,7 @@ import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-res
 import { MakerPage } from './maker-page';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
+import { makerAddShowsOn } from '@/lib/maker-selection';
 import { MAKER_STAY_FIELD, makerStayReturn } from '@/lib/maker-stay';
 import { announceUnheldWrite } from '@/lib/maker-refresh';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -289,6 +290,10 @@ export function MakerShell({
     if (item.kind === 'tool' && hasWork) select({ kind: 'tool', key: item.key });
   };
 
+  /* ＋ Add a scene is a STAGE tool — never on a page (owner 2026-09-28: *"cannot
+     see the scenes. and it should only show on stages."*). */
+  const stageAdd = makerAddShowsOn(selection) ? addScene : null;
+
   /* ▶ The stage as guests meet it — page-only, with the host's DRAFT
      (`?preview=draft`, host-verified on the page; `app/[slug]/_lib/editor-canvas.ts`). */
   const playHref = slug ? `/${slug}?phase=${stage}&preview=draft` : null;
@@ -358,7 +363,7 @@ export function MakerShell({
                 refused says why (padlocked when it is Event Hub Pro); nothing
                 in the store shell. On a phone it is the More ▾ row below. */}
             <span className="hidden md:inline-flex">
-              <AddSceneTool addScene={addScene} />
+              <AddSceneTool addScene={stageAdd} />
             </span>
           </div>
           <i aria-hidden className="mx-1 hidden h-7 w-px shrink-0 bg-ink/15 md:block" />
@@ -448,21 +453,16 @@ export function MakerShell({
                   ) : null}
                   {/* ＋ Add a scene on a phone — the toolbar has no room for it
                       there, so it is a row here (the same registration). */}
-                  {addScene?.kind === 'ready' ? (
-                    <MenuItem className="md:hidden" onClick={() => { close(); addScene.open(); }}>
+                  {stageAdd?.kind === 'ready' ? (
+                    <MenuItem className="md:hidden" onClick={() => { close(); stageAdd.open(); }}>
                       <span data-maker-add-scene="" className="inline-flex items-center gap-1.5">
                         Add a scene
-                        {addScene.tried ? <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" /> : null}
+                        {stageAdd.tried ? <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" /> : null}
                       </span>
                     </MenuItem>
-                  ) : addScene?.kind === 'refused' ? (
-                    <MenuItem disabled note={addScene.note} className="md:hidden">
-                      <span data-maker-add-scene="refused" className="inline-flex items-center gap-1.5">
-                        Add a scene
-                        {addScene.locked ? (
-                          <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" />
-                        ) : null}
-                      </span>
+                  ) : stageAdd?.kind === 'refused' ? (
+                    <MenuItem disabled note={stageAdd.note} className="md:hidden">
+                      <span data-maker-add-scene="refused">Add a scene</span>
                     </MenuItem>
                   ) : null}
                   <MenuItem disabled note={MAKER_SNAP_NOTE}>
@@ -797,8 +797,8 @@ export function barShouldCollapse(naturalWidth: number, room: number): boolean {
 /**
  * ＋ ADD A SCENE in the toolbar, from the work area's registration
  * (`MakerAddScene`): ready → a tool button that opens its sheet; refused → the
- * house bubble saying why (`ComingNext`), wearing the padlock and linking to
- * the unlock when the reason is Event Hub Pro; null → nothing. It can post
+ * house bubble saying why (all six in use — never a Pro padlock: a couple
+ * without Pro adds and pays at Apply, owner 2026-09-28); null → nothing. It can post
  * nothing itself — the write is the sheet's tile form.
  */
 function AddSceneTool({ addScene }: { addScene: MakerAddScene | null }) {
@@ -827,18 +827,15 @@ function AddSceneTool({ addScene }: { addScene: MakerAddScene | null }) {
     );
   }
   return (
+    /* The six-cap bubble — a reason, not a promise (the old "coming next" ＋ is gone). */
     <ComingNext
-      label={addScene.locked ? `Add a scene — ${paidMarkLabel('locked', 'Event Hub Pro')}` : 'Add a scene'}
+      label={`Add a scene — ${addScene.note}`}
       note={addScene.note}
       align="start"
       tool="Add"
       dataAttr="refused"
-      mark={
-        addScene.locked ? (
-          <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" />
-        ) : null
-      }
-      link={addScene.locked ? { href: addScene.unlockHref, label: 'See Event Hub Pro' } : null}
+      mark={null}
+      link={null}
     >
       <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
     </ComingNext>

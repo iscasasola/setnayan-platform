@@ -75,15 +75,17 @@ export const MAKER_MORE_ROWS_ID = 'maker-more-rows';
  * Pro, the six, the stage, the store shell — so it REGISTERS the answer
  * (`setAddScene`) and the shell draws the button from it. `ready` opens the
  * work area's own template sheet (the same one as the navigator's "+ Add a
- * scene"); `refused` says why, and wears the padlock when the reason is Event
- * Hub Pro; null = no button (the store shell, a stage without scenes of their
- * own). A client registration only — the write is still the tile's form,
+ * scene"); `refused` says why (all six in use); null = no button (the store
+ * shell, a stage without scenes of their own). The shell draws it only on a
+ * STAGE, never on a page (`makerAddShowsOn`). A client registration only — the write is still the tile's form,
  * posting to `addCustomSection`.
  */
 export type MakerAddScene =
   /** `tried`: the couple has no Event Hub Pro — the scene is tried free and Apply asks (◆ PRO, 2026-09-28). */
   | { kind: 'ready'; open: () => void; tried?: boolean }
-  | { kind: 'refused'; note: string; locked: boolean; unlockHref: string };
+  /** Why a scene cannot be added here (all six in use). Never a Pro refusal any
+   *  more — a couple without Pro adds and pays at Apply (owner 2026-09-28). */
+  | { kind: 'refused'; note: string };
 
 /**
  * 💎 "Go to" from the Apply sheet (owner 2026-09-28): after the scene is

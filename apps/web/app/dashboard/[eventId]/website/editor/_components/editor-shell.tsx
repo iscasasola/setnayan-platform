@@ -303,7 +303,7 @@ export function MakerWork({
         /** 💎 No Event Hub Pro: the scene is tried free and Apply asks — the ＋ wears ◆ PRO. */
         tried?: boolean;
       }
-    | { note: string; locked?: boolean }
+    | { note: string }
     | null;
   proUnlockHref: string;
   /** The live catalogue price, formatted — null when unread (never remembered). */
@@ -463,10 +463,10 @@ export function MakerWork({
     setAddScene(
       'action' in addScene
         ? { kind: 'ready', open: () => setAddOpen(true), tried: addScene.tried === true }
-        : { kind: 'refused', note: addScene.note, locked: addScene.locked === true, unlockHref: proUnlockHref },
+        : { kind: 'refused', note: addScene.note },
     );
     return () => setAddScene(null);
-  }, [setAddScene, addScene, stage, proUnlockHref]);
+  }, [setAddScene, addScene, stage]);
 
   /* The scene just added is SELECTED once the render that carries it lands.
      A tile's post lands back on this very address (`lib/maker-stay.ts` — the

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AlignCenter, AlignLeft, AlignRight, PencilLine, Play } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { HUB_FONT_FACES, hubFontBoldWeight, hubFontPreviewStack } from '@/lib/hub-fonts';
 import {
@@ -56,6 +57,13 @@ import { PickMenu } from './pick-menu';
  *            Delay · ▶ Preview · ↺ Move with the scene
  *   ARRANGE  Show: Shown · Hidden · Where it sits (rails on) · Open the Hero editor
  *
+ * 💎 FREE VS PRO (owner 2026-09-28, *"free to change design, change text,
+ * size, color, background color, only when you start adding themes will it be
+ * pro"*): every Text row is free EXCEPT Font ▾, and the Animate tab is Pro —
+ * `HUB_ELEMENT_PRO_FIELDS` in `lib/hub-look-pro.ts` is the one list, and these
+ * two are the only rows that wear the mark (`fontMark` · `proMark` — drawn by
+ * the sheet, which is where the couple's `ownsPro` is read).
+ *
  * These are the ROWS only — the sheet (`element-sheet.tsx`) owns the saving,
  * the instant preview and the one-letter selection, and hands each row the
  * choice to make. Every row here moves pixels: a row the part cannot take
@@ -109,7 +117,13 @@ export function PartTextTab({
   contrast,
   eventId,
   onPreviewColour,
+  fontMark = null,
+  hideFont = false,
 }: {
+  /** 💎 Font ▾ is Event Hub Pro — its `<PaidMark>`, or null (none to draw). */
+  fontMark?: ReactNode;
+  /** The store shell, not owned: a Pro row is hidden, never shown locked. */
+  hideFont?: boolean;
   el: HubElementKey;
   /** What the rows show: a selected run's own font · colour · size, or the part's. */
   face: PartFace;
@@ -145,8 +159,20 @@ export function PartTextTab({
     <div data-part-tab="text">
       {has('word') ? <JoinerRow word={style.word ?? null} onWord={(w) => choose('word', w)} /> : null}
 
-      {has('font') ? (
-        <IRow label="Font" data="font">
+      {has('font') && !hideFont ? (
+        <IRow
+          label={
+            fontMark ? (
+              <span className="inline-flex items-center gap-1">
+                Font
+                {fontMark}
+              </span>
+            ) : (
+              'Font'
+            )
+          }
+          data="font"
+        >
           <PickMenu
             label="Font"
             dataAttr="data-element-font"
@@ -364,7 +390,10 @@ export function PartAnimateTab({
   moveTo,
   onPreview,
   resetMotion,
+  proMark = null,
 }: {
+  /** 💎 How a part moves is Event Hub Pro — its `<PaidMark>`, or null (none to draw). */
+  proMark?: ReactNode;
   motion: HubElementMotion;
   moveTo: (part: keyof HubElementMotion, value: string | null) => void;
   /** ▶ Preview — replay the part's In on the canvas. */
@@ -374,6 +403,11 @@ export function PartAnimateTab({
   const scroll = motion.timeline === 'scroll';
   return (
     <div data-part-tab="animate">
+      {proMark ? (
+        <p className="pt-2.5" data-part-animate-pro="">
+          {proMark}
+        </p>
+      ) : null}
       <IRow data="timeline">
         <ISegmented label="Plays once or follows the scroll">
           {HUB_EL_TIMELINE.map((t) => (

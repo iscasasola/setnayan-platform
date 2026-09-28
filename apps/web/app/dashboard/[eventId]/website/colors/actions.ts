@@ -17,10 +17,15 @@
  * and refuses to persist for a non-Pro event (defence-in-depth; a non-Pro save
  * would be inert on the guest site anyway, since the renderer gates on Pro too).
  * ⚠ NARROWED 2026-09-24 — owner, verbatim: *"changing background color is free.
- * making media a background is pro."* The BACKGROUND colour is free; button
- * colour, face, art direction and magic move stay Pro, judged against what is
- * stored (`siteLookChange`) — so a free couple can recolour their page, keep
- * whatever Pro choices they already have, and take any of them off.
+ * making media a background is pro."* The BACKGROUND colour is free; face, art
+ * direction and magic move stay Pro, judged against what is stored
+ * (`siteLookChange`) — so a free couple can recolour their page, keep whatever
+ * Pro choices they already have, and take any of them off.
+ * ⚠ NARROWED AGAIN 2026-09-28 — owner, verbatim: *"free to change design,
+ * change text, size, color, background color, only when you start adding
+ * themes will it be pro."* The BUTTON colour is free too, so it is no longer
+ * an input to the Pro decision below (and the guest page paints it for every
+ * event — `app/[slug]/_lib/pro-site-vars.ts`).
  *
  * Validation: each field is either a strict `#rrggbb` hex OR empty. Empty
  * CLEARS the column (→ NULL → the site falls back to the Mood-Board palette /
@@ -121,7 +126,7 @@ export async function updateSiteColors(
   /* 💾 THE DRAFT DOOR (2026-09-25 — the Maker's live savers go into the draft).
      From the Maker (`<HubDraftField />`) the colours go into the couple's draft:
      guests keep the live page until Apply, and Apply is where Pro is asked —
-     a free couple may TRY a button colour or a face and pays at Apply. Same
+     a free couple may TRY a face and pays at Apply. Same
      absent-means-unchanged rule as the live write below. */
   if (isHubDraftWrite(formData)) await draftEventsAndReturn(
       eventId,
@@ -140,11 +145,11 @@ export async function updateSiteColors(
 
   // Defence-in-depth Pro gate over the PRO half only (admin-client SKU read
   // inside `requireLookPro`: orders RLS is purchaser-scoped, so a co-host who
-  // didn't place the order still resolves the shared event ownership). The
-  // background colour is free and is not an input to the decision at all.
+  // didn't place the order still resolves the shared event ownership). Both
+  // colours — background and button — are free and are not inputs at all.
   const { data: stored } = await supabase
     .from('events')
-    .select('site_bg_color, site_button_color, site_font_key, site_magic_traveller, site_art_direction')
+    .select('site_bg_color, site_font_key, site_magic_traveller, site_art_direction')
     .eq('event_id', eventId)
     .maybeSingle();
   const s = (stored ?? {}) as Record<string, string | null | undefined>;
@@ -157,12 +162,11 @@ export async function updateSiteColors(
     combineChanges(
       siteLookChange(
         {
-          button: s.site_button_color ?? null,
           font: s.site_font_key ?? null,
           magic: s.site_magic_traveller ?? null,
           art: s.site_art_direction ?? null,
         },
-        { button, font, magic, art },
+        { font, magic, art },
       ),
       ombreChange,
     ),

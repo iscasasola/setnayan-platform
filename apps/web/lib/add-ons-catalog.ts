@@ -514,7 +514,9 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0002',
     status: 'live',
     category: 'digital_services',
-    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and colours, a Pro theme for your invite link, and no watermark.',
+    // 2026-09-28: "and colours" came out — colours are free for every couple
+    // (the free-vs-Pro redraw); media backgrounds are what Pro adds.
+    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and photo backgrounds, a Pro theme for your invite link, and no watermark.',
     cta: 'Unlock Event Hub PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',

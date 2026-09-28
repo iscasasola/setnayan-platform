@@ -11,12 +11,20 @@
  *   LOOK  (Pro)  — hero photo / hero video / living hero, their own gallery,
  *                  background music, a section's background PHOTO or SNIPPET,
  *                  its crop and zoom, how it moves, the invitation backdrop
- *                  (moving media), button colour, face, art direction, magic
- *                  move, the Save-the-Date's own background / film.
+ *                  (moving media), face, art direction, magic move, the
+ *                  Save-the-Date's own background / film, a part's own FONT
+ *                  and its own MOTION.
  *   COLOUR (free) — owner, 2026-09-24, verbatim: *"changing background color is
  *                  free. making media a background is pro."* The page's main
  *                  background colour (`site_bg_color`) and a section's COLOUR
  *                  background are free; media behind a section is not.
+ *   REDRAWN 2026-09-28 — owner, verbatim: *"free to change design, change text,
+ *                  size, color, background color, only when you start adding
+ *                  themes will it be pro. adding media for background."* So the
+ *                  BUTTON colour (`site_button_color`) and a part's own colour ·
+ *                  size · weight · B/I/U · alignment · spacing are free too
+ *                  (`HUB_ELEMENT_FREE_FIELDS`). Font choice and motion were not
+ *                  in his line and stay Pro until he says otherwise.
  *   WORDS (free) — their story, dress-code wording, schedule, venue, the special
  *                  message, what to bring, every fact about the day.
  *   NOT HERE     — guest photos in Papic and the gallery. The ruling does not
@@ -99,26 +107,26 @@ export function galleryChange(
 }
 
 /**
- * The Pro half of `updateSiteColors` — button colour, face, art direction and
- * magic move — against what is stored. `undefined` = the form did not carry
- * that control (left alone, so it adds nothing).
+ * The Pro half of `updateSiteColors` — face, art direction and magic move —
+ * against what is stored. `undefined` = the form did not carry that control
+ * (left alone, so it adds nothing).
  *
- * ⛔ THE BACKGROUND COLOUR IS DELIBERATELY NOT AN INPUT. It is free (owner
- * 2026-09-24), so it cannot make this write Pro — there is no field here for a
- * future edit to fold it back in by accident.
+ * ⛔ NEITHER COLOUR IS AN INPUT. The background colour is free (owner
+ * 2026-09-24) and the button colour joined it (owner 2026-09-28, *"change …
+ * color … only when you start adding themes will it be pro"*), so neither can
+ * make this write Pro — there is no field here for a future edit to fold one
+ * back in by accident.
  *
  * Daylight is the page we write, so `'daylight'` and a stored `null` are the
  * same look: choosing Daylight is a reset, only Candlelight is a choice.
  */
 export function siteLookChange(
   stored: {
-    button: string | null;
     font: string | null;
     magic: string | null;
     art: string | null;
   },
   next: {
-    button: string | null | undefined;
     font: string | null | undefined;
     magic: string | null | undefined;
     /** An art direction the form asked to store. `null` = none posted. */
@@ -127,7 +135,6 @@ export function siteLookChange(
 ): LookChange {
   const candle = (v: string | null) => (v === 'candlelight' ? v : null);
   const changes: LookChange[] = [];
-  if (next.button !== undefined) changes.push(refChange(stored.button, next.button));
   if (next.font !== undefined) changes.push(refChange(stored.font, next.font));
   if (next.magic !== undefined) changes.push(refChange(stored.magic, next.magic));
   if (next.art !== null) changes.push(refChange(candle(stored.art), candle(next.art)));
@@ -185,10 +192,47 @@ export const HUB_CANVAS_LOOK_KEYS = [
   // Scroll · Scrub · Auto-scroll into the next scene (#5951, `lib/hub-scenes.ts`).
   'transition',
   'autoSpeed',
-  // One element's own font · colour · size · animation (`lib/element-style.ts`,
-  // owner 2026-09-26: per-element overrides are Pro, like fonts and colours).
+  // One element's own look (`lib/element-style.ts`). Only PART of it is Pro —
+  // its font and its motion (`HUB_ELEMENT_PRO_FIELDS`); its colour, size and
+  // the Text tab's other rows are free (owner 2026-09-28). `canvasLookChange`
+  // compares it field by field for exactly that reason.
   'elements',
 ] as const;
+
+/**
+ * 🔤 ONE PART'S OWN LOOK, SPLIT (owner 2026-09-28, verbatim: *"free to change
+ * design, change text, size, color, background color, only when you start
+ * adding themes will it be pro. adding media for background."*).
+ *
+ *   PRO  — the part's own FONT (the typeface) and its own MOTION (In · During ·
+ *          Out · timeline). Neither was in his line, so both stay as they were
+ *          (DECISION_LOG 2026-09-28, "WHAT IS FREE VS PRO … REDRAWN").
+ *   FREE — everything else a part carries: colour, size, weight, bold · italic
+ *          · underline, alignment, line and letter spacing (the Text tab), and
+ *          its Show / its joiner word, which were always free.
+ *
+ * A text RUN (a word or letter styled inside a part) carries font · colour ·
+ * size of its own; only the run's FONT is Pro, by the same line.
+ *
+ * ⚖ The two lists together must name every `HubElementStyle` field — held by
+ * `lib/free-vs-pro-redrawn.test.ts`, so a new field has to be placed on one side
+ * on purpose rather than drifting to whichever the comparison forgot.
+ */
+export const HUB_ELEMENT_PRO_FIELDS = ['font', 'motion'] as const;
+export const HUB_ELEMENT_FREE_FIELDS = [
+  'color',
+  'size',
+  'weight',
+  'italic',
+  'underline',
+  'align',
+  'leading',
+  'tracking',
+  'hidden',
+  'word',
+] as const;
+/** A run's own fields: only its font is Pro. */
+export const HUB_RUN_PRO_FIELDS = ['font'] as const;
 
 /** The motion subset — what "Reset how it moves" takes off. */
 export const HUB_CANVAS_MOTION_KEYS = [
@@ -224,7 +268,6 @@ export const HUB_LOOK_EVENT_COLUMNS = [
   'our_photos',
   'site_bg_music_r2_key',
   'rsvp_backdrop',
-  'site_button_color',
   'site_font_key',
   'site_magic_traveller',
   'site_art_direction',
@@ -257,9 +300,11 @@ export const HUB_WORDS_EVENT_COLUMNS = [
 
 /**
  * Look columns that are FREE (owner 2026-09-24: *"changing background color is
- * free"*). A colour is not media — it is the page we write, recoloured.
+ * free"*; 2026-09-28: *"change … color … only when you start adding themes will
+ * it be pro"* — the button colour joins it). A colour is not media — it is the
+ * page we write, recoloured.
  */
-export const HUB_FREE_LOOK_EVENT_COLUMNS = ['site_bg_color'] as const;
+export const HUB_FREE_LOOK_EVENT_COLUMNS = ['site_bg_color', 'site_button_color'] as const;
 
 /** Is this `events` column the page's look (Pro), a free colour, or words? */
 export function hubColumnKind(column: string): 'look' | 'free-look' | 'words' | 'other' {

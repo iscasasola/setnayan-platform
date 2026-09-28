@@ -84,6 +84,7 @@ import {
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
+import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 
 // ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
 // "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
@@ -304,8 +305,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       SHOWS the offer — so a refused entitlement read can at worst offer an
       upgrade to somebody who has it, never hide a page behind a lock.
     */
-    eventCoupleWebsiteProActive(supabase, eventId).catch(() => false),
-    eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false),
+    // 👁 Both as the viewer is SHOWN them (`lib/view-as-free.server.ts`).
+    asViewed(eventCoupleWebsiteProActive(supabase, eventId).catch(() => false)),
+    asViewed(eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false)),
     /*
       ⛔ THE PRICE, READ LIVE. `platform_retail_catalog_v2` is admin-managed and
       is the only figure a customer is ever charged. Null on failure, and the
@@ -448,7 +450,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   /*
     ══ THE ONE UNLOCK, RESOLVED FOR THE CHANNEL THE COUPLE IS STANDING ON ══
-    § 5.3: the ten Pro items are ONE purchase, so the controller does not grow
+    § 5.3: the nine Pro items are ONE purchase, so the controller does not grow
     nine upgrade slots — it grows one, and moves it to whichever of the four
     public pages is live. `resolveHubProOffer` returns null far more often than
     not: when the couple owns it, when the read did not happen, on the day, and
@@ -478,6 +480,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   // shell; only the PRO upsell — which prints a peso price for a digital SKU —
   // is withheld (App Review 3.1.1). See lib/store-shell.ts.
   const storeShell = await isStoreShellRequest();
+
+  /* 👁 VIEW AS A FREE COUPLE — offered to an internal (§10a) viewer only, and
+     read through the same per-request cache every Pro read above passed
+     through, so the switch's state and what the page drew cannot disagree. */
+  const freeSwitch = await viewAsFreeSwitch();
 
   /*
     ─── VIEW AS ──────────────────────────────────────────────────────────────
@@ -1151,6 +1158,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       /* 💾 Phase 2: the draft's Apply · Restore · Reset, in the toolbar. Only
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
+      viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
     >
       {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, once the day
           has happened. Never on the Maker's very first visit: the Maker's own

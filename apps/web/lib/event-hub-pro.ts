@@ -11,7 +11,7 @@
  * controller as well."*
  *
  * ── WHAT THIS IS NOT ────────────────────────────────────────────────────────
- * It is NOT ten upgrade slots, and it is NOT a shop tab. The ten Pro items
+ * It is NOT nine upgrade slots, and it is NOT a shop tab. The nine Pro items
  * are ONE unlock — `COUPLE_WEBSITE_PRO`, titled "Event Hub Pro" in the live
  * catalog — and `pro-panels.tsx` has said so since it shipped: *"the Pro items
  * are ONE unlock … no per-feature buy button."* So the controller grows
@@ -50,7 +50,7 @@ import {
   type WebsiteProItem,
 } from '@/lib/website-pro-items';
 
-/** One chip in the ten — `here` is the item this channel is being sold on. */
+/** One chip in the nine — `here` is the item this channel is being sold on. */
 export type HubProChip = {
   name: WebsiteProItem;
   /** True for exactly one chip: the item the couple is standing in front of. */
@@ -65,7 +65,7 @@ export type HubProOffer = {
   channel: LifecyclePhase;
   headline: string;
   blurb: string;
-  /** All ten, in catalog order, exactly one flagged `here`. */
+  /** All nine, in catalog order, exactly one flagged `here`. */
   chips: readonly HubProChip[];
   ctaLabel: string;
   /** Path RELATIVE to `/dashboard/<eventId>` — the shipped buy surface. */
@@ -137,15 +137,18 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
     headline: 'Write the story yourself.',
     blurb: 'Chapters, named moments and your own words, in the after-story your guests come back to.',
   },
-  'Background color': {
-    headline: 'Your own colours, not ours.',
+  /*
+    2026-09-28 (the free-vs-Pro redraw): the two colour items left the list —
+    colours are free for everyone — and media behind a scene took their place.
+    Grounded only in what ships: the Maker's scene Background offers "Upload
+    media" (a photo or a few seconds of video) only with Event Hub Pro, and the
+    Main background takes the couple's own clip or photo behind every scene.
+    Not led on by any channel (`LEAD_BY_CHANNEL` unchanged).
+  */
+  'Photo and video backgrounds': {
+    headline: 'Your own photos behind your words.',
     blurb:
-      'The background and the buttons, set to your palette — on every one of the four pages your link becomes.',
-  },
-  'Button color': {
-    headline: 'Your own colours, not ours.',
-    blurb:
-      'The background and the buttons, set to your palette — on every one of the four pages your link becomes.',
+      'Put a photo or a few seconds of your own video behind any scene, or behind the whole page. Colours stay free for everyone.',
   },
   /*
     THE EIGHTH (owner Q3 = A, 2026-09-11). Grounded ONLY in what ships today:
@@ -253,7 +256,7 @@ export function resolveHubProOffer(args: {
     headline: PITCH[lead].headline,
     blurb: PITCH[lead].blurb,
     chips: WEBSITE_PRO_ITEMS.map((name) => ({ name, here: name === lead })),
-    ctaLabel: 'Unlock all ten',
+    ctaLabel: 'Unlock all nine',
     // The SHIPPED buy surface — the same href `website/editor/page.tsx` uses for
     // `ProLockPanel`. No new checkout, no new route.
     ctaPath: '/studio/website-pro',

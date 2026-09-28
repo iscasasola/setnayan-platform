@@ -3,6 +3,7 @@ import 'server-only';
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { asViewed } from '@/lib/view-as-free.server';
 import {
   INVITE_THEMES,
   normalizeThemeId,
@@ -86,7 +87,10 @@ export type HubLook = {
  */
 export const websiteProActiveFor = cache(
   async (eventId: string): Promise<boolean> =>
-    eventCoupleWebsiteProActive(createAdminClient(), eventId),
+    // 👁 As the viewer is shown it (`lib/view-as-free.server.ts`): the Maker's
+    // canvas is this page, so "view as a free couple" must reach it. Render
+    // only — this reader gates no write.
+    asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId)),
 );
 
 /** The Pro-theme gate's two reads, once per request, keyed on primitives. */

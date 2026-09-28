@@ -491,7 +491,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Free — and yours to change',
-        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A theme, a different template for a scene and your own photos come with Event Hub Pro.',
+        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A theme and your own photos come with Event Hub Pro.',
         sells: true,
       },
     ],

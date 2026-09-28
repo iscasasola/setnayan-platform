@@ -58,10 +58,10 @@ test('the list is ONE FLAT LIST — the four stages, then Details, nothing else'
   const m = makerPlacePick({ stage: 'save_the_date', liveStage: null, openTool: null, hasWork: true });
   assert.deepEqual(m.options.map((o) => o.label), [...STAGES, 'Details']);
   assert.deepEqual(STAGES, ['Save the Date', 'Invitation', 'On the Day', 'Post Event']);
-  // No headings: one run, no group name.
-  const runs = pickRuns(m.options);
+  // No headings: one run, no group name (as PickMenu reads them).
+  const runs = pickRuns(m.options.map((o) => ({ key: o.key, group: (o as Record<string, unknown>).group as string | undefined })));
   assert.equal(runs.length, 1, 'the list is split into groups again');
-  assert.equal(runs[0]!.group ?? null, null, 'the list carries a heading again');
+  assert.equal(runs[0]!.group, null, 'the list carries a heading again');
   // Every door on the full row is in the one picker, and nothing else is.
   assert.deepEqual(m.options.map((o) => o.key), MAKER_BAR.map((i) => i.key));
 });

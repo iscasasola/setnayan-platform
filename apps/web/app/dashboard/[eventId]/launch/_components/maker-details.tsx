@@ -336,7 +336,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           on={inc.parents}
           tip="Guests with the role Parents of the Bride or Parents of the Groom. Parents are optional — with none, the card leaves that part out."
         >
-          <ParentCards parents={parents} guestsHref={`${base}/guests`} />
+          <ParentCards eventId={eventId} parents={parents} />
         </Toggle>
         <Toggle form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
           <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} />

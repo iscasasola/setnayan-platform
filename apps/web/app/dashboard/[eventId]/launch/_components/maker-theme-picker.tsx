@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import Image from 'next/image';
 import { Check, Maximize2 } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -264,8 +265,10 @@ export function MakerThemeGallery({
                 }`}
               >
                 <span className="relative block shrink-0 overflow-hidden rounded-md bg-white" style={{ width: TILE_W, height: TILE_H }}>
+                  {/* ⚖ Pictures at the size they are drawn (next/image, 2× of 132 px),
+                      never the full poster — a phone loads a few KB per entry. */}
                   {still && seen ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- a committed still of the sample page (public/theme-samples)
+                    // eslint-disable-next-line @next/next/no-img-element -- a committed still, already stored at 360 px (public/theme-samples), versioned by `v`
                     <img src={still} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover object-top" />
                   ) : liveSrc ? (
                     <iframe
@@ -283,8 +286,7 @@ export function MakerThemeGallery({
                       style={{ width: TILE_PAGE_W, height: TILE_PAGE_H, transform: `scale(${TILE_SCALE})` }}
                     />
                   ) : posters[t.id] && seen ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- the theme's own saved poster (R2), until its page is here
-                    <img src={posters[t.id]!} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+                    <Image src={posters[t.id]!} alt="" fill sizes={`${TILE_W}px`} className="object-cover" />
                   ) : (
                     <span aria-hidden className="absolute inset-0 animate-pulse bg-ink/[0.04]" />
                   )}

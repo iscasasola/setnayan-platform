@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2e1f16183",
+  "generatedFromRef": "fe379dd5d",
   "routeCount": 435,
   "destinations": 941,
   "actions": 671,
-  "blocks": 4979,
+  "blocks": 4981,
   "routes": {
     "/": {
       "files": [
@@ -8533,6 +8533,7 @@
         "CanvasWordsContext.Provider",
         "ChipRow",
         "Choice",
+        "ClipTile",
         "ColorsPanel",
         "ColourWell",
         "DetailsBoundField",
@@ -8605,6 +8606,7 @@
         "PartTextTab",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
+        "PhotoTile",
         "PickListPlacement",
         "PickMenu",
         "ProLockPanel",

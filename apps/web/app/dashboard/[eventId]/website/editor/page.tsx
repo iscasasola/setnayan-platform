@@ -1231,6 +1231,13 @@ export default async function WebsiteEditorPage({
         hideLocked: storeShell,
         lookLock: lockPanel('How each section looks and moves'),
         twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
+        /* The hero is the invitation card unless there is a hero photo/video or
+           the page is solemn — the same two facts the navigator's hero tile
+           reads (`hasHeroMedia`, `solemn` above), and the ones the guest page
+           picks its masthead by (`site-body.tsx`). */
+        heroCard:
+          !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
+        heroPhoto: Boolean(heroRef || videoRef),
       }}
       rows={rows}
       themes={themes}

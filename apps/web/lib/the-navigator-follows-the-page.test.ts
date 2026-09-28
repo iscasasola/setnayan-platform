@@ -274,7 +274,8 @@ test('7 · SOURCE: the navigator draws the stage list, and the canvas carries th
   const SHELL = stripComments(
     readFileSync(join(import.meta.dirname, '../app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'), 'utf8'),
   );
-  assert.match(SHELL, /const list = stageLists\[stage\];/, 'the navigator must read the stage’s own list');
+  /* The stage's own list, with a drop the server has not drawn yet laid over it (`optimisticStageList`). */
+  assert.match(SHELL, /const list = (?:optimisticStageList\()?stageLists\[stage\](?:, override\))?;/, 'the navigator must read the stage’s own list');
   assert.match(SHELL, /\{list\.shown\.map\(\(tile, i\) =>/, 'tiles come from the stage list');
   assert.doesNotMatch(SHELL, /\{scenes\.map\(\(scene, i\) =>/, 'raw display_order tiles are gone');
   assert.match(SHELL, /move\(from, swapsForDrop\(fullOrder, from, tile\.widgetId\)\)/, 'a drop is counted in the full order');

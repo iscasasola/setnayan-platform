@@ -178,7 +178,7 @@ export function MakerThemePicker({
     setError(null);
     queue.current = queue.current.then(async () => {
       if (lastTap.current !== id) return; // overtaken — the newer tap is sent instead
-      let r: { ok: boolean; error?: string };
+      let r: { ok: true } | { ok: false; error: string };
       try {
         const fd = new FormData();
         fd.set('intent', 'save');
@@ -187,13 +187,13 @@ export function MakerThemePicker({
       } catch {
         r = { ok: false, error: 'That did not save. Please try again.' };
       }
-      if (r.ok) {
-        saved.current = id;
-        return;
-      }
-      if (lastTap.current === id) {
-        setPicked(saved.current);
-        setError(r.error ?? 'That did not save. Please try again.');
+      /* What is saved — put back on a refusal, unless a newer tap took over. */
+      const before = saved.current;
+      if (r.ok) saved.current = id;
+      else if (lastTap.current !== id) return;
+      if (!r.ok) {
+        setPicked(before);
+        setError(r.error);
       }
     });
     start(async () => {

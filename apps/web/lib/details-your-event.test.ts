@@ -157,6 +157,7 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(body, /marchPlace=\{isMakerCanvas \? null : marchPlaceOf\(entourage, guest\?\.guest_id\)\}/);
   const dress = read('app/[slug]/_components/dress-code-widget.tsx');
-  assert.equal((dress.match(/You are \{/g) ?? []).length, 2, 'the role is named by the shipped "You are" line (and its march-only twin)');
-  assert.equal((dress.match(/\{marchPlaceLine\(march\)\}/g) ?? []).length, 2, 'the march line sits under both');
+  assert.equal((dress.match(/You are \{/g) ?? []).length, 1, 'the role is named by the ONE shipped "You are" line');
+  assert.equal((dress.match(/\{marchPlaceLine\(march\)\}/g) ?? []).length, 1, 'the march line sits under it');
+  assert.match(dress, /\{mine \|\| march \? \(/, 'a walker with no outfit line still gets the panel');
 });

@@ -298,19 +298,7 @@ export function DressCodeWidget({
       {shownDescription ? (
         <p className="max-w-prose text-base leading-relaxed text-ink/70">{shownDescription}</p>
       ) : null}
-      {!mine && march ? (
-        /* 🚶 A walker whose role has no outfit line still reads who they are and
-           where they walk — the same "You are <role>" line, the same place. */
-        <div className="space-y-2 border-l-2 border-gild py-1 pl-4" data-dress-code="you">
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
-            You are {(guestRole ? (roleLabel(guestRole) ?? ROLE_LABELS[guestRole]) : null) ?? 'in the entourage'}
-          </p>
-          <p className="text-base leading-snug text-ink" data-dress-code="march">
-            {marchPlaceLine(march)}
-          </p>
-        </div>
-      ) : null}
-      {mine ? (
+      {mine || march ? (
         /* 🎀 NO FILL BEHIND "YOU". The box used to sit on `bg-veil/50`, which
            a palette-tinted page turns pink, and a near-white first colour
            (#FAF7F2) vanished into it. The gild rule alone marks the panel; the
@@ -320,13 +308,17 @@ export function DressCodeWidget({
             {/* The entourage's own label first ("Ninang"); the couple are not
                 in the entourage list, so a bride or groom reads the guest
                 list's label ("Groom") instead of "in the entourage". */}
-            You are {mine.roleLabel ?? (guestRole ? ROLE_LABELS[guestRole] : null) ?? 'in the entourage'}
+            You are {mine?.roleLabel ?? (guestRole ? (roleLabel(guestRole) ?? ROLE_LABELS[guestRole]) : null) ?? 'in the entourage'}
           </p>
+          {/* 🚶 WHERE YOU WALK (owner 2026-09-29) — under the same "You are" line,
+              so a walker whose role has no outfit line still reads it. */}
           {march ? (
             <p className="text-base leading-snug text-ink" data-dress-code="march">
               {marchPlaceLine(march)}
             </p>
           ) : null}
+          {mine ? (
+          <>
           {/* WHERE THE ANSWER CAME FROM — said only when it came from the group.
               A ninang who reads her group's line needs to know the couple
               dressed her whole group on purpose, not that they wrote something
@@ -380,6 +372,8 @@ export function DressCodeWidget({
                 </li>
               ))}
             </ul>
+          ) : null}
+          </>
           ) : null}
         </div>
       ) : null}

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c81e502bc",
-  "routeCount": 435,
-  "destinations": 939,
-  "actions": 670,
-  "blocks": 4968,
+  "generatedFromRef": "a228078d6",
+  "routeCount": 436,
+  "destinations": 938,
+  "actions": 671,
+  "blocks": 4992,
   "routes": {
     "/": {
       "files": [
@@ -4915,6 +4915,7 @@
         "dashboard/[eventId]/_components/address-pin-field.tsx",
         "dashboard/[eventId]/_components/after/finished-event-summary.tsx",
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
+        "dashboard/[eventId]/_components/cohost-welcome.tsx",
         "dashboard/[eventId]/_components/connect-supplier-modal.tsx",
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
         "dashboard/[eventId]/_components/customer-nav-config.ts",
@@ -5001,6 +5002,7 @@
         "deletePayment",
         "grantShareConsent",
         "logPayment",
+        "markNotificationRead",
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
         "toggleChecklistItem"
@@ -5026,6 +5028,7 @@
         "ChannelToggle",
         "ChecklistItemView",
         "ChecklistPhaseGroup",
+        "CohostWelcome",
         "ColorRow",
         "ColourAccessResult",
         "ConfirmForm",
@@ -5579,6 +5582,7 @@
         "dashboard/[eventId]/guests/_components/filter-popover.tsx",
         "dashboard/[eventId]/guests/_components/find-add-row.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
+        "dashboard/[eventId]/guests/_components/guest-access-control.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
@@ -5627,7 +5631,7 @@
         "/dashboard/[seg]/guests/quick",
         "/dashboard/[seg]/guests?inspect=[seg]",
         "/dashboard/[seg]/invitation",
-        "/dashboard/[seg]/launch?tool=details",
+        "/dashboard/[seg]/launch?tool=details&item=qr",
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/story"
       ],
@@ -5671,6 +5675,8 @@
         "GridPageSkeleton",
         "GroupChipList",
         "GroupsSidebar",
+        "GuestAccessControl",
+        "GuestAccessTagContext.Provider",
         "GuestCardBody",
         "GuestCardData",
         "GuestListFinalizedContext.Provider",
@@ -5731,6 +5737,7 @@
         "PageMasthead",
         "PairSelectedForm",
         "PartnerLine",
+        "PickMenu",
         "PlusBadge",
         "PlusOneChipEditor",
         "Popover",
@@ -5783,6 +5790,7 @@
     },
     "/dashboard/[eventId]/guests/[guestId]": {
       "files": [
+        "dashboard/[eventId]/guests/[guestId]/access-actions.ts",
         "dashboard/[eventId]/guests/[guestId]/actions.ts",
         "dashboard/[eventId]/guests/[guestId]/loading.tsx",
         "dashboard/[eventId]/guests/[guestId]/page.tsx"
@@ -5796,6 +5804,7 @@
         "FormPageSkeleton",
         "GuestCardBody",
         "Link",
+        "SetGuestAccessResult",
         "UndoToastHost"
       ]
     },
@@ -5875,7 +5884,7 @@
         "/dashboard/[seg]/event-qr",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
-        "/dashboard/[seg]/launch?tool=details",
+        "/dashboard/[seg]/launch?tool=details&item=theme",
         "/dashboard/[seg]/launch?tool=rsvp-page",
         "/dashboard/[seg]/website"
       ],
@@ -5986,6 +5995,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]",
+        "/dashboard/[seg]/guests",
         "/dashboard/[seg]/people"
       ],
       "actions": [
@@ -6061,6 +6071,8 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/_components/details-tap.ts",
+        "dashboard/[eventId]/launch/_components/details-workspace.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/_components/maker-bar.ts",
@@ -6078,12 +6090,14 @@
         "dashboard/[eventId]/launch/_components/maker-theme-picker.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
+        "dashboard/[eventId]/launch/_components/parent-cards.tsx",
         "dashboard/[eventId]/launch/_components/print-choice-picker.tsx",
         "dashboard/[eventId]/launch/_components/print-menu-editor.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
         "dashboard/[eventId]/launch/_components/soft-post.tsx",
+        "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx",
@@ -6092,11 +6106,9 @@
       "destinations": [
         "/[seg]",
         "/dashboard/[seg]",
-        "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
-        "/dashboard/[seg]/launch?tool=details",
+        "/dashboard/[seg]/launch?tool=details&item=invitation",
         "/dashboard/[seg]/launch?tool=hero",
-        "/dashboard/[seg]/launch?tool=prints",
         "/dashboard/[seg]/plan3d",
         "/marketplace"
       ],
@@ -6115,6 +6127,9 @@
         "ColourRow",
         "ComingNext",
         "CouldNotLoad",
+        "DetailsItemKey",
+        "DetailsTapContext.Provider",
+        "DetailsWorkspace",
         "DraftNote",
         "EventPoster",
         "Face",
@@ -6122,6 +6137,7 @@
         "FileUpload",
         "FineTune",
         "GridPageSkeleton",
+        "GuestCardBody",
         "HTMLAnchorElement",
         "HTMLButtonElement",
         "HTMLDivElement",
@@ -6129,6 +6145,7 @@
         "HTMLIFrameElement",
         "HTMLImageElement",
         "HTMLInputElement",
+        "HTMLOListElement",
         "HTMLSpanElement",
         "HTMLUListElement",
         "HubDraftDock",
@@ -6139,6 +6156,7 @@
         "HubStage",
         "Icon",
         "IconBtn",
+        "Image",
         "InfoTip",
         "KindIcon",
         "LayerTools",
@@ -6151,7 +6169,6 @@
         "MakerBar",
         "MakerContext.Provider",
         "MakerDetails",
-        "MakerDetailsPage",
         "MakerDevice",
         "MakerHeroDesignPicker",
         "MakerLogoDoor",
@@ -6159,14 +6176,14 @@
         "MakerPageFrame",
         "MakerPageSwitch",
         "MakerPlayMenu",
-        "MakerPrints",
         "MakerRevealPicker",
         "MakerRsvpCanvas",
         "MakerRsvpSettings",
         "MakerSelection",
         "MakerShell",
         "MakerState",
-        "MakerThemePicker",
+        "MakerThemeGallery",
+        "MakerThemeMenu",
         "MakerTour",
         "MenuHeading",
         "MenuItem",
@@ -6176,17 +6193,28 @@
         "PabuyaMessageEditor",
         "PageMasthead",
         "PaidMark",
+        "ParentCards",
+        "Pick",
+        "PickContext.Provider",
         "PickMenu",
         "PickOption",
         "PrintChoicePicker",
         "PrintMenuEditor",
+        "PrintPieceBody",
+        "PrintPieceEditor",
         "PrintPreview",
         "PrintSaveButton",
+        "PrintSetBody",
+        "PrintSetDownloads",
+        "ProMark",
         "QrLookControls",
         "Row",
         "RsvpAskConfig",
+        "SVGGElement",
         "SVGSVGElement",
         "SaveState",
+        "SaveWords",
+        "SeatPlan3dNote",
         "Segmented",
         "SheetHead",
         "SiteStage",
@@ -6196,6 +6224,8 @@
         "State",
         "Switch",
         "SwitchRow",
+        "ThemePickProvider",
+        "ThemePreviewOverlay",
         "Toggle",
         "ToolMenu",
         "TuneFold",
@@ -8911,6 +8941,16 @@
         "Environment",
         "Lab3DBooth",
         "OrbitControls"
+      ]
+    },
+    "/dev/details-lab": {
+      "files": [
+        "dev/details-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "MakerDetails"
       ]
     },
     "/dev/hero-lab": {

@@ -44,6 +44,7 @@ import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
+import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSeatingPublished } from '@/lib/seat-pass';
@@ -391,10 +392,14 @@ export const loadHostPreviewDraft = cache(
  * could write "phones down, the ceremony is starting" and only the couple's own
  * dashboard would show it. This is the receiver.
  *
- * LIVE WINDOW ONLY. An announcement is a thing shouted across a room; it has no
- * meaning the week before or the month after. The caller passes the resolved
- * day-of phase and this returns nothing outside it, so a stale "we are running
- * late" cannot haunt the page forever.
+ * AS SOON AS IT IS SENT, UNTIL THE EVENT IS OVER (owner 2026-09-28, superseding
+ * the live-window-only rule that stood here). The Schedule's Announce can be
+ * sent a week early, and a guest who opens their Invitation that week sees it
+ * at the top. The caller passes the resolved `AnnouncementStage`
+ * (lib/coordinator-broadcasts.ts) and this returns nothing once the event has
+ * ENDED — so "we are running late" from the wedding day still cannot haunt the
+ * Post Event page forever. That is the one gate left here; it is deliberately
+ * the conservative one.
  *
  * ONE, NOT A FEED. The guest gets the latest only. A scrollback of operational
  * chatter is the coordinator's business, not a guest's — and a feed on the
@@ -408,9 +413,9 @@ export const loadDayOfBroadcast = cache(
   async (
     admin: AdminClient,
     eventId: string,
-    isLive: boolean,
+    stage: AnnouncementStage,
   ): Promise<{ body: string; createdAt: string } | null> => {
-    if (!isLive) return null;
+    if (stage === 'after') return null;
     const { data, error } = await admin
       .from('coordinator_broadcasts')
       .select('body, created_at')

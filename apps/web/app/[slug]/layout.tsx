@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { getDayOfPhase } from '@/lib/day-of-mode';
+import { calendarDayInZone, getDayOfPhase } from '@/lib/day-of-mode';
+import { isFinishedEvent } from '@/lib/event-board';
+import { announcementStage, type AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { readGuestSession } from '@/lib/guest-session';
 import { DayOfAnnouncement } from './_components/day-of-announcement';
 import { GuestLookScope } from './_components/guest-look-scope';
@@ -69,12 +71,17 @@ import { loadDayOfBroadcast, loadEventShell, loadGuestLook, type GuestLook } fro
  * landing page still makes ONE `events` read and ONE `coordinator_broadcasts`
  * read, not two. On the other eleven pages this is the first and only call.
  *
- * ── THE GATES ARE THE LOADER'S, NOT RE-DERIVED HERE ───────────────────────
- * `loadDayOfBroadcast` returns null outside the live window — an announcement
- * is a thing shouted across a room and has no meaning the week before or the
- * month after. The timezone is the VENUE'S, resolved from its coordinates,
- * because a Vercel server in UTC once decided what time it was at a wedding in
- * Manila and got it eight hours wrong (see page.tsx's "two clocks" note).
+ * ── WHEN IT SHOWS: AS SOON AS IT IS SENT (owner 2026-09-28) ──────────────
+ * `announcementStage` (lib/coordinator-broadcasts.ts) resolves 'before' ·
+ * 'live' · 'after' from the day-of phase and `isFinishedEvent`'s verdict, and
+ * `loadDayOfBroadcast` returns null only for 'after'. So an announcement sent
+ * from the Schedule a week early is at the top of the guest's Invitation that
+ * week (calm look, in flow), at the top of the Event Hub on the day (day-of
+ * look, sticky), and gone once the event is over — the Post Event page keeps
+ * its own words, not the last "dinner is moving up 15 minutes". The timezone
+ * is the VENUE'S, resolved from its coordinates, because a Vercel server in
+ * UTC once decided what time it was at a wedding in Manila and got it eight
+ * hours wrong (see page.tsx's "two clocks" note).
  *
  * ⛔ GUESTS ONLY — THIS GATE IS THE WHOLE REASON THE LIFT IS NOT A ONE-LINER.
  * `day-of-announcement.test.ts` pins the ruling: *"An announcement is for the
@@ -108,6 +115,7 @@ export default async function GuestTreeLayout({
 
   let broadcast: { body: string; createdAt: string } | null = null;
   let eventId: string | null = null;
+  let stage: AnnouncementStage = 'before';
 
   try {
     const event = await loadEventShell(slug);
@@ -120,11 +128,23 @@ export default async function GuestTreeLayout({
         event.venue_latitude,
         event.venue_longitude,
       );
-      const isLive = event.event_date
-        ? getDayOfPhase(event.event_date, venueTz) === 'live'
-        : false;
+      const phase = event.event_date
+        ? getDayOfPhase(event.event_date, venueTz)
+        : 'inactive';
+      // "Over" is the board's own definition (last day passed, venue calendar)
+      // — never a second one. The shell does not carry `archived`; an archived
+      // event's guests are the couple's call elsewhere, not this banner's.
+      const ended = isFinishedEvent(
+        {
+          event_date: event.event_date,
+          event_end_date: event.event_end_date,
+          archived: null,
+        },
+        calendarDayInZone(venueTz),
+      );
+      stage = announcementStage(phase, ended);
       broadcast = isThisEventsGuest
-        ? await loadDayOfBroadcast(createAdminClient(), event.event_id, isLive)
+        ? await loadDayOfBroadcast(createAdminClient(), event.event_id, stage)
         : null;
     }
   } catch {
@@ -148,12 +168,18 @@ export default async function GuestTreeLayout({
   */
   return (
     <GuestLookScope {...lookScopeProps(look)}>
-      {/* THE COORDINATOR'S WORDS, ON EVERY PAGE OF THE TREE. Sticky so it
-          follows the reader down a long page — the guest who needs "phones
-          down" is the one already scrolled into their seat card. */}
+      {/* THE COORDINATOR'S WORDS, ON EVERY PAGE OF THE TREE. On the day it is
+          sticky so it follows the reader down a long page — the guest who
+          needs "phones down" is the one already scrolled into their seat
+          card. Before the day it sits at the top, in flow: a week out, nothing
+          is urgent enough to ride over the couple's invitation. */}
       {broadcast && eventId ? (
-        <div className="sticky top-0 z-50">
-          <DayOfAnnouncement body={broadcast.body} eventId={eventId} />
+        <div className={stage === 'live' ? 'sticky top-0 z-50' : undefined}>
+          <DayOfAnnouncement
+            body={broadcast.body}
+            eventId={eventId}
+            stage={stage === 'live' ? 'live' : 'before'}
+          />
         </div>
       ) : null}
       {children}

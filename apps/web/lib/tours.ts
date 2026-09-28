@@ -103,6 +103,7 @@ export type TourKey =
   | 'customer_schedule_v1'
   | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
+  | 'customer_apply_pro_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -127,6 +128,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_schedule_v1',
   'customer_add_scene_v1',
   'customer_hero_designs_v1',
+  'customer_apply_pro_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -754,6 +756,32 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: MousePointerClick,
         title: 'A design is a starting point',
         body: 'Tap any part of your hero on the canvas &mdash; a name, the date, your mark &mdash; to change its font, colour, size or motion. Your changes stay with each part when you switch designs.',
+      },
+    ],
+  },
+  /* 💎 THE APPLY SHEET (owner 2026-09-28: *"they can edit it with pro features.
+     but need to upgrade to pro when clicked on apply and point out the effect
+     chosen that caused them to upgrade to pro"*; 2026-09-25: every feature gets
+     a first-visit tour). Mounted inside the sheet (`apply-pro-sheet.tsx`, via
+     `HubDraftDock`), so it opens the first time Apply names a Pro effect. The
+     sheet is never drawn in the app-store shell, and these slides name no
+     price — `sells` keeps them out of the shell all the same. */
+  customer_apply_pro_v1: {
+    key: 'customer_apply_pro_v1',
+    label: 'Apply with Pro effects',
+    blurb: 'What the list at Apply is, and your three ways on from it.',
+    slides: [
+      {
+        Icon: Sparkles,
+        title: 'You tried Event Hub Pro',
+        body: 'Everything marked &#9670; PRO in the Maker works before you pay &mdash; it waits in your draft. This list names each Pro effect you chose, and where it is.',
+        sells: true,
+      },
+      {
+        Icon: MousePointerClick,
+        title: 'Keep it, change it, or take it off',
+        body: 'Tap Go to to see an effect in the Maker, or &times; to take it off your draft. Unlock Event Hub Pro to put them all live &mdash; or apply the rest now; the Pro ones stay in your draft.',
+        sells: true,
       },
     ],
   },

@@ -23,6 +23,8 @@ import { sanitizeHubCanvas, type HubSectionCanvas } from './hub-canvas';
 import { widgetsGuestsMeet } from './maker-scene-list';
 import { classifyHubDraft, emptyHubDraft, mergeHubDraft, planHubDraftApply, hubDraftItemLabel, type HubLiveState } from './hub-draft';
 import { addedSceneDraft } from './scene-writes';
+import { hubDraftProEffects } from './hub-pro-effects';
+import { makerProUsable } from './paid-mark';
 import { postEventShow, postEventMove, postEventArrangementOf } from './post-event-draft';
 import type { InvitationWidgetRow, WidgetType } from './invitation-widgets';
 
@@ -144,7 +146,18 @@ test('4 · Pro at Apply: a free couple tries a preset in the draft — Apply hol
   // a couple WITHOUT Pro there is shown no tile, diamond or note — a Pro hint in
   // the store app is a purchase hint. A couple who owns Pro keeps them.
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
-  assert.match(page, /postEventPresets=\{\s*storeShell && !ownsPro\s*\?\s*null/, 'the presets reach a store-shell couple without Pro');
+  assert.match(page, /postEventPresets=\{\s*!makerProUsable\(\{ owns: ownsPro, storeShell \}\)\s*\?\s*null/, 'the presets reach a store-shell couple without Pro');
+  assert.equal(makerProUsable({ owns: false, storeShell: true }), false);
+  assert.equal(makerProUsable({ owns: true, storeShell: true }), true, 'a couple who owns Pro keeps them in the shell');
+  const picker = read('app/dashboard/[eventId]/website/editor/_components/scene-template-picker.tsx');
+  assert.match(picker, /makerProMark\(\{ owns: presets\.ownsPro, storeShell: presets\.storeShell \}\)/, 'the tile wears #6091’s Maker mark');
+
+  // 💎 The Apply sheet (#6091) names a held preset by its preset, and Go to lands on Post Event.
+  const effects = hubDraftProEffects(draft, live, false);
+  const named = effects.find((e) => e.id === 'show:custom_3');
+  assert.ok(named, 'the sheet does not name the held preset');
+  assert.deepEqual([named!.what, named!.where], ['Post Event scene', 'The Toast']);
+  assert.ok(named!.jump?.kind === 'scene' && named!.jump.stages[0] === 'editorial', 'Go to must land on Post Event');
   const tours = readFileSync(join(WEB, 'lib/tours.ts'), 'utf8');
   assert.match(tours, /title: 'Add scenes made for after the day',[\s\S]{0,700}?sells: true/, 'the presets tour slide must be dropped in the store shell');
 

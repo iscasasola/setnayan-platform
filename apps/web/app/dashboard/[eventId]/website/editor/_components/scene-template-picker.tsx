@@ -1,6 +1,7 @@
 'use client';
 
 import { PaidMark } from '@/app/_components/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   SCENE_BUILT_ON_LABEL,
@@ -71,7 +72,7 @@ export function SceneTemplatePicker({
    * Apply is where Pro is asked). `used` = the couple's own scenes across every
    * stage (six, shared — E5).
    */
-  presets?: { items: readonly PostEventPreset[]; used: number; ownsPro: boolean } | null;
+  presets?: { items: readonly PostEventPreset[]; used: number; ownsPro: boolean; storeShell: boolean } | null;
   /**
    * Controlled open state, for a sheet with a second door (the Maker's toolbar
    * ＋ opens the same "Add a scene" sheet as the navigator's button). Absent →
@@ -279,7 +280,7 @@ function PresetTiles({
   view,
   onPick,
 }: {
-  presets: { items: readonly PostEventPreset[]; used: number; ownsPro: boolean };
+  presets: { items: readonly PostEventPreset[]; used: number; ownsPro: boolean; storeShell: boolean };
   action: (formData: FormData) => void | Promise<void>;
   hidden: Readonly<Record<string, string>>;
   draft: boolean;
@@ -287,6 +288,9 @@ function PresetTiles({
   onPick?: (template: number) => void;
 }) {
   const full = presets.used >= MAX_OWN_SCENES;
+  // 💎 #6091's Maker mark: ◆ PRO while tried, the diamond once owned; in the
+  // store shell a couple without Pro never reaches here (`makerProUsable`).
+  const mark = makerProMark({ owns: presets.ownsPro, storeShell: presets.storeShell });
   return (
     <div data-post-event-presets="">
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -327,7 +331,7 @@ function PresetTiles({
                 </span>
                 <span className="flex items-center gap-1 pr-7 text-[0.7rem] font-semibold leading-tight text-ink">
                   {/* ◆ marks what Pro covers — the diamond, never a padlock: the tap still places it (2026-09-29). */}
-                  <PaidMark state="unlocked" size="xs" label="Part of Event Hub Pro — asked for when you press Apply" />
+                  {mark ? <PaidMark state={mark} size="xs" label={paidMarkLabel(mark, 'Event Hub Pro')} /> : null}
                   {p.name}
                 </span>
                 <span className="text-[0.62rem] leading-tight text-ink/60">{p.fields}</span>

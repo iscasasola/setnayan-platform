@@ -29,6 +29,8 @@
  *             schedule, galleries, orders or the Post Event story
  *             (`hub-draft.test.ts` asserts that on the plan, not on prose).
  *   undo    — step the draft back one save.
+ *   drop    — take ONE named Pro effect (`effect` = its id) off the draft —
+ *             the Apply sheet's ×. Recomputed here from the stored draft.
  *
  * Address, who can view, what guests get and open browsing are NOT drafted —
  * they stay live (the build plan's rule), in `editor/actions.ts`.
@@ -79,6 +81,7 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainFollow, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
@@ -148,6 +151,20 @@ export async function hubDraftAction(
     if (intent === 'undo') {
       await writeHubDraft(supabase, eventId, undoHubDraft(current));
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
+      return done();
+    }
+    /* 💎 DROP ONE PRO EFFECT (the Apply sheet's ×, owner 2026-09-28). The list
+       is recomputed HERE from the stored draft — the same one decision the
+       sheet was drawn from (`hubDraftProEffects` over `planHubDraftApply`) —
+       and only its id crosses from the client, so a sheet drawn before a later
+       edit can never write its old canvas over the newer one. Draft only;
+       Undo takes it back. */
+    if (intent === 'drop') {
+      const id = formData.get('effect');
+      const live = await readHubLiveState(supabase, eventId);
+      const effect = hubDraftProEffects(current, live, false).find((e) => e.id === id);
+      if (!effect?.remove) return { ok: false, intent, error: 'That effect is no longer in your draft.' };
+      await writeHubDraft(supabase, eventId, mergeHubDraft(current, effect.remove));
       return done();
     }
 
@@ -451,7 +468,7 @@ export async function hubDraftAction(
       } else if (item.field === 'mode') {
         (remaining.widgets[item.widgetType] ??= {}).mode = item.value as 'auto' | 'shown' | 'hidden';
       } else if (item.field === 'is_visible') {
-        // 🎞 A held Post Event preset scene keeps its drafted showing for the Apply after Pro.
+        // 🎬 A scene of their own, held for Pro, stays SHOWN in the draft.
         (remaining.widgets[item.widgetType] ??= {}).is_visible = item.value as boolean;
       }
     }

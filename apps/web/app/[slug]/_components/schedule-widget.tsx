@@ -240,7 +240,11 @@ export function ScheduleWidget({
           row is marked by an accent left rule + veil wash + a pulsing "· Now"
           tag under its time — replacing the filled terracotta pill. All
           now/next LOGIC above is untouched; this is markup + classes only. */}
-      <ol className="border-t border-ink/12">
+      {/* 📜 `data-hub-rows`: in a "One part after another" scene each moment
+          arrives on its own as the guest scrolls to it (globals.css "THE ROWS
+          OF A LIST"; the page's one observer marks each row). Inert anywhere
+          else — no staggered scene, no motion, the list as it always was. */}
+      <ol className="border-t border-ink/12" data-hub-rows="">
         {(compact && !showAll ? ordered.slice(0, COMPACT_MOMENTS) : ordered).map((b, i) => {
           const isNow = i === currentIndex;
           const isNext = i === upNextIndex;

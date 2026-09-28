@@ -17,14 +17,18 @@ Slice 3 of three, stacked on slice 2 (#6110). Brief `POST_EVENT_SCENES_BUILD_BRI
   work for every couple and the save action takes the order from anyone — it may only name columns the story
   already holds, so a free couple cannot author a column through the order. Moments, own columns and guest
   wishes stay Pro (the 2026-09-09 guard, now pinned both ways).
-- **App-store shell** (#6091's Maker rule, owns || !storeShell): a couple without Pro sees no preset tile,
+- **App-store shell** (#6091's `makerProUsable`: owns || !storeShell): a couple without Pro sees no preset tile,
   diamond or note there; the tour's presets slide is marked `sells`, so the shell drops it.
 - **Tour** (`customer_post_event_v1`): scenes and their styles, "Not yet" before the day, the after-the-day bar
   (Recap · Film · Suppliers · Gallery), and the presets — shown from the first visit, not only after the day.
 - Owner names applied: Kwento → "Photo Notes"; the Live Stream scene → "Watch Live".
 
-Gaps, listed not invented: the "Unlock Pro and Apply" sheet is Builder J's #6091 — not merged yet, so a held
-preset shows in the shipped held list until it lands; presets draw after the story's own scenes on the page
+**Wired into #6091's "Unlock Pro and Apply" sheet** (now on main): a preset rides the same add door as every
+scene of their own (added hidden, shown in the draft, held at Apply); the sheet names it "Post Event scene ·
+The Toast", and Go to lands on Post Event. The tile wears `makerProMark` (◆ PRO while tried, the diamond once
+owned) and the presets appear only where `makerProUsable` says so.
+
+Gaps, listed not invented: presets draw after the story's own scenes on the page
 (they are widget rows, not story blocks); The Toast has no clip store (template 6 stands in). No migration. +0
 exported server actions.
 

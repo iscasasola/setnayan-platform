@@ -47,6 +47,7 @@ import {
   type HubLiveState,
 } from './hub-draft';
 import { stripComments } from './strip-comments';
+import { hubDraftProEffects } from './hub-pro-effects';
 
 const LIVE_STORY = {
   headline: 'Rafael & Isabel, Married at Last',
@@ -213,6 +214,21 @@ test('Pro at Apply: a part’s own font is held for a free couple — its colour
   const liveLooks = arr().sceneLooks;
   const fp = sceneLooksFreePart(liveLooks, drafted.sceneLooks!);
   assert.equal(fp.numbers?.elements?.heading?.font, undefined);
+
+  // 💎 The Apply sheet (#6091) names it by part and scene, and "Remove" takes
+  // exactly that font off — the colour and the style stay drafted.
+  const effects = hubDraftProEffects(draft, live(), false);
+  assert.deepEqual(
+    effects.map((e) => [e.id, e.what, e.where]),
+    [['pe:numbers:heading:font', 'Font', 'Heading on Statistics']],
+    'the sheet names the held font by part and scene',
+  );
+  assert.deepEqual(effects[0]!.jump, { kind: 'row', key: 'p:numbers' });
+  const removed = mergeHubDraft(draft, effects[0]!.remove!);
+  assert.equal(planHubDraftApply(removed, live(), false).refused.length, 0, 'removing it leaves nothing held');
+  assert.equal(removed.editorial?.sceneLooks?.numbers?.elements?.heading?.color, '#123456', 'only the font came off');
+  assert.equal(removed.editorial?.sceneLooks?.numbers?.style, 'receipt');
+  assert.deepEqual(hubDraftProEffects(draft, live(), true), [], 'an owning couple is asked nothing');
 });
 
 test('show / hide and order are FREE at Apply — a free couple’s apply', () => {

@@ -12,6 +12,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
+import { makerProMark, makerProUsable } from '@/lib/paid-mark';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
@@ -267,6 +268,15 @@ export default async function WebsiteEditorPage({
   // Locked = no Pro AND no existing content (the grandfather rule shipped in
   // PR #3664 — a couple who already has content keeps editing it).
   const lockedIf = (hasContent: boolean) => !ownsPro && !hasContent;
+  /* 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28, verbatim: *"they can edit it
+     with pro features. but need to upgrade to pro when clicked on apply and
+     point out the effect chosen that caused them to upgrade to pro"*). A row
+     whose panel saves to the DRAFT is never locked on the web — Apply holds each
+     Pro pick and the Apply sheet names it. It stays locked (so HIDDEN) only in
+     the app-store shell. Rows whose writer is still LIVE (music, the gallery)
+     keep `lockedIf`: unlocking them would be a save the server refuses. */
+  const draftedRowLockedIf = (hasContent: boolean) => storeShell && lockedIf(hasContent);
+  const proMark = makerProMark({ owns: ownsPro, storeShell });
   const proUnlockHref = `${base}/studio/website-pro`;
   /** A locked Pro row's inline panel: one honest line + the ONE umbrella CTA.
    *  Nothing at all in the store shell — no pitch, no price (App Review 3.1.1). */
@@ -367,6 +377,12 @@ export default async function WebsiteEditorPage({
     console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
   }
   const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
+  /* 💎 The couple's own scenes guests do not see live — their words may be tried
+     without Pro (`SectionsPanel` `hiddenLive`). From the LIVE rows: the draft
+     over them says "shown" for a scene just added. */
+  const hiddenLive = liveWidgets
+    .filter((w) => isCustomSectionType(w.widget_type) && w.is_visible === false && (w as { mode?: string | null }).mode !== 'shown')
+    .map((w) => w.widget_id);
 
   /* 🎞 THE MAIN BACKGROUND (Maker Phase 10) — BY DEFAULT THE HERO (owner,
      2026-09-25 item 6: "whatever they make on the hero scene will be their
@@ -502,7 +518,7 @@ export default async function WebsiteEditorPage({
      a whole. Only its Pro half — face, art direction, magic move — locks, and
      with the same grandfather: a couple who already chose any of them keeps
      that half. */
-  const colorsProLocked = lockedIf(
+  const colorsProLocked = draftedRowLockedIf(
     Boolean(
       (event as { site_font_key?: string | null }).site_font_key ||
         (event as { site_magic_traveller?: string | null }).site_magic_traveller ||
@@ -516,8 +532,8 @@ export default async function WebsiteEditorPage({
      is changing how it looks."). Their own hero photo and the invitation
      backdrop join the rows above. Same grandfather: a couple who already has
      one keeps its panel, and the server lets them take it off. */
-  const heroLocked = lockedIf(Boolean(heroRef));
-  const backdropLocked = lockedIf(Boolean(rsvpBackdrop));
+  const heroLocked = draftedRowLockedIf(Boolean(heroRef));
+  const backdropLocked = draftedRowLockedIf(Boolean(rsvpBackdrop));
 
   const groups: RailGroup[] = [
     {
@@ -659,6 +675,7 @@ export default async function WebsiteEditorPage({
               rowKey="colors"
               proLocked={colorsProLocked}
               proLock={lockPanel('Typeface and motion')}
+              proMark={proMark}
               themeId={currentThemeId}
               /* 🎨 Blank = the Mood Board's colours — shown AS those colours
                  (owner 2026-09-27: "mood board palettes did not update"). */
@@ -893,13 +910,13 @@ export default async function WebsiteEditorPage({
               saveCustomAction={saveCustomSection}
               addCustomAction={addCustomSection}
               photoChoices={photoChoices}
-              /* Two Pro locks, both the SAME panel every other Pro row uses,
-                 passed as ELEMENTS: a section of their own (owner 2026-09-22)
-                 and how each section looks and moves (owner 2026-09-24). The
-                 actions refuse a free couple independently. */
+              /* 💎 Every form in this panel drafts, so on the web a couple
+                 without Pro USES each look control (◆ PRO) and Apply asks for
+                 Pro (owner 2026-09-28). `customLock` is only ever drawn in
+                 the app-store shell, where `lockPanel` draws nothing. */
               ownsPro={ownsPro}
               customLock={lockPanel('A section of your own')}
-              lookLock={lockPanel('How each section looks and moves')}
+              hiddenLive={hiddenLive}
               videoChoice={videoChoice}
               colorChoices={colorChoices}
               sceneStage={
@@ -1130,6 +1147,7 @@ export default async function WebsiteEditorPage({
       photoChoices={photoChoices}
       ownsPro={ownsPro}
       customLock={lockPanel('A section of your own')}
+      hiddenLive={hiddenLive}
       videoChoice={videoChoice}
       colorChoices={colorChoices}
       openBrowse={openBrowse}
@@ -1245,7 +1263,8 @@ export default async function WebsiteEditorPage({
       scenePanels={scenePanels}
       sceneRemovers={sceneRemovers}
       /* 🧰 The scene inspector's Format tab (background, one-or-all, uploads)
-         and Animate's lock — the same choices the old server panel was given. */
+         — the same choices the old server panel was given. Animate has no lock
+         any more: a couple without Pro tries it, and Apply asks (2026-09-28). */
       sceneFormat={{
         colorChoices,
         photoChoices,
@@ -1254,9 +1273,15 @@ export default async function WebsiteEditorPage({
         hubTheme: currentThemeId,
         openBrowse,
         hideLocked: storeShell,
-        lookLock: lockPanel('How each section looks and moves'),
         twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
         eventType: (event.event_type as string | null) ?? null,
+        /* The hero is the invitation card unless there is a hero photo/video or
+           the page is solemn — the same two facts the navigator's hero tile
+           reads (`hasHeroMedia`, `solemn` above), and the ones the guest page
+           picks its masthead by (`site-body.tsx`). */
+        heroCard:
+          !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
+        heroPhoto: Boolean(heroRef || videoRef),
       }}
       rows={rows}
       themes={themes}
@@ -1295,29 +1320,31 @@ export default async function WebsiteEditorPage({
       }}
       /* 🎞 Post Event's twelve presets — every couple may try one in the draft
          (Pro is asked for at Apply, E3); six of their own, shared across stages
-         (E5). #6091's Maker rule (`makerProUsable`: owns || !storeShell): in the
+         (E5). #6091's Maker rule, `makerProUsable` (owns || !storeShell): in the
          store shell a couple WITHOUT Pro is shown no tile, diamond or note — a
          Pro hint there is a purchase hint; a couple who owns Pro keeps them. */
       postEventPresets={
-        storeShell && !ownsPro
+        !makerProUsable({ owns: ownsPro, storeShell })
           ? null
           : {
               action: addCustomSection,
               returnTo: `/dashboard/${eventId}/launch`,
               used: allWidgets.filter((w) => isCustomSectionType(w.widget_type)).length,
               ownsPro,
+              storeShell,
             }
       }
       addScene={
         storeShell
           ? null
-          : !ownsPro
-            ? { note: 'Scenes of your own, from 25 templates, come with Event Hub Pro.', locked: true }
-            : !nextFreeCustomSlot(allWidgets.map((w) => w.widget_type))
+          : /* 💎 Open to every couple on the web (owner 2026-09-28): the scene is
+               added HIDDEN and shown in the draft; Apply asks for Pro to show it. */
+            !nextFreeCustomSlot(allWidgets.map((w) => w.widget_type))
               ? { note: 'You have all six of your own scenes. Remove one you are not using to add another.' }
               : {
                   action: addCustomSection,
                   returnTo: `/dashboard/${eventId}/launch`,
+                  tried: !ownsPro,
                   tour: <MiniTour tourKey="customer_add_scene_v1" storeShell={storeShell} />,
                 }
       }

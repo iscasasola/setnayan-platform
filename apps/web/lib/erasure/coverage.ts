@@ -1327,6 +1327,14 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'The subject’s OUTBOUND follow list. Inbound edges (followed_user_id) are another account’s list — left, and flagged in the PR.',
   },
   {
+    table: 'user_unfollows',
+    column: 'follower_user_id',
+    why:
+      'The subject’s own "I unfollowed them" memory (owner 2026-09-28: a guest "can unfollow any ' +
+      'time"; migration 20271251336140) — their preference, keyed to them. Inbound rows ' +
+      '(followed_user_id) are another account’s memory — left, like user_follows.',
+  },
+  {
     table: 'vendor_follows',
     column: 'follower_user_id',
     why: 'The subject’s outbound vendor-follow list.',

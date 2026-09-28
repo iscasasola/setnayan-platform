@@ -4,8 +4,6 @@ import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Lock, PencilLine, Play } from 'lucide-react';
-import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
 import {
   HUB_ARRANGEMENTS,
   HUB_ARRANGEMENT_LABEL,
@@ -437,21 +435,18 @@ export function SceneParts({
   keys,
   onElement,
   onOpenHero,
-  proMark,
 }: {
   keys: readonly HubElementKey[];
   onElement: (el: HubElementKey) => void;
   onOpenHero?: () => void;
-  /** Whether styling a part is included (Pro) — the mark beside the heading. */
-  proMark?: 'locked' | 'unlocked' | null;
 }) {
+  /* 💎 No Pro mark here any more (owner 2026-09-28): styling a part is free —
+     colour, size, the Text rows — and only its Font ▾ and Animate wear the
+     mark, inside the part's own sheet. */
   return (
     <div data-scene-parts="" className="pt-1">
       <IHint>
         This scene’s words are its parts. Tap one on the scene, or pick it here — it opens the part’s toolbar.
-        {proMark ? (
-          <PaidMark state={proMark} text="Pro" label={paidMarkLabel(proMark, 'Event Hub Pro')} className="ml-1.5 align-middle" />
-        ) : null}
       </IHint>
       <div className="flex flex-wrap gap-1.5 pb-2">
         {keys.map((k) => (

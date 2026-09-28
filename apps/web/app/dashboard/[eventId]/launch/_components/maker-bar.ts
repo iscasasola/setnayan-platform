@@ -21,9 +21,13 @@ import { TOURS, type TourKey } from '@/lib/tours';
  * `kind` says what pressing the item DOES, and every item does something:
  *   · 'stage' — switches the canvas to that stage of the live page;
  *   · 'tool'  — opens a working panel that already ships (the Logo Maker door,
- *               the reveal panel, the hero photo, Our story);
- *   · 'next'  — has no build yet, and opens ONE line saying it is coming in the
- *               next build. Never a dead button (owner rule for this build).
+ *               the reveal panel, the hero photo, Our story).
+ *
+ * ⛔ NOTHING HERE PROMISES A LATER BUILD (2026-09-28, before the Apple check —
+ * App Review rejects "coming soon"). The old `'next'` kind and the
+ * `MAKER_COMING_NEXT` notes ("… is coming in the next build") are gone: a
+ * control that is not built is not drawn. `lib/the-maker-promises-nothing.test.ts`
+ * holds it.
  */
 
 export type MakerBarGroup = 'made-once' | 'stages' | 'prints';
@@ -60,16 +64,14 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
   { key: 'prints', label: 'Prints & Tickets', group: 'prints', kind: 'tool' },
 ];
 
-/** What a 'next' item — or a tool whose full build is a later phase — says. */
-/* The Logo and Love Story notes are gone: both open as pages in the Maker's
-   body now (2026-09-25), so "it opens in its own page" was no longer true. */
-/* "add" is gone: ＋ Add a scene works (DECISION_LOG 2026-09-27) — the toolbar's
-   ＋ opens the template sheet, and the scene goes into the draft. */
-export const MAKER_COMING_NEXT: Record<'hero' | 'snap' | 'both', string> = {
-  hero: 'One hero for every stage and the poster is coming in the next build — for now this sets the photo at the top.',
-  snap: 'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone.',
-  both: 'Desktop and phone side by side is coming in the next build — switch between them for now.',
-};
+/**
+ * The one note left from `MAKER_COMING_NEXT` — and it promises nothing: it says
+ * what the snap grid does today. The "Both" view (desktop and phone side by
+ * side) and the hero's "one hero for every stage" were promises of a later
+ * build; they were removed 2026-09-28 rather than kept as "coming next" lines.
+ */
+export const MAKER_SNAP_NOTE =
+  'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone.';
 
 export const MAKER_TOUR_KEY: TourKey = 'customer_event_hub_maker_v1';
 

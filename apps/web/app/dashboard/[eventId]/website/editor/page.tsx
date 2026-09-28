@@ -488,14 +488,15 @@ export default async function WebsiteEditorPage({
     overlayHubDraftEvent(event as Record<string, unknown>, hubDraft).rsvp_backdrop,
   );
 
-  /* 🎨 The background colour is FREE (owner 2026-09-24: "changing background
-     color is free"), so the Colours row is never locked as a whole. Only its Pro
-     half — buttons, face, art direction, magic move — locks, and with the same
-     grandfather: a couple who already chose any of them keeps that half. */
+  /* 🎨 Both colours are FREE (owner 2026-09-24: "changing background color is
+     free"; 2026-09-28: "change … color … only when you start adding themes will
+     it be pro" — the button colour too), so the Colours row is never locked as
+     a whole. Only its Pro half — face, art direction, magic move — locks, and
+     with the same grandfather: a couple who already chose any of them keeps
+     that half. */
   const colorsProLocked = lockedIf(
     Boolean(
-      event.site_button_color ||
-        (event as { site_font_key?: string | null }).site_font_key ||
+      (event as { site_font_key?: string | null }).site_font_key ||
         (event as { site_magic_traveller?: string | null }).site_magic_traveller ||
         event.site_art_direction === 'candlelight',
     ),
@@ -649,7 +650,7 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="colors"
               proLocked={colorsProLocked}
-              proLock={lockPanel('Button colour, typeface and motion')}
+              proLock={lockPanel('Typeface and motion')}
               themeId={currentThemeId}
               /* 🎨 Blank = the Mood Board's colours — shown AS those colours
                  (owner 2026-09-27: "mood board palettes did not update"). */

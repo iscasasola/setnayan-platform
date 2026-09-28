@@ -76,14 +76,17 @@ test("the hero's alignment is one choice for the whole hero; a scene's parts ali
 const widget = (type: string, config: unknown): InvitationWidgetRow =>
   ({ widget_id: `S89W-${type}`, widget_type: type, is_visible: true, display_order: 1, mode: 'auto', config_json: config }) as unknown as InvitationWidgetRow;
 
-test('at Apply the new look rows are Pro; hiding a part and the joiner’s word are free', () => {
+test('at Apply the Text rows are FREE (2026-09-28 redraw); hiding a part and the joiner’s word too', () => {
+  // Owner 2026-09-28: "free to change design, change text, size, color …, only
+  // when you start adding themes will it be pro." Only Font ▾ and Animate stay
+  // Pro (`HUB_ELEMENT_PRO_FIELDS`).
   const live: HubLiveState = { events: {}, widgets: [widget('schedule', {}), widget('hero', {})] };
   const look = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { heading: { weight: 600 } } } } } });
-  assert.equal(planHubDraftApply(look, live, false).refused.length, 1, 'a weight is look — held for a free couple');
-  assert.equal(planHubDraftApply(look, live, true).refused.length, 0, 'and written for a Pro couple');
+  assert.equal(planHubDraftApply(look, live, false).refused.length, 0, 'a weight is free — written for a free couple');
+  assert.equal(planHubDraftApply(look, live, true).refused.length, 0, 'and for a Pro couple');
   for (const field of [{ italic: true }, { underline: true }, { align: 'left' }, { leading: 1.2 }, { tracking: -2 }]) {
     const d = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { heading: field as HubElementStyle } } } } });
-    assert.equal(planHubDraftApply(d, live, false).refused.length, 1, `${JSON.stringify(field)} is held for a free couple`);
+    assert.equal(planHubDraftApply(d, live, false).refused.length, 0, `${JSON.stringify(field)} was held for a free couple`);
   }
   const free = mergeHubDraft(emptyHubDraft(), {
     widgets: {

@@ -84,7 +84,10 @@ const BENEFITS = [
   'The cinematic reveal on your Save the Date — it comes only with this.',
   'Background music and a video across the top of your Event Hub.',
   'Your own photo gallery on your Event Hub — your engagement or pre-wedding photos.',
-  'Your own colours for the page and its buttons.',
+  // Colours left this list 2026-09-28 — they are free for every couple now
+  // (owner: "only when you start adding themes will it be pro. adding media
+  // for background"). Media behind a scene or the page is what Pro adds.
+  'Your own photo or video behind any scene, or behind the whole page.',
   'A Pro theme for your invite link — it opens on your own photo, in your colour.',
   'The Setnayan mark taken off everywhere your guests see it — the page, the printable version, your story and the recap.',
 ];

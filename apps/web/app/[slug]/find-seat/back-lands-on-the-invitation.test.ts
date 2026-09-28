@@ -112,3 +112,36 @@ test('4 · every rendered "Back to the invitation" points at the invitation, not
   assert.equal(/href=\{`\/\$\{slug\}`\}/.test(page), false, 'a bare /${slug} link is back in find-seat/page.tsx');
   assert.equal(/inviteHref=\{`\/\$\{slug\}`\}/.test(page), false);
 });
+
+test('5 · on the Save the Date the film does not replay either — it starts lifted, and its opening stands down', async () => {
+  // Owner 2026-09-29: coming back from Find your seat on the Save the Date
+  // replayed the whole film. The hash that stands the opening down on every
+  // other stage now decides the film too — the same rule, executed.
+  const filmLiftedOnLanding = await load<(l: { hash: string; scrollY: number; viewportHeight: number }, asSlide: boolean) => boolean>(
+    '../_components/std-film-handoff',
+    'filmLiftedOnLanding',
+  );
+  const back = new URL(findSeatBackHref('rosa-ben', { phase: 'save_the_date' }), ORIGIN);
+  assert.equal(back.searchParams.get('phase'), 'save_the_date', 'the stage travels back');
+  const landing = { hash: back.hash, scrollY: 0, viewportHeight: 844 };
+  assert.equal(filmLiftedOnLanding(landing, false), true, 'the guest lands on the Details, not on the film');
+  // The front door still plays it; a restored scroll is a return, too.
+  assert.equal(filmLiftedOnLanding({ hash: '', scrollY: 0, viewportHeight: 844 }, false), false);
+  assert.equal(filmLiftedOnLanding({ hash: '', scrollY: 1200, viewportHeight: 844 }, false), true);
+  // In the Maker's canvas the film is a slide — nothing is ever lifted.
+  assert.equal(filmLiftedOnLanding(landing, true), false);
+
+  // The handoff asks it at landing and lifts through the one exit event.
+  const handoff = stripComments(readFileSync(join(HERE, '../_components/std-film-handoff.tsx'), 'utf8'));
+  const effect = /useEffect\(\(\) => \{\s*const onExit = \(\) => setShowFilm\(false\);[\s\S]*?\}, \[\]\);/.exec(handoff)?.[0] ?? '';
+  assert.ok(effect, 'the handoff’s exit effect moved — re-anchor this guard');
+  assert.match(effect, /if \(\s*filmLiftedOnLanding\(/, 'the handoff stopped asking the landing rule');
+  assert.match(effect, /window\.dispatchEvent\(new CustomEvent\(STD_FILM_EXIT_EVENT\)\)/, 'the lift must be the same exit "See our page" sends');
+
+  // And the opening over it: the landing check is no longer the first-page-only
+  // stages' alone, so the veil does not cover a page whose film was lifted.
+  const overlay = stripComments(readFileSync(join(HERE, '../_components/reveal/reveal-overlay.tsx'), 'utf8'));
+  const gate = /if \(([^)]*?)!landedOnTheFirstPage\(/.exec(overlay);
+  assert.ok(gate, 'the overlay lost its landing check — re-anchor this guard');
+  assert.equal(/firstPageOnly/.test(gate[1] ?? ''), false, 'the landing check is gated to first-page-only stages again');
+});

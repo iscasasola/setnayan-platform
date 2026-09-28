@@ -8,7 +8,7 @@
  * Every size is in `cqw` — the card is a size container — so one poster reads
  * the same at two columns on a phone and five on a desktop.
  *
- * Which of the five treatments an event gets is decided in `lib/event-poster.ts`
+ * Which treatment an event gets is decided in `lib/event-poster.ts`
  * (`posterFor`), never here. This file only draws them.
  *
  * `--a` is the couple's accent (`events.monogram_color`), already validated as
@@ -251,9 +251,19 @@
   margin-top: 1cqw;
 }
 
-/* ── photo — their own hero photograph wins ─────────────────────────────── */
+/* ── photo — their hero photograph, or their Save-the-Date background ─────
+   🔑 THE WORDS READ BY MEASUREMENT (owner 2026-09-25: text adapts to every
+   background). `--hub-ink` / `--hub-heading` / `--hub-accent-text` /
+   `--hub-scrim` are the Event Hub's legibility rule (`hubLegibility`), set on
+   the poster by `posterFor`: the ink that clears AA over a black AND a white
+   pixel under that veil — so over any photo. The veil sits BEHIND THE WORDS
+   (`.over::before`, from the text's top to the card's foot) and fades out
+   above them, so the rest of the picture stays clear. Before 2026-09-29 this
+   was a fixed dark gradient that was transparent by 60 % of the height — below
+   the names of a two-across phone card. */
+/* The ground's own fill is only what shows before the picture loads; the words
+   are coloured on `.over`, which sits on the picture under its veil. */
 .photoGround {
-  color: #fff;
   background: var(--sn-ink-900);
 }
 .photo {
@@ -263,12 +273,6 @@
   height: 100%;
   object-fit: cover;
 }
-.photoGround::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(20, 14, 12, 0.74) 0, rgba(20, 14, 12, 0.36) 36%, transparent 60%);
-}
 .over {
   position: absolute;
   left: 8cqw;
@@ -276,23 +280,71 @@
   bottom: calc(var(--sb) + 6cqw);
   z-index: 1;
   text-align: left;
+  color: var(--hub-ink);
+}
+.over::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: -8cqw;
+  right: -8cqw;
+  top: -10cqw;
+  bottom: calc(-1 * (var(--sb) + 6cqw));
+  background: linear-gradient(to top, var(--hub-scrim) 0, var(--hub-scrim) calc(100% - 10cqw), transparent 100%);
+  pointer-events: none;
 }
 .over .names {
+  color: var(--hub-heading, inherit);
   font-size: 11cqw;
   line-height: 1.04;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.35);
 }
 .over .amp {
-  color: var(--sn-gold-100);
+  color: var(--hub-accent-text, inherit);
   font-size: 0.5em;
   margin: 0.5cqw 0;
 }
 .over .wd {
   margin-top: 3cqw;
-  opacity: 0.85;
 }
 .over .dt {
-  color: var(--sn-gold-100);
+  color: var(--hub-accent-text, inherit);
+}
+
+/* ── theme — the invitation card in their theme, over the theme's still ──
+   The still is the theme's own loop's first frame; the veil is the theme's
+   measured scrim (`hubLegibility(theme, {kind:'theme'})`) over the whole
+   ground, exactly as the Event Hub lays it over the loop; the card's words
+   take the theme's inks instead of the paper's. */
+.themeGround {
+  background: var(--sn-ink-900);
+}
+.themeScrim {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: var(--hub-scrim);
+}
+.themeGround .paper {
+  color: var(--hub-ink);
+}
+.themeGround .paper::before,
+.themeGround .circ {
+  border-color: color-mix(in srgb, var(--hub-accent-text) 55%, transparent);
+}
+.themeGround .names {
+  color: var(--hub-heading);
+}
+.themeGround .amp,
+.themeGround .circ {
+  color: var(--hub-accent-text);
+}
+/* The measured contrast is for the ink at full strength — a faded eyebrow or
+   line would fall back under the AA line the veil was sized for. */
+.themeGround .eb,
+.themeGround .ln,
+.themeGround .tbd,
+.over .tbd {
+  opacity: 1;
 }
 
 /* ── invitation — the hub's own invitation card (no accent, no photo) ────── */

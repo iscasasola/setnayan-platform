@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c81e502bc",
+  "generatedFromRef": "d1d891557",
   "routeCount": 435,
-  "destinations": 939,
-  "actions": 670,
-  "blocks": 4968,
+  "destinations": 940,
+  "actions": 671,
+  "blocks": 4977,
   "routes": {
     "/": {
       "files": [
@@ -815,6 +815,7 @@
         "[slug]/_components/pahina-motion.tsx",
         "[slug]/_components/photo-moments-widget.tsx",
         "[slug]/_components/photos-of-you-gallery.tsx",
+        "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -1145,6 +1146,8 @@
         "PhotoMomentsWidget",
         "PhotosOfYouGallery",
         "PreviewPerson",
+        "PreviewWayBack",
+        "PreviewWayBackLink",
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
@@ -4915,6 +4918,7 @@
         "dashboard/[eventId]/_components/address-pin-field.tsx",
         "dashboard/[eventId]/_components/after/finished-event-summary.tsx",
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
+        "dashboard/[eventId]/_components/cohost-welcome.tsx",
         "dashboard/[eventId]/_components/connect-supplier-modal.tsx",
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
         "dashboard/[eventId]/_components/customer-nav-config.ts",
@@ -5001,6 +5005,7 @@
         "deletePayment",
         "grantShareConsent",
         "logPayment",
+        "markNotificationRead",
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
         "toggleChecklistItem"
@@ -5026,6 +5031,7 @@
         "ChannelToggle",
         "ChecklistItemView",
         "ChecklistPhaseGroup",
+        "CohostWelcome",
         "ColorRow",
         "ColourAccessResult",
         "ConfirmForm",
@@ -5579,6 +5585,7 @@
         "dashboard/[eventId]/guests/_components/filter-popover.tsx",
         "dashboard/[eventId]/guests/_components/find-add-row.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
+        "dashboard/[eventId]/guests/_components/guest-access-control.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
@@ -5671,6 +5678,8 @@
         "GridPageSkeleton",
         "GroupChipList",
         "GroupsSidebar",
+        "GuestAccessControl",
+        "GuestAccessTagContext.Provider",
         "GuestCardBody",
         "GuestCardData",
         "GuestListFinalizedContext.Provider",
@@ -5731,6 +5740,7 @@
         "PageMasthead",
         "PairSelectedForm",
         "PartnerLine",
+        "PickMenu",
         "PlusBadge",
         "PlusOneChipEditor",
         "Popover",
@@ -5783,6 +5793,7 @@
     },
     "/dashboard/[eventId]/guests/[guestId]": {
       "files": [
+        "dashboard/[eventId]/guests/[guestId]/access-actions.ts",
         "dashboard/[eventId]/guests/[guestId]/actions.ts",
         "dashboard/[eventId]/guests/[guestId]/loading.tsx",
         "dashboard/[eventId]/guests/[guestId]/page.tsx"
@@ -5796,6 +5807,7 @@
         "FormPageSkeleton",
         "GuestCardBody",
         "Link",
+        "SetGuestAccessResult",
         "UndoToastHost"
       ]
     },
@@ -5986,6 +5998,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]",
+        "/dashboard/[seg]/guests",
         "/dashboard/[seg]/people"
       ],
       "actions": [
@@ -6178,6 +6191,7 @@
         "PaidMark",
         "PickMenu",
         "PickOption",
+        "PreviewStageLink",
         "PrintChoicePicker",
         "PrintMenuEditor",
         "PrintPreview",
@@ -6185,6 +6199,7 @@
         "QrLookControls",
         "Row",
         "RsvpAskConfig",
+        "SVGGElement",
         "SVGSVGElement",
         "SaveState",
         "Segmented",

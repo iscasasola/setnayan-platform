@@ -3,6 +3,7 @@ import 'server-only';
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { asViewed } from '@/lib/view-as-free.server';
 import {
   INVITE_THEMES,
   normalizeThemeId,
@@ -60,6 +61,15 @@ export type HubLookEvent = {
   monogram_color?: string | null;
   site_button_color?: string | null;
   event_type?: string | null;
+  /**
+   * 🎨 A THEME TILE ON THE MAKER'S DETAILS PAGE (`canvasTriedTheme`,
+   * `_lib/editor-canvas.ts`). Set ONLY by `app/[slug]/page.tsx`, and only after
+   * it verified the viewer hosts this event — never a column, never read from
+   * a request. It lets a couple SEE a Pro theme on their own page before they
+   * own it: the ownership half of the gate is skipped, the wedding fence is
+   * still asked. Nothing is written; guests never meet it.
+   */
+  theme_try_on?: boolean;
 };
 
 export type HubLook = {
@@ -86,7 +96,10 @@ export type HubLook = {
  */
 export const websiteProActiveFor = cache(
   async (eventId: string): Promise<boolean> =>
-    eventCoupleWebsiteProActive(createAdminClient(), eventId),
+    // 👁 As the viewer is shown it (`lib/view-as-free.server.ts`): the Maker's
+    // canvas is this page, so "view as a free couple" must reach it. Render
+    // only — this reader gates no write.
+    asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId)),
 );
 
 /** The Pro-theme gate's two reads, once per request, keyed on primitives. */
@@ -120,9 +133,13 @@ export async function resolveHubTheme(event: HubLookEvent): Promise<Omit<HubLook
   const wanted = normalizeThemeId(saved);
   const wantsPro = wanted !== null && INVITE_THEMES[wanted].tier === 'pro';
 
-  const [ownsPro, mayShowStdFilm] = wantsPro
+  const [owned, mayShowStdFilm] = wantsPro
     ? await proThemeGate(event.event_id, event.event_type ?? '')
     : [false, false];
+  // 🎨 A host's theme tile shows the theme as it WOULD look — ownership is the
+  // purchase question, not the look's; the fence (what this celebration may
+  // wear at all) still answers.
+  const ownsPro = owned || event.theme_try_on === true;
 
   const theme = resolveInviteTheme({ saved, ownsPro, mayShowStdFilm });
   const mark = resolveMonogram({

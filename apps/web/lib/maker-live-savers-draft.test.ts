@@ -190,11 +190,15 @@ test('ColorsPanel: a save goes to the draft, the live row is unchanged, the host
   assert.equal(host.site_bg_color, '#1a2b3c');
   assert.equal(liveRow.site_bg_color, '#ffffff', 'the overlay must never mutate the shared live row');
 
-  // Apply — a free couple: the background (free) is applied; the button (Pro) is held.
+  // Apply — a free couple: BOTH colours are applied (the button joined the
+  // background as free on 2026-09-28 — the free-vs-Pro redraw).
   const free = planHubDraftApply(d, live(), false);
-  assert.deepEqual(free.apply.map((i) => i.kind === 'event' && [i.column, i.value]), [['site_bg_color', '#1a2b3c']]);
-  assert.deepEqual(free.refused.map((i) => i.kind === 'event' && i.column), ['site_button_color']);
-  assert.deepEqual(free.remaining.events, { site_button_color: '#aa0000' }, 'a refused Pro colour stays in the draft');
+  assert.deepEqual(
+    free.apply.map((i) => i.kind === 'event' && [i.column, i.value]),
+    [['site_bg_color', '#1a2b3c'], ['site_button_color', '#aa0000']],
+  );
+  assert.deepEqual(free.refused, [], 'a free couple’s colour was held as Pro');
+  assert.deepEqual(free.remaining.events, {});
   // An owning couple: both are applied.
   const pro = planHubDraftApply(d, live(), true);
   assert.equal(pro.refused.length, 0);

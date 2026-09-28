@@ -18,9 +18,9 @@ import {
   type MakerSceneTab,
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
-import { MAKER_COMING_NEXT, MAKER_DETAILS_LABEL } from '../../../launch/_components/maker-bar';
+import { MAKER_DETAILS_LABEL } from '../../../launch/_components/maker-bar';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
-import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
+import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, stageTakesOwnScenes, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
@@ -213,7 +213,6 @@ export function MakerWork({
   scenePanels,
   rows,
   themes,
-  themeHref,
   ownsPro,
   initialScene = null,
   initialOpenRow = null,
@@ -317,7 +316,6 @@ export function MakerWork({
   scenePanels: Record<string, ReactNode>;
   rows: Record<string, MakerRowPanel>;
   themes: Array<{ id: string; name: string; ready: boolean; current: boolean }>;
-  themeHref: string;
   ownsPro: boolean;
   initialScene?: string | null;
   initialOpenRow?: string | null;
@@ -1139,7 +1137,16 @@ export function MakerWork({
                    brings is held (`onSaving` below), never reloaded. */
                 postToCanvas(message);
               }}
-              onSaving={(canvases) => {
+              onSaving={(canvases, redrawsBox) => {
+                /* 🖼 A pick that changes who draws the box — a widget's own card
+                   on or off (`backgroundPickRedrawsBox`) — is NOT on the canvas:
+                   the bridge paints the frame, never the card (owner 2026-09-28,
+                   "No background" on the Countdown kept its pink card). Release,
+                   so the save's render reloads the canvas, buffered, as before. */
+                if (redrawsBox) {
+                  releaseCanvas();
+                  return;
+                }
                 canvasHold.current = holdChange(
                   canvasHold.current,
                   { canvases: elementEditing.canvases, order: canvasOrder },
@@ -1188,11 +1195,7 @@ export function MakerWork({
         <>
           {ownScene ? scenePanels[id] : null}
           {elementEditing && partsKeys.length > 0 ? (
-            <SceneParts
-              keys={partsKeys}
-              onElement={openPart}
-              proMark={sceneFormat?.hideLocked && !ownsPro ? null : ownsPro ? 'unlocked' : 'locked'}
-            />
+            <SceneParts keys={partsKeys} onElement={openPart} />
           ) : null}
         </>
       ),
@@ -1868,6 +1871,7 @@ export function MakerWork({
           }
           palette={elementEditing.palette}
           ownsPro={ownsPro}
+          hideLocked={maker.storeShell}
           draftAction={elementEditing.draftAction}
           resize={toolsResize}
           parts={elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}
@@ -1982,7 +1986,6 @@ export function MakerWork({
           sceneTabs={sceneTabs}
           rows={rows}
           themes={themes}
-          themeHref={themeHref}
           eventId={eventId}
           madeOnce={madeOnce}
           showMotionTabs={ownsPro || !maker.storeShell}
@@ -2257,7 +2260,7 @@ function RowBlock({ row }: { row: MakerRowPanel }) {
  * Scan-to-view and the one Pro CTA — the rail's topbar and foot, ported into
  * the Maker's ⋯ sheet. The QR is the master event QR `/api/website/qr` already
  * serves, with the one control strip every link-QR carries. The CTA is the
- * umbrella unlock — one CTA for all ten Pro items (`WEBSITE_PRO_ITEMS`) — shown
+ * umbrella unlock — one CTA for all nine Pro items (`WEBSITE_PRO_ITEMS`) — shown
  * only while they do not own it, and never in the store shell.
  */
 function MoreExtras({
@@ -2366,7 +2369,6 @@ function Inspector({
   scenePanel,
   rows,
   themes,
-  themeHref,
   eventId,
   madeOnce,
   showMotionTabs,
@@ -2384,7 +2386,7 @@ function Inspector({
    *  "everywhere or just here" (`details-bound-field.tsx`). */
   contentBound?: ReactNode;
   /** Open a fixed scene's workspace (Hero, Reveal, Love Story, Post Event). */
-  onOpenTool: (key: 'hero' | 'reveal' | 'love-story' | 'post-event' | 'rsvp-page') => void;
+  onOpenTool: (key: 'hero' | 'reveal' | 'love-story' | 'post-event' | 'rsvp-page' | 'details') => void;
   /** 🔤 Open one element's sheet (font · colour · size · animation) — null where not offered. */
   onElement: ((el: HubElementKey) => void) | null;
   madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null;
@@ -2397,7 +2399,6 @@ function Inspector({
   scenePanel: ReactNode;
   rows: Record<string, MakerRowPanel>;
   themes: Array<{ id: string; name: string; ready: boolean; current: boolean }>;
-  themeHref: string;
   eventId: string;
   showMotionTabs: boolean;
   onClose: () => void;
@@ -2549,7 +2550,7 @@ function Inspector({
   } else if (selection.kind === 'main') {
     body = (
       <>
-        <ThemePanel themes={themes} href={themeHref} />
+        <ThemePanel themes={themes} onOpen={() => onOpenTool('details')} />
         {MAIN_ROWS.filter((k) => rows[k]).map((k) => (
           <RowBlock key={k} row={rows[k]!} />
         ))}
@@ -2560,10 +2561,6 @@ function Inspector({
        inspector keeps only Post Event's tool and a workspace that did not load
        (the hero then falls back to its row). */
     const keys = selection.kind === 'tool' ? (TOOL_ROWS[selection.key] ?? []) : [selection.key];
-    const note =
-      selection.kind === 'tool' && selection.key === 'hero'
-        ? MAKER_COMING_NEXT[selection.key]
-        : null;
     body = (
       <>
         {keys.filter((k) => rows[k]).map((k) => (
@@ -2571,13 +2568,6 @@ function Inspector({
         ))}
         {keys.every((k) => !rows[k]) ? (
           <p className="px-1 text-[13px] text-ink/70">Nothing to set here for this event.</p>
-        ) : null}
-        {note ? (
-          <p className="px-1 text-[12px] text-ink/60">
-            <InfoTip label="Coming next" align="start">
-              {note}
-            </InfoTip>
-          </p>
         ) : null}
       </>
     );
@@ -2615,52 +2605,36 @@ function Inspector({
 }
 
 /**
- * THE THEME PANEL — a placeholder that reads the theme registry as it stands.
- * The whole-hub picker (ten themes) is Phase 3's; until it lands this names the
- * themes that ship, marks the couple's, and opens the picker that already
- * writes `events.invite_theme`.
+ * THE THEME, NAMED — and where it is chosen. Owner 2026-09-28: the theme is
+ * picked on the Maker's Details page, as a preview of the couple's own page in
+ * each theme (`launch/_components/maker-theme-picker.tsx`). ONE place chooses
+ * it; this line only reads it and opens Details — never a second picker, never
+ * a link out of the Maker.
  */
 function ThemePanel({
   themes,
-  href,
+  onOpen,
 }: {
   themes: Array<{ id: string; name: string; ready: boolean; current: boolean }>;
-  href: string;
+  onOpen: () => void;
 }) {
-  const ready = themes.filter((t) => t.ready);
+  const yours = themes.find((t) => t.current) ?? themes.find((t) => t.id === 'house');
   return (
-    <section className="rounded-md bg-white/70 px-3 py-3" data-maker-theme-panel="">
-      <p className="text-[14px] font-semibold text-ink">Theme</p>
-      <p className="mt-0.5 text-[12.5px] text-ink/65">Pick a theme and the whole Event Hub is dressed.</p>
-      <ul className="mt-2 flex flex-wrap gap-1.5">
-        {ready.map((t) => (
-          <li
-            key={t.id}
-            className={`rounded-full px-3 py-1.5 text-[12.5px] font-semibold ${
-              t.current ? 'bg-ink text-cream' : 'bg-ink/5 text-ink/75'
-            }`}
-          >
-            {t.name}
-            {t.current ? ' · yours' : ''}
-          </li>
-        ))}
-      </ul>
-      <Link
-        href={href}
-        className="sn-press mt-3 inline-flex min-h-10 items-center gap-1 rounded-full bg-ink/5 px-4 text-[13px] font-semibold text-ink hover:bg-ink/10"
+    <p className="flex flex-wrap items-center gap-x-2 px-1 text-[13.5px] text-ink" data-maker-theme-panel="">
+      <span className="font-semibold">Theme</span>
+      <span>{yours?.name ?? 'Classic'}</span>
+      <span aria-hidden className="text-ink/40">
+        ·
+      </span>
+      <button
+        type="button"
+        onClick={onOpen}
+        data-maker-theme-opens-details=""
+        className="sn-press inline-flex min-h-10 items-center font-semibold underline underline-offset-2 hover:text-ink/80"
       >
-        Choose your theme
-        <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-      </Link>
-      {/* `events.invite_theme` is painted by the guest layout, which cannot see
-          the host's draft — so the picker writes live, and says so here. */}
-      <HubSavesImmediately className="ml-2" />
-      <p className="mt-2 text-[12px] text-ink/60">
-        <InfoTip label="Coming next" align="start">
-          All ten themes, each dressing every stage at once, arrive in the next build.
-        </InfoTip>
-      </p>
-    </section>
+        Change in Details
+      </button>
+    </p>
   );
 }
 

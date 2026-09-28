@@ -25,6 +25,9 @@ import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
   LOGO_DEFAULT_INK,
   LOGO_DELAY_MAX,
+  LOGO_DUR_MAX,
+  LOGO_DUR_MIN,
+  LOGO_DUR_STEP,
   LOGO_DELAY_STEP,
   LOGO_DURING,
   LOGO_DURING_LABEL,
@@ -38,11 +41,13 @@ import {
   LOGO_MAX_LAYERS,
   LOGO_SCALE_MAX,
   LOGO_SCALE_MIN,
+  LOGO_WRITE_MAX_PTS,
   clampToFrame,
   composeLogoSvg,
   defaultMotion,
   defaultWriteWidth,
   effectiveIn,
+  evenlyThinned,
   frameBody,
   frameToLayer,
   halfExtent,
@@ -50,16 +55,22 @@ import {
   layerTransform,
   layerToFrame,
   layersFromSaved,
+  logoInSeconds,
   metaOf,
   moveLayer,
   newLayerId,
   retimeLayers,
+  reversedWrite,
   snapInFrame,
+  tintParts,
+  LOGO_PART_TINTS,
   svgAsLayerBody,
   writePathD,
+  writePartPassages,
   type LogoFrameKind,
   type LogoLayer,
 } from '@/lib/logo-layers';
+import { logoParts, partCovers } from '@/lib/logo-parts-dom';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
 import { hubDraftAction } from '../../website/hub-draft-actions';
@@ -88,7 +99,9 @@ import { hubDraftAction } from '../../website/hub-draft-actions';
  * goes up makes the c and ends with a curl"*): on an image or text layer the
  * couple traces the letter once, in writing order, with a finger or the mouse.
  * That centreline is the layer's writing path; "Draw on" reveals the real
- * letterform along it. Without one a layer cannot Draw on — it Fades.
+ * letterform in the order the pen reaches it. Without one, Draw on traces the
+ * letter's own outline and inks it in — a new layer's default (owner
+ * 2026-09-28: *"logo animation lost its trace effect"*).
  *
  * An uploaded image is traced to vector in the browser (the repo's own tracer,
  * `fileToMarkSvg`) — black ink on white comes back as shapes and the white is
@@ -208,6 +221,9 @@ export function MakerLogoDoor({
   /* ✍ The layer being traced, and the stroke so far (frame units). */
   const [writing, setWriting] = useState<string | null>(null);
   const [stroke, setStroke] = useState<Array<{ x: number; y: number }>>([]);
+  /* The stroke as the pointer left it — read on release, because the render
+     closure can be a few moves behind (the stroke's tail — a closing curl). */
+  const strokeRef = useRef<Array<{ x: number; y: number }>>([]);
 
   const selected = layers.find((l) => l.id === selectedId) ?? null;
   const composed = useMemo(() => composeLogoSvg(layers.filter((l) => l.body)), [layers]);
@@ -456,6 +472,7 @@ export function MakerLogoDoor({
     if (writing) {
       const p = toFrame(e);
       if (!p) return;
+      strokeRef.current = [p];
       setStroke([p]);
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
@@ -475,11 +492,13 @@ export function MakerLogoDoor({
       if (!e.buttons && e.pointerType === 'mouse') return;
       const p = toFrame(e);
       if (!p) return;
-      setStroke((cur) => {
-        const last = cur[cur.length - 1];
-        // one point every few frame units — enough for a smooth path, never thousands
-        return !last || Math.hypot(p.x - last.x, p.y - last.y) >= 4 ? [...cur, p] : cur;
-      });
+      const cur = strokeRef.current;
+      const last = cur[cur.length - 1];
+      // one point every few frame units — enough for a smooth path, never thousands
+      if (!last || Math.hypot(p.x - last.x, p.y - last.y) >= 4) {
+        strokeRef.current = [...cur, p];
+        setStroke(strokeRef.current);
+      }
       return;
     }
     const d = drag.current;
@@ -494,8 +513,11 @@ export function MakerLogoDoor({
     drag.current = null;
     if (!writing) return;
     const l = layersRef.current.find((x) => x.id === writing);
-    if (l && stroke.length >= 2) {
-      const pts = stroke.map((p) => frameToLayer(l, p.x, p.y));
+    const traced = strokeRef.current;
+    strokeRef.current = [];
+    if (l && traced.length >= 2) {
+      // Thinned evenly to what the file keeps — a long, slow trace keeps its END.
+      const pts = evenlyThinned(traced, LOGO_WRITE_MAX_PTS).map((p) => frameToLayer(l, p.x, p.y));
       update(l.id, {
         write: { w: l.write?.w ?? defaultWriteWidth(l.w, l.h), pts },
         motion: { ...l.motion, in: 'draw' },
@@ -506,6 +528,7 @@ export function MakerLogoDoor({
   };
   const startWriting = (id: string) => {
     setWriting(id);
+    strokeRef.current = [];
     setStroke([]);
     setPlaying(false);
     setSheet(null);
@@ -520,6 +543,39 @@ export function MakerLogoDoor({
   /* ── render ── */
   const topFirst = layers.slice().reverse();
   const sel = selected ? halfExtent(selected) : null;
+
+  /* 🔢 THE PARTS AND THE PEN (owner 2026-09-28: *"the flow should have started
+     on the top of the C. maybe highlight or identify each part to detect its
+     start and end point of the trace?"*). While tracing, and while a traced
+     layer is selected, each gap-separated part wears its own colour, and the
+     trace shows where it STARTS, where it ENDS, and the order the parts draw
+     in — the same parts and the same test the player uses
+     (`lib/logo-parts-dom.ts`), so what is numbered here is what guests see. */
+  const partsLayerId = playing ? null : (writing ?? (selected && selected.kind !== 'frame' && selected.write ? selected.id : null));
+  const partsLayer = layers.find((l) => l.id === partsLayerId) ?? null;
+  const [passages, setPassages] = useState<Array<{ order: number; x: number; y: number; tint: string }>>([]);
+  useEffect(() => {
+    setPassages([]);
+    const g = partsLayerId ? svgRef.current?.querySelector<SVGGElement>(`[data-logo-edit-layer="${partsLayerId}"]`) : null;
+    if (!g || !partsLayer) return;
+    const parts = logoParts(g);
+    if (!writing && partsLayer.write) {
+      const covers = partCovers(g, parts, Math.max(partsLayer.w, partsLayer.h) * 0.02);
+      const found = writePartPassages(partsLayer.write, parts.length, covers);
+      setPassages(
+        found.flatMap((p, k) =>
+          p ? [{ order: p.order, ...layerToFrame(partsLayer, p.start.x, p.start.y), tint: LOGO_PART_TINTS[k % LOGO_PART_TINTS.length] as string }] : [],
+        ),
+      );
+    }
+  }, [partsLayerId, partsLayer, writing]);
+  const writeEnds =
+    partsLayer?.write && !writing
+      ? {
+          start: layerToFrame(partsLayer, partsLayer.write.pts[0]!.x, partsLayer.write.pts[0]!.y),
+          end: layerToFrame(partsLayer, partsLayer.write.pts[partsLayer.write.pts.length - 1]!.x, partsLayer.write.pts[partsLayer.write.pts.length - 1]!.y),
+        }
+      : null;
 
   return (
     <section
@@ -554,7 +610,7 @@ export function MakerLogoDoor({
                     className="sn-press flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 text-left text-[13px] font-semibold"
                   >
                     <KindIcon kind={l.kind} />
-                    <span className="min-w-0 truncate">{l.kind === 'text' ? l.text || 'Text' : l.name}</span>
+                    <span className="min-w-0 truncate">{l.kind === 'text' && l.name === LOGO_LAYER_KIND_LABEL.text ? l.text || 'Text' : l.name}</span>
                   </button>
                   <IconBtn label={`Move ${l.name} up`} disabled={idx === 0} onClick={() => setLayers((c) => retimeLayers(moveLayer(c, l.id, 'up')))}>
                     <ChevronUp aria-hidden className="h-4 w-4" />
@@ -636,7 +692,7 @@ export function MakerLogoDoor({
                     transform={layerTransform(l)}
                     className={writing ? '' : 'cursor-grab'}
                     opacity={writing && writing !== l.id ? 0.18 : 1}
-                    dangerouslySetInnerHTML={{ __html: layerShapes(l) }}
+                    dangerouslySetInnerHTML={{ __html: l.id === partsLayerId ? tintParts(layerShapes(l)) : layerShapes(l) }}
                   />
                 ) : null,
               )}
@@ -654,6 +710,28 @@ export function MakerLogoDoor({
                   pointerEvents="none"
                   data-logo-write-path=""
                 />
+              ) : null}
+              {/* 🔢 Each part's number where the pen first reaches it, and the
+                  trace's Start and End. */}
+              {passages.map((p) => (
+                <g key={p.order} pointerEvents="none" data-logo-part-order={p.order}>
+                  <circle cx={p.x} cy={p.y} r={17} fill="#FFFFFF" stroke={p.tint} strokeWidth={4} />
+                  <text x={p.x} y={p.y + 7} textAnchor="middle" fontSize={20} fontWeight={700} fill={p.tint}>
+                    {p.order}
+                  </text>
+                </g>
+              ))}
+              {writeEnds ? (
+                <g pointerEvents="none" data-logo-write-ends="">
+                  <circle cx={writeEnds.end.x} cy={writeEnds.end.y} r={11} fill="#FFFFFF" stroke="#1E2229" strokeWidth={4} />
+                  <text x={writeEnds.end.x} y={writeEnds.end.y - 20} textAnchor="middle" fontSize={22} fontWeight={700} fill="#1E2229">
+                    End
+                  </text>
+                  <circle cx={writeEnds.start.x} cy={writeEnds.start.y} r={13} fill="#1E7A4C" stroke="#FFFFFF" strokeWidth={4} />
+                  <text x={writeEnds.start.x} y={writeEnds.start.y - 22} textAnchor="middle" fontSize={22} fontWeight={700} fill="#1E7A4C">
+                    Start
+                  </text>
+                </g>
               ) : null}
               {writing && stroke.length > 1 ? (
                 <path
@@ -688,7 +766,7 @@ export function MakerLogoDoor({
               className="absolute inset-x-2 bottom-2 rounded-md bg-ink/85 px-3 py-2 text-center text-[13px] font-semibold text-cream"
               data-logo-writing=""
             >
-              Trace the letter the way it is written — one stroke.{' '}
+              Trace the letter the way it is written — one stroke, starting where the pen starts.{' '}
               <button type="button" onClick={() => setWriting(null)} className="underline underline-offset-2">
                 Cancel
               </button>
@@ -766,6 +844,25 @@ function LayerTools({
 }) {
   return (
     <>
+      {/* ✎ A layer's own name (owner 2026-09-28: *"we should be able to rename
+          these layers so we can identify them easier"* — two uploads arrived as
+          "monogram.005" and "monogram.006"). The navigator shows it. */}
+      <Field label="Name">
+        <input
+          type="text"
+          value={layer.name}
+          maxLength={40}
+          onChange={(e) => onChange({ name: e.target.value.replace(/[<>"'`]/g, '') })}
+          onBlur={() => {
+            if (!layer.name.trim()) onChange({ name: LOGO_LAYER_KIND_LABEL[layer.kind] });
+          }}
+          placeholder={LOGO_LAYER_KIND_LABEL[layer.kind]}
+          aria-label="Layer name"
+          className="min-h-11 w-full rounded-md border border-ink/15 bg-white px-3 text-[15px] text-ink"
+          data-logo-layer-name=""
+        />
+      </Field>
+
       {layer.kind === 'text' ? (
         <Field label="Words">
           <input
@@ -861,23 +958,32 @@ function LayerTools({
             {layer.write ? 'Trace it again' : "Show how it's written"}
           </button>
           {layer.write ? (
-            <>
-              <Slider
-                label="Brush"
-                min={Math.max(4, Math.round(Math.max(layer.w, layer.h) * 0.02))}
-                max={Math.round(Math.max(layer.w, layer.h) * 0.3)}
-                step={1}
-                value={layer.write.w}
-                onChange={(v) => onChange({ write: { ...layer.write!, w: v } })}
-              />
+            <p className="text-[12px] text-ink/70" data-logo-write-help="">
+              Each part has its own colour. The numbers show the order they draw in, from <b>Start</b> to <b>End</b>.
+            </p>
+          ) : null}
+          {/* No Brush slider: the reveal follows the nearest pen position
+              (`writeRevealCells`), so there is no brush width to tune. Clear
+              it and Draw on traces the letter's outline instead. */}
+          {layer.write ? (
+            <div className="flex flex-wrap gap-1.5">
+              {/* A trace drawn from the wrong end flips round — no need to trace again. */}
               <button
                 type="button"
-                onClick={() => onChange({ write: undefined, motion: { ...layer.motion, in: 'fade' } })}
+                onClick={() => onChange({ write: reversedWrite(layer.write!) })}
+                className="sn-press inline-flex min-h-10 items-center self-start rounded-full bg-ink/5 px-3 text-[12.5px] font-semibold text-ink"
+                data-logo-write-reverse=""
+              >
+                Reverse it
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ write: undefined })}
                 className="sn-press inline-flex min-h-10 items-center self-start rounded-full bg-ink/5 px-3 text-[12.5px] font-semibold text-ink"
               >
                 Clear it
               </button>
-            </>
+            </div>
           ) : null}
         </Field>
       ) : null}
@@ -888,12 +994,11 @@ function LayerTools({
       >
         <p className="text-[12px] font-semibold text-ink/70">In</p>
         <div className="flex flex-wrap gap-1.5">
-          {LOGO_IN.filter((k) => k !== 'draw' || layer.kind !== 'frame').map((k) => (
+          {LOGO_IN.map((k) => (
             <Chip
               key={k}
               on={effectiveIn(layer) === k}
               label={LOGO_IN_LABEL[k]}
-              disabled={k === 'draw' && !layer.write}
               onClick={() => onChange({ motion: { ...layer.motion, in: k } })}
             />
           ))}
@@ -904,6 +1009,16 @@ function LayerTools({
             <Chip key={k} on={layer.motion.during === k} label={LOGO_DURING_LABEL[k]} onClick={() => onChange({ motion: { ...layer.motion, during: k } })} />
           ))}
         </div>
+        {layer.motion.in !== 'none' ? (
+          <Slider
+            label={`Speed — takes ${logoInSeconds(layer.motion).toFixed(1)}s`}
+            min={LOGO_DUR_MIN}
+            max={LOGO_DUR_MAX}
+            step={LOGO_DUR_STEP}
+            value={logoInSeconds(layer.motion)}
+            onChange={(v) => onChange({ motion: { ...layer.motion, dur: Number(v.toFixed(1)) } })}
+          />
+        ) : null}
         <Slider
           label={`Starts after ${layer.motion.delay.toFixed(1)}s`}
           min={0}

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SeatBackLink } from './seat-back-link';
 
 /**
  * The find-your-seat page's chrome, in the COUPLE'S theme (owner 2026-09-27,
@@ -16,6 +17,7 @@ import Link from 'next/link';
  */
 export function SeatFrame({
   slug,
+  backHref,
   who,
   postmark = null,
   roomFooter,
@@ -24,6 +26,9 @@ export function SeatFrame({
   children,
 }: {
   slug: string;
+  /** Where "Back to the invitation" lands — `findSeatBackHref`: the invitation
+   *  itself with its Event Bar, never the front cover. */
+  backHref: string;
   /** "Signed in · Ana" · "For Ana" · the couple's names for a stranger. */
   who: string;
   /** The Vintage theme's postmark date, or null — the ornament is that theme's own. */
@@ -42,15 +47,16 @@ export function SeatFrame({
     <main className="relative min-h-dvh text-ink" data-find-seat>
       {postmark ? <Postmark date={postmark} /> : null}
       <header className="mx-auto flex h-[52px] w-full max-w-5xl items-center justify-between px-3 pt-[env(safe-area-inset-top)] lg:px-9">
-        <Link
-          href={`/${slug}`}
+        <SeatBackLink
+          href={backHref}
+          slug={slug}
           aria-label="Back to the invitation"
           className="grid h-10 w-10 place-items-center rounded-full bg-ink text-cream"
         >
           <svg aria-hidden viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
             <path d="m15 6-6 6 6 6" />
           </svg>
-        </Link>
+        </SeatBackLink>
         <span className="text-xs font-extrabold tracking-[0.18em] text-ink">SETNAYAN</span>
         <span className="max-w-[46%] truncate rounded-[var(--hub-radius,0.375rem)] bg-cream/70 px-2.5 py-2 text-[0.6875rem] uppercase tracking-[0.14em] text-terracotta-700">
           {who}

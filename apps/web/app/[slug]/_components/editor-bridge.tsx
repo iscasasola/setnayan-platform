@@ -22,6 +22,7 @@ import {
   type HubElementStyles,
 } from '@/lib/element-style';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
+import { applySceneCardPreview } from '@/lib/scene-card-look';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -556,6 +557,12 @@ export function EditorBridge() {
         for (const scene of sanitizeSceneBgPreview((data as { scenes?: unknown }).scenes)) {
           const section = findMakerSection(document, scene.key);
           if (section) applySceneBgPreview(section, scene, document);
+          /* 🖼 …and the widget's OWN card, at once (owner 2026-09-28, "yes must
+             be instant"): the server's `sceneWidgetIsBare` answer, laid with
+             the server's own class strings (`lib/scene-card-look.ts`). The
+             save's reload still follows and still decides. */
+          const framed = typeof scene.bare === 'boolean' ? findMakerSection(document, scene.key) : null;
+          if (framed && typeof scene.bare === 'boolean') applySceneCardPreview(framed, scene.bare);
         }
         return;
       }

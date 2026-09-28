@@ -212,9 +212,10 @@ const LIVE: HubLiveState = {
   ],
 };
 
-test('a free couple may TRY an element style — Apply holds it back; a Pro couple has it written', () => {
+test('a free couple may TRY a part’s own FONT — Apply holds it back; a Pro couple has it written', () => {
+  // 💎 2026-09-28 redraw: the font is still Pro (owner's line did not cover it).
   const draft = mergeHubDraft(emptyHubDraft(), {
-    widgets: { hero: { canvas: { elements: { names: { color: '#8a1c2b' } } } } },
+    widgets: { hero: { canvas: { elements: { names: { font: 'script' } } } } },
   });
   const free = planHubDraftApply(draft, LIVE, false);
   assert.equal(free.apply.length, 0, 'nothing unpaid reaches the live page');
@@ -222,6 +223,16 @@ test('a free couple may TRY an element style — Apply holds it back; a Pro coup
   assert.equal(free.refused[0]!.kind === 'widget' && free.refused[0]!.field, 'canvas');
   const pro = planHubDraftApply(draft, LIVE, true);
   assert.equal(pro.apply.length, 1);
+});
+
+test('💎 a part’s own COLOUR and SIZE are free — Apply writes them for a couple without Pro', () => {
+  // Owner 2026-09-28: "free to change design, change text, size, color …".
+  const draft = mergeHubDraft(emptyHubDraft(), {
+    widgets: { hero: { canvas: { elements: { names: { color: '#8a1c2b', size: 120 } } } } },
+  });
+  const free = planHubDraftApply(draft, LIVE, false);
+  assert.equal(free.refused.length, 0, 'a free couple’s colour and size were held as Pro');
+  assert.equal(free.apply.length, 1);
 });
 
 test('taking an element style OFF is free, even while another element keeps its own', () => {

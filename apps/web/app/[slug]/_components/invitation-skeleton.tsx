@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { Logo } from '@/app/_components/logo';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { MonogramConfig } from '@/lib/monogram';
+import { HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
 import type { EventWords } from '../_lib/event-words';
 import { invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
 import { PahinaMasthead } from './pahina-masthead';
@@ -107,6 +108,7 @@ export function InvitationSkeleton({
   venueName = null,
   showHeader = true,
   mark = null,
+  design = HERO_DESIGN_DEFAULT,
 }: {
   /** The couple's names, straight off the already-loaded event row. */
   displayName: string | null;
@@ -146,6 +148,14 @@ export function InvitationSkeleton({
     design: { monogram_style?: string | null; monogram_font_key?: string | null; monogram_frame_key?: string | null };
     monogram: MonogramConfig;
   } | null;
+  /**
+   * 🎴 Which of the four hero designs the page wears (`lib/hero-design.ts`),
+   * resolved by page.tsx through the SAME `heroCanvasOf` → `heroDesignOf` the
+   * body uses (`_lib/hero-design-of.ts`). Before this the skeleton always drew
+   * Design 1 · The Card, so a page on The Marquee, The Crest or The Letter
+   * loaded as the wrong design and then jumped. Absent → The Card.
+   */
+  design?: HeroDesignId;
 }) {
   const initials = (monogramText ?? '').trim();
   const w = words ?? { solemn: false, twoPeople: true, eventWord: 'wedding' };
@@ -217,6 +227,7 @@ export function InvitationSkeleton({
             displayName={displayName ?? ''}
             eventDate={eventDate}
             twoPeople={w.twoPeople}
+            design={design}
             eyebrow={mastheadEyebrow(w)}
             venueName={venueName}
             card={card ?? undefined}

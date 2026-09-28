@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { asViewed } from '@/lib/view-as-free.server';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
@@ -208,7 +209,10 @@ export default async function WebsiteEditorPage({
   if (!membership) redirect(`/dashboard/${eventId}`);
 
   const [ownsPro, proSku] = await Promise.all([
-    eventCoupleWebsiteProActive(supabase, eventId),
+    /* 👁 As the viewer is SHOWN it (`lib/view-as-free.server.ts`): an internal
+       viewer who switched on "View as a free couple" gets every padlock and
+       Pro offer below. Render only — each panel's action asks the real gate. */
+    asViewed(eventCoupleWebsiteProActive(supabase, eventId)),
     /*
       ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
       `platform_retail_catalog_v2` is admin-managed and is the only figure a
@@ -381,8 +385,11 @@ export default async function WebsiteEditorPage({
     signOrNull(draftedHero.photoRef),
     signOrNull(mainNow && !isHubMainFollow(mainNow) ? (mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? null)) : null),
   ]);
-  const mainThemeId = normalizeThemeId((event as { invite_theme?: string | null }).invite_theme) ?? 'house';
-  const currentThemeId = (event as { invite_theme?: string | null }).invite_theme ?? 'house';
+  /* 🎨 The theme being EDITED — drafted over live, since the theme is picked on
+     Details into the draft (2026-09-28), the same overlay the canvas wears. */
+  const themeNow = overlayHubDraftEvent(event as Record<string, unknown>, hubDraft).invite_theme;
+  const mainThemeId = normalizeThemeId(themeNow) ?? 'house';
+  const currentThemeId = mainThemeId;
   // This event's own "Open browsing" choice (the `open-browse` row below) —
   // which of `SectionsPanel`'s two visibility controls actually governs the
   // guest-facing render for it. Computed once, passed everywhere the panel is
@@ -488,14 +495,15 @@ export default async function WebsiteEditorPage({
     overlayHubDraftEvent(event as Record<string, unknown>, hubDraft).rsvp_backdrop,
   );
 
-  /* 🎨 The background colour is FREE (owner 2026-09-24: "changing background
-     color is free"), so the Colours row is never locked as a whole. Only its Pro
-     half — buttons, face, art direction, magic move — locks, and with the same
-     grandfather: a couple who already chose any of them keeps that half. */
+  /* 🎨 Both colours are FREE (owner 2026-09-24: "changing background color is
+     free"; 2026-09-28: "change … color … only when you start adding themes will
+     it be pro" — the button colour too), so the Colours row is never locked as
+     a whole. Only its Pro half — face, art direction, magic move — locks, and
+     with the same grandfather: a couple who already chose any of them keeps
+     that half. */
   const colorsProLocked = lockedIf(
     Boolean(
-      event.site_button_color ||
-        (event as { site_font_key?: string | null }).site_font_key ||
+      (event as { site_font_key?: string | null }).site_font_key ||
         (event as { site_magic_traveller?: string | null }).site_magic_traveller ||
         event.site_art_direction === 'candlelight',
     ),
@@ -649,7 +657,7 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="colors"
               proLocked={colorsProLocked}
-              proLock={lockPanel('Button colour, typeface and motion')}
+              proLock={lockPanel('Typeface and motion')}
               themeId={currentThemeId}
               /* 🎨 Blank = the Mood Board's colours — shown AS those colours
                  (owner 2026-09-27: "mood board palettes did not update"). */
@@ -1226,7 +1234,6 @@ export default async function WebsiteEditorPage({
       }}
       rows={rows}
       themes={themes}
-      themeHref={`${base}/guests/invite`}
       ownsPro={ownsPro}
       initialScene={typeof sceneParam === 'string' ? sceneParam : null}
       initialOpenRow={typeof openRow === 'string' ? openRow : null}

@@ -16,7 +16,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { pickableInviteThemes, resolveInviteTheme } from '@/lib/invite-themes';
+import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
@@ -55,7 +57,8 @@ import { MakerPrints } from './_components/maker-prints';
 import { MakerDetails, MakerDetailsPage } from './_components/maker-details';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
-import { hasPalette, parentsFromEntourageForEvent, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { hasPalette, parentsFromEntourageForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
@@ -84,6 +87,7 @@ import {
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
+import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 
 // ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
 // "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
@@ -304,8 +308,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       SHOWS the offer — so a refused entitlement read can at worst offer an
       upgrade to somebody who has it, never hide a page behind a lock.
     */
-    eventCoupleWebsiteProActive(supabase, eventId).catch(() => false),
-    eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false),
+    // 👁 Both as the viewer is SHOWN them (`lib/view-as-free.server.ts`).
+    asViewed(eventCoupleWebsiteProActive(supabase, eventId).catch(() => false)),
+    asViewed(eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false)),
     /*
       ⛔ THE PRICE, READ LIVE. `platform_retail_catalog_v2` is admin-managed and
       is the only figure a customer is ever charged. Null on failure, and the
@@ -448,7 +453,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   /*
     ══ THE ONE UNLOCK, RESOLVED FOR THE CHANNEL THE COUPLE IS STANDING ON ══
-    § 5.3: the ten Pro items are ONE purchase, so the controller does not grow
+    § 5.3: the nine Pro items are ONE purchase, so the controller does not grow
     nine upgrade slots — it grows one, and moves it to whichever of the four
     public pages is live. `resolveHubProOffer` returns null far more often than
     not: when the couple owns it, when the read did not happen, on the day, and
@@ -478,6 +483,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   // shell; only the PRO upsell — which prints a peso price for a digital SKU —
   // is withheld (App Review 3.1.1). See lib/store-shell.ts.
   const storeShell = await isStoreShellRequest();
+
+  /* 👁 VIEW AS A FREE COUPLE — offered to an internal (§10a) viewer only, and
+     read through the same per-request cache every Pro read above passed
+     through, so the switch's state and what the page drew cannot disagree. */
+  const freeSwitch = await viewAsFreeSwitch();
 
   /*
     ─── VIEW AS ──────────────────────────────────────────────────────────────
@@ -950,12 +960,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let rsvp: { page: ReactNode; controls: ReactNode } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
       parentsFromEntourageForEvent(eventId),
       fetchEgiftMethods(printAdmin, eventId, { enabledOnly: true }),
+      // ⚡ What the print previews are drawn from, hashed — their cache key.
+      printInputsVersion(eventId).catch(() => null),
     ]);
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
@@ -970,8 +982,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let specialMessage: string | null = printEvent.special_message;
       let rsvpAsk: RsvpAskConfig = sanitizeRsvpAskConfig(printEvent.rsvp_ask_config);
       let rsvpAskDrafted = false;
+      // 🎨 The theme being edited — drafted over live (picked on Details).
+      let themeSaved: unknown = printEvent.invite_theme;
       try {
         const d = await readHubDraft(supabase, eventId);
+        if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
         if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
         if (d && 'rsvp_ask_config' in d.events) {
           rsvpAsk = sanitizeRsvpAskConfig(d.events.rsvp_ask_config);
@@ -984,6 +999,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          line of wording — each read from its one home. A PAGE in the Maker's
          body (owner 2026-09-25): what the details feed is the page, these
          fields its controls. */
+      /* 🎨 THE THEME PICKER (owner 2026-09-28) — the ten, fenced to what this
+         celebration may wear (weddings only for the Pro ones, owner Q7 = A: an
+         unreadable profile is NOT a wedding), Pro as `printPro` measured it,
+         and the one the couple is editing through the one theme rule. */
+      const mayShowStdFilm = await resolveProfile(printEvent.event_type ?? '')
+        .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
+        .catch(() => false);
+      const theme = {
+        home: printEvent.slug ? `/${printEvent.slug}` : null,
+        themes: pickableInviteThemes({ mayShowStdFilm }).map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
+        current: resolveInviteTheme({ saved: themeSaved, ownsPro: printPro, mayShowStdFilm }),
+        ownsPro: printPro,
+        storeShell,
+        proHref: `/dashboard/${eventId}/studio/website-pro`,
+        // Never on the Maker's very first visit — its own welcome is showing.
+        tour: !firstVisit,
+      };
       details = {
         page: <MakerDetailsPage eventId={eventId} slug={printEvent.slug} stamp={String(Date.now())} />,
         controls: (
@@ -1004,6 +1036,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           // it, the saved choices, and the contrast-passing Mood Board colours.
           qr={{ ...qrLookChoicesFromRow(printEvent, printPro), storeShell }}
           qrStyleAction={updateQrStyle.bind(null, eventId)}
+          theme={theme}
         />
         ),
       };
@@ -1086,6 +1119,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           ownsPro={printPro}
           storeShell={storeShell}
           flash={null}
+          /* ⚡ The access is part of the picture (a sample or the real piece). */
+          previewVersion={printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null}
           seatPlan={stored.include.seatPlan}
           menu={{
             saved: stored.menu,
@@ -1151,6 +1186,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       /* 💾 Phase 2: the draft's Apply · Restore · Reset, in the toolbar. Only
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
+      viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
     >
       {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, once the day
           has happened. Never on the Maker's very first visit: the Maker's own

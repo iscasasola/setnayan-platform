@@ -1,7 +1,16 @@
 /**
  * apps/web/lib/website-pro-items.ts
  *
- * THE NINE PRO ITEMS — one list, named the way the couple sees them.
+ * THE PRO ITEMS — one list, named the way the couple sees them. Nine since
+ * 2026-09-28 (below); count the array, never this sentence.
+ *
+ * 🔄 TEN → NINE, 2026-09-28 — THE FREE-VS-PRO REDRAW. Owner, verbatim: *"free
+ * to change design, change text, size, color, background color, only when you
+ * start adding themes will it be pro. adding media for background."* So
+ * "Background color" and "Button color" left the list (both are free for every
+ * couple now — `HUB_FREE_LOOK_EVENT_COLUMNS` in `lib/hub-look-pro.ts`), and the
+ * thing he named instead joined it: "Photo and video backgrounds" — media behind
+ * a scene or behind the whole page, which the Maker has gated since 2026-09-24.
  *
  * 🔄 EIGHT → NINE, 2026-09-24. Owner ("A then", DECISION_LOG "Event Hub Pro
  * includes the logo animation"): `COUPLE_WEBSITE_PRO` now also confers
@@ -29,21 +38,22 @@
  * `pro-panels.tsx` under its old name so nothing that already imports it moves.
  *
  * ⛔ NO PRICE LIVES HERE. `COUPLE_WEBSITE_PRO` (titled "Event Hub Pro") is the
- * ONE unlock that opens all ten, and its figure is read live from
+ * ONE unlock that opens all nine, and its figure is read live from
  * `platform_retail_catalog_v2` via `formatV2Sku` — never typed into source. The
  * `couple-website-pro.ts` docblock records why: three different figures for one
  * product once lived in a single file.
  */
 
-/** The ten Pro items, named the way the couple sees them. */
+/** The nine Pro items, named the way the couple sees them. */
 export const WEBSITE_PRO_ITEMS = [
   'Cinematic Reveal',
   'Save-the-Date video',
   'Photo gallery',
   'Background music',
   'Editorial editing',
-  'Background color',
-  'Button color',
+  // Media behind a scene or behind the whole page (owner 2026-09-28: "adding
+  // media for background"). The COLOURS that stood here are free now.
+  'Photo and video backgrounds',
   // The NINE Pro themes (owner 2026-09-24/25: "themes are part of pro except
   // classic"; build plan Phase 3: "Invite link theme" → "9 themes"). Still names
   // the invite link, because the theme dresses the invite door too — and the
@@ -73,7 +83,7 @@ export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];
  * *"Event Hub PRO may NOT be SOLD on this inclusion while it is free."*
  *
  * It stays in the list — the controller SHOWS it, because it is genuinely one of
- * the ten the unlock covers — but it may never be the reason a couple is asked
+ * the nine the unlock covers — but it may never be the reason a couple is asked
  * for money. The free ruling is reversible and the owner's to reverse; until he
  * does, this constant is what keeps the offer honest.
  */

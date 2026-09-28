@@ -615,6 +615,76 @@ REVOKE ALL ON FUNCTION public.activate_seats_on_link() FROM PUBLIC, anon, authen
 REVOKE ALL ON FUNCTION public.a_celebrant_cohost_stays() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.only_a_celebrant_moves_a_celebrant() FROM PUBLIC, anon, authenticated;
 
+-- ── 9 · grants: nothing here widens what the public API can reach ──────────
+-- Caught by tests/db/exposure-freeze.db.test.ts on CI:
+--  · `event_moderators.guest_id` INHERITED the table-wide grant (anon +
+--    authenticated: SELECT/INSERT/UPDATE). RLS is ROW-level and cannot constrain
+--    a column's VALUE, so a co-host could have pointed a seat at a guest on
+--    ANOTHER event through PostgREST. The column is server-only: the app reads
+--    and writes it with the service role (setGuestAccess, loadGuestAccessMap).
+--    Column REVOKEs are a no-op under a table grant, so — the oauth_grants shape
+--    (20271009210000) — per role and privilege: revoke the table privilege,
+--    re-grant it on every OTHER column the role held, then prove it.
+--  · `user_unfollows` is written only by triggers; users only READ their own.
+--  · `seat_is_full_cohost` is called only inside SECURITY DEFINER bodies.
+DO $$
+DECLARE
+  rle  text;
+  priv text;
+  allowed text;
+BEGIN
+  FOREACH rle IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    FOREACH priv IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'REFERENCES'] LOOP
+      SELECT string_agg(quote_ident(c.column_name), ', ' ORDER BY c.ordinal_position)
+        INTO allowed
+      FROM information_schema.columns c
+      WHERE c.table_schema = 'public' AND c.table_name = 'event_moderators'
+        AND c.column_name <> 'guest_id'
+        AND has_column_privilege(rle, 'public.event_moderators', c.column_name, priv);
+      EXECUTE format('REVOKE %s ON public.event_moderators FROM %I', priv, rle);
+      IF allowed IS NOT NULL THEN
+        EXECUTE format('GRANT %s (%s) ON public.event_moderators TO %I', priv, allowed, rle);
+      END IF;
+    END LOOP;
+  END LOOP;
+  EXECUTE 'GRANT ALL ON public.event_moderators TO service_role';
+
+  IF has_column_privilege('anon', 'public.event_moderators', 'guest_id', 'SELECT')
+     OR has_column_privilege('anon', 'public.event_moderators', 'guest_id', 'UPDATE')
+     OR has_column_privilege('authenticated', 'public.event_moderators', 'guest_id', 'SELECT')
+     OR has_column_privilege('authenticated', 'public.event_moderators', 'guest_id', 'INSERT')
+     OR has_column_privilege('authenticated', 'public.event_moderators', 'guest_id', 'UPDATE') THEN
+    RAISE EXCEPTION 'post-condition failed: event_moderators.guest_id is still reachable from the public API';
+  END IF;
+  -- The OTHER columns keep exactly what they had (a narrowing, never a change).
+  IF NOT has_column_privilege('authenticated', 'public.event_moderators', 'accepted_at', 'SELECT') THEN
+    RAISE EXCEPTION 'post-condition failed: the re-grant dropped the other event_moderators columns';
+  END IF;
+END $$;
+
+REVOKE ALL ON public.user_unfollows FROM authenticated;
+GRANT SELECT ON public.user_unfollows TO authenticated;
+GRANT ALL ON public.user_unfollows TO service_role;
+REVOKE ALL ON FUNCTION public.seat_is_full_cohost(text) FROM PUBLIC, anon, authenticated;
+
+-- A seat's guest must be on the SAME event (value integrity no grant can give).
+CREATE OR REPLACE FUNCTION public.a_seat_guest_is_on_its_event()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NEW.guest_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.guests g WHERE g.guest_id = NEW.guest_id AND g.event_id = NEW.event_id
+  ) THEN
+    RAISE EXCEPTION 'seat_guest_not_on_event' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS a_seat_guest_is_on_its_event ON public.event_moderators;
+CREATE TRIGGER a_seat_guest_is_on_its_event
+BEFORE INSERT OR UPDATE OF guest_id, event_id ON public.event_moderators
+FOR EACH ROW EXECUTE FUNCTION public.a_seat_guest_is_on_its_event();
+REVOKE ALL ON FUNCTION public.a_seat_guest_is_on_its_event() FROM PUBLIC, anon, authenticated;
+
 -- ── BACKFILL (measured on prod 2026-09-28 before writing) ───────────────────
 -- (a) Tie every live seat to its holder's guest row, where they have one. In
 --     prod that is the bride's seat on S89E-W8324K4Q5J (her account is linked

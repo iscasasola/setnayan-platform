@@ -40,6 +40,10 @@
  */
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { lookProAllows } from '@/lib/hub-look-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -162,7 +166,7 @@ export async function hubDraftAction(
     const { data: own, error: ownErr } = await supabase
       .from('events')
       // `our_photos` rides in SECTION_CONTENT_EVENT_COLUMNS — not named twice.
-      .select(`slug, landing_page_hero_image_url, landing_page_hero_video_r2_key, ${SECTION_CONTENT_EVENT_COLUMNS}`)
+      .select(`slug, event_type, landing_page_hero_image_url, landing_page_hero_video_r2_key, ${SECTION_CONTENT_EVENT_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle();
     if (ownErr) return { ok: false, intent, error: 'Could not read your Event Hub. Nothing was applied.' };
@@ -192,8 +196,26 @@ export async function hubDraftAction(
     const mainIsOwn = (ref: unknown) =>
       typeof ref === 'string' && (ownRefs.has(ref) || ref.startsWith(ownMainPrefix));
 
+    /* 🎨 A DRAFTED PRO THEME ASKS THE WEDDING FENCE (owner Q7 = A) — the
+       reveal's own answer, `resolveWeddingOnlyParts(p).save_the_date_film`,
+       asked only when a Pro theme is about to be written. The picker never
+       offers one where the fence is shut; a draft is a public POST, so it is
+       asked again here. An unreadable profile is not a wedding. */
+    const draftedTheme = plan.apply.find((i) => i.kind === 'event' && i.column === 'invite_theme');
+    const draftedThemeId = draftedTheme ? normalizeThemeId(draftedTheme.value) : null;
+    const themeFenceOpen =
+      draftedThemeId !== null && INVITE_THEMES[draftedThemeId].tier === 'pro'
+        ? await resolveProfile(String(ownRow.event_type ?? ''))
+            .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
+            .catch(() => false)
+        : true;
+
     const toWrite: HubDraftItem[] = [];
     for (const item of plan.apply) {
+      if (item.kind === 'event' && item.column === 'invite_theme' && !themeFenceOpen) {
+        held.push({ item, reason: 'not_for_this_celebration' });
+        continue;
+      }
       if (item.kind === 'event' && item.column === 'landing_page_hero_image_url' && item.value !== null) {
         if (!heroIsOwn(item.value)) {
           held.push({ item, reason: 'not_your_photo' });
@@ -217,7 +239,9 @@ export async function hubDraftAction(
           (r): r is string => Boolean(r),
         );
         if (refs.some((r) => !ownRefs.has(r))) {
-          held.push({ item, reason: 'not_your_photo' });
+          // A held scene's free part (`canvasFreePart`) is already reported,
+          // and kept whole in the draft, by its refused twin — skip it quietly.
+          if (!item.freePart) held.push({ item, reason: 'not_your_photo' });
           continue;
         }
       }
@@ -239,6 +263,15 @@ export async function hubDraftAction(
       eventsPatch[item.column] = item.value;
       (snapshot.events as Record<string, unknown>)[item.column] = live.events[item.column] ?? null;
     }
+    /* 🎨 THE THEME LEAVES THE SESSION UPDATE. `invite_theme` has SELECT but no
+       UPDATE grant for `authenticated` (20271219583821 — its one writer goes
+       through the admin client after the host check and the Pro re-check), and
+       an ungranted column in the patch would refuse EVERY column in it. It is
+       written on its own below, after `requireHostMembershipOrThrow` (top of
+       this action), the Pro gate (`planHubDraftApply` → `lookProAllows`) and
+       the wedding fence above — the same order `setInviteTheme` kept. */
+    const themeWrite = 'invite_theme' in eventsPatch ? eventsPatch.invite_theme : undefined;
+    delete eventsPatch.invite_theme;
     // The companions each live writer stamps beside its column, so an applied
     // draft leaves the row exactly as the writer would have.
     if ('landing_page_hero_image_url' in eventsPatch) {
@@ -289,6 +322,20 @@ export async function hubDraftAction(
         .select('event_id');
       if (evErr || !Array.isArray(evRows) || evRows.length === 0) {
         return { ok: false, intent, error: 'Could not apply your changes. Nothing was changed.' };
+      }
+    }
+    if (themeWrite !== undefined) {
+      /* 🔑 THE WRITE MUST PROVE A ROW CHANGED — a zero-row UPDATE returns no
+         error, and "applied" over an untouched row is the failure that looks
+         exactly like success. */
+      const { data: themeRows, error: themeErr } = await createAdminClient()
+        .from('events')
+        .update({ invite_theme: themeWrite })
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (themeErr || !Array.isArray(themeRows) || themeRows.length === 0) {
+        // Anything written above stays; the draft is untouched, so Apply again finishes it.
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }
 

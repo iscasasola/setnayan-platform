@@ -2,7 +2,44 @@
 
 > Loaded automatically by Claude Code at session start. Read first, before any code.
 
-## ▶▶▶ NEWEST — 2026-08-20 · HANDOFF FOR A NEW ACCOUNT (read before `WHAT_IS_LEFT.md`, which is 13 days older)
+## ▶▶▶ NEWEST — 2026-09-28 · THE EVENT HUB REDESIGN WEEKEND · APPLE CHECK THU 1 OCT ON A NEW ACCOUNT
+
+**Read first:** the corpus handoff `WHATS_NEXT_HANDOFF_2026-09-28.md` (spec corpus, `~/Documents/Claude/Projects/Setnayan/`)
+and `~/Documents/Claude/Projects/setnayan-handoff-src/CURRENT-STATE.md` (newest section on top). The
+DECISION_LOG rows dated 2026-09-26 → 2026-09-28 are the owner's rulings for the Event Hub Maker — **do
+not re-ask them**. `STATUS.md` (refreshed 2026-09-28) has the measured production state.
+
+🪤 **Traps that each cost real time this weekend — each one is re-measurable:**
+- **Every PR regenerates `apps/web/scripts/port-control-baseline.json`**, so whichever sibling merges
+  first turns the rest DIRTY, and each re-sync costs a full `typecheck + lint` run (its "Data-layer
+  guards (DB replay)" step alone takes most of an hour). With several builders in flight: pause the
+  siblings (`gh pr merge <N> --disable-auto`) or fold them into ONE merge train branch and regenerate
+  the baseline once.
+- **Something on the shared GitHub account arms or merges PRs that no session asked to**
+  (auto-merge switched ON on a PR whose builder only ran `gh pr create`; a PR merged into a train
+  30 s after its push). After opening ANY PR, read `gh pr view <N> --json autoMergeRequest` — never
+  trust a report that says "off".
+- **The owner's account is internal (§10a, `eventHostIsInternal` in `lib/entitlements.ts`), so
+  cale-ice is fully Pro** — no Pro CTA, no payment. Test the FREE flow on `testnayan1`.
+- **Test on the owner's real event cale-ice, but never press Apply, Undo or Restore there and never
+  type into it** — those change the owner's real draft. (Its undo history was trimmed on 2026-09-27 and
+  measured EMPTY on 2026-09-28, so the old "M & J" logo step is gone.) Measure drafts with
+  `event_site_drafts.updated_at` before and after.
+- **Builders must never drive the owner's signed-in Browser pane** — one moved his tab and dropped
+  his session. Test on a harness or a separate tab the controller owns.
+- **A bracketed test path (`app/[slug]/…`, `app/dashboard/[eventId]/…`) passed alone runs ZERO
+  tests** (the brackets are a glob). Run the full unit suite before calling a train green — a guard
+  in an UNTOUCHED file can read the file you changed.
+- **One watcher only.** Five builders each polling GitHub produced ~30 loops on the same PRs.
+
+📐 **Owner rules for the Maker (DECISION_LOG 2026-09-27/28):** any set of choices is ONE `PickMenu`
+dropdown · a tap on a scene only SELECTS it (the only way out is an explicit "Open … editor") · each
+event's Maker uses ITS event's details, never sample content · a scene is as tall as its content ·
+FREE = design pick, text, size, colour, background colour; PRO = themes + media backgrounds · Fable
+designs and plans, Opus builds · every build reaches the owner as a CHECK CARD after the controller
+tested it in the browser himself.
+
+## ▶▶ OLDER — 2026-08-20 · HANDOFF FOR A NEW ACCOUNT (read before `WHAT_IS_LEFT.md`, which is 13 days older)
 
 Full handoff lives in the spec corpus as `WHATS_NEXT_HANDOFF_2026-08-20.md`
 (remote: `github.com/iscasasola/Setnayan-specs`) — it supersedes the 2026-08-19 one, whose build

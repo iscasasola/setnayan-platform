@@ -53,6 +53,9 @@ camera after the day; the couple keeps theirs (Suppliers yields first if the cou
 Gaps, listed not invented: "came" (checked in) is not in the story's data, so Statistics says "said yes";
 a chapter carries at most three photos and no count; the Front Page before the day shows no cover photo in
 the navigator tile (the light read signs nothing). +0 exported server actions (reuses `hubDraftAction`).
+The Apply sheet from #6091 ("Unlock Pro and Apply") names a held Post Event part the same way it names
+a scene's: "Font · Heading on Statistics", with Go to (the scene's tile) and Remove (that one field back to
+what guests see) — `hubDraftProEffects` reads the plan's refused `sceneLooks` item, never a second list.
 No migration.
 
 SPEC IMPACT: `DECISION_LOG.md` — an "AS BUILT" row for Post Event slice 1 and the shared scene-style registry

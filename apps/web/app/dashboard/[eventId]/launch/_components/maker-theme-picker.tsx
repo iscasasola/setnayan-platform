@@ -1,11 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { makerThemeTileSrc } from '@/lib/maker-made-once-pages';
 import {
@@ -61,11 +60,14 @@ import { useMaker } from './maker-context';
  *
  * ── FREE VS PRO ────────────────────────────────────────────────────────────
  * Classic is free; every other theme is Event Hub Pro (owner 2026-09-28, "WHAT
- * IS FREE VS PRO … REDRAWN"). A Pro tile is shown at full brightness — never
- * dimmed — with the padlock, and for a couple without Pro it is the way to the
- * Pro page, never a save that Apply would hold. Owning couples see the diamond.
- * In the app-store shell a locked door is ABSENT: only Classic, plus the
- * couple's own theme if it is already a Pro one (the shipped picker's rule).
+ * IS FREE VS PRO … REDRAWN"). 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28,
+ * verbatim: *"they can edit it with pro features. but need to upgrade to pro
+ * when clicked on apply"*): a couple without Pro PICKS a Pro theme like any
+ * other — it goes into the draft, the canvas wears it (`app/[slug]/page.tsx`,
+ * `theme_try_on` for the verified host), the tile wears ◆ PRO, and Apply's sheet
+ * names it ("Theme · Velvet"). Owning couples see the diamond. In the app-store
+ * shell a Pro door is ABSENT: only Classic, plus the couple's own theme if it
+ * is already a Pro one (the shipped picker's rule).
  */
 export function MakerThemePicker({
   eventId,
@@ -74,7 +76,6 @@ export function MakerThemePicker({
   current,
   ownsPro,
   storeShell,
-  proHref,
 }: {
   eventId: string;
   /** The couple's public page (`/<slug>`), or null with no address yet. */
@@ -86,8 +87,6 @@ export function MakerThemePicker({
   /** Event Hub Pro, as this viewer is shown it. */
   ownsPro: boolean;
   storeShell: boolean;
-  /** The one Event Hub Pro page. */
-  proHref: string;
 }) {
   const maker = useMaker();
   const stage: LifecyclePhase = maker?.stage ?? 'rsvp';
@@ -197,7 +196,7 @@ export function MakerThemePicker({
         className="-mx-2 flex snap-x snap-mandatory scroll-px-2 gap-3 overflow-x-auto overscroll-x-contain px-2 pb-1 pt-1"
       >
         {shown.map((t) => {
-          const locked = t.tier === 'pro' && !ownsPro;
+          const mark = t.tier === 'pro' ? makerProMark({ owns: ownsPro, storeShell }) : null;
           const on = t.id === picked;
           const src = mounted.includes(t.id) ? makerThemeTileSrc(home, stage, t.id) : null;
           const face = (
@@ -233,34 +232,21 @@ export function MakerThemePicker({
               </span>
               <span className="mt-1.5 flex items-center gap-1 text-[12.5px] font-semibold text-ink">
                 <span className="truncate">{t.name}</span>
-                {t.tier === 'pro' ? (
-                  <PaidMark
-                    state={locked ? 'locked' : 'unlocked'}
-                    label={paidMarkLabel(locked ? 'locked' : 'unlocked', 'Event Hub Pro')}
-                    size="xs"
-                  />
-                ) : null}
+                {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
               </span>
             </>
           );
           return (
             <li key={t.id} data-theme-tile={t.id} className="shrink-0 snap-start" style={{ width: TILE_W }}>
-              {locked ? (
-                /* The padlock's door — the one Event Hub Pro page, never a save. */
-                <Link href={proHref} data-theme-tile-locked="" className="sn-press block text-left">
-                  {face}
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => pick(t.id)}
-                  data-theme-tile-pick=""
-                  className="sn-press block text-left"
-                >
-                  {face}
-                </button>
-              )}
+              <button
+                type="button"
+                aria-pressed={on}
+                onClick={() => pick(t.id)}
+                data-theme-tile-pick=""
+                className="sn-press block text-left"
+              >
+                {face}
+              </button>
             </li>
           );
         })}

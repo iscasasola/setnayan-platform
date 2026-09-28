@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
+  HUB_ELEMENT_FIELDS,
   HUB_ELEMENT_LOOK_PROPS,
   HUB_ELEMENT_MOTION_PROPS,
   HUB_ELEMENT_RUN_KEYS,
@@ -282,12 +283,16 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
 }
 
 /**
- * 🔗 THE JOINER'S WORD, on the canvas now. The word the page drew first is kept
- * on the part (`data-el-word`), so taking the couple's word off puts it back.
+ * 🔗 A PART'S OWN WORDS, on the canvas now — the joiner's word, or the link's
+ * line. The words sit on the part itself (the joiner) or on its
+ * `[data-el-words]` child (the link, whose ↓ must stay). The words the page
+ * drew first are kept there (`data-el-word`), so taking the couple's words off
+ * puts them back.
  */
-export function applyJoinerWord(part: HTMLElement, word: string | null | undefined): void {
-  if (!part.hasAttribute('data-el-word')) part.setAttribute('data-el-word', part.textContent ?? '');
-  part.textContent = word ?? part.getAttribute('data-el-word') ?? '';
+export function applyPartWords(part: HTMLElement, word: string | null | undefined): void {
+  const target = part.querySelector<HTMLElement>('[data-el-words]') ?? part;
+  if (!target.hasAttribute('data-el-word')) target.setAttribute('data-el-word', target.textContent ?? '');
+  target.textContent = word ?? target.getAttribute('data-el-word') ?? '';
 }
 
 function textNodesOf(node: Node, out: Text[]): Text[] {
@@ -394,7 +399,7 @@ export function applyElementPreview(
     }
     for (const part of parts) {
       applyHeroPartStyle(part, elements?.[el], motion);
-      if (el === 'joiner') applyJoinerWord(part, elements?.joiner?.word);
+      if (HUB_ELEMENT_FIELDS[el].includes('word')) applyPartWords(part, elements?.[el]?.word);
       if (HUB_ELEMENT_RUN_KEYS.includes(el)) applyHeroPartRuns(part, elements?.[el], doc);
     }
     return parts;

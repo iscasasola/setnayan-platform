@@ -9,6 +9,7 @@ import { asViewed } from '@/lib/view-as-free.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
+import { hubDraftProEffects, hubProEffectView, type HubProEffectView } from '@/lib/hub-pro-effects';
 import {
   HUB_DRAFT_EVENT_COLUMNS,
   HUB_DRAFT_FIELD,
@@ -289,6 +290,13 @@ export type HubDraftBarData = {
   priceLabel: string | null;
   /** The one Event Hub Pro buy surface (null in the shell). */
   proHref: string | null;
+  /**
+   * 💎 The Pro effects this draft holds, by name and place — what the Apply
+   * sheet lists (owner 2026-09-28). Derived from the SAME plan as `proCount`
+   * (`hubDraftProEffects` over `planHubDraftApply`), never a second list.
+   * Empty in the store shell, where there is no sheet, no price and no pitch.
+   */
+  proEffects: HubProEffectView[];
 };
 
 /**
@@ -311,6 +319,7 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
   const storeShell = await isStoreShellRequest();
   const supabase = await createClient();
   let summary: HubDraftSummary = { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
+  let proEffects: HubProEffectView[] = [];
   let readError = false;
   try {
     const draft = await readHubDraft(supabase, eventId);
@@ -325,6 +334,7 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),
       // so a Pro key reads as needing the web even for an owning couple.
       summary = summarizeHubDraft(draft, live, ownsPro && !storeShell);
+      if (!storeShell) proEffects = hubDraftProEffects(draft, live, ownsPro).map(hubProEffectView);
     }
   } catch (e) {
     console.error('[hub-draft] could not load the draft bar:', e instanceof Error ? e.message : e);
@@ -340,7 +350,9 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     summary,
     storeShell,
     priceLabel,
-    proHref: storeShell ? null : `/dashboard/${eventId}/studio/website-pro`,
+    // `from=maker`: the buy page's way back is the Maker, where the draft waits.
+    proHref: storeShell ? null : `/dashboard/${eventId}/studio/website-pro?from=maker`,
+    proEffects,
     readError,
   };
 });

@@ -74,6 +74,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
+import { SceneStyleCanvasRow } from './scene-style-row';
 import { SceneBackgroundRow } from './scene-background-row';
 
 /**
@@ -251,6 +252,8 @@ export function MakerWork({
     lookLock: ReactNode;
     /** Two people at the centre — the hero has a Joiner to style. */
     twoPeople: boolean;
+    /** 🎨 The event type — a scene's styles adapt to it (`lib/scene-styles.ts`). */
+    eventType?: string | null;
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -1116,6 +1119,17 @@ export function MakerWork({
       format:
         elementEditing && sceneFormat ? (
           <>
+            {/* 🎨 Style — one dropdown, free; drawn only where the registry
+                offers this scene a choice on this stage. */}
+            <SceneStyleCanvasRow
+              key={`style-${type}`}
+              eventId={eventId}
+              widgetType={type}
+              canvas={canvas}
+              stage={stage}
+              eventType={sceneFormat.eventType ?? null}
+              draftAction={elementEditing.draftAction}
+            />
             <SceneBackgroundRow
               key={type}
               eventId={eventId}

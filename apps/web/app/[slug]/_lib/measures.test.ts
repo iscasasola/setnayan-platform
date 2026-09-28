@@ -79,8 +79,10 @@ const KNOWN_DRIFT: Record<string, { count: number; why: string }> = {
     // the lead, and the STANDFIRST went with them. The cover's sentence is set
     // on a ch-based measure, which is what this guard wanted all along — so the
     // bill shrank because the drift was fixed, not because the check was moved.
-    count: 3,
-    why: 'A pull-quote, a caption and a figure. TYPOGRAPHIC, not columns — the reading measure is ch-based. Decide while looking at the page.',
+    // 3 → 2 on 2026-09-29: the closing pull-quote became the Thank You scene
+    // (Post Event styles, `post-event-scene-views.tsx`), which draws no column.
+    count: 2,
+    why: 'A caption and a figure. TYPOGRAPHIC, not columns — the reading measure is ch-based. Decide while looking at the page.',
   },
   'recap/page.tsx': {
     count: 1,

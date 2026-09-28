@@ -56,6 +56,13 @@ import { EverythingElseSheet } from './everything-else-sheet';
 import { resolveEverythingElseRows } from '../_lib/everything-else-rows';
 import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
+import {
+  POST_EVENT_SUPPLIERS_ANCHOR,
+  postEventFilmDrawn,
+  postEventSuppliersAnchorKey,
+} from './editorial/post-event-bar-facts';
+import { resolveSectionOrder, shippedSections } from './editorial/editorial-order';
+import { openUpHash } from '@/lib/post-event-scenes';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
@@ -67,6 +74,7 @@ import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
+import type { PostEventDraft } from '@/lib/post-event-draft';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
@@ -360,6 +368,13 @@ type SiteBodyProps = {
    *  FALSE for every guest/anonymous visitor (and absent → false), so their
    *  HTML is unchanged byte-for-byte. It never reveals anything. */
   isEditorCanvas?: boolean;
+  /**
+   * 💾 POST EVENT'S DRAFTED SCENES — the host's draft of the story's order,
+   * switches and each scene's look (`HubDraft.editorial`), laid over the story
+   * ONLY in the host's preview. Null / absent for every guest, so their HTML is
+   * unchanged.
+   */
+  editorialDraft?: PostEventDraft | null;
   /** The click-to-edit bridge — the Maker's iframe (`?editor=1`) only, never
    *  the "Preview the whole stage" tab. Implies `isEditorCanvas`. */
   editorBridge?: boolean;
@@ -442,6 +457,7 @@ export async function SiteBody({
   doorwayFacts = null,
   proWatermarkHidden,
   isEditorCanvas = false,
+  editorialDraft = null,
   editorBridge = false,
   canvasGuestBars = false,
   canvasOnly = null,
@@ -762,6 +778,11 @@ export async function SiteBody({
   // and a failed read here must cost a tab, never the page.
   const recapBody = plan.body === 'editorial';
   let recapHasPhotos = false;
+  /* 📖 THE POST EVENT BAR'S FILM AND SUPPLIERS (owner 2026-09-25, E1) — asked of
+     the SAME redacted recap, through the SAME predicates the recap draws those
+     scenes with (`post-event-bar-facts.ts`), so neither slot can point at a
+     scene the page did not draw. */
+  let recapBar = { film: false, suppliers: false };
   if (recapBody) {
     try {
       // Redacted with the SAME viewer the story itself is rendered for: this
@@ -782,8 +803,29 @@ export async function SiteBody({
             }),
           )
         : false;
+      if (recap) {
+        // In the Maker's canvas the bar follows the couple's DRAFT, like the story does.
+        const drafted = isEditorCanvas ? editorialDraft : null;
+        const barInput = {
+          sections: drafted?.sections ?? recap.sections,
+          broadcast: Boolean(recap.watchFilmEmbedUrl),
+          films: recap.films?.length ?? 0,
+          teamVendors: recap.vendors.length,
+          vendorMedia: recap.vendorMedia.length,
+          vendorsWeLoved: recap.vendorsWeLoved.length,
+        };
+        recapBar = {
+          film: postEventFilmDrawn(barInput),
+          suppliers:
+            postEventSuppliersAnchorKey(
+              barInput,
+              shippedSections(resolveSectionOrder(drafted?.sectionOrder !== undefined ? drafted.sectionOrder : recap.sectionOrder)),
+            ) !== null,
+        };
+      }
     } catch {
       recapHasPhotos = false;
+      recapBar = { film: false, suppliers: false };
     }
   }
   // The id the recap stamps on its first photo block. Null unless the bar is
@@ -917,6 +959,11 @@ export async function SiteBody({
           /* 📖 Post Event's scene markers — the Maker's canvas only, the same
              gate as `makerMark` above; every guest's HTML is unchanged. */
           makerMarkers={Boolean(isEditorCanvas && editorBridge)}
+          /* 💾 The host's drafted scenes — never a guest's (null for them) —
+             and 🕰 the couple's own preview, where a scene with nothing yet
+             says what fills it. Both false for every guest. */
+          draft={isEditorCanvas ? editorialDraft : null}
+          hostPreview={isEditorCanvas}
         />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
@@ -1488,7 +1535,11 @@ export async function SiteBody({
               hasDetails: menuSections.details,
               hasSchedule: plan.publicSafeWidgets.some((w) => w.widget_type === 'schedule'),
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
+              // 📖 After the day: Film and Suppliers, only where the recap drew them.
+              postEvent: recapBar,
               destinations: {
+                film: openUpHash('film'),
+                suppliers: `#${POST_EVENT_SUPPLIERS_ANCHOR}`,
                 // Carries the event so the guest camera's refusal screen can
                 // send an unrecognised visitor BACK TO THIS INVITATION instead
                 // of to Setnayan's homepage — which was the only way off it.
@@ -2521,7 +2572,11 @@ export async function SiteBody({
               // 🗂 RSVP becomes Me once they have answered (owner 2026-09-27).
               replied: Boolean(guest.rsvp_status) && guest.rsvp_status !== 'pending',
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
+              // 📖 After the day: Film and Suppliers, only where the recap drew them.
+              postEvent: recapBar,
               destinations: {
+                film: openUpHash('film'),
+                suppliers: `#${POST_EVENT_SUPPLIERS_ANCHOR}`,
                 camera: papicGuest
                   ? `/papic/me/${guest.qr_token}`
                   : hostCameraOpen

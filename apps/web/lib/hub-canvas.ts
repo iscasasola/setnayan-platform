@@ -40,6 +40,7 @@
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { hubAutoSpeed, hubTransition, type HubAutoSpeed, type HubTransition } from '@/lib/hub-scenes';
 import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/scene-templates';
+import { sanitizeSceneStyleId } from '@/lib/scene-styles';
 import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/custom-columns';
 import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';
 import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style';
@@ -282,6 +283,15 @@ export type HubSectionCanvas = {
      one means "the template's own shape". */
   /** Which of the 25 templates (1–25). Absent = not a template scene. */
   template?: SceneTemplateId;
+  /**
+   * 🎨 THE SCENE'S STYLE (owner 2026-09-29, "EVERY SCENE ON EVERY STAGE HAS AT
+   * LEAST THREE PREMADE STYLES") — a permanent style id from the ONE registry
+   * (`lib/scene-styles.ts`, resolved per stage by `resolveSceneStyle`). FREE:
+   * not a look key (`HUB_CANVAS_LOOK_KEYS`). Absent = the stage's default. One
+   * row, one value: a scene shown on several stages wears the same pick
+   * wherever that style is drawn.
+   */
+  style?: string;
   /**
    * What fills the template's slots, by position. A picture slot holds a
    * `media` ref (held to the public bucket by the SAME `hubMediaRef` fence as
@@ -593,6 +603,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   /* ── SCENES. Same posture: a value this version did not write is dropped. */
   const template = sceneTemplateId(canvas.template);
   if (template) out.template = template;
+  const style = sanitizeSceneStyleId(canvas.style);
+  if (style) out.style = style;
   const slots = hubSceneSlots(canvas.slots);
   if (slots) out.slots = slots;
   const free = hubFreeBoxes(canvas.free);
@@ -989,7 +1001,9 @@ export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
      their own scoped style (`hubElementSceneCss`), framed or not. */
   /* 🔗 Nor is a scene's own version of a Details fact (`details`) — it is
      words, drawn by the scene itself; framing it would add motion nobody chose. */
-  return Object.keys(canvas).some((k) => k !== 'elements' && k !== 'details');
+  /* 🎨 Nor is a style pick (`style`) — the scene draws its own style; framing
+     it would bring motion the couple never chose. */
+  return Object.keys(canvas).some((k) => k !== 'elements' && k !== 'details' && k !== 'style');
 }
 
 /**

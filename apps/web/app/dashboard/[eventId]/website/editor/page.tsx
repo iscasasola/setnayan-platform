@@ -1231,6 +1231,7 @@ export default async function WebsiteEditorPage({
         hideLocked: storeShell,
         lookLock: lockPanel('How each section looks and moves'),
         twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
+        eventType: (event.event_type as string | null) ?? null,
       }}
       rows={rows}
       themes={themes}

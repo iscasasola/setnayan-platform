@@ -48,6 +48,7 @@ const labels = (o: Partial<NavInput> = {}) => bar(o).map((s) => s.label);
 
 test('E1 · after the day a guest reads Recap · Film · Suppliers · Gallery · Me — in that order', () => {
   assert.deepEqual(labels(), ['Recap', 'Film', 'Suppliers', 'Gallery', 'Me']);
+  for (const slot of bar()) assert.equal(slot.state, 'live', `${slot.key} is drawn but not pressable — a door with something behind it is live`);
   const film = bar().find((s) => s.key === 'film')!;
   assert.equal(film.href, '#open-film', 'Film opens the film’s open-up through its hash, so Back closes it');
   assert.equal(bar().find((s) => s.key === 'suppliers')!.href, `#${POST_EVENT_SUPPLIERS_ANCHOR}`);

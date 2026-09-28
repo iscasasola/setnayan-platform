@@ -6219,6 +6219,104 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       will-change: auto;
     }
 
+    /* ── THE ROWS OF A LIST: one by one, as each one reaches the screen ─────
+       Owner, 2026-09-28, on the Schedule scene's run of show: *"how can the
+       load as we scroll up one by one?"* (DECISION_LOG "LIST ROWS ARRIVE ONE BY
+       ONE AS THE GUEST SCROLLS"). The parts above are the section's DIRECT
+       children, so the run of show — one `<ol>`, one part — arrived as a
+       single block of six rows.
+
+       🔑 NOT A SECOND MOTION SYSTEM. A widget marks the one container whose
+       children are its repeated rows with `data-hub-rows` (the run of show,
+       the dress code's roles, the photo moments), and a row becomes a part
+       like any other: the SAME `--hub-part-*` values, read by the same kind
+       of applying rule, from the scene's own In (kind + direction), duration,
+       ease, stagger and Plays once / Follows the scroll. Only the scene's
+       "One part after another" turns it on — `hub-seq-parts` — which a free
+       couple cannot set (`sequence` / `preset` are Pro look keys), so a free
+       scene stays `hub-seq-whole` and its list never moves on its own.
+
+       🔑 THE LIST'S OWN PART STANDS STILL. Its rows arrive instead; both
+       moving would be two opacities multiplying (the muddy arrival above).
+
+       ⛔ THE RULES HERE ARE FOR A SCENE THAT SCROLLS. A pinned frame
+       (`.hub-scrub`) does not scroll, so a row's `view()` there would never
+       move; an auto run (`.hub-auto`) runs on its own clock. Those two keep
+       their rows on their OWN timelines — "ROWS IN A RUN", inside the runs'
+       gate below — and `:not(…) >` on the frame's parent keeps every
+       scroll-scene rule out of them. The applying rule alone is shared.
+
+       🔒 FAIL-VISIBLE, THE SAME THREE WAYS. Inside both gates above (scroll
+       timelines, no reduced motion) and `screen` here, so a printed or saved
+       page is never caught mid-arrival. A Plays-once row binds only once the
+       page's one observer (`PahinaMotionObserver`) marks IT `.pahina-in` —
+       and so does a scrolled row — no script, no mark, the row simply sits
+       there. The observer also writes `--hub-row-at` (1, 2, 3 … never past
+       `HUB_SEQUENCE_DEPTH`): the rows that reach the screen TOGETHER still
+       arrive in turn, one stagger apart, and the first one a stagger after
+       the heading. It writes each row's place in its list too (`--hub-row-i`
+       of `--hub-row-n`), which the runs below slice their clocks by. */
+    @media screen {
+      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
+      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > [data-hub-rows] {
+        --hub-part-in: none;
+        --hub-part-out: none;
+      }
+      /* The list sits deeper than a part (a wrapper around it). */
+      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
+      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:has([data-hub-rows]) {
+        --hub-part-in: none;
+        --hub-part-out: none;
+      }
+      /* THE ONE APPLYING RULE for a row, wherever its scene sits. At rest it
+         binds nothing — every value below is `none` / `auto` until a rule for
+         the row's own timeline fills it in. */
+      .hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+        --hub-part-in: none;
+        --hub-part-out: none;
+        --hub-part-delay: 0s;
+        --hub-part-in-tl: auto;
+        --hub-part-out-tl: auto;
+        --hub-part-in-range: normal;
+        --hub-part-out-range: normal;
+        animation-name: var(--hub-part-in, none), var(--hub-part-out, none);
+        animation-duration: var(--hub-part-dur, 1s), 1s;
+        animation-timing-function: var(--hub-part-ease, linear), linear;
+        animation-delay: var(--hub-part-delay, 0s), 0s;
+        animation-fill-mode: both, backwards;
+        animation-timeline: var(--hub-part-in-tl, auto), var(--hub-part-out-tl, auto);
+        animation-range: var(--hub-part-in-range, normal), var(--hub-part-out-range, normal);
+        animation-play-state: var(--hub-part-play, running), running;
+        will-change: opacity, transform;
+      }
+      /* Plays once: this row, once the observer has seen it near the screen. */
+      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.hub-tl-time > .hub-canvas-body [data-hub-rows] > .pahina-in {
+        --hub-part-in: var(--hub-in-kf, none);
+        --hub-part-dur: var(--hub-duration, 1.1s);
+        --hub-part-ease: var(--hub-ease, ease-out);
+        --hub-part-delay: calc(var(--hub-stagger, 0s) * var(--hub-row-at, 1));
+      }
+      /* Follows the scroll: each row on ITS OWN view — it arrives as it enters
+         and hands off as it leaves, under the guest's thumb. Bound once the
+         observer has marked it (it marks 32px BEFORE the row enters, so the
+         first frame a guest sees is the arrival's first frame). */
+      :not(.hub-scrub):not(.hub-auto) > .hub-seq-parts.hub-tl-scrub > .hub-canvas-body [data-hub-rows] > .pahina-in {
+        --hub-part-in: var(--hub-in-kf, none);
+        --hub-part-dur: 1s;
+        --hub-part-ease: linear;
+        --hub-part-in-tl: view();
+        --hub-part-in-range: entry 0% entry 92%;
+        --hub-part-out: var(--hub-out-kf, none);
+        --hub-part-out-tl: view();
+        --hub-part-out-range: exit 8% exit 100%;
+      }
+      /* Asked for nothing: nothing, in every context (a scroll scene or a run). */
+      .hub-in-none.hub-out-none > .hub-canvas-body [data-hub-rows] > * {
+        animation: none;
+        will-change: auto;
+      }
+    }
+
     /* ── A HERO PART'S OWN MOTION (`lib/element-style.ts`) ─────────────────
        The part carries its In · During · Out as custom properties
        (`--el-anim` · `--el-tl` · `--el-range`) and `data-el-motion`; THIS is
@@ -6422,6 +6520,67 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: cover calc(var(--hub-at) + 0.15 * var(--hub-step)) cover calc(var(--hub-at) + 0.4 * var(--hub-step)); }
       .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: cover calc(var(--hub-at) + 0.2 * var(--hub-step)) cover calc(var(--hub-at) + 0.45 * var(--hub-step)); }
       .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: cover calc(var(--hub-at) + 0.25 * var(--hub-step)) cover calc(var(--hub-at) + 0.5 * var(--hub-step)); }
+      /* ── ROWS IN A RUN (owner 2026-09-28: *"yes, make pinned rows arrive one
+         by one too"*) ─────────────────────────────────────────────────────
+         The SAME row values as a scrolling scene ("THE ROWS OF A LIST"
+         above), on the run's own timeline — never a second system.
+
+         📌 PINNED (Scrub): the rows share the window the scene's parts arrive
+         in while it holds — from just before the spacer's top reaches the
+         pin line until just before the hand-over (half a step past it) — and
+         row i of n takes the i-th slice of it, on the SPACER's timeline, so
+         scrolling back takes them away again. The scene's own In (kind,
+         direction) and ease; the slice is the only thing that is new.
+
+         ⏱ AUTO: the rows arrive on the run's CLOCK — the scene's own fade-in
+         moment (`--hub-in-at`, written by `HubAutoRun`; absent = the first
+         scene, there from the start) plus one stagger per row — and pause
+         with the run (`[data-playing]`), exactly as the scenes do.
+
+         🔒 Fail-visible: a pinned row binds only once the observer marked it
+         (no script, no mark), an auto row only in an ARMED run; reduced
+         motion, an engine without these timelines, and print never reach
+         here. The list's own part stands still in both. */
+      @media screen {
+        .hub-scrub > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
+        .hub-arun[data-armed] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows] {
+          --hub-part-in: none;
+          --hub-part-out: none;
+        }
+        .hub-scrub > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
+        .hub-arun[data-armed] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]) {
+          --hub-part-in: none;
+          --hub-part-out: none;
+        }
+        .hub-scrub > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > .pahina-in {
+          --hub-part-in: var(--hub-in-kf, none);
+          --hub-part-dur: 1s;
+          --hub-part-ease: var(--hub-ease, linear);
+          --hub-part-in-tl: var(--hub-tl);
+          --hub-part-in-range:
+            cover calc(var(--hub-at) + (-0.05 + 0.5 * (var(--hub-row-i, 1) - 1) / var(--hub-row-n, 1)) * var(--hub-step))
+            cover calc(var(--hub-at) + (-0.05 + 0.5 * var(--hub-row-i, 1) / var(--hub-row-n, 1)) * var(--hub-step));
+        }
+        .hub-arun[data-armed] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+          --hub-part-in: var(--hub-in-kf, none);
+          --hub-part-dur: var(--hub-duration, 1.1s);
+          --hub-part-ease: var(--hub-ease, ease-out);
+          --hub-part-delay: calc(var(--hub-in-at, 0s) + var(--hub-stagger, 0s) * min(var(--hub-row-i, 1), 8));
+          --hub-part-play: paused;
+        }
+        /* 🪤 …AND A STOPPED RUN LETS ITS ROWS FINISH. `[data-playing]` is also
+           absent when the guest TAPPED the run to stop it — and a row paused
+           in its delay is held at its from-state, so the scene they are
+           reading would keep its rows hidden for good. Stopped (the button's
+           own `aria-pressed`), the rows play out; only the scenes wait. */
+        .hub-arun[data-armed][data-playing] > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+          --hub-part-play: running;
+        }
+        .hub-arun[data-armed]:has(> .hub-auto-pp[aria-pressed="true"]) > .hub-auto > .hub-canvas.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+          --hub-part-play: running;
+        }
+      }
+
       /* The picture's slow lift follows the hold too — `view()` inside a pinned
          scene would never move. */
       .hub-scrub > .hub-during-lift.hub-has-media > .hub-canvas-media {

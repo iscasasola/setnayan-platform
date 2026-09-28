@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "228e2f474",
+  "generatedFromRef": "3136309f7",
   "routeCount": 435,
   "destinations": 941,
   "actions": 673,
-  "blocks": 4983,
+  "blocks": 4987,
   "routes": {
     "/": {
       "files": [
@@ -815,6 +815,7 @@
         "[slug]/_components/pahina-motion.tsx",
         "[slug]/_components/photo-moments-widget.tsx",
         "[slug]/_components/photos-of-you-gallery.tsx",
+        "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -1145,6 +1146,8 @@
         "PhotoMomentsWidget",
         "PhotosOfYouGallery",
         "PreviewPerson",
+        "PreviewWayBack",
+        "PreviewWayBackLink",
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
@@ -6195,6 +6198,7 @@
         "PaidMark",
         "PickMenu",
         "PickOption",
+        "PreviewStageLink",
         "PrintChoicePicker",
         "PrintMenuEditor",
         "PrintPreview",
@@ -8611,6 +8615,7 @@
         "PartPicker",
         "PartTab",
         "PartTextTab",
+        "PartWordsRow",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "PhotoTile",

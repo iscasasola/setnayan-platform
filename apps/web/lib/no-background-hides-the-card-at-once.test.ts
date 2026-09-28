@@ -34,7 +34,7 @@ import { SCENE_CARD_LOOKS, applySceneCardPreview, type SceneCardNode } from './s
 import { sceneWidgetIsBare } from './scene-ground';
 import { withBackground } from './scene-background-scope';
 import { stripComments } from './strip-comments';
-import { WORDS_AS_SHIPPED } from '../app/[slug]/_components/event-words-provider';
+import { eventWordsFromProfile } from '../app/[slug]/_lib/event-words';
 import { CountdownWidget } from '../app/[slug]/_components/countdown';
 import { PhotoMomentsWidget } from '../app/[slug]/_components/photo-moments-widget';
 import { TierComparisonWidget } from '../app/[slug]/_components/tier-comparison-widget';
@@ -111,21 +111,25 @@ function parse(html: string): Node {
 }
 const serialise = (root: Node) => root.children.map((c) => (typeof c === 'string' ? c : c.html())).join('');
 
+const WORDS = eventWordsFromProfile({
+  terminology: { organizerNoun: 'couple', eventWord: 'wedding', occasionNoun: 'celebration', register: 'celebratory', personB: 'Ben', celebrantShape: 'pair' },
+} as never);
+
 /** Every widget that draws a card of its own, as the dispatchers mount it. */
 const WIDGETS: Array<[string, (bare: boolean) => React.ReactElement]> = [
   ['Countdown', (bare) => React.createElement(CountdownWidget, { targetIso: '2099-12-12', bare })],
-  ['Photo moments (none yet)', (bare) => React.createElement(PhotoMomentsWidget, { config: {}, words: WORDS_AS_SHIPPED, bare })],
+  ['Photo moments (none yet)', (bare) => React.createElement(PhotoMomentsWidget, { config: {}, words: WORDS, bare })],
   [
     'Photo moments',
     (bare) =>
       React.createElement(PhotoMomentsWidget, {
         config: { intro_copy: 'Our favourites', moments: [{ title: 'The first look', time_label: '2:00 PM' }] },
-        words: WORDS_AS_SHIPPED,
+        words: WORDS,
         bare,
       }),
   ],
-  ['Tier comparison (+1)', (bare) => React.createElement(TierComparisonWidget, { limited: true, eventNoun: 'wedding', words: WORDS_AS_SHIPPED, bare })],
-  ['Tier comparison', (bare) => React.createElement(TierComparisonWidget, { limited: false, eventNoun: 'wedding', words: WORDS_AS_SHIPPED, bare })],
+  ['Tier comparison (+1)', (bare) => React.createElement(TierComparisonWidget, { limited: true, eventNoun: 'wedding', words: WORDS, bare })],
+  ['Tier comparison', (bare) => React.createElement(TierComparisonWidget, { limited: false, eventNoun: 'wedding', words: WORDS, bare })],
 ];
 
 /* ═══ 1 · CONVERGENCE — the instant card IS the reload's card ═══ */

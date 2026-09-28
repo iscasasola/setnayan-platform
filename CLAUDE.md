@@ -2,7 +2,36 @@
 
 > Loaded automatically by Claude Code at session start. Read first, before any code.
 
-## ▶▶▶ NEWEST — 2026-09-28 · THE EVENT HUB REDESIGN WEEKEND · APPLE CHECK THU 1 OCT ON A NEW ACCOUNT
+## ▶▶▶ NEWEST — 2026-09-29 · THE EVENT HUB PLAN OF RECORD · ORDER A → C → E → D → B (APPLE CHECK LAST)
+
+**Read first:** corpus `WHATS_NEXT_HANDOFF_2026-09-29.md`, then `EVENT_HUB_BUILD_PLAN_2026-09-28.md`
+top section "⭐ FINAL BUILD SEQUENCE" (everything below it in that file is history). **The Apple check is
+no longer Thursday 1 Oct** — owner, verbatim: *"Finish all Event Hub first then Apple Check · So Stage
+A,C,E · Then D · Then B"*.
+
+- **Approved references (open, never redraw):** `prototypes/event_hub_maker_blueprint_2026-09-29.html`
+  (moved-not-invented ledger · the 23 new rules · how the Maker is presented) ·
+  `prototypes/details_themes_page_2026-09-28.html` (Details + the 19-step guided flow) ·
+  `prototypes/event_hub_sequence_2026-09-29.html`. DECISION_LOG rows 2026-09-28 → 29 are the rulings.
+- **The model:** Details is the ONE place a couple types facts; stages are look and motion; tapping a
+  fact on a stage opens the same field. Prints & Tickets, Logo, Hero, Reveal, Mood Board, Love Story,
+  Schedule, RSVP, Seat plan, Wedding march and the date finder MOVE into Details — moved, not re-invented.
+- **Rules for every builder prompt:** no "Edit in X ↗" link-outs (the field sits where you are) · ◆ marks
+  Pro and never blocks; there are no padlocks; Apply is the gate ("Unlock Pro and Apply") · free themes
+  = Classic, Modern, Cyber Neon · only **Papic** and **Patiktok** keep custom names (Music Maker, Group,
+  Memories, Loved ones) · the Maker never slow (≤100 ms per tap, saves in the background) · the event menu
+  becomes Home · Guest list · Your Team · Event Hub Maker · Our Services — LAST, after every piece moved.
+- **Traps measured 2026-09-28/29:** ~10 builders queue for ONE heavy-lock slot — give each the one-command
+  form `LOCK=~/Documents/Claude/Projects/heavy-lock.sh; $LOCK acquire <l> && ( <job> ); rc=$?; $LOCK release <l>`
+  (a hold > 1 h is treated as stale) · fold ready PRs into ONE train so the port baseline regenerates once ·
+  the deploy cron skips runs — dispatch `deploy-prod.yml` and confirm with `wait-served.sh` · the preview
+  launcher cannot read `~/Documents` and `file://` prototypes render inner iframes blank — serve a
+  scratchpad copy ("setnayan-prototypes" in `.claude/launch.json`).
+- **Usage:** zip at ~90% and ~97% weekly; **stop all builders at 98%** (owner).
+
+---
+
+## ▶▶ PREVIOUS — 2026-09-28 · THE EVENT HUB REDESIGN WEEKEND · APPLE CHECK THU 1 OCT ON A NEW ACCOUNT
 
 **Read first:** the corpus handoff `WHATS_NEXT_HANDOFF_2026-09-28.md` (spec corpus, `~/Documents/Claude/Projects/Setnayan/`)
 and `~/Documents/Claude/Projects/setnayan-handoff-src/CURRENT-STATE.md` (newest section on top). The

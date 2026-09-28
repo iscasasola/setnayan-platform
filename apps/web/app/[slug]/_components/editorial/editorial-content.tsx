@@ -68,7 +68,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { POST_EVENT_WAITING, galleryTabsFor, postEventReader, postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
 import { OpenUpScene, OpenUpTabs } from './open-up-layer';
 import type { PostEventDraft } from '@/lib/post-event-draft';
-import { postEventElementScope, postEventLookKey, resolvePostEventStyle } from '@/lib/post-event-styles';
+import { postEventElementScope, postEventLookKey, postEventStyleHome, resolvePostEventStyle } from '@/lib/post-event-styles';
 import { hubElementSceneCss } from '@/lib/element-style';
 import { mastheadEdition } from '@/lib/story-spine';
 import {
@@ -107,7 +107,15 @@ export async function EditorialContent({
   makerMarkers = false,
   draft = null,
   hostPreview = false,
+  sharedStyles = null,
 }: {
+  /**
+   * 🎨 The style picked on a SECTION that is the same scene on another stage
+   * (`POST_EVENT_STYLE_HOME`: the Schedule and Gallery rows' `canvas.style`),
+   * by widget type — one value across stages. Null → every such scene wears
+   * its default.
+   */
+  sharedStyles?: Readonly<Record<string, string | null>> | null;
   /**
    * 💾 THE HOST'S DRAFT OF POST EVENT'S SCENES (owner 2026-09-25 "POST EVENT
    * IS MANY SMALL SCENES", 2026-09-29 "EVERY STYLE OF EVERY SCENE SHIPS") —
@@ -553,7 +561,10 @@ export async function EditorialContent({
   */
   const looks = data.sceneLooks ?? {};
   const lookOf = (scene: string) => looks[postEventLookKey(scene)] ?? {};
-  const styleOf = (scene: string) => resolvePostEventStyle(scene, lookOf(scene).style);
+  const styleOf = (scene: string) => {
+    const home = postEventStyleHome(scene);
+    return resolvePostEventStyle(scene, home ? sharedStyles?.[home] : lookOf(scene).style, data?.eventType ?? null);
+  };
   const cssOf = (scene: string) => hubElementSceneCss(postEventElementScope(scene), lookOf(scene).elements ?? null);
   const wordsOf = (scene: string) => lookOf(scene).words ?? {};
   /* 🕰 Has the day happened? Compared by Manila calendar date — the scenes that

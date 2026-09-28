@@ -482,8 +482,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: EyeOff,
-        title: 'Nothing to show? The scene is skipped',
-        body: 'A part of the day with nothing in it yet &mdash; no reviews, no Live Photo Wall &mdash; is marked <b>Skipped</b>, and your guests never meet an empty box. It appears on its own when something arrives.',
+        title: 'Nothing there yet? It says so',
+        body: 'Before your day, a scene that fills itself from the day is marked <b>Not yet</b> and says what will fill it. After the day, one with nothing in it is <b>Skipped</b>. Your guests never meet an empty box.',
       },
       {
         Icon: Maximize2,
@@ -492,8 +492,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Sparkles,
-        title: 'Free — and yours to change',
-        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A theme and your own photos come with Event Hub Pro.',
+        title: 'Free — and yours to change, right here',
+        body: 'Tap a scene to pick its <b>Style</b>, hide it, or move it earlier or later &mdash; all free, all in your draft until you press <b>Apply</b>. Tap any part to change its words. A theme, a part&rsquo;s own font and your own photos come with Event Hub Pro.',
         sells: true,
       },
     ],

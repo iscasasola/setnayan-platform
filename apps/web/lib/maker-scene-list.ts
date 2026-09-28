@@ -43,7 +43,15 @@ import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
 import { CUSTOM_SECTION_TYPES, isCustomSectionType, customSectionEditorLabel } from './custom-sections';
 import type { WeddingOnlyParts } from './wedding-only-parts';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
-import type { OpenUpKind, PostEventListRow, PostEventSceneStatus } from './post-event-scenes';
+import {
+  postEventSceneDrawn,
+  type OpenUpKind,
+  type PostEventListRow,
+  type PostEventSceneStatus,
+  type PostEventSectionSwitch,
+} from './post-event-scenes';
+import { postEventRunKey } from './post-event-draft';
+import { resolvePostEventStyle } from './post-event-styles';
 import type { SceneTemplateId } from './scene-templates';
 import { stageShowsEntourage } from './stage-scenes';
 
@@ -101,6 +109,10 @@ export type MakerTile =
       note: string | null;
       open: OpenUpKind | null;
       pinned: boolean;
+      /** The story switch that shows / hides it (null = it cannot be hidden from here). */
+      switchKey: PostEventSectionSwitch | null;
+      /** 🎬 The run block it moves with (`postEventRunKey`) — null when its place is fixed. */
+      runKey: string | null;
     };
 
 export type MakerFolded = {
@@ -292,12 +304,16 @@ export type MakerStageInput = {
  */
 function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
   return rows.map((r) => {
-    const drawn = r.status === 'auto' && !r.hidden;
+    const drawn = postEventSceneDrawn(r.status, r.hidden);
     const anchorScene = r.block === 'chapters' ? 'ch-1' : r.key === 'before' ? 'cover' : r.key;
+    /* 🕰 A waiting scene drawn in its style ALSO stands on the couple's canvas —
+       its layout with the line that says what fills it (never for a guest) —
+       so its tile scrolls there too. */
+    const onCanvas = drawn || (r.status === 'waiting' && !r.hidden && resolvePostEventStyle(r.key, null) !== null);
     return {
       kind: 'post-event',
       key: `p:${r.key}`,
-      anchor: drawn ? (`p:${anchorScene}` as const) : null,
+      anchor: onCanvas ? (`p:${anchorScene}` as const) : null,
       scene: r.key,
       label: r.name,
       status: r.status,
@@ -309,6 +325,8 @@ function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
       note: r.note,
       open: r.open,
       pinned: r.pin !== null,
+      switchKey: r.switch,
+      runKey: postEventRunKey(r.key),
     };
   });
 }

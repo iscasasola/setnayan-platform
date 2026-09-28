@@ -21,6 +21,7 @@ import {
   type HubElementStyle,
   type HubElementStyles,
 } from '@/lib/element-style';
+import { postEventElementScope } from '@/lib/post-event-styles';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 
@@ -156,8 +157,11 @@ export function drawnMakerOrder(doc: Document): string[] {
  * one selector list the guest style uses. A part already stamped keeps its key.
  */
 export function stampSceneElements(section: HTMLElement, key: string): number {
-  if (!key.startsWith('w:')) return 0;
-  if (HUB_ELEMENT_EXCLUDED_WIDGETS.includes(key.slice(2))) return 0;
+  /* 🎞 A Post Event scene drawn in its style (`data-post-event-look`) has the
+     same three parts; a shipped Post Event block not yet in a style has none. */
+  const postEvent = key.startsWith('p:') && section.hasAttribute('data-post-event-look');
+  if (!key.startsWith('w:') && !postEvent) return 0;
+  if (!postEvent && HUB_ELEMENT_EXCLUDED_WIDGETS.includes(key.slice(2))) return 0;
   let n = 0;
   for (const el of HUB_SCENE_ELEMENT_KEYS) {
     section.querySelectorAll<HTMLElement>(HUB_SCENE_ELEMENT_SELECTOR[el]).forEach((node) => {
@@ -395,10 +399,16 @@ export function applyElementPreview(
     }
     return parts;
   }
-  if (!key.startsWith('w:')) return [];
+  // 🎞 A Post Event scene's parts are scoped `pe_<scene>` (`postEventElementScope`).
+  const scope = key.startsWith('w:')
+    ? key.slice(2)
+    : key.startsWith('p:') && section.hasAttribute('data-post-event-look')
+      ? postEventElementScope(section.getAttribute('data-post-event-look')!)
+      : null;
+  if (!scope) return [];
   // A ▶ Play leaves an inline `-p` twin that would outrank the new motion.
   if (motion) for (const part of parts) part.style.removeProperty('animation-name');
-  applySceneElementStyles(section, key.slice(2), elements, doc);
+  applySceneElementStyles(section, scope, elements, doc);
   return parts;
 }
 

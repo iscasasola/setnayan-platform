@@ -211,6 +211,19 @@ q();
  * 🔑 It is independent of the chapters: a page whose chapters stood down still
  * gets its scenes, and a scene streamed in late is picked up on
  * `DOMContentLoaded` and the 1.5s timer, the same two ways the chapters are.
+ *
+ * ── 📜 …AND THE ROWS OF A SCENE'S LIST, ONE BY ONE (2026-09-28) ───────────
+ * Owner, on the run of show: *"how can the load as we scroll up one by one?"*
+ * The same observer, the same mark: every row of a list a widget marked
+ * `data-hub-rows` (inside a `.hub-canvas`) is marked `.pahina-in` as IT nears
+ * the screen, so a "One part after another · Plays once" scene's rows arrive
+ * as the guest scrolls to each one (the rules are in globals.css, "THE ROWS OF
+ * A LIST"). Rows that reach the screen in the SAME callback are numbered
+ * `--hub-row-at` 1, 2, 3 … (capped at 8, `HUB_SEQUENCE_DEPTH`) so they still
+ * arrive in turn, one stagger apart. A row already marked is never observed
+ * again — re-numbering a finished row would move its delay and replay it.
+ * Fail-visible like everything else here: no mark, nothing bound, the row sits
+ * where the layout put it.
  */
 export function PahinaMotionObserver() {
   return (
@@ -235,14 +248,18 @@ for(var i=0;i<es.length;i++){if(es[i].isIntersecting){es[i].target.classList.add
 for(var i=0;i<n.length;i++){io.observe(n[i])}
 return true};
 var hsel='.hub-canvas, style[data-hub-els]';
+var rsel='.hub-canvas [data-hub-rows] > *';
 var hio=null;
 var hub=function(){try{
 var h=document.querySelectorAll(hsel);
 if(!h.length)return;
+var rw=document.querySelectorAll(rsel);
 if(!hio)hio=new IntersectionObserver(function(es){
-for(var i=0;i<es.length;i++){if(es[i].isIntersecting){es[i].target.classList.add('pahina-in');hio.unobserve(es[i].target)}}
+var k=0;
+for(var i=0;i<es.length;i++){if(es[i].isIntersecting){var t=es[i].target,p=t.parentElement;if(p&&p.hasAttribute&&p.hasAttribute('data-hub-rows')){k=k<8?k+1:8;t.style.setProperty('--hub-row-at',String(k))}t.classList.add('pahina-in');hio.unobserve(t)}}
 },{rootMargin:'0px 0px 32px 0px',threshold:0});
 for(var i=0;i<h.length;i++){var t=h[i].tagName==='STYLE'?h[i].previousElementSibling:h[i];if(t)hio.observe(t)}
+for(var j=0;j<rw.length;j++){if(!rw[j].classList.contains('pahina-in'))hio.observe(rw[j])}
 }catch(e){}};
 hub();
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',hub,{once:true})}

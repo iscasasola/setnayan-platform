@@ -106,9 +106,15 @@ function run(chaptersAfterFlush: number, chaptersNow = 0, hubAfterFlush: Array<'
         remove: (c: string) => void rootClasses.delete(c),
       },
     },
-    // Answer by SELECTOR: the chapters and the hub's scenes are two different queries.
+    // Answer by SELECTOR: the chapters and the hub's scenes are two different
+    // queries. A scene's list rows are a third, held by
+    // `lib/list-rows-arrive-one-by-one.test.ts` — none here.
     querySelectorAll: (sel: string) =>
-      sel.includes('data-pahina-chapters') ? els.slice(0, visible) : hubs.slice(0, hubVisible).map((h) => h.node),
+      sel.includes('data-hub-rows')
+        ? []
+        : sel.includes('data-pahina-chapters')
+          ? els.slice(0, visible)
+          : hubs.slice(0, hubVisible).map((h) => h.node),
     addEventListener: (_ev: string, fn: () => void) => void listeners.push(fn),
   };
   const win: Record<string, unknown> = {};

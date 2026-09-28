@@ -128,7 +128,10 @@ const ORDERABLE_SECTION_LABELS: Record<EditorialOrderKey, string> = {
   watchFilm: 'Watch the Film',
   reviews: 'What They Said',
   poweredBy: 'Powered by Setnayan',
-  vendorsWeLoved: 'Vendors We Loved',
+  vendorsWeLoved: 'Suppliers We Loved',
+  seating: 'Where Everyone Sat',
+  entourage: 'Entourage',
+  beforeAfter: 'Before & After',
 };
 
 // Which on/off toggle governs each orderable section — shown as its live state in
@@ -145,6 +148,9 @@ const ORDERABLE_SECTION_TOGGLE: Record<EditorialOrderKey, keyof EditorialSection
   reviews: 'reviews',
   poweredBy: 'poweredBy',
   vendorsWeLoved: 'vendorsWeLoved',
+  seating: 'seating',
+  entourage: 'entourage',
+  beforeAfter: 'beforeAfter',
 };
 
 // Soft cap for a guest wish quote (server hard-caps at 280).
@@ -163,7 +169,10 @@ const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: strin
   { key: 'kwento', label: 'What they whispered', help: 'Your guests’ best wishes (Kwento), captured on the day.' },
   { key: 'guestColumns', label: 'Letters to the editor', help: 'Short columns your guests wrote for your paper — only the ones you approved.' },
   { key: 'fromTheCouple', label: 'From the couple', help: 'Your thank-you note to guests.' },
-  { key: 'vendorsWeLoved', label: 'Vendors we loved', help: 'The vendors you recommended — your endorsements, shown to future couples.' },
+  { key: 'vendorsWeLoved', label: 'Suppliers we loved', help: 'The suppliers you recommended — your endorsements, shown to future couples.' },
+  { key: 'seating', label: 'Where everyone sat', help: 'Your seat plan — each guest sees their own table; nobody’s name is shown to a stranger.' },
+  { key: 'entourage', label: 'Entourage', help: 'The roles you gave on your guest list, as the invitation listed them.' },
+  { key: 'beforeAfter', label: 'Before & after', help: 'Your Save the Date cover beside your story’s cover — only when you chose a new cover.' },
 ];
 
 // The 10 canonical LOCKED moments (Editorial_Experience_Spec §3). Offered as a

@@ -305,7 +305,8 @@ export type MakerStageInput = {
 function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
   return rows.map((r) => {
     const drawn = postEventSceneDrawn(r.status, r.hidden);
-    const anchorScene = r.block === 'chapters' ? 'ch-1' : r.key === 'before' ? 'cover' : r.key;
+    // 🛤 The Road to the Day is its own scene (with its own marker) since 2026-09-29.
+    const anchorScene = r.block === 'chapters' ? 'ch-1' : r.key;
     /* 🕰 A waiting scene drawn in its style ALSO stands on the couple's canvas —
        its layout with the line that says what fills it (never for a guest) —
        so its tile scrolls there too. */

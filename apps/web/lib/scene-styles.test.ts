@@ -124,7 +124,7 @@ test('5 · Post Event: each scene maps to its type, the default is the prototype
     assert.equal(defaultSceneStyle(postEventSceneTypeOf(scene), 'editorial'), id);
   }
   // A type whose styles are not drawn yet offers nothing — its shipped block stays.
-  assert.equal(resolvePostEventStyle('asked', 'q-and-a'), null);
+  assert.equal(resolvePostEventStyle('you', 'grid'), null, 'an auto extra keeps its one look — no dropdown');
   assert.equal(resolvePostEventStyle('song', undefined), null);
   // Schedule and Gallery share one value with the section of the same name.
   assert.equal(postEventStyleHome('ch-2'), 'schedule');

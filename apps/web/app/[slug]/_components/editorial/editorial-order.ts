@@ -28,7 +28,12 @@ export type EditorialOrderKey =
   | 'watchFilm' // "Watch the Film"
   | 'reviews' // "What They Said"
   | 'poweredBy' // "Powered by Setnayan"
-  | 'vendorsWeLoved'; // "Vendors We Loved"
+  | 'vendorsWeLoved' // "Suppliers We Loved"
+  // 🎞 Post Event's scenes of the day that were not blocks before (owner
+  // 2026-09-26, "POST EVENT: 13 SCENE TYPES"):
+  | 'seating' // "Where Everyone Sat" — the seat plan, a guest's own table
+  | 'entourage' // "Entourage" — the roles the couple assigned
+  | 'beforeAfter'; // "Before & After" — the Save the Date's cover beside the story's
 
 /**
  * A column the couple wrote themselves, as `custom:<id>`.
@@ -61,12 +66,15 @@ export const EDITORIAL_ORDERABLE_KEYS: ReadonlyArray<EditorialOrderKey> = [
   'challengeAnswers',
   'guestColumns',
   'gallery',
+  'seating',
   'fromVendors',
+  'entourage',
   'liveWall',
   'watchFilm',
   'reviews',
   'poweredBy',
   'vendorsWeLoved',
+  'beforeAfter',
 ];
 
 /** The two locked-close keys, pinned to the end of the run in this order. They are

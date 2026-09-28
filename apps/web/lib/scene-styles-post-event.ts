@@ -34,6 +34,15 @@ export const POST_EVENT_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     ],
   },
   {
+    type: 'road-to-the-day',
+    label: 'The Road to the Day',
+    styles: [
+      { id: 'countdown', name: 'Countdown timeline', line: 'Days to go as the big number at each step of the way.', template: 24, stages: PE },
+      { id: 'diary', name: 'Diary', line: 'The month in the margin, one line per step.', stages: PE },
+      { id: 'scrapbook', name: 'Scrapbook', line: 'Each step pinned at an angle, written in by hand.', stages: PE },
+    ],
+  },
+  {
     type: 'statistics',
     label: 'Statistics',
     styles: [
@@ -88,6 +97,24 @@ export const POST_EVENT_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'q-and-a', name: 'Q&A cards', line: 'Each question with its first answers.', template: 25, stages: PE },
       { id: 'photo-grid', name: 'Photo answers grid', line: 'One question per screen, its photo answers three across.', stages: PE },
       { id: 'answer-share', name: 'Share of answers', line: 'Which question drew the most answers, as a track each.', stages: PE },
+    ],
+  },
+  {
+    type: 'where-everyone-sat',
+    label: 'Where Everyone Sat',
+    styles: [
+      { id: 'floor-plan', name: 'Floor plan', line: 'The room from above; a guest’s own table in gold.', stages: PE },
+      { id: 'room-3d', name: '3D room', line: 'The seat plan, tilted — a guest’s own table marked.', stages: PE },
+      { id: 'by-table', name: 'List by table', line: 'Each table in a list; a guest’s own row marked.', stages: PE },
+    ],
+  },
+  {
+    type: 'entourage',
+    label: 'Entourage',
+    styles: [
+      { id: 'roll-call', name: 'Roll call', line: 'Each role and its names, like the invitation’s list.', stages: PE },
+      { id: 'portrait-grid', name: 'Portrait grid', line: 'A circle for each person, three across.', stages: PE },
+      { id: 'family-tree', name: 'Family tree', line: 'The two of you at the root, then parents, sponsors and the party.', stages: PE },
     ],
   },
   {

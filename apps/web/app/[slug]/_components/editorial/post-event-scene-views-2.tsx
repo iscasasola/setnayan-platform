@@ -422,7 +422,7 @@ export function SupplierStoriesScene({
         {loved.length > 0 || team.length > 0 ? (
           <span className="mt-4 flex flex-wrap gap-2">
             {loved.length > 0 ? (
-              <span className="inline-flex min-h-[30px] items-center rounded-full bg-terracotta px-3 font-mono text-xs uppercase tracking-[0.14em] text-ink">
+              <span className="inline-flex min-h-[30px] items-center rounded-full bg-terracotta-700 px-3 font-mono text-xs uppercase tracking-[0.14em] text-cream">
                 ♥ Would book again
               </span>
             ) : null}

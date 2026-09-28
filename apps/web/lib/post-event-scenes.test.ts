@@ -52,6 +52,9 @@ const FULL: PostEventSources = {
   reviews: 0,
   services: 4,
   vendorsWeLoved: 6,
+  seatingTables: 15,
+  entourage: 22,
+  beforeAfter: true,
   specialMessage: true,
   song: 'Ikaw at Ako',
   whatsNext: 'First anniversary',
@@ -78,18 +81,21 @@ const EMPTY: PostEventSources = {
   whatsNext: null,
 };
 
-test('the fixture day compiles to the prototype’s 25 scenes, plus the two it skips', () => {
+// 2026-09-29: Live Stream and the couple's own Videos are two scenes (prototype
+// types 14 · 15), so the fixture day — which has both — compiles to 26.
+// 2026-09-29: + Where Everyone Sat · Entourage · Before & After (prototype types 8 · 10 · 17) → 29.
+test('the fixture day compiles to the prototype’s 29 scenes, plus the two it skips', () => {
   const { scenes, generatedAt } = compilePostEventScenes(FULL, AT);
   assert.equal(generatedAt, AT);
   const auto = scenes.filter((s) => s.status === 'auto');
   const skipped = scenes.filter((s) => s.status === 'skipped');
-  assert.equal(auto.length, 25, auto.map((s) => s.key).join(','));
+  assert.equal(auto.length, 29, auto.map((s) => s.key).join(','));
   assert.deepEqual(skipped.map((s) => s.key).sort(), ['said', 'wall']);
   // The prototype's template per scene (post_event_auto_story_2026-09-25.html).
   const tpl = Object.fromEntries(scenes.map((s) => [s.key, s.template]));
   assert.deepEqual(
-    { cover: tpl.cover, before: tpl.before, numbers: tpl.numbers, gallery: tpl.gallery, film: tpl.film, you: tpl.you, wishes: tpl.wishes, asked: tpl.asked, letters: tpl.letters, vendors: tpl.vendors, wall: tpl.wall, said: tpl.said, powered: tpl.powered, loved: tpl.loved, couple: tpl.couple, song: tpl.song, next: tpl.next },
-    { cover: 4, before: 24, numbers: 12, gallery: 21, film: 14, you: null, wishes: 23, asked: 25, letters: 22, vendors: 20, wall: 19, said: 23, powered: 8, loved: 17, couple: 11, song: 8, next: 10 },
+    { cover: tpl.cover, before: tpl.before, numbers: tpl.numbers, gallery: tpl.gallery, film: tpl.film, videos: tpl.videos, you: tpl.you, wishes: tpl.wishes, asked: tpl.asked, letters: tpl.letters, vendors: tpl.vendors, wall: tpl.wall, said: tpl.said, powered: tpl.powered, loved: tpl.loved, couple: tpl.couple, song: tpl.song, next: tpl.next },
+    { cover: 4, before: 24, numbers: 12, gallery: 21, film: 14, videos: 14, you: null, wishes: 23, asked: 25, letters: 22, vendors: 20, wall: 19, said: 23, powered: 8, loved: 17, couple: 11, song: 8, next: 10 },
   );
   // Chapters: a clip leads with 5; photos alternate 1 and 2 (T1 · T5 · T2 · T1 · T5 · T2 …).
   assert.deepEqual(
@@ -125,13 +131,19 @@ test('every empty source yields a SKIPPED scene with its reason — never an emp
   assert.equal(scenes.filter((s) => s.block === 'chapters').length, 1);
 });
 
-test('a livestream is the Watch the Film open-up; its absence is a skip', () => {
+test('a livestream is the Live Stream open-up; its absence is a skip — and the couple’s films are Videos', () => {
   const withLive = compilePostEventScenes({ ...EMPTY, broadcast: true }, AT).scenes.find((s) => s.key === 'film')!;
   assert.equal(withLive.status, 'auto');
   assert.equal(withLive.open, 'film');
   assert.match(withLive.source, /Live Studio replay/);
   const none = compilePostEventScenes(EMPTY, AT).scenes.find((s) => s.key === 'film')!;
   assert.equal(none.status, 'skipped');
+  // Films without a broadcast: the replay is skipped, the Videos scene is filled.
+  const filmsOnly = compilePostEventScenes({ ...EMPTY, films: 2 }, AT).scenes;
+  assert.equal(filmsOnly.find((s) => s.key === 'film')!.status, 'skipped');
+  const videos = filmsOnly.find((s) => s.key === 'videos')!;
+  assert.equal(videos.status, 'auto');
+  assert.equal(videos.count, 2);
 });
 
 test('the cover starts from the hero until a post-event cover is chosen', () => {
@@ -219,9 +231,10 @@ test('draftToScenes follows the saved order and the switches — the page’s ow
   assert.deepEqual(rows.map((r) => r.key), [
     'cover', 'before', 'you', 'numbers',
     'ch-1', 'ch-2', 'wishes', 'asked',
-    'gallery', 'vendors', 'wall', 'film', 'said', 'powered', 'loved',
-    // guestColumns was not in the saved order → it appends, exactly as `resolveSectionOrder` does
-    'letters',
+    'gallery', 'vendors', 'wall', 'film', 'videos', 'said', 'powered', 'loved',
+    // guestColumns and the 2026-09-29 blocks were not in the saved order → they
+    // append in the canonical order, exactly as `resolveSectionOrder` does
+    'letters', 'seating', 'entourage', 'beforeAfter',
     'couple', 'song', 'next',
   ]);
   assert.equal(rows.find((r) => r.key === 'wishes')!.hidden, true);

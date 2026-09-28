@@ -48,6 +48,8 @@ import {
   type PostEventMakerRead,
   type PostEventSources,
 } from '@/lib/post-event-scenes';
+import { loadEntourage } from '@/app/[slug]/_lib/loaders';
+import { peopleOf } from '@/lib/entourage';
 import { overlayPostEventDraftJson, postEventArrangementOf, type PostEventDraft } from '@/lib/post-event-draft';
 
 export type { PostEventMakerRead };
@@ -125,6 +127,15 @@ export async function readPostEventForMaker(input: {
     }).catch(() => null);
     const whatsNext = backCover ? backCover.title : null;
 
+    /* 🪑 👥 The seat plan's tables and the entourage — each read by the SAME
+       loader the page draws it with, so a scene is filled exactly when the page
+       has something to draw. */
+    const [tablesRes, entourageGroups] = await Promise.all([
+      admin.from('event_tables').select('public_id', { count: 'exact', head: true }).eq('event_id', eventId),
+      loadEntourage(admin, eventId).catch(() => []),
+    ]);
+    if (tablesRes.error) logQueryError('PostEventCompile.tables', tablesRes.error, { event_id: eventId }, 'graceful_degrade');
+
     const sources: PostEventSources = {
       cover,
       milestones: Array.isArray(data.loveStory?.milestones) ? data.loveStory.milestones.length : 0,
@@ -144,6 +155,9 @@ export async function readPostEventForMaker(input: {
       guestColumns: data.guestColumns?.length ?? 0,
       vendorMedia: data.vendorMedia.length,
       team: data.vendors.length,
+      seatingTables: tablesRes.error ? 0 : (tablesRes.count ?? 0),
+      entourage: entourageGroups.flatMap(peopleOf).length,
+      beforeAfter: Boolean(data.coverChosen && data.eventHeroUrl),
       liveWall: { active: data.photoWallActive, photos: data.photoWallPhotos.length },
       reviews: data.reviews.length,
       services: data.servicesAvailed.length,

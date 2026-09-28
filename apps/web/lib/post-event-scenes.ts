@@ -144,7 +144,10 @@ export type PostEventSectionSwitch =
   | 'reviews'
   | 'poweredBy'
   | 'vendorsWeLoved'
-  | 'fromTheCouple';
+  | 'fromTheCouple'
+  | 'seating'
+  | 'entourage'
+  | 'beforeAfter';
 
 export type PostEventScene = {
   /** Stable within an event: `cover`, `before`, `ch-3`, `gallery`, … */
@@ -188,6 +191,12 @@ export type PostEventSources = {
   vendorMedia: number;
   /** The supplier credits the story draws (`vendors`) — the Supplier Stories' credits. Absent = 0. */
   team?: number;
+  /** 🪑 Tables on the seat plan (`event_tables`). Absent = 0. */
+  seatingTables?: number;
+  /** 👥 People who hold an entourage role. Absent = 0. */
+  entourage?: number;
+  /** 🎞 A cover chosen for after the day, beside the Save the Date's own. Absent = no. */
+  beforeAfter?: boolean;
   liveWall: { active: boolean; photos: number };
   reviews: number;
   services: number;
@@ -228,6 +237,9 @@ export const POST_EVENT_WAITING: Readonly<Record<string, string>> = {
   powered: 'The Setnayan services you use appear here.',
   loved: 'After the day, pick the suppliers you would book again.',
   couple: 'Your closing words appear here — write them any time as your special message.',
+  seating: 'Once your seat plan is drawn, each guest finds their own table here after the day.',
+  entourage: 'Give people their roles on your guest list, and your entourage is listed here.',
+  beforeAfter: 'Choose a cover for after the day, and it sits here beside your Save the Date’s.',
   song: 'Your song appears here.',
 };
 
@@ -325,6 +337,18 @@ const FIXED: Record<string, Def> = {
     key: 'loved', name: 'Suppliers We Loved', template: 17, open: null, pin: null, block: 'vendorsWeLoved', switch: 'vendorsWeLoved',
     fill: (s) => (s.vendorsWeLoved > 0 ? { count: s.vendorsWeLoved, source: `Your recommendations · ${s.vendorsWeLoved}` } : { skip: 'No suppliers recommended yet' }),
   },
+  seating: {
+    key: 'seating', name: 'Where Everyone Sat', template: null, open: null, pin: null, block: 'seating', switch: 'seating',
+    fill: (s) => ((s.seatingTables ?? 0) > 0 ? { count: s.seatingTables ?? 0, source: `Your seat plan · ${plural(s.seatingTables ?? 0, 'table')}` } : { skip: 'No seat plan on this event' }),
+  },
+  entourage: {
+    key: 'entourage', name: 'Entourage', template: null, open: null, pin: null, block: 'entourage', switch: 'entourage',
+    fill: (s) => ((s.entourage ?? 0) > 0 ? { count: s.entourage ?? 0, source: `Your guest list’s roles · ${plural(s.entourage ?? 0, 'person', 'people')}` } : { skip: 'Nobody holds an entourage role' }),
+  },
+  beforeAfter: {
+    key: 'beforeAfter', name: 'Before & After', template: 17, open: null, pin: null, block: 'beforeAfter', switch: 'beforeAfter',
+    fill: (s) => (s.beforeAfter ? { count: null, source: 'Your Save the Date’s cover beside your story’s' } : { skip: 'Your story’s cover is your Save the Date’s — nothing to set beside it' }),
+  },
   couple: {
     key: 'couple', name: 'Thank You', template: 11, open: null, pin: 'close', block: null, switch: 'fromTheCouple',
     fill: (s) => (s.specialMessage ? { count: null, source: 'Your closing words' } : { skip: 'Write your closing words and the story ends on them' }),
@@ -347,6 +371,9 @@ const SCENE_FOR_BLOCK: Record<Exclude<EditorialOrderKey, 'chapters'>, keyof type
   reviews: 'said',
   poweredBy: 'powered',
   vendorsWeLoved: 'loved',
+  seating: 'seating',
+  entourage: 'entourage',
+  beforeAfter: 'beforeAfter',
 };
 
 /**
@@ -440,6 +467,9 @@ export function compilePostEventScenes(
     build(FIXED.said!, s, day),
     build(FIXED.powered!, s, day),
     build(FIXED.loved!, s, day),
+    build(FIXED.seating!, s, day),
+    build(FIXED.entourage!, s, day),
+    build(FIXED.beforeAfter!, s, day),
     build(FIXED.couple!, s, day),
     build(FIXED.song!, s, day),
     s.whatsNext

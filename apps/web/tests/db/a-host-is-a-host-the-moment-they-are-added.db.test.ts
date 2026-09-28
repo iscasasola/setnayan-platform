@@ -50,10 +50,12 @@ async function newUser(email: string): Promise<string> {
 
 async function newEvent(label: string): Promise<{ eventId: string; creator: string }> {
   const creator = await newUser(`creator-${label}@host.test`);
+  // 'birthday', not 'wedding': a wedding row must carry its wedding fields
+  // (events_wedding_fields_consistency). Host seats do not depend on the type.
   const e = await db.query<{ event_id: string }>(
     `INSERT INTO public.events
        (display_name, event_type, event_date, event_date_precision, region)
-     VALUES ($1, 'wedding', '2027-06-06'::date, 'day', 'NCR')
+     VALUES ($1, 'birthday', '2027-06-06'::date, 'day', 'NCR')
      RETURNING event_id`,
     [`Event ${label}`],
   );

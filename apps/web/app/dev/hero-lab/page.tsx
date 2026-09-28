@@ -15,6 +15,8 @@
  *   ?photo=1                   the plain masthead with a cover plate (a hero photo)
  *   ?onday=1                   the Happening-now pill
  *   ?names=short               "Indalecio & Claire" instead of the long pair
+ *   ?link=See+you+there        the couple's own words on the link down (the `link` part)
+ *   ?maker=1                   stamp the parts as the Maker canvas does (`data-el`)
  */
 import { notFound } from 'next/navigation';
 import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
@@ -23,6 +25,7 @@ import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { invitationCard, mastheadEyebrow } from '@/app/[slug]/_lib/invitation-card';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { WEDDING_PROFILE } from '@/lib/event-type-profile';
+import { sanitizeHubElements } from '@/lib/element-style';
 import { HERO_DESIGNS, heroDesignLabel } from '@/lib/hero-design';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { LAB_MARK_SVG } from './mark';
@@ -38,6 +41,8 @@ export default async function HeroLabPage({ searchParams }: { searchParams: Prom
   const photo = one('photo') === '1';
   const onday = one('onday') === '1';
   const displayName = one('names') === 'short' ? SHORT : LONG;
+  const elements = sanitizeHubElements({ link: { word: one('link') } });
+  const maker = one('maker') === '1';
   /* ?only=marquee — one design alone, for a screenshot of exactly one hero. */
   const only = HERO_DESIGNS.find((d) => d === one('only')) ?? null;
   const shown = only ? [only] : HERO_DESIGNS;
@@ -85,6 +90,8 @@ export default async function HeroLabPage({ searchParams }: { searchParams: Prom
               <div className="space-y-6 text-center">
                 <PahinaMasthead
                   design={design}
+                  elements={elements}
+                  stampElements={maker}
                   eyebrow={mastheadEyebrow(words)}
                   displayName={displayName}
                   twoPeople={words.twoPeople}

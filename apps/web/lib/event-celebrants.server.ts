@@ -14,10 +14,15 @@ import type { GuestRole } from '@/lib/guests';
  *   trying to add you from your X event. [Accept]/[Decline] … They can follow
  *   without request but adding them will be connected people."*
  *
- * ── WHO IS A CELEBRANT ──────────────────────────────────────────────────────
- * A guest-list row whose role (primary or extra) is an honoree role —
+ * ── WHO IS A CELEBRANT — ONE RULE ACROSS THE PRODUCT ───────────────────────
+ * A guest-list row whose MAIN role (`guests.role`) is an honoree role —
  * `isHonoreeRole`: celebrant · bride · groom. The person the day is FOR, never
- * who runs it.
+ * who runs it. Extra roles do NOT count (controller ruling 2026-09-28): this is
+ * the same rule as `public.is_event_celebrant` — which holds the celebrant lock
+ * and decides whether a request names its event — so "celebrant" means one
+ * thing everywhere. Counting extra roles here would list somebody whose request
+ * then arrives without the event's name. Bride and groom are always main roles
+ * (one each per event), so nobody real is lost.
  *
  * ── WHO "HAS A SETNAYAN ACCOUNT" ────────────────────────────────────────────
  * Only a link the database already made, never a guess from an email:
@@ -46,13 +51,12 @@ export type CelebrantAccount = { userId: string; guestName: string };
 
 /** This event's celebrants who hold a Setnayan account, keyed by account. */
 export async function celebrantAccountsFor(admin: Admin, eventId: string): Promise<CelebrantAccount[]> {
-  const list = HONOREE_ROLES.join(',');
   const { data: guestRows, error: guestErr } = await admin
     .from('guests')
-    .select('guest_id, first_name, last_name, display_name, email, role, extra_roles')
+    .select('guest_id, first_name, last_name, display_name, email, role')
     .eq('event_id', eventId)
     .is('deleted_at', null)
-    .or(`role.in.(${list}),extra_roles.ov.{${list}}`);
+    .in('role', [...HONOREE_ROLES]);
   if (guestErr) {
     logQueryError('celebrantAccountsFor.guests', guestErr, {}, 'graceful_degrade');
     return [];
@@ -64,10 +68,7 @@ export async function celebrantAccountsFor(admin: Admin, eventId: string): Promi
     display_name: string | null;
     email: string | null;
     role: GuestRole | null;
-    extra_roles: GuestRole[] | null;
-  }>).filter(
-    (g) => (g.role && isHonoreeRole(g.role)) || (g.extra_roles ?? []).some((r) => isHonoreeRole(r)),
-  );
+  }>).filter((g) => g.role !== null && isHonoreeRole(g.role));
   if (guests.length === 0) return [];
   const guestIds = guests.map((g) => g.guest_id);
 

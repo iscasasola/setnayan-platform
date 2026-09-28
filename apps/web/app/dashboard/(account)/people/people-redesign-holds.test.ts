@@ -38,6 +38,7 @@ const ACTIONS = read('app/dashboard/(account)/people/actions.ts');
 const FOLLOW_BUTTON = read('app/u/_components/follow-button.tsx');
 const SAMAHAN = read('app/dashboard/(account)/people/_components/samahan-people-section.tsx');
 const PICKER = read('app/dashboard/(account)/people/_components/people-view-picker.tsx');
+const CELEBRANTS = read('lib/event-celebrants.server.ts');
 
 const count = (hay: string, needle: string | RegExp) =>
   typeof needle === 'string' ? hay.split(needle).length - 1 : (hay.match(needle) ?? []).length;
@@ -177,4 +178,16 @@ test('🔴 an Add from an event re-decides everything on the server', () => {
   assert.match(body, /fromEvent: \{\s*eventId,/);
   // The stamp reaches the insert.
   assert.match(c, /created_by_event_id: fromEvent\?\.eventId \?\? null,/);
+});
+
+test('🔴 a celebrant is the MAIN role only — an extra-role-only celebrant is not listed', () => {
+  // Controller ruling 2026-09-28: the guest-side list uses the same rule as
+  // public.is_event_celebrant (guests.role ∈ celebrant/bride/groom), so the list,
+  // the celebrant lock and the request's event name agree on who a celebrant is.
+  const c = CELEBRANTS.code;
+  const body = c.slice(c.indexOf('export async function celebrantAccountsFor'), c.indexOf('export type CelebrantRow'));
+  assert.match(body, /\.in\('role', \[\.\.\.HONOREE_ROLES\]\)/, 'the query no longer keys on the main role');
+  assert.ok(!body.includes('extra_roles'), 'extra roles count as celebrant again — a listed person whose request arrives unnamed');
+  assert.match(body, /\.filter\(\(g\) => g\.role !== null && isHonoreeRole\(g\.role\)\)/);
+  assert.match(c, /const HONOREE_ROLES: readonly GuestRole\[\] = \['celebrant', 'bride', 'groom'\];/);
 });

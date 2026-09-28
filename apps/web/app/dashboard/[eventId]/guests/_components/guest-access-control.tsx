@@ -70,7 +70,8 @@ export function GuestAccessControl({
         {canManage && state.lock !== 'creator' ? (
           <PickMenu
             label={`${firstName}'s access to this event`}
-            value={LABELS[state.level]}
+            // PickMenu matches `value` against option KEYS, not labels.
+            value={state.level}
             options={options}
             onPick={pick}
             dataAttr="data-guest-access-pick"

@@ -99,6 +99,8 @@ export function postEventSceneTypeOf(sceneKey: string): string | null {
       return 'supplier-stories';
     case 'film':
       return 'live-stream';
+    case 'videos':
+      return 'videos';
     case 'couple':
       return 'thank-you';
     default:
@@ -178,6 +180,17 @@ export function postEventWordParts(sceneKey: string, style: PostEventStyleId | n
     case 'schedule':
       return style === 'timeline' ? ['label', 'heading'] : ['label'];
     case 'gallery':
+      return ['label', 'heading'];
+    case 'photo-notes':
+      return style === 'swipe-story' ? ['label'] : ['label', 'heading'];
+    case 'messages':
+      return style === 'note-wall' ? ['label', 'heading'] : ['label'];
+    case 'papic-challenge':
+      return ['label'];
+    case 'supplier-stories':
+      return style === 'credits-roll' ? ['label'] : ['label', 'heading'];
+    case 'live-stream':
+    case 'videos':
       return ['label', 'heading'];
     case 'thank-you':
       return style === 'letter' ? ['label', 'body'] : style === 'words-only' ? ['label', 'heading'] : ['label', 'heading', 'body'];

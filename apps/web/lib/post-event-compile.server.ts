@@ -143,6 +143,7 @@ export async function readPostEventForMaker(input: {
       challengeAnswers: data.challengeAnswers.length,
       guestColumns: data.guestColumns?.length ?? 0,
       vendorMedia: data.vendorMedia.length,
+      team: data.vendors.length,
       liveWall: { active: data.photoWallActive, photos: data.photoWallPhotos.length },
       reviews: data.reviews.length,
       services: data.servicesAvailed.length,

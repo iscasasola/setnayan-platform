@@ -120,6 +120,7 @@ export const POST_EVENT_LOOK_KEYS = [
   'chapters',
   'gallery',
   'film',
+  'videos',
   'you',
   'wishes',
   'asked',
@@ -323,6 +324,7 @@ export function overlayPostEventDraftJson(
  */
 export function postEventRunKey(sceneKey: string): string | null {
   if (sceneKey === 'chapters' || /^ch-\d+$/.test(sceneKey)) return 'chapters';
+  if (sceneKey === 'videos') return 'watchFilm'; // the films move with the replay — one block
   for (const block of EDITORIAL_ORDERABLE_KEYS) {
     if (block !== 'chapters' && postEventSceneKeyForBlock(block) === sceneKey) return block;
   }

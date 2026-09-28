@@ -70,7 +70,7 @@ import { OpenUpScene, OpenUpTabs } from './open-up-layer';
 import type { PostEventDraft } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventLookKey, postEventStyleHome, resolvePostEventStyle } from '@/lib/post-event-styles';
 import { hubElementSceneCss } from '@/lib/element-style';
-import { mastheadEdition } from '@/lib/story-spine';
+import { filmTimecode, mastheadEdition } from '@/lib/story-spine';
 import {
   FrontPageScene,
   GalleryPreview,
@@ -80,7 +80,16 @@ import {
   StatisticsScene,
   ThankYouScene,
 } from './post-event-scene-views';
-import { POST_EVENT_SUPPLIERS_ANCHOR, postEventSuppliersAnchorKey } from './post-event-bar-facts';
+import { POST_EVENT_SUPPLIERS_ANCHOR, postEventSupplierStoriesDrawn, postEventSuppliersAnchorKey } from './post-event-bar-facts';
+import {
+  ChallengeScene,
+  LiveStreamPreview,
+  MessagesScene,
+  PhotoNotesScene,
+  SupplierStoriesScene,
+  VideosScene,
+} from './post-event-scene-views-2';
+import { PHOTO_NOTES_LABEL } from '@/lib/post-event-styles';
 
 const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
   /\/$/,
@@ -628,6 +637,21 @@ export async function EditorialContent({
   );
   const suppliersId = (key: 'team' | 'fromVendors' | 'vendorsWeLoved') =>
     suppliersAnchor === key ? { id: POST_EVENT_SUPPLIERS_ANCHOR, className: 'scroll-mt-6' } : {};
+  /* 🤝 Supplier Stories draws the booked team and their frames — the SAME
+     predicate the bar asks (`postEventSupplierStoriesDrawn`); while it does, the
+     article's own team list steps aside so the team is never listed twice. */
+  const supplierStoriesDrawn =
+    postEventSupplierStoriesDrawn({ sections: data.sections, vendorMedia: data.vendorMedia.length, teamVendors: data.vendors.length }) &&
+    styleOf('vendors') !== null;
+  /* 🎥 The replay's chapters, each at its place in the recording (`filmTimecode`
+     — the spine's own arithmetic, never a second one). */
+  const filmHighlights = data.dayChapters
+    .map((c) => {
+      const at = c.atIso ? Date.parse(c.atIso) : Number.NaN;
+      const tc = Number.isFinite(at) ? filmTimecode(at, spineFacts.broadcasts) : null;
+      return tc ? { title: c.title ?? c.time ?? 'A moment', timecode: tc.label } : null;
+    })
+    .filter((h): h is { title: string; timecode: string } => h !== null);
 
   return (
     <div
@@ -777,7 +801,7 @@ export async function EditorialContent({
               }
               pullQuote={copy.pullQuote}
             />
-            {isOn('team') && data.vendors.length ? (
+            {isOn('team') && data.vendors.length && !supplierStoriesDrawn ? (
               <div {...suppliersId('team')}>
                 <TeamBehindTheDay vendors={data.vendors} eventSlug={data.slug} />
               </div>
@@ -848,52 +872,46 @@ export async function EditorialContent({
                   <MomentsEssay photos={data.essayPhotos} names={data.firstNames} />
                 </div>
               ) : null,
-            // What They Whispered — approved Kwento guest wishes.
+            // 📝 PHOTO NOTES ("Kwento") — a photo WITH what a guest said, in its
+            // style; the whole wall still opens full screen.
             kwento:
-              isOn('kwento') && data.kwentoQuotes.length ? (
-                <div key="kwento">
-                  <SectionRule title="What They Whispered" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
-                    best wishes, captured on the day
-                  </p>
-                  {/* 🔓 OPEN-UP (Maker Phase 8): three short blocks in the flow
-                      (template 23); the whole wall opens full screen. */}
+              isOn('kwento') && data.kwentoQuotes.length && styleOf('wishes') ? (
+                <PostEventSceneFrame key="kwento" scene="wishes" style={styleOf('wishes')!} css={cssOf('wishes')}>
                   <OpenUpScene
                     kind="wishes"
-                    title="What They Whispered"
-                    eyebrow={`Approved wishes · ${fmt(data.kwentoQuotes.length)}`}
-                    openLabel={`Read all ${fmt(data.kwentoQuotes.length)} ${data.kwentoQuotes.length === 1 ? 'wish' : 'wishes'}`}
-                    preview={<WishesPreview quotes={data.kwentoQuotes} />}
+                    title={PHOTO_NOTES_LABEL}
+                    eyebrow={`Approved · ${fmt(data.kwentoQuotes.length)}`}
+                    openLabel={`Read all ${fmt(data.kwentoQuotes.length)}`}
+                    preview={
+                      <PhotoNotesScene
+                        style={styleOf('wishes')!}
+                        quotes={data.kwentoQuotes}
+                        label={PHOTO_NOTES_LABEL}
+                        words={wordsOf('wishes')}
+                      />
+                    }
                   >
                     <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} max={60} />
                   </OpenUpScene>
-                </div>
+                </PostEventSceneFrame>
               ) : null,
-            // "What We Asked" — Papic Challenge answers (owner 2026-08-21:
-            // challenge answers "have their own column"). The loader applies
-            // four fail-closed consent gates; by the time a row is here it has
-            // been agreed to. [] hides the section entirely.
+            // 🙋 PAPIC CHALLENGE — the couple's questions and the guests' answers
+            // (owner 2026-08-21: challenge answers "have their own column"). The
+            // loader applies four fail-closed consent gates; by the time a row is
+            // here it has been agreed to. [] hides the scene entirely.
             challengeAnswers:
-              isOn('challengeAnswers') && data.challengeAnswers.length ? (
-                <div key="challengeAnswers">
-                  <SectionRule title="What We Asked" />
-                  <p className="-mt-4 mb-4 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
-                    the questions, and what they did about them
-                  </p>
-                  <ChallengeAnswerColumn answers={data.challengeAnswers} />
-                </div>
+              isOn('challengeAnswers') && data.challengeAnswers.length && styleOf('asked') ? (
+                <PostEventSceneFrame key="challengeAnswers" scene="asked" style={styleOf('asked')!} css={cssOf('asked')}>
+                  <ChallengeScene style={styleOf('asked')!} answers={data.challengeAnswers} words={wordsOf('asked')} />
+                </PostEventSceneFrame>
               ) : null,
-            // Letters to the Editor — approved Guest Columns (BUILD ①,
-            // GUEST_COLUMNS_ENABLED; data.guestColumns is absent/[] when off).
+            // ✉ MESSAGES — approved Guest Columns (GUEST_COLUMNS_ENABLED;
+            // data.guestColumns is absent/[] when off), approved by the organiser.
             guestColumns:
-              isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 ? (
-                <div key="guestColumns">
-                  <SectionRule title="Letters to the Editor" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
-                    columns from the guests, approved by {w.theOrganizer}
-                  </p>
-                  <GuestColumnsWall columns={data.guestColumns ?? []} />
-                </div>
+              isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 && styleOf('letters') ? (
+                <PostEventSceneFrame key="guestColumns" scene="letters" style={styleOf('letters')!} css={cssOf('letters')}>
+                  <MessagesScene style={styleOf('letters')!} letters={data.guestColumns ?? []} words={wordsOf('letters')} />
+                </PostEventSceneFrame>
               ) : null,
             // Shared photos from the day ("From the Day").
             // 🖼 GALLERY — the preview in its style; the whole gallery opens up.
@@ -933,14 +951,25 @@ export async function EditorialContent({
                 </div>
               </PostEventSceneFrame>
             ) : null,
-            // From your vendors — day-of media from the recommended vendor.
-            fromVendors:
-              isOn('fromVendors') && data.vendorMedia.length ? (
-                <div key="fromVendors" {...suppliersId('fromVendors')}>
-                  <SectionRule title="From Your Vendors" />
-                  <VendorMediaStrip items={data.vendorMedia} words={w} />
-                </div>
-              ) : null,
+            // 🤝 SUPPLIER STORIES — the booked team and their own frames from the
+            // day, in its style; ♥ for the ones the couple would book again.
+            fromVendors: supplierStoriesDrawn ? (
+              <PostEventSceneFrame
+                key="fromVendors"
+                scene="vendors"
+                style={styleOf('vendors')!}
+                css={cssOf('vendors')}
+                id={suppliersId('fromVendors').id}
+              >
+                <SupplierStoriesScene
+                  style={styleOf('vendors')!}
+                  team={data.vendors}
+                  media={data.vendorMedia}
+                  loved={data.vendorsWeLoved}
+                  words={wordsOf('vendors')}
+                />
+              </PostEventSceneFrame>
+            ) : null,
             // Live Photo Wall (LIVE_WALL SKU).
             liveWall: photo.liveWall ? (
               <div key="liveWall" {...anchorProps('liveWall')}>
@@ -948,60 +977,64 @@ export async function EditorialContent({
                 <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
               </div>
             ) : null,
-            // Watch the Film — Live Studio (Panood) replay, gated in data.ts.
-            // The `id` is what the colophon's "Watch the Film" link finally aims
-            // at. That link has been `href="#"` for as long as this section has
-            // existed: the destination was on the same page the whole time and
-            // simply had nothing to anchor to.
+            // 🎥 LIVE STREAM + 🎞 VIDEOS — the broadcast replay and the couple's own
+            // films, each its own scene in its style (owner 2026-09-26: Live
+            // Stream and Videos are two types). ONE film open-up (the bar's Film
+            // slot, `#open-film`) — the replay's when there is one, else the
+            // videos'. The `id` the colophon's "Watch the Film" link aims at stays
+            // on the replay. Each scene carries its own marker (the run loop
+            // leaves this block's to it).
             watchFilm:
               watchFilmShown || (data.films?.length ?? 0) > 0 ? (
-                <div key="watchFilm">
-                  <SectionRule title="Watch the Film" />
-                  {/* 🔓 OPEN-UP (Maker Phase 8): a still with ▶ in the flow
-                      (template 14); the broadcast — the livestream, if they had
-                      one — and their own films open full screen. The anchor the
-                      colophon aims at stays on the preview. */}
-                  <OpenUpScene
-                    kind="film"
-                    id={WATCH_FILM_ANCHOR_ID}
-                    title="Watch the Film"
-                    eyebrow={watchFilmShown ? 'The broadcast, replayed' : 'Your films'}
-                    openLabel="Watch the film"
-                    preview={<FilmPreview still={data.heroPhotoUrl} names={data.firstNames} broadcast={watchFilmShown} />}
-                  >
-                  {watchFilmShown && data.watchFilmEmbedUrl ? (
-                    <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
-                  ) : null}
-                  {/* 🎞 The couple's OWN films — same-day edit, prenup, the
-                      videographer's cut. Deliberately in the same section as the
-                      live replay rather than a new one: to a guest these are all
-                      "the video of the day", and splitting them would ask the
-                      reader to know which was broadcast and which was edited.
-                      Ungated on purpose (owner 2026-09-02) — these are the
-                      couple's own links and must not depend on an unlock. */}
-                  {data.films?.length ? (
-                    <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                      {data.films.map((film) => (
-                        <figure key={`${film.provider}-${film.videoId}`} className="m-0">
-                          <div className="relative aspect-video overflow-hidden rounded-lg bg-black/5">
-                            <iframe
-                              src={film.embedUrl}
-                              title={film.label ?? 'Wedding film'}
-                              loading="lazy"
-                              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                              allowFullScreen
-                              className="absolute inset-0 h-full w-full border-0"
+                <Fragment key="watchFilm">
+                  {watchFilmShown && data.watchFilmEmbedUrl && styleOf('film') ? (
+                    <>
+                      {marker('film')}
+                      <PostEventSceneFrame scene="film" style={styleOf('film')!} css={cssOf('film')}>
+                        <OpenUpScene
+                          kind="film"
+                          id={WATCH_FILM_ANCHOR_ID}
+                          title="Live Stream"
+                          eyebrow="The broadcast, replayed"
+                          openLabel="Watch the replay"
+                          preview={
+                            <LiveStreamPreview
+                              style={styleOf('film')!}
+                              still={data.heroPhotoUrl}
+                              names={data.firstNames}
+                              highlights={filmHighlights}
+                              words={wordsOf('film')}
                             />
-                          </div>
-                          {film.label ? (
-                            <figcaption className="mt-2 text-sm text-ink/70">{film.label}</figcaption>
-                          ) : null}
-                        </figure>
-                      ))}
-                    </div>
+                          }
+                        >
+                          <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
+                        </OpenUpScene>
+                      </PostEventSceneFrame>
+                    </>
                   ) : null}
-                  </OpenUpScene>
-                </div>
+                  {/* 🎞 The couple's OWN films — ungated on purpose (owner
+                      2026-09-02): their own links must not depend on an unlock. */}
+                  {data.films?.length && styleOf('videos') ? (
+                    <>
+                      {marker('videos')}
+                      <PostEventSceneFrame scene="videos" style={styleOf('videos')!} css={cssOf('videos')}>
+                        {watchFilmShown ? (
+                          <VideosScene style={styleOf('videos')!} films={data.films} words={wordsOf('videos')} />
+                        ) : (
+                          <OpenUpScene
+                            kind="film"
+                            title="Videos"
+                            eyebrow="Your films"
+                            openLabel="Watch the films"
+                            preview={<VideosScene style={styleOf('videos')!} films={data.films} words={wordsOf('videos')} asPreview />}
+                          >
+                            <VideosScene style="film-grid" films={data.films} words={wordsOf('videos')} />
+                          </OpenUpScene>
+                        )}
+                      </PostEventSceneFrame>
+                    </>
+                  ) : null}
+                </Fragment>
               ) : null,
             // What they said (reviews). Renders even when empty (empty state).
             reviews: isOn('reviews') ? (
@@ -1042,7 +1075,8 @@ export async function EditorialContent({
             const col = id ? byId.get(id) : undefined;
             if (!col) {
               const node = nodes[k as EditorialOrderKey];
-              const scene = postEventSceneKeyForBlock(k as EditorialOrderKey);
+              // The film block stamps its two scenes' markers itself.
+              const scene = k === 'watchFilm' ? null : postEventSceneKeyForBlock(k as EditorialOrderKey);
               return node && makerMarkers && scene ? (
                 <Fragment key={k}>
                   {marker(scene)}

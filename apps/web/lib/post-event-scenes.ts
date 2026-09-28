@@ -57,6 +57,7 @@ import { resolveSectionOrder, type EditorialOrderKey } from '@/app/[slug]/_compo
 import type { SceneTemplateId } from '@/lib/scene-templates';
 import type { StoryViewer } from '@/lib/who-can-see-your-story';
 import type { PostEventArrangement } from '@/lib/post-event-draft';
+import { PHOTO_NOTES_LABEL } from '@/lib/post-event-styles';
 
 /* ── the open-up family ─────────────────────────────────────────────────── */
 
@@ -185,6 +186,8 @@ export type PostEventSources = {
   challengeAnswers: number;
   guestColumns: number;
   vendorMedia: number;
+  /** The supplier credits the story draws (`vendors`) — the Supplier Stories' credits. Absent = 0. */
+  team?: number;
   liveWall: { active: boolean; photos: number };
   reviews: number;
   services: number;
@@ -213,7 +216,8 @@ export const POST_EVENT_WAITING: Readonly<Record<string, string>> = {
   numbers: 'Your guests and the photos of the day are counted here after the day.',
   chapters: 'Set the day’s schedule and each moment becomes a chapter here, with its photos.',
   gallery: 'Your photos appear here. Everything your guests capture on the day files itself by the minute.',
-  film: 'Your livestream replay or your films appear here after the day.',
+  film: 'If you broadcast with Live Studio, the replay lands here after the day.',
+  videos: 'Paste a link to your same-day edit or your films, and they play here.',
   you: 'After the day, each guest opens their own captures here, from their own Papic link.',
   wishes: 'Wishes appear here as your guests leave them.',
   asked: 'Ask your guests something. Their answers land here.',
@@ -236,7 +240,7 @@ type Def = Omit<PostEventScene, 'status' | 'note' | 'count' | 'source'> & {
 /** The fixed scenes, in the prototype's numbering (chapters are built apart). */
 const FIXED: Record<string, Def> = {
   cover: {
-    key: 'cover', name: 'Cover', template: 4, open: null, pin: 'first', block: null, switch: null,
+    key: 'cover', name: 'Front Page', template: 4, open: null, pin: 'first', block: null, switch: null,
     fill: (s) => ({
       count: null,
       source:
@@ -247,46 +251,60 @@ const FIXED: Record<string, Def> = {
     }),
   },
   before: {
-    key: 'before', name: 'Before the day', template: 24, open: null, pin: null, block: null, switch: null,
+    key: 'before', name: 'The Road to the Day', template: 24, open: null, pin: null, block: null, switch: null,
     fill: (s) => (s.milestones > 0 ? { count: s.milestones, source: `Our Love Story · ${plural(s.milestones, 'moment')}` } : { skip: 'No Love Story moments yet' }),
   },
   numbers: {
-    key: 'numbers', name: 'By the Numbers', template: 12, open: null, pin: null, block: null, switch: 'byTheNumbers',
+    key: 'numbers', name: 'Statistics', template: 12, open: null, pin: null, block: null, switch: 'byTheNumbers',
     fill: (s) =>
       (s.metrics.photos ?? 0) > 0 || s.metrics.guests > 0
         ? { count: s.metrics.photos ?? s.metrics.guests, source: (s.metrics.photos ?? 0) > 0 ? `${plural(s.metrics.photos ?? 0, 'capture')} · ${plural(s.metrics.guests, 'guest')}` : plural(s.metrics.guests, 'guest') }
         : { skip: 'No guests or captures to count' },
   },
   gallery: {
-    key: 'gallery', name: 'From the Day · Gallery', template: 21, open: 'gallery', pin: null, block: 'gallery', switch: 'gallery',
+    key: 'gallery', name: 'Gallery', template: 21, open: 'gallery', pin: null, block: 'gallery', switch: 'gallery',
     fill: (s) => (s.galleryPhotos > 0 ? { count: s.galleryPhotos, source: `The gallery · ${plural(s.galleryPhotos, 'photo')}` } : { skip: 'No photos from the day yet' }),
   },
   film: {
-    key: 'film', name: 'Watch the Film', template: 14, open: 'film', pin: null, block: 'watchFilm', switch: 'watchFilm',
-    fill: (s) =>
-      s.broadcast || s.films > 0
-        ? { count: (s.broadcast ? 1 : 0) + s.films, source: [s.broadcast ? 'Live Studio replay' : null, s.films > 0 ? plural(s.films, 'film') : null].filter(Boolean).join(' · ') }
-        : { skip: 'No livestream or film' },
+    /* 🎥 LIVE STREAM (owner 2026-09-26: "Live Studio = Live Stream") — the
+       broadcast replay; the couple's own linked films are VIDEOS, their own
+       scene (prototype types 14 · 15). Both live in the run's `watchFilm` block
+       and answer to its one switch; the film open-up is the replay's when there
+       is one, else the videos'. */
+    key: 'film', name: 'Live Stream', template: 14, open: 'film', pin: null, block: 'watchFilm', switch: 'watchFilm',
+    fill: (s) => (s.broadcast ? { count: 1, source: 'Live Studio replay' } : { skip: 'No livestream on this event' }),
+  },
+  videos: {
+    key: 'videos', name: 'Videos', template: 14, open: null, pin: null, block: 'watchFilm', switch: 'watchFilm',
+    fill: (s) => (s.films > 0 ? { count: s.films, source: `Your films · ${plural(s.films, 'link')}` } : { skip: 'No films linked yet' }),
   },
   you: {
     key: 'you', name: 'Were you there?', template: null, open: 'you', pin: null, block: null, switch: null,
     fill: (s) => ((s.metrics.photos ?? 0) > 0 ? { count: null, source: 'Each guest’s own Papic link · no name field' } : { skip: 'No Papic captures on this event' }),
   },
   wishes: {
-    key: 'wishes', name: 'What They Whispered', template: 23, open: 'wishes', pin: null, block: 'kwento', switch: 'kwento',
+    key: 'wishes', name: PHOTO_NOTES_LABEL, template: 23, open: 'wishes', pin: null, block: 'kwento', switch: 'kwento',
     fill: (s) => (s.kwento > 0 ? { count: s.kwento, source: `Guest wishes · ${plural(s.kwento, 'wish', 'wishes')}` } : { skip: 'No approved wishes yet' }),
   },
   asked: {
-    key: 'asked', name: 'What We Asked', template: 25, open: null, pin: null, block: 'challengeAnswers', switch: 'challengeAnswers',
+    key: 'asked', name: 'Papic Challenge', template: 25, open: null, pin: null, block: 'challengeAnswers', switch: 'challengeAnswers',
     fill: (s) => (s.challengeAnswers > 0 ? { count: s.challengeAnswers, source: `Challenge answers · ${s.challengeAnswers}` } : { skip: 'No shared challenge answers' }),
   },
   letters: {
-    key: 'letters', name: 'Letters to the Editor', template: 22, open: null, pin: null, block: 'guestColumns', switch: 'guestColumns',
+    key: 'letters', name: 'Messages', template: 22, open: null, pin: null, block: 'guestColumns', switch: 'guestColumns',
     fill: (s) => (s.guestColumns > 0 ? { count: s.guestColumns, source: `Guest columns · ${s.guestColumns}` } : { skip: 'No approved guest columns' }),
   },
   vendors: {
-    key: 'vendors', name: 'From Your Vendors', template: 20, open: null, pin: null, block: 'fromVendors', switch: 'fromVendors',
-    fill: (s) => (s.vendorMedia > 0 ? { count: s.vendorMedia, source: `Supplier photos · ${s.vendorMedia}` } : { skip: 'No photos from your suppliers yet' }),
+    key: 'vendors', name: 'Supplier Stories', template: 20, open: null, pin: null, block: 'fromVendors', switch: 'fromVendors',
+    fill: (s) =>
+      s.vendorMedia > 0 || (s.team ?? 0) > 0
+        ? {
+            count: s.vendorMedia + (s.team ?? 0),
+            source: [(s.team ?? 0) > 0 ? plural(s.team ?? 0, 'supplier') : null, s.vendorMedia > 0 ? `${s.vendorMedia} of their photos` : null]
+              .filter(Boolean)
+              .join(' · '),
+          }
+        : { skip: 'No suppliers or their photos yet' },
   },
   wall: {
     key: 'wall', name: 'Live Photo Wall', template: 19, open: null, pin: null, block: 'liveWall', switch: 'liveWall',
@@ -304,15 +322,15 @@ const FIXED: Record<string, Def> = {
     fill: (s) => (s.services > 0 ? { count: s.services, source: `Your orders · ${plural(s.services, 'service')}` } : { skip: 'No Setnayan services on this event' }),
   },
   loved: {
-    key: 'loved', name: 'Vendors We Loved', template: 17, open: null, pin: null, block: 'vendorsWeLoved', switch: 'vendorsWeLoved',
+    key: 'loved', name: 'Suppliers We Loved', template: 17, open: null, pin: null, block: 'vendorsWeLoved', switch: 'vendorsWeLoved',
     fill: (s) => (s.vendorsWeLoved > 0 ? { count: s.vendorsWeLoved, source: `Your recommendations · ${s.vendorsWeLoved}` } : { skip: 'No suppliers recommended yet' }),
   },
   couple: {
-    key: 'couple', name: 'From the couple', template: 11, open: null, pin: 'close', block: null, switch: 'fromTheCouple',
+    key: 'couple', name: 'Thank You', template: 11, open: null, pin: 'close', block: null, switch: 'fromTheCouple',
     fill: (s) => (s.specialMessage ? { count: null, source: 'Your closing words' } : { skip: 'Write your closing words and the story ends on them' }),
   },
   song: {
-    key: 'song', name: 'Their Song', template: 8, open: null, pin: 'last', block: null, switch: null,
+    key: 'song', name: 'Song', template: 8, open: null, pin: 'last', block: null, switch: null,
     fill: (s) => (s.song ? { count: null, source: `“${s.song}”` } : { skip: 'No song for the day' }),
   },
 };
@@ -362,7 +380,7 @@ function build(def: Def, s: PostEventSources, dayHappened: boolean): PostEventSc
 function chapterScenes(s: PostEventSources, dayHappened: boolean): PostEventScene[] {
   if (s.chapters.length === 0) {
     return [{
-      key: 'chapters', name: 'As the Day Unfolded', template: 1, source: '—',
+      key: 'chapters', name: 'Schedule', template: 1, source: '—',
       status: dayHappened ? 'skipped' : 'waiting',
       note: dayHappened ? 'No captures from the day yet' : POST_EVENT_WAITING.chapters!,
       count: null, open: null, pin: null, block: 'chapters', switch: 'gallery',
@@ -412,6 +430,7 @@ export function compilePostEventScenes(
     ...chapterScenes(s, day),
     build(FIXED.gallery!, s, day),
     build(FIXED.film!, s, day),
+    build(FIXED.videos!, s, day),
     build(FIXED.you!, s, day),
     build(FIXED.wishes!, s, day),
     build(FIXED.asked!, s, day),
@@ -541,6 +560,11 @@ export function draftToScenes(draftJson: unknown, chapterKeys: readonly string[]
   for (const block of resolveSectionOrder(savedOrder)) {
     if (block === 'chapters') {
       for (const k of chapterKeys) rows.push({ key: k, hidden: off('gallery') });
+      continue;
+    }
+    if (block === 'watchFilm') {
+      // The replay and the couple's own films — one block, one switch, two scenes.
+      rows.push({ key: 'film', hidden: off('watchFilm') }, { key: 'videos', hidden: off('watchFilm') });
       continue;
     }
     const sceneKey = SCENE_FOR_BLOCK[block as Exclude<EditorialOrderKey, 'chapters'>];

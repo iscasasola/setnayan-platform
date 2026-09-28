@@ -61,6 +61,63 @@ export const POST_EVENT_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     ],
   },
   {
+    type: 'photo-notes',
+    label: 'Photo notes',
+    styles: [
+      { id: 'photo-note', name: 'Photo + note card', line: 'The photo on top, what they said under it, signed.', stages: PE },
+      { id: 'scrapbook-pairs', name: 'Scrapbook pairs', line: 'Photo and note side by side, alternating sides.', stages: PE },
+      { id: 'swipe-story', name: 'Swipe story', line: 'One full photo at a time, the message across it — swipe for the next.', stages: PE },
+    ],
+  },
+  {
+    /* The Messages scene holds the guests' LETTERS (`guest_columns`) — long, so
+       the prototype's own note ("letters get B on their own — one voice per
+       screen — because they are long") makes One letter at a time the default. */
+    type: 'messages',
+    label: 'Messages',
+    styles: [
+      { id: 'one-letter', name: 'One letter at a time', line: 'One voice per screen, with a drop cap — swipe between letters.', template: 11, stages: PE },
+      { id: 'note-wall', name: 'Note wall', line: 'Every letter as a pinned note.', stages: PE },
+      { id: 'quote-cards', name: 'Quote cards', line: 'Three big quotes, each with its name.', template: 9, stages: PE },
+    ],
+  },
+  {
+    type: 'papic-challenge',
+    label: 'Papic Challenge',
+    styles: [
+      { id: 'q-and-a', name: 'Q&A cards', line: 'Each question with its first answers.', template: 25, stages: PE },
+      { id: 'photo-grid', name: 'Photo answers grid', line: 'One question per screen, its photo answers three across.', stages: PE },
+      { id: 'answer-share', name: 'Share of answers', line: 'Which question drew the most answers, as a track each.', stages: PE },
+    ],
+  },
+  {
+    type: 'supplier-stories',
+    label: 'Supplier Stories',
+    styles: [
+      { id: 'credits-roll', name: 'Credits roll', line: 'Role and name, like the credits of a film.', stages: PE },
+      { id: 'photo-strip', name: 'Photo strip', line: 'One panel per supplier, swiped.', template: 20, stages: PE },
+      { id: 'side-by-side', name: 'Side by side', line: 'Each supplier’s own photo beside what you said about them.', template: 17, stages: PE },
+    ],
+  },
+  {
+    type: 'live-stream',
+    label: 'Live Stream',
+    styles: [
+      { id: 'replay-card', name: 'Watch-the-replay card', line: 'A poster, one line, one button.', stages: PE },
+      { id: 'full-replay', name: 'Full replay', line: 'The replay large, with the broadcast’s own numbers under it.', template: 14, stages: PE },
+      { id: 'by-chapter', name: 'Highlights by chapter', line: 'The replay, listed by the chapters of the day.', stages: PE },
+    ],
+  },
+  {
+    type: 'videos',
+    label: 'Videos',
+    styles: [
+      { id: 'featured', name: 'Featured film', line: 'The first film leads; the rest sit beneath it.', stages: PE },
+      { id: 'playlist-row', name: 'Playlist row', line: 'The films side by side, swiped.', stages: PE },
+      { id: 'film-grid', name: 'Grid', line: 'The first film wide, the rest two across.', stages: PE },
+    ],
+  },
+  {
     type: 'thank-you',
     label: 'Thank You',
     styles: [

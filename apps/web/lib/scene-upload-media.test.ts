@@ -12,8 +12,12 @@
  *   2 · the Save the Date's own uploaded background is one of the pictures;
  *   3 · Parallax is the SHIPPED hero parallax (its mark, its script, its rule);
  *   4 · a free couple's media stays in the DRAFT and never publishes;
- *   5 · a clip plays in the couple's own Maker canvas and never reaches a guest
- *       (SEC-6) — the guest sees its still.
+ *   5 · a scene clip PLAYS for guests (owner 2026-09-29 *"make it move"* —
+ *       the scene-clip switch is open; the hero's own clip switch is not), with
+ *       its still as the first frame; closed, a guest gets the still;
+ *   6 · a template slot's clip follows the same switch;
+ *   7 · the ready-made Save the Date scenes are offered, by exact path only;
+ *   8 · the lighter wash still keeps every theme's words at AA.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -294,32 +298,33 @@ test('4b · the draft save takes media from a free couple (no Pro check on save)
 
 /* ── 5 · A CLIP PLAYS FOR THE COUPLE, NEVER FOR A GUEST (SEC-6) ──────────── */
 
-test('5 · a guest never gets the clip — they see its still; the couple\'s Maker canvas plays it', async () => {
+test('5 · a scene clip PLAYS for guests (the scene switch is open) with its still first; closed, the still', async () => {
+  const { GUEST_SCENE_CLIP_PLAYBACK, GUEST_HERO_VIDEO_PLAYBACK } = await import('./guest-hero-video');
+  assert.equal(GUEST_SCENE_CLIP_PLAYBACK, true, 'owner 2026-09-29: "make it move"');
+  assert.equal(GUEST_HERO_VIDEO_PLAYBACK, false, 'the hero\'s own clip switch was NOT opened');
   const urls = { [CLIP]: 'https://x.test/clip.mp4', [STILL]: 'https://x.test/still.jpg' };
   const canvas = { kind: 'snippet' as const, media: CLIP, poster: STILL };
   const guest = sceneGround({ config_json: { canvas } }, urls);
-  assert.equal(guest.bg?.kind, 'photo', 'the guest gets the still as a photo');
-  assert.equal(guest.mediaUrl, 'https://x.test/still.jpg');
-  assert.equal(guest.painted, true, 'the scene still owns its box');
-  const host = sceneGround({ config_json: { canvas } }, urls, { ownClipPlays: true });
-  assert.equal(host.bg?.kind, 'snippet');
-  assert.equal(host.mediaUrl, 'https://x.test/clip.mp4');
-  // Same box either way: the card never flips between the Maker and the page.
+  assert.equal(guest.bg?.kind, 'snippet', 'a guest gets the moving clip');
+  assert.equal(guest.mediaUrl, 'https://x.test/clip.mp4');
+  const closed = sceneGround({ config_json: { canvas } }, urls, { sceneClipsOpen: false });
+  assert.equal(closed.bg?.kind, 'photo', 'switch closed: the guest gets the still as a photo');
+  assert.equal(closed.mediaUrl, 'https://x.test/still.jpg');
+  assert.equal(closed.painted, true, 'the scene still owns its box');
+  const host = sceneGround({ config_json: { canvas } }, urls, { ownClipPlays: true, sceneClipsOpen: false });
+  assert.equal(host.mediaUrl, 'https://x.test/clip.mp4', 'the couple\'s Maker canvas always plays it');
   assert.equal(sceneWidgetIsBare({ config_json: { canvas } }, urls), sceneWidgetIsBare({ config_json: { canvas } }, urls, { ownClipPlays: true }));
 
   const guestHtml = await paintFrame(canvas, urls);
-  assert.doesNotMatch(guestHtml, /<video/, 'no unscreened clip reaches a guest');
-  assert.match(guestHtml, /still\.jpg/);
-  const hostHtml = await paintFrame(canvas, urls, true);
-  assert.match(hostHtml, /<video[^>]*class="hub-canvas-media"[^>]*>/);
-  const video = /<video[^>]*>/.exec(hostHtml)![0];
+  const video = /<video[^>]*>/.exec(guestHtml)?.[0] ?? '';
+  assert.match(video, /class="hub-canvas-media"/, 'the guest page draws the clip as the background');
   assert.match(video, /\bloop=""/);
   assert.match(video, /\bplaysInline=""|\bplaysinline=""/i);
+  assert.match(video, /poster="https:\/\/x\.test\/still\.jpg"/, 'its still is the first frame');
   assert.doesNotMatch(video, /\bcontrols\b/);
-  // Paused off-screen and under reduced motion — the shipped SceneClip.
   const clip = read('app/[slug]/_components/scene-clip.tsx');
-  assert.match(clip, /new IntersectionObserver/);
-  assert.match(clip, /prefers-reduced-motion: reduce/);
+  assert.match(clip, /new IntersectionObserver/, 'paused off-screen');
+  assert.match(clip, /prefers-reduced-motion: reduce/, 'still under reduced motion');
 });
 
 test('5b · only the verified Maker canvas turns the clip on; every other caller is a guest', () => {
@@ -332,15 +337,15 @@ test('5b · only the verified Maker canvas turns the clip on; every other caller
     const src = stripComments(read(`app/[slug]/_components/${f}`));
     assert.match(src, /ownClipPlays = false,/, `${f}: absent means a guest`);
   }
-  // No still stored → a guest sees no picture (the old, honest fallback).
-  const bare = sceneGround({ config_json: { canvas: { kind: 'snippet', media: CLIP } } }, { [CLIP]: 'https://x.test/c.mp4' });
+  // Switch closed and no still stored → a guest sees no picture (the honest fallback).
+  const bare = sceneGround({ config_json: { canvas: { kind: 'snippet', media: CLIP } } }, { [CLIP]: 'https://x.test/c.mp4' }, { sceneClipsOpen: false });
   assert.equal(bare.mediaUrl, null);
   assert.equal(resolveHubBackground(bare.canvas)?.kind, 'snippet');
 });
 
 /* ── 6 · A TEMPLATE SLOT'S CLIP MEETS THE SAME SEC-6 SWITCH ──────────────── */
 
-test('6 · a clip in a template slot never reaches a guest — they see the hero still; the Maker plays it', async () => {
+test('6 · a template slot\'s clip follows the SAME scene switch — open: it plays; closed: the hero still', async () => {
   const { renderScene } = await import('../app/[slug]/_components/scene-template');
   const HERO_CLIP = `r2://setnayan-media/events/${E}/hero-video/c.mp4`;
   const HERO = `r2://setnayan-media/events/${E}/landing-page-hero/h.jpg`;
@@ -350,11 +355,13 @@ test('6 · a clip in a template slot never reaches a guest — they see the hero
   const draw = (extra: Record<string, unknown>) =>
     renderToStaticMarkup(renderScene({ canvas, words: { title: 'Us', body: '' }, mediaUrls: urls, ...extra }) ?? React.createElement('i'));
   const guest = draw({ clipStillRef: HERO });
-  assert.doesNotMatch(guest, /<video/, 'no unscreened clip in a guest\'s slot');
-  assert.match(guest, /hero\.jpg/, 'the guest sees the still');
-  const noStill = draw({});
-  assert.doesNotMatch(noStill, /<video|hero\.mp4/, 'no still → no picture, never the clip');
-  const host = draw({ ownClipPlays: true, clipStillRef: HERO });
+  assert.match(guest, /<video[^>]*hero\.mp4/, 'the switch is open: a guest\'s slot clip plays');
+  const closed = draw({ clipStillRef: HERO, sceneClipsOpen: false });
+  assert.doesNotMatch(closed, /<video/, 'closed: no clip in a guest\'s slot');
+  assert.match(closed, /hero\.jpg/, 'closed: the guest sees the still');
+  const noStill = draw({ sceneClipsOpen: false });
+  assert.doesNotMatch(noStill, /<video|hero\.mp4/, 'closed with no still → no picture, never the clip');
+  const host = draw({ ownClipPlays: true, clipStillRef: HERO, sceneClipsOpen: false });
   assert.match(host, /<video[^>]*hero\.mp4/, 'the couple\'s Maker canvas plays it');
   // Both dispatchers hand the switch and the still; SiteBody signs the still in its one pass.
   for (const f of ['hideable-widget-render.tsx', 'public-hideable-widget.tsx']) {
@@ -363,4 +370,39 @@ test('6 · a clip in a template slot never reaches a guest — they see the hero
   }
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(body, /hubSlotClipStillRefs\(widgets, siteMediaServeRef\(event\.landing_page_hero_image_url\)\)/);
+});
+
+/* ── 7 · THE READY-MADE SAVE THE DATE SCENES ─────────────────────────────── */
+
+test('7 · the ready-made scenes are offered and accepted — by their EXACT path only', async () => {
+  const { STD_REALISTIC_BACKGROUNDS } = await import('./std-backgrounds');
+  const { hubMediaRef } = await import('./hub-canvas');
+  const golden = STD_REALISTIC_BACKGROUNDS.find((b) => b.id === 'golden-hour')!.src;
+  assert.equal(hubMediaRef(golden), golden);
+  for (const bad of ['/std/backgrounds/evil.webp', '/std/backgrounds/golden-hour.webp?x', '1', '/x.jpg']) {
+    assert.equal(hubMediaRef(bad), null, `${bad} passed the fence`);
+  }
+  const html = await paintRow({ ownsPro: false, canvas: { media: golden }, photoChoices: [] });
+  assert.match(html, /data-inspector-row="scene-library"/);
+  assert.equal((html.match(/title="[^"]+"/g) ?? []).length >= STD_REALISTIC_BACKGROUNDS.length, true, 'every ready-made scene is a tile');
+  const apply = stripComments(read('app/dashboard/[eventId]/website/hub-draft-actions.ts'));
+  assert.match(apply, /const sceneIsOwn = \(ref: string\) => ownRefs\.has\(ref\) \|\| ref\.startsWith\(ownScenePrefix\) \|\| isStdLibrarySrc\(ref\);/);
+  // The guest page paints it straight from its public path.
+  const frame = await paintFrame({ media: golden }, { [golden]: golden });
+  assert.match(frame, /--hub-media:url\(&quot;\/std\/backgrounds\/golden-hour\.webp&quot;\)/);
+  // …and it is still media: a free couple's pick waits for Pro at Apply.
+  assert.equal(planHubDraftApply(drafting({ media: golden }), LIVE, false).refused.length, 1);
+});
+
+/* ── 8 · THE LIGHTER WASH STILL KEEPS THE WORDS READABLE ────────────────── */
+
+test('8 · the wash is lighter (owner: "a bit lighter") and every theme\'s words still clear AA over ANY photo', async () => {
+  const { SCENE_MEDIA_SCRIM, sceneTintGround } = await import('./scene-legibility');
+  const { INVITE_THEMES } = await import('./invite-themes');
+  assert.ok(SCENE_MEDIA_SCRIM < 0.86, `the wash is lighter than before (${SCENE_MEDIA_SCRIM})`);
+  for (const theme of Object.values(INVITE_THEMES)) {
+    const g = sceneTintGround(theme, 'media', '#ffffff');
+    assert.ok(g.bodyContrast >= 4.5, `${theme.id}: ${g.bodyContrast.toFixed(2)}:1 over a black pixel under the wash`);
+    assert.ok(g.muteFloor < 1, `${theme.id}: muted words still have room`);
+  }
 });

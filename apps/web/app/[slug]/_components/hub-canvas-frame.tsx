@@ -1,5 +1,5 @@
 import { hasHubCanvas, sanitizeHubCanvas } from '@/lib/hub-canvas';
-import { sceneGround } from '@/lib/scene-ground';
+import { sceneClipStillUrl, sceneGround } from '@/lib/scene-ground';
 import { SceneClip } from './scene-clip';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
@@ -132,7 +132,14 @@ export function HubCanvasFrame({
         /* The shipped scene clip (`scene-clip.tsx`): muted, looping, inline,
            no controls — and played ONLY while on screen, never under reduced
            motion. */
-        <SceneClip src={mediaUrl} play="loop" open="inplace" label="" className="hub-canvas-media" />
+        <SceneClip
+          src={mediaUrl}
+          poster={sceneClipStillUrl(ground.canvas, mediaUrls)}
+          play="loop"
+          open="inplace"
+          label=""
+          className="hub-canvas-media"
+        />
       ) : placement === 'behind' && mediaUrl && bg?.kind === 'photo' ? (
         /* 🌄 Parallax rides the SHIPPED hero parallax: `PahinaCoverParallax`
            finds `[data-pahina-parallax]` and writes one custom property; the

@@ -3,7 +3,7 @@ import type { HubSectionCanvas, HubSceneSlot } from '@/lib/hub-canvas';
 import { SCENE_TEMPLATES, sceneTemplateClass, type SceneTemplate } from '@/lib/scene-templates';
 import { SceneClip } from './scene-clip';
 import { sceneBoundText } from '@/lib/details-bound';
-import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
+import { heroVideoRefForGuests, sceneClipRefForGuests } from '@/lib/guest-hero-video';
 
 /**
  * A TEMPLATE SCENE ON THE GUEST PAGE — one of the 25 (`lib/scene-templates.ts`),
@@ -70,6 +70,8 @@ export type SceneRenderInput = {
    * source, `applySceneSlot`). Absent or unsigned: the slot shows nothing.
    */
   clipStillRef?: string | null;
+  /** The scene-clip switch (`GUEST_SCENE_CLIP_PLAYBACK`); tests pass `false`. */
+  sceneClipsOpen?: boolean;
 };
 
 type Pic = { url: string; snippet: boolean; index: number };
@@ -88,10 +90,15 @@ export function renderScene(input: SceneRenderInput): ReactElement | null {
   for (let i = 0; i < t.media; i += 1) {
     const s = slots[i];
     const url = s?.media ? input.mediaUrls?.[s.media] : undefined;
-    /* 🔒 SEC-6 — A SLOT'S CLIP MEETS THE SAME SWITCH AS A BACKGROUND'S. An
-       unscreened clip never reaches a guest; they see its still instead (or
-       nothing), exactly as `sceneGround` treats a scene background's clip. */
-    if (s?.kind === 'snippet' && s.media && !(heroVideoRefForGuests(s.media) || input.ownClipPlays === true)) {
+    /* 🔒 A SLOT'S CLIP MEETS THE SAME SWITCH AS A BACKGROUND'S — the scene-clip
+       switch, OPEN since the owner's *"make it move"* (2026-09-29). Closed, a
+       guest sees its still instead (or nothing), exactly as `sceneGround`
+       treats a scene background's clip. */
+    if (
+      s?.kind === 'snippet' &&
+      s.media &&
+      !(heroVideoRefForGuests(s.media) || sceneClipRefForGuests(s.media, input.sceneClipsOpen) || input.ownClipPlays === true)
+    ) {
       const still = input.clipStillRef ? input.mediaUrls?.[input.clipStillRef] : undefined;
       if (still) pics.push({ url: still, snippet: false, index: i });
       continue;

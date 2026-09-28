@@ -46,3 +46,20 @@ updated for the host exception and SceneClip.
 SPEC IMPACT: DECISION_LOG row "AS BUILT — SCENE UPLOAD MEDIA" (corpus) — records
 the deviations: guests see a clip's still until SEC-6 opens; a Save the Date
 LIBRARY scene is not offered (it is not the couple's photo).
+
+### 2026-09-29 · the owner's answers 2 · 3 · 4 (DECISION_LOG "OWNER ANSWERS — NINE PENDING DECISIONS")
+
+- **"make it move"** — a couple's clip PLAYS for guests as a scene background
+  and in a template picture slot, through a new SCENE-clip switch
+  (`GUEST_SCENE_CLIP_PLAYBACK = true`, `sceneClipRefForGuests`). The hero's own
+  clip switch (`GUEST_HERO_VIDEO_PLAYBACK`: masthead, editorial, /realstories,
+  Main background) stays closed. The clip's still is its first frame
+  (`poster`), and closing the scene switch puts every guest back on the still.
+  The guest-page Report button and the admin user-reports queue are unchanged.
+- **"yes"** — the ready-made Save the Date scenes ("Golden hour" …) are offered
+  as scene backgrounds after the couple's own; the fence (`hubMediaRef`) and
+  Apply accept their EXACT public path only (`isStdLibrarySrc`).
+- **"yes a bit lighter"** — the white wash over a scene photo or clip is
+  0.72 → 0.84 (was 0.86 → 0.94). Measured with the scene-legibility helpers:
+  every theme's words still clear AA over a black pixel (the palest theme needs
+  0.64); `SCENE_MEDIA_SCRIM` and the stylesheet stay one number.

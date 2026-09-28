@@ -6,7 +6,7 @@ import {
   type HubBackground,
   type HubSectionCanvas,
 } from './hub-canvas';
-import { heroVideoRefForGuests } from './guest-hero-video';
+import { heroVideoRefForGuests, sceneClipRefForGuests } from './guest-hero-video';
 import type { InvitationWidgetRow } from './invitation-widgets';
 
 /**
@@ -29,6 +29,11 @@ export type SceneGroundOptions = {
    * ⛔ Never defaulted on: a caller that forgets it is a guest.
    */
   ownClipPlays?: boolean;
+  /**
+   * The scene-clip switch (`GUEST_SCENE_CLIP_PLAYBACK`, OPEN since the owner's
+   * 2026-09-29 *"make it move"*). Tests pass `false` to hold the closed path.
+   */
+  sceneClipsOpen?: boolean;
 };
 
 export function sceneGround(
@@ -55,12 +60,17 @@ export function sceneGround(
      bypassing `GUEST_HERO_VIDEO_PLAYBACK` entirely. Gate it exactly the same
      way `app/[slug]/_lib/loaders.ts` gates the hero itself: a blocked snippet
      is treated like a ref whose signing failed — no picture, not a styled
-     plate — never as an error. The ONE exception is the couple's own Maker
-     canvas (`opts.ownClipPlays`, a verified host) — a non-public surface. */
-  const clipPlays =
-    storedBg && storedBg.kind === 'snippet'
-      ? Boolean(heroVideoRefForGuests(storedBg.media)) || opts.ownClipPlays === true
-      : true;
+     plate — never as an error.
+     🎞 OPENED FOR SCENE CLIPS (owner 2026-09-29, *"make it move"*): a scene's
+     clip passes `sceneClipRefForGuests` (`GUEST_SCENE_CLIP_PLAYBACK`); the
+     hero's own clip elsewhere stays behind the hero switch. The couple's own
+     Maker canvas (`opts.ownClipPlays`) always plays it. Close the scene switch
+     and every guest is back on the clip's still. */
+  const clipMayPlay = (ref: string) =>
+    Boolean(heroVideoRefForGuests(ref)) ||
+    Boolean(sceneClipRefForGuests(ref, opts.sceneClipsOpen)) ||
+    opts.ownClipPlays === true;
+  const clipPlays = storedBg && storedBg.kind === 'snippet' ? clipMayPlay(storedBg.media) : true;
   /* 🎞 A CLIP THAT MAY NOT PLAY HERE SHOWS ITS STILL (owner 2026-09-28: the
      snippet "would run like the background"). Its `poster` becomes the scene's
      PHOTO for this render — the Main background's rule for the same gate — so
@@ -74,7 +84,7 @@ export function sceneGround(
   const rawMediaUrl = posterUrl ?? rawClipUrl;
   const mediaUrl =
     bg && bg.kind === 'snippet'
-      ? (heroVideoRefForGuests(bg.media) || opts.ownClipPlays === true ? rawMediaUrl : null)
+      ? (clipMayPlay(bg.media) ? rawMediaUrl : null)
       : rawMediaUrl;
   /* A colour (flat or glass) needs no signing, so it stands on its own; a
      photo and a snippet both need their ref to have survived the allow-list
@@ -96,6 +106,17 @@ export function sceneWidgetIsBare(
 ): boolean {
   const { canvas, painted } = sceneGround(widget, mediaUrls, opts);
   return hubBackgroundOwnsBox(canvas, painted);
+}
+
+/**
+ * 🎞 A PLAYING CLIP'S FIRST FRAME — its still (`canvas.poster`), signed, shown
+ * by the <video> before it plays and under reduced motion. Null when none.
+ */
+export function sceneClipStillUrl(
+  canvas: HubSectionCanvas,
+  mediaUrls?: Readonly<Record<string, string>>,
+): string | null {
+  return canvas.kind === 'snippet' && canvas.poster ? (mediaUrls?.[canvas.poster] ?? null) : null;
 }
 
 /** A snippet's canvas drawn as its still: a photo of `poster`, the clip's own keys dropped. */

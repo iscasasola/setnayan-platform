@@ -11,6 +11,7 @@ import { makerSave } from '@/lib/maker-refresh';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { uploadStill } from '@/lib/upload-still';
+import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
 import { extractPosterFrame } from '../../../_components/std-media-picker';
 import {
   HUB_DEFAULT_FOCAL,
@@ -209,6 +210,8 @@ export function SceneBackgroundRow({
     ...photoChoices.map((p) => [p.ref, p.url] as const),
     ...(videoChoice ? [[videoChoice.ref, videoChoice.url] as const] : []),
     ...uploads.map((u) => [u.ref, u.url] as const),
+    /* 🖼 The ready-made Save the Date scenes — public pictures, their own URL. */
+    ...STD_REALISTIC_BACKGROUNDS.map((b) => [b.src, b.src] as const),
   ]);
   const mediaUrl = (ref: string) => mediaUrls[ref] ?? null;
   const theme = INVITE_THEMES[hubTheme ?? 'house'] ?? INVITE_THEMES.house;
@@ -575,6 +578,15 @@ export function SceneBackgroundRow({
               </IButton>
             </IRow>
           ) : null}
+          {/* 🖼 READY-MADE (owner 2026-09-29, answer 3: *"yes"*) — the Save the
+              Date's ready-made scenes, after the couple's own. */}
+          <IRow label="Ready-made" wrap data="scene-library">
+            <div className="flex flex-1 flex-wrap gap-2" role="group" aria-label="Ready-made backgrounds">
+              {STD_REALISTIC_BACKGROUNDS.map((b) => (
+                <PhotoTile key={b.id} url={b.src} label={b.label} on={bg?.kind === 'photo' && bg.media === b.src} onPick={() => put(photoBg(b.src))} />
+              ))}
+            </div>
+          </IRow>
           <div className="border-b border-ink/[0.07] py-2.5" data-inspector-row="scene-upload">
             <FileUpload
               bucket="media"
@@ -613,8 +625,7 @@ export function SceneBackgroundRow({
             <IRow label="Clip" data="scene-media-clip">
               <p className="flex-1 text-[12.5px] text-ink/70">Plays silently, on a loop.</p>
               <InfoTip label="" ariaLabel="About the clip" align="end">
-                Up to {MAKER_MAX_CLIP_SECONDS} seconds. It plays only while on screen. Until video is switched on
-                for guests, they see a still from it.
+                Up to {MAKER_MAX_CLIP_SECONDS} seconds. It plays only while on screen.
               </InfoTip>
             </IRow>
           ) : null}
@@ -680,12 +691,13 @@ export function SceneBackgroundRow({
 }
 
 /** One of the couple's photos, as a tap target. */
-function PhotoTile({ url, on, onPick }: { url: string; on: boolean; onPick: () => void }) {
+function PhotoTile({ url, on, onPick, label }: { url: string; on: boolean; onPick: () => void; label?: string }) {
   return (
     <button
       type="button"
       aria-pressed={on}
-      aria-label={on ? 'Current background' : 'Use this photo as the background'}
+      title={label}
+      aria-label={on ? `Current background${label ? ` — ${label}` : ''}` : `Use ${label ?? 'this photo'} as the background`}
       onClick={onPick}
       className={`sn-press block h-11 w-14 overflow-hidden rounded-md border-2 ${on ? 'border-ink' : 'border-transparent hover:border-ink/30'}`}
     >

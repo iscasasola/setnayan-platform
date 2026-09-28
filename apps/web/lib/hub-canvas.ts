@@ -46,6 +46,7 @@ import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style'
 import { ombreCss } from '@/lib/ombre';
 import { sanitizeDetailsOverrides, type HubDetailsOverrides } from '@/lib/details-bound';
 import { sanitizeHeroDesign, type HeroDesignId } from '@/lib/hero-design';
+import { isStdLibrarySrc } from '@/lib/std-backgrounds';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -443,6 +444,9 @@ const inSet = <T,>(list: readonly T[], v: unknown): v is T => (list as readonly 
  * absolute `https://` URL. Anything else is not a photo and is dropped.
  */
 export function hubMediaRef(value: unknown): string | null {
+  /* 🖼 …or one of Setnayan's own ready-made Save the Date scenes, by its exact
+     public path (`isStdLibrarySrc`, a closed list — owner 2026-09-29). */
+  if (isStdLibrarySrc(value)) return value;
   const ref = siteMediaServeRef(value);
   if (!ref) return null;
   if (ref.startsWith('r2://')) return ref;          // already held to the public bucket

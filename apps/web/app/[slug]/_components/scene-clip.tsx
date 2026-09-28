@@ -25,8 +25,11 @@ export function SceneClip({
   open,
   label,
   className = 'hub-tpl-media',
+  poster = null,
 }: {
   src: string;
+  /** The clip's still — its first frame before it plays, and under reduced motion. */
+  poster?: string | null;
   play: 'loop' | 'tap';
   open: 'fullscreen' | 'inplace';
   /** What the ▶ button says to a screen reader. */
@@ -69,6 +72,7 @@ export function SceneClip({
         ref={ref}
         className={className}
         src={src}
+        {...(poster ? { poster } : {})}
         muted
         loop
         playsInline

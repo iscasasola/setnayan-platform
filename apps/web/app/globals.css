@@ -5479,7 +5479,7 @@ html:has([data-sticky-top]) {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.84));
 }
 .hub-has-media > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
 /* 🌄 THE SAME PARALLAX ON A SCENE'S PHOTO BACKGROUND (owner 2026-09-28,
@@ -5540,7 +5540,7 @@ html:has([data-sticky-top]) {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.84));
 }
 .hub-bg-snippet { position: relative; }
 

@@ -88,17 +88,23 @@ const code = stripComments(raw);
 const READER = stripComments(readFileSync(join(import.meta.dirname, '../../../lib/scene-ground.ts'), 'utf8'));
 
 test('HubCanvasFrame reads its media URL ONLY through the gated reader, which calls heroVideoRefForGuests', () => {
-  assert.match(READER, /import \{ heroVideoRefForGuests \} from '\.\/guest-hero-video';/);
-  /* 🎞 2026-09-28 (scene Upload media): the ONE exception is the couple's own
-     Maker canvas (`ownClipPlays`, a verified host — never a guest's default),
-     the non-public surface `guest-hero-video.ts` says may see its own upload. */
+  assert.match(READER, /import \{ heroVideoRefForGuests, sceneClipRefForGuests \} from '\.\/guest-hero-video';/);
+  /* 🎞 2026-09-28/29: a scene clip may play when the HERO switch allows it, when
+     the SCENE-CLIP switch allows it (`GUEST_SCENE_CLIP_PLAYBACK`, opened by the
+     owner's "make it move"), or on the couple's own Maker canvas (`ownClipPlays`,
+     a verified host — never a guest's default). ONE predicate, asked twice. */
   assert.match(
     READER,
-    /bg && bg\.kind === 'snippet'\s*\?\s*\(heroVideoRefForGuests\(bg\.media\) \|\| opts\.ownClipPlays === true \? rawMediaUrl : null\)\s*:\s*rawMediaUrl/,
+    /const clipMayPlay = \(ref: string\) =>\s*Boolean\(heroVideoRefForGuests\(ref\)\) \|\|\s*Boolean\(sceneClipRefForGuests\(ref, opts\.sceneClipsOpen\)\) \|\|\s*opts\.ownClipPlays === true;/,
+  );
+  assert.match(
+    READER,
+    /bg && bg\.kind === 'snippet'\s*\?\s*\(clipMayPlay\(bg\.media\) \? rawMediaUrl : null\)\s*:\s*rawMediaUrl/,
   );
   assert.match(READER, /return \{ canvas, bg, mediaUrl, painted \};/, 'the reader must hand back the GATED url');
   // The frame takes `mediaUrl` from the reader, and reads no raw URL of its own.
-  assert.match(code, /import \{ sceneGround \} from '@\/lib\/scene-ground';/);
+  // (…and the clip's still for its first frame, from the same reader file.)
+  assert.match(code, /import \{ sceneClipStillUrl, sceneGround \} from '@\/lib\/scene-ground';/);
   assert.match(code, /const ground = sceneGround\(widget, mediaUrls, \{ ownClipPlays \}\);\s*const \{ bg, mediaUrl, painted \} = ground;/);
   assert.doesNotMatch(code, /mediaUrls\?\.\[/, 'the frame reads a raw, ungated media URL');
 });

@@ -112,7 +112,8 @@ function Photo({ url, alt = '', className = '' }: { url: string | null; alt?: st
 export type FrontPageFacts = {
   /** The names as the event is called (`displayName`). */
   names: string;
-  wedding: boolean;
+  /** Two named people who took vows (`EventWords.twoPeople`) — the "married" words. */
+  vows: boolean;
   solemn: boolean;
   eventWord: string;
   dateLong: string | null;
@@ -144,7 +145,7 @@ function frontMeta(f: FrontPageFacts): string {
 /** The eyebrow a wedding, a wake and every other celebration each get — never "Are married" on a birthday. */
 function frontKicker(f: FrontPageFacts): string {
   if (f.solemn) return 'In loving memory';
-  if (f.wedding) return 'Are married';
+  if (f.vows) return 'Are married';
   return `The ${f.eventWord}`;
 }
 
@@ -203,12 +204,12 @@ export function FrontPageScene({
   }
   if (style === 'card') {
     /* .cover-card — the card the guests know from the Save the Date, in the past tense. */
-    const heading = f.solemn ? 'Remembered' : f.wedding ? 'Were married' : `The ${f.eventWord}, remembered`;
+    const heading = f.solemn ? 'Remembered' : f.vows ? 'Were married' : `The ${f.eventWord}, remembered`;
     return (
       <div className="flex justify-center px-2 py-8">
         <div className="relative flex aspect-[5/7] w-full max-w-sm flex-col items-center rounded-md bg-cream px-6 py-7 text-center shadow-[0_30px_60px_-30px_rgba(30,34,41,0.55),0_2px_4px_rgba(30,34,41,0.06)]">
           <span aria-hidden className="pointer-events-none absolute inset-2.5 ring-1 ring-inset ring-terracotta/50" />
-          <p className={EYEBROW}>{say(words, 'label', f.wedding ? 'Together with their families' : f.eventWord)}</p>
+          <p className={EYEBROW}>{say(words, 'label', f.vows ? 'Together with their families' : f.eventWord)}</p>
           <span className="mt-2 font-script text-3xl leading-none text-terracotta-700">{f.names}</span>
           <span className="relative my-3 block w-full flex-1 overflow-hidden rounded-sm">
             <Photo url={f.heroPhotoUrl} alt={`${f.names} — the cover`} />

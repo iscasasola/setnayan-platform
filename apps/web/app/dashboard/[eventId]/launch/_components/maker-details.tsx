@@ -507,7 +507,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   );
   /* ✍ The two print-only words — each ONE field in two doors (its Words item
      and its print's switch), posting through the print words form. */
-  const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} />;
+  const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />;
   const kindlyReply = <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />;
   const printsOn = (piece: PrintSetKey) => (
     <p className="text-xs text-ink/60">

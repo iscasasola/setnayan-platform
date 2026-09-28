@@ -448,21 +448,22 @@ export function MakerDetails(props: MakerDetailsProps) {
     'thank-you': <WordsCard text={pabuyaMessage} note="Your guests read this on your E-Gifts page." />,
     'opening-line': <PrintPieceBody input={prints} piece="invitation" priority={initialItem === 'opening-line'} menu={menu} tappable />,
     'kindly-reply': <PrintPieceBody input={prints} piece="details" priority={initialItem === 'kindly-reply'} menu={menu} tappable />,
-    /* ── Story & plans: each page as it shipped. ── */
-    ...(loveStory ? { 'love-story': <div data-details-love-story-book="">{loveStory.book}</div> } : {}),
+    /* ── Story & plans: each page as it shipped. Keyed: React's dev check
+       otherwise flags a page handed through Details as a child without a key. ── */
+    ...(loveStory ? { 'love-story': <div key="love-story" data-details-love-story-book="">{loveStory.book}</div> } : {}),
     /* The Schedule carries its own tools ('whole' — `detailsItemLayout`): it
        scrolls in its own column; the guest's RSVP is a live page that fills the
        body ('fill'), its settings on the right. */
     ...(schedule
       ? {
           schedule: (
-            <div data-details-schedule-page="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 sm:px-6">
+            <div key="schedule" data-details-schedule-page="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 sm:px-6">
               {schedule.page}
             </div>
           ),
         }
       : {}),
-    ...(rsvp ? { rsvp: <div data-details-rsvp-page="" className="flex min-h-0 flex-1 flex-col">{rsvp.page}</div> } : {}),
+    ...(rsvp ? { rsvp: <div key="rsvp" data-details-rsvp-page="" className="flex min-h-0 flex-1 flex-col">{rsvp.page}</div> } : {}),
   };
   for (const k of PRINT_SET_KEYS) {
     bodies[k] = (
@@ -691,7 +692,10 @@ export function MakerDetails(props: MakerDetailsProps) {
             {/* The print words form: its switches and lines sit in the items
                 above (`form=`); this is the one post they all go through. */}
             <form id={WORDS_FORM} action={PRINT_WORDS_ENDPOINT} method="post" data-details-include="" className="mt-2">
-              <HubSavesImmediately />
+              {/* Said BESIDE every Save that posts this form (`SaveWords`), not
+                  under every editor: under a drafted one (the special message,
+                  the Love Story) it read as a contradiction. */}
+              <HubSavesImmediately className="sr-only" />
               <input type="hidden" name="event_id" value={eventId} />
               {/* The include marker: a posted form ALWAYS carries it, so an
                   all-off form still saves "off" instead of looking like no answer. */}
@@ -758,6 +762,7 @@ function SaveWords() {
         Save
       </button>
       <span className="text-xs text-ink/55">The card redraws.</span>
+      <HubSavesImmediately />
     </div>
   );
 }

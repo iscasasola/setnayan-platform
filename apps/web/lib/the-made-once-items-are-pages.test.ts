@@ -268,7 +268,7 @@ test('Love Story: Our Love Story is the body, and a moment is added and edited I
   // 📦 Part 2b: the scrapbook is Details › Love Story's picture, drawn by the launch page.
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /<OurStoryEditorPage[\s\S]{0,200}maker: '1'/, 'Details draws the scrapbook page');
-  assert.match(read(`${L}/maker-details.tsx`), /'love-story': <div data-details-love-story-book="">\{loveStory\.book\}<\/div>/, 'the scrapbook is the item’s picture');
+  assert.match(read(`${L}/maker-details.tsx`), /'love-story': <div key="love-story" data-details-love-story-book="">\{loveStory\.book\}<\/div>/, 'the scrapbook is the item’s picture');
   assert.doesNotMatch(read('app/dashboard/[eventId]/website/editor/page.tsx'), /<OurStoryEditorPage\b/, 'the scrapbook is drawn twice');
   const page = read(`${S}/page.tsx`);
   assert.match(page, /inMaker \? null : <MiniTour/, 'no second tour pops up inside the Maker');
@@ -349,7 +349,7 @@ test('RSVP is Details › RSVP — the guest’s RSVP as its picture, its settin
   assert.doesNotMatch(launch, /rsvp=\{rsvp\}/, 'the shell is still handed an RSVP page');
   const details = read(`${L}/maker-details.tsx`);
   assert.doesNotMatch(details, /MakerRsvp/, '"What do you ask your guests?" is typed a second time in Details');
-  assert.match(details, /rsvp: <div data-details-rsvp-page=""[^>]*>\{rsvp\.page\}<\/div>/);
+  assert.match(details, /rsvp: <div key="rsvp" data-details-rsvp-page=""[^>]*>\{rsvp\.page\}<\/div>/);
   assert.match(details, /\.\.\.\(rsvp \? \{ rsvp: rsvp\.settings \} : \{\}\)/);
   const settings = read(`${L}/maker-rsvp-ask.tsx`);
   for (const section of ['one-at-a-time', 'who-can-rsvp', 'reply-by', 'requests']) {

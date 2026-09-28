@@ -55,10 +55,14 @@ export function SpecialMessageField({
         Every scene that shows your message follows this. A scene you changed “just here” keeps its own words until
         you tap ↺ Use your message on it.
       </p>
-      <div>
+      <div className="flex flex-wrap items-center gap-3">
         <button type="submit" className="button-secondary text-sm">
           Save message
         </button>
+        {/* The approved stage drawing's own line (blueprint Part 3c): it is DRAFTED. */}
+        <span className="text-xs text-ink/55" data-details-drafted-note="">
+          Drafted — Apply puts it live.
+        </span>
       </div>
     </form>
   );

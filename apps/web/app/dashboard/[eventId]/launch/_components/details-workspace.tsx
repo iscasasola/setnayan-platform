@@ -158,9 +158,8 @@ export function DetailsWorkspace({
                   key={i.key}
                   hidden={i.key !== selected}
                   data-details-body-item={i.key}
-                  /* The CLASS hides it too: Tailwind's preflight `[hidden]` rule loses
-                     to a `flex` utility (same specificity, later), so `hidden` alone
-                     left every visited item showing at once. */
+                  /* 🔑 `hidden` AND no display class when hidden: Tailwind's `flex` beats
+                     the attribute's display:none, and every item would show at once. */
                   className={
                     i.key !== selected ? 'hidden' : detailsItemLayout(i.key) === 'flow' ? 'flex flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'
                   }

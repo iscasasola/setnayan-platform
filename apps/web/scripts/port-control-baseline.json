@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b76edfd6c",
+  "generatedFromRef": "64ae60190",
   "routeCount": 435,
   "destinations": 941,
   "actions": 671,
-  "blocks": 4980,
+  "blocks": 4981,
   "routes": {
     "/": {
       "files": [
@@ -5828,6 +5828,7 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
+        "DeskTitle",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",

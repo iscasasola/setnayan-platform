@@ -31,6 +31,14 @@ apply"*.
   (`ownClipPlays`, a verified host). ⚠ Guests still never get an unscreened clip
   (SEC-6, `GUEST_HERO_VIDEO_PLAYBACK = false`, untouched): they now see the
   clip's still (`canvas.poster`) as the scene's photo instead of an empty card.
+- **The same SEC-6 switch now covers a template scene's picture slot.** A clip
+  in a slot (only ever the hero clip) played on guest pages without meeting
+  `heroVideoRefForGuests`; a guest now sees the hero photo in its place (or
+  nothing), and the couple's Maker canvas still plays it.
+- The chip's Pro mark and visibility speak #6091's API: `makerProMark` (◆ PRO
+  while tried, the owned mark once owned) and `makerProUsable` + `storeShell`
+  (the store shell's free couple is not shown it). "Remove this scene's photo"
+  is always there once media is up.
 
 Guards: `lib/scene-upload-media.test.ts`; `hub-canvas-frame-snippet-gate.test.ts`
 updated for the host exception and SceneClip.

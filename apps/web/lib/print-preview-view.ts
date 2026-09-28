@@ -18,9 +18,11 @@ export type PrintPreviewStatus = 'loading' | 'loaded' | 'error';
 /**
  * ⚡ HOW A PREVIEW ASKS (owner 2026-09-28: the boarding-pass preview took
  * ~8 s — every piece asked the server at once). The first piece asks at once
- * and high; every other one waits until it is on screen (or 200 px from it)
- * AND the first has drawn — or `FIRST_PREVIEW_GRACE_MS` has passed, so no
- * piece ever waits on a first preview that is slow or off screen.
+ * and high; every other one waits until it is within one screen of view AND
+ * the first has drawn — or `FIRST_PREVIEW_GRACE_MS` has passed, so no piece
+ * ever waits on a first preview that is slow or off screen. One screen, not
+ * "in view": on a desktop the pass sits in the second row, just below the
+ * fold, and must not wait for a scroll to start drawing.
  */
 export const FIRST_PREVIEW_GRACE_MS = 1500;
 
@@ -34,7 +36,7 @@ export type PrintPreviewLoad = {
 export function printPreviewLoad(priority: boolean): PrintPreviewLoad {
   return priority
     ? { deferred: false, loading: 'eager', fetchPriority: 'high', rootMargin: '0px' }
-    : { deferred: true, loading: 'lazy', fetchPriority: 'low', rootMargin: '200px 0px' };
+    : { deferred: true, loading: 'lazy', fetchPriority: 'low', rootMargin: '100% 0px' };
 }
 
 export type PrintPreviewView = {

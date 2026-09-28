@@ -30,7 +30,7 @@ import { FIRST_PREVIEW_GRACE_MS, printPreviewLoad, printPreviewView, type PrintP
  * the free group, each ~1 s of server work — so the one the couple was looking
  * at queued behind the ones they were not. Now (`printPreviewLoad`):
  *   · the FIRST piece asks straight away, `fetchpriority="high"`;
- *   · every other piece waits until it is on screen (or nearly) AND the first
+ *   · every other piece waits until it is within a screen of view AND the first
  *     has drawn (or `FIRST_PREVIEW_GRACE_MS` has passed, so nothing waits on a
  *     preview that is off screen or slow);
  *   · once a piece has drawn, its OTHER sizes are fetched while the page is
@@ -86,7 +86,7 @@ export function PrintPreview({
   const box = useRef<HTMLDivElement>(null);
   const view = printPreviewView(status, label);
 
-  // Deferred: on screen (or nearly) AND the first preview has drawn.
+  // Deferred: within a screen of view AND the first preview has drawn.
   useEffect(() => {
     if (go) return;
     const el = box.current;

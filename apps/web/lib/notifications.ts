@@ -412,7 +412,18 @@ export type NotificationType =
      CELEBRATION. Only the couple can top it up, and before this nothing
      anywhere told them — the guest's own screen was the only place the fact
      appeared. Emailed (EMAIL_ENABLED_TYPES), never marketing-gated. */
-  | 'papic_pool_spent';
+  | 'papic_pool_spent'
+  /* You are now a CO-HOST (or limited helper) of an event (owner 2026-09-28:
+     "You are now a co-host for {user name}'s {event name} {event type} event.
+     You have access to the following: … (CONFIRM)"). Written by the DATABASE
+     (`activate_guest_seats`, 20271251336140) at the moment the seat goes live —
+     the co-host's Access pick, the guest's YES, or their account link, whichever
+     comes last — so no door can forget it. Its arrival refreshes an open page
+     (UnreadBellBadge). ⚠ Also an ENUM value in Postgres — 20271250928531.
+     ⚠ IN-APP ONLY, AND DELIBERATELY NOT ON EMAIL_ENABLED_TYPES: a row inserted by
+     SQL never passes emitNotification, so listing it there would claim an email
+     that is never sent. Emailing it is an open follow-up (owner to decide). */
+  | 'cohost_added';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -518,6 +529,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   // disclosure lane exists).
   booking_fee_waived: 'Booking fee waived',
   papic_pool_spent: 'Guests have run out of Papic shots',
+  cohost_added: 'You’re now a co-host',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -709,6 +721,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   booking_fee_waived: 'bg-success-100 text-success-900',
   // Warn, not error: nothing is broken — the pot is spent and can be refilled.
   papic_pool_spent: 'bg-warn-100 text-warn-900',
+  // A settled good thing, done for them — the mutual-yes emerald.
+  cohost_added: 'bg-success-100 text-success-800',
 };
 
 export type NotificationRow = {

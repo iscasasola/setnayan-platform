@@ -154,7 +154,7 @@ test('the reminder switch gets its first-visit tour, mounted on the RSVP page an
   assert.ok(tourAt > 0 && settingsAt > tourAt, 'the tour sits inside the RSVP page’s controls');
 });
 
-test('the migration: PK (guest, milestone, event date) · CHECK 30/7/1 · RLS on · anon revoked · admin policy', () => {
+test('the migration: PK (guest, milestone, event date) · CHECK 30/7/1 · RLS on · revoked from anon AND authenticated · no signed-in policy (service role only)', () => {
   const dir = join(ROOT, 'supabase', 'migrations');
   const file = readdirSync(dir).find((f) => f.endsWith('_guest_reminder_email_log.sql'));
   assert.ok(file, 'migration missing');
@@ -163,7 +163,9 @@ test('the migration: PK (guest, milestone, event date) · CHECK 30/7/1 · RLS on
   assert.match(sql, /PRIMARY KEY \(guest_id, milestone_days, event_date\)/);
   assert.match(sql, /CHECK \(milestone_days IN \(30, 7, 1\)\)/);
   assert.match(sql, /ALTER TABLE public\.guest_reminder_email_log ENABLE ROW LEVEL SECURITY/);
-  assert.match(sql, /REVOKE ALL ON public\.guest_reminder_email_log FROM anon/);
-  assert.match(sql, /USING \(public\.is_admin\(\)\)/);
+  // Server-only ledger (exposure freeze, 2026-09-28): grants off for BOTH roles,
+  // and no policy for a signed-in role — the reminder job writes with the service role.
+  assert.match(sql, /REVOKE ALL ON public\.guest_reminder_email_log FROM anon, authenticated/);
+  assert.doesNotMatch(sql, /CREATE POLICY/);
   assert.match(sql, /REFERENCES public\.guests\(guest_id\) ON DELETE CASCADE/);
 });

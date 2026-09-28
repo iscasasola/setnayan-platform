@@ -26,7 +26,7 @@
 -- access — the couple never sees per-guest reminder state, exactly as they
 -- never see a guest's checklist ticks (`guest_checklist_ticks`).
 --
--- Idempotent: CREATE TABLE IF NOT EXISTS + ENABLE RLS + DROP/CREATE POLICY.
+-- Idempotent: CREATE TABLE IF NOT EXISTS + ENABLE RLS; no policy (service role only).
 -- ============================================================================
 
 BEGIN;
@@ -54,14 +54,14 @@ COMMENT ON TABLE public.guest_reminder_email_log IS
 -- Close the stock `GRANT ALL ... TO anon, authenticated` a new table is born
 -- with (Supabase default) — a log table with an admin-only policy must not
 -- still hand the public internet a table-level grant as its "defence in depth".
-REVOKE ALL ON public.guest_reminder_email_log FROM anon;
+-- Server-only: the reminder job writes it with the service role, and nothing
+-- signed in reads it. A table in `public` inherits the default grants, and RLS
+-- is ROW-level — it cannot hide a column — so the grants come off for BOTH
+-- roles (exposure-freeze.db.test.ts, 2026-09-28).
+REVOKE ALL ON public.guest_reminder_email_log FROM anon, authenticated;
 
-DROP POLICY IF EXISTS guest_reminder_email_log_admin_all ON public.guest_reminder_email_log;
-CREATE POLICY guest_reminder_email_log_admin_all
-  ON public.guest_reminder_email_log
-  FOR ALL
-  TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+-- No policy: RLS on with no policy + no grants = service role only (the
+-- reminder job). Nothing signed in reads this log; admin reads go through
+-- the service role like every other job ledger.
 
 COMMIT;

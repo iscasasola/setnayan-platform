@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b90173682",
+  "generatedFromRef": "62acff415",
   "routeCount": 435,
   "destinations": 942,
   "actions": 671,
-  "blocks": 4968,
+  "blocks": 4970,
   "routes": {
     "/": {
       "files": [
@@ -6190,6 +6190,7 @@
         "QrLookControls",
         "Row",
         "RsvpAskConfig",
+        "SVGGElement",
         "SVGSVGElement",
         "SaveState",
         "Segmented",
@@ -8568,6 +8569,7 @@
         "LaunchStdButton",
         "LifecyclePhase",
         "Link",
+        "LinkWordsRow",
         "LoveStoryChaptersPanel",
         "LoveStoryControls",
         "MainBackgroundPanel",

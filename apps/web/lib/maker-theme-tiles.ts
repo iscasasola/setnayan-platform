@@ -40,3 +40,28 @@ export function nextTileToLoad(
   return order.find((id) => input.inView.has(id) && !input.mounted.includes(id)) ?? null;
 }
 
+
+/** The two cards a Details theme entry previews beside the page. */
+export type ThemePrintPiece = 'invitation' | 'details';
+export const THEME_PRINT_PIECES: readonly ThemePrintPiece[] = ['invitation', 'details'];
+
+/**
+ * A print preview IN A THEME — the same route and param Prints & Tickets uses
+ * (`/api/hub-print/<piece>?mode=screen&theme=<id>`; the route draws it through
+ * `printThemeFor(event, theme)`). The theme is ALWAYS named, even the couple's
+ * own: a drafted pick is not the live column the route would fall back to.
+ *
+ * ⚡ `v` is the print inputs' hash (`printInputsVersion`) — with it the route
+ * answers `immutable`, and because the theme is part of the address each
+ * theme's picture caches on its own. No hash (the read failed): no `v`, and
+ * the route keeps its 60 s — never a per-render stamp, which caches nothing.
+ */
+export function themePrintSrc(
+  eventId: string,
+  piece: ThemePrintPiece,
+  theme: string,
+  version: string | null,
+): string {
+  const v = version ? `&v=${encodeURIComponent(version)}` : '';
+  return `/api/hub-print/${piece}?event=${encodeURIComponent(eventId)}&mode=screen&theme=${encodeURIComponent(theme)}${v}`;
+}

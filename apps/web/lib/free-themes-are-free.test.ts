@@ -14,8 +14,9 @@
  *   3 · Apply writes them without asking for Pro; a Pro theme still asks;
  *   4 · a free couple PRINTS them print-ready and unwatermarked (the route's
  *       gate, and what Prints & Tickets draws); Rustic is still a sample;
- *   5 · the couple's own photo stays Pro media — a free theme never lays it
- *       under the page, the door or the print;
+ *   5 · the couple's own photo is Pro media on EVERY theme — a Pro owner keeps
+ *       it on Modern / Cyber Neon (page, door, print); a free or lapsed couple
+ *       gets the theme's own loop;
  *   6 · no copy counts or names the Pro themes by hand — the Pro list's count
  *       and its pitch are the registry's, and no typed "N themes" survives.
  */
@@ -40,7 +41,7 @@ import {
 import { tilesShown } from './maker-theme-tiles';
 import { eventItemIsPro } from './hub-draft';
 import { PRINT_FORMATS, PRINT_SET_KEYS, isProPrint, mayServe, printAccess } from './print-pieces';
-import { heroMayBePageGround, pageGround } from './page-ground';
+import { heroGroundNeedsOwnership, heroMayBePageGround, pageGround } from './page-ground';
 import { PRO_THEMES_ITEM, WEBSITE_PRO_ITEMS } from './website-pro-items';
 import { hubProPitchFor } from './event-hub-pro';
 
@@ -154,19 +155,54 @@ test('4b · Prints & Tickets hands a free couple the Modern and Cyber Neon files
   assert.doesNotMatch(rustic, /data-prints-print-ready/);
 });
 
-/* ══ 5 · THE COUPLE'S OWN MEDIA STAYS PRO ═══════════════════════════════════ */
+/* ══ 5 · THE COUPLE'S OWN MEDIA IS PRO — ON EVERY THEME ════════════════════
+   Owner 2026-09-29, "yes" (DECISION_LOG "A PRO COUPLE KEEPS THEIR OWN
+   PHOTO/VIDEO BACKGROUND ON EVERY THEME"): a couple who OWNS Event Hub Pro keeps
+   their hero photo/video behind the page, on the door and on prints on a free
+   theme too; a free or lapsed couple on a free theme gets the theme's own loop. */
 
-test('5 · a free theme plays its own loop, never the couple’s photo — page, door and print', () => {
+test('5a · on Modern / Cyber Neon: Pro owner → own photo; free couple → theme loop; lapsed → theme loop', () => {
+  const owner = { ownsPro: true };
+  const free = { ownsPro: false };
+  // A lapsed couple is measured exactly like a free one — `ownsPro` is the
+  // unlock held RIGHT NOW (`eventCoupleWebsiteProActive`), not ever bought.
+  const lapsed = { ownsPro: false };
   for (const id of NEWLY_FREE) {
-    assert.equal(heroMayBePageGround(id), false, `${id} lays the couple's own media under the page`);
-    const g = pageGround({ theme: id, ombre: false, heroGround: true });
-    assert.equal(g.heroOnTop, false);
-    assert.equal(g.themeLoop, true, `${id} lost its own loop`);
+    assert.equal(heroGroundNeedsOwnership(id), true, `${id}: the ownership read is skipped`);
+    assert.equal(heroMayBePageGround(id, owner.ownsPro), true, `${id}: a Pro owner lost their own background`);
+    const own = pageGround({ theme: id, ombre: false, heroGround: true, ...owner });
+    assert.equal(own.heroOnTop, true, `${id}: Pro owner`);
+    assert.equal(own.themeLoop, false, `${id}: the hero replaces the loop`);
+    for (const [who, c] of [['free', free], ['lapsed', lapsed]] as const) {
+      assert.equal(heroMayBePageGround(id, c.ownsPro), false, `${id}: a ${who} couple shows Pro media`);
+      const g = pageGround({ theme: id, ombre: false, heroGround: true, ...c });
+      assert.equal(g.heroOnTop, false, `${id}: ${who}`);
+      assert.equal(g.themeLoop, true, `${id}: ${who} couple lost the theme's own loop`);
+    }
+    // Absent ownership fails closed.
+    assert.equal(pageGround({ theme: id, ombre: false, heroGround: true }).heroOnTop, false);
   }
-  assert.equal(heroMayBePageGround('abaca'), true);
-  // The door and the print ask the same one rule.
-  assert.match(read('app/[slug]/_lib/hub-look.ts'), /if \(!heroMayBePageGround\(look\.theme\)\)/);
-  assert.match(read('lib/print-set.server.ts'), /heroMayBePageGround\(theme\)\s*\?\s*heroStill\(/);
+  // Classic: never, owner or not. A Pro theme: already ownership-gated upstream.
+  assert.equal(heroMayBePageGround('house', true), false, 'Classic wore a photo');
+  assert.equal(heroGroundNeedsOwnership('house'), false);
+  assert.equal(heroGroundNeedsOwnership('abaca'), false, 'a Pro-theme page pays an ownership read it never needs');
+  assert.equal(heroMayBePageGround('abaca', false), true);
+});
+
+test('5b · the page, the door and the print each measure ownership through the entitlement resolver, as viewed', () => {
+  // Page ground (Event Hub body + RSVP page): `websiteProActiveFor` = asViewed(eventCoupleWebsiteProActive).
+  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  assert.match(layer, /const ownsPro = heroGroundNeedsOwnership\(theme\)\s*\?\s*await websiteProActiveFor\(event\.event_id\)/);
+  assert.match(layer, /heroMayBePageGround\(theme, ownsPro\)/);
+  // Door photo.
+  const look = read('app/[slug]/_lib/hub-look.ts');
+  assert.match(look, /const ownsPro = heroGroundNeedsOwnership\(look\.theme\)\s*\?\s*await websiteProActiveFor\(event\.event_id\)/);
+  assert.match(look, /if \(!heroMayBePageGround\(look\.theme, ownsPro\)\)/);
+  assert.match(look, /websiteProActiveFor = cache\([\s\S]{0,400}asViewed\(eventCoupleWebsiteProActive\(/, 'the page reader stopped honouring "view as free"');
+  // Print still: `printOwnsPro` = asViewed(eventCoupleWebsiteProActive).
+  const print = read('lib/print-set.server.ts');
+  assert.match(print, /heroMayBePageGround\(theme, heroGroundNeedsOwnership\(theme\) \? await printOwnsPro\(eventId\) : false\)\s*\?\s*heroStill\(/);
+  assert.match(print, /printOwnsPro[\s\S]{0,200}asViewed\(eventCoupleWebsiteProActive\(/, 'the print reader stopped honouring "view as free"');
 });
 
 /* ══ 6 · NO TYPED COUNT, NO TYPED LIST ══════════════════════════════════════ */

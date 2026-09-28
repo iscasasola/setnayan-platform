@@ -26,25 +26,51 @@
  *   2. THEME LOOP — Setnayan's own theme art, only for a theme that has one,
  *      and never over an ombré (an ombré is a background; decoding a video to
  *      hide it behind a gradient costs a guest's phone for nothing).
- *   3. HERO ON TOP — the couple's hero photo/video as the page background,
- *      ONLY on a Pro theme. Classic (free) NEVER shows it (owner: *"classic has
- *      no photo or video"*) — whatever the Maker stored. Nor do Modern and
- *      Cyber Neon, free since 2026-09-29: they play their OWN loop (layer 2),
- *      and the couple's own media stays Pro. The door photo
- *      (`resolveHubLook`) and the print still (`loadPrintSet`) ask this too.
+ *   3. HERO ON TOP — the couple's hero photo/video as the page background.
+ *      Their own media is EVENT HUB PRO, so it shows on a Pro theme (whose
+ *      resolution already required the unlock) and — owner 2026-09-29, "yes"
+ *      (DECISION_LOG "A PRO COUPLE KEEPS THEIR OWN PHOTO/VIDEO BACKGROUND ON
+ *      EVERY THEME") — on a FREE theme (Modern, Cyber Neon) when the event
+ *      OWNS Event Hub Pro right now. A free or lapsed couple on a free theme
+ *      gets the theme's own loop (layer 2). Classic NEVER shows it, owner or
+ *      not (*"classic has no photo or video"*) — whatever the Maker stored.
+ *      The door photo (`resolveHubLook`) and the print still (`loadPrintSet`)
+ *      ask this too.
  *
  * Pure. No I/O. Client-safe (the layout's scope is a client component).
  */
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 
 /**
- * May the hero photo/video be laid over the page as its background under this
- * (already ownership-gated) theme? Only a PRO theme — keyed on the registry's
- * `tier`, not on "is it House", so a future free theme is refused by default.
+ * May the couple's own hero photo/video be laid under this theme?
+ *
+ *   · Classic — never, whoever owns what (*"classic has no photo or video"*);
+ *   · a PRO theme — yes: the caller hands the theme `resolveInviteTheme`
+ *     answered, which is only ever a Pro theme when the unlock is held (or the
+ *     host is trying it on), so ownership is already decided;
+ *   · a FREE theme with a loop (Modern, Cyber Neon) — only when the event OWNS
+ *     Event Hub Pro right now (`ownsPro`, measured by the caller through the
+ *     entitlement resolver AS VIEWED — "view as a free couple" sees the loop).
+ *
+ * `ownsPro` is REQUIRED: a default of `true` would hand a free couple Pro media
+ * on the day somebody forgets it, and that failure renders as a working page.
  */
-export function heroMayBePageGround(theme: InviteThemeId | null | undefined): boolean {
+export function heroMayBePageGround(theme: InviteThemeId | null | undefined, ownsPro: boolean): boolean {
   if (!theme) return false;
-  return INVITE_THEMES[theme]?.tier === 'pro';
+  const t = INVITE_THEMES[theme];
+  if (!t || !t.media) return false; // Classic: plain colour, no photo or video.
+  return t.tier === 'pro' || ownsPro;
+}
+
+/**
+ * Does answering `heroMayBePageGround` for this theme need the ownership read?
+ * Only a free theme with a loop — so a Classic or Pro-theme page pays no extra
+ * query. Callers use it to skip the read, never to decide the answer.
+ */
+export function heroGroundNeedsOwnership(theme: InviteThemeId | null | undefined): boolean {
+  if (!theme) return false;
+  const t = INVITE_THEMES[theme];
+  return Boolean(t && t.media && t.tier === 'free');
 }
 
 export type PageGroundFacts = {
@@ -54,6 +80,12 @@ export type PageGroundFacts = {
   ombre: boolean;
   /** A Main background exists for this event (`resolveMainGround` answered). */
   heroGround: boolean;
+  /**
+   * The event owns Event Hub Pro right now, as viewed. Only read on a free
+   * theme with a loop; absent = not owned (fail closed). The two client
+   * callers pass `heroGround: false`, where it cannot matter.
+   */
+  ownsPro?: boolean;
 };
 
 export type PageGround = {
@@ -61,7 +93,7 @@ export type PageGround = {
   base: 'paper' | 'ombre';
   /** Layer 2 — the theme's own loop over the base. */
   themeLoop: boolean;
-  /** Layer 3 — the hero photo/video over everything (Pro themes only). */
+  /** Layer 3 — the hero photo/video over everything (Pro media: a Pro theme, or a free one with the unlock). */
   heroOnTop: boolean;
   /**
    * The invitation shell paints its OWN opaque paper. True only when nothing
@@ -72,7 +104,7 @@ export type PageGround = {
 
 export function pageGround(f: PageGroundFacts): PageGround {
   const themed = Boolean(f.theme && f.theme !== 'house');
-  const heroOnTop = f.heroGround && heroMayBePageGround(f.theme);
+  const heroOnTop = f.heroGround && heroMayBePageGround(f.theme, f.ownsPro === true);
   return {
     base: f.ombre ? 'ombre' : 'paper',
     themeLoop: themed && !f.ombre && !heroOnTop,

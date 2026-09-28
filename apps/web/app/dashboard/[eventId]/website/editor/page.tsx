@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { asViewed } from '@/lib/view-as-free.server';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
@@ -208,7 +209,10 @@ export default async function WebsiteEditorPage({
   if (!membership) redirect(`/dashboard/${eventId}`);
 
   const [ownsPro, proSku] = await Promise.all([
-    eventCoupleWebsiteProActive(supabase, eventId),
+    /* 👁 As the viewer is SHOWN it (`lib/view-as-free.server.ts`): an internal
+       viewer who switched on "View as a free couple" gets every padlock and
+       Pro offer below. Render only — each panel's action asks the real gate. */
+    asViewed(eventCoupleWebsiteProActive(supabase, eventId)),
     /*
       ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
       `platform_retail_catalog_v2` is admin-managed and is the only figure a

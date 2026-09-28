@@ -57,7 +57,7 @@ import {
 } from '@/lib/element-style';
 import { HUB_ELEMENT_PRO_FIELDS, combineChanges, refChange, type LookChange } from '@/lib/hub-look-pro';
 import { postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
-import { isPostEventStyleId, postEventLookKey, type PostEventStyleId } from '@/lib/post-event-styles';
+import { isPostEventStyleId, postEventLookKey, postEventStyleHome, type PostEventStyleId } from '@/lib/post-event-styles';
 
 /**
  * The story's visibility switches — `EditorialSections` (`editorial/data.ts`,
@@ -224,13 +224,20 @@ export function readSceneLook(raw: unknown): PostEventSceneLook | null {
   return Object.keys(out).length > 0 ? out : null;
 }
 
-/** `sceneLooks` → every scene's look, in the fixed key order (compared as JSON). */
+/**
+ * `sceneLooks` → every scene's look, in the fixed key order (compared as JSON).
+ * A style kept for a scene whose style lives on a section row is dropped — that
+ * fact has ONE home (`postEventStyleHome`).
+ */
 export function readSceneLooks(raw: unknown): PostEventSceneLooks {
   if (!isObj(raw)) return {};
   const out: PostEventSceneLooks = {};
   for (const key of POST_EVENT_LOOK_KEYS) {
-    const look = readSceneLook(raw[key]);
-    if (look) out[key] = look;
+    const read = readSceneLook(raw[key]);
+    if (!read) continue;
+    const { style, ...rest } = read;
+    const look = style && !postEventStyleHome(key) ? { style, ...rest } : rest;
+    if (Object.keys(look).length > 0) out[key] = look;
   }
   return out;
 }
@@ -374,8 +381,10 @@ export function postEventLookOf(arr: PostEventArrangement, sceneKey: string): Po
 }
 
 /**
- * Pick a style — FREE. Null (or the recommended one) goes back to an absence,
- * so the default is never frozen into the story.
+ * Pick a style — FREE. Null (or the default) goes back to an absence, so the
+ * default is never frozen into the story. 🔗 Null for a scene whose style lives
+ * on a section row (`postEventStyleHome` — Schedule, Gallery): ONE value across
+ * stages, written on that row's `canvas.style`, never a second copy here.
  */
 export function postEventSetStyle(
   arr: PostEventArrangement,
@@ -384,7 +393,7 @@ export function postEventSetStyle(
   recommended: PostEventStyleId | null,
 ): PostEventDraft | null {
   const key = postEventLookKey(sceneKey);
-  if (!LOOK_KEYS.has(key)) return null;
+  if (!LOOK_KEYS.has(key) || postEventStyleHome(sceneKey)) return null;
   const { style: _was, ...rest } = postEventLookOf(arr, sceneKey);
   return withLook(arr, sceneKey, style && style !== recommended ? { ...rest, style } : rest);
 }

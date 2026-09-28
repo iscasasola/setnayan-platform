@@ -75,6 +75,8 @@ import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
 import type { PostEventDraft } from '@/lib/post-event-draft';
+import { POST_EVENT_STYLE_HOME } from '@/lib/post-event-styles';
+import { sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
@@ -964,6 +966,16 @@ export async function SiteBody({
              says what fills it. Both false for every guest. */
           draft={isEditorCanvas ? editorialDraft : null}
           hostPreview={isEditorCanvas}
+          /* 🎨 ONE VALUE ACROSS STAGES — the Schedule and Gallery scenes wear the
+             style picked on the section of the same name (`POST_EVENT_STYLE_HOME`),
+             read off the rows this page already holds (the host's draft laid
+             over them in the Maker, live for everyone else). */
+          sharedStyles={Object.fromEntries(
+            Object.values(POST_EVENT_STYLE_HOME).map((t) => [
+              t,
+              sanitizeHubCanvas(widgets.find((w) => w.widget_type === t)?.config_json).style ?? null,
+            ]),
+          )}
         />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />

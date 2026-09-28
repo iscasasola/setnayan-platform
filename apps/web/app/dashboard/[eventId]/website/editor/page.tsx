@@ -117,6 +117,7 @@ import { buildMakerNavigatorData } from './_components/maker-navigator-data';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { resolveHubPhase } from '@/lib/event-hub-control';
 import { readPostEventForMaker } from '@/lib/post-event-compile.server';
+import { postEventElementScope } from '@/lib/post-event-styles';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { ourStoryRenders } from '@/app/[slug]/_components/our-story';
@@ -1040,15 +1041,25 @@ export default async function WebsiteEditorPage({
     the moment it is written (`lib/post-event-compile.server.ts`). This page is
     couple-only (the membership gate above), so this open may write.
   */
-  const postEvent =
-    resolveHubPhase({
-      measured: true,
-      eventDate: (event.event_date as string | null) ?? null,
-      eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
-      timezone: (event as { timezone?: string | null }).timezone ?? null,
-    }) === 'after'
-      ? await readPostEventForMaker({ eventId, eventEnded: true, isCouple: true })
-      : null;
+  /*
+    🎞 AND BEFORE THE DAY TOO (owner 2026-09-25, "POST EVENT IS MANY SMALL
+    SCENES"): Post Event is always its separate scenes. Before the day the SAME
+    scenes are listed, each saying what will fill it — from a light read, and
+    nothing is written (`eventEnded: false` never compiles). The couple's drafted
+    arrangement and looks ride in, so the navigator lists what the canvas shows.
+  */
+  const postEvent = await readPostEventForMaker({
+    eventId,
+    eventEnded:
+      resolveHubPhase({
+        measured: true,
+        eventDate: (event.event_date as string | null) ?? null,
+        eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
+        timezone: (event as { timezone?: string | null }).timezone ?? null,
+      }) === 'after',
+    isCouple: true,
+    draftEditorial: hubDraft?.editorial ?? null,
+  });
 
   const navigator = buildMakerNavigatorData({
     postEvent,
@@ -1208,7 +1219,21 @@ export default async function WebsiteEditorPage({
         startingHint: INVITATION_WORDS_HINT,
       }}
       elementEditing={{
-        canvases: Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
+        canvases: {
+          ...Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
+          /* 🎞 Post Event's scenes, as the part sheet sees them: each scene's part
+             looks (`sceneLooks[<scene>].elements`) under its own scope, drafted
+             over live — so a part edited there is held on the canvas like any
+             section's (`element-preview.ts`). */
+          ...(postEvent.ok
+            ? Object.fromEntries(
+                Object.entries(postEvent.arrangement.sceneLooks).map(([key, look]) => [
+                  postEventElementScope(key),
+                  look.elements ? { elements: look.elements } : {},
+                ]),
+              )
+            : {}),
+        },
         palette: (() => {
           const pal = INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES]?.palette ?? INVITE_THEMES.house.palette;
           return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };

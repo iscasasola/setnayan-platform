@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -130,7 +130,17 @@ export function ElementSheet({
   onOpenHero,
   usedColours = [],
   hideLocked = false,
+  saveCanvasWith,
+  wordsSlot = null,
 }: {
+  /**
+   * 🎞 A part that is NOT on a section row (a Post Event scene's, whose looks
+   * live in the story's `sceneLooks`): how its canvas is saved instead of the
+   * section write. The sheet — preview, hold, revert, error — is unchanged.
+   */
+  saveCanvasWith?: (canvas: HubSectionCanvas) => Promise<HubDraftActionResult>;
+  /** ✍ The part's own words, edited right here, above its Text rows. */
+  wordsSlot?: ReactNode;
   /** The app-store shell: a Pro row is hidden, never shown locked. */
   hideLocked?: boolean;
   /** 🔤 Part ▾ — every part of this scene, in order (like Pages' "Body ▾"). */
@@ -213,7 +223,8 @@ export function ElementSheet({
         /* ⚡ ONE refresh after the last save in flight (`lib/maker-refresh.ts`):
            the render that comes back holds every quick tap, so the canvas hold
            matches it and the canvas keeps its page. */
-        res = await makerSave(() => saveCanvas(draftAction, eventId, target.widgetType, next), () => router.refresh(), { held: true });
+        const write = () => (saveCanvasWith ? saveCanvasWith(next) : saveCanvas(draftAction, eventId, target.widgetType, next));
+        res = await makerSave(write, () => router.refresh(), { held: true });
       } catch {
         res = { ok: false, intent: 'save', error: 'That change could not be saved. Please try again.' };
       } finally {
@@ -337,6 +348,7 @@ export function ElementSheet({
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4" aria-busy={pending} data-element-tab={tab}>
         {tab === 'text' ? (
           <>
+            {wordsSlot}
             <PartTextTab
               el={target.el}
               face={face}

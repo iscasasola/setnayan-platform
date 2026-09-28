@@ -29,6 +29,8 @@ import {
 import { NameSearch } from './_components/name-search';
 import { RefreshOnReturn } from './_components/refresh-on-return';
 import { Lace, RoomPlaceholder, SeatFrame } from './_components/seat-frame';
+import { SeatBackLink } from './_components/seat-back-link';
+import { findSeatBackHref } from './_lib/back-to-the-invitation';
 import { YourSeat, type Tablemate } from './_components/your-seat';
 import type { DoorPassData } from './_components/door-pass';
 
@@ -66,14 +68,21 @@ export const dynamic = 'force-dynamic';
  * DEFINER `public_seat_lookup()` RPC behind `/api/seat-lookup/[slug]`.
  */
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  /** Only the invitation's own view params are read (`findSeatBackHref`) —
+   *  carried back so "Back to the invitation" returns to the same stage. */
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
 const TABLES_SELECT =
   'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos';
 
-export default async function FindSeatPage({ params }: Props) {
+export default async function FindSeatPage({ params, searchParams }: Props) {
   const { slug } = await params;
   if (!slug) notFound();
+  // ⬅ The invitation itself, with its Event Bar — never its front cover.
+  const backHref = findSeatBackHref(slug, searchParams ? await searchParams : null);
 
   const event = await loadEventShell(slug);
   if (!event) notFound();
@@ -139,6 +148,7 @@ export default async function FindSeatPage({ params }: Props) {
     return (
       <SeatFrame
         slug={slug}
+        backHref={backHref}
         who={names}
         postmark={mode === 'search' ? null : postmark}
         roomFooter={<RoomFooter links={roomLinks} />}
@@ -154,7 +164,7 @@ export default async function FindSeatPage({ params }: Props) {
             entrance={entrance}
           />
         ) : (
-          <NotPostedYet names={names} plural={words.twoPeople} slug={slug} occasion={words.occasion} />
+          <NotPostedYet names={names} plural={words.twoPeople} slug={slug} backHref={backHref} occasion={words.occasion} />
         )}
       </SeatFrame>
     );
@@ -278,6 +288,7 @@ export default async function FindSeatPage({ params }: Props) {
   return (
     <SeatFrame
       slug={slug}
+      backHref={backHref}
       who={who}
       postmark={dayOf ? null : postmark}
       roomFooter={<RoomFooter links={roomLinks} />}
@@ -302,7 +313,8 @@ export default async function FindSeatPage({ params }: Props) {
         mates={mates}
         seatsOpen={table ? seatsStillOpen(table.capacity, mates.length) : 0}
         venueHref={venueHref}
-        inviteHref={`/${slug}`}
+        inviteHref={backHref}
+        slug={slug}
         plural={words.twoPeople}
         pass={pass}
       />
@@ -315,12 +327,14 @@ function NotPostedYet({
   names,
   plural,
   slug,
+  backHref,
   occasion,
 }: {
   names: string;
   /** Two people at the centre (a wedding) — "Indalecio & Claire haven't"; otherwise the plan is the subject. */
   plural: boolean;
   slug: string;
+  backHref: string;
   occasion: string;
 }) {
   return (
@@ -338,9 +352,9 @@ function NotPostedYet({
       </section>
       <Lace className="my-4" />
       <RoomPlaceholder veil="The room is still being arranged" />
-      <a href={`/${slug}`} className="mx-6 mt-3.5 block text-center text-sm text-terracotta-700 underline underline-offset-[3px]">
+      <SeatBackLink href={backHref} slug={slug} className="mx-6 mt-3.5 block text-center text-sm text-terracotta-700 underline underline-offset-[3px]">
         Back to the invitation
-      </a>
+      </SeatBackLink>
     </div>
   );
 }

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "25b4b7b3d",
+  "generatedFromRef": "8cb412269",
   "routeCount": 436,
   "destinations": 938,
   "actions": 671,
-  "blocks": 5009,
+  "blocks": 5011,
   "routes": {
     "/": {
       "files": [
@@ -6098,7 +6098,9 @@
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
+        "dashboard/[eventId]/launch/_components/same-field.ts",
         "dashboard/[eventId]/launch/_components/soft-post.tsx",
+        "dashboard/[eventId]/launch/_components/special-message-field.tsx",
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
@@ -6117,9 +6119,9 @@
       "actions": [
         "PRINT_MENU_ENDPOINT",
         "PRINT_WORDS_ENDPOINT",
+        "action",
         "qrStyleAction",
         "removeHeroPhoto",
-        "specialMessageAction",
         "uploadHeroPhoto"
       ],
       "blocks": [
@@ -6131,6 +6133,7 @@
         "ComingNext",
         "CouldNotLoad",
         "CouldNotOpen",
+        "CoupleSchedulePage",
         "DetailsGoTo",
         "DetailsItemKey",
         "DetailsLookBody",
@@ -6155,6 +6158,7 @@
         "HTMLInputElement",
         "HTMLOListElement",
         "HTMLSpanElement",
+        "HTMLTextAreaElement",
         "HTMLUListElement",
         "HubDraftDock",
         "HubDraftField",
@@ -6167,6 +6171,7 @@
         "Image",
         "InfoTip",
         "KindIcon",
+        "KindlyReplyField",
         "LayerTools",
         "LayeredLogoPlayer",
         "LifecyclePhase",
@@ -6201,6 +6206,7 @@
         "MoodBoardEditor",
         "MoreSheet",
         "OpeningLineField",
+        "OurStoryEditorPage",
         "PabuyaMessageEditor",
         "PageMasthead",
         "PaidMark",
@@ -6232,7 +6238,9 @@
         "Slider",
         "SlugField",
         "SoftPost",
+        "SpecialMessageField",
         "State",
+        "StoryPanel",
         "Suspense",
         "Switch",
         "SwitchRow",
@@ -6246,7 +6254,8 @@
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "Waiting",
-        "WebsiteEditorPage"
+        "WebsiteEditorPage",
+        "WordsCard"
       ]
     },
     "/dashboard/[eventId]/live": {
@@ -8564,6 +8573,7 @@
         "ColorsPanel",
         "ColourWell",
         "DetailsBoundField",
+        "DetailsFactSceneContext.Provider",
         "DressCodeFields",
         "DressCodePanel",
         "EditorialPanel",
@@ -8608,12 +8618,9 @@
         "LaunchStdButton",
         "Link",
         "LoveStoryChaptersPanel",
-        "LoveStoryControls",
         "MainBackgroundPanel",
         "MakerHeroPanel",
         "MakerLogoPanel",
-        "MakerPage",
-        "MakerPageFrame",
         "MakerRefusesToBeFramed",
         "MakerRevealPanel",
         "MakerSelection",
@@ -8622,8 +8629,6 @@
         "MiniTour",
         "MoreExtras",
         "OpenBrowsePanel",
-        "OurStoryEditorPage",
-        "PageSwitch",
         "PaidMark",
         "PartAnimateTab",
         "PartArrangeTab",
@@ -8661,7 +8666,6 @@
         "StdPanel",
         "StoryPanel",
         "SubmitButton",
-        "Suspense",
         "Swatch",
         "T",
         "TextPanel",

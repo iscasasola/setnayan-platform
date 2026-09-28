@@ -175,7 +175,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           </span>
         </Card>
 
-        <Card href={`${base}/suite`} Icon={Sparkles} title="Suite" cta="Open the Suite">
+        <Card href={`${base}/suite`} Icon={Sparkles} title="Our Services" cta="Open Our Services">
           <Figure value={summary.services} unit="service" />
           <span className="mt-0.5 block text-[12.5px] text-ink/55">
             What you had switched on for this one.

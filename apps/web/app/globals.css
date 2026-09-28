@@ -5479,9 +5479,29 @@ html:has([data-sticky-top]) {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.84));
 }
 .hub-has-media > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
+/* 🌄 THE SAME PARALLAX ON A SCENE'S PHOTO BACKGROUND (owner 2026-09-28,
+   "photo parallax effect"). The layer is the scene frame's `.hub-canvas-media`,
+   which already carries the couple's zoom as a `transform` — so this one rule
+   folds that zoom into the SAME matched pair (±6% offset, 1.16 cover scale)
+   instead of letting the hero rule above overwrite it. Scaled about the
+   CENTRE: the ±6% derivation above needs overhang on both edges, and a focal
+   point at the top would put it all at the bottom. The focal point still
+   chooses what the photo shows (`background-position`). Same flag, same
+   script, same exits — reduced motion, no observer, the self-heal — and the
+   layer is again a still, zoomed photo. */
+.pahina-js .sn-editorial .hub-canvas-media[data-pahina-parallax] {
+  transform: translate3d(0, var(--pahina-parallax, 0%), 0) scale(calc(1.16 * var(--hub-zoom, 1)));
+  transform-origin: 50% 50%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pahina-js .sn-editorial .hub-canvas-media[data-pahina-parallax] {
+    transform: scale(var(--hub-zoom, 1));
+    transform-origin: var(--hub-focal);
+  }
+}
 
 /* ── THE OTHER TWO KINDS OF GROUND ─────────────────────────────────────────
    A photo is the rule above. These two are the same LAYER with a different
@@ -5520,7 +5540,7 @@ html:has([data-sticky-top]) {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.84));
 }
 .hub-bg-snippet { position: relative; }
 

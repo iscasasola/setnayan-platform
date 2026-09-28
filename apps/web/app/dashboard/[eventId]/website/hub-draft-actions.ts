@@ -80,6 +80,8 @@ import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-s
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainFollow, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
+import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
+import { isStdLibrarySrc } from '@/lib/std-backgrounds';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
@@ -184,7 +186,7 @@ export async function hubDraftAction(
     const { data: own, error: ownErr } = await supabase
       .from('events')
       // `our_photos` rides in SECTION_CONTENT_EVENT_COLUMNS — not named twice.
-      .select(`slug, event_type, landing_page_hero_image_url, landing_page_hero_video_r2_key, ${SECTION_CONTENT_EVENT_COLUMNS}`)
+      .select(`slug, event_type, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_background, ${SECTION_CONTENT_EVENT_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle();
     if (ownErr) return { ok: false, intent, error: 'Could not read your Event Hub. Nothing was applied.' };
@@ -194,6 +196,9 @@ export async function hubDraftAction(
         siteMediaServeRef(ownRow.landing_page_hero_image_url),
         ...siteMediaServeRefs(ownRow.our_photos),
         siteMediaServeRef(ownRow.landing_page_hero_video_r2_key),
+        // 🖼 The Save the Date's own uploaded background — one of the couple's
+        // pictures the scene's Upload media offers (never a library scene).
+        siteMediaServeRef(stdBackgroundUploadRef(ownRow.std_background)),
       ].filter((r): r is string => Boolean(r)),
     );
     const needsContent = plan.apply.some((i) => i.kind === 'widget' && i.field === 'mode' && i.value === 'shown');
@@ -213,6 +218,13 @@ export async function hubDraftAction(
     const ownMainPrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/main-background/`;
     const mainIsOwn = (ref: unknown) =>
       typeof ref === 'string' && (ownRefs.has(ref) || ref.startsWith(ownMainPrefix));
+
+    /* 🖼 A SCENE'S OWN UPLOAD ("Upload media", in place) — into THIS event's
+       own scene-background folder, like the Main background's. */
+    const ownScenePrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/${SCENE_BACKGROUND_FOLDER}/`;
+    /* 🖼 …or one of the ready-made Save the Date scenes (Setnayan's own public
+       pictures, a closed list — owner 2026-09-29, answer 3). */
+    const sceneIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix) || isStdLibrarySrc(ref);
 
     /* 🎨 A DRAFTED PRO THEME ASKS THE WEDDING FENCE (owner Q7 = A) — the
        reveal's own answer, `resolveWeddingOnlyParts(p).save_the_date_film`,
@@ -273,11 +285,11 @@ export async function hubDraftAction(
       }
       if (item.kind === 'widget' && item.field === 'canvas') {
         const drafted = item.value as HubSectionCanvas | null;
-        // The background AND every picture in a template scene's slots (Phase 5).
-        const refs = [drafted?.media, ...(drafted?.slots ?? []).map((s) => s.media)].filter(
-          (r): r is string => Boolean(r),
-        );
-        if (refs.some((r) => !ownRefs.has(r))) {
+        // The background (and a clip's still) — the couple's pictures or their
+        // own scene upload — and every picture in a template scene's slots.
+        const ground = [drafted?.media, drafted?.poster].filter((r): r is string => Boolean(r));
+        const slotRefs = (drafted?.slots ?? []).map((s) => s.media).filter((r): r is string => Boolean(r));
+        if (ground.some((r) => !sceneIsOwn(r)) || slotRefs.some((r) => !ownRefs.has(r))) {
           // A held scene's free part (`canvasFreePart`) is already reported,
           // and kept whole in the draft, by its refused twin — skip it quietly.
           if (!item.freePart) held.push({ item, reason: 'not_your_photo' });

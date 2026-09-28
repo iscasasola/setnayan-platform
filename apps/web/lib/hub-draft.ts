@@ -1105,7 +1105,7 @@ export function canvasFacetGrows(f: CanvasLookFacet): boolean {
 }
 
 /** The background's own keys — they travel together, so a media ground is put back whole. */
-const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape'] as const;
+const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape', 'mediaMotion', 'poster'] as const;
 
 /**
  * `next` with ONE facet put back to what is live — every other key, and every

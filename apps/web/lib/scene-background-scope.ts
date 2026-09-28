@@ -40,7 +40,9 @@ import {
 } from '@/lib/hub-canvas';
 
 /** The canvas keys that ARE the background — the only ones "every scene" copies. */
-export const SCENE_BACKGROUND_KEYS = ['kind', 'color', 'opacity', 'media', 'focal', 'zoom'] as const;
+/* 🌄 `mediaMotion` (Still · Parallax) and 🎞 `poster` (a clip's still) belong
+   to the photo or clip they sit beside, so they travel with it. */
+export const SCENE_BACKGROUND_KEYS = ['kind', 'color', 'opacity', 'media', 'focal', 'zoom', 'mediaMotion', 'poster'] as const;
 
 export type SceneOnStage = { type: string; canvas: HubSectionCanvas };
 

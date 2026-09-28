@@ -205,6 +205,8 @@ export function ScheduleWidget({
   const showRunOfShow =
     eventId !== null && runOfShowBlocks.some((b) => b.run_state !== 'upcoming');
 
+  /** A block's kind in the event type's words — ONE call, used by every style. */
+  const kindOf = (b: ScheduleBlockRow): string => scheduleBlockLabelFor(b.block_type, eventType);
   const timeLabelOf = (b: ScheduleBlockRow): string => {
     // Viewer-local only after mount (now != null) so SSR (server tz) and the
     // first client render agree — the same rule the rail follows below.
@@ -218,7 +220,7 @@ export function ScheduleWidget({
         return {
           id: b.block_id,
           timeLabel: timeLabelOf(b),
-          kindLabel: scheduleBlockLabelFor(b.block_type, eventType),
+          kindLabel: kindOf(b),
           label: b.label,
           location: b.location ?? null,
           notes: b.notes ?? null,
@@ -335,7 +337,7 @@ export function ScheduleWidget({
               </div>
               <div className="min-w-0">
                 <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/45">
-                  {scheduleBlockLabelFor(b.block_type, eventType)}
+                  {kindOf(b)}
                 </p>
                 <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
                   {b.label}

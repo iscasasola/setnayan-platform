@@ -222,7 +222,9 @@ test('both guest dispatchers draw the Special message scene through the ONE rule
     const arm = src.slice(src.indexOf("case 'special_message':"), src.indexOf("case 'what_to_bring':"));
     assert.match(
       arm,
-      /<SpecialMessageWidget text=\{sceneBoundTextOf\('message', widget\.config_json, event\.special_message\)\.text\} \/>/,
+      // The property is the TEXT's source; the scene's style (2026-09-29) rides
+      // beside it as other props and changes nothing about which words are read.
+      /<SpecialMessageWidget text=\{sceneBoundTextOf\('message', widget\.config_json, event\.special_message\)\.text\}[^>]*\/>/,
       `${f} reads the scene's own version before Details`,
     );
   }

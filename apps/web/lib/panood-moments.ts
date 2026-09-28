@@ -192,7 +192,7 @@ export async function fetchPanoodMoments(
       );
       return [];
     }
-    throw new Error(`Failed to read Panood moments: ${error.message}`);
+    throw new Error(`Failed to read Watch Live moments: ${error.message}`);
   }
 
   return (data ?? []) as PanoodMomentRow[];

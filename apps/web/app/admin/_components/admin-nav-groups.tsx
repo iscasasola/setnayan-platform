@@ -264,7 +264,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // composed from their onboarding love story + Pakanta music prefs
         // (lib/pakanta-brief.ts). The music team writes the song from it.
         key: 'pakanta',
-        label: 'Pakanta queue',
+        label: 'Music Maker queue',
         href: '/admin/pakanta',
         icon: Music,
         matchPrefix: '/admin/pakanta',

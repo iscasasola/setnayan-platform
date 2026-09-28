@@ -21,7 +21,7 @@ import { UseSongButton } from './_components/use-song-button';
 import { AiDisclosure } from '@/components/AiDisclosure';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Pakanta' };
+export const metadata = { title: 'Music Maker' };
 
 const SKU_CODE = 'PAKANTA';
 // Price comes ONLY from the admin V2 catalog (owner rule 2026-06-14 — no
@@ -163,7 +163,7 @@ export default async function PakantaPage({ params }: Props) {
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
               <Music aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </span>
-            Pakanta
+            Music Maker
           </span>
         }
       />

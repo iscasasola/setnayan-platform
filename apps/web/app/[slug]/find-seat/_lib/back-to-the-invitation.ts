@@ -21,8 +21,9 @@ import { SITE_MENU_ANCHORS } from '../../_lib/site-menu';
  * on the same stage, with the Event Bar pinned under it:
  *
  *   · the HASH is what stands the opening down: `landedOnTheFirstPage`
- *     (`lib/reveal-stages.ts`) answers "no" for any hash, so a first-page-only
- *     opening (every stage but the Save the Date) does not replay;
+ *     (`lib/reveal-stages.ts`) answers "no" for any hash, so the opening does
+ *     not replay — and on the Save the Date neither does the film
+ *     (`StdFilmHandoff` starts it lifted, 2026-09-29);
  *   · the stage and the key TRAVEL: whichever of the invitation's own view
  *     params this page was opened with (`phase` — a host's or demo stage
  *     preview; `as`; `invite` — the guest's key) are carried back, so the page

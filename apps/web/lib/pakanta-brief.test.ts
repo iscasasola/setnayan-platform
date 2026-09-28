@@ -63,7 +63,7 @@ test('wedding: empty input falls back to "The couple" and the couple "no materia
   // site 6
   assert.ok(
     b.copyBlock.includes(
-      '⚠ No story material yet — the couple has not completed the love-story onboarding or a Pakanta intake.',
+      '⚠ No story material yet — the couple has not completed the love-story onboarding or a Music Maker intake.',
     ),
   );
 });

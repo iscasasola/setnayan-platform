@@ -27,7 +27,7 @@ function person(over: Partial<CreateSubject> = {}): CreateSubject {
     id: 'dep-1',
     kind: 'person',
     name: 'Nina',
-    subtitle: 'Alaga · person',
+    subtitle: 'Loved one · person',
     birthDate: null,
     sex: null,
     ...over,
@@ -80,9 +80,9 @@ test('a business and an item become their own subjects, not “something else”
   );
   const [biz, car, huh] = subjects;
   assert.equal(biz?.kind, 'business');
-  assert.equal(biz?.subtitle, 'Alaga · business');
+  assert.equal(biz?.subtitle, 'Loved one · business');
   assert.equal(car?.kind, 'item');
-  assert.equal(car?.subtitle, 'Alaga · something you own');
+  assert.equal(car?.subtitle, 'Loved one · something you own');
   // A business's founding date is NOT a birthdate — it must never reach the
   // human ladder, so it is dropped at the subject boundary like a pet's.
   assert.equal(biz?.birthDate, null);
@@ -90,7 +90,7 @@ test('a business and an item become their own subjects, not “something else”
   // An unrecognised kind falls back to person: the stricter reading (it keeps the
   // human types on offer rather than folding them away for a row we misread).
   assert.equal(huh?.kind, 'person');
-  assert.equal(huh?.subtitle, 'Alaga · person');
+  assert.equal(huh?.subtitle, 'Loved one · person');
 });
 
 test('a person alaga with no birthdate on file sorts nothing — fail open', () => {

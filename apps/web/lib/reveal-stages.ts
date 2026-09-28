@@ -58,9 +58,13 @@ export function revealStageChosen(raw: unknown, stage: LifecyclePhase): boolean 
 }
 
 /**
- * Off the Save the Date the opening belongs to the hero scene only: it plays for
- * a guest who lands at the top of the page, and not for one who arrives part-way
- * down it. The Save the Date's own opening leads its film, so it always plays.
+ * Off the Save the Date the opening belongs to the hero scene only: once opened
+ * it is gone, and scrolling past the first page retires it. The Save the Date's
+ * own opening leads its film and keeps its valance while the film plays.
+ *
+ * (Who is met at all is `landedOnTheFirstPage`, on EVERY stage: a guest who
+ * lands part-way down gets no opening — and on the Save the Date no film either,
+ * which `StdFilmHandoff` lifts for that landing. 2026-09-29.)
  */
 export function revealOnlyOnTheFirstPage(stage: LifecyclePhase): boolean {
   return stage !== 'save_the_date';

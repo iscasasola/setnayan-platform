@@ -914,13 +914,13 @@ const MUSIC_CREATOR_SCENES: RichFrame[] = [
 const PAKANTA_SCENES: RichFrame[] = [
   {
     caption: 'A song made only for the two of you.',
-    hint: 'Tap Pakanta in your services.',
+    hint: 'Tap Music Maker in your services.',
     scene: (
       <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 py-4 text-ink">
         <div className="flex items-center gap-2">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: 'rgba(30, 26, 18,.1)' }}><Music aria-hidden className="h-5 w-5" style={{ color: MULB }} strokeWidth={1.75} /></span>
           <div>
-            <p className="text-[14px] font-semibold">Pakanta</p>
+            <p className="text-[14px] font-semibold">Music Maker</p>
             <p className="text-[8px] text-ink/60">An original song for your wedding — yours, forever.</p>
           </div>
         </div>
@@ -988,7 +988,7 @@ const PAKANTA_SCENES: RichFrame[] = [
         </div>
         <div className="absolute bottom-3 left-3 inline-flex items-center gap-1.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/10 bg-cream"><Music aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} /></span>
-          <span className="text-[7px] text-ink/60">Your Pakanta song</span>
+          <span className="text-[7px] text-ink/60">Your Music Maker song</span>
         </div>
       </div>
     ),

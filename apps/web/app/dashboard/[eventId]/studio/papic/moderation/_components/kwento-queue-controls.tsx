@@ -54,7 +54,7 @@ export function KwentoQueueControls({ eventId, rows }: { eventId: string; rows: 
               // eslint-disable-next-line @next/next/no-img-element -- presigned R2 thumb
               <img
                 src={row.thumbUrl}
-                alt={row.author ? `Kwento submission photo from ${row.author}` : 'Kwento submission photo'}
+                alt={row.author ? `Photo note from ${row.author}` : 'Photo note'}
                 className="h-full w-full object-cover"
               />
             ) : null}

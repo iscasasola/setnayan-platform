@@ -358,10 +358,10 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       that, matching the `add-ons-catalog.ts` entry it opens.
     */
     key: 'pakanta',
-    name: 'Pakanta',
+    name: 'Music Maker',
     href: '/pakanta',
     description:
-      'Pakanta writes your wedding its own song — an original track composed from the love story you already told us, in the kind of music the two of you actually listen to. Yours to keep, cleared to share, and it becomes the music behind every video from your day, so the whole wedding sounds like you.',
+      'Music Maker writes your wedding its own song — an original track composed from the love story you already told us, in the kind of music the two of you actually listen to. Yours to keep, cleared to share, and it becomes the music behind every video from your day, so the whole wedding sounds like you.',
     railLine:
       'An original song from your love story — and the music behind your videos.',
     addOnKey: 'pakanta',
@@ -482,10 +482,10 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       join route is untouched.
     */
     key: 'samahan',
-    name: 'Samahan groups',
+    name: 'Groups',
     href: '/samahan',
     description:
-      'Samahan is the group space in your Setnayan account for your barkada, parish, or clan — a shared name and photo, a group chat called Usapan, short video stories that are gone after 24 hours, and the reunions, outings and tournaments an organizer plans for everyone.',
+      'Groups are the shared spaces in your Setnayan account for your barkada, parish, or clan — a shared name and photo, a group chat called Usapan, short video stories that are gone after 24 hours, and the reunions, outings and tournaments an organizer plans for everyone.',
     railLine: 'Your barkada, ninongs, family — chat, stories, the next reunion.',
     railGroup: 'together',
   },

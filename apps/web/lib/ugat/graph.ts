@@ -302,7 +302,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
     // contradictory ideas of what a "person" is.
     id: 'TYPE-SAMAHAN',
     type: 'community',
-    name: 'Samahan',
+    name: 'Group',
     blurb: 'private groups — barkada · parish · clan · org',
     countKey: 'community',
     icon: 'group',
@@ -1022,7 +1022,7 @@ export const UGAT_TYPE_VOCAB: Record<
     colorBg: 'var(--ug-e-colourgrant-bg)',
   },
   community: {
-    label: 'Samahan',
+    label: 'Group',
     icon: 'group',
     color: 'var(--ug-e-community)',
     colorBg: 'var(--ug-e-community-bg)',
@@ -1830,18 +1830,18 @@ export const UGAT_JOINTS: UgatJoint[] = [
     ],
     chain: 12,
     pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
-    title: 'Samahan ↔ User (membership)',
+    title: 'Group ↔ User (membership)',
     joint: 'community_members',
     cardinality:
-      'Many-to-many · UNIQUE(community_id, user_id) — one membership row per (person, samahan)',
+      'Many-to-many · UNIQUE(community_id, user_id) — one membership row per (person, group)',
     implementedBy:
-      'community_members — role ∈ organizer / member. Both FKs CASCADE: deleting the samahan or the auth user removes the row outright (no tombstone).',
+      'community_members — role ∈ organizer / member. Both FKs CASCADE: deleting the group or the auth user removes the row outright (no tombstone).',
     writtenBy:
-      'Samahan create (creator seeded as organizer) · invite-token redemption at /samahan/join/[token]',
+      'Group create (creator seeded as organizer) · invite-token redemption at /samahan/join/[token]',
     guardedBy:
       'current_organizer_community_ids() — the organizer-scoped helper introduced with this cluster',
     traps:
-      'The roster is PERSONAL DATA about third parties (RA 10173): an admin surface may show member TALLIES but must not enumerate identities without a stated basis. Note community_invite_tokens is UNIQUE per community and carries NO expiry — one live token per samahan, forever, until rotated.',
+      'The roster is PERSONAL DATA about third parties (RA 10173): an admin surface may show member TALLIES but must not enumerate identities without a stated basis. Note community_invite_tokens is UNIQUE per community and carries NO expiry — one live token per group, forever, until rotated.',
   },
   {
     id: 'J15',
@@ -1861,16 +1861,16 @@ export const UGAT_JOINTS: UgatJoint[] = [
     ],
     chain: 13,
     pair: ['TYPE-SAMAHAN', 'TYPE-EVENTS'],
-    title: 'Samahan → Event (ownership)',
+    title: 'Group → Event (ownership)',
     joint: null,
     cardinality: 'One-to-many · direct FK, no joint table — events.community_id',
     implementedBy:
-      'events.community_id REFERENCES communities(community_id) ON DELETE SET NULL. NULL = an event owned by its people rather than by a group — the default and the overwhelming majority. A WEDDING is owned by the couple, never by a samahan, and the CHECK below enforces that rather than leaving it to convention.',
+      'events.community_id REFERENCES communities(community_id) ON DELETE SET NULL. NULL = an event owned by its people rather than by a group — the default and the overwhelming majority. A WEDDING is owned by the couple, never by a group, and the CHECK below enforces that rather than leaving it to convention.',
     writtenBy: 'Event creation when the host picks a community-class event',
     guardedBy:
       'CHECK events_community_class_consistency — allows community_id only when event_type ∈ simple_event · corporate · travel · celebration · tournament · reunion · anniversary. A DB-level backstop the app gate cannot bypass. (Corrected 2026-07-30: this previously said "the event class"; there is no event_class column — the rule tests event_type.)',
     traps:
-      'ON DELETE SET NULL means deleting a samahan SILENTLY orphans its events into personal ones rather than failing — the events survive, their ownership does not. The CHECK is the bypass-proof half; the app gate alone is not.',
+      'ON DELETE SET NULL means deleting a group SILENTLY orphans its events into personal ones rather than failing — the events survive, their ownership does not. The CHECK is the bypass-proof half; the app gate alone is not.',
   },
   {
     id: 'J16',
@@ -2629,10 +2629,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
     ],
     chain: 12,
     pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
-    title: 'Samahan \u2194 User (24-hour stories)',
+    title: 'Group \u2194 User (24-hour stories)',
     joint: 'samahan_stories',
     cardinality:
-      'Many-to-many, rate-shaped: UNIQUE(community_id, user_id, hour_bucket) \u2014 one story per member per samahan per clock hour (the Setlog rhythm, owner 2026-08-24)',
+      'Many-to-many, rate-shaped: UNIQUE(community_id, user_id, hour_bucket) \u2014 one story per member per group per clock hour (the Setlog rhythm, owner 2026-08-24)',
     implementedBy:
       'samahan_stories \u2014 browser-transcoded web720 clip + poster frame in R2, expires_at = created_at + 24h. The read policy carries expires_at > now(), so expiry is enforced by RLS the moment the clock passes; the cron-free samahan-story-sweep (lib/samahan-stories.ts) then deletes the R2 objects FIRST and the row LAST.',
     writtenBy:
@@ -2651,13 +2651,13 @@ export const UGAT_JOINTS: UgatJoint[] = [
     ],
     chain: 12,
     pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
-    title: 'Samahan \u2194 User (Usapan \u2014 the group chat)',
+    title: 'Group \u2194 User (Usapan \u2014 the group chat)',
     joint: 'samahan_messages',
-    cardinality: 'Many-to-many \u00b7 one row per message; no thread table \u2014 a samahan IS the room',
+    cardinality: 'Many-to-many \u00b7 one row per message; no thread table \u2014 a group IS the room',
     implementedBy:
-      'samahan_messages \u2014 body + soft `deleted_at`. \u26d4 Deliberately NOT chat_threads: that table is a couple\u2013vendor BOOKING NEGOTIATION (event_id NOT NULL, vendor_profile_id NOT NULL, inquiry_status, agreed_price_centavos, locked_at), and a samahan has neither an event nor a vendor. The 2026-07-15 plan owner-locked \u201creuse 0019 chat\u201d; reading the live table out of prod is what overturned it.',
+      'samahan_messages \u2014 body + soft `deleted_at`. \u26d4 Deliberately NOT chat_threads: that table is a couple\u2013vendor BOOKING NEGOTIATION (event_id NOT NULL, vendor_profile_id NOT NULL, inquiry_status, agreed_price_centavos, locked_at), and a group has neither an event nor a vendor. The 2026-07-15 plan owner-locked \u201creuse 0019 chat\u201d; reading the live table out of prod is what overturned it.',
     writtenBy:
-      'postSamahanMessage / deleteSamahanMessage (samahan actions) \u2014 user-scoped client, RLS is the gate',
+      'postSamahanMessage / deleteSamahanMessage (group actions) \u2014 user-scoped client, RLS is the gate',
     guardedBy:
       'INSERT policy demands user_id = auth.uid() AND membership (nobody posts in another member\u2019s voice); UPDATE policy scopes take-down to the author; samahan_messages_author_field_guard freezes every field except deleted_at.',
     traps:

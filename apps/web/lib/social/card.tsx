@@ -962,7 +962,14 @@ export async function renderSocialCardJpeg(
   // Composite a custom monogram (path-based SVG) into the reserved slot.
   if (ctx.sourceType === 'couple_creation' && ctx.monogramCustomSvg) {
     try {
-      const markPng = await sharp(Buffer.from(ctx.monogramCustomSvg))
+      // Rasterised at least as large as the slot: a Logo-editor logo is framed
+      // on its ink (lib/logo-layers.ts `centreLogoOnItsInk`), so its viewBox
+      // can be a few hundred units — at sharp's default 72 dpi that would be
+      // drawn small and then blown up soft.
+      const vb = /viewBox="\s*-?[\d.]+\s+-?[\d.]+\s+([\d.]+)\s+([\d.]+)\s*"/.exec(ctx.monogramCustomSvg);
+      const longest = vb ? Math.max(Number(vb[1]), Number(vb[2])) : 0;
+      const density = longest > 0 ? Math.min(2400, Math.max(72, (72 * MONOGRAM_SLOT) / longest)) : 72;
+      const markPng = await sharp(Buffer.from(ctx.monogramCustomSvg), { density })
         .resize(MONOGRAM_SLOT, MONOGRAM_SLOT, { fit: 'contain', background: '#FAF7F2' })
         .png()
         .toBuffer();

@@ -23,9 +23,9 @@
  * Apply like every other look key (`canvasLookChange` in `lib/hub-draft.ts`).
  *
  * ── WHICH ELEMENTS (v1) ────────────────────────────────────────────────────
- * The hero's six parts (the invitation card: eyebrow · mark · names · the
- * "invite you to…" line · date · time) and, in every other scene, its label,
- * heading and words. ⛔ The RSVP form is NOT element-editable — it stays the
+ * The hero's parts (the invitation card: eyebrow · mark · names · joiner · the
+ * "invite you to…" line · date · time · the link down; the plain masthead's
+ * venue) and, in every other scene, its label, heading and words. ⛔ The RSVP form is NOT element-editable — it stays the
  * standard form (DECISION_LOG 2026-09-27, "the RSVP form stays standard").
  *
  * 🔑 THE SCENE PARTS ARE FOUND BY ONE SELECTOR, NOT BY MARKING WIDGETS.
@@ -57,7 +57,46 @@ import { contrastRatio } from '@/lib/hub-legibility';
  * it, the "and" was made for the couple from the display name and could not be
  * edited. Only on a two-person hero — a solo name has no joiner to draw.
  */
-export const HUB_HERO_ELEMENT_KEYS = ['eyebrow', 'mark', 'names', 'joiner', 'line', 'date', 'time'] as const;
+/**
+ * 🔗 THE LINK DOWN (owner 2026-09-28, tapping "the day, the place, the story ↓"
+ * in the Maker: *"why can't i update the text"*) — the card's link into the
+ * hub, a part like any other: its own font · colour · size · motion, and its
+ * WORDS (`HubElementStyle.word`, `sanitizeHubPartLine`). Absent = the words
+ * the card was always drawn with (`HUB_LINK_DEFAULT_WORDS`). Only on the card.
+ *
+ * 📍 THE VENUE — the plain (hero-photo) masthead's venue line. Its words are
+ * the event's own venue (Details), never free text here, so it takes STYLE
+ * only: no `word`. Only on the plain masthead.
+ *
+ * 🖼 THE PHOTO CAPTION — the small line under the hero photo (owner
+ * 2026-09-28: *"make it editable"*). Its words are the couple's (`word`);
+ * absent = the venue it has always repeated. Only under a hero photo/video.
+ */
+export const HUB_HERO_ELEMENT_KEYS = ['eyebrow', 'mark', 'names', 'joiner', 'line', 'date', 'time', 'link', 'venue', 'caption'] as const;
+/**
+ * Which hero parts the masthead can draw, by its shape: the invitation CARD
+ * draws its line, time and link; the PLAIN masthead (a hero photo, or the
+ * solemn register) draws the venue instead (`PahinaMasthead`). The Part ▾ lists
+ * only the parts its hero draws — a part it does not draw is a control that
+ * moves no pixels.
+ */
+export const HUB_HERO_CARD_ONLY_KEYS: readonly HubHeroElementKey[] = ['line', 'time', 'link'];
+export const HUB_HERO_PLAIN_ONLY_KEYS: readonly HubHeroElementKey[] = ['venue', 'caption'];
+/** The parts drawn only under a hero photo/video (the cover plate). */
+export const HUB_HERO_PHOTO_ONLY_KEYS: readonly HubHeroElementKey[] = ['caption'];
+export function heroPartsFor(
+  card: boolean | null | undefined,
+  twoPeople: boolean | null | undefined,
+  photo?: boolean | null,
+): HubHeroElementKey[] {
+  return HUB_HERO_ELEMENT_KEYS.filter((k) => {
+    if (k === 'joiner' && twoPeople === false) return false;
+    if (photo === false && HUB_HERO_PHOTO_ONLY_KEYS.includes(k)) return false;
+    if (card === true && HUB_HERO_PLAIN_ONLY_KEYS.includes(k)) return false;
+    if (card === false && HUB_HERO_CARD_ONLY_KEYS.includes(k)) return false;
+    return true;
+  });
+}
 export const HUB_SCENE_ELEMENT_KEYS = ['label', 'heading', 'body'] as const;
 export const HUB_ELEMENT_KEYS = [...HUB_HERO_ELEMENT_KEYS, ...HUB_SCENE_ELEMENT_KEYS] as const;
 export type HubHeroElementKey = (typeof HUB_HERO_ELEMENT_KEYS)[number];
@@ -72,6 +111,9 @@ export const HUB_ELEMENT_LABEL: Record<HubElementKey, string> = {
   line: 'Invitation line',
   date: 'Date',
   time: 'Time',
+  link: 'Details link',
+  venue: 'Venue',
+  caption: 'Photo caption',
   label: 'Label',
   heading: 'Heading',
   body: 'Words',
@@ -133,6 +175,12 @@ export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[
   line: TEXT_FIELDS,
   date: TEXT_FIELDS,
   time: TEXT_FIELDS,
+  // Its words are the couple's (`word`, absent = the card's own words).
+  link: ['word', ...TEXT_FIELDS],
+  // The event's own venue — style only; the words live in Details.
+  venue: TEXT_FIELDS,
+  // Its words are the couple's (`word`, absent = the venue it repeats).
+  caption: ['word', ...TEXT_FIELDS],
   label: TEXT_FIELDS,
   heading: TEXT_FIELDS,
   body: TEXT_FIELDS,
@@ -148,7 +196,7 @@ export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[
  * (`every-widget-is-one-section.test.ts`), so a run there could not reach a
  * guest — offering it would be a control that moves no guest's pixels.
  */
-export const HUB_ELEMENT_RUN_KEYS: readonly HubElementKey[] = ['eyebrow', 'names', 'line', 'date', 'time'];
+export const HUB_ELEMENT_RUN_KEYS: readonly HubElementKey[] = ['eyebrow', 'names', 'line', 'date', 'time', 'link', 'venue', 'caption'];
 
 /* ── THE CHOICES ────────────────────────────────────────────────────────── */
 
@@ -202,6 +250,9 @@ export const HUB_ELEMENT_SIZE_BOUNDS: Readonly<Record<HubElementKey, { min: HubE
   line: { min: 85, max: 145 },
   date: { min: 85, max: 145 },
   time: { min: 85, max: 145 },
+  link: { min: 85, max: 145 },
+  venue: { min: 85, max: 145 },
+  caption: { min: 85, max: 160 },
   label: { min: 85, max: 145 },
   heading: { min: 70, max: 145 },
   body: { min: 85, max: 145 },
@@ -323,6 +374,40 @@ export function sanitizeHubJoinerWord(raw: unknown): string | null {
   return /^[\p{L}\p{M}][\p{L}\p{M} .'’-]*$/u.test(w) ? w : null;
 }
 
+/**
+ * 🔗 ONE LINE OF THE COUPLE'S OWN WORDS — the link's (in place of "the day,
+ * the place, the story") and the photo caption's (in place of the venue).
+ * Words, never markup: drawn as React text, so nothing typed can
+ * become HTML or CSS; control and format characters are refused, spaces
+ * collapse, and it stays one short line.
+ *
+ * 🧹 CLEARED = THE CARD'S OWN WORDS BACK — the joiner's rule: an empty word is
+ * an absence (`sanitizeHubJoinerWord('')` → null), and an absence draws the
+ * default. Taking the link off the page is Arrange → Hidden, never empty text.
+ */
+export const HUB_PART_LINE_MAX = 60;
+/** The card's link as it has always read — the words while the couple wrote none. */
+export const HUB_LINK_DEFAULT_WORDS = 'the day, the place, the story';
+/** What the words box shows while empty — the words the part draws then. */
+export const HUB_PART_WORDS_HINT: Partial<Record<HubElementKey, string>> = {
+  link: HUB_LINK_DEFAULT_WORDS,
+  caption: 'The venue',
+};
+export function sanitizeHubPartLine(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const w = raw.replace(/\s+/g, ' ').trim();
+  if (w.length === 0 || w.length > HUB_PART_LINE_MAX) return null;
+  if (/[\p{Cc}\p{Cf}\p{Co}\p{Cn}]/u.test(w)) return null;
+  return w;
+}
+
+/** A part's own words, by the part — the joiner's word, or one line (the link, the caption). */
+export function sanitizeHubElementWord(raw: unknown, key: HubElementKey): string | null {
+  if (key === 'joiner') return sanitizeHubJoinerWord(raw);
+  if (key === 'link' || key === 'caption') return sanitizeHubPartLine(raw);
+  return null;
+}
+
 /* ── HOW ONE ELEMENT MOVES — Transition In · Animation During · Transition Out
    Owner, 2026-09-27: *"each element can have a transition and animation.
    Transition in and out. Animation During. we already discussed this."* The
@@ -431,7 +516,11 @@ export type HubElementStyle = {
    * it ghosted so it can be brought back (the prototype's frame B).
    */
   hidden?: true;
-  /** The joiner's word only — `sanitizeHubJoinerWord`. */
+  /**
+   * The part's own words, where its words are the couple's: the joiner's word
+   * (`sanitizeHubJoinerWord`), the link's and the photo caption's line
+   * (`sanitizeHubPartLine`).
+   */
   word?: string;
   motion?: HubElementMotion;
   /** Runs, sorted, never overlapping — only with `of`. */
@@ -543,7 +632,7 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
   if (fields.includes('leading') && isIn(HUB_ELEMENT_LEADING_STEPS, src.leading)) out.leading = src.leading;
   if (fields.includes('tracking') && isIn(HUB_ELEMENT_TRACKING_STEPS, src.tracking)) out.tracking = src.tracking;
   if (fields.includes('hidden') && src.hidden === true) out.hidden = true;
-  const word = fields.includes('word') ? sanitizeHubJoinerWord(src.word) : null;
+  const word = fields.includes('word') ? sanitizeHubElementWord(src.word, key) : null;
   if (word) out.word = word;
   if (fields.includes('motion')) {
     const motion =

@@ -47,7 +47,10 @@ test('the cookie the switch writes is the cookie the server reads', () => {
   const on = viewAsFreeCookieString(true, true);
   assert.match(on, new RegExp(`^${VIEW_AS_FREE_COOKIE}=1;`));
   assert.match(on, /Path=\//, 'every surface (the canvas, /api/hub-print, the QR) must receive it');
-  assert.match(on, /Max-Age=\d+/, 'it lapses on its own');
+  // ⏱ A SESSION cookie (owner 2026-09-28: it "must switch itself off when the
+  // owner leaves the Maker (not persist 24 h)") — never a lifetime of its own;
+  // the Maker clears it when left (`ViewAsFreeKeeper`).
+  assert.doesNotMatch(on, /Max-Age|Expires/i, 'the switch outlives the Maker');
   assert.match(on, /Secure/);
   const off = viewAsFreeCookieString(false, false);
   assert.match(off, new RegExp(`^${VIEW_AS_FREE_COOKIE}=;`));

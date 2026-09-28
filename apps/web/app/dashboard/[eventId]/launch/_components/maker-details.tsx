@@ -12,7 +12,7 @@ import { siteOrigin } from '@/lib/site-origin';
 import { publicEventPath } from '@/lib/public-event-url';
 import { PRINT_PIECES } from '@/lib/print-pieces';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { paidMarkLabel, makerProMark } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { QrLookControls } from './qr-look-controls';
@@ -84,7 +84,6 @@ export function MakerDetails({
     current: string;
     ownsPro: boolean;
     storeShell: boolean;
-    proHref: string;
     /** Mount the picker's first-visit tour (off on the Maker's own first visit). */
     tour: boolean;
   } | null;
@@ -135,7 +134,6 @@ export function MakerDetails({
               current={theme.current}
               ownsPro={theme.ownsPro}
               storeShell={theme.storeShell}
-              proHref={theme.proHref}
             />
             {theme.tour ? <MiniTour tourKey="customer_theme_picker_v1" storeShell={theme.storeShell} /> : null}
           </>
@@ -154,16 +152,16 @@ export function MakerDetails({
         {/* ── Your QR (owner 2026-09-27) — the code every print and pass carries.
             Free: the Setnayan mark in the centre, square, classic. Event Hub Pro:
             YOUR logo in the centre, and Shape · Pattern · Colour — each ONE
-            dropdown (owner 2026-09-28), wearing the padlock until Pro. Saves
+            dropdown (owner 2026-09-28), wearing ◆ PRO until Pro (owner 2026-09-28: "remove padlock … the diamond icon"). Saves
             live (the QR is a picture on prints, not a drafted guest page) and
             says so. Drawn beside these fields on the page. ── */}
         <section data-details-qr="" className="flex flex-col gap-2 border-b border-ink/10 pb-5">
           <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             Your QR code
-            {paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell }) ? (
+            {makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell }) ? (
               <PaidMark
-                state={paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell })!}
-                label={paidMarkLabel(paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell })!, 'Event Hub Pro')}
+                state={makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell })!}
+                label={paidMarkLabel(makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell })!, 'Event Hub Pro')}
                 text="Event Hub Pro"
                 size="xs"
               />

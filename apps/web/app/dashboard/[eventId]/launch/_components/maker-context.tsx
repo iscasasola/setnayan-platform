@@ -75,11 +75,22 @@ export const MAKER_MORE_ROWS_ID = 'maker-more-rows';
  * Pro, the six, the stage, the store shell — so it REGISTERS the answer
  * (`setAddScene`) and the shell draws the button from it. `ready` opens the
  * work area's own template sheet (the same one as the navigator's "+ Add a
- * scene"); `refused` says why, and wears the padlock when the reason is Event
- * Hub Pro; null = no button (the store shell, a stage without scenes of their
- * own). A client registration only — the write is still the tile's form,
+ * scene"); `refused` says why (all six in use); null = no button (the store
+ * shell, a stage without scenes of their own). The shell draws it only on a
+ * STAGE, never on a page (`makerAddShowsOn`). A client registration only — the write is still the tile's form,
  * posting to `addCustomSection`.
  */
 export type MakerAddScene =
-  | { kind: 'ready'; open: () => void }
-  | { kind: 'refused'; note: string; locked: boolean; unlockHref: string };
+  /** `tried`: the couple has no Event Hub Pro — the scene is tried free and Apply asks (◆ PRO, 2026-09-28). */
+  | { kind: 'ready'; open: () => void; tried?: boolean }
+  /** Why a scene cannot be added here (all six in use). Never a Pro refusal any
+   *  more — a couple without Pro adds and pays at Apply (owner 2026-09-28). */
+  | { kind: 'refused'; note: string };
+
+/**
+ * 💎 "Go to" from the Apply sheet (owner 2026-09-28): after the scene is
+ * selected, open ONE part's own sheet on it — the part whose font or motion is
+ * the Pro effect. `detail` = `{ key, widgetType, el }` (an `ElementTarget`
+ * without a range); the work area (`editor-shell.tsx`) answers.
+ */
+export const MAKER_OPEN_PART_EVENT = 'maker:open-part';

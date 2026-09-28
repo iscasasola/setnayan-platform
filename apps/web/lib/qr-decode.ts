@@ -41,7 +41,7 @@ export async function decodeQrPayloadFromImage(
         .rotate() // bake EXIF orientation
         .resize(edge, edge, { fit: 'inside', withoutEnlargement: true })
         // A transparent pixel is (0,0,0,0), and jsQR reads RGB only — so a
-        // PNG with see-through corners (the round-badge QR, lib/qr-style-svg.ts)
+        // PNG with see-through corners (the Circle QR, lib/qr-style-svg.ts)
         // would present BLACK corners to the detector that no eye and no phone
         // camera ever sees: on a page or on paper those corners are the ground
         // behind the image. Flatten onto white first, as the world does.

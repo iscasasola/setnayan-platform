@@ -2,17 +2,24 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
   Bookmark,
+  CalendarClock,
   CalendarDays,
   ClipboardList,
   Download,
   FileText,
+  Gift,
   Grid3x3,
+  Heart,
   Image as ImageIcon,
   LayoutGrid,
   Link2,
   Mail,
+  MailCheck,
+  MessageSquareText,
   Palette,
   QrCode,
+  Quote,
+  Reply,
   ScrollText,
   Ticket,
   UtensilsCrossed,
@@ -21,7 +28,7 @@ import {
 import { InfoTip } from '@/app/_components/info-tip';
 import type { MenuMoment, PrintSetKey, StoredPrintDetails } from '@/lib/print-pieces';
 import { PRINT_PIECES, PRINT_SET_KEYS } from '@/lib/print-pieces';
-import { HubDraftField, HubSavesImmediately } from '../../website/_components/hub-draft-field';
+import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PabuyaMessageEditor } from '../../pabuya/_components/pabuya-message-editor';
 import { OpeningLineField } from './opening-line-field';
 import { SoftPost } from './soft-post';
@@ -36,7 +43,23 @@ import { QrLookControls } from './qr-look-controls';
 import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-theme-picker';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
-import { DETAILS_ITEM_GROUPS, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
+import {
+  DETAILS_ITEM_GROUPS,
+  STORY_ITEM_KEYS,
+  WORDS_ITEM_KEYS,
+  detailsItemApplies,
+  detailsItemHref,
+  wordsAndPlansItem,
+  type DetailsItemFit,
+  type DetailsItemKey,
+  type DetailsItemModel,
+  type StoryItemKey,
+  type WordsItemKey,
+} from '@/lib/maker-details-items';
+import { SpecialMessageField } from './special-message-field';
+import { StoryPanel } from '../../website/editor/_components/authoring-panels';
+import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
+import { updateOurStory } from '../../website/our-story/actions';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import { ParentCards } from './parent-cards';
@@ -65,8 +88,23 @@ import {
  *   Download              — the whole set
  *
  * Each item: its picture in the body, its editor on the right
- * (`details-workspace.tsx`). The fact groups (Your event · Words · Love Story ·
- * Schedule) are Details PART 2 — `DETAILS_ITEM_GROUPS` takes them as rows.
+ * (`details-workspace.tsx`). `DETAILS_ITEM_GROUPS` takes each part's items as rows.
+ *
+ * ✍ WORDS · STORY & PLANS (Details part 2b):
+ *   Words          — Special message · Thank-you · Opening line · Kindly reply:
+ *                    the SAME editors part 1 mounted under the print switches,
+ *                    now also each an item of its own (one field, two doors —
+ *                    `same-field.ts` keeps both doors one value);
+ *   Story & plans  — Love Story (the scrapbook page as the picture, its words —
+ *                    the Story row's `StoryPanel` — as the editor) · Schedule
+ *                    (the shipped Schedule page, whole: it is its own editor) ·
+ *                    RSVP (the guest's RSVP as the picture, the shipped
+ *                    `MakerRsvpSettings` as the editor). Moved whole, never
+ *                    re-drawn; their old addresses land on their items.
+ *   🎉 Which items an event type gets is asked of its words
+ *   (`detailsItemApplies`, `EventWords`) — a birthday has no Love Story.
+ *   🗝 `detailsFactEditors` builds the editors a fact tapped on a stage opens
+ *   too — ONE set, handed to Details and to the stage, never a copy.
  *
  * 🔑 NOTHING IS RE-ENTERED. Each switch names a source that already has a home
  * and reads it from there; a text-carrying switch shows the SAME field under
@@ -129,9 +167,18 @@ export type MakerDetailsProps = {
   parents: Array<{ guestId: string | null; name: string; card: ReactNode }>;
   pabuyaMessage: string | null;
   specialMessage: string | null;
-  specialMessageAction: (formData: FormData) => Promise<void>;
   hasPalette: boolean;
   hasGifts: boolean;
+  /** 🎉 The event type's words (`EventWords`) — which items apply. */
+  fit: DetailsItemFit;
+  /** ✍ `detailsFactEditors(…)` — the SAME nodes the stage's inspector shows for a tapped fact. */
+  facts: Partial<Record<DetailsItemKey, ReactNode>>;
+  /** 💌 Love Story, moved whole: the scrapbook page (its picture). Null = not read, or not this type. */
+  loveStory?: { book: ReactNode; moments: number } | null;
+  /** 🗓 The shipped Schedule page, whole (it is its own editor). `moments` null = unread. */
+  schedule?: { page: ReactNode; moments: number | null } | null;
+  /** 🗳 RSVP, moved whole: the guest's RSVP (its picture) and its settings (its editor). */
+  rsvp?: { page: ReactNode; settings: ReactNode } | null;
   flash: 'saved' | 'error' | null;
   /** Changes on every server render, so a new QR look shows at once. */
   stamp: string;
@@ -156,13 +203,79 @@ const FREE_ICON: Record<string, ReactNode> = {
   'event-qr': <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
 };
 
+const WORDS_ICON: Record<WordsItemKey, ReactNode> = {
+  'special-message': <MessageSquareText aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'thank-you': <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'opening-line': <Quote aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'kindly-reply': <Reply aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+};
+const STORY_ICON: Record<StoryItemKey, ReactNode> = {
+  'love-story': <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  schedule: <CalendarClock aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  rsvp: <MailCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+};
+
+/**
+ * ✍ THE EDITORS A FACT OPENS — in Details, AND when the couple taps that fact
+ * on a stage (DECISION_LOG "DETAILS IS THE ONE FILL-IN AREA; STAGES ARE LOOK
+ * AND MOTION; TAP IS A SHORTCUT": *"tapping a fact on a stage opens the SAME
+ * Details field on the right, never a copy"*). Built ONCE by the launch page and
+ * handed to both `MakerDetails` (`facts`) and the Maker shell (`factEditors`),
+ * so the stage's inspector draws the very nodes the Details item draws.
+ *
+ * Only self-contained editors are here — each posts its own save. The opening
+ * line and "Kindly reply" post through the print words form, which exists only
+ * in Details (they are print-only: no stage shows them).
+ */
+export function detailsFactEditors(input: {
+  eventId: string;
+  specialMessage: string | null;
+  specialMessageAction: (formData: FormData) => Promise<void>;
+  pabuyaMessage: string | null;
+  /** The Love Story's words (drafted over live) and whether a sixth moment may be added; null = no Love Story here. */
+  loveStory: { story: LoveStoryBlob; ownsPro: boolean } | null;
+}): Partial<Record<DetailsItemKey, ReactNode>> {
+  const { eventId } = input;
+  return {
+    /* ── Special message → events.special_message, drafted like the Maker's other words ── */
+    'special-message': (
+      <SpecialMessageField
+        action={input.specialMessageAction}
+        initial={input.specialMessage}
+        back={detailsItemHref(eventId, 'special-message')}
+      />
+    ),
+    /* ── The thank-you message: ONE source, `events.pabuya_message` — the E-Gifts page reads the same column ── */
+    'thank-you': (
+      <div data-details-thank-you="" className="flex flex-col gap-1">
+        <HubSavesImmediately />
+        <PabuyaMessageEditor eventId={eventId} initialMessage={input.pabuyaMessage} />
+      </div>
+    ),
+    /* ── The Love Story's words — the Story row's own panel (its chapters, their
+       moments and their questions), `updateOurStory`, drafted. ── */
+    ...(input.loveStory
+      ? {
+          'love-story': (
+            <StoryPanel
+              action={updateOurStory.bind(null, eventId)}
+              eventId={eventId}
+              story={input.loveStory.story}
+              ownsPro={input.loveStory.ownsPro}
+            />
+          ),
+        }
+      : {}),
+  };
+}
+
 export function MakerDetails(props: MakerDetailsProps) {
   const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
-  const { pabuyaMessage, specialMessage, specialMessageAction, hasPalette, hasGifts, flash, stamp, initialItem } = props;
+  const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem } = props;
+  const { fit, facts, loveStory = null, schedule = null, rsvp = null } = props;
   const PRINT_WORDS_ENDPOINT = '/api/hub-print/words';
   const inc = stored.include;
   const replyChoice = stored.rsvp?.kind === 'host' ? `host:${stored.rsvp.moderatorId}` : stored.rsvp?.kind === 'manual' ? 'manual' : '';
-  const back = detailsBack(eventId);
   const base = `/dashboard/${eventId}`;
   const address = slug ? `${siteOrigin().replace(/^https?:\/\//, '')}${publicEventPath(slug)}` : null;
   const qrSrc = slug ? `/api/website/qr/${encodeURIComponent(slug)}?v=${encodeURIComponent(stamp)}` : null;
@@ -195,6 +308,28 @@ export function MakerDetails(props: MakerDetailsProps) {
     }
     if (k === 'qr') return { label: 'QR code', done: Boolean(slug), usedOn: ['Every print', 'Every pass'], icon: <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     if (k === 'download') return { label: 'Download the set', sub: 'PDF · every pass', icon: <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    if ((WORDS_ITEM_KEYS as readonly string[]).includes(k) || (STORY_ITEM_KEYS as readonly string[]).includes(k)) {
+      const w = k as WordsItemKey | StoryItemKey;
+      return {
+        ...wordsAndPlansItem(w, {
+          specialMessage,
+          thankYou: pabuyaMessage,
+          openingLine: stored.openingLine,
+          kindlyReply: Boolean(stored.rsvp),
+          include: {
+            specialMessage: inc.specialMessage,
+            thankYou: inc.thankYou,
+            openingLine: inc.openingLine,
+            rsvp: inc.rsvp,
+            loveStory: inc.loveStory !== 'none',
+            schedule: inc.schedule,
+          },
+          loveStoryMoments: loveStory?.moments ?? 0,
+          scheduleMoments: schedule?.moments ?? null,
+        }),
+        icon: (WORDS_ICON as Record<string, ReactNode>)[w] ?? (STORY_ICON as Record<string, ReactNode>)[w],
+      };
+    }
     if ((PRINT_SET_KEYS as readonly string[]).includes(k)) {
       const p = k as PrintSetKey;
       // A piece is "done" once it would print — the Menu only with a dish (it is never printed blank).
@@ -203,7 +338,27 @@ export function MakerDetails(props: MakerDetailsProps) {
     const fp = free.find((f) => f.key === k);
     return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
   };
-  const present = new Set<DetailsItemKey>(['theme', 'address', 'qr', 'download', ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  /* Story & plans: each page is drawn only where it was read AND this event
+     type has it (`detailsItemApplies` — a birthday has no Love Story). */
+  const storyPresent: StoryItemKey[] = [
+    ...(loveStory && facts['love-story'] ? (['love-story'] as const) : []),
+    ...(schedule ? (['schedule'] as const) : []),
+    ...(rsvp ? (['rsvp'] as const) : []),
+  ];
+  const present = new Set<DetailsItemKey>(
+    (
+      [
+        'theme',
+        'address',
+        'qr',
+        'download',
+        ...WORDS_ITEM_KEYS,
+        ...storyPresent,
+        ...PRINT_SET_KEYS,
+        ...free.map((f) => f.key),
+      ] as DetailsItemKey[]
+    ).filter((k) => detailsItemApplies(k, fit)),
+  );
   const groups: DetailsNavGroup[] = DETAILS_ITEM_GROUPS.map((g) => ({
     key: g.group,
     label: g.label,
@@ -271,6 +426,16 @@ export function MakerDetails(props: MakerDetailsProps) {
       </section>
     ),
     download: <PrintSetBody input={prints} />,
+    /* ── Words: how each one reads. The print-only two show the card they
+       print on — tap the words on it to edit them on the right. ── */
+    'special-message': <WordsCard text={specialMessage} note="How it reads on your Event Hub." />,
+    'thank-you': <WordsCard text={pabuyaMessage} note="Your guests read this on your E-Gifts page." />,
+    'opening-line': <PrintPieceBody input={prints} piece="invitation" priority={initialItem === 'opening-line'} menu={menu} tappable />,
+    'kindly-reply': <PrintPieceBody input={prints} piece="details" priority={initialItem === 'kindly-reply'} menu={menu} tappable />,
+    /* ── Story & plans: each page as it shipped. ── */
+    ...(loveStory ? { 'love-story': <div data-details-love-story-book="">{loveStory.book}</div> } : {}),
+    ...(schedule ? { schedule: <div data-details-schedule-page="">{schedule.page}</div> } : {}),
+    ...(rsvp ? { rsvp: <div data-details-rsvp-page="" className="flex min-h-[70vh] flex-col">{rsvp.page}</div> } : {}),
   };
   for (const k of PRINT_SET_KEYS) {
     bodies[k] = (
@@ -297,6 +462,15 @@ export function MakerDetails(props: MakerDetailsProps) {
       <span className="text-sm text-ink">Event Hub QR code</span>
       <span className="text-xs font-medium text-ink/60">Always printed</span>
     </div>
+  );
+  /* ✍ The two print-only words — each ONE field in two doors (its Words item
+     and its print's switch), posting through the print words form. */
+  const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} />;
+  const kindlyReply = <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />;
+  const printsOn = (piece: PrintSetKey) => (
+    <p className="text-xs text-ink/60">
+      Prints on {PRINT_PIECES[piece].label} while its switch is on.
+    </p>
   );
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
     theme: <MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} blurbs={theme.blurbs} />,
@@ -339,7 +513,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           <ParentCards eventId={eventId} parents={parents} />
         </Toggle>
         <Toggle form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
-          <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} />
+          {openingLine}
         </Toggle>
         {qrAlways}
         {save}
@@ -361,11 +535,8 @@ export function MakerDetails(props: MakerDetailsProps) {
           tip="Account numbers print masked (•••• 1234)."
         />
         <Toggle form={WORDS_FORM} name="inc_thank_you" label="E-Gifts — thank-you message" on={inc.thankYou}>
-          {/* ── The thank-you message: ONE source, `events.pabuya_message` — the E-Gifts page reads the same column ── */}
-          <div data-details-thank-you="" className="flex flex-col gap-1">
-            <HubSavesImmediately />
-            <PabuyaMessageEditor eventId={eventId} initialMessage={pabuyaMessage} />
-          </div>
+          {/* The Words › Thank-you editor — one field, two doors. */}
+          {facts['thank-you']}
         </Toggle>
         <Toggle form={WORDS_FORM} name="inc_love_story" label="Love Story" on={inc.loveStory !== 'none'} tip="A short excerpt of your story on the Finer Details card." />
         <Toggle form={WORDS_FORM} name="inc_schedule" label="Schedule — the program" on={inc.schedule} tip="Only the moments your guests can see." />
@@ -382,56 +553,11 @@ export function MakerDetails(props: MakerDetailsProps) {
           )}
         />
         <Toggle form={WORDS_FORM} name="inc_special_message" label="Special message" on={inc.specialMessage}>
-          {/* ── Special message → events.special_message, drafted like the Maker's words editor ── */}
-          <form action={specialMessageAction} data-details-special="" className="flex flex-col gap-2">
-            <HubDraftField />
-            <input type="hidden" name="return_to" value={back} />
-            <textarea
-              name="message"
-              defaultValue={specialMessage ?? ''}
-              maxLength={600}
-              rows={3}
-              aria-label="Special message — your closing words to guests"
-              placeholder="A heartfelt note to everyone joining you…"
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-            />
-            <p className="text-xs text-ink/60" data-details-bound-note="">
-              Every scene that shows your message follows this. A scene you changed “just here” keeps its own words
-              until you tap ↺ Use your message on it.
-            </p>
-            <div>
-              <button type="submit" className="button-secondary text-sm">
-                Save message
-              </button>
-            </div>
-          </form>
+          {/* The Words › Special message editor — one field, two doors. */}
+          {facts['special-message']}
         </Toggle>
         <Toggle form={WORDS_FORM} name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip="A host or your coordinator, read from their account — or type it in.">
-          <select
-            form={WORDS_FORM}
-            name="rsvp_choice"
-            defaultValue={replyChoice}
-            aria-label="Who guests reply to"
-            className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-          >
-            <option value="">Choose…</option>
-            {hosts.map((h) => (
-              <option key={h.moderatorId} value={`host:${h.moderatorId}`}>
-                {h.label}
-                {h.contact ? ` — ${h.contact}` : ' — no number on their account'}
-              </option>
-            ))}
-            <option value="manual">Type it in…</option>
-          </select>
-          <input
-            form={WORDS_FORM}
-            name="rsvp_manual"
-            defaultValue={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''}
-            maxLength={160}
-            aria-label="Reply line, typed in"
-            placeholder="If you chose “Type it in”: e.g. Reply by Nov 18 · Claire, 0917 …"
-            className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-          />
+          {kindlyReply}
         </Toggle>
         {qrAlways}
         {save}
@@ -449,6 +575,27 @@ export function MakerDetails(props: MakerDetailsProps) {
     poster: <PrintPieceEditor input={prints} piece="poster" />,
     card: <PrintPieceEditor input={prints} piece="card" />,
     download: <PrintSetDownloads input={prints} />,
+    /* ── Words ── */
+    'special-message': facts['special-message'],
+    'thank-you': facts['thank-you'],
+    'opening-line': (
+      <div className="flex flex-col gap-2" data-details-words="opening-line">
+        {openingLine}
+        {printsOn('invitation')}
+        {save}
+      </div>
+    ),
+    'kindly-reply': (
+      <div className="flex flex-col gap-2" data-details-words="kindly-reply">
+        <p className="text-sm text-ink/80">Who guests reply to</p>
+        {kindlyReply}
+        {printsOn('details')}
+        {save}
+      </div>
+    ),
+    /* ── Story & plans (the Schedule is its own editor: it has none here) ── */
+    ...(loveStory && facts['love-story'] ? { 'love-story': facts['love-story'] } : {}),
+    ...(rsvp ? { rsvp: rsvp.settings } : {}),
   };
   for (const f of free) {
     editors[f.key] =
@@ -500,11 +647,6 @@ export function MakerDetails(props: MakerDetailsProps) {
       />
     </ThemePickProvider>
   );
-}
-
-/** Where a no-script save of the special message lands — back on Details. */
-function detailsBack(eventId: string): string {
-  return `/dashboard/${eventId}/launch?tool=details&item=details`;
 }
 
 /** Save for the print words form — every item that has switches shows one. */
@@ -584,5 +726,68 @@ function Segmented({ form, name, value, options }: { form: string; name: string;
         </label>
       ))}
     </div>
+  );
+}
+
+/**
+ * "Kindly reply" — who guests reply to: a host or the coordinator, read from
+ * their own account at print time, or the couple's own typed line. One field in
+ * two doors (Words › Kindly reply and The Finer Details' switch), so each part
+ * carries `data-same-field`.
+ */
+function KindlyReplyField({
+  hosts,
+  choice,
+  manual,
+}: {
+  hosts: Array<{ moderatorId: string; label: string; contact: string | null }>;
+  choice: string;
+  manual: string;
+}) {
+  return (
+    <>
+      <select
+        form={WORDS_FORM}
+        name="rsvp_choice"
+        data-same-field="rsvp_choice"
+        defaultValue={choice}
+        aria-label="Who guests reply to"
+        className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+      >
+        <option value="">Choose…</option>
+        {hosts.map((h) => (
+          <option key={h.moderatorId} value={`host:${h.moderatorId}`}>
+            {h.label}
+            {h.contact ? ` — ${h.contact}` : ' — no number on their account'}
+          </option>
+        ))}
+        <option value="manual">Type it in…</option>
+      </select>
+      <input
+        form={WORDS_FORM}
+        name="rsvp_manual"
+        data-same-field="rsvp_manual"
+        defaultValue={manual}
+        maxLength={160}
+        aria-label="Reply line, typed in"
+        placeholder="If you chose “Type it in”: e.g. Reply by Nov 18 · Claire, 0917 …"
+        className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+      />
+    </>
+  );
+}
+
+/** A Words item's picture: the words as guests read them, or an honest empty line. */
+function WordsCard({ text, note }: { text: string | null; note: string }) {
+  const words = text?.trim() ?? '';
+  return (
+    <section data-details-words-card="" className="flex flex-col items-center gap-3 rounded-md bg-white/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
+      {words ? (
+        <p className="max-w-prose whitespace-pre-line font-serif text-xl leading-relaxed text-ink">{words}</p>
+      ) : (
+        <p className="text-sm text-ink/60">Not written yet — type it on the right.</p>
+      )}
+      <p className="text-xs text-ink/55">{note}</p>
+    </section>
   );
 }

@@ -46,7 +46,7 @@ export type MakerBarGroup = 'made-once' | 'stages';
 export const MAKER_DETAILS_LABEL = 'Details';
 
 export type MakerBarItem =
-  | { key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'details' | 'rsvp-page'; label: string; group: 'made-once'; kind: 'tool' }
+  | { key: 'logo' | 'hero' | 'reveal' | 'details'; label: string; group: 'made-once'; kind: 'tool' }
   | { key: LifecyclePhase; label: string; group: 'stages'; kind: 'stage' };
 
 export const MAKER_BAR: readonly MakerBarItem[] = [
@@ -55,11 +55,10 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
   { key: 'logo', label: 'Logo', group: 'made-once', kind: 'tool' },
   { key: 'hero', label: 'Hero', group: 'made-once', kind: 'tool' },
   { key: 'reveal', label: 'Reveal', group: 'made-once', kind: 'tool' },
-  { key: 'love-story', label: 'Love Story', group: 'made-once', kind: 'tool' },
-  // Guest pathway (owner 2026-09-27): "RSVP is its own made-once page in the
-  // Maker bar (Details · Logo · Hero · Reveal · Love Story · RSVP)". Keyed
-  // `rsvp-page` — `rsvp` is the Invitation stage's key, in the next group.
-  { key: 'rsvp-page', label: 'RSVP', group: 'made-once', kind: 'tool' },
+  /* 📦 Love Story and RSVP left the bar (Details part 2b, DECISION_LOG "OPTION B
+     — EVERYTHING MADE ONCE LIVES IN DETAILS"): their pages are Details items
+     now — Story & plans › Love Story · RSVP — the same components, moved whole.
+     `?tool=love-story` / `?tool=rsvp-page` still land on them (`landInDetails`). */
   ...PUBLIC_STAGE_ORDER.map(
     (phase) =>
       ({ key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' }) as const,

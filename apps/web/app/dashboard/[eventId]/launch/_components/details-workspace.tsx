@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
-import type { DetailsItemKey, DetailsItemModel } from '@/lib/maker-details-items';
+import { detailsItemOfSelection, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
+import { useMaker } from './maker-context';
+import { useSameFieldDoors } from './same-field';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
 export type DetailsNavItem = DetailsItemModel & {
@@ -47,6 +49,15 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  * ✍ TAP IT, EDIT IT ON THE RIGHT: a tap on a card's print-only words
  * (`PrintPreview`, via `DetailsTapContext`) opens the editor and puts the caret
  * in that one field.
+ *
+ * 📦 ASKED FOR BY NAME (part 2b): the Maker can open Details on one item — an
+ * old `?tool=love-story`, a scene's "Open Love Story editor", a Love Story
+ * moment asked for from a stage (`landInDetails` → `selection.item`); the
+ * workspace follows every such ask. An item with no editor of its own (the
+ * Schedule, which IS its own editor) gives its body the whole width.
+ *
+ * 🚪 ONE FIELD, TWO DOORS: a fact in two items (the thank-you, the opening
+ * line…) is one value — `useSameFieldDoors` keeps its doors in step.
  */
 export function DetailsWorkspace({
   groups,
@@ -63,13 +74,17 @@ export function DetailsWorkspace({
   persistent?: ReactNode;
 }) {
   const items = groups.flatMap((g) => g.items);
-  const first = items.some((i) => i.key === initial) ? initial : items[0]!.key;
+  const maker = useMaker();
+  const asked = detailsItemOfSelection(maker?.selection ?? null);
+  const has = (k: DetailsItemKey | null): k is DetailsItemKey => k !== null && items.some((i) => i.key === k);
+  const first = has(asked) ? asked : has(initial) ? initial : items[0]!.key;
   const [selected, setSelected] = useState<DetailsItemKey>(first);
   const [visited, setVisited] = useState<ReadonlySet<DetailsItemKey>>(() => new Set([first]));
   const [sheetOpen, setSheetOpen] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const current = items.find((i) => i.key === selected) ?? items[0]!;
+  const hasEditor = editors[current.key] != null;
 
   const select = useCallback((key: DetailsItemKey) => {
     setSelected(key);
@@ -83,6 +98,16 @@ export function DetailsWorkspace({
       /* the address is a convenience; the page works without it */
     }
   }, []);
+
+  /* 📦 An item asked for by name while Details is open (a Love Story moment
+     tapped in its panel, a scene's button) — each ask is a new selection. */
+  const makerSelection = maker?.selection ?? null;
+  useEffect(() => {
+    if (has(asked) && asked !== selected) select(asked);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [makerSelection]);
+
+  useSameFieldDoors();
 
   /* The picked item stays in view in the navigator — by scrolling the NAVIGATOR
      only (`scrollLeft`/`scrollTop`), never `scrollIntoView`, which also scrolls
@@ -191,9 +216,10 @@ export function DetailsWorkspace({
           aria-label={`${current.label} — edit`}
           data-details-editor-panel=""
           data-open={sheetOpen ? '' : undefined}
-          className={`order-3 flex min-h-0 shrink-0 flex-col border-t border-ink/10 bg-cream lg:max-h-none lg:w-[360px] lg:border-l lg:border-t-0 ${
-            sheetOpen ? 'max-h-[72%]' : 'max-h-14 lg:max-h-none'
-          }`}
+          data-details-no-editor={hasEditor ? undefined : ''}
+          className={`order-3 min-h-0 shrink-0 flex-col border-t border-ink/10 bg-cream lg:max-h-none lg:w-[360px] lg:border-l lg:border-t-0 ${
+            hasEditor ? 'flex' : 'hidden'
+          } ${sheetOpen ? 'max-h-[72%]' : 'max-h-14 lg:max-h-none'}`}
         >
           <button
             type="button"

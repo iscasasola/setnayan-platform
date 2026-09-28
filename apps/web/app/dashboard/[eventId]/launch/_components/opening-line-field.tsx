@@ -32,6 +32,8 @@ export function OpeningLineField({ initial, form }: { initial: string | null; /*
       <input
         form={form}
         name="opening_line"
+        /* One field, two doors (Details › Words and The Invitation's switch) — `same-field.ts`. */
+        data-same-field="opening_line"
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, 240))}
         maxLength={240}

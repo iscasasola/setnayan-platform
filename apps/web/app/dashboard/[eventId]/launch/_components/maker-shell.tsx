@@ -35,6 +35,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
 import { ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
+import { landInDetails, type DetailsItemKey } from '@/lib/maker-details-items';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -85,7 +86,7 @@ export function MakerShell({
   more,
   applySlot = null,
   details = null,
-  rsvp = null,
+  factEditors = {},
   hasWork,
   viewAs = {},
   viewAsFree = null,
@@ -117,9 +118,10 @@ export function MakerShell({
    *  the address and its QR, and the printed cards they fill — and `controls`
    *  the fields (what the prints include, and every line of wording). */
   details?: { page: ReactNode; controls: ReactNode } | null;
-  /** RSVP as a PAGE (guest pathway, owner 2026-09-27): `page` is the guest's
-   *  RSVP as they meet it, `controls` the RSVP settings beside it. */
-  rsvp?: { page: ReactNode; controls: ReactNode } | null;
+  /** ✍ The Details items' own editors a fact tapped on a stage opens
+   *  (`detailsFactEditors`) — the SAME nodes Details draws. RSVP and Love Story
+   *  moved into Details whole (part 2b); their pages are Details items now. */
+  factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
   /** False when the work area is not the editor (a coordinator, or an event
    *  type with no Event Hub): the tool items then have nothing to open. */
   hasWork: boolean;
@@ -128,7 +130,9 @@ export function MakerShell({
   const [stage, setStage] = useState<LifecyclePhase>(initialStage);
   const [device, setDevice] = useState<MakerDevice>('desktop');
   const [navOpen, setNavOpen] = useState(true);
-  const [selection, setSelection] = useState<MakerSelection>(initialSelection);
+  /* 📦 Love Story and RSVP are Details items now — every way of asking for them
+     (the address, a scene's button, a restored tab) lands there (`landInDetails`). */
+  const [selection, setSelection] = useState<MakerSelection>(() => landInDetails(initialSelection));
   const [moreOpen, setMoreOpen] = useState(false);
   const [tour, setTour] = useState<'first' | 'again' | null>(firstVisit ? 'first' : null);
   const [viewAsRole, setViewAsRole] = useState<string | null>(null);
@@ -161,7 +165,7 @@ export function MakerShell({
     else if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
     // An address that names what to open (a save's `?scene=`) wins over memory.
-    if (saved?.selection) setSelection((cur) => cur ?? saved!.selection ?? null);
+    if (saved?.selection) setSelection((cur) => cur ?? landInDetails(saved!.selection ?? null));
     restored.current = true;
   }, [memoryKey]);
   useEffect(() => {
@@ -248,7 +252,7 @@ export function MakerShell({
     return () => el.removeEventListener('submit', onSubmit, true);
   }, [eventId]);
 
-  const select = useCallback((next: MakerSelection) => setSelection(next), []);
+  const select = useCallback((next: MakerSelection) => setSelection(landInDetails(next)), []);
   /* ＋ ADD A SCENE — registered by the work area (`MakerAddScene`); the toolbar's
      ＋ and the phone's More ▾ row are drawn from it below. */
   const [addScene, setAddScene] = useState<MakerAddScene | null>(null);
@@ -268,8 +272,9 @@ export function MakerShell({
       viewAsHref,
       addScene,
       setAddScene,
+      factEditors,
     }),
-    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene],
+    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, factEditors],
   );
 
   /* ONE HIGHLIGHT (owner 2026-09-25: "there should also be only one highlighted
@@ -345,7 +350,7 @@ export function MakerShell({
                 stageLabel={PUBLIC_STAGE_LABELS[stage]}
                 sceneSelected={
                   selection?.kind === 'scene' ||
-                  (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event', 'love-story'].includes(selection.key))
+                  (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event'].includes(selection.key))
                 }
               />
             ) : null}
@@ -503,25 +508,6 @@ export function MakerShell({
                   )
                 }
                 controls={details?.controls ?? null}
-              />
-            </div>
-          ) : null}
-          {/* 🗳 RSVP IS A PAGE TOO (owner 2026-09-27) — the guest's RSVP is the
-              body, its settings sit where a stage's controls sit. Same layer
-              and the same `MakerPage` as Details, never a dialog. */}
-          {hasWork && selection?.kind === 'tool' && selection.key === 'rsvp-page' ? (
-            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-rsvp-layer="">
-              <MakerPage
-                pageKey="rsvp-page"
-                page={
-                  rsvp?.page ?? (
-                    <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
-                      Your RSVP settings could not be loaded just now. Nothing was changed — please reopen this in a
-                      moment.
-                    </p>
-                  )
-                }
-                controls={rsvp?.controls ?? null}
               />
             </div>
           ) : null}

@@ -101,6 +101,7 @@ import {
 } from './_components/vendor-meetings-section';
 import { venueNowMs } from '@/lib/schedule';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { detailsDoorHref, detailsIsTheDoor } from '@/lib/maker-details-door.server';
 import { formatCount } from '@/lib/format-number';
 // ── Schedule rebuild, slice 1 (2026-09-27) ─────────────────────────────────
 // The Event Day view becomes the approved prototype's time rail
@@ -130,7 +131,14 @@ type ScheduleView = 'journey' | 'preparation' | 'event-day';
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ view?: string; ros?: string; note?: string; host_answers?: string }>;
+  searchParams: Promise<{
+    view?: string;
+    ros?: string;
+    note?: string;
+    host_answers?: string;
+    /** `1` = drawn as Details › Schedule inside the Event Hub Maker (Details part 2b). */
+    maker?: string;
+  }>;
 };
 
 export default async function CoupleSchedulePage({ params, searchParams }: Props) {
@@ -140,7 +148,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     ros: rosParam,
     note: noteParam,
     host_answers: hostAnswersFlash,
+    maker: makerParam,
   } = await searchParams;
+  const inMaker = makerParam === '1';
   // Result of a "Tell the host" send. Anything we did not write ourselves is
   // treated as no flash at all, so a hand-edited URL cannot forge "Sent."
   const noteFlash = parseNoteFlash(noteParam);
@@ -149,6 +159,15 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  /* 📦 THE SCHEDULE MOVED INTO THE MAKER'S DETAILS, WHOLE (Details part 2b —
+     Story & plans › Schedule). This page is still the one component; for the
+     couple of an event with an Event Hub its address now lands there, carrying
+     its own query (a view, a lens, a save's flash). Everybody else — a
+     coordinator, an event type with no Event Hub — keeps this page as it was. */
+  if (!inMaker && (await detailsIsTheDoor(supabase, eventId, user.id))) {
+    redirect(detailsDoorHref(eventId, 'schedule', { view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash }));
+  }
 
   // Pull the event row (for event_date + ceremony_type that drive the
   // Preparation agenda's statutory-milestone + paperwork-deadline math),
@@ -539,7 +558,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 
   return (
     <section className="sn-col space-y-5">
-      <PageMasthead title="Schedule" />
+      {/* Inside the Maker, Details' own header names it. */}
+      {inMaker ? null : <PageMasthead title="Schedule" />}
 
       {/* ONE LINE AND AN ⓘ — the paragraph that opened this page is gone
           ("SCHEDULE (event-day view) JOINS THE PAGE REDESIGN": intro paragraph

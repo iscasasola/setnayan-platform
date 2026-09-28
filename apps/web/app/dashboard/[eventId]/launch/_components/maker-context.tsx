@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import type { DetailsItemKey } from '@/lib/maker-details-items';
 
 /**
  * THE MAKER'S SHARED STATE — what the toolbar says, the navigator, canvas and
@@ -24,7 +25,10 @@ export type MakerDevice = 'desktop' | 'phone';
 /** What the inspector is showing. `null` = nothing selected, inspector closed. */
 export type MakerSelection =
   | { kind: 'scene'; id: string; tab?: MakerSceneTab }
-  | { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'post-event' | 'details' | 'rsvp-page' }
+  /** `item` names one Details item (`details` only). `love-story` and
+   *  `rsvp-page` moved INTO Details (part 2b): the shell lands them on their
+   *  item (`landInDetails`), so they are only ever asked for, never held. */
+  | { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'post-event' | 'details' | 'rsvp-page'; item?: DetailsItemKey }
   | { kind: 'main' }
   | { kind: 'row'; key: string }
   /** 📖 One of Post Event's written scenes (Maker Phase 8) — by its scene key. */
@@ -58,6 +62,13 @@ export type MakerState = {
   /** ＋ Add a scene, as the work area registered it — see `MakerAddScene` below. */
   addScene: MakerAddScene | null;
   setAddScene: (next: MakerAddScene | null) => void;
+  /**
+   * ✍ TAP A FACT, EDIT IT ON THE RIGHT (Details part 2b): the Details items'
+   * OWN editors, built once by the launch page (`detailsFactEditors`) and handed
+   * to both Details and the stage — so a fact tapped on a stage opens the SAME
+   * component its Details item shows, never a copy. Empty outside the Maker.
+   */
+  factEditors: Partial<Record<DetailsItemKey, ReactNode>>;
 };
 
 export const MakerContext = createContext<MakerState | null>(null);

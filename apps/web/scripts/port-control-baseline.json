@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "64ae60190",
+  "generatedFromRef": "ad4e12c55",
   "routeCount": 435,
   "destinations": 941,
   "actions": 671,
-  "blocks": 4981,
+  "blocks": 4983,
   "routes": {
     "/": {
       "files": [
@@ -815,6 +815,7 @@
         "[slug]/_components/pahina-motion.tsx",
         "[slug]/_components/photo-moments-widget.tsx",
         "[slug]/_components/photos-of-you-gallery.tsx",
+        "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -1145,6 +1146,8 @@
         "PhotoMomentsWidget",
         "PhotosOfYouGallery",
         "PreviewPerson",
+        "PreviewWayBack",
+        "PreviewWayBackLink",
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
@@ -4945,7 +4948,6 @@
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
-        "dashboard/[eventId]/_components/pillar-part-picker.tsx",
         "dashboard/[eventId]/_components/placeholder.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
@@ -5112,7 +5114,6 @@
         "PaymentPlanRows",
         "PaymentSection",
         "PhaseRows",
-        "PickMenu",
         "PostSaveStep",
         "PreviewConflictsResult",
         "PriceSourceChip",
@@ -5656,7 +5657,6 @@
         "AutosaveState",
         "BulkApplyForm",
         "CaptureBar",
-        "CheckinDeskPage",
         "ChipTrigger",
         "ConfirmForm",
         "CustomizePanel",
@@ -5668,7 +5668,6 @@
         "EditResult",
         "EmptyState",
         "EntourageOrderPanel",
-        "EventHostsPage",
         "FacetRow",
         "Field",
         "FilterPopover",
@@ -5742,7 +5741,6 @@
         "PairSelectedForm",
         "PartnerLine",
         "PickMenu",
-        "PillarPartPicker",
         "PlusBadge",
         "PlusOneChipEditor",
         "Popover",
@@ -5828,7 +5826,6 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
-        "DeskTitle",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",
@@ -6194,6 +6191,7 @@
         "PaidMark",
         "PickMenu",
         "PickOption",
+        "PreviewStageLink",
         "PrintChoicePicker",
         "PrintMenuEditor",
         "PrintPreview",
@@ -6218,6 +6216,7 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
+        "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "WebsiteEditorPage"
@@ -7978,6 +7977,7 @@
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/launch${search.then === 'apply' ?",
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/studio"
       ],
@@ -8084,7 +8084,6 @@
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
-        "/dashboard/[seg]/vendors?part=budget",
         "/explore?q=[seg]"
       ],
       "actions": [
@@ -8109,7 +8108,6 @@
         "BenchUnread",
         "BenchVendorActions",
         "BudgetBuildTab",
-        "BudgetPage",
         "BuildActionResult",
         "BuildCompare",
         "BuildFallbackResult",
@@ -8177,7 +8175,6 @@
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
-        "PillarPartPicker",
         "PlanBudgetAccordion",
         "PlansRowPick",
         "PoolIcon",
@@ -8399,6 +8396,7 @@
     },
     "/dashboard/[eventId]/website": {
       "files": [
+        "dashboard/[eventId]/website/_components/apply-pro-sheet.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-bar.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-button.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-dock.tsx",
@@ -8412,12 +8410,15 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ApplyProSheet",
         "DraftButton",
+        "HTMLDivElement",
         "HubDraftActionResult",
         "HubDraftToolbar",
         "InfoTip",
         "Link",
         "MakerSaveStatus",
+        "MiniTour",
         "PaidMark",
         "ResultLine"
       ]
@@ -8606,6 +8607,7 @@
         "PartPicker",
         "PartTab",
         "PartTextTab",
+        "PartWordsRow",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "PickListPlacement",
@@ -8779,6 +8781,7 @@
         "MiniTour",
         "MomentAnchor",
         "MomentSheet",
+        "PaidMark",
         "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",

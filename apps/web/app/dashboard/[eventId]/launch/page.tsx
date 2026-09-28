@@ -1009,10 +1009,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       const theme = {
         home: printEvent.slug ? `/${printEvent.slug}` : null,
         themes: pickableInviteThemes({ mayShowStdFilm }).map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
-        current: resolveInviteTheme({ saved: themeSaved, ownsPro: printPro, mayShowStdFilm }),
+        // 💎 On the web a drafted Pro theme is the one being edited even without
+        // Pro — it is tried here and held at Apply (owner 2026-09-28). The shell
+        // keeps the ownership half of the gate.
+        current: resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell, mayShowStdFilm }),
         ownsPro: printPro,
         storeShell,
-        proHref: `/dashboard/${eventId}/studio/website-pro`,
         // Never on the Maker's very first visit — its own welcome is showing.
         tour: !firstVisit,
       };

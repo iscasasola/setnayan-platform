@@ -1,6 +1,6 @@
 # Setnayan — Project Status
 
-> Living checkpoint. **Refreshed 2026-09-28** (the Event Hub redesign weekend, 26–28 Sep).
+> Living checkpoint. **Refreshed 2026-09-28; milestone updated 2026-09-29** (the Event Hub redesign weekend, 26–28 Sep).
 > Anchor doc — if you're opening this repo cold in a new Claude session, start here, then read
 > the newest handoff named at the top of `CLAUDE.md`.
 > **Snapshot, not a log.** Full per-PR detail lives in `CHANGELOG.md` + git history — this file is the current-state picture only.
@@ -22,8 +22,11 @@
 
 ## The Event Hub redesign — what shipped 26–28 Sep 2026
 
-**Next milestone: the Apple check, Thursday 1 Oct 2026, on a NEW account.** Owner, 2026-09-28:
-*"finish all the builds for the event hub. we will do apple check on thursday on a new account"*.
+**Next milestone (updated 2026-09-29): finish ALL the Event Hub, then the new event menu, THEN the Apple
+check.** Owner, 2026-09-29: *"Finish all Event Hub first then Apple Check · So Stage A,C,E · Then D ·
+Then B"* — this replaces the earlier Thursday-1-Oct date. Plan of record: corpus
+`EVENT_HUB_BUILD_PLAN_2026-09-28.md` "FINAL BUILD SEQUENCE"; in-flight builds are listed in corpus
+`WHATS_NEXT_HANDOFF_2026-09-29.md` §3. Re-measure what is live with `curl -sL https://setnayan.com/api/health`.
 
 **Live (each deployed through `deploy-prod.yml`, READY confirmed on Vercel):**
 - **The Maker edits for real:** tap an element → its own font (dropdown) · colour · size · Transition In / Animation During / Transition Out; one letter can take its own face (hero text); every scene listed, empty ones kept as "Empty · tap to fill"; a tap only selects (made-once scenes show "Open … editor"); resizable navigator and tools; compact bar collapses into one picker; Keynote/Pages-style toolbars; "+ Add a scene"; instant feel (canvas hold, soft-post saves); loading skeleton; the draft always fits.

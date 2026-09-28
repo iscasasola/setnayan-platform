@@ -166,7 +166,8 @@ export function PrintPieceBody({
       <PrintPreview
         src={q(k, 'screen')}
         alt={`${spec.label} — ${t.name}`}
-        label={spec.label.toLowerCase()}
+        /* "Drawing your invitation…" — the piece's name without its article. */
+        label={spec.label.replace(/^the\s+/i, '').toLowerCase()}
         priority={priority}
         tappable={tappable}
         /* …and a piece with its OWN size picker warms its other sizes, so a

@@ -386,7 +386,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           </Toggle>
         ) : null}
         <Toggle form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
-          <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} />
+          <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />
         </Toggle>
         {qrAlways}
         {save}

@@ -99,7 +99,8 @@ export function isStagePhase(value: unknown): value is LifecyclePhase {
  *     Date · Invitation · On the Day · Post Event · Details (DECISION_LOG
  *     "OPTION B …": *"the place menu is … — nothing else"*; the Stages / Pages
  *     headings went with the pages). Stages keep the live-today dot;
- *   · a viewer who is not the couple sees Details, saying why it is shut.
+ *   · a viewer Details is not for (a coordinator) sees it, saying why it is
+ *     shut — in the event type's own word for its host (`theHost`).
  *
  * Every key is a `MAKER_BAR` key, and `makerPlaceItem` hands back THAT item, so
  * a pick runs the same `onPress` the full row's button does — never a second
@@ -118,6 +119,9 @@ export function makerPlacePick(input: {
   /** The key of the page open in the Maker, or null when none is. */
   openTool: string | null;
   hasWork: boolean;
+  /** Who Details is for, in the event type's own words (`EventWords.theHost` —
+   *  "the couple", "the host", "the family"); never a typed noun here. */
+  theHost?: string;
 }): { value: string; options: MakerPlaceOption[] } {
   const open = MAKER_BAR.find((i) => i.kind === 'tool' && i.key === input.openTool) ?? null;
   return {
@@ -125,7 +129,7 @@ export function makerPlacePick(input: {
     options: MAKER_BAR.map((i) =>
       i.kind === 'stage'
         ? { key: i.key, label: i.label, ...(input.liveStage === i.key ? { dot: true } : {}) }
-        : { key: i.key, label: i.label, ...(input.hasWork ? {} : { disabledNote: 'only the couple can open this' }) },
+        : { key: i.key, label: i.label, ...(input.hasWork ? {} : { disabledNote: `only ${input.theHost ?? 'the host'} can open this` }) },
     ),
   };
 }

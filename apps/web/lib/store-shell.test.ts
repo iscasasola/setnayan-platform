@@ -384,7 +384,8 @@ test('wiring: the vendor 3D Booth card never mounts in the store shell', () => {
 });
 
 test('wiring: Mood Board "Make it real" (paid render credits) is not mounted in the store shell', () => {
-  const s = src('app/dashboard/[eventId]/studio/mood-board/page.tsx');
+  // The board moved into one component (Details part 3) — the page and the Maker's Details both draw it.
+  const s = src('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
   assert.equal((s.match(/<MakeItReal\b/g) ?? []).length, 1, 'one mount — every mount must be gated');
   assert.match(s, /\{storeShell \? null : \(\s*<MakeItReal\b/);
   assert.match(s, /\.\.\.\(storeShell \? \[\] : \[\{ href: '#make-it-real'/, 'the jump link would point at nothing');
@@ -554,7 +555,8 @@ test('wiring: the Mood Board back-link to the paid add-ons hub is withheld in th
   // a store-shell visitor (STORE_SHELL_HIDDEN_ADDON_KEYS), but a native
   // reviewer should never be one tap from a screen framed as "add-ons" —
   // so the link itself, not just the paid tiles behind it, withdraws.
-  const page = src('app/dashboard/[eventId]/studio/mood-board/page.tsx');
-  assert.match(page, /\{storeShell \? null : \(\s*<Link\s*\n\s*href=\{`\/dashboard\/\$\{eventId\}\/studio`\}/);
+  // The board is one component since Details part 3; inside the Maker the link is withheld too (no "Back to").
+  const page = src('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
+  assert.match(page, /\{storeShell \|\| inMaker \? null : \(\s*<Link\s*\n\s*href=\{`\/dashboard\/\$\{eventId\}\/studio`\}/);
   assert.match(page, /‹ Back to add-ons/, 'anchor moved — the link text this test is guarding');
 });

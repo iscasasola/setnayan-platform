@@ -91,8 +91,11 @@ export function MakerShell({
   hasWork,
   viewAs = {},
   viewAsFree = null,
+  theHost = 'the host',
   children,
 }: {
+  /** Who the Maker's work is for, in the event type's words (`EventWords.theHost`). */
+  theHost?: string;
   /** 👁 "View as a free couple" — internal (§10a) viewers only; null draws
    *  nothing. `on` is the server's reading of this request (`asViewed`). */
   viewAsFree?: { on: boolean } | null;
@@ -390,6 +393,7 @@ export function MakerShell({
               liveStage={liveStage}
               selection={selection}
               hasWork={hasWork}
+              theHost={theHost}
               onPress={pressBar}
             />
           </div>
@@ -584,12 +588,15 @@ export function MakerBar({
   liveStage,
   selection,
   hasWork,
+  theHost = 'the host',
   onPress,
 }: {
   stage: LifecyclePhase;
   liveStage: LifecyclePhase | null;
   selection: MakerSelection;
   hasWork: boolean;
+  /** Who Details is for, in the event type's words — "the couple", "the host". */
+  theHost?: string;
   onPress: (item: MakerBarItem) => void;
 }) {
   const groups: MakerBarItem[][] = [];
@@ -698,6 +705,7 @@ export function MakerBar({
     liveStage,
     openTool: selection?.kind === 'tool' ? selection.key : null,
     hasWork,
+    theHost,
   });
 
   if (compact) {
@@ -753,7 +761,7 @@ export function MakerBar({
                   key={item.key}
                   label={item.label}
                   itemKey={item.key}
-                  note="Only the couple can open this part of the Event Hub Maker."
+                  note={`Only ${theHost} can open this part of the Event Hub Maker.`}
                   align={gi === 0 ? 'start' : 'end'}
                   chip
                 >

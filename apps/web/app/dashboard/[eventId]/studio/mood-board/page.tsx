@@ -40,10 +40,8 @@ export default async function MoodBoardPage({ params }: Props) {
     .maybeSingle();
   if (error) logQueryError('MoodBoardPage.membership', error, { event_id: eventId }, 'graceful_degrade');
   const memberType = (membership as { member_type?: string | null } | null)?.member_type ?? null;
-  if (memberType === 'couple') {
-    const websiteOn = surfaceEnabled(await resolveProfileByEvent(eventId), 'website');
-    if (makerHasWork(memberType, websiteOn)) redirect(detailsItemHref(eventId, 'mood-board'));
-  }
+  const websiteOn = surfaceEnabled(await resolveProfileByEvent(eventId), 'website');
+  if (makerHasWork(memberType, websiteOn)) redirect(detailsItemHref(eventId, 'mood-board'));
 
   return <MoodBoardEditor eventId={eventId} />;
 }

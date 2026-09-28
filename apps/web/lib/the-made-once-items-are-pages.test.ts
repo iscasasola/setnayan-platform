@@ -25,6 +25,7 @@ import React from 'react';
 
 import { stripComments } from './strip-comments';
 import { MAKER_PAGE_KEYS, makerPageCanvasSrc, makerPageStage } from './maker-made-once-pages';
+import { movedPageItem } from './maker-details-items';
 
 /* tsx compiles the components to the CLASSIC runtime, so React must be global
    before they are imported (the set-up `hub-stage-renders.test.ts` documents). */
@@ -35,6 +36,9 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const L = 'app/dashboard/[eventId]/launch/_components';
 const SHELL = 'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx';
 
+/* 🎨 Details part 3 — the Look pages' Details side. */
+const LOOK_FILES = [`${L}/details-look-pages.tsx`, `${L}/details-go.tsx`, `${L}/details-workspace.tsx`];
+
 const POP_UP = [
   ['role="dialog"', /role=["']dialog["']/],
   ['aria-modal', /aria-modal/],
@@ -43,10 +47,17 @@ const POP_UP = [
   ['a fixed full-screen layer', /\bfixed inset-0\b/],
 ] as const;
 
-test('the five are the bar’s made-once group, and the pure rule draws each where it should', async () => {
+test('Details is the bar’s one made-once item; Logo, Hero and Reveal are items of it; the pure rule draws each where it should', async () => {
+  // 🗂 OPTION B (owner 2026-09-28; DECISION_LOG "OPTION B — EVERYTHING MADE ONCE
+  // LIVES IN DETAILS; THE TOP MENU IS THE FOUR STAGES + DETAILS"): the bar's
+  // made-once group is Details alone, and the pages moved into it.
   const { MAKER_BAR } = await import(`../${L}/maker-bar`);
   const madeOnce = (MAKER_BAR as Array<{ key: string; group: string }>).filter((i) => i.group === 'made-once').map((i) => i.key);
-  assert.deepEqual([...MAKER_PAGE_KEYS].sort(), [...madeOnce].sort(), 'every made-once bar item is a page');
+  assert.deepEqual(madeOnce, ['details'], 'the bar holds a made-once page besides Details again');
+  for (const key of ['logo', 'hero', 'reveal'] as const) {
+    assert.ok(MAKER_PAGE_KEYS.includes(key), `${key} is no longer a made-once page`);
+    assert.equal(movedPageItem(key), key, `${key} does not land on its Details item`);
+  }
 
   // Hero: the Invitation or On the Day as edited; else the Invitation.
   assert.equal(makerPageStage('hero', 'save_the_date'), 'rsvp');
@@ -90,6 +101,7 @@ test('no made-once file mounts a dialog, a sheet or a portal', () => {
     `${L}/maker-made-once.tsx`,
     `${L}/maker-details.tsx`,
     `${L}/maker-rsvp-ask.tsx`,
+    ...LOOK_FILES,
   ];
   for (const rel of FILES) {
     const src = read(rel);
@@ -170,34 +182,28 @@ function assertIsAPage(html: string, key: string) {
   assert.doesNotMatch(html, /aria-label="Scenes"/, `${key}: the page replaces the stage’s navigator`);
 }
 
-test('Hero · Reveal · Logo · Love Story each render as a page in the body, with their controls beside it', async () => {
-  const hero = await paintWork({ kind: 'tool', key: 'hero' });
-  assertIsAPage(hero, 'hero');
-  assert.match(hero, /data-maker-page-frame=""[^>]*src="\/ana-ben\?phase=rsvp&amp;editor=1&amp;only=hero"|src="\/ana-ben\?phase=rsvp&amp;editor=1&amp;only=hero"[^>]*data-maker-page-frame/, 'the hero page is the guest page, the hero alone');
-  assert.match(hero, /data-maker-page-controls=""[\s\S]*data-stub="hero-controls"/, 'the hero controls sit beside it');
-
-  const reveal = await paintWork({ kind: 'tool', key: 'reveal' }, { revealStages: ['rsvp', 'event'] });
-  assertIsAPage(reveal, 'reveal');
-  assert.match(reveal, /src="\/ana-ben\?phase=rsvp&amp;preview=draft"/, 'the reveal plays on the first chosen stage — in the stage preview, which plays the opening');
-  assert.match(reveal, /data-maker-page-switch=""/, 'with two chosen stages the page offers both');
-  assert.match(reveal, /data-maker-page-controls=""[\s\S]*data-stub="reveal-controls"/);
-
-  const logo = await paintWork({ kind: 'tool', key: 'logo' });
-  assertIsAPage(logo, 'logo');
-  assert.match(logo, /data-maker-page-body=""[\s\S]*data-stub="logo-studio"/, 'the studio IS the body');
-  assert.doesNotMatch(logo, /data-maker-page-controls=""/, 'the studio lays its own panel beside its canvas');
-
+test('Love Story renders as a page in the body, with its controls beside it — Hero · Reveal · Logo no longer do', async () => {
   const story = await paintWork({ kind: 'tool', key: 'love-story' });
   assertIsAPage(story, 'love-story');
   assert.match(story, /data-maker-page-body=""[\s\S]*data-stub="love-story-book"/, 'Our Love Story is the body');
   assert.match(story, /data-maker-page-controls=""[\s\S]*data-stub="story-words"/, 'the story words sit beside it');
+
+  // 🎨 Details part 3: the work area draws no page of its own for these three
+  // — they are items of Details (`details-look-pages.tsx`), and the shell
+  // turns a selection of one into Details (`movedSelection`) before it
+  // reaches here. Their stubs are not drawn in the work area at all.
+  for (const key of ['hero', 'reveal', 'logo'] as const) {
+    const html = await paintWork({ kind: 'tool', key });
+    assert.doesNotMatch(html, /data-maker-page="/, `${key}: the work area still draws a page for it`);
+    assert.doesNotMatch(html, new RegExp(`data-stub="${key === 'logo' ? 'logo-studio' : `${key}-controls`}"`), `${key}: drawn in the work area`);
+  }
 });
 
-test('no navigator renders while any of the five is picked — it belongs to the four stages', async () => {
+test('no navigator renders while a page is picked — it belongs to the four stages', async () => {
   // Owner 2026-09-25: "logo and hero and reveal and love story has no navigation
-  // since it is just full create your logo". Details is drawn by the shell over
-  // this area, and the navigator is not mounted under it either.
-  for (const key of MAKER_PAGE_KEYS) {
+  // since it is just full create your logo". Details and RSVP are drawn by the
+  // shell over this area, and the navigator is not mounted under them either.
+  for (const key of ['details', 'rsvp-page', 'love-story'] as const) {
     const html = await paintWork({ kind: 'tool', key });
     assert.doesNotMatch(html, /aria-label="Scenes"/, `${key}: the scene navigator rendered`);
     /* 🔥 2026-09-28 (owner: *"load everything so it runs smoothly"*): the stage

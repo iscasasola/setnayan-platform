@@ -1260,6 +1260,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
+      /* Who Details is for, in the event type's own words (a coordinator is told
+         why it is shut) — `EventWords`, never a typed "couple". */
+      theHost={eventWordsFromProfile(await resolveProfileByEvent(eventId)).theHost}
     >
       {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, once the day
           has happened. Never on the Maker's very first visit: the Maker's own

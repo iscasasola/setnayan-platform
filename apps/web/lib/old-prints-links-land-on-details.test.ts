@@ -34,10 +34,12 @@ test('every piece Prints & Tickets drew is an item of Details — none lost', ()
   assert.equal(DETAILS_ITEM_KEYS[0], 'theme');
 });
 
-test('?tool=prints is Details now; every other tool is untouched', () => {
+test('?tool=prints is Details now; a tool that did not move is untouched', () => {
   assert.equal(makerToolFor('prints'), 'details');
   assert.equal(makerToolFor('details'), 'details');
-  assert.equal(makerToolFor('logo'), 'logo');
+  // Logo moved into Details (part 3, "OPTION B") — `the-look-moves-into-details.test.ts` holds the rest.
+  assert.equal(makerToolFor('logo'), 'details');
+  assert.equal(makerToolFor('post-event'), 'post-event');
   assert.equal(makerToolFor(null), null);
 });
 

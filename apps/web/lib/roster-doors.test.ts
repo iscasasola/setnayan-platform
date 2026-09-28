@@ -20,7 +20,7 @@ const keys = (d: ReturnType<typeof doors>) => ({
 });
 
 test('before a wedding: Roster · Wedding March · Share the link, and Arrange the room', () => {
-  assert.deepEqual(keys(doors()), { tabs: ['roster', 'walk', 'share'], trailing: ['arrange', 'qr-pdf'] });
+  assert.deepEqual(keys(doors()), { tabs: ['roster', 'walk', 'share'], trailing: ['arrange'] });
 });
 
 test('no processional, no Wedding March — a birthday walks down no aisle', () => {
@@ -31,8 +31,8 @@ test('after the event: inviting and arranging stop; Check-in and the quick Share
   // Inviting people to a celebration that already happened is "the one door
   // that stops making sense" (the page's own note). The quick copy survives,
   // because the link still lets guests into the event page afterwards.
-  assert.deepEqual(keys(doors({ finished: true })), { tabs: ['roster'], trailing: ['checkin', 'share-menu', 'qr-pdf'] });
-  assert.deepEqual(keys(doors({ finished: true, hasJoinLink: false })).trailing, ['checkin', 'qr-pdf']);
+  assert.deepEqual(keys(doors({ finished: true })), { tabs: ['roster'], trailing: ['checkin', 'share-menu'] });
+  assert.deepEqual(keys(doors({ finished: true, hasJoinLink: false })).trailing, ['checkin']);
 });
 
 test('before the event there is ONE share door, not two', () => {
@@ -92,38 +92,18 @@ test('the page MOUNTS the row, and feeds it the real conditions', () => {
   assert.ok(!/actions=\{/.test(masthead), 'the masthead still carries actions — the doors are now on screen twice');
 });
 
-test('the free QR PDF is on the Guest list before and after the day, and it is a file', () => {
-  // Owner 2026-09-25: "the free version is the PDF of QRs" → "found on Guestlist".
+test('the QR sheet is NOT on the Guest list — its home is Details › For the day', () => {
+  // Owner 2026-09-29 (DECISION_LOG "THE GUEST LIST KEEPS PEOPLE…"): the Guest list
+  // keeps people; every print lives in the Maker's Details. "Share the link" stays.
   for (const d of [doors(), doors({ finished: true }), doors({ hasProcessional: false, hasJoinLink: false })]) {
-    const qr = d.trailing.find((x) => x.key === 'qr-pdf');
-    assert.ok(qr && qr.kind === 'download', 'the QR PDF door is missing');
-    assert.equal(qr.href, '/api/hub-print/qr-codes?event=E');
-    assert.equal(qr.label, 'Download QR codes (PDF)');
+    assert.ok(![...d.tabs, ...d.trailing].some((x) => /qr/i.test(x.key)), 'the QR sheet came back to the Guest list');
   }
-  // …and the tab row renders it as a DOWNLOAD, not a navigation — through
-  // SaveFileLink (2026-09-25), not a bare `<a download>` (which iOS Safari /
-  // the Capacitor shell can ignore and open as a page instead of saving —
-  // owner report, same date) and never a `<Link>` (which would try to ROUTE
-  // to a PDF, the original defect this guard existed to catch).
+  assert.ok(doors().tabs.some((x) => x.key === 'share'), '"Share the link" left the Guest list');
   const tabs = stripComments(
     readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'guests', '_components', 'roster-tabs.tsx'), 'utf8'),
   );
-  // The door mounts GuestQrPdfLink — the client wrapper that holds
-  // SaveFileLink's render-function child (a server component cannot pass a
-  // function across; that crashed the whole guest list, 2026-09-27).
-  assert.match(tabs, /d\.kind === 'download'[\s\S]{0,700}<GuestQrPdfLink\b/);
-  const links = stripComments(
-    readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-save-links.tsx'), 'utf8'),
-  );
-  assert.match(links, /export function GuestQrPdfLink[\s\S]{0,400}<SaveFileLink\b[\s\S]{0,200}\bfilename\b/);
-  // Bounded window, not an open-ended slice: the `Tab` helper further down
-  // this same file legitimately renders a `<Link>` for an unrelated door, and
-  // an unbounded scan from here to end-of-file would trip on that one.
-  const downloadAt = tabs.indexOf("d.kind === 'download'");
-  const downloadBlock = tabs.slice(downloadAt, downloadAt + 700);
-  assert.doesNotMatch(
-    downloadBlock,
-    /<Link\b/,
-    'the QR PDF door became a Next <Link> again — that tries to ROUTE to a PDF',
-  );
+  assert.doesNotMatch(tabs, /GuestQrPdfLink|hub-print\/qr-codes/);
+  // …and it is still reachable, free, from its one home.
+  const free = stripComments(readFileSync(join(__dirname, 'free-prints.ts'), 'utf8'));
+  assert.match(free, /key: 'qr-codes'/);
 });

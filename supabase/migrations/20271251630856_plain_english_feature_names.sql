@@ -2,9 +2,11 @@
 --
 -- Owner, 2026-09-29: "Change pakanta to Music Maker." · "Only Papic is
 -- customized and all other namings should be generic" · "Samahan - Group" ·
--- "Ala ala - Memories" · Alaga → "Loved ones". Papic and Patiktok keep their
--- names. (DECISION_LOG rows "PAKANTA IS RENAMED 'MUSIC MAKER'", "ONLY PAPIC
--- KEEPS A CUSTOM NAME", "PATIKTOK KEEPS ITS NAME (WITH PAPIC); ALAGA → LOVED ONES".)
+-- "Ala ala - Memories" · Alaga → "Loved ones" · Panood → "Watch Live" · Kwento →
+-- "Photo Notes". Papic and Patiktok keep their names. (DECISION_LOG rows
+-- "PAKANTA IS RENAMED 'MUSIC MAKER'", "ONLY PAPIC KEEPS A CUSTOM NAME",
+-- "PATIKTOK KEEPS ITS NAME (WITH PAPIC); ALAGA → LOVED ONES",
+-- "OWNER ANSWERS — NINE PENDING DECISIONS".)
 --
 -- DATA ONLY. This rewrites DISPLAY COPY that lives in the database — catalogue
 -- titles/descriptions, taxonomy display names, admin nav/search labels, dock
@@ -54,6 +56,7 @@ BEGIN
     );
 
     expr := format($f$
+      regexp_replace(regexp_replace(
       regexp_replace(regexp_replace(regexp_replace(regexp_replace(
       regexp_replace(regexp_replace(regexp_replace(%1$I,
         '(?<![A-Za-z0-9_/.-])[Pp]akanta(?![A-Za-z0-9_/-])',          'Music Maker', 'g'),
@@ -62,7 +65,11 @@ BEGIN
         '(?<![A-Za-z0-9_/.-])Ala[- ]?[Aa]la(?![A-Za-z0-9_/-])',      'Memories',    'g'),
         '(?<![A-Za-z0-9_/.-])ala[- ]?ala(?![A-Za-z0-9_/-])',         'memories',    'g'),
         '(?<![A-Za-z0-9_/.-])Alaga(?![A-Za-z0-9_/-])',               'Loved ones',  'g'),
-        '(?<![A-Za-z0-9_/.-])alaga(?![A-Za-z0-9_/-])',               'loved ones',  'g')
+        '(?<![A-Za-z0-9_/.-])alaga(?![A-Za-z0-9_/-])',               'loved ones',  'g'),
+        '(?<![A-Za-z0-9_/.-])Panood(?![A-Za-z0-9_/-])',              'Watch Live',  'g'),
+        -- "ang/inyong/aming kwento" is Tagalog for "the/your/our story" — a word,
+        -- not the feature; every such determiner ends in "ng ".
+        '(?<![A-Za-z0-9_/.-])(?<!ng )Kwento(?![A-Za-z0-9_/-])',      'Photo Notes', 'g')
     $f$, target.col);
 
     EXECUTE format(

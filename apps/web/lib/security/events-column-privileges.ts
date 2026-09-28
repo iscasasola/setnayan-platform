@@ -123,7 +123,7 @@ export const CRITICAL_LOCKED: ReadonlyArray<{ column: string; exploit: string }>
   {
     column: 'kwento_free_grandfathered',
     exploit:
-      'lib/kwento-access.ts returns true and skips the eventSkuActive(KWENTO) check entirely — one boolean grants the paid SKU free',
+      'lib/kwento-access.ts returns true and skips the eventSkuActive() check entirely — one boolean grants the paid Photo Notes SKU free',
   },
   {
     column: 'setnayan_ai_active_until',

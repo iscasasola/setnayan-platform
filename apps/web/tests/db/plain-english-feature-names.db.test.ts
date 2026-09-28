@@ -3,7 +3,8 @@
  * CHANGED.
  *
  * Owner, 2026-09-29: Pakanta → "Music Maker" · Samahan → "Group" · Alaala →
- * "Memories" · Alaga → "Loved ones". Papic and Patiktok keep their names.
+ * "Memories" · Alaga → "Loved ones" · Panood → "Watch Live" · Kwento → "Photo
+ * Notes". Papic and Patiktok keep their names.
  * Migration `20271251630856_plain_english_feature_names.sql` rewrites the
  * catalogue/taxonomy/nav labels a person reads; this proves three things about
  * it against the real replayed schema:
@@ -49,6 +50,34 @@ test('the Pakanta SKU keeps its code and is titled "Music Maker"', async () => {
   assert.equal(r.rows[0]!.title, 'Music Maker');
 });
 
+test('the Panood taxonomy leaf keeps its key and reads "Watch Live"', async () => {
+  const t = await db.query<{ display_name_en: string }>(
+    `SELECT display_name_en FROM public.canonical_service_schemas WHERE canonical_service = 'setnayan_panood'`,
+  );
+  assert.equal(t.rows.length, 1, 'setnayan_panood must still exist under its key');
+  assert.match(t.rows[0]!.display_name_en, /Watch Live/);
+});
+
+test('the Tagalog noun "kwento" is left alone', async () => {
+  const sql = readFileSync(resolve(MIGRATIONS, FILE!), 'utf8');
+  const original = await db.query<{ description: string | null }>(
+    `SELECT description FROM public.platform_retail_catalog_v2 WHERE service_code = 'PAKANTA'`,
+  );
+  await db.query(
+    `UPDATE public.platform_retail_catalog_v2 SET description = 'Ibahagi ang inyong Kwento. Kwento on every photo.' WHERE service_code = 'PAKANTA'`,
+  );
+  await db.exec(sql);
+  const d = await db.query<{ description: string }>(
+    `SELECT description FROM public.platform_retail_catalog_v2 WHERE service_code = 'PAKANTA'`,
+  );
+  assert.equal(d.rows[0]!.description, 'Ibahagi ang inyong Kwento. Photo Notes on every photo.');
+  // Put the real row back so the whole-catalogue check reads real data.
+  await db.query(
+    `UPDATE public.platform_retail_catalog_v2 SET description = $1 WHERE service_code = 'PAKANTA'`,
+    [original.rows[0]!.description],
+  );
+});
+
 test('the taxonomy leaf keeps its key and reads "Music Maker"', async () => {
   const r = await db.query<{ display_name_en: string }>(
     `SELECT display_name_en FROM public.canonical_service_schemas WHERE canonical_service = 'setnayan_pakanta'`,
@@ -73,7 +102,7 @@ test('no catalogue display column says a retired name', async () => {
   ];
   for (const [t, c] of cols) {
     const r = await db.query<{ v: string }>(
-      `SELECT ${c} AS v FROM public.${t} WHERE ${c} ~ '(^|[^A-Za-z0-9_/.-])(Pakanta|Samahan|Alaala|Ala[- ][Aa]la|Alaga)([^A-Za-z0-9_/-]|$)'`,
+      `SELECT ${c} AS v FROM public.${t} WHERE ${c} ~ '(^|[^A-Za-z0-9_/.-])(Pakanta|Samahan|Alaala|Ala[- ][Aa]la|Alaga|Panood|Kwento)([^A-Za-z0-9_/-]|$)'`,
     );
     assert.deepEqual(r.rows.map((x) => x.v), [], `${t}.${c} still shows a retired name`);
   }

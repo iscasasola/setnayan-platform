@@ -280,7 +280,7 @@ export async function buildKwentoMagazine(input: MagazineInput): Promise<Uint8Ar
       font: fonts.sans,
       color: SOFT,
     });
-    const brand = 'SETNAYAN · PAPIC · KWENTO';
+    const brand = 'SETNAYAN · PAPIC · PHOTO NOTES';
     page.drawText(brand, {
       x: PAGE_W - MARGIN - fonts.sans.widthOfTextAtSize(brand, 6.5),
       y: 18,

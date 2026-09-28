@@ -237,7 +237,7 @@ export async function createPanoodBroadcast(
     .neq('status', 'complete');
   if (closeErr?.code === UNDEFINED_TABLE) {
     throw new Error(
-      'Panood broadcasts are not set up yet — the database migration is still pending. Please try again shortly.',
+      'Watch Live broadcasts are not set up yet — the database migration is still pending. Please try again shortly.',
     );
   }
 
@@ -262,11 +262,11 @@ export async function createPanoodBroadcast(
 
   if (error?.code === UNDEFINED_TABLE) {
     throw new Error(
-      'Panood broadcasts are not set up yet — the database migration is still pending. Please try again shortly.',
+      'Watch Live broadcasts are not set up yet — the database migration is still pending. Please try again shortly.',
     );
   }
   if (error || !data) {
-    throw new Error(error?.message ?? 'Could not save the Panood broadcast.');
+    throw new Error(error?.message ?? 'Could not save the Watch Live broadcast.');
   }
   return data as PanoodBroadcast;
 }

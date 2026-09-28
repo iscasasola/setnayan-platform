@@ -176,7 +176,7 @@ export const RETAIL: RetailRow[] = [
   // second hand-typed copy of that catalog which CI reads instead of the
   // database. Kept listed, inactive, so the change is legible here rather than
   // looking like an accidental deletion — same convention as the rows below.
-  { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: false },
+  { service_code: 'KWENTO', title: 'Photo Notes', retail_price_php: 299, is_active: false },
   { service_code: 'PAPIC_ONE_100', title: '(retired — see service_code)', retail_price_php: 100, is_active: false },
   { service_code: 'PAPIC_CAMERA_MINI_DAY', title: '(retired — see service_code)', retail_price_php: 50, is_active: false },
   // CUSTOM_QR_GUEST is OFF SALE since 2026-09-28: the "Custom QR per guest"

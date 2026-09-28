@@ -59,7 +59,7 @@ const KEPT: Array<{ mock: FeatureMockKind; eyebrow: string; title: string; line:
     eyebrow: 'The stories',
     title: 'The night, told back to you.',
     line: 'The little moments you never saw — your guests leave them for you, in their own words, beside the photo it happened in.',
-    via: 'Kwento',
+    via: 'Photo Notes',
   },
   {
     mock: 'keepsake',

@@ -62,7 +62,7 @@ const ARC: ReadonlyArray<Stage> = [
     eyebrow: 'The stories',
     title: 'The night, told back to you',
     line: 'The small moments you never saw — your guests leave them for you, in their own words, beside the photo it happened in.',
-    chips: [{ key: 'papic', label: 'Kwento', note: 'free with Papic' }],
+    chips: [{ key: 'papic', label: 'Photo Notes', note: 'free with Papic' }],
   },
   {
     eyebrow: 'The look & the sound',

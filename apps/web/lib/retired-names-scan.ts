@@ -5,7 +5,8 @@
  * ── THE RULE (owner, 2026-09-29) ────────────────────────────────────────────
  * *"Only Papic is customized and all other namings should be generic."*
  * Pakanta → **Music Maker** · Samahan → **Group** · Alaala → **Memories** ·
- * Alaga → **Loved ones**. Papic and Patiktok keep their names.
+ * Alaga → **Loved ones** · Panood → **Watch Live** · Kwento → **Photo Notes**.
+ * Papic and Patiktok keep their names.
  * The rename is of WORDS ON A SCREEN. Identifiers are deliberately NOT renamed:
  * `/studio/pakanta`, `pakanta_song_r2_key`, `samahan_stories`, the `PAKANTA`
  * SKU code and `lib/alaala-wall.ts` all stay, so old links keep working and
@@ -30,13 +31,16 @@
  *                                        word itself (`'Pakanta'`, `'Samahans'`)
  *                                        — that is a label. ALL-CAPS
  *                                        (`'PAKANTA'`) is the SKU code, kept.
- *   · an argument to `console.*`       → a server log line; skipped.
+ *   · an argument to `console.*` or a  → a server log line; skipped.
+ *     `logXxx(…)` helper
+ *   · a row's `common` context         → the ordinary word ("ang kwento" is
+ *                                        Tagalog for "the story"); skipped.
  *
  * A lowercase bare literal (`'pakanta'`, `'samahan'`) is a key by construction
  * and is allowed. A capitalised one is a label and is not.
  *
  * ── ADDING A NAME LATER IS ONE LINE ─────────────────────────────────────────
- * Panood is pending the owner's choice of plain-English name. When he picks one, add a row to `RETIRED_NAMES` and fix what the guard
+ * When the owner retires another name, add a row to `RETIRED_NAMES` and fix what the guard
  * then prints — nothing else in this file changes.
  */
 import ts from 'typescript';
@@ -48,6 +52,13 @@ export interface RetiredName {
   readonly now: string;
   /** Regex SOURCE for the word, case-insensitive; an optional plural `s` is added. */
   readonly pattern: string;
+  /**
+   * Regex SOURCE (case-insensitive) matched against the text AROUND a hit that
+   * marks the word as an ordinary word, not the feature. "kwento" is plain
+   * Tagalog for "story" — *"Ibahagi ang inyong kwento"* is a sentence, not a
+   * product name, and must stay.
+   */
+  readonly common?: string;
 }
 
 export const RETIRED_NAMES: readonly RetiredName[] = [
@@ -58,8 +69,16 @@ export const RETIRED_NAMES: readonly RetiredName[] = [
   { was: 'Alaga', now: 'Loved ones', pattern: 'alaga' },
   // Papic and Patiktok KEEP their names (DECISION_LOG 2026-09-29 "PATIKTOK
   // KEEPS ITS NAME") — never add them here.
-  // PENDING the owner — one line when named:
-  // { was: 'Panood', now: '…', pattern: 'panood' },
+  // Panood → Watch Live (owner 2026-09-29 "NINE PENDING DECISIONS" #6).
+  { was: 'Panood', now: 'Watch Live', pattern: 'panood' },
+  // Kwento → Photo Notes (owner 2026-09-29 "NINE PENDING DECISIONS" #9). The
+  // Tagalog noun ("ang kwento", "inyong kwento") is a word, not the feature.
+  {
+    was: 'Kwento',
+    now: 'Photo Notes',
+    pattern: 'kwento',
+    common: '\\b(?:ang|inyong|iyong|aming|ating|kanilang|kanyang|mong|ng)\\s+$',
+  },
 ];
 
 export interface RetiredNameFinding {
@@ -116,6 +135,7 @@ export function scanRetiredNames(
     for (const name of names) {
       for (const m of text.matchAll(wordRe(name))) {
         if (!isVisibleHit(text, m.index!, m[0].length, jsx)) continue;
+        if (name.common && new RegExp(name.common, 'i').test(text.slice(0, m.index!))) continue;
         out.push({
           was: name.was,
           now: name.now,
@@ -127,12 +147,13 @@ export function scanRetiredNames(
   };
 
   const visit = (node: ts.Node) => {
-    // `console.*(…)` text goes to a server log, never to a screen.
+    // `console.*(…)` and `logXxx(…)` text goes to a server log, never to a screen.
     if (
       ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      ts.isIdentifier(node.expression.expression) &&
-      node.expression.expression.text === 'console'
+      ((ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression) &&
+        node.expression.expression.text === 'console') ||
+        (ts.isIdentifier(node.expression) && /^log[A-Z]/.test(node.expression.text)))
     ) {
       return;
     }

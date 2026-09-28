@@ -1,8 +1,11 @@
-## 2026-09-29 · feat(copy): plain-English feature names — Music Maker · Groups · Memories · Loved ones
+## 2026-09-29 · feat(copy): plain-English feature names — Music Maker · Groups · Memories · Loved ones · Watch Live · Photo Notes
 
 Owner, verbatim: *"Change pakanta to Music Maker."* · *"Only Papic is customized and all other
 namings should be generic"* · *"Samahan - Group"* · *"Ala ala - Memories"* · Alaga → *"Loved ones"*.
-Papic and Patiktok keep their names; Panood is pending the owner.
+Then (DECISION_LOG "OWNER ANSWERS — NINE PENDING DECISIONS"): Panood → *"Watch Live"*, Kwento →
+*"Photo Notes"*. Papic and Patiktok keep their names. The Tagalog noun "kwento" ("ang inyong kwento")
+is a word, not the feature, and stays. Kwento in `story-spine.tsx` / `editorial-editor.tsx` is left to
+the in-flight Post Event build (#6106 / #6110), recorded as a narrow `IN_FLIGHT` row in the guard.
 
 - **Every word a person reads** changed: menus, rails, page titles and headings, SEO/OG metadata,
   the /pakanta · /samahan · /alaala landing pages, tours, help, notifications, the Maya checkout
@@ -19,10 +22,11 @@ Papic and Patiktok keep their names; Panood is pending the owner.
 - **Guard** `lib/retired-names-stay-off-screen.test.ts` + `lib/retired-names-scan.ts`: an AST scan of
   every .ts/.tsx under app/ lib/ components/ that flags a retired name in JSX text, prose literals
   and bare Title-case labels, while allowing routes, keys, columns, SKU codes, imports and
-  `console.*`. Retiring Panood later is one row in `RETIRED_NAMES`. DB test
+  `console.*` / `logXxx(…)`. Retiring another name is one row in `RETIRED_NAMES`. DB test
   `tests/db/plain-english-feature-names.db.test.ts`.
 
 SPEC IMPACT: brand/feature rename. Corpus edited directly — rename banners on
 `0036_pakanta/0036_pakanta.md` (+ `.docx` regenerated), `03_Strategy/Alaala_Pillar_2026-06-15.md`,
-`Samahan_Minimal_Build_Plan_2026-07-15.md`; the 0036 row in the corpus `CLAUDE.md` names Music Maker.
+`Samahan_Minimal_Build_Plan_2026-07-15.md`, `0011_panood/0011_panood.md` (+ `.docx`),
+`02_Specifications/09_Panood_Feature_Specification.md`, `02_Specifications/Kwento_Monumental_Upgrade_2026-06-18.md`; the 0036 row in the corpus `CLAUDE.md` names Music Maker.
 Dated historical docs are left as history. DECISION_LOG rows were recorded by the controller.

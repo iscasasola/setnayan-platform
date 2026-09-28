@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
+import { MoodPart, MoodPartNote } from './mood-board-parts';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import {
@@ -172,7 +174,13 @@ function toRegions(raw: RangeRow[] | RangeRow | null | undefined): ColorRangeSlo
     }));
 }
 
-export async function MoodBoardEditor({ eventId, inMaker = false }: { eventId: string; inMaker?: boolean }) {
+/**
+ * Every read the board makes, and every part of it as a node — ONE build per
+ * request (`cache`), drawn either as the page (`MoodBoardEditor`) or as the
+ * Maker's three parts (`MoodBoardMakerBody` in the middle, `MoodBoardMakerControls`
+ * on the right, `mood-board-parts.tsx` in the navigator).
+ */
+const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   const supabase = await createClient();
 
   // ⚠ NO `moodboard_theme_templates` READ HERE — ON PURPOSE (2026-09-03).
@@ -334,13 +342,7 @@ export async function MoodBoardEditor({ eventId, inMaker = false }: { eventId: s
   if (!event) {
     /* Inside the Maker a refused read is SAID, never a 404 that takes the
        whole Maker down with it. */
-    if (inMaker) {
-      return (
-        <p role="alert" className="px-1 py-6 text-sm text-terracotta-700" data-mood-board-unread="">
-          Your Mood Board could not be loaded just now. Nothing was changed — please reopen this in a moment.
-        </p>
-      );
-    }
+    if (inMaker) return { ok: false as const };
     notFound();
   }
 
@@ -844,21 +846,221 @@ export async function MoodBoardEditor({ eventId, inMaker = false }: { eventId: s
     { href: '#share', label: 'Share & export' },
   ];
 
+  /* ── THE BOARD'S PARTS, each a node — the page stacks them; the Maker splits
+     them into its three columns. The same components, reads and actions. ── */
+  const provider = {
+    eventId,
+    initial: initialPalette,
+    finalizations: finalizationRecords,
+    saveAction: saveRolePalette,
+  };
+  const lastSaved = event.mood_board_updated_at ? (
+    <p className="text-xs text-ink/55">Last saved {new Date(event.mood_board_updated_at).toLocaleString()}</p>
+  ) : null;
+  /* Overall Theme — the card that opens the canvas — and the theme gallery
+     under it. The wrapper is a client boundary so a feeling+setting READ OUT OF
+     THE COUPLE'S OWN DESCRIPTION can travel from the card to the gallery. No
+     `templates` prop — the gallery asks for its own rows, ~6 at a time (see the
+     comment on the Promise.all above). */
+  const theme = (
+    <ThemeStudio
+      eventId={eventId}
+      initialName={(event as { moodboard_theme_name?: string | null }).moodboard_theme_name ?? null}
+      initialDescription={(event as { moodboard_theme_description?: string | null }).moodboard_theme_description ?? null}
+      palette={palette}
+      receptionDesign={receptionDesign}
+      saveThemeAction={saveMoodboardTheme}
+      readAction={readMoodboardThemeDescription}
+      applyIntentAction={applyThemeIntent}
+      fetchTemplatesAction={fetchThemeTemplates}
+      applyTemplateAction={applyMoodboardTemplate}
+    />
+  );
+  const inspiration = (
+    <section id="inspiration" className="scroll-mt-24 space-y-4">
+      <header className="space-y-1">
+        <InfoTip label="Your inspirations" labelAs="h2" labelClassName="text-2xl font-semibold text-ink" ariaLabel="About inspiration">
+          Upload up to 3 photos per category — drag one onto another slot to reorder. We pull a matching palette
+          colour from each upload automatically, and these references will make your photo-real render match your
+          taste, not a generic wedding.
+        </InfoTip>
+        <p className="max-w-prose text-sm text-ink/65">Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.</p>
+      </header>
+      <InspirationBoard
+        eventId={eventId}
+        initial={inspirations}
+        gallerySlots={GALLERY_SLOT_KEYS}
+        fetchGalleryAction={fetchGalleryAssets}
+        applyGalleryAction={applyGalleryPick}
+        fetchRenderPoolAction={fetchRenderPool}
+        applyRenderPickAction={applyRenderPick}
+      />
+    </section>
+  );
+  const paletteSection = (
+    <section id="palette" className="scroll-mt-24 space-y-4">
+      <header>
+        <h2 className="text-2xl font-semibold text-ink">Palette</h2>
+        <p className="text-sm text-ink/65">Derived live from your main colours above — change a role to make it yours.</p>
+      </header>
+      <PaletteSection visibleKeys={Array.from(visibleKeys)} venueLabel={venueLabel} />
+    </section>
+  );
+  /* MB12 — sign-off, per attire role. The palette is what the couple DESIGNS;
+     this is what they AGREE with a supplier. A part that has been agreed stops
+     following the main colours, which is why the two are shown together. */
+  const peopleAgreed = (
+    <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
+      <header className="space-y-0.5">
+        <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
+        <p className="max-w-prose text-xs text-ink/60">
+          Ask the supplier who will make it to sign off on a look. Once they agree, that part stops changing when you
+          edit your main colours — and it takes both of you to re-open it.
+        </p>
+      </header>
+      <PartFinalizationPanel
+        parts={peopleFinalizationParts}
+        records={finalizationRecords}
+        requestAction={requestPartFinalization.bind(null, eventId)}
+        cancelAction={cancelPartFinalization.bind(null, eventId)}
+        reopenAction={requestPartReopen.bind(null, eventId)}
+        cancelReopenAction={cancelPartReopen.bind(null, eventId)}
+        emptyHint="Add your entourage to the guest list and their looks will appear here."
+      />
+    </div>
+  );
+  const reception = (
+    <section id="reception" className="scroll-mt-24 space-y-4">
+      <header>
+        <h2 className="text-2xl font-semibold text-ink">Your reception design</h2>
+        <p className="text-sm text-ink/65">
+          Ceiling, backdrop, stage, tables, walls, and more — designed together with your Seat Plan now, since
+          it&rsquo;s really the same room.
+        </p>
+      </header>
+      <div className="rounded-xl border border-ink/10 bg-white p-4">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink/75">
+          {receptionSummary.map((p) => (
+            <span key={p.id}>
+              <span className="font-medium text-ink">{p.label}:</span>{' '}
+              {p.value || <span className="text-ink/45">Not set</span>}
+            </span>
+          ))}
+        </div>
+        {/* No link out of the Maker (owner rule: the field sits where you are). */}
+        {inMaker ? (
+          <p className="mt-3 text-sm text-ink/65">You design the room in your Seat plan.</p>
+        ) : (
+          <Link
+            href={`/dashboard/${eventId}/seating/lab`}
+            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
+          >
+            Edit in Seat Plan →
+          </Link>
+        )}
+      </div>
+    </section>
+  );
+  /* MB12 — the same handshake, for the room and the things in it. */
+  const roomAgreed = (
+    <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
+      <header className="space-y-0.5">
+        <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
+        <p className="max-w-prose text-xs text-ink/60">
+          Ask the stylist, florist or venue who will build it to sign off. Nothing is settled until they say yes, and
+          re-opening it takes both of you.
+        </p>
+      </header>
+      <PartFinalizationPanel
+        parts={roomFinalizationParts}
+        records={finalizationRecords}
+        requestAction={requestPartFinalization.bind(null, eventId)}
+        cancelAction={cancelPartFinalization.bind(null, eventId)}
+        reopenAction={requestPartReopen.bind(null, eventId)}
+        cancelReopenAction={cancelPartReopen.bind(null, eventId)}
+        emptyHint="Design your reception in the Seat Plan and its parts will appear here."
+      />
+    </div>
+  );
+  /* "In your colors" — moved down + shrunk (2026-09-03): a secondary "here's a
+     taste" gut-check (still feeds the vendor RPC / concept PDF as before). */
+  const colours = (
+    <section id="colors" className="scroll-mt-24 space-y-3">
+      <header>
+        <h3 className="text-base font-medium text-ink/80">In your colors</h3>
+        <p className="text-xs text-ink/55">A quick preview of your attire, ceremony, and flowers in your chosen palette.</p>
+      </header>
+      <MoodboardBoard sections={sections} compact />
+    </section>
+  );
+  const makeItReal = storeShell ? null : (
+    <MakeItReal
+      eventId={eventId}
+      eligibleParts={eligibleRenderParts}
+      palette={palette}
+      receptionDesign={receptionDesign}
+      inspirationPresence={inspirationPresence}
+      venueSetting={venueSetting}
+      venueLabel={venueLabel}
+      config={moodboardRenderConfig}
+      balance={moodboardRenderBalance}
+      packPlan={moodboardRenderPackPlan}
+      checkoutSettings={platformSettings}
+      renders={moodboardRenders}
+      shareConsented={shareConsented}
+      mayStartRenders={mayStartRenders}
+    />
+  );
+  const shareWords = (
+    <header className="space-y-1">
+      <h2 className="text-2xl font-semibold text-ink">Share with your vendors</h2>
+      <p className="max-w-prose text-sm text-ink/65">
+        Send your booked vendors a heads-up that your mood board is ready, so they can match their styling, decor,
+        and booth to your palette and reception design. They see a read-only view — your palette, design, and
+        inspirations, no guest details.
+      </p>
+    </header>
+  );
+  const shareButton = <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />;
+  const pdfs = (
+    <>
+      <PrintablePdfButton eventId={eventId} eventName={event.display_name} />
+      <ConceptPdfButton eventId={eventId} eventName={event.display_name} />
+    </>
+  );
+
+  return {
+    ok: true as const,
+    storeShell,
+    jumpLinks,
+    provider,
+    parts: { lastSaved, theme, inspiration, paletteSection, peopleAgreed, reception, roomAgreed, colours, makeItReal, shareWords, shareButton, pdfs },
+  };
+});
+
+function CouldNotLoad() {
   return (
-    <div className={inMaker ? 'pb-6' : 'pb-24'} data-mood-board={inMaker ? 'maker' : 'page'}>
-      {/* In the Maker, Details names the item — no second masthead. */}
-      {inMaker ? null : <PageMasthead title="Mood Board" />}
+    <p role="alert" className="px-1 py-6 text-sm text-terracotta-700" data-mood-board-unread="">
+      Your Mood Board could not be loaded just now. Nothing was changed — please reopen this in a moment.
+    </p>
+  );
+}
+
+/** The Mood Board as its own page — for everyone the Maker is not for. */
+export async function MoodBoardEditor({ eventId }: { eventId: string }) {
+  const board = await buildMoodBoard(eventId, false);
+  if (!board.ok) return <CouldNotLoad />;
+  const { storeShell, jumpLinks, provider, parts } = board;
+  return (
+    <div className="pb-24" data-mood-board="page">
+      <PageMasthead title="Mood Board" />
 
       <div className="space-y-6">
         {/* 🔒 Hidden in the store shell (App Review 3.1.1): the studio hub this
-            points at is the paid add-ons catalogue (Setnayan AI, Pakanta,
-            Animated Monogram, …) — it already filters its OWN grid down to the
-            free tiles for a store-shell visitor, but a native reviewer should
-            never be one tap from a screen framed as "add-ons" in the first
-            place. Mood Board itself stays open (a free planning tool); only
-            this back-link is withheld. */}
-        {/* …and never inside the Maker, where the place menu is the way between places. */}
-        {storeShell || inMaker ? null : (
+            points at is the paid add-ons catalogue — a native reviewer should
+            never be one tap from a screen framed as "add-ons". Mood Board itself
+            stays open (a free planning tool); only this back-link is withheld. */}
+        {storeShell ? null : (
           <Link
             href={`/dashboard/${eventId}/studio`}
             className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
@@ -867,14 +1069,9 @@ export async function MoodBoardEditor({ eventId, inMaker = false }: { eventId: s
           </Link>
         )}
 
-        {event.mood_board_updated_at ? (
-          <p className="-mt-3 text-xs text-ink/55">
-            Last saved {new Date(event.mood_board_updated_at).toLocaleString()}
-          </p>
-        ) : null}
+        {parts.lastSaved ? <div className="-mt-3">{parts.lastSaved}</div> : null}
 
-        {/* Sticky mini-nav — the page is now long, so a quick jump beats a
-            scroll from a single-tab layout. */}
+        {/* Sticky mini-nav — the page is long, so a quick jump beats a scroll. */}
         <nav
           aria-label="Jump to a section"
           className="sticky top-0 z-10 -mx-4 flex gap-1 overflow-x-auto border-b border-ink/10 bg-cream/95 px-4 py-2 backdrop-blur sm:mx-0 sm:rounded-full sm:border sm:px-2"
@@ -891,220 +1088,83 @@ export async function MoodBoardEditor({ eventId, inMaker = false }: { eventId: s
         </nav>
 
         {/* 00 (Theme) through 02 (Palette) share one client boundary — MB5's
-            live 00 → 02 derivation. `<ThemeStudio>` (00) edits the majors via
-            `<MajorsEditor>`; `<PaletteSection>` (02) derives every other
-            role from them, live, on the palette-style engine. See
-            palette-board-context.tsx's docblock for why a provider (they are
-            SIBLINGS below, not parent/child) and for the one-directional
-            rule. Inspiration (01) sits between them, matching the
-            atelier-board.html reference's linear 00→01→02 order — it doesn't
-            read this state, so it's an ordinary (untouched) child. */}
-        <PaletteBoardProvider
-          eventId={eventId}
-          initial={initialPalette}
-          finalizations={finalizationRecords}
-          saveAction={saveRolePalette}
-        >
-          {/* Overall Theme — the card that opens the canvas — and the theme
-              gallery under it. They render exactly as before; the wrapper is a
-              client boundary so a feeling+setting READ OUT OF THE COUPLE'S OWN
-              DESCRIPTION can travel from the card to the gallery (page.tsx is a
-              server component and cannot hold that state itself).
-
-              No `templates` prop — the gallery asks for its own rows, ~6 at a
-              time, only once the couple has answered both narrowing questions
-              (or the reader has answered them from their sentence). See the
-              comment on the Promise.all above for why. */}
-          <ThemeStudio
-            eventId={eventId}
-            initialName={
-              (event as { moodboard_theme_name?: string | null }).moodboard_theme_name ?? null
-            }
-            initialDescription={
-              (event as { moodboard_theme_description?: string | null })
-                .moodboard_theme_description ?? null
-            }
-            palette={palette}
-            receptionDesign={receptionDesign}
-            saveThemeAction={saveMoodboardTheme}
-            readAction={readMoodboardThemeDescription}
-            applyIntentAction={applyThemeIntent}
-            fetchTemplatesAction={fetchThemeTemplates}
-            applyTemplateAction={applyMoodboardTemplate}
-          />
-
-          <section id="inspiration" className="scroll-mt-24 space-y-4">
-            <header className="space-y-1">
-              <InfoTip
-                label="Your inspirations"
-                labelAs="h2"
-                labelClassName="text-2xl font-semibold text-ink"
-                ariaLabel="About inspiration"
-              >
-                Upload up to 3 photos per category — drag one onto another slot to reorder.
-                We pull a matching palette colour from each upload automatically, and these
-                references will make your photo-real render match your taste, not a generic
-                wedding.
-              </InfoTip>
-              <p className="max-w-prose text-sm text-ink/65">
-                Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.
-              </p>
-            </header>
-            <InspirationBoard
-              eventId={eventId}
-              initial={inspirations}
-              gallerySlots={GALLERY_SLOT_KEYS}
-              fetchGalleryAction={fetchGalleryAssets}
-              applyGalleryAction={applyGalleryPick}
-              fetchRenderPoolAction={fetchRenderPool}
-              applyRenderPickAction={applyRenderPick}
-            />
-          </section>
-
-          <section id="palette" className="scroll-mt-24 space-y-4">
-            <header>
-              <h2 className="text-2xl font-semibold text-ink">Palette</h2>
-              <p className="text-sm text-ink/65">
-                Derived live from your main colours above — change a role to make it yours.
-              </p>
-            </header>
-            <PaletteSection visibleKeys={Array.from(visibleKeys)} venueLabel={venueLabel} />
-
-            {/* MB12 — sign-off, per attire role. Sits under the editor rather
-                than inside it: the palette is what the couple DESIGNS, and this
-                is what they AGREE with a supplier. A part that has been agreed
-                stops following the main colours above, which is why the two
-                have to be visible together. */}
-            <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
-              <header className="space-y-0.5">
-                <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
-                <p className="max-w-prose text-xs text-ink/60">
-                  Ask the supplier who will make it to sign off on a look. Once they agree, that
-                  part stops changing when you edit your main colours — and it takes both of you
-                  to re-open it.
-                </p>
-              </header>
-              <PartFinalizationPanel
-                parts={peopleFinalizationParts}
-                records={finalizationRecords}
-                requestAction={requestPartFinalization.bind(null, eventId)}
-                cancelAction={cancelPartFinalization.bind(null, eventId)}
-                reopenAction={requestPartReopen.bind(null, eventId)}
-                cancelReopenAction={cancelPartReopen.bind(null, eventId)}
-                emptyHint="Add your entourage to the guest list and their looks will appear here."
-              />
-            </div>
-          </section>
+            live 00 → 02 derivation (palette-board-context.tsx's docblock). */}
+        <PaletteBoardProvider {...provider}>
+          {parts.theme}
+          {parts.inspiration}
+          <div className="space-y-4">
+            {parts.paletteSection}
+            {parts.peopleAgreed}
+          </div>
         </PaletteBoardProvider>
 
-        <section id="reception" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
-          <header>
-            <h2 className="text-2xl font-semibold text-ink">Your reception design</h2>
-            <p className="text-sm text-ink/65">
-              Ceiling, backdrop, stage, tables, walls, and more — designed together with your
-              Seat Plan now, since it&rsquo;s really the same room.
-            </p>
-          </header>
-          <div className="rounded-xl border border-ink/10 bg-white p-4">
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink/75">
-              {receptionSummary.map((p) => (
-                <span key={p.id}>
-                  <span className="font-medium text-ink">{p.label}:</span>{' '}
-                  {p.value || <span className="text-ink/45">Not set</span>}
-                </span>
-              ))}
-            </div>
-            {/* No link out of the Maker (owner rule: the field sits where you are). */}
-            {inMaker ? (
-              <p className="mt-3 text-sm text-ink/65">You design the room in your Seat plan.</p>
-            ) : (
-              <Link
-                href={`/dashboard/${eventId}/seating/lab`}
-                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
-              >
-                Edit in Seat Plan →
-              </Link>
-            )}
-          </div>
+        <div className="space-y-4 border-t border-ink/10 pt-6">
+          {parts.reception}
+          {parts.roomAgreed}
+        </div>
 
-          {/* MB12 — the same handshake, for the room and the things in it. */}
-          <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
-            <header className="space-y-0.5">
-              <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
-              <p className="max-w-prose text-xs text-ink/60">
-                Ask the stylist, florist or venue who will build it to sign off. Nothing is
-                settled until they say yes, and re-opening it takes both of you.
-              </p>
-            </header>
-            <PartFinalizationPanel
-              parts={roomFinalizationParts}
-              records={finalizationRecords}
-              requestAction={requestPartFinalization.bind(null, eventId)}
-              cancelAction={cancelPartFinalization.bind(null, eventId)}
-              reopenAction={requestPartReopen.bind(null, eventId)}
-              cancelReopenAction={cancelPartReopen.bind(null, eventId)}
-              emptyHint="Design your reception in the Seat Plan and its parts will appear here."
-            />
-          </div>
-        </section>
+        <div className="border-t border-ink/10 pt-6">{parts.colours}</div>
 
-        {/* "In your colors" — moved down + shrunk (2026-09-03): kept as a
-            secondary "here's a taste" gut-check (still reads from
-            moodboard_library_assets + the couple's palette and still feeds
-            the vendor RPC / concept PDF exactly as before), no longer a
-            primary section couples are steered to. */}
-        <section id="colors" className="scroll-mt-24 space-y-3 border-t border-ink/10 pt-6">
-          <header>
-            <h3 className="text-base font-medium text-ink/80">In your colors</h3>
-            <p className="text-xs text-ink/55">
-              A quick preview of your attire, ceremony, and flowers in your chosen palette.
-            </p>
-          </header>
-          <MoodboardBoard sections={sections} compact />
-        </section>
-
-        {storeShell ? null : (
-          <MakeItReal
-            eventId={eventId}
-            eligibleParts={eligibleRenderParts}
-            palette={palette}
-            receptionDesign={receptionDesign}
-            inspirationPresence={inspirationPresence}
-            venueSetting={venueSetting}
-            venueLabel={venueLabel}
-            config={moodboardRenderConfig}
-            balance={moodboardRenderBalance}
-            packPlan={moodboardRenderPackPlan}
-            checkoutSettings={platformSettings}
-            renders={moodboardRenders}
-            shareConsented={shareConsented}
-            mayStartRenders={mayStartRenders}
-          />
-        )}
+        {parts.makeItReal}
 
         <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
-          <header className="space-y-1">
-            <h2 className="text-2xl font-semibold text-ink">Share with your vendors</h2>
-            <p className="max-w-prose text-sm text-ink/65">
-              Send your booked vendors a heads-up that your mood board is ready, so they can
-              match their styling, decor, and booth to your palette and reception design. They
-              see a read-only view — your palette, design, and inspirations, no guest details.
-            </p>
-          </header>
-          <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />
+          {parts.shareWords}
+          {parts.shareButton}
         </section>
       </div>
 
-      {/* Persistent action bar — Share + both PDF exports stay reachable
-          regardless of scroll position now that the page is one long canvas. */}
-      {/* In the Maker it rides at the foot of the board's own scroll, never over the Maker's chrome. */}
-      <div
-        className={`${inMaker ? 'sticky mt-6 -mx-4 sm:-mx-6' : 'fixed inset-x-0'} bottom-0 z-20 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:px-6`}
-      >
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-3">
-          <PrintablePdfButton eventId={eventId} eventName={event.display_name} />
-          <ConceptPdfButton eventId={eventId} eventName={event.display_name} />
-        </div>
+      {/* Persistent action bar — both PDF exports stay reachable at any scroll. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-3">{parts.pdfs}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 🧩 THE MOOD BOARD IN THE MAKER'S THREE PARTS (owner 2026-09-29, DECISION_LOG
+ * "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): the NAVIGATOR
+ * lists its parts (`mood-board-parts.tsx`), the MIDDLE draws the picked one —
+ * the theme, the inspirations, the palette, the reception, the board in your
+ * colours, Make it real, sharing — and the RIGHT holds that part's controls:
+ * the supplier sign-offs beside the palette and the reception, Share with
+ * vendors, the two PDFs. Every part stays mounted inside ONE palette provider,
+ * so the theme's main colours still derive the palette live (MB5).
+ */
+export async function MoodBoardMakerBody({ eventId }: { eventId: string }) {
+  const board = await buildMoodBoard(eventId, true);
+  if (!board.ok) return <CouldNotLoad />;
+  const { provider, parts } = board;
+  return (
+    <div data-mood-board="maker" className="pb-6">
+      <PaletteBoardProvider {...provider}>
+        <MoodPart part="theme">{parts.theme}</MoodPart>
+        <MoodPart part="inspiration">{parts.inspiration}</MoodPart>
+        <MoodPart part="palette">{parts.paletteSection}</MoodPart>
+      </PaletteBoardProvider>
+      <MoodPart part="reception">{parts.reception}</MoodPart>
+      <MoodPart part="colours">{parts.colours}</MoodPart>
+      {parts.makeItReal ? <MoodPart part="make-it-real">{parts.makeItReal}</MoodPart> : null}
+      <MoodPart part="share">{parts.shareWords}</MoodPart>
+    </div>
+  );
+}
+
+/** The RIGHT column: the picked part's controls, and the exports every part keeps at hand. */
+export async function MoodBoardMakerControls({ eventId }: { eventId: string }) {
+  const board = await buildMoodBoard(eventId, true);
+  if (!board.ok) return <CouldNotLoad />;
+  const { parts } = board;
+  return (
+    <div data-mood-board-controls="" className="flex flex-col gap-3">
+      <MoodPart part="palette">{parts.peopleAgreed}</MoodPart>
+      <MoodPart part="reception">{parts.roomAgreed}</MoodPart>
+      <MoodPart part="share">{parts.shareButton}</MoodPart>
+      <MoodPartNote />
+      <div className="flex flex-col gap-2 border-t border-ink/10 pt-3" data-mood-board-exports="">
+        <p className="text-xs font-semibold text-ink/60">Download your board</p>
+        <div className="flex flex-wrap items-center gap-2">{parts.pdfs}</div>
+        {parts.lastSaved}
       </div>
     </div>
   );

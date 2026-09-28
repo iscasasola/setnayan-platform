@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
-import { DetailsSelectContext } from './details-go';
+import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useMaker } from './maker-context';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
@@ -63,7 +63,15 @@ export function DetailsWorkspace({
   editors,
   initial,
   persistent = null,
+  pieces = {},
 }: {
+  /**
+   * 🧩 A tool's own pieces, listed in the navigator under its item while it is
+   * picked (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE
+   * PARTS"): on a desk, rows under the item; on a phone, chips in the strip
+   * right after it. Mounted once, only while the item is picked.
+   */
+  pieces?: Partial<Record<DetailsItemKey, ReactNode>>;
   groups: DetailsNavGroup[];
   bodies: Partial<Record<DetailsItemKey, ReactNode>>;
   editors: Partial<Record<DetailsItemKey, ReactNode>>;
@@ -82,6 +90,18 @@ export function DetailsWorkspace({
   const [visited, setVisited] = useState<ReadonlySet<DetailsItemKey>>(() => new Set([first]));
   const tellMaker = maker?.setDetailsItem;
   const [sheetOpen, setSheetOpen] = useState(false);
+  /* The piece picked under each item (the three columns meet here). */
+  const [pieceMap, setPieceMap] = useState<Partial<Record<DetailsItemKey, string | null>>>({});
+  const pieceCtx = useMemo<DetailsPieces>(
+    () => ({
+      piece: (item) => pieceMap[item] ?? null,
+      setPiece: (item, piece, opts) => {
+        setPieceMap((m) => (m[item] === piece ? m : { ...m, [item]: piece }));
+        if (piece && opts?.openEditor) setSheetOpen(true);
+      },
+    }),
+    [pieceMap],
+  );
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const current = items.find((i) => i.key === selected) ?? items[0]!;
@@ -137,6 +157,7 @@ export function DetailsWorkspace({
   return (
     <DetailsTapContext.Provider value={tap}>
       <DetailsSelectContext.Provider value={select}>
+      <DetailsPieceContext.Provider value={pieceCtx}>
       <div
         data-details-workspace=""
         data-details-item={selected}
@@ -207,13 +228,13 @@ export function DetailsWorkspace({
                   {g.items.map((i) => {
                     const on = i.key === selected;
                     return (
-                      <li key={i.key} className="shrink-0">
+                      <li key={i.key} className={on && pieces[i.key] ? 'contents lg:block' : 'shrink-0'}>
                         <button
                           type="button"
                           aria-pressed={on}
                           onClick={() => select(i.key)}
                           data-details-nav-item={i.key}
-                          className={`sn-press flex min-h-11 w-[84px] flex-col items-center gap-1 rounded-lg px-1.5 py-1.5 text-center transition-colors duration-sn-control ease-sn lg:w-full lg:flex-row lg:gap-2.5 lg:px-2 lg:text-left ${
+                          className={`sn-press flex min-h-11 w-[84px] shrink-0 flex-col items-center gap-1 rounded-lg px-1.5 py-1.5 text-center transition-colors duration-sn-control ease-sn lg:w-full lg:flex-row lg:gap-2.5 lg:px-2 lg:text-left ${
                             on ? 'bg-ink/[0.07] text-ink' : 'text-ink/75 hover:bg-ink/[0.04]'
                           }`}
                         >
@@ -234,6 +255,16 @@ export function DetailsWorkspace({
                             {i.sub ? <small className="hidden truncate text-[11.5px] text-ink/55 lg:block">{i.sub}</small> : null}
                           </span>
                         </button>
+                        {on && pieces[i.key] ? (
+                          /* 🧩 The tool's pieces — rows under it on a desk; on a phone they
+                             follow it in the strip (this li is `contents` there). */
+                          <div
+                            data-details-pieces={i.key}
+                            className="contents lg:flex lg:flex-col lg:gap-0.5 lg:py-1 lg:pl-11 lg:pr-1"
+                          >
+                            {pieces[i.key]}
+                          </div>
+                        ) : null}
                       </li>
                     );
                   })}
@@ -280,6 +311,7 @@ export function DetailsWorkspace({
           </div>
         </aside>
       </div>
+      </DetailsPieceContext.Provider>
       </DetailsSelectContext.Provider>
     </DetailsTapContext.Provider>
   );

@@ -10,7 +10,9 @@ import { CanvasStaysOnThePage } from '../../website/editor/_components/maker-can
 import { MakerPageFrame, MakerPageSwitch } from './maker-page';
 import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { useMaker } from './maker-context';
-import { DetailsGoTo } from './details-go';
+import { DetailsGoTo, DetailsPieceButton, useDetailsPiece } from './details-go';
+import { ElementSheet } from '../../website/editor/_components/element-sheet';
+import { HUB_ELEMENT_LABEL, isHubElementKey, type HubElementKey } from '@/lib/element-style';
 
 /**
  * 🎨 LOGO · HERO · REVEAL, MOVED INTO DETAILS WHOLE (Details part 3; owner
@@ -32,6 +34,15 @@ import { DetailsGoTo } from './details-go';
  *              editor on the right ('fill').
  *   · Reveal — the opening playing on the stage it plays on, with the same
  *              "Play it on" switch; its picker on the right ('fill').
+ *
+ * 🧩 AND EACH IN THE MAKER'S THREE PARTS (owner 2026-09-29, DECISION_LOG "A
+ * TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): the Hero lists
+ * its PARTS in the navigator (`DetailsLookPieces`) — a pick marks it on the
+ * hero and opens that part's style on the right (the same `ElementSheet` a tap
+ * on the hero scene opens, the same draft door), above the design dropdown;
+ * the Reveal lists its OPENINGS in the navigator (the picker's own rows) and
+ * keeps play, fine-tune and where it plays on the right. The Logo studio
+ * already is three parts — its layers, the logo, the layer's tools.
  *
  * ▶ The toolbar's "Play this scene" plays them in THIS frame: the Reveal by
  * loading it again (its page IS the opening), the Hero by the bridge's replay.
@@ -70,7 +81,112 @@ export function DetailsLookEditor({ item }: { item: Exclude<LookPageKey, 'logo'>
   const late = useLate(Boolean(look));
   if (!maker || !look) return <Waiting item={item} late={late} />;
   const node = look[item];
-  return node ? <div data-details-look-editor={item}>{node}</div> : <CouldNotOpen item={item} />;
+  if (!node) return <CouldNotOpen item={item} />;
+  return (
+    <div data-details-look-editor={item} className="flex flex-col gap-3">
+      {item === 'hero' ? <HeroPartSheet /> : null}
+      {node}
+    </div>
+  );
+}
+
+/**
+ * 🧩 The NAVIGATOR part of a Look tool: the Hero's parts, the Reveal's
+ * openings. Drawn by `DetailsWorkspace` under the item while it is picked.
+ */
+export function DetailsLookPieces({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
+  const maker = useMaker();
+  const look = maker?.lookPages ?? null;
+  const [piece, setPiece] = useDetailsPiece(item);
+  if (!look) return null;
+  if (item === 'reveal') return look.revealOptions ? <>{look.revealOptions}</> : null;
+  const parts = look.heroParts;
+  if (!parts) return null;
+  return (
+    <>
+      {parts.keys.map((k) => (
+        <DetailsPieceButton
+          key={k}
+          on={piece === k}
+          data={`hero:${k}`}
+          onPick={() => {
+            const next = piece === k ? null : k;
+            markHeroPart(next);
+            setPiece(next, { openEditor: true });
+          }}
+        >
+          {HUB_ELEMENT_LABEL[k]}
+        </DetailsPieceButton>
+      ))}
+    </>
+  );
+}
+
+/** The hero's key on the canvas (`f:hero`) — the bridge marks and replays parts by it. */
+const HERO_KEY = canvasKeyOfSelection({ kind: 'tool', key: 'hero' }, []) ?? 'f:hero';
+
+function heroFrame(): HTMLIFrameElement | null {
+  return document.querySelector<HTMLIFrameElement>('[data-details-look="hero"] iframe');
+}
+
+/** Ring the picked part on the hero (or clear it) — the bridge's `markEl`. */
+function markHeroPart(el: string | null) {
+  heroFrame()?.contentWindow?.postMessage({ source: 'setnayan-editor', t: 'markEl', key: HERO_KEY, el }, window.location.origin);
+}
+
+/**
+ * The picked hero part's style — the SAME sheet a tap on the hero scene opens
+ * (`element-sheet.tsx`: font, size, colour, motion; every choice a draft save),
+ * laid in the right column's flow instead of floating.
+ */
+function HeroPartSheet() {
+  const maker = useMaker()!;
+  const parts = maker.lookPages?.heroParts ?? null;
+  const [piece, setPiece] = useDetailsPiece('hero');
+  if (!parts || !piece || !isHubElementKey(piece)) return null;
+  const el: HubElementKey = piece;
+  const canvases = parts.canvases;
+  const usedColours = (() => {
+    const out = new Set<string>();
+    for (const c of Object.values(canvases)) {
+      if (c.color) out.add(c.color);
+      for (const st of Object.values(c.elements ?? {})) {
+        if (st?.color) out.add(st.color.slice(0, 7));
+        for (const r of st?.runs ?? []) if (r.color) out.add(r.color.slice(0, 7));
+      }
+    }
+    return [...out].slice(0, 15);
+  })();
+  const post = (message: unknown) => heroFrame()?.contentWindow?.postMessage(message, window.location.origin);
+  return (
+    <div
+      data-details-hero-part={el}
+      className="-mx-4 [&>aside]:!static [&>aside]:!z-auto [&>aside]:!max-h-none [&>aside]:!w-full [&>aside]:!rounded-none [&>aside]:!pb-2"
+    >
+      <ElementSheet
+        eventId={maker.eventId}
+        target={{ key: HERO_KEY, widgetType: 'hero', el }}
+        canvas={canvases.hero ?? {}}
+        palette={parts.palette}
+        ownsPro={parts.ownsPro}
+        hideLocked={maker.storeShell}
+        draftAction={parts.draftAction}
+        parts={parts.keys}
+        onPart={(next) => {
+          markHeroPart(next);
+          setPiece(next);
+        }}
+        sceneLabel="Hero"
+        usedColours={usedColours}
+        onPreview={(message) => post(message)}
+        onPlay={() => post({ source: 'setnayan-editor', t: 'playEl', key: HERO_KEY, el })}
+        onClose={() => {
+          markHeroPart(null);
+          setPiece(null);
+        }}
+      />
+    </div>
+  );
 }
 
 function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {

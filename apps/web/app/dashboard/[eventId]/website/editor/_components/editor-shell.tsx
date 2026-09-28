@@ -187,7 +187,7 @@ const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
  * Love Story's own page, the scrapbook (Phase 7). Each opens as a PAGE in the
  * Maker's body (`MakerPage`), never over it.
  */
-export type MadeOnceKey = 'logo' | 'hero' | 'reveal' | 'love-story';
+export type MadeOnceKey = 'logo' | 'hero' | 'reveal' | 'reveal-options' | 'love-story';
 
 const TOOL_ROWS: Record<string, string[]> = {
   hero: ['hero'],
@@ -494,6 +494,7 @@ export function MakerWork({
   const setLookPages = maker?.setLookPages;
   const mainBackgroundRow = rows['main-background'] ?? null;
   const revealStagesKey = revealStages.join();
+  const twoPeopleOff = sceneFormat?.twoPeople === false;
   useEffect(() => {
     if (!setLookPages) return;
     setLookPages({
@@ -506,10 +507,21 @@ export function MakerWork({
         </>
       ) : null,
       reveal: madeOnce?.reveal ?? null,
+      revealOptions: madeOnce?.['reveal-options'] ?? null,
+      /* The hero's parts, edited by the same sheet a tap on the hero scene opens. */
+      heroParts: elementEditing
+        ? {
+            keys: HUB_HERO_ELEMENT_KEYS.filter((k) => k !== 'joiner' || !twoPeopleOff),
+            canvases: elementEditing.canvases,
+            palette: elementEditing.palette,
+            draftAction: elementEditing.draftAction,
+            ownsPro,
+          }
+        : null,
       revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
       publicLandingUrl,
     });
-  }, [setLookPages, madeOnce, mainBackgroundRow, revealStagesKey, publicLandingUrl]);
+  }, [setLookPages, madeOnce, mainBackgroundRow, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {

@@ -3,6 +3,9 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
+import type { HubElementKey } from '@/lib/element-style';
+import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { ElementDraftAction, ElementPalette } from '../../website/editor/_components/element-sheet';
 
 /**
  * THE MAKER'S SHARED STATE — what the toolbar says, the navigator, canvas and
@@ -86,8 +89,22 @@ export type MakerLookPages = {
   logo: ReactNode | null;
   /** The Hero's controls: Designs 1–4, its parts, the photo — and the Main background it carries. */
   hero: ReactNode | null;
-  /** The Reveal's controls: the opening, where it plays, its fine-tune. */
+  /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;
+  /** The Reveal's openings — its pieces, listed in Details' NAVIGATOR. */
+  revealOptions: ReactNode | null;
+  /**
+   * The Hero's parts and what edits one — the SAME per-part editing a tap on
+   * the hero scene opens (`element-sheet.tsx`, its one draft door); null when
+   * per-part editing is not offered.
+   */
+  heroParts: {
+    keys: readonly HubElementKey[];
+    canvases: Record<string, HubSectionCanvas>;
+    palette: ElementPalette;
+    draftAction: ElementDraftAction;
+    ownsPro: boolean;
+  } | null;
   /** Where the reveal plays (drafted over live) — its page previews the first. */
   revealStages: readonly LifecyclePhase[];
   /** The guest page's address (`/<slug>`), or null before there is one. */

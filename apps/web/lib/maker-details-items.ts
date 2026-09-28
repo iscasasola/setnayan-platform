@@ -142,18 +142,21 @@ export function detailsItemFor(search: {
  * HOW AN ITEM'S PAGE SITS IN THE BODY. Default ('flow'): a picture in the
  * scrolling column, its editor on the right. The pages that moved in keep the
  * split they shipped with:
- *   · 'fill'  — a live page (the Hero, the Reveal) fills the body; its
- *               controls are the editor on the right, as on their old page;
- *   · 'whole' — the page carries its own tools: the Logo studio lays its panel
- *               beside its canvas, and the Mood Board is one board — so no
- *               second editor column is drawn beside them.
+ *   · 'fill'  — the tool's picked piece fills the body (the Hero, the Reveal
+ *               playing, a part of the Mood Board); that piece's controls are
+ *               the editor on the right, its pieces listed in the navigator
+ *               (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE
+ *               THREE PARTS");
+ *   · 'whole' — the Logo studio, which already IS the three parts (its layers,
+ *               the logo, the layer's tools), so no second editor column is
+ *               drawn beside it.
  */
 export type DetailsItemLayout = 'flow' | 'fill' | 'whole';
 const ITEM_LAYOUT: Partial<Record<DetailsItemKey, DetailsItemLayout>> = {
   hero: 'fill',
   reveal: 'fill',
   logo: 'whole',
-  'mood-board': 'whole',
+  'mood-board': 'fill',
 };
 export function detailsItemLayout(key: DetailsItemKey): DetailsItemLayout {
   return ITEM_LAYOUT[key] ?? 'flow';

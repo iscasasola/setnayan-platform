@@ -40,7 +40,8 @@ import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-th
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import { LOOK_ITEM_KEYS, detailsNavigatorKeys, detailsSwitchesFor, type DetailsItemContext, type DetailsItemKey, type DetailsItemModel, type LookItemKey } from '@/lib/maker-details-items';
-import { DetailsLookBody, DetailsLookEditor } from './details-look-pages';
+import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-look-pages';
+import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { DetailsGoTo } from './details-go';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
@@ -149,7 +150,9 @@ export type MakerDetailsProps = {
    * read from data that already exists. Null = not offered (the lab).
    */
   look?: {
+    /** The Mood Board's middle (its picked part) and right (that part's controls). */
     moodBoard: ReactNode;
+    moodBoardControls: ReactNode;
     logoDone: boolean;
     heroDone: boolean;
     /** Undefined: the reveal always plays something (the theme's own opening) — "done" means nothing for it. */
@@ -494,6 +497,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     download: <PrintSetDownloads input={prints} />,
     ...(look
       ? {
+          'mood-board': look.moodBoardControls,
           hero: <DetailsLookEditor item="hero" />,
           reveal: <DetailsLookEditor item="reveal" />,
         }
@@ -522,6 +526,17 @@ export function MakerDetails(props: MakerDetailsProps) {
         bodies={bodies}
         editors={editors}
         initial={initialItem}
+        /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
+           MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
+        pieces={
+          look
+            ? {
+                'mood-board': <MoodBoardPieces makeItReal={!theme.storeShell} />,
+                hero: <DetailsLookPieces item="hero" />,
+                reveal: <DetailsLookPieces item="reveal" />,
+              }
+            : {}
+        }
         persistent={
           <>
             {flash === 'saved' ? (

@@ -45,7 +45,7 @@ import { readHubDraft } from '@/lib/hub-draft-store';
 import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
 import { readMakerRevealStages } from './_components/maker-made-once';
-import { MoodBoardEditor } from '../studio/mood-board/_components/mood-board-editor';
+import { MoodBoardMakerBody, MoodBoardMakerControls } from '../studio/mood-board/_components/mood-board-editor';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 import { MakerRsvpSettings } from './_components/maker-rsvp-ask';
@@ -1131,7 +1131,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             look={{
               moodBoard: (
                 <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your Mood Board…</p>}>
-                  <MoodBoardEditor eventId={eventId} inMaker />
+                  <MoodBoardMakerBody eventId={eventId} />
+                </Suspense>
+              ),
+              moodBoardControls: (
+                <Suspense fallback={<p className="text-sm text-ink/60">Opening your Mood Board…</p>}>
+                  <MoodBoardMakerControls eventId={eventId} />
                 </Suspense>
               ),
               logoDone: Boolean(drafted('monogram_custom_svg') || drafted('monogram_uploaded_svg')),

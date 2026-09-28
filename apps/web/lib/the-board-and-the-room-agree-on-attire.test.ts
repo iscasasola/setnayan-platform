@@ -44,7 +44,9 @@ const BOARD = join(
   '[eventId]',
   'studio',
   'mood-board',
-  'page.tsx',
+  // The board is one component since Details part 3 (its page and the Maker draw it).
+  '_components',
+  'mood-board-editor.tsx',
 );
 
 const SPLIT = '#8e3b5b'; // what they set on the Bridesmaids palette

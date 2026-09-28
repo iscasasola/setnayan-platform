@@ -44,6 +44,9 @@ import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
+import { readMakerRevealStages } from './_components/maker-made-once';
+import { MoodBoardEditor } from '../studio/mood-board/_components/mood-board-editor';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 import { MakerRsvpSettings } from './_components/maker-rsvp-ask';
 import OurStoryEditorPage from '../website/our-story/page';
@@ -60,7 +63,7 @@ import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
-import { detailsItemApplies, detailsItemFor, makerToolFor, type DetailsItemKey } from '@/lib/maker-details-items';
+import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, type DetailsItemKey } from '@/lib/maker-details-items';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { GuestCardBody } from '../guests/_components/guest-card-body';
 import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
@@ -745,7 +748,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     couple-only, and it still is (its own gate redirects anybody else).
   */
   const memberType = (membership as { member_type?: string | null } | null)?.member_type;
-  const hasWork = memberType === 'couple' && websiteOn;
+  const hasWork = makerHasWork(memberType, websiteOn);
 
   /* First visit = the tour (owner 2026-09-25). The same read `MiniTour` makes.
      ⚠ A refused read shows NO tour: an unread row must not replay a welcome on
@@ -1023,8 +1026,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let themeSaved: unknown = printEvent.invite_theme;
       // 💌 The Love Story's words — drafted over live, like the scrapbook shows them.
       let storyRaw: unknown = storyLiveRes.error ? null : (storyLiveRes.data as { love_story?: unknown } | null)?.love_story;
+      // 🎨 The Look's "done" marks read the draft over live too (Details part 3).
+      let draftedEvents: Record<string, unknown> = {};
       try {
         const d = await readHubDraft(supabase, eventId);
+        if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
         if (d && 'love_story' in d.events) storyRaw = d.events.love_story;
         if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
@@ -1035,6 +1041,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       } catch (e) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
+      /** One events column as the couple is editing it — the draft's, else live. */
+      const drafted = (col: keyof typeof printEvent): unknown => (col in draftedEvents ? draftedEvents[col] : printEvent[col]);
       /* ══ DETAILS (made-once) ══ what the stages and prints include, and every
          line of wording — each read from its one home. A PAGE in the Maker's
          body (owner 2026-09-25): what the details feed is the page, these
@@ -1263,6 +1271,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               printTheme: one(search.print_theme),
               menuFlash: Boolean(one(search.menu_saved) || one(search.menu_error)),
             })}
+            /* 🎨 THE LOOK (Details part 3, DECISION_LOG "OPTION B …" + "SCHEDULE,
+               MOOD BOARD AND SEAT PLAN MOVE INSIDE…"): the Mood Board studio,
+               streamed so the Maker never waits on it; Logo, Hero and Reveal
+               come from the work area. "Done" is read from the columns they
+               already write, drafted over live. */
+            look={{
+              moodBoard: (
+                <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your Mood Board…</p>}>
+                  <MoodBoardEditor eventId={eventId} inMaker />
+                </Suspense>
+              ),
+              logoDone: Boolean(drafted('monogram_custom_svg') || drafted('monogram_uploaded_svg')),
+              heroDone: Boolean(drafted('landing_page_hero_image_url') || drafted('landing_page_hero_video_r2_key')),
+              // The hero panel's own claim: made once, shown on these three and the poster.
+              heroOn: [PUBLIC_STAGE_LABELS.save_the_date, PUBLIC_STAGE_LABELS.rsvp, PUBLIC_STAGE_LABELS.event, 'The poster'],
+              revealOn: (await readMakerRevealStages(eventId)).map((s) => PUBLIC_STAGE_LABELS[s]),
+            }}
           />
         ),
         controls: null,
@@ -1316,6 +1341,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
+      /* Who Details is for, in the event type's own words (a coordinator is told
+         why it is shut) — `EventWords`, never a typed "couple". */
+      theHost={eventWordsFromProfile(await resolveProfileByEvent(eventId)).theHost}
     >
       {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, once the day
           has happened. Never on the Maker's very first visit: the Maker's own

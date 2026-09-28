@@ -43,7 +43,8 @@ import { frozenNow, type PartFinalizationRecord } from '@/lib/moodboard-finaliza
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONTEXT = readFileSync(join(HERE, 'palette-board-context.tsx'), 'utf8');
-const PAGE = readFileSync(join(HERE, '..', 'page.tsx'), 'utf8');
+// The page's board is one component since Details part 3 (its page and the Maker draw it).
+const PAGE = readFileSync(join(HERE, 'mood-board-editor.tsx'), 'utf8');
 
 const MAJORS = ['#8C3B2E', '#C9A227', '#2F4858', '#EDE6DA', '#6B8F71'];
 const OTHER_MAJORS = ['#123456', '#654321', '#0A0A0A', '#FAFAFA', '#00FF88'];

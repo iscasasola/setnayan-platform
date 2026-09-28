@@ -32,14 +32,17 @@ import {
   WORDS_ITEM_KEYS,
   detailsDoorHref,
   detailsItemFor,
+  detailsItemLayout,
   detailsNavigatorKeys,
+  makerHasWork,
   makerToolFor,
+  movedPageItem,
   wordsAndPlansItem,
   type DetailsItemContext,
   type DetailsItemKey,
   type WordsAndPlansInput,
 } from './maker-details-items';
-import { detailsItemForSection, detailsItemForTap, detailsItemOfSelection, landInDetails } from './maker-details-selection';
+import { detailsItemForSection, detailsItemForTap } from './maker-details-selection';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -62,15 +65,14 @@ test('every old door to a moved page lands on its Details item', () => {
   // The address: `?tool=love-story` · `?tool=rsvp-page` are Details now.
   assert.equal(makerToolFor('love-story'), 'details');
   assert.equal(makerToolFor('rsvp-page'), 'details');
-  assert.equal(makerToolFor('hero'), 'hero', 'a page that did not move stays');
+  assert.equal(makerToolFor('post-event'), 'post-event', 'a stage tool did not move');
   assert.equal(detailsItemFor({ tool: 'love-story' }), 'love-story');
   assert.equal(detailsItemFor({ tool: 'rsvp-page' }), 'rsvp');
-  // A selection (a scene's "Open … editor", a restored tab) lands on the item.
-  assert.deepEqual(landInDetails({ kind: 'tool', key: 'love-story' }), { kind: 'tool', key: 'details', item: 'love-story' });
-  assert.deepEqual(landInDetails({ kind: 'tool', key: 'rsvp-page' }), { kind: 'tool', key: 'details', item: 'rsvp' });
-  assert.deepEqual(landInDetails({ kind: 'tool', key: 'hero' }), { kind: 'tool', key: 'hero' });
-  assert.equal(detailsItemOfSelection(landInDetails({ kind: 'tool', key: 'love-story' })), 'love-story');
-  assert.equal(detailsItemOfSelection({ kind: 'tool', key: 'details' }), null);
+  // A selection (a scene's "Open … editor", a restored tab) lands on the item —
+  // the ONE translation part 3 built (`movedPageItem`), now that the items exist.
+  assert.equal(movedPageItem('love-story'), 'love-story');
+  assert.equal(movedPageItem('rsvp-page'), 'rsvp');
+  assert.equal(movedPageItem('post-event'), null, 'a stage tool is not a Details item');
   // The old ROUTES carry their own query onto the item.
   assert.equal(
     detailsDoorHref('e-1', 'schedule', { view: 'preparation', note: undefined, ros: '' }),
@@ -79,9 +81,9 @@ test('every old door to a moved page lands on its Details item', () => {
   assert.equal(detailsDoorHref('e-1', 'love-story', { error: 'a & b' }), '/dashboard/e-1/launch?tool=details&item=love-story&error=a%20%26%20b');
   // …and every one of them passes through the ONE translation, in the shell.
   const shell = read(`${L}/maker-shell.tsx`);
-  assert.match(shell, /useState<MakerSelection>\(\(\) => landInDetails\(initialSelection\)\)/);
-  assert.match(shell, /const select = useCallback\(\(next: MakerSelection\) => setSelection\(landInDetails\(next\)\), \[\]\);/);
-  assert.match(shell, /landInDetails\(saved!\.selection \?\? null\)/, 'a restored tab lands too');
+  assert.match(shell, /const item = next\?\.kind === 'tool' \? movedPageItem\(next\.key\) : null;/);
+  assert.equal((shell.match(/movedSelection\(/g) ?? []).length >= 4, true, 'the address, memory and every select must pass through it');
+  assert.doesNotMatch(read('lib/maker-details-selection.ts'), /export function landInDetails|TOOLS_IN_DETAILS/, 'a second translation came back');
   // The bar no longer offers them as pages of their own.
   const bar = read(`${L}/maker-bar.ts`);
   assert.doesNotMatch(bar, /key: 'love-story', label|key: 'rsvp-page', label/);
@@ -99,9 +101,11 @@ test('the old routes redirect ONLY where Details draws the item, and never insid
     /if \(!inMaker && \(await eventWordsForEvent\(eventId\)\)\.twoPeople && \(await detailsIsTheDoor\(supabase, eventId, user\.id\)\)\) \{\s*redirect\(\s*detailsDoorHref\(eventId, 'love-story',/,
   );
   const door = read('lib/maker-details-door.server.ts');
-  assert.match(door, /member_type !== 'couple'\) return false;/, 'a coordinator keeps the standalone page');
+  assert.match(door, /return makerHasWork\(memberType, surfaceEnabled\(await resolveProfileByEvent\(eventId\), 'website'\)\);/, 'the door is not the launch page’s own rule');
   assert.match(door, /if \(error\) \{[\s\S]{0,160}return false;/, 'a refused read is not a yes');
-  assert.match(door, /surfaceEnabled\(await resolveProfileByEvent\(eventId\), 'website'\)/, 'a type with no Event Hub keeps the page');
+  assert.equal(makerHasWork('couple', true), true);
+  assert.equal(makerHasWork('moderator', true), false, 'a coordinator keeps the standalone page');
+  assert.equal(makerHasWork('couple', false), false, 'a type with no Event Hub keeps the page');
   // Inside Details the pages are drawn with `maker: '1'`, so they never bounce.
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /<CoupleSchedulePage[\s\S]{0,160}maker: '1'/);
@@ -117,9 +121,12 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   const details = read(`${L}/maker-details.tsx`);
   // Love Story's words are the Story row's own panel (`StoryPanel`, `updateOurStory`).
   assert.match(details, /'love-story': \(\s*<StoryPanel\s+action=\{updateOurStory\.bind\(null, eventId\)\}/);
-  // The Schedule IS its own editor: no editor column for it.
-  assert.doesNotMatch(details, /\bschedule: \{?\s*schedule\.page\s*\}?,?\s*\n\s*\.\.\.\(rsvp/, 'the schedule was given a second editor');
-  assert.match(read(`${L}/details-workspace.tsx`), /const hasEditor = editors\[current\.key\] != null;/);
+  // The Schedule IS its own editor: no editor column beside it (part 3's
+  // layouts — 'whole'); the guest's RSVP fills the body, its settings right.
+  assert.equal(detailsItemLayout('schedule'), 'whole');
+  assert.equal(detailsItemLayout('rsvp'), 'fill');
+  assert.equal(detailsItemLayout('love-story'), 'flow');
+  assert.doesNotMatch(details, /\bschedule: schedule\.|schedule: \(\s*<Toggle/, 'the schedule was given a second editor');
   // The first-visit reminder tour rides the RSVP PICTURE (mounted on first open), never the always-mounted editor.
   const rsvpItem = launch.slice(launch.indexOf('const rsvpItem = {'), launch.indexOf('settings: ('));
   assert.match(rsvpItem, /<MiniTour tourKey="customer_guest_reminders_v1"/);

@@ -9,7 +9,6 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
-import { REVEAL_STAGE_CHOICES } from '@/lib/reveal-stages';
 import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
 import {
@@ -18,7 +17,6 @@ import {
   type MakerSceneTab,
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
-import { MAKER_DETAILS_LABEL } from '../../../launch/_components/maker-bar';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
@@ -71,8 +69,6 @@ import {
   isHubElementKey,
   type HubElementKey,
 } from '@/lib/element-style';
-import { MakerPage, MakerPageFrame, MakerPageSwitch as PageSwitch } from '../../../launch/_components/maker-page';
-import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
@@ -187,10 +183,9 @@ const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
 
 /**
  * The made-once group (Phase 6) — Logo · Hero · Reveal — each a workspace of its
- * own (`launch/_components/maker-made-once.tsx`), handed in as `madeOnce`. Each
- * opens as a PAGE in the Maker's body (`MakerPage`), never over it. (Love
- * Story's page, the scrapbook, moved INTO Details — Story & plans › Love Story,
- * Details part 2b — with its words beside it.)
+ * own (`launch/_components/maker-made-once.tsx`), handed in as `madeOnce` and
+ * registered into Details (part 3). Love Story's page, the scrapbook, is Details
+ * › Story & plans › Love Story, built by the launch page (part 2b).
  */
 export type MadeOnceKey = 'logo' | 'hero' | 'reveal';
 
@@ -330,9 +325,6 @@ export function MakerWork({
 }) {
   const maker = useMaker();
   const frameRef = useRef<HTMLIFrameElement | null>(null);
-  /** A made-once page's own frame (Hero · Reveal · Love Story) — the stage canvas stays mounted beside it. */
-  const pageFrameRef = useRef<HTMLIFrameElement | null>(null);
-  const pageOpenRef = useRef(false);
   /* 🔥 A PICK THE BRIDGE DRAWS GOES TO EVERY STAGE THE MAKER HOLDS WARM — the
      shown canvas and the stages loaded behind it (`buffered-canvas-frame.tsx`),
      so switching stage after a pick shows the pick, not the page from before
@@ -484,8 +476,34 @@ export function MakerWork({
      back (`&bars=1`) so the couple can check nothing sits under them — never
      the host's own chrome. Owner 2026-09-25: *"add a switch to show or hide"*. */
   const [guestBars, setGuestBars] = useState(false);
-  /* The made-once pages' own switch: which chosen stage the Reveal page plays on. */
-  const [revealPreview, setRevealPreview] = useState<LifecyclePhase | null>(null);
+  /* 🎨 LOGO · HERO · REVEAL LIVE IN DETAILS (Details part 3, DECISION_LOG
+     2026-09-28 "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS"). This page
+     still BUILDS them — every read and bound action they always had — and
+     hands the same nodes to Details through the Maker (`MakerLookPages`,
+     drawn by `launch/_components/details-look-pages.tsx`). Keyed on what
+     they are, never on a render: the nodes come from the server and keep their
+     identity until the next server render, so this runs once per render of the
+     page, not once per click. */
+  const setLookPages = maker?.setLookPages;
+  const mainBackgroundRow = rows['main-background'] ?? null;
+  const revealStagesKey = revealStages.join();
+  useEffect(() => {
+    if (!setLookPages) return;
+    setLookPages({
+      logo: madeOnce?.logo ?? null,
+      hero: madeOnce?.hero ? (
+        <>
+          {madeOnce.hero}
+          {/* The hero carries the Main background (Maker P10), made here as it always was. */}
+          {mainBackgroundRow ? <RowBlock row={mainBackgroundRow} /> : null}
+        </>
+      ) : null,
+      reveal: madeOnce?.reveal ?? null,
+      revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
+      publicLandingUrl,
+    });
+  }, [setLookPages, madeOnce, mainBackgroundRow, revealStagesKey, publicLandingUrl]);
+  useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {
       setGuestBars(window.sessionStorage.getItem(GUEST_BARS_KEY) === '1');
@@ -873,17 +891,9 @@ export function MakerWork({
      canvas: the bridge replays the selected section's entrance where it sits. */
   useEffect(() => {
     const onPlay = () => {
-      /* A made-once page plays in ITS frame; the stage canvas stays mounted under it. */
-      const target = pageOpenRef.current ? pageFrameRef.current : frameRef.current;
-      /* The Reveal's page IS the opening: playing it again is loading it again. */
-      if (selection?.kind === 'tool' && selection.key === 'reveal') {
-        try {
-          target?.contentWindow?.location.reload();
-        } catch {
-          /* a frame we cannot reach is left as it is */
-        }
-        return;
-      }
+      /* The stage's canvas. (The Hero and the Reveal play in their frame inside
+         Details — `details-look-pages.tsx`.) */
+      const target = frameRef.current;
       const key = canvasKeyOfSelection(selection, scenes);
       if (!key) return;
       target?.contentWindow?.postMessage(
@@ -1265,82 +1275,14 @@ export function MakerWork({
 
   const moreRows = MORE_ROWS.filter((k) => rows[k]);
 
-  /* ══ A MADE-ONCE ITEM IS A PAGE ══════════════════════════════════════════
+  /* ══ NO MADE-ONCE PAGE IS DRAWN HERE ANY MORE ═══════════════════════════
      Owner 2026-09-25: *"we do not want a pop up for details, logo, hero, reveal
      and love story. we want their actual page to be on the body of the editor
-     similar to the different stages."* Picking one swaps the navigator, canvas
-     and inspector for that item's own page (`MakerPage`); its controls sit
-     where the inspector sits. Details is the shell's (it is built by the
-     launch page), the other four are here. */
-  const pageKey = madeOncePageKey(selection, madeOnce);
-  pageOpenRef.current = Boolean(pageKey);
-  const revealStage = revealPreview && revealStages.includes(revealPreview) ? revealPreview : (revealStages[0] ?? null);
-  const pageSrc = pageKey
-    ? makerPageCanvasSrc(publicLandingUrl, pageKey, stage, { revealStage })
-    : null;
-  const pageFrameKey = `${pageKey}:${pageSrc}:${maker.renderStamp}`;
-  const pageFrame = (title: string) =>
-    pageSrc && publicLandingUrl ? (
-      <>
-        <MakerPageFrame src={pageSrc} title={title} device={device} frameKey={pageFrameKey} frameRef={pageFrameRef} />
-        <CanvasStaysOnThePage
-          frameRef={pageFrameRef}
-          pagePath={publicLandingUrl}
-          resetKey={pageFrameKey}
-          stageLabel={title}
-          onBack={() => {
-            const f = pageFrameRef.current;
-            const src = f?.getAttribute('src');
-            if (f && src) f.src = src;
-          }}
-        />
-      </>
-    ) : (
-      <p className="m-auto max-w-sm px-4 text-center text-sm text-ink/70" data-maker-page-no-address="">
-        Set your Event Hub address in {MAKER_DETAILS_LABEL} to see your page here.
-      </p>
-    );
-  const pageView = pageKey ? (
-    <MakerPage
-      pageKey={pageKey}
-      page={
-        pageKey === 'logo' ? (
-          madeOnce?.logo
-        ) : pageKey === 'reveal' ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            {revealStages.length > 1 ? (
-              <PageSwitch
-                label="Play it on"
-                value={revealStage ?? 'save_the_date'}
-                onChange={(v) => setRevealPreview(v as LifecyclePhase)}
-                options={REVEAL_STAGE_CHOICES.filter((s) => revealStages.includes(s)).map((s) => [s, PUBLIC_STAGE_LABELS[s]] as const)}
-              />
-            ) : null}
-            {pageFrame(`Your reveal — ${PUBLIC_STAGE_LABELS[revealStage ?? 'save_the_date']}`)}
-          </div>
-        ) : (
-          pageFrame(`Your hero — ${PUBLIC_STAGE_LABELS[stage === 'rsvp' || stage === 'event' ? stage : 'rsvp']}`)
-        )
-      }
-      controls={
-        pageKey === 'logo' ? null : pageKey === 'hero' ? (
-          /* ONE SCENE — the hero (owner 2026-09-25: "hero is a 1 scene page that
-             create a scene for your hero"): its photo or card, and — once the
-             Main background ships (Maker P10, `main-background`, stored on the
-             hero row) — the clip or photo behind every scene, made here. */
-          <>
-            {madeOnce?.hero}
-            {rows['main-background'] ? <RowBlock row={rows['main-background']} /> : null}
-          </>
-        ) : (
-          madeOnce?.[pageKey]
-        )
-      }
-    />
-  ) : null;
-
-  /** A page (Hero · Reveal · Logo · Love Story here; Details · RSVP drawn by the shell) is open. */
-  const workHidden = Boolean(pageView) || (selection?.kind === 'tool' && isShellPage(selection.key));
+     similar to the different stages."* Since Details parts 2b and 3 every one
+     of them is an item OF Details (Logo · Hero · Reveal registered above; Love
+     Story and RSVP built by the launch page), which the shell draws over this
+     area — the stage stays loaded underneath. */
+  const workHidden = selection?.kind === 'tool' && isShellPage(selection.key);
   return (
     <div className="flex h-full min-h-0 flex-col lg:flex-row">
       {/* 🪞 The Maker never draws inside a frame of itself. */}
@@ -1349,7 +1291,6 @@ export function MakerWork({
           and reveal and love story has no navigation since it is just full
           create your logo"*) — and none under Details, which the shell draws
           over this area: the navigator belongs to the four stages only. */}
-      {pageView}
       {/* 🔥 THE STAGE STAYS LOADED UNDER A PAGE (owner 2026-09-28: *"load
           everything so it runs smoothly"*). Opening Hero, Logo, Reveal, Love
           Story, Details or RSVP used to UNMOUNT the navigator and the canvas, so
@@ -2107,17 +2048,6 @@ function isShellPage(key: string): key is 'details' {
   return key === 'details';
 }
 
-function madeOncePageKey(
-  selection: MakerSelection,
-  madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null,
-): MadeOnceKey | null {
-  if (selection?.kind !== 'tool' || !isMadeOnceKey(selection.key)) return null;
-  return madeOnce?.[selection.key] ? selection.key : null;
-}
-
-function isMadeOnceKey(key: string): key is MadeOnceKey {
-  return key === 'logo' || key === 'hero' || key === 'reveal';
-}
 
 
 /* ── 📖 POST EVENT TILES (Maker Phase 8) ─────────────────────────────────── */

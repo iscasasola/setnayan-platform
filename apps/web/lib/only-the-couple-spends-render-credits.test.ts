@@ -26,7 +26,8 @@ import { stripComments } from './strip-comments';
 const WEB = join(import.meta.dirname, '..');
 const DIR = join(WEB, 'app', 'dashboard', '[eventId]', 'studio', 'mood-board');
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
-const PAGE = read(join(DIR, 'page.tsx'));
+// The board is one component since Details part 3 (its page and the Maker draw it).
+const PAGE = read(join(DIR, '_components', 'mood-board-editor.tsx'));
 const SURFACE = read(join(DIR, '_components', 'make-it-real.tsx'));
 const ACTIONS = read(join(DIR, 'render-actions.ts'));
 const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');

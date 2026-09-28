@@ -5,28 +5,25 @@ import { TOURS, type TourKey } from '@/lib/tours';
 /**
  * THE EVENT HUB MAKER'S BAR — the one list, pure, so a test can hold it.
  *
- * Owner-final (DECISION_LOG 2026-09-24/25, `EVENT_HUB_MAKER_BUILD_PLAN_2026-09-25.md`
- * Phase 1):
+ * Owner-final (2026-09-28, DECISION_LOG "OPTION B — EVERYTHING MADE ONCE LIVES
+ * IN DETAILS; THE TOP MENU IS THE FOUR STAGES + DETAILS"), verbatim: *"B.
+ * maximize this concept so it is easier to find everything to populate the
+ * event hub"*:
  *
- *     Details · Logo · Hero · Reveal · Love Story · RSVP │ Save the Date · Invitation · On the Day · Post Event
+ *     Save the Date · Invitation · On the Day · Post Event │ Details
  *
- * Owner, FINAL order (2026-09-25, verbatim): *"DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
- * INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS"*. `MAKER_BAR` below is the one array.
+ * — nothing else. Logo, Hero, Reveal, Love Story and RSVP were pages of their
+ * own here (the 2026-09-25 bar); they are items of Details now, and an old
+ * `?tool=<page>` lands on its item (`lib/maker-details-items.ts`
+ * `movedPageItem`). Prints & Tickets folded in on 2026-09-28 the same way.
  *
- * 🖨 PRINTS & TICKETS FOLDED INTO DETAILS (owner 2026-09-28, verbatim: *"1 fold
- * prints and tickets into details"*): every print is an item of the Details
- * page now (`lib/maker-details-items.ts`), so the third group is gone, and an
- * old `?tool=prints` link opens Details at the same piece (`makerToolFor`).
- *
- * Two groups, one divider. The middle group is the four stages of the ONE
- * public link and its words are NOT typed here — they are `PUBLIC_STAGE_LABELS`
- * in `PUBLIC_STAGE_ORDER`, the one stage vocabulary (owner 2026-09-24). A second
+ * The stages' words are NOT typed here — they are `PUBLIC_STAGE_LABELS` in
+ * `PUBLIC_STAGE_ORDER`, the one stage vocabulary (owner 2026-09-24). A second
  * spelling of "Invitation" in this file is how two vocabularies came back.
  *
  * `kind` says what pressing the item DOES, and every item does something:
  *   · 'stage' — switches the canvas to that stage of the live page;
- *   · 'tool'  — opens a working panel that already ships (the Logo Maker door,
- *               the reveal panel, the hero photo, Our story).
+ *   · 'tool'  — opens Details, the page every made-once thing lives in.
  *
  * ⛔ NOTHING HERE PROMISES A LATER BUILD (2026-09-28, before the Apple check —
  * App Review rejects "coming soon"). The old `'next'` kind and the
@@ -46,23 +43,17 @@ export type MakerBarGroup = 'made-once' | 'stages';
 export const MAKER_DETAILS_LABEL = 'Details';
 
 export type MakerBarItem =
-  | { key: 'logo' | 'hero' | 'reveal' | 'details'; label: string; group: 'made-once'; kind: 'tool' }
+  | { key: 'details'; label: string; group: 'made-once'; kind: 'tool' }
   | { key: LifecyclePhase; label: string; group: 'stages'; kind: 'stage' };
 
 export const MAKER_BAR: readonly MakerBarItem[] = [
-  // Owner-final order: DETAILS first ("DETAILS LOGO HERO REVEAL LOVE STORY / …").
-  { key: 'details', label: MAKER_DETAILS_LABEL, group: 'made-once', kind: 'tool' },
-  { key: 'logo', label: 'Logo', group: 'made-once', kind: 'tool' },
-  { key: 'hero', label: 'Hero', group: 'made-once', kind: 'tool' },
-  { key: 'reveal', label: 'Reveal', group: 'made-once', kind: 'tool' },
-  /* 📦 Love Story and RSVP left the bar (Details part 2b, DECISION_LOG "OPTION B
-     — EVERYTHING MADE ONCE LIVES IN DETAILS"): their pages are Details items
-     now — Story & plans › Love Story · RSVP — the same components, moved whole.
-     `?tool=love-story` / `?tool=rsvp-page` still land on them (`landInDetails`). */
+  // The four stages of the one link, in the order it lives through them…
   ...PUBLIC_STAGE_ORDER.map(
     (phase) =>
       ({ key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' }) as const,
   ),
+  // …then Details, where everything made once lives (Option B).
+  { key: 'details', label: MAKER_DETAILS_LABEL, group: 'made-once', kind: 'tool' },
 ];
 
 /**
@@ -103,23 +94,21 @@ export function isStagePhase(value: unknown): value is LifecyclePhase {
  * "Logo ▾": *"combine them in 1 dropdown"*; DECISION_LOG "THE COMPACT MAKER
  * BAR IS ONE PICKER, NOT TWO"). Pure, so a test holds what the couple sees:
  *
- *   · the button names where they ARE — the open page, else the stage;
- *   · the list is two labelled groups, Stages then Pages, in `MAKER_BAR`'s own
- *     words; Stages keep the live-today dot;
- *   · (Prints & Tickets was under Pages until 2026-09-28; it is part of
- *     Details now — "PRINTS & TICKETS FOLDS INTO DETAILS".)
- *   · a viewer who is not the couple sees the pages, each saying why it is shut.
+ *   · the button names where they ARE — Details when it is open, else the stage;
+ *   · the list is ONE FLAT LIST in `MAKER_BAR`'s own order and words — Save the
+ *     Date · Invitation · On the Day · Post Event · Details (DECISION_LOG
+ *     "OPTION B …": *"the place menu is … — nothing else"*; the Stages / Pages
+ *     headings went with the pages). Stages keep the live-today dot;
+ *   · a viewer Details is not for (a coordinator) sees it, saying why it is
+ *     shut — in the event type's own word for its host (`theHost`).
  *
  * Every key is a `MAKER_BAR` key, and `makerPlaceItem` hands back THAT item, so
  * a pick runs the same `onPress` the full row's button does — never a second
  * meaning.
  */
-export const MAKER_PLACE_GROUPS = { stages: 'Stages', pages: 'Pages' } as const;
-
 export type MakerPlaceOption = {
   key: MakerBarItem['key'];
   label: string;
-  group: (typeof MAKER_PLACE_GROUPS)[keyof typeof MAKER_PLACE_GROUPS];
   dot?: boolean;
   disabledNote?: string;
 };
@@ -130,25 +119,18 @@ export function makerPlacePick(input: {
   /** The key of the page open in the Maker, or null when none is. */
   openTool: string | null;
   hasWork: boolean;
+  /** Who Details is for, in the event type's own words (`EventWords.theHost` —
+   *  "the couple", "the host", "the family"); never a typed noun here. */
+  theHost?: string;
 }): { value: string; options: MakerPlaceOption[] } {
-  const tools = MAKER_BAR.filter((i) => i.kind === 'tool');
-  const open = tools.find((i) => i.key === input.openTool) ?? null;
+  const open = MAKER_BAR.find((i) => i.kind === 'tool' && i.key === input.openTool) ?? null;
   return {
     value: open?.key ?? input.stage,
-    options: [
-      ...MAKER_BAR.filter((i) => i.kind === 'stage').map((i) => ({
-        key: i.key,
-        label: i.label,
-        group: MAKER_PLACE_GROUPS.stages,
-        ...(input.liveStage === i.key ? { dot: true } : {}),
-      })),
-      ...tools.map((i) => ({
-        key: i.key,
-        label: i.label,
-        group: MAKER_PLACE_GROUPS.pages,
-        ...(input.hasWork ? {} : { disabledNote: 'only the couple can open this' }),
-      })),
-    ],
+    options: MAKER_BAR.map((i) =>
+      i.kind === 'stage'
+        ? { key: i.key, label: i.label, ...(input.liveStage === i.key ? { dot: true } : {}) }
+        : { key: i.key, label: i.label, ...(input.hasWork ? {} : { disabledNote: `only ${input.theHost ?? 'the host'} can open this` }) },
+    ),
   };
 }
 

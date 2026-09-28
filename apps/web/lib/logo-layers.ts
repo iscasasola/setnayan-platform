@@ -48,13 +48,28 @@ export const LOGO_LAYER_KIND_LABEL: Record<LogoLayerKind, string> = { image: 'Im
    letter 1.
 
    ✍ DRAW ON FOLLOWS THE HAND THAT WROTE IT (owner 2026-09-27, of his C: *"it
-   loops to the left goes up makes the c and ends with a curl"*). Not a wipe,
-   and not the outline being stroked (the studio's Handwriting): the couple
-   traces the letter ONCE, in writing order ("Show how it's written"), and that
-   centreline — the layer's WRITING PATH, the engine's `strokes` shape `{ w, pts }`
-   — becomes a thick mask drawn along its length, revealing the real letterform
-   in the order it was written. A layer with no writing path cannot Draw on; it
-   Fades (`effectiveIn`). */
+   loops to the left goes up makes the c and ends with a curl"*). Not a wipe:
+   the couple traces the letter ONCE, in writing order ("Show how it's
+   written"), and that centreline — the layer's WRITING PATH, the engine's
+   `strokes` shape `{ w, pts }` — decides WHEN each bit of ink appears: the
+   moment the pen reaches the point of the path nearest to it
+   (`writeRevealCells`).
+
+   🔑 NOT A BRUSH (owner 2026-09-28: *"the trace does not follow properly"*).
+   The first build dragged a fixed-width mask brush along the path. Anything
+   inside the brush appeared early however far along the letter it belonged,
+   and anything the brush missed — a thick bowl, a finger trace a few pixels
+   off the line — stayed hidden and POPPED in when the mask came off (measured
+   on the owner's C: 29% of the ink). The cells split the WHOLE layer box by
+   nearest pen position, so every bit of ink has exactly one moment and none
+   is left for the end.
+
+   ✍ NO WRITING PATH → THE OUTLINE TRACES ON (owner 2026-09-28: *"logo
+   animation lost its trace effect"*). The first build made a layer with no
+   writing path Fade instead, and made that the default — so every uploaded
+   letter lost the studio's trace. Draw on without a path strokes the letter's
+   own outline on and inks the fill in (the studio's Handwriting), and it is
+   what a new layer does until the couple picks something else. */
 export const LOGO_IN = ['draw', 'rise', 'fade', 'none'] as const;
 export type LogoIn = (typeof LOGO_IN)[number];
 export const LOGO_IN_LABEL: Record<LogoIn, string> = { draw: 'Draw on', rise: 'Rise', fade: 'Fade', none: 'None' };
@@ -63,10 +78,23 @@ export type LogoDuring = (typeof LOGO_DURING)[number];
 export const LOGO_DURING_LABEL: Record<LogoDuring, string> = { still: 'Still', drift: 'Drift' };
 export const LOGO_DELAY_MAX = 4;
 export const LOGO_DELAY_STEP = 0.1;
-/** How long one layer's In takes, in seconds. */
+/** How long one layer's In takes, in seconds, until the couple sets its speed. */
 export const LOGO_IN_SECONDS: Record<LogoIn, number> = { draw: 2, rise: 0.9, fade: 0.8, none: 0 };
 
-export type LogoMotion = { in: LogoIn; during: LogoDuring; delay: number };
+/* ⏱ EACH LAYER SETS ITS OWN SPEED (owner 2026-09-28: *"also the animation can
+   set it speed"*): `dur` is how long its In takes, in seconds. Absent = the
+   In's own default above, so every logo saved before keeps its timing. */
+export const LOGO_DUR_MIN = 0.3;
+export const LOGO_DUR_MAX = 8;
+export const LOGO_DUR_STEP = 0.1;
+
+export type LogoMotion = { in: LogoIn; during: LogoDuring; delay: number; dur?: number };
+
+/** How long a layer's In actually takes, in seconds. */
+export function logoInSeconds(m: Pick<LogoMotion, 'in' | 'dur'>): number {
+  if (m.in === 'none') return 0;
+  return typeof m.dur === 'number' ? m.dur : LOGO_IN_SECONDS[m.in];
+}
 
 /** The centreline the couple traced, in the layer's own box, and the width of
  *  the brush that reveals along it. The studio engine's stroke shape. */
@@ -148,11 +176,17 @@ function plain(v: unknown, max: number): string {
 export function sanitizeLogoMotion(raw: unknown, dflt: LogoMotion = defaultMotion(0)): LogoMotion {
   const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const delay = clampNum(o.delay, 0, LOGO_DELAY_MAX, dflt.delay);
-  return {
+  const out: LogoMotion = {
     in: pick(o.in, LOGO_IN, dflt.in),
     during: pick(o.during, LOGO_DURING, dflt.during),
     delay: Number((Math.round(delay / LOGO_DELAY_STEP) * LOGO_DELAY_STEP).toFixed(1)),
   };
+  // A speed only when one was set — a string, NaN or a missing value is "the default".
+  if (typeof o.dur === 'number' && Number.isFinite(o.dur)) {
+    const dur = clampNum(o.dur, LOGO_DUR_MIN, LOGO_DUR_MAX, LOGO_IN_SECONDS.draw);
+    out.dur = Number((Math.round(dur / LOGO_DUR_STEP) * LOGO_DUR_STEP).toFixed(1));
+  }
+  return out;
 }
 
 /** A traced writing path: finite points (at least two), bounded, rounded. */
@@ -161,7 +195,9 @@ export function sanitizeWritePath(raw: unknown): LogoWritePath | undefined {
   const o = raw as Record<string, unknown>;
   if (!Array.isArray(o.pts)) return undefined;
   const pts: Array<{ x: number; y: number }> = [];
-  for (const p of o.pts.slice(0, LOGO_WRITE_MAX_PTS)) {
+  // Thin a long trace EVENLY — never cut its tail (the first build sliced the
+  // first 400 points, so a slow trace lost its end: the owner's closing curl).
+  for (const p of evenlyThinned(o.pts, LOGO_WRITE_MAX_PTS)) {
     const q = (p ?? {}) as Record<string, unknown>;
     if (typeof q.x !== 'number' || typeof q.y !== 'number' || !Number.isFinite(q.x) || !Number.isFinite(q.y)) continue;
     pts.push({ x: Math.round(clampNum(q.x, -5000, 5000, 0) * 10) / 10, y: Math.round(clampNum(q.y, -5000, 5000, 0) * 10) / 10 });
@@ -212,23 +248,230 @@ export function sanitizeLogoLayers(raw: unknown): LogoLayerMeta[] {
 /* ── defaults ──────────────────────────────────────────────────────────────── */
 
 /** A new layer's motion: it arrives as the layer below it finishes — upload the
- *  I, then the C, and the I comes in first and the C after it. It Fades until
- *  the couple shows how it is written; then it can Draw on. */
+ *  I, then the C, and the I comes in first and the C after it. It Draws on:
+ *  its outline traces on until the couple shows how it is written, then it
+ *  follows the pen. */
 export function defaultMotion(indexInStack: number): LogoMotion {
   const delay = Math.min(LOGO_DELAY_MAX, Math.max(0, indexInStack) * LOGO_IN_SECONDS.draw);
-  return { in: 'fade', during: 'still', delay: Number(delay.toFixed(1)) };
+  return { in: 'draw', during: 'still', delay: Number(delay.toFixed(1)) };
 }
 
-/** What a layer actually plays: Draw on needs a writing path, else it Fades. */
-export function effectiveIn(l: Pick<LogoLayerMeta, 'write'> & { motion: Pick<LogoMotion, 'in'> }): LogoIn {
-  return l.motion.in === 'draw' && !(l.write && l.write.pts.length >= 2) ? 'fade' : l.motion.in;
+/** What a layer actually plays. Draw on always plays now — along the writing
+ *  path when there is one, along the letter's own outline when there is not. */
+export function effectiveIn(l: { motion: Pick<LogoMotion, 'in'> }): LogoIn {
+  return l.motion.in;
 }
 
 /* ── the writing path ─────────────────────────────────────────────────────── */
 
+/** At most `max` items, taken evenly from first to LAST (the end is kept). */
+export function evenlyThinned<T>(items: readonly T[], max: number): T[] {
+  if (items.length <= max) return items.slice();
+  if (max < 2) return items.slice(0, max);
+  const out: T[] = [];
+  for (let i = 0; i < max; i++) out.push(items[Math.round((i * (items.length - 1)) / (max - 1))] as T);
+  return out;
+}
+
+/** How far along the path (0 … 1) the pen is at time `u` (0 … 1) of the In:
+ *  a gentle start and finish, like a hand. */
+export function penProgress(u: number): number {
+  const c = Math.min(1, Math.max(0, u));
+  return (1 - Math.cos(Math.PI * c)) / 2;
+}
+/** …and its inverse: at what time (0 … 1) the pen reaches progress `t`. */
+export function penTime(t: number): number {
+  const c = Math.min(1, Math.max(0, t));
+  return Math.acos(1 - 2 * c) / Math.PI;
+}
+
+/** The writing path resampled every `step` units along its length, each
+ *  sample carrying how far along the path it is (`t`, 0 … 1). */
+function resampleWrite(write: LogoWritePath, samples: number): Array<{ x: number; y: number; t: number }> {
+  const pts = write.pts;
+  const total = writePathLength(write);
+  if (total <= 0) return [{ ...(pts[0] as { x: number; y: number }), t: 0 }];
+  const n = Math.max(2, samples);
+  const out: Array<{ x: number; y: number; t: number }> = [];
+  let seg = 1;
+  let segStart = 0;
+  for (let i = 0; i < n; i++) {
+    const at = (i / (n - 1)) * total;
+    while (seg < pts.length - 1) {
+      const a = pts[seg - 1] as { x: number; y: number };
+      const b = pts[seg] as { x: number; y: number };
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (segStart + len >= at) break;
+      segStart += len;
+      seg++;
+    }
+    const a = pts[seg - 1] as { x: number; y: number };
+    const b = pts[seg] as { x: number; y: number };
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const f = len > 0 ? Math.min(1, Math.max(0, (at - segStart) / len)) : 0;
+    out.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, t: i / (n - 1) });
+  }
+  return out;
+}
+
+/** Keep the part of a convex polygon on the side of the bisector nearer to `p`
+ *  than to `q` (a half-plane clip — one step of a Voronoi cell). */
+function clipNearer(poly: Array<[number, number]>, p: { x: number; y: number }, q: { x: number; y: number }): Array<[number, number]> {
+  const nx = q.x - p.x;
+  const ny = q.y - p.y;
+  const c = (nx * (p.x + q.x) + ny * (p.y + q.y)) / 2;
+  const side = (v: [number, number]) => nx * v[0] + ny * v[1] - c; // ≤ 0 = nearer p
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i] as [number, number];
+    const b = poly[(i + 1) % poly.length] as [number, number];
+    const sa = side(a);
+    const sb = side(b);
+    if (sa <= 0) out.push(a);
+    if ((sa < 0 && sb > 0) || (sa > 0 && sb < 0)) {
+      const f = sa / (sa - sb);
+      out.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+    }
+  }
+  return out;
+}
+
+/** How many pen positions a writing path is split into. */
+export const LOGO_WRITE_CELLS = 240;
+
+/**
+ * THE PEN'S CELLS — the layer's whole box split by nearest pen position. Cell
+ * `i` is every point whose nearest sample along the writing path is sample
+ * `i`, and it appears when the pen gets there (`t`, 0 … 1 along the path). The
+ * cells tile the box, so every bit of ink appears exactly once, at the moment
+ * the pen passes closest to it — never early because a brush was wide, never
+ * late because a brush missed it.
+ */
+export function writeRevealCells(write: LogoWritePath, w: number, h: number): Array<{ t: number; d: string }> {
+  return cellsOf(resampleWrite(write, LOGO_WRITE_CELLS), w, h);
+}
+
+/**
+ * ✂ EACH PART FOLLOWS ONLY THE PEN THAT IS ON IT (owner 2026-09-28: *"we also
+ * have each part separated with a small gap, so we know where each part focuses
+ * on"*). A letter drawn as parts with small gaps between them traces to one
+ * shape per part (`lib/monogram-studio/trace.ts`: one path per connected
+ * component). Part `k`'s cells are split among only the pen positions that are
+ * ON part `k` (`covers`), so a part appears when the pen reaches IT — never
+ * early because the pen passed close by on a neighbouring part — and then
+ * follows the pen across it. A part the pen never touches falls back to the
+ * whole path's cells: it appears where the pen passes nearest.
+ *
+ * `covers(k, x, y)` is asked in the layer's own box; the player answers it with
+ * the part's real fill (`isPointInFill`, with a finger's tolerance), tests with
+ * the rendered pixels.
+ */
+export function writeRevealPlan(
+  write: LogoWritePath,
+  w: number,
+  h: number,
+  parts: number,
+  covers: (part: number, x: number, y: number) => boolean,
+): Array<Array<{ t: number; d: string }>> {
+  const samples = resampleWrite(write, LOGO_WRITE_CELLS);
+  let whole: Array<{ t: number; d: string }> | null = null;
+  const plan: Array<Array<{ t: number; d: string }>> = [];
+  for (let k = 0; k < parts; k++) {
+    const on = samples.filter((q) => covers(k, q.x, q.y));
+    plan.push(on.length ? cellsOf(on, w, h) : (whole ??= cellsOf(samples, w, h)));
+  }
+  return plan;
+}
+
+/**
+ * 🔢 WHERE THE PEN MEETS EACH PART (owner 2026-09-28: *"the flow should have
+ * started on the top of the C. maybe highlight or identify each part to detect
+ * its start and end point of the trace?"*). For each part: where the pen first
+ * reaches it and where it leaves it, with `order` = the order the parts start
+ * drawing (1 = first). A part the pen never touches has no passage — it
+ * appears where the pen passes nearest, and the editor says so by leaving it
+ * unnumbered.
+ */
+export function writePartPassages(
+  write: LogoWritePath,
+  parts: number,
+  covers: (part: number, x: number, y: number) => boolean,
+): Array<{ order: number; start: { x: number; y: number; t: number }; end: { x: number; y: number; t: number } } | null> {
+  const samples = resampleWrite(write, LOGO_WRITE_CELLS);
+  const raw = Array.from({ length: parts }, (_, k) => {
+    const on = samples.filter((q) => covers(k, q.x, q.y));
+    return on.length ? { start: on[0] as { x: number; y: number; t: number }, end: on[on.length - 1] as { x: number; y: number; t: number } } : null;
+  });
+  const byStart = raw
+    .map((r, k) => ({ r, k }))
+    .filter((o) => o.r)
+    .sort((a, b) => (a.r as { start: { t: number } }).start.t - (b.r as { start: { t: number } }).start.t);
+  const order = new Map(byStart.map((o, i) => [o.k, i + 1]));
+  return raw.map((r, k) => (r ? { order: order.get(k) as number, ...r } : null));
+}
+
+/** One colour per part, while the couple traces — distinct, never the ink. */
+export const LOGO_PART_TINTS = ['#C0392B', '#2471A3', '#1E8449', '#7D3C98', '#B9770E', '#117A65', '#BA4A00', '#34495E'] as const;
+
+/** A layer's shapes with each PART in its own colour (`LOGO_PART_TINTS`, in
+ *  drawing order — the order `logoParts` finds them). Editor only; never saved. */
+export function tintParts(shapes: string): string {
+  let k = 0;
+  return shapes.replace(/<(path|circle|ellipse|polygon)\b/g, (m) => `${m} style="fill:${LOGO_PART_TINTS[k++ % LOGO_PART_TINTS.length]}"`);
+}
+
+/** The writing path the other way round — for a trace drawn from the wrong end. */
+export function reversedWrite(write: LogoWritePath): LogoWritePath {
+  return { w: write.w, pts: write.pts.slice().reverse() };
+}
+
+function cellsOf(samples: Array<{ x: number; y: number; t: number }>, w: number, h: number): Array<{ t: number; d: string }> {
+  const m = Math.max(w, h) * 0.05;
+  const box: Array<[number, number]> = [
+    [-m, -m],
+    [w + m, -m],
+    [w + m, h + m],
+    [-m, h + m],
+  ];
+  const cells: Array<{ t: number; d: string }> = [];
+  samples.forEach((p, i) => {
+    // Nearest neighbours first; once a neighbour is more than twice the cell's
+    // reach away, its bisector cannot cut the cell and neither can any further.
+    const others = samples
+      .map((q, j) => ({ q, j, d: Math.hypot(q.x - p.x, q.y - p.y) }))
+      .filter((o) => o.j !== i)
+      .sort((a, b) => a.d - b.d);
+    let poly = box;
+    for (const o of others) {
+      if (o.d < 1e-6) {
+        // Two samples on one spot (a pen that paused): the earlier one owns it.
+        if (o.j < i) {
+          poly = [];
+          break;
+        }
+        continue;
+      }
+      let reach = 0;
+      for (const v of poly) reach = Math.max(reach, Math.hypot(v[0] - p.x, v[1] - p.y));
+      if (o.d > 2 * reach) break;
+      poly = clipNearer(poly, p, o.q);
+      if (poly.length < 3) break;
+    }
+    if (poly.length >= 3) cells.push({ t: p.t, d: `M${poly.map((v) => `${R(v[0])} ${R(v[1])}`).join('L')}Z` });
+  });
+  return cells;
+}
+
 /** The writing path as SVG path data (a polyline, in the layer's own box). */
 export function writePathD(write: LogoWritePath): string {
   return write.pts.map((p, i) => `${i ? 'L' : 'M'}${R(p.x)} ${R(p.y)}`).join('');
+}
+
+/** Read a writing path back from its path data (the file's `data-write`). */
+export function parseWritePathD(d: string | null | undefined, w: number): LogoWritePath | undefined {
+  if (!d) return undefined;
+  const pts = [...d.matchAll(/[ML]\s*(-?[\d.]+)[\s,]+(-?[\d.]+)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+  return sanitizeWritePath({ w, pts });
 }
 
 /** Its length (the dash that draws it on). */
@@ -248,17 +491,18 @@ export function defaultWriteWidth(w: number, h: number): number {
 }
 
 /**
- * THE REVEAL AT PROGRESS `p` (0 … 1) — a mask that shows the layer only under
- * the first `p` of its writing path, drawn with the brush. The player animates
- * exactly this (`stroke-dashoffset` from the length to 0); tests render it at a
- * fixed `p` to prove the letter appears in the order it was written.
+ * THE REVEAL WHEN THE PEN IS `p` OF THE WAY ALONG (0 … 1) — a mask of every
+ * cell the pen has reached. The player builds the same cells and shows each
+ * as the pen arrives; tests render this at a fixed `p` to prove the letter
+ * appears in the order it was written, and that nothing is left for the end.
+ * The thin white edge on each cell closes the hairline seams between them.
  */
 export function writeMaskMarkup(id: string, l: Pick<LogoLayer, 'w' | 'h'> & { write: LogoWritePath }, p: number): string {
-  const len = writePathLength(l.write);
-  const off = len * (1 - Math.min(1, Math.max(0, p)));
+  const cells = writeRevealCells(l.write, l.w, l.h).filter((c) => c.t <= p);
+  const seam = R(Math.max(l.w, l.h) * 0.002);
   return (
     `<mask id="${id}" maskUnits="userSpaceOnUse" x="${R(-l.w)}" y="${R(-l.h)}" width="${R(l.w * 3)}" height="${R(l.h * 3)}">` +
-    `<path d="${writePathD(l.write)}" fill="none" stroke="#FFFFFF" stroke-width="${R(l.write.w)}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${R(len + 1)} ${R(len + 1)}" stroke-dashoffset="${R(off)}"/>` +
+    cells.map((c) => `<path d="${c.d}" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="${seam}"/>`).join('') +
     `</mask>`
   );
 }
@@ -450,8 +694,9 @@ export function composeLogoSvg(layers: LogoLayer[]): string | null {
     if (!l.body) continue;
     const inKind = effectiveIn(l);
     const write = inKind === 'draw' && l.write ? ` data-write="${writePathD(l.write)}" data-write-w="${R(l.write.w)}"` : '';
+    const dur = typeof l.motion.dur === 'number' ? ` data-dur="${l.motion.dur}"` : '';
     parts.push(
-      `<g data-logo-layer="${l.id}" data-kind="${l.kind}" data-in="${inKind}" data-during="${l.motion.during}" data-delay="${l.motion.delay}"${write} transform="${layerTransform(l)}">` +
+      `<g data-logo-layer="${l.id}" data-kind="${l.kind}" data-in="${inKind}" data-during="${l.motion.during}" data-delay="${l.motion.delay}"${dur}${write} transform="${layerTransform(l)}">` +
         `<g data-logo-body="${R(l.w)} ${R(l.h)}">${layerShapes(l)}</g></g>`,
     );
   }
@@ -539,5 +784,5 @@ export function retimeLayers(layers: LogoLayer[]): LogoLayer[] {
 
 /** When each layer starts and ends its In, in stack order. */
 export function logoTimeline(layers: Array<Pick<LogoLayerMeta, 'id' | 'motion'>>): Array<{ id: string; start: number; end: number }> {
-  return layers.map((l) => ({ id: l.id, start: l.motion.delay, end: l.motion.delay + LOGO_IN_SECONDS[l.motion.in] }));
+  return layers.map((l) => ({ id: l.id, start: l.motion.delay, end: l.motion.delay + logoInSeconds(l.motion) }));
 }

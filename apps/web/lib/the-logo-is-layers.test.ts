@@ -14,7 +14,9 @@
  *   3. rails: a layer never leaves the frame, and snaps to its centre;
  *   4. the file passes the SVG gate, fits the draft, and reads back exactly;
  *   5. "Draw on" follows the writing path: at 25% the start of the C is drawn
- *      and its end is not — measured in PIXELS — and without a path it Fades;
+ *      and its end is not, and just before the end nothing is left to pop in —
+ *      measured in PIXELS; without a path the outline traces on; each layer
+ *      sets its own speed;
  *   6. the page has no header bar, adds Text · Image · Frame, and every guest
  *      surface that plays the mark plays the layers.
  */
@@ -44,6 +46,12 @@ import {
   snapInFrame,
   svgAsLayerBody,
   writeMaskMarkup,
+  writeRevealCells,
+  writeRevealPlan,
+  writePartPassages,
+  reversedWrite,
+  logoInSeconds,
+  LOGO_WRITE_MAX_PTS,
   type LogoLayer,
 } from './logo-layers';
 
@@ -192,7 +200,7 @@ test('4 · the layer config is bounded — malformed layers are dropped, never t
   assert.equal(out[0]?.text, 'I & Cscript', 'markup survived in a text layer');
   assert.equal(out[0]?.font, 'cardo');
   assert.equal(out[0]?.x, LOGO_FRAME);
-  assert.equal(out[0]?.motion.in, 'fade');
+  assert.equal(out[0]?.motion.in, 'draw', 'an unknown In must fall back to the default Draw on');
   assert.equal(out[0]?.motion.delay, 4);
   assert.equal(out[1]?.color, null, 'a non-hex colour survived');
   assert.equal(out[1]?.write, undefined, 'a one-point writing path survived');
@@ -233,13 +241,90 @@ test('5 · at 25% the C’s start is drawn and its end is not — measured in pi
   assert.equal(q1, 0, 'at 25% the end of the C is already drawn — the reveal is not following the writing');
   const [d0, d1] = await alphaAt(at(1), [START, END]);
   assert.ok((d0 ?? 0) > 200 && (d1 ?? 0) > 200, 'at 100% the whole letter must be drawn');
+
+  // 🔑 NOTHING IS SAVED FOR THE END (owner 2026-09-28: "the trace does not
+  // follow properly"). The first build's brush left 29% of this C hidden until
+  // the mask came off, then popped it in. Just before the pen finishes, the
+  // mask must already show all but a sliver of the ink.
+  const inkPx = async (svg: string) => {
+    const { data } = await sharp(Buffer.from(svg)).resize(400, 400).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    let n = 0;
+    for (let i = 3; i < data.length; i += 4) if ((data[i] as number) > 128) n++;
+    return n;
+  };
+  const full = await inkPx(composeLogoSvg([c])!);
+  const nearEnd = await inkPx(at(0.97));
+  console.log(`[logo] ink shown at 97% of the pen: ${((100 * nearEnd) / full).toFixed(1)}%`);
+  assert.ok(nearEnd / full > 0.95, 'ink is still hidden near the end — it will pop in when the mask comes off');
 });
 
-test('5 · Draw on needs a writing path — without one the layer Fades', () => {
+test('5 · each part follows only the pen that is on it — never early because the pen passed close by', () => {
+  // Two parts with a small gap: A = x 100…480, B = x 500…900 (both y 400…600).
+  // The pen runs along A, then crosses the gap onto B.
+  const inA = (x: number, y: number) => x >= 100 && x <= 480 && y >= 400 && y <= 600;
+  const inB = (x: number, y: number) => x >= 500 && x <= 900 && y >= 400 && y <= 600;
+  const write = { w: 60, pts: [{ x: 100, y: 500 }, { x: 900, y: 500 }] };
+  const plan = writeRevealPlan(write, 1000, 1000, 2, (k, x, y) => (k === 0 ? inA(x, y) : inB(x, y)));
+  const tEnterB = (500 - 100) / 800;
+  const tLeaveA = (480 - 100) / 800;
+  const firstB = Math.min(...(plan[1] ?? []).map((c) => c.t));
+  const lastA = Math.max(...(plan[0] ?? []).map((c) => c.t));
+  assert.ok(firstB >= tEnterB - 0.01, `part B starts at ${firstB.toFixed(3)} — before the pen reached it (${tEnterB})`);
+  assert.ok(lastA <= tLeaveA + 0.01, `part A is still revealing at ${lastA.toFixed(3)} — after the pen left it`);
+  // Without the parts (one cell set for the whole box), B's near edge would
+  // show as the pen reached the gap — the leak the parts exist to stop.
+  const whole = writeRevealCells(write, 1000, 1000);
+  assert.ok(whole.some((c) => c.t > tLeaveA && c.t < tEnterB), 'anti-vacuity: the gap has pen positions of its own');
+  // A part the pen never touches still appears — where the pen passes nearest.
+  const [untouched] = writeRevealPlan(write, 1000, 1000, 1, () => false);
+  assert.equal(untouched?.length, whole.length);
+});
+
+test('5 · the editor numbers each part where the pen first reaches it — and can flip a backwards trace', () => {
+  // Parts A (x 100…480) and B (x 500…900); a third part C the pen never touches.
+  const inA = (x: number, y: number) => x >= 100 && x <= 480 && y >= 400 && y <= 600;
+  const inB = (x: number, y: number) => x >= 500 && x <= 900 && y >= 400 && y <= 600;
+  const covers = (k: number, x: number, y: number) => (k === 0 ? inA(x, y) : k === 1 ? inB(x, y) : false);
+  const forward = { w: 60, pts: [{ x: 100, y: 500 }, { x: 900, y: 500 }] };
+  const [a, b, c] = writePartPassages(forward, 3, covers);
+  assert.equal(a?.order, 1);
+  assert.equal(b?.order, 2);
+  assert.equal(c, null, 'a part the pen never touches must stay unnumbered');
+  assert.ok(Math.abs((a?.start.x ?? 0) - 100) < 5 && Math.abs((b?.start.x ?? 0) - 500) < 5, 'the number must sit where the pen enters the part');
+  // Traced from the wrong end: Reverse flips the order without tracing again.
+  const back = reversedWrite(forward);
+  assert.deepEqual(back.pts[0], { x: 900, y: 500 });
+  const [a2, b2] = writePartPassages(back, 3, covers);
+  assert.equal(b2?.order, 1);
+  assert.equal(a2?.order, 2);
+});
+
+test('5 · the editor and the player find the parts the same way', () => {
+  const editor = code('app/dashboard/[eventId]/launch/_components/maker-logo.tsx');
+  const player = code('app/_components/layered-logo-player.tsx');
+  for (const [name, src] of [['editor', editor], ['player', player]] as const) {
+    assert.match(src, /logoParts\(/, `the ${name} finds parts its own way`);
+    assert.match(src, /partCovers\(/, `the ${name} tests the pen against parts its own way`);
+  }
+  assert.match(editor, /data-logo-write-ends/, 'the trace no longer shows its Start and End');
+  assert.match(editor, /reversedWrite\(layer\.write/, 'a backwards trace can no longer be flipped');
+});
+
+test('5 · a long, slow trace keeps its END — thinned evenly, never cut', () => {
+  const pts = Array.from({ length: 1000 }, (_, i) => ({ x: i, y: i % 7 }));
+  const kept = sanitizeLogoLayers([{ id: 'c1', kind: 'image', write: { w: 60, pts } }])[0]?.write?.pts ?? [];
+  assert.equal(kept.length, LOGO_WRITE_MAX_PTS);
+  assert.deepEqual(kept[kept.length - 1], { x: 999, y: 999 % 7 }, 'the closing curl was cut off the trace');
+  assert.deepEqual(kept[0], { x: 0, y: 0 });
+});
+
+test('5 · Draw on without a writing path traces the outline — and it is the default', () => {
   const noPath: LogoLayer = { ...imageLayer('clayer', C, 0), motion: { in: 'draw', during: 'still', delay: 0 } };
-  assert.equal(effectiveIn(noPath), 'fade');
-  assert.match(composeLogoSvg([noPath])!, /data-in="fade"/);
+  assert.equal(effectiveIn(noPath), 'draw');
+  assert.match(composeLogoSvg([noPath])!, /data-in="draw"/);
   assert.doesNotMatch(composeLogoSvg([noPath])!, /data-write=/);
+  // owner 2026-09-28 "logo animation lost its trace effect": an upload traces on.
+  assert.equal(defaultMotion(0).in, 'draw');
   const withPath = { ...noPath, write: C_WRITTEN };
   assert.match(composeLogoSvg([withPath])!, /data-in="draw" data-during="still" data-delay="0" data-write="M480 648L/);
   // A new upload arrives after the layer below it finishes.
@@ -262,13 +347,35 @@ test('5 · default delays follow the stack — remove the layer under the I and 
   assert.ok(!('autoDelay' in metaOf(after[0]!)));
 });
 
-test('5 · the player draws on along the writing path — a mask, not a wipe or an outline', () => {
+test('5 · the player follows the pen with a path, and traces the outline without one', () => {
   const src = code('app/_components/layered-logo-player.tsx');
   assert.match(src, /getAttribute\('data-write'\)/);
   assert.match(src, /createElementNS\(NS, 'mask'\)/);
-  assert.match(src, /strokeDashoffset: len \}, \{ strokeDashoffset: 0 \}/, 'the brush must draw along the path');
-  assert.match(src, /body\.setAttribute\('mask'/);
+  assert.match(src, /writeRevealPlan\(write, w, h, parts\.length, covers\)/, 'the reveal must be the pen’s cells per part, not a brush');
+  assert.match(src, /part\.setAttribute\('mask'/, 'each part must carry its own reveal');
+  assert.match(src, /penTime\(cell\.t\)/, 'each cell must show when the pen reaches it');
+  assert.match(src, /strokeDashoffset: len \+ 1 \}, \{ strokeDashoffset: 0 \}/, 'without a path the outline must trace on');
+  // owner 2026-09-28 "the start started with 2 points. i should have started on
+  // one": each outline waits for the one before it — one pen, one start.
+  assert.match(src, /delay: delayMs \+ \(done \/ all\) \* strokeMs/, 'the outlines start together — the draw begins in several places');
+  assert.match(src, /logoInSeconds\(motion\)/, 'the player ignores the layer’s speed');
   assert.doesNotMatch(src, /clipPath/, 'the left-to-right wipe is back');
+});
+
+test('5 · each layer sets its own speed — and a logo saved before keeps its timing', () => {
+  const [a, b, bad] = sanitizeLogoLayers([
+    { id: 'aa', kind: 'image', motion: { in: 'draw', dur: 5.04 } },
+    { id: 'bb', kind: 'image', motion: { in: 'draw' } },
+    { id: 'cc', kind: 'image', motion: { in: 'rise', dur: 999 } },
+  ]);
+  assert.equal(a?.motion.dur, 5);
+  assert.equal(logoInSeconds(a!.motion), 5);
+  assert.equal(b?.motion.dur, undefined, 'a speed appeared that nobody set');
+  assert.equal(logoInSeconds(b!.motion), 2);
+  assert.equal(bad?.motion.dur, 8, 'the speed is not bounded');
+  const svg = composeLogoSvg([{ ...imageLayer('clayer', C, 0), motion: { in: 'draw', during: 'still', delay: 0, dur: 4.5 } }])!;
+  assert.match(svg, /data-dur="4.5"/);
+  assert.doesNotMatch(composeLogoSvg([imageLayer('clayer', C, 0)])!, /data-dur=/);
 });
 
 /* ── 6 · the page, and what guests see ────────────────────────────────────── */

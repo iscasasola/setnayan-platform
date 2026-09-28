@@ -113,10 +113,10 @@ export function AlaalaEditorialOverlay({ current, onClose }: { current: OverlayI
       id="alaala-editorial"
       current={current}
       onClose={onClose}
-      label="Ala ala editorials"
+      label="Memories editorials"
       cardStyle={{ maxWidth: 640 }}
     >
-      <div className="hr-ov-eyebrow">Ala ala · Editorials</div>
+      <div className="hr-ov-eyebrow">Memories · Editorials</div>
       <h2 className="hr-ov-title">Every event becomes a front-page story.</h2>
       <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, color: '#6c675e' }}>
         Not a photo dump, a real storyline you can relive: the write-up, the

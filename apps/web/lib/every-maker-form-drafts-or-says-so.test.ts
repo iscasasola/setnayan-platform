@@ -89,8 +89,9 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
   uploadHeroPhoto: null,
   removeHeroPhoto: null,
   // Its door covers the section's CANVAS: layout (`arrange`) and a template
-  // scene's `slot` · `video` · `template`. Its words and removal stay live.
-  saveCustomSection: /name="intent"\s+value="arrange"|intent:\s*'(?:slot|video|template)'/,
+  // scene's `slot` · `video` · `template` — and, since 2026-09-29, an empty
+  // scene's first WORDS without Pro (`save` on draft=1). Removal stays live.
+  saveCustomSection: /name="intent"\s+value="arrange"|intent:\s*'(?:slot|video|template)'|wordsDrafted \? <HubDraftField \/>/,
   // 2026-09-25 — the Maker's live savers into the draft (`draftEventsAndReturn`,
   // proven per function in maker-live-savers-draft.test.ts).
   updateSiteColors: null,
@@ -103,6 +104,10 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
   // EVENT HUB MAKER): the row is inserted HIDDEN and drafted shown, so guests
   // meet it at Apply (proven in the-maker-adds-a-scene-to-the-draft.test.ts).
   addCustomSection: null,
+  // 2026-09-29 — the last three Pro tools (owner "yes to all 3"): the song and
+  // the hero video, and the gallery, each drafted (`draftEventsAndReturn`).
+  updateSiteChrome: null,
+  updateOurPhotos: null,
 };
 
 /**
@@ -113,6 +118,17 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
  * would be a draft field on a live save.
  */
 const COMPONENT_WRITERS: Record<string, { writers: string[]; caller: string; binds: RegExp }> = {
+  // 2026-09-29 — drafted (owner "yes to all 3").
+  [`${C}media-panels.tsx#GalleryPanel#action`]: {
+    writers: ['updateOurPhotos'],
+    caller: PAGE,
+    binds: /<GalleryPanel\s+action=\{(\w+)\.bind/g,
+  },
+  [`${C}media-panels.tsx#SiteChromePanel#action`]: {
+    writers: ['updateSiteChrome'],
+    caller: PAGE,
+    binds: /<SiteChromePanel\s+action=\{(\w+)\.bind/g,
+  },
   [`${C}pro-panels.tsx#ColorsPanel#action`]: {
     writers: ['updateSiteColors'],
     caller: PAGE,
@@ -170,15 +186,12 @@ const COMPONENT_WRITERS: Record<string, { writers: string[]; caller: string; bin
  * Each one renders "Saves immediately ⓘ". Shrink this list; never grow it
  * without a reason a couple would accept.
  */
-const MEDIA = 'media — its writer verifies and screens the file; draft media is open owner decision D6';
 const NEVER = 'never drafted by the build plan — address, who can view, what guests get and open browsing stay live';
 const LIVE: Record<string, string> = {
   [`${C}sections-panel.tsx#SectionsPanel#saveCustomAction`]:
-    "a scene's own words (config_json.custom, on its section row) and removing a scene (deletes the row) — the draft holds a section's canvas, mode and place, not its words or its absence",
+    "words a scene of their own ALREADY has, and removing a scene (deletes the row), save live — an EMPTY scene's first words draft without Pro (2026-09-29), one mark per row",
   // "+ Add a scene" (addCustomSection) drafts since 2026-09-27 — held by the
   // picker test at the bottom, not by a row here.
-  [`${C}media-panels.tsx#GalleryPanel#action`]: MEDIA,
-  [`${C}media-panels.tsx#SiteChromePanel#action`]: MEDIA,
   [`${C}media-panels.tsx#VisibilityPanel#action`]: NEVER,
   [`${C}media-panels.tsx#OpenBrowsePanel#action`]: NEVER,
   [`${C}media-panels.tsx#LaunchPhasePanel#action`]: NEVER,
@@ -197,8 +210,6 @@ const LIVE_WRITERS = new Set([
   'updateLandingPageVisibility',
   'setLaunchPhase',
   'setOpenBrowse',
-  'updateSiteChrome',
-  'updateOurPhotos',
   // saveCustomSection is BOTH: its `arrange` intent is drafted, its words are live.
 ]);
 
@@ -289,8 +300,13 @@ test('every form inside the Maker carries exactly one mark — the draft field, 
     const src = read(file);
     for (const f of formsIn(file, src)) {
       const where = `${file}:${f.line} (${f.component}, action=${f.action || '(none)'})`;
-      const hasDraft = /<HubDraftField\s*\/>/.test(f.body);
-      const hasLive = /<HubSavesImmediately\b/.test(f.body);
+      /* ✍ ONE mark decided per row (2026-09-29): an empty scene's first words
+         draft without Pro, words it already has save live — written as ONE
+         ternary between the two marks, so the form still carries exactly one.
+         Its live side is still held to the LIVE allowlist below. */
+      const perRow = /\{\s*\w+\s*\?\s*<HubDraftField\s*\/>\s*:\s*<HubSavesImmediately\s*\/>\s*\}/.test(f.body);
+      const hasDraft = !perRow && /<HubDraftField\s*\/>/.test(f.body);
+      const hasLive = perRow || /<HubSavesImmediately\b/.test(f.body);
       assert.ok(hasDraft !== hasLive, `${where} must carry exactly ONE of <HubDraftField /> or <HubSavesImmediately />`);
 
       if (hasLive) {
@@ -371,10 +387,8 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // the E-Gifts thank-you message (PabuyaMessageEditor posts from a transition).
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<HubSavesImmediately\s*\/>[\s{}]*<PabuyaMessageEditor\b/, 'the thank-you message is the E-Gifts message, written live'],
-  // The Pro QR build (2026-09-28): Shape · Pattern · Colour post from a
-  // transition into events.style_preferences.qr — the picture on every print
-  // and pass, not a drafted guest page — and say so beside the dropdowns.
-  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<QrLookControls\b[\s\S]*?\/>[\s{}]*<HubSavesImmediately\b/, 'the QR look writes live and must say so'],
+  // (The Pro QR left this list on 2026-09-29: Shape · Pattern · Colour are
+  // DRAFTED now — owner "yes to all 3" — held by the test below.)
   // Details part 2a · Your event (2026-09-29): the event's facts, each through
   // its own screen's writer, none with a draft door — names
   // (updateEventMatchCriteria), the date (GovernedFields → updateEventDate),
@@ -387,6 +401,20 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-line-controls=[\s\S]*?<HubSavesImmediately \/>[\s{}]*<\/section>/, 'a march line writes live and must say so'],
   ['app/dashboard/[eventId]/launch/_components/details-people.tsx', /data-people-controls="parent"[^>]*>[\s{}]*<HubSavesImmediately \/>/, "a parent's card writes live and must say so"],
 ];
+
+test('🔳 the QR look is a DRAFT door now — no live write, no "Saves immediately" beside it', () => {
+  const action = read('app/dashboard/[eventId]/launch/qr-look-actions.ts');
+  assert.match(action, /saveHubDraftPatch\(eventId, \{ events: \{ style_preferences: \{ \[QR_STYLE_PREF_KEY\]: merged \} \} \}\)/);
+  assert.doesNotMatch(action, /\.update\(/, 'the QR look still writes the live row');
+  assert.doesNotMatch(
+    read('app/dashboard/[eventId]/launch/_components/maker-details.tsx'),
+    // Bounded to the QrLookControls tag itself (`[^<]`): an open `[\s\S]*?` ran
+    // on to the address's own SlugField → "Saves immediately" further down the
+    // same file (Details, 2026-09-29) and convicted the wrong control.
+    /<QrLookControls\b[^<]*?\/>[\s{}]*<HubSavesImmediately\b/,
+    'a drafted control says it saves immediately',
+  );
+});
 
 test('controls that write without a form of their own say "Saves immediately" beside them', () => {
   for (const [file, anchor, why] of NO_FORM_WRITERS) {

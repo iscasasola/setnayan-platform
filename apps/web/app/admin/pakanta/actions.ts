@@ -64,7 +64,7 @@ export async function deliverPakantaSong(input: {
     if (!active) {
       return {
         ok: false,
-        error: 'This event no longer has an approved Pakanta order.',
+        error: 'This event no longer has an approved Music Maker order.',
       };
     }
 

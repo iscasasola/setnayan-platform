@@ -749,6 +749,15 @@ export async function SiteBody({
     content: isMakerCanvas ? {} : openBrowseContent,
   });
 
+  // 🎬 THE STAGE'S AUTO — the Save the Date walks itself (film → names →
+  // every scene, `lib/stage-autoplay.ts`) for guests and the preview tab, and
+  // NEVER in the Maker's canvas, where the couple is editing and a page that
+  // scrolled itself away would take the scene out from under them. It stamps
+  // the scenes the runner walks (`HubScenes stageMarks`); the runner itself is
+  // mounted by `StdFilmHandoff autoplay={!isMakerCanvas}` inside this same
+  // `save_the_date` branch — the same condition, so the two cannot disagree.
+  const stageAutoplayOn = plan.body === 'save_the_date' && !isMakerCanvas;
+
   // ── THE GALLERY, AFTER THE WEDDING ────────────────────────────────────────
   //
   // On the day the Gallery tab lands on the Live Photo Wall. The wall is a
@@ -1070,7 +1079,7 @@ export async function SiteBody({
     // 🎬 Scroll · Scrub per section — the same scenes as the guest tree, so a
     // stranger following the link sees the page the couple arranged.
     const publicWidgetNodes = (
-      <HubScenes widgets={plan.publicSafeWidgets} scrubAllowed={proWatermarkHidden}>
+      <HubScenes widgets={plan.publicSafeWidgets} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
       {plan.publicSafeWidgets.map((widget) => (
       /* One node per widget still (HubScenes pairs by position): the marker
          and the section travel together in one fragment. */
@@ -2346,7 +2355,7 @@ export async function SiteBody({
                   children unless a section scrubs AND the event owns Event Hub
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               <div className="sn-hub-cards space-y-4">
-              <HubScenes widgets={plan.hideableInOrder} scrubAllowed={proWatermarkHidden}>
+              <HubScenes widgets={plan.hideableInOrder} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
               {plan.hideableInOrder.map((widget) => (
                 <HideableWidgetRender
                   key={widget.widget_id}

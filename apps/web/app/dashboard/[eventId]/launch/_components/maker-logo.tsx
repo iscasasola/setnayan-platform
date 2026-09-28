@@ -19,7 +19,9 @@ import {
 import { createLogoSaveGate } from '@/lib/maker-logo-save-gate';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import type { MakerLogoOpening } from '@/lib/maker-logo-opening';
-import { STUDIO_FONTS, studioFontUrl, type StudioFontKey } from '@/lib/monogram-studio-fonts';
+import { HUB_ELEMENT_FONTS } from '@/lib/element-style';
+import { hubFontPreviewStack, type HubFontKey } from '@/lib/hub-fonts';
+import { logoFontOutlineUrl, outlineWords, type OtFace } from '@/lib/logo-fonts';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
@@ -62,6 +64,7 @@ import {
   retimeLayers,
   reversedWrite,
   snapInFrame,
+  snapSliderToCentre,
   tintParts,
   LOGO_PART_TINTS,
   svgAsLayerBody,
@@ -74,6 +77,7 @@ import { logoParts, partCovers } from '@/lib/logo-parts-dom';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
 import { hubDraftAction } from '../../website/hub-draft-actions';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
 
 /**
  * 🅻 THE LOGO PAGE — A FULL-SCREEN LAYERED EDITOR, LIKE THE MAKER ITSELF (owner
@@ -115,19 +119,17 @@ type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { k
 
 const PAUSE_MS = 1500;
 
-/* ── text → shapes (the studio's own faces, opentype) ─────────────────────── */
+/* ── text → shapes (the stages' own faces, as outlines — lib/logo-fonts.ts) ── */
 
-type Face = { getPath: (t: string, x: number, y: number, s: number) => OtPath };
-type OtPath = { getBoundingBox: () => { x1: number; y1: number; x2: number; y2: number }; toPathData: (d: number) => string };
-const faces = new Map<StudioFontKey, Promise<Face>>();
-function loadFace(key: StudioFontKey): Promise<Face> {
-  let p = faces.get(key);
+type Face = OtFace;
+const faces = new Map<string, Promise<Face>>();
+function loadFace(url: string): Promise<Face> {
+  let p = faces.get(url);
   if (!p) {
-    const file = STUDIO_FONTS.find((f) => f.key === key)?.file ?? STUDIO_FONTS[0]!.file;
     p = (async () => {
       const [mod, buf] = await Promise.all([
         import('opentype.js'),
-        fetch(studioFontUrl(file)).then((r) => {
+        fetch(url).then((r) => {
           if (!r.ok) throw new Error('font');
           return r.arrayBuffer();
         }),
@@ -137,19 +139,19 @@ function loadFace(key: StudioFontKey): Promise<Face> {
       };
       return ot.parse(buf);
     })();
-    p.catch(() => faces.delete(key));
-    faces.set(key, p);
+    p.catch(() => faces.delete(url));
+    faces.set(url, p);
   }
   return p;
 }
-async function textShapes(text: string, key: StudioFontKey): Promise<{ body: string; w: number; h: number } | null> {
+async function textShapes(text: string, key: HubFontKey, italic: boolean): Promise<{ body: string; w: number; h: number } | null> {
   const words = text.trim();
   if (!words) return null;
-  const face = await loadFace(key);
+  const face = await loadFace(logoFontOutlineUrl(key, italic));
   const S = 200;
-  const bb = face.getPath(words, 0, 0, S).getBoundingBox();
+  const bb = outlineWords(face, words, 0, 0, S).getBoundingBox();
   if (!(bb.x2 > bb.x1) || !(bb.y2 > bb.y1)) return null;
-  const d = face.getPath(words, -bb.x1, -bb.y1, S).toPathData(2);
+  const d = outlineWords(face, words, -bb.x1, -bb.y1, S).toPathData(2);
   return { body: `<path d="${d}"/>`, w: bb.x2 - bb.x1, h: bb.y2 - bb.y1 };
 }
 
@@ -191,7 +193,9 @@ function openingLayers(o: MakerLogoOpening): LogoLayer[] {
       motion: defaultMotion(0),
       autoDelay: true,
       text: o.names,
+      // The logo's first face, as it has always been: Cardo Italic.
       font: 'cardo',
+      italic: true,
       body: '',
       w: 1,
       h: 1,
@@ -337,19 +341,19 @@ export function MakerLogoDoor({
   /* ── text layers: shapes from their words + face ── */
   const textKey = layers
     .filter((l) => l.kind === 'text')
-    .map((l) => `${l.id}:${l.font}:${l.text}`)
+    .map((l) => `${l.id}:${l.font}:${l.italic ? 'i' : ''}:${l.text}`)
     .join('|');
   useEffect(() => {
     let alive = true;
     for (const l of layersRef.current) {
       if (l.kind !== 'text') continue;
-      const want = `${l.font}:${l.text}`;
-      void textShapes(l.text ?? '', l.font ?? 'cardo')
+      const want = `${l.font}:${l.italic ? 'i' : ''}:${l.text}`;
+      void textShapes(l.text ?? '', l.font ?? 'cardo', l.italic === true)
         .then((shape) => {
           if (!alive) return;
           setLayers((cur) =>
             cur.map((c) =>
-              c.id === l.id && `${c.font}:${c.text}` === want
+              c.id === l.id && `${c.font}:${c.italic ? 'i' : ''}:${c.text}` === want
                 ? shape
                   ? { ...c, ...shape }
                   : { ...c, body: '<path d=""/>', w: 1, h: 1 }
@@ -397,7 +401,9 @@ export function MakerLogoDoor({
       motion: defaultMotion(i),
       autoDelay: true,
       text: opening.names,
+      // The logo's first face, as it has always been: Cardo Italic.
       font: 'cardo',
+      italic: true,
       body: '',
       w: 1,
       h: 1,
@@ -874,18 +880,24 @@ function LayerTools({
             className="min-h-11 w-full rounded-md border border-ink/15 bg-white px-3 text-[15px] text-ink"
             data-logo-text-input=""
           />
-          <select
-            aria-label="Typeface"
+          {/* 🅻 EVERY STAGE FONT, IN THE STAGES' OWN DROPDOWN (owner 2026-09-28:
+              "on the logo. we need to show all fonts as well like in stages").
+              ONE list — `HUB_ELEMENT_FONTS`, what a part's Font row shows —
+              each name drawn in its own face; `lib/logo-fonts.ts` says where
+              each face's outlines are. A pick sets the upright face. */}
+          <PickMenu
+            label="Typeface"
+            dataAttr="data-logo-font"
             value={layer.font ?? 'cardo'}
-            onChange={(e) => onChange({ font: e.target.value as StudioFontKey })}
-            className="mt-2 min-h-11 w-full rounded-md border border-ink/15 bg-white px-3 text-[14px] text-ink"
-          >
-            {STUDIO_FONTS.map((f) => (
-              <option key={f.key} value={f.key}>
-                {f.label}
-              </option>
-            ))}
-          </select>
+            options={HUB_ELEMENT_FONTS.map((f) => ({
+              key: f.key,
+              label: f.label,
+              fontFamily: hubFontPreviewStack(f.key),
+              group: f.pickGroup,
+            }))}
+            onPick={(key) => onChange({ font: key as HubFontKey, italic: false })}
+            className="mt-2 min-h-11 w-full justify-between border border-ink/15"
+          />
         </Field>
       ) : null}
 
@@ -935,8 +947,8 @@ function LayerTools({
 
       <Field label="Size and place">
         <Slider label="Size" min={LOGO_SCALE_MIN} max={LOGO_SCALE_MAX} step={0.01} value={layer.scale} onChange={(v) => onChange({ scale: v })} />
-        <Slider label="Across" min={0} max={LOGO_FRAME} step={1} value={layer.x} onChange={(v) => onChange({ x: v })} />
-        <Slider label="Up and down" min={0} max={LOGO_FRAME} step={1} value={layer.y} onChange={(v) => onChange({ y: v })} />
+        <Slider label="Across" min={0} max={LOGO_FRAME} step={1} value={layer.x} snapCentre onChange={(v) => onChange({ x: v })} />
+        <Slider label="Up and down" min={0} max={LOGO_FRAME} step={1} value={layer.y} snapCentre onChange={(v) => onChange({ y: v })} />
         <button
           type="button"
           onClick={() => onChange({ x: LOGO_FRAME / 2, y: LOGO_FRAME / 2 })}
@@ -1140,6 +1152,13 @@ function SwitchRow({ on, label, onFlip }: { on: boolean; label: string; onFlip: 
   );
 }
 
+/**
+ * A labelled range slider. `snapCentre` (the Across / Up and down sliders —
+ * owner 2026-09-28: *"allow snap to center here"*): a small tick marks the
+ * middle of the track, and a DRAG that comes within `LOGO_SLIDER_SNAP` of it
+ * lands on the exact centre (`snapSliderToCentre`) with a light tap of haptics
+ * where the phone has them. The arrow keys still step freely.
+ */
 function Slider({
   label,
   min,
@@ -1147,6 +1166,7 @@ function Slider({
   step,
   value,
   onChange,
+  snapCentre = false,
 }: {
   label: string;
   min: number;
@@ -1154,20 +1174,61 @@ function Slider({
   step: number;
   value: number;
   onChange: (v: number) => void;
+  snapCentre?: boolean;
 }) {
+  /* Only a pointer drag snaps; the keyboard's own step is left alone. */
+  const dragging = useRef(false);
+  const onCentre = useRef(false);
+  const mid = (min + max) / 2;
   return (
     <label className="block">
       <span className="text-[12px] text-ink/70">{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        aria-label={label}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="min-h-11 w-full accent-terracotta-700"
-      />
+      <span className="relative block">
+        {snapCentre ? (
+          <span
+            aria-hidden
+            data-slider-centre=""
+            className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink/35"
+          />
+        ) : null}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          aria-label={label}
+          onPointerDown={() => {
+            dragging.current = true;
+          }}
+          onPointerUp={() => {
+            dragging.current = false;
+          }}
+          onPointerCancel={() => {
+            dragging.current = false;
+          }}
+          onKeyDown={() => {
+            dragging.current = false;
+          }}
+          onChange={(e) => {
+            const raw = Number(e.target.value);
+            if (!snapCentre || !dragging.current) {
+              onChange(raw);
+              return;
+            }
+            const next = snapSliderToCentre(raw, min, max);
+            const landed = next === mid;
+            // One tap as it lands — not one per pixel while it sits there.
+            if (landed && !onCentre.current && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+              navigator.vibrate(10);
+            }
+            onCentre.current = landed;
+            onChange(next);
+          }}
+          className="relative min-h-11 w-full accent-terracotta-700"
+          {...(snapCentre ? { 'data-slider-snaps': '' } : {})}
+        />
+      </span>
     </label>
   );
 }

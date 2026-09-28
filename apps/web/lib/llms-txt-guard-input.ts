@@ -131,7 +131,7 @@ export const RETAIL: RetailRow[] = [
   // under-describing a live product. The retirement pairing documented in
   // `llms-txt.ts` runs in BOTH directions; only the retiring half was written down.
   { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Studio — hosted channel', retail_price_php: 3000, is_active: true },
-  { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
+  { service_code: 'PAKANTA', title: 'Music Maker', retail_price_php: 2500, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on
   // PAPIC_ADDON_STORIES: this file is a SECOND hand-typed copy of the catalog and
@@ -176,7 +176,7 @@ export const RETAIL: RetailRow[] = [
   // second hand-typed copy of that catalog which CI reads instead of the
   // database. Kept listed, inactive, so the change is legible here rather than
   // looking like an accidental deletion — same convention as the rows below.
-  { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: false },
+  { service_code: 'KWENTO', title: 'Photo Notes', retail_price_php: 299, is_active: false },
   { service_code: 'PAPIC_ONE_100', title: '(retired — see service_code)', retail_price_php: 100, is_active: false },
   { service_code: 'PAPIC_CAMERA_MINI_DAY', title: '(retired — see service_code)', retail_price_php: 50, is_active: false },
   // CUSTOM_QR_GUEST is OFF SALE since 2026-09-28: the "Custom QR per guest"

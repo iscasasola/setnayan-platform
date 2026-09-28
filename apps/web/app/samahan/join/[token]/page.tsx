@@ -11,7 +11,7 @@ import { acceptCommunityInvite } from './actions';
 import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
-  title: 'Join a Samahan',
+  title: 'Join a group',
   robots: { index: false, follow: false },
 };
 
@@ -42,7 +42,7 @@ const TERMINAL_COPY: Record<
     body: 'Ask an organizer for a fresh one.',
   },
   archived: {
-    title: 'This samahan has been archived.',
+    title: 'This group has been archived.',
     body: 'It’s no longer accepting new members.',
   },
 };
@@ -64,7 +64,7 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
         eyebrow={
           <>
             <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Samahan
+            Group
           </>
         }
         title={copy.title}

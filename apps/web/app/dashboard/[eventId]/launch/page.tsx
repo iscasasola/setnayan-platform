@@ -999,9 +999,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let rsvpAskDrafted = false;
       // 🎨 The theme being edited — drafted over live (picked on Details).
       let themeSaved: unknown = printEvent.invite_theme;
+      // 🔳 The QR look being edited — drafted over live (owner 2026-09-29, "yes to all 3").
+      let qrPrefs: unknown = printEvent.style_preferences;
       try {
         const d = await readHubDraft(supabase, eventId);
         if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
+        if (d && 'style_preferences' in d.events) qrPrefs = d.events.style_preferences;
         if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
         if (d && 'rsvp_ask_config' in d.events) {
           rsvpAsk = sanitizeRsvpAskConfig(d.events.rsvp_ask_config);
@@ -1092,7 +1095,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             slugAction={updateEventSlug.bind(null, eventId, 'launch')}
             // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
             // it, the saved choices, and the contrast-passing Mood Board colours.
-            qr={{ ...qrLookChoicesFromRow(printEvent, printPro), storeShell }}
+            qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, printPro), storeShell }}
             qrStyleAction={updateQrStyle.bind(null, eventId)}
             theme={{
               themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),

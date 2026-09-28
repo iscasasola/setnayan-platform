@@ -607,7 +607,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // Studio sidebar's Pakanta row now uses (lib/studio-rail.ts).
     surface: 'song',
     tags: ['Music', 'Keepsake'],
-    label: 'Pakanta',
+    label: 'Music Maker',
     Icon: Music,
     iteration: '0036',
     status: 'live',

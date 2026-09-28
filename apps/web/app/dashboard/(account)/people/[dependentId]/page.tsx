@@ -22,7 +22,7 @@ import {
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = {
-  title: 'Alaga',
+  title: 'Loved one',
 };
 
 /**
@@ -187,7 +187,7 @@ export default async function DependentPage({
           ? DEPENDENT_RELATIONSHIP_LABELS[
               dependent.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS
             ]
-          : 'My alaga';
+          : 'My loved one';
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">

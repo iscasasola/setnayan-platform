@@ -88,9 +88,10 @@ import {
  * are joined to ONE `<form>` by `form=` (`WORDS_FORM`), and every item's editor
  * stays mounted (hidden when not showing), so a Save anywhere posts them all.
  *
- * Saves: the address, the QR's look, the print words, the thank-you and a
- * parent's card write live and say "Saves immediately"; the theme and the
- * special message are drafted (`every-maker-form-drafts-or-says-so.test.ts`).
+ * Saves: the address, the print words, the thank-you and a parent's card
+ * write live and say "Saves immediately"; the theme, the QR's look (since
+ * #6113) and the special message are drafted
+ * (`every-maker-form-drafts-or-says-so.test.ts`).
  */
 
 /** The one print-words form every item's switches post through. */
@@ -171,7 +172,9 @@ export function MakerDetails(props: MakerDetailsProps) {
   const back = detailsBack(eventId);
   const base = `/dashboard/${eventId}`;
   const address = slug ? `${siteOrigin().replace(/^https?:\/\//, '')}${publicEventPath(slug)}` : null;
-  const qrSrc = slug ? `/api/website/qr/${encodeURIComponent(slug)}?v=${encodeURIComponent(stamp)}` : null;
+  // `draft=1`: the QR look the couple is trying (host-only, never cached — #6113);
+  // `v=` the render stamp, so a changed look shows at once.
+  const qrSrc = slug ? `/api/website/qr/${encodeURIComponent(slug)}?draft=1&v=${encodeURIComponent(stamp)}` : null;
   const qrMark = makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell });
   const free = freePrintParts(eventId, slug);
   const save = <SaveWords />;
@@ -258,8 +261,10 @@ export function MakerDetails(props: MakerDetailsProps) {
       </section>
     ),
     /* ── Your QR (owner 2026-09-27): large, with Shape · Pattern · Colour right
-       under it — each ONE dropdown, ◆ PRO until owned (never a padlock). Saves live (the QR is a
-       picture on prints, not a drafted guest page) and says so. ── */
+       under it — each ONE dropdown, ◆ PRO until owned (never a padlock).
+       DRAFTED since 2026-09-29 (owner: "yes to all 3", #6113): tried by every
+       couple, drawn here from the draft (`?draft=1`), put live by Apply — only
+       with Pro. ── */
     qr: (
       <section data-details-qr="" className="flex flex-col items-center gap-4">
         {qrSrc ? (
@@ -274,7 +279,6 @@ export function MakerDetails(props: MakerDetailsProps) {
         </p>
         <div className="w-full max-w-md">
           <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
-          <HubSavesImmediately className="mt-1" />
         </div>
         {/* Waits for the theme's tour, so two never stack on one first visit. */}
         {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} after="customer_theme_picker_v1" /> : null}
@@ -325,7 +329,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         <p className="text-xs text-ink/60">
           {qr.ownsPro
             ? 'Your logo sits in the centre of every guest QR. Its shape, pattern and colour are under the code.'
-            : 'Every guest QR carries the Setnayan mark in the centre. With Event Hub Pro it carries your own logo, and you choose the shape, pattern and colour.'}
+            : 'Every guest QR carries the Setnayan mark in the centre. Try your logo, shape, pattern and colour here — they go live when you Apply with Event Hub Pro.'}
         </p>
         {qrAlways}
         <Toggle

@@ -323,9 +323,9 @@ test('repricing a row moves the copy with it — no figure is hard-coded', () =>
     the exact shape this module's docblock was written to kill: a price attached
     to the WRONG PRODUCT passes it. So the assertion is ANCHORED TO THE PRODUCT.
   */
-  assert.ok(moved.includes(`**Pakanta** — ₱7,321.`), 'a catalog reprice did not reach the Pakanta line');
+  assert.ok(moved.includes(`**Music Maker** — ₱7,321.`), 'a catalog reprice did not reach the Music Maker line');
   assert.ok(
-    !moved.includes(`**Pakanta** — ${was}`),
+    !moved.includes(`**Music Maker** — ${was}`),
     `the Pakanta line still quotes ${was} after a reprice — that figure is typed into the prose`,
   );
 });

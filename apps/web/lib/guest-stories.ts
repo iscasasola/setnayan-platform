@@ -428,7 +428,7 @@ async function pickPakantaSong(eventId: string): Promise<StoryMusic | null> {
     return {
       trackSlug: 'pakanta',
       displayName:
-        (data?.pakanta_song_filename as string | null) ?? 'Your Pakanta song',
+        (data?.pakanta_song_filename as string | null) ?? 'Your Music Maker song',
       url,
       beatGrid: null,
     };

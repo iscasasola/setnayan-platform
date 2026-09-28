@@ -21,6 +21,7 @@ import {
   classifyHubDraft,
   emptyHubDraft,
   eventColumnIsPro,
+  eventItemIsPro,
   hubDraftWriteTables,
   hubResetPatch,
   mergeHubDraft,
@@ -106,9 +107,17 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
       // Classic free, the others Pro (`eventItemIsPro`, the-theme-is-drafted.test.ts).
       'invite_theme',
     ].includes(c);
-    assert.equal([look, free, word, made].filter(Boolean).length, 1, `${c} must be exactly one kind`);
+    // 💎 The last three Pro tools (2026-09-29, owner "yes to all 3") — two of
+    // their columns are priced by their own rule, not the look list: switching
+    // an existing song on or off is free; the QR's look (`style_preferences`,
+    // drafted as `{ qr }` only) is Pro to add or change.
+    const own = ['site_bg_music_enabled', 'style_preferences'].includes(c);
+    assert.equal([look, free, word, made, own].filter(Boolean).length, 1, `${c} must be exactly one kind`);
     if (free || word) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
   }
+  assert.equal(eventItemIsPro('site_bg_music_enabled', true, 'add'), false, 'switching the song on is free');
+  assert.equal(eventItemIsPro('style_preferences', { qr: { shape: 'circle' } }, 'add'), true, 'the QR look is Pro');
+  assert.equal(eventItemIsPro('style_preferences', { qr: {} }, 'remove'), false, 'back to the plain code is free');
 });
 
 /* ── save · undo ───────────────────────────────────────────────────────────── */

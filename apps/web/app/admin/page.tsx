@@ -614,7 +614,7 @@ export default async function AdminOverview() {
           <Tile
             href="/admin/pakanta"
             icon="camera"
-            title="Pakanta queue"
+            title="Music Maker queue"
             body="Custom-song writing + delivery to move along."
           />
           <Tile

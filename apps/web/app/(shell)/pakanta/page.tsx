@@ -45,7 +45,7 @@ import { studioDescription } from '@/lib/studio-apps';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Pakanta — Your Wedding’s Own Song · Setnayan';
+const PAGE_TITLE = 'Music Maker — Your Wedding’s Own Song · Setnayan';
 /** The document title ONLY — the root layout appends the brand via its
  *  `template: '%s · Setnayan'`, and a PAGE_TITLE that already ends in the brand
  *  came out as "… · Setnayan · Setnayan" on 11 live pages once. The share cards
@@ -65,7 +65,7 @@ export const metadata = {
     'personalised wedding song',
     'wedding first dance song written for you',
     'love story song',
-    'Pakanta',
+    'Music Maker',
     'Setnayan',
   ],
   openGraph: {
@@ -73,7 +73,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/pakanta',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Pakanta — your wedding’s own song' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Music Maker — your wedding’s own song' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -88,7 +88,7 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Pakanta — Your Wedding’s Own Song',
+  name: 'Music Maker — Your Wedding’s Own Song',
   url: `${SITE_URL}/pakanta`,
   applicationCategory: 'MultimediaApplication',
   operatingSystem: 'Any (web browser)',
@@ -107,7 +107,7 @@ const APP_LD = {
 
 const FAQ = [
   {
-    q: 'What is Pakanta?',
+    q: 'What is Music Maker?',
     a: 'An original song written for your wedding — words drawn from your own story, not a template with your names dropped in. It is finished music you can play at the reception, keep afterwards, and use behind the videos from your day.',
   },
   {
@@ -128,7 +128,7 @@ const FAQ = [
   },
   {
     q: 'When do we get it?',
-    a: 'After you order, it is written and produced and then delivered to you inside Setnayan. You will see its status on your own Pakanta page while it is being made.',
+    a: 'After you order, it is written and produced and then delivered to you inside Setnayan. You will see its status on your own Music Maker page while it is being made.',
   },
 ];
 
@@ -182,7 +182,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
     chip: 'Your story',
     t: 'Written from the story you already told',
     d: 'How you met, what changed, why it is this person — the same story your wedding page is built from, with nothing to write again. There is no blank page; we only ask a few short things the story does not carry, like what you call each other.',
-    media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-0.jpg', alt: 'Pakanta — a song made only for the two of you' },
+    media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-0.jpg', alt: 'Music Maker — a song made only for the two of you' },
   },
   {
     chip: 'Only yours',
@@ -193,14 +193,14 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Yours to keep',
     t: 'Finished music, delivered inside Setnayan',
-    d: 'After you order, it is written and produced, and you can watch its status on your own Pakanta page while it is being made. When it arrives it is yours to keep, with nothing to renew and nothing that expires.',
-    media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-2.jpg', alt: 'Pakanta — your finished song, yours to keep' },
+    d: 'After you order, it is written and produced, and you can watch its status on your own Music Maker page while it is being made. When it arrives it is yours to keep, with nothing to renew and nothing that expires.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-2.jpg', alt: 'Music Maker — your finished song, yours to keep' },
   },
   {
     chip: 'Behind your videos',
     t: 'The music behind every video from your day',
     d: 'Instead of stock music, your song scores the videos Setnayan makes from your wedding and plays on your Event Hub — so the whole wedding sounds like you.',
-    media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-3.jpg', alt: 'Pakanta — it scores every video from your day' },
+    media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-3.jpg', alt: 'Music Maker — it scores every video from your day' },
   },
   {
     chip: 'Cleared to share',
@@ -216,7 +216,7 @@ export default function PakantaLandingPage() {
       title={'A song that’s only yours.'}
       primary={{ href: '/onboarding/wedding?from=pakanta', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
-      productName="Pakanta"
+      productName="Music Maker"
       studioKey="pakanta"
       steps={STEPS}
       differentiator={{
@@ -227,14 +227,14 @@ export default function PakantaLandingPage() {
       faq={FAQ}
       closing={{
         heading: 'Your day should sound like you',
-        body: 'Pakanta lives inside your free Setnayan wedding — beside your gallery, your Event Hub and your guest list. Start planning free, and add your song when you are ready.',
+        body: 'Music Maker lives inside your free Setnayan wedding — beside your gallery, your Event Hub and your guest list. Start planning free, and add your song when you are ready.',
         href: '/onboarding/wedding?from=pakanta',
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}
     >
       <SpotlightSection
-        productName="Pakanta"
+        productName="Music Maker"
         heading="From your story to your videos"
         lede="Written from what you already told us, and yours to keep."
         items={SPOTLIGHTS}

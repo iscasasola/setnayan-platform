@@ -51,7 +51,7 @@ export async function MagazineCard({ eventId }: { eventId: string }) {
     <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
         <BookHeart aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-        Kwento Magazine
+        Photo Notes Magazine
       </h2>
       <p className="mt-1 text-sm text-ink/60">
         Your day as a keepsake magazine — {formatCount(photos)} {photos === 1 ? 'photo' : 'photos'}

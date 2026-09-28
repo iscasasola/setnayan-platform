@@ -158,7 +158,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Featured in Stories', b: 'A loved event becomes a published Story crediting your work, with a backlink.' },
           { n: 'Editorial & article spotlights', b: 'Featured in the articles couples read while planning, in front of buyers at intent.' },
           { n: 'Reply-time stats & Spotlight awards', soon: true, b: 'Top performers earn a Spotlight badge plus a homepage feature.' },
-          { n: 'Resell Setnayan Productions', soon: true, b: 'Bundle Papic, Live Studio, monogram or Pakanta into your own quote.' },
+          { n: 'Resell Setnayan Productions', soon: true, b: 'Bundle Papic, Live Studio, monogram or Music Maker into your own quote.' },
           { n: 'White-label couple tools', soon: true, b: 'Hand couples the seating chart, mood board and schedule under your brand.' },
           { n: 'Setnayan-certified partner', soon: true, b: 'Get badged to deliver in-app services; couples who bought them route to you.' },
           { n: 'Earn on your crew', soon: true, b: 'Post your second shooters and HMUA. Earn a referral cut when they’re booked.' },

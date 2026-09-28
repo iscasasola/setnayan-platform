@@ -253,11 +253,17 @@ export function resolveHubProOffer(args: {
   */
   if (NOT_SOLD_ON.includes(lead)) return null;
 
+  // The Pro-themes item's key is COMPUTED from the registry (`PRO_THEMES_ITEM`),
+  // which makes PITCH an index signature to the compiler — so the lookup can
+  // miss in its eyes. A missing pitch is no offer, never an empty one.
+  const pitch = PITCH[lead];
+  if (!pitch) return null;
+
   return {
     lead,
     channel: args.channel,
-    headline: PITCH[lead].headline,
-    blurb: PITCH[lead].blurb,
+    headline: pitch.headline,
+    blurb: pitch.blurb,
     chips: WEBSITE_PRO_ITEMS.map((name) => ({ name, here: name === lead })),
     ctaLabel: 'Unlock all nine',
     // The SHIPPED buy surface — the same href `website/editor/page.tsx` uses for

@@ -1,6 +1,7 @@
 import type { EventWords } from '../_lib/event-words';
 import Link from 'next/link';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
+import { sceneCardClass } from '@/lib/scene-card-look';
 
 /*
  * ✉️ 2026-08-24 (AP-3) — THE INVITATION STOPPED READING LIKE A RECEIPT.
@@ -47,7 +48,7 @@ export function TierComparisonWidget({
 }) {
   if (limited) {
     return (
-      <section data-scene-card={bare ? 'bare' : 'own'} className={bare ? 'space-y-4' : 'space-y-4 rounded-xl border border-ink/10 bg-cream p-6'}>
+      <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
         <header>
           <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
             Your access
@@ -88,7 +89,7 @@ export function TierComparisonWidget({
   }
 
   return (
-    <section data-scene-card={bare ? 'bare' : 'own'} className={bare ? 'space-y-4' : 'space-y-4 rounded-xl border border-ink/10 bg-cream p-6'}>
+    <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
       <header>
         <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">Your access</p>
         <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>

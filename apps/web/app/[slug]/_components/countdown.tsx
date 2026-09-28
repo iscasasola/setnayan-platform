@@ -5,6 +5,7 @@ import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 import { useEffect, useState } from 'react';
 
 import { countdownTargetMs } from '@/lib/countdown-target';
+import { sceneCardClass, sceneCardTileClass } from '@/lib/scene-card-look';
 
 /*
  * ✉️ 2026-08-24 (AP-3) — THE INVITATION STOPPED READING LIKE A RECEIPT.
@@ -125,7 +126,7 @@ export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
   return (
     <section
       data-scene-card={bare ? 'bare' : 'own'}
-      className={bare ? 'text-center' : 'rounded-2xl border border-ink/10 bg-veil/40 p-6 text-center sm:p-8'}
+      className={sceneCardClass('countdown', bare)}
     >
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">
         {w.eventWord === 'wedding' ? (
@@ -137,7 +138,7 @@ export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
       <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
         {boxes.map((b) => (
           /* With no box, the numbers stand on their own — no tile each. */
-          <div key={b.label} className={bare ? 'py-3' : 'rounded-lg border border-ink/10 bg-paper py-3'}>
+          <div key={b.label} className={sceneCardTileClass(bare)}>
             <p className="font-pahina text-3xl font-light tabular-nums sm:text-5xl">
               {b.value === null ? '––' : String(b.value).padStart(2, '0')}
             </p>

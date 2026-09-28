@@ -219,18 +219,27 @@ export function backgroundPickRedrawsBox(
   after: Record<string, HubSectionCanvas>,
   mediaUrls: Readonly<Record<string, string>>,
 ): boolean {
-  const known = (canvas: HubSectionCanvas) => {
-    const bg = resolveHubBackground(canvas);
-    return !bg || !hubBackgroundIsMedia(bg) || bg.media in mediaUrls;
-  };
-  const bare = (canvas: HubSectionCanvas) => sceneWidgetIsBare({ config_json: { canvas } }, mediaUrls);
   for (const type of Object.keys(after)) {
-    const was = before[type] ?? {};
-    const is = after[type]!;
-    if (!known(was) || !known(is)) return true;
-    if (bare(was) !== bare(is)) return true;
+    const was = sceneCardBareFor(before[type] ?? {}, mediaUrls);
+    const is = sceneCardBareFor(after[type]!, mediaUrls);
+    if (was === null || is === null) return true;
+    if (was !== is) return true;
   }
   return false;
+}
+
+/**
+ * The server's answer to "does this scene's widget draw NO card of its own?"
+ * for a canvas the Maker holds — `sceneWidgetIsBare` itself, never a second
+ * rule — or `null` when it cannot be answered here (a photo or snippet whose
+ * URL the Maker does not hold: never guess). Read by `backgroundPickRedrawsBox`
+ * (release the hold) and by the `sceneBg` message (`scene-bg-preview-message.ts`
+ * → the bridge swaps the card at once, `lib/scene-card-look.ts`).
+ */
+export function sceneCardBareFor(canvas: HubSectionCanvas, mediaUrls: Readonly<Record<string, string>>): boolean | null {
+  const bg = resolveHubBackground(canvas);
+  if (bg && hubBackgroundIsMedia(bg) && !(bg.media in mediaUrls)) return null;
+  return sceneWidgetIsBare({ config_json: { canvas } }, mediaUrls);
 }
 
 /** A canvas map in one spelling — keys sorted, empty canvases dropped (absent = empty). */

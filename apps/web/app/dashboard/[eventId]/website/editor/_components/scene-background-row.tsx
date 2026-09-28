@@ -188,6 +188,7 @@ export function SceneBackgroundRow({
           Object.entries(canvases).map(([type, canvas]) => ({ type, canvas })),
           mediaUrl,
           theme,
+          mediaUrls,
         ),
       );
     /* 🖼 Does this pick change who draws the box — a widget's own card on or

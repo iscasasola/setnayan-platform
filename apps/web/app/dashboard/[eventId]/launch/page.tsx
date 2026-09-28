@@ -1085,7 +1085,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               tour: !firstVisit,
               chosen: themeSaved !== null && themeSaved !== undefined,
             }}
-                  menu={{
+            prints={prints}
+            menu={{
               saved: stored.menu,
               ...menuSources,
               flash: one(search.menu_saved) ? 'saved' : one(search.menu_error) ? 'error' : null,
@@ -1202,7 +1203,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           ? ({ kind: 'tool', key: tool } as const)
           : null;
       })()}
-      prints={prints}
       details={details}
       rsvp={rsvp}
       storeShell={storeShell}

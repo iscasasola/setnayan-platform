@@ -156,6 +156,7 @@ export default async function CheckinDeskPage({ params, searchParams }: Props) {
     checkedInAt: c.checked_in_at,
   }));
 
+  const DeskTitle = embedded ? 'h2' : 'h1';
   const expected = guests.filter((g) => g.rsvpStatus === 'attending').length;
 
   return (
@@ -180,15 +181,9 @@ export default async function CheckinDeskPage({ params, searchParams }: Props) {
       <header className={embedded ? 'space-y-1' : 'mt-3 space-y-1'}>
         {/* Inside the guest list the page already has its <h1>, so the desk's
             title steps down a level — same words, same look. */}
-        {embedded ? (
-          <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <QrCode className="h-6 w-6 text-terracotta" /> Check-in desk
-          </h2>
-        ) : (
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <QrCode className="h-6 w-6 text-terracotta" /> Check-in desk
-          </h1>
-        )}
+        <DeskTitle className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+          <QrCode className="h-6 w-6 text-terracotta" /> Check-in desk
+        </DeskTitle>
         <p className="text-sm text-ink/60">
           Scan a guest&rsquo;s QR (or search their name) as they arrive — you&rsquo;ll see their
           table and party at a glance, and the headcount keeps itself.

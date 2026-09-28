@@ -15,6 +15,28 @@
  */
 export type PrintPreviewStatus = 'loading' | 'loaded' | 'error';
 
+/**
+ * ⚡ HOW A PREVIEW ASKS (owner 2026-09-28: the boarding-pass preview took
+ * ~8 s — every piece asked the server at once). The first piece asks at once
+ * and high; every other one waits until it is on screen (or 200 px from it)
+ * AND the first has drawn — or `FIRST_PREVIEW_GRACE_MS` has passed, so no
+ * piece ever waits on a first preview that is slow or off screen.
+ */
+export const FIRST_PREVIEW_GRACE_MS = 1500;
+
+export type PrintPreviewLoad = {
+  deferred: boolean;
+  loading: 'eager' | 'lazy';
+  fetchPriority: 'high' | 'low';
+  rootMargin: string;
+};
+
+export function printPreviewLoad(priority: boolean): PrintPreviewLoad {
+  return priority
+    ? { deferred: false, loading: 'eager', fetchPriority: 'high', rootMargin: '0px' }
+    : { deferred: true, loading: 'lazy', fetchPriority: 'low', rootMargin: '200px 0px' };
+}
+
 export type PrintPreviewView = {
   /** The real `<img>` stays mounted (so `onLoad`/`onError` keep firing) even
    *  while hidden — only its opacity changes. `showImage` is `true` unless

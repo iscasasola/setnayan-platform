@@ -1,0 +1,157 @@
+/**
+ * ⚡ FAST PRINT PREVIEWS — owner 2026-09-28: the boarding-pass preview in
+ * Prints & Tickets took ~8 s. Each block holds one property, executed:
+ *
+ *   1 · a preview address carries the INPUTS' version, and the route answers
+ *       a versioned address `immutable` — an unversioned one keeps its 60 s;
+ *   2 · the version moves when any input moves — a Set's contents included
+ *       (a Set JSONs as `{}`) — and with the build, and never for key order;
+ *   3 · a piece's address carries ITS OWN size only, so picking a pass size
+ *       leaves every other piece's address — and its cached picture — alone;
+ *   4 · the first piece asks at once and high; every other piece waits; each
+ *       warms its other sizes;
+ *   5 · the Maker's on-screen SVG is smaller and draws the same shapes; the
+ *       sample raster, the free thumbnails and the PDF are untouched.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { stripComments } from './strip-comments';
+import {
+  PREVIEW_IMMUTABLE,
+  PREVIEW_UNVERSIONED,
+  isPreviewVersion,
+  previewCacheControl,
+  printPreviewVersion,
+} from './print-preview-cache';
+import { compactScreenPath, renderPrintSvg } from './print-render-svg';
+import { printPreviewLoad } from './print-preview-view';
+import { PRINT_FORMATS, formatsFor } from './print-pieces';
+
+(globalThis as unknown as { React: unknown }).React = React;
+
+const WEB = join(__dirname, '..');
+
+test('1 · a versioned preview is immutable; an unversioned one keeps its 60 s', () => {
+  const v = printPreviewVersion({ a: 1 }, 'build-1');
+  assert.ok(isPreviewVersion(v), v);
+  assert.equal(previewCacheControl(v), PREVIEW_IMMUTABLE);
+  assert.match(PREVIEW_IMMUTABLE, /max-age=31536000/);
+  assert.match(PREVIEW_IMMUTABLE, /immutable/);
+  assert.match(PREVIEW_IMMUTABLE, /^private,/, 'a couple’s preview is theirs — never a shared cache');
+  for (const bad of [null, undefined, '', 'abc', 'ZZZZZZZZZZZZZZZZ', `${v}0`]) {
+    assert.equal(previewCacheControl(bad), PREVIEW_UNVERSIONED, String(bad));
+  }
+  assert.match(PREVIEW_UNVERSIONED, /max-age=60\b/);
+  // The route asks the ONE decision for both screen answers (SVG and the sample JPEG).
+  const route = stripComments(readFileSync(join(WEB, 'app/api/hub-print/[piece]/route.ts'), 'utf8'));
+  assert.ok(
+    (route.match(/previewCacheControl\(url\.searchParams\.get\('v'\)\)/g) ?? []).length >= 2,
+    'both on-screen answers take their cache header from the version',
+  );
+});
+
+test('2 · the version follows the inputs — every input, the build, and not the key order', () => {
+  const base = { event: { display_name: 'Rosa & Ben', event_date: '2026-10-30' }, passedAway: new Set(['g1']), blocks: [{ label: 'Ceremony' }] };
+  const v = printPreviewVersion(base, 'b1');
+  assert.equal(printPreviewVersion({ blocks: [{ label: 'Ceremony' }], passedAway: new Set(['g1']), event: { event_date: '2026-10-30', display_name: 'Rosa & Ben' } }, 'b1'), v, 'key order is not an input');
+  assert.notEqual(printPreviewVersion({ ...base, event: { ...base.event, display_name: 'Rosa & Benjamin' } }, 'b1'), v);
+  assert.notEqual(printPreviewVersion({ ...base, blocks: [{ label: 'Mass' }] }, 'b1'), v);
+  assert.notEqual(printPreviewVersion({ ...base, passedAway: new Set(['g1', 'g2']) }, 'b1'), v, 'a Set’s contents reach the hash');
+  assert.notEqual(printPreviewVersion(base, 'b2'), v, 'a new build draws anew');
+});
+
+async function paintPrints(previewVersion: string | null, pass = 'boarding'): Promise<string> {
+  const { MakerPrints } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
+  const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
+  return renderToStaticMarkup(
+    React.createElement(MakerPrints, {
+      eventId: 'E1',
+      slug: 'rosa-ben',
+      theme: 'vintage',
+      savedTheme: 'vintage',
+      ownsPro: true,
+      storeShell: false,
+      flash: null,
+      previewVersion,
+      formats: { pass: PRINT_FORMATS[pass as keyof typeof PRINT_FORMATS], invitation: first('invitation'), card: first('card') } as never,
+    }),
+  );
+}
+
+const previews = (html: string) =>
+  [...html.matchAll(/data-print-piece="([a-z]+)"[\s\S]*?data-print-preview-src="([^"]+)"/g)].map((m) => ({
+    piece: m[1]!,
+    src: m[2]!.replace(/&amp;/g, '&'),
+  }));
+
+test('3 · each preview carries the version and ITS OWN size only', async () => {
+  const v = printPreviewVersion({ x: 1 }, 'b');
+  const boarding = previews(await paintPrints(v, 'boarding'));
+  const train = previews(await paintPrints(v, 'train'));
+  assert.equal(boarding.length, 7, JSON.stringify(boarding.map((p) => p.piece)));
+  for (const p of boarding) assert.match(p.src, new RegExp(`[?&]v=${v}(&|$)`), `${p.piece} carries the version`);
+  const pass = boarding.find((p) => p.piece === 'pass')!;
+  assert.match(pass.src, /pass_format=boarding/);
+  assert.doesNotMatch(pass.src, /invitation_format|card_format/);
+  const inv = boarding.find((p) => p.piece === 'invitation')!;
+  assert.doesNotMatch(inv.src, /pass_format/, 'the invitation’s address does not move with the pass size');
+  // THE PROPERTY: picking another pass size changes the pass preview's address
+  // and NO other — every other picture is served from the cache it is in.
+  const changed = boarding.filter((p, i) => p.src !== train[i]!.src).map((p) => p.piece);
+  assert.deepEqual(changed, ['pass']);
+  // No version (the read failed) — the addresses still work, as before.
+  for (const p of previews(await paintPrints(null))) assert.doesNotMatch(p.src, /[?&]v=/);
+});
+
+test('4 · the first preview asks at once and high; the rest wait; each warms its other sizes', async () => {
+  assert.deepEqual(printPreviewLoad(true), { deferred: false, loading: 'eager', fetchPriority: 'high', rootMargin: '0px' });
+  const rest = printPreviewLoad(false);
+  assert.equal(rest.deferred, true);
+  assert.equal(rest.fetchPriority, 'low');
+  const html = await paintPrints(printPreviewVersion({ x: 1 }, 'b'));
+  assert.equal((html.match(/data-print-preview="first"/g) ?? []).length, 1, 'exactly one piece goes first');
+  assert.equal((html.match(/<img[^>]*fetchpriority="high"/gi) ?? []).length, 1, 'and only it is in the page’s first HTML');
+  // The pass warms its other sizes — and only its own family's.
+  const pass = /data-print-piece="pass"[\s\S]*?data-print-prefetch="([^"]*)"/.exec(html)?.[1] ?? '';
+  const warmed = pass.replace(/&amp;/g, '&').split(' ').filter(Boolean);
+  assert.equal(warmed.length, formatsFor('pass').length - 1, pass);
+  for (const u of warmed) {
+    assert.match(u, /\/api\/hub-print\/pass\?/);
+    assert.doesNotMatch(u, /pass_format=boarding/, 'not the size already on screen');
+  }
+});
+
+test('5 · the screen SVG is smaller and draws the same shapes', () => {
+  const d = 'M12.784 0H562.651Q575.43 0 575.43 12.78L575.43 12.78V219.66L20 20L20 20Z';
+  const c = compactScreenPath(d);
+  assert.equal(c, 'M12.8 0H562.7Q575.4 0 575.4 12.8V219.7L20 20Z');
+  // A path it cannot read is left exactly as drawn.
+  assert.equal(compactScreenPath('m1 1l2 2'), 'm1 1l2 2');
+  // A stroked path keeps its every segment (a dot on a stroke is ink).
+  const svg = renderPrintSvg(
+    {
+      piece: 'pass',
+      w: 100,
+      h: 50,
+      diePath: 'M0 0H100V50H0Z',
+      ops: [
+        { t: 'path', d: 'M1.234 1L1.234 1L5 5Z', fill: '#000' },
+        { t: 'path', d: 'M1.234 1L1.234 1', stroke: '#000' },
+      ],
+    } as never,
+    {},
+    { compact: true },
+  );
+  assert.match(svg, /<path d="M1\.2 1L5 5Z" fill="#000"\/>/);
+  assert.match(svg, /<path d="M1\.234 1L1\.234 1" fill="none" stroke="#000"/);
+  // Only the Maker's on-screen answer asks for it — the sample raster does not.
+  const route = stripComments(readFileSync(join(WEB, 'app/api/hub-print/[piece]/route.ts'), 'utf8'));
+  assert.match(route, /layoutPieceView\(piece as PrintSetKey, \{ \.\.\.input, format: formatParam\(piece\) \}\), set\.images, \{ compact: true \}\)/);
+  // The print file never passes through here.
+  const pdf = readFileSync(join(WEB, 'lib/print-render-pdf.ts'), 'utf8');
+  assert.doesNotMatch(pdf, /compactScreenPath|print-render-svg/);
+});

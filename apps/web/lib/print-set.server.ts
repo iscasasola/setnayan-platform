@@ -22,6 +22,7 @@ import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } 
 import type { QrLook } from '@/lib/qr-look';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { GuestRole } from '@/lib/guests';
 import type { PrintImages, PrintMonogram, PrintPass, PrintSetData } from '@/lib/print-layout';
@@ -487,6 +488,47 @@ export type LoadedPrintSet = {
   qrLook: QrLook;
 };
 
+/**
+ * EVERY READ A PIECE IS DRAWN FROM, apart from the pictures — ONE function,
+ * so `loadPrintSet` (which draws) and `printInputsVersion` (which names the
+ * drawing for the browser's cache) can never read different things.
+ */
+async function readPrintSetInputs(admin: SupabaseClient, eventId: string, event: PrintEventRow) {
+  const stored = parsePrintDetails(event.print_details);
+  const [blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu] = await Promise.all([
+    readBlocks(admin, eventId),
+    readEntourage(admin, eventId),
+    resolveStdFinalizedVenues(admin, eventId),
+    event.slug ? resolveEventOwnerSlug(admin, eventId).catch(() => null) : Promise.resolve(null),
+    readGiftLines(admin, eventId),
+    stored.rsvp?.kind === 'host' ? readRsvpHosts(eventId) : Promise.resolve([] as RsvpHostOption[]),
+    // The menu's order of sources: the couple's own typed menu, else their booked caterer's lines.
+    menuHasDishes(stored.menu) ? Promise.resolve([] as MenuMoment[]) : readCatererMenu(admin, eventId),
+  ]);
+  return { stored, blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu };
+}
+
+/**
+ * ⚡ THE PREVIEWS' CACHE KEY (owner 2026-09-28: the boarding-pass preview took
+ * ~8 s). A hash of the event row and of every read `loadPrintSet` draws from
+ * (`readPrintSetInputs` — the same function), the QR's look, and the build
+ * (`lib/print-preview-cache.ts`). The Maker puts it in each preview's address
+ * as `v`, and a versioned address is answered `immutable`: any change to what
+ * a piece is drawn from is a new address. The pictures are named by their refs
+ * in the event row (the hero photo, the logo) and by the theme in the address.
+ * Null when the event cannot be read — the previews then keep their 60 s.
+ */
+export async function printInputsVersion(eventId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const event = await readPrintEvent(admin, eventId);
+  if (!event) return null;
+  const [inputs, qrLook] = await Promise.all([
+    readPrintSetInputs(admin, eventId, event),
+    resolveEventQrLook(admin, eventId, event),
+  ]);
+  return printPreviewVersion({ event, inputs, qrLook });
+}
+
 export async function loadPrintSet(
   eventId: string,
   opts: { mode: PrintMode; previewTheme?: string | null; withEventQr?: boolean },
@@ -498,22 +540,14 @@ export async function loadPrintSet(
   const look = printLookFor(theme);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
-  const stored = parsePrintDetails(event.print_details);
-  const inc = stored.include;
-  const [blocks, entourage, venues, ownerSlug, stillRaw, giftLines, hosts, printMark, catererMenu] = await Promise.all([
-    readBlocks(admin, eventId),
-    readEntourage(admin, eventId),
-    resolveStdFinalizedVenues(admin, eventId),
-    event.slug ? resolveEventOwnerSlug(admin, eventId).catch(() => null) : Promise.resolve(null),
+  const [{ stored, blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu }, stillRaw, printMark] = await Promise.all([
+    readPrintSetInputs(admin, eventId, event),
     look.still !== 'none'
       ? heroStill(event, opts.mode).then((h) => h ?? themeStill(theme, opts.mode))
       : Promise.resolve(null),
-    readGiftLines(admin, eventId),
-    stored.rsvp?.kind === 'host' ? readRsvpHosts(eventId) : Promise.resolve([] as RsvpHostOption[]),
     printMarkFor(event),
-    // The menu's order of sources: the couple's own typed menu, else their booked caterer's lines.
-    menuHasDishes(stored.menu) ? Promise.resolve([] as MenuMoment[]) : readCatererMenu(admin, eventId),
   ]);
+  const inc = stored.include;
 
   const ceremony = ceremonyBlock(blocks);
   const reception = firstBlockOf(blocks, 'reception');

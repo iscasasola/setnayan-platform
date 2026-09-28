@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, use, useState, useTransition, type ReactNode } from 'react';
+import { Suspense, useState, useTransition, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { sanitizeName } from '@/lib/match-criteria';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
@@ -8,7 +8,8 @@ import type { ScheduleMatrix } from '@/lib/schedule-matrix';
 import { updateEventDate, updateEventMatchCriteria } from '../../actions';
 import { saveAllStdContent } from '../../studio/save-the-date/actions';
 import { GovernedFields } from '../../details/_components/governed-fields';
-import { FindYourDate } from '../../find-date/_components/find-your-date';
+import { FindDateCandidates, FindDatePicked } from './details-date-finder';
+import { useDetailsPiece } from './details-pieces';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 
@@ -150,7 +151,10 @@ export function DateEditor({
   /** The Chinese-tradition note date-selection shows (null when it does not apply). */
   nudge?: ReactNode;
 }) {
-  const [mode, setMode] = useState<'have' | 'help'>('have');
+  // Shared with the middle (`DateBody`): "Help me choose" puts the candidate days there.
+  const [modeRaw, setModeRaw] = useDetailsPiece('date.mode', 'have');
+  const mode = modeRaw === 'help' ? 'help' : 'have';
+  const setMode = (m: 'have' | 'help') => setModeRaw(m);
   const [proposal, setProposal] = useState<{ field: 'date'; value: string; n: number } | null>(null);
   const [monthError, setMonthError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -212,7 +216,7 @@ export function DateEditor({
         />
       ) : (
         <Suspense fallback={<p className="text-sm text-ink/60">Checking your suppliers’ calendars…</p>}>
-          <MatrixInPlace eventId={eventId} matrix={matrix} onUse={pickDay} onMonth={month} monthError={monthError} pending={pending} />
+          <FindDatePicked matrix={matrix} onUse={pickDay} onMonth={month} monthError={monthError} pending={pending} />
           {nudge}
         </Suspense>
       )}
@@ -221,31 +225,19 @@ export function DateEditor({
   );
 }
 
-function MatrixInPlace({
-  eventId,
-  matrix,
-  onUse,
-  onMonth,
-  monthError,
-  pending,
-}: {
-  eventId: string;
-  matrix: Promise<ScheduleMatrix | null>;
-  onUse: (dateKey: string) => void;
-  onMonth: (month: string) => void;
-  monthError: string | null;
-  pending: boolean;
-}) {
-  const m = use(matrix);
-  if (!m) {
-    // A read that failed is said, never drawn as "no dates".
-    return (
-      <p role="alert" className="text-sm text-danger-800">
-        Your suppliers’ calendars could not be read just now. Your date is unchanged — please try again.
-      </p>
-    );
-  }
-  return <FindYourDate eventId={eventId} matrix={m} embedded={{ onUse, onMonth, monthError, pending }} />;
+/**
+ * THE DATE'S MIDDLE: the print it feeds — or, while "Help me choose" is open,
+ * the candidate days, ranked, to tap (DECISION_LOG "A TOOL MOVED INTO THE MAKER
+ * IS REBUILT INTO THE THREE PARTS").
+ */
+export function DateBody({ matrix, picture }: { matrix: Promise<ScheduleMatrix | null>; picture: ReactNode }) {
+  const [mode] = useDetailsPiece('date.mode', 'have');
+  if (mode !== 'help') return <>{picture}</>;
+  return (
+    <Suspense fallback={<p className="text-sm text-ink/60">Checking your suppliers’ calendars…</p>}>
+      <FindDateCandidates matrix={matrix} />
+    </Suspense>
+  );
 }
 
 // ── VENUES ────────────────────────────────────────────────────────────────────

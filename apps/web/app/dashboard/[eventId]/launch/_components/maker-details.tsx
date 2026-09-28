@@ -483,6 +483,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   return (
     <ThemePickProvider eventId={eventId} current={theme.current}>
       <DetailsWorkspace
+        pieces={ye?.pieces}
         groups={groups}
         bodies={bodies}
         editors={editors}

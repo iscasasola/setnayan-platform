@@ -5,6 +5,7 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { DetailsItemKey, DetailsItemModel } from '@/lib/maker-details-items';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
+import { DetailsPieceProvider } from './details-pieces';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
 export type DetailsNavItem = DetailsItemModel & {
@@ -54,6 +55,7 @@ export function DetailsWorkspace({
   editors,
   initial,
   persistent = null,
+  pieces = {},
 }: {
   groups: DetailsNavGroup[];
   bodies: Partial<Record<DetailsItemKey, ReactNode>>;
@@ -61,18 +63,28 @@ export function DetailsWorkspace({
   initial: DetailsItemKey;
   /** Drawn once, outside every item — the print words form, the first-visit tours. */
   persistent?: ReactNode;
+  /**
+   * 🧩 A TOOL'S PIECES (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT
+   * INTO THE THREE PARTS"): while an item that has pieces is open, the
+   * navigator lists THEM — the march's lines, the parents and hosts — under
+   * "‹ All details". The three parts share the picked piece (`details-pieces.tsx`).
+   */
+  pieces?: Partial<Record<DetailsItemKey, ReactNode>>;
 }) {
   const items = groups.flatMap((g) => g.items);
   const first = items.some((i) => i.key === initial) ? initial : items[0]!.key;
   const [selected, setSelected] = useState<DetailsItemKey>(first);
   const [visited, setVisited] = useState<ReadonlySet<DetailsItemKey>>(() => new Set([first]));
   const [sheetOpen, setSheetOpen] = useState(false);
+  /* "‹ All details" shows the item list again over an item's own pieces. */
+  const [allItems, setAllItems] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const current = items.find((i) => i.key === selected) ?? items[0]!;
 
   const select = useCallback((key: DetailsItemKey) => {
     setSelected(key);
+    setAllItems(false);
     setVisited((v) => (v.has(key) ? v : new Set(v).add(key)));
     try {
       const url = new URL(window.location.href);
@@ -107,6 +119,7 @@ export function DetailsWorkspace({
   }, [selected]);
 
   return (
+    <DetailsPieceProvider>
     <DetailsTapContext.Provider value={tap}>
       <div data-details-workspace="" data-details-item={selected} className="flex h-full min-h-0 w-full flex-1 flex-col lg:flex-row">
         {/* ══ BODY — the picked item's picture ══ */}
@@ -145,7 +158,22 @@ export function DetailsWorkspace({
             ref={navRef}
             className="flex gap-1.5 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0.5 lg:overflow-y-auto lg:overflow-x-hidden lg:py-4"
           >
-            {groups.map((g) => (
+            {pieces[selected] && !allItems ? (
+              <>
+                <li className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setAllItems(true)}
+                    data-details-nav-back=""
+                    className="sn-press flex min-h-11 items-center gap-1 rounded-lg px-2 text-[12.5px] font-semibold text-ink/70 hover:bg-ink/[0.04] lg:w-full"
+                  >
+                    ‹ All details
+                  </button>
+                </li>
+                <li className="hidden px-2 pb-1 pt-2 font-serif text-base text-ink lg:block">{current.label}</li>
+                {pieces[selected]}
+              </>
+            ) : groups.map((g) => (
               <li key={g.key} className="contents" data-details-nav-group={g.key}>
                 <p className="hidden px-2 pb-1 pt-3 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/50 lg:block">{g.label}</p>
                 <ul className="contents">
@@ -222,5 +250,6 @@ export function DetailsWorkspace({
         </aside>
       </div>
     </DetailsTapContext.Provider>
+    </DetailsPieceProvider>
   );
 }

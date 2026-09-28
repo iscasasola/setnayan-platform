@@ -31,59 +31,9 @@ import {
 import type { MatrixDate, ScheduleMatrix } from '@/lib/schedule-matrix';
 import { formatCount } from '@/lib/format-number';
 
-type Props = {
-  eventId: string;
-  matrix: ScheduleMatrix;
-  /**
-   * 🧩 OPENED IN PLACE — Details › Date › "Help me choose" (owner 2026-09-29,
-   * DECISION_LOG "THE DATE FINDER LIVES IN STEP 2 …": *"no link-out"*). The
-   * same ranking and the same cards; what changes is where it opens:
-   *   · no page heading (Details already names the item);
-   *   · every date card carries "Use this date" (`onUse`), which hands the day
-   *     to the date's own governed save beside it;
-   *   · the two "go to Pick your date" links become a month picker in place
-   *     (`onMonth`), saved through the same `updateEventDate`;
-   *   · no shortlist does not stop it — the month's Saturdays still show.
-   * Omitted, the page draws exactly as it did.
-   */
-  embedded?: { onUse: (dateKey: string) => void; onMonth: (month: string) => void; monthError?: string | null; pending?: boolean };
-};
+type Props = { eventId: string; matrix: ScheduleMatrix };
 
-/** "Choose a month" — the in-place stand-in for the old date-selection link. */
-function MonthPick({ onMonth, prompt, error, pending }: { onMonth: (month: string) => void; prompt: string; error?: string | null; pending?: boolean }) {
-  const [month, setMonth] = useState('');
-  const min = new Date().toISOString().slice(0, 7);
-  return (
-    <div className="space-y-2 pt-1" data-find-date-month="">
-      <p className="text-sm text-ink/70">{prompt}</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <input type="month" min={min} value={month} onChange={(e) => setMonth(e.target.value)} aria-label="The month you are considering" className="min-h-11 rounded-xl border border-ink/15 bg-paper px-3 py-2 text-[16px] text-ink" />
-        <button
-          type="button"
-          disabled={!month || pending}
-          onClick={() => onMonth(month)}
-          className="inline-flex min-h-11 items-center rounded-xl bg-mulberry px-4 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {pending ? 'Saving…' : 'Compare its Saturdays'}
-        </button>
-      </div>
-      {error ? <p role="alert" className="text-xs text-red-700">{error}</p> : null}
-    </div>
-  );
-}
-
-function Shell({ children, embedded = false }: { children: ReactNode; embedded?: boolean }) {
-  if (embedded) {
-    return (
-      <section className="space-y-4" data-find-date-embedded="">
-        <p className="text-sm text-ink/65">
-          We check the days you&apos;re considering against the suppliers you picked, and show which day keeps the
-          most of them — and who works together on each.
-        </p>
-        {children}
-      </section>
-    );
-  }
+function Shell({ children }: { children: ReactNode }) {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
@@ -101,6 +51,11 @@ function Shell({ children, embedded = false }: { children: ReactNode; embedded?:
   );
 }
 
+/**
+ * The helpers below are shared with Details › Date › "Help me choose"
+ * (`find-date-in-parts.tsx`), which lays this same finder out in the Maker's
+ * three parts — one ranking, one set of words.
+ */
 /** Does the pinned vendor stay available on this date? (open or off-platform). */
 function dateKeepsPinned(date: MatrixDate, pinnedKey: string | null): boolean {
   if (!pinnedKey) return true;
@@ -113,7 +68,7 @@ function dateKeepsPinned(date: MatrixDate, pinnedKey: string | null): boolean {
   return true;
 }
 
-function rankWithPin(dates: MatrixDate[], pinnedKey: string | null): MatrixDate[] {
+export function rankWithPin(dates: MatrixDate[], pinnedKey: string | null): MatrixDate[] {
   const ranked = [...dates].sort((a, b) => {
     const ap = dateKeepsPinned(a, pinnedKey) ? 1 : 0;
     const bp = dateKeepsPinned(b, pinnedKey) ? 1 : 0;
@@ -127,8 +82,8 @@ function rankWithPin(dates: MatrixDate[], pinnedKey: string | null): MatrixDate[
   return ranked.map((d, i) => ({ ...d, isBest: i === 0 && d.totalCategories > 0 }));
 }
 
-function coverageHeadline(date: MatrixDate): string {
-  // Only reachable in place (Details): with no suppliers picked there is nothing to count.
+export function coverageHeadline(date: MatrixDate): string {
+  // Only reachable in Details (`find-date-in-parts.tsx`): with no suppliers picked there is nothing to count.
   if (date.totalCategories === 0) return 'No suppliers to check yet';
   const swaps = date.coveredCount - date.topPicksKept;
   if (date.coveredCount === date.totalCategories) {
@@ -140,7 +95,7 @@ function coverageHeadline(date: MatrixDate): string {
   return `${formatCount(date.coveredCount)} of ${formatCount(date.totalCategories)} categories covered`;
 }
 
-function comboSummary(date: MatrixDate): string {
+export function comboSummary(date: MatrixDate): string {
   const swaps = date.coveredCount - date.topPicksKept;
   const missing = date.totalCategories - date.coveredCount;
   if (missing > 0) {
@@ -150,7 +105,7 @@ function comboSummary(date: MatrixDate): string {
   return `This date works — ${swaps} swap${swaps === 1 ? '' : 's'} to assemble your full team.`;
 }
 
-function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] }) {
+export function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] }) {
   const top = cat.vendors[0];
   if (!cat.covered) {
     return (
@@ -211,12 +166,10 @@ function DateCard({
   date,
   expanded,
   onToggle,
-  onUse,
 }: {
   date: MatrixDate;
   expanded: boolean;
   onToggle: () => void;
-  onUse?: (dateKey: string) => void;
 }) {
   return (
     <li className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
@@ -260,40 +213,12 @@ function DateCard({
           <p className="mt-2.5 text-sm font-medium text-ink/75">{comboSummary(date)}</p>
         </div>
       ) : null}
-      {onUse ? (
-        <div className="border-t border-ink/10 px-4 py-2.5">
-          <button
-            type="button"
-            onClick={() => onUse(date.dateKey)}
-            data-find-date-use={date.dateKey}
-            className="inline-flex min-h-11 items-center rounded-xl bg-mulberry px-4 text-sm font-medium text-white"
-          >
-            Use {date.label}
-          </button>
-        </div>
-      ) : null}
     </li>
   );
 }
 
-export function FindYourDate({ eventId, matrix, embedded }: Props) {
+export function FindYourDate({ eventId, matrix }: Props) {
   const base = `/dashboard/${eventId}`;
-
-  if (embedded) {
-    if (!matrix.hasDate) {
-      return (
-        <Shell embedded>
-          <MonthPick
-            onMonth={embedded.onMonth}
-            error={embedded.monthError}
-            pending={embedded.pending}
-            prompt="Which month are you considering? We'll compare its Saturdays."
-          />
-        </Shell>
-      );
-    }
-    return <FindYourDateBody matrix={matrix} base={base} embedded={embedded} />;
-  }
 
   if (!matrix.hasDate) {
     return (
@@ -338,7 +263,7 @@ export function FindYourDate({ eventId, matrix, embedded }: Props) {
   return <FindYourDateBody matrix={matrix} base={base} />;
 }
 
-function FindYourDateBody({ matrix, base, embedded }: { matrix: ScheduleMatrix; base: string; embedded?: Props['embedded'] }) {
+function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: string }) {
   const [pinned, setPinned] = useState<string | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(matrix.dates[0]?.dateKey ?? null);
 
@@ -362,12 +287,7 @@ function FindYourDateBody({ matrix, base, embedded }: { matrix: ScheduleMatrix; 
   }, [matrix.dates]);
 
   return (
-    <Shell embedded={Boolean(embedded)}>
-      {embedded && !matrix.hasShortlist ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/55">
-          You haven&apos;t picked any suppliers yet, so every day below is open.
-        </p>
-      ) : null}
+    <Shell>
       {matrix.offPlatformCount > 0 ? (
         <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/55">
           {formatCount(matrix.offPlatformCount)} of your vendors {matrix.offPlatformCount === 1 ? 'is' : 'are'}{' '}
@@ -437,22 +357,12 @@ function FindYourDateBody({ matrix, base, embedded }: { matrix: ScheduleMatrix; 
               date={d}
               expanded={openKey === d.dateKey}
               onToggle={() => setOpenKey(openKey === d.dateKey ? null : d.dateKey)}
-              onUse={embedded?.onUse}
             />
           ))}
         </ul>
       </div>
 
-      {embedded ? (
-        matrix.exactDate ? (
-          <MonthPick
-            onMonth={embedded.onMonth}
-            error={embedded.monthError}
-            pending={embedded.pending}
-            prompt="Considering other days? Choose a month to compare its Saturdays — your date becomes that month until you pick a day."
-          />
-        ) : null
-      ) : matrix.exactDate ? (
+      {matrix.exactDate ? (
         <p className="text-sm text-ink/55">
           Considering other dates?{' '}
           <Link href={`${base}/date-selection`} className="font-medium text-terracotta-700 underline">

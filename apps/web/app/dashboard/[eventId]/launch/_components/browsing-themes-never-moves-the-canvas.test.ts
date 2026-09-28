@@ -187,7 +187,7 @@ test('4b · rendered on the server, the gallery loads NO page and NO print — a
   const html = renderToStaticMarkup(
     React.createElement(
       ThemePickProvider,
-      { eventId: 'e-1', current: 'house', children: null },
+      { eventId: 'e-1', current: 'house' } as React.ComponentProps<typeof ThemePickProvider>,
       React.createElement(MakerThemeGallery, { themes: TILES, ownsPro: false, storeShell: false, suggested: 'vintage', sampleVersion: null }),
     ),
   );

@@ -20,6 +20,9 @@ import { ChineseSpecialistNudge } from '../../date-selection/_components/chinese
 import { EntourageOrderPanel } from '../../guests/_components/entourage-order-panel';
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
+import type { MarchSectionData, MarchSlotData } from './details-march';
+import { roleLabel, type EntourageGroup } from '@/lib/entourage';
+import { joinersFor, swapsFor } from '@/lib/march-moves';
 
 /** The event columns the "Your event" items read — each the column its existing screen reads. */
 const YOUR_EVENT_COLUMNS =
@@ -152,8 +155,50 @@ export async function loadYourEvent({
       launchDate: row.std_invitation_launch_date,
     },
     march: {
-      groups,
+      sections: marchSections(groups),
       panel: marchOffered(kind) ? <EntourageOrderPanel eventId={eventId} view="all" /> : null,
     },
   };
+}
+
+/**
+ * The march as the three parts need it: every section and line in walking
+ * order (`buildEntourage`'s — the invitation's), each cell's moves asked of
+ * `lib/march-moves.ts` here on the server — the rule the actions ask again
+ * before they write (as the Guest list panel's `slotFor` does).
+ */
+export function marchSections(groups: readonly EntourageGroup[]): MarchSectionData[] {
+  let step = 0;
+  return groups.map((g) => ({
+    key: g.key,
+    label: g.label,
+    lines: g.rows.map((row, i) => {
+      step += 1;
+      const slot = (c: 0 | 1): MarchSlotData => {
+        const half = row[c];
+        if (half) {
+          return {
+            kind: 'name',
+            id: half.id ?? '',
+            name: half.name,
+            role: roleLabel(half.role),
+            swapWith: half.id ? swapsFor(g.rows, g.key, half.id) : [],
+          };
+        }
+        const anchor = row[c === 0 ? 1 : 0];
+        return {
+          kind: 'empty',
+          anchorId: anchor?.id ?? '',
+          anchorName: anchor?.name ?? '',
+          joiners: anchor?.id ? joinersFor(g.rows, g.key, anchor.id) : [],
+        };
+      };
+      return {
+        leadId: row[0]?.id ?? row[1]?.id ?? `${g.key}-${i}`,
+        label: row.filter((p) => p !== null).map((p) => p!.name).join(' and '),
+        step,
+        slots: [slot(0), slot(1)] as [MarchSlotData, MarchSlotData],
+      };
+    }),
+  }));
 }

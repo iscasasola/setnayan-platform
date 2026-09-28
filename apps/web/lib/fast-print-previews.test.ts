@@ -155,3 +155,26 @@ test('5 · the screen SVG is smaller and draws the same shapes', () => {
   const pdf = readFileSync(join(WEB, 'lib/print-render-pdf.ts'), 'utf8');
   assert.doesNotMatch(pdf, /compactScreenPath|print-render-svg/);
 });
+
+test('6 · the version and the drawing read the SAME inputs — one reader, no side reads', () => {
+  const src = stripComments(readFileSync(join(WEB, 'lib/print-set.server.ts'), 'utf8'));
+  const body = (name: string) => {
+    const at = src.indexOf(`export async function ${name}(`);
+    assert.ok(at >= 0, `${name} is gone — re-anchor this guard`);
+    const next = src.indexOf('\nexport ', at + 10);
+    return src.slice(at, next < 0 ? undefined : next);
+  };
+  const draw = body('loadPrintSet');
+  const version = body('printInputsVersion');
+  assert.match(draw, /readPrintSetInputs\(admin, eventId, event\)/);
+  assert.match(version, /readPrintSetInputs\(admin, eventId, event\)/);
+  assert.match(version, /resolveEventQrLook\(/, 'the QR look is drawn on every piece — it is in the version');
+  // A reader called by the drawing but not through `readPrintSetInputs` would
+  // change the picture without changing its address.
+  for (const reader of ['readBlocks', 'readEntourage', 'readGiftLines', 'readCatererMenu', 'readRsvpHosts', 'resolveStdFinalizedVenues', 'resolveEventOwnerSlug', '.from(']) {
+    assert.ok(!draw.includes(reader), `loadPrintSet reads ${reader} on the side — route it through readPrintSetInputs`);
+  }
+  // …and the Maker hands the version to the panel, with the access folded in.
+  const page = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/page.tsx'), 'utf8'));
+  assert.match(page, /previewVersion=\{printInputs \? printPreviewVersion\(\{ printInputs, ownsPro: printPro, storeShell \}\) : null\}/);
+});

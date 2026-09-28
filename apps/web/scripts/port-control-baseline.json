@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "295ac1b16",
+  "generatedFromRef": "128f41424",
   "routeCount": 435,
-  "destinations": 942,
-  "actions": 671,
-  "blocks": 4966,
+  "destinations": 939,
+  "actions": 670,
+  "blocks": 4965,
   "routes": {
     "/": {
       "files": [
@@ -5867,7 +5867,6 @@
       "files": [
         "dashboard/[eventId]/guests/invite/_components/invite-link.tsx",
         "dashboard/[eventId]/guests/invite/_components/invite-panel.tsx",
-        "dashboard/[eventId]/guests/invite/_components/invite-theme-picker.tsx",
         "dashboard/[eventId]/guests/invite/_components/regenerate-qr-button.tsx",
         "dashboard/[eventId]/guests/invite/actions.ts",
         "dashboard/[eventId]/guests/invite/page.tsx"
@@ -5876,26 +5875,18 @@
         "/dashboard/[seg]/event-qr",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
-        "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=rsvp-page",
-        "/dashboard/[seg]/studio/save-the-date",
-        "/dashboard/[seg]/studio/website-pro",
-        "/dashboard/[seg]/website",
-        "/dashboard/[seg]/website/colors"
+        "/dashboard/[seg]/website"
       ],
-      "actions": [
-        "action"
-      ],
+      "actions": [],
       "blocks": [
         "InviteLink",
         "InvitePanel",
-        "InviteThemePicker",
         "Link",
-        "PaidMark",
         "QrActions",
         "RegenerateInviteQrResult",
-        "RegenerateQrButton",
-        "SubmitButton"
+        "RegenerateQrButton"
       ]
     },
     "/dashboard/[eventId]/guests/new": {
@@ -6084,6 +6075,7 @@
         "dashboard/[eventId]/launch/_components/maker-reveal.tsx",
         "dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx",
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
+        "dashboard/[eventId]/launch/_components/maker-theme-picker.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
         "dashboard/[eventId]/launch/_components/print-choice-picker.tsx",
@@ -6136,6 +6128,7 @@
         "HTMLIFrameElement",
         "HTMLInputElement",
         "HTMLSpanElement",
+        "HTMLUListElement",
         "HubDraftDock",
         "HubDraftField",
         "HubProOffer",
@@ -6171,6 +6164,7 @@
         "MakerSelection",
         "MakerShell",
         "MakerState",
+        "MakerThemePicker",
         "MakerTour",
         "MenuHeading",
         "MenuItem",

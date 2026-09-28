@@ -2107,9 +2107,12 @@ function NewEventCard({ delay = 0, poster = false }: { delay?: number; poster?: 
  * invitation, on the day and the thumbnail poster").
  *
  * This only gathers what the board does not already hold: the couple's saved
- * `invite_theme`, one read for the page. A refused read costs only the Capiz
- * panes — decoration, never a word — so it falls to House, logged. A card
- * whose words cannot be resolved gets no poster and keeps the glass cover.
+ * `invite_theme` and their Save-the-Date background (`std_background`), one
+ * read for the page. Both are needed for the card to wear the event's cover —
+ * without the background a Pro event drew as plain paper (owner 2026-09-29:
+ * "did not adjust to the event cover"). A refused read costs only the cover —
+ * decoration, never a word — so it falls to House, logged. A card whose words
+ * cannot be resolved gets no poster and keeps the glass cover.
  */
 async function planningPosters(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -2119,11 +2122,11 @@ async function planningPosters(
 ): Promise<Map<string, EventPosterFacts>> {
   const out = new Map<string, EventPosterFacts>();
   if (events.length === 0) return out;
-  const saved = new Map<string, string | null>();
+  const saved = new Map<string, { invite_theme: string | null; std_background: unknown }>();
   try {
     const { data, error } = await supabase
       .from('events')
-      .select('event_id, invite_theme')
+      .select('event_id, invite_theme, std_background')
       .in(
         'event_id',
         events.map((e) => e.event_id),
@@ -2131,8 +2134,8 @@ async function planningPosters(
     if (error) {
       logQueryError('Launcher (events.invite_theme SELECT)', error, { user_id: userId }, 'graceful_degrade');
     } else {
-      for (const r of (data ?? []) as Array<{ event_id: string; invite_theme: string | null }>) {
-        saved.set(r.event_id, r.invite_theme);
+      for (const r of (data ?? []) as Array<{ event_id: string; invite_theme: string | null; std_background: unknown }>) {
+        saved.set(r.event_id, { invite_theme: r.invite_theme, std_background: r.std_background });
       }
     }
   } catch (caught) {
@@ -2146,7 +2149,11 @@ async function planningPosters(
   await Promise.all(
     events.map(async (e) => {
       const poster = await resolveEventPoster(
-        { ...e, invite_theme: saved.get(e.event_id) ?? null },
+        {
+          ...e,
+          invite_theme: saved.get(e.event_id)?.invite_theme ?? null,
+          std_background: saved.get(e.event_id)?.std_background ?? null,
+        },
         ownHeroById.get(e.event_id) ?? null,
       );
       if (poster) out.set(e.event_id, poster);

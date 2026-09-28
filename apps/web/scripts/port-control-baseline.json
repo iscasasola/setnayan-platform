@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5760afc8b",
+  "generatedFromRef": "29c9ad6b4",
   "routeCount": 435,
-  "destinations": 941,
+  "destinations": 940,
   "actions": 671,
-  "blocks": 4983,
+  "blocks": 4974,
   "routes": {
     "/": {
       "files": [
@@ -815,7 +815,6 @@
         "[slug]/_components/pahina-motion.tsx",
         "[slug]/_components/photo-moments-widget.tsx",
         "[slug]/_components/photos-of-you-gallery.tsx",
-        "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -1146,8 +1145,6 @@
         "PhotoMomentsWidget",
         "PhotosOfYouGallery",
         "PreviewPerson",
-        "PreviewWayBack",
-        "PreviewWayBackLink",
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
@@ -6191,7 +6188,6 @@
         "PaidMark",
         "PickMenu",
         "PickOption",
-        "PreviewStageLink",
         "PrintChoicePicker",
         "PrintMenuEditor",
         "PrintPreview",
@@ -6216,7 +6212,6 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
-        "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "WebsiteEditorPage"
@@ -7977,7 +7972,6 @@
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/launch${search.then === 'apply' ?",
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/studio"
       ],
@@ -8396,7 +8390,6 @@
     },
     "/dashboard/[eventId]/website": {
       "files": [
-        "dashboard/[eventId]/website/_components/apply-pro-sheet.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-bar.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-button.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-dock.tsx",
@@ -8410,15 +8403,12 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "ApplyProSheet",
         "DraftButton",
-        "HTMLDivElement",
         "HubDraftActionResult",
         "HubDraftToolbar",
         "InfoTip",
         "Link",
         "MakerSaveStatus",
-        "MiniTour",
         "PaidMark",
         "ResultLine"
       ]
@@ -8607,7 +8597,6 @@
         "PartPicker",
         "PartTab",
         "PartTextTab",
-        "PartWordsRow",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "PickListPlacement",
@@ -8781,7 +8770,6 @@
         "MiniTour",
         "MomentAnchor",
         "MomentSheet",
-        "PaidMark",
         "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",

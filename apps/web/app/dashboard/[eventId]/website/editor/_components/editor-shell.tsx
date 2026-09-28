@@ -74,7 +74,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { SceneBackgroundRow } from './scene-background-row';
+import { SceneBackgroundRow, type SceneUpload } from './scene-background-row';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -244,7 +244,9 @@ export function MakerWork({
   sceneFormat?: {
     colorChoices: readonly string[];
     photoChoices: readonly { ref: string; url: string }[];
-    videoChoice: { ref: string; url: string } | null;
+    videoChoice: { ref: string; url: string; poster?: string | null } | null;
+    /** The scenes' own in-place uploads (their `scene-background` folder), signed. */
+    sceneUploads?: readonly SceneUpload[];
     mediaHref: string;
     hubTheme: string;
     openBrowse: boolean;
@@ -532,7 +534,10 @@ export function MakerWork({
   /* …and what a pick will need: every face in the Font dropdown and, for a
      couple who can pick one, their photos as backgrounds (`lib/maker-preload.ts`
      — the Maker's own document only, never a guest page). Same device gate. */
-  const photoUrlsKey = ownsPro ? (sceneFormat?.photoChoices ?? []).map((p) => p.url).join('\n') : '';
+  /* Every couple may now pick media into the draft (owner 2026-09-28: Pro is
+     asked for at Apply) — only the store shell's free couple is not offered it. */
+  const photoUrlsKey =
+    ownsPro || !sceneFormat?.hideLocked ? (sceneFormat?.photoChoices ?? []).map((p) => p.url).join('\n') : '';
   useEffect(() => {
     if (warmBudget === 0) return;
     return whenIdle(() => {
@@ -1130,8 +1135,9 @@ export function MakerWork({
               usedColours={usedColours}
               photoChoices={sceneFormat.photoChoices}
               videoChoice={sceneFormat.videoChoice}
+              sceneUploads={sceneFormat.sceneUploads}
               ownsPro={ownsPro}
-              mediaHref={sceneFormat.mediaHref}
+              hidePro={sceneFormat.hideLocked && !ownsPro}
               hubTheme={sceneFormat.hubTheme as never}
               onPreview={(message) => {
                 /* ⚡ The background is on the canvas now — laid by the server's own

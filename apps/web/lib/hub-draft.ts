@@ -882,7 +882,7 @@ function runFonts(style: HubElementStyle | undefined): string | null {
 const grows = (c: LookChange) => c === 'add' || c === 'change';
 
 /** The background's own keys — they travel together, so a media ground is put back whole. */
-const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape'] as const;
+const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape', 'mediaMotion', 'poster'] as const;
 
 /**
  * 💎 THE FREE PART OF A DRAFTED CANVAS — `next` with every Pro addition or

@@ -222,6 +222,9 @@ const COUPLE_MEDIA_METER_SUBPATHS: ReadonlySet<string> = new Set([
   // The Main background's own clip or photo and its still (Maker Phase 10) —
   // a genuine Maker media surface: the couple's own footage behind every scene.
   'main-background',
+  // A scene's own background photo or clip and its still ("Upload media" in the
+  // Maker's scene Format tab, owner 2026-09-28) — the same kind of surface.
+  'scene-background',
 ]);
 
 function isCoupleMediaMeterPath(pathPrefix: string, eventId: string): boolean {

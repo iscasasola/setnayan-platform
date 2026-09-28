@@ -109,6 +109,7 @@ import {
 } from '@/lib/invitation-widgets';
 import { updateSpecialMessage } from '../special-message/actions';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { sceneUploadRefs, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { hubDraftAction } from '../hub-draft-actions';
 import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
 import { HubSavesImmediately } from '../_components/hub-draft-field';
@@ -180,7 +181,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -284,6 +285,9 @@ export default async function WebsiteEditorPage({
   const musicRef = (event.site_bg_music_r2_key as string | null) ?? null;
   const videoRef = (event.landing_page_hero_video_r2_key as string | null) ?? null;
   const galleryRefs = ourPhotos.filter((r): r is string => typeof r === 'string');
+  /* 🖼 The Save the Date's own uploaded background — one of the couple's
+     pictures a scene's Upload media offers (`lib/scene-media-choices.ts`). */
+  const stdBgRef = stdBackgroundUploadRef((event as { std_background?: unknown }).std_background);
   const displayFor = async (refs: Array<string | null>) => {
     const out: Record<string, string> = {};
     await Promise.all(
@@ -298,19 +302,20 @@ export default async function WebsiteEditorPage({
     );
     return out;
   };
-  const [heroDisplay, galleryDisplay, chromeDisplay] = await Promise.all([
+  const [heroDisplay, galleryDisplay, chromeDisplay, stdBgDisplay] = await Promise.all([
     displayFor([heroRef]),
     displayFor(galleryRefs),
     displayFor([musicRef, videoRef]),
+    displayFor([stdBgRef]),
   ]);
 
   /* 🎨 The photos a couple may use as a section background — their own hero
      first, then their gallery, each with the display URL this page ALREADY
      signed for the inline uploaders. No second signing pass, and no photo from
      anywhere but this event. */
-  const photoChoices = [heroRef, ...galleryRefs]
+  const photoChoices = [...new Set([heroRef, ...galleryRefs, stdBgRef])]
     .filter((ref): ref is string => Boolean(ref))
-    .map((ref) => ({ ref, url: heroDisplay[ref] ?? galleryDisplay[ref] ?? '' }))
+    .map((ref) => ({ ref, url: heroDisplay[ref] ?? galleryDisplay[ref] ?? stdBgDisplay[ref] ?? '' }))
     .filter((p) => p.url.length > 0);
 
   /* 🎬 The ONE video an event owns. `displayFor([musicRef, videoRef])` above
@@ -319,7 +324,15 @@ export default async function WebsiteEditorPage({
      does not offer a snippet, rather than offering a control that cannot work. */
   const videoDisplay = chromeDisplay[videoRef ?? ''] ?? '';
   const videoChoice =
-    videoRef && videoDisplay ? { ref: videoRef, url: videoDisplay } : null;
+    videoRef && videoDisplay
+      ? {
+          ref: videoRef,
+          url: videoDisplay,
+          /* 🎞 Its still is the hero photo — the documented stand-in guests
+             already see for this clip (`lib/guest-hero-video.ts`). */
+          poster: heroRef && heroDisplay[heroRef] ? heroRef : null,
+        }
+      : null;
 
   /* 🎨 A flat ground is chosen FROM the wedding. `paletteSwatches` is the same
      reader the dress-code panel seeds from, so the colours a couple sees here
@@ -366,6 +379,29 @@ export default async function WebsiteEditorPage({
     console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
   }
   const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
+
+  /* 🖼 A SCENE'S OWN UPLOADS ("Upload media", in place) — the photos and clips
+     the scenes already wear from their own folder (draft over live), signed in
+     ONE call, only when there are any, so the panel shows them as thumbnails
+     after the save's refresh. */
+  const sceneUploadList = sceneUploadRefs(eventId, allWidgets.map((w) => w.config_json));
+  const sceneUploadDisplay =
+    sceneUploadList.length > 0
+      ? await displayFor(sceneUploadList.flatMap((u) => [u.ref, u.poster]))
+      : {};
+  const sceneUploads = sceneUploadList.flatMap((u) =>
+    sceneUploadDisplay[u.ref]
+      ? [
+          {
+            ref: u.ref,
+            url: sceneUploadDisplay[u.ref]!,
+            kind: u.kind,
+            poster: u.poster,
+            posterUrl: u.poster ? (sceneUploadDisplay[u.poster] ?? null) : null,
+          },
+        ]
+      : [],
+  );
 
   /* 🎞 THE MAIN BACKGROUND (Maker Phase 10) — BY DEFAULT THE HERO (owner,
      2026-09-25 item 6: "whatever they make on the hero scene will be their
@@ -1222,6 +1258,7 @@ export default async function WebsiteEditorPage({
         colorChoices,
         photoChoices,
         videoChoice,
+        sceneUploads,
         mediaHref: `${w}/our-photos`,
         hubTheme: currentThemeId,
         openBrowse,

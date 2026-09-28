@@ -24,12 +24,19 @@ export function SceneClip({
   play,
   open,
   label,
+  className = 'hub-tpl-media',
 }: {
   src: string;
   play: 'loop' | 'tap';
   open: 'fullscreen' | 'inplace';
   /** What the ▶ button says to a screen reader. */
   label: string;
+  /**
+   * The video's class — a template slot's picture (the default), or a scene
+   * BACKGROUND's layer (`hub-canvas-media`, `hub-canvas-frame.tsx`): the same
+   * loop, cover-fitted by the frame's own rule.
+   */
+  className?: string;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [started, setStarted] = useState(false);
@@ -60,7 +67,7 @@ export function SceneClip({
     return (
       <video
         ref={ref}
-        className="hub-tpl-media"
+        className={className}
         src={src}
         muted
         loop
@@ -89,7 +96,7 @@ export function SceneClip({
   return (
     <>
       {/* `#t=0.1` asks for the first frame as the still — no poster file needed. */}
-      <video ref={ref} className="hub-tpl-media" src={`${src}#t=0.1`} playsInline preload="metadata" />
+      <video ref={ref} className={className} src={`${src}#t=0.1`} playsInline preload="metadata" />
       {started ? null : (
         <button type="button" className="hub-tpl-play" onClick={start} aria-label={label}>
           <span aria-hidden>▶</span>

@@ -59,6 +59,12 @@ type PublicHideableWidgetProps = {
   canvasMediaUrls?: Readonly<Record<string, string>>;
   /** The live theme, so a scene's text follows its own background (free). */
   hubTheme?: InviteThemeId;
+  /**
+   * 🎞 The couple's own Maker canvas (`isMakerCanvas`, a VERIFIED host): their
+   * scene clip plays (`sceneGround`'s `ownClipPlays`). Never set for a guest —
+   * absent = the SEC-6 gate, and a guest sees the clip's still.
+   */
+  ownClipPlays?: boolean;
 };
 
 /**
@@ -72,7 +78,7 @@ type PublicHideableWidgetProps = {
  */
 export function PublicHideableWidget(props: PublicHideableWidgetProps) {
   return (
-    <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme}>
+    <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme} ownClipPlays={props.ownClipPlays}>
       {props.makerEmpty ? (
         <MakerEmptyScene type={props.widget.widget_type} look={makerWordsLook(props.widget.widget_type)} />
       ) : (
@@ -90,11 +96,12 @@ function PublicHideableWidgetBody({
   scheduleEstimated = false,
   ourPhotoUrls,
   canvasMediaUrls,
+  ownClipPlays = false,
   guestView = false,
 }: PublicHideableWidgetProps) {
   /* 🖼 The scene background owns the box — the widget then draws no card of
      its own (owner 2026-09-27, "no background means no box"). */
-  const bare = sceneWidgetIsBare(widget, canvasMediaUrls);
+  const bare = sceneWidgetIsBare(widget, canvasMediaUrls, { ownClipPlays });
   switch (widget.widget_type) {
     case 'countdown':
       // Match InvitationSite's per-widget skip — no event date, no

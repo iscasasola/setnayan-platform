@@ -115,6 +115,15 @@ setTimeout(function(){if(!window.__pahinaArmed){r.classList.remove('pahina-js')}
  * MAX below and the scale in globals.css must move together. Full derivation
  * lives with the CSS rule.
  */
+/*
+ * 🌄 IT ALSO DRIFTS A SCENE'S PHOTO BACKGROUND (owner 2026-09-28, "photo
+ * parallax effect"): a scene frame's photo layer wears `data-pahina-parallax`
+ * when the couple chose Parallax (`hub-canvas-frame.tsx`). ONE mechanism, so
+ * the list is read on each frame rather than once: scenes stream in AFTER this
+ * script (the defect `PahinaMotionObserver` documents below), and the Maker's
+ * canvas turns Parallax on in place without a reload. A page with none still
+ * pays nothing but one passive, rAF-throttled listener.
+ */
 export function PahinaCoverParallax() {
   return (
     <script
@@ -124,10 +133,9 @@ export function PahinaCoverParallax() {
 var r=document.documentElement;
 if(!r.classList.contains('pahina-js'))return;
 if(!window.requestAnimationFrame)return;
-var ls=document.querySelectorAll('.sn-editorial [data-pahina-parallax]');
-if(!ls.length)return;
 var MAX=6,pending=false;
 var tick=function(){pending=false;var vh=window.innerHeight||0;if(!vh)return;
+var ls=document.querySelectorAll('.sn-editorial [data-pahina-parallax]');
 for(var i=0;i<ls.length;i++){var el=ls[i],b=el.parentNode.getBoundingClientRect();
 if(b.bottom<0||b.top>vh)continue;
 var p=(vh-b.top)/(vh+b.height);p=p<0?0:p>1?1:p;

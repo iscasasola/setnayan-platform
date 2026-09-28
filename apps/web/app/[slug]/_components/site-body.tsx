@@ -1067,6 +1067,7 @@ export async function SiteBody({
         widget={widget}
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
+        ownClipPlays={isMakerCanvas}
         guestView={!isMakerCanvas}
         makerEmpty={
           isMakerCanvas && makerDrawsEmpty(widget.widget_type) &&
@@ -2340,6 +2341,7 @@ export async function SiteBody({
                   widget={widget}
                   canvasMediaUrls={canvasMediaUrls}
                   hubTheme={sceneTheme}
+                  ownClipPlays={isMakerCanvas}
                   guestView={!isMakerCanvas}
                   event={event}
                   guest={guest}

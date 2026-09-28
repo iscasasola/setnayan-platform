@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b48e737f7",
+  "generatedFromRef": "3136309f7",
   "routeCount": 435,
   "destinations": 941,
   "actions": 673,
-  "blocks": 4988,
+  "blocks": 4987,
   "routes": {
     "/": {
       "files": [
@@ -7999,7 +7999,6 @@
     },
     "/dashboard/[eventId]/suite": {
       "files": [
-        "dashboard/[eventId]/suite/_components/our-services-grid.tsx",
         "dashboard/[eventId]/suite/_components/suite-search.tsx",
         "dashboard/[eventId]/suite/_components/suite-service-card.tsx",
         "dashboard/[eventId]/suite/_components/suite-vignette-card.tsx",
@@ -8017,14 +8016,11 @@
         "routes.explore.index"
       ],
       "blocks": [
-        "CollectionCard",
         "Icon",
         "Link",
         "ListPageSkeleton",
-        "OurServicesGrid",
         "PageMasthead",
         "PaidMark",
-        "PickMenu",
         "RevealList",
         "RowPill",
         "Scene",
@@ -8548,6 +8544,7 @@
         "CanvasWordsContext.Provider",
         "ChipRow",
         "Choice",
+        "ClipTile",
         "ColorsPanel",
         "ColourWell",
         "DetailsBoundField",
@@ -8621,6 +8618,7 @@
         "PartWordsRow",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
+        "PhotoTile",
         "PickListPlacement",
         "PickMenu",
         "ProLockPanel",

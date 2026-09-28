@@ -59,13 +59,17 @@ export type SceneTintKind = 'color' | 'diagonal' | 'glow' | 'glass' | 'frost' | 
 /**
  * 🖼 THE LIGHTEST POINT OF THE PHOTO / SNIPPET SCRIM — the white veil
  * `globals.css` lays over a scene photo or clip (`.hub-has-media` /
- * `.hub-bg-snippet`, 0.86 → 0.94). The words are measured over it laid on the
+ * `.hub-bg-snippet`, 0.72 → 0.84; was 0.86 → 0.94 until the owner's *"yes a
+ * bit lighter"*, 2026-09-29 answer 4). Measured, not guessed: over a BLACK
+ * pixel every theme's scene ink still clears AA down to a 0.64 veil (the
+ * palest, Whimsical); 0.72 keeps that margin — `scene-upload-media.test.ts`
+ * holds it per theme. The words are measured over it laid on the
  * darkest and the lightest pixel a photo can have, so the ink holds over ANY
  * photo — a dark theme's light page ink would otherwise sit on a white veil.
  * `scene-words-follow-the-ground.test.ts` reads this number back out of the
  * stylesheet, so the two cannot drift.
  */
-export const SCENE_MEDIA_SCRIM = 0.86;
+export const SCENE_MEDIA_SCRIM = 0.72;
 
 /**
  * 🪟 HOW SOLID EACH GLASS IS, AT THE LEAST (owner 2026-09-27: *"opaque glass,

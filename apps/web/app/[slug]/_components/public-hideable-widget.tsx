@@ -9,6 +9,7 @@ import type { InviteThemeId } from '@/lib/invite-themes';
 import { MakerEmptyScene, makerWordsLook } from './maker-empty-scene';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
@@ -59,6 +60,12 @@ type PublicHideableWidgetProps = {
   canvasMediaUrls?: Readonly<Record<string, string>>;
   /** The live theme, so a scene's text follows its own background (free). */
   hubTheme?: InviteThemeId;
+  /**
+   * 🎞 The couple's own Maker canvas (`isMakerCanvas`, a VERIFIED host): their
+   * scene clip plays (`sceneGround`'s `ownClipPlays`). Never set for a guest —
+   * absent = the SEC-6 gate, and a guest sees the clip's still.
+   */
+  ownClipPlays?: boolean;
 };
 
 /**
@@ -72,7 +79,7 @@ type PublicHideableWidgetProps = {
  */
 export function PublicHideableWidget(props: PublicHideableWidgetProps) {
   return (
-    <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme}>
+    <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme} ownClipPlays={props.ownClipPlays}>
       {props.makerEmpty ? (
         <MakerEmptyScene type={props.widget.widget_type} look={makerWordsLook(props.widget.widget_type)} />
       ) : (
@@ -90,11 +97,12 @@ function PublicHideableWidgetBody({
   scheduleEstimated = false,
   ourPhotoUrls,
   canvasMediaUrls,
+  ownClipPlays = false,
   guestView = false,
 }: PublicHideableWidgetProps) {
   /* 🖼 The scene background owns the box — the widget then draws no card of
      its own (owner 2026-09-27, "no background means no box"). */
-  const bare = sceneWidgetIsBare(widget, canvasMediaUrls);
+  const bare = sceneWidgetIsBare(widget, canvasMediaUrls, { ownClipPlays });
   switch (widget.widget_type) {
     case 'countdown':
       // Match InvitationSite's per-widget skip — no event date, no
@@ -176,6 +184,8 @@ function PublicHideableWidgetBody({
         config: widget.config_json,
         mediaUrls: canvasMediaUrls,
         facts: sceneFactsFor(event, { solemn: words.solemn }),
+        ownClipPlays,
+        clipStillRef: siteMediaServeRef(event.landing_page_hero_image_url),
       });
 
     case 'our_love_story':

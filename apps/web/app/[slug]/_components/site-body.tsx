@@ -132,7 +132,7 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
-import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
+import { hubCanvasMediaRefs, hubSlotClipStillRefs } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
 import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
@@ -508,7 +508,12 @@ export async function SiteBody({
   // The Love Story's photos (Event Hub Pro) ride the SAME one signing pass as
   // the section backgrounds — one Promise.all per page, one allow-list.
   const canvasMediaRefs = [
-    ...new Set([...hubCanvasMediaRefs(widgets), ...loveStoryMediaRefs(event.love_story)]),
+    ...new Set([
+      ...hubCanvasMediaRefs(widgets),
+      ...loveStoryMediaRefs(event.love_story),
+      // 🎞 A template slot's clip that may not play shows the hero photo instead.
+      ...hubSlotClipStillRefs(widgets, siteMediaServeRef(event.landing_page_hero_image_url)),
+    ]),
   ];
   const canvasMediaUrls: Record<string, string> = {};
   if (canvasMediaRefs.length > 0) {
@@ -1088,6 +1093,7 @@ export async function SiteBody({
         widget={widget}
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
+        ownClipPlays={isMakerCanvas}
         guestView={!isMakerCanvas}
         makerEmpty={
           isMakerCanvas && makerDrawsEmpty(widget.widget_type) &&
@@ -2361,6 +2367,7 @@ export async function SiteBody({
                   widget={widget}
                   canvasMediaUrls={canvasMediaUrls}
                   hubTheme={sceneTheme}
+                  ownClipPlays={isMakerCanvas}
                   guestView={!isMakerCanvas}
                   event={event}
                   guest={guest}

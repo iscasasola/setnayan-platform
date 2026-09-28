@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ad4e12c55",
+  "generatedFromRef": "c16059db1",
   "routeCount": 435,
-  "destinations": 941,
-  "actions": 671,
-  "blocks": 4983,
+  "destinations": 942,
+  "actions": 673,
+  "blocks": 4992,
   "routes": {
     "/": {
       "files": [
@@ -4831,9 +4831,11 @@
         "dashboard/(launcher)/_components/event-scene.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/home-pill-nav.tsx",
+        "dashboard/(launcher)/_components/incoming-requests.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
+        "dashboard/(launcher)/incoming-request-actions.ts",
         "dashboard/(launcher)/layout.tsx",
         "dashboard/(launcher)/loading.tsx",
         "dashboard/(launcher)/page.tsx"
@@ -4851,7 +4853,10 @@
         "/dashboard/samahan/[seg]",
         "/vendor-dashboard"
       ],
-      "actions": [],
+      "actions": [
+        "answerIncomingRequest",
+        "muteInviter"
+      ],
       "blocks": [
         "AccountSwitcher",
         "AppRailShell",
@@ -4868,6 +4873,7 @@
         "EventMonogram",
         "EventPoster",
         "EventScene",
+        "Flash",
         "GlassEventCard",
         "HTMLDialogElement",
         "HTMLDivElement",
@@ -4876,6 +4882,7 @@
         "Icon",
         "Image",
         "ImpactLines",
+        "IncomingRequests",
         "Link",
         "MomentRow",
         "NewEventButton",
@@ -4948,6 +4955,7 @@
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
+        "dashboard/[eventId]/_components/pillar-part-picker.tsx",
         "dashboard/[eventId]/_components/placeholder.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
@@ -5114,6 +5122,7 @@
         "PaymentPlanRows",
         "PaymentSection",
         "PhaseRows",
+        "PickMenu",
         "PostSaveStep",
         "PreviewConflictsResult",
         "PriceSourceChip",
@@ -5657,6 +5666,7 @@
         "AutosaveState",
         "BulkApplyForm",
         "CaptureBar",
+        "CheckinDeskPage",
         "ChipTrigger",
         "ConfirmForm",
         "CustomizePanel",
@@ -5668,6 +5678,7 @@
         "EditResult",
         "EmptyState",
         "EntourageOrderPanel",
+        "EventHostsPage",
         "FacetRow",
         "Field",
         "FilterPopover",
@@ -5741,6 +5752,7 @@
         "PairSelectedForm",
         "PartnerLine",
         "PickMenu",
+        "PillarPartPicker",
         "PlusBadge",
         "PlusOneChipEditor",
         "Popover",
@@ -5826,6 +5838,7 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
+        "DeskTitle",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",
@@ -8084,6 +8097,7 @@
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
+        "/dashboard/[seg]/vendors?part=budget",
         "/explore?q=[seg]"
       ],
       "actions": [
@@ -8108,6 +8122,7 @@
         "BenchUnread",
         "BenchVendorActions",
         "BudgetBuildTab",
+        "BudgetPage",
         "BuildActionResult",
         "BuildCompare",
         "BuildFallbackResult",
@@ -8175,6 +8190,7 @@
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
+        "PillarPartPicker",
         "PlanBudgetAccordion",
         "PlansRowPick",
         "PoolIcon",

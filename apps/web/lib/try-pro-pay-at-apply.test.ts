@@ -80,8 +80,11 @@ function triedDraft(): HubDraft {
   d = mergeHubDraft(d, { widgets: { schedule: { canvas: { preset: 'cinematic', transition: 'scrub' } as HubSectionCanvas } } });
   // Pro: a photo behind the Countdown.
   d = mergeHubDraft(d, { widgets: { countdown: { canvas: { kind: 'photo', media: PHOTO } as HubSectionCanvas } } });
-  // Pro: a scene of their own, shown.
-  d = mergeHubDraft(d, { widgets: { custom_1: { mode: 'auto', is_visible: true } } });
+  // Pro: a scene of their own, added from a template and shown (owner, via the
+  // controller: *"they can Add. only pay when apply is tirggered"*).
+  d = mergeHubDraft(d, {
+    widgets: { custom_1: { mode: 'auto', is_visible: true, canvas: { template: 1 } as HubSectionCanvas } },
+  });
   return d;
 }
 
@@ -151,10 +154,10 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
   const lines = effects.map(hubProEffectLine);
   console.log(`[try-pro] sheet: ${lines.join(' | ')}`);
   assert.deepEqual(lines.sort(), [
+    'Added scene · Photo left, words right',
     'Animation · Schedule',
     'Font · Names on the Hero',
     'Photo background · Countdown',
-    'Scene of your own · Your own section',
     'Theme · Luxe',
     'Transition · Schedule',
     'Typeface · Whole Event Hub',
@@ -254,4 +257,26 @@ test('the bar’s list comes from the one plan, as the viewer is shown it — an
   const sheet = code('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
   assert.match(sheet, /Unlock Event Hub Pro\{priceLabel \? ` · \$\{priceLabel\}` : ''\}/);
   assert.doesNotMatch(sheet, /₱\s?\d/, 'a price is typed into the sheet');
+});
+
+/* ═══ THE LOVE STORY AND THE THEME ARE TRIED THE SAME WAY ═════════════════ */
+
+test('a Love Story past the free cap is tried in the draft, named on the sheet, and never taken off from there', () => {
+  const moments = Array.from({ length: 6 }, (_, i) => ({ id: `m${i}`, line: `Moment ${i + 1}` }));
+  const d = mergeHubDraft(emptyHubDraft(), { events: { love_story: { moments } } });
+  assert.equal(((d.events.love_story as { moments?: unknown[] })?.moments ?? []).length, 6, 'the draft capped the story');
+  const [story] = hubDraftProEffects(d, LIVE, false);
+  assert.ok(story, 'a sixth story is not named as Pro');
+  assert.equal(hubProEffectLine(story!), 'Photos or chapters · Love Story');
+  assert.equal(story!.remove, null, 'removing the story from the sheet would throw its words away');
+  assert.deepEqual(story!.jump, { kind: 'tool', key: 'love-story' });
+  // The moment action does not refuse the draft; the live write is capped as before.
+  const action = code('app/dashboard/[eventId]/website/our-story/actions.ts');
+  assert.match(action, /const ownsPro = drafting \|\| \(await eventCoupleWebsiteProActive\(supabase, eventId\)\);\s*const refusal = momentCapRefusal\(\{ before, after, ownsPro \}\);/);
+});
+
+test('a drafted Pro theme is worn on the verified host’s canvas — never on a guest’s', () => {
+  const page = code('app/[slug]/page.tsx');
+  assert.match(page, /const triesDraftedTheme = hostDraft !== null && 'invite_theme' in hostDraft\.events;/);
+  assert.match(page, /: triesDraftedTheme\s*\?\s*\{ \.\.\.draftedEvent, theme_try_on: true \}\s*: draftedEvent;/);
 });

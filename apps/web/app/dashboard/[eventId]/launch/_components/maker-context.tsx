@@ -81,7 +81,8 @@ export const MAKER_MORE_ROWS_ID = 'maker-more-rows';
  * posting to `addCustomSection`.
  */
 export type MakerAddScene =
-  | { kind: 'ready'; open: () => void }
+  /** `tried`: the couple has no Event Hub Pro — the scene is tried free and Apply asks (◆ PRO, 2026-09-28). */
+  | { kind: 'ready'; open: () => void; tried?: boolean }
   | { kind: 'refused'; note: string; locked: boolean; unlockHref: string };
 
 /**

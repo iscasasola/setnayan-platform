@@ -32,6 +32,7 @@
 import { WIDGET_PHASES, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
 import { MAKER_TOOL_EDITOR_NAME, makerSceneLabel, type MakerFixedKey } from '@/lib/maker-scene-list';
 import { PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
+import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { hubMainGround, isHubMainFollow, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
@@ -201,10 +202,15 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       continue;
     }
     if (item.field === 'mode' || item.field === 'is_visible') {
+      /* 🎬 Owner 2026-09-28 (via the controller): *"they can Add. only pay when
+         apply is tirggered"* — named "Added scene · <its template>", the name
+         the couple picked it by in the 25-template sheet. */
+      const template =
+        draft.widgets[item.widgetType]?.canvas?.template ?? sanitizeHubCanvas(row?.config_json).template ?? null;
       push({
         id: `show:${item.widgetType}`,
-        what: 'Scene of your own',
-        where: scene,
+        what: 'Added scene',
+        where: template ? SCENE_TEMPLATES[template].name : scene,
         jump: { kind: 'scene', widgetId: item.widgetId, widgetType: item.widgetType, tab: 'content', stages, ...fixedOf(item.widgetType) },
         remove: {
           widgets: {

@@ -34,7 +34,7 @@ import { announceUnheldWrite } from '@/lib/maker-refresh';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
-import { ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
+import { ViewAsFreeKeeper, ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -450,7 +450,10 @@ export function MakerShell({
                       there, so it is a row here (the same registration). */}
                   {addScene?.kind === 'ready' ? (
                     <MenuItem className="md:hidden" onClick={() => { close(); addScene.open(); }}>
-                      <span data-maker-add-scene="">Add a scene</span>
+                      <span data-maker-add-scene="" className="inline-flex items-center gap-1.5">
+                        Add a scene
+                        {addScene.tried ? <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" /> : null}
+                      </span>
                     </MenuItem>
                   ) : addScene?.kind === 'refused' ? (
                     <MenuItem disabled note={addScene.note} className="md:hidden">
@@ -485,6 +488,8 @@ export function MakerShell({
 
         {/* 👁 While the switch is on it is SAID, on every width, until stopped. */}
         {viewAsFree?.on ? <ViewAsFreeStrip /> : null}
+        {/* ⏱ The switch ends when the Maker does (unmount · pagehide). */}
+        {viewAsFree?.on ? <ViewAsFreeKeeper /> : null}
 
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
         <div className="relative min-h-0 flex-1">
@@ -804,12 +809,19 @@ function AddSceneTool({ addScene }: { addScene: MakerAddScene | null }) {
         type="button"
         data-maker-tool="add"
         data-maker-add-scene=""
-        aria-label="Add a scene"
+        aria-label={addScene.tried ? `Add a scene — ${paidMarkLabel('try', 'Event Hub Pro')}` : 'Add a scene'}
         title="Add a scene"
         onClick={addScene.open}
         className={MAKER_TOOL_BUTTON}
       >
-        <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        <span className="relative">
+          <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+          {/* ◆ PRO — tried free, paid at Apply (owner 2026-09-28). The diamond
+              alone here: the toolbar has room for no word. */}
+          {addScene.tried ? (
+            <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" className="absolute -right-2.5 -top-1" />
+          ) : null}
+        </span>
         <span className={MAKER_TOOL_WORD}>Add</span>
       </button>
     );

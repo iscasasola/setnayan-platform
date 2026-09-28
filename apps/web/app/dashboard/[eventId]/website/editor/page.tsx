@@ -1295,6 +1295,7 @@ export default async function WebsiteEditorPage({
               : {
                   action: addCustomSection,
                   returnTo: `/dashboard/${eventId}/launch`,
+                  tried: !ownsPro,
                   tour: <MiniTour tourKey="customer_add_scene_v1" storeShell={storeShell} />,
                 }
       }

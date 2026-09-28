@@ -196,7 +196,7 @@ test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); th
   const work = read(`${C}editor-shell.tsx`);
   const reg = work.slice(work.indexOf('const setAddScene = maker?.setAddScene'), work.indexOf('const scenesBeforeAdd'));
   assert.ok(reg.length > 0, 'the work area no longer registers ＋ Add a scene with the shell');
-  assert.match(reg, /'action' in addScene\s*\?\s*\{ kind: 'ready', open: \(\) => setAddOpen\(true\) \}\s*:\s*\{ kind: 'refused', note: addScene\.note, locked: addScene\.locked === true, unlockHref: proUnlockHref \}/);
+  assert.match(reg, /'action' in addScene\s*\?\s*\{ kind: 'ready', open: \(\) => setAddOpen\(true\), tried: addScene\.tried === true \}\s*:\s*\{ kind: 'refused', note: addScene\.note, locked: addScene\.locked === true, unlockHref: proUnlockHref \}/);
   // …and the shell draws the padlock from it, on both doors, with nothing to post.
   const shell = read(SHELL);
   const tool = fn(shell, 'AddSceneTool');

@@ -30,15 +30,22 @@
 /** The cookie. `1` = on; anything else, or absent, = off. */
 export const VIEW_AS_FREE_COOKIE = 'sn_view_as_free';
 
-/** A working day — the same shape as the admin demo-mode switch (24 h), so a
- *  forgotten switch lapses on its own. The strip says it is on meanwhile. */
-export const VIEW_AS_FREE_MAX_AGE_S = 60 * 60 * 24;
+/*
+ * ⏱ IT LASTS AS LONG AS THE MAKER IS OPEN (owner 2026-09-28, via the
+ * controller: the switch "must switch itself off when the owner leaves the
+ * Maker (not persist 24 h)"). It used to be a 24-hour cookie; now it is a
+ * SESSION cookie (no Max-Age — it dies with the browser at the latest), and the
+ * Maker clears it the moment it is left (`ViewAsFreeKeeper`: on unmount, and on
+ * `pagehide`). A reload of the Maker keeps it: the reload's request is sent
+ * before the old page hides, and the Keeper writes it again on the way back in.
+ */
 
-/** The words, in one place (the menu row and the strip say the same thing). */
+/** The words, in one place (the menu row and the bar say the same thing). */
 export const VIEW_AS_FREE_LABEL = 'View as a free couple';
-export const VIEW_AS_FREE_ON_LABEL = 'Viewing as a free couple';
+export const VIEW_AS_FREE_ON_LABEL = 'You’re seeing the free version';
+export const VIEW_AS_FREE_STOP_LABEL = 'Back to Pro';
 export const VIEW_AS_FREE_HELP =
-  'Only you see this. Padlocks and Pro offers show as a couple without Event Hub Pro sees them. Nothing you saved changes.';
+  'Only you see this — the Maker as a couple without Event Hub Pro sees it. Nothing you saved changes, and Apply still acts as your own account. It switches off when you leave the Maker.';
 
 /** Does the cookie's raw value say "on"? */
 export function viewAsFreeCookieOn(value: string | null | undefined): boolean {
@@ -62,10 +69,12 @@ export function proAsViewed(realPro: boolean, viewingAsFree: boolean): boolean {
   return realPro === true && !viewingAsFree;
 }
 
-/** The `document.cookie` string that turns the switch on or off (client only). */
+/**
+ * The `document.cookie` string that turns the switch on or off (client only).
+ * ON is a session cookie — no Max-Age, no Expires — so it never outlives the
+ * browser; the Maker clears it sooner, when it is left.
+ */
 export function viewAsFreeCookieString(on: boolean, secure: boolean): string {
   const tail = `; Path=/; SameSite=Lax${secure ? '; Secure' : ''}`;
-  return on
-    ? `${VIEW_AS_FREE_COOKIE}=1; Max-Age=${VIEW_AS_FREE_MAX_AGE_S}${tail}`
-    : `${VIEW_AS_FREE_COOKIE}=; Max-Age=0${tail}`;
+  return on ? `${VIEW_AS_FREE_COOKIE}=1${tail}` : `${VIEW_AS_FREE_COOKIE}=; Max-Age=0${tail}`;
 }

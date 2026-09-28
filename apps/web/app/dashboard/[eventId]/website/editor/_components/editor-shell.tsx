@@ -300,6 +300,8 @@ export function MakerWork({
         returnTo: string;
         /** The first-visit tour (`MiniTour`), server-rendered and handed down; mounts when the sheet opens. */
         tour?: ReactNode;
+        /** 💎 No Event Hub Pro: the scene is tried free and Apply asks — the ＋ wears ◆ PRO. */
+        tried?: boolean;
       }
     | { note: string; locked?: boolean }
     | null;
@@ -460,7 +462,7 @@ export function MakerWork({
     }
     setAddScene(
       'action' in addScene
-        ? { kind: 'ready', open: () => setAddOpen(true) }
+        ? { kind: 'ready', open: () => setAddOpen(true), tried: addScene.tried === true }
         : { kind: 'refused', note: addScene.note, locked: addScene.locked === true, unlockHref: proUnlockHref },
     );
     return () => setAddScene(null);

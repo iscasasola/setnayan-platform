@@ -71,6 +71,7 @@ export function PaidMark({
   text,
   size = 'sm',
   tone = 'auto',
+  bare = false,
   className = '',
 }: {
   state: PaidMarkState;
@@ -81,6 +82,8 @@ export function PaidMark({
   size?: PaidMarkSize;
   /** `current` inherits the surrounding colour (for inverted surfaces). */
   tone?: 'auto' | 'current';
+  /** The glyph alone, even for ◆ PRO — for a badge on a toolbar icon with no room for a word. */
+  bare?: boolean;
   className?: string;
 }) {
   const Icon = state === 'locked' ? Lock : Gem;
@@ -96,7 +99,7 @@ export function PaidMark({
     </span>
   );
   /* ◆ PRO — the word is part of this mark: the diamond alone reads "owned". */
-  if (!text && state !== 'try') {
+  if (!text && (state !== 'try' || bare)) {
     return (
       <span
         data-paid-mark={state}

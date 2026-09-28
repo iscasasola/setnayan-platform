@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { paidMarkLabel, paidMarkState } from './paid-mark';
+import { makerProMark, makerProUsable, paidMarkLabel, paidMarkState } from './paid-mark';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -51,6 +51,22 @@ test('paidMarkState: owned is a diamond everywhere; not-owned is a padlock, abse
   assert.equal(paidMarkState({ owns: true, storeShell: true }), 'unlocked', 'an owned mark is not a purchase hint');
   assert.equal(paidMarkState({ owns: false }), 'locked');
   assert.equal(paidMarkState({ owns: false, storeShell: true }), null, 'no padlock in the app-store shell');
+});
+
+test('💎 ◆ PRO: a Maker control a couple may TRY — owned is still the diamond, the shell still shows nothing', () => {
+  // Owner 2026-09-28: *"they can edit it with pro features. but need to upgrade
+  // to pro when clicked on apply"* — the Maker's Pro controls work before
+  // paying, so they wear information (◆ PRO), never a padlock.
+  assert.equal(makerProMark({ owns: false, storeShell: false }), 'try');
+  assert.equal(makerProMark({ owns: true, storeShell: false }), 'unlocked');
+  assert.equal(makerProMark({ owns: true, storeShell: true }), 'unlocked');
+  assert.equal(makerProMark({ owns: false, storeShell: true }), null, 'a Pro hint in the app-store shell');
+  assert.equal(makerProUsable({ owns: false, storeShell: false }), true, 'a free couple cannot try Pro on the web');
+  assert.equal(makerProUsable({ owns: false, storeShell: true }), false, 'the shell shows a free couple a Pro control');
+  assert.equal(makerProUsable({ owns: true, storeShell: true }), true);
+  // The padlock rule everywhere else is untouched.
+  assert.equal(paidMarkState({ owns: false }), 'locked');
+  assert.match(paidMarkLabel('try', 'Event Hub Pro'), /Event Hub Pro — try it here; Apply asks for it/);
 });
 
 test('paidMarkLabel names the state for a screen reader', () => {

@@ -33,6 +33,8 @@ import { InvitedToChips } from './invited-to-chips';
 import { GuestQrCard } from './guest-detail-body';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
+import { GuestAccessControl } from './guest-access-control';
+import { accessTag } from '@/lib/guest-access';
 import type { GuestCardData } from './guest-card-data';
 import {
   inviteGuestByEmailAction,
@@ -180,7 +182,10 @@ export function GuestCardBody({
     seatedAt,
     customGroups,
     recordedAt,
+    access,
+    canManageAccess,
   } = data;
+  const accessTagLabel = access ? accessTag(access) : null;
 
   const updateAction = updateGuest.bind(null, eventId, guest.guest_id);
   const releaseAction = releaseGuestClaim.bind(null, eventId, guest.guest_id);
@@ -682,6 +687,15 @@ export function GuestCardBody({
                 tint="bg-warn-50 text-warn-900 ring-1 ring-warn-200"
               />
             ) : null}
+            {accessTagLabel ? (
+              // TRUE by construction (owner 2026-09-28 "make it true"): derived
+              // from the live seat, never from a label someone typed.
+              <TagChip
+                icon={<Users aria-hidden className="h-3 w-3" strokeWidth={2} />}
+                label={`+${accessTagLabel}`}
+                tint="bg-success-50 text-success-900 ring-1 ring-success-200"
+              />
+            ) : null}
             {customGroups.map((g) => (
               <TagChip
                 key={g.label}
@@ -698,6 +712,24 @@ export function GuestCardBody({
         </Section>
 
       </AutosaveForm>
+
+      {/* ── ACCESS — co-host · limited helper (owner 2026-09-28: co-hosts come
+          from the guest list). Its own action, so it sits OUTSIDE the autosave
+          form, like the invitation block — a nested <form> is invalid HTML.
+          A refused read (access === null) shows nothing, never "Guest only". */}
+      {access ? (
+        <Section title="Access">
+          <div className="px-0.5">
+            <GuestAccessControl
+              eventId={eventId}
+              guestId={guest.guest_id}
+              firstName={guest.first_name}
+              initial={access}
+              canManage={canManageAccess}
+            />
+          </div>
+        </Section>
+      ) : null}
 
       {/* ── 8 · REMOVE — explicit, never autosaved, and never nested inside the
           autosave form: each of these actions brings its own <form>.

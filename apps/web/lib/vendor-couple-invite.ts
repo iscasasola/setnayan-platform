@@ -131,6 +131,7 @@ export async function listHostEvents(
     .eq('user_id', userId)
     .is('removed_at', null)
     .not('accepted_at', 'is', null)
+    .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
     .in('role_subtype', PRIMARY_HOST_ROLE_SUBTYPES as unknown as string[]);
 
   const byId = new Map<string, EventStub>();

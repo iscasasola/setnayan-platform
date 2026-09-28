@@ -87,6 +87,7 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   not_your_photo: 'uses a photo that is not in your Event Hub',
   empty_section: 'has nothing in it yet, so it cannot be shown',
   missing_section: 'no longer exists',
+  not_for_this_celebration: 'is not offered for this celebration — Classic stays',
 };
 
 function useDraftIntent(eventId: string) {

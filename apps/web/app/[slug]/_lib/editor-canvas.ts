@@ -23,7 +23,9 @@
  * embedded in his editor. `the-maker-canvas-is-only-the-page.test.ts` holds it.
  */
 
-export type HostCanvasSearch = { editor?: string; preview?: string; only?: string };
+import { INVITE_THEMES, isInviteThemeId, type InviteThemeId } from '@/lib/invite-themes';
+
+export type HostCanvasSearch = { editor?: string; preview?: string; only?: string; theme?: string };
 
 /** Does this request ASK for the host canvas? Never an answer on its own — the
  *  caller must still verify host membership before honouring it. */
@@ -86,4 +88,31 @@ export function canvasOnlyCss(scene: CanvasOnlyScene): string {
     .map((s) => `:not(${s})`)
     .join('');
   return `body:has(${m}) *${keep}{display:none!important}`;
+}
+
+/**
+ * 🎨 A THEME TILE — the Maker's Details page shows the couple's OWN page in
+ * each theme (owner 2026-09-28: *"a complete preview of what each theme would
+ * look like"*), each tile a small frame of this route with `?theme=<id>`.
+ *
+ * 🔒 HOST CANVAS ONLY, like `?only=`: null unless the caller has ALREADY
+ * verified the host canvas. A stranger's `?theme=` changes nothing.
+ *
+ * ⛔ A TILE NEVER MOUNTS THE EDITOR BRIDGE. The bridge posts `ready` / `edit` to
+ * `window.parent` — which, for a tile, is the Maker itself — and the Maker's
+ * listeners check the ORIGIN, not which frame spoke. A tile that mounted it
+ * would be heard as the canvas: a `ready` from a tile could promote the
+ * canvas's loading frame (`buffered-canvas-frame.tsx`), a tap could open a
+ * panel. So `site-body.tsx` drops `<EditorBridge />` whenever this is set
+ * (`browsing-themes-never-moves-the-canvas.test.ts`).
+ *
+ * Only a SHIPPED theme is honoured; anything else is the page as it is.
+ */
+export function canvasTriedTheme(
+  search: { theme?: string } | undefined,
+  isEditorCanvas: boolean,
+): InviteThemeId | null {
+  if (!isEditorCanvas) return null;
+  const raw = search?.theme;
+  return isInviteThemeId(raw) && INVITE_THEMES[raw].ready ? raw : null;
 }

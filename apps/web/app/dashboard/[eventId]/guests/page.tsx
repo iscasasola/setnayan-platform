@@ -211,8 +211,6 @@ type Props = {
     view?: string;
     group?: string;
     gview?: string;
-    /** `saved` | `error` — the look picker's result, on the Share the link tab. */
-    theme?: string;
     team?: string;
     tag?: string;
     sort?: string;
@@ -1172,11 +1170,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         // body, so the header, tabs and meters stay put (owner 2026-09-21:
         // "should not clear the whole page. only the body."). The panel checks
         // for the couple itself; see its note.
-        <InvitePanel
-          eventId={eventId}
-          themeNotice={search.theme === 'saved' ? 'saved' : search.theme === 'error' ? 'error' : null}
-          returnTo="guests-share"
-        />
+        <InvitePanel eventId={eventId} />
       ) : gview === 'walk' ? (
         <EntourageOrderPanel eventId={eventId} view={view} />
       ) : gview === 'map' ? (

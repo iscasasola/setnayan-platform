@@ -36,7 +36,7 @@ import { QrLookControls } from './qr-look-controls';
 import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-theme-picker';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
-import { DETAILS_ITEM_GROUPS, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
+import { detailsNavigatorKeys, detailsSwitchesFor, type DetailsItemContext, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import { ParentCards } from './parent-cards';
@@ -136,6 +136,8 @@ export type MakerDetailsProps = {
   /** Changes on every server render, so a new QR look shows at once. */
   stamp: string;
   initialItem: DetailsItemKey;
+  /** The celebration's type — which items and switches it gets (`detailsNavigatorKeys`, `detailsSwitchesFor`). */
+  eventContext: DetailsItemContext;
 };
 
 const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
@@ -158,7 +160,8 @@ const FREE_ICON: Record<string, ReactNode> = {
 
 export function MakerDetails(props: MakerDetailsProps) {
   const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
-  const { pabuyaMessage, specialMessage, specialMessageAction, hasPalette, hasGifts, flash, stamp, initialItem } = props;
+  const { pabuyaMessage, specialMessage, specialMessageAction, hasPalette, hasGifts, flash, stamp, initialItem, eventContext } = props;
+  const switches = detailsSwitchesFor(eventContext);
   const PRINT_WORDS_ENDPOINT = '/api/hub-print/words';
   const inc = stored.include;
   const replyChoice = stored.rsvp?.kind === 'host' ? `host:${stored.rsvp.moderatorId}` : stored.rsvp?.kind === 'manual' ? 'manual' : '';
@@ -204,11 +207,11 @@ export function MakerDetails(props: MakerDetailsProps) {
     return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
   };
   const present = new Set<DetailsItemKey>(['theme', 'address', 'qr', 'download', ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
-  const groups: DetailsNavGroup[] = DETAILS_ITEM_GROUPS.map((g) => ({
+  const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,
-    items: g.keys.filter((k) => present.has(k)).map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
-  })).filter((g) => g.items.length > 0);
+    items: g.keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
+  }));
 
   /* ══ BODIES — each item's picture ══ */
   const bodies: Partial<Record<DetailsItemKey, ReactNode>> = {
@@ -329,15 +332,17 @@ export function MakerDetails(props: MakerDetailsProps) {
     ),
     invitation: (
       <PrintPieceEditor input={prints} piece="invitation">
-        <Toggle
-          form={WORDS_FORM}
-          name="inc_parents"
-          label="Parents on the invitation"
-          on={inc.parents}
-          tip="Guests with the role Parents of the Bride or Parents of the Groom. Parents are optional — with none, the card leaves that part out."
-        >
-          <ParentCards eventId={eventId} parents={parents} />
-        </Toggle>
+        {switches.parents ? (
+          <Toggle
+            form={WORDS_FORM}
+            name="inc_parents"
+            label="Parents on the invitation"
+            on={inc.parents}
+            tip="Guests whose role on your guest list is a parent's. Parents are optional — with none, the card leaves that part out."
+          >
+            <ParentCards eventId={eventId} parents={parents} />
+          </Toggle>
+        ) : null}
         <Toggle form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
           <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} />
         </Toggle>

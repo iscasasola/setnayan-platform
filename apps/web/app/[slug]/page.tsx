@@ -536,9 +536,11 @@ async function hostCanvasDraft(
   eventId: string,
   search: Awaited<Props['searchParams']>,
 ): Promise<HubDraft | null> {
-  if (!asksForHostCanvas(search)) return null;
-  const previewer = await getCurrentUser();
-  return previewer ? loadHostPreviewDraft(admin, eventId, previewer.id) : null;
+  if (asksForHostCanvas(search)) {
+    const previewer = await getCurrentUser();
+    if (previewer) return loadHostPreviewDraft(admin, eventId, previewer.id);
+  }
+  return null;
 }
 
 /**

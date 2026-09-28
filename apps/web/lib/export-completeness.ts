@@ -65,6 +65,9 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'vendor_profiles', decision: 'exported', as: 'vendor_profile' },
   { table: 'papic_free_grant_claims', decision: 'exported', as: 'papic_free_grant' },
   { table: 'event_deletion_requests', decision: 'exported', as: 'event_deletion_requests' },
+  // "Don't show me invites from this person" (owner 2026-09-28, migration
+  // 20271252896804) — the subject's own private mute list, keyed on user_id.
+  { table: 'invite_mutes', decision: 'exported', as: 'invite_mutes' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

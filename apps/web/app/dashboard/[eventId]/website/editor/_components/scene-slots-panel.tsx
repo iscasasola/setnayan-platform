@@ -4,7 +4,7 @@ import { SCENE_BUILT_ON_LABEL, SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { SceneTemplatePicker, type SceneView } from './scene-template-picker';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * ONE TEMPLATE SCENE'S OWN CONTROLS — which template, what fills its slots, how
@@ -15,11 +15,12 @@ import { paidMarkLabel } from '@/lib/paid-mark';
  * control posts to `saveCustomSection` with its intent (`template` · `slot` ·
  * `video`); no new server action. No script: every choice is a form.
  *
- * ⛔ PRO, SAID ONCE AND NEVER A DEAD CONTROL. Putting a picture or a clip into a
- * scene is Event Hub Pro (owner: media is Pro). Without it the picture rows
- * show only what is already there and how to take it off, plus one line saying
- * what Pro adds — never a picker that the server would refuse. The words and
- * the template pick are free under the section's grandfather rule.
+ * 💎 PRO, TRIED HERE, PAID AT APPLY. Putting a picture or a clip into a scene is
+ * Event Hub Pro (owner: media is Pro). Every control here posts `draft=1`, so a
+ * couple without Pro may pick one — it shows on the canvas with ◆ PRO — and the
+ * Apply sheet names it ("Photo in the scene · …") until they unlock or take it
+ * off (owner 2026-09-28). In the app-store shell the pickers stay hidden. The
+ * words and the template pick are free under the section's grandfather rule.
  */
 export function SceneSlotsPanel({
   eventId,
@@ -47,6 +48,10 @@ export function SceneSlotsPanel({
 }) {
   const canvas = sanitizeHubCanvas(row.config_json);
   if (!canvas.template) return null;
+  /* 💎 Every form here drafts, so on the web a picture or a clip can be TRIED
+     (◆ PRO) and Apply asks for Pro (owner 2026-09-28). The shell still hides it. */
+  const usable = makerProUsable({ owns: ownsPro, storeShell: hideLocked });
+  const mark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
   const t = SCENE_TEMPLATES[canvas.template];
   const slots = canvas.slots ?? [];
   const base = { event_id: eventId, widget_id: row.widget_id, return_to: returnTo };
@@ -85,11 +90,11 @@ export function SceneSlotsPanel({
         currentTemplate={t.id}
         initialView={initialView}
         draft
-        hideMediaSlots={hideLocked && !ownsPro}
+        hideMediaSlots={!usable}
       />
 
       {/* ══ THE PICTURES ══ */}
-      {t.media > 0 && !(hideLocked && !ownsPro) ? (
+      {t.media > 0 && usable ? (
         <div className="space-y-1.5">
           {Array.from({ length: t.media }, (_, i) => {
             const slot = slots[i] ?? {};
@@ -98,9 +103,7 @@ export function SceneSlotsPanel({
               <div key={i} className="flex flex-wrap items-center gap-1.5">
                 <span className="inline-flex w-16 items-center gap-1 text-[0.62rem] text-ink/55">
                   {t.clip ? 'Clip' : t.media > 1 ? `Photo ${i + 1}` : 'Photo'}
-                  {ownsPro ? (
-                    <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="xs" />
-                  ) : null}
+                  {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
                 </span>
                 {slot.media ? (
                   <form action={saveAction}>
@@ -122,7 +125,7 @@ export function SceneSlotsPanel({
                     Your video
                   </span>
                 ) : null}
-                {ownsPro ? (
+                {usable ? (
                   <>
                     {videoChoice && (t.clip || t.family === 'media' || t.family === 'media_text') ? (
                       <form action={saveAction}>
@@ -172,21 +175,12 @@ export function SceneSlotsPanel({
               </div>
             );
           })}
-          {!ownsPro ? (
-            <p className="text-[0.62rem] text-ink/55">
-              <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" className="mr-1 align-middle" />
-              Putting your own photos and clips into a scene comes with{' '}
-              <a href={`/dashboard/${eventId}/studio/website-pro`} className="font-semibold underline underline-offset-2">
-                Event Hub Pro
-              </a>
-              .
-            </p>
-          ) : null}
+
         </div>
       ) : null}
 
       {/* ══ HOW A CLIP PLAYS — only once a clip is in the scene. ══ */}
-      {hasSnippet && ownsPro ? (
+      {hasSnippet && usable ? (
         <div className="flex flex-wrap items-center gap-1">
           <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">Clip</span>
           {(

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Check, Maximize2 } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import {
   SAMPLE_PRINT_PIECES,
@@ -130,25 +130,11 @@ export function ThemePickProvider({ eventId, current, children }: { eventId: str
   return <PickContext.Provider value={{ picked, pending, error, pick }}>{children}</PickContext.Provider>;
 }
 
-/**
- * ◆ PRO on a Pro theme a couple may still pick (information, never a lock);
- * the diamond once owned; nothing in the app-store shell.
- * (#6091 brings `makerProMark` / PaidMark's `try` state for this exact case —
- * this switches to it when that lands; the look is the same.)
- */
+/** ◆ PRO on a Pro theme a couple may still pick (information, never a lock); the diamond once owned; nothing in the app-store shell (`makerProMark`, #6091). */
 function ProMark({ tier, ownsPro, storeShell }: { tier: ThemeTile['tier']; ownsPro: boolean; storeShell: boolean }) {
   if (tier !== 'pro') return null;
-  if (ownsPro) return <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="xs" />;
-  if (storeShell) return null;
-  return (
-    <span
-      data-paid-mark="try"
-      aria-label="Part of Event Hub Pro — try it here; Apply asks for it"
-      className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[10.5px] font-semibold tracking-[0.08em] text-ink/60"
-    >
-      <span aria-hidden>◆</span>PRO
-    </span>
-  );
+  const mark = makerProMark({ owns: ownsPro, storeShell });
+  return mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null;
 }
 
 /**

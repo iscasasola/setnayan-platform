@@ -29,7 +29,7 @@ import { SlugField } from '../../invitation/_components/slug-field';
 import { siteOrigin } from '@/lib/site-origin';
 import { publicEventPath } from '@/lib/public-event-url';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { QrLookControls } from './qr-look-controls';
@@ -169,7 +169,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   const base = `/dashboard/${eventId}`;
   const address = slug ? `${siteOrigin().replace(/^https?:\/\//, '')}${publicEventPath(slug)}` : null;
   const qrSrc = slug ? `/api/website/qr/${encodeURIComponent(slug)}?v=${encodeURIComponent(stamp)}` : null;
-  const qrMark = paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell });
+  const qrMark = makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell });
   const free = freePrintParts(eventId, slug);
   const save = <SaveWords />;
 
@@ -251,7 +251,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       </section>
     ),
     /* ── Your QR (owner 2026-09-27): large, with Shape · Pattern · Colour right
-       under it — each ONE dropdown, ◆ Pro until owned. Saves live (the QR is a
+       under it — each ONE dropdown, ◆ PRO until owned (never a padlock). Saves live (the QR is a
        picture on prints, not a drafted guest page) and says so. ── */
     qr: (
       <section data-details-qr="" className="flex flex-col items-center gap-4">

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "48cc30cc7",
+  "generatedFromRef": "5d25332b9",
   "routeCount": 436,
-  "destinations": 938,
-  "actions": 671,
-  "blocks": 4991,
+  "destinations": 939,
+  "actions": 673,
+  "blocks": 5002,
   "routes": {
     "/": {
       "files": [
@@ -815,6 +815,7 @@
         "[slug]/_components/pahina-motion.tsx",
         "[slug]/_components/photo-moments-widget.tsx",
         "[slug]/_components/photos-of-you-gallery.tsx",
+        "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -1145,6 +1146,8 @@
         "PhotoMomentsWidget",
         "PhotosOfYouGallery",
         "PreviewPerson",
+        "PreviewWayBack",
+        "PreviewWayBackLink",
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
@@ -4828,9 +4831,11 @@
         "dashboard/(launcher)/_components/event-scene.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/home-pill-nav.tsx",
+        "dashboard/(launcher)/_components/incoming-requests.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
+        "dashboard/(launcher)/incoming-request-actions.ts",
         "dashboard/(launcher)/layout.tsx",
         "dashboard/(launcher)/loading.tsx",
         "dashboard/(launcher)/page.tsx"
@@ -4848,7 +4853,10 @@
         "/dashboard/samahan/[seg]",
         "/vendor-dashboard"
       ],
-      "actions": [],
+      "actions": [
+        "answerIncomingRequest",
+        "muteInviter"
+      ],
       "blocks": [
         "AccountSwitcher",
         "AppRailShell",
@@ -4865,6 +4873,7 @@
         "EventMonogram",
         "EventPoster",
         "EventScene",
+        "Flash",
         "GlassEventCard",
         "HTMLDialogElement",
         "HTMLDivElement",
@@ -4873,6 +4882,7 @@
         "Icon",
         "Image",
         "ImpactLines",
+        "IncomingRequests",
         "Link",
         "MomentRow",
         "NewEventButton",
@@ -6197,6 +6207,7 @@
         "PickContext.Provider",
         "PickMenu",
         "PickOption",
+        "PreviewStageLink",
         "PrintChoicePicker",
         "PrintMenuEditor",
         "PrintPieceBody",
@@ -6230,6 +6241,7 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
+        "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "WebsiteEditorPage"
@@ -7990,6 +8002,7 @@
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/launch${search.then === 'apply' ?",
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/studio"
       ],
@@ -8408,6 +8421,7 @@
     },
     "/dashboard/[eventId]/website": {
       "files": [
+        "dashboard/[eventId]/website/_components/apply-pro-sheet.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-bar.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-button.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-dock.tsx",
@@ -8421,12 +8435,15 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ApplyProSheet",
         "DraftButton",
+        "HTMLDivElement",
         "HubDraftActionResult",
         "HubDraftToolbar",
         "InfoTip",
         "Link",
         "MakerSaveStatus",
+        "MiniTour",
         "PaidMark",
         "ResultLine"
       ]
@@ -8615,6 +8632,7 @@
         "PartPicker",
         "PartTab",
         "PartTextTab",
+        "PartWordsRow",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "PickListPlacement",
@@ -8788,6 +8806,7 @@
         "MiniTour",
         "MomentAnchor",
         "MomentSheet",
+        "PaidMark",
         "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",

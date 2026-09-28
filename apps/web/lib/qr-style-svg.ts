@@ -21,7 +21,9 @@ import { SETNAYAN_GOLD, type QrLook, type QrPattern } from './qr-look';
  *   · the three FINDER patterns are drawn as solid squares in the QR's ink,
  *     ignoring `pattern` — a scanner locates the code by their 1:1:3:1:1 ratio,
  *     and a finder made of dots reads as noise from across a table;
- *   · the quiet zone is `QUIET` modules on every side, inside the circle too;
+ *   · the quiet zone is `QUIET` modules on every side of a square code; a
+ *     circle keeps a `CIRCLE_GAP`-module light ring round the code and fills
+ *     the rest of its disc with payload-seeded filler (SHAPE = CIRCLE below);
  *   · the centre badge is the SAME clearance every lettered monogram has used
  *     (lib/monogram.ts clearanceBadgeSvg), so its footprint under level H is the
  *     one this product has shipped since 2026-05.
@@ -151,28 +153,125 @@ export type StyledQrSvgOptions = {
 };
 
 /**
+ * ── SHAPE = CIRCLE: THE CODE FILLS THE CIRCLE ─────────────────────────────
+ * Owner 2026-09-28, verbatim, on the first Circle (a square code in a round
+ * cream badge): *"the QR should be Circle following the shape and not just the
+ * frame"*. So a circle is now a DISC OF MODULES: the real code in the centre,
+ * a clean light ring `CIRCLE_GAP` modules wide around it, and FILLER modules —
+ * same pattern, same ink, on the code's own grid — out to the disc's edge,
+ * finished by a thin ring in the ink.
+ *
+ * The filler is decoration a scanner must ignore, so three things hold:
+ *   · it never enters the code or its gap ring (a scanner finds the finders by
+ *     their 1:1:3:1:1 run, and a dark filler cell against a finder's outer
+ *     edge would lengthen its first run);
+ *   · it is DETERMINISTIC per payload (`fillerSeed`, FNV-1a of the text into
+ *     mulberry32), so the code a couple sees on screen is the code the printer
+ *     prints and the guest saves — same payload, same picture, every render;
+ *   · its density is `CIRCLE_FILLER_DENSITY`, the ~half-dark texture of real
+ *     QR data, so the disc reads as ONE code, not a code on a doily.
+ * lib/every-qr-look-decodes.test.ts decodes every circle at print size and as
+ * a forwarded 320-px JPEG, and counts the filler in the disc — that test, not
+ * this comment, is what makes these sentences true.
+ */
+
+/**
+ * Light modules between the real code and the filler, on every side, and how
+ * far the filler reaches past that ring's corners (so the corner finders sit
+ * inside the texture, not on its rim). MEASURED, not chosen — 2026-09-28, a
+ * sweep of 80 payload lengths × 3 patterns × 2 centres at 240/320-JPEG/360/600
+ * /900 px with the repo's jsQR: GAP 1 · REACH 1 failed dozens of rasters, GAP 1
+ * · REACH 2 and GAP 2 · REACH 2 failed long payloads at 240 px, GAP 3 lost
+ * some forwarded copies, and GAP 2 · REACH 1 matched the SQUARE code's own
+ * score (its only misses are the Dots pattern's, which the square shares).
+ * Apple's Vision detector read 360 of 360 at GAP 2 · REACH 1. Re-run the decode
+ * suite before moving either number.
+ */
+export const CIRCLE_GAP = 2;
+export const CIRCLE_REACH = 1;
+/** Share of filler cells drawn dark (real QR data runs at about half). */
+export const CIRCLE_FILLER_DENSITY = 0.5;
+
+/** FNV-1a (32-bit) of the payload — the filler's seed. Same text, same filler. */
+export function fillerSeed(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/** mulberry32 — a small, fast, well-mixed PRNG; deterministic from its seed. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * The circle's geometry for a code of `n` modules: the filler reaches
+ * `fillR` from the centre (the gap ring's corner plus `CIRCLE_REACH`), the
+ * ink ring sits just outside it, and the canvas is the square that holds the
+ * cream disc. Exported so the test measures the same numbers the drawing uses.
+ */
+export function circleGeometry(n: number): { fillR: number; ringR: number; discR: number; canvas: number; off: number } {
+  const fillR = (n / 2 + CIRCLE_GAP) * Math.SQRT2 + CIRCLE_REACH;
+  const ringR = fillR + 1;
+  const discR = ringR + 0.6;
+  const canvas = Math.ceil(discR * 2 + 1);
+  return { fillR, ringR, discR, canvas, off: canvas / 2 - n / 2 };
+}
+
+/**
+ * The filler cells for a code of `n` modules, in the code's own grid (row,
+ * col; negative and ≥ n are outside the code). A cell qualifies when it lies
+ * outside the code + gap square and wholly inside the filler disc, and is
+ * drawn when the payload-seeded PRNG says so.
+ */
+export function circleFillerCells(text: string, n: number): Array<[row: number, col: number]> {
+  const { fillR } = circleGeometry(n);
+  const rand = mulberry32(fillerSeed(text));
+  const lo = -CIRCLE_GAP;
+  const hi = n + CIRCLE_GAP; // exclusive
+  const reach = Math.ceil(fillR - n / 2) + 1;
+  const out: Array<[number, number]> = [];
+  for (let r = -reach; r < n + reach; r += 1) {
+    for (let c = -reach; c < n + reach; c += 1) {
+      if (r >= lo && r < hi && c >= lo && c < hi) continue;
+      // Farthest corner of the cell from the code's centre (n/2, n/2).
+      const dx = Math.max(Math.abs(c - n / 2), Math.abs(c + 1 - n / 2));
+      const dy = Math.max(Math.abs(r - n / 2), Math.abs(r + 1 - n / 2));
+      if (dx * dx + dy * dy > fillR * fillR) continue;
+      // Draw the PRNG for every qualifying cell, drawn or not, so the picture
+      // depends only on (text, n) — never on how many cells happened to be dark.
+      if (rand() < CIRCLE_FILLER_DENSITY) out.push([r, c]);
+    }
+  }
+  return out;
+}
+
+/**
  * Draw `text` as a QR wearing `look`. Level H always. Returns a complete
- * `<svg>` document with a square viewBox; for `shape: 'circle'` the ground is
- * a cream disc with a thin ring in the ink, large enough to hold the whole
- * code AND its quiet zone (radius = (n/2 + QUIET)·√2), and the corners outside
- * the disc are transparent — the "whole code inside a round badge" reading of
- * the owner's "circle" (decision row 2026-09-27 "QR SHAPE ON PRO = SQUARE OR
- * CIRCLE" asked for both readings; "round dots in a square code" is
- * `pattern: 'dots'`).
+ * `<svg>` document with a square viewBox. For `shape: 'circle'` the ground is
+ * a cream disc whose modules fill it edge to edge (see SHAPE = CIRCLE above)
+ * and the corners outside the disc are transparent; "round dots in a square
+ * code" is `pattern: 'dots'`.
  */
 export function styledQrSvg(text: string, look: QrLook, opts: StyledQrSvgOptions = {}): string {
   const qr = QRCode.create(text, { errorCorrectionLevel: 'H' });
   const n = qr.modules.size;
   const side = n + 2 * QUIET;
+  const circle = look.shape === 'circle' ? circleGeometry(n) : null;
 
   // Outer canvas and where the code's top-left module lands in it.
-  let canvas = side;
-  let off = QUIET;
-  if (look.shape === 'circle') {
-    const radius = (n / 2 + QUIET) * Math.SQRT2;
-    canvas = Math.ceil(radius * 2 + 2);
-    off = canvas / 2 - n / 2;
-  }
+  const canvas = circle ? circle.canvas : side;
+  const off = circle ? circle.off : QUIET;
 
   const modules: string[] = [];
   const finders: string[] = [];
@@ -182,15 +281,18 @@ export function styledQrSvg(text: string, look: QrLook, opts: StyledQrSvgOptions
       if (qr.modules.get(r, c)) modules.push(moduleSegment(look.pattern, c + off, r + off));
     }
   }
+  if (circle) {
+    for (const [r, c] of circleFillerCells(text, n)) modules.push(moduleSegment(look.pattern, c + off, r + off));
+  }
   finders.push(finderSegment(off, off), finderSegment(off + n - 7, off), finderSegment(off, off + n - 7));
 
   const dark = escapeAttr(look.dark);
   const light = escapeAttr(look.light);
-  const ground =
-    look.shape === 'circle'
-      ? `<circle cx="${num(canvas / 2)}" cy="${num(canvas / 2)}" r="${num(canvas / 2 - 1)}" fill="${light}"/>` +
-        `<circle cx="${num(canvas / 2)}" cy="${num(canvas / 2)}" r="${num(canvas / 2 - 1.4)}" fill="none" stroke="${dark}" stroke-width="0.6"/>`
-      : `<rect width="${num(canvas)}" height="${num(canvas)}" fill="${light}"/>`;
+  const mid = num(canvas / 2);
+  const ground = circle
+    ? `<circle cx="${mid}" cy="${mid}" r="${num(circle.discR)}" fill="${light}"/>` +
+      `<circle cx="${mid}" cy="${mid}" r="${num(circle.ringR)}" fill="none" stroke="${dark}" stroke-width="0.6" data-qr-ring=""/>`
+    : `<rect width="${num(canvas)}" height="${num(canvas)}" fill="${light}"/>`;
 
   // The overlay is drawn in the QR square's coordinates; shift it so its
   // centre lands on the canvas centre (a no-op for the square shape).

@@ -27,9 +27,12 @@ import {
   HUB_ELEMENT_WEIGHT_LABEL,
   HUB_JOINER_MAX,
   HUB_JOINER_WORDS,
+  HUB_LINK_DEFAULT_WORDS,
+  HUB_LINK_WORDS_MAX,
   hasTextStyle,
   hubSpacingLabel,
   sanitizeHubJoinerWord,
+  sanitizeHubLinkWords,
   stepHubElementSize,
   stepHubSpacing,
   type HubElementAlign,
@@ -157,7 +160,8 @@ export function PartTextTab({
 
   return (
     <div data-part-tab="text">
-      {has('word') ? <JoinerRow word={style.word ?? null} onWord={(w) => choose('word', w)} /> : null}
+      {has('word') && el === 'joiner' ? <JoinerRow word={style.word ?? null} onWord={(w) => choose('word', w)} /> : null}
+      {has('word') && el === 'link' ? <LinkWordsRow word={style.word ?? null} onWord={(w) => choose('word', w)} /> : null}
 
       {has('font') && !hideFont ? (
         <IRow
@@ -382,6 +386,44 @@ function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string |
         </form>
       ) : null}
     </>
+  );
+}
+
+/**
+ * 🔗 The link's words — the couple's own line, the card's words as the hint.
+ * Cleared, it goes back to the card's words (an absence, the joiner's rule);
+ * taking the link off the page is Arrange → Hidden.
+ */
+function LinkWordsRow({ word, onWord }: { word: string | null; onWord: (w: string | null) => void }) {
+  const [text, setText] = useState(word ?? '');
+  useEffect(() => setText(word ?? ''), [word]);
+  const blank = text.trim().length === 0;
+  const ok = blank ? null : sanitizeHubLinkWords(text);
+  const changed = (ok ?? null) !== word;
+  return (
+    <form
+      className="flex items-center gap-2 border-b border-ink/[0.07] py-2.5"
+      data-row="link-words"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (blank || ok) onWord(blank ? null : ok);
+      }}
+    >
+      <label className="sr-only" htmlFor="link-own-words">
+        Words
+      </label>
+      <input
+        id="link-own-words"
+        value={text}
+        maxLength={HUB_LINK_WORDS_MAX}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={HUB_LINK_DEFAULT_WORDS}
+        className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
+      />
+      <IButton type="submit" fill disabled={!changed || (!blank && !ok)}>
+        Use it
+      </IButton>
+    </form>
   );
 }
 

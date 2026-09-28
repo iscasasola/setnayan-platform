@@ -65,6 +65,7 @@ import {
   HUB_ELEMENT_LABEL,
   HUB_HERO_ELEMENT_KEYS,
   HUB_SCENE_ELEMENT_KEYS,
+  heroPartsFor,
   isHubElementKey,
   type HubElementKey,
 } from '@/lib/element-style';
@@ -252,6 +253,12 @@ export function MakerWork({
     lookLock: ReactNode;
     /** Two people at the centre — the hero has a Joiner to style. */
     twoPeople: boolean;
+    /**
+     * The hero is the invitation card (no hero photo, not the solemn register)
+     * — it draws the line, time and link; otherwise the venue. Absent = every
+     * part is listed.
+     */
+    heroCard?: boolean;
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -1203,8 +1210,9 @@ export function MakerWork({
       ),
     };
   })();
-  /** 🔤 The part sheet's Part ▾: this scene's parts (the hero's has a Joiner only for two people). */
-  const heroParts = HUB_HERO_ELEMENT_KEYS.filter((k) => k !== 'joiner' || sceneFormat?.twoPeople !== false);
+  /** 🔤 The part sheet's Part ▾: the parts this hero draws (a Joiner only for two people; the card's
+   *  line · time · link, or the plain masthead's venue — `heroPartsFor`). */
+  const heroParts = heroPartsFor(sceneFormat?.heroCard, sceneFormat?.twoPeople);
   /* 🧭 EVERY scene of the stage, in canvas order, the tabs as headers between
      the groups (`navigatorRows`) — never a tab that hides the rest. */
   const navRows = navigatorRows(tabs, list.shown.map((t) => t.key));
@@ -1995,6 +2003,7 @@ export function MakerWork({
           onClose={() => select?.(null)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
           onOpenTool={(key) => select?.({ kind: 'tool', key })}
+          heroParts={heroParts}
           resize={toolsResize}
           onElement={
             elementEditing && selectionKey
@@ -2380,8 +2389,11 @@ function Inspector({
   onTab,
   onOpenTool,
   onElement,
+  heroParts = HUB_HERO_ELEMENT_KEYS,
   resize,
 }: {
+  /** 🔤 The parts this hero draws (`heroPartsFor`) — its "Style a part" buttons. */
+  heroParts?: readonly HubElementKey[];
   /** The tools column's width and its drag handle (desktop). */
   resize: ToolsResize;
   /** 🧰 The scene's Format · Animate · Arrange tabs, and what Content adds (its own words, its parts). */
@@ -2549,7 +2561,7 @@ function Inspector({
             </Link>
           </p>
         ) : null}
-        {fixed === 'hero' && onElement ? <ElementButtons keys={HUB_HERO_ELEMENT_KEYS} onElement={onElement} /> : null}
+        {fixed === 'hero' && onElement ? <ElementButtons keys={heroParts} onElement={onElement} /> : null}
       </section>
     );
   } else if (selection.kind === 'main') {

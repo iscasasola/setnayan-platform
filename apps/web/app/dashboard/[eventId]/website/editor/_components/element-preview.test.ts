@@ -178,6 +178,9 @@ class FakeEl extends FakeNode {
     walk(this);
     return out;
   }
+  querySelector(sel: string): FakeEl | null {
+    return this.querySelectorAll(sel)[0] ?? null;
+  }
   find(attr: string, value?: string): FakeEl {
     const hit = this.querySelectorAll(value === undefined ? `[${attr}]` : `[${attr}="${value}"]`)[0];
     assert.ok(hit, `no [${attr}${value === undefined ? '' : `="${value}"`}] in the rendered HTML`);
@@ -267,7 +270,7 @@ test('a hero part: the bridge writes the SAME inline style the server renders, f
     size: 145,
     motion: { in: 'rise', during: 'drift', duration: 'slow', delay: 'short' },
   } as const;
-  for (const el of ['names', 'eyebrow', 'date', 'time', 'line'] as const) {
+  for (const el of ['names', 'eyebrow', 'date', 'time', 'line', 'link'] as const) {
     const server = masthead({ [el]: style } as Styles).find('data-el', el);
     const live = masthead(null).find('data-el', el);
     assert.deepEqual(styleOf(live), {}, `${el}: the untouched part starts with no style of its own`);
@@ -544,4 +547,33 @@ test('the Joiner’s word is on the canvas at once, and taking it off puts the p
   assert.equal(joiner().textContent, masthead({ joiner: { word: '+' } }).find('data-el', 'joiner').textContent, 'canvas = guest page');
   bridge.applyElementPreview(live as unknown as HTMLElement, 'f:hero', 'joiner', null, false, doc);
   assert.equal(joiner().textContent, 'and');
+});
+
+test('the link’s words are on the canvas at once — the ↓ stays — and clearing them puts the CARD’s words back', () => {
+  const linkOf = (n: FakeEl) => n.find('data-el', 'link');
+  const words = (n: FakeEl) => linkOf(n).find('data-el-words').textContent;
+  const live = masthead(null);
+  assert.equal(words(live), 'Open the Event Hub');
+  bridge.applyElementPreview(live as unknown as HTMLElement, 'f:hero', 'link', { link: { word: 'See you there' } }, false, doc);
+  assert.equal(words(live), 'See you there');
+  assert.equal(linkOf(live).textContent, 'See you there↓', 'the arrow stays with the words');
+  assert.equal(
+    serialize(linkOf(live)),
+    serialize(linkOf(masthead({ link: { word: 'See you there' } }))),
+    'canvas = guest page',
+  );
+  // A page first drawn WITH the couple's words still knows the card's own.
+  const own = masthead({ link: { word: 'See you there' } });
+  bridge.applyElementPreview(own as unknown as HTMLElement, 'f:hero', 'link', null, false, doc);
+  assert.equal(words(own), 'Open the Event Hub');
+});
+
+test('a run on the link’s words: the canvas cuts it exactly as the guest page draws it', () => {
+  const whole = 'Open the Event Hub↓';
+  const style = es.sanitizeHubElementStyle({ runs: [{ start: 0, end: 4, color: '#8a1c2b' }], of: es.hubTextHash(whole) }, 'link');
+  assert.ok(style, 'the link carries runs like the other words');
+  const server = masthead({ link: style! }).find('data-el', 'link');
+  const live = masthead(null);
+  bridge.applyElementPreview(live as unknown as HTMLElement, 'f:hero', 'link', { link: style! }, false, doc);
+  assert.equal(serialize(live.find('data-el', 'link')), serialize(server));
 });

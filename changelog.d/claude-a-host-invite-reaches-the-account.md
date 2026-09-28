@@ -1,31 +1,37 @@
-## 2026-09-28 · feat(hosts): a host is a host the moment they are added — whatever their role
+## 2026-09-28 · feat(cohosts): co-hosts come from the guest list
 
-Owner, about his own bride: *"creating someone a host needs no approval from their side. they will be
-auto accepted"* · *"regardless of their role"* · *"she can also be a bride but not a host"* · *"she is
-not a coordinator"* · *"they do not need to resign in. it should auto refresh"*.
+Owner, about his own bride and then the whole model (DECISION_LOG 2026-09-28, "CO-HOSTS COME FROM THE
+GUEST LIST — FINAL MODEL" and the rows after it): *"accepted guests can be assigned as host … host meaning
+access to the event creation"* · *"they must accept attending the event first"* · *"the assigning is
+automatic"* · *"use Co-host"* · *"Limited Helper can keep. may view but may not edit"* · *"only celebrant
+themselves can reassign … celebrant role"* · *"all accepted guests … automatically follow the hosts"* ·
+*"connected people follow each other"*.
 
-**What was live, measured on his event:** the bride's June host invite existed only as a link the
-inviter had to copy and send by hand (no email, no notification, nothing on her account), so it expired
-unseen. When she signed up via her guest invitation she was linked as a GUEST; made a host by hand, she
-stayed a guest to every table, because `sync_delegate_membership` inserted with `ON CONFLICT DO NOTHING`.
+**What was live, measured on his event:** the bride's June host invite was a link nobody sent; it expired
+unseen. She later joined through her guest invitation and was linked as a GUEST; made a host by hand, she
+stayed a guest to every table (`sync_delegate_membership` inserted with `ON CONFLICT DO NOTHING`).
 
-- **No accept step.** Trigger `a_host_added_is_accepted` accepts a host seat at insert when an account
-  already holds that email; `claim_host_seats_for_user` (on `public.users` insert / email change) claims
-  a waiting seat the moment the person signs up. A sign-up can never fail because of it.
-- **A host's membership is `couple`, whatever the role.** `wedding_planner_external` (the hired
-  coordinator, RA 10173 consent door) keeps the 2026-08-24 `coordinator` ruling and its accept step.
-- **A guest made a host is upgraded, not skipped**, keeping `guest_id`; removing them returns them to
-  the guest list instead of deleting them from it. The event's creator is never touched.
-- **They are told, and their open page updates.** New `host_added` notification (in-app + email); its
-  arrival makes `UnreadBellBadge` call `router.refresh()`, so the event appears without a sign-in or
-  reload. The Hosts page says "Added — they're a host now" instead of handing over a link.
-- **Only a host adds hosts — and every host can.** Owner: *"being a host gives the same power to add
-  new hosts as well."* `inviteHost` / `revokeHostInvite` now use the host (`couple`) gate. The old gate
-  admitted ANY accepted seat, planner included — and since an added host is now `couple` at once, a
-  planner could have handed out more access than they hold. The add-a-host form and Revoke button are
-  hidden from a planner; the form's copy no longer describes a link to send.
-- Backfill measured first: 0 pending seats; of 12 accepted hosts only the bride's row changes
-  (`joined_via` → `invited`).
+- **Guest card → Access** (one PickMenu: Guest only · Co-host · Limited helper). Writes a seat tied to the
+  guest row (`event_moderators.guest_id`); it goes live automatically once that guest has joined (YES +
+  account linked) — `activate_guest_seats`, fired by the pick, the YES, or the account link.
+- **Co-host = `couple`** (equal to the creator). **Limited helper = `coordinator`, read-only at the
+  database**: RESTRICTIVE write refusals on the 20 coordinator-writable tables without an area check,
+  plus 22 app edit gates that now exclude the `viewer` seat (they write with the admin client).
+- **Celebrants:** a celebrant co-host cannot be removed or narrowed; only a celebrant changes a
+  celebrant's role. `removeHost` now reads the database's answer (a refusal used to show "Host removed").
+- **"+Co-host" is true** — derived from live seats; the bulk "Part of the host" picker and `lib/host-hat`
+  are retired; the one guest wearing that label (the bride) holds a real seat.
+- **"You are now a co-host for …'s … event. You have access to the following: …" · CONFIRM** — written by
+  the database when the seat goes live (in-app; not on the email allowlist, since SQL rows never pass
+  `emitNotification`); `CohostWelcome` shows it on the event until acknowledged; the bell refreshes an
+  open page when it lands.
+- **Followers:** co-hosts follow each other; a joined guest follows every co-host; a confirmed
+  connection follows both ways. Backfilled.
+- The Hosts page's email form is gone (co-hosts come from the guest list); `inviteHost` is the hired
+  planner's door only, with its consent step.
+- ⚠ `event_moderators.accepted_at` is DEFAULT now() — a waiting seat is `user_id IS NULL`. The first prod
+  dry run of this flow skipped every seat on exactly that.
 
-SPEC IMPACT: `DECISION_LOG.md` — new 2026-09-28 row: host seats auto-accept; host membership is `couple`
-regardless of role (reverses 2026-08-24 for every non-planner host role); planner unchanged.
+SPEC IMPACT: `DECISION_LOG.md` — 2026-09-28 rows: co-hosts come from the guest list (final model), three
+holes closed (celebrant role lock, read-only limited helper, mute invites), followers vs connected people,
+connected people follow each other. Reverses 2026-08-24 ("accepted delegate = coordinator") for co-hosts.

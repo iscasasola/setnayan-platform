@@ -199,13 +199,18 @@ export async function loadGuestCard(
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return false;
-      const { data: me } = await supabase
+      const { data: me, error: meError } = await supabase
         .from('event_members')
         .select('member_type')
         .eq('event_id', eventId)
         .eq('user_id', user.id)
         .eq('member_type', 'couple')
         .maybeSingle();
+      // Refused → no dropdown (fail closed: showing a control the action would
+      // refuse is worse than showing the level read-only). Logged, not silent.
+      if (meError) {
+        logQueryError('loadGuestCard.canManageAccess', meError, { eventId, guestId }, 'graceful_degrade');
+      }
       return Boolean(me);
     })(),
   ]);

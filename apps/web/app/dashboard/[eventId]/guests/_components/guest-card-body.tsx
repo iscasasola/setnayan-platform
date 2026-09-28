@@ -719,7 +719,7 @@ export function GuestCardBody({
           A refused read (access === null) shows nothing, never "Guest only". */}
       {access ? (
         <Section title="Access">
-          <div className="rounded-lg border border-ink/10 px-3.5 py-3">
+          <div className="px-0.5">
             <GuestAccessControl
               eventId={eventId}
               guestId={guest.guest_id}

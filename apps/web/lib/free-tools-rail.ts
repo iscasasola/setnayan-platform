@@ -115,13 +115,13 @@ export function togetherRailItems(
     {
       key: 'together-samahan',
       href: '/dashboard/samahan',
-      name: 'Samahan groups',
+      name: 'Groups',
       line: 'Your barkada, ninongs, family — organized.',
     },
     {
       key: 'together-samahan-stories',
       href: '/dashboard/samahan',
-      name: 'Samahan Stories',
+      name: 'Group Stories',
       line: 'Clips that live for 24 hours, inside your group.',
     },
     {

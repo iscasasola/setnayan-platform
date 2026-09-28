@@ -143,7 +143,7 @@ export async function fetchPanoodScreens(
       );
       return [];
     }
-    throw new Error(`Failed to read Panood screens: ${error.message}`);
+    throw new Error(`Failed to read Watch Live screens: ${error.message}`);
   }
 
   return (data ?? []) as PanoodScreenRow[];

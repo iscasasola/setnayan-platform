@@ -330,7 +330,7 @@ export default async function LiveWallConsolePage({
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-sm font-semibold text-ink">Guest Stories (Kwento)</h2>
+            <h2 className="text-sm font-semibold text-ink">Guest Stories (Photo Notes)</h2>
             <p className="mt-0.5 text-xs text-ink/50">
               Flash stories (⚡, ≤50 chars) can auto-post to the wall after 5 seconds — you can
               kill any one from the queue. Stories (≤280 chars) always go to review first.

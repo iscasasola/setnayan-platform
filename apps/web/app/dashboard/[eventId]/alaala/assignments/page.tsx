@@ -85,7 +85,7 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
             className="inline-flex items-center gap-1 text-[12px]"
             style={{ color: 'var(--m-slate-2)' }}
           >
-            ← Alaala
+            ← Memories
           </Link>
         }
       />

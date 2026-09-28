@@ -235,7 +235,7 @@ export const resolveCommandItems = cache(
         },
         {
           id: 'action-new-samahan',
-          label: 'Create a Samahan',
+          label: 'Create a group',
           sublabel: 'A shared space for your barkada, parish, or clan',
           href: '/dashboard/samahan/new',
           kind: 'action',
@@ -245,7 +245,7 @@ export const resolveCommandItems = cache(
           // The destination page is titled Alaala (owner 2026-07-31), so the
           // palette says Alaala — not the retired "Memories Hub".
           id: 'action-library',
-          label: 'Alaala',
+          label: 'Memories',
           sublabel: 'Photos · videos · editorials',
           href: '/dashboard/library',
           kind: 'action',

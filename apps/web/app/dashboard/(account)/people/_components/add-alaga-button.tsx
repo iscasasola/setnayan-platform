@@ -44,14 +44,14 @@ export function AddAlagaButton() {
         className="button-secondary inline-flex items-center gap-2 text-sm"
       >
         <HeartHandshake aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Add an alaga
+        Add a loved one
       </button>
 
       {open ? (
         <Drawer onClose={() => setOpen(false)} labelledById="add-alaga-heading">
           <form action={addDependent} className="space-y-4">
             <h2 id="add-alaga-heading" className="text-base font-semibold text-ink">
-              Add an alaga
+              Add a loved one
             </h2>
             <p className="text-sm text-ink/60">
               Someone in your care — a child, an elder, a pet, or anything else you look after.

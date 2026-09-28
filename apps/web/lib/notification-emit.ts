@@ -307,15 +307,6 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     lands in the gated one, or stops being emitted.
   */
   'booking_fee_waived',
-  /*
-    YOU ARE NOW A HOST (owner 2026-09-28). Being added no longer asks the person
-    anything, so this notice is the whole of how they learn it. Its in-app half
-    reaches somebody already on Setnayan; this half reaches the bride who is not
-    — which is exactly the person whose June invite expired unseen as a link
-    nobody sent. Transactional (their own event), so NOT marketing-gated; not a
-    2am buzz, so NOT pushed.
-  */
-  'host_added',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

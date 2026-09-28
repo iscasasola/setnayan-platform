@@ -97,7 +97,7 @@ export function UnreadBellBadge({
           // refresh"). The seat is live the instant it is written; this is
           // what gets it onto a screen that is already open. A server refresh,
           // not a reload — no flash, nothing typed is lost.
-          if ((payload.new as { type?: string } | null)?.type === 'host_added') {
+          if ((payload.new as { type?: string } | null)?.type === 'cohost_added') {
             router.refresh();
           }
         },

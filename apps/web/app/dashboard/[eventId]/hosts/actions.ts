@@ -10,7 +10,6 @@ import {
   ROLE_SUBTYPES,
   PERMISSION_TEMPLATES,
   COORDINATOR_AREAS,
-  ROLE_SUBTYPE_LABEL,
   generateInvitationToken,
   isRoleSubtype,
   type ModeratorPermissions,
@@ -18,7 +17,6 @@ import {
 } from '@/lib/event-moderators';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke';
-import { emitNotification } from '@/lib/notification-emit';
 
 // Iteration 0048 — V1 multi-host invite server actions.
 //
@@ -54,11 +52,10 @@ function parseRole(raw: FormDataEntryValue | null): RoleSubtype {
 }
 
 /**
- * Create a pending host invitation. Returns by redirect with an URL
- * search param the page picks up to surface the share URL inline (V1
- * doesn't send the email automatically — the inviter copies the URL
- * and sends it via whatever channel they prefer; Resend integration
- * is a V1.1 follow-up).
+ * Invite the HIRED PLANNER by email (the "Promote your coordinator" doors).
+ * Co-hosts are NOT invited here — they are chosen from the guest list
+ * (owner 2026-09-28). Returns by redirect with the share URL: the planner
+ * accepts from their link after the RA 10173 consent step.
  */
 export async function inviteHost(formData: FormData) {
   const rawEventId = formData.get('event_id');
@@ -71,15 +68,22 @@ export async function inviteHost(formData: FormData) {
   let role: RoleSubtype;
   let displayLabel: string | null;
   try {
-    // 🔑 ONLY A HOST ADDS HOSTS (owner 2026-09-28: "being a host gives the
-    // same power to add new hosts as well"). Every host is `couple` now; the
-    // old gate also admitted an accepted PLANNER seat, and since an added host
-    // is now accepted as `couple` at once, a planner could have handed out more
-    // access than they hold. Host = couple; the planner is not one.
+    // 🔑 ONLY A CO-HOST INVITES (owner 2026-09-28: "being a host gives the
+    // same power to add new hosts as well"). A co-host is `couple`; the old
+    // gate also admitted any accepted seat — a planner or a limited helper —
+    // which could then hand out access they do not hold.
     const userId = await requireCoupleMembership(eventId);
     email = parseEmail(formData.get('invitation_email'));
     role = parseRole(formData.get('role_subtype'));
     displayLabel = nullIfBlank(formData.get('display_label'), 80);
+    // 🔑 THIS DOOR IS THE HIRED PLANNER'S ONLY (owner 2026-09-28: "accepted
+    // guests can be assigned as host" — co-hosts come FROM THE GUEST LIST,
+    // `setGuestAccess` in guests/[guestId]/access-actions.ts). A planner is a
+    // supplier, "not host supplier": they still come in by email, through the
+    // RA 10173 consent step, and accept from their link.
+    if (role !== 'wedding_planner_external') {
+      throw new Error('Co-hosts are chosen from your guest list.');
+    }
 
     const admin = createAdminClient();
     const now = new Date();
@@ -127,7 +131,7 @@ export async function inviteHost(formData: FormData) {
       invitation_expires_at: expiresAt.toISOString(),
       invitation_token: token,
       accepted_at: null,
-    }).select('moderator_id, user_id, accepted_at').single();
+    }).select('moderator_id').single();
 
     if (error) {
       redirect(
@@ -165,43 +169,9 @@ export async function inviteHost(formData: FormData) {
       }
     }
 
-    /*
-      🔑 A HOST IS A HOST THE MOMENT THEY ARE ADDED (owner 2026-09-28: "creating
-      someone a host needs no approval from their side"). The DATABASE decides
-      it — trigger `a_host_added_is_accepted` (20271251336140) accepts the row
-      at insert when an account already holds this email — so the row we just
-      read back is the only honest answer to "did that happen". Reading it back
-      instead of re-deriving it here means a second door can never disagree.
-      No account yet → the row stays pending and `claim_host_seats_for_user`
-      makes them a host the moment they sign up with this email.
-    */
-    const addedNow = Boolean(inserted?.accepted_at && inserted?.user_id);
-    if (addedNow && inserted?.user_id) {
-      const [{ data: ev }, { data: inviter }] = await Promise.all([
-        admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
-        admin.from('users').select('display_name').eq('user_id', userId).maybeSingle(),
-      ]);
-      const eventName = (ev as { display_name: string | null } | null)?.display_name ?? 'an event';
-      const inviterName =
-        (inviter as { display_name: string | null } | null)?.display_name ?? 'Someone';
-      // Fail-soft by contract: a notice that fails never undoes the seat. Its
-      // arrival is also what refreshes the new host's open page (UnreadBellBadge).
-      await emitNotification({
-        userId: inserted.user_id,
-        type: 'host_added',
-        title: `You’re now a host of ${eventName}`,
-        body: `${inviterName} added you as ${ROLE_SUBTYPE_LABEL[role]}. It’s on your Events page now.`,
-        relatedUrl: `/dashboard/${eventId}`,
-      });
-    }
-
     revalidatePath(`/dashboard/${eventId}/hosts`);
     redirect(
-      addedNow
-        ? `/dashboard/${eventId}/hosts?host_added=1`
-        : `/dashboard/${eventId}/hosts?invite_sent=1&token=${encodeURIComponent(token)}${
-            role === 'wedding_planner_external' ? '&planner=1' : ''
-          }`,
+      `/dashboard/${eventId}/hosts?invite_sent=1&token=${encodeURIComponent(token)}&planner=1`,
     );
   } catch (e) {
     // redirect() works by throwing a NEXT_REDIRECT error. The success and

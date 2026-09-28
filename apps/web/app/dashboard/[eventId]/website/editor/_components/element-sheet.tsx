@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { paidMarkState } from '@/lib/paid-mark';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
 import { makerSave } from '@/lib/maker-refresh';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
@@ -188,6 +189,10 @@ export function ElementSheet({
      couple without Pro is not shown them at all. */
   const proMark = paidMarkState({ owns: ownsPro, storeShell: hideLocked });
   const hidePro = hideLocked && !ownsPro;
+  const fontMark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null;
+  const animateMark = proMark ? (
+    <PaidMark state={proMark} text="Event Hub Pro" label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" />
+  ) : null;
   const tabs = hidePro ? PART_TABS.filter((t) => t.key !== 'animate') : PART_TABS;
 
   const commit = (elements: HubSectionCanvas['elements'] | null) => {
@@ -346,7 +351,7 @@ export function ElementSheet({
               contrast={contrast}
               eventId={eventId}
               onPreviewColour={previewColour}
-              fontMark={proMark}
+              fontMark={fontMark}
               hideFont={hidePro}
             />
             {range && run ? (
@@ -357,7 +362,7 @@ export function ElementSheet({
           </>
         ) : tab === 'animate' && !hidePro ? (
           <PartAnimateTab
-            proMark={proMark}
+            proMark={animateMark}
             motion={motion}
             moveTo={moveTo}
             onPreview={onPlay}

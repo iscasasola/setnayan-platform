@@ -198,14 +198,17 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
 
 test('💎 the part sheet marks Font ▾ and Animate — not the whole part', () => {
   const sheet = code('app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx');
-  assert.doesNotMatch(sheet, /<PaidMark/, 'the whole part sheet still wears one Pro mark');
-  assert.match(sheet, /fontMark=\{proMark\}/);
-  assert.match(sheet, /<PartAnimateTab\s+proMark=\{proMark\}/);
+  const title = sheet.slice(sheet.indexOf('id={titleId}'), sheet.indexOf('</p>', sheet.indexOf('id={titleId}')));
+  assert.ok(title.length > 20, 'the sheet title was not found — the scan is blind');
+  assert.doesNotMatch(title, /PaidMark|Pro/, 'the whole part sheet still wears one Pro mark');
+  // The sheet draws exactly two marks — Font ▾ and Animate — and hands them down.
+  assert.equal((sheet.match(/<PaidMark/g) ?? []).length, 2, 'the sheet draws a mark on something that is free');
+  assert.match(sheet, /fontMark=\{fontMark\}/);
+  assert.match(sheet, /<PartAnimateTab\s+proMark=\{animateMark\}/);
   const rows = code('app/dashboard/[eventId]/website/editor/_components/part-inspector.tsx');
   assert.match(rows, /fontMark \? \(/, 'Font ▾ lost its mark');
   assert.match(rows, /data-part-animate-pro/, 'Animate lost its mark');
-  // No other Text row carries a mark: the only two `<PaidMark` are those two.
-  assert.equal((rows.match(/<PaidMark/g) ?? []).length, 2, 'a free Text row is wearing a padlock');
+  assert.doesNotMatch(rows, /<PaidMark/, 'a Text row draws its own padlock');
   const parts = code('app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx');
   const sceneParts = parts.slice(parts.indexOf('export function SceneParts'));
   assert.doesNotMatch(sceneParts.slice(0, sceneParts.indexOf('</div>')), /PaidMark|proMark/, 'the scene’s parts list still says Pro');

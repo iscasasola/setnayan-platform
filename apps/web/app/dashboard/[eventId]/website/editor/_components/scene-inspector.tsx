@@ -1,6 +1,8 @@
 'use client';
 
 import { makerSave } from '@/lib/maker-refresh';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Lock, PencilLine, Play } from 'lucide-react';
@@ -182,7 +184,14 @@ export function SceneAnimateTab({
 
   return (
     <div data-scene-tab="animate" aria-busy={pending}>
-      <ISection>How it moves</ISection>
+      {/* 💎 How a scene moves is Event Hub Pro — this branch is the owning couple's,
+          so it wears the diamond (a free couple sees the page's one lock above). */}
+      <ISection>
+        <span className="inline-flex items-center gap-1.5">
+          How it moves
+          <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="xs" />
+        </span>
+      </ISection>
       <IRow wrap data="scene-preset">
         <ISegmented label="How it moves">
           <ISeg on={!preset} onClick={() => save((c) => { delete c.preset; })}>

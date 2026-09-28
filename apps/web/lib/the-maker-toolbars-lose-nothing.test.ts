@@ -93,7 +93,8 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Saved + theme colours', 'colour', ['Theme colours', 'Saved colours', 'Save the current colour']],
   // 💎 2026-09-28: the Pro mark moved off the title onto the only Pro rows.
   ['Title: the part’s name', 'sheet', ['<PartPicker', 'HUB_ELEMENT_LABEL[target.el]']],
-  ['The Pro mark on Font ▾ and on Animate', 'part', ['fontMark ?', 'data-part-animate-pro', '<PaidMark']],
+  ['The Pro mark on Font ▾ and on Animate', 'part', ['fontMark ?', 'data-part-animate-pro']],
+  ['…drawn by the sheet, which reads ownsPro', 'sheet', ['fontMark={fontMark}', 'proMark={animateMark}', '<PaidMark']],
   ['"Whole part / this selection" (a run of letters)', 'sheet', ['data-element-range', 'Whole {HUB_ELEMENT_LABEL', 'Clear this selection']],
   ['The sheet’s tabs — Text · Animate · Arrange', 'sheet', ['PART_TABS', '<InspectorTabs tabs={tabs}', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
   // ── The wiring: every tab is mounted in the Maker, and #6048's words stay ──

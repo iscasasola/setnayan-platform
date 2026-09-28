@@ -86,7 +86,7 @@ import {
   type HubMainGround,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
-import { HUB_ELEMENT_KEYS, type HubElementStyle } from '@/lib/element-style';
+import { HUB_ELEMENT_KEYS, type HubElementRun, type HubElementStyle } from '@/lib/element-style';
 import {
   HUB_CANVAS_LOOK_KEYS,
   HUB_ELEMENT_PRO_FIELDS,
@@ -926,13 +926,16 @@ export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas): 
       if (grows(refChange(runFonts(was), runFonts(style))) && style.runs) {
         const liveFont = (r: { start: number; end: number }) =>
           was?.of === style.of ? was?.runs?.find((w) => w.start === r.start && w.end === r.end)?.font : undefined;
-        let runs = style.runs.map((r) => {
+        const withoutFont = (r: HubElementRun): HubElementRun => {
           const { font: _font, ...rest } = r;
+          return rest;
+        };
+        let runs: HubElementRun[] = style.runs.map((r) => {
           const f = liveFont(r);
-          return f ? { ...rest, font: f } : rest;
+          return f ? { ...withoutFont(r), font: f } : withoutFont(r);
         });
         // Put back exactly, or not at all: a partial font set would still be a change.
-        if (runFonts({ ...style, runs }) !== runFonts(was)) runs = runs.map(({ font: _f, ...rest }) => rest);
+        if (runFonts({ ...style, runs }) !== runFonts(was)) runs = runs.map(withoutFont);
         runs = runs.filter((r) => 'font' in r || 'color' in r || 'size' in r);
         if (runs.length > 0) el.runs = runs;
         else {

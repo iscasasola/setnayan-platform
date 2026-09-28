@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8e826b146e",
-  "routeCount": 434,
+  "generatedFromRef": "f37be44f9",
+  "routeCount": 435,
   "destinations": 942,
   "actions": 671,
-  "blocks": 4960,
+  "blocks": 4965,
   "routes": {
     "/": {
       "files": [
@@ -898,6 +898,7 @@
         "[slug]/_lib/everything-else-rows.ts",
         "[slug]/_lib/guest-checklist-facts.ts",
         "[slug]/_lib/guest-details-changed.ts",
+        "[slug]/_lib/hero-design-of.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/hub-look.ts",
         "[slug]/_lib/icon-source.ts",
@@ -1073,6 +1074,7 @@
         "HTMLSpanElement",
         "HTMLVideoElement",
         "HeroBackgroundMedia",
+        "HeroDesignId",
         "HeroMonogram",
         "HeroPhoto",
         "HideableWidgetRender",
@@ -6070,6 +6072,7 @@
         "dashboard/[eventId]/launch/_components/maker-bar.ts",
         "dashboard/[eventId]/launch/_components/maker-context.tsx",
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
+        "dashboard/[eventId]/launch/_components/maker-hero-design.tsx",
         "dashboard/[eventId]/launch/_components/maker-logo.tsx",
         "dashboard/[eventId]/launch/_components/maker-made-once.tsx",
         "dashboard/[eventId]/launch/_components/maker-page.tsx",
@@ -6134,6 +6137,7 @@
         "HubDraftField",
         "HubProOffer",
         "HubSavesImmediately",
+        "HubSectionCanvas",
         "HubStage",
         "Icon",
         "IconBtn",
@@ -6151,6 +6155,7 @@
         "MakerDetails",
         "MakerDetailsPage",
         "MakerDevice",
+        "MakerHeroDesignPicker",
         "MakerLogoDoor",
         "MakerPage",
         "MakerPageFrame",
@@ -8905,6 +8910,18 @@
         "Environment",
         "Lab3DBooth",
         "OrbitControls"
+      ]
+    },
+    "/dev/hero-lab": {
+      "files": [
+        "dev/hero-lab/mark.ts",
+        "dev/hero-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BespokeMonogramMark",
+        "PahinaMasthead"
       ]
     },
     "/dev/schedule-lab": {

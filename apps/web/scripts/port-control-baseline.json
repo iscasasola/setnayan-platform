@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5045b00bf",
+  "generatedFromRef": "ad4e12c55",
   "routeCount": 435,
-  "destinations": 940,
+  "destinations": 941,
   "actions": 671,
-  "blocks": 4978,
+  "blocks": 4983,
   "routes": {
     "/": {
       "files": [
@@ -6216,6 +6216,7 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
+        "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "WebsiteEditorPage"
@@ -7976,6 +7977,7 @@
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/launch${search.then === 'apply' ?",
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/studio"
       ],
@@ -8394,6 +8396,7 @@
     },
     "/dashboard/[eventId]/website": {
       "files": [
+        "dashboard/[eventId]/website/_components/apply-pro-sheet.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-bar.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-button.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-dock.tsx",
@@ -8407,12 +8410,15 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ApplyProSheet",
         "DraftButton",
+        "HTMLDivElement",
         "HubDraftActionResult",
         "HubDraftToolbar",
         "InfoTip",
         "Link",
         "MakerSaveStatus",
+        "MiniTour",
         "PaidMark",
         "ResultLine"
       ]
@@ -8775,6 +8781,7 @@
         "MiniTour",
         "MomentAnchor",
         "MomentSheet",
+        "PaidMark",
         "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",

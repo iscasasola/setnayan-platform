@@ -345,10 +345,12 @@ export function MainBackgroundPanel({
       <div>
         <p className="text-[14px] font-semibold text-ink">
           Behind every scene
+          {/* Never in the store shell (the row is not built there), so ◆ PRO
+              while a couple without Pro tries it; the diamond once owned. */}
           <PaidMark
-            state={ownsPro ? 'unlocked' : 'locked'}
-            text="Pro"
-            label={paidMarkLabel(ownsPro ? 'unlocked' : 'locked', 'Event Hub Pro')}
+            state={ownsPro ? 'unlocked' : 'try'}
+            text={ownsPro ? 'Pro' : undefined}
+            label={paidMarkLabel(ownsPro ? 'unlocked' : 'try', 'Event Hub Pro')}
             className="ml-2 align-middle"
           />
         </p>

@@ -1,17 +1,22 @@
 /**
- * a-free-section-shows-no-look-controls.test.ts — the editor half, RENDERED.
+ * a-free-section-tries-every-look-control.test.ts — the editor half, RENDERED.
+ * (Was `a-free-section-shows-no-look-controls.test.ts` — re-pointed 2026-09-28.)
  *
- * Owner, 2026-09-24 ("A"): how a section looks and moves is Event Hub Pro. The
- * widget actions refuse a free couple (held by `hub-look-is-pro.test.ts`); this
- * file paints the real `SectionsPanel` and asserts what a free couple SEES:
+ * Owner, 2026-09-24 ("A"): how a section looks and moves is Event Hub Pro.
+ * Owner, 2026-09-28, verbatim: *"they can edit it with pro features. but need to
+ * upgrade to pro when clicked on apply and point out the effect chosen that
+ * caused them to upgrade to pro"*. So in the Maker every look control posts to
+ * the DRAFT and Apply is the gate (held by `lib/try-pro-pay-at-apply.test.ts`).
+ * This file paints the real `SectionsPanel` and asserts what a couple SEES:
  *
- *   • no motion presets, no photo picker, no crop keypad — nothing that would
- *     only bounce them to the buy page on tap;
- *   • the ONE lock, once, above the list;
- *   • what they already chose stays removable: "Reset how it moves" and
- *     "Remove this section's photo" — the two writes that are never gated;
- *   • and an OWNING couple still gets every control (a gate that can only
- *     answer one way renders exactly like a gate that works).
+ *   • ON THE WEB a free couple gets EVERY control — presets, the photo picker,
+ *     the crop keypad, the transitions — each form drafting, each Pro group
+ *     wearing ◆ PRO (`data-paid-mark="try"`), and NO lock;
+ *   • IN THE APP-STORE SHELL (`hideLocked`) a free couple still sees no look
+ *     control — the shell rule is unchanged — and what they already chose stays
+ *     removable ("Reset how it moves", "Remove this section's photo");
+ *   • and an OWNING couple gets every control with the diamond (a gate that can
+ *     only answer one way renders exactly like a gate that works).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,9 +47,10 @@ function row(config_json: unknown = null): InvitationWidgetRow {
 }
 
 async function paint(
-  r: InvitationWidgetRow,
+  r: InvitationWidgetRow | InvitationWidgetRow[],
   ownsPro: boolean,
   colorChoices: readonly string[] = [],
+  hideLocked = false,
 ): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SectionsPanel } = await import(
@@ -53,7 +59,7 @@ async function paint(
   return renderToStaticMarkup(
     React.createElement(SectionsPanel, {
       eventId: 'E1',
-      rows: [r],
+      rows: Array.isArray(r) ? r : [r],
       contentMap: { our_love_story: true },
       toggleAction: noop,
       moveUpAction: noop,
@@ -65,17 +71,39 @@ async function paint(
       photoChoices: CHOICES,
       colorChoices,
       ownsPro,
-      lookLock: React.createElement('p', null, LOCK),
+      hideLocked,
+      transitionLocked: !ownsPro,
+      customLock: React.createElement('p', null, LOCK),
     }),
   );
 }
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
-test('a free couple with nothing chosen sees the lock once and no look controls', async () => {
-  const html = await paint(row(), false);
-  console.log(`[free-section] lock=${count(html, LOCK)} howItMoves=${count(html, 'How it moves')} crop=${count(html, 'What to keep in frame')}`);
-  assert.equal(count(html, LOCK), 1);
+test('💎 on the web a free couple gets every look control, drafted, marked ◆ PRO — and no lock', async () => {
+  // Two sections, so the first has a hand-over into the next (Scrub · Auto).
+  const second = { ...row(), widget_id: 'W2', widget_type: 'schedule', display_order: 2 } as InvitationWidgetRow;
+  const html = await paint([row({ canvas: { media: PHOTO } }), second], false);
+  console.log(`[free-section:web] lock=${count(html, LOCK)} howItMoves=${count(html, 'How it moves')} try=${count(html, 'data-paid-mark="try"')} padlock=${count(html, 'data-paid-mark="locked"')}`);
+  assert.equal(count(html, LOCK), 0, 'a lock panel is drawn for a control that works');
+  assert.match(html, /How it moves/);
+  assert.match(html, /name="preset"/, 'the presets are not offered');
+  assert.match(html, new RegExp(`name="media" value="${PHOTO}"`), 'the photo picker is not offered');
+  assert.match(html, /What to keep in frame/, 'the crop is not offered');
+  assert.match(html, /name="transition" value="scrub"/, 'Scrub is not offered');
+  assert.doesNotMatch(html, /Unlock with Event Hub Pro/, 'a transition still sends them to the buy page');
+  assert.ok(count(html, 'data-paid-mark="try"') >= 1, 'no ◆ PRO mark on the Pro controls');
+  assert.equal(count(html, 'data-paid-mark="locked"'), 0, 'a padlock on a control that works');
+  // Every look form drafts — Apply is the gate, never the form.
+  const forms = html.split('<form').slice(1);
+  const lookForms = forms.filter((f) => /name="(preset|transition|media|focal)"/.test(f));
+  assert.ok(lookForms.length > 3, `anti-vacuity: only ${lookForms.length} look forms`);
+  for (const f of lookForms) assert.match(f, /name="draft" value="1"/, 'a look form writes live');
+});
+
+test('in the app-store shell a free couple sees no look controls (the shell rule, unchanged)', async () => {
+  const html = await paint(row(), false, [], true);
+  assert.equal(count(html, LOCK), 0, 'the shell shows no pitch');
   assert.doesNotMatch(html, /How it moves/);
   assert.doesNotMatch(html, /What to keep in frame/);
   assert.doesNotMatch(html, /name="preset"/);
@@ -86,9 +114,8 @@ test('a free couple with nothing chosen sees the lock once and no look controls'
   assert.match(html, /name="next_mode"/);
 });
 
-test('a free couple who already chose a look can take it off — and only that', async () => {
-  const html = await paint(row({ canvas: { preset: 'cinematic', media: PHOTO, focal: 3 } }), false);
-  assert.equal(count(html, LOCK), 1);
+test('in the app-store shell a free couple who already chose a look can take it off — and only that', async () => {
+  const html = await paint(row({ canvas: { preset: 'cinematic', media: PHOTO, focal: 3 } }), false, [], true);
   assert.match(html, /Reset how it moves/);
   assert.match(html, /name="reset" value="1"/);
   assert.match(html, /Remove this section(&rsquo;|’|&#x27;|')s photo/);
@@ -101,6 +128,7 @@ test('a free couple who already chose a look can take it off — and only that',
 test('an owning couple still gets every control, and no lock', async () => {
   const html = await paint(row({ canvas: { preset: 'calm', media: PHOTO } }), true);
   assert.equal(count(html, LOCK), 0);
+  assert.equal(count(html, 'data-paid-mark="try"'), 0, 'an owning couple is shown ◆ PRO as if unpaid');
   assert.match(html, /How it moves/);
   assert.match(html, /name="preset"/);
   assert.match(html, new RegExp(`name="media" value="${PHOTO}"`));
@@ -113,8 +141,8 @@ test('an owning couple still gets every control, and no lock', async () => {
    refused (`sectionBackgroundChange`), so a free couple must be OFFERED it. */
 const SWATCHES = ['#a9834b', '#35403a'] as const;
 
-test('a free couple is offered the section colour — and still no photo to pick', async () => {
-  const html = await paint(row(), false, SWATCHES);
+test('a free couple is offered the section colour — and, in the app-store shell, no photo to pick', async () => {
+  const html = await paint(row(), false, SWATCHES, true);
   for (const hex of SWATCHES) {
     assert.match(html, new RegExp(`name="color" value="${hex}"`), `swatch ${hex}`);
   }
@@ -153,8 +181,8 @@ test('a free couple with a colour set can change it or clear it', async () => {
   assert.doesNotMatch(html, /Remove this section/, 'a colour is not media — nothing to remove');
 });
 
-test('a free couple with a Scrub hand-over (#5951) can reset it', async () => {
-  const html = await paint(row({ canvas: { transition: 'scrub' } }), false);
+test('in the app-store shell a free couple with a Scrub hand-over (#5951) can reset it', async () => {
+  const html = await paint(row({ canvas: { transition: 'scrub' } }), false, [], true);
   assert.match(html, /Reset how it moves/);
   assert.doesNotMatch(html, /name="transition"/, 'the transition may not be re-chosen');
 });
@@ -186,7 +214,7 @@ async function paintColors(proLocked: boolean): Promise<string> {
   );
 }
 
-test('a free couple can recolour the background and the buttons — and sees no Pro field to post', async () => {
+test('in the app-store shell (proLocked) a free couple can recolour the background and the buttons — and sees no Pro field to post', async () => {
   const html = await paintColors(true);
   assert.match(html, /name="bg_color"/, 'the background colour is free');
   // 💎 The button colour joined it 2026-09-28 (owner: "change … color … only
@@ -198,6 +226,28 @@ test('a free couple can recolour the background and the buttons — and sees no 
     assert.doesNotMatch(html, new RegExp(`name="${f}"`), f);
   }
   assert.match(html, /type="submit"/, 'the background can still be saved');
+});
+
+test('💎 a free couple on the web sees the whole Colours row with ◆ PRO on its Pro half', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { ColorsPanel } = await import('../app/dashboard/[eventId]/website/editor/_components/pro-panels');
+  const html = renderToStaticMarkup(
+    React.createElement(ColorsPanel, {
+      action: noop,
+      eventId: 'E1',
+      rowKey: 'colors',
+      bgColor: '#f5efe6',
+      buttonColor: null,
+      artDirection: null,
+      proLocked: false,
+      proMark: 'try',
+    }),
+  );
+  for (const f of ['site_art_direction', 'site_font_key', 'site_magic_traveller']) {
+    assert.match(html, new RegExp(`name="${f}"`), f);
+  }
+  assert.equal(count(html, 'data-paid-mark="try"'), 3, 'Art direction · Typeface · Magic Move each wear ◆ PRO');
+  assert.match(html, /name="draft" value="1"/, 'the Colours row writes live');
 });
 
 test('an owning couple sees the whole Colours row, and no lock', async () => {

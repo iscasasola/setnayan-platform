@@ -100,7 +100,7 @@ test('1 · an off-centre "AM" with a swash lands centred within ±1px, and nothi
   // Pinyon's "A" swash reaches past its advance box: the fixture must BE a swash.
   const b = readFileSync(join(ROOT, 'public/monogram-studio/fonts/PinyonScript-Regular.ttf'));
   const face = parseFont(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer);
-  const A = face.charToGlyph('A');
+  const A = (face as unknown as { charToGlyph: (c: string) => { advanceWidth?: number; getBoundingBox: () => { x2: number } } }).charToGlyph('A');
   const ab = A.getBoundingBox();
   assert.ok(ab.x2 > (A.advanceWidth ?? 0) + 200, `the "A" swash reaches ${ab.x2 - (A.advanceWidth ?? 0)} units past its advance`);
 

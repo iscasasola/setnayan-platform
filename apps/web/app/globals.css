@@ -6169,6 +6169,36 @@ html:has(.hub-shape-full) { overflow-x: clip; }
     .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% entry 92%; }
     .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% entry 92%; }
 
+    /* ── DURING: the PICTURE drifts, never the words ──────────────────────
+       🔑 It lives on the media layer on purpose. Put on the same element as
+       the arrival it would fight it for `transform` at every instant where
+       their ranges overlap — and `cover` overlaps both `entry` and `exit`, so
+       they always overlap. Two layers, two transforms, no conflict, and the
+       result reads as depth rather than as a page that will not settle.
+
+       It composes the zoom INTO its own keyframes (`scale(var(--hub-zoom))`)
+       because an animation replaces the whole `transform`, so a media layer
+       that is both zoomed and drifting must carry both in one function list or
+       the zoom disappears the moment the animation starts.
+
+       ⚠ A section with no photo has nothing to drift. `during` is a preset
+       value and not a control the couple sets, so nothing claims otherwise. */
+    .hub-during-lift.hub-has-media > .hub-canvas-media {
+      animation: hub-during-lift linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+      will-change: transform;
+    }
+
+    /* A section that asked for nothing is not animated at all — no name, no
+       fill mode, nothing that can get stuck, and no promoted layer. */
+    .hub-in-none.hub-out-none > .hub-canvas-body,
+    .hub-in-none.hub-out-none.pahina-in > .hub-canvas-body,
+    .hub-in-none.hub-out-none > .hub-canvas-body > * > * {
+      animation: none;
+      will-change: auto;
+    }
+
     /* ── THE ROWS OF A LIST: one by one, as each one reaches the screen ─────
        Owner, 2026-09-28, on the Schedule scene's run of show: *"how can the
        load as we scroll up one by one?"* (DECISION_LOG "LIST ROWS ARRIVE ONE BY
@@ -6255,36 +6285,6 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         animation: none;
         will-change: auto;
       }
-    }
-
-    /* ── DURING: the PICTURE drifts, never the words ──────────────────────
-       🔑 It lives on the media layer on purpose. Put on the same element as
-       the arrival it would fight it for `transform` at every instant where
-       their ranges overlap — and `cover` overlaps both `entry` and `exit`, so
-       they always overlap. Two layers, two transforms, no conflict, and the
-       result reads as depth rather than as a page that will not settle.
-
-       It composes the zoom INTO its own keyframes (`scale(var(--hub-zoom))`)
-       because an animation replaces the whole `transform`, so a media layer
-       that is both zoomed and drifting must carry both in one function list or
-       the zoom disappears the moment the animation starts.
-
-       ⚠ A section with no photo has nothing to drift. `during` is a preset
-       value and not a control the couple sets, so nothing claims otherwise. */
-    .hub-during-lift.hub-has-media > .hub-canvas-media {
-      animation: hub-during-lift linear both;
-      animation-timeline: view();
-      animation-range: cover 0% cover 100%;
-      will-change: transform;
-    }
-
-    /* A section that asked for nothing is not animated at all — no name, no
-       fill mode, nothing that can get stuck, and no promoted layer. */
-    .hub-in-none.hub-out-none > .hub-canvas-body,
-    .hub-in-none.hub-out-none.pahina-in > .hub-canvas-body,
-    .hub-in-none.hub-out-none > .hub-canvas-body > * > * {
-      animation: none;
-      will-change: auto;
     }
 
     /* ── A HERO PART'S OWN MOTION (`lib/element-style.ts`) ─────────────────

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "38d217f66",
+  "generatedFromRef": "dc6a4e2ed",
   "routeCount": 435,
   "destinations": 940,
   "actions": 671,
-  "blocks": 4975,
+  "blocks": 4974,
   "routes": {
     "/": {
       "files": [
@@ -8597,7 +8597,6 @@
         "PartPicker",
         "PartTab",
         "PartTextTab",
-        "PartWordsRow",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "PickListPlacement",

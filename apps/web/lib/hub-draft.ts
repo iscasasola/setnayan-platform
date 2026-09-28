@@ -770,6 +770,12 @@ export type HubDraftItem =
       /** 📖 One of Post Event's drafted story keys (`lib/post-event-draft.ts`). */
       kind: 'editorial';
       item: PostEventApplyItem;
+      /**
+       * `item.value`, carried at the top too — every item in a plan has a
+       * `value`, so a reader that only filters (`.find(i => i.kind === … && …)`,
+       * which does not narrow the union) still reads one shape.
+       */
+      value: unknown;
       change: LookChange;
       /** Only a part's own font or animation — show/hide, order, styles and words are free. */
       pro: boolean;
@@ -1164,7 +1170,7 @@ export function classifyHubDraft(
   // order: which show, their order, then their looks.
   if (draft.editorial) {
     for (const item of classifyPostEventDraft(draft.editorial, live.editorial ?? null)) {
-      items.push({ kind: 'editorial', item, change: item.change, pro: item.pro });
+      items.push({ kind: 'editorial', item, value: item.value, change: item.change, pro: item.pro });
     }
   }
   return { items, orphans };
@@ -1218,6 +1224,7 @@ export function planHubDraftApply(
         apply.push({
           kind: 'editorial',
           item: { field: 'sceneLooks', value: free, change, pro: false, freePart: true },
+          value: free,
           change,
           pro: false,
           freePart: true,

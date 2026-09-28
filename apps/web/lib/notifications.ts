@@ -423,7 +423,15 @@ export type NotificationType =
      ⚠ IN-APP ONLY, AND DELIBERATELY NOT ON EMAIL_ENABLED_TYPES: a row inserted by
      SQL never passes emitNotification, so listing it there would claim an email
      that is never sent. Emailing it is an open follow-up (owner to decide). */
-  | 'cohost_added';
+  | 'cohost_added'
+  /* You are INVITED to somebody's event (owner 2026-09-28: "if they have an
+     account. it must show on their event page. as incoming requests").
+     Written by the DATABASE (`an_invitation_reaches_the_account`, migration
+     20271252896804) when a guest row gets an email that belongs to an account —
+     one notice per person per event. The request itself (YES / NO) lives on the
+     Events page. ⚠ ENUM value in 20271252186265. In-app only (an SQL row never
+     passes emitNotification). */
+  | 'event_invitation';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -530,6 +538,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   booking_fee_waived: 'Booking fee waived',
   papic_pool_spent: 'Guests have run out of Papic shots',
   cohost_added: 'You’re now a co-host',
+  event_invitation: 'You’re invited',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -723,6 +732,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   papic_pool_spent: 'bg-warn-100 text-warn-900',
   // A settled good thing, done for them — the mutual-yes emerald.
   cohost_added: 'bg-success-100 text-success-800',
+  // An invitation to answer — the same informational sky as rsvp_received.
+  event_invitation: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {

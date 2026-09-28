@@ -223,10 +223,11 @@ test('the shell holds every kind the bridge draws, and compares the scene order 
     /canvasKeepsItsPage\(canvasHold\.current, serverCanvasesRef\.current \?\? \{\}, Date\.now\(\), canvasOrderRef\.current\)/,
     'the render check must compare which scenes are drawn, not only their canvases',
   );
-  // A scene background: laid, then HELD — never released.
+  // A scene background: laid, then HELD — released ONLY when the pick changes who
+  // draws the box, which the bridge cannot paint (`no-background-drops-the-card.test.ts`).
   const bg = SHELL.slice(SHELL.indexOf('<SceneBackgroundRow'), SHELL.indexOf('/>', SHELL.indexOf('<SceneBackgroundRow')));
-  assert.match(bg, /onSaving=\{\(canvases\) => \{\s*canvasHold\.current = holdChange\(/);
-  assert.doesNotMatch(bg, /releaseCanvas\(\)/, 'a background the bridge laid must not reload the canvas');
+  assert.match(bg, /onSaving=\{\(canvases, redrawsBox\) => \{\s*if \(redrawsBox\) \{\s*releaseCanvas\(\);\s*return;\s*\}\s*canvasHold\.current = holdChange\(/);
+  assert.equal((bg.match(/releaseCanvas\(\)/g) ?? []).length, 1, 'a background the bridge laid must not reload the canvas — only a box change may');
   // A scene taken off the page: hidden by the bridge, held without it.
   const hide = SHELL.slice(SHELL.indexOf('const hideOnCanvas = '), SHELL.indexOf('const post = ('));
   assert.match(hide, /t: 'sceneShow', key, shown: false/);
@@ -272,7 +273,7 @@ test('the bridge lays sceneShow on the section, and the background preview no lo
   assert.match(h, /el\.style\.display = \(data as \{ shown\?: unknown \}\)\.shown === false \? 'none' : ''/);
   const row = read('app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx');
   const save = row.slice(row.indexOf('const save = ('), row.indexOf('const put = '));
-  assert.ok(save.indexOf('lay(touched)') < save.indexOf('onSaving?.(touched)'), 'preview first, then hold');
-  assert.ok(save.indexOf('onSaving?.(touched)') < save.indexOf('makerSave('), 'the hold is set BEFORE the save is sent');
-  assert.match(save, /if \(!res\.ok\) \{[\s\S]*lay\(before\);\s*onSaving\?\.\(before\);/, 'a refused save puts the canvas and the hold back');
+  assert.ok(save.indexOf('lay(touched)') < save.indexOf('onSaving?.(touched, redrawsBox)'), 'preview first, then hold');
+  assert.ok(save.indexOf('onSaving?.(touched, redrawsBox)') < save.indexOf('makerSave('), 'the hold is set BEFORE the save is sent');
+  assert.match(save, /if \(!res\.ok\) \{[\s\S]*lay\(before\);\s*onSaving\?\.\(before, redrawsBox\);/, 'a refused save puts the canvas and the hold back');
 });

@@ -35,7 +35,8 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
 import { ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
-import { landInDetails, type DetailsItemKey } from '@/lib/maker-details-items';
+import { landInDetails } from '@/lib/maker-details-selection';
+import type { DetailsItemKey } from '@/lib/maker-details-items';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of

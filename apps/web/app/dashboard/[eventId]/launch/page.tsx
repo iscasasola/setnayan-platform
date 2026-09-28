@@ -16,7 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { GENERIC_PROFILE, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { INVITE_THEMES, pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
@@ -50,7 +50,6 @@ import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
 import type { LoveStoryBlob } from '../website/our-story/_components/story-fields';
 import { resolveMoments } from '@/lib/love-story-moments';
-import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
@@ -60,6 +59,7 @@ import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails, detailsFactEditors } from './_components/maker-details';
+import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { detailsItemApplies, detailsItemFor, makerToolFor } from '@/lib/maker-details-items';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { GuestCardBody } from '../guests/_components/guest-card-body';
@@ -983,7 +983,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let factEditors: Partial<Record<import('@/lib/maker-details-items').DetailsItemKey, ReactNode>> = {};
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, words, storyLiveRes, scheduleCountRes, storyPro] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleCountRes, storyPro] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
@@ -998,8 +998,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         .catch(() => null),
       // 💡 The onboarding feel — the gallery's "Suggested for you" label only.
       printAdmin.from('events').select('mood_feel_key').eq('event_id', eventId).maybeSingle(),
-      // 🎉 The event type's words — which Details items apply (a birthday has no Love Story).
-      eventWordsForEvent(eventId),
       // 💌 The live Love Story (the draft, read below, wins) — Details › Love Story.
       supabase.from('events').select('love_story').eq('event_id', eventId).maybeSingle(),
       // 🗓 How many moments the schedule holds — Details › Schedule's ✓ (a refused read says so, never "0").
@@ -1051,6 +1049,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
         .catch(() => false);
       const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro, mayShowStdFilm });
+      /* 🎂 The celebration's type decides Details' items and switches (DECISION_LOG
+         "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
+         unreadable profile is the generic one — never a wedding. */
+      const detailsProfile = await resolveProfile(printEvent.event_type ?? '').catch(() => GENERIC_PROFILE);
       const themes = pickableInviteThemes({ mayShowStdFilm });
       /* 🖨 THE COUPLE'S OWN PRINTS, folded in from Prints & Tickets (owner
          2026-09-28: "1 fold prints and tickets into details") — drawn in the
@@ -1163,14 +1165,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       };
       /* 💌 LOVE STORY, moved whole (Details part 2b): only where this event type
          has two named people (`detailsItemApplies`) and the story was read. */
-      const fit = { twoPeople: words.twoPeople, solemn: words.solemn };
+      const eventContext = { profile: detailsProfile, solemn: eventWordsFromProfile(detailsProfile).solemn };
       const story: LoveStoryBlob | null =
         storyLiveRes.error && storyRaw == null
           ? null
           : storyRaw && typeof storyRaw === 'object' && !Array.isArray(storyRaw)
             ? (storyRaw as LoveStoryBlob)
             : {};
-      const withStory = story !== null && detailsItemApplies('love-story', fit);
+      const withStory = story !== null && detailsItemApplies('love-story', eventContext);
       factEditors = detailsFactEditors({
         eventId,
         specialMessage,
@@ -1233,7 +1235,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               tour: !firstVisit,
               chosen: themeSaved !== null && themeSaved !== undefined,
             }}
-                  menu={{
+            prints={prints}
+            menu={{
               saved: stored.menu,
               ...menuSources,
               flash: one(search.menu_saved) ? 'saved' : one(search.menu_error) ? 'error' : null,
@@ -1243,7 +1246,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             parents={parentCards}
             pabuyaMessage={printEvent.pabuya_message}
             specialMessage={specialMessage}
-            fit={fit}
             facts={factEditors}
             loveStory={loveStoryBook ? { book: loveStoryBook, moments: resolveMoments(story ?? {}).length } : null}
             schedule={{ page: schedulePage, moments: scheduleCountRes.error ? null : (scheduleCountRes.count ?? 0) }}
@@ -1252,6 +1254,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             hasGifts={egifts.length > 0}
             flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
             stamp={String(Date.now())}
+            eventContext={eventContext}
             initialItem={detailsItemFor({
               tool: one(search.tool),
               item: one(search.item),
@@ -1285,7 +1288,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           ? ({ kind: 'tool', key: tool } as const)
           : null;
       })()}
-      prints={prints}
       details={details}
       factEditors={factEditors}
       storeShell={storeShell}

@@ -17,10 +17,13 @@
  */
 import { PRINT_PIECES, PRINT_SET_KEYS, type PrintSetKey } from '@/lib/print-pieces';
 import type { FreePrint } from '@/lib/free-prints';
-import type { MakerSelection } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
+import { isToolInDetails, TOOLS_IN_DETAILS } from '@/lib/maker-details-selection';
 import type { WidgetType } from '@/lib/invitation-widgets';
 import { stagesOfScene } from '@/lib/stage-scenes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import type { EventTypeProfile } from '@/lib/event-type-profile';
+import { resolveRoleSet } from '@/lib/role-sets';
+import { hasTwoNamedPeople } from '@/lib/two-named-people';
 
 export type HubItemKey = 'address' | 'qr';
 export type FreePrintKey = FreePrint['key'];
@@ -81,41 +84,12 @@ export const DETAILS_FIRST_ITEM: DetailsItemKey = 'theme';
 export const DETAILS_FIRST_PRINT: DetailsItemKey = PRINT_SET_KEYS[0];
 
 /**
- * 📦 THE MAKER PAGES THAT MOVED INTO DETAILS WHOLE (Details part 2b, DECISION_LOG
- * "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS"): the Love Story page and
- * the RSVP page are Details items now — the same components, inside the three
- * columns. Every old door to them (`?tool=love-story`, `?tool=rsvp-page`, a
- * scene's "Open … editor", a saved selection) lands on its item.
- */
-export const TOOLS_IN_DETAILS = { 'love-story': 'love-story', 'rsvp-page': 'rsvp' } as const satisfies Record<string, DetailsItemKey>;
-type ToolInDetails = keyof typeof TOOLS_IN_DETAILS;
-
-function isToolInDetails(v: unknown): v is ToolInDetails {
-  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(TOOLS_IN_DETAILS, v);
-}
-
-/**
  * Which Maker page an old `?tool=` means now — Prints & Tickets, Love Story
  * and RSVP are Details. Anything else is returned as it came.
  */
 export function makerToolFor(tool: string | null | undefined): string | null {
   if (!tool) return null;
   return tool === 'prints' || isToolInDetails(tool) ? 'details' : tool;
-}
-
-/**
- * A Maker selection, with a page that moved into Details landing on its item.
- * The ONE place the old tool keys are translated — the shell runs every
- * selection through it (a bar press, a scene's button, a restored tab).
- */
-export function landInDetails(sel: MakerSelection): MakerSelection {
-  if (sel?.kind === 'tool' && isToolInDetails(sel.key)) return { kind: 'tool', key: 'details', item: TOOLS_IN_DETAILS[sel.key] };
-  return sel;
-}
-
-/** The Details item a selection names, or null (Details with none named, or not Details). */
-export function detailsItemOfSelection(sel: MakerSelection): DetailsItemKey | null {
-  return sel?.kind === 'tool' && sel.key === 'details' && isDetailsItemKey(sel.item) ? sel.item : null;
 }
 
 /**
@@ -152,6 +126,64 @@ export type DetailsItemModel = {
   usedOn?: readonly string[];
 };
 
+/**
+ * 🎂 THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON (owner
+ * 2026-09-29, DECISION_LOG row of that name). Which items and switches a
+ * celebration gets is decided HERE, from the shipped event-type data (the
+ * type's `EventTypeProfile` and the role set it names) — never by a
+ * "wedding" test sprinkled through the page. The words are the type's own
+ * (`EventWords`); no item of part 1 types "wedding" or "couple".
+ */
+export type DetailsItemContext = {
+  profile: EventTypeProfile;
+  /** The event's words (`eventWordsFromProfile`) — for the solemn register. */
+  solemn: boolean;
+};
+
+/**
+ * An item that does not suit every celebration names its rule here; an item
+ * with no rule applies to all. Part 1's items — the theme, the address, the QR,
+ * every print — suit every type (the prints already follow the type's words).
+ * Parts 2–5 add rules for theirs (e.g. Love Story).
+ */
+export const DETAILS_ITEM_APPLIES: Partial<Record<DetailsItemKey, (c: DetailsItemContext) => boolean>> = {
+  /* 💌 Part 2b. Words (a special message, a thank-you, an opening line, "Kindly
+     reply"), the Schedule and RSVP are every celebration's — a birthday and a
+     wake write them too (a wake's RSVP asks "Will you be with us?"). The Love
+     Story exists only where the type has TWO NAMED PEOPLE — the very rule the
+     guest page draws the story by (`resolveWeddingOnlyParts` `love_story` →
+     `hasTwoNamedPeople`). A seven-year-old's birthday and a wake have no love
+     story, so the item is not drawn — never re-worded. */
+  'love-story': (c) => hasTwoNamedPeople(c.profile),
+};
+
+export function detailsItemApplies(key: DetailsItemKey, ctx: DetailsItemContext): boolean {
+  return DETAILS_ITEM_APPLIES[key]?.(ctx) ?? true;
+}
+
+/** The navigator's rows for this celebration — the groups in order, each with the items that apply. */
+export function detailsNavigatorKeys(
+  ctx: DetailsItemContext,
+  present: ReadonlySet<DetailsItemKey>,
+): Array<{ group: DetailsItemGroup; label: string; keys: DetailsItemKey[] }> {
+  return DETAILS_ITEM_GROUPS.map((g) => ({
+    group: g.group,
+    label: g.label,
+    keys: g.keys.filter((k) => present.has(k) && detailsItemApplies(k, ctx)),
+  })).filter((g) => g.keys.length > 0);
+}
+
+/**
+ * The switches that depend on the type. "Parents on the invitation" exists
+ * only where the type's role set offers a parent role (a wedding's Parents of
+ * the Bride / of the Groom) — a birthday or a wake has no such role, so it has
+ * no such switch, and no "Parent of the Bride" dropdown.
+ */
+export function detailsSwitchesFor(ctx: DetailsItemContext): { parents: boolean } {
+  const offered = resolveRoleSet(ctx.profile.roleSetKey).offeredRoles as readonly string[];
+  return { parents: offered.includes('bride_parents') || offered.includes('groom_parents') };
+}
+
 export function groupOfItem(key: DetailsItemKey): DetailsItemGroup {
   return DETAILS_ITEM_GROUPS.find((g) => g.keys.includes(key))!.group;
 }
@@ -162,28 +194,6 @@ export function detailsItemHref(eventId: string, item: DetailsItemKey, extra = '
 }
 
 /* ══ WORDS · STORY & PLANS (Details part 2b) ═══════════════════════════════ */
-
-/**
- * 🎉 EVERY EVENT TYPE (DECISION_LOG 2026-09-29 "THE PLAN ADAPTS TO EVERY EVENT
- * TYPE — BUILT IN, NOT BOLTED ON"): each item says which event types it is for,
- * asked of the shipped word system (`EventWords`, `app/[slug]/_lib/event-words.ts`)
- * — never a typed "wedding".
- *
- *   · Words — a special message, a thank-you, an opening line and a "Kindly
- *     reply" are every event's: a birthday and a wake write them too.
- *   · Schedule · RSVP — every event's (the schedule seeds a non-wedding
- *     run-of-show; a wake's RSVP asks "Will you be with us?").
- *   · Love Story — only where the type has TWO NAMED PEOPLE, the same question
- *     the guest page asks before it draws a story (`resolveWeddingOnlyParts`
- *     `love_story`: `two_named_people`). A seven-year-old's birthday and a wake
- *     have no love story, so the item is not drawn — never re-worded.
- */
-export type DetailsItemFit = { twoPeople: boolean; solemn: boolean };
-
-export function detailsItemApplies(key: DetailsItemKey, fit: DetailsItemFit): boolean {
-  if (key === 'love-story') return fit.twoPeople;
-  return true;
-}
 
 /** The stages a scene is drawn on, in the stages' own words. */
 function stagesOf(type: WidgetType): string[] {

@@ -14,12 +14,14 @@
  *
  *   ?item=invitation      open on one item (default: Theme, as a cold open)
  *   ?pro=1                a couple with Event Hub Pro
+ *   ?type=birthday|wake   another celebration (default: wedding) — no Love Story item
  */
 import { notFound } from 'next/navigation';
-import { MakerDetails } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
+import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { INVITE_THEMES, pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
 import { detailsItemFor } from '@/lib/maker-details-items';
+import { GENERIC_PROFILE, WAKE_PROFILE, WEDDING_PROFILE } from '@/lib/event-type-profile';
 import { updateEventSlug } from '@/app/dashboard/[eventId]/invitation/actions';
 import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions';
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
@@ -31,8 +33,23 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const pro = one('pro') === '1';
+  const profile = one('type') === 'wake' ? WAKE_PROFILE : one('type') === 'birthday' ? { ...GENERIC_PROFILE, eventType: 'birthday' } : WEDDING_PROFILE;
   const themes = pickableInviteThemes({ mayShowStdFilm: true });
   const stored = parsePrintDetails({ opening_line: 'Together with their families', include: undefined });
+  const eventContext = { profile, solemn: profile === WAKE_PROFILE };
+  const pabuyaMessage = 'Thank you for joining us — every gift is received with thanks.';
+  const specialMessage = 'We can’t wait to see you on December 18.';
+  /* ✍ Words (part 2b): the same editors the stage opens. Story & plans need the
+     database (the scrapbook, the schedule, the guest's RSVP), so the lab says
+     so honestly with a line in each picture. */
+  const facts = detailsFactEditors({
+    eventId: EVENT,
+    specialMessage,
+    specialMessageAction: updateSpecialMessage.bind(null, EVENT),
+    pabuyaMessage,
+    loveStory: { story: {}, ownsPro: pro },
+  });
+  const needsDb = (what: string) => <p className="p-6 text-sm text-ink/60">{what} is read from the database — open it in the Maker.</p>;
   return (
     <div className="h-dvh bg-cream text-ink">
       <MakerDetails
@@ -69,14 +86,18 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
           { guestId: null, name: 'Atty. Eufrocina M. Sacdalan-Casasola', card: null },
           { guestId: null, name: 'Mrs. Milagros Buanhog', card: null },
         ]}
-        pabuyaMessage="Thank you for celebrating with us — every gift helps our new home begin."
-        specialMessage="We can’t wait to celebrate with you on December 18."
-        specialMessageAction={updateSpecialMessage.bind(null, EVENT)}
+        pabuyaMessage={pabuyaMessage}
+        specialMessage={specialMessage}
+        facts={facts}
+        loveStory={{ book: needsDb('The Love Story'), moments: 0 }}
+        schedule={{ page: needsDb('The schedule'), moments: null }}
+        rsvp={{ page: needsDb('The guest’s RSVP'), settings: needsDb('The RSVP settings') }}
         hasPalette
         hasGifts={false}
         flash={null}
         stamp="lab"
         initialItem={detailsItemFor({ tool: 'details', item: one('item') })}
+        eventContext={eventContext}
       />
     </div>
   );

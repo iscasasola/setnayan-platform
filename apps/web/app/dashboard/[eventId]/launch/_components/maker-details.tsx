@@ -44,13 +44,13 @@ import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-th
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
-  DETAILS_ITEM_GROUPS,
   STORY_ITEM_KEYS,
   WORDS_ITEM_KEYS,
-  detailsItemApplies,
   detailsItemHref,
+  detailsNavigatorKeys,
+  detailsSwitchesFor,
   wordsAndPlansItem,
-  type DetailsItemFit,
+  type DetailsItemContext,
   type DetailsItemKey,
   type DetailsItemModel,
   type StoryItemKey,
@@ -169,8 +169,6 @@ export type MakerDetailsProps = {
   specialMessage: string | null;
   hasPalette: boolean;
   hasGifts: boolean;
-  /** 🎉 The event type's words (`EventWords`) — which items apply. */
-  fit: DetailsItemFit;
   /** ✍ `detailsFactEditors(…)` — the SAME nodes the stage's inspector shows for a tapped fact. */
   facts: Partial<Record<DetailsItemKey, ReactNode>>;
   /** 💌 Love Story, moved whole: the scrapbook page (its picture). Null = not read, or not this type. */
@@ -183,6 +181,8 @@ export type MakerDetailsProps = {
   /** Changes on every server render, so a new QR look shows at once. */
   stamp: string;
   initialItem: DetailsItemKey;
+  /** The celebration's type — which items and switches it gets (`detailsNavigatorKeys`, `detailsSwitchesFor`). */
+  eventContext: DetailsItemContext;
 };
 
 const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
@@ -271,8 +271,9 @@ export function detailsFactEditors(input: {
 
 export function MakerDetails(props: MakerDetailsProps) {
   const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
-  const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem } = props;
-  const { fit, facts, loveStory = null, schedule = null, rsvp = null } = props;
+  const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem, eventContext } = props;
+  const { facts, loveStory = null, schedule = null, rsvp = null } = props;
+  const switches = detailsSwitchesFor(eventContext);
   const PRINT_WORDS_ENDPOINT = '/api/hub-print/words';
   const inc = stored.include;
   const replyChoice = stored.rsvp?.kind === 'host' ? `host:${stored.rsvp.moderatorId}` : stored.rsvp?.kind === 'manual' ? 'manual' : '';
@@ -338,32 +339,28 @@ export function MakerDetails(props: MakerDetailsProps) {
     const fp = free.find((f) => f.key === k);
     return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
   };
-  /* Story & plans: each page is drawn only where it was read AND this event
-     type has it (`detailsItemApplies` — a birthday has no Love Story). */
+  /* Story & plans: each page is drawn only where it was read; which items this
+     event type gets is `detailsNavigatorKeys`' (a birthday has no Love Story). */
   const storyPresent: StoryItemKey[] = [
     ...(loveStory && facts['love-story'] ? (['love-story'] as const) : []),
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(
-    (
-      [
-        'theme',
-        'address',
-        'qr',
-        'download',
-        ...WORDS_ITEM_KEYS,
-        ...storyPresent,
-        ...PRINT_SET_KEYS,
-        ...free.map((f) => f.key),
-      ] as DetailsItemKey[]
-    ).filter((k) => detailsItemApplies(k, fit)),
-  );
-  const groups: DetailsNavGroup[] = DETAILS_ITEM_GROUPS.map((g) => ({
+  const present = new Set<DetailsItemKey>([
+    'theme',
+    'address',
+    'qr',
+    'download',
+    ...WORDS_ITEM_KEYS,
+    ...storyPresent,
+    ...PRINT_SET_KEYS,
+    ...free.map((f) => f.key),
+  ]);
+  const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,
-    items: g.keys.filter((k) => present.has(k)).map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
-  })).filter((g) => g.items.length > 0);
+    items: g.keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
+  }));
 
   /* ══ BODIES — each item's picture ══ */
   const bodies: Partial<Record<DetailsItemKey, ReactNode>> = {
@@ -503,15 +500,17 @@ export function MakerDetails(props: MakerDetailsProps) {
     ),
     invitation: (
       <PrintPieceEditor input={prints} piece="invitation">
-        <Toggle
-          form={WORDS_FORM}
-          name="inc_parents"
-          label="Parents on the invitation"
-          on={inc.parents}
-          tip="Guests with the role Parents of the Bride or Parents of the Groom. Parents are optional — with none, the card leaves that part out."
-        >
-          <ParentCards eventId={eventId} parents={parents} />
-        </Toggle>
+        {switches.parents ? (
+          <Toggle
+            form={WORDS_FORM}
+            name="inc_parents"
+            label="Parents on the invitation"
+            on={inc.parents}
+            tip="Guests whose role on your guest list is a parent's. Parents are optional — with none, the card leaves that part out."
+          >
+            <ParentCards eventId={eventId} parents={parents} />
+          </Toggle>
+        ) : null}
         <Toggle form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
           {openingLine}
         </Toggle>

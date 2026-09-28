@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { detailsItemOfSelection, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
+import type { DetailsItemKey, DetailsItemModel } from '@/lib/maker-details-items';
+import { detailsItemOfSelection } from '@/lib/maker-details-selection';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { useMaker } from './maker-context';

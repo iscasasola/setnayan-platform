@@ -24,6 +24,7 @@
  */
 
 import { INVITE_THEMES, isInviteThemeId, type InviteThemeId } from '@/lib/invite-themes';
+import { makerWayBackHref } from '@/lib/maker-preview-way-back';
 
 export type HostCanvasSearch = { editor?: string; preview?: string; only?: string; theme?: string };
 
@@ -115,4 +116,32 @@ export function canvasTriedTheme(
   if (!isEditorCanvas) return null;
   const raw = search?.theme;
   return isInviteThemeId(raw) && INVITE_THEMES[raw].ready ? raw : null;
+}
+
+/**
+ * ↩ THE WAY BACK TO THE MAKER (DECISION_LOG 2026-09-28, *"EVERY PREVIEW HAS A
+ * WAY BACK TO THE MAKER"*). The Maker's "Preview the whole <stage>" tab draws
+ * one small "Back to the Maker" control (`preview-way-back.tsx`); this is its
+ * address, or null where it must not be drawn.
+ *
+ * 🔒 THE PREVIEW TAB ONLY, AND ONLY A VERIFIED HOST'S:
+ *   · null unless the caller has ALREADY verified the host canvas
+ *     (`isEditorCanvas`) — a guest who types `?preview=draft` gets the page;
+ *   · null on the Maker's canvas iframe (`?editor=1`) — it is already inside
+ *     the Maker, and a link there navigated the frame into the Maker once;
+ *   · null for a one-scene page (`?only=`) or a theme tile (`?theme=`) — both
+ *     are frames drawn by the Maker, never a tab of their own.
+ * A frame that still asks for `?preview=draft` (the Maker's Reveal page,
+ * `makerPageCanvasSrc`) is refused on the client: the control draws nothing
+ * inside any frame.
+ */
+export function previewWayBackHref(
+  search: (HostCanvasSearch & { phase?: string; scene?: string; tool?: string }) | undefined,
+  eventId: string,
+  isEditorCanvas: boolean,
+): string | null {
+  if (!isEditorCanvas || !search) return null;
+  if (search.preview !== 'draft' || asksForEditorBridge(search)) return null;
+  if (search.only || search.theme) return null;
+  return makerWayBackHref({ eventId, phase: search.phase, scene: search.scene, tool: search.tool });
 }

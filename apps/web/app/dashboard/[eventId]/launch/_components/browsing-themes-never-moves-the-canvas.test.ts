@@ -186,8 +186,8 @@ test('4b · rendered on the server, the gallery loads NO page and NO print — a
   const { MakerThemeGallery, ThemePickProvider } = await import('./maker-theme-picker');
   const html = renderToStaticMarkup(
     React.createElement(
-      ThemePickProvider,
-      { eventId: 'e-1', current: 'house' } as React.ComponentProps<typeof ThemePickProvider>,
+      ThemePickProvider as unknown as React.FC<{ eventId: string; current: string; children?: React.ReactNode }>,
+      { eventId: 'e-1', current: 'house' },
       React.createElement(MakerThemeGallery, { themes: TILES, ownsPro: false, storeShell: false, suggested: 'vintage', sampleVersion: null }),
     ),
   );

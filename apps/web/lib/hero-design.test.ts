@@ -38,7 +38,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
-import { HUB_HERO_ELEMENT_KEYS, type HubElementStyles } from './element-style';
+import { HUB_HERO_ELEMENT_KEYS, heroPartsFor, type HubElementStyles } from './element-style';
 import { sanitizeHubCanvas, type HubSectionCanvas } from './hub-canvas';
 import {
   HERO_DESIGNS,
@@ -99,7 +99,8 @@ function partTag(html: string, key: string): string {
 for (const design of HERO_DESIGNS) {
   test(`1 · ${HERO_DESIGN_LABEL[design].name}: all parts render, each is a tap-to-edit element`, () => {
     const html = render(design);
-    for (const key of HUB_HERO_ELEMENT_KEYS) partTag(html, key);
+    // Every part the card draws — the venue is the plain masthead's (4b).
+    for (const key of heroPartsFor(true, true)) partTag(html, key);
     // The words are the couple's, in every design.
     assert.match(html, /Maria Clara Concepcion/);
     assert.match(html, /Juan Miguel de los Santos/);
@@ -179,9 +180,16 @@ test('4b · every design draws the plain (hero-photo) masthead too — the cover
   for (const design of HERO_DESIGNS) {
     const html = render(design, { card: undefined, mediaSlot: React.createElement('img', { alt: '' }), mediaCaption: 'San Agustin', venueName: 'San Agustin' });
     assert.match(html, /data-pahina-parallax=/, `${design}: no cover plate`);
-    for (const key of ['eyebrow', 'mark', 'names', 'joiner', 'date']) partTag(html, key);
+    for (const key of heroPartsFor(false, true)) partTag(html, key);
     assert.match(html, /San Agustin/);
   }
+});
+
+test('4c · every hero part is drawn by the card or by the plain masthead — none is drawn by neither', () => {
+  for (const key of HUB_HERO_ELEMENT_KEYS) {
+    assert.ok(heroPartsFor(true, true).includes(key) || heroPartsFor(false, true).includes(key), `${key} is drawn by no masthead`);
+  }
+  assert.ok(!heroPartsFor(true, false).includes('joiner'), 'a solo hero lists no joiner');
 });
 
 /* ═══ 5 · THE CONTRACT ═══ */

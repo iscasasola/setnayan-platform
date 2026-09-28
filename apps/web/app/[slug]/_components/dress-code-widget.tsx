@@ -406,7 +406,9 @@ export function DressCodeWidget({
           Board's own order. Roles with no colours and no outfit are left out
           by `dressCodeForEveryone`, never drawn empty. */}
       {!mine && everyone.rows.length > 0 ? (
-        <ul className="divide-y divide-ink/10 border-y border-ink/10" data-dress-code="roles">
+        /* 📜 `data-hub-rows`: one role per row, arriving in turn in a "One
+           part after another" scene — the run of show's mechanism, not its own. */
+        <ul className="divide-y divide-ink/10 border-y border-ink/10" data-dress-code="roles" data-hub-rows="">
           {everyone.rows.map((row) => (
             <li key={row.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2.5" data-role-row={row.key}>
               <div className="min-w-0 flex-1 basis-40 space-y-0.5">

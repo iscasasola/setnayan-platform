@@ -86,7 +86,7 @@ import {
   type HubMainGround,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
-import { HUB_ELEMENT_KEYS, type HubElementRun, type HubElementStyle } from '@/lib/element-style';
+import { HUB_ELEMENT_KEYS, type HubElementKey, type HubElementRun, type HubElementStyle } from '@/lib/element-style';
 import {
   HUB_CANVAS_LOOK_KEYS,
   HUB_ELEMENT_PRO_FIELDS,
@@ -852,17 +852,72 @@ export function eventColumnIsPro(column: HubDraftEventColumn): boolean {
 }
 
 /**
- * A section's canvas, live → drafted. Media behind the section (photo or
- * snippet), and media in a template scene's slots, is classified like any
- * other ref; a COLOUR is never an input, so a
- * colour background stays free in every direction; every other look key
+ * 💎 ONE FACET OF A SCENE'S LOOK — the unit every Pro question about a canvas is
+ * asked in (owner 2026-09-28, verbatim: *"they can edit it with pro features.
+ * but need to upgrade to pro when clicked on apply and point out the effect
+ * chosen that caused them to upgrade to pro"*).
+ *
+ * `canvasLookFacets` is THE comparison: `canvasLookChange` (is this canvas Pro
+ * at Apply?), `canvasFreePart` (what of it goes live without Pro?) and the
+ * Apply sheet's named list (`lib/hub-pro-effects.ts` — WHICH effects need Pro,
+ * and where) all read it, so the list a couple is shown can never name a thing
+ * the gate lets through, nor miss one the gate holds.
+ *
+ *   key    — what it compares, and what `canvasWithoutFacet` puts back.
+ *   group  — how the Apply sheet names it ("Font", "Animation", "Photo
+ *            background" …). Several keys can share one group on one scene
+ *            (every motion key is "Animation"); the sheet lists the group once.
+ */
+export type CanvasFacetGroup =
+  | 'media'
+  | 'crop'
+  | 'layout'
+  | 'motion'
+  | 'transition'
+  | 'font'
+  | 'part-motion'
+  | 'slot-media'
+  | 'playback';
+
+export type CanvasLookFacet = {
+  key: string;
+  group: CanvasFacetGroup;
+  /** The part it belongs to — font and part-motion only. */
+  element?: HubElementKey;
+  /** The template slot it belongs to — slot-media only. */
+  slot?: number;
+  change: LookChange;
+};
+
+/** The scalar canvas look keys and the group each is named by. */
+const CANVAS_KEY_GROUP: Record<string, CanvasFacetGroup> = {
+  focal: 'crop',
+  zoom: 'crop',
+  arrangement: 'layout',
+  transition: 'transition',
+  autoSpeed: 'transition',
+};
+
+/** A part's Pro field → the group it is named by. */
+const ELEMENT_FIELD_GROUP: Record<(typeof HUB_ELEMENT_PRO_FIELDS)[number], CanvasFacetGroup> = {
+  font: 'font',
+  motion: 'part-motion',
+};
+
+/**
+ * Every look facet of a section's canvas, live → drafted, each with its own
+ * change. Media behind the section (photo or snippet), and media in a template
+ * scene's slots, is classified like any other ref; a COLOUR is never an input,
+ * so a colour background stays free in every direction; every other look key
  * (crop, arrangement, motion, transition) adds, changes or removes.
  */
-export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas): LookChange {
-  const changes: LookChange[] = [refChange(canvasMediaRef(live), canvasMediaRef(next))];
+export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas): CanvasLookFacet[] {
+  const out: CanvasLookFacet[] = [
+    { key: 'media', group: 'media', change: refChange(canvasMediaRef(live), canvasMediaRef(next)) },
+  ];
   for (const k of HUB_CANVAS_LOOK_KEYS) {
     if (k === 'media' || k === 'elements') continue;
-    changes.push(refChange(asText(live[k]), asText(next[k])));
+    out.push({ key: k, group: CANVAS_KEY_GROUP[k] ?? 'motion', change: refChange(asText(live[k]), asText(next[k])) });
   }
   /* 🔤 ONE ELEMENT'S OWN LOOK (`lib/element-style.ts`) — compared FIELD BY
      FIELD, so taking one override off stays a free removal even while another
@@ -874,11 +929,21 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
      only its font. Colour, size, weight, B · I · U, alignment and spacing are
      `HUB_ELEMENT_FREE_FIELDS` — never an input, so no direction of them can
      make a canvas Pro. */
-  for (const key of HUB_ELEMENT_KEYS) {
+  for (const element of HUB_ELEMENT_KEYS) {
     for (const field of HUB_ELEMENT_PRO_FIELDS) {
-      changes.push(refChange(asText(live.elements?.[key]?.[field]), asText(next.elements?.[key]?.[field])));
+      out.push({
+        key: `el:${element}:${field}`,
+        group: ELEMENT_FIELD_GROUP[field],
+        element,
+        change: refChange(asText(live.elements?.[element]?.[field]), asText(next.elements?.[element]?.[field])),
+      });
     }
-    changes.push(refChange(runFonts(live.elements?.[key]), runFonts(next.elements?.[key])));
+    out.push({
+      key: `el:${element}:runs`,
+      group: 'font',
+      element,
+      change: refChange(runFonts(live.elements?.[element]), runFonts(next.elements?.[element])),
+    });
   }
   /* 🎬 A TEMPLATE SCENE'S PICTURES AND CLIP PLAYBACK (Maker Phase 5) — the same
      line `saveCustomSection` draws live (`lib/scene-writes.ts`): putting a
@@ -888,9 +953,16 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
      Without these lines a free couple could draft a slot photo and Apply it —
      the gate would see no look key change at all. */
   const slotCount = Math.max(live.slots?.length ?? 0, next.slots?.length ?? 0);
-  for (let i = 0; i < slotCount; i += 1) changes.push(refChange(slotMediaRef(live, i), slotMediaRef(next, i)));
-  changes.push(refChange(asText(live.video), asText(next.video)));
-  return combineChanges(...changes);
+  for (let i = 0; i < slotCount; i += 1) {
+    out.push({ key: `slot:${i}`, group: 'slot-media', slot: i, change: refChange(slotMediaRef(live, i), slotMediaRef(next, i)) });
+  }
+  out.push({ key: 'video', group: 'playback', change: refChange(asText(live.video), asText(next.video)) });
+  return out;
+}
+
+/** A section's canvas, live → drafted, as ONE change: the most demanding facet. */
+export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas): LookChange {
+  return combineChanges(...canvasLookFacets(live, next).map((f) => f.change));
 }
 
 /** The media behind a scene, as one comparable ref — null for any colour ground. */
@@ -912,8 +984,89 @@ function runFonts(style: HubElementStyle | undefined): string | null {
 
 const grows = (c: LookChange) => c === 'add' || c === 'change';
 
+/** Does this facet need Event Hub Pro to go live (it adds or changes a look)? */
+export function canvasFacetGrows(f: CanvasLookFacet): boolean {
+  return grows(f.change);
+}
+
 /** The background's own keys — they travel together, so a media ground is put back whole. */
 const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape'] as const;
+
+/**
+ * `next` with ONE facet put back to what is live — every other key, and every
+ * other facet, exactly as drafted. What "remove this effect" writes into the
+ * draft from the Apply sheet, and the step `canvasFreePart` repeats for every
+ * Pro facet. Its input is always a canvas the sanitizer already accepted, and
+ * its output is sanitized again.
+ */
+export function canvasWithoutFacet(
+  live: HubSectionCanvas,
+  next: HubSectionCanvas,
+  facet: Pick<CanvasLookFacet, 'key'>,
+): HubSectionCanvas {
+  const out = { ...next } as Record<string, unknown>;
+  const liveRec = live as Record<string, unknown>;
+  const put = (k: string, v: unknown) => {
+    if (v === undefined) delete out[k];
+    else out[k] = v;
+  };
+  const key = facet.key;
+  if (key === 'media') {
+    for (const k of CANVAS_GROUND_KEYS) put(k, liveRec[k]);
+  } else if (key === 'video') {
+    put('video', live.video);
+  } else if (key.startsWith('slot:')) {
+    const i = Number(key.slice('slot:'.length));
+    if (next.slots && Number.isInteger(i) && i >= 0 && i < next.slots.length) {
+      out.slots = next.slots.map((slot, j) => {
+        if (j !== i) return slot;
+        const { media: _m, kind: _k, ...words } = slot;
+        const was = live.slots?.[i];
+        return was?.media ? { ...words, media: was.media, ...(was.kind ? { kind: was.kind } : {}) } : words;
+      });
+    }
+  } else if (key.startsWith('el:')) {
+    const [, element, field] = key.split(':') as [string, HubElementKey, string];
+    const style = next.elements?.[element];
+    if (style) {
+      const was = live.elements?.[element];
+      const el: Record<string, unknown> = { ...style };
+      if (field === 'runs') {
+        if (style.runs) {
+          const liveFont = (r: { start: number; end: number }) =>
+            was?.of === style.of ? was?.runs?.find((w) => w.start === r.start && w.end === r.end)?.font : undefined;
+          const withoutFont = (r: HubElementRun): HubElementRun => {
+            const { font: _font, ...rest } = r;
+            return rest;
+          };
+          let runs: HubElementRun[] = style.runs.map((r) => {
+            const f = liveFont(r);
+            return f ? { ...withoutFont(r), font: f } : withoutFont(r);
+          });
+          // Put back exactly, or not at all: a partial font set would still be a change.
+          if (runFonts({ ...style, runs }) !== runFonts(was)) runs = runs.map(withoutFont);
+          runs = runs.filter((r) => 'font' in r || 'color' in r || 'size' in r);
+          if (runs.length > 0) el.runs = runs;
+          else {
+            delete el.runs;
+            delete el.of;
+          }
+        }
+      } else if ((HUB_ELEMENT_PRO_FIELDS as readonly string[]).includes(field)) {
+        const f = field as (typeof HUB_ELEMENT_PRO_FIELDS)[number];
+        if (was?.[f] === undefined) delete el[f];
+        else el[f] = was[f];
+      }
+      const elements: Record<string, HubElementStyle> = { ...(next.elements as Record<string, HubElementStyle>) };
+      if (Object.keys(el).length > 0) elements[element] = el as HubElementStyle;
+      else delete elements[element];
+      put('elements', Object.keys(elements).length > 0 ? elements : undefined);
+    }
+  } else if ((HUB_CANVAS_LOOK_KEYS as readonly string[]).includes(key)) {
+    put(key, liveRec[key]);
+  }
+  return sanitizeHubCanvas({ canvas: out });
+}
 
 /**
  * 💎 THE FREE PART OF A DRAFTED CANVAS — `next` with every Pro addition or
@@ -925,69 +1078,18 @@ const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape']
  * free never reached their guests. Apply now writes this, and the full drafted
  * canvas stays in the draft holding only its Pro half (`planHubDraftApply`).
  *
+ * It is `canvasWithoutFacet` for every facet that grows — the same step the
+ * Apply sheet's "remove this effect" takes for one.
+ *
  * 🔒 FAIL-CLOSED. Built from the same comparisons `canvasLookChange` makes, and
  * then CHECKED against it: if the result would still add or change a look, the
  * live canvas comes back unchanged — nothing Pro can leak through this door.
  */
 export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas): HubSectionCanvas {
-  const out = { ...next } as Record<string, unknown>;
-  const liveRec = live as Record<string, unknown>;
-  const put = (k: string, v: unknown) => {
-    if (v === undefined) delete out[k];
-    else out[k] = v;
-  };
-  if (grows(refChange(canvasMediaRef(live), canvasMediaRef(next)))) {
-    for (const k of CANVAS_GROUND_KEYS) put(k, liveRec[k]);
+  let free = sanitizeHubCanvas({ canvas: next });
+  for (const facet of canvasLookFacets(live, next)) {
+    if (grows(facet.change)) free = canvasWithoutFacet(live, free, facet);
   }
-  for (const k of HUB_CANVAS_LOOK_KEYS) {
-    if (k === 'media' || k === 'elements') continue;
-    if (grows(refChange(asText(live[k]), asText(next[k])))) put(k, liveRec[k]);
-  }
-  if (next.elements) {
-    const elements: Record<string, HubElementStyle> = {};
-    for (const [key, style] of Object.entries(next.elements) as Array<[string, HubElementStyle]>) {
-      const was = live.elements?.[key as keyof typeof live.elements];
-      const el: Record<string, unknown> = { ...style };
-      for (const field of HUB_ELEMENT_PRO_FIELDS) {
-        if (grows(refChange(asText(was?.[field]), asText(style[field])))) {
-          if (was?.[field] === undefined) delete el[field];
-          else el[field] = was[field];
-        }
-      }
-      if (grows(refChange(runFonts(was), runFonts(style))) && style.runs) {
-        const liveFont = (r: { start: number; end: number }) =>
-          was?.of === style.of ? was?.runs?.find((w) => w.start === r.start && w.end === r.end)?.font : undefined;
-        const withoutFont = (r: HubElementRun): HubElementRun => {
-          const { font: _font, ...rest } = r;
-          return rest;
-        };
-        let runs: HubElementRun[] = style.runs.map((r) => {
-          const f = liveFont(r);
-          return f ? { ...withoutFont(r), font: f } : withoutFont(r);
-        });
-        // Put back exactly, or not at all: a partial font set would still be a change.
-        if (runFonts({ ...style, runs }) !== runFonts(was)) runs = runs.map(withoutFont);
-        runs = runs.filter((r) => 'font' in r || 'color' in r || 'size' in r);
-        if (runs.length > 0) el.runs = runs;
-        else {
-          delete el.runs;
-          delete el.of;
-        }
-      }
-      if (Object.keys(el).length > 0) elements[key] = el as HubElementStyle;
-    }
-    put('elements', Object.keys(elements).length > 0 ? elements : undefined);
-  }
-  if (next.slots) {
-    out.slots = next.slots.map((slot, i) => {
-      if (!grows(refChange(slotMediaRef(live, i), slotMediaRef(next, i)))) return slot;
-      const { media: _m, kind: _k, ...words } = slot;
-      const was = live.slots?.[i];
-      return was?.media ? { ...words, media: was.media, ...(was.kind ? { kind: was.kind } : {}) } : words;
-    });
-  }
-  if (grows(refChange(asText(live.video), asText(next.video)))) put('video', live.video);
-  const free = sanitizeHubCanvas({ canvas: out });
   return grows(canvasLookChange(live, free)) ? live : free;
 }
 
@@ -1015,6 +1117,22 @@ export function mainGroundChange(live: HubMainGround | null, next: HubMainGround
     refChange(poster(live), poster(next)),
     refChange(tint(live), tint(next)),
   );
+}
+
+/**
+ * Could one of the couple's own scenes be in front of guests — live (`{}`), or
+ * with a draft laid over it? The guest page has TWO readers
+ * (`widgetShouldRender` reads the eye; `openBrowseSectionVisible` lets a
+ * `shown` mode win over it), so "on" is on under EITHER — fail-closed: a state
+ * one reader would draw counts as shown.
+ */
+function ownSceneOn(
+  row: HubLiveState['widgets'][number],
+  w: Pick<HubDraftWidget, 'mode' | 'is_visible'>,
+): boolean {
+  const visible = (w.is_visible ?? row.is_visible ?? true) !== false;
+  const mode = w.mode ?? row.mode ?? 'auto';
+  return visible || mode === 'shown';
 }
 
 /**
@@ -1055,11 +1173,36 @@ export function classifyHubDraft(
       orphans.push(type);
       continue;
     }
+    /* 🎬 A SCENE OF THEIR OWN, SHOWN FOR THE FIRST TIME, IS PRO — AT APPLY
+       (owner 2026-09-28, *"they can edit it with pro features. but need to
+       upgrade to pro when clicked on apply"*). "+ Add a scene" now works for a
+       free couple in the Maker: the row is inserted HIDDEN (`ADDED_SCENE_LIVE`)
+       and the draft says shown, so the gate moved from the door to here. Only a
+       couple's OWN scene that guests do not see today is asked — putting it in
+       front of guests is adding a look (`lookWriteAllowed`'s 'add'); taking one
+       off, and every shipped section's show / hide, stay free. */
+    const showsOwnScene = isCustomSectionType(type) && !row.is_always_on && !ownSceneOn(row, {}) && ownSceneOn(row, w);
     if (w.mode !== undefined && !row.is_always_on && w.mode !== (row.mode ?? 'auto')) {
-      items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'mode', value: w.mode, change: 'change', pro: false });
+      items.push({
+        kind: 'widget',
+        widgetType: type,
+        widgetId: row.widget_id,
+        field: 'mode',
+        value: w.mode,
+        change: showsOwnScene && w.mode === 'shown' ? 'add' : 'change',
+        pro: showsOwnScene && w.mode === 'shown',
+      });
     }
     if (w.is_visible !== undefined && !row.is_always_on && w.is_visible !== (row.is_visible ?? true)) {
-      items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'is_visible', value: w.is_visible, change: 'change', pro: false });
+      items.push({
+        kind: 'widget',
+        widgetType: type,
+        widgetId: row.widget_id,
+        field: 'is_visible',
+        value: w.is_visible,
+        change: showsOwnScene && w.is_visible === true ? 'add' : 'change',
+        pro: showsOwnScene && w.is_visible === true,
+      });
     }
     if (w.display_order !== undefined && !row.is_always_on && w.display_order !== row.display_order) {
       items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'display_order', value: w.display_order, change: 'change', pro: false });
@@ -1162,6 +1305,9 @@ export function planHubDraftApply(
       const w = (remaining.widgets[item.widgetType] ??= {});
       if (item.field === 'canvas') w.canvas = item.value as HubSectionCanvas | null;
       else if (item.field === 'main') w.main = item.value as HubMainGround | null;
+      // A held scene of their own stays SHOWN in the draft, so the couple still sees it.
+      else if (item.field === 'mode') w.mode = item.value as HubSectionMode;
+      else if (item.field === 'is_visible') w.is_visible = item.value as boolean;
     }
   }
   return { apply, refused, remaining, orphans };
@@ -1278,7 +1424,12 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
    async functions, so its shapes live here)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo'] as const;
+/**
+ * `drop` (owner 2026-09-28, the Apply sheet): take ONE named Pro effect off the
+ * draft (`lib/hub-pro-effects.ts`), recomputed from the stored draft — the
+ * sheet sends only the effect's id.
+ */
+export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo', 'drop'] as const;
 export type HubDraftIntent = (typeof HUB_DRAFT_INTENTS)[number];
 
 export function isHubDraftIntent(v: unknown): v is HubDraftIntent {

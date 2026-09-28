@@ -1021,7 +1021,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       const mayShowStdFilm = await resolveProfile(printEvent.event_type ?? '')
         .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
         .catch(() => false);
-      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro, mayShowStdFilm });
+      // 💎 On the web a drafted Pro theme is the one being edited even without
+      // Pro — it is tried here and held at Apply (owner 2026-09-28, #6091). The
+      // shell keeps the ownership half of the gate.
+      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell, mayShowStdFilm });
       /* 🎂 The celebration's type decides Details' items and switches (DECISION_LOG
          "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
          unreadable profile is the generic one — never a wedding. */

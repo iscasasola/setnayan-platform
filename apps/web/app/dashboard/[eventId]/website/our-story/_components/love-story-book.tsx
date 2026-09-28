@@ -14,6 +14,8 @@ import {
 import { AddMomentLabel, MomentSheet } from './moment-sheet';
 import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 import { InMakerReturnTo } from './in-maker-return-to';
 import { formatCount } from '@/lib/format-number';
 
@@ -49,6 +51,8 @@ export type LoveStoryBookProps = {
   makerHref: string;
   guestHref: string | null;
   ownsPro: boolean;
+  /** 💎 Pro is usable because it is being TRIED (no Event Hub Pro yet) — Apply asks. */
+  tryingPro?: boolean;
   storeShell: boolean;
   proHref: string;
   proPrice: string | null;
@@ -322,7 +326,12 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[color:var(--ls-rule)] pt-6">
             <p className="text-[14px] text-[color:var(--ls-muted)]">
-              {p.ownsPro
+              {p.tryingPro ? (
+                <span className="inline-flex flex-wrap items-center gap-1.5">
+                  {`Up to ${FREE_MOMENT_CAP} stories, in your words, are free. More, and photos:`}
+                  <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" />
+                </span>
+              ) : p.ownsPro
                 ? 'Add as many moments as you like, with your photos.'
                 : `Up to ${FREE_MOMENT_CAP} stories, in your words, are free.`}
             </p>

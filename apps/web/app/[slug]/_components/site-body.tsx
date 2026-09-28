@@ -163,6 +163,7 @@ import {
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene } from '../_lib/editor-canvas';
+import { PreviewWayBack } from './preview-way-back';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { KeepOnHomeScreen } from './keep-on-home-screen';
@@ -378,6 +379,10 @@ type SiteBodyProps = {
    *  parent is the Maker, which would hear its `ready` / `edit` as the canvas's
    *  (`browsing-themes-never-moves-the-canvas.test.ts`). */
   themeTile?: boolean;
+  /** ↩ "Back to the Maker" — the Maker's address, or null. Non-null ONLY for a
+   *  verified host's "Preview the whole stage" tab (`previewWayBackHref`,
+   *  `_lib/editor-canvas.ts`); null for every guest, the canvas and its tiles. */
+  makerWayBack?: string | null;
   /** OWNER LAYER · FOUNDATION (2026-07-26). Non-null ONLY when the page
    *  server-verified this viewer's host membership of THIS event via
    *  `loadHostMembership` (see the owner-layer block in page.tsx). It travels
@@ -447,6 +452,7 @@ export async function SiteBody({
   canvasGuestBars = false,
   canvasOnly = null,
   themeTile = false,
+  makerWayBack = null,
   ownerCapability = null,
   vendorCapability = null,
   supplierDesk = null,
@@ -2609,6 +2615,10 @@ export async function SiteBody({
       {/* 🖼 Never in the Maker's canvas: its "Edit this site" link, tapped
           inside the canvas, loaded the Maker into itself. */}
       <OwnerRibbon model={isEditorCanvas ? null : ownerRibbon} />
+      {/* ↩ THE WAY BACK TO THE MAKER — the preview tab only (DECISION_LOG
+          2026-09-28). A sibling of both trees, like the ribbon: never inside the
+          chapters article, where a transform breaks `position: fixed`. */}
+      {isStagePreview && makerWayBack ? <PreviewWayBack href={makerWayBack} /> : null}
       {/* THE SUPPLIER'S RIBBON — mounted here for reason (2) above, and for one
           of its own: in the Save-the-Date phase the film covers the viewport at
           z-50 with the veil at z-60, and the supplier's strip renders in

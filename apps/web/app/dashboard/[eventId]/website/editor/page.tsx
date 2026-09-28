@@ -385,8 +385,11 @@ export default async function WebsiteEditorPage({
     signOrNull(draftedHero.photoRef),
     signOrNull(mainNow && !isHubMainFollow(mainNow) ? (mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? null)) : null),
   ]);
-  const mainThemeId = normalizeThemeId((event as { invite_theme?: string | null }).invite_theme) ?? 'house';
-  const currentThemeId = (event as { invite_theme?: string | null }).invite_theme ?? 'house';
+  /* 🎨 The theme being EDITED — drafted over live, since the theme is picked on
+     Details into the draft (2026-09-28), the same overlay the canvas wears. */
+  const themeNow = overlayHubDraftEvent(event as Record<string, unknown>, hubDraft).invite_theme;
+  const mainThemeId = normalizeThemeId(themeNow) ?? 'house';
+  const currentThemeId = mainThemeId;
   // This event's own "Open browsing" choice (the `open-browse` row below) —
   // which of `SectionsPanel`'s two visibility controls actually governs the
   // guest-facing render for it. Computed once, passed everywhere the panel is
@@ -1231,7 +1234,6 @@ export default async function WebsiteEditorPage({
       }}
       rows={rows}
       themes={themes}
-      themeHref={`${base}/guests/invite`}
       ownsPro={ownsPro}
       initialScene={typeof sceneParam === 'string' ? sceneParam : null}
       initialOpenRow={typeof openRow === 'string' ? openRow : null}

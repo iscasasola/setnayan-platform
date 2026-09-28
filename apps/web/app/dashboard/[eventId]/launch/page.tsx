@@ -16,7 +16,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { pickableInviteThemes, resolveInviteTheme } from '@/lib/invite-themes';
+import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
@@ -980,8 +982,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let specialMessage: string | null = printEvent.special_message;
       let rsvpAsk: RsvpAskConfig = sanitizeRsvpAskConfig(printEvent.rsvp_ask_config);
       let rsvpAskDrafted = false;
+      // 🎨 The theme being edited — drafted over live (picked on Details).
+      let themeSaved: unknown = printEvent.invite_theme;
       try {
         const d = await readHubDraft(supabase, eventId);
+        if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
         if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
         if (d && 'rsvp_ask_config' in d.events) {
           rsvpAsk = sanitizeRsvpAskConfig(d.events.rsvp_ask_config);
@@ -994,6 +999,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          line of wording — each read from its one home. A PAGE in the Maker's
          body (owner 2026-09-25): what the details feed is the page, these
          fields its controls. */
+      /* 🎨 THE THEME PICKER (owner 2026-09-28) — the ten, fenced to what this
+         celebration may wear (weddings only for the Pro ones, owner Q7 = A: an
+         unreadable profile is NOT a wedding), Pro as `printPro` measured it,
+         and the one the couple is editing through the one theme rule. */
+      const mayShowStdFilm = await resolveProfile(printEvent.event_type ?? '')
+        .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
+        .catch(() => false);
+      const theme = {
+        home: printEvent.slug ? `/${printEvent.slug}` : null,
+        themes: pickableInviteThemes({ mayShowStdFilm }).map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
+        current: resolveInviteTheme({ saved: themeSaved, ownsPro: printPro, mayShowStdFilm }),
+        ownsPro: printPro,
+        storeShell,
+        proHref: `/dashboard/${eventId}/studio/website-pro`,
+        // Never on the Maker's very first visit — its own welcome is showing.
+        tour: !firstVisit,
+      };
       details = {
         page: <MakerDetailsPage eventId={eventId} slug={printEvent.slug} stamp={String(Date.now())} />,
         controls: (
@@ -1014,6 +1036,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           // it, the saved choices, and the contrast-passing Mood Board colours.
           qr={{ ...qrLookChoicesFromRow(printEvent, printPro), storeShell }}
           qrStyleAction={updateQrStyle.bind(null, eventId)}
+          theme={theme}
         />
         ),
       };

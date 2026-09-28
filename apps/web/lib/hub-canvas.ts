@@ -1064,6 +1064,21 @@ export function hubCanvasMediaRefs(
   return [...out];
 }
 
+/**
+ * 🎞 THE STILL A GUEST SEES FOR A TEMPLATE SLOT'S CLIP — `stillRef` (the hero
+ * photo, the hero clip's documented stand-in) when any scene has a clip in a
+ * slot, so it signs in the page's ONE pass; `[]` otherwise (nothing extra to
+ * sign). The render decides whether the clip may play (`renderScene`).
+ */
+export function hubSlotClipStillRefs(
+  rows: readonly { config_json: unknown }[],
+  stillRef: string | null,
+): string[] {
+  if (!stillRef) return [];
+  const any = rows.some((row) => (sanitizeHubCanvas(row.config_json).slots ?? []).some((s) => s.kind === 'snippet'));
+  return any ? [stillRef] : [];
+}
+
 /* ══ THE MAIN BACKGROUND — behind every scene ════════════════════════════════
    Event Hub Maker Phase 10 (build plan §3; DECISION_LOG 2026-09-25 "ADAPTIVE
    THEME" and "OWNER ANSWERS — SIX CONTROLLER QUESTIONS" item 6). The

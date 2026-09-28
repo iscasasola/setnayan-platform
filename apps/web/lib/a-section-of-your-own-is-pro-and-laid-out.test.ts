@@ -264,7 +264,7 @@ test('⛔ save gates every intent, and a delete counts what it removed', () => {
 
 /* ══ THE EDITOR ══════════════════════════════════════════════════════════ */
 
-test('⛔ a free couple sees it NAMED and LOCKED — never an Add button, never hidden', async () => {
+test('💎 a free couple ADDS a scene on the web (Apply asks for Pro) — the shell still shows no Add', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SectionsPanel } = await import('../app/dashboard/[eventId]/website/editor/_components/sections-panel');
   const noop = () => undefined;
@@ -273,7 +273,7 @@ test('⛔ a free couple sees it NAMED and LOCKED — never an Add button, never 
     { widget_id: 'A', event_id: 'E', widget_type: 'custom_1', display_order: 1, is_visible: true, is_always_on: false, config_json: { custom: { body: 'We met in 2019.' } } },
     { widget_id: 'B', event_id: 'E', widget_type: 'custom_2', display_order: 2, is_visible: true, is_always_on: false, config_json: null },
   ];
-  const render = (ownsPro: boolean) =>
+  const render = (ownsPro: boolean, extra: Record<string, unknown> = {}) =>
     renderToStaticMarkup(
       React.createElement(SectionsPanel, {
         eventId: 'E',
@@ -287,15 +287,27 @@ test('⛔ a free couple sees it NAMED and LOCKED — never an Add button, never 
         addCustomAction: noop,
         ownsPro,
         customLock: LOCK,
+        ...extra,
       }),
     );
 
+  // 🌐 The web: "+ Add a scene" is there for a free couple too — the scene goes
+  // in hidden and Apply names it ("Scene of your own · …") until Pro.
   const free = render(false);
-  assert.doesNotMatch(free, /Add a scene|Add a section of your own/, 'no Add button for a free couple');
-  assert.match(free, /A section of your own/, 'but the feature is named');
-  assert.equal((free.match(/data-lock="yes"/g) ?? []).length, 2, 'locked twice: the empty slot and Add');
+  assert.match(free, /\+ Add a scene/, 'a free couple cannot add a scene on the web');
+  // An EMPTY slot guests can see is still a live words write the server refuses
+  // without Pro — it keeps its lock; the slot WITH words keeps its editor.
+  assert.equal((free.match(/data-lock="yes"/g) ?? []).length, 1, 'only the empty, visible slot is locked');
   assert.equal((free.match(/name="title"/g) ?? []).length, 1, 'the slot WITH words keeps its editor (grandfather)');
   assert.equal((free.match(/value="delete"/g) ?? []).length, 2, 'and both can still be removed');
+  // …but one guests do NOT see live (a scene just added) takes words freely.
+  const hidden = render(false, { hiddenLive: ['B'] });
+  assert.equal((hidden.match(/data-lock="yes"/g) ?? []).length, 0, 'a hidden scene of their own is locked');
+  assert.equal((hidden.match(/name="title"/g) ?? []).length, 2);
+
+  // 📵 The app-store shell: no Add for a free couple (the shell rule, unchanged).
+  const shell = render(false, { hideLocked: true });
+  assert.doesNotMatch(shell, /Add a scene|Add a section of your own/, 'an Add button in the store shell');
 
   const pro = render(true);
   // 🎬 Phase 5: "+" opens the 25 templates — there is no blank "Add a section"

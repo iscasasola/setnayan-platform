@@ -3,12 +3,15 @@
 import { MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { Check, MoreVertical, RotateCcw, Undo2 } from 'lucide-react';
 import { hubDraftAction } from '../hub-draft-actions';
-import { useMaker } from '../../launch/_components/maker-context';
+import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
+import { ApplyProSheet } from './apply-pro-sheet';
+import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effects';
 import {
   HUB_RESET_NEVER_TOUCHES,
   hubDraftPanelStaysOpen,
@@ -70,6 +73,13 @@ export type HubDraftBarProps = {
   readError?: boolean;
   /** A form's draft save that did not land, in words (`?draft_error=`, via `HubDraftDock`). */
   saveError?: string | null;
+  /**
+   * 💎 The draft's Pro effects by name and place (`HubDraftBarData.proEffects`)
+   * — non-empty means Apply opens the Apply sheet first. Empty in the shell.
+   */
+  proEffects?: readonly HubProEffectView[];
+  /** The Apply sheet's first-visit tour (`customer_apply_pro_v1`) — an element, drawn inside the open sheet. */
+  applyTour?: ReactNode;
 };
 
 /* The hidden field lives in `hub-draft-field.tsx` — a module with no server
@@ -158,8 +168,23 @@ const quietButton =
  * The ⋯ panel opens by itself when an action reports something to read, so an
  * Apply that held keys back is never a silent one — and closes on a clean one.
  */
-export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proHref, readError, saveError }: HubDraftBarProps) {
+export function HubDraftToolbar({
+  eventId,
+  summary,
+  storeShell,
+  priceLabel,
+  proHref,
+  readError,
+  saveError,
+  proEffects = [],
+  applyTour = null,
+}: HubDraftBarProps) {
   const maker = useMaker();
+  /* 💎 THE APPLY SHEET (owner 2026-09-28: *"need to upgrade to pro when clicked
+     on apply and point out the effect chosen"*). Apply opens it — never the
+     write — while the draft holds a Pro effect this event has not unlocked. */
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const asksForPro = !storeShell && proHref !== null && proEffects.length > 0;
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, result, run } = useDraftIntent(eventId);
   const [open, setOpen] = useState(false);
@@ -190,6 +215,46 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
     run(fields);
     setAsking(false);
   };
+  /** "Go to" — the stage it is on, the scene (or row / tool), then its part. */
+  const goTo = (effect: HubProEffectView) => {
+    const j = effect.jump;
+    setSheetOpen(false);
+    if (!j || !maker) return;
+    if (j.kind === 'scene') {
+      if (j.stages.length > 0 && !j.stages.includes(maker.stage)) maker.setStage(j.stages[0]!);
+      // A fixed scene (the hero) selects its own panel; the rest are scenes.
+      maker.select(j.fixed ? { kind: 'row', key: `f:${j.fixed}` } : { kind: 'scene', id: j.widgetId, tab: j.tab });
+      if (j.element) {
+        const detail = { key: j.fixed ? `f:${j.fixed}` : `w:${j.widgetType}`, widgetType: j.widgetType, el: j.element };
+        window.setTimeout(() => window.dispatchEvent(new CustomEvent(MAKER_OPEN_PART_EVENT, { detail })), 0);
+      }
+      return;
+    }
+    if (j.kind === 'main') maker.select({ kind: 'main' });
+    else if (j.kind === 'row') maker.select({ kind: 'row', key: j.key });
+    else maker.select({ kind: 'tool', key: j.key });
+  };
+  /* 💎 BACK FROM "UNLOCK PRO AND APPLY" (owner 2026-09-28). The purchase page
+     returns with `?apply=1`. Pro active → Apply now, no second tap; still no
+     Pro (cancelled, or under review) → the sheet again, the draft untouched.
+     The toolbar is mounted twice (phone + desktop): the first mount to run
+     takes the param off the address before it acts, so only one ever does. */
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(UNLOCK_AND_APPLY_PARAM) !== '1') return;
+    url.searchParams.delete(UNLOCK_AND_APPLY_PARAM);
+    window.history.replaceState(window.history.state, '', url.toString());
+    const next = unlockAndApplyOnReturn({
+      asked: true,
+      proEffects: proEffects.length,
+      hasChanges: summary.hasChanges,
+      storeShell,
+    });
+    if (next === 'apply') act({ intent: 'apply' });
+    else if (next === 'sheet') setSheetOpen(true);
+    // Once, on the render the purchase page lands on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /* The ⋯ panel follows the ANSWER, not the press: it opens when there is
      something to read (an error, a key Apply held back, Reset's note) and
      closes on a clean Apply · Undo · Restore — owner 2026-09-27, the panel
@@ -249,8 +314,27 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
         primary
         disabled={pending || !summary.hasChanges}
         disabledReason="No changes to apply"
-        onClick={() => act({ intent: 'apply' })}
+        onClick={() => (asksForPro ? setSheetOpen(true) : act({ intent: 'apply' }))}
       />
+      {/* Portalled to <body>: the toolbar sits in a glass bar, and a `backdrop-filter`
+          ancestor would make `position: fixed` hug the bar instead of the screen. */}
+      {sheetOpen && proHref ? createPortal(
+        <ApplyProSheet
+          effects={asksForPro ? proEffects : []}
+          priceLabel={priceLabel}
+          proHref={proHref}
+          pending={pending}
+          onGo={goTo}
+          onRemove={(e) => run({ intent: 'drop', effect: e.id })}
+          onApplyFree={() => {
+            setSheetOpen(false);
+            act({ intent: 'apply' });
+          }}
+          onClose={() => setSheetOpen(false)}
+          tour={applyTour}
+        />,
+        document.body,
+      ) : null}
       <details className="relative" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary
           aria-label="Draft details and Reset"
@@ -286,7 +370,7 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
               </p>
             ) : (
               <p className="text-sm text-ink/70">
-                <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} className="mr-1 align-middle" />
+                <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Hub Pro')} className="mr-1 align-middle" />
                 Apply needs Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
                 {proHref && (
                   <>

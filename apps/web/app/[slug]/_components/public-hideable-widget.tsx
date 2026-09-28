@@ -9,6 +9,7 @@ import type { InviteThemeId } from '@/lib/invite-themes';
 import { MakerEmptyScene, makerWordsLook } from './maker-empty-scene';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
@@ -183,6 +184,8 @@ function PublicHideableWidgetBody({
         config: widget.config_json,
         mediaUrls: canvasMediaUrls,
         facts: sceneFactsFor(event, { solemn: words.solemn }),
+        ownClipPlays,
+        clipStillRef: siteMediaServeRef(event.landing_page_hero_image_url),
       });
 
     case 'our_love_story':

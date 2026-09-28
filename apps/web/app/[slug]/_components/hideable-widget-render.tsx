@@ -9,6 +9,7 @@ import { sceneFactsFor } from '../_lib/scene-facts';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
@@ -225,6 +226,8 @@ function HideableWidgetBody({
         config: widget.config_json,
         mediaUrls: canvasMediaUrls,
         facts: sceneFactsFor(event, { solemn: words.solemn }),
+        ownClipPlays,
+        clipStillRef: siteMediaServeRef(event.landing_page_hero_image_url),
       });
 
     case 'our_love_story':

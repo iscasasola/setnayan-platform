@@ -72,16 +72,26 @@ test('1 · Upload media is drawn for a couple with NO picture at all, and open t
   const chip = mediaChip(free);
   assert.ok(chip, 'the chip is drawn with zero existing media');
   assert.match(chip, />Upload media</);
-  assert.match(chip, /lucide-gem/, 'a small ◆ mark says it is Pro');
+  assert.match(chip, /data-paid-mark="try"/, 'a small ◆ PRO mark says it is Pro (`makerProMark`)');
+  assert.match(chip, />PRO</);
   assert.doesNotMatch(chip, /lucide-lock/, 'never a padlock — Pro is asked for at Apply');
   assert.doesNotMatch(chip, /\bdisabled=""/, 'the chip is tappable');
   const pro = await paintRow({ ownsPro: true, photoChoices: [], videoChoice: null });
   assert.ok(mediaChip(pro), 'drawn for a Pro couple with no picture too');
+  assert.match(mediaChip(pro), /data-paid-mark="unlocked"/, 'the owned mark once owned');
+  const src = stripComments(read(`${EDITOR}/_components/scene-background-row.tsx`));
+  assert.match(src, /const offerMedia = makerProUsable\(\{ owns: ownsPro, storeShell \}\);/, "#6091's one visibility rule");
+  assert.match(src, /const mediaMark = makerProMark\(\{ owns: ownsPro, storeShell \}\);/, "#6091's one mark rule");
 });
 
 test('1b · the store shell hides it from a free couple (the shell rule for every Pro control)', async () => {
-  const shell = await paintRow({ ownsPro: false, hidePro: true, photoChoices: [{ ref: STD, url: 'https://x.test/a.jpg' }] });
+  const shell = await paintRow({ ownsPro: false, storeShell: true, photoChoices: [{ ref: STD, url: 'https://x.test/a.jpg' }] });
   assert.equal(mediaChip(shell), '', 'no Pro pitch in the app-store shell');
+  const ownedShell = await paintRow({ ownsPro: true, storeShell: true });
+  assert.ok(mediaChip(ownedShell), 'a couple who owns Pro keeps it in the shell');
+  // "Remove this scene's photo" is always there once a photo is up — free, web or shell.
+  const up = await paintRow({ ownsPro: false, storeShell: true, canvas: { media: STD }, photoChoices: [{ ref: STD, url: 'https://x.test/a.jpg' }] });
+  assert.match(up, /Remove this scene’s photo/);
 });
 
 test('1c · with media up, the panel offers the pictures AND the in-place upload', async () => {
@@ -326,4 +336,31 @@ test('5b · only the verified Maker canvas turns the clip on; every other caller
   const bare = sceneGround({ config_json: { canvas: { kind: 'snippet', media: CLIP } } }, { [CLIP]: 'https://x.test/c.mp4' });
   assert.equal(bare.mediaUrl, null);
   assert.equal(resolveHubBackground(bare.canvas)?.kind, 'snippet');
+});
+
+/* ── 6 · A TEMPLATE SLOT'S CLIP MEETS THE SAME SEC-6 SWITCH ──────────────── */
+
+test('6 · a clip in a template slot never reaches a guest — they see the hero still; the Maker plays it', async () => {
+  const { renderScene } = await import('../app/[slug]/_components/scene-template');
+  const HERO_CLIP = `r2://setnayan-media/events/${E}/hero-video/c.mp4`;
+  const HERO = `r2://setnayan-media/events/${E}/landing-page-hero/h.jpg`;
+  const urls = { [HERO_CLIP]: 'https://x.test/hero.mp4', [HERO]: 'https://x.test/hero.jpg' };
+  const canvas = sanitizeHubCanvas({ canvas: { template: 1, slots: [{ media: HERO_CLIP, kind: 'snippet' }] } });
+  assert.ok(canvas.template, 'fixture is a template scene');
+  const draw = (extra: Record<string, unknown>) =>
+    renderToStaticMarkup(renderScene({ canvas, words: { title: 'Us', body: '' }, mediaUrls: urls, ...extra }) ?? React.createElement('i'));
+  const guest = draw({ clipStillRef: HERO });
+  assert.doesNotMatch(guest, /<video/, 'no unscreened clip in a guest\'s slot');
+  assert.match(guest, /hero\.jpg/, 'the guest sees the still');
+  const noStill = draw({});
+  assert.doesNotMatch(noStill, /<video|hero\.mp4/, 'no still → no picture, never the clip');
+  const host = draw({ ownClipPlays: true, clipStillRef: HERO });
+  assert.match(host, /<video[^>]*hero\.mp4/, 'the couple\'s Maker canvas plays it');
+  // Both dispatchers hand the switch and the still; SiteBody signs the still in its one pass.
+  for (const f of ['hideable-widget-render.tsx', 'public-hideable-widget.tsx']) {
+    const src = stripComments(read(`app/[slug]/_components/${f}`));
+    assert.match(src, /renderCustomSection\(\{[\s\S]*?ownClipPlays,\s*clipStillRef: siteMediaServeRef\(event\.landing_page_hero_image_url\),/, f);
+  }
+  const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
+  assert.match(body, /hubSlotClipStillRefs\(widgets, siteMediaServeRef\(event\.landing_page_hero_image_url\)\)/);
 });

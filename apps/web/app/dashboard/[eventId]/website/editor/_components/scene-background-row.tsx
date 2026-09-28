@@ -6,6 +6,7 @@ import { RotateCcw } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
+import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 import { makerSave } from '@/lib/maker-refresh';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
@@ -85,8 +86,9 @@ import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-pr
  * couple picks, uploads and sees media on the canvas, in the DRAFT only; Apply
  * holds it until Event Hub Pro (`planHubDraftApply`), so guests never see it.
  * The small ◆ Pro mark is information, never a lock. In the app-store shell a
- * free couple is not shown it at all (`hidePro`, the shell's rule for every Pro
- * control).
+ * free couple is not shown it at all (`makerProUsable`, the shell's rule for
+ * every Pro control); the mark is `makerProMark` — ◆ PRO while tried, the
+ * diamond once owned.
  */
 
 type Choice = 'none' | 'color' | 'diagonal' | 'glow' | 'glass' | 'frost' | 'media';
@@ -127,7 +129,7 @@ export function SceneBackgroundRow({
   videoChoice = null,
   sceneUploads = [],
   ownsPro,
-  hidePro = false,
+  storeShell = false,
   onPreview,
   onSaving,
   hubTheme,
@@ -170,8 +172,12 @@ export function SceneBackgroundRow({
   /** Photos and clips the scenes already wear from their own upload folder. */
   sceneUploads?: readonly SceneUpload[];
   ownsPro: boolean;
-  /** The app-store shell and no Event Hub Pro: the media chip is not drawn. */
-  hidePro?: boolean;
+  /**
+   * 💎 The app-store shell. On the web media behind a scene is TRIED without Pro
+   * (the pick is drafted; Apply names it and asks for Pro — owner 2026-09-28);
+   * only the shell hides it from a free couple (`makerProUsable`).
+   */
+  storeShell?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -293,7 +299,9 @@ export function SceneBackgroundRow({
   /* 🖼 ALWAYS DRAWN (owner 2026-09-28) — with nothing uploaded yet it opens the
      panel on its in-place upload. Only the store shell's free couple is not
      shown it (a Pro control there would be a paid pitch). */
-  const offerMedia = !hidePro;
+  const offerMedia = makerProUsable({ owns: ownsPro, storeShell });
+  /** ◆ PRO while tried, the diamond once owned (`makerProMark`); never a padlock. */
+  const mediaMark = makerProMark({ owns: ownsPro, storeShell });
   const [mediaOpen, setMediaOpen] = useState(false);
   useEffect(() => setMediaOpen(false), [widgetType]);
   const showMedia = current === 'media' || (mediaOpen && offerMedia);
@@ -398,13 +406,8 @@ export function SceneBackgroundRow({
                 {/* 💎 Media behind a scene is Event Hub Pro. The mark is
                     INFORMATION, never a lock (owner 2026-09-28) — the chip is
                     open to every couple; Apply asks for Pro. */}
-                {c === 'media' ? (
-                  <PaidMark
-                    state="unlocked"
-                    label={ownsPro ? 'Part of your Event Hub Pro' : 'Event Hub Pro — asked for when you Apply'}
-                    size="xs"
-                    tone="current"
-                  />
+                {c === 'media' && mediaMark ? (
+                  <PaidMark state={mediaMark} label={paidMarkLabel(mediaMark, 'Event Hub Pro')} size="xs" tone="current" />
                 ) : null}
               </span>
             </button>

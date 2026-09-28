@@ -321,7 +321,14 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
   }
 
   // ── THE CAP, ON THE SERVER ─────────────────────────────────────────────────
-  const ownsPro = await eventCoupleWebsiteProActive(supabase, eventId);
+  /* 💎 TRIED IN THE MAKER, PAID AT APPLY (owner 2026-09-28, verbatim: *"they
+     can edit it with pro features. but need to upgrade to pro when clicked on
+     apply"*). Into the DRAFT the free cap does not refuse: Apply asks the same
+     `momentCapRefusal` of live → drafted as a couple without Pro
+     (`eventItemIsPro`, 'love_story') and holds the story until Pro — the sheet
+     names it. The hundred-moment ceiling still refuses either way; a live
+     write is capped exactly as before. */
+  const ownsPro = drafting || (await eventCoupleWebsiteProActive(supabase, eventId));
   const refusal = momentCapRefusal({ before, after, ownsPro });
   if (refusal === 'max') return fail('Your story holds 100 moments — the most one Event Hub can show.');
   if (refusal) redirect(`${back}?pro=${refusal === 'photos_pro' ? 'photos' : 'stories'}`);

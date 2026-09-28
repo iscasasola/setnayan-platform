@@ -9,6 +9,9 @@ import type { PaidMarkState } from '@/lib/paid-mark';
  *
  *   state="locked"    → padlock  (not owned yet)
  *   state="unlocked"  → diamond  (paid / owned)
+ *   state="try"       → ◆ PRO    (not owned, but usable: an Event Hub Maker
+ *                                 pick lives in the draft and Apply asks for
+ *                                 Pro — owner 2026-09-28; never a lock)
  *
  * It replaces the scattered "Pro" pills, gold chips and bare lock glyphs that
  * each paid surface used to draw its own way. A text label may sit beside it
@@ -57,6 +60,9 @@ const TEXT: Record<PaidMarkSize, string> = {
 const TONE: Record<PaidMarkState, string> = {
   locked: 'text-ink/60',
   unlocked: 'text-terracotta-700',
+  // ◆ PRO on a control a free couple may still use (owner 2026-09-28) —
+  // neutral, like the padlock, so it never reads as "you own this".
+  try: 'text-ink/60',
 };
 
 export function PaidMark({
@@ -65,6 +71,7 @@ export function PaidMark({
   text,
   size = 'sm',
   tone = 'auto',
+  bare = false,
   className = '',
 }: {
   state: PaidMarkState;
@@ -75,6 +82,8 @@ export function PaidMark({
   size?: PaidMarkSize;
   /** `current` inherits the surrounding colour (for inverted surfaces). */
   tone?: 'auto' | 'current';
+  /** The glyph alone, even for ◆ PRO — for a badge on a toolbar icon with no room for a word. */
+  bare?: boolean;
   className?: string;
 }) {
   const Icon = state === 'locked' ? Lock : Gem;
@@ -89,7 +98,8 @@ export function PaidMark({
       <Icon aria-hidden className={GLYPH[size]} strokeWidth={2.25} />
     </span>
   );
-  if (!text) {
+  /* ◆ PRO — the word is part of this mark: the diamond alone reads "owned". */
+  if (!text && (state !== 'try' || bare)) {
     return (
       <span
         data-paid-mark={state}
@@ -105,7 +115,7 @@ export function PaidMark({
       className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-semibold ${TEXT[size]} ${colour} ${className}`.trim()}
     >
       {glyph}
-      <span>{text}</span>
+      <span className={state === 'try' && !text ? 'tracking-[0.08em]' : undefined}>{text ?? 'PRO'}</span>
     </span>
   );
 }

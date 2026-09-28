@@ -584,12 +584,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_theme_picker_v1: {
     key: 'customer_theme_picker_v1',
     label: 'Your theme',
-    blurb: 'First visit to Details: each theme on our sample wedding, and a tap to wear it.',
+    blurb: 'First visit to Details: each theme on our sample Event Hub, and a tap to wear it.',
     slides: [
       {
         Icon: Palette,
-        title: 'Every theme, on a sample wedding',
-        body: 'Each entry is our sample wedding, <strong>Maria &amp; Jose</strong>, in that theme — its Event Hub and its prints. Tap &#10530; to see one full screen; looking changes nothing.',
+        title: 'Every theme, on a sample Event Hub',
+        body: 'Each entry is our sample Event Hub, <strong>Maria &amp; Jose</strong>, in that theme — its Event Hub and its prints. Tap &#10530; to see one full screen; looking changes nothing.',
       },
       {
         Icon: CheckCircle2,

@@ -16,7 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { GENERIC_PROFILE, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { INVITE_THEMES, pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
@@ -56,6 +56,7 @@ import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails } from './_components/maker-details';
 import { loadYourEvent } from './_components/details-your-event-load';
+import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { detailsItemFor, makerToolFor } from '@/lib/maker-details-items';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { GuestCardBody } from '../guests/_components/guest-card-body';
@@ -1021,6 +1022,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
         .catch(() => false);
       const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro, mayShowStdFilm });
+      /* 🎂 The celebration's type decides Details' items and switches (DECISION_LOG
+         "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
+         unreadable profile is the generic one — never a wedding. */
+      const detailsProfile = await resolveProfile(printEvent.event_type ?? '').catch(() => GENERIC_PROFILE);
       const themes = pickableInviteThemes({ mayShowStdFilm });
       /* 🖨 THE COUPLE'S OWN PRINTS, folded in from Prints & Tickets (owner
          2026-09-28: "1 fold prints and tickets into details") — drawn in the
@@ -1100,7 +1105,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               tour: !firstVisit,
               chosen: themeSaved !== null && themeSaved !== undefined,
             }}
-                  menu={{
+            prints={prints}
+            menu={{
               saved: stored.menu,
               ...menuSources,
               flash: one(search.menu_saved) ? 'saved' : one(search.menu_error) ? 'error' : null,
@@ -1115,6 +1121,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             hasGifts={egifts.length > 0}
             flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
             stamp={String(Date.now())}
+            eventContext={{ profile: detailsProfile, solemn: eventWordsFromProfile(detailsProfile).solemn }}
             initialItem={detailsItemFor({
               tool: one(search.tool),
               item: one(search.item),
@@ -1217,7 +1224,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           ? ({ kind: 'tool', key: tool } as const)
           : null;
       })()}
-      prints={prints}
       details={details}
       rsvp={rsvp}
       storeShell={storeShell}

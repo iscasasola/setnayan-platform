@@ -242,7 +242,7 @@ export function MakerThemeGallery({
           Samples · Maria &amp; Jose
         </span>
         <InfoTip label="About the samples" align="start">
-          Each theme on our sample wedding — its page and its prints. Tap one and your own Event Hub and every print wear
+          Each theme on our sample Event Hub — its page and its prints. Tap one and your own Event Hub and every print wear
           it. Guests see a new theme when you press Apply.
         </InfoTip>
       </p>

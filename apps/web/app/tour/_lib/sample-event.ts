@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * THE single trust boundary for the public, no-login Maria & Jose tour.
@@ -41,7 +42,13 @@ const readSample = cache(async () => {
     .eq('event_type', 'wedding')
     .limit(1)
     .maybeSingle();
-  if (error || !data || data.is_sample !== true || data.slug !== SAMPLE_SLUG) return null;
+  // A refused read is SAID (Sentry + console), never only a null — the tour's
+  // 404 and Details' "no sample" would otherwise look like no sample exists.
+  if (error) {
+    logQueryError('tour.readSample', error, { slug: SAMPLE_SLUG }, 'graceful_degrade');
+    return null;
+  }
+  if (!data || data.is_sample !== true || data.slug !== SAMPLE_SLUG) return null;
   return data;
 });
 

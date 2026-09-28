@@ -175,7 +175,7 @@ const ORDERABLE = new Set<string>(EDITORIAL_ORDERABLE_KEYS);
  * resolver admits a custom key only when its column exists — but nothing else
  * (a locked-close key, junk, a forged namespace) is ever kept. Empty → null.
  */
-export function readSectionOrder(raw: unknown): string[] | null {
+export function readStorableSectionOrder(raw: unknown): string[] | null {
   if (!Array.isArray(raw)) return null;
   const out: string[] = [];
   const seen = new Set<string>();
@@ -248,7 +248,7 @@ export function postEventArrangementOf(draftJson: unknown): PostEventArrangement
   const d = isObj(draftJson) ? draftJson : {};
   return {
     sections: readSectionsOff(d.sections),
-    sectionOrder: readSectionOrder(d.sectionOrder),
+    sectionOrder: readStorableSectionOrder(d.sectionOrder),
     sceneLooks: readSceneLooks(d.sceneLooks),
     customIds: readCustomColumns(d).map((c) => c.id),
   };
@@ -264,7 +264,7 @@ export function sanitizePostEventDraft(raw: unknown): PostEventDraft | undefined
   const out: PostEventDraft = {};
   if ('sections' in raw && isObj(raw.sections)) out.sections = readSectionsOff(raw.sections);
   if ('sectionOrder' in raw && (raw.sectionOrder === null || Array.isArray(raw.sectionOrder))) {
-    out.sectionOrder = readSectionOrder(raw.sectionOrder);
+    out.sectionOrder = readStorableSectionOrder(raw.sectionOrder);
   }
   if ('sceneLooks' in raw && isObj(raw.sceneLooks)) out.sceneLooks = readSceneLooks(raw.sceneLooks);
   return Object.keys(out).length > 0 ? out : undefined;

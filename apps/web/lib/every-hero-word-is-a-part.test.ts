@@ -37,16 +37,15 @@ import {
   sanitizeHubLinkWords,
 } from './element-style';
 import { HERO_DESIGNS, type HeroDesignId } from './hero-design';
+import { invitationCard } from '../app/[slug]/_lib/invitation-card';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
-const CARD = {
-  eyebrow: 'Together with their families',
-  line: 'invite you to celebrate their wedding',
-  timeLabel: '1:30 PM',
-  hubHref: '#details',
-  hubLabel: HUB_LINK_DEFAULT_WORDS,
-};
+/** The card as the guest page builds it — the real href and the real default words. */
+const CARD = invitationCard({
+  words: { solemn: false, twoPeople: true, eventWord: 'wedding' },
+  firstStartAt: '2026-12-18T13:30:00+08:00',
+})!;
 
 async function hero(props: Record<string, unknown>): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -76,7 +75,8 @@ for (const design of HERO_DESIGNS) {
     const html = await hero({ design, elements });
     const link = linkOf(html);
     assert.ok(link, `${design}: no link drawn`);
-    assert.match(link!, /<a href="#details"/, 'the link keeps its anchor');
+    assert.match(link!, new RegExp(`<a href="${CARD.hubHref}"`), 'the link keeps its anchor');
+    assert.equal(CARD.hubHref, '#site-details');
     assert.match(link!, />See you there</, 'the couple’s words');
     assert.doesNotMatch(link!, new RegExp(HUB_LINK_DEFAULT_WORDS), 'the card’s words are replaced, not added to');
     assert.match(link!, /aria-hidden="true">↓</, 'the ↓ stays with the words');
@@ -87,6 +87,7 @@ for (const design of HERO_DESIGNS) {
 /* ═══ 2 · NONE CHOSEN, OR CLEARED → THE CARD'S OWN WORDS ═══ */
 
 test('2 · no words chosen, or words cleared → the card’s own words, never an empty link', async () => {
+  assert.equal(CARD.hubLabel, HUB_LINK_DEFAULT_WORDS, 'the card draws the default words');
   const before = await hero({});
   assert.match(linkOf(before)!, new RegExp(`>${HUB_LINK_DEFAULT_WORDS}<`));
   for (const cleared of ['', '   ', '\n']) {
@@ -170,7 +171,7 @@ type Node = { tag: string; attrs: Record<string, string>; parent: Node | null };
 function textsOf(html: string): Array<{ text: string; chain: Node[] }> {
   const out: Array<{ text: string; chain: Node[] }> = [];
   const VOID = new Set(['br', 'hr', 'img', 'input', 'meta', 'link', 'source']);
-  let cur: Node | null = null;
+  let cur = null as Node | null;
   const re = /<!--[\s\S]*?-->|<\/([a-zA-Z0-9]+)>|<([a-zA-Z0-9]+)((?:\s+[^\s=>/]+(?:="[^"]*")?)*)\s*(\/?)>|([^<]+)/g;
   for (let m = re.exec(html); m; m = re.exec(html)) {
     if (m[0].startsWith('<!--')) continue;

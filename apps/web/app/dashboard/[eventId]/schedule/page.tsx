@@ -101,7 +101,8 @@ import {
 } from './_components/vendor-meetings-section';
 import { venueNowMs } from '@/lib/schedule';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { detailsDoorHref, detailsIsTheDoor } from '@/lib/maker-details-door.server';
+import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
+import { detailsDoorHref } from '@/lib/maker-details-items';
 import { formatCount } from '@/lib/format-number';
 // ── Schedule rebuild, slice 1 (2026-09-27) ─────────────────────────────────
 // The Event Day view becomes the approved prototype's time rail

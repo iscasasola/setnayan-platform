@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import type { LoveStoryChapter } from '@/lib/love-story-moments';
 import { useMaker } from '../../../launch/_components/maker-context';
+import { detailsItemOfSelection } from '@/lib/maker-details-selection';
 import { askThePageToOpen, queueOpen, type LoveStoryOpenAsk } from './love-story-open';
 
 export type PanelMoment = { id: string; when: string; line: string; hidden: boolean };
@@ -38,7 +39,8 @@ export function ChapterMoments({
   const ask = (a: LoveStoryOpenAsk) => {
     setNote(null);
     if (askThePageToOpen(a)) return;
-    const onPage = maker?.selection?.kind === 'tool' && maker.selection.key === 'love-story';
+    // Love Story's page is Details › Love Story now (part 2b).
+    const onPage = detailsItemOfSelection(maker?.selection ?? null) === 'love-story';
     if (maker && !onPage) {
       queueOpen(a);
       maker.select({ kind: 'tool', key: 'love-story' });

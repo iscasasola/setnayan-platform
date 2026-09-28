@@ -60,7 +60,7 @@ import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
-import { detailsItemApplies, detailsItemFor, makerToolFor } from '@/lib/maker-details-items';
+import { detailsItemApplies, detailsItemFor, makerToolFor, type DetailsItemKey } from '@/lib/maker-details-items';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { GuestCardBody } from '../guests/_components/guest-card-body';
 import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
@@ -980,10 +980,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let details: { page: ReactNode; controls: ReactNode } | null = null;
   /* ✍ The Details items' own editors — ONE set, drawn by Details and by the
      stage's inspector when a fact is tapped there (`detailsFactEditors`). */
-  let factEditors: Partial<Record<import('@/lib/maker-details-items').DetailsItemKey, ReactNode>> = {};
+  let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleCountRes, storyPro] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleCountRes] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
@@ -1002,8 +1002,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       supabase.from('events').select('love_story').eq('event_id', eventId).maybeSingle(),
       // 🗓 How many moments the schedule holds — Details › Schedule's ✓ (a refused read says so, never "0").
       supabase.from('event_schedule_blocks').select('event_id', { count: 'exact', head: true }).eq('event_id', eventId),
-      // Whether a sixth Love Story moment may be added — the Story row's own gate, as the viewer is shown it.
-      asViewed(eventCoupleWebsiteProActive(supabase, eventId).catch(() => false)),
     ]);
     if (storyLiveRes.error) logQueryError('LaunchPage.loveStory', storyLiveRes.error, { event_id: eventId }, 'graceful_degrade');
     if (scheduleCountRes.error) logQueryError('LaunchPage.scheduleCount', scheduleCountRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -1178,7 +1176,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         specialMessage,
         specialMessageAction: updateSpecialMessage.bind(null, eventId),
         pabuyaMessage: printEvent.pabuya_message,
-        loveStory: withStory ? { story: story!, ownsPro: storyPro } : null,
+        // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
+        loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
       });
       /* 🗓 THE SCHEDULE, moved whole — the shipped page, streamed so the Maker
          never waits on it, with its own query when Details › Schedule is the item. */

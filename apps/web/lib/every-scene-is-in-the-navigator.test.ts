@@ -182,7 +182,7 @@ test('🛑 a tap only SELECTS — no tile or canvas tap leaves the stage (owner:
     assert.notEqual(selectionForTile(tile).kind, 'tool', `navigator tap on ${k} opens a page`);
     assert.notEqual(selectionForCanvasKey(`f:${k}`, [])?.kind, 'tool', `canvas tap on ${k} opens a page`);
   }
-  assert.match(SHELL, /if \(selection\?\.kind !== 'tool' \|\| !isMakerPageKey\(selection\.key\)/, 'the made-once page opens only for a tool selection');
+  assert.match(SHELL, /if \(selection\?\.kind !== 'tool' \|\| !isMadeOnceKey\(selection\.key\)\) return null;/, 'the made-once page opens only for a tool selection');
   // Every click handler in the navigator: no tool, no stage change, no router.
   const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('</nav>'));
   const handlers = [...nav.matchAll(/onClick=\{([\s\S]*?)\}\s*(?:\n|\s+[a-zA-Z-]+=|\/?>)/g)].map((m) => m[1]!);

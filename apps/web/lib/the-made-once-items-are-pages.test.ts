@@ -25,6 +25,7 @@ import React from 'react';
 
 import { stripComments } from './strip-comments';
 import { MAKER_PAGE_KEYS, makerPageCanvasSrc, makerPageStage } from './maker-made-once-pages';
+import { TOOLS_IN_DETAILS } from './maker-details-selection';
 
 /* tsx compiles the components to the CLASSIC runtime, so React must be global
    before they are imported (the set-up `hub-stage-renders.test.ts` documents). */
@@ -46,7 +47,13 @@ const POP_UP = [
 test('the five are the bar’s made-once group, and the pure rule draws each where it should', async () => {
   const { MAKER_BAR } = await import(`../${L}/maker-bar`);
   const madeOnce = (MAKER_BAR as Array<{ key: string; group: string }>).filter((i) => i.group === 'made-once').map((i) => i.key);
-  assert.deepEqual([...MAKER_PAGE_KEYS].sort(), [...madeOnce].sort(), 'every made-once bar item is a page');
+  // 📦 Details part 2b: Love Story and RSVP left the bar — their pages are Details
+  // items (`TOOLS_IN_DETAILS`); every other page is still a bar item.
+  assert.deepEqual(
+    [...MAKER_PAGE_KEYS].sort(),
+    [...madeOnce, ...Object.keys(TOOLS_IN_DETAILS)].sort(),
+    'every made-once page is a bar item or a Details item',
+  );
 
   // Hero: the Invitation or On the Day as edited; else the Invitation.
   assert.equal(makerPageStage('hero', 'save_the_date'), 'rsvp');
@@ -187,10 +194,11 @@ test('Hero · Reveal · Logo · Love Story each render as a page in the body, wi
   assert.match(logo, /data-maker-page-body=""[\s\S]*data-stub="logo-studio"/, 'the studio IS the body');
   assert.doesNotMatch(logo, /data-maker-page-controls=""/, 'the studio lays its own panel beside its canvas');
 
+  // 📦 Love Story is Details › Love Story now (part 2b): the work area draws no
+  // page of its own for it — the shell lands the ask in Details (`landInDetails`).
   const story = await paintWork({ kind: 'tool', key: 'love-story' });
-  assertIsAPage(story, 'love-story');
-  assert.match(story, /data-maker-page-body=""[\s\S]*data-stub="love-story-book"/, 'Our Love Story is the body');
-  assert.match(story, /data-maker-page-controls=""[\s\S]*data-stub="story-words"/, 'the story words sit beside it');
+  assert.doesNotMatch(story, /data-maker-page="love-story"/, 'Love Story is still a work-area page');
+  assert.doesNotMatch(story, /data-stub="love-story-book"/);
 });
 
 test('no navigator renders while any of the five is picked — it belongs to the four stages', async () => {
@@ -198,6 +206,8 @@ test('no navigator renders while any of the five is picked — it belongs to the
   // since it is just full create your logo". Details is drawn by the shell over
   // this area, and the navigator is not mounted under it either.
   for (const key of MAKER_PAGE_KEYS) {
+    // Love Story and RSVP never reach the work area — the shell lands them in Details.
+    if (Object.prototype.hasOwnProperty.call(TOOLS_IN_DETAILS, key)) continue;
     const html = await paintWork({ kind: 'tool', key });
     assert.doesNotMatch(html, /aria-label="Scenes"/, `${key}: the scene navigator rendered`);
     /* 🔥 2026-09-28 (owner: *"load everything so it runs smoothly"*): the stage
@@ -259,8 +269,11 @@ test('Details renders as a page in the Maker’s body, not a layer of its own', 
 
 test('Love Story: Our Love Story is the body, and a moment is added and edited IN PLACE', () => {
   const S = 'app/dashboard/[eventId]/website/our-story';
-  const editor = read('app/dashboard/[eventId]/website/editor/page.tsx');
-  assert.match(editor, /'love-story':[\s\S]{0,300}<OurStoryEditorPage[\s\S]{0,200}maker: '1'/, 'the Maker body draws the scrapbook page');
+  // 📦 Part 2b: the scrapbook is Details › Love Story's picture, drawn by the launch page.
+  const launch = read('app/dashboard/[eventId]/launch/page.tsx');
+  assert.match(launch, /<OurStoryEditorPage[\s\S]{0,200}maker: '1'/, 'Details draws the scrapbook page');
+  assert.match(read(`${L}/maker-details.tsx`), /'love-story': <div data-details-love-story-book="">\{loveStory\.book\}<\/div>/, 'the scrapbook is the item’s picture');
+  assert.doesNotMatch(read('app/dashboard/[eventId]/website/editor/page.tsx'), /<OurStoryEditorPage\b/, 'the scrapbook is drawn twice');
   const page = read(`${S}/page.tsx`);
   assert.match(page, /inMaker \? null : <MiniTour/, 'no second tour pops up inside the Maker');
   // Inside the Maker the moment opens in the page — the sheet, its portal and its trap are the standalone page's only.
@@ -299,9 +312,10 @@ test('the Details page shows what the details feed — the address and its QR, a
   assert.match(launch, /controls: null,/, 'the editor is the page’s own right column, not the shared strip');
 });
 
-test('RSVP renders as a page in the Maker’s body — the guest’s RSVP, its settings beside it', async () => {
-  // Guest pathway, owner 2026-09-27: "RSVP is its own made-once page in the
-  // Maker bar". Drawn by the SHELL like Details, from the launch page.
+test('RSVP is Details › RSVP — the guest’s RSVP as its picture, its settings as its editor', async () => {
+  // Guest pathway, owner 2026-09-27: "RSVP is its own made-once page". Details
+  // part 2b moved it WHOLE into Details › Story & plans: an old
+  // `?tool=rsvp-page` (and a scene's "Open RSVP editor") lands on the item.
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerShell } = await import(`../${L}/maker-shell`);
   const html = renderToStaticMarkup(
@@ -318,26 +332,29 @@ test('RSVP renders as a page in the Maker’s body — the guest’s RSVP, its s
       renderStamp: '1',
       more: null,
       hasWork: true,
-      rsvp: {
-        page: React.createElement('div', { 'data-stub': 'rsvp-preview' }),
-        controls: React.createElement('div', { 'data-stub': 'rsvp-settings' }),
+      details: {
+        page: React.createElement('div', { 'data-stub': 'details-page' }),
+        controls: null,
       },
     },
     React.createElement('div', { 'data-stub': 'work' }),
     ),
   );
-  assert.match(html, /data-maker-page="rsvp-page"/);
-  assert.match(html, /data-maker-page-body=""[\s\S]*data-stub="rsvp-preview"/, 'the guest’s RSVP is the body');
-  assert.match(html, /data-maker-page-controls=""[\s\S]*data-stub="rsvp-settings"/, 'the settings sit beside it');
+  assert.match(html, /data-maker-page="details"[\s\S]*data-stub="details-page"/, 'an RSVP ask opens Details');
+  assert.doesNotMatch(html, /data-maker-page="rsvp-page"/, 'RSVP is still a page of its own');
   assert.equal((html.match(/role="dialog"/g) ?? []).length, 1, 'only the ⋯ sheet is a dialog');
 
-  // The launch page hands RSVP its page (the guest's RSVP, framed) and its
-  // settings — and "What do you ask your guests?" MOVED here from Details.
+  // The launch page hands Details the RSVP item — the guest's RSVP (framed) and
+  // the shipped settings — and "What do you ask your guests?" is not typed twice.
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(launch, /makerPageCanvasSrc\([^)]*'rsvp-page'/, 'the RSVP page is the guest’s RSVP');
-  assert.match(launch, /<MakerRsvpSettings\b/, 'the RSVP settings sit beside it');
-  assert.match(launch, /rsvp=\{rsvp\}/, 'the shell is handed the RSVP page');
-  assert.doesNotMatch(read(`${L}/maker-details.tsx`), /MakerRsvp/, '"What do you ask your guests?" is still on Details');
+  assert.match(launch, /makerPageCanvasSrc\([^)]*'rsvp-page'/, 'the RSVP picture is the guest’s RSVP');
+  assert.match(launch, /settings: \(\s*<MakerRsvpSettings\b/, 'the RSVP settings are its editor');
+  assert.match(launch, /rsvp=\{rsvpItem\}/, 'Details is handed the RSVP item');
+  assert.doesNotMatch(launch, /rsvp=\{rsvp\}/, 'the shell is still handed an RSVP page');
+  const details = read(`${L}/maker-details.tsx`);
+  assert.doesNotMatch(details, /MakerRsvp/, '"What do you ask your guests?" is typed a second time in Details');
+  assert.match(details, /rsvp: <div data-details-rsvp-page=""[^>]*>\{rsvp\.page\}<\/div>/);
+  assert.match(details, /\.\.\.\(rsvp \? \{ rsvp: rsvp\.settings \} : \{\}\)/);
   const settings = read(`${L}/maker-rsvp-ask.tsx`);
   for (const section of ['one-at-a-time', 'who-can-rsvp', 'reply-by', 'requests']) {
     assert.match(settings, new RegExp(`data-rsvp-setting="${section}"`), `the RSVP page lost "${section}"`);

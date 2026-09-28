@@ -193,6 +193,19 @@ export function detailsItemHref(eventId: string, item: DetailsItemKey, extra = '
   return `/dashboard/${eventId}/launch?tool=details&item=${item}${extra}`;
 }
 
+/**
+ * An OLD page's address, landed on its Details item (part 2b — the Love Story
+ * and Schedule pages moved in whole), carrying that page's own query: a save's
+ * flash, a view, a lens. Empty values are dropped; every value is encoded.
+ */
+export function detailsDoorHref(eventId: string, item: DetailsItemKey, carry: Record<string, string | undefined>): string {
+  const extra = Object.entries(carry)
+    .filter((e): e is [string, string] => typeof e[1] === 'string' && e[1].length > 0)
+    .map(([k, v]) => `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('');
+  return detailsItemHref(eventId, item, extra);
+}
+
 /* ══ WORDS · STORY & PLANS (Details part 2b) ═══════════════════════════════ */
 
 /** The stages a scene is drawn on, in the stages' own words. */
@@ -279,35 +292,4 @@ export function wordsAndPlansItem(
     case 'rsvp':
       return { label: 'RSVP', sub: 'Questions · who can reply · reply by', usedOn: [PUBLIC_STAGE_LABELS.rsvp] };
   }
-}
-
-/**
- * ✍ TAP A FACT ON A STAGE → THE SAME DETAILS FIELD, ON THE RIGHT (owner
- * 2026-09-28, DECISION_LOG "DETAILS IS THE ONE FILL-IN AREA; STAGES ARE LOOK
- * AND MOTION; TAP IS A SHORTCUT": *"tapping a fact on a stage opens the SAME
- * Details field on the right, never a copy; design words (the joiner, the hero
- * link, scene headings) stay on the part"*).
- *
- * What a tap on the canvas names (the bridge's `edit` message: the section's
- * key and the part tapped, `editor-bridge.tsx`) → the Details item whose
- * editor opens. A FACT is the words themselves (`body`, or the scene tapped
- * where it has no parts); a heading or a label is a DESIGN word and is not
- * here, so it keeps its own part sheet. Data, so each Details part adds its own
- * rows — "Your event" adds the hero's names and date when its items exist.
- */
-export const STAGE_FACT_TAPS: ReadonlyArray<{ key: string; els: ReadonlyArray<string | null>; item: DetailsItemKey }> = [
-  { key: 'w:special_message', els: ['body', null], item: 'special-message' },
-  { key: 'w:our_love_story', els: ['body', null], item: 'love-story' },
-  { key: 'f:story', els: ['body', null], item: 'love-story' },
-];
-
-/** The Details item a canvas tap names, or null (a design word, or no fact there). */
-export function detailsItemForTap(key: string, el: unknown): DetailsItemKey | null {
-  const part = typeof el === 'string' ? el : null;
-  return STAGE_FACT_TAPS.find((t) => t.key === key && t.els.includes(part))?.item ?? null;
-}
-
-/** The fact a section's words ARE, whole (its Content) — the same table, read for the scene. */
-export function detailsItemForSection(key: string): DetailsItemKey | null {
-  return STAGE_FACT_TAPS.find((t) => t.key === key && t.els.includes('body'))?.item ?? null;
 }

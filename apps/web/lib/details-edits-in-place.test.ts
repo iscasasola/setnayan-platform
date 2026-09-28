@@ -30,6 +30,10 @@ test('the Details page links out to edit nothing it can edit in place', () => {
   const src = read('maker-details.tsx');
   assert.doesNotMatch(src, /Edit on Guest list|Add parents on your Guest list|Edit in [A-Z]|Write it ↗/);
   assert.match(src, /<PabuyaMessageEditor eventId=\{eventId\}/, 'the thank-you is typed where it prints');
-  assert.match(src, /<form action=\{specialMessageAction\} data-details-special=""/, 'the special message is typed where it prints');
+  // Part 2b: the special message is its OWN component (Details › Words, and the
+  // stage's tap), drawn under its print switch as the same node.
+  assert.match(src, /name="inc_special_message"[^>]*>[^<]*?\{facts\['special-message'\]\}\s*<\/Toggle>/, 'the special message is typed where it prints');
+  assert.match(src, /'special-message': \(\s*<SpecialMessageField\b/, 'the special message editor is the shared one');
+  assert.match(read('special-message-field.tsx'), /<form action=\{action\} data-details-special=""/, 'the special message posts its one writer');
   assert.match(src, /<ParentCards eventId=\{eventId\} parents=\{parents\} \/>/);
 });

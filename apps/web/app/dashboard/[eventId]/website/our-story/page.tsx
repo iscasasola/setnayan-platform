@@ -25,7 +25,8 @@ import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
 import { resolveMoments } from '@/lib/love-story-moments';
 import { readOurEvents } from './_components/our-events-read';
 import { readHubDraft } from '@/lib/hub-draft-store';
-import { detailsDoorHref, detailsIsTheDoor } from '@/lib/maker-details-door.server';
+import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
+import { detailsDoorHref } from '@/lib/maker-details-items';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 
 export const metadata = { title: 'Our Love Story' };

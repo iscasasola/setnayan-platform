@@ -19,9 +19,13 @@ const ALL = new Set<DetailsItemKey>(DETAILS_ITEM_KEYS);
 const BIRTHDAY = { ...GENERIC_PROFILE, eventType: 'birthday' };
 
 test('a birthday and a wake get every part-1 item — the theme, the address, the QR and every print', () => {
+  // Part 2b's one rule: the Love Story is drawn only where the type has two
+  // named people (`details-words-and-plans-fit-every-event.test.ts`); every
+  // other item — part 1's included — reaches every celebration.
   for (const p of [BIRTHDAY, WAKE_PROFILE, WEDDING_PROFILE]) {
     const keys = detailsNavigatorKeys(ctx(p), ALL).flatMap((g) => g.keys);
-    assert.deepEqual(keys, [...DETAILS_ITEM_KEYS], `${p.eventType} lost an item`);
+    const expected = p === WEDDING_PROFILE ? [...DETAILS_ITEM_KEYS] : DETAILS_ITEM_KEYS.filter((k) => k !== 'love-story');
+    assert.deepEqual(keys, expected, `${p.eventType} lost an item`);
   }
   assert.equal(ctx(WAKE_PROFILE).solemn, true, 'the wake fixture is not the solemn register');
 });

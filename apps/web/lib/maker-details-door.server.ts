@@ -3,7 +3,6 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { detailsItemHref, type DetailsItemKey } from '@/lib/maker-details-items';
 
 /**
  * 📦 IS THE MAKER'S DETAILS THIS VIEWER'S DOOR TO A PAGE THAT MOVED INTO IT?
@@ -31,13 +30,4 @@ export async function detailsIsTheDoor(supabase: SupabaseClient, eventId: string
   }
   if ((data as { member_type?: string | null } | null)?.member_type !== 'couple') return false;
   return surfaceEnabled(await resolveProfileByEvent(eventId), 'website');
-}
-
-/** The Details item's address, carrying the old page's own query (a save's flash, a view). */
-export function detailsDoorHref(eventId: string, item: DetailsItemKey, carry: Record<string, string | undefined>): string {
-  const extra = Object.entries(carry)
-    .filter((e): e is [string, string] => typeof e[1] === 'string' && e[1].length > 0)
-    .map(([k, v]) => `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('');
-  return detailsItemHref(eventId, item, extra);
 }

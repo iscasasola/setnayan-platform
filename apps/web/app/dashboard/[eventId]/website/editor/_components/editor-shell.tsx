@@ -29,6 +29,9 @@ import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
 import { DetailsBoundField } from './details-bound-field';
+import { detailsItemForSection, detailsItemForTap } from '@/lib/maker-details-selection';
+import type { DetailsItemKey } from '@/lib/maker-details-items';
+import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
 import { detailsFactOfScene, sceneBoundText, type DetailsFact } from '@/lib/details-bound';
 import { isWordsScene, tapOpensWords } from '@/lib/maker-scene-words';
 import { CanvasWordsContext, type CanvasWords } from './canvas-words';
@@ -69,7 +72,7 @@ import {
   type HubElementKey,
 } from '@/lib/element-style';
 import { MakerPage, MakerPageFrame, MakerPageSwitch as PageSwitch } from '../../../launch/_components/maker-page';
-import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
+import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
@@ -184,16 +187,16 @@ const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
 
 /**
  * The made-once group (Phase 6) — Logo · Hero · Reveal — each a workspace of its
- * own (`launch/_components/maker-made-once.tsx`), handed in as `madeOnce`; and
- * Love Story's own page, the scrapbook (Phase 7). Each opens as a PAGE in the
- * Maker's body (`MakerPage`), never over it.
+ * own (`launch/_components/maker-made-once.tsx`), handed in as `madeOnce`. Each
+ * opens as a PAGE in the Maker's body (`MakerPage`), never over it. (Love
+ * Story's page, the scrapbook, moved INTO Details — Story & plans › Love Story,
+ * Details part 2b — with its words beside it.)
  */
-export type MadeOnceKey = 'logo' | 'hero' | 'reveal' | 'love-story';
+export type MadeOnceKey = 'logo' | 'hero' | 'reveal';
 
 const TOOL_ROWS: Record<string, string[]> = {
   hero: ['hero'],
   reveal: ['save-the-date'],
-  'love-story': ['story'],
   'post-event': ['editorial'],
 };
 
@@ -481,9 +484,7 @@ export function MakerWork({
      back (`&bars=1`) so the couple can check nothing sits under them — never
      the host's own chrome. Owner 2026-09-25: *"add a switch to show or hide"*. */
   const [guestBars, setGuestBars] = useState(false);
-  /* The made-once pages' own switches: Love Story's scrapbook ⇄ the story as
-     guests meet it, and which chosen stage the Reveal page plays on. */
-  const [storyGuestView, setStoryGuestView] = useState(false);
+  /* The made-once pages' own switch: which chosen stage the Reveal page plays on. */
   const [revealPreview, setRevealPreview] = useState<LifecyclePhase | null>(null);
   useEffect(() => {
     try {
@@ -569,6 +570,30 @@ export function MakerWork({
     return tapOpensWords({ wordsScene: isWordsScene(type, canvases[type], ownWords), el, empty });
   };
   const postWords = (key: string, text: string) => broadcastToCanvas({ source: 'setnayan-editor', t: 'words', key, text });
+
+  /* ✍ TAP A FACT, EDIT IT ON THE RIGHT (Details part 2b; DECISION_LOG "DETAILS
+     IS THE ONE FILL-IN AREA; STAGES ARE LOOK AND MOTION; TAP IS A SHORTCUT").
+     A fact on a stage — the special message, the love story's words — is
+     edited by the Details item's OWN editor, handed down by the launch page
+     (`maker.factEditors`, built once by `detailsFactEditors`): the very nodes
+     Details draws, never a copy. A design word (a heading, a label) is not a
+     fact and keeps its part sheet. `sceneKey` lets the editor show what is
+     typed on that scene as it is typed. */
+  const factEditors = maker?.factEditors ?? null;
+  const factEditorsRef = useRef(factEditors);
+  factEditorsRef.current = factEditors;
+  const factEditorFor = (item: DetailsItemKey, sceneKey: string | null): ReactNode => {
+    const node = factEditors?.[item];
+    if (!node) return null;
+    return (
+      <DetailsFactSceneContext.Provider value={sceneKey}>
+        <section className="flex flex-col gap-2 px-1" data-maker-fact-editor={item}>
+          <p className="text-[12.5px] text-ink/60">The same field as in Details — saved once, shown everywhere.</p>
+          {node}
+        </section>
+      </DetailsFactSceneContext.Provider>
+    );
+  };
   useEffect(() => {
     const onWordsReady = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -608,6 +633,17 @@ export function MakerWork({
         select?.({ ...picked, tab: 'content' });
         setWordsFocus({ key: data.key, n: Date.now() });
         // The words are what is edited, not the part the tap outlined.
+        frameRef.current?.contentWindow?.postMessage(
+          { source: 'setnayan-editor', t: 'markEl', key: data.key, el: null },
+          window.location.origin,
+        );
+        return;
+      }
+      /* ✍ A FACT tapped (`detailsItemForTap`): its Details editor, on the right. */
+      const tapped = detailsItemForTap(data.key, data.el);
+      if (picked && tapped && factEditorsRef.current?.[tapped]) {
+        setElementTarget(null);
+        select?.(picked.kind === 'scene' ? { ...picked, tab: 'content' } : picked);
         frameRef.current?.contentWindow?.postMessage(
           { source: 'setnayan-editor', t: 'markEl', key: data.key, el: null },
           window.location.origin,
@@ -1240,7 +1276,7 @@ export function MakerWork({
   pageOpenRef.current = Boolean(pageKey);
   const revealStage = revealPreview && revealStages.includes(revealPreview) ? revealPreview : (revealStages[0] ?? null);
   const pageSrc = pageKey
-    ? makerPageCanvasSrc(publicLandingUrl, pageKey, stage, { guestView: storyGuestView, revealStage })
+    ? makerPageCanvasSrc(publicLandingUrl, pageKey, stage, { revealStage })
     : null;
   const pageFrameKey = `${pageKey}:${pageSrc}:${maker.renderStamp}`;
   const pageFrame = (title: string) =>
@@ -1270,25 +1306,6 @@ export function MakerWork({
       page={
         pageKey === 'logo' ? (
           madeOnce?.logo
-        ) : pageKey === 'love-story' ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <PageSwitch
-              label="Show your Love Story"
-              value={storyGuestView ? 'guests' : 'yours'}
-              onChange={(v) => setStoryGuestView(v === 'guests')}
-              options={[
-                ['yours', 'Your story'],
-                ['guests', 'As guests see it'],
-              ]}
-            />
-            {storyGuestView || !madeOnce?.['love-story'] ? (
-              pageFrame(`Your Love Story on ${PUBLIC_STAGE_LABELS.rsvp}`)
-            ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6" data-maker-love-story-book="">
-                {madeOnce['love-story']}
-              </div>
-            )}
-          </div>
         ) : pageKey === 'reveal' ? (
           <div className="flex min-h-0 flex-1 flex-col">
             {revealStages.length > 1 ? (
@@ -1306,9 +1323,7 @@ export function MakerWork({
         )
       }
       controls={
-        pageKey === 'logo' ? null : pageKey === 'love-story' ? (
-          <LoveStoryControls rows={rows} />
-        ) : pageKey === 'hero' ? (
+        pageKey === 'logo' ? null : pageKey === 'hero' ? (
           /* ONE SCENE — the hero (owner 2026-09-25: "hero is a 1 scene page that
              create a scene for your hero"): its photo or card, and — once the
              Main background ships (Maker P10, `main-background`, stored on the
@@ -1914,9 +1929,25 @@ export function MakerWork({
         <Inspector
           selection={selection}
           contentBound={(() => {
-            if (!selectedScene || !elementEditing || !detailsBound) return null;
-            if (detailsBound.ownWords.includes(selectedScene.type)) return null;
-            const sceneCanvas = elementEditing.canvases[selectedScene.type] ?? {};
+            if (!selectedScene) return null;
+            /* ✍ A FACT'S SCENE: its Content IS the Details item's own editor
+               (`maker.factEditors`, the very node Details draws — never a copy;
+               DECISION_LOG "…TAP IS A SHORTCUT"). A scene the couple changed
+               "just here" keeps the box that asked, so its ↺ is never lost. */
+            const sceneKey = `w:${selectedScene.type}`;
+            const sceneCanvas = elementEditing?.canvases[selectedScene.type] ?? {};
+            const ownWords = detailsBound?.ownWords.includes(selectedScene.type) ?? false;
+            const boundItem: DetailsItemKey | null = ownWords
+              ? null
+              : detailsFactOfScene(selectedScene.type, sceneCanvas) === 'message'
+                ? sceneCanvas.details?.message
+                  ? null
+                  : 'special-message'
+                : detailsItemForSection(sceneKey);
+            const shared = boundItem ? factEditorFor(boundItem, sceneKey) : null;
+            if (shared) return shared;
+            if (!elementEditing || !detailsBound) return null;
+            if (ownWords) return null;
             const fact = detailsFactOfScene(selectedScene.type, sceneCanvas);
             return fact ? (
               <DetailsBoundField
@@ -1992,6 +2023,14 @@ export function MakerWork({
           onClose={() => select?.(null)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
           onOpenTool={(key) => select?.({ kind: 'tool', key })}
+          fixedFact={
+            selection.kind === 'row' && selection.key.startsWith('f:')
+              ? (() => {
+                  const item = detailsItemForSection(selection.key);
+                  return item ? factEditorFor(item, null) : null;
+                })()
+              : null
+          }
           resize={toolsResize}
           onElement={
             elementEditing && selectionKey
@@ -2063,39 +2102,23 @@ function warmStageOrder(stage: LifecyclePhase): LifecyclePhase[] {
     .sort((a, b) => Math.abs(order.indexOf(a) - at) - Math.abs(order.indexOf(b) - at) || order.indexOf(a) - order.indexOf(b));
 }
 
-function isShellPage(key: string): key is 'details' | 'rsvp-page' {
-  return key === 'details' || key === 'rsvp-page';
+/** Details is drawn by the shell over this area (RSVP moved into it, part 2b). */
+function isShellPage(key: string): key is 'details' {
+  return key === 'details';
 }
 
 function madeOncePageKey(
   selection: MakerSelection,
   madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null,
-): Exclude<MakerPageKey, 'details' | 'rsvp-page'> | null {
-  if (selection?.kind !== 'tool' || !isMakerPageKey(selection.key) || isShellPage(selection.key)) return null;
-  if (selection.key === 'love-story') return 'love-story';
+): MadeOnceKey | null {
+  if (selection?.kind !== 'tool' || !isMadeOnceKey(selection.key)) return null;
   return madeOnce?.[selection.key] ? selection.key : null;
 }
 
-
-/** Love Story's controls, beside its page: the page's five chapters, each with
- *  its moments and its questions (the Story row, with its own bound action —
- *  `our-story/_components/love-story-chapters-panel.tsx`). */
-function LoveStoryControls({ rows }: { rows: Record<string, MakerRowPanel> }) {
-  const keys = (TOOL_ROWS['love-story'] ?? []).filter((k) => rows[k]);
-  return (
-    <section className="flex flex-col gap-3" data-made-once="love-story">
-      <p className="px-1 text-[13.5px] text-ink/75">
-        <InfoTip label="The same chapters as your page." ariaLabel="About your chapters" align="start">
-          Each moment is a scene on your {PUBLIC_STAGE_LABELS.rsvp}. Tap one to edit it on the page. A year is enough, and
-          five stories in your words are free. The answers under each chapter feed your story&rsquo;s paragraph.
-        </InfoTip>
-      </p>
-      {keys.map((k) => (
-        <RowBlock key={k} row={rows[k]!} />
-      ))}
-    </section>
-  );
+function isMadeOnceKey(key: string): key is MadeOnceKey {
+  return key === 'logo' || key === 'hero' || key === 'reveal';
 }
+
 
 /* ── 📖 POST EVENT TILES (Maker Phase 8) ─────────────────────────────────── */
 type PostEventTile = Extract<MakerStageList['shown'][number], { kind: 'post-event' }>;
@@ -2376,8 +2399,11 @@ function Inspector({
   onTab,
   onOpenTool,
   onElement,
+  fixedFact = null,
   resize,
 }: {
+  /** ✍ A fixed scene whose words are a Details fact (the story): that item's own editor. */
+  fixedFact?: ReactNode;
   /** The tools column's width and its drag handle (desktop). */
   resize: ToolsResize;
   /** 🧰 The scene's Format · Animate · Arrange tabs, and what Content adds (its own words, its parts). */
@@ -2524,8 +2550,9 @@ function Inspector({
     const f = fixedScenePanel(fixed);
     body = (
       <section className="space-y-3 px-1" data-maker-fixed-panel={fixed}>
-        <p className="text-[13px] text-ink/75">{f.line}</p>
-        {f.tool && f.button ? (
+        {fixedFact ? null : <p className="text-[13px] text-ink/75">{f.line}</p>}
+        {fixedFact}
+        {!fixedFact && f.tool && f.button ? (
           <button
             type="button"
             data-maker-open-editor={f.tool}

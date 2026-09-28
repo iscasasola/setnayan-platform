@@ -346,16 +346,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>([
-    'theme',
-    'address',
-    'qr',
-    'download',
-    ...WORDS_ITEM_KEYS,
-    ...storyPresent,
-    ...PRINT_SET_KEYS,
-    ...free.map((f) => f.key),
-  ]);
+  const present = new Set<DetailsItemKey>(['theme', 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,

@@ -55,7 +55,8 @@ export function LoveStoryYears({
                   ) : null}
                 </span>
                 <span className="font-pahina text-lg leading-none">{s.when || s.chapterLabel}</span>
-                <span className="font-sans text-xs uppercase tracking-[0.12em]">{s.chapterLabel}</span>
+                {/* The chapter under its date — never twice when the date is the chapter. */}
+                {s.when ? <span className="font-sans text-xs uppercase tracking-[0.12em]">{s.chapterLabel}</span> : null}
               </button>
             </li>
           );

@@ -125,7 +125,7 @@ export function RsvpStyledAnswers({
             key={option.key}
             className={
               stamp
-                ? 'flex min-h-16 cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-ink/25 px-2 text-center font-sans text-xs font-semibold uppercase leading-tight tracking-[0.12em] text-ink/70 transition-colors has-[:checked]:-rotate-2 has-[:checked]:border-solid has-[:checked]:border-terracotta has-[:checked]:text-terracotta-700'
+                ? 'flex min-h-16 min-w-0 cursor-pointer items-center justify-center break-words rounded-md border-2 border-dashed border-ink/25 px-1 text-center font-sans text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-ink/70 transition-colors has-[:checked]:-rotate-2 has-[:checked]:border-solid has-[:checked]:border-terracotta has-[:checked]:text-terracotta-700'
                 : option.key === 'maybe'
                   ? 'flex min-h-11 cursor-pointer items-center justify-center rounded-full px-5 text-sm text-ink/70 underline-offset-4 transition-colors has-[:checked]:bg-ink/[0.06] has-[:checked]:text-ink hover:underline'
                   : 'flex min-h-14 cursor-pointer items-center justify-center rounded-full bg-ink/[0.05] px-5 font-pahina text-xl italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream'

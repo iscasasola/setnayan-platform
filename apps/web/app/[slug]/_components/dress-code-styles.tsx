@@ -55,22 +55,35 @@ function DosAndDonts({ dos, donts }: { dos: readonly string[]; donts: readonly s
 
 /** B · The palette — the colours first, large, each with who wears it; the words after. */
 export function DressCodePalette({ title, description, palette, rows, dos, donts, genderNote }: DressCodeGeneral) {
-  const swatches = [
-    ...palette.map((p, i) => ({ key: `ours-${p.hex}-${i}`, hex: p.hex, name: p.name, who: 'Our colours' })),
-    ...rows.flatMap((r) => r.hexes.map((hex, i) => ({ key: `${r.key}-${hex}-${i}`, hex, name: '', who: r.label }))),
+  // One band per wearer — the couple's colours first, then each dressed role —
+  // so every colour is named with who wears it, once.
+  const bands = [
+    ...(palette.length > 0 ? [{ key: 'ours', who: 'Our colours', swatches: palette.map((p) => ({ hex: p.hex, name: p.name })) }] : []),
+    ...rows.filter((r) => r.hexes.length > 0).map((r) => ({ key: r.key, who: r.label, swatches: r.hexes.map((hex) => ({ hex, name: '' })) })),
   ];
   return (
     <section className="space-y-5" data-scene-style="palette">
       <p className="pahina-eyebrow">
         <span>Dress code</span>
       </p>
-      {swatches.length > 0 ? (
-        <ul className="grid grid-cols-2 gap-3" aria-label="The colours, and who wears them">
-          {swatches.map((s) => (
-            <li key={s.key} className="min-w-0">
-              <span aria-hidden className={`block h-20 w-full ${SWATCH_EDGE}`} style={{ backgroundColor: s.hex }} />
-              <span className="mt-1.5 block truncate text-sm text-ink">{s.name || s.who}</span>
-              {s.name ? <span className="block truncate text-xs text-ink/65">{s.who}</span> : null}
+      {bands.length > 0 ? (
+        <ul className="space-y-4" aria-label="The colours, and who wears them">
+          {bands.map((band) => (
+            <li key={band.key} data-palette-band={band.key}>
+              <div className="flex h-20 w-full overflow-hidden">
+                {band.swatches.map((sw, i) => (
+                  <span
+                    key={`${sw.hex}-${i}`}
+                    aria-hidden
+                    className={`h-full flex-1 ${SWATCH_EDGE}`}
+                    style={{ backgroundColor: sw.hex }}
+                  />
+                ))}
+              </div>
+              <p className="mt-1.5 text-sm text-ink">{band.who}</p>
+              {band.swatches.some((sw) => sw.name) ? (
+                <p className="text-xs text-ink/65">{band.swatches.map((sw) => sw.name).filter(Boolean).join(' · ')}</p>
+              ) : null}
             </li>
           ))}
         </ul>

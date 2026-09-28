@@ -184,7 +184,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         label: 'Theme',
         sub: 'Samples · Maria & Jose',
         done: theme.chosen,
-        usedOn: ['Every stage', 'Every print'],
+        usedOn: ['every stage', 'every print'],
         icon: still ? (
           // eslint-disable-next-line @next/next/no-img-element -- the committed still of the couple's theme on the sample
           <img src={still} alt="" className="h-full w-full object-cover object-top" />
@@ -194,9 +194,9 @@ export function MakerDetails(props: MakerDetailsProps) {
       };
     }
     if (k === 'address') {
-      return { label: 'Event Hub address', sub: address ?? 'Not set yet', done: Boolean(slug), usedOn: ['Every print', 'Every pass'], icon: <Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+      return { label: 'Event Hub address', sub: address ?? 'Not set yet', done: Boolean(slug), usedOn: ['every print', 'every pass'], icon: <Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     }
-    if (k === 'qr') return { label: 'QR code', done: Boolean(slug), usedOn: ['Every print', 'Every pass'], icon: <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    if (k === 'qr') return { label: 'QR code', done: Boolean(slug), usedOn: ['every print', 'every pass'], icon: <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     if (k === 'download') return { label: 'Download the set', sub: 'PDF · every pass', icon: <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     if ((PRINT_SET_KEYS as readonly string[]).includes(k)) {
       const p = k as PrintSetKey;

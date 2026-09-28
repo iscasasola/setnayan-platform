@@ -118,7 +118,9 @@ export function DetailsWorkspace({
           <div className="mx-auto flex max-w-4xl flex-col gap-4">
             {items.map((i) =>
               visited.has(i.key) ? (
-                <div key={i.key} hidden={i.key !== selected} data-details-body-item={i.key} className="flex flex-col gap-4">
+                /* 🔑 `hidden` AND no display class when hidden: Tailwind's `flex` beats the
+                   attribute's display:none, and every item would show at once. */
+                <div key={i.key} hidden={i.key !== selected} data-details-body-item={i.key} className={i.key === selected ? 'flex flex-col gap-4' : 'hidden'}>
                   <header className="flex flex-col gap-0.5">
                     <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
                       {groups.find((g) => g.items.some((x) => x.key === i.key))?.label}
@@ -211,7 +213,7 @@ export function DetailsWorkspace({
             className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2 ${sheetOpen ? '' : 'hidden lg:block'}`}
           >
             {items.map((i) => (
-              <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className="flex flex-col gap-3">
+              <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className={i.key === selected ? 'flex flex-col gap-3' : 'hidden'}>
                 {editors[i.key] ?? null}
               </div>
             ))}

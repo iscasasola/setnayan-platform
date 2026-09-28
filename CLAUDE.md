@@ -22,8 +22,9 @@ not re-ask them**. `STATUS.md` (refreshed 2026-09-28) has the measured productio
 - **The owner's account is internal (§10a, `eventHostIsInternal` in `lib/entitlements.ts`), so
   cale-ice is fully Pro** — no Pro CTA, no payment. Test the FREE flow on `testnayan1`.
 - **Test on the owner's real event cale-ice, but never press Apply, Undo or Restore there and never
-  type into it.** Its draft's undo history still holds an old "M & J" logo step, so Undo can bring it
-  back. Measure drafts with `event_site_drafts.updated_at` before and after.
+  type into it** — those change the owner's real draft. (Its undo history was trimmed on 2026-09-27 and
+  measured EMPTY on 2026-09-28, so the old "M & J" logo step is gone.) Measure drafts with
+  `event_site_drafts.updated_at` before and after.
 - **Builders must never drive the owner's signed-in Browser pane** — one moved his tab and dropped
   his session. Test on a harness or a separate tab the controller owns.
 - **A bracketed test path (`app/[slug]/…`, `app/dashboard/[eventId]/…`) passed alone runs ZERO

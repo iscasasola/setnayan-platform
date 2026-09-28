@@ -144,9 +144,10 @@ test('3c · nothing happens on hover or scroll — only a pick writes, and it wr
   assert.match(pickFn, /fd\.set\('intent', 'save'\)/, 'a pick is not a draft save');
   assert.match(pickFn, /JSON\.stringify\(\{ events: \{ invite_theme: id \} \}\)/);
   assert.match(pickFn, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'a pick does not land the Details way');
-  // The only click handler that writes is the pick; a locked tile is a link to the Pro page.
+  // The only click handler that writes is the pick — for EVERY tile, Pro ones
+  // included (2026-09-28: tried free, paid at Apply — no tile is a link away).
   assert.equal([...src.matchAll(/onClick=/g)].length, 1);
-  assert.match(src, /<Link href=\{proHref\} data-theme-tile-locked=""/);
+  assert.doesNotMatch(src, /data-theme-tile-locked|<Link\b/, 'a Pro tile still leads away from the Maker');
 });
 
 // ═══ 4 · load weight ══════════════════════════════════════════════════════
@@ -161,7 +162,7 @@ test('4a · one frame at a time, and only in view', () => {
   assert.equal(nextTileToLoad(order, { inView: new Set(), mounted: [], loading: null }), null, 'an unseen tile loads');
 });
 
-test('4b · rendered on the server, the picker loads NO frame — and a locked tile is the Pro door', async () => {
+test('4b · rendered on the server, the picker loads NO frame — and a Pro tile is a pick marked ◆ PRO', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerThemePicker } = await import('./maker-theme-picker');
   const html = renderToStaticMarkup(
@@ -172,17 +173,18 @@ test('4b · rendered on the server, the picker loads NO frame — and a locked t
       current: 'house',
       ownsPro: false,
       storeShell: false,
-      proHref: '/dashboard/e-1/studio/website-pro',
     }),
   );
   assert.match(html, /data-maker-theme-picker/);
   assert.doesNotMatch(html, /<iframe/, 'a frame was written before its tile was seen — ten pages would load at once');
   assert.equal([...html.matchAll(/data-theme-tile="/g)].length, 3);
-  // Classic is a pick; the Pro tiles are the way to Event Hub Pro, padlocked, never dimmed.
+  // 💎 Every tile is a pick (owner 2026-09-28: "they can edit it with pro
+  // features. but need to upgrade to pro when clicked on apply") — the Pro
+  // tiles wear ◆ PRO, never a padlock, never dimmed, never a link away.
   assert.match(html, /data-theme-tile="house"[\s\S]*?<button[^>]*aria-pressed="true"/);
-  assert.equal([...html.matchAll(/data-theme-tile-locked=""/g)].length, 2);
-  assert.match(html, /href="\/dashboard\/e-1\/studio\/website-pro"/);
-  assert.match(html, /Locked — part of Event Hub Pro/);
+  assert.equal([...html.matchAll(/data-theme-tile-pick=""/g)].length, 3, 'a tile is not a pick');
+  assert.equal([...html.matchAll(/data-paid-mark="try"/g)].length, 2, 'the two Pro tiles wear ◆ PRO');
+  assert.doesNotMatch(html, /data-paid-mark="locked"|data-theme-tile-locked|studio\/website-pro/);
   assert.doesNotMatch(html, /opacity-|grayscale/, 'a Pro tile is dimmed');
 });
 

@@ -44,6 +44,7 @@
  * product once lived in a single file.
  */
 import { PRO_THEMES } from '@/lib/invite-themes';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🎨 THE PRO THEMES, COUNTED — never typed. Owner 2026-09-29, *"Okay use modern
@@ -53,7 +54,7 @@ import { PRO_THEMES } from '@/lib/invite-themes';
  * shipped Pro themes (`PRO_THEMES` in `lib/invite-themes.ts`), so a tier flip
  * rewrites the sentence instead of leaving it to rot.
  */
-export const PRO_THEMES_ITEM = `${PRO_THEMES.length} Event Hub themes, invite link included` as const;
+export const PRO_THEMES_ITEM = `${formatCount(PRO_THEMES.length)} Event Hub themes, invite link included` as const;
 
 /** The nine Pro items, named the way the couple sees them. */
 export const WEBSITE_PRO_ITEMS = [

@@ -259,3 +259,24 @@ test('6b · no code a couple reads counts the themes by hand', () => {
   assert.ok(knowing > 20, `only ${knowing} files import the registry — the KNOWS net matches nothing`);
   assert.deepEqual(hits, [], 'a typed theme count — derive it from FREE_THEMES / PRO_THEMES');
 });
+
+test('6c · the picker and the tours name the free themes from the registry — "Classic is free" is gone', async () => {
+  const { TOURS } = await import('./tours');
+  const free = themeNames(FREE_THEMES);
+  const picker = TOURS.customer_theme_picker_v1.slides.map((s) => `${s.title} ${s.body}`).join(' ');
+  assert.ok(picker.includes(`${free} are free`), 'the theme tour does not name the free themes');
+  assert.doesNotMatch(picker, /padlock/i, 'the theme tour still promises a padlock (Pro themes are tried free since #6091)');
+  const tours = JSON.stringify(TOURS);
+  assert.ok(tours.includes(`Themes beyond ${free}`), 'the Pro tour does not name the free themes');
+  const src = read('app/dashboard/[eventId]/launch/_components/maker-theme-picker.tsx');
+  assert.match(src, /\{themeNames\(FREE_THEMES\)\} are free; the others come with Event Hub Pro\./);
+  // No typed free list survives in anything a couple reads.
+  const hits: string[] = [];
+  for (const root of ['app', 'lib']) {
+    for (const file of sourceFiles(join(WEB, root))) {
+      const m = /Classic is free|Themes beyond Classic\b|only Classic is free|other themes come with/i.exec(stripComments(readFileSync(file, 'utf8')));
+      if (m) hits.push(`${relative(WEB, file)}: "${m[0]}"`);
+    }
+  }
+  assert.deepEqual(hits, [], 'a typed free-theme list — use themeNames(FREE_THEMES)');
+});

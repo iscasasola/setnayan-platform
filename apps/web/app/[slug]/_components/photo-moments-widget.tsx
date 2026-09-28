@@ -118,7 +118,10 @@ export function PhotoMomentsWidget({
       {intro_copy.trim().length > 0 ? (
         <p className="text-sm text-ink/70">{intro_copy}</p>
       ) : null}
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* 📜 `data-hub-rows`: each moment arrives in turn in a "One part after
+          another" scene — the run of show's mechanism (globals.css "THE ROWS OF
+          A LIST"), never its own. */}
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" data-hub-rows="">
         {moments.map((m, i) => (
           <li
             key={`${m.title}-${i}`}

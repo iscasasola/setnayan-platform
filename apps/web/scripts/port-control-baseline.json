@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8e826b146e",
-  "routeCount": 434,
+  "generatedFromRef": "308c2f98e",
+  "routeCount": 435,
   "destinations": 942,
   "actions": 671,
-  "blocks": 4960,
+  "blocks": 4965,
   "routes": {
     "/": {
       "files": [
@@ -6070,6 +6070,7 @@
         "dashboard/[eventId]/launch/_components/maker-bar.ts",
         "dashboard/[eventId]/launch/_components/maker-context.tsx",
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
+        "dashboard/[eventId]/launch/_components/maker-hero-design.tsx",
         "dashboard/[eventId]/launch/_components/maker-logo.tsx",
         "dashboard/[eventId]/launch/_components/maker-made-once.tsx",
         "dashboard/[eventId]/launch/_components/maker-page.tsx",
@@ -6086,6 +6087,7 @@
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
         "dashboard/[eventId]/launch/_components/soft-post.tsx",
+        "dashboard/[eventId]/launch/_components/view-as-free.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx",
         "dashboard/[eventId]/launch/qr-look-actions.ts"
@@ -6134,6 +6136,7 @@
         "HubDraftField",
         "HubProOffer",
         "HubSavesImmediately",
+        "HubSectionCanvas",
         "HubStage",
         "Icon",
         "IconBtn",
@@ -6151,6 +6154,7 @@
         "MakerDetails",
         "MakerDetailsPage",
         "MakerDevice",
+        "MakerHeroDesignPicker",
         "MakerLogoDoor",
         "MakerPage",
         "MakerPageFrame",
@@ -6197,6 +6201,7 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
+        "ViewAsFreeStrip",
         "WebsiteEditorPage"
       ]
     },
@@ -8905,6 +8910,18 @@
         "Environment",
         "Lab3DBooth",
         "OrbitControls"
+      ]
+    },
+    "/dev/hero-lab": {
+      "files": [
+        "dev/hero-lab/mark.ts",
+        "dev/hero-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BespokeMonogramMark",
+        "PahinaMasthead"
       ]
     },
     "/dev/schedule-lab": {

@@ -135,7 +135,6 @@ export function MakerShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const [tour, setTour] = useState<'first' | 'again' | null>(firstVisit ? 'first' : null);
   const [viewAsRole, setViewAsRole] = useState<string | null>(null);
-  const setViewAsFree = useViewAsFreeToggle();
   const stageRoles = viewAs[stage] ?? [];
   const viewAsHref = viewAsRole ? (stageRoles.find((r) => r.role === viewAsRole)?.href ?? null) : null;
 
@@ -443,11 +442,7 @@ export function MakerShell({
                     </>
                   ) : null}
                   {/* 👁 Internal accounts only — see `view-as-free.tsx`. */}
-                  {viewAsFree ? (
-                    <MenuItem on={viewAsFree.on} onClick={() => { close(); setViewAsFree(!viewAsFree.on); }}>
-                      <span data-maker-view-as-free-row="">{VIEW_AS_FREE_LABEL}</span>
-                    </MenuItem>
-                  ) : null}
+                  {viewAsFree ? <ViewAsFreeRow on={viewAsFree.on} close={close} /> : null}
                   {applySlot ? (
                     <MenuItem onClick={() => { close(); window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT)); }}>
                       Reset this stage…
@@ -1076,6 +1071,17 @@ function setHiddenField(form: HTMLFormElement, name: string, value: string) {
   input.name = name;
   input.value = value;
   form.appendChild(input);
+}
+
+/** 👁 The "View as a free couple" row — its own component so the router hook
+ *  it needs mounts only for an internal viewer, inside the open menu. */
+function ViewAsFreeRow({ on, close }: { on: boolean; close: () => void }) {
+  const setViewAsFree = useViewAsFreeToggle();
+  return (
+    <MenuItem on={on} onClick={() => { close(); setViewAsFree(!on); }}>
+      <span data-maker-view-as-free-row="">{VIEW_AS_FREE_LABEL}</span>
+    </MenuItem>
+  );
 }
 
 function MenuHeading({ children }: { children: ReactNode }) {

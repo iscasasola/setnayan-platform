@@ -15,15 +15,17 @@
  *   2 · no server action, no write gate and no write method of a route ever
  *       reads the switch or a reader that follows it.
  *
- * `view-as-free.server.ts` imports `server-only`, which node:test cannot load —
- * hence a source guard (comments stripped) over the pure rule tested in
- * `view-as-free.test.ts`.
+ * A save is a server action or a route write, and neither can be run here with
+ * a request's cookie — hence a source guard (comments stripped) over the pure
+ * rule tested in `view-as-free.test.ts`, plus one behaviour check below: outside
+ * a request the switch is OFF, so a real Pro read passes through unchanged.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from './strip-comments';
+import { asViewed, viewingAsFreeCouple } from './view-as-free.server';
 
 const WEB = join(__dirname, '..');
 
@@ -137,4 +139,28 @@ test('the switch itself writes nothing', () => {
     assert.doesNotMatch(src, /cookies\(\)\)?\.set\(|\.set\(\s*VIEW_AS_FREE_COOKIE/, `${r} sets a cookie server-side`);
     assert.doesNotMatch(src, /['"]use server['"]/, `${r} is a server action`);
   }
+});
+
+test('outside a request the switch is off — a real Pro read passes through untouched', async () => {
+  assert.equal(await viewingAsFreeCouple(), false);
+  assert.equal(await asViewed(true), true, 'a Pro event must stay Pro when no viewer asked to see it free');
+  assert.equal(await asViewed(Promise.resolve(false)), false);
+  await assert.rejects(asViewed(Promise.reject(new Error('read failed'))), /read failed/, 'a failed real read must stay a failure, for the caller to default');
+});
+
+test('the switch is drawn for internal viewers only', () => {
+  // The Maker hands the shell the switch only when the server says the viewer is internal…
+  assert.match(
+    read('app/dashboard/[eventId]/launch/page.tsx'),
+    /viewAsFree=\{freeSwitch\.offered \?/,
+    'the Maker draws the switch without asking whether the viewer is internal',
+  );
+  // …and "offered" IS that question, nothing looser (not admin, not team, not host).
+  const server = read('lib/view-as-free.server.ts');
+  assert.match(server, /\.select\('is_internal'\)/);
+  assert.match(server, /const \[offered, on\] = await Promise\.all\(\[viewerIsInternal\(\)/);
+  // The shell never draws either half without that prop.
+  const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
+  assert.match(shell, /\{viewAsFree \? <ViewAsFreeRow /);
+  assert.match(shell, /\{viewAsFree\?\.on \? <ViewAsFreeStrip \/> : null\}/);
 });

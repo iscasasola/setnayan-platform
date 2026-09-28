@@ -1,10 +1,5 @@
-import 'server-only';
-
 import { cache } from 'react';
 import { cookies } from 'next/headers';
-import { getCurrentUser } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
-import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   VIEW_AS_FREE_COOKIE,
   proAsViewed,
@@ -36,10 +31,23 @@ import {
  *
  * 💸 Zero cost for everyone else: no cookie → `false` before any auth read, so
  * a guest opening the public page pays one cookie lookup and nothing more.
+ *
+ * ⚠ NO `import 'server-only'` HERE, ON PURPOSE — and the auth + Supabase
+ * modules are imported LAZILY, only once a cookie says "on". Three shared
+ * readers import this file (`qr-look.server.ts`, `print-set.server.ts`,
+ * `hub-look.ts`), and unit tests load the QR one in plain node, where
+ * `server-only` cannot be resolved (it broke two suites the first time). The
+ * same shape `lib/demo-mode.ts` uses for its admin-only cookie. Outside a
+ * request `cookies()` throws, which reads as OFF.
  */
 
 /** Is the viewer an internal (§10a) account? Cached per request. */
 export const viewerIsInternal = cache(async (): Promise<boolean> => {
+  const [{ getCurrentUser }, { createClient }, { logQueryError }] = await Promise.all([
+    import('@/lib/auth'),
+    import('@/lib/supabase/server'),
+    import('@/lib/supabase/error-detect'),
+  ]);
   const user = await getCurrentUser().catch(() => null);
   if (!user) return false;
   const supabase = await createClient();

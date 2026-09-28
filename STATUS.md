@@ -1,21 +1,54 @@
 # Setnayan — Project Status
 
-> Living checkpoint. **Refreshed 2026-09-09.**
+> Living checkpoint. **Refreshed 2026-09-28** (the Event Hub redesign weekend, 26–28 Sep).
 > Anchor doc — if you're opening this repo cold in a new Claude session, start here, then read
 > the newest handoff named at the top of `CLAUDE.md`.
 > **Snapshot, not a log.** Full per-PR detail lives in `CHANGELOG.md` + git history — this file is the current-state picture only.
 >
-> ⚠ **The previous refresh (2026-08-19) sat here for three weeks** while ~890 PRs merged to
-> `main` underneath it. Nothing in it was individually false when re-checked, but the "What's
-> next" section named a build list that had since shipped in full, and the dependabot count had
-> drifted. **A snapshot's age is part of its content** — this one is dated for exactly that
-> reason; re-measure before trusting any number below once it's no longer close to that date.
+> ⚠ **A snapshot's age is part of its content.** The 2026-09-09 refresh below it is kept as the
+> previous picture; every number here was measured on 2026-09-28 and starts rotting at once —
+> re-measure with the command beside it before trusting it.
 
 **Owner deadline anchor:** December 2026 wedding
 
 ---
 
-## Verified production state — 2026-09-09
+## Verified production state — 2026-09-28
+
+- **Production = `main` = `6136cd2`** (merge of #6071). Re-measure: `curl -sL https://setnayan.com/api/health` (its `version`) vs `git log origin/main -1`.
+- **Migration head applied: `20271250752713`.** Re-measure: `select max(version) from supabase_migrations.schema_migrations`.
+- **14 events · 152 guests · 21 accounts · 2 supplier shops · 9 orders** (6 paid, 2 cancelled, 1 submitted). Re-measure with `select count(*)` on `events`, `guests`, `auth.users`, `vendor_profiles`, `orders`.
+- **Open PRs:** only two old, unrelated ones (#5874, #5911). Nothing from the redesign is in flight.
+
+## The Event Hub redesign — what shipped 26–28 Sep 2026
+
+**Next milestone: the Apple check, Thursday 1 Oct 2026, on a NEW account.** Owner, 2026-09-28:
+*"finish all the builds for the event hub. we will do apple check on thursday on a new account"*.
+
+**Live (each deployed through `deploy-prod.yml`, READY confirmed on Vercel):**
+- **The Maker edits for real:** tap an element → its own font (dropdown) · colour · size · Transition In / Animation During / Transition Out; one letter can take its own face (hero text); every scene listed, empty ones kept as "Empty · tap to fill"; a tap only selects (made-once scenes show "Open … editor"); resizable navigator and tools; compact bar collapses into one picker; Keynote/Pages-style toolbars; "+ Add a scene"; instant feel (canvas hold, soft-post saves); loading skeleton; the draft always fits.
+- **Logo:** never saves on open; opens on the couple's own logo; a full-screen layered editor (Text · Image · Frame, white knocked out of uploads, per-layer motion, "Draw on" follows the traced writing path). Hero = the hero alone; hero designs 2–4 (Marquee · Crest · Letter).
+- **Reveal:** fewer words + per-opening fine-tune sliders.
+- **Each stage does one job:** Save the Date · Invitation · On the Day · Post Event each draw their own scenes; any scene drags within its stage (order saved per stage); Save the Date picks Film or Photos; guest bars per stage (Invitation Home · Details · Story · RSVP → Me after replying; On the Day Now · Schedule · Camera · Gallery · Me).
+- **Scene backgrounds:** None · Full colour · Opaque glass · Frosted glass · Photo · Snippet, Framed or Full width; "No background" removes a widget's own card; scenes fit their content.
+- **Guest pathway:** key gate (RSVP first) · RSVP page (one question at a time, Terms tick, a name + key per plus-one, song question, no boxes, wears the hub) · thank-you "Save to my account" (device picks the method) · Me tab · last-30-days checklist · stranger door ("Get inside": Sign in or Upload your QR) · Requests (Keep · Remove · Link) · "Give this spot to someone else" · a pending request counts for nothing until accepted · "Only my Guest List" events have no "Ask to join" anywhere.
+- **Love Story panel = the page's five chapters;** "Pick from our events" lists every event both partners attended.
+- **Also:** Schedule rebuild + announcements before the day (shown as soon as sent) + reminder emails 30/7/1 · Dress code wears the Mood Board · Pro QR (couple's logo, shapes, patterns) · Find your seat redesign · every print fits + Menu card · "Passed away" · two venues.
+
+**Open, not built (priority order, all Event Hub, before the Apple check unless the owner says otherwise):**
+1. Remove the stale "coming in the next build" copy (`MAKER_COMING_NEXT` in `launch/_components/maker-bar.ts`) — an Apple-review risk.
+2. The FREE vs PRO redraw: colour, size and background colour move out of Pro (`HUB_CANVAS_LOOK_KEYS` in `lib/hub-look-pro.ts` + the element-style gates).
+3. Finish `rd/no-background-drops-the-card` (the Maker canvas hold keeps the Countdown's own card after "No background"; the draft is correct).
+4. Find your seat's back button must land on the Invitation WITH the Event Bar, and never navigate the Maker canvas away.
+5. Print previews are slow (a full-size photo embedded in the screen preview).
+6. The dashboard event card ignores the event's cover (`lib/event-poster.ts`).
+7. The theme picker moves to Maker → Details as visual previews.
+
+**After Apple:** `AFTER_APPLE_BUILD_LIST_2026-09-28.md` in the spec corpus (the SEO/GEO + service-card + marketplace plan, supplier toolkit, People page, HQ Articles, and five open owner questions).
+
+---
+
+## (Previous snapshot) Verified production state — 2026-09-09
 
 Measured against the live Supabase database (`setnayan-prod`), not remembered or carried forward
 from the last refresh.
@@ -40,7 +73,7 @@ near-empty table is the expected shape of this product today, not evidence a fea
 🔑 **The highest-value action is still not on this list: somebody using the product end to end on
 a phone.** That has not changed since 2026-08-19.
 
-## Where we are right now
+## (Previous snapshot) Where we were on 2026-09-09
 
 V1 web surface is **functionally complete** and live at `setnayan.com`. Since the last refresh
 (2026-08-19), **~890 PRs merged to `main`** — roughly 137 of them touching

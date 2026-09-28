@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c16059db1",
+  "generatedFromRef": "b48e737f7",
   "routeCount": 435,
-  "destinations": 942,
+  "destinations": 941,
   "actions": 673,
-  "blocks": 4992,
+  "blocks": 4988,
   "routes": {
     "/": {
       "files": [
@@ -4955,7 +4955,6 @@
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
-        "dashboard/[eventId]/_components/pillar-part-picker.tsx",
         "dashboard/[eventId]/_components/placeholder.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
@@ -5122,7 +5121,6 @@
         "PaymentPlanRows",
         "PaymentSection",
         "PhaseRows",
-        "PickMenu",
         "PostSaveStep",
         "PreviewConflictsResult",
         "PriceSourceChip",
@@ -5666,7 +5664,6 @@
         "AutosaveState",
         "BulkApplyForm",
         "CaptureBar",
-        "CheckinDeskPage",
         "ChipTrigger",
         "ConfirmForm",
         "CustomizePanel",
@@ -5678,7 +5675,6 @@
         "EditResult",
         "EmptyState",
         "EntourageOrderPanel",
-        "EventHostsPage",
         "FacetRow",
         "Field",
         "FilterPopover",
@@ -5752,7 +5748,6 @@
         "PairSelectedForm",
         "PartnerLine",
         "PickMenu",
-        "PillarPartPicker",
         "PlusBadge",
         "PlusOneChipEditor",
         "Popover",
@@ -5838,7 +5833,6 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
-        "DeskTitle",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",
@@ -8005,6 +7999,7 @@
     },
     "/dashboard/[eventId]/suite": {
       "files": [
+        "dashboard/[eventId]/suite/_components/our-services-grid.tsx",
         "dashboard/[eventId]/suite/_components/suite-search.tsx",
         "dashboard/[eventId]/suite/_components/suite-service-card.tsx",
         "dashboard/[eventId]/suite/_components/suite-vignette-card.tsx",
@@ -8022,11 +8017,14 @@
         "routes.explore.index"
       ],
       "blocks": [
+        "CollectionCard",
         "Icon",
         "Link",
         "ListPageSkeleton",
+        "OurServicesGrid",
         "PageMasthead",
         "PaidMark",
+        "PickMenu",
         "RevealList",
         "RowPill",
         "Scene",
@@ -8097,7 +8095,6 @@
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
-        "/dashboard/[seg]/vendors?part=budget",
         "/explore?q=[seg]"
       ],
       "actions": [
@@ -8122,7 +8119,6 @@
         "BenchUnread",
         "BenchVendorActions",
         "BudgetBuildTab",
-        "BudgetPage",
         "BuildActionResult",
         "BuildCompare",
         "BuildFallbackResult",
@@ -8190,7 +8186,6 @@
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
-        "PillarPartPicker",
         "PlanBudgetAccordion",
         "PlansRowPick",
         "PoolIcon",

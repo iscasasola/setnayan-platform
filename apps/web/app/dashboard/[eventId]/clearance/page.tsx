@@ -77,7 +77,7 @@ export default async function ClearancePage({ params }: Props) {
           <h1 className="mt-3 text-lg font-semibold text-ink">The day is closed out</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink/60">
             Your {noun} is wrapped. Your dashboard now leads with the summary — guests, suppliers,
-            your Suite, your photos, and the editorial maker where you write the story.
+            your services, your photos, and the editorial maker where you write the story.
           </p>
           <Link
             href={base}

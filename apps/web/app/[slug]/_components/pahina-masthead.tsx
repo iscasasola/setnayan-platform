@@ -344,12 +344,19 @@ export function PahinaMasthead({
       <p
         {...el('date')}
         data-motion="arrive-date"
-        className={`flex items-center gap-3 ${design === 'letter' ? 'mt-2 justify-start' : 'mt-3 justify-center'}`}
+        /* 🎨 The face, colour and spacing sit on the PART, never on the inner
+           span: an inner class would outrank the couple's own choice (the
+           part's inline style), which then reached the part and stopped short
+           of the words — the Date's "why can't I change it". Size stays on the
+           span; the part's size is a `zoom`, which reaches it anyway. */
+        className={`flex items-center gap-3 ${design === 'letter' ? 'mt-2 justify-start' : 'mt-3 justify-center'} ${
+          design === 'crest' ? 'uppercase tracking-[0.26em] text-ink/60' : 'font-pahina text-ink'
+        }`}
       >
         {design === 'crest' ? (
-          <span className="text-xs uppercase tracking-[0.26em] text-ink/60">{txt('date', dateLabel)}</span>
+          <span className="text-xs">{txt('date', dateLabel)}</span>
         ) : (
-          <span className="font-pahina text-2xl text-ink sm:text-[1.65rem]">{txt('date', dateLabel)}</span>
+          <span className="text-2xl sm:text-[1.65rem]">{txt('date', dateLabel)}</span>
         )}
       </p>
     ) : null;
@@ -493,9 +500,11 @@ export function PahinaMasthead({
             </h1>
             {card.line ? <p {...el('line')} className="mt-4 text-sm leading-relaxed text-ink/80">{txt('line', card.line)}</p> : null}
             {dateLabel ? (
-              <p {...el('date')} data-motion="arrive-date" className="mt-4 flex items-center justify-center gap-3">
+              /* The face and colour on the part, so the couple's own reach the
+                 words (see the designs' DATE above). */
+              <p {...el('date')} data-motion="arrive-date" className="mt-4 flex items-center justify-center gap-3 font-pahina text-ink">
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
-                <span className="font-pahina text-xl text-ink">{txt('date', dateLabel)}</span>
+                <span className="text-xl">{txt('date', dateLabel)}</span>
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
               </p>
             ) : null}

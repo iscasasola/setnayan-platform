@@ -201,14 +201,12 @@ const OWN_FACE = /^font-(?:pahina|serif|sans|mono|display|script)$/;
 
 /**
  * 🧾 KNOWN, REPORTED, NOT YET FIXED — a list that may only shrink. Each entry
- * is `<part>:<the class on the inner element>`, with why.
- *   date — the date's words sit in an inner span that carries its own face and
- *   colour (`font-pahina … text-ink`, and The Crest's `text-ink/60`), so a
- *   colour or font chosen for the Date lands on the part and stops at that
- *   span. Found by this guard on 2026-09-28 while building the link part;
- *   reported to the owner rather than widened into this change.
+ * is `<part>:<the class on the inner element>`, with why. EMPTY: the Date's
+ * inner span carried its own face and colour (`font-pahina … text-ink`, The
+ * Crest's `text-ink/60`) until 2026-09-28, so a colour or font chosen for the
+ * Date stopped at that span — found by this guard, fixed in the same PR.
  */
-const KNOWN_BLOCKED = new Set(['date:font-pahina', 'date:text-ink', 'date:text-ink/60']);
+const KNOWN_BLOCKED = new Set<string>([]);
 
 /** Text the masthead writes that is deliberately NOT a part, with why. */
 const NOT_A_PART_BY_DESIGN: ReadonlyArray<{ tag: string; why: string }> = [
@@ -304,4 +302,21 @@ test('7d · the guard reads real mastheads (non-empty, with the link and the ven
   for (const { name, html } of all) assert.ok(textsOf(html).length >= 4, `${name}: drew almost nothing`);
   assert.ok(all.some(({ html }) => html.includes('data-el="link"')));
   assert.ok(all.some(({ html }) => html.includes('data-el="venue"')));
+});
+
+/* ═══ 8 · THE DATE'S OWN COLOUR AND FONT REACH ITS WORDS ═══ */
+
+test('8 · the couple’s Date colour and font sit on the part, and no inner span overrides them — every design', async () => {
+  const elements = sanitizeHubElements({ date: { color: '#123456', font: 'fraunces' } });
+  for (const design of HERO_DESIGNS) {
+    const html = await hero({ design, elements, stampElements: true });
+    const m = /<p data-el="date"[^>]*style="([^"]*)"[^>]*>([\s\S]*?)<\/p>/.exec(html);
+    assert.ok(m, `${design}: no date part`);
+    assert.match(m![1]!, /color:#123456/, `${design}: the colour is on the part`);
+    assert.match(m![1]!, /font-family:/, `${design}: the font is on the part`);
+    for (const cls of m![2]!.matchAll(/class="([^"]*)"/g)) {
+      assert.doesNotMatch(cls[1]!, /(?:^|\s)(?:text-ink|text-gild|font-pahina|font-serif)(?:\/\d+)?(?=\s|$)/, `${design}: an inner span still sets its own colour or face: ${cls[1]}`);
+    }
+    assert.match(m![2]!, /December 18, 2026/);
+  }
 });

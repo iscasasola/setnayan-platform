@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7bf3ef963",
+  "generatedFromRef": "4831f1336",
   "routeCount": 435,
   "destinations": 942,
   "actions": 671,
-  "blocks": 4964,
+  "blocks": 4966,
   "routes": {
     "/": {
       "files": [
@@ -898,6 +898,7 @@
         "[slug]/_lib/everything-else-rows.ts",
         "[slug]/_lib/guest-checklist-facts.ts",
         "[slug]/_lib/guest-details-changed.ts",
+        "[slug]/_lib/hero-design-of.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/hub-look.ts",
         "[slug]/_lib/icon-source.ts",
@@ -1073,6 +1074,7 @@
         "HTMLSpanElement",
         "HTMLVideoElement",
         "HeroBackgroundMedia",
+        "HeroDesignId",
         "HeroMonogram",
         "HeroPhoto",
         "HideableWidgetRender",
@@ -1341,8 +1343,10 @@
         "[slug]/find-seat/_components/door-pass.tsx",
         "[slug]/find-seat/_components/name-search.tsx",
         "[slug]/find-seat/_components/refresh-on-return.tsx",
+        "[slug]/find-seat/_components/seat-back-link.tsx",
         "[slug]/find-seat/_components/seat-frame.tsx",
         "[slug]/find-seat/_components/your-seat.tsx",
+        "[slug]/find-seat/_lib/back-to-the-invitation.ts",
         "[slug]/find-seat/page.tsx"
       ],
       "destinations": [
@@ -1376,6 +1380,7 @@
         "RoomPlaceholder",
         "ScriptWord",
         "SearchGlyph",
+        "SeatBackLink",
         "SeatFrame",
         "StepUp",
         "WalkIn3D",

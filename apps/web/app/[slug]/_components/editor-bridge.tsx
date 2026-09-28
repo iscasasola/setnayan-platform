@@ -631,7 +631,7 @@ export function EditorBridge() {
         box.setAttribute('role', 'status');
         box.textContent = 'Adding your scene…';
         box.style.cssText =
-          'margin:16px auto;max-width:560px;min-height:180px;display:flex;align-items:center;justify-content:center;border:1.5px dashed rgba(27,26,23,.25);border-radius:12px;font:500 13px/1.4 system-ui,sans-serif;color:rgba(27,26,23,.6);animation:pulse 1.4s ease-in-out infinite';
+          'margin:16px auto;max-width:560px;min-height:180px;display:flex;align-items:center;justify-content:center;border:1.5px dashed rgba(27,26,23,.25);border-radius:var(--m-r-md);font:500 13px/1.4 system-ui,sans-serif;color:rgba(27,26,23,.6);animation:pulse 1.4s ease-in-out infinite';
         el.insertAdjacentElement('afterend', box);
         box.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;

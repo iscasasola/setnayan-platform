@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5045b00bf",
+  "generatedFromRef": "f89a15f2f",
   "routeCount": 435,
   "destinations": 940,
-  "actions": 671,
-  "blocks": 4978,
+  "actions": 673,
+  "blocks": 4983,
   "routes": {
     "/": {
       "files": [
@@ -4831,9 +4831,11 @@
         "dashboard/(launcher)/_components/event-scene.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/home-pill-nav.tsx",
+        "dashboard/(launcher)/_components/incoming-requests.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
+        "dashboard/(launcher)/incoming-request-actions.ts",
         "dashboard/(launcher)/layout.tsx",
         "dashboard/(launcher)/loading.tsx",
         "dashboard/(launcher)/page.tsx"
@@ -4851,7 +4853,10 @@
         "/dashboard/samahan/[seg]",
         "/vendor-dashboard"
       ],
-      "actions": [],
+      "actions": [
+        "answerIncomingRequest",
+        "muteInviter"
+      ],
       "blocks": [
         "AccountSwitcher",
         "AppRailShell",
@@ -4868,6 +4873,7 @@
         "EventMonogram",
         "EventPoster",
         "EventScene",
+        "Flash",
         "GlassEventCard",
         "HTMLDialogElement",
         "HTMLDivElement",
@@ -4876,6 +4882,7 @@
         "Icon",
         "Image",
         "ImpactLines",
+        "IncomingRequests",
         "Link",
         "MomentRow",
         "NewEventButton",
@@ -6124,6 +6131,7 @@
       "blocks": [
         "AddBtn",
         "AddSceneTool",
+        "BufferedCanvasFrame",
         "Chip",
         "ColourRow",
         "ComingNext",
@@ -6209,6 +6217,7 @@
         "SlugField",
         "SoftPost",
         "State",
+        "StoredQrStyle",
         "Switch",
         "SwitchRow",
         "Toggle",
@@ -6218,7 +6227,8 @@
         "UpdateQrStyleResult",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
-        "WebsiteEditorPage"
+        "WebsiteEditorPage",
+        "Window"
       ]
     },
     "/dashboard/[eventId]/live": {

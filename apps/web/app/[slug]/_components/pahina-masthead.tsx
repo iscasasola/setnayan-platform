@@ -192,6 +192,45 @@ export function PahinaMasthead({
   const cardNames = `${names.first}${names.second ? `${cardJoiner}${names.second}` : ''}`;
   const plainNames = `${names.first}${names.second ? `${plainJoiner}${names.second}` : ''}`;
 
+  /* 🔗 THE LINK DOWN INTO THE HUB — a part like the others (owner 2026-09-28,
+     tapping it in the Maker: "why can't i update the text"). Its words are the
+     couple's when they wrote some (`HubElementStyle.word`), else the card's
+     own. The part is the WRAPPER, so its look reaches the words and the ↓ alike
+     (the link inherits colour and face from it) and an alignment moves the
+     link as it moves every other part. `data-el-words` marks, in the Maker
+     canvas only, the words the instant preview rewrites. */
+  const hubLink = (align: 'start' | 'center') => {
+    if (!card) return null;
+    const words = elements?.link?.word ?? card.hubLabel;
+    const whole = `${words}↓`;
+    return (
+      <div {...el('link')} className="mt-4 font-pahina text-base italic text-mulberry hover:text-mulberry-600">
+        <a
+          href={card.hubHref}
+          className={`inline-flex min-h-[44px] flex-col justify-center gap-1 ${align === 'start' ? 'items-start' : 'items-center'}`}
+        >
+          {/* In the Maker only: which words the preview rewrites, and the card's
+              own words to put back when the couple clears theirs. */}
+          <span {...(stampElements ? { 'data-el-words': '', 'data-el-word': card.hubLabel } : {})}>
+            {txt('link', words, whole, 0)}
+          </span>
+          <span aria-hidden>{txt('link', '↓', whole, words.length)}</span>
+        </a>
+      </div>
+    );
+  };
+  /** 📍 The plain masthead's venue — the event's own venue, styled as a part. */
+  const venuePart = (name: string) => (
+    <p {...el('venue')} className="mt-2 text-base text-ink/70">
+      {txt('venue', name)}
+    </p>
+  );
+
+  /* 🖼 THE PHOTO CAPTION — a part (owner 2026-09-28, "make it editable"): the
+     couple's own words, else the venue it has always repeated. In the Maker
+     the part keeps the venue (`data-el-word`) so clearing puts it back. */
+  const captionWords = elements?.caption?.word ?? mediaCaption ?? null;
+
   /* ── THE COVER PLATE (photo/video demoted below the type) — one markup for
      every design of the plain masthead. See the note inside. */
   const coverPlate = mediaSlot ? (
@@ -227,8 +266,10 @@ export function PahinaMasthead({
           {mediaSlot}
         </div>
       </div>
-      {mediaCaption ? (
+      {captionWords ? (
         <figcaption
+          {...el('caption')}
+          {...(stampElements ? { 'data-el-word': mediaCaption ?? '' } : {})}
           /* The plate bleeds `-mx-4` past the column; a centred caption (The
              Card) sits inside it anyway, a ranged-left one (The Letter) would
              start 16px off the phone's edge — so off the default the caption
@@ -237,7 +278,7 @@ export function PahinaMasthead({
             design === HERO_DESIGN_DEFAULT ? '' : ' px-4 sm:px-0'
           }`}
         >
-          {mediaCaption}
+          {txt('caption', captionWords)}
         </figcaption>
       ) : null}
     </figure>
@@ -254,23 +295,13 @@ export function PahinaMasthead({
     const joinerWord = card ? cardJoiner : plainJoiner;
     const whole = card ? cardNames : plainNames;
     const eyebrowText = card ? card.eyebrow : eyebrow;
-    const HUB_LINK = card ? (
-      <a
-        href={card.hubHref}
-        className={`mt-4 inline-flex min-h-[44px] flex-col justify-center gap-1 text-mulberry hover:text-mulberry-600 ${
-          design === 'letter' ? 'items-start' : 'mx-auto items-center'
-        }`}
-      >
-        <span className="font-pahina text-base italic">{card.hubLabel}</span>
-        <span aria-hidden>↓</span>
-      </a>
-    ) : null;
+    const HUB_LINK = hubLink(design === 'letter' ? 'start' : 'center');
     const TIME = card?.timeLabel ? (
       <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">
         {txt('time', card.timeLabel)}
       </p>
     ) : null;
-    const VENUE = !card && venueName ? <p className="mt-2 text-base text-ink/70">{venueName}</p> : null;
+    const VENUE = !card && venueName ? venuePart(venueName) : null;
     const LINE = card?.line ? (
       <p
         {...el('line')}
@@ -320,12 +351,19 @@ export function PahinaMasthead({
       <p
         {...el('date')}
         data-motion="arrive-date"
-        className={`flex items-center gap-3 ${design === 'letter' ? 'mt-2 justify-start' : 'mt-3 justify-center'}`}
+        /* 🎨 The face, colour and spacing sit on the PART, never on the inner
+           span: an inner class would outrank the couple's own choice (the
+           part's inline style), which then reached the part and stopped short
+           of the words — the Date's "why can't I change it". Size stays on the
+           span; the part's size is a `zoom`, which reaches it anyway. */
+        className={`flex items-center gap-3 ${design === 'letter' ? 'mt-2 justify-start' : 'mt-3 justify-center'} ${
+          design === 'crest' ? 'uppercase tracking-[0.26em] text-ink/60' : 'font-pahina text-ink'
+        }`}
       >
         {design === 'crest' ? (
-          <span className="text-xs uppercase tracking-[0.26em] text-ink/60">{txt('date', dateLabel)}</span>
+          <span className="text-xs">{txt('date', dateLabel)}</span>
         ) : (
-          <span className="font-pahina text-2xl text-ink sm:text-[1.65rem]">{txt('date', dateLabel)}</span>
+          <span className="text-2xl sm:text-[1.65rem]">{txt('date', dateLabel)}</span>
         )}
       </p>
     ) : null;
@@ -469,9 +507,11 @@ export function PahinaMasthead({
             </h1>
             {card.line ? <p {...el('line')} className="mt-4 text-sm leading-relaxed text-ink/80">{txt('line', card.line)}</p> : null}
             {dateLabel ? (
-              <p {...el('date')} data-motion="arrive-date" className="mt-4 flex items-center justify-center gap-3">
+              /* The face and colour on the part, so the couple's own reach the
+                 words (see the designs' DATE above). */
+              <p {...el('date')} data-motion="arrive-date" className="mt-4 flex items-center justify-center gap-3 font-pahina text-ink">
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
-                <span className="font-pahina text-xl text-ink">{txt('date', dateLabel)}</span>
+                <span className="text-xl">{txt('date', dateLabel)}</span>
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
               </p>
             ) : null}
@@ -480,13 +520,7 @@ export function PahinaMasthead({
             ) : null}
           </div>
         </div>
-        <a
-          href={card.hubHref}
-          className="mx-auto mt-4 inline-flex min-h-[44px] flex-col items-center justify-center gap-1 text-mulberry hover:text-mulberry-600"
-        >
-          <span className="font-pahina text-base italic">{card.hubLabel}</span>
-          <span aria-hidden>↓</span>
-        </a>
+        {hubLink('center')}
       </header>
     );
   }
@@ -526,7 +560,7 @@ export function PahinaMasthead({
           {txt('date', dateLabel)}
         </p>
       ) : null}
-      {venueName ? <p className="mt-2 text-base text-ink/70">{venueName}</p> : null}
+      {venueName ? venuePart(venueName) : null}
 
       {/* Cover plate — the photo/video demoted below the type, framed like a
           printed plate with a mono caption. Only when media exists. */}

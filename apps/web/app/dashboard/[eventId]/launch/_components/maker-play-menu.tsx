@@ -3,6 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import {
+  PREVIEW_SAME_VIEW_QUERY,
+  previewCarriesPlace,
+  previewOpensInSameView,
+} from '@/lib/maker-preview-way-back';
+import { useMaker } from './maker-context';
 
 /**
  * ▶ PLAY — two choices (owner 2026-09-25, verbatim: *"make choose play scene
@@ -13,9 +19,16 @@ import { InfoTip } from '@/app/_components/info-tip';
  *     its entrance where it sits and comes to rest. No page, no overlay. The
  *     toolbar only ASKS (a window event); the work area, which owns the canvas,
  *     plays it (`editor-shell.tsx`, `EditorBridge`'s `play`).
- *   · Preview the whole stage — a NEW TAB of `/<slug>?phase=<stage>&preview=draft`:
+ *   · Preview the whole stage — `/<slug>?phase=<stage>&preview=draft`:
  *     page-only, the host's draft, host-verified on the page. It never passes
  *     through a dashboard route (`app/[slug]/_lib/editor-canvas.ts`).
+ *
+ * ↩ EVERY PREVIEW HAS A WAY BACK (DECISION_LOG 2026-09-28; owner, verbatim:
+ * *"no way to get back"*). The preview carries where the couple was — the
+ * scene, or the made-once page — so its "Back to the Maker" lands there
+ * (`previewCarriesPlace`). On a phone and in any installed shell it opens in
+ * the SAME view, because a new tab there is a dead end (`previewOpensInSameView`);
+ * a desktop browser keeps the new tab, and that tab carries the way back too.
  */
 
 /**
@@ -57,6 +70,9 @@ export function MakerPlayMenu({
     };
   }, [open]);
 
+  const maker = useMaker();
+  const previewHref = previewCarriesPlace(stageHref, maker?.selection);
+
   const item =
     'sn-press flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] font-medium text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40';
   return (
@@ -95,19 +111,61 @@ export function MakerPlayMenu({
               </InfoTip>
             ) : null}
           </span>
-          <a
-            role="menuitem"
-            href={stageHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-            aria-label="Preview the whole stage in a new tab, as guests meet it"
+          <PreviewStageLink
+            href={previewHref}
+            stageLabel={stageLabel}
+            storeShell={Boolean(maker?.storeShell)}
             className={item}
-          >
-            Preview the whole {stageLabel}
-          </a>
+            onPicked={() => setOpen(false)}
+          />
         </span>
       ) : null}
     </span>
+  );
+}
+
+/**
+ * "Preview the whole <stage>" — decided when the menu OPENS (it is never
+ * server-rendered open, so reading the window here cannot mismatch hydration):
+ * the same view on a phone or in an installed shell, a new tab on a desktop
+ * browser (`previewOpensInSameView`).
+ */
+function PreviewStageLink({
+  href,
+  stageLabel,
+  storeShell,
+  className,
+  onPicked,
+}: {
+  href: string;
+  stageLabel: string;
+  storeShell: boolean;
+  className: string;
+  onPicked: () => void;
+}) {
+  const sameView = previewOpensInSameView({
+    storeShell,
+    userAgent: navigator.userAgent,
+    cookie: document.cookie,
+    standalone: window.matchMedia('(display-mode: standalone)').matches,
+    narrow: window.matchMedia(PREVIEW_SAME_VIEW_QUERY).matches,
+  });
+  return (
+    <a
+      role="menuitem"
+      href={href}
+      target={sameView ? undefined : '_blank'}
+      rel={sameView ? undefined : 'noopener noreferrer'}
+      onClick={onPicked}
+      aria-label={
+        sameView
+          ? `Preview the whole ${stageLabel} as guests meet it`
+          : `Preview the whole ${stageLabel} in a new tab, as guests meet it`
+      }
+      data-preview-same-view={sameView ? '1' : '0'}
+      className={className}
+    >
+      Preview the whole {stageLabel}
+    </a>
   );
 }

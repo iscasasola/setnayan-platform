@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { ArrowUpRight, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -58,6 +58,12 @@ export function ApplyProSheet({
 }) {
   const titleId = 'maker-apply-pro-title';
   const none = effects.length === 0;
+  /* Focus lands in the sheet when it opens, so Escape closes it and a screen
+     reader starts at its title. */
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 lg:items-center"
@@ -66,6 +72,8 @@ export function ApplyProSheet({
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -74,7 +82,7 @@ export function ApplyProSheet({
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose();
         }}
-        className="flex max-h-[80dvh] w-full flex-col rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),12px)] shadow-xl lg:max-w-md lg:rounded-3xl"
+        className="flex max-h-[80dvh] w-full flex-col rounded-t-3xl outline-none bg-cream pb-[max(env(safe-area-inset-bottom),12px)] shadow-xl lg:max-w-md lg:rounded-3xl"
       >
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
         <div className="flex items-center gap-2 px-4 pt-3">

@@ -3,6 +3,7 @@
 import { MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { Check, MoreVertical, RotateCcw, Undo2 } from 'lucide-react';
@@ -294,7 +295,9 @@ export function HubDraftToolbar({
         disabledReason="No changes to apply"
         onClick={() => (asksForPro ? setSheetOpen(true) : act({ intent: 'apply' }))}
       />
-      {sheetOpen && proHref ? (
+      {/* Portalled to <body>: the toolbar sits in a glass bar, and a `backdrop-filter`
+          ancestor would make `position: fixed` hug the bar instead of the screen. */}
+      {sheetOpen && proHref ? createPortal(
         <ApplyProSheet
           effects={asksForPro ? proEffects : []}
           priceLabel={priceLabel}
@@ -308,7 +311,8 @@ export function HubDraftToolbar({
           }}
           onClose={() => setSheetOpen(false)}
           tour={applyTour}
-        />
+        />,
+        document.body,
       ) : null}
       <details className="relative" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary

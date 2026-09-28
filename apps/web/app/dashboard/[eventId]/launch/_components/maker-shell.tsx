@@ -33,6 +33,8 @@ import { MAKER_STAY_FIELD, makerStayReturn } from '@/lib/maker-stay';
 import { announceUnheldWrite } from '@/lib/maker-refresh';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
+import { ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -86,8 +88,12 @@ export function MakerShell({
   rsvp = null,
   hasWork,
   viewAs = {},
+  viewAsFree = null,
   children,
 }: {
+  /** 👁 "View as a free couple" — internal (§10a) viewers only; null draws
+   *  nothing. `on` is the server's reading of this request (`asViewed`). */
+  viewAsFree?: { on: boolean } | null;
   /** VIEW AS, per stage — each role's chip word and its server-gated preview
    *  door (`resolveHubRoleView`), or null when there is honestly none. */
   viewAs?: Partial<Record<LifecyclePhase, ReadonlyArray<{ role: string; name: string; href: string | null }>>>;
@@ -129,6 +135,7 @@ export function MakerShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const [tour, setTour] = useState<'first' | 'again' | null>(firstVisit ? 'first' : null);
   const [viewAsRole, setViewAsRole] = useState<string | null>(null);
+  const setViewAsFree = useViewAsFreeToggle();
   const stageRoles = viewAs[stage] ?? [];
   const viewAsHref = viewAsRole ? (stageRoles.find((r) => r.role === viewAsRole)?.href ?? null) : null;
 
@@ -435,6 +442,12 @@ export function MakerShell({
                       ))}
                     </>
                   ) : null}
+                  {/* 👁 Internal accounts only — see `view-as-free.tsx`. */}
+                  {viewAsFree ? (
+                    <MenuItem on={viewAsFree.on} onClick={() => { close(); setViewAsFree(!viewAsFree.on); }}>
+                      <span data-maker-view-as-free-row="">{VIEW_AS_FREE_LABEL}</span>
+                    </MenuItem>
+                  ) : null}
                   {applySlot ? (
                     <MenuItem onClick={() => { close(); window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT)); }}>
                       Reset this stage…
@@ -476,6 +489,9 @@ export function MakerShell({
             </div>
           ) : null}
         </header>
+
+        {/* 👁 While the switch is on it is SAID, on every width, until stopped. */}
+        {viewAsFree?.on ? <ViewAsFreeStrip /> : null}
 
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
         <div className="relative min-h-0 flex-1">

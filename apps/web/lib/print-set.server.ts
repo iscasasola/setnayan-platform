@@ -3,6 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { asViewed } from '@/lib/view-as-free.server';
 import { INVITE_THEMES, normalizeThemeId, themeMediaKey, type InviteThemeId } from '@/lib/invite-themes';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { heroMarkSvg } from '@/lib/hero-monogram-data';
@@ -106,9 +107,12 @@ export async function readPrintEvent(admin: SupabaseClient, eventId: string): Pr
   return (data as PrintEventRow | null) ?? null;
 }
 
-/** Is Event Hub Pro live for this event right now — the print-ready gate. */
+/** Is Event Hub Pro live for this event right now — the print-ready gate.
+ *  👁 As the viewer is SHOWN it (`asViewed`): an internal viewer viewing as a
+ *  free couple sees the free set. It gates what is drawn and served, never a
+ *  write. */
 export async function printOwnsPro(eventId: string): Promise<boolean> {
-  return eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false);
+  return asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false));
 }
 
 /**

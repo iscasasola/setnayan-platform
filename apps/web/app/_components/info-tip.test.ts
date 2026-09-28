@@ -100,7 +100,8 @@ test('it renders its own visible label beside the (i) — never a lone circle', 
 
 test('the mood board renders the shared InfoTip; its local copy is gone', () => {
   const dir = join(__dirname, '..', 'dashboard', '[eventId]', 'studio', 'mood-board');
-  for (const file of ['page.tsx', '_components/make-it-real.tsx']) {
+  // The board lives in one component since Details part 3 (its page and the Maker draw it).
+  for (const file of ['_components/mood-board-editor.tsx', '_components/make-it-real.tsx']) {
     const code = stripComments(readFileSync(join(dir, file), 'utf8'));
     assert.match(code, /from '@\/app\/_components\/info-tip'/, `${file} imports the shared InfoTip`);
     assert.match(code, /<InfoTip\b/, `${file} renders it`);

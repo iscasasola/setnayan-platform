@@ -231,15 +231,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     const fp = free.find((f) => f.key === k);
     return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
   };
-  const present = new Set<DetailsItemKey>([
-    'theme',
-    ...(look ? LOOK_ITEM_KEYS : []),
-    'address',
-    'qr',
-    'download',
-    ...PRINT_SET_KEYS,
-    ...free.map((f) => f.key),
-  ]);
+  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), 'address', 'qr', 'download', ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,

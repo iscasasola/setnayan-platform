@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c81e502bc",
+  "generatedFromRef": "9571db2bb",
   "routeCount": 435,
   "destinations": 939,
   "actions": 670,
-  "blocks": 4968,
+  "blocks": 4971,
   "routes": {
     "/": {
       "files": [
@@ -6185,6 +6185,7 @@
         "QrLookControls",
         "Row",
         "RsvpAskConfig",
+        "SVGGElement",
         "SVGSVGElement",
         "SaveState",
         "Segmented",
@@ -8516,6 +8517,7 @@
         "CanvasWordsContext.Provider",
         "ChipRow",
         "Choice",
+        "ClipTile",
         "ColorsPanel",
         "ColourWell",
         "DetailsBoundField",
@@ -8588,6 +8590,7 @@
         "PartTextTab",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
+        "PhotoTile",
         "PickListPlacement",
         "PickMenu",
         "ProLockPanel",

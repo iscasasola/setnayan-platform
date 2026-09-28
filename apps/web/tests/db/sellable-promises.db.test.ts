@@ -153,3 +153,26 @@ test('no live SKU promises the LED stage screen while no file can be made', asyn
       'Either ship a real backdrop end-to-end in this PR, or do not sell the promise.',
   );
 });
+
+test('Event Hub Pro does not sell colours — every couple has them free', async () => {
+  // Owner 2026-09-28 (DECISION_LOG "WHAT IS FREE VS PRO IN THE EVENT HUB MAKER —
+  // REDRAWN"): "free to change design, change text, size, color, background
+  // color, only when you start adding themes will it be pro. adding media for
+  // background." The Maker, Apply and the guest page all made colours free
+  // (#6075); this row is what the PUBLIC pricing page says the unlock buys, so
+  // selling colours here is charging for something already free.
+  const r = await row('COUPLE_WEBSITE_PRO');
+  assert.ok(r, 'COUPLE_WEBSITE_PRO is not in the replayed catalog — nothing below would be tested.');
+  assert.equal(r.is_active, true, 'Event Hub Pro went off sale — a copy fix must not withdraw the product.');
+  const d = r.description ?? '';
+  assert.ok(d.length > 100, `the description is nearly empty: "${d}"`);
+  assert.doesNotMatch(
+    d,
+    /\bcolou?rs?\b/i,
+    `Event Hub Pro's description still sells colours, which are free for every couple since 2026-09-28: "${d}"`,
+  );
+  // …and it says what Pro adds in their place: media behind a scene or the page.
+  assert.match(d, /photo or video behind/i, `the description does not name photo and video backgrounds: "${d}"`);
+  // The line the reveal has carried since it was first sold stays, word for word.
+  assert.match(d, /The cinematic reveal comes only with this\.$/);
+});

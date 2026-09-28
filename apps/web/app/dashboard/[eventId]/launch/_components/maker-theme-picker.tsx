@@ -110,7 +110,12 @@ export function MakerThemePicker({
 
   useEffect(() => {
     const rail = railRef.current;
-    if (!rail || typeof IntersectionObserver === 'undefined') return;
+    if (!rail) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      // No observer (an old webview): every tile counts as seen — still one at a time.
+      setInView(new Set(order));
+      return;
+    }
     const io = new IntersectionObserver(
       (entries) => {
         setInView((prev) => {
@@ -129,6 +134,7 @@ export function MakerThemePicker({
     );
     rail.querySelectorAll<HTMLElement>('[data-theme-tile]').forEach((el) => io.observe(el));
     return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `order` is keyed by orderKey
   }, [orderKey]);
 
   useEffect(() => {
@@ -188,7 +194,7 @@ export function MakerThemePicker({
         ref={railRef}
         aria-label="Themes"
         data-theme-rail=""
-        className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-1 pb-1"
+        className="-mx-2 flex snap-x snap-mandatory scroll-px-2 gap-3 overflow-x-auto overscroll-x-contain px-2 pb-1 pt-1"
       >
         {shown.map((t) => {
           const locked = t.tier === 'pro' && !ownsPro;

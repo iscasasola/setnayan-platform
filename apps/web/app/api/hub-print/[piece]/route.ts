@@ -36,6 +36,7 @@ import {
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { formatCount } from '@/lib/format-number';
+import { previewCacheControl } from '@/lib/print-preview-cache';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -248,16 +249,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false);
     }
     if (mode === 'screen') {
-      const svg = renderPrintSvg(layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
+      const svg = renderPrintSvg(layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images, { compact: true });
       return new NextResponse(svg, {
         status: 200,
-        // 🕐 `stale-while-revalidate` — the couple flips between the Maker's
-        // theme chips and its Prints tab a lot; without this every return trip
-        // re-earns the full server render (real SVG layout work, not a static
-        // asset). Within 60s the browser still fetches fresh, as before; from
-        // 60s–360s it paints the LAST render instantly while quietly asking for
-        // a new one underneath — never staler than the page already tolerated.
-        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60, stale-while-revalidate=300' },
+        // ⚡ A VERSIONED ADDRESS IS IMMUTABLE (owner 2026-09-28: the
+        // boarding-pass preview took ~8 s). The Maker names every input this
+        // picture is drawn from in `v` (`printInputsVersion`), so the same
+        // address can only ever mean the same picture — a year, `immutable`.
+        // Without a `v`, the old 60 s + `stale-while-revalidate` (a couple
+        // flipping between theme chips paints the last render instantly).
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': previewCacheControl(url.searchParams.get('v')) },
       });
     }
     // THE MENU IS NEVER PRINTED BLANK: with no dishes it is refused on its own
@@ -300,8 +301,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     headers: {
       'content-type': 'image/jpeg',
       'content-disposition': `${mode === 'screen' ? 'inline' : 'attachment'}; filename="${name}"`,
-      // See the `screen` SVG branch above — same reasoning, same numbers.
-      'cache-control': 'private, max-age=60, stale-while-revalidate=300',
+      // See the `screen` SVG branch above — the on-screen sample is versioned
+      // the same way; a download (`mode=sample`) carries no `v` and keeps 60 s.
+      'cache-control': mode === 'screen' ? previewCacheControl(url.searchParams.get('v')) : previewCacheControl(null),
     },
   });
 }

@@ -55,7 +55,8 @@ import { MakerPrints } from './_components/maker-prints';
 import { MakerDetails, MakerDetailsPage } from './_components/maker-details';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
-import { hasPalette, parentsFromEntourageForEvent, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { hasPalette, parentsFromEntourageForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
@@ -957,12 +958,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let rsvp: { page: ReactNode; controls: ReactNode } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
       parentsFromEntourageForEvent(eventId),
       fetchEgiftMethods(printAdmin, eventId, { enabledOnly: true }),
+      // ⚡ What the print previews are drawn from, hashed — their cache key.
+      printInputsVersion(eventId).catch(() => null),
     ]);
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
@@ -1093,6 +1096,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           ownsPro={printPro}
           storeShell={storeShell}
           flash={null}
+          /* ⚡ The access is part of the picture (a sample or the real piece). */
+          previewVersion={printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null}
           seatPlan={stored.include.seatPlan}
           menu={{
             saved: stored.menu,

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b90173682",
+  "generatedFromRef": "88aeb390d",
   "routeCount": 435,
   "destinations": 942,
   "actions": 671,
-  "blocks": 4968,
+  "blocks": 4967,
   "routes": {
     "/": {
       "files": [
@@ -6092,7 +6092,6 @@
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
         "dashboard/[eventId]/launch/_components/soft-post.tsx",
-        "dashboard/[eventId]/launch/_components/view-as-free.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx",
         "dashboard/[eventId]/launch/qr-look-actions.ts"
@@ -6135,6 +6134,7 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLIFrameElement",
+        "HTMLImageElement",
         "HTMLInputElement",
         "HTMLSpanElement",
         "HubDraftDock",
@@ -6206,8 +6206,6 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
-        "ViewAsFreeRow",
-        "ViewAsFreeStrip",
         "WebsiteEditorPage"
       ]
     },

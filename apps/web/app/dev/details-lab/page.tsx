@@ -14,12 +14,14 @@
  *
  *   ?item=invitation      open on one item (default: Theme, as a cold open)
  *   ?pro=1                a couple with Event Hub Pro
+ *   ?type=birthday|wake   another celebration (default: wedding)
  */
 import { notFound } from 'next/navigation';
 import { MakerDetails } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { INVITE_THEMES, pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
 import { detailsItemFor } from '@/lib/maker-details-items';
+import { GENERIC_PROFILE, WAKE_PROFILE, WEDDING_PROFILE } from '@/lib/event-type-profile';
 import { updateEventSlug } from '@/app/dashboard/[eventId]/invitation/actions';
 import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions';
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
@@ -31,6 +33,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const pro = one('pro') === '1';
+  const profile = one('type') === 'wake' ? WAKE_PROFILE : one('type') === 'birthday' ? { ...GENERIC_PROFILE, eventType: 'birthday' } : WEDDING_PROFILE;
   const themes = pickableInviteThemes({ mayShowStdFilm: true });
   const stored = parsePrintDetails({ opening_line: 'Together with their families', include: undefined });
   return (
@@ -77,6 +80,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
         flash={null}
         stamp="lab"
         initialItem={detailsItemFor({ tool: 'details', item: one('item') })}
+        eventContext={{ profile, solemn: profile === WAKE_PROFILE }}
       />
     </div>
   );

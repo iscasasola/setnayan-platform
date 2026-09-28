@@ -17,6 +17,8 @@
  */
 import { PRINT_SET_KEYS, type PrintSetKey } from '@/lib/print-pieces';
 import type { FreePrint } from '@/lib/free-prints';
+import type { EventTypeProfile } from '@/lib/event-type-profile';
+import { resolveRoleSet } from '@/lib/role-sets';
 
 export type HubItemKey = 'address' | 'qr';
 /**
@@ -174,6 +176,55 @@ export type DetailsItemModel = {
   /** Where it shows — "Every stage", "The Invitation", "Every pass". */
   usedOn?: readonly string[];
 };
+
+/**
+ * 🎂 THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON (owner
+ * 2026-09-29, DECISION_LOG row of that name). Which items and switches a
+ * celebration gets is decided HERE, from the shipped event-type data (the
+ * type's `EventTypeProfile` and the role set it names) — never by a
+ * "wedding" test sprinkled through the page. The words are the type's own
+ * (`EventWords`); no item of part 1 types "wedding" or "couple".
+ */
+export type DetailsItemContext = {
+  profile: EventTypeProfile;
+  /** The event's words (`eventWordsFromProfile`) — for the solemn register. */
+  solemn: boolean;
+};
+
+/**
+ * An item that does not suit every celebration names its rule here; an item
+ * with no rule applies to all. Part 1's items — the theme, the address, the QR,
+ * every print — suit every type (the prints already follow the type's words).
+ * Parts 2–5 add rules for theirs (e.g. Love Story).
+ */
+export const DETAILS_ITEM_APPLIES: Partial<Record<DetailsItemKey, (c: DetailsItemContext) => boolean>> = {};
+
+export function detailsItemApplies(key: DetailsItemKey, ctx: DetailsItemContext): boolean {
+  return DETAILS_ITEM_APPLIES[key]?.(ctx) ?? true;
+}
+
+/** The navigator's rows for this celebration — the groups in order, each with the items that apply. */
+export function detailsNavigatorKeys(
+  ctx: DetailsItemContext,
+  present: ReadonlySet<DetailsItemKey>,
+): Array<{ group: DetailsItemGroup; label: string; keys: DetailsItemKey[] }> {
+  return DETAILS_ITEM_GROUPS.map((g) => ({
+    group: g.group,
+    label: g.label,
+    keys: g.keys.filter((k) => present.has(k) && detailsItemApplies(k, ctx)),
+  })).filter((g) => g.keys.length > 0);
+}
+
+/**
+ * The switches that depend on the type. "Parents on the invitation" exists
+ * only where the type's role set offers a parent role (a wedding's Parents of
+ * the Bride / of the Groom) — a birthday or a wake has no such role, so it has
+ * no such switch, and no "Parent of the Bride" dropdown.
+ */
+export function detailsSwitchesFor(ctx: DetailsItemContext): { parents: boolean } {
+  const offered = resolveRoleSet(ctx.profile.roleSetKey).offeredRoles as readonly string[];
+  return { parents: offered.includes('bride_parents') || offered.includes('groom_parents') };
+}
 
 export function groupOfItem(key: DetailsItemKey): DetailsItemGroup {
   return DETAILS_ITEM_GROUPS.find((g) => g.keys.includes(key))!.group;

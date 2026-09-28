@@ -64,7 +64,9 @@ import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
-import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, type DetailsItemKey } from '@/lib/maker-details-items';
+import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
+import { formatBlockTime } from '@/lib/schedule';
+import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { GuestCardBody } from '../guests/_components/guest-card-body';
 import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
@@ -987,7 +989,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleCountRes] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
@@ -1004,11 +1006,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       printAdmin.from('events').select('mood_feel_key').eq('event_id', eventId).maybeSingle(),
       // 💌 The live Love Story (the draft, read below, wins) — Details › Love Story.
       supabase.from('events').select('love_story').eq('event_id', eventId).maybeSingle(),
-      // 🗓 How many moments the schedule holds — Details › Schedule's ✓ (a refused read says so, never "0").
-      supabase.from('event_schedule_blocks').select('event_id', { count: 'exact', head: true }).eq('event_id', eventId),
+      // 🗓 The schedule's moments — Details › Schedule's ✓ and its pieces (a refused read says so, never "0").
+      supabase
+        .from('event_schedule_blocks')
+        .select('block_id, label, start_at, parent_block_id')
+        .eq('event_id', eventId)
+        .order('start_at', { ascending: true })
+        .order('sort_order', { ascending: true }),
+      // Announce is a piece of the Schedule where it is on (the schedule page's own flag).
+      isCoordinatorP3Enabled().catch(() => false),
     ]);
     if (storyLiveRes.error) logQueryError('LaunchPage.loveStory', storyLiveRes.error, { event_id: eventId }, 'graceful_degrade');
-    if (scheduleCountRes.error) logQueryError('LaunchPage.scheduleCount', scheduleCountRes.error, { event_id: eventId }, 'graceful_degrade');
+    if (scheduleRes.error) logQueryError('LaunchPage.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
+    const scheduleMoments = scheduleRes.error
+      ? null
+      : ((scheduleRes.data ?? []) as Array<{ block_id: string; label: string | null; start_at: string; parent_block_id: string | null }>).filter(
+          (b) => b.parent_block_id === null,
+        );
     if (feelRes.error) logQueryError('LaunchPage.moodFeel', feelRes.error, { event_id: eventId }, 'graceful_degrade');
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
@@ -1280,7 +1294,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             specialMessage={specialMessage}
             facts={factEditors}
             loveStory={loveStoryBook ? { book: loveStoryBook, moments: story ? resolveMoments(story).length : null } : null}
-            schedule={{ page: schedulePage, moments: scheduleCountRes.error ? null : (scheduleCountRes.count ?? 0) }}
+            schedule={{
+              page: schedulePage,
+              moments: scheduleMoments ? scheduleMoments.length : null,
+              pieces: schedulePieces(
+                (scheduleMoments ?? []).map((b) => ({ id: b.block_id, label: b.label ?? '', time: formatBlockTime(b.start_at) })),
+                announceOn,
+              ),
+            }}
             rsvp={rsvpItem}
             hasPalette={hasPalette(printEvent.role_palette)}
             hasGifts={egifts.length > 0}

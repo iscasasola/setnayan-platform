@@ -165,10 +165,9 @@ const ITEM_LAYOUT: Partial<Record<DetailsItemKey, DetailsItemLayout>> = {
   logo: 'whole',
   'mood-board': 'whole',
   /* Part 2b: the guest's RSVP is a live page that fills the body, its settings
-     on the right; the Schedule page carries its own tools (its rail, its
-     inspector) — no second editor beside it. */
+     on the right. (The Schedule is 'flow': its rail is the picture, the picked
+     moment's fields the right column.) */
   rsvp: 'fill',
-  schedule: 'whole',
 };
 export function detailsItemLayout(key: DetailsItemKey): DetailsItemLayout {
   return ITEM_LAYOUT[key] ?? 'flow';
@@ -189,6 +188,13 @@ export type DetailsItemModel = {
   done?: boolean;
   /** Where it shows — "Every stage", "The Invitation", "Every pass". */
   usedOn?: readonly string[];
+  /**
+   * 🧩 A tool's own PIECES (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS
+   * REBUILT INTO THE THREE PARTS") — the schedule's moments, the story's
+   * chapters, RSVP's settings — listed under the item in the navigator; the
+   * picked one is focused in the picture and its controls fill the right.
+   */
+  pieces?: ReadonlyArray<{ key: string; label: string; sub?: string }>;
 };
 
 /**
@@ -375,3 +381,36 @@ export function wordsAndPlansItem(
 export function makerHasWork(memberType: string | null | undefined, websiteOn: boolean): boolean {
   return memberType === 'couple' && websiteOn;
 }
+
+/* ══ THE PIECES OF THE TOOLS THAT MOVED IN WHOLE (part 2b) ═════════════════
+   DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS":
+   LEFT the tool's pieces, MIDDLE the picked one, RIGHT its controls. The keys
+   are the tools' own (`data-rsvp-setting` sections, `LOVE_STORY_CHAPTERS`, a
+   schedule moment's `block_id`). */
+
+/** RSVP's settings, each a piece — the sections `MakerRsvpSettings` always drew. */
+export const RSVP_PIECES: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'questions', label: 'What you ask' },
+  { key: 'who', label: 'Who can reply' },
+  { key: 'reply-by', label: 'Reply by' },
+  { key: 'reminders', label: 'Reminder emails' },
+  { key: 'requests', label: 'Requests' },
+];
+
+/** The Schedule's Announce piece — beside the day's moments. */
+export const SCHEDULE_ANNOUNCE_PIECE = 'announcements';
+
+/** The Schedule's pieces: its top-level moments in the day's order, then Announce (when it is on). */
+export function schedulePieces(
+  moments: ReadonlyArray<{ id: string; label: string; time: string }>,
+  announce: boolean,
+): Array<{ key: string; label: string; sub?: string }> {
+  return [
+    ...moments.map((m) => ({ key: m.id, label: m.label || 'A moment', ...(m.time ? { sub: m.time } : {}) })),
+    ...(announce ? [{ key: SCHEDULE_ANNOUNCE_PIECE, label: 'Announcements' }] : []),
+  ];
+}
+
+/** The Details right column's slots the Schedule's own panels are drawn into (`InSlot`). */
+export const DETAILS_SCHEDULE_INSPECTOR_SLOT = 'details-schedule-inspector';
+export const DETAILS_SCHEDULE_ANNOUNCE_SLOT = 'details-schedule-announce';

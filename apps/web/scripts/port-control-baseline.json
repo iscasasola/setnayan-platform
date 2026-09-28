@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8cb412269",
+  "generatedFromRef": "d0f791573",
   "routeCount": 436,
-  "destinations": 938,
+  "destinations": 937,
   "actions": 671,
-  "blocks": 5011,
+  "blocks": 5014,
   "routes": {
     "/": {
       "files": [
@@ -6110,7 +6110,6 @@
       "destinations": [
         "/[seg]",
         "/dashboard/[seg]",
-        "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/launch?tool=details&item=invitation",
         "/dashboard/[seg]/launch?tool=hero",
         "/dashboard/[seg]/plan3d",
@@ -6225,6 +6224,8 @@
         "PrintSetDownloads",
         "ProMark",
         "QrLookControls",
+        "ReplyByField",
+        "RequestsPage",
         "Row",
         "RsvpAskConfig",
         "SVGGElement",
@@ -6625,6 +6626,7 @@
         "dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx",
         "dashboard/[eventId]/schedule/_components/preparation-agenda.tsx",
         "dashboard/[eventId]/schedule/_components/ros-p2.tsx",
+        "dashboard/[eventId]/schedule/_components/schedule-focus.ts",
         "dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx",
         "dashboard/[eventId]/schedule/_components/tell-the-host.tsx",
         "dashboard/[eventId]/schedule/_components/travel-itinerary.tsx",
@@ -6680,6 +6682,7 @@
         "FeedPageSkeleton",
         "Glance",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "HostQuestions",

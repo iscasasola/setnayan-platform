@@ -95,7 +95,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
         specialMessage={specialMessage}
         facts={facts}
         loveStory={{ book: needsDb('The Love Story'), moments: 0 }}
-        schedule={{ page: needsDb('The schedule'), moments: null }}
+        schedule={{ page: needsDb('The schedule'), moments: null, pieces: [] }}
         rsvp={{ page: needsDb('The guest’s RSVP'), settings: needsDb('The RSVP settings') }}
         hasPalette
         hasGifts={false}

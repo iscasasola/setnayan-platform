@@ -37,6 +37,8 @@ import {
   makerHasWork,
   makerToolFor,
   movedPageItem,
+  RSVP_PIECES,
+  schedulePieces,
   wordsAndPlansItem,
   type DetailsItemContext,
   type DetailsItemKey,
@@ -131,12 +133,20 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   const details = read(`${L}/maker-details.tsx`);
   // Love Story's words are the Story row's own panel (`StoryPanel`, `updateOurStory`).
   assert.match(details, /'love-story': \(\s*<StoryPanel\s+action=\{updateOurStory\.bind\(null, eventId\)\}/);
-  // The Schedule IS its own editor: no editor column beside it (part 3's
-  // layouts — 'whole'); the guest's RSVP fills the body, its settings right.
-  assert.equal(detailsItemLayout('schedule'), 'whole');
+  // 🧩 Three parts, never a whole page dropped in (DECISION_LOG "A TOOL MOVED
+  // INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): the Schedule's rail is
+  // the picture and its OWN inspector fills the right column.
+  assert.equal(detailsItemLayout('schedule'), 'flow');
   assert.equal(detailsItemLayout('rsvp'), 'fill');
   assert.equal(detailsItemLayout('love-story'), 'flow');
-  assert.doesNotMatch(details, /\bschedule: schedule\.|schedule: \(\s*<Toggle/, 'the schedule was given a second editor');
+  assert.match(details, /\.\.\.\(schedule \? \{ schedule: <ScheduleSlots \/> \} : \{\}\)/, 'the Schedule has no right column');
+  const page = read('app/dashboard/[eventId]/schedule/page.tsx');
+  assert.match(page, /inspectorSlot=\{inMaker \? DETAILS_SCHEDULE_INSPECTOR_SLOT : null\}/, 'the rail keeps its inspector to itself in the Maker');
+  assert.match(page, /<InSlot id=\{inMaker \? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null\}>/);
+  const rail = read('app/dashboard/[eventId]/schedule/_components/day-rail.tsx');
+  assert.match(rail, /\{inspectorSlot \? <InSlot id=\{inspectorSlot\}>\{side\}<\/InSlot> : null\}/);
+  assert.match(rail, /isDesktop && !inspectorSlot/, 'the page’s own side column is drawn beside the Maker’s');
+  assert.match(rail, /!isDesktop && selected && !inspectorSlot/, 'the phone panel rises over the Maker too');
   // The first-visit reminder tour rides the RSVP PICTURE (mounted on first open), never the always-mounted editor.
   const rsvpItem = launch.slice(launch.indexOf('const rsvpItem = {'), launch.indexOf('settings: ('));
   assert.match(rsvpItem, /<MiniTour tourKey="customer_guest_reminders_v1"/);
@@ -250,6 +260,56 @@ test('the shared special message editor posts its one writer, drafted, and previ
   assert.match(html, />See you there\.<\/textarea>/);
   const src = read(`${L}/special-message-field.tsx`);
   assert.match(src, /const scene = useDetailsFactScene\(\);\s*const preview = useSceneWordsBox\(scene, box,/, 'no live preview on the tapped scene');
+});
+
+test('🧩 a tool’s pieces: LEFT under its item, the picked one’s controls RIGHT — hidden, never unmounted', async () => {
+  // The pieces are the tools' own.
+  assert.deepEqual(RSVP_PIECES.map((p) => p.key), ['questions', 'who', 'reply-by', 'reminders', 'requests']);
+  const settings = read(`${L}/maker-rsvp-ask.tsx`);
+  for (const key of RSVP_PIECES.map((p) => p.key)) {
+    assert.match(settings, new RegExp(`<DetailsPieceOnly item="rsvp" piece="${key}">`), `RSVP piece ${key} wraps no settings`);
+  }
+  assert.match(read('app/dashboard/[eventId]/website/our-story/_components/love-story-chapters-panel.tsx'), /<DetailsPieceOnly key=\{chapter\} item="love-story" piece=\{chapter\}>/);
+  assert.deepEqual(
+    schedulePieces([{ id: 'b1', label: 'Ceremony', time: '3:00 PM' }, { id: 'b2', label: '', time: '' }], true),
+    [
+      { key: 'b1', label: 'Ceremony', sub: '3:00 PM' },
+      { key: 'b2', label: 'A moment' },
+      { key: 'announcements', label: 'Announcements' },
+    ],
+  );
+  assert.equal(schedulePieces([], false).length, 0);
+
+  // RENDERED: the picked item lists its pieces; the first is picked; the other
+  // pieces' controls are hidden but still in the page.
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
+  const { DetailsPieceOnly } = await import(`../${L}/details-piece`);
+  const html = renderToStaticMarkup(
+    React.createElement(DetailsWorkspace, {
+      groups: [
+        {
+          key: 'story',
+          label: 'Story & plans',
+          items: [{ key: 'rsvp', group: 'story', label: 'RSVP', icon: null, pieces: RSVP_PIECES }],
+        },
+      ],
+      bodies: { rsvp: 'THE-GUEST-RSVP' },
+      editors: {
+        rsvp: React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(DetailsPieceOnly, { item: 'rsvp', piece: 'questions' }, React.createElement('i', { 'data-stub': 'Q' })),
+          React.createElement(DetailsPieceOnly, { item: 'rsvp', piece: 'reply-by' }, React.createElement('i', { 'data-stub': 'R' })),
+        ),
+      },
+      initial: 'rsvp',
+    }),
+  );
+  for (const p of RSVP_PIECES) assert.match(html, new RegExp(`data-details-piece-item="${p.key}"`), `the navigator does not list ${p.key}`);
+  assert.match(html, /data-details-piece-item="questions"[^>]*|aria-pressed="true"[^>]*data-details-piece-item="questions"/);
+  assert.match(html, /<div class="contents" data-details-piece="questions"><i data-stub="Q">/, 'the picked piece’s controls are not shown');
+  assert.match(html, /<div hidden="" class="hidden" data-details-piece="reply-by"><i data-stub="R">/, 'another piece’s controls are unmounted or shown');
 });
 
 /* ── 3 · one field, two doors ─────────────────────────────────────────── */

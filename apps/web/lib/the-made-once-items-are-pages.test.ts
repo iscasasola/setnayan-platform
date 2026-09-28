@@ -268,7 +268,7 @@ test('Love Story: Our Love Story is the body, and a moment is added and edited I
   // 📦 Part 2b: the scrapbook is Details › Love Story's picture, drawn by the launch page.
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /<OurStoryEditorPage[\s\S]{0,200}maker: '1'/, 'Details draws the scrapbook page');
-  assert.match(read(`${L}/maker-details.tsx`), /'love-story': <div key="love-story" data-details-love-story-book="">\{loveStory\.book\}<\/div>/, 'the scrapbook is the item’s picture');
+  assert.match(read(`${L}/maker-details.tsx`), /<div key="love-story" data-details-love-story-book="" data-maker-love-story-book="">\s*<LoveStoryPieceFocus \/>\s*\{loveStory\.book\}\s*<\/div>/, 'the scrapbook is the item’s picture');
   assert.doesNotMatch(read('app/dashboard/[eventId]/website/editor/page.tsx'), /<OurStoryEditorPage\b/, 'the scrapbook is drawn twice');
   const page = read(`${S}/page.tsx`);
   assert.match(page, /inMaker \? null : <MiniTour/, 'no second tour pops up inside the Maker');

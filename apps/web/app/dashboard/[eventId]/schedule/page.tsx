@@ -102,7 +102,8 @@ import {
 import { venueNowMs } from '@/lib/schedule';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
-import { detailsDoorHref } from '@/lib/maker-details-items';
+import { DETAILS_SCHEDULE_ANNOUNCE_SLOT, DETAILS_SCHEDULE_INSPECTOR_SLOT, detailsDoorHref } from '@/lib/maker-details-items';
+import { InSlot } from '../launch/_components/details-piece';
 import { formatCount } from '@/lib/format-number';
 // ── Schedule rebuild, slice 1 (2026-09-27) ─────────────────────────────────
 // The Event Day view becomes the approved prototype's time rail
@@ -605,11 +606,15 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           <span className="ml-auto flex items-center gap-2">
             <Tip align="end">{viewNote}</Tip>
             {canAnnounce ? (
-              <AnnounceButton
-                eventId={eventId}
-                isEventDay={isEventDay}
-                recent={recentAnnouncements}
-              />
+              /* In the Maker's Details, Announce is a piece of the Schedule: its
+                 button (and its sheet) sit in the right column (`InSlot`). */
+              <InSlot id={inMaker ? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null}>
+                <AnnounceButton
+                  eventId={eventId}
+                  isEventDay={isEventDay}
+                  recent={recentAnnouncements}
+                />
+              </InSlot>
             ) : null}
           </span>
         </div>
@@ -798,6 +803,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             />
           ) : null}
           <ScheduleDay
+            inspectorSlot={inMaker ? DETAILS_SCHEDULE_INSPECTOR_SLOT : null}
             actions={{
               updateScheduleBlock,
               bulkRetimeScheduleBlocks,

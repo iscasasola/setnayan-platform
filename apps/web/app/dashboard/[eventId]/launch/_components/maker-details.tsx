@@ -48,6 +48,7 @@ import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
   LOOK_ITEM_KEYS,
+  RSVP_PIECES,
   STORY_ITEM_KEYS,
   WORDS_ITEM_KEYS,
   detailsItemHref,
@@ -62,6 +63,8 @@ import {
   type WordsItemKey,
 } from '@/lib/maker-details-items';
 import { SpecialMessageField } from './special-message-field';
+import { LoveStoryPieceFocus, ScheduleSlots } from './details-tool-pieces';
+import { LOVE_STORY_CHAPTERS, LOVE_STORY_CHAPTER_LABEL } from '@/lib/love-story-moments';
 import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
 import { updateOurStory } from '../../website/our-story/actions';
@@ -181,8 +184,10 @@ export type MakerDetailsProps = {
   facts: Partial<Record<DetailsItemKey, ReactNode>>;
   /** 💌 Love Story, moved whole: the scrapbook page (its picture). Null = not this type. `moments` null = unread. */
   loveStory?: { book: ReactNode; moments: number | null } | null;
-  /** 🗓 The shipped Schedule page, whole (it is its own editor). `moments` null = unread. */
-  schedule?: { page: ReactNode; moments: number | null } | null;
+  /** 🗓 The shipped Schedule page (the rail is the picture; its own inspector is
+   *  drawn into the right column). `moments` null = unread; `pieces` = its
+   *  top-level moments then Announce (`schedulePieces`). */
+  schedule?: { page: ReactNode; moments: number | null; pieces: ReadonlyArray<{ key: string; label: string; sub?: string }> } | null;
   /** 🗳 RSVP, moved whole: the guest's RSVP (its picture) and its settings (its editor). */
   rsvp?: { page: ReactNode; settings: ReactNode } | null;
   flash: 'saved' | 'error' | null;
@@ -357,6 +362,15 @@ export function MakerDetails(props: MakerDetailsProps) {
           scheduleMoments: schedule?.moments ?? null,
         }),
         icon: (WORDS_ICON as Record<string, ReactNode>)[w] ?? (STORY_ICON as Record<string, ReactNode>)[w],
+        /* 🧩 A tool's pieces — LEFT of the three parts (DECISION_LOG "A TOOL
+           MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
+        ...(w === 'love-story'
+          ? { pieces: LOVE_STORY_CHAPTERS.map((c) => ({ key: c, label: LOVE_STORY_CHAPTER_LABEL[c] })) }
+          : w === 'schedule' && schedule?.pieces.length
+            ? { pieces: schedule.pieces }
+            : w === 'rsvp'
+              ? { pieces: RSVP_PIECES }
+              : {}),
       };
     }
     if ((PRINT_SET_KEYS as readonly string[]).includes(k)) {
@@ -450,19 +464,20 @@ export function MakerDetails(props: MakerDetailsProps) {
     'kindly-reply': <PrintPieceBody input={prints} piece="details" priority={initialItem === 'kindly-reply'} menu={menu} tappable />,
     /* ── Story & plans: each page as it shipped. Keyed: React's dev check
        otherwise flags a page handed through Details as a child without a key. ── */
-    ...(loveStory ? { 'love-story': <div key="love-story" data-details-love-story-book="">{loveStory.book}</div> } : {}),
-    /* The Schedule carries its own tools ('whole' — `detailsItemLayout`): it
-       scrolls in its own column; the guest's RSVP is a live page that fills the
-       body ('fill'), its settings on the right. */
-    ...(schedule
+    ...(loveStory
       ? {
-          schedule: (
-            <div key="schedule" data-details-schedule-page="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 sm:px-6">
-              {schedule.page}
+          'love-story': (
+            <div key="love-story" data-details-love-story-book="" data-maker-love-story-book="">
+              <LoveStoryPieceFocus />
+              {loveStory.book}
             </div>
           ),
         }
       : {}),
+    /* The Schedule's picture is its rail (the shipped page); the picked
+       moment's fields are the right column's (`ScheduleSlots`). The guest's RSVP
+       is a live page that fills the body ('fill'), its settings on the right. */
+    ...(schedule ? { schedule: <div key="schedule" data-details-schedule-page="">{schedule.page}</div> } : {}),
     ...(rsvp ? { rsvp: <div key="rsvp" data-details-rsvp-page="" className="flex min-h-0 flex-1 flex-col">{rsvp.page}</div> } : {}),
   };
   for (const k of PRINT_SET_KEYS) {
@@ -636,7 +651,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         {save}
       </div>
     ),
-    /* ── Story & plans (the Schedule is its own editor: it has none here) ── */
+    /* ── Story & plans — each tool's picked piece's controls ── */
     ...(loveStory
       ? {
           'love-story': facts['love-story'] ?? (
@@ -647,6 +662,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           ),
         }
       : {}),
+    ...(schedule ? { schedule: <ScheduleSlots /> } : {}),
     ...(rsvp ? { rsvp: rsvp.settings } : {}),
     ...(look
       ? {

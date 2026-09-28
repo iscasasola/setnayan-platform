@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
+import { DetailsPieceOnly } from './details-piece';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   GUEST_REMINDERS_TIP,
@@ -126,6 +127,7 @@ export function MakerRsvpSettings({
 
   return (
     <div className="flex flex-col gap-5 px-1" data-made-once="rsvp-page">
+      <DetailsPieceOnly item="rsvp" piece="questions">
       {/* ── Ask one question at a time ── */}
       <section className="flex flex-col gap-1" data-rsvp-setting="one-at-a-time">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
@@ -165,7 +167,9 @@ export function MakerRsvpSettings({
         </div>
         <p className="text-xs text-ink/60">Nobody&rsquo;s answer is deleted by turning a question off.</p>
       </section>
+      </DetailsPieceOnly>
 
+      <DetailsPieceOnly item="rsvp" piece="who">
       {/* ── Who can RSVP? — ONE stored value ── */}
       <section className="flex flex-col gap-2" data-rsvp-setting="who-can-rsvp">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
@@ -191,7 +195,9 @@ export function MakerRsvpSettings({
           ))}
         </div>
       </section>
+      </DetailsPieceOnly>
 
+      <DetailsPieceOnly item="rsvp" piece="reply-by">
       {/* ── Reply by — typed right here (no link out) ── */}
       <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
         <p className="text-sm font-semibold text-ink">Reply by</p>
@@ -213,7 +219,9 @@ export function MakerRsvpSettings({
           </p>
         )}
       </section>
+      </DetailsPieceOnly>
 
+      <DetailsPieceOnly item="rsvp" piece="reminders">
       {/* ── Reminder emails — 30 · 7 · 1 days (owner 2026-09-26). ONE switch,
           `rsvp_ask_config.guestReminders`; absent = On. The sender
           (`lib/guest-reminder-emails.ts`) reads the LIVE value, so like every
@@ -238,7 +246,9 @@ export function MakerRsvpSettings({
           Only guests with an email. Each reminder lists what they have not ticked on their checklist and links to their own page.
         </p>
       </section>
+      </DetailsPieceOnly>
 
+      <DetailsPieceOnly item="rsvp" piece="requests">
       {/* ── Requests waiting — the shipped rows, in place (Keep · Remove · Link) ── */}
       <section className="flex flex-col gap-2" data-rsvp-setting="requests">
         <p className="text-sm font-semibold text-ink">Requests waiting</p>
@@ -259,6 +269,7 @@ export function MakerRsvpSettings({
           </div>
         )}
       </section>
+      </DetailsPieceOnly>
 
       {drafted ? (
         <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">

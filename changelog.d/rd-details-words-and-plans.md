@@ -13,10 +13,23 @@ ADAPTS TO EVERY EVENT TYPE".
   · **Love Story** — the scrapbook page (`OurStoryEditorPage maker=1`) is the picture, the Story
     row's `StoryPanel` (its chapters, moments and questions) the editor. The Maker's own Love Story
     page is gone from the work area (it was drawn twice); its layout/theme stays for part 3.
-  · **Schedule** — the shipped Schedule page (`CoupleSchedulePage maker=1`: rail, PickMenus,
-    announcements, reminders), whole; it is its own editor, so the item has no right column.
+  · **Schedule** — the shipped Schedule page (`CoupleSchedulePage maker=1`) is the picture (its rail);
+    the rail's OWN inspector (`MomentInspector`, the picked moment's fields) and its Announce button
+    are drawn into the right column (`ScheduleDay` `inspectorSlot`, `InSlot`).
   · **RSVP** — the guest's RSVP (`MakerRsvpCanvas`) is the picture, the shipped `MakerRsvpSettings`
-    the editor; the reminder-emails tour rides the picture (mounted on first open).
+    the editor; "Reply by" is a date field in place (the same column and action as the Details
+    page's pax card, `updatePaxSettings`) and the Requests rows (Keep · Remove · Link — the Requests
+    page itself, `maker=1`) are in place: no link out. The reminder-emails tour rides the picture.
+- **🧩 Each tool in the three parts** (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE
+  THREE PARTS"): a Details item can list its PIECES under it in the navigator (`DetailsItemModel.pieces`,
+  `details-piece.tsx`) — Schedule: its moments (+ Announcements); Love Story: its five chapters; RSVP:
+  What you ask · Who can reply · Reply by · Reminder emails · Requests. The picked piece is focused in
+  the picture (the rail selects the moment, the book scrolls to the chapter) and only its controls show
+  on the right (`DetailsPieceOnly` — hidden, never unmounted, so one form still posts every field). A
+  moment picked on the rail or a chapter tapped in the book is picked in the navigator too.
+- **A schedule moment tapped on a stage** opens Details › Schedule with that moment selected (the guest
+  schedule names its moments, `data-schedule-moment`; the bridge's `edit` carries `moment`;
+  `schedule-focus.ts`). In the Maker the Schedule opens on the day itself.
 - **Old doors land on the item** — `?tool=love-story` / `?tool=rsvp-page`, a scene's "Open … editor",
   a restored tab: part 3's ONE translation (`movedPageItem` / `movedSelection`, which already named
   them and lights up now that the items exist); `/website/our-story` and `/schedule` redirect to the

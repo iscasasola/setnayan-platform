@@ -20,6 +20,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { YearMomentsStrip } from './_components/year-moments-strip';
+import { IncomingRequests } from './_components/incoming-requests';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
@@ -206,7 +207,16 @@ export default async function LauncherPage({
   //
   // `page` is the Planning shelf's page (the collection template, owner-approved
   // 2026-09-24: ten per page). A URL, not state — see `planningPageHref`.
-  searchParams?: Promise<{ hub?: string; putaway?: string; page?: string }>;
+  searchParams?: Promise<{
+    hub?: string;
+    putaway?: string;
+    page?: string;
+    // Incoming requests (owner 2026-09-28): the one-line result of NO / mute / a
+    // failed answer. YES leaves the page for the event's RSVP.
+    request_declined?: string;
+    inviter_muted?: string;
+    request_error?: string;
+  }>;
 }) {
   const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
@@ -1036,6 +1046,21 @@ export default async function LauncherPage({
           "Pick up where you left off" tail still apply and still pass: what was
           removed is the visible duplicate, never the page's identity. */}
       <h1 className="sr-only">Your events</h1>
+
+      {/* INCOMING REQUESTS — at the top, only while one is waiting (owner
+          2026-09-28: "if they have an account. it must show on their event
+          page. as incoming requests"). Renders nothing otherwise. */}
+      <IncomingRequests
+        flash={
+          sp.request_error === '1'
+            ? 'error'
+            : sp.inviter_muted === '1'
+              ? 'muted'
+              : sp.request_declined === '1'
+                ? 'declined'
+                : null
+        }
+      />
 
       {/* THE COMPOSER IS RETIRED (owner 2026-08-20: "we do not need it there
           because create event is already found on the top nav"). The

@@ -140,6 +140,9 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   assert.equal(detailsItemLayout('rsvp'), 'fill');
   assert.equal(detailsItemLayout('love-story'), 'flow');
   assert.match(details, /\.\.\.\(schedule \? \{ schedule: <ScheduleSlots \/> \} : \{\}\)/, 'the Schedule has no right column');
+  assert.match(details, /schedule: <ItemPieces item="schedule" pieces=\{schedule\.pieces\} \/>/, 'the Schedule lists no moments');
+  assert.match(details, /'love-story': <ItemPieces item="love-story"/);
+  assert.match(details, /rsvp: <ItemPieces item="rsvp" pieces=\{RSVP_PIECES\} \/>/);
   const page = read('app/dashboard/[eventId]/schedule/page.tsx');
   assert.match(page, /inspectorSlot=\{inMaker \? DETAILS_SCHEDULE_INSPECTOR_SLOT : null\}/, 'the rail keeps its inspector to itself in the Maker');
   assert.match(page, /<InSlot id=\{inMaker \? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null\}>/);
@@ -280,36 +283,34 @@ test('🧩 a tool’s pieces: LEFT under its item, the picked one’s controls R
   );
   assert.equal(schedulePieces([], false).length, 0);
 
-  // RENDERED: the picked item lists its pieces; the first is picked; the other
-  // pieces' controls are hidden but still in the page.
+  // RENDERED on part 3's one mechanism (`details-go.tsx`): the picked item
+  // lists its pieces (the workspace's `pieces` prop), the first is picked…
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
-  const { DetailsPieceOnly } = await import(`../${L}/details-piece`);
+  const { DetailsPieceOnly, ItemPieces } = await import(`../${L}/details-piece`);
+  const { DetailsPieceContext } = await import(`../${L}/details-go`);
   const html = renderToStaticMarkup(
     React.createElement(DetailsWorkspace, {
-      groups: [
-        {
-          key: 'story',
-          label: 'Story & plans',
-          items: [{ key: 'rsvp', group: 'story', label: 'RSVP', icon: null, pieces: RSVP_PIECES }],
-        },
-      ],
+      groups: [{ key: 'story', label: 'Story & plans', items: [{ key: 'rsvp', group: 'story', label: 'RSVP', icon: null }] }],
       bodies: { rsvp: 'THE-GUEST-RSVP' },
-      editors: {
-        rsvp: React.createElement(
-          React.Fragment,
-          null,
-          React.createElement(DetailsPieceOnly, { item: 'rsvp', piece: 'questions' }, React.createElement('i', { 'data-stub': 'Q' })),
-          React.createElement(DetailsPieceOnly, { item: 'rsvp', piece: 'reply-by' }, React.createElement('i', { 'data-stub': 'R' })),
-        ),
-      },
+      editors: { rsvp: 'SETTINGS' },
+      pieces: { rsvp: React.createElement(ItemPieces, { item: 'rsvp', pieces: RSVP_PIECES }) },
       initial: 'rsvp',
     }),
   );
-  for (const p of RSVP_PIECES) assert.match(html, new RegExp(`data-details-piece-item="${p.key}"`), `the navigator does not list ${p.key}`);
-  assert.match(html, /data-details-piece-item="questions"[^>]*|aria-pressed="true"[^>]*data-details-piece-item="questions"/);
-  assert.match(html, /<div class="contents" data-details-piece="questions"><i data-stub="Q">/, 'the picked piece’s controls are not shown');
-  assert.match(html, /<div hidden="" class="hidden" data-details-piece="reply-by"><i data-stub="R">/, 'another piece’s controls are unmounted or shown');
+  for (const p of RSVP_PIECES) assert.match(html, new RegExp(`data-details-piece="${p.key}"`), `the navigator does not list ${p.key}`);
+  assert.match(html, /aria-pressed="true"[^>]*data-details-piece="questions"/, 'the first piece is not picked');
+  // …and only the picked piece's controls show — the others hidden, never unmounted.
+  const controls = renderToStaticMarkup(
+    React.createElement(
+      DetailsPieceContext.Provider,
+      { value: { piece: () => 'questions', setPiece: () => {} } },
+      React.createElement(DetailsPieceOnly, { item: 'rsvp', piece: 'questions' }, React.createElement('i', { 'data-stub': 'Q' })),
+      React.createElement(DetailsPieceOnly, { item: 'rsvp', piece: 'reply-by' }, React.createElement('i', { 'data-stub': 'R' })),
+    ),
+  );
+  assert.match(controls, /<div class="contents" data-details-piece-only="questions"><i data-stub="Q">/, 'the picked piece’s controls are not shown');
+  assert.match(controls, /<div hidden="" class="hidden" data-details-piece-only="reply-by"><i data-stub="R">/, 'another piece’s controls are unmounted or shown');
 });
 
 /* ── 3 · one field, two doors ─────────────────────────────────────────── */

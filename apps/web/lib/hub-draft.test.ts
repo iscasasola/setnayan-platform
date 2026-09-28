@@ -68,7 +68,9 @@ const LIVE: HubLiveState = {
 
 test('sanitize drops unknown keys, unknown sections and refs outside the public bucket', () => {
   const d = sanitizeHubDraft({
-    events: { rsvp_backdrop: { theme: 'nope' }, invite_theme: 'velvet', guests: 'x' },
+    // (`invite_theme` was the non-draft example here until 2026-09-28, when the
+    // theme became a Maker edit — `slug` is never drafted: the address stays live.)
+    events: { rsvp_backdrop: { theme: 'nope' }, slug: 'velvet', guests: 'x' },
     widgets: {
       countdown: { mode: 'hidden', display_order: 3, evil: 1 },
       not_a_section: { mode: 'hidden' },
@@ -100,6 +102,9 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
       'monogram_studio_config',
       'reveal_stages',
       'std_reveal_effects',
+      // 🎨 The theme (2026-09-28) — priced by its VALUE like the reveal:
+      // Classic free, the others Pro (`eventItemIsPro`, the-theme-is-drafted.test.ts).
+      'invite_theme',
     ].includes(c);
     assert.equal([look, free, word, made].filter(Boolean).length, 1, `${c} must be exactly one kind`);
     if (free || word) assert.equal(eventColumnIsPro(c), false, `${c} is free`);

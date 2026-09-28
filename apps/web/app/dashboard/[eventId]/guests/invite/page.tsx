@@ -9,7 +9,6 @@ export const metadata = { title: 'Invite guests' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ theme?: string }>;
 };
 
 /**
@@ -22,9 +21,8 @@ type Props = {
  * Join link shape matches the list page's fetchJoinUrl: `${APP_URL}/join/${eventId}
  * ?token=${event_join_tokens.token}`. Couple-only (RLS + the membership guard).
  */
-export default async function GuestInvitePage({ params, searchParams }: Props) {
+export default async function GuestInvitePage({ params }: Props) {
   const { eventId } = await params;
-  const search = await searchParams;
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -59,13 +57,9 @@ export default async function GuestInvitePage({ params, searchParams }: Props) {
         </p>
       </header>
 
-      {/* The link, its QR, the pending-requests notice, the look picker and
+      {/* The link, its QR, the pending-requests notice, the theme line and
           the crew Event QR — shared with the guest list's Share the link tab. */}
-      <InvitePanel
-        eventId={eventId}
-        themeNotice={search.theme === 'saved' ? 'saved' : search.theme === 'error' ? 'error' : null}
-        returnTo="invite"
-      />
+      <InvitePanel eventId={eventId} />
     </div>
   );
 }

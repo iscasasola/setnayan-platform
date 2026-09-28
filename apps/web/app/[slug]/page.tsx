@@ -1,4 +1,5 @@
-import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene } from './_lib/editor-canvas';
+import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme } from './_lib/editor-canvas';
+import type { InviteThemeId } from '@/lib/invite-themes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -14,6 +15,8 @@ import { resolveHero } from '@/lib/event-hero';
 import { resolveMonogram } from '@/lib/monogram';
 import { venueNamesLine } from '@/lib/event-venues';
 import { InvitationSkeleton } from './_components/invitation-skeleton';
+import { heroDesignForSkeleton } from './_lib/hero-design-of';
+import { HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
 import {
@@ -150,6 +153,10 @@ type Props = {
     // 🖼 The Maker's made-once Hero page — `?only=hero` draws one scene alone.
     // Canvas-only (host-verified); inert everywhere else.
     only?: string;
+    // 🎨 A theme tile on the Maker's Details page — `?theme=<id>` draws the
+    // couple's page in that theme, bridge-less. Canvas-only (host-verified,
+    // `canvasTriedTheme`); inert everywhere else.
+    theme?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
@@ -407,6 +414,11 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // profile is reused for the phase engine below.
   const eventTypeProfile = await resolveProfile(event.event_type);
   if (!surfaceEnabled(eventTypeProfile, 'website')) return renderVendorBySlug({ slug, searchParams });
+  // 🎴 Which hero design the loading screen draws — started now, awaited at the
+  // boundary below, so it overlaps the canonicalisation work in between. Every
+  // read inside is `cache()`d and the body makes the same ones, so the body
+  // pays nothing for them again. See `skeletonHeroDesign`.
+  const skeletonDesign = skeletonHeroDesign(admin, event.event_id, search);
 
   // PR6 — three-tier URL cutover (slug-routing program), flag-gated (default
   // OFF). The canonical public URL for an event is now /u/{ownerSlug}/{slug}; a
@@ -486,6 +498,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // it wears the real masthead's words at no extra read. See the skeleton's
   // docblock.
   const skeletonHero = resolveHero(event);
+  const skeletonHeroDesignId = await skeletonDesign;
   return (
     <Suspense
       fallback={
@@ -497,6 +510,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           eventDate={event.event_date}
           heroMedia={skeletonHero.photoRef !== null || skeletonHero.guestVideoRef !== null}
           venueName={venueNamesLine(event)}
+          design={skeletonHeroDesignId}
           showHeader={!(asksForEditorBridge(search) && search.bars !== '1')}
           mark={
             event.monogram_custom_svg || event.monogram_uploaded_svg
@@ -516,6 +530,55 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       />
     </Suspense>
   );
+}
+
+/**
+ * 💾 The host's draft the Maker canvas previews (`?editor=1`) — null for every
+ * guest, always: only `asksForHostCanvas` looks, and `loadHostPreviewDraft`
+ * answers null unless the viewer passes the host check. ONE gate, shared by the
+ * body and the loading screen, so the skeleton can never preview a draft the
+ * body would not. Every read inside is `cache()`d — asked twice, paid once.
+ */
+async function hostCanvasDraft(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  search: Awaited<Props['searchParams']>,
+): Promise<HubDraft | null> {
+  if (asksForHostCanvas(search)) {
+    const previewer = await getCurrentUser();
+    if (previewer) return loadHostPreviewDraft(admin, eventId, previewer.id);
+  }
+  return null;
+}
+
+/**
+ * 🎴 THE LOADING SCREEN WEARS THE PAGE'S HERO DESIGN (owner: "loading skeleton =
+ * the page"). It used to always draw Design 1 · The Card, so an Event Hub on
+ * The Marquee, The Crest or The Letter loaded as the wrong design and jumped —
+ * worst in the Maker, where the canvas reloads right after a design is picked.
+ *
+ * The rows are the body's own rows (`loadWidgets`, with the host's draft over
+ * them in the Maker canvas) and the design comes through the SAME resolver the
+ * body uses (`_lib/hero-design-of.ts`) — never a second one.
+ *
+ * Never throws: a skeleton that cannot learn its design draws The Card, and a
+ * failed widget read still reaches `error.tsx` from the body, which awaits the
+ * same cached read.
+ */
+async function skeletonHeroDesign(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  search: Awaited<Props['searchParams']>,
+): Promise<HeroDesignId> {
+  try {
+    const [widgets, draft] = await Promise.all([
+      loadWidgets(admin, eventId),
+      hostCanvasDraft(admin, eventId, search),
+    ]);
+    return heroDesignForSkeleton(widgets, draft);
+  } catch {
+    return HERO_DESIGN_DEFAULT;
+  }
 }
 
 /**
@@ -555,7 +618,6 @@ async function InvitationBody({
      viewer passes the same host check the editor bridge uses. Without the param
      (every guest, always) `hostDraft` is null, both overlays return their input,
      and nothing below reads anything different. */
-  let hostDraft: HubDraft | null = null;
   // 🐢 → 🐇 (Maker phone-polish, 2026-09-26): this used a bare
   // `supabase.auth.getUser()` — its own network round-trip to the Auth
   // server — where FOUR other places lower in this same render made that
@@ -564,19 +626,34 @@ async function InvitationBody({
   // dashboard ("four sequential auth-server round-trips… now resolve to
   // the same Promise"); this route just never adopted it. All five now
   // share ONE auth round-trip per request instead of five in a row.
-  // Timed here because this is the FIRST call — every later `getCurrentUser()`
-  // in this render resolves to the same memoized Promise for free.
-  if (asksForHostCanvas(search)) {
-    const previewer = await timer.track('auth', () => getCurrentUser());
-    if (previewer) hostDraft = await loadHostPreviewDraft(admin, liveEvent.event_id, previewer.id);
+  // Every later `getCurrentUser()` in this render resolves to the same
+  // memoized Promise for free. ⏱ Since the loading screen learned the hero
+  // design (`skeletonHeroDesign`), the page asks this BEFORE the Suspense
+  // boundary, so on the Maker canvas this 'auth' span mostly measures a cache
+  // hit — the round trip itself now lands before the skeleton flushes.
+  const hostDraft = await timer.track('auth', () => hostCanvasDraft(admin, liveEvent.event_id, search));
+  // 🎨 A THEME TILE (`canvasTriedTheme`): only for a VERIFIED host, asked only
+  // when the tile's param is present — React.cache'd, so it shares the
+  // membership lookup `isEditorCanvas` makes below.
+  let triedTheme: InviteThemeId | null = null;
+  if (search.theme && asksForHostCanvas(search)) {
+    const previewer = await getCurrentUser();
+    if (previewer) {
+      triedTheme = canvasTriedTheme(search, await loadHostMembership(admin, liveEvent.event_id, previewer.id));
+    }
   }
-  const event = overlayHubDraftEvent(liveEvent, hostDraft);
+  /* The tile's theme is laid over the drafted row — the tile shows the couple's
+     page as they are editing it, in the theme they are looking at. Nothing is
+     written; `theme_try_on` lets the one theme gate paint a Pro theme the
+     couple does not own yet (the fence still answers). */
+  const draftedEvent = overlayHubDraftEvent(liveEvent, hostDraft);
+  const event = triedTheme ? { ...draftedEvent, invite_theme: triedTheme, theme_try_on: true } : draftedEvent;
   /* 🎨 THE DRAFTED COLOURS AND FACE — worn again, from the overlaid row, by
      `HostDraftLook` (the layout that wears them for guests cannot see the
      draft). Only when the host's draft holds a Colors-panel column; for every
      guest `hostDraft` is null and `wearDraft` returns its input untouched. */
   const draftLook =
-    hostDraft && HUB_DRAFT_LOOK_COLUMNS.some((c) => c in hostDraft.events)
+    triedTheme || (hostDraft && HUB_DRAFT_LOOK_COLUMNS.some((c) => c in hostDraft.events))
       ? await resolveHubTheme(event)
           .then((hub) => guestLookFrom(event, hub, true))
           .catch(() => null)
@@ -1195,6 +1272,9 @@ async function InvitationBody({
     isEditorCanvas,
     // The click-to-edit bridge: the Maker's iframe only, never the preview tab.
     editorBridge: isEditorCanvas && asksForEditorBridge(search),
+    // 🎨 …and never a theme TILE: it is drawn as the canvas, but its parent is
+    // the Maker, which would hear its bridge as the canvas's.
+    themeTile: triedTheme !== null,
     canvasGuestBars: isEditorCanvas && search.bars === '1',
     // 🖼 `?only=hero` — the Maker's Hero page draws the hero alone. Host canvas
     // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's

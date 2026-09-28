@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { resolveReturnTo } from '@/lib/editor-return';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { asViewed } from '@/lib/view-as-free.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -311,7 +312,9 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
       const [live, ownsPro] = await Promise.all([
         readHubLiveState(supabase, eventId),
         // Admin client: orders RLS is purchaser-scoped (see lib/hub-look-gate.ts).
-        eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false),
+        // 👁 As the viewer is shown it: the bar is a render (its Apply is not —
+        // `hubDraftAction` asks `lookProAllows`, which never reads the switch).
+        asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false)),
       ]);
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),
       // so a Pro key reads as needing the web even for an owning couple.

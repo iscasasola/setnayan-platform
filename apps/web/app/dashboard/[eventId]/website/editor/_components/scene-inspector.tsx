@@ -1,11 +1,11 @@
 'use client';
 
 import { makerSave } from '@/lib/maker-refresh';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Lock, PencilLine, Play } from 'lucide-react';
-import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
 import {
   HUB_ARRANGEMENTS,
   HUB_ARRANGEMENT_LABEL,
@@ -184,7 +184,14 @@ export function SceneAnimateTab({
 
   return (
     <div data-scene-tab="animate" aria-busy={pending}>
-      <ISection>How it moves</ISection>
+      {/* 💎 How a scene moves is Event Hub Pro — this branch is the owning couple's,
+          so it wears the diamond (a free couple sees the page's one lock above). */}
+      <ISection>
+        <span className="inline-flex items-center gap-1.5">
+          How it moves
+          <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="xs" />
+        </span>
+      </ISection>
       <IRow wrap data="scene-preset">
         <ISegmented label="How it moves">
           <ISeg on={!preset} onClick={() => save((c) => { delete c.preset; })}>
@@ -437,21 +444,18 @@ export function SceneParts({
   keys,
   onElement,
   onOpenHero,
-  proMark,
 }: {
   keys: readonly HubElementKey[];
   onElement: (el: HubElementKey) => void;
   onOpenHero?: () => void;
-  /** Whether styling a part is included (Pro) — the mark beside the heading. */
-  proMark?: 'locked' | 'unlocked' | null;
 }) {
+  /* 💎 No Pro mark here any more (owner 2026-09-28): styling a part is free —
+     colour, size, the Text rows — and only its Font ▾ and Animate wear the
+     mark, inside the part's own sheet. */
   return (
     <div data-scene-parts="" className="pt-1">
       <IHint>
         This scene’s words are its parts. Tap one on the scene, or pick it here — it opens the part’s toolbar.
-        {proMark ? (
-          <PaidMark state={proMark} text="Pro" label={paidMarkLabel(proMark, 'Event Hub Pro')} className="ml-1.5 align-middle" />
-        ) : null}
       </IHint>
       <div className="flex flex-wrap gap-1.5 pb-2">
         {keys.map((k) => (

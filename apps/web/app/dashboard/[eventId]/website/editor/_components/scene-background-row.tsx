@@ -38,6 +38,7 @@ import {
 import { ColourWell } from './colour-well';
 import type { ElementDraftAction } from './element-sheet';
 import { IButton, IHint, IRow, ISection, ISeg, ISegmented } from './inspector-kit';
+import { backgroundPickRedrawsBox } from './element-preview';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 
 /**
@@ -106,8 +107,13 @@ export function SceneBackgroundRow({
    * the render the save brings back keeps the canvas instead of reloading a
    * page that already shows it. A refused save tells it again with the
    * canvases put back.
+   *
+   * 🖼 `redrawsBox` (`backgroundPickRedrawsBox`): this pick changes whether a
+   * widget draws its OWN card — a thing the bridge never paints (it is decided
+   * server-side, `sceneWidgetIsBare`). The shell must then NOT hold: the save's
+   * render reloads the canvas, so the card goes (or comes back).
    */
-  onSaving?: (canvases: Record<string, HubSectionCanvas>) => void;
+  onSaving?: (canvases: Record<string, HubSectionCanvas>, redrawsBox: boolean) => void;
   /** The live theme — the preview's words take its inks over the new ground, as the page will. */
   hubTheme?: InviteThemeId | null;
   /**
@@ -154,6 +160,11 @@ export function SceneBackgroundRow({
   /** The couple's own photo URLs, by ref — what a photo background paints with. */
   const mediaUrl = (ref: string) =>
     photoChoices.find((p) => p.ref === ref)?.url ?? (videoChoice?.ref === ref ? videoChoice.url : null);
+  /** The same URLs as the map the server's `sceneWidgetIsBare` reads. */
+  const mediaUrls: Record<string, string> = Object.fromEntries([
+    ...photoChoices.map((p) => [p.ref, p.url] as const),
+    ...(videoChoice ? [[videoChoice.ref, videoChoice.url] as const] : []),
+  ]);
   const theme = INVITE_THEMES[hubTheme ?? 'house'] ?? INVITE_THEMES.house;
   const save = (
     patch: { widgets: Record<string, { canvas: HubSectionCanvas }> },
@@ -177,12 +188,17 @@ export function SceneBackgroundRow({
           Object.entries(canvases).map(([type, canvas]) => ({ type, canvas })),
           mediaUrl,
           theme,
+          mediaUrls,
         ),
       );
+    /* 🖼 Does this pick change who draws the box — a widget's own card on or
+       off (`backgroundPickRedrawsBox`)? The bridge paints the frame, never the
+       card, so such a save is told to the shell as one it must NOT hold. */
+    const redrawsBox = backgroundPickRedrawsBox(before, touched, mediaUrls);
     /* ⚡ On the canvas first — every scene the patch touches — then the hold,
        then the save. */
     lay(touched);
-    onSaving?.(touched);
+    onSaving?.(touched, redrawsBox);
     start(async () => {
       const fd = new FormData();
       fd.set('intent', 'save');
@@ -201,7 +217,7 @@ export function SceneBackgroundRow({
             setShown(prior);
           }
           lay(before);
-          onSaving?.(before);
+          onSaving?.(before, redrawsBox);
         }
         setError(res.error);
         return;

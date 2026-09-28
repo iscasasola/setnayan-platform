@@ -49,8 +49,11 @@ CREATE POLICY invite_mutes_own ON public.invite_mutes
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
-REVOKE ALL ON public.invite_mutes FROM anon;
+-- Exactly what the page needs, nothing inherited: the default grant would hand
+-- authenticated UPDATE/TRUNCATE/REFERENCES too (exposure-freeze would say so).
+REVOKE ALL ON public.invite_mutes FROM anon, authenticated;
 GRANT SELECT, INSERT, DELETE ON public.invite_mutes TO authenticated;
+GRANT ALL ON public.invite_mutes TO service_role;
 GRANT USAGE ON SEQUENCE public.invite_mutes_id_seq TO authenticated;
 
 -- The person an invitation is FROM: the event's creator (their name is the

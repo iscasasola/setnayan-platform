@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ce1ce0bb0",
+  "generatedFromRef": "c565ce9fe",
   "routeCount": 435,
-  "destinations": 943,
-  "actions": 674,
-  "blocks": 4979,
+  "destinations": 940,
+  "actions": 673,
+  "blocks": 4984,
   "routes": {
     "/": {
       "files": [
@@ -899,6 +899,7 @@
         "[slug]/_lib/everything-else-rows.ts",
         "[slug]/_lib/guest-checklist-facts.ts",
         "[slug]/_lib/guest-details-changed.ts",
+        "[slug]/_lib/hero-design-of.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/hub-look.ts",
         "[slug]/_lib/icon-source.ts",
@@ -1076,6 +1077,7 @@
         "HTMLSpanElement",
         "HTMLVideoElement",
         "HeroBackgroundMedia",
+        "HeroDesignId",
         "HeroMonogram",
         "HeroPhoto",
         "HideableWidgetRender",
@@ -1344,8 +1346,10 @@
         "[slug]/find-seat/_components/door-pass.tsx",
         "[slug]/find-seat/_components/name-search.tsx",
         "[slug]/find-seat/_components/refresh-on-return.tsx",
+        "[slug]/find-seat/_components/seat-back-link.tsx",
         "[slug]/find-seat/_components/seat-frame.tsx",
         "[slug]/find-seat/_components/your-seat.tsx",
+        "[slug]/find-seat/_lib/back-to-the-invitation.ts",
         "[slug]/find-seat/page.tsx"
       ],
       "destinations": [
@@ -1379,6 +1383,7 @@
         "RoomPlaceholder",
         "ScriptWord",
         "SearchGlyph",
+        "SeatBackLink",
         "SeatFrame",
         "StepUp",
         "WalkIn3D",
@@ -5891,7 +5896,6 @@
       "files": [
         "dashboard/[eventId]/guests/invite/_components/invite-link.tsx",
         "dashboard/[eventId]/guests/invite/_components/invite-panel.tsx",
-        "dashboard/[eventId]/guests/invite/_components/invite-theme-picker.tsx",
         "dashboard/[eventId]/guests/invite/_components/regenerate-qr-button.tsx",
         "dashboard/[eventId]/guests/invite/actions.ts",
         "dashboard/[eventId]/guests/invite/page.tsx"
@@ -5900,26 +5904,18 @@
         "/dashboard/[seg]/event-qr",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
-        "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=rsvp-page",
-        "/dashboard/[seg]/studio/save-the-date",
-        "/dashboard/[seg]/studio/website-pro",
-        "/dashboard/[seg]/website",
-        "/dashboard/[seg]/website/colors"
+        "/dashboard/[seg]/website"
       ],
-      "actions": [
-        "action"
-      ],
+      "actions": [],
       "blocks": [
         "InviteLink",
         "InvitePanel",
-        "InviteThemePicker",
         "Link",
-        "PaidMark",
         "QrActions",
         "RegenerateInviteQrResult",
-        "RegenerateQrButton",
-        "SubmitButton"
+        "RegenerateQrButton"
       ]
     },
     "/dashboard/[eventId]/guests/new": {
@@ -6109,6 +6105,7 @@
         "dashboard/[eventId]/launch/_components/maker-reveal.tsx",
         "dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx",
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
+        "dashboard/[eventId]/launch/_components/maker-theme-picker.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
         "dashboard/[eventId]/launch/_components/print-choice-picker.tsx",
@@ -6117,6 +6114,7 @@
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
         "dashboard/[eventId]/launch/_components/soft-post.tsx",
+        "dashboard/[eventId]/launch/_components/view-as-free.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx",
         "dashboard/[eventId]/launch/qr-look-actions.ts"
@@ -6159,8 +6157,10 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLIFrameElement",
+        "HTMLImageElement",
         "HTMLInputElement",
         "HTMLSpanElement",
+        "HTMLUListElement",
         "HubDraftDock",
         "HubDraftField",
         "HubProOffer",
@@ -6196,6 +6196,7 @@
         "MakerSelection",
         "MakerShell",
         "MakerState",
+        "MakerThemePicker",
         "MakerTour",
         "MenuHeading",
         "MenuItem",
@@ -6214,6 +6215,7 @@
         "QrLookControls",
         "Row",
         "RsvpAskConfig",
+        "SVGGElement",
         "SVGSVGElement",
         "SaveState",
         "Segmented",
@@ -6230,6 +6232,8 @@
         "TuneFold",
         "TuneSlider",
         "UpdateQrStyleResult",
+        "ViewAsFreeRow",
+        "ViewAsFreeStrip",
         "WebsiteEditorPage"
       ]
     },

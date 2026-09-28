@@ -43,7 +43,6 @@ import { CUSTOM_SECTION_TYPES, nextFreeCustomSlot } from './custom-sections';
 import { makerStageList, stageTakesOwnScenes } from './maker-scene-list';
 import { PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
 import type { HubSectionCanvas } from './hub-canvas';
-import { MAKER_COMING_NEXT } from '../app/dashboard/[eventId]/launch/_components/maker-bar';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -198,7 +197,7 @@ test('P · the Pro lock holds: free → the note with the padlock; the store she
 });
 
 test('T · the toolbar ＋ is not "coming next" any more — it opens the same drafted sheet', () => {
-  assert.ok(!('add' in MAKER_COMING_NEXT), 'MAKER_COMING_NEXT still says Add a scene is coming');
+  // `MAKER_COMING_NEXT` itself is gone (2026-09-28) — `the-maker-promises-nothing.test.ts`.
   const shell = read(SHELL);
   assert.doesNotMatch(shell, /MAKER_COMING_NEXT\.add|<ComingNext label="Add a scene"/);
   // Two doors in the shell, both drawn from the registration: the desktop

@@ -32,8 +32,8 @@ import { ColourWell } from './colour-well';
  *
  * `ProLockPanel` is the LOCKED state of any Pro row: one honest line about what
  * the row is part of, plus the single umbrella CTA. There is deliberately no
- * per-feature buy button — the ten Pro items are ONE unlock (owner 2026-07-24),
- * so ten separate purchase affordances would misrepresent it. Its price is NOT
+ * per-feature buy button — the nine Pro items are ONE unlock (owner 2026-07-24),
+ * so nine separate purchase affordances would misrepresent it. Its price is NOT
  * written here: the server page reads it live from `platform_retail_catalog_v2`
  * and passes the formatted string down as `priceLabel` (see `unlock-label.ts`).
  *
@@ -48,11 +48,11 @@ import { ColourWell } from './colour-well';
  */
 
 /**
- * The ten Pro items, named the way the couple sees them.
+ * The nine Pro items, named the way the couple sees them.
  *
  * 🔑 THE LIST NOW LIVES IN `lib/website-pro-items.ts` AND IS RE-EXPORTED HERE
  * UNDER ITS OWN NAME — the Event Hub controller offers the same one unlock on
- * whichever channel the couple is standing on, and it needs these ten names on
+ * whichever channel the couple is standing on, and it needs these nine names on
  * the server. Copying them would have made two lists of one fact, each passing
  * its own suite. Nothing that imports `WEBSITE_PRO_ITEMS` from this file moves.
  */
@@ -75,7 +75,7 @@ export function ProLockPanel({
         {featureName} is part of Event Hub PRO
       </p>
       <p className="mt-1 text-[0.7rem] leading-relaxed text-ink/60">
-        One unlock covers all ten: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
+        One unlock covers all nine: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
         “Powered by Setnayan” mark from your page.
       </p>
       <Link
@@ -123,10 +123,11 @@ export function ColorsPanel({
   fontKey?: string | null;
   /** Which element travels as a guest scrolls, or null for nothing. */
   magicTraveller?: string | null;
-  /** The Pro half (buttons, face, art direction, magic move) is locked — the
-   *  background colour stays editable, because it is free (owner 2026-09-24).
-   *  Its fields are then NOT rendered, and the action reads an absent field as
-   *  "unchanged", so a free couple's save cannot touch the Pro half. */
+  /** The Pro half (face, art direction, magic move) is locked — both colours
+   *  stay editable, because they are free (owner 2026-09-24 background,
+   *  2026-09-28 button). Its fields are then NOT rendered, and the action reads
+   *  an absent field as "unchanged", so a free couple's save cannot touch the
+   *  Pro half. */
   proLocked?: boolean;
   /** The lock shown in place of the Pro half — an ELEMENT, never a function. */
   proLock?: React.ReactNode;
@@ -145,11 +146,11 @@ export function ColorsPanel({
           field, one hidden `bg_color`. Full width: the four effect chips need
           the room, and the button colour sits under it. */}
       <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} eventId={eventId} moodBoard={moodBoard} />
-      {proLocked ? null : (
-        <div className="mt-3">
-          <ButtonColourField name="button_color" defaultValue={buttonColor} eventId={eventId} moodBoard={moodBoard} themeId={themeId} />
-        </div>
-      )}
+      {/* 🎨 Free for everyone since 2026-09-28 (owner: "change … color …
+          only when you start adding themes will it be pro") — never locked. */}
+      <div className="mt-3">
+        <ButtonColourField name="button_color" defaultValue={buttonColor} eventId={eventId} moodBoard={moodBoard} themeId={themeId} />
+      </div>
       <p className="mt-1.5 text-[0.7rem] text-ink/45">
         {moodBoard
           ? 'Until you pick a colour, the page wears your Mood Board’s.'

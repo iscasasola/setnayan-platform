@@ -167,15 +167,18 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           <b className="font-medium">{p.themeName}</b>
           <span aria-hidden>·</span>
           {p.inMaker ? (
-            <span className="text-[color:var(--ls-muted)]">Change it in Main</span>
+            <span className="text-[color:var(--ls-muted)]">Change it in Details</span>
           ) : (
-            <Link href={p.makerHref} className="text-[color:var(--ls-heading)] underline decoration-1 underline-offset-4">
+            <Link
+              href={`${p.makerHref}?tool=details`}
+              className="text-[color:var(--ls-heading)] underline decoration-1 underline-offset-4"
+            >
               Change in Event Hub Maker ↗
             </Link>
           )}
           <InfoTip label="About the theme" align="center">
             Our Love Story wears the theme your Event Hub already has — its colours and motion. Themes are chosen in
-            the Event Hub Maker, not here.
+            the Event Hub Maker&rsquo;s Details, not here.
           </InfoTip>
         </p>
         {/* The prototype's phone dock, placed IN the page rather than pinned:

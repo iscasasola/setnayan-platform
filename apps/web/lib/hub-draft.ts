@@ -86,9 +86,10 @@ import {
   type HubMainGround,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
-import { HUB_ELEMENT_KEYS } from '@/lib/element-style';
+import { HUB_ELEMENT_KEYS, type HubElementRun, type HubElementStyle } from '@/lib/element-style';
 import {
   HUB_CANVAS_LOOK_KEYS,
+  HUB_ELEMENT_PRO_FIELDS,
   HUB_LOOK_EVENT_COLUMNS,
   combineChanges,
   lookWriteAllowed,
@@ -108,6 +109,7 @@ import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground }
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -271,13 +273,26 @@ export function hubDraftBounceHref(formData: FormData, fallback: string, reason:
  *     studio's own rule); the film's `music` switch is not the Maker's and Apply
  *     keeps the live one (`hub-draft-actions.ts`).
  */
-/** The Colors panel's five columns — `updateSiteColors`, all of it. */
+/**
+ * The Colors panel's five columns — `updateSiteColors`, all of it — and the
+ * THEME (owner 2026-09-28, "THE THEME PICKER MOVES INTO THE MAKER'S DETAILS"):
+ * `invite_theme`, picked on the Maker's Details page (`maker-theme-picker.tsx`)
+ * and drafted like every other Maker edit, with Undo. The host canvas re-wears
+ * the look from the overlaid row whenever the draft holds any of these, so a
+ * picked theme is seen on the canvas before Apply.
+ *
+ * ⚠ `invite_theme` HAS NO SESSION UPDATE GRANT (20271219583821: its only writer
+ * goes through the admin client after the host check and the Pro re-check), so
+ * Apply writes it on its own, through that same shape — never inside the
+ * session `events` UPDATE, which would refuse the whole patch.
+ */
 export const HUB_DRAFT_LOOK_COLUMNS = [
   'site_bg_color',
   'site_button_color',
   'site_art_direction',
   'site_font_key',
   'site_magic_traveller',
+  'invite_theme',
 ] as const;
 
 /**
@@ -426,6 +441,10 @@ export function sanitizeHubDraftEventValue(
       return sanitizeHubFontKey(raw) ?? undefined;
     case 'site_magic_traveller':
       return sanitizeMagicTraveller(raw) ?? undefined;
+    // 🎨 The theme — only a live id of a SHIPPED theme (`setInviteTheme`'s old
+    // rule: `isInviteThemeId` + `ready`). A retired alias is never written.
+    case 'invite_theme':
+      return isInviteThemeId(raw) && INVITE_THEMES[raw].ready ? raw : undefined;
     // ✍ Words: the writers' own caps (trimmed; '' is "clear" → null).
     case 'special_message':
     case 'what_to_bring':
@@ -702,6 +721,13 @@ export type HubDraftItem =
       value: unknown;
       change: LookChange;
       pro: boolean;
+      /**
+       * Set only on the FREE PART of a held scene (`canvasFreePart`) — the same
+       * scene is also in `refused`, holding the whole drafted canvas. Apply
+       * never reports or re-drafts this one: if it cannot be written, the
+       * held item already says so and keeps everything.
+       */
+      freePart?: true;
     };
 
 const asText = (v: unknown): string | null =>
@@ -755,6 +781,12 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       const hex = (v: unknown) => (typeof v === 'string' && v.length > 0 ? v.toLowerCase() : null);
       return refChange(hex(live), hex(next));
     }
+    case 'invite_theme': {
+      // Compared as guests meet it: never chosen and Classic are the same page,
+      // and a retired id is its alias (`capiz` is Vintage).
+      const theme = (v: unknown) => normalizeThemeId(v) ?? 'house';
+      return theme(live) === theme(next) ? refChange('same', 'same') : refChange(theme(live), theme(next));
+    }
     default: {
       // The face, the magic move and every words column: compared as written,
       // with '' read as unset (an empty text column renders nothing).
@@ -794,6 +826,13 @@ export function eventItemIsPro(
       momentCapRefusal({ before: resolveMoments(live), after: resolveMoments(value), ownsPro: false }) !== null
     );
   }
+  if (column === 'invite_theme') {
+    // 🎨 Classic is free; every other theme is Event Hub Pro (owner 2026-09-28,
+    // "WHAT IS FREE VS PRO … REDRAWN": "only when you start adding themes will
+    // it be pro"). Going back to Classic is always free.
+    const id = normalizeThemeId(value);
+    return id !== null && INVITE_THEMES[id].tier === 'pro';
+  }
   if (column === 'site_bg_color') {
     // 🌈 A plain colour is free (owner 2026-09-24). An OMBRÉ is free too unless
     // the one switch in `lib/ombre.ts` says otherwise — then it is tried here
@@ -820,41 +859,26 @@ export function eventColumnIsPro(column: HubDraftEventColumn): boolean {
  * (crop, arrangement, motion, transition) adds, changes or removes.
  */
 export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas): LookChange {
-  const mediaRef = (c: HubSectionCanvas) =>
-    c.kind !== 'color' && c.media ? `${c.kind ?? 'photo'}:${c.media}` : null;
-  const changes: LookChange[] = [refChange(mediaRef(live), mediaRef(next))];
+  const changes: LookChange[] = [refChange(canvasMediaRef(live), canvasMediaRef(next))];
   for (const k of HUB_CANVAS_LOOK_KEYS) {
     if (k === 'media' || k === 'elements') continue;
     changes.push(refChange(asText(live[k]), asText(next[k])));
   }
   /* 🔤 ONE ELEMENT'S OWN LOOK (`lib/element-style.ts`) — compared FIELD BY
      FIELD, so taking one override off stays a free removal even while another
-     element keeps its own. Adding or changing any of font · colour · size ·
-     animation is Pro (owner 2026-09-26, "Pro, per the fonts/colours Pro rule");
-     a free couple tries it in the draft and it is held at Apply. */
+     element keeps its own.
+     💎 REDRAWN 2026-09-28 (owner: *"free to change design, change text, size,
+     color, background color, only when you start adding themes will it be
+     pro. adding media for background."*): ONLY the part's own FONT and its own
+     MOTION are inputs now (`HUB_ELEMENT_PRO_FIELDS`), and inside a text run
+     only its font. Colour, size, weight, B · I · U, alignment and spacing are
+     `HUB_ELEMENT_FREE_FIELDS` — never an input, so no direction of them can
+     make a canvas Pro. */
   for (const key of HUB_ELEMENT_KEYS) {
-    // font · colour · size, the motion (In · During · Out · timeline) and the
-    // text runs — each compared on its own, so taking one off stays a removal.
-    // 🧰 The Text tab's Pages rows (weight · B · I · U · alignment · line and
-    // letter spacing, 2026-09-27) are LOOK too. Two element fields are NOT:
-    // `hidden` (Arrange → Show, like hiding a whole scene, which is free) and
-    // the joiner's `word` (words are the page we write — owner 2026-09-22/24,
-    // "Free is the page we write. Pro is changing how it looks").
-    for (const field of [
-      'font',
-      'color',
-      'size',
-      'motion',
-      'runs',
-      'weight',
-      'italic',
-      'underline',
-      'align',
-      'leading',
-      'tracking',
-    ] as const) {
+    for (const field of HUB_ELEMENT_PRO_FIELDS) {
       changes.push(refChange(asText(live.elements?.[key]?.[field]), asText(next.elements?.[key]?.[field])));
     }
+    changes.push(refChange(runFonts(live.elements?.[key]), runFonts(next.elements?.[key])));
   }
   /* 🎬 A TEMPLATE SCENE'S PICTURES AND CLIP PLAYBACK (Maker Phase 5) — the same
      line `saveCustomSection` draws live (`lib/scene-writes.ts`): putting a
@@ -863,14 +887,108 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
      The template pick and a slot's WORDS are free, so they are not inputs.
      Without these lines a free couple could draft a slot photo and Apply it —
      the gate would see no look key change at all. */
-  const slotRef = (c: HubSectionCanvas, i: number) => {
-    const s = c.slots?.[i];
-    return s?.media ? `${s.kind ?? 'photo'}:${s.media}` : null;
-  };
   const slotCount = Math.max(live.slots?.length ?? 0, next.slots?.length ?? 0);
-  for (let i = 0; i < slotCount; i += 1) changes.push(refChange(slotRef(live, i), slotRef(next, i)));
+  for (let i = 0; i < slotCount; i += 1) changes.push(refChange(slotMediaRef(live, i), slotMediaRef(next, i)));
   changes.push(refChange(asText(live.video), asText(next.video)));
   return combineChanges(...changes);
+}
+
+/** The media behind a scene, as one comparable ref — null for any colour ground. */
+function canvasMediaRef(c: HubSectionCanvas): string | null {
+  return c.kind !== 'color' && c.media ? `${c.kind ?? 'photo'}:${c.media}` : null;
+}
+
+/** One template slot's picture or clip, as one comparable ref. */
+function slotMediaRef(c: HubSectionCanvas, i: number): string | null {
+  const s = c.slots?.[i];
+  return s?.media ? `${s.kind ?? 'photo'}:${s.media}` : null;
+}
+
+/** The Pro half of a part's text runs — which letters wear which FONT — or null. */
+function runFonts(style: HubElementStyle | undefined): string | null {
+  const runs = (style?.runs ?? []).filter((r) => r.font).map((r) => [r.start, r.end, r.font]);
+  return runs.length > 0 ? JSON.stringify({ of: style?.of ?? null, runs }) : null;
+}
+
+const grows = (c: LookChange) => c === 'add' || c === 'change';
+
+/** The background's own keys — they travel together, so a media ground is put back whole. */
+const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape'] as const;
+
+/**
+ * 💎 THE FREE PART OF A DRAFTED CANVAS — `next` with every Pro addition or
+ * change put back to what is live, and every free edit kept.
+ *
+ * Why it exists (owner 2026-09-28, the free-vs-Pro redraw): a scene's canvas is
+ * ONE draft item, so before this a free couple who drafted a free colour AND a
+ * Pro font on the same part had BOTH held at Apply — the colour we tell them is
+ * free never reached their guests. Apply now writes this, and the full drafted
+ * canvas stays in the draft holding only its Pro half (`planHubDraftApply`).
+ *
+ * 🔒 FAIL-CLOSED. Built from the same comparisons `canvasLookChange` makes, and
+ * then CHECKED against it: if the result would still add or change a look, the
+ * live canvas comes back unchanged — nothing Pro can leak through this door.
+ */
+export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas): HubSectionCanvas {
+  const out = { ...next } as Record<string, unknown>;
+  const liveRec = live as Record<string, unknown>;
+  const put = (k: string, v: unknown) => {
+    if (v === undefined) delete out[k];
+    else out[k] = v;
+  };
+  if (grows(refChange(canvasMediaRef(live), canvasMediaRef(next)))) {
+    for (const k of CANVAS_GROUND_KEYS) put(k, liveRec[k]);
+  }
+  for (const k of HUB_CANVAS_LOOK_KEYS) {
+    if (k === 'media' || k === 'elements') continue;
+    if (grows(refChange(asText(live[k]), asText(next[k])))) put(k, liveRec[k]);
+  }
+  if (next.elements) {
+    const elements: Record<string, HubElementStyle> = {};
+    for (const [key, style] of Object.entries(next.elements) as Array<[string, HubElementStyle]>) {
+      const was = live.elements?.[key as keyof typeof live.elements];
+      const el: Record<string, unknown> = { ...style };
+      for (const field of HUB_ELEMENT_PRO_FIELDS) {
+        if (grows(refChange(asText(was?.[field]), asText(style[field])))) {
+          if (was?.[field] === undefined) delete el[field];
+          else el[field] = was[field];
+        }
+      }
+      if (grows(refChange(runFonts(was), runFonts(style))) && style.runs) {
+        const liveFont = (r: { start: number; end: number }) =>
+          was?.of === style.of ? was?.runs?.find((w) => w.start === r.start && w.end === r.end)?.font : undefined;
+        const withoutFont = (r: HubElementRun): HubElementRun => {
+          const { font: _font, ...rest } = r;
+          return rest;
+        };
+        let runs: HubElementRun[] = style.runs.map((r) => {
+          const f = liveFont(r);
+          return f ? { ...withoutFont(r), font: f } : withoutFont(r);
+        });
+        // Put back exactly, or not at all: a partial font set would still be a change.
+        if (runFonts({ ...style, runs }) !== runFonts(was)) runs = runs.map(withoutFont);
+        runs = runs.filter((r) => 'font' in r || 'color' in r || 'size' in r);
+        if (runs.length > 0) el.runs = runs;
+        else {
+          delete el.runs;
+          delete el.of;
+        }
+      }
+      if (Object.keys(el).length > 0) elements[key] = el as HubElementStyle;
+    }
+    put('elements', Object.keys(elements).length > 0 ? elements : undefined);
+  }
+  if (next.slots) {
+    out.slots = next.slots.map((slot, i) => {
+      if (!grows(refChange(slotMediaRef(live, i), slotMediaRef(next, i)))) return slot;
+      const { media: _m, kind: _k, ...words } = slot;
+      const was = live.slots?.[i];
+      return was?.media ? { ...words, media: was.media, ...(was.kind ? { kind: was.kind } : {}) } : words;
+    });
+  }
+  if (grows(refChange(asText(live.video), asText(next.video)))) put('video', live.video);
+  const free = sanitizeHubCanvas({ canvas: out });
+  return grows(canvasLookChange(live, free)) ? live : free;
 }
 
 const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(config);
@@ -1024,6 +1142,18 @@ export function planHubDraftApply(
   for (const item of items) {
     const allowed = item.pro ? lookWriteAllowed(ownsPro, item.change) : true;
     (allowed ? apply : refused).push(item);
+    /* 💎 A HELD SCENE STILL GETS ITS FREE EDITS (the 2026-09-28 redraw). The
+       canvas is one item, so a colour drafted beside a Pro font would otherwise
+       be held with it. Its free part is written now; the whole drafted canvas
+       stays in the draft (below), where it now differs from live only by Pro. */
+    if (!allowed && item.kind === 'widget' && item.field === 'canvas') {
+      const row = live.widgets.find((r) => r.widget_type === item.widgetType);
+      const liveCanvas = liveCanvasOf(row?.config_json);
+      const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {});
+      if (JSON.stringify(free) !== JSON.stringify(liveCanvas)) {
+        apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free), pro: false, freePart: true });
+      }
+    }
   }
   const remaining: HubDraftState = { events: {}, widgets: {} };
   for (const item of refused) {
@@ -1133,7 +1263,8 @@ export type HubDraftSummary = {
 export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ownsPro: boolean): HubDraftSummary {
   if (!draft) return { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   const plan = planHubDraftApply(draft, live, ownsPro);
-  const changeCount = plan.apply.length + plan.refused.length;
+  // A held scene's free part is the same scene as its refused twin — one change.
+  const changeCount = plan.apply.filter((i) => !(i.kind === 'widget' && i.freePart)).length + plan.refused.length;
   return {
     hasChanges: changeCount > 0,
     changeCount,
@@ -1155,7 +1286,14 @@ export function isHubDraftIntent(v: unknown): v is HubDraftIntent {
 }
 
 /** Why Apply held a key back. */
-export type HubDraftRefusal = 'needs_pro' | 'apply_on_the_web' | 'not_your_photo' | 'empty_section' | 'missing_section';
+export type HubDraftRefusal =
+  | 'needs_pro'
+  | 'apply_on_the_web'
+  | 'not_your_photo'
+  | 'empty_section'
+  | 'missing_section'
+  /** 🎨 A Pro theme on a celebration that may not wear one (weddings only, owner Q7 = A). */
+  | 'not_for_this_celebration';
 
 export type HubDraftActionResult =
   | {
@@ -1195,6 +1333,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_art_direction: 'Candlelight',
   site_font_key: 'Your typeface',
   site_magic_traveller: 'Magic move',
+  invite_theme: 'Your theme',
   special_message: 'Your special message',
   what_to_bring: 'What to bring',
   love_story: 'Your Love Story',

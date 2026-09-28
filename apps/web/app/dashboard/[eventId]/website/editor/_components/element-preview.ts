@@ -19,13 +19,15 @@
  *       toolbar's Apply · Undo · Restore count reads the draft there), but the
  *       canvas iframe keeps its page for a render whose canvases are exactly
  *       what the canvas already shows. Any render that differs — Undo,
- *       Restore, a background, a scene order — or one that arrives after the
- *       hold lapsed, reloads the canvas exactly as before.
+ *       Restore, a scene order, a background pick that changes who draws the
+ *       box (`backgroundPickRedrawsBox`) — or one that arrives after the hold
+ *       lapsed, reloads the canvas exactly as before.
  *
  * Pure. No DOM, no React — `element-preview.test.ts` drives every rule here.
  */
-import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import { hubBackgroundIsMedia, resolveHubBackground, type HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubElementKey, HubElementStyles } from '@/lib/element-style';
+import { sceneWidgetIsBare } from '@/lib/scene-ground';
 
 /* ── 1 · WHAT THE CANVAS IS TOLD ─────────────────────────────────────────── */
 
@@ -188,6 +190,56 @@ export function holdChange(
     shows: { ...shows, ...(change.canvases ?? {}) },
     order: change.order ? change.order(order) : order,
   };
+}
+
+/**
+ * 🖼 A BACKGROUND PICK THAT CHANGES WHO DRAWS THE BOX CANNOT BE HELD.
+ *
+ * Owner, 2026-09-28, with a screenshot: Format → Background → "No background"
+ * on the Countdown, and the canvas kept the Countdown's own pink card. The
+ * draft was right and the server render was right — reloading the canvas frame
+ * flipped its `data-scene-card="own"` to `"bare"`. The hold had kept the page:
+ * the bridge paints the FRAME (`sceneBg`), but whether a widget draws its OWN
+ * card is decided server-side (`lib/scene-ground.ts` `sceneWidgetIsBare`, read
+ * by both dispatchers), and nothing the bridge lays can take that card off or
+ * put it back.
+ *
+ * So a background pick is held only while every touched scene's answer to
+ * "does the widget draw its own card?" is the same before and after — asked of
+ * the SAME function the server asks (`sceneWidgetIsBare` → `hubBackgroundOwnsBox`),
+ * never a second rule. When any answer flips, the shell releases the hold and
+ * the save's render reloads the canvas through the buffered swap (no flash,
+ * scroll kept). Both directions: no background at all → "No background" (the
+ * card goes) and a background taken off entirely (the card comes back). A
+ * photo or snippet whose URL the Maker does not hold cannot be answered — that
+ * pick reloads too (never guess), as `sceneDrawEffect`'s 'unknown' does.
+ */
+export function backgroundPickRedrawsBox(
+  before: Record<string, HubSectionCanvas>,
+  after: Record<string, HubSectionCanvas>,
+  mediaUrls: Readonly<Record<string, string>>,
+): boolean {
+  for (const type of Object.keys(after)) {
+    const was = sceneCardBareFor(before[type] ?? {}, mediaUrls);
+    const is = sceneCardBareFor(after[type]!, mediaUrls);
+    if (was === null || is === null) return true;
+    if (was !== is) return true;
+  }
+  return false;
+}
+
+/**
+ * The server's answer to "does this scene's widget draw NO card of its own?"
+ * for a canvas the Maker holds — `sceneWidgetIsBare` itself, never a second
+ * rule — or `null` when it cannot be answered here (a photo or snippet whose
+ * URL the Maker does not hold: never guess). Read by `backgroundPickRedrawsBox`
+ * (release the hold) and by the `sceneBg` message (`scene-bg-preview-message.ts`
+ * → the bridge swaps the card at once, `lib/scene-card-look.ts`).
+ */
+export function sceneCardBareFor(canvas: HubSectionCanvas, mediaUrls: Readonly<Record<string, string>>): boolean | null {
+  const bg = resolveHubBackground(canvas);
+  if (bg && hubBackgroundIsMedia(bg) && !(bg.media in mediaUrls)) return null;
+  return sceneWidgetIsBare({ config_json: { canvas } }, mediaUrls);
 }
 
 /** A canvas map in one spelling — keys sorted, empty canvases dropped (absent = empty). */

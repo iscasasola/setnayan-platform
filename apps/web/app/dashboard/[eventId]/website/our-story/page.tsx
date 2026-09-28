@@ -11,6 +11,7 @@ import { PickFromOurEvents, type OtherEvent } from './_components/pick-from-our-
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { eventCoupleWebsiteProActive, eventOwnsCoupleWebsitePro } from '@/lib/couple-website-pro';
+import { asViewed } from '@/lib/view-as-free.server';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/php';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -137,8 +138,9 @@ export default async function OurStoryEditorPage({
   const moments = resolveMoments(story);
 
   const [proActive, proOwned, proSku, storeShell, look, otherEvents] = await Promise.all([
-    eventCoupleWebsiteProActive(supabase, eventId).catch(() => false),
-    eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false),
+    // 👁 As the viewer is shown it — the Maker's Love Story is this page.
+    asViewed(eventCoupleWebsiteProActive(supabase, eventId).catch(() => false)),
+    asViewed(eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false)),
     formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
     isStoreShellRequest(),
     resolveHubTheme(event).catch(() => null),

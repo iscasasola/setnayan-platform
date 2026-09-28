@@ -9,7 +9,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import {
   MAKER_BAR,
-  MAKER_COMING_NEXT,
+  MAKER_SNAP_NOTE,
   isStagePhase,
   makerPlaceItem,
   makerPlacePick,
@@ -33,6 +33,8 @@ import { MAKER_STAY_FIELD, makerStayReturn } from '@/lib/maker-stay';
 import { announceUnheldWrite } from '@/lib/maker-refresh';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
+import { ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -57,8 +59,9 @@ import { paidMarkLabel } from '@/lib/paid-mark';
  * "label change only").
  *
  * ⛔ NO DEAD BUTTONS. Every bar item does something: a stage switches the
- * canvas, a tool opens a panel that already ships, and an item with no build
- * yet opens ONE line saying it is coming in the next build.
+ * canvas, a tool opens a panel that already ships — and a control with no build
+ * is not drawn at all (never a "coming in the next build" line; App Review
+ * rejects "coming soon", 2026-09-28).
  *
  * 🧩 THE APPLY BAR MOUNTS HERE, ONCE. Restore · Undo · Apply (`applySlot`,
  * `website/_components/hub-draft-bar.tsx`) must stay visible at the upper
@@ -86,8 +89,12 @@ export function MakerShell({
   rsvp = null,
   hasWork,
   viewAs = {},
+  viewAsFree = null,
   children,
 }: {
+  /** 👁 "View as a free couple" — internal (§10a) viewers only; null draws
+   *  nothing. `on` is the server's reading of this request (`asViewed`). */
+  viewAsFree?: { on: boolean } | null;
   /** VIEW AS, per stage — each role's chip word and its server-gated preview
    *  door (`resolveHubRoleView`), or null when there is honestly none. */
   viewAs?: Partial<Record<LifecyclePhase, ReadonlyArray<{ role: string; name: string; href: string | null }>>>;
@@ -404,9 +411,6 @@ export function MakerShell({
                     <MenuItem on={device === 'phone'} onClick={() => { setDevice('phone'); close(); }}>
                       Phone
                     </MenuItem>
-                    <MenuItem disabled note={MAKER_COMING_NEXT.both}>
-                      Both
-                    </MenuItem>
                   </>
                 )}
               </ToolMenu>
@@ -435,6 +439,8 @@ export function MakerShell({
                       ))}
                     </>
                   ) : null}
+                  {/* 👁 Internal accounts only — see `view-as-free.tsx`. */}
+                  {viewAsFree ? <ViewAsFreeRow on={viewAsFree.on} close={close} /> : null}
                   {applySlot ? (
                     <MenuItem onClick={() => { close(); window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT)); }}>
                       Reset this stage…
@@ -456,7 +462,7 @@ export function MakerShell({
                       </span>
                     </MenuItem>
                   ) : null}
-                  <MenuItem disabled note={MAKER_COMING_NEXT.snap}>
+                  <MenuItem disabled note={MAKER_SNAP_NOTE}>
                     Snap grid
                   </MenuItem>
                   <MenuItem onClick={() => { close(); setTour('again'); }}>About the Maker</MenuItem>
@@ -476,6 +482,9 @@ export function MakerShell({
             </div>
           ) : null}
         </header>
+
+        {/* 👁 While the switch is on it is SAID, on every width, until stopped. */}
+        {viewAsFree?.on ? <ViewAsFreeStrip /> : null}
 
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
         <div className="relative min-h-0 flex-1">
@@ -1060,6 +1069,17 @@ function setHiddenField(form: HTMLFormElement, name: string, value: string) {
   input.name = name;
   input.value = value;
   form.appendChild(input);
+}
+
+/** 👁 The "View as a free couple" row — its own component so the router hook
+ *  it needs mounts only for an internal viewer, inside the open menu. */
+function ViewAsFreeRow({ on, close }: { on: boolean; close: () => void }) {
+  const setViewAsFree = useViewAsFreeToggle();
+  return (
+    <MenuItem on={on} onClick={() => { close(); setViewAsFree(!on); }}>
+      <span data-maker-view-as-free-row="">{VIEW_AS_FREE_LABEL}</span>
+    </MenuItem>
+  );
 }
 
 function MenuHeading({ children }: { children: ReactNode }) {

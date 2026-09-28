@@ -14,6 +14,7 @@
 import { useEffect, useId, useState } from 'react';
 import { Bell } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { countUnread } from '@/lib/notifications';
 import { trackFailure } from '@/lib/telemetry/track-error';
@@ -40,6 +41,7 @@ export function UnreadBellBadge({
   pulse = false,
 }: Props) {
   const [unread, setUnread] = useState(initialUnread);
+  const router = useRouter();
   // 2026-05-23 — Owner reported error-boundary flash post-login: "cannot
   // add `postgres_changes` callbacks for realtime:notif-unread-{userId}
   // after `subscribe()`". Root cause: this component mounts in BOTH
@@ -86,10 +88,18 @@ export function UnreadBellBadge({
           table: 'notifications',
           filter: `user_id=eq.${userId}`,
         },
-        () => {
+        (payload) => {
           // New notification — bump the count optimistically. The next
           // refetch (on resubscribe) reconciles any drift.
           setUnread((n) => n + 1);
+          // 🔑 BEING MADE A HOST CHANGES WHAT THIS PAGE SHOULD SHOW (owner
+          // 2026-09-28: "they do not need to resign in. it should auto
+          // refresh"). The seat is live the instant it is written; this is
+          // what gets it onto a screen that is already open. A server refresh,
+          // not a reload — no flash, nothing typed is lost.
+          if ((payload.new as { type?: string } | null)?.type === 'host_added') {
+            router.refresh();
+          }
         },
       )
       .on(
@@ -115,7 +125,7 @@ export function UnreadBellBadge({
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [userId, instanceId]);
+  }, [userId, instanceId, router]);
 
   const label = unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel;
 

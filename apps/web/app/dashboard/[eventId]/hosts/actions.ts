@@ -10,6 +10,7 @@ import {
   ROLE_SUBTYPES,
   PERMISSION_TEMPLATES,
   COORDINATOR_AREAS,
+  ROLE_SUBTYPE_LABEL,
   generateInvitationToken,
   isRoleSubtype,
   type ModeratorPermissions,
@@ -17,6 +18,7 @@ import {
 } from '@/lib/event-moderators';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke';
+import { emitNotification } from '@/lib/notification-emit';
 
 // Iteration 0048 — V1 multi-host invite server actions.
 //
@@ -159,7 +161,7 @@ export async function inviteHost(formData: FormData) {
       invitation_expires_at: expiresAt.toISOString(),
       invitation_token: token,
       accepted_at: null,
-    }).select('moderator_id').single();
+    }).select('moderator_id, user_id, accepted_at').single();
 
     if (error) {
       redirect(
@@ -197,9 +199,43 @@ export async function inviteHost(formData: FormData) {
       }
     }
 
+    /*
+      🔑 A HOST IS A HOST THE MOMENT THEY ARE ADDED (owner 2026-09-28: "creating
+      someone a host needs no approval from their side"). The DATABASE decides
+      it — trigger `a_host_added_is_accepted` (20271251336140) accepts the row
+      at insert when an account already holds this email — so the row we just
+      read back is the only honest answer to "did that happen". Reading it back
+      instead of re-deriving it here means a second door can never disagree.
+      No account yet → the row stays pending and `claim_host_seats_for_user`
+      makes them a host the moment they sign up with this email.
+    */
+    const addedNow = Boolean(inserted?.accepted_at && inserted?.user_id);
+    if (addedNow && inserted?.user_id) {
+      const [{ data: ev }, { data: inviter }] = await Promise.all([
+        admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+        admin.from('users').select('display_name').eq('user_id', userId).maybeSingle(),
+      ]);
+      const eventName = (ev as { display_name: string | null } | null)?.display_name ?? 'an event';
+      const inviterName =
+        (inviter as { display_name: string | null } | null)?.display_name ?? 'Someone';
+      // Fail-soft by contract: a notice that fails never undoes the seat. Its
+      // arrival is also what refreshes the new host's open page (UnreadBellBadge).
+      await emitNotification({
+        userId: inserted.user_id,
+        type: 'host_added',
+        title: `You’re now a host of ${eventName}`,
+        body: `${inviterName} added you as ${ROLE_SUBTYPE_LABEL[role]}. It’s on your Events page now.`,
+        relatedUrl: `/dashboard/${eventId}`,
+      });
+    }
+
     revalidatePath(`/dashboard/${eventId}/hosts`);
     redirect(
-      `/dashboard/${eventId}/hosts?invite_sent=1&token=${encodeURIComponent(token)}`,
+      addedNow
+        ? `/dashboard/${eventId}/hosts?host_added=1`
+        : `/dashboard/${eventId}/hosts?invite_sent=1&token=${encodeURIComponent(token)}${
+            role === 'wedding_planner_external' ? '&planner=1' : ''
+          }`,
     );
   } catch (e) {
     // redirect() works by throwing a NEXT_REDIRECT error. The success and

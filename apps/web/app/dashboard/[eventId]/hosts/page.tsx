@@ -42,6 +42,8 @@ type Props = {
     invite_revoked?: string;
     grant_updated?: string;
     host_removed?: string;
+    host_added?: string;
+    planner?: string;
     token?: string;
   }>;
 };
@@ -358,6 +360,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   const justRevoked = search.invite_revoked === '1';
   const grantUpdated = search.grant_updated === '1';
   const hostRemoved = search.host_removed === '1';
+  // Owner 2026-09-28: a host added with an account is a host AT ONCE — the
+  // database accepts the seat at insert (20271251336140). Nothing to share.
+  const hostAdded = search.host_added === '1';
   const consentGateEnabled = await isCoordinatorConsentGateEnabled();
 
   // Build the share URL with a localhost-safe fallback. In production this
@@ -420,30 +425,34 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             </span>
             <div className="space-y-2">
               <p className="text-sm font-semibold text-success-950">
-                Invitation created.
+                Host seat saved.
               </p>
               <p className="text-xs text-success-900/85">
-                Share this link with the host you invited. They&apos;ll sign up or sign
-                in, then land on the accept page.
+                {/* A hired planner keeps the consent-gated accept step
+                    (2026-08-24); every other host is a host once they have an
+                    account with this email (owner 2026-09-28). */}
+                {search.planner === '1'
+                  ? 'Share this link with your coordinator. They’ll sign in, then accept.'
+                  : 'They don’t have a Setnayan account yet. The moment they sign up with this email, they’re a host — nothing to accept. You can also send them this link to get there.'}
               </p>
               <code className="block break-all rounded-md bg-cream/80 px-2 py-1.5 font-mono text-[11px] text-success-950">
                 {shareUrl}
               </code>
-              <p className="text-[11px] text-success-900/60">
-                Link expires in 7 days. (Email send via Resend ships in V1.1 — for now copy + send via any channel.)
-              </p>
+
             </div>
           </div>
         </section>
       ) : null}
 
-      {justRevoked || grantUpdated || hostRemoved ? (
+      {justRevoked || grantUpdated || hostRemoved || hostAdded ? (
         <p
           role="status"
           className="inline-flex items-center gap-1.5 rounded-md bg-success-100/80 px-3 py-1.5 text-xs font-medium text-success-950"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {justRevoked
+          {hostAdded
+            ? 'Added — they’re a host now, and we’ve told them.'
+            : justRevoked
             ? 'Invitation revoked.'
             : grantUpdated
               ? 'Access updated.'

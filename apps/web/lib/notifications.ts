@@ -412,7 +412,15 @@ export type NotificationType =
      CELEBRATION. Only the couple can top it up, and before this nothing
      anywhere told them — the guest's own screen was the only place the fact
      appeared. Emailed (EMAIL_ENABLED_TYPES), never marketing-gated. */
-  | 'papic_pool_spent';
+  | 'papic_pool_spent'
+  /* Somebody made you a HOST of their event (owner 2026-09-28: "creating
+     someone a host needs no approval from their side"). There is no accept
+     step any more, so this is the only word the new host gets about why an
+     event just appeared on their home — and its arrival is what refreshes an
+     open page (UnreadBellBadge), so they never sign in again to see it.
+     ⚠ Also an ENUM value in Postgres — 20271250928531. Emailed
+     (EMAIL_ENABLED_TYPES), never marketing-gated. */
+  | 'host_added';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -518,6 +526,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   // disclosure lane exists).
   booking_fee_waived: 'Booking fee waived',
   papic_pool_spent: 'Guests have run out of Papic shots',
+  host_added: 'You’re now a host',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -709,6 +718,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   booking_fee_waived: 'bg-success-100 text-success-900',
   // Warn, not error: nothing is broken — the pot is spent and can be refilled.
   papic_pool_spent: 'bg-warn-100 text-warn-900',
+  // A settled good thing, done for them — the mutual-yes emerald.
+  host_added: 'bg-success-100 text-success-800',
 };
 
 export type NotificationRow = {

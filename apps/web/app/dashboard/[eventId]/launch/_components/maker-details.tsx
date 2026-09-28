@@ -16,6 +16,8 @@ import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { QrLookControls } from './qr-look-controls';
+import { MakerThemePicker } from './maker-theme-picker';
+import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 
 /**
@@ -70,7 +72,22 @@ export function MakerDetails({
   slugAction,
   qr,
   qrStyleAction,
+  theme = null,
 }: {
+  /**
+   * 🎨 THE THEME (owner 2026-09-28: the picker moved here from the Guest list).
+   * Null = not offered (no workspace). See `maker-theme-picker.tsx`.
+   */
+  theme?: {
+    home: string | null;
+    themes: ThemeTile[];
+    current: string;
+    ownsPro: boolean;
+    storeShell: boolean;
+    proHref: string;
+    /** Mount the picker's first-visit tour (off on the Maker's own first visit). */
+    tour: boolean;
+  } | null;
   /** The event's address — owner: "Add the slug to details". */
   slug: string | null;
   /** `updateEventSlug` bound to this event (the one writer, `findSlugConflict` behind it). */
@@ -105,6 +122,24 @@ export function MakerDetails({
           Turn on what your printed set includes — each part is read from where it already lives, so nothing is typed
           twice. Your wording lives here too.
         </p>
+
+        {/* ── 🎨 Your theme — the ONE place it is chosen (owner 2026-09-28).
+            Each tile is the couple's own page in that theme; a tap drafts it,
+            like every other Maker edit (Undo · Apply in the toolbar). ── */}
+        {theme ? (
+          <>
+            <MakerThemePicker
+              eventId={eventId}
+              home={theme.home}
+              themes={theme.themes}
+              current={theme.current}
+              ownsPro={theme.ownsPro}
+              storeShell={theme.storeShell}
+              proHref={theme.proHref}
+            />
+            {theme.tour ? <MiniTour tourKey="customer_theme_picker_v1" storeShell={theme.storeShell} /> : null}
+          </>
+        ) : null}
 
         {/* ── Your Event Hub address — the one place it is edited (owner:
             "Add the slug to details"). The shipped SlugField: 3–32 characters,
@@ -148,7 +183,8 @@ export function MakerDetails({
             action={qrStyleAction}
           />
           <HubSavesImmediately className="mt-1" />
-          <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} />
+          {/* Waits for the theme's tour, so two never stack on one first visit. */}
+          <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} after={theme ? 'customer_theme_picker_v1' : undefined} />
         </section>
 
         {flash === 'saved' ? (

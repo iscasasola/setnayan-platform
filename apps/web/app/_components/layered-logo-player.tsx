@@ -5,7 +5,9 @@ import {
   isLayeredLogo,
   logoInSeconds,
   parseWritePathD,
-  penTime,
+  penProgress,
+  LOGO_WRITE_TIP_OPACITY,
+  revealLayersAt,
   sanitizeLogoMotion,
   writeRevealPlan,
 } from '@/lib/logo-layers';
@@ -52,6 +54,7 @@ export function LayeredLogoPlayer({ svg, className }: { svg: string; className?:
     if (reduced) return;
 
     const anims: Animation[] = [];
+    const frames: number[] = [];
     const NS = 'http://www.w3.org/2000/svg';
     const defs = document.createElementNS(NS, 'defs');
     root.insertBefore(defs, root.firstChild);
@@ -88,10 +91,10 @@ export function LayeredLogoPlayer({ svg, className }: { svg: string; className?:
           anims.push(card.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inMs * 0.15, delay: delayMs, fill: 'both' })),
         );
         const plan = writeRevealPlan(write, w, h, parts.length, covers);
-        const seam = String(Math.max(w, h) * 0.002);
-        const fadeMs = Math.max(60, inMs * 0.05);
-        let last: Animation | null = null;
-        let lastAt = -1;
+        // 🧈 One growing shape per part (`revealLayersAt`) — a solid path of
+        // the cells the pen has passed and a soft tip ahead — changed once a
+        // frame. Never an animation per cell (that stuttered and striped).
+        const bands: Array<{ solid: SVGPathElement; near: SVGPathElement; far: SVGPathElement; cells: Array<{ t: number; d: string }>; shown: string }> = [];
         const masked: SVGElement[] = [];
         parts.forEach((part, k) => {
           const id = `logo-write-${i}-${k}-${Math.random().toString(36).slice(2, 8)}`;
@@ -108,26 +111,46 @@ export function LayeredLogoPlayer({ svg, className }: { svg: string; className?:
           const m = boxToPart(body, part);
           holder.setAttribute('transform', `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`);
           mask.appendChild(holder);
-          for (const cell of plan[k] ?? []) {
-            const piece = document.createElementNS(NS, 'path');
-            piece.setAttribute('d', cell.d);
-            piece.setAttribute('fill', '#FFFFFF');
-            piece.setAttribute('stroke', '#FFFFFF');
-            piece.setAttribute('stroke-width', seam);
-            piece.style.opacity = '0';
-            holder.appendChild(piece);
-            const at = delayMs + penTime(cell.t) * inMs;
-            const a = piece.animate([{ opacity: 0 }, { opacity: 1 }], { duration: fadeMs, delay: at, fill: 'both' });
-            anims.push(a);
-            if (at >= lastAt) {
-              lastAt = at;
-              last = a;
-            }
-          }
+          const band = (opacity: number) => {
+            const el = document.createElementNS(NS, 'path');
+            el.setAttribute('fill', '#FFFFFF');
+            el.setAttribute('fill-opacity', String(opacity));
+            holder.appendChild(el);
+            return el;
+          };
+          bands.push({
+            solid: band(1),
+            near: band(LOGO_WRITE_TIP_OPACITY.near),
+            far: band(LOGO_WRITE_TIP_OPACITY.far),
+            cells: plan[k] ?? [],
+            shown: '',
+          });
           part.setAttribute('mask', `url(#${id})`);
           masked.push(part);
         });
-        if (last) (last as Animation).onfinish = () => masked.forEach((el) => el.removeAttribute('mask'));
+        // The clock is an animation (so it pauses, seeks and cancels with the
+        // rest); each frame reads it and redraws only a part whose reveal moved.
+        const clock = body.animate([{ opacity: 1 }, { opacity: 1 }], { duration: delayMs + inMs, fill: 'forwards' });
+        anims.push(clock);
+        const paint = () => {
+          const at = Number(clock.currentTime ?? 0);
+          const p = at < delayMs ? 0 : penProgress((at - delayMs) / Math.max(1, inMs));
+          for (const b of bands) {
+            const r = revealLayersAt(b.cells, p);
+            const key = `${r.solid.length}:${r.near.length}:${r.far.length}`;
+            if (key === b.shown) continue;
+            b.shown = key;
+            b.solid.setAttribute('d', r.solid);
+            b.near.setAttribute('d', r.near);
+            b.far.setAttribute('d', r.far);
+          }
+          if (clock.playState === 'finished') {
+            masked.forEach((el) => el.removeAttribute('mask'));
+            return;
+          }
+          frames.push(requestAnimationFrame(paint));
+        };
+        paint();
       } else if (motion.in === 'draw') {
         // ✍ No writing path: ONE pen traces the letter's outlines, one after
         // another, then the fill inks in (the studio's Handwriting) — the trace
@@ -222,6 +245,7 @@ export function LayeredLogoPlayer({ svg, className }: { svg: string; className?:
     });
     return () => {
       anims.forEach((a) => a.cancel());
+      frames.forEach((f) => cancelAnimationFrame(f));
       host.innerHTML = '';
     };
   }, [svg]);

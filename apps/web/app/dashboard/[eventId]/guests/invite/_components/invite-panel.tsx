@@ -9,15 +9,12 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { suggestedInviteTheme } from '@/lib/invite-themes';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { INVITE_THEMES, resolveInviteTheme } from '@/lib/invite-themes';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
-import type { InviteReturn } from '@/lib/invite-return';
 import { QrActions } from '@/app/_components/qr-actions';
 import { svgDataUri } from '@/lib/qr-download';
 import { InviteLink } from './invite-link';
-import { InviteThemePicker } from './invite-theme-picker';
 import { RegenerateQrButton } from './regenerate-qr-button';
 import { readWhoCanRsvp, WHO_CAN_RSVP_LABEL } from '@/lib/rsvp-ask';
 
@@ -51,14 +48,8 @@ import { readWhoCanRsvp, WHO_CAN_RSVP_LABEL } from '@/lib/rsvp-ask';
  */
 export async function InvitePanel({
   eventId,
-  themeNotice,
-  returnTo,
 }: {
   eventId: string;
-  /** `?theme=saved|error` from the last look save, read by the host page. */
-  themeNotice: 'saved' | 'error' | null;
-  /** Which door this panel is rendered by, so saving a look returns there. */
-  returnTo: InviteReturn;
 }) {
   const user = await getCurrentUser();
   const supabase = await createClient();
@@ -86,7 +77,7 @@ export async function InvitePanel({
   const [{ data: lookRow, error: lookError }, ownsPro] = await Promise.all([
     // + the QR look's columns (lib/qr-look.server.ts): the join-link code below
     // wears the event's look, and Pro is already measured on this same read.
-    lookAdmin.from('events').select(`invite_theme, mood_feel_key, event_type, ${QR_LOOK_COLUMNS}`).eq('event_id', eventId).maybeSingle(),
+    lookAdmin.from('events').select(`invite_theme, event_type, ${QR_LOOK_COLUMNS}`).eq('event_id', eventId).maybeSingle(),
     eventCoupleWebsiteProActive(lookAdmin, eventId).catch(() => false),
   ]);
   if (lookError) {
@@ -105,12 +96,11 @@ export async function InvitePanel({
   const mayShowStdFilm = await resolveProfile((lookRow?.event_type as string | null) ?? '')
     .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
     .catch(() => false);
-  const selectedTheme = suggestedInviteTheme({
-    saved: lookRow?.invite_theme ?? null,
-    moodFeelKey: lookRow?.mood_feel_key ?? null,
-    ownsPro,
-    mayShowStdFilm,
-  });
+  /* 🎨 The theme guests meet — read here, CHOSEN in the Event Hub Maker's
+     Details (owner 2026-09-28: *"it should not be inside guestlist, it should
+     be on event hub maker on details"*). The one theme rule, so this line and
+     the door can never name two different looks. */
+  const liveTheme = resolveInviteTheme({ saved: lookRow?.invite_theme ?? null, ownsPro, mayShowStdFilm });
 
   const [tokenRes, pendingRes, eventRes, askRes] = await Promise.all([
     supabase
@@ -293,18 +283,19 @@ export async function InvitePanel({
         </Link>
       ) : null}
 
-      <InviteThemePicker
-        eventId={eventId}
-        selected={selectedTheme}
-        ownsPro={ownsPro}
-        mayShowStdFilm={mayShowStdFilm}
-        /* Both outcomes reach the screen. `?theme=error` used to render
-           nothing at all, so a refused save looked like a page that had simply
-           been reloaded. */
-        notice={themeNotice}
-        returnTo={returnTo}
-        storeShell={await isStoreShellRequest()}
-      />
+      {/* 🎨 THE ONE THEME LINE — never a picker. One place chooses the theme
+          (Event Hub Maker → Details); every other surface reads it. */}
+      <p data-invite-theme-line="" className="mt-6 flex flex-wrap items-center gap-x-2 text-sm text-ink/75">
+        <span>Theme</span>
+        <b className="font-semibold text-ink">{INVITE_THEMES[liveTheme].name}</b>
+        <span aria-hidden>·</span>
+        <Link
+          href={`/dashboard/${eventId}/launch?tool=details`}
+          className="font-medium text-link underline-offset-2 hover:underline"
+        >
+          Change in Event Hub Maker ↗
+        </Link>
+      </p>
 
       {/* Event QR (crew pairing) — a DIFFERENT QR from the guest invite above.
           This one pairs your photo + livestream vendors' capture DEVICES to the

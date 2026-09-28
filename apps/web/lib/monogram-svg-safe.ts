@@ -94,6 +94,7 @@
  */
 
 import { applyMarkInk } from './monogram-ink';
+import { centreLogoOnItsInk } from './logo-layers';
 
 /** Same ceiling the write-time sanitizers use. */
 const MAX_SVG_BYTES = 400_000;
@@ -277,8 +278,16 @@ export function resolveEventMonogramSvg(
    * mark. Measured before flipping — of 11 events in production, 0 had both
    * marks and 1 had an upload only, so no event's live mark changed. */
   const mark = safeMonogramSvg(event.monogram_custom_svg) ?? safeMonogramSvg(event.monogram_uploaded_svg);
+  /* ── CENTRED BY ITS INK (owner 2026-09-28) ────────────────────────────────
+   * A Logo-editor composition is framed on what it draws, not on the editor's
+   * artboard, so a logo placed left of centre (or an upload whose ink sits off
+   * its canvas) is centred on every surface — "you should automatically center
+   * it and not rely on how they aligned it to the left". Derived here, on read:
+   * no stored logo changes, and no surface can skip it. Any other mark passes
+   * through untouched (`lib/logo-layers.ts`). */
+  const framed = centreLogoOnItsInk(mark);
   // applyMarkInk reads the policy off the mark itself and returns the stored
   // bytes unchanged for `file` (the default, and what an unstamped mark means),
   // so this is a no-op for every mark saved before the policy existed.
-  return applyMarkInk(mark, undefined, opts?.ink ?? null);
+  return applyMarkInk(framed, undefined, opts?.ink ?? null);
 }

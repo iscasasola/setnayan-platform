@@ -38,9 +38,11 @@ export async function CohostWelcome({ eventId, userId }: { eventId: string; user
   const notice = data as { notification_id: string; title: string; body: string | null };
 
   return (
+    // role="dialog" WITHOUT aria-modal: server-rendered, no script, so it cannot
+    // trap focus — and a modal that promises to and does not is worse than an
+    // honest dialog (modal-a11y-adoption.test.ts).
     <div
       role="dialog"
-      aria-modal="true"
       aria-labelledby="cohost-welcome-title"
       className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-6"
       data-cohost-welcome

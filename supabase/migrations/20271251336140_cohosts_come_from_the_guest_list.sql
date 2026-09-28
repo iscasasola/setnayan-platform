@@ -456,6 +456,64 @@ $$;
 -- anyone may unfollow later. user_follows' UNIQUE + no-self CHECK make every
 -- insert here idempotent.
 
+-- 🔑 AN UNFOLLOW STICKS. The automatic follows below are recomputed whole, so
+-- without a memory of "I unfollowed them" the next guest's YES would re-follow
+-- somebody who had just unfollowed — and the owner's rule is that a guest "can
+-- unfollow any time". Deleting a follow (any door: the button, SQL) leaves a
+-- private tombstone; automatic follows skip tombstoned pairs; following again
+-- BY HAND clears it. (Caught by the People-page design pass, 2026-09-28,
+-- before this merged.)
+CREATE TABLE IF NOT EXISTS public.user_unfollows (
+  id                bigserial PRIMARY KEY,
+  follower_user_id  uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  followed_user_id  uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT user_unfollows_unique UNIQUE (follower_user_id, followed_user_id)
+);
+ALTER TABLE public.user_unfollows ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS user_unfollows_own_read ON public.user_unfollows;
+CREATE POLICY user_unfollows_own_read ON public.user_unfollows
+  FOR SELECT TO authenticated
+  USING (follower_user_id = auth.uid());
+REVOKE ALL ON public.user_unfollows FROM anon;
+COMMENT ON TABLE public.user_unfollows IS
+  'Owner 2026-09-28: a guest "can unfollow any time". Written only by triggers on user_follows '
+  '(a delete leaves a tombstone; a hand-made follow clears it); read by the automatic follows so '
+  'they never re-follow somebody the person unfollowed. Private to the follower.';
+
+CREATE OR REPLACE FUNCTION public.remember_an_unfollow()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  BEGIN
+    INSERT INTO public.user_unfollows (follower_user_id, followed_user_id)
+    VALUES (OLD.follower_user_id, OLD.followed_user_id)
+    ON CONFLICT (follower_user_id, followed_user_id) DO NOTHING;
+  EXCEPTION WHEN foreign_key_violation THEN
+    NULL;  -- an account being deleted cascades its follows; nothing to remember
+  END;
+  RETURN OLD;
+END;
+$$;
+DROP TRIGGER IF EXISTS remember_an_unfollow ON public.user_follows;
+CREATE TRIGGER remember_an_unfollow
+AFTER DELETE ON public.user_follows
+FOR EACH ROW EXECUTE FUNCTION public.remember_an_unfollow();
+
+CREATE OR REPLACE FUNCTION public.a_follow_forgets_the_unfollow()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  DELETE FROM public.user_unfollows
+  WHERE follower_user_id = NEW.follower_user_id AND followed_user_id = NEW.followed_user_id;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS a_follow_forgets_the_unfollow ON public.user_follows;
+CREATE TRIGGER a_follow_forgets_the_unfollow
+AFTER INSERT ON public.user_follows
+FOR EACH ROW EXECUTE FUNCTION public.a_follow_forgets_the_unfollow();
+REVOKE ALL ON FUNCTION public.remember_an_unfollow() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.a_follow_forgets_the_unfollow() FROM PUBLIC, anon, authenticated;
+
 -- Everyone who should follow / be followed on one event, recomputed whole:
 -- cheap (an event has a handful of co-hosts) and it cannot drift.
 CREATE OR REPLACE FUNCTION public.sync_event_follows(p_event_id uuid)
@@ -480,7 +538,10 @@ AS $$
     SELECT j.user_id, c.user_id FROM joined j, cohosts c
   )
   INSERT INTO public.user_follows (follower_user_id, followed_user_id)
-  SELECT follower, followed FROM pairs WHERE follower <> followed
+  SELECT follower, followed FROM pairs p
+  WHERE follower <> followed
+    AND NOT EXISTS (SELECT 1 FROM public.user_unfollows x
+                    WHERE x.follower_user_id = p.follower AND x.followed_user_id = p.followed)
   ON CONFLICT (follower_user_id, followed_user_id) DO NOTHING;
 $$;
 REVOKE ALL ON FUNCTION public.sync_event_follows(uuid) FROM PUBLIC, anon, authenticated;
@@ -528,7 +589,9 @@ BEGIN
     SELECT claimed_by_user_id INTO b FROM public.people WHERE person_id = NEW.to_person_id;
     IF a IS NOT NULL AND b IS NOT NULL AND a <> b THEN
       INSERT INTO public.user_follows (follower_user_id, followed_user_id)
-      VALUES (a, b), (b, a)
+      SELECT v.f, v.t FROM (VALUES (a, b), (b, a)) AS v(f, t)
+      WHERE NOT EXISTS (SELECT 1 FROM public.user_unfollows x
+                        WHERE x.follower_user_id = v.f AND x.followed_user_id = v.t)
       ON CONFLICT (follower_user_id, followed_user_id) DO NOTHING;
     END IF;
   END IF;

@@ -51,7 +51,7 @@ import { lookProAllows } from '@/lib/hub-look-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
-import { PUBLIC_R2_BUCKET } from '@/lib/r2-client-ref';
+import { PUBLIC_R2_BUCKET, eventMediaPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { WIDGET_CATALOG_BY_TYPE, hasContent, type WidgetType } from '@/lib/invitation-widgets';
 import {
   SECTION_CONTENT_EVENT_COLUMNS,
@@ -83,6 +83,7 @@ import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
+import type { CustomSectionContent } from '@/lib/custom-sections';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -227,8 +228,29 @@ export async function hubDraftAction(
             .catch(() => false)
         : true;
 
+    /* 💎 THE LAST THREE PRO TOOLS (owner 2026-09-29, "yes to all 3"). A drafted
+       song, hero video or gallery photo is a public POST like any other, so
+       each NEW ref must be an upload into THIS event's own folder — the rule
+       `updateSiteChrome` asks live (`eventMediaPolicy`). A ref the page already
+       shows is kept as it is. */
+    const newMediaIsOwn = (column: 'site_bg_music_r2_key' | 'landing_page_hero_video_r2_key' | 'our_photos', value: unknown) => {
+      const liveRefs = new Set(
+        column === 'our_photos' ? siteMediaServeRefs(live.events.our_photos) : [siteMediaServeRef(live.events[column])].filter(Boolean),
+      );
+      const refs = column === 'our_photos' ? siteMediaServeRefs(value) : [siteMediaServeRef(value)].filter((r): r is string => Boolean(r));
+      return refs.every((r) => liveRefs.has(r) || parseClientRef(r, eventMediaPolicy(eventId)) !== null);
+    };
+
     const toWrite: HubDraftItem[] = [];
     for (const item of plan.apply) {
+      if (
+        item.kind === 'event' &&
+        (item.column === 'site_bg_music_r2_key' || item.column === 'landing_page_hero_video_r2_key' || item.column === 'our_photos') &&
+        !newMediaIsOwn(item.column, item.value)
+      ) {
+        held.push({ item, reason: 'not_your_photo' });
+        continue;
+      }
       if (item.kind === 'event' && item.column === 'invite_theme' && !themeFenceOpen) {
         held.push({ item, reason: 'not_for_this_celebration' });
         continue;
@@ -289,6 +311,30 @@ export async function hubDraftAction(
        the wedding fence above — the same order `setInviteTheme` kept. */
     const themeWrite = 'invite_theme' in eventsPatch ? eventsPatch.invite_theme : undefined;
     delete eventsPatch.invite_theme;
+    /* 🔳 THE QR LOOK LEAVES THE SESSION UPDATE TOO. The draft holds `{ qr }`
+       only; `style_preferences` also carries the couple's onboarding answers,
+       so it is MERGED into the blob as it stands at write time — through the
+       admin client, exactly as its live writer (`updateQrStyle`) always wrote
+       it — after the host check (top) and the Pro gate (`planHubDraftApply`). */
+    const qrWrite = 'style_preferences' in eventsPatch ? (eventsPatch.style_preferences as Record<string, unknown>) : undefined;
+    delete eventsPatch.style_preferences;
+    /* 🎵 The song's companions, as `updateSiteChrome` stamps them: where it came
+       from, and off when there is no song to play. */
+    if ('site_bg_music_r2_key' in eventsPatch) {
+      eventsPatch.site_bg_music_source = eventsPatch.site_bg_music_r2_key ? 'upload' : null;
+      if (!eventsPatch.site_bg_music_r2_key) eventsPatch.site_bg_music_enabled = false;
+    }
+    /* 🖼 NEW GALLERY PHOTOS ARE SCREENED BEFORE THEY GO LIVE — `updateOurPhotos`'
+       own rule, fail-closed: `our_photos` has no moderation state, so a ref in
+       it IS on the public page. A blocked photo is simply left out. */
+    if (Array.isArray(eventsPatch.our_photos)) {
+      const held = new Set(siteMediaServeRefs(live.events.our_photos));
+      const fresh = (eventsPatch.our_photos as string[]).filter((r) => !held.has(r));
+      if (fresh.length > 0) {
+        const blocked = await screenNewPhotoRefs(fresh);
+        if (blocked.length > 0) eventsPatch.our_photos = (eventsPatch.our_photos as string[]).filter((r) => !blocked.includes(r));
+      }
+    }
     // The companions each live writer stamps beside its column, so an applied
     // draft leaves the row exactly as the writer would have.
     if ('landing_page_hero_image_url' in eventsPatch) {
@@ -339,6 +385,29 @@ export async function hubDraftAction(
         .select('event_id');
       if (evErr || !Array.isArray(evRows) || evRows.length === 0) {
         return { ok: false, intent, error: 'Could not apply your changes. Nothing was changed.' };
+      }
+    }
+    if (qrWrite !== undefined) {
+      const admin = createAdminClient();
+      const { data: prefRow, error: prefErr } = await admin
+        .from('events')
+        .select('style_preferences')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const prefs =
+        !prefErr && prefRow?.style_preferences && typeof prefRow.style_preferences === 'object'
+          ? { ...(prefRow.style_preferences as Record<string, unknown>) }
+          : null;
+      if (!prefs && prefErr) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      const { data: qrRows, error: qrErr } = await admin
+        .from('events')
+        .update({ style_preferences: { ...(prefs ?? {}), ...qrWrite } })
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (qrErr || !Array.isArray(qrRows) || qrRows.length === 0) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }
     if (themeWrite !== undefined) {
@@ -398,7 +467,9 @@ export async function hubDraftAction(
                 ? STAGE_ORDER_KEY
                 : item.field === 'std_lead'
                   ? STD_LEAD_KEY
-                  : 'canvas';
+                  : item.field === 'custom'
+                    ? 'custom'
+                    : 'canvas';
           before[key] = base[key] ?? null;
           if (item.value === null) delete base[key];
           else base[key] = item.value;
@@ -431,6 +502,9 @@ export async function hubDraftAction(
       } else if (item.field === 'is_visible') {
         // 🎬 A scene of their own, held for Pro, stays SHOWN in the draft.
         (remaining.widgets[item.widgetType] ??= {}).is_visible = item.value as boolean;
+      } else if (item.field === 'custom') {
+        // ✍ Its words, held for Pro, stay in the draft too.
+        (remaining.widgets[item.widgetType] ??= {}).custom = item.value as CustomSectionContent | null;
       }
     }
     await writeHubDraft(supabase, eventId, { v: 1, ...remaining, history: [] }, snapshot);

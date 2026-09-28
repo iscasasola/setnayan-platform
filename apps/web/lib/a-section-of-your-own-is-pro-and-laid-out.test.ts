@@ -295,15 +295,19 @@ test('💎 a free couple ADDS a scene on the web (Apply asks for Pro) — the sh
   // in hidden and Apply names it ("Scene of your own · …") until Pro.
   const free = render(false);
   assert.match(free, /\+ Add a scene/, 'a free couple cannot add a scene on the web');
-  // An EMPTY slot guests can see is still a live words write the server refuses
-  // without Pro — it keeps its lock; the slot WITH words keeps its editor.
-  assert.equal((free.match(/data-lock="yes"/g) ?? []).length, 1, 'only the empty, visible slot is locked');
-  assert.equal((free.match(/name="title"/g) ?? []).length, 1, 'the slot WITH words keeps its editor (grandfather)');
-  assert.equal((free.match(/value="delete"/g) ?? []).length, 2, 'and both can still be removed');
-  // …but one guests do NOT see live (a scene just added) takes words freely.
-  const hidden = render(false, { hiddenLive: ['B'] });
-  assert.equal((hidden.match(/data-lock="yes"/g) ?? []).length, 0, 'a hidden scene of their own is locked');
-  assert.equal((hidden.match(/name="title"/g) ?? []).length, 2);
+  // An EMPTY slot — hidden OR already visible — takes its first words into the
+  // DRAFT for a couple without Pro (2026-09-29, owner "yes to all 3"); the slot
+  // WITH words keeps its live editor. Nothing is locked on the web any more.
+  const empty = render(false, { emptyLive: ['B'] });
+  assert.equal((empty.match(/data-lock="yes"/g) ?? []).length, 0, 'an empty scene of their own is still locked on the web');
+  assert.equal((empty.match(/name="title"/g) ?? []).length, 2, 'both scenes offer their words');
+  const forms = empty.split('<form').filter((f) => /name="title"/.test(f));
+  assert.equal(forms.length, 2);
+  assert.match(forms.find((f) => /value="B"/.test(f)) ?? '', /name="draft" value="1"/, 'the empty scene\'s words do not go to the draft');
+  assert.doesNotMatch(forms.find((f) => /value="A"/.test(f)) ?? '', /name="draft" value="1"/, 'words a scene already has were moved to the draft');
+  assert.equal((empty.match(/value="delete"/g) ?? []).length, 2, 'and both can still be removed');
+  // Without the list (a caller that forgot it) the empty slot falls back to its lock — never a live form the server refuses.
+  assert.equal((free.match(/data-lock="yes"/g) ?? []).length, 1);
 
   // 📵 The app-store shell: no Add for a free couple (the shell rule, unchanged).
   const shell = render(false, { hideLocked: true });

@@ -54,6 +54,7 @@ import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
 import { formatCount } from '@/lib/format-number';
+import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
 /** Hard cap on the gallery size — keeps the page light + bounds R2 cost. */
 const MAX_PHOTOS = 24;
@@ -96,7 +97,12 @@ export async function updateOurPhotos(
   // never gated; any photo the gallery did not hold, or a reorder, needs Pro.
   // Admin-client SKU read inside the gate (co-hosts resolve the event's Pro);
   // the old fail-open `.catch(() => true)` is gone — a throwing read is loud.
-  await requireLookPro(eventId, galleryChange(currentRefs, deduped));
+  /* 💾 IN THE MAKER (`draft=1`) the Pro question moves to Apply (owner
+     2026-09-29, "yes to all 3"): the gallery is tried free, drawn on the host's
+     canvas and named on the Apply sheet. The screen below still runs first —
+     and Apply screens every new photo again before one goes live. */
+  const drafting = isHubDraftWrite(formData);
+  if (!drafting) await requireLookPro(eventId, galleryChange(currentRefs, deduped));
 
   // ── NSFW screen, on the NEW refs only, BEFORE anything is persisted ─────────
   // See the module note: this surface has no `moderation_state` to hide behind, so
@@ -125,6 +131,11 @@ export async function updateOurPhotos(
     }
   }
   const cleared = deduped.filter((ref) => !blocked.includes(ref));
+
+  if (drafting) {
+    // A photo the screen blocked is left out of the draft, as it is left out live.
+    await draftEventsAndReturn(eventId, { our_photos: cleared }, formData, `/dashboard/${eventId}/website/editor?open=gallery`);
+  }
 
   const { data: event, error } = await supabase
     .from('events')

@@ -222,6 +222,10 @@ q();
  * `--hub-row-at` 1, 2, 3 … (capped at 8, `HUB_SEQUENCE_DEPTH`) so they still
  * arrive in turn, one stagger apart. A row already marked is never observed
  * again — re-numbering a finished row would move its delay and replay it.
+ * Each row is also told its place in its list, `--hub-row-i` of `--hub-row-n`
+ * (written as it is observed, not as it is reached): a PINNED run gives row i
+ * the i-th slice of its hold and an AUTO run the i-th stagger of its clock,
+ * and neither can count siblings in CSS.
  * Fail-visible like everything else here: no mark, nothing bound, the row sits
  * where the layout put it.
  */
@@ -259,7 +263,7 @@ var k=0;
 for(var i=0;i<es.length;i++){if(es[i].isIntersecting){var t=es[i].target,p=t.parentElement;if(p&&p.hasAttribute&&p.hasAttribute('data-hub-rows')){k=k<8?k+1:8;t.style.setProperty('--hub-row-at',String(k))}t.classList.add('pahina-in');hio.unobserve(t)}}
 },{rootMargin:'0px 0px 32px 0px',threshold:0});
 for(var i=0;i<h.length;i++){var t=h[i].tagName==='STYLE'?h[i].previousElementSibling:h[i];if(t)hio.observe(t)}
-for(var j=0;j<rw.length;j++){if(!rw[j].classList.contains('pahina-in'))hio.observe(rw[j])}
+var lp=null,li=0;for(var j=0;j<rw.length;j++){var q=rw[j],qp=q.parentElement;if(qp!==lp){lp=qp;li=0}li++;if(qp&&qp.children){q.style.setProperty('--hub-row-i',String(li));q.style.setProperty('--hub-row-n',String(qp.children.length))}if(!q.classList.contains('pahina-in'))hio.observe(q)}
 }catch(e){}};
 hub();
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',hub,{once:true})}

@@ -143,16 +143,19 @@ export function DateEditor({
   governed,
   matrix,
   nudge = null,
+  helpFirst = false,
 }: {
   eventId: string;
   governed: GovernedDate;
+  /** Open on "Help me choose" — where the old /find-date lands. */
+  helpFirst?: boolean;
   /** The shipped Find your date's matrix, still loading — read only when "Help me choose" opens. */
   matrix: Promise<ScheduleMatrix | null>;
   /** The Chinese-tradition note date-selection shows (null when it does not apply). */
   nudge?: ReactNode;
 }) {
   // Shared with the middle (`DateBody`): "Help me choose" puts the candidate days there.
-  const [modeRaw, setModeRaw] = useDetailsPiece('date.mode', 'have');
+  const [modeRaw, setModeRaw] = useDetailsPiece('date.mode', helpFirst ? 'help' : 'have');
   const mode = modeRaw === 'help' ? 'help' : 'have';
   const setMode = (m: 'have' | 'help') => setModeRaw(m);
   const [proposal, setProposal] = useState<{ field: 'date'; value: string; n: number } | null>(null);
@@ -230,8 +233,8 @@ export function DateEditor({
  * the candidate days, ranked, to tap (DECISION_LOG "A TOOL MOVED INTO THE MAKER
  * IS REBUILT INTO THE THREE PARTS").
  */
-export function DateBody({ matrix, picture }: { matrix: Promise<ScheduleMatrix | null>; picture: ReactNode }) {
-  const [mode] = useDetailsPiece('date.mode', 'have');
+export function DateBody({ matrix, picture, helpFirst = false }: { matrix: Promise<ScheduleMatrix | null>; picture: ReactNode; helpFirst?: boolean }) {
+  const [mode] = useDetailsPiece('date.mode', helpFirst ? 'help' : 'have');
   if (mode !== 'help') return <>{picture}</>;
   return (
     <Suspense fallback={<p className="text-sm text-ink/60">Checking your suppliers’ calendars…</p>}>

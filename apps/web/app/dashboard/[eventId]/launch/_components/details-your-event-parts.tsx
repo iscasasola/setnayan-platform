@@ -54,6 +54,8 @@ export type YourEventInput = {
     label: string;
     matrix: Promise<ScheduleMatrix | null>;
     nudge: ReactNode;
+    /** Open on "Help me choose" (`?date=help`). */
+    helpFirst?: boolean;
   };
   venues: { resolved: readonly EventVenue[]; slots: readonly VenueSlot[]; city: string | null; launchDate: string | null };
   /** The walking order, as the invitation prints it — its sections and lines, each line's moves already asked of the rule. */
@@ -123,7 +125,7 @@ export function yourEventParts({
         <PrintPieceBody input={prints} piece="pass" />
       </div>
     ),
-    date: <DateBody matrix={input.date.matrix} picture={invitation} />,
+    date: <DateBody matrix={input.date.matrix} picture={invitation} helpFirst={input.date.helpFirst} />,
     venues: (
       <div className="flex flex-col items-center gap-4">
         <VenuesSeen venues={input.venues.resolved} single={!kind.words.twoPeople} />
@@ -164,6 +166,7 @@ export function yourEventParts({
         }}
         matrix={input.date.matrix}
         nudge={input.date.nudge}
+        helpFirst={input.date.helpFirst}
       />
     ),
     venues: <VenuesEditor eventId={eventId} slots={input.venues.slots} city={input.venues.city} launchDate={input.venues.launchDate} />,

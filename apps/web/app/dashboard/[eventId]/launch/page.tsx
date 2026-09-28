@@ -137,6 +137,8 @@ type Props = {
      *  (`lib/maker-details-items.ts`). */
     tool?: string | string[];
     item?: string | string[];
+    /** `?date=help` — Details › Date opens on "Help me choose" (where /find-date lands). */
+    date?: string | string[];
     print_theme?: string | string[];
     print_saved?: string | string[];
     print_error?: string | string[];
@@ -1082,6 +1084,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         mayShowStdFilm,
         parentCount: printParents.length,
         hostCount: rsvpHosts.length,
+        helpFirst: one(search.date) === 'help',
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;

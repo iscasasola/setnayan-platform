@@ -161,3 +161,32 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   assert.equal((dress.match(/\{marchPlaceLine\(march\)\}/g) ?? []).length, 1, 'the march line sits under it');
   assert.match(dress, /\{mine \|\| march \? \(/, 'a walker with no outfit line still gets the panel');
 });
+
+test('"Leave the other side blank" happens IN PLACE — the Guest list’s own unpair, no navigation', () => {
+  const actions = read('app/dashboard/[eventId]/guests/pair-actions.ts');
+  const unpair = actions.slice(actions.indexOf('export async function unpairGuestAction('));
+  assert.match(unpair, /const inPlace = mode === 'in-place';/);
+  // In place, a refusal is THROWN (said by the caller) and success RETURNS — both before any redirect.
+  assert.match(unpair, /if \(inPlace\) throw new Error\([^)]*\);\s*redirect\(/);
+  assert.match(unpair, /if \(inPlace\) \{[\s\S]*?return;\s*\}\s*redirect\(backToList\(eventId, \{ unpaired: '1' \}\)\);/);
+  // The Maker calls that same action, through the Maker's one refresh.
+  const march = read(`${L}details-march.tsx`);
+  assert.match(march, /import \{ unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
+  assert.match(march, /await unpairGuestAction\(eventId, pairIds\[0\]!, 'in-place'\);/);
+  assert.match(march, /Leave the other side blank/);
+  // …and the Guest list's row form still binds two arguments, so it keeps its redirect.
+  const roster = read('app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx');
+  assert.match(roster, /unpairGuestAction\.bind\(null, eventId, guest\.guest_id\)\}/);
+});
+
+test('/find-date lands on Details › Date with "Help me choose" open — for a couple whose event has an Event Hub', () => {
+  const page = read('app/dashboard/[eventId]/find-date/page.tsx');
+  assert.match(page, /\.eq\('member_type', 'couple'\)/);
+  assert.match(page, /if \(coupleRes\.data && surfaceEnabled\(profile, 'website'\)\) \{\s*redirect\(detailsItemHref\(eventId, 'date', '&date=help'\)\);/);
+  // Everyone else keeps the page.
+  assert.match(page, /return <FindYourDate eventId=\{eventId\} matrix=\{matrix\} \/>;/);
+  const launch = read('app/dashboard/[eventId]/launch/page.tsx');
+  assert.match(launch, /helpFirst: one\(search\.date\) === 'help',/);
+  // Both halves of the date item open on the same mode.
+  assert.equal((EDITORS.match(/useDetailsPiece\('date\.mode', helpFirst \? 'help' : 'have'\)/g) ?? []).length, 2);
+});

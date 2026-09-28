@@ -7,6 +7,7 @@ import type { MarchOption } from '@/lib/march-moves';
 import type { MarchResult } from '@/lib/march-result';
 import { setEntourageLineOrder } from '../../guests/entourage-order-actions';
 import { joinEntourageLine, swapEntouragePlaces } from '../../guests/march-actions';
+import { unpairGuestAction } from '../../guests/pair-actions';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { DetailsPieceHeading, DetailsPieceRow, useDetailsPiece } from './details-pieces';
@@ -191,6 +192,23 @@ export function MarchControls({
       }
     });
   };
+  /* "Leave the other side blank" — the Guest list's own unpair, in place: the
+     pair becomes two lines, each with its other side blank (owner: "a blank
+     stays blank"). */
+  const pairIds = line.slots.flatMap((sl) => (sl.kind === 'name' && sl.id ? [sl.id] : []));
+  const leaveBlank = () => {
+    setProblem(null);
+    start(async () => {
+      try {
+        await makerSave(async () => {
+          await unpairGuestAction(eventId, pairIds[0]!, 'in-place');
+          return { ok: true as const };
+        }, requestMakerRefresh);
+      } catch (e) {
+        setProblem(e instanceof Error ? e.message : 'That did not go through — nothing was changed.');
+      }
+    });
+  };
   const move = (delta: -1 | 1) => {
     const order = section.lines.map((l) => l.leadId);
     const to = at + delta;
@@ -263,6 +281,17 @@ export function MarchControls({
           )}
         </div>
       ))}
+      {pairIds.length === 2 ? (
+        <button
+          type="button"
+          className="inline-flex min-h-11 w-fit items-center rounded-xl border border-ink/15 bg-white px-3 text-sm font-medium text-ink disabled:opacity-40"
+          disabled={pending}
+          onClick={leaveBlank}
+          data-march-leave-blank=""
+        >
+          Leave the other side blank
+        </button>
+      ) : null}
       {problem ? (
         <p role="status" className="rounded-md border border-danger-200 bg-danger-50/70 px-2 py-1.5 text-xs text-danger-900">
           {problem}

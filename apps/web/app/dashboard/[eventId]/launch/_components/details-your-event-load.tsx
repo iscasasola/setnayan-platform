@@ -70,6 +70,7 @@ export async function loadYourEvent({
   mayShowStdFilm,
   parentCount,
   hostCount,
+  helpFirst = false,
 }: {
   supabase: SupabaseClient;
   admin: SupabaseClient;
@@ -78,6 +79,8 @@ export async function loadYourEvent({
   mayShowStdFilm: boolean;
   parentCount: number;
   hostCount: number;
+  /** Open Date on "Help me choose" (`?date=help` — where /find-date lands). */
+  helpFirst?: boolean;
 }): Promise<YourEventInput | null> {
   const rowRes = await admin.from('events').select(YOUR_EVENT_COLUMNS).eq('event_id', eventId).maybeSingle();
   if (rowRes.error || !rowRes.data) {
@@ -147,6 +150,7 @@ export async function loadYourEvent({
       label: yourEventDateLabel(words),
       matrix,
       nudge: chinese ? <ChineseSpecialistNudge /> : null,
+      helpFirst,
     },
     venues: {
       resolved: venues,

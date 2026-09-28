@@ -28,6 +28,8 @@ import { fetchEventVendors } from '@/lib/vendors';
 import { buildScheduleMatrix, schedulePicksFromVendors } from '@/lib/schedule-matrix';
 import type { EventDatePrecision } from '@/lib/events';
 import { FindYourDate } from './_components/find-your-date';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { detailsItemHref } from '@/lib/maker-details-items';
 
 export const metadata = { title: 'Find your date' };
 
@@ -43,6 +45,30 @@ export default async function FindDatePage({ params }: Props) {
   if (!user) redirect('/login');
 
   const supabase = await createClient();
+
+  /*
+    📅 THE DATE FINDER LIVES IN DETAILS NOW (owner 2026-09-29, DECISION_LOG "THE
+    DATE FINDER LIVES IN STEP 2 …": *"its route redirects to the Details
+    item"*). A couple whose event has an Event Hub — the same two facts the
+    Maker's own work area asks (`launch/page.tsx` `hasWork`) — lands on
+    Details › Date with "Help me choose" open. Everyone else (a coordinator, an
+    event type with no Event Hub) keeps this page, so nobody is sent to a
+    Maker they cannot use.
+  */
+  const [coupleRes, profile] = await Promise.all([
+    supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle(),
+    resolveProfileByEvent(eventId),
+  ]);
+  if (coupleRes.data && surfaceEnabled(profile, 'website')) {
+    redirect(detailsItemHref(eventId, 'date', '&date=help'));
+  }
+
   const admin = createAdminClient();
 
   const [vendors, eventRes] = await Promise.all([

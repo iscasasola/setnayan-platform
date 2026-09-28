@@ -18,10 +18,13 @@ ADAPTS TO EVERY EVENT TYPE".
   · **RSVP** — the guest's RSVP (`MakerRsvpCanvas`) is the picture, the shipped `MakerRsvpSettings`
     the editor; the reminder-emails tour rides the picture (mounted on first open).
 - **Old doors land on the item** — `?tool=love-story` / `?tool=rsvp-page`, a scene's "Open … editor",
-  a restored tab (`landInDetails`, the one translation, in the shell); `/website/our-story` and
-  `/schedule` redirect to the item — only for the couple of an event with an Event Hub
-  (`detailsIsTheDoor`; Love Story also needs two named people). A coordinator, or a type with no
-  Event Hub, keeps the standalone page. Love Story and RSVP left the Maker bar.
+  a restored tab: part 3's ONE translation (`movedPageItem` / `movedSelection`, which already named
+  them and lights up now that the items exist); `/website/our-story` and `/schedule` redirect to the
+  item — only where `makerHasWork` (the couple of an event with an Event Hub; Love Story also needs
+  two named people). A coordinator, or a type with no Event Hub, keeps the standalone page. Schedule
+  is a `'whole'` page (its own tools, no second editor), RSVP a `'fill'` page (`detailsItemLayout`).
+  With Love Story gone too, the work area draws no made-once page — its dead page code is removed.
+- Stacked on part 3 (#6102, merged in): merge #6102 into part 1 first.
 - **Tap a fact → the same Details field on the right** — the launch page builds the fact editors
   ONCE (`detailsFactEditors`) and hands the same nodes to Details (`facts`) and the shell
   (`factEditors` → `MakerContext`). A tapped special message (or its scene's Content), the love

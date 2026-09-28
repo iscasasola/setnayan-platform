@@ -42,8 +42,6 @@ type Props = {
     invite_revoked?: string;
     grant_updated?: string;
     host_removed?: string;
-    host_added?: string;
-    planner?: string;
     token?: string;
   }>;
 };
@@ -360,9 +358,6 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   const justRevoked = search.invite_revoked === '1';
   const grantUpdated = search.grant_updated === '1';
   const hostRemoved = search.host_removed === '1';
-  // Owner 2026-09-28: a host added with an account is a host AT ONCE — the
-  // database accepts the seat at insert (20271251336140). Nothing to share.
-  const hostAdded = search.host_added === '1';
   const consentGateEnabled = await isCoordinatorConsentGateEnabled();
 
   // Build the share URL with a localhost-safe fallback. In production this
@@ -428,12 +423,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                 Host seat saved.
               </p>
               <p className="text-xs text-success-900/85">
-                {/* A hired planner keeps the consent-gated accept step
-                    (2026-08-24); every other host is a host once they have an
-                    account with this email (owner 2026-09-28). */}
-                {search.planner === '1'
-                  ? 'Share this link with your coordinator. They’ll sign in, then accept.'
-                  : 'They don’t have a Setnayan account yet. The moment they sign up with this email, they’re a host — nothing to accept. You can also send them this link to get there.'}
+                {/* The only email invite left is the hired planner's (owner
+                    2026-09-28: co-hosts come from the guest list). */}
+                Share this link with your coordinator. They&apos;ll sign in, then accept.
               </p>
               <code className="block break-all rounded-md bg-cream/80 px-2 py-1.5 font-mono text-[11px] text-success-950">
                 {shareUrl}
@@ -444,15 +436,13 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      {justRevoked || grantUpdated || hostRemoved || hostAdded ? (
+      {justRevoked || grantUpdated || hostRemoved ? (
         <p
           role="status"
           className="inline-flex items-center gap-1.5 rounded-md bg-success-100/80 px-3 py-1.5 text-xs font-medium text-success-950"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {hostAdded
-            ? 'Added — they’re a host now, and we’ve told them.'
-            : justRevoked
+          {justRevoked
             ? 'Invitation revoked.'
             : grantUpdated
               ? 'Access updated.'
@@ -572,9 +562,8 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
               Waiting to join · {pending.length}
             </p>
             <p className="text-sm text-ink/65">
-              Not on Setnayan yet. Each becomes a host the moment they sign up with
-              that email — nothing to accept. A hired planner still accepts from
-              their link.
+              Each starts as soon as they say yes to the invitation and sign in —
+              nothing for them to accept. A hired planner accepts from their link.
             </p>
           </header>
           <ul className="divide-y divide-ink/10">
@@ -820,79 +809,23 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      {/* Add-a-host form. ONLY A HOST ADDS HOSTS (owner 2026-09-28: "being a
-          host gives the same power to add new hosts as well") — the action's
-          gate is `couple`, so a hired planner never sees a form it would
-          refuse. */}
+      {/* CO-HOSTS COME FROM THE GUEST LIST (owner 2026-09-28: "accepted guests
+          can be assigned as host"). There is no email form here any more: the
+          person picks a guest's Access on their card, and it goes live once that
+          guest has said yes and signed in. Hired planners still come in through
+          "Promote your coordinator" above, with the RA 10173 consent step. */}
       {isCouple ? (
-      <section className="sn-tile space-y-4 p-5 sm:p-6">
-        <header className="space-y-1">
-          <p className="sn-eye">
-            Add a host
-          </p>
-          <h2 className="text-xl font-semibold tracking-tight">
-            Add a co-host
-          </h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            They&apos;re a host as soon as you add them — nothing for them to accept —
-            and they can add hosts too. Not on Setnayan yet? They become a host the
-            moment they sign up with this email.
-          </p>
-        </header>
-
-        <ConsentGatedInviteForm enabled={consentGateEnabled} className="space-y-4">
-          <input type="hidden" name="event_id" value={eventId} />
-
-          <label className="flex flex-col gap-1">
-            <span className="sn-eye">
-              Email
-            </span>
-            <input
-              type="email"
-              name="invitation_email"
-              required
-              maxLength={200}
-              placeholder="parent@example.com"
-              className="input-field"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="sn-eye">
-              Role
-            </span>
-            <select name="role_subtype" required defaultValue="" className="input-field">
-              <option value="" disabled>
-                Pick a role
-              </option>
-              {roleChoices.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_SUBTYPE_LABEL[r]} — {ROLE_SUBTYPE_HINT[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="sn-eye">
-              Display label (optional)
-            </span>
-            <input
-              type="text"
-              name="display_label"
-              maxLength={80}
-              placeholder="Tita Lita (Mom's cousin)"
-              className="input-field"
-            />
-            <span className="text-xs text-ink/55">
-              Shown alongside the role so the host knows who&apos;s who.
-            </span>
-          </label>
-
-          <SubmitButton pendingLabel="Adding…" className="button-primary h-11 px-5">
-            Add host
-          </SubmitButton>
-        </ConsentGatedInviteForm>
+      <section className="sn-tile space-y-3 p-5 sm:p-6" data-cohosts-from-guest-list>
+        <p className="sn-eye">Add a co-host</p>
+        <h2 className="text-xl font-semibold tracking-tight">Co-hosts come from your guest list</h2>
+        <p className="max-w-prose text-sm text-ink/65">
+          Open a guest and set their <b className="font-semibold text-ink">Access</b> to
+          Co-host (the same access as you) or Limited helper (can view, can&apos;t change
+          anything). It starts as soon as they say yes to the invitation and sign in.
+        </p>
+        <Link href={`/dashboard/${eventId}/guests`} className="button-primary inline-flex h-11 items-center px-5">
+          Open the guest list
+        </Link>
       </section>
       ) : null}
     </section>

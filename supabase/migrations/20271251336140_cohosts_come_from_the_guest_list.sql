@@ -362,7 +362,11 @@ FOR EACH ROW EXECUTE FUNCTION public.activate_seats_on_link();
 CREATE OR REPLACE FUNCTION public.a_celebrant_cohost_stays()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  IF NEW.removed_at IS NOT NULL AND OLD.removed_at IS NULL
+  -- Removed, OR switched down to a limited-access kind — both take a
+  -- celebrant's co-host access away, so both are refused.
+  IF ((NEW.removed_at IS NOT NULL AND OLD.removed_at IS NULL)
+      OR (NEW.removed_at IS NULL AND NOT public.seat_is_full_cohost(NEW.role_subtype)))
+     AND OLD.removed_at IS NULL
      AND public.seat_is_full_cohost(OLD.role_subtype)
      AND EXISTS (
        SELECT 1 FROM public.guests g
@@ -380,7 +384,7 @@ END;
 $$;
 DROP TRIGGER IF EXISTS a_celebrant_cohost_stays ON public.event_moderators;
 CREATE TRIGGER a_celebrant_cohost_stays
-BEFORE UPDATE OF removed_at ON public.event_moderators
+BEFORE UPDATE OF removed_at, role_subtype ON public.event_moderators
 FOR EACH ROW EXECUTE FUNCTION public.a_celebrant_cohost_stays();
 
 -- ── 6 · only a celebrant changes a celebrant's role ─────────────────────────

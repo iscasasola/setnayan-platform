@@ -93,6 +93,8 @@ import {
   InspectorLayout,
 } from '@/app/_components/inspector/inspector-column';
 import { formatCount } from '@/lib/format-number';
+import { loadGuestAccessMap } from '@/lib/guest-access.server';
+import { accessTag } from '@/lib/guest-access';
 
 export const metadata = { title: 'Guests' };
 
@@ -233,8 +235,6 @@ type Props = {
     bulk_assigned?: string;
     bulk_grouped?: string;
     bulk_sided?: string;
-  bulk_hosted?: string;
-  bulk_unhosted?: string;
     bulk_deleted?: string;
     // pair-actions.ts. These arrived with the pairing feature and were not
     // registered here, so a finished pair produced no confirmation AND left
@@ -637,6 +637,18 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // Auto-Arrange does. Falls back to suggestTableFor's default when no floor plan
   // row exists yet (undefined → the param default kicks in).
   const stage = floorPlan ? { x: floorPlan.stage_x, y: floorPlan.stage_y } : undefined;
+  // "+Co-host" / "+Limited helper" — TRUE by construction, from the live seats
+  // (owner 2026-09-28 "make it true"). A refused read shows no tag at all,
+  // never a list with every co-host silently demoted.
+  const accessMap = await loadGuestAccessMap(
+    eventId,
+    guests.map((g) => ({ guest_id: g.guest_id, role: g.role })),
+  );
+  const accessTagByGuest: Record<string, string> = {};
+  for (const [id, st] of accessMap ?? []) {
+    const tag = accessTag(st);
+    if (tag) accessTagByGuest[id] = tag;
+  }
   const seatByGuest: Record<string, { placed: string | null; suggested: string | null }> =
     Object.fromEntries(
       visible.map((g) => {
@@ -1221,6 +1233,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               currentGroupId={currentGroupId}
               selfJoinIds={selfJoinIds}
               seatByGuest={seatByGuest}
+              accessTagByGuest={accessTagByGuest}
               photoDisplayUrls={photoDisplayUrls}
               accountFaceByGuest={accountFaceByGuest}
               grouping={grouping}
@@ -1231,8 +1244,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
                 search.bulk_assigned ||
                   search.bulk_grouped ||
                   search.bulk_sided ||
-                  search.bulk_hosted ||
-                  search.bulk_unhosted ||
                   // Pairing acts on the SELECTED two and finishes the task, so
                   // it retracts the bar exactly like an Apply. `unpaired` is
                   // deliberately absent: it comes from a single row's own
@@ -1518,8 +1529,6 @@ function pickFlash(search: {
   bulk_assigned?: string;
   bulk_grouped?: string;
   bulk_sided?: string;
-  bulk_hosted?: string;
-  bulk_unhosted?: string;
   bulk_deleted?: string;
   paired?: string;
   unpaired?: string;
@@ -1559,17 +1568,6 @@ function pickFlash(search: {
   if (search.bulk_sided) {
     const n = Number(search.bulk_sided);
     return `Side updated for ${formatCount(n)} guest${n === 1 ? '' : 's'}.`;
-  }
-  if (search.bulk_hosted) {
-    // The count is what was WRITTEN, not what was selected — the action drops
-    // guests who already wore the hat, so this never claims a change that did
-    // not happen.
-    const n = Number(search.bulk_hosted);
-    return `${formatCount(n)} guest${n === 1 ? ' is' : 's are'} part of the host now.`;
-  }
-  if (search.bulk_unhosted) {
-    const n = Number(search.bulk_unhosted);
-    return `${formatCount(n)} guest${n === 1 ? ' is' : 's are'} no longer part of the host.`;
   }
   if (search.bulk_deleted) {
     const n = Number(search.bulk_deleted);

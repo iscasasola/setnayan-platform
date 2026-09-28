@@ -379,7 +379,11 @@ export async function removeHost(formData: FormData) {
     redirect(`/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent('You cannot remove yourself.')}`);
   }
 
-  await admin
+  // 🔑 READ THE ANSWER. A celebrant co-host cannot be removed — the database
+  // refuses it (`a_celebrant_cohost_stays`, 20271251336140). Ignoring this
+  // error used to fall through to "Host removed — their access ended
+  // immediately", a success banner over a refusal.
+  const { error: removeError } = await admin
     .from('event_moderators')
     .update({
       removed_at: new Date().toISOString(),
@@ -388,6 +392,12 @@ export async function removeHost(formData: FormData) {
     })
     .eq('moderator_id', moderatorId)
     .eq('event_id', eventId);
+  if (removeError) {
+    const msg = /celebrant_cohost_locked/.test(removeError.message)
+      ? 'A celebrant stays a co-host. A celebrant can change their role first.'
+      : 'Could not remove them. Try again.';
+    redirect(`/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent(msg)}`);
+  }
 
   // Drop the coordinator membership (never a couple row — guarded above by
   // member_type check at insert time; we only delete coordinator rows).

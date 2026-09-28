@@ -13,6 +13,8 @@ import {
   type InvitedToBlock,
 } from '@/lib/guests';
 import { formatRecordedAt } from '@/lib/recorded-at';
+import { loadGuestAccessMap } from '@/lib/guest-access.server';
+import type { GuestAccessState } from '@/lib/guest-access';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 
@@ -74,6 +76,11 @@ export type GuestCardData = {
   customGroups: GroupChip[];
   /** When Setnayan learned the answer — already formatted, null when none. */
   recordedAt: string | null;
+  /** Their Access (owner 2026-09-28: co-hosts come from the guest list). Null
+   *  when the read was refused — the card then shows nothing, never "None". */
+  access: GuestAccessState | null;
+  /** The viewer is a co-host, so the Access dropdown is theirs to change. */
+  canManageAccess: boolean;
 };
 
 export async function loadGuestCard(
@@ -184,6 +191,25 @@ export async function loadGuestCard(
     })
     .filter((g): g is GroupChip => g !== null && g.label !== '');
 
+  // Access (co-host / limited helper) and whether the viewer may change it.
+  const [accessMap, canManageAccess] = await Promise.all([
+    loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return false;
+      const { data: me } = await supabase
+        .from('event_members')
+        .select('member_type')
+        .eq('event_id', eventId)
+        .eq('user_id', user.id)
+        .eq('member_type', 'couple')
+        .maybeSingle();
+      return Boolean(me);
+    })(),
+  ]);
+
   return {
     guest,
     isCouple,
@@ -197,5 +223,7 @@ export async function loadGuestCard(
     seatedAt,
     customGroups,
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),
+    access: accessMap?.get(guest.guest_id) ?? null,
+    canManageAccess,
   };
 }

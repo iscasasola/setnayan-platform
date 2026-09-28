@@ -51,8 +51,6 @@ type Props = {
 
 type Remaining = { days: number; hours: number; minutes: number; seconds: number; isPast: boolean };
 
-const PAST: Remaining = { days: 0, hours: 0, minutes: 0, seconds: 0, isPast: true };
-
 function compute(target: number): Remaining {
   const now = Date.now();
   const ms = target - now;
@@ -82,12 +80,23 @@ export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
    * two real instants. The bug was entirely in the value handed to it.
    */
   const target = countdownTargetMs(targetIso, timeZone);
-  const [remaining, setRemaining] = useState<Remaining>(() =>
-    target === null ? PAST : compute(target),
-  );
+  /*
+   * 🔴 THIS USED TO BE `useState(() => compute(target))`, AND THAT WAS REACT
+   * #418 ON EVERY GUEST PAGE. `compute` reads `Date.now()`, so the server
+   * rendered one second and the phone, hydrating a moment later, computed
+   * another — "text content does not match server-rendered HTML", measured on
+   * prod across three deployments and reproduced unminified on the Secs box
+   * (`+ 05` / `- 18`). 🔒 THE CLOCK IS READ ONLY AFTER MOUNT: before it, both
+   * sides render the same shell with `––` in each tile (same height, so nothing
+   * jumps), and the first tick fills it in the same frame the page becomes
+   * interactive. Never move a `Date.now()` back into render here — it renders
+   * identically for no `now` in particular, and a test holds that.
+   */
+  const [remaining, setRemaining] = useState<Remaining | null>(null);
 
   useEffect(() => {
     if (target === null) return;
+    setRemaining(compute(target));
     const id = window.setInterval(() => setRemaining(compute(target)), 1000);
     return () => window.clearInterval(id);
   }, [target]);
@@ -96,8 +105,8 @@ export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
   // countdown running to the wrong instant is a lie a guest would act on.
   if (target === null) return null;
 
-  // Auto-hide once the wedding starts.
-  if (remaining.isPast) return null;
+  // Auto-hide once the wedding starts (known only once the clock has been read).
+  if (remaining?.isPast) return null;
 
   // A solemn event renders NO countdown at all. Ticking boxes counting down
   // "Days · Hours · Mins · Secs" are anticipation machinery — right for every
@@ -106,11 +115,11 @@ export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
   // shipped mechanism that is actively wrong for it.")
   if (w.solemn) return null;
 
-  const boxes: { label: string; value: number }[] = [
-    { label: 'Days', value: remaining.days },
-    { label: 'Hours', value: remaining.hours },
-    { label: 'Mins', value: remaining.minutes },
-    { label: 'Secs', value: remaining.seconds },
+  const boxes: { label: string; value: number | null }[] = [
+    { label: 'Days', value: remaining?.days ?? null },
+    { label: 'Hours', value: remaining?.hours ?? null },
+    { label: 'Mins', value: remaining?.minutes ?? null },
+    { label: 'Secs', value: remaining?.seconds ?? null },
   ];
 
   return (
@@ -130,7 +139,7 @@ export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
           /* With no box, the numbers stand on their own — no tile each. */
           <div key={b.label} className={bare ? 'py-3' : 'rounded-lg border border-ink/10 bg-paper py-3'}>
             <p className="font-pahina text-3xl font-light tabular-nums sm:text-5xl">
-              {String(b.value).padStart(2, '0')}
+              {b.value === null ? '––' : String(b.value).padStart(2, '0')}
             </p>
             {/* /70, not /50: at 12px the units need 4.5:1 on the page itself
                 (measured 3.2:1 at /50 on a cream ground). Inside a painted

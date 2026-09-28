@@ -66,7 +66,7 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
 export const MAKER_COMING_NEXT: Record<'hero' | 'add' | 'snap' | 'both', string> = {
   hero: 'One hero for every stage and the poster is coming in the next build — for now this sets the photo at the top.',
   add: 'Add a scene from the 25 templates with “+ Add a scene” at the end of your scenes.',
-  snap: 'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone. Placing things freely comes in the next build.',
+  snap: 'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone.',
   both: 'Desktop and phone side by side is coming in the next build — switch between them for now.',
 };
 

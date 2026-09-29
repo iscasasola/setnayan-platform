@@ -78,6 +78,7 @@ const GUEST_ONLY_FIELDS = [
   'eventVendorCredits',
   'saveFlash',
   'faceMode',
+  'faceTaggingAskable',
 ] as const satisfies readonly GuestOnlyKeys[];
 
 test('anonymousIdentity() output carries exactly the five anonymous keys (none guest-derived)', () => {
@@ -155,6 +156,7 @@ function guestInput(
     eventVendorCredits: [],
     saveFlash: null,
     faceMode: 'mode_a',
+    faceTaggingAskable: true,
     ...extra,
   } as unknown as Parameters<typeof guestIdentity>[0];
 }
@@ -204,6 +206,10 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     'didntReply',
     'eventVendorCredits',
     'faceMode',
+    // faceTaggingAskable (2026-09-29) — may THIS guest's reply card ask "Want
+    // to be tagged in the photos?" (false when the couple declined). A yes/no
+    // about the question put to the guest, never an owner capability.
+    'faceTaggingAskable',
     'guest',
     'guestHubData',
     'guestLiveGallery',

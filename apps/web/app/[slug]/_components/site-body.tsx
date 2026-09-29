@@ -1568,6 +1568,7 @@ export async function SiteBody({
       saveFlash,
       rsvpFlash,
       faceMode,
+      faceTaggingAskable,
     } = g;
 
     const sideLabel =
@@ -2099,6 +2100,7 @@ export async function SiteBody({
                   total={papicGuest.total}
                   termsAccepted={papicGuest.termsAccepted}
                   needsFaceEnroll={needsFaceEnroll}
+                  faceTaggingWish={guest.face_tagging_wanted ?? null}
                   capApplies={papicGuest.capApplies}
                   poolLow={papicGuest.poolLow}
                   sponsorShare={papicGuest.sponsorShare}
@@ -2507,6 +2509,10 @@ export async function SiteBody({
                 eventId={event.event_id}
                 eventPublicId={event.public_id}
                 faceMode={faceMode}
+                /* The tag question (and the selfie only after its Yes) is put to
+                   no guest when the couple declined face tagging (owner
+                   2026-09-29 — lib/face-tagging-wish.ts). */
+                offerSelfie={faceTaggingAskable}
                 flash={rsvpFlash}
                 replyLocked={plan.guestListClosed}
                 profileDetails={profileDetails}

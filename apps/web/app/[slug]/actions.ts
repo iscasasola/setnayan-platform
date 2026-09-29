@@ -43,6 +43,7 @@ import { cookies } from 'next/headers';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { FACE_TAGGING_FIELD, parseFaceTaggingAnswer } from '@/lib/face-tagging-wish';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_VALUES: MealPreference[] = [
@@ -524,6 +525,25 @@ export async function submitRsvp(
   // A ref that fails the policy is treated as ABSENT rather than fatal: this
   // file's own rule is that a selfie problem must never roll back an RSVP that
   // already succeeded, and `null` simply skips the enrollment block below.
+  // ── "WANT TO BE TAGGED IN THE PHOTOS?" (owner 2026-09-29) ──────────────────
+  // The guest's own answer, stored so the day-of catch can honour it: a "No
+  // thanks" is never asked again, and only a guest who never answered is asked
+  // the one question on the day (lib/face-tagging-wish.ts). Absent (the
+  // question was not on this form) → whatever is stored stays.
+  //
+  // 🔒 A "NO" ALSO REFUSES THE SELFIE BELOW, whatever else arrived. The selfie
+  // is hidden by CSS after a "No", and a hidden input still POSTS — a guest who
+  // took a selfie, ticked both boxes and then tapped "No thanks" must not be
+  // enrolled by the leftovers. This only ever NARROWS the consent gate.
+  const taggingWish = parseFaceTaggingAnswer(formData.get(FACE_TAGGING_FIELD));
+  if (taggingWish !== undefined) {
+    const { error: wishErr } = await admin
+      .from('guests')
+      .update({ face_tagging_wanted: taggingWish })
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId);
+    if (wishErr) console.error('[supabase-error] app/[slug]/actions.ts · from:guests.update(face_tagging_wanted)', wishErr);
+  }
   const selfieRefRaw = clean(formData.get('selfie_ref'));
   const selfieRef =
     selfieRefRaw && parseClientRef(selfieRefRaw, guestSelfiePolicy(eventId, guestId))
@@ -549,7 +569,7 @@ export async function submitRsvp(
   // the enabler; this is the refusal that does not depend on it. Where the guest
   // list already records a birth date showing a child, no tickbox overrides it.
   const knownMinor = await isKnownMinorGuest(admin, eventId, guestId);
-  if (selfieRef && biometricConsent && ageAffirmed && !faceExcluded && !knownMinor) {
+  if (selfieRef && biometricConsent && ageAffirmed && !faceExcluded && !knownMinor && taggingWish !== false) {
     try {
       // Selfie is the highest-priority display photo — it always wins over a
       // Gmail avatar / couple upload.

@@ -19,6 +19,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
+import type { FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { makeQrDetector } from '@/lib/qr-scan';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
@@ -150,6 +151,11 @@ type Props = {
   /** True when the guest has no active face enrollment — shows the in-camera
    *  "add your face" fallback prompt so their candid shots auto-find them. */
   needsFaceEnroll?: boolean;
+  /** The guest's stored "Want to be tagged in the photos?" answer
+   *  (`guests.face_tagging_wanted`, owner 2026-09-29). `null` = never answered:
+   *  the face step asks that one question before any selfie. A stored `false`
+   *  never reaches here — the parents already turned `needsFaceEnroll` off. */
+  faceTaggingWish?: FaceTaggingWish;
   /** True when Kwento is on for the event. It is FREE for every event since
    *  2026-08-21 (owner: "kwento is free"), so this is true everywhere Papic is
    *  set up — the prop stays because the RULE lives in FREE_FOR_ALL_SKUS and
@@ -233,6 +239,7 @@ export function PapicGuestCapture({
   total,
   termsAccepted,
   needsFaceEnroll = false,
+  faceTaggingWish = null,
   canKwento = false,
   capApplies,
   poolLow = false,
@@ -1429,11 +1436,17 @@ export function PapicGuestCapture({
           <DayOfFaceEnroll
             context="guest_camera"
             faceMode={faceMode}
+            wish={faceTaggingWish}
             onDone={() => {
               setEnrolled(true);
               setEnrolling(false);
             }}
             onSkip={() => setEnrolling(false)}
+            /* "No thanks" — back to the camera, and no face prompt again. */
+            onDecline={() => {
+              setPromptDismissed(true);
+              setEnrolling(false);
+            }}
           />
         </div>
       </main>

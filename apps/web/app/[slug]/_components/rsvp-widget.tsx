@@ -8,6 +8,13 @@ import { plusOneSeats } from '@/lib/guests';
 import { plusOneNameSlots } from '@/lib/extra-seats';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { SelfieCapture } from './selfie-capture';
+import {
+  FACE_TAGGING_FIELD,
+  FACE_TAGGING_NO,
+  FACE_TAGGING_QUESTION,
+  FACE_TAGGING_YES,
+  faceTaggingHint,
+} from '@/lib/face-tagging-wish';
 // Shared with the keepsake ticket so the reply card and the keepsake always
 // print the SAME Nº for a given guest.
 import { stubNo } from './pahina-keepsake';
@@ -142,6 +149,15 @@ export function RsvpWidget({
    * mounted in three live places and self-hides once enrolled. The consequence,
    * stated plainly: fewer guests enrol early, so more are asked on the day —
    * which is the owner's stated intent, not an oversight.
+   *
+   * ⚖ AND WHERE IT IS OFFERED, IT IS ASKED FIRST (owner, verbatim 2026-09-29:
+   * *"only if the want tagging service. if the do not click tagging service. no
+   * selfie needed"* → *"it should only depend if they want to be tagged"*).
+   * This prop now governs ONE QUESTION — "Want to be tagged in the photos?",
+   * Yes, tag me / No thanks — and the selfie sits behind its Yes (a CSS-only
+   * `:has()` reveal, `.tag-yes-reveal`). No → nothing more is asked, and
+   * `submitRsvp` refuses any selfie that still rides along. The Event Hub card
+   * passes `false` when the couple declined face tagging for their event.
    */
   offerSelfie?: boolean;
   /**
@@ -264,6 +280,41 @@ export function RsvpWidget({
     .filter(Boolean)
     .join(' · ');
 
+  // "Want to be tagged in the photos?" — defaulted from the guest's stored
+  // answer, never pre-set otherwise (a default would be an answer nobody gave).
+  const taggingWish = guest.face_tagging_wanted ?? null;
+  const tagThenSelfie = (
+    <>
+      <fieldset data-rsvp-step data-face-tagging-choice className="space-y-2">
+        <legend className="mb-1 font-serif text-xl text-ink">{FACE_TAGGING_QUESTION}</legend>
+        <p className="pb-1 text-xs text-ink/60">{faceTaggingHint(faceMode, words.theOrganizer)}</p>
+        {(
+          [
+            { key: 'yes', label: FACE_TAGGING_YES, on: taggingWish === true },
+            { key: 'no', label: FACE_TAGGING_NO, on: taggingWish === false },
+          ] as const
+        ).map((option) => (
+          <label
+            key={option.key}
+            className="flex min-h-12 cursor-pointer items-center rounded-full bg-ink/[0.05] px-5 font-pahina text-base italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
+          >
+            <input
+              type="radio"
+              name={FACE_TAGGING_FIELD}
+              value={option.key}
+              defaultChecked={option.on}
+              className="sr-only"
+            />
+            {option.label}
+          </label>
+        ))}
+      </fieldset>
+      <div data-rsvp-step className="tag-yes-reveal">
+        <SelfieCapture faceMode={faceMode} />
+      </div>
+    </>
+  );
+
   return (
     <form action={action} className="rsvp-form space-y-6">
       {flash ? (
@@ -281,6 +332,12 @@ export function RsvpWidget({
           Omitted when the answer is locked: there is no radio to watch, so the
           rule is dead weight AND its selector text is the only `rsvp_status`
           left in the markup, which reads to any scan like a live control. */}
+      {/* The selfie waits for "Yes, tag me" — the same CSS-only :has() shape,
+          declared on its own because it must also work on a LOCKED card, where
+          the rule below is not rendered (there is no answer radio to watch). */}
+      {offerSelfie ? (
+        <style>{`.rsvp-form .tag-yes-reveal{display:none}.rsvp-form:has(input[name="${FACE_TAGGING_FIELD}"][value="yes"]:checked) .tag-yes-reveal{display:block}`}</style>
+      ) : null}
       {replyLocked ? null : (
         <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}`}</style>
       )}
@@ -387,16 +444,18 @@ export function RsvpWidget({
           and the selfie step would vanish for exactly the guests who are
           coming — in the fortnight before the day, when getting their photos to
           find them is the whole point. Locked + attending renders it outright. */}
+      {/* ⚖ ONE QUESTION, THEN THE SELFIE ONLY AFTER ITS YES (owner 2026-09-29).
+          Two sibling steps, never nested, so one-at-a-time walks them as two
+          screens: the question, then — only once "Yes, tag me" is ticked and
+          the selfie is drawn — the selfie. "No thanks" leaves it undrawn, so
+          the walker skips it and nothing more is asked. Nobody is shown the
+          selfie without choosing it: with no answer ticked it stays hidden. */}
       {!offerSelfie ? null : replyLocked ? (
         guest.rsvp_status === 'attending' ? (
-          <div data-rsvp-step>
-            <SelfieCapture faceMode={faceMode} />
-          </div>
+          <div className="space-y-6">{tagThenSelfie}</div>
         ) : null
       ) : (
-        <div data-rsvp-step className="selfie-reveal">
-          <SelfieCapture faceMode={faceMode} />
-        </div>
+        <div className="selfie-reveal space-y-6">{tagThenSelfie}</div>
       )}
 
       {/* ── WHO ARE YOU BRINGING ────────────────────────────────────────────

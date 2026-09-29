@@ -8,6 +8,7 @@ import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-
 import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
+import { dayOfFaceCatchShows } from '@/lib/face-tagging-wish';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
@@ -107,7 +108,7 @@ export default async function PapicGuestPage({
     eventPapicGuestAccess(admin, session.event_id),
     admin
       .from('events')
-      .select(`display_name, papic_face_mode, event_type, ${GUEST_CAPTURE_GATE_COLUMNS}`)
+      .select(`display_name, papic_face_mode, event_type, face_tagging_declined_by_couple, ${GUEST_CAPTURE_GATE_COLUMNS}`)
       .eq('event_id', session.event_id)
       .maybeSingle(),
     // Resolved only for spec § 7b's "change your mind" offer. The buy panel
@@ -120,9 +121,15 @@ export default async function PapicGuestPage({
   const eventName = (ev?.display_name as string | null) || 'this event';
   // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b: a
   // pre-migration DB (column absent → null) yields no embedding on this camera.
+  // The couple's own "turn it off for my event" is the last word here too: the
+  // camera used to ask `resolveFaceMode` WITHOUT it — i.e. "what did the admin
+  // set", not "what runs on this event" — so a declined event still embedded.
+  const coupleDeclinedFaceTagging =
+    (ev as { face_tagging_declined_by_couple?: boolean | null } | null)?.face_tagging_declined_by_couple === true;
   const faceMode = resolveFaceMode(
     (ev as { papic_face_mode?: string | null } | null)?.papic_face_mode,
     (ev as { event_type?: string | null } | null)?.event_type,
+    coupleDeclinedFaceTagging,
   );
 
   // The face step now opens HERE, after the photo rules, on the guest's first
@@ -236,7 +243,7 @@ export default async function PapicGuestPage({
   }
 
   const [
-    { data: g },
+    { data: g, error: guestReadError },
     quota,
     { data: liveEnrollment },
     canKwento,
@@ -247,7 +254,7 @@ export default async function PapicGuestPage({
         // qr_token rides along so the Papic Challenges reward CTA can link the
         // guest into THEIR OWN Story maker (/papic/me/[token]) — resolved
         // server-side from the cookie session, never client-supplied.
-        .select('first_name, display_name, ugc_terms_accepted_at, qr_token')
+        .select('first_name, display_name, ugc_terms_accepted_at, qr_token, face_tagging_wanted')
         .eq('guest_id', session.guest_id)
         .maybeSingle(),
       fetchGuestQuota(admin, session.event_id, session.guest_id),
@@ -278,6 +285,12 @@ export default async function PapicGuestPage({
 
   const guestName =
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
+  // The guest's own "Want to be tagged in the photos?" answer — null when never
+  // answered. A FAILED read turns the catch off (below) rather than reading as
+  // "never answered": a guest who said "No thanks" must not be asked again
+  // because one query failed.
+  const faceTaggingWish =
+    (g as { face_tagging_wanted?: boolean | null } | null)?.face_tagging_wanted ?? null;
   const eventStyle = asPapicStyle(
     (styleRow as { papic_style?: string } | null)?.papic_style,
   );
@@ -328,7 +341,16 @@ export default async function PapicGuestPage({
       initialRemaining={quota.remaining}
       total={quota.total}
       termsAccepted={termsAccepted}
-      needsFaceEnroll={faceEnrollOn && !liveEnrollment}
+      /* ⚖ Owner 2026-09-29: the face step depends ONLY on whether the guest
+         wants to be tagged. "No thanks" (stored) → never asked again; never
+         answered → asked the one question first (DayOfFaceEnroll); the
+         couple's decline, or an unreadable event → not asked at all. */
+      needsFaceEnroll={dayOfFaceCatchShows({
+        askable: faceEnrollOn && Boolean(ev) && !coupleDeclinedFaceTagging && !guestReadError,
+        enrolled: Boolean(liveEnrollment),
+        wish: faceTaggingWish,
+      })}
+      faceTaggingWish={faceTaggingWish}
       canKwento={canKwento}
       capApplies={quota.capApplies}
       poolLow={quota.poolLow}

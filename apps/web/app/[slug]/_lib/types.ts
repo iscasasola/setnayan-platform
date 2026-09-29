@@ -389,6 +389,9 @@ export type GuestContext =
       guestHubData: GuestHubData;
       seatMap: GuestSeatMap | null;
       rsvpFaceMode: PapicFaceMode;
+      /** May this guest be asked "Want to be tagged in the photos?" at all —
+       *  false when the couple declined face tagging (`resolveFaceTagging`). */
+      faceTaggingAskable: boolean;
       eventVendorCredits: VendorCard[];
     };
 
@@ -432,4 +435,8 @@ export type GuestRow = {
   qr_token: string;
   photo_url: string | null;
   photo_source: 'oauth_google' | 'selfie' | 'couple_upload' | null;
+  /** The guest's own "Want to be tagged in the photos?" answer (owner
+   *  2026-09-29): null never answered · true yes · false no thanks. Optional so
+   *  a fixture or a read that predates it asks rather than assumes. */
+  face_tagging_wanted?: boolean | null;
 };

@@ -202,3 +202,12 @@ export function seatAtChoices(
     .filter((t) => t.free > 0)
     .map((t) => ({ id: t.id, label: `${t.label} · ${t.free} free` }));
 }
+
+/**
+ * 🗺 THE GUESTS' MAP — the Indoor Blueprint's home (owner-approved 2026-09-29,
+ * via the controller: *"it's the same room"*). A piece of the Seat plan: picked,
+ * the right part shows the shipped Indoor Blueprint studio (`BlueprintStudio`
+ * — the entrance handle and each seated guest's "find your table" map), drawn
+ * from this plan's own tables. Not an object on the plan, so it has its own key.
+ */
+export const SEAT_PLAN_MAP_PIECE = 'guests-map';

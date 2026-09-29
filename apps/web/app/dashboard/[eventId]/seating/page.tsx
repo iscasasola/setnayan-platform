@@ -44,7 +44,7 @@ type Props = {
    * `maker=1` — drawn inside the Maker, as Details › Your event › Seat plan
    * (the launch page renders this page there, like the Schedule). `seat` —
    * Details' view of the plan: `3d` streams the 3D lab into the middle part,
-   * `list` opens on the List.
+   * `list` opens on the List, `map` opens the Guests' map (the Indoor Blueprint).
    */
   searchParams: Promise<{ view?: string; maker?: string; seat?: string }>;
 };
@@ -264,7 +264,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       ) : null;
     return (
       <div data-seat-plan-details="" className="flex min-h-0 flex-1 flex-col">
-        {editorFor(seatParam === 'list' ? 'list' : 'plan', { lab, sides })}
+        {editorFor(seatParam === 'list' ? 'list' : 'plan', { lab, sides, part: seatParam === 'map' ? 'map' : null })}
         <MiniTour tourKey="customer_seat_plan_v1" />
       </div>
     );

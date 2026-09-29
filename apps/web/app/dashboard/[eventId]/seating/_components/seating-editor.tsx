@@ -177,8 +177,11 @@ import {
   seatPlanGuestSections,
   seatPlanPieceKey,
   seatPlanPlaceRows,
+  SEAT_PLAN_MAP_PIECE,
   type SeatPlanGuestOptions,
 } from '@/lib/seat-plan-details';
+import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
+import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
 import { DetailsPieceButton, useDetailsEditorOpener, useDetailsPiece } from '../../launch/_components/details-go';
 import { useMaker } from '../../launch/_components/maker-context';
@@ -307,6 +310,8 @@ export type SeatingDetailsShell = {
   lab: React.ReactNode | null;
   /** The sides in the event type's own words and order; null → the seated are listed by group. */
   sides: SeatPlanGuestOptions['sides'];
+  /** Open on the Guests' map (the Indoor Blueprint's old address lands here, `?seat=map`). */
+  part?: 'map' | null;
 };
 
 const NEUTRAL = '#B7B1A6';
@@ -5329,8 +5334,9 @@ export function SeatingEditor({
     setSeatPiece(seatPieceKey, seatPieceKey ? { openEditor: true } : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the setter is rebuilt every render; only the pick matters
   }, [seatPieceKey]);
-  // The right part shows the guests, the rules, or the new-table panel.
-  const [guestsMode, setGuestsMode] = useState<'guests' | 'rules'>('guests');
+  // The right part shows the guests, the rules, the Guests' map (the Indoor
+  // Blueprint), or the new-table panel.
+  const [guestsMode, setGuestsMode] = useState<'guests' | 'rules' | 'map'>(details?.part === 'map' ? 'map' : 'guests');
 
   // 🚪 "GUESTS SEE THIS NOW" — the ONE door guests' seat reads open on
   // (`event_floor_plan.published_at`: Find your seat, the seat pass roster, the
@@ -5422,6 +5428,13 @@ export function SeatingEditor({
       })
     : [];
   const pickPlace = (key: string) => {
+    if (key === SEAT_PLAN_MAP_PIECE) {
+      clearSelection();
+      setShowAddTable(false);
+      setGuestsMode((m) => (m === 'map' ? 'guests' : 'map'));
+      openDetailsEditor();
+      return;
+    }
     const sel = parseSeatPlanPiece(key);
     if (details?.lab) router.push(seatViewHref(null), { scroll: false });
     if (view !== 'plan') setView('plan');
@@ -5464,6 +5477,17 @@ export function SeatingEditor({
           </Fragment>
         );
       })}
+      <p className="hidden px-2.5 pb-0.5 pt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45 lg:block">For your guests</p>
+      <DetailsPieceButton
+        on={guestsMode === 'map' && seatPieceKey === null && !showAddTable}
+        onPick={() => pickPlace(SEAT_PLAN_MAP_PIECE)}
+        data={SEAT_PLAN_MAP_PIECE}
+      >
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate">Guests&rsquo; map</span>
+          <small className="truncate text-[11px] opacity-70">Find my table · the way in</small>
+        </span>
+      </DetailsPieceButton>
     </>
   );
 
@@ -5599,6 +5623,13 @@ export function SeatingEditor({
       </section>
     );
   };
+  // The Indoor Blueprint's preview list — one row per seated guest, by name.
+  const blueprintGuests = details
+    ? guests
+        .filter((g) => g.seated_table_id)
+        .map((g) => ({ tableId: g.seated_table_id!, guestName: g.name, tableLabel: tableLabelById.get(g.seated_table_id!) ?? 'Table' }))
+        .sort((a, b) => a.guestName.localeCompare(b.guestName))
+    : [];
   const guestsPart = details ? (
     <div data-seat-plan-guests="" className="flex flex-col gap-3">
       {/* The table's (or element's) own controls, on a phone — in the flow. */}
@@ -5612,6 +5643,29 @@ export function SeatingEditor({
         <>
           {back('Guests', () => setGuestsMode('guests'))}
           {rulesPane}
+        </>
+      ) : guestsMode === 'map' && !detailsTable ? (
+        /* 🗺 The Indoor Blueprint, its shipped studio whole — drawn from this
+           plan's own tables and seats; its entrance is the plan's entrance
+           (`saveEntrance` writes `event_floor_plan`, the column this editor's
+           Entrance marker reads), so the plan re-reads it after a save. */
+        <>
+          {back('Guests', () => setGuestsMode('guests'))}
+          <p className="text-xs text-ink/60">
+            Each guest taps Find my table and sees this map — their table, and the way from the entrance.
+          </p>
+          <BlueprintStudio
+            key={`${entrance.x}:${entrance.y}`}
+            eventId={eventId}
+            tables={tables}
+            initialEntrance={{ x: entrance.x, y: entrance.y }}
+            guestOptions={blueprintGuests}
+            saveAction={async (fd) => {
+              await saveEntrance(fd);
+              router.refresh();
+            }}
+            noSeatsNote="Seat a guest on the plan and you can preview their map here."
+          />
         </>
       ) : detailsTable ? (
         tableGuests(detailsTable)

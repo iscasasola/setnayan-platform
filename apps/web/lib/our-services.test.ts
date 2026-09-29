@@ -223,6 +223,11 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
     'animated-monogram': () =>
       STUDIO_ABSORBED.palogo?.into === 'launch' &&
       fs.existsSync(path.join(EV, 'launch', '_components', 'maker-logo.tsx')),
+    // Details › Seat plan draws the shipped studio in its right part, and the
+    // old page lands there.
+    'indoor-blueprint': () =>
+      read(EV, 'seating', '_components', 'seating-editor.tsx').includes('<BlueprintStudio') &&
+      read(EV, 'studio', 'indoor-blueprint', 'page.tsx').includes("detailsDoorHref(eventId, 'seating', { seat: 'map' })"),
   };
 })();
 
@@ -244,7 +249,7 @@ test('a tool whose home is the Maker stays here where there is no Maker', () => 
 });
 
 test('the tools with no home yet stay on this page', () => {
-  for (const key of ['find-date', 'playlist', 'indoor-blueprint', 'thank-you']) {
+  for (const key of ['find-date', 'playlist', 'thank-you']) {
     assert.equal(toolHasGoneHome(key, true), false, `${key} has no home yet and must stay`);
   }
 });

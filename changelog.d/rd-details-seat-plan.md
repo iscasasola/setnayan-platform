@@ -39,6 +39,15 @@ shell is re-split (`details` prop; absent, the standalone page is unchanged):
   roster and the 3D walk read). **+0 server actions.** Printing the table signs
   switches it on too. Saves immediately; Apply does not cover it (said in its ⓘ).
 
+**The Indoor Blueprint's home is the Seat plan** (owner-approved 2026-09-29, via
+the controller: "it's the same room"): a **Guests' map** piece in the navigator
+opens the shipped `BlueprintStudio` in the right part — the entrance handle and
+each seated guest's "find your table" map, drawn from the plan's own tables
+(its `saveEntrance` writes the same `event_floor_plan` entrance the plan's
+Entrance marker reads; the plan re-reads it after a save). `/studio/indoor-blueprint`
+lands the couple of an Event Hub event with a seat plan on it (`?seat=map`);
+Our Services counts it as gone home (`TOOL_HOMES`).
+
 **Doors:** `/seating` lands the couple of an Event Hub event on the item
 (`detailsIsTheDoor`; `?view=list` → `seat=list`); a coordinator or a type with
 no Event Hub keeps the page. **Arrange the room left the Guest list** (`rosterDoors`).

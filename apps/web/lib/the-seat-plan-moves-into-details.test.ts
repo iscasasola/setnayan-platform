@@ -185,7 +185,7 @@ test('the seating page lands the couple on Details › Seat plan, and draws the 
   );
   // ONE editor element for both shells — the props are never listed twice.
   assert.equal((page.match(/<SeatingEditor\b/g) ?? []).length, 1, 'a second <SeatingEditor> — the props now drift');
-  assert.match(page, /editorFor\(seatParam === 'list' \? 'list' : 'plan', \{ lab, sides \}\)/);
+  assert.match(page, /editorFor\(seatParam === 'list' \? 'list' : 'plan', \{ lab, sides,/);
   // 3D is the lab page itself, streamed in only while it is the view.
   assert.match(page, /seatParam === '3d'[\s\S]{0,260}<SeatingLabPage params=\{Promise\.resolve\(\{ eventId \}\)\} searchParams=\{Promise\.resolve\(\{ maker: '1' \}\)\}/);
 });
@@ -244,4 +244,16 @@ test('the launch page draws the seating page in Details, only where the type has
   assert.match(launch, /if \(detailsItemApplies\('seating', eventContext\)\) \{/);
   assert.match(launch, /<CoupleSeatingPage[\s\S]{0,200}maker: '1', seat: one\(search\.seat\)/);
   assert.match(launch, /seatPlan=\{seatPlan\}/);
+});
+
+test('the Indoor Blueprint lives in the Seat plan — its shipped studio in the right part, its old page lands there', () => {
+  // Owner-approved 2026-09-29 (via the controller): "it's the same room".
+  const ed = code('seating', '_components', 'seating-editor.tsx');
+  assert.match(ed, /onPick=\{\(\) => pickPlace\(SEAT_PLAN_MAP_PIECE\)\}/, 'the Guests’ map is not a piece of the Seat plan');
+  const map = ed.slice(ed.indexOf("guestsMode === 'map' && !detailsTable ? ("), ed.indexOf(') : detailsTable ? ('));
+  assert.match(map, /<BlueprintStudio[\s\S]*saveAction=\{async \(fd\) => \{\s*await saveEntrance\(fd\);/, 'not the shipped studio and its own save');
+  assert.doesNotMatch(map, /href=/, 'the Guests’ map links out of the Maker');
+  const page = code('studio', 'indoor-blueprint', 'page.tsx');
+  assert.match(page, /redirect\(detailsDoorHref\(eventId, 'seating', \{ seat: 'map' \}\)\)/);
+  assert.match(code('seating', 'page.tsx'), /part: seatParam === 'map' \? 'map' : null/);
 });

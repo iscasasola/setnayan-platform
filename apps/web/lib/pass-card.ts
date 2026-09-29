@@ -204,7 +204,9 @@ export function seatLabelsFrom(
 // ─── Who may fetch one ──────────────────────────────────────────────────────
 
 export type PassCardVerdict =
-  | { allow: true; as: 'guest' | 'host' }
+  /** `pending: true` — the guest's OWN seat while it waits in the couple's
+   *  Requests: the "Request pending" ticket (never a host's, never anyone else's). */
+  | { allow: true; as: 'guest' | 'host'; pending?: true }
   | { allow: false; status: 401 | 404 | 503; message: string };
 
 /**
@@ -215,7 +217,9 @@ export type PassCardVerdict =
  *     one their own key") — nobody else's;
  *   · a host of the event may fetch any of its guests' cards (owner: "downloading
  *     them individually is free");
- *   · and in every case only a card that EXISTS (`passCardEligibility === 'pass'`).
+ *   · and in every case only a card that EXISTS (`passCardEligibility === 'pass'`)
+ *     — save one: a guest's own seat still waiting in the couple's Requests
+ *     draws its "Request pending" ticket (`pending: true`), to that guest only.
  *
  * ⚖ EVERY REFUSAL AFTER SIGN-IN IS THE SAME 404 WITH THE SAME WORDS — "not
  * yours", "pending", "can't come" and "no such guest" are indistinguishable, so
@@ -248,7 +252,15 @@ export function decidePassCardAccess(input: {
     as = 'host';
   }
   if (!as) return { allow: false, status: 404, message: PASS_CARD_REFUSED };
-  if (passCardEligibility(target, bringer) !== 'pass') return { allow: false, status: 404, message: PASS_CARD_REFUSED };
+  const eligibility = passCardEligibility(target, bringer);
+  // 🔓 A WAITING GUEST'S OWN SEAT DRAWS THE "REQUEST PENDING" TICKET (owner
+  // 2026-09-29, DECISION_LOG "IT IS THEIR DIGITAL TICKET, IN A 'REQUEST PENDING'
+  // STATE"; 2026-09-30 on the Event Hub's pass: "i thought this will be the
+  // digital ticket"). Only the session that holds that seat (or brought it) —
+  // they already know they are waiting, so nothing is disclosed. A host still
+  // gets the one 404: there is no real ticket to download yet.
+  if (eligibility === 'awaiting' && as === 'guest') return { allow: true, as, pending: true };
+  if (eligibility !== 'pass') return { allow: false, status: 404, message: PASS_CARD_REFUSED };
   return { allow: true, as };
 }
 

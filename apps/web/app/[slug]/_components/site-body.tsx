@@ -1,8 +1,7 @@
 import { Fragment } from 'react';
 import Link from 'next/link';
-import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
-import { guestPassFacts } from '@/lib/guest-pass';
-import { PASS_CARD_ROUTE, passCardLine } from '@/lib/pass-card';
+import { resolveArrivalAction } from '@/lib/arrival-action';
+import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
 import { MapPin } from 'lucide-react';
@@ -27,7 +26,6 @@ import { saveAttendedVendorAction, submitRsvp } from '../actions';
 import { GuestChecklist } from './guest-checklist';
 import { guestChecklistItems } from '../_lib/guest-checklist-facts';
 import { daysUntil } from '@/lib/guest-checklist';
-import { GuestCodeKeepers } from './guest-code-keepers';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { isChineseWedding } from '@/lib/chinese-wedding';
@@ -102,7 +100,6 @@ import { LiveWallBlock } from './live-wall-block';
 import { SongRequestCard } from './song-request-card';
 import { songRequestCardShows, type SongRequestDoor } from '@/lib/guest-song-request-rule';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
-import { GuestHubCard } from './guest-hub-card';
 import { YourSeatBlock } from './your-seat-block';
 import { SeatDoorLine } from './seat-door-line';
 import {
@@ -204,13 +201,6 @@ import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
  * + the allow-list fence in the plan, not reviewer discipline.
  */
 
-function displayNameOf(g: {
-  first_name: string;
-  last_name: string;
-  display_name: string | null;
-}): string {
-  return g.display_name?.trim() || `${g.first_name} ${g.last_name}`.trim();
-}
 
 
 
@@ -1554,7 +1544,6 @@ export async function SiteBody({
   const guestTree = (g: GuestSiteIdentity) => {
     const {
       guest,
-      qrSvg,
       invitationUrl,
       guestLiveGallery,
       seatPassActive,
@@ -1675,121 +1664,14 @@ export async function SiteBody({
       ? formatBlockTimeRange(firstScheduleBlock.start_at, null) || null
       : null;
 
-    /* The pass's own facts, resolved once so the card and its guard read the
-       same list. BOTH are required for the "Bringing" line: `plus_one_allowed`
-       is the couple's permission and `plus_one_name` is an actual person. The
-       allowance alone is not a companion, and a pass must not announce a seat
-       nobody claimed. */
-    const passFacts = guestPassFacts({
-      displayName: displayNameOf(guest),
-      tableLabel: guestHubData.tableLabel,
-      arriveLabel: firstScheduleTimeLabel,
-      plusOneName: guest.plus_one_allowed ? guest.plus_one_name : null,
-    });
-
-    /* 🛂 NO PASS UNTIL ACCEPTED, NONE FOR "CAN'T COME" (owner 2026-09-29:
-       "only accepted accounts get their images" · "no pass for those who
-       cannot come"). The card's place holds ONE plain line instead — under the
-       same anchor, so "Show your pass" still lands somewhere that explains.
-       Derived from the row at render time: change the reply and it is back. */
-    const passWithheld = g.passCard === 'awaiting' || g.passCard === 'cannotCome' ? passCardLine(g.passCard) : null;
-    const passWithheldCard = plan.qrCardShouldRender && passWithheld ? (
-      <section id={PASS_ANCHOR} data-pass-card-withheld={g.passCard ?? ''} className="mx-auto max-w-md scroll-mt-6 text-center">
-        <p className="text-sm text-ink/70">{passWithheld}</p>
-      </section>
-    ) : null;
-    const passCard = passWithheldCard ? passWithheldCard : plan.qrCardShouldRender ? (
-      <section
-        id={PASS_ANCHOR}
-        data-motion="pass"
-        className="mx-auto max-w-md scroll-mt-6 text-center"
-      >
-        {/* The anchor the arrival action's day-of label points at. A fragment
-            link to a missing id fails SILENTLY — the first version of that
-            action invented `#your-qr`, which existed nowhere, so "Show your
-            pass" scrolled a guest nowhere at the door. Pinned by
-            `one-action-says-where-you-stand` (#5783).
-
-            ⚠ THE ANCHOR TRAVELS WITH THE CARD. This card now renders in one of
-            two slots — on the day it leads, directly under the programme — so
-            the id moves with it and the action's link keeps resolving, to a
-            shorter scroll. It renders in exactly ONE slot per render, so there
-            is never a second element with this id.
-
-            🎫 IT LOOKS LIKE A PASS NOW (owner 2026-09-21, on this card: "so many
-            text. we want the event hub to be minimalist" — canvas "4 · The
-            pass"). Gone from the face: the "YOUR INVITATION QR · For tagging &
-            pickup" heading, the paragraph about photographers, and the raw
-            invitation URL in mono. What is left is what a door reads: whose
-            celebration, who you are, where you sit, when to arrive, and one
-            large code. Colours are the site palette's (mulberry = the moodboard
-            wine), never hard-coded. */}
-        <div className="text-left">
-          <p className="font-pahina text-xl leading-tight text-ink">{event.display_name}</p>
-          {event.event_date ? (
-            <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
-              {formatEventDate(event.event_date)}
-            </p>
-          ) : null}
-        </div>
-        {/* ── THE FOUR FACTS A DOOR NEEDS (arrival board "4 · the pass").
-            🔑 EVERY FACT IS OMITTED WHEN IT DOES NOT EXIST — no "Table TBA".
-            A pass that states a table the couple never assigned is worse than
-            one that stays quiet: the guest believes it and is moved in front
-            of other people. See lib/guest-pass.ts. */}
-        {passFacts.length > 0 ? (
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 pt-5 text-left">
-            {passFacts.map((fact) => (
-              <div key={fact.label}>
-                <dt className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
-                  {fact.label}
-                </dt>
-                <dd className="mt-0.5 text-base font-medium text-ink">{fact.value}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
-        <div
-          aria-label={`QR code for ${displayNameOf(guest)}`}
-          className="mx-auto mt-5 inline-block rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-56"
-          dangerouslySetInnerHTML={{ __html: qrSvg }}
-        />
-        <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">
-          Show this at the door. It finds your table too.
-        </p>
-        {/* Save it or copy it — the code is drawn as an inline SVG, so a
-            long-press offers nothing and a screenshot was the only answer. */}
-        <GuestCodeKeepers
-          invitationUrl={invitationUrl}
-          className="mt-4"
-          passCardHref={g.passCard === 'pass' ? PASS_CARD_ROUTE : null}
-        />
-        {/* 🔑 ONE SEAT LINK (owner 2026-09-21). This card used to carry TWO —
-            "Find my table" (the Indoor Blueprint map) and "Your seat pass"
-            (this guest's exact seat, the same map, their tablemates and the
-            arrival bloom). Both are free now, and the pass does everything the
-            map does, so they were two doors to one question.
-            🪑 2026-09-27 ("FIND YOUR SEAT, REDESIGNED"): the one seat page is
-            now `/find-seat`, which knows this guest by the SAME resolver as this
-            page (cookie OR signed-in seat) — so no /seat/claim hop is needed,
-            and its table, map and door pass are free. `/seat` stays the landing
-            of the PRINTED branded QR cards. `seatPassActive` already asks whether this kind of
-            event seats people and whether the seating is published, so the
-            link never opens a notFound() or an empty plan.
-            The Indoor Blueprint map stays reachable from the everything-else
-            sheet's own "Find my table" row. */}
-        {seatPassActive ? (
-          <Link
-            href={`/${event.slug}/find-seat`}
-            className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-sm font-medium text-ink/75 hover:border-terracotta hover:text-terracotta-700"
-          >
-            <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Find my seat
-          </Link>
-        ) : null}
-        <div aria-hidden className="h-6" />
-      </section>
-    ) : null;
+    /* 🎫 THE PASS IS NOT ON HOME ANY MORE — IT IS THE DIGITAL TICKET, ON ME
+       (owner 2026-09-30, on `#site-pass`: "i thought this will be the digital
+       ticket" — then: the ticket belongs on the guest's Me page only, not on
+       Home/Details). `GuestTicket` (guest-ticket.tsx) is mounted into the Me
+       section by page.tsx and carries `PASS_ANCHOR`, so the day-of "Show your
+       ticket" link still lands on it. Do NOT re-add a pass or QR block here:
+       two would mean two elements with one id, and a second drawing of the
+       ticket. Guarded by `the-hub-shows-the-ticket.test.ts`. */
 
     const greetingBlock = plan.greetingShouldRender ? (
       /* Pahina §7: the greeting becomes a left-aligned SALUTATION in
@@ -1963,16 +1845,11 @@ export async function SiteBody({
             />
           ) : null}
           {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
-          {/* Guest Hub Card — persistent status summary for identified returning
-              guests. Shows RSVP status, seat, meal, and next schedule item at
-              a glance on every return visit. Hidden from anonymous visitors
-              (this branch only runs when a guest session is present). */}
-          <GuestHubCard
-            words={clientWords}
-            data={guestHubData}
-            guestListClosed={plan.guestListClosed}
-            detailsCardOnPage={plan.rsvpShouldRender}
-          />
+          {/* 🎫 NO "HI AGAIN · YOUR INVITATION SUMMARY" CARD (owner 2026-09-30).
+              Its reply, seat, meal and "coming up" were a second statement of
+              what the top control, the Digital ticket on Me and the Your details
+              sheet each already say. Its one door — the reply sheet — is the top
+              control's Change, the Me tab, and the line in the reply section. */}
 
           {/* ── KEEP IT ON YOUR HOME SCREEN (owner 2026-09-20). Sits directly
               above the account card because they answer the same question —
@@ -2049,13 +1926,6 @@ export async function SiteBody({
                 </section>
               ) : null}
 
-              {/* ── THE PASS LEADS (arrival board "5 · On the day"). On the day the
-                  QR climbs from far below the vendor pitch to directly under the
-                  programme: a guest at a door is holding a phone to be let in,
-                  not to read. Withheld from someone who declined — see
-                  lib/day-of-lead.ts. Guarded by
-                  lib/the-day-rearranges-the-invitation.test.ts. */}
-              {dayOfLead.passLeads ? passCard : null}
 
               {/* Chinese (Tsinoy) tea-ceremony card — static, guest-safe tradition copy
                   (no roster / no PII). Mirrors the public + identified-guest paths for
@@ -2252,12 +2122,6 @@ export async function SiteBody({
                 </section>
               ) : null}
 
-              {/* QR card — always-on per the editor contract. Gated so V1.1 can
-                  decouple if the host wants QR off (e.g., a couple who doesn't
-                  want their wedding photographed). */}
-              {/* The pass in its ordinary place — on the day it leads instead,
-                  directly under the programme rail above. */}
-              {dayOfLead.passLeads ? null : passCard}
 
               {/* RSVP — always-on per the editor contract. The wedding's
                   load-bearing form: the editor blocks hiding it, but the gate
@@ -2294,16 +2158,11 @@ export async function SiteBody({
                   scroll away. */}
               {plan.rsvpShouldRender ? (
                 <section className="space-y-4">
-                  {guest.rsvp_status === 'attending' ? (
-                    <PahinaKeepsake
-                      variant="accepted"
-                      displayName={guestHubData.displayName}
-                      guestId={guest.guest_id}
-                      tableLabel={guestHubData.tableLabel}
-                      venueName={venueLine}
-                      eventDate={event.event_date}
-                    />
-                  ) : guest.rsvp_status === 'declined' ? (
+                  {/* 🎫 NO "YOUR KEEPSAKE" FOR A GUEST WHO IS COMING (owner
+                      2026-09-30). It restated the name, the seat, where and when —
+                      everything the Digital ticket on Me now carries. The AFTER
+                      memento (same component, "You were there") is untouched. */}
+                  {guest.rsvp_status === 'declined' ? (
                     /* Declined: a quiet line, never a keepsake — the ticket is
                        for people who are coming (design §11). */
                     <div>
@@ -2338,6 +2197,14 @@ export async function SiteBody({
                       section it has always been. Quiet on purpose; the accented
                       control on this screen is the arrival action under the
                       mark, and one accent per screen is the point of that slice. */}
+                  {/* …UNLESS THE TOP CONTROL ALREADY OPENS IT (owner 2026-09-30).
+                      "You're going · Change" under the mark links the same sheet
+                      (`#site-me` is a sheet anchor, RSVP_SHEET_ANCHORS), so a
+                      second "Need to change your reply…" was the same door twice.
+                      Keyed on the action HAVING a Change, not on its words: on
+                      the day, or for a guest still owed a reply, it has none and
+                      this line is the way in. */}
+                  {arrivalAction?.secondary ? null : (
                   <a
                     href="#your-details"
                     className="flex min-h-[52px] w-full items-center justify-between gap-3 text-sm text-ink/80 underline-offset-4 transition-colors hover:text-ink hover:underline"
@@ -2352,6 +2219,7 @@ export async function SiteBody({
                       &rarr;
                     </span>
                   </a>
+                  )}
                 </section>
               ) : null}
 
@@ -2367,7 +2235,13 @@ export async function SiteBody({
                   the "After they reply" preview — it has no row to read, and
                   the honest "we couldn't check" line would be a lie about a
                   person who does not exist (owner 2026-09-27). */}
-              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
+              {/* ⚖ …in the page body ONLY when there is no reply sheet to carry
+                  it (owner 2026-09-30: off the page, into "Your details"). The
+                  opt-out is the guest's right under RA 10173, so it may move
+                  but never vanish: with the sheet it renders there, below. */}
+              {plan.rsvpShouldRender ? null : (
+                <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
+              )}
 
               {/* Hideable widgets render here in display_order. The host
                   controls visibility + order via the widget editor at
@@ -2547,6 +2421,12 @@ export async function SiteBody({
                    so the switch shows here before Apply. */
                 oneAtATime={askOneAtATime(event.rsvp_ask_config)}
               />
+            </div>
+            {/* ⚖ THE SCAN-TRAIL OPT-OUT, unchanged, as one small line at the
+                foot of "Your details" (owner 2026-09-30) — where a guest goes
+                to change what we hold about them. RA 10173: moved, never gone. */}
+            <div data-scan-trail-in-details className="mt-6 border-t border-ink/10 pt-4">
+              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
             </div>
           </RsvpSheet>
         ) : null}

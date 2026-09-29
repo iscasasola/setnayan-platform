@@ -5,8 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getHostUserId } from '@/lib/host-gate';
 import { printOwnsPro } from '@/lib/print-set.server';
-import { PASS_CARD_WORDS, PASS_CARD_ZIP_MAX, PASS_CARD_ZIP_PRO_MESSAGE, passCardDesignFrom, passCardsZipFileName, uniqueFileNames } from '@/lib/pass-card';
-import { eligiblePassCardGuests, loadPassCardKit, passCardFileNameFor, renderPassCardFor } from '@/lib/pass-card.server';
+import { PASS_CARD_WORDS, PASS_CARD_ZIP_MAX, PASS_CARD_ZIP_PRO_MESSAGE, passCardsZipFileName, uniqueFileNames } from '@/lib/pass-card';
+import { eligiblePassCardGuests, loadPassCardKit, passCardDesignFor, passCardFileNameFor, renderPassCardFor } from '@/lib/pass-card.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 
@@ -50,7 +50,6 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const eventId = url.searchParams.get('event');
   if (!eventId || !UUID.test(eventId)) return new NextResponse('Which event?', { status: 400 });
-  const design = passCardDesignFrom(url.searchParams.get('design'));
 
   const supabase = await createClient();
   const {
@@ -77,6 +76,8 @@ export async function GET(req: Request) {
 
   const kit = await loadPassCardKit(admin, eventId);
   if (!kit?.set.event.slug) return new NextResponse('Event not found.', { status: 404 });
+  // The couple's own look, unless this download asked for another.
+  const design = passCardDesignFor(kit, url.searchParams.get('design'));
   const names = uniqueFileNames(guests.map((g) => passCardFileNameFor(kit, g)));
 
   const archive = archiver('zip', { store: true });

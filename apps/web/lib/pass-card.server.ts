@@ -11,15 +11,13 @@ import { layoutPassCard, type PrintPass } from '@/lib/print-layout';
 import { loadPrintSet, printOwnsPro, type LoadedPrintSet } from '@/lib/print-set.server';
 import { renderPassCardPng } from '@/lib/pass-card-render';
 import { renderInvitationQrPng } from '@/lib/qr';
-import { eventSeatingPublished } from '@/lib/seat-pass';
 import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
-  DEFAULT_PASS_CARD_DESIGN,
   filterPassCardRows,
+  passCardDesignFrom,
   passCardEligibility,
   passCardFileName,
-  seatLabelsFrom,
   type PassCardDesign,
   type PassCardEligibility,
   type PassCardRow,
@@ -30,7 +28,7 @@ import {
  * lib/print-layout.ts draws, lib/pass-card-render.ts flattens).
  *
  * One kit per EVENT (the print set, its look, its words, the arrival time,
- * the published seats), then one card per GUEST — so the zip of 300 cards
+ * the party counts), then one card per GUEST — so the zip of 300 cards
  * reads the event once, and the single card and the zip cannot draw from
  * different facts.
  */
@@ -144,8 +142,6 @@ export type PassCardKit = {
   set: LoadedPrintSet;
   /** When the doors open — the FIRST public block, formatted like the programme. */
   arrive: string | null;
-  /** guest_id → "Table 7", only once the couple has PUBLISHED seating. */
-  seatOf: Map<string, string>;
   /** bringer guest_id → how many NAMED companions they bring who are coming. */
   party: Map<string, number>;
 };
@@ -168,10 +164,9 @@ export async function loadPassCardKit(
     set = await loadPrintSet(eventId, { mode: 'screen', withEventQr: false, previewTheme: CLASSIC_PRINT_THEME });
     if (!set) return null;
   }
-  const [words, arrive, seatOf, party] = await Promise.all([
+  const [words, arrive, party] = await Promise.all([
     eventWordsForEvent(eventId).catch(() => null),
     readArriveLabel(admin, eventId),
-    readSeatLabels(admin, eventId, opts.seatsFor),
     readPartyCounts(admin, eventId, opts.seatsFor),
   ]);
   const eyebrow = words ? (words.solemn ? 'In memory of' : `The ${words.eventWord} of`) : set.data.eyebrow;
@@ -187,7 +182,7 @@ export async function loadPassCardKit(
     qrLook: { ...set.qrLook, dark: '#111111', light: '#FFFFFF' },
     data: { ...set.data, eyebrow, eventWord, details: { ...set.data.details, guestNames: true, setnayanMark: !ownsPro } },
   };
-  return { set, arrive, seatOf, party };
+  return { set, arrive, party };
 }
 
 async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<string | null> {
@@ -235,34 +230,16 @@ async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerId
   return out;
 }
 
-async function readSeatLabels(admin: SupabaseClient, eventId: string, guestIds?: string[]): Promise<Map<string, string>> {
-  // Unpublished → no table on any card (`seatLabelsFrom`); the reads below are skipped.
-  const published = await eventSeatingPublished(admin, eventId);
-  if (!published) return seatLabelsFrom(false, [], []);
-  let q = admin.from('event_seat_assignments').select('guest_id, table_id').eq('event_id', eventId);
-  if (guestIds && guestIds.length > 0 && guestIds.length <= 50) q = q.in('guest_id', guestIds);
-  const [{ data: seats, error }, { data: tables, error: tErr }] = await Promise.all([
-    q,
-    admin.from('event_tables').select('table_id, table_label, link_group_label').eq('event_id', eventId),
-  ]);
-  if (error || tErr) {
-    logQueryError('pass-card.seats', error ?? tErr, { event_id: eventId }, 'graceful_degrade');
-    return new Map();
-  }
-  return seatLabelsFrom(
-    published,
-    (seats ?? []) as Array<{ guest_id: string; table_id: string }>,
-    (tables ?? []) as Array<{ table_id: string; table_label: string | null; link_group_label: string | null }>,
-  );
-}
-
 // ─── One card ───────────────────────────────────────────────────────────────
 
 /** The card's facts for one guest — the PrintPass both the picture and the print draw. */
 export function passCardPass(kit: PassCardKit, g: PassCardGuest, qrRef: string | null): PrintPass {
   return {
     name: passCardGuestName(g),
-    seat: kit.seatOf.get(g.guest_id) ?? null,
+    // 🪑 NO TABLE ON THE DIGITAL TICKET (owner 2026-09-30: "no seat plan on the
+    // digital ticket for the moment"). The ticket is a saved picture; a table
+    // the couple moves later would sit on it wrong. Find my seat has the live one.
+    seat: null,
     qrRef,
     serial: null,
     arrive: kit.arrive,
@@ -270,6 +247,17 @@ export function passCardPass(kit: PassCardKit, g: PassCardGuest, qrRef: string |
     bringing: g.plus_one_allowed ? g.plus_one_name : null,
     party: kit.party.get(g.guest_id) ?? (g.plus_one_allowed && g.plus_one_name?.trim() ? 1 : 0),
   };
+}
+
+/**
+ * 🎨 THE COUPLE'S LOOK UNLESS ONE IS ASKED FOR. The Prints panel's own pick
+ * (`print_details.pass_design`, Classic when unset) is what every guest's
+ * ticket wears — on their Event Hub and in the file they save, one drawing. An
+ * explicit `?design=` (the couple previewing a look) wins for that drawing only.
+ * Before 2026-09-30 the routes defaulted to Classic and never read the pick.
+ */
+export function passCardDesignFor(kit: PassCardKit, asked?: string | null): PassCardDesign {
+  return asked ? passCardDesignFrom(asked) : passCardDesignFrom(kit.set.data.details.passDesign);
 }
 
 export function passCardFileNameFor(kit: PassCardKit, g: PassCardGuest): string {
@@ -305,7 +293,7 @@ export function passCardVersion(kit: PassCardKit, g: PassCardGuest, design: Pass
 export async function renderPassCardFor(
   kit: PassCardKit,
   g: PassCardGuest,
-  design: PassCardDesign = DEFAULT_PASS_CARD_DESIGN,
+  design: PassCardDesign = passCardDesignFor(kit),
   opts: { pending?: string | null } = {},
 ): Promise<Uint8Array> {
   const { set } = kit;

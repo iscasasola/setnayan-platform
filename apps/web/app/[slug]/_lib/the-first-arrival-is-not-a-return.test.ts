@@ -14,6 +14,14 @@
  * observed writing TWO rows ~1.3s apart for a single arrival — a count would
  * lie where a minimum does not.
  *
+ * ⛔ 2026-09-30 — THE CARD IS GONE (owner: "Hi again · Your invitation
+ * summary" duplicated the Digital ticket on Me). With it went the only
+ * greeting that could call a first arrival a return, so the render tests
+ * below became a guard that NO such greeting is back on the guest page. The
+ * signal (the earliest scan) is still computed and still pinned, for the day
+ * something reads it again — and it currently has NO reader: see the note on
+ * `GuestHubData.firstVisit`.
+ *
  * ⛔ The two obvious "improvements" are both the bug wearing a hat:
  * `rsvp_responded_at` is stamped by three HOST dashboard paths with no guest
  * session in sight, and `arrived` is written only by the door crew. Either one
@@ -21,73 +29,39 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import React from 'react';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-(globalThis as unknown as { React: unknown }).React = React;
-{
-  const Mod = require('node:module');
-  const load = Mod._load;
-  Mod._load = function (request: string, ...rest: unknown[]) {
-    if (request.endsWith('.css') || request === 'server-only' || request === 'client-only') return {};
-    return load.call(this, request, ...rest);
-  };
-}
+const COMPONENTS = join(__dirname, '..', '_components');
+const stripSrc = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-const WORDS = {
-  organizer: 'couple', theOrganizer: 'the couple', TheOrganizer: 'The couple',
-  theOrganizerPossessive: 'the couple’s', TheOrganizerPossessive: 'The couple’s',
-  eventWord: 'wedding', organizerIsHonoree: false,
-};
-
-async function render(over: Record<string, unknown>) {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { GuestHubCard } = await import('../_components/guest-hub-card');
-  return renderToStaticMarkup(
-    React.createElement(GuestHubCard as never, {
-      words: WORDS,
-      data: {
-        firstName: 'Ana', displayName: 'Ana Cruz', rsvpStatus: 'pending',
-        tableLabel: null, mealPreference: null, dietaryRestrictions: null,
-        nextScheduleBlock: null, slug: 'x', isLimitedPlusOne: false, arrived: false,
-        ...over,
-      },
-    } as never),
-  );
-}
-
-test('🔴 a first arrival is greeted as new, not as a return', async () => {
-  const html = await render({ firstVisit: true });
-  assert.match(html, /Hello, Ana\./, 'the first sentence a guest ever reads still says "Hi again"');
-  assert.doesNotMatch(html, /Hi again/);
-});
-
-test('a returning guest still gets the returning greeting', async () => {
-  const html = await render({ firstVisit: false });
-  assert.match(html, /Hi again, Ana\./, 'the fix took the returning greeting away too');
-});
-
-test('an unknown answer falls back to today’s copy, never to greeting a regular as new', async () => {
-  // The prop is optional: every existing construction site omits it.
-  const html = await render({});
-  assert.match(html, /Hi again, Ana\./);
-});
-
-test('🔒 it never says "Welcome" — that word already means "checked in at the door"', async () => {
-  // Welcome collides in five other places, all of them about arriving AT THE
-  // VENUE. Telling somebody at home they have arrived is a different lie.
-  const html = await render({ firstVisit: true });
-  const headline = html.slice(0, html.indexOf('Your invitation summary'));
-  assert.doesNotMatch(headline, /Welcome/);
-});
-
-test('a blank name does not render "Hello, ." in either branch', async () => {
-  for (const firstVisit of [true, false]) {
-    const html = await render({ firstName: '   ', firstVisit });
-    assert.doesNotMatch(html, /Hello, \./);
-    assert.doesNotMatch(html, /Hi again, \./);
+test('🔴 the guest page greets NOBODY as a return — the "Hi again" card is not back', () => {
+  // The defect was a greeting that said "Hi again" to someone on their first
+  // visit. The card that carried it was removed; a greeting that comes back
+  // must come back gated on the first-visit signal, not unconditional.
+  const files = readdirSync(COMPONENTS).filter((f) => /\.tsx$/.test(f) && !/\.test\./.test(f));
+  assert.ok(files.length > 20, 'precondition: read the guest components');
+  for (const f of files) {
+    const src = stripSrc(readFileSync(join(COMPONENTS, f), 'utf8'));
+    if (/Hi again/.test(src)) {
+      assert.match(src, /firstVisit/, `${f} says "Hi again" with no first-visit gate — a first arrival is greeted as a return`);
+    }
   }
+  const card = stripSrc(readFileSync(join(COMPONENTS, 'guest-hub-card.tsx'), 'utf8'));
+  assert.doesNotMatch(card, /export function GuestHubCard/, 'the summary card is back');
+  const body = stripSrc(readFileSync(join(COMPONENTS, 'site-body.tsx'), 'utf8'));
+  assert.doesNotMatch(body, /<GuestHubCard/, 'the summary card is mounted again');
+});
+
+test('🔒 no greeting on the guest page says "Welcome" to someone at home', () => {
+  // "Welcome" means "checked in at the door" in five other places. The
+  // salutation that remains ("Hi, <name>.") must not borrow it.
+  const body = stripSrc(readFileSync(join(COMPONENTS, 'site-body.tsx'), 'utf8'));
+  const at = body.indexOf('const greetingBlock');
+  assert.ok(at > -1, 'the salutation moved — re-point this guard');
+  const greeting = body.slice(at, body.indexOf('</section>', at));
+  assert.match(greeting, /Hi, /, 'precondition: this is the salutation');
+  assert.doesNotMatch(greeting, /welcome/i);
 });
 
 // ── The signal ──────────────────────────────────────────────────────────────
@@ -142,47 +116,7 @@ test('🔴 the loader actually passes the answer to the card', () => {
   );
 });
 
-test('the card still accepts it, so the wire has something to land on', () => {
+test('the data shape still carries it, so the wire has something to land on', () => {
   const card = readFileSync(join(__dirname, '..', '_components', 'guest-hub-card.tsx'), 'utf8');
   assert.match(card, /firstVisit\?:\s*boolean/, 'the prop is gone — the loader is talking to nobody');
-});
-
-test('🔒 NOT ONE of the four greeting arms says "welcome"', () => {
-  // The rule was written down and then broken three lines below it, in the ONE
-  // arm no test rendered: a first-time guest with no name on file read
-  // "Hello — welcome." — telling somebody at home they had arrived at the venue.
-  // Rendering catches the arms; reading the ternary catches the arm a fixture
-  // forgets to construct.
-  const card = readFileSync(join(__dirname, '..', '_components', 'guest-hub-card.tsx'), 'utf8');
-  const at = card.indexOf('{firstName.trim()');
-  assert.ok(at > -1, 'the greeting ternary moved — re-point this guard');
-  const ternary = card.slice(at, card.indexOf('</span>', at));
-  assert.doesNotMatch(
-    ternary,
-    /welcome/i,
-    '"Welcome" already means "checked in at the door" in five other places on this very card',
-  );
-  // …and it is genuinely four arms, so the slice is not silently empty.
-  // Vacuity check: three '?' means the slice really is the whole nested
-  // ternary and not an empty or truncated string that trivially lacks "welcome".
-  assert.equal(
-    (ternary.match(/\?/g) ?? []).length,
-    3,
-    'the greeting is no longer the four-arm ternary this guard reads — re-point it',
-  );
-});
-
-test('every arm renders, including the two nobody had ever constructed', async () => {
-  for (const firstVisit of [true, false]) {
-    for (const firstName of ['Ana', '   ']) {
-      const html = await render({ firstName, firstVisit });
-      const headline = html.slice(0, html.indexOf('Your invitation summary'));
-      assert.doesNotMatch(
-        headline,
-        /welcome/i,
-        `the ${firstName.trim() ? 'named' : 'blank-name'} / ${firstVisit ? 'first' : 'return'} arm says welcome`,
-      );
-      assert.doesNotMatch(headline, /undefined|null|NaN/, 'an arm rendered a placeholder');
-    }
-  }
 });

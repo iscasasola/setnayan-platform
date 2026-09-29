@@ -19,6 +19,7 @@ import {
   type ThemeTile,
 } from '@/lib/maker-theme-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { useMaker } from './maker-context';
 
@@ -59,15 +60,17 @@ import { useMaker } from './maker-context';
  * keeps its frame, so scrolling back costs nothing.
  *
  * ── FREE VS PRO ────────────────────────────────────────────────────────────
- * Classic is free; every other theme is Event Hub Pro (owner 2026-09-28, "WHAT
- * IS FREE VS PRO … REDRAWN"). 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28,
+ * The free themes — Classic, Modern and Cyber Neon since 2026-09-29 (*"Okay use
+ * modern and cyber FREE"*), read from `FREE_THEMES`, never typed — are free;
+ * every other theme is Event Hub Pro (owner 2026-09-28, "WHAT IS FREE VS PRO …
+ * REDRAWN"). 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28,
  * verbatim: *"they can edit it with pro features. but need to upgrade to pro
  * when clicked on apply"*): a couple without Pro PICKS a Pro theme like any
  * other — it goes into the draft, the canvas wears it (`app/[slug]/page.tsx`,
  * `theme_try_on` for the verified host), the tile wears ◆ PRO, and Apply's sheet
  * names it ("Theme · Velvet"). Owning couples see the diamond. In the app-store
- * shell a Pro door is ABSENT: only Classic, plus the couple's own theme if it
- * is already a Pro one (the shipped picker's rule).
+ * shell a Pro door is ABSENT: only the free themes, plus the couple's own theme
+ * if it is already a Pro one (the shipped picker's rule).
  */
 export function MakerThemePicker({
   eventId,
@@ -186,7 +189,7 @@ export function MakerThemePicker({
       <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
         <InfoTip label="Theme" align="start">
           Your whole Event Hub wears it — colours, lettering and motion. Each preview is your own page. Guests see a new
-          theme when you press Apply. Classic is free; the others come with Event Hub Pro.
+          theme when you press Apply. {themeNames(FREE_THEMES)} are free; the others come with Event Hub Pro.
         </InfoTip>
       </p>
       <ul

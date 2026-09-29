@@ -35,6 +35,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
+import { PRO_THEMES_ITEM } from '@/lib/website-pro-items';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -133,7 +134,9 @@ test('the couple who has not bought it sees the offer, and the whole of it', asy
     'Background music',
     'Editorial editing',
     'Photo and video backgrounds',
-    '9 Event Hub themes, invite link included',
+    // The theme count is the registry's (owner 2026-09-29: Modern and Cyber
+    // Neon went free), never a typed digit.
+    PRO_THEMES_ITEM,
     'Animated logo',
     'Your logo on every QR code',
   ]) {

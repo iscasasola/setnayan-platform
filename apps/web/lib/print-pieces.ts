@@ -98,7 +98,13 @@ export const PRINT_PIECES: Record<PrintPieceKey, PrintPieceSpec> = {
  * CLASSIC LOOK; THE THEMED VERSION IS PRO"): *"let's allow free for all? but if
  * they want to print with theme is pro?"* → *"oaky build it that way."* Every
  * piece prints print-ready and unwatermarked in Classic (`house`) for every
- * event; the same piece in any other theme is Event Hub Pro.
+ * event; the same piece in a PRO theme is Event Hub Pro.
+ *
+ * 🎨 "THEMED" IS NOT "PRO" (owner 2026-09-29, *"Okay use modern and cyber
+ * FREE"*). Modern and Cyber Neon are free themes, so they print print-ready and
+ * unwatermarked for every event exactly as Classic does — `isProPrint` is the
+ * gate and reads the registry's `tier`; `isThemedPrint` only says "not Classic"
+ * (a file that names its theme, a "· Classic" alternative beside it).
  */
 export const CLASSIC_PRINT_THEME = 'house' as const satisfies InviteThemeId;
 
@@ -118,9 +124,18 @@ export function printFileName(slug: string | null | undefined, print: string, ex
   return `${base}-${print}.${ext}`;
 }
 
-/** Is this a themed (Pro) print, or the free Classic one? */
+/** Is this print in a theme other than Classic? Naming only — NOT the Pro gate (`isProPrint`). */
 export function isThemedPrint(theme: InviteThemeId): boolean {
   return theme !== CLASSIC_PRINT_THEME;
+}
+
+/**
+ * Does this print's print-ready file need Event Hub Pro? Only in a PRO theme —
+ * keyed on the registry's `tier`, never on "is it Classic", so a free theme
+ * (Classic, Modern, Cyber Neon) prints free and a Pro one never slips through.
+ */
+export function isProPrint(theme: InviteThemeId): boolean {
+  return INVITE_THEMES[theme]?.tier !== 'free';
 }
 
 /** The themed pieces, in the Maker's order — the three invitation cards, the menu, then the rest. */
@@ -396,11 +411,12 @@ export type PrintMode = 'screen' | 'sample' | 'print';
 /**
  * The gate, in one place. Owner 2026-09-25, in two steps — "PRINTABLES ARE
  * PRO" (the P9 split), then "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE
- * THEMED VERSION IS PRO", which supersedes it:
- *   · every piece in CLASSIC (`house`) downloads print-ready — bleed, crop
- *     marks, no watermark — for every event, store shell included; Classic is
- *     not a purchase;
- *   · the SAME piece in any other theme is Event Hub Pro. Without Pro a themed
+ * THEMED VERSION IS PRO", which supersedes it — and 2026-09-29, Modern and
+ * Cyber Neon free beside Classic:
+ *   · every piece in a FREE theme (Classic, Modern, Cyber Neon — `isProPrint`
+ *     is false) downloads print-ready — bleed, crop marks, no watermark — for
+ *     every event, store shell included; a free theme is not a purchase;
+ *   · the SAME piece in a Pro theme is Event Hub Pro. Without Pro a Pro-themed
  *     piece is a SAMPLE — compressed, screen resolution, a "Sample" mark, no
  *     bleed, no crop marks, no layers — and the per-guest pass batch in a theme
  *     is refused;
@@ -409,7 +425,7 @@ export type PrintMode = 'screen' | 'sample' | 'print';
  *   · in the app-store shell the THEMED print-ready path is ABSENT, not locked
  *     (App Review 3.1.1), so `printReady` is false there whatever the unlock says.
  *
- * `printReady` therefore means "may download THEMED print-ready files".
+ * `printReady` therefore means "may download PRO-THEMED print-ready files".
  */
 export function printAccess(input: { ownsPro: boolean; storeShell: boolean }): {
   samples: boolean;
@@ -422,8 +438,8 @@ export function printAccess(input: { ownsPro: boolean; storeShell: boolean }): {
 
 /**
  * May this mode of this piece, drawn in this theme, be served to this viewer?
- * The route's refusal. Classic and the free group are always yes; a themed
- * print-ready file (or the themed pass batch) needs `printReady`.
+ * The route's refusal. A free theme and the free group are always yes; a
+ * Pro-themed print-ready file (or the Pro-themed pass batch) needs `printReady`.
  */
 export function mayServe(
   piece: PrintPieceKey,
@@ -432,7 +448,7 @@ export function mayServe(
   theme: InviteThemeId,
 ): boolean {
   if (PRINT_PIECES[piece].kind === 'free') return true;
-  if (!isThemedPrint(theme)) return true;
+  if (!isProPrint(theme)) return true;
   if (piece === 'passes') return access.printReady;
   if (mode === 'print') return access.printReady;
   return true;

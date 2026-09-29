@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
+import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { deriveMonogram } from '@/lib/monogram';
 import { readEventWatchUrls, resolveWatchLinks } from '@/lib/watch-live-links';
 import { canUseVenueScreens, decideScreenPicture, shouldWriteCheckIn, type ScreenPicture } from '@/lib/live-screens';
@@ -42,6 +43,11 @@ export type ScreenBrand = {
   displayName: string;
   initials: string;
   markDataUri: string | null;
+  /** The same mark as markup, sent only when it PLAYS (`markPlays`) — the
+   *  screen's logo animates like every other (owner 2026-09-29, "all logos
+   *  should animate if animation is active"). Null otherwise. */
+  markSvg: string | null;
+  markPlays: boolean;
   color: string | null;
   eventDate: string | null;
 };
@@ -133,6 +139,8 @@ export async function loadLiveScreen(): Promise<LoadedScreen> {
   };
 
   const markSvg = resolveEventMonogramSvg(event);
+  // No read at all for a logo that does not move (`logoPlaysFor`).
+  const markPlays = await logoPlaysFor(row.event_id, markSvg);
   const links = resolveWatchLinks({ youtubeWatchUrl: urls.youtubeWatchUrl });
   const color = typeof event.monogram_color === 'string' && HEX.test(event.monogram_color) ? event.monogram_color : null;
 
@@ -144,6 +152,8 @@ export async function loadLiveScreen(): Promise<LoadedScreen> {
       displayName: event.display_name?.trim() || 'Our celebration',
       initials: event.monogram_text?.trim() || deriveMonogram(event.display_name),
       markDataUri: markSvg ? bespokeSvgToDataUri(markSvg) : null,
+      markSvg: markPlays ? markSvg : null,
+      markPlays,
       color,
       eventDate: event.event_date ?? null,
     },

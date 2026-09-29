@@ -117,6 +117,8 @@ export function EventRailContext({
     monogram_font_key?: string | null;
     monogram_style?: string | null;
     monogram_custom_svg?: string | null;
+    /** The logo moves and the animation is on (`logoPlaysFor`) — it plays. */
+    plays?: boolean;
   } | null;
   navSlots?: Record<string, NavSlotLite>;
   hideKeys?: string[];
@@ -223,7 +225,7 @@ export function EventRailContext({
       */}
       {eventMonogram ? (
         <div className="fd-rctx-mark">
-          <EventMonogram event={eventMonogram} size="sm" shape="square" />
+          <EventMonogram event={eventMonogram} size="sm" shape="square" plays={eventMonogram.plays} place="event-rail" />
         </div>
       ) : null}
       {/*

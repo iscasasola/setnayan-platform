@@ -10,7 +10,7 @@ import styles from './capiz.module.css';
  * `JSON.stringify` — a quoted, escaped CSS string — so a presigned URL's `&`,
  * `%` or any stray quote can never break out of `url(…)`.
  */
-export function capizSkin({ photo, accent, monogram, mark }: InviteSkinInput): DoorSkin {
+export function capizSkin({ photo, accent, monogram, mark, markPlays }: InviteSkinInput): DoorSkin {
   return {
     themeId: 'capiz',
     className: styles.capiz ?? '',
@@ -26,7 +26,7 @@ export function capizSkin({ photo, accent, monogram, mark }: InviteSkinInput): D
     crest: (
       <div className={styles.crest}>
         <span className={styles.seal}>
-          <SealMark mark={mark} monogram={monogram} px={46} />
+          <SealMark mark={mark} monogram={monogram} px={46} plays={markPlays} />
         </span>
       </div>
     ),

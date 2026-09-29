@@ -806,6 +806,66 @@ export function isLayeredLogo(svg: string | null | undefined): boolean {
 }
 
 /**
+ * 🔒 WHAT THE PLAYER WILL PUT ON A PAGE. A playing logo cannot be a data-URI
+ * `<img>` — its layers must be live SVG for each to move — so every surface
+ * that plays it (guests, the vendor's client page, the Maker) builds a real
+ * tree from a mark that is host-writable through PostgREST (SEC-3). The read
+ * gate (`safeMonogramSvg`) is a DENYLIST; this is the ALLOWLIST behind it, so a
+ * playing logo never depends on that denylist being complete. The player
+ * parses into an inert `<template>` and checks the PARSED tree (the browser's
+ * own parse — no parser disagreement), and refuses the whole logo on any miss:
+ * the caller then draws the still `<img>`, exactly as before. Reject, never
+ * repair — only inert metadata is dropped, and dropping can add nothing.
+ */
+export const LOGO_PLAYABLE_ELEMENTS: ReadonlySet<string> = new Set([
+  'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
+  'defs', 'lineargradient', 'radialgradient', 'stop', 'clippath', 'mask', 'pattern',
+  'symbol', 'marker', 'switch', 'title', 'desc', 'text', 'tspan',
+  'filter', 'feblend', 'fecolormatrix', 'fecomponenttransfer', 'fecomposite', 'feconvolvematrix',
+  'fediffuselighting', 'fedisplacementmap', 'fedistantlight', 'fedropshadow', 'feflood',
+  'fefunca', 'fefuncb', 'fefuncg', 'fefuncr', 'fegaussianblur', 'femerge', 'femergenode',
+  'femorphology', 'feoffset', 'fepointlight', 'fespecularlighting', 'fespotlight', 'fetile',
+  'feturbulence',
+]);
+
+/** May the player keep an element with this local name? */
+export function logoElementPlayable(localName: string): boolean {
+  return LOGO_PLAYABLE_ELEMENTS.has(localName.toLowerCase());
+}
+
+/** May the player keep this attribute? Never a handler, never a link, never a
+ *  URL that leaves the document (a `url(#grad)` fragment is fine). */
+export function logoAttributePlayable(name: string, value: string): boolean {
+  const n = name.toLowerCase();
+  const local = n.includes(':') ? n.slice(n.lastIndexOf(':') + 1) : n;
+  if (local.startsWith('on') || local === 'href' || local === 'src' || local === 'formaction') return false;
+  if (/(?:java|vb)script\s*:/i.test(value) || /data\s*:/i.test(value)) return false;
+  if (/url\s*\(\s*['"]?\s*(?!#)/i.test(value)) return false;
+  return true;
+}
+
+/**
+ * ▶ DOES THIS SAVED LOGO MOVE? — a layered logo with at least one layer whose
+ * In is not None, or whose During is Drift (owner 2026-09-29: *"all logos
+ * should animate if animation is active"*). A layered logo whose every layer is
+ * None + Still is a still logo, and draws as one. Read off the saved file's own
+ * data-* — the same attributes `LayeredLogoPlayer` plays, run through the same
+ * `sanitizeLogoMotion`, so "moves" here and "plays" there cannot disagree.
+ */
+export function logoHasMotion(svg: string | null | undefined): boolean {
+  if (!isLayeredLogo(svg)) return false;
+  const re = /<g data-logo-layer="[^"]*"([^>]*)>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(svg as string))) {
+    const attrs = m[1] ?? '';
+    const read = (name: string) => new RegExp(`\\s${name}="([^"]*)"`).exec(attrs)?.[1] ?? null;
+    const motion = sanitizeLogoMotion({ in: read('data-in'), during: read('data-during') });
+    if (motion.in !== 'none' || motion.during === 'drift') return true;
+  }
+  return false;
+}
+
+/**
  * Read each layer's shapes back out of a composed file, by id. The body is
  * returned as it was before recolouring or the white card.
  */

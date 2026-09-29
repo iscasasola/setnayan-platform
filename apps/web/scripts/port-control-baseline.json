@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "77a2eb6bb",
+  "generatedFromRef": "542eda2e6",
   "routeCount": 435,
   "destinations": 942,
   "actions": 673,
@@ -8488,6 +8488,7 @@
     "/dashboard/[eventId]/website/editor": {
       "files": [
         "dashboard/[eventId]/website/editor/_components/authoring-panels.tsx",
+        "dashboard/[eventId]/website/editor/_components/both-view.ts",
         "dashboard/[eventId]/website/editor/_components/buffered-canvas-frame.tsx",
         "dashboard/[eventId]/website/editor/_components/canvas-words.tsx",
         "dashboard/[eventId]/website/editor/_components/colour-well.tsx",

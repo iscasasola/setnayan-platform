@@ -3,16 +3,20 @@
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
+import { Check, Monitor, MonitorSmartphone, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useIsDesktop } from '@/lib/use-responsive';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import {
   MAKER_BAR,
   MAKER_SNAP_NOTE,
+  isMakerDevice,
   isStagePhase,
   makerPlaceItem,
   makerPlacePick,
+  makerShownDevice,
+  makerViewOptions,
   type MakerBarItem,
 } from './maker-bar';
 import {
@@ -132,6 +136,10 @@ export function MakerShell({
 }) {
   const [stage, setStage] = useState<LifecyclePhase>(initialStage);
   const [device, setDevice] = useState<MakerDevice>('desktop');
+  /* 🖥📱 Both needs 1024 px (`makerViewOptions`); narrower, it is drawn as
+     Desktop and the pick is kept (`makerShownDevice`). */
+  const wide = useIsDesktop('lg');
+  const shownDevice = makerShownDevice(device, wide);
   const [navOpen, setNavOpen] = useState(true);
   const [selection, setSelection] = useState<MakerSelection>(initialSelection);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -162,7 +170,7 @@ export function MakerShell({
       saved = null;
     }
     if (saved && isStagePhase(saved.stage)) setStage(saved.stage);
-    if (saved?.device === 'desktop' || saved?.device === 'phone') setDevice(saved.device);
+    if (isMakerDevice(saved?.device)) setDevice(saved.device);
     else if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
     // An address that names what to open (a save's `?scene=`) wins over memory.
@@ -263,7 +271,7 @@ export function MakerShell({
       eventId,
       stage,
       setStage,
-      device,
+      device: shownDevice,
       navOpen,
       selection,
       select,
@@ -274,7 +282,7 @@ export function MakerShell({
       addScene,
       setAddScene,
     }),
-    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene],
   );
 
   /* ONE HIGHLIGHT (owner 2026-09-25: "there should also be only one highlighted
@@ -401,8 +409,10 @@ export function MakerShell({
                 label="View"
                 tool="view"
                 icon={
-                  device === 'phone' ? (
+                  shownDevice === 'phone' ? (
                     <Smartphone aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                  ) : shownDevice === 'both' ? (
+                    <MonitorSmartphone aria-hidden className="h-5 w-5" strokeWidth={1.75} />
                   ) : (
                     <Monitor aria-hidden className="h-5 w-5" strokeWidth={1.75} />
                   )
@@ -410,12 +420,12 @@ export function MakerShell({
               >
                 {(close) => (
                   <>
-                    <MenuItem on={device === 'desktop'} onClick={() => { setDevice('desktop'); close(); }}>
-                      Desktop
-                    </MenuItem>
-                    <MenuItem on={device === 'phone'} onClick={() => { setDevice('phone'); close(); }}>
-                      Phone
-                    </MenuItem>
+                    {/* Desktop · Phone · Both — Both only at 1024 px and wider. */}
+                    {makerViewOptions(wide).map((o) => (
+                      <MenuItem key={o.key} on={shownDevice === o.key} onClick={() => { setDevice(o.key); close(); }}>
+                        {o.label}
+                      </MenuItem>
+                    ))}
                   </>
                 )}
               </ToolMenu>

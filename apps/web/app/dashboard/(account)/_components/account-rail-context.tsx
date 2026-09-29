@@ -15,7 +15,10 @@
  *              then "Also kept": Albums by event · Editorials · Saved vendors
  *              (owner: "move the chips into it" — the page's own chips, read
  *              from the SAME `_data/library-views.ts` the page renders from)
- *   People   → People · Connection tree · Alaga · Samahan
+ *   People   → Requests (while any wait) · People · Following · Followers ·
+ *              Alaga · Samahan — each a `?view=` link that LIGHTS (owner
+ *              2026-09-28, the People redesign: the rail is the same list as
+ *              the page's picker, resolved by the same `lib/people-views.ts`)
  *
  * ⚠ PEOPLE IS NOT "Family · Godparents · Friends". Those are GROUPS INSIDE the
  * roster (`people-roster-view.tsx` SECTIONS) that render only when someone is
@@ -28,8 +31,12 @@
  * do — in focus mode the shell's account rows are not drawn, so nothing else
  * can light beside it. Memories lights by `resolveLibraryView`, the page's own
  * rule, so the lit row and the open view cannot disagree (a legacy
- * `?tab=photos` lights Recent because the page opens Recent). A People anchor
- * row never lights: a hash is a place on the page, not a page.
+ * `?tab=photos` lights Recent because the page opens Recent). People lights by
+ * `resolvePeopleView` the same way.
+ *
+ * 🔴 THE OLD PEOPLE ROWS WERE HASH ANCHORS THAT NEVER LIT — and one pointed at
+ * nothing: `/dashboard/people#alaga` targeted an `id="alaga"` that existed
+ * nowhere on the page. Both are gone; a view is a URL, not a place on a page.
  *
  * Every other `/dashboard/*` account page (profile, notifications, your story,
  * the year, …) renders NOTHING here and keeps the full rail.
@@ -42,13 +49,22 @@ import {
   CalendarCheck,
   Camera,
   Clock,
-  GitFork,
   HandHeart,
   Handshake,
+  Inbox,
+  UserCheck,
   Users,
   UsersRound,
   type LucideIcon,
 } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
+import {
+  PEOPLE_VIEW_LABEL,
+  availablePeopleViews,
+  peopleViewHref,
+  resolvePeopleView,
+  type PeopleView,
+} from '@/lib/people-views';
 import {
   KEPT,
   LENSES,
@@ -64,7 +80,24 @@ const LENS_ICON: Record<LensKey, LucideIcon> = {
   with_me: AtSign,
 };
 
-type Row = { key: string; href: string; label: string; Icon: LucideIcon; on: boolean };
+type Row = {
+  key: string;
+  href: string;
+  label: string;
+  Icon: LucideIcon;
+  on: boolean;
+  /** A number beside the label (Requests only) — never a guessed 0. */
+  count?: number | null;
+};
+
+const PEOPLE_ICON: Record<PeopleView, LucideIcon> = {
+  requests: Inbox,
+  connected: UsersRound,
+  following: UserCheck,
+  followers: Users,
+  alaga: HandHeart,
+  samahan: Handshake,
+};
 
 function under(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(prefix + '/');
@@ -73,12 +106,16 @@ function under(pathname: string, prefix: string): boolean {
 export function AccountRailContext({
   showConnections,
   showDependents,
+  requestsWaiting,
 }: {
-  /** `peopleConnectionsEnabled()` — the tree only renders when it is on. */
+  /** `peopleConnectionsEnabled()` — Requests and Connected live on it. */
   showConnections: boolean;
   /** The dependents flag AND the privacy control, exactly as the page gates
-   *  `DependentsSection`. Either off → no Alaga section → no row. */
+   *  `DependentsSection`. Either off → no Alaga view → no row. */
   showDependents: boolean;
+  /** How many wait on my answer. 0 → no Requests row; null (could not be
+   *  read) → the row stays, without a number: a refusal must not hide a request. */
+  requestsWaiting: number | null;
 }) {
   const pathname = usePathname() ?? '';
   const searchParams = useSearchParams();
@@ -116,44 +153,26 @@ export function AccountRailContext({
   }
 
   if (under(pathname, '/dashboard/people') || under(pathname, '/dashboard/samahan')) {
-    const rows: Row[] = [
-      {
-        key: 'people',
-        href: '/dashboard/people',
-        label: 'People',
-        Icon: UsersRound,
-        on: under(pathname, '/dashboard/people'),
-      },
-      ...(showConnections
-        ? [
-            {
-              key: 'tree',
-              href: '/dashboard/people#connection-tree',
-              label: 'Connection tree',
-              Icon: GitFork,
-              on: false,
-            },
-          ]
-        : []),
-      ...(showDependents
-        ? [
-            {
-              key: 'alaga',
-              href: '/dashboard/people#alaga',
-              label: 'Loved ones',
-              Icon: HandHeart,
-              on: false,
-            },
-          ]
-        : []),
-      {
-        key: 'samahan',
-        href: '/dashboard/samahan',
-        label: 'Groups',
-        Icon: Handshake,
-        on: under(pathname, '/dashboard/samahan'),
-      },
-    ];
+    const gates = { showConnections, showDependents };
+    const onPeoplePage = pathname === '/dashboard/people';
+    const active: PeopleView | null = under(pathname, '/dashboard/samahan')
+      ? 'samahan'
+      : onPeoplePage
+        ? resolvePeopleView(searchParams?.get('view'), gates)
+        : // An alaga's own page (/dashboard/people/<id>) belongs to Alaga.
+          'alaga';
+    const rows: Row[] = availablePeopleViews(gates)
+      .filter((v) => v !== 'requests' || requestsWaiting !== 0)
+      .map((v) => ({
+        key: v,
+        href: peopleViewHref(v, gates),
+        // The rail's heading already says "People", and so does this row: it
+        // is the page's default view (the picker calls it Connected).
+        label: v === 'connected' ? 'People' : PEOPLE_VIEW_LABEL[v],
+        Icon: PEOPLE_ICON[v],
+        on: active === v,
+        count: v === 'requests' ? requestsWaiting : undefined,
+      }));
     return (
       <>
         <div className="fd-rdiv" />
@@ -169,7 +188,7 @@ export function AccountRailContext({
 }
 
 function RailRow({ row }: { row: Row }) {
-  const { href, label, Icon, on } = row;
+  const { href, label, Icon, on, count } = row;
   return (
     <Link
       href={href}
@@ -180,7 +199,15 @@ function RailRow({ row }: { row: Row }) {
       <span className="fd-gi" aria-hidden="true">
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
       </span>
-      <span className="fd-label-text">{label}</span>
+      <span className="fd-label-text">
+        {label}
+        {typeof count === 'number' && count > 0 ? (
+          <span className="ml-1.5 inline-flex items-center gap-1 tabular-nums text-terracotta-700">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-terracotta" />
+            {formatCount(count)}
+          </span>
+        ) : null}
+      </span>
       <span className="fd-icon-caption">{label}</span>
     </Link>
   );

@@ -77,34 +77,60 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.event_id !== eventId) notFound();
 
+  // ═══ EVERY READ BELOW STARTS AT ONCE (perf, 2026-09-29) ══════════════════
+  // This page used to make its database trips ONE AFTER ANOTHER — event date,
+  // block state, calls gate, vendor, messages, handshake, pick, decisions,
+  // live pax, standing, booked money, then the whole conversation column —
+  // although most of them needed nothing but the thread above. Each is now
+  // STARTED here as a promise, with its own graceful-degrade exactly as it was,
+  // and they are awaited together in the one `Promise.all` at the end of the run.
+  // A read that needs another's answer awaits that one promise INSIDE its own
+  // started block (booked money waits for the event date and the vendor label).
+  //
+  // ⚠ THE TWO WRITES KEEP THEIR PLACE. `markThreadRead` (the read marker) and
+  // `resolveLivePax` (which can take the lazy guest-count lock) each start only
+  // once every read that preceded them before this change has succeeded, and
+  // every read of the row a write touches (the conversation column reads
+  // `chat_thread_reads`) waits for that write. Nothing writes earlier than it did.
+  // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
+  // RUN — one stray `await` puts a full database trip back in front of the page.
+
   // Event date bounds the meeting-request picker (today → day before the event).
-  const { data: eventRow, error: eventRowError } = await supabase
-    .from('events')
-    .select('event_date')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (eventRowError) {
-    logQueryError(
-      'CoupleThreadPage.event',
-      eventRowError,
-      { event_id: eventId },
-      'graceful_degrade',
-    );
-  }
-  const eventDate = (eventRow as { event_date?: string | null } | null)?.event_date ?? null;
+  const eventDateRead = (async () => {
+    const { data: eventRow, error: eventRowError } = await supabase
+      .from('events')
+      .select('event_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (eventRowError) {
+      logQueryError(
+        'CoupleThreadPage.event',
+        eventRowError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return (eventRow as { event_date?: string | null } | null)?.event_date ?? null;
+  })();
 
   // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
-  const blockState = await getThreadBlockState(thread, user.id, 'couple');
+  const blockStateRead = getThreadBlockState(thread, user.id, 'couple');
 
   // Is voice/video calling unlocked for this vendor's tier? (paid capability,
   // gate-dark by default). The couple sees the call UI only when it's on.
-  const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
+  const callsEnabledRead = resolveThreadCallsEnabled(thread.vendor_profile_id);
 
   // Mark this thread read for the couple viewer so the Messages-icon unread
   // badge clears (migration 20260728000000_chat_thread_reads.sql). No-op +
   // logged if the read-marker table isn't pushed yet — opening the thread is
   // never blocked by this.
-  await markThreadRead(threadId);
+  // ⚠ A WRITE: it starts only after the three reads that preceded it succeed,
+  // exactly as before (a page that failed on one of them never marked the
+  // thread read), and the conversation column below waits for it.
+  const markedRead = (async () => {
+    await Promise.all([eventDateRead, blockStateRead, callsEnabledRead]);
+    await markThreadRead(threadId);
+  })();
 
   // Anonymity surface per CLAUDE.md 2026-05-30 row — pull screen_name +
   // name_revealed_at + services + location_city so the header label and
@@ -114,31 +140,34 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // vendors surface as business_name. Single resolver call drives both
   // surfaces so the header pill and the in-thread sender attribution stay
   // in lock-step.
-  const { data: vendor, error: vendorError } = await supabase
-    .from('vendor_profiles')
-    .select(
-      'business_name, logo_url, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
-    )
-    .eq('vendor_profile_id', thread.vendor_profile_id)
-    .maybeSingle();
-  if (vendorError) {
-    logQueryError(
-      'CoupleThreadPage.vendor',
-      vendorError,
-      { event_id: eventId },
-      'graceful_degrade',
-    );
-  }
+  const vendorRead = (async () => {
+    const { data: vendor, error: vendorError } = await supabase
+      .from('vendor_profiles')
+      .select(
+        'business_name, logo_url, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
+      )
+      .eq('vendor_profile_id', thread.vendor_profile_id)
+      .maybeSingle();
+    if (vendorError) {
+      logQueryError(
+        'CoupleThreadPage.vendor',
+        vendorError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return vendor;
+  })();
 
   // Server-render the first batch so the page is useful on first paint and
   // remains SEO-friendly. The <ChatMessageStream> client component takes
   // over from here, subscribing to Supabase Realtime for new inserts/updates.
-  const initialMessages = await fetchMessages(supabase, threadId);
+  const messagesRead = fetchMessages(supabase, threadId);
 
   // PR-H · the frozen-price line in this thread must not claim a booking that
   // does not exist yet. The COUPLE reads `event_vendors` through their own
   // session — RLS is the boundary here, and it is sufficient.
-  const lockHandshake = await fetchThreadLockHandshake(supabase, {
+  const lockHandshakeRead = fetchThreadLockHandshake(supabase, {
     eventId: thread.event_id,
     vendorProfileId: thread.vendor_profile_id,
   });
@@ -164,30 +193,33 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
    * reached WITH a `?tab=`, because a bare workspace landing redirects
    * straight back to this frame (#5614).
    */
-  let workspaceHref: string | null = null;
-  let quoteLockTarget: CoupleLockTarget | null = null;
-  if (thread.vendor_profile_id) {
-    const { data: pick, error: pickErr } = await supabase
-      .from('event_vendors')
-      .select('vendor_id, category')
-      .eq('event_id', thread.event_id)
-      .eq('marketplace_vendor_id', thread.vendor_profile_id)
-      .or('package_role.is.null,package_role.eq.anchor')
-      .is('archived_at', null)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (pickErr) {
-      console.error('[couple thread] lock workspace read refused', pickErr);
-    } else if (pick?.vendor_id) {
-      workspaceHref = `/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`;
-      quoteLockTarget = coupleLockTarget(
-        eventId,
-        pick.vendor_id,
-        (pick as { category?: string | null }).category ?? null,
-      );
+  const pickRead = (async () => {
+    let workspaceHref: string | null = null;
+    let quoteLockTarget: CoupleLockTarget | null = null;
+    if (thread.vendor_profile_id) {
+      const { data: pick, error: pickErr } = await supabase
+        .from('event_vendors')
+        .select('vendor_id, category')
+        .eq('event_id', thread.event_id)
+        .eq('marketplace_vendor_id', thread.vendor_profile_id)
+        .or('package_role.is.null,package_role.eq.anchor')
+        .is('archived_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (pickErr) {
+        console.error('[couple thread] lock workspace read refused', pickErr);
+      } else if (pick?.vendor_id) {
+        workspaceHref = `/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`;
+        quoteLockTarget = coupleLockTarget(
+          eventId,
+          pick.vendor_id,
+          (pick as { category?: string | null }).category ?? null,
+        );
+      }
     }
-  }
+    return { workspaceHref, quoteLockTarget };
+  })();
 
   /**
    * ── DECISIONS · the couple's side of "where are we with this supplier?" ────
@@ -206,7 +238,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
    * supplier can take would be a to-do they cannot do.
    */
   const decisionAdmin = createAdminClient();
-  const [threadStage, liveQuoteTotalPhp, decisionPayments] = await Promise.all([
+  const decisionsRead = Promise.all([
     deriveThreadStage({
       supabase,
       adminClient: decisionAdmin,
@@ -226,6 +258,292 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     }),
   ]);
 
+  // Fresh live pax (Phase 5) — the couple's own client can read their guests,
+  // so show the current count, matching what the vendor now sees. Read before
+  // the standing, which says when it has moved since the inquiry (SUP-2).
+  // ⚠ `resolveLivePax` CAN WRITE — `ensureFinalized` takes the lazy guest-count
+  // lock once the deadline has passed — so it starts only after every read that
+  // preceded it before the reads were started together has succeeded.
+  const livePaxRead = (async () => {
+    await Promise.all([markedRead, vendorRead, messagesRead, lockHandshakeRead, pickRead, decisionsRead]);
+    return resolveLivePax(supabase, thread.event_id);
+  })();
+
+  // The facts beside the rung — the SAME reader the bench card uses, so the
+  // card and the thread it opens cannot disagree about a deposit or a meeting.
+  const standingNowMs = Date.now();
+  const standingExtrasRead = readStandingExtras(
+    supabase,
+    thread.event_id,
+    [thread.vendor_profile_id],
+    standingNowMs,
+  ).then((extras) => extras.get(thread.vendor_profile_id));
+
+  const vendorLabelRead = (async () => {
+    const vendor = await vendorRead;
+    return vendor
+      ? resolveVendorDisplayName({
+          business_name: vendor.business_name ?? null,
+          name_revealed_at: vendor.name_revealed_at ?? null,
+          services: vendor.services ?? null,
+          screen_name: vendor.screen_name ?? null,
+          // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
+          // lock: a VERIFIED vendor's name is never gated (any tier).
+          isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+          is_verified: vendor.verification_state === 'verified',
+          primary_canonical_service: vendor.services?.[0] ?? null,
+          location_city: vendor.location_city ?? null,
+        })
+      : 'Vendor';
+  })();
+
+  // THE NEXT MONEY STEP ON THE BOOKED QUOTE (owner, live, 2026-09-20: "i do
+  // not see the confirmation here and the payment action?"). Read through the
+  // one helper (`readBookedMoney` → `moneyStep`) under the couple's own RLS;
+  // the card then MOUNTS the Payments tab's "Amount to pay" card with these
+  // props, so the thread records through the same `recordDeposit` (minimum
+  // enforced) and `logScheduledPayment`.
+  const bookedRead = (async () => {
+    const [eventDate, vendorLabel] = await Promise.all([eventDateRead, vendorLabelRead]);
+    const bookedMoney = await readBookedMoney(supabase, {
+      eventId: thread.event_id,
+      vendorProfileId: thread.vendor_profile_id,
+      eventDate,
+      viewer: 'couple',
+      otherName: vendorLabel,
+    });
+    let couplePay: React.ComponentProps<typeof ChatMessageStream>['couplePay'] = null;
+    if (bookedMoney.step.kind !== 'not_booked' && bookedMoney.eventVendorId && bookedMoney.deposit) {
+      let payMethods: CoupleFacingMethod[] = [];
+      let payMethodsState: CouplePayMethodsState = 'unreadable';
+      try {
+        const read = await readPublishedMethodsForCouple({
+          authedClient: supabase,
+          adminClient: createAdminClient(),
+          eventId: thread.event_id,
+          eventVendorId: bookedMoney.eventVendorId,
+        });
+        payMethods = read.methods;
+        payMethodsState = read.state;
+      } catch {
+        payMethodsState = 'unreadable';
+      }
+      couplePay = {
+        eventId: thread.event_id,
+        vendorId: bookedMoney.eventVendorId,
+        vendorName: vendorLabel,
+        depositRecordedAt: bookedMoney.deposit.recordedAt,
+        depositAcknowledgedAt: bookedMoney.deposit.acknowledgedAt,
+        /*
+          THE RECEIPT THEY SENT, IN THE PLACE THEY SENT IT FROM (owner, live,
+          2026-09-20: "when i upload a photo, i cannot see it"). This was a
+          hard-coded `null`, so a couple could record a payment from the chat and
+          the chat would then show them nothing of what they had attached — the
+          Payments tab held the only copy. Signed HERE, through the scoped private
+          signer, because `readBookedMoney` hands on the stored `r2://` ref and
+          never a URL. A ref that fails its own folder policy signs to null and
+          the card shows no picture: the fail-soft contract
+          `depositProofDisplayUrl` already has.
+        */
+        depositProofUrl: bookedMoney.deposit.proofUrl,
+        depositDeclinedAt: bookedMoney.deposit.declinedAt,
+        depositDeclineReason: bookedMoney.deposit.declineReason,
+        depositDisputeNote: null,
+        payMethods,
+        payMethodsState,
+        requestedFirstPaymentCentavos: bookedMoney.terms?.firstPaymentCentavos ?? null,
+        requestedFirstPaymentSentence: firstPaymentSentence(bookedMoney.terms),
+        requestedTermsUnreadable: bookedMoney.termsUnreadable,
+        step: bookedMoney.step,
+        history: bookedMoney.history,
+      };
+    }
+    return { bookedMoney, couplePay };
+  })();
+
+  /* ── THE LEFT COLUMN: every supplier they are talking to, beside this one ──
+     Owner 2026-09-08: "list · conversation · context". The couple's chips are
+     their own words — All · Has a quote · Booked · Waiting · Closed.
+
+     ⚡ FOUR BATCHED READS FOR THE WHOLE COLUMN, plus the three stage probes
+     inside the builder. Never one per row.
+
+     ⚠ EVERY ONE FAILS QUIET. This column is navigation, not the page — a
+     refused read must leave the conversation itself readable. */
+  const conversationRowsRead = (async () => {
+    // The column reads `chat_thread_reads` (the unread dots, and the archived
+    // embed on the thread list) — the row `markThreadRead` just wrote. It waits
+    // for that write, as it did when every step ran in turn.
+    await markedRead;
+    const listThreads = await fetchCoupleThreads(supabase, eventId).catch((caught: unknown) => {
+      logQueryError(
+        'CoupleThreadPage.conversationList',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+      return [] as Awaited<ReturnType<typeof fetchCoupleThreads>>;
+    });
+    /* A removed or displaced conversation is folded away on the couple's own
+       Messages page; the column beside a thread keeps the same shape rather than
+       inventing a second idea of which conversations exist. The one being READ
+       always survives the filter — a column that omits the open thread is a
+       column that cannot show you where you are. */
+    const listVisible = listThreads.filter(
+      (t) => t.thread_id === threadId || (!t.archived && t.archived_at == null),
+    );
+    const listThreadIds = listVisible.map((t) => t.thread_id);
+
+    const [listLastRes, listInterestRes, listReadRes] = await Promise.all([
+      listThreadIds.length > 0
+        ? supabase
+            .from('chat_messages')
+            .select('thread_id, sender_role, body, created_at')
+            .in('thread_id', listThreadIds)
+            .order('created_at', { ascending: false })
+            .limit(600)
+        : Promise.resolve({ data: [], error: null }),
+      listThreadIds.length > 0
+        ? supabase
+            .from('thread_service_interests')
+            .select('thread_id, category_key, vendor_service_id, created_at')
+            .in('thread_id', listThreadIds)
+            .order('created_at', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
+      listThreadIds.length > 0
+        ? supabase
+            .from('chat_thread_reads')
+            .select('thread_id, last_read_at')
+            .eq('user_id', user.id)
+            .in('thread_id', listThreadIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (listLastRes.error) {
+      logQueryError('CoupleThreadPage.lastMessages', listLastRes.error, { event_id: eventId }, 'graceful_degrade');
+    }
+    const listLast = new Map<string, { sender_role: string; body: string | null }>();
+    const listLastAt = new Map<string, string>();
+    for (const m of (listLastRes.data ?? []) as Array<{
+      thread_id: string;
+      sender_role: string;
+      body: string | null;
+      created_at: string;
+    }>) {
+      if (!listLast.has(m.thread_id)) {
+        listLast.set(m.thread_id, { sender_role: m.sender_role, body: m.body });
+        listLastAt.set(m.thread_id, m.created_at);
+      }
+    }
+
+    if (listInterestRes.error) {
+      logQueryError('CoupleThreadPage.listInterests', listInterestRes.error, { event_id: eventId }, 'graceful_degrade');
+    }
+    /* ⚠ ONE TAG, AND IT IS THE SERVICE — NOT THE DATE. The supplier's column tags
+       each row with a date because every row there is a different wedding. Here
+       every row is the SAME wedding, so a date would print the couple's own date
+       six times and say nothing. */
+    const listLabels = new Map<string, string[]>();
+    const listInterests = (listInterestRes.data ?? []) as Array<{
+      thread_id: string;
+      category_key: string | null;
+      vendor_service_id: string | null;
+    }>;
+    const labelListInterest = await interestLabeller(decisionAdmin, listInterests);
+    for (const i of listInterests) {
+      if (!listLabels.has(i.thread_id) && (i.category_key || i.vendor_service_id)) {
+        listLabels.set(i.thread_id, [labelListInterest(i)]);
+      }
+    }
+
+    if (listReadRes.error) {
+      logQueryError('CoupleThreadPage.listReads', listReadRes.error, { event_id: eventId }, 'graceful_degrade');
+    }
+    const listUnread = new Set<string>();
+    for (const r of (listReadRes.data ?? []) as Array<{ thread_id: string; last_read_at: string | null }>) {
+      const said = listLastAt.get(r.thread_id);
+      if (said && r.last_read_at && new Date(said) > new Date(r.last_read_at)) {
+        listUnread.add(r.thread_id);
+      }
+    }
+
+    /* 🔒 THE NAME IS RESOLVED HERE, NOT IN THE COLUMN. A free or unverified
+       supplier's real business name stays behind their screen name until the
+       reveal predicate says otherwise — the same `resolveVendorDisplayName` the
+       header above and the Messages list already run. The column receives a name
+       that is already safe to print, and the avatar is its INITIALS, never the
+       logo: a logo is exactly as identifying as the name it stands for. */
+    const listDisplayNames = new Map<string, string>();
+    for (const t of listVisible) {
+      const v = t.vendor;
+      listDisplayNames.set(
+        t.vendor_profile_id,
+        v
+          ? resolveVendorDisplayName({
+              business_name: v.business_name ?? null,
+              name_revealed_at: v.name_revealed_at ?? null,
+              services: v.services ?? null,
+              screen_name: v.screen_name ?? null,
+              isPaidTier: isTrueNameTier(v.tier_state ?? null),
+              is_verified: v.verification_state === 'verified',
+              primary_canonical_service: v.services?.[0] ?? null,
+              location_city: v.location_city ?? null,
+            })
+          : 'Supplier',
+      );
+    }
+
+    const conversationRows = await buildCoupleConversationRows({
+      supabase,
+      eventId,
+      threads: listVisible.map((t) => ({
+        thread_id: t.thread_id,
+        vendor_profile_id: t.vendor_profile_id,
+        inquiry_status: t.inquiry_status ?? null,
+        updated_at: t.updated_at,
+      })),
+      displayNames: listDisplayNames,
+      labels: listLabels,
+      lastMessages: listLast,
+      unreadThreadIds: listUnread,
+      formatTime: formatChatTimestamp,
+    });
+    return conversationRows;
+  })();
+
+  // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
+  const [
+    eventDate,
+    blockState,
+    callsEnabled,
+    ,
+    vendor,
+    initialMessages,
+    lockHandshake,
+    { workspaceHref, quoteLockTarget },
+    [threadStage, liveQuoteTotalPhp, decisionPayments],
+    livePax,
+    standingExtras,
+    vendorLabel,
+    { bookedMoney, couplePay },
+    conversationRows,
+  ] = await Promise.all([
+    eventDateRead,
+    blockStateRead,
+    callsEnabledRead,
+    markedRead,
+    vendorRead,
+    messagesRead,
+    lockHandshakeRead,
+    pickRead,
+    decisionsRead,
+    livePaxRead,
+    standingExtrasRead,
+    vendorLabelRead,
+    bookedRead,
+    conversationRowsRead,
+  ]);
+
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
   // live quote total above already say whether there is a quote to amend.
   // Before one arrives the couple has no "Send a deal" anywhere — menu or chip.
@@ -234,18 +552,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     hasQuote: threadHasQuote({ stage: threadStage, liveQuoteTotalPhp }),
   });
 
-  // Fresh live pax (Phase 5) — the couple's own client can read their guests,
-  // so show the current count, matching what the vendor now sees. Read before
-  // the standing, which says when it has moved since the inquiry (SUP-2).
-  const livePax = await resolveLivePax(supabase, thread.event_id);
   const headerPax = livePax ?? thread.pax_current;
-  // The facts beside the rung — the SAME reader the bench card uses, so the
-  // card and the thread it opens cannot disagree about a deposit or a meeting.
-  const standingNowMs = Date.now();
-  const standingExtras = (
-    await readStandingExtras(supabase, thread.event_id, [thread.vendor_profile_id], standingNowMs)
-  ).get(thread.vendor_profile_id);
-
   const lastThreadMessage = initialMessages[initialMessages.length - 1];
   const threadStanding = buildSupplierStanding({
     stage: threadStage,
@@ -270,80 +577,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     meeting: standingExtras?.meeting ?? null,
     guestCounts: { live: headerPax ?? null, atInquiry: thread.pax_at_inquiry ?? null },
   });
-  const vendorLabel = vendor
-    ? resolveVendorDisplayName({
-        business_name: vendor.business_name ?? null,
-        name_revealed_at: vendor.name_revealed_at ?? null,
-        services: vendor.services ?? null,
-        screen_name: vendor.screen_name ?? null,
-        // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
-        // lock: a VERIFIED vendor's name is never gated (any tier).
-        isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
-        is_verified: vendor.verification_state === 'verified',
-        primary_canonical_service: vendor.services?.[0] ?? null,
-        location_city: vendor.location_city ?? null,
-      })
-    : 'Vendor';
-
-  // THE NEXT MONEY STEP ON THE BOOKED QUOTE (owner, live, 2026-09-20: "i do
-  // not see the confirmation here and the payment action?"). Read through the
-  // one helper (`readBookedMoney` → `moneyStep`) under the couple's own RLS;
-  // the card then MOUNTS the Payments tab's "Amount to pay" card with these
-  // props, so the thread records through the same `recordDeposit` (minimum
-  // enforced) and `logScheduledPayment`.
-  const bookedMoney = await readBookedMoney(supabase, {
-    eventId: thread.event_id,
-    vendorProfileId: thread.vendor_profile_id,
-    eventDate,
-    viewer: 'couple',
-    otherName: vendorLabel,
-  });
-  let couplePay: React.ComponentProps<typeof ChatMessageStream>['couplePay'] = null;
-  if (bookedMoney.step.kind !== 'not_booked' && bookedMoney.eventVendorId && bookedMoney.deposit) {
-    let payMethods: CoupleFacingMethod[] = [];
-    let payMethodsState: CouplePayMethodsState = 'unreadable';
-    try {
-      const read = await readPublishedMethodsForCouple({
-        authedClient: supabase,
-        adminClient: createAdminClient(),
-        eventId: thread.event_id,
-        eventVendorId: bookedMoney.eventVendorId,
-      });
-      payMethods = read.methods;
-      payMethodsState = read.state;
-    } catch {
-      payMethodsState = 'unreadable';
-    }
-    couplePay = {
-      eventId: thread.event_id,
-      vendorId: bookedMoney.eventVendorId,
-      vendorName: vendorLabel,
-      depositRecordedAt: bookedMoney.deposit.recordedAt,
-      depositAcknowledgedAt: bookedMoney.deposit.acknowledgedAt,
-      /*
-        THE RECEIPT THEY SENT, IN THE PLACE THEY SENT IT FROM (owner, live,
-        2026-09-20: "when i upload a photo, i cannot see it"). This was a
-        hard-coded `null`, so a couple could record a payment from the chat and
-        the chat would then show them nothing of what they had attached — the
-        Payments tab held the only copy. Signed HERE, through the scoped private
-        signer, because `readBookedMoney` hands on the stored `r2://` ref and
-        never a URL. A ref that fails its own folder policy signs to null and
-        the card shows no picture: the fail-soft contract
-        `depositProofDisplayUrl` already has.
-      */
-      depositProofUrl: bookedMoney.deposit.proofUrl,
-      depositDeclinedAt: bookedMoney.deposit.declinedAt,
-      depositDeclineReason: bookedMoney.deposit.declineReason,
-      depositDisputeNote: null,
-      payMethods,
-      payMethodsState,
-      requestedFirstPaymentCentavos: bookedMoney.terms?.firstPaymentCentavos ?? null,
-      requestedFirstPaymentSentence: firstPaymentSentence(bookedMoney.terms),
-      requestedTermsUnreadable: bookedMoney.termsUnreadable,
-      step: bookedMoney.step,
-      history: bookedMoney.history,
-    };
-  }
 
   // One-follow-up gate (inquiry-followthrough 2026-06-16). Count only
   // COUPLE-authored rows. A `pending` thread is NOT couple-only: the Vendor
@@ -393,149 +626,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   const similarVendorsHref = `/dashboard/${eventId}/vendors${
     similarGroupId ? `#group-${similarGroupId}` : ''
   }`;
-
-  /* ── THE LEFT COLUMN: every supplier they are talking to, beside this one ──
-     Owner 2026-09-08: "list · conversation · context". The couple's chips are
-     their own words — All · Has a quote · Booked · Waiting · Closed.
-
-     ⚡ FOUR BATCHED READS FOR THE WHOLE COLUMN, plus the three stage probes
-     inside the builder. Never one per row.
-
-     ⚠ EVERY ONE FAILS QUIET. This column is navigation, not the page — a
-     refused read must leave the conversation itself readable. */
-  const listThreads = await fetchCoupleThreads(supabase, eventId).catch((caught: unknown) => {
-    logQueryError(
-      'CoupleThreadPage.conversationList',
-      caught instanceof Error ? caught : new Error(String(caught)),
-      { event_id: eventId },
-      'graceful_degrade',
-    );
-    return [] as Awaited<ReturnType<typeof fetchCoupleThreads>>;
-  });
-  /* A removed or displaced conversation is folded away on the couple's own
-     Messages page; the column beside a thread keeps the same shape rather than
-     inventing a second idea of which conversations exist. The one being READ
-     always survives the filter — a column that omits the open thread is a
-     column that cannot show you where you are. */
-  const listVisible = listThreads.filter(
-    (t) => t.thread_id === threadId || (!t.archived && t.archived_at == null),
-  );
-  const listThreadIds = listVisible.map((t) => t.thread_id);
-
-  const [listLastRes, listInterestRes, listReadRes] = await Promise.all([
-    listThreadIds.length > 0
-      ? supabase
-          .from('chat_messages')
-          .select('thread_id, sender_role, body, created_at')
-          .in('thread_id', listThreadIds)
-          .order('created_at', { ascending: false })
-          .limit(600)
-      : Promise.resolve({ data: [], error: null }),
-    listThreadIds.length > 0
-      ? supabase
-          .from('thread_service_interests')
-          .select('thread_id, category_key, vendor_service_id, created_at')
-          .in('thread_id', listThreadIds)
-          .order('created_at', { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
-    listThreadIds.length > 0
-      ? supabase
-          .from('chat_thread_reads')
-          .select('thread_id, last_read_at')
-          .eq('user_id', user.id)
-          .in('thread_id', listThreadIds)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-
-  if (listLastRes.error) {
-    logQueryError('CoupleThreadPage.lastMessages', listLastRes.error, { event_id: eventId }, 'graceful_degrade');
-  }
-  const listLast = new Map<string, { sender_role: string; body: string | null }>();
-  const listLastAt = new Map<string, string>();
-  for (const m of (listLastRes.data ?? []) as Array<{
-    thread_id: string;
-    sender_role: string;
-    body: string | null;
-    created_at: string;
-  }>) {
-    if (!listLast.has(m.thread_id)) {
-      listLast.set(m.thread_id, { sender_role: m.sender_role, body: m.body });
-      listLastAt.set(m.thread_id, m.created_at);
-    }
-  }
-
-  if (listInterestRes.error) {
-    logQueryError('CoupleThreadPage.listInterests', listInterestRes.error, { event_id: eventId }, 'graceful_degrade');
-  }
-  /* ⚠ ONE TAG, AND IT IS THE SERVICE — NOT THE DATE. The supplier's column tags
-     each row with a date because every row there is a different wedding. Here
-     every row is the SAME wedding, so a date would print the couple's own date
-     six times and say nothing. */
-  const listLabels = new Map<string, string[]>();
-  const listInterests = (listInterestRes.data ?? []) as Array<{
-    thread_id: string;
-    category_key: string | null;
-    vendor_service_id: string | null;
-  }>;
-  const labelListInterest = await interestLabeller(decisionAdmin, listInterests);
-  for (const i of listInterests) {
-    if (!listLabels.has(i.thread_id) && (i.category_key || i.vendor_service_id)) {
-      listLabels.set(i.thread_id, [labelListInterest(i)]);
-    }
-  }
-
-  if (listReadRes.error) {
-    logQueryError('CoupleThreadPage.listReads', listReadRes.error, { event_id: eventId }, 'graceful_degrade');
-  }
-  const listUnread = new Set<string>();
-  for (const r of (listReadRes.data ?? []) as Array<{ thread_id: string; last_read_at: string | null }>) {
-    const said = listLastAt.get(r.thread_id);
-    if (said && r.last_read_at && new Date(said) > new Date(r.last_read_at)) {
-      listUnread.add(r.thread_id);
-    }
-  }
-
-  /* 🔒 THE NAME IS RESOLVED HERE, NOT IN THE COLUMN. A free or unverified
-     supplier's real business name stays behind their screen name until the
-     reveal predicate says otherwise — the same `resolveVendorDisplayName` the
-     header above and the Messages list already run. The column receives a name
-     that is already safe to print, and the avatar is its INITIALS, never the
-     logo: a logo is exactly as identifying as the name it stands for. */
-  const listDisplayNames = new Map<string, string>();
-  for (const t of listVisible) {
-    const v = t.vendor;
-    listDisplayNames.set(
-      t.vendor_profile_id,
-      v
-        ? resolveVendorDisplayName({
-            business_name: v.business_name ?? null,
-            name_revealed_at: v.name_revealed_at ?? null,
-            services: v.services ?? null,
-            screen_name: v.screen_name ?? null,
-            isPaidTier: isTrueNameTier(v.tier_state ?? null),
-            is_verified: v.verification_state === 'verified',
-            primary_canonical_service: v.services?.[0] ?? null,
-            location_city: v.location_city ?? null,
-          })
-        : 'Supplier',
-    );
-  }
-
-  const conversationRows = await buildCoupleConversationRows({
-    supabase,
-    eventId,
-    threads: listVisible.map((t) => ({
-      thread_id: t.thread_id,
-      vendor_profile_id: t.vendor_profile_id,
-      inquiry_status: t.inquiry_status ?? null,
-      updated_at: t.updated_at,
-    })),
-    displayNames: listDisplayNames,
-    labels: listLabels,
-    lastMessages: listLast,
-    unreadThreadIds: listUnread,
-    formatTime: formatChatTimestamp,
-  });
 
   /*
     ── ONE CHAT BOX (owner-approved layout, 2026-09-18) ─────────────────────

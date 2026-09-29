@@ -288,7 +288,7 @@
 2 apps/web/app/dashboard/(account)/life-flash/_components/story-people.tsx
 1 apps/web/app/dashboard/(account)/notifications/loading.tsx
 1 apps/web/app/dashboard/(account)/people/_components/dependents-section.tsx
-5 apps/web/app/dashboard/(account)/people/_components/people-roster-view.tsx
+1 apps/web/app/dashboard/(account)/people/_components/people-roster-view.tsx
 1 apps/web/app/dashboard/(account)/people/_components/samahan-people-section.tsx
 1 apps/web/app/dashboard/(account)/people/[dependentId]/page.tsx
 1 apps/web/app/dashboard/(account)/profile/_components/haptics-toggle.tsx

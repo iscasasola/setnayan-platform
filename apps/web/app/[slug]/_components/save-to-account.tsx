@@ -53,6 +53,7 @@ export function SaveToAccount({
   userAgent,
   termsCarried,
   termsMissing = false,
+  carries = null,
   through,
 }: {
   state: GuestAccountState;
@@ -65,6 +66,8 @@ export function SaveToAccount({
   termsCarried: boolean;
   /** The last press came back because the Terms were not ticked (`?keep=terms`). */
   termsMissing?: boolean;
+  /** What comes along, said after the method (frame A: "your name, mobile, meal and your guests come along"). */
+  carries?: string | null;
   /**
    * 👋 THE PLUS-ONE'S OWN DOOR (owner 2026-09-29, frame F: *"One button: Save
    * to my account; his answers save with it"*). In the `offer` state the ONE
@@ -152,7 +155,10 @@ export function SaveToAccount({
       pendingLabel={method === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
     >
       <span className="text-base">Save to my account</span>
-      <span className="text-xs font-normal opacity-80">{saveMethodLine(method)}</span>
+      <span className="text-xs font-normal opacity-80">
+        {saveMethodLine(method)}
+        {carries ? ` — ${carries}` : null}
+      </span>
     </SubmitButton>
   );
   const refused = termsMissing ? (

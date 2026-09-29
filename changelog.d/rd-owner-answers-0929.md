@@ -48,3 +48,20 @@ ticket", the invite message's "your ticket at the door", the Maker scene label
 `the-pass-card-is-a-card.test.ts` (the words, plus no hand-spelt "pass").
 
 SPEC IMPACT: None.
+
+## 2026-09-29 · feat(guest): the thank-you hands over the tickets and the link
+
+DECISION_LOG "TICKETS ON THE THANK-YOU SCREEN" (2026-09-29); layout and copy from
+`Setnayan/prototypes/guest_ticket_flow_2026-09-29.html` frames A / A′. After RSVP
+the thank-you shows, in order: **Your Digital ticket** (the route's own PNG, small,
+with Save — only for an accepted guest who is coming; a guest who can't come gets
+the one plain line, a seat with no card keeps the QR panel) · **Your guests** — one
+ticket per NAMED plus-one (Save · Send), "+2 · TBA · Add their name" for a blank
+seat, and **Save all tickets** naming the files it saves · **Copy my link** (their
+own link; "Copied ✓") · **Save to my account** ("… your name, mobile, meal and your
+guests come along") · Not now. New `TicketRow`; `YourGuests` gains `ticketRows`.
+Guarded by `app/[slug]/invite/the-thank-you-hands-over-the-tickets.test.ts`
+(sabotage-tested). Also fixes two stale expectations in
+`the-guest-pathway-me-and-checklist.test.ts` (the removed `hasEmail` prop; "ticket").
+
+SPEC IMPACT: None.

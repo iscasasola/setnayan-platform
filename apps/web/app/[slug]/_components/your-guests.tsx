@@ -3,7 +3,8 @@ import { AddNameInPlace } from './add-name-in-place';
 import { SendTheirInvite } from './send-their-invite';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
-import { PASS_CARD_WORDS } from '@/lib/pass-card';
+import { PASS_CARD_WORDS, fileSafe } from '@/lib/pass-card';
+import { TicketRow } from './ticket-row';
 
 /**
  * "YOUR GUESTS" — the people this guest is bringing, each a guest row with their
@@ -30,6 +31,7 @@ export function YourGuests({
   addName,
   inviteFacts,
   passCards,
+  ticketRows = false,
 }: {
   guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
   eventName: string;
@@ -55,9 +57,22 @@ export function YourGuests({
    * bringer's own Me tab; absent everywhere else (the thank-you).
    */
   passCards?: { own: string; plusOnes: Readonly<Record<string, string>> } | null;
+  /**
+   * 🎟 THE THANK-YOU'S LAYOUT (prototype guest_ticket_flow_2026-09-29.html,
+   * frame A): each named guest with a ticket is drawn AS their ticket — the
+   * small card, Save, Send — and "Save all tickets" closes the section, naming
+   * the files it saves. `ownName` is the bringer's, for that line.
+   */
+  ticketRows?: boolean | { ownName: string };
 }) {
   if (guests.length === 0) return null;
   const cardHrefs = passCards ? [passCards.own, ...guests.flatMap((g) => (g.name && passCards.plusOnes[g.guestId] ? [passCards.plusOnes[g.guestId]!] : []))] : [];
+  const asTickets = Boolean(ticketRows) && Boolean(passCards);
+  const ownName = typeof ticketRows === 'object' ? ticketRows.ownName : null;
+  // "2 pictures · Maria-Santos-ticket-… · Ben-Reyes-ticket-…" — what Save all lands.
+  const saveAllNames = [ownName, ...guests.filter((g) => g.name && passCards?.plusOnes[g.guestId]).map((g) => g.name)]
+    .filter((n): n is string => Boolean(n))
+    .map((n) => `${fileSafe(n)}-${fileSafe(PASS_CARD_WORDS.noun)}-…`);
   return (
     <section aria-labelledby="your-guests" className="space-y-2">
       <h2 id="your-guests" className="font-serif text-xl text-ink">
@@ -66,7 +81,7 @@ export function YourGuests({
       <p className="text-xs text-ink/60">
         Each name gets their own {PASS_CARD_WORDS.digitalTicket} — sent from your phone, with their own link.
       </p>
-      {cardHrefs.length > 1 ? <SavePassCardButton hrefs={cardHrefs} label={PASS_CARD_WORDS.saveAll} /> : null}
+      {cardHrefs.length > 1 && !asTickets ? <SavePassCardButton hrefs={cardHrefs} label={PASS_CARD_WORDS.saveAll} /> : null}
       <ul className="divide-y divide-ink/10">
         {guests.map((g, i) => {
           const pass = g.name ? passes?.[g.guestId] : undefined;
@@ -80,6 +95,22 @@ export function YourGuests({
                   seatLabel={`+${i + 1}`}
                   askMeal={addName.askMeal}
                   askDietary={addName.askDietary}
+                />
+              </li>
+            );
+          }
+          const ticketHref = g.name ? passCards?.plusOnes[g.guestId] : undefined;
+          if (asTickets && g.name && ticketHref) {
+            return (
+              <li key={g.guestId} className="py-3">
+                <TicketRow
+                  href={ticketHref}
+                  name={g.name}
+                  also={
+                    g.inviteUrl ? (
+                      <SendTheirInvite name={g.name} url={g.inviteUrl} eventName={eventName} facts={inviteFacts} label="Send" />
+                    ) : null
+                  }
                 />
               </li>
             );
@@ -128,6 +159,14 @@ export function YourGuests({
           );
         })}
       </ul>
+      {asTickets && cardHrefs.length > 1 ? (
+        <div className="space-y-1 pt-1" data-save-all-tickets="">
+          <SavePassCardButton hrefs={cardHrefs} label={PASS_CARD_WORDS.saveAll} />
+          <p className="text-xs text-ink/60">
+            {cardHrefs.length} pictures · {saveAllNames.join(' · ')}
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }

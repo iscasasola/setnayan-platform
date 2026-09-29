@@ -21,6 +21,10 @@ import { thankYouHeadline, replySummary } from '../../_lib/thank-you-words';
 import { SaveToAccount } from '../../_components/save-to-account';
 import { YourGuests } from '../../_components/your-guests';
 import { InviteQrPanel } from '../_components/invite-qr-panel';
+import { CopyMyLink } from '../../_components/copy-my-link';
+import { TicketRow } from '../../_components/ticket-row';
+import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
+import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine } from '@/lib/pass-card';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 
 export const metadata = { title: 'Thank you', robots: { index: false, follow: false } };
@@ -162,6 +166,25 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     inviteUrl: s.qrToken ? buildInvitationUrl({ ...qrParams, qrToken: s.qrToken }) : null,
   }));
 
+  // ── 🎟 THE TICKETS (owner 2026-09-29, DECISION_LOG "TICKETS ON THE THANK-YOU
+  // SCREEN"; prototype guest_ticket_flow_2026-09-29.html frame A): their own
+  // Digital ticket and one per NAMED plus-one who has one — the same cards the
+  // route draws and "Save" hands over, and only for an accepted guest who is
+  // coming (`passCardEligibility`). A blank seat keeps "Add name".
+  const [passCard, plusOneTicketIds] = await Promise.all([
+    passCardEligibilityFor(admin, guest.guest_id as string),
+    plusOnePassCardIds(admin, event.event_id as string, guest.guest_id as string),
+  ]);
+  const passCards =
+    passCard === 'pass'
+      ? {
+          own: PASS_CARD_ROUTE,
+          plusOnes: Object.fromEntries([...plusOneTicketIds].map((id) => [id, `${PASS_CARD_ROUTE}?guest=${id}`])),
+        }
+      : null;
+  const namedComing = seats.filter((s) => plusOneTicketIds.has(s.guest_id)).length;
+  const partyLine = namedComing > 0 ? `and ${namedComing} ${namedComing === 1 ? 'guest' : 'guests'}` : null;
+
   // ── THE ONE ACCOUNT BUTTON — the same decision the Event Hub's card makes.
   const supabase = await createClient();
   const {
@@ -210,6 +233,31 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         </DoorNotice>
       ) : null}
 
+      {/* 🎟 YOUR DIGITAL TICKET — first, the thing to keep (frame A). A guest
+          without one (can't come) is told why in one line; a seat with no
+          card at all keeps the plain QR panel, as before. */}
+      {passCards ? (
+        <section aria-labelledby="your-ticket" className="space-y-2" data-thank-you-ticket="">
+          <h2 id="your-ticket" className="font-serif text-xl text-ink">
+            Your {PASS_CARD_WORDS.digitalTicket}
+          </h2>
+          <p className="text-xs text-ink/60">
+            Save it to your phone — show it at the door. It’s a picture, so it can’t change by itself; the page
+            here always has the latest table and time.
+          </p>
+          <TicketRow href={PASS_CARD_ROUTE} name={guestName} sub={partyLine} />
+        </section>
+      ) : passCard === 'cannotCome' ? (
+        <p className="text-sm text-ink/70">{passCardLine(passCard)}</p>
+      ) : (
+        <InviteQrPanel
+          qrSvg={qrSvg}
+          invitationUrl={invitationUrl}
+          guestName={guestName}
+          eventWord={words.eventWord}
+        />
+      )}
+
       <YourGuests
         guests={guestsToSend}
         eventName={(event.display_name as string | null) ?? words.eventWord}
@@ -221,7 +269,13 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           eventDate: (event.event_date as string | null) ?? null,
           datePrecision: (event.event_date_precision as string | null) ?? null,
         }}
+        passCards={passCards}
+        ticketRows={{ ownName: guestName }}
       />
+
+      {/* "Copy my link" — their own link is their way back and their ticket at
+          the door too (📵 nothing is emailed — owner 2026-09-29). */}
+      <CopyMyLink link={invitationUrl} />
 
       {nothingToSave ? (
         <>
@@ -248,6 +302,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             userAgent={userAgent}
             termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
             termsMissing={search.keep === 'terms'}
+            carries="your name, mobile, meal and your guests come along"
           />
           <p className="text-center">
             <Link
@@ -259,15 +314,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           </p>
         </>
       )}
-
-      {/* 🔒 KEPT, NOT RESTATED. The pass (owner 2026-09-13: "they get to see the
-          QR Code") — below the one button, never in front of it. */}
-      <InviteQrPanel
-        qrSvg={qrSvg}
-        invitationUrl={invitationUrl}
-        guestName={guestName}
-        eventWord={words.eventWord}
-      />
     </DoorShell>
   );
 }

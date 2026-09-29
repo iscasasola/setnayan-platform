@@ -27,5 +27,14 @@ when both surnames match exactly, otherwise both full names joined by " & "
 honestly). Titles stay as entered; unpaired people list alone; the march order
 is unchanged. `every-print-fits.test.ts` now counts a pair line as two people.
 
+**A title never decides order (controller, same day).** Lines nobody placed by
+hand now sort by SURNAME, then first name (`sortKeyOf` in
+`apps/web/lib/entourage.ts`, from `last_name` / `first_name`; only a row with no
+last name falls back to its printed name minus a leading title and trailing
+suffix). Before, the printed string decided, so "Dr. Eduardo Bautista" sat above
+"Antonio Garcia" by "Dr." alone. Role order still comes first, and a hand-set
+walking order still overrides. The page, the card and the dashboard's march
+panel share this one order.
+
 SPEC IMPACT: DECISION_LOG.md row (2026-09-30, entourage role repetition +
 Secondary Sponsors by role) — applied directly in the corpus.

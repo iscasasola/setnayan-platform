@@ -252,3 +252,26 @@ test('the guest’s own "You are …" line keeps its word — only the list stop
   assert.equal(roleLabel('principal_sponsor_ninang'), 'Ninang');
   assert.equal(roleLabel('bridesmaid'), 'Bridesmaid');
 });
+
+test('a TITLE never decides order — unplaced lines sort by surname, then first name (page and card alike)', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { EntourageSection } = await import('./entourage-section');
+  const rows: EntourageGuestRow[] = [
+    p('principal_sponsor_ninong', 'Antonio', 'Garcia'),
+    p('principal_sponsor_ninong', 'Eduardo', 'Bautista', undefined, undefined, { name_prefix: 'Dr.' }),
+    // "Dr." < "Hon." alphabetically — the surname (Abad < Cruz) must win instead.
+    p('principal_sponsor_ninong', 'Ana', 'Cruz', undefined, undefined, { name_prefix: 'Dr.' }),
+    p('principal_sponsor_ninong', 'Zeno', 'Abad', undefined, undefined, { name_prefix: 'Hon.' }),
+    // No name parts: the printed name minus its title stands in ("Mendez…").
+    p('principal_sponsor_ninong', '', '', undefined, undefined, { display_name: 'Atty. Mendez Carlos', first_name: null, last_name: null }),
+    p('principal_sponsor_ninong', 'Luis', 'Navarro', undefined, undefined, { name_suffix: 'Jr.' }),
+  ];
+  const expected = ['Hon. Zeno Abad', 'Dr. Eduardo Bautista', 'Dr. Ana Cruz', 'Antonio Garcia', 'Atty. Mendez Carlos', 'Luis Navarro Jr.'];
+  const html = renderToStaticMarkup(React.createElement(EntourageSection as never, { groups: buildEntourage(rows) }));
+  assert.deepEqual(items(section(html, 'Principal Sponsors')), expected);
+  const ps = buildEntourage(rows).find((g) => g.key === 'principal_sponsors')!;
+  const card = printedEntourageLines(ps, false).flatMap((l) => [l.l, l.c, l.r]).filter(Boolean);
+  // The card may flow unpaired names into columns; its reading order is still the page's.
+  assert.deepEqual([...card].sort(), [...expected].sort());
+  assert.deepEqual(ps.rows.map((r) => (r[0] ?? r[1])!.name), expected, 'the one builder both surfaces read');
+});

@@ -65,6 +65,11 @@ export type EntouragePerson = {
    * by "Ricardo & Jessica Villahermosa Jr."). See `lineNames`.
    */
   split?: { given: string; surname: string } | null;
+  /**
+   * What an UNPLACED line sorts by — surname, then first name, never a title.
+   * From the name parts where the row has them; see `sortKeyOf`.
+   */
+  sortKey?: { last: string; first: string };
 };
 
 /**
@@ -641,9 +646,18 @@ function orderLines(
     const rx = rolePos(x);
     const ry = rolePos(y);
     if (rx !== ry) return rx - ry;
-    return (lead(x)?.name ?? '').localeCompare(lead(y)?.name ?? '', 'en', {
-      sensitivity: 'base',
-    });
+    /* ⚖ Controller 2026-09-30: surname, then first name — never the printed
+       string, whose first word is often a title ("Dr." sorted every doctor
+       above "Antonio Garcia", and "Dr." above "Hon."). See `sortKeyOf`. */
+    const by = (a?: string, b?: string) => (a ?? '').localeCompare(b ?? '', 'en', { sensitivity: 'base' });
+    const kx = lead(x)?.sortKey;
+    const ky = lead(y)?.sortKey;
+    return (
+      by(kx?.last, ky?.last) ||
+      by(kx?.first, ky?.first) ||
+      by(lead(x)?.name, lead(y)?.name) ||
+      by(lead(x)?.id ?? '', lead(y)?.id ?? '')
+    );
   });
 }
 
@@ -714,10 +728,34 @@ function peopleForSpec(
         order: typeof row.entourage_order === 'number' ? row.entourage_order : null,
         ceremonyOnly: isCeremonyOnly(row),
         split: splitForPairLine(row),
+        sortKey: sortKeyOf(row, name),
       });
     }
   }
   return people;
+}
+
+/**
+ * Titles and suffixes that must never decide an order. Only used on the
+ * FALLBACK path — a row with name parts sorts by `last_name` / `first_name`,
+ * which never contain a title.
+ */
+const LEADING_TITLE =
+  /^(?:(?:mr|mrs|ms|miss|mx|dr|dra|hon|atty|engr|arch|rev|fr|msgr|sr|sra|srta|gen|col|capt|maj|lt|prof|judge|justice|sen|gov|mayor|rep|dean|sis|bro)\.?\s+)+/i;
+const TRAILING_SUFFIX = /(?:,?\s+(?:jr|sr|ii|iii|iv|v)\.?)+$/i;
+
+/**
+ * ⚖ CONTROLLER 2026-09-30: a title never decides order. An unplaced line
+ * sorts by SURNAME, then first name — "Dr. Eduardo Bautista" before "Antonio
+ * Garcia", and "Hon." never ahead of "Dr." on the title alone. Name parts
+ * where the row has them; only when `last_name` is missing, the printed name
+ * minus a leading title and a trailing suffix stands in as the surname key.
+ */
+function sortKeyOf(row: EntourageGuestRow, printed: string): { last: string; first: string } {
+  const last = row.last_name?.trim();
+  if (last) return { last, first: row.first_name?.trim() ?? '' };
+  const bare = printed.replace(LEADING_TITLE, '').replace(TRAILING_SUFFIX, '').trim();
+  return { last: bare || printed, first: '' };
 }
 
 /** See `EntouragePerson.split`. */

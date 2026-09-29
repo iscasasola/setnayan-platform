@@ -17,7 +17,7 @@ import { resolveRsvpAsk, rsvpAnswerWord } from '@/lib/rsvp-ask';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { rsvpReplyByLine } from '@/lib/rsvp-stage';
 import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
-import { labRsvpNoop } from '../actions';
+import { labRsvp } from '../actions';
 
 export default async function RsvpStageLabFrame({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -60,7 +60,7 @@ export default async function RsvpStageLabFrame({ searchParams }: { searchParams
         eventId="00000000-0000-4000-8000-000000000000"
         eventPublicId="S89E-LAB0000000"
         faceMode="mode_b"
-        doorAction={labRsvpNoop}
+        doorAction={labRsvp.bind(null, 'noop') as unknown as (formData: FormData) => Promise<void>}
         offerSelfie={false}
         ask={resolveRsvpAsk({})}
         termsOnSend

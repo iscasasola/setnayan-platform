@@ -23,10 +23,13 @@
  */
 import { notFound } from 'next/navigation';
 import { RsvpStageLab } from './lab';
-import { labRsvpDraftFail, labRsvpDraftSave, labRsvpReplyBy } from './actions';
+import type { ComponentProps } from 'react';
+import { labRsvp } from './actions';
+
+type LabProps = ComponentProps<typeof RsvpStageLab>;
 
 export default async function RsvpStageLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
-  return <RsvpStageLab solemn={sp.solemn === '1'} draftAction={sp.fail === '1' ? labRsvpDraftFail : labRsvpDraftSave} replyByAction={labRsvpReplyBy} />;
+  return <RsvpStageLab solemn={sp.solemn === '1'} draftAction={labRsvp.bind(null, sp.fail === '1' ? 'fail' : 'save') as unknown as LabProps['draftAction']} replyByAction={labRsvp.bind(null, 'reply-by') as unknown as LabProps['replyByAction']} />;
 }

@@ -10,7 +10,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
-import { makerProMark } from '@/lib/paid-mark';
+import { makerProMark, makerProUsable } from '@/lib/paid-mark';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
@@ -1382,6 +1382,22 @@ export default async function WebsiteEditorPage({
           return d !== null && d >= 0 ? d : null;
         })(),
       }}
+      /* 🎞 Post Event's twelve presets — every couple may try one in the draft
+         (Pro is asked for at Apply, E3); six of their own, shared across stages
+         (E5). #6091's Maker rule, `makerProUsable` (owns || !storeShell): in the
+         store shell a couple WITHOUT Pro is shown no tile, diamond or note — a
+         Pro hint there is a purchase hint; a couple who owns Pro keeps them. */
+      postEventPresets={
+        !makerProUsable({ owns: ownsPro, storeShell })
+          ? null
+          : {
+              action: addCustomSection,
+              returnTo: `/dashboard/${eventId}/launch`,
+              used: allWidgets.filter((w) => isCustomSectionType(w.widget_type)).length,
+              ownsPro,
+              storeShell,
+            }
+      }
       addScene={
         storeShell
           ? null

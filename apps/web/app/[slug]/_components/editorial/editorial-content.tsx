@@ -1047,7 +1047,7 @@ export async function EditorialContent({
                         <OpenUpScene
                           kind="film"
                           id={WATCH_FILM_ANCHOR_ID}
-                          title="Live Stream"
+                          title="Watch Live"
                           eyebrow="The broadcast, replayed"
                           openLabel="Watch the replay"
                           preview={
@@ -1091,7 +1091,7 @@ export async function EditorialContent({
               ) : placeholderOf('film') && isOn('watchFilm') ? (
                 <Fragment key="watchFilm">
                   {marker('film')}
-                  {waitingScene('film', 'Live Stream', true)}
+                  {waitingScene('film', 'Watch Live', true)}
                   {marker('videos')}
                   {waitingScene('videos', 'Videos', true)}
                 </Fragment>

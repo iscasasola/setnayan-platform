@@ -53,6 +53,7 @@ import {
 import { HUB_ELEMENT_PRO_FIELDS } from '@/lib/hub-look-pro';
 import { postEventArrangementOf, sceneLooksFreePart, type PostEventSceneLooks } from '@/lib/post-event-draft';
 import { POST_EVENT_SCENE_TYPE_LABEL, postEventSceneTypeOf } from '@/lib/post-event-styles';
+import { postEventPreset } from '@/lib/post-event-presets';
 
 /** Where "Go to" takes the couple in the Maker (a `MakerSelection`, plus a part). */
 export type HubProEffectJump =
@@ -224,11 +225,17 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
          the couple picked it by in the 25-template sheet. */
       const template =
         draft.widgets[item.widgetType]?.canvas?.template ?? sanitizeHubCanvas(row?.config_json).template ?? null;
+      /* 🎞 A Post Event preset is named by the preset the couple picked it by
+         ("Post Event scene · The Toast"), not by the template under it. */
+      const preset = postEventPreset(
+        draft.widgets[item.widgetType]?.canvas?.postEventPreset ?? sanitizeHubCanvas(row?.config_json).postEventPreset,
+      );
       push({
         id: `show:${item.widgetType}`,
-        what: 'Added scene',
-        where: template ? SCENE_TEMPLATES[template].name : scene,
-        jump: { kind: 'scene', widgetId: item.widgetId, widgetType: item.widgetType, tab: 'content', stages, ...fixedOf(item.widgetType) },
+        what: preset ? 'Post Event scene' : 'Added scene',
+        where: preset ? preset.name : template ? SCENE_TEMPLATES[template].name : scene,
+        // A preset lives on Post Event only (`widgetsGuestsMeet`) — Go to lands there.
+        jump: { kind: 'scene', widgetId: item.widgetId, widgetType: item.widgetType, tab: 'content', stages: preset ? ['editorial'] : stages, ...fixedOf(item.widgetType) },
         remove: {
           widgets: {
             [item.widgetType]: { mode: row?.mode ?? 'auto', is_visible: row?.is_visible ?? true },

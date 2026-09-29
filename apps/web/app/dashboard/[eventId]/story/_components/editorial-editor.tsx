@@ -577,7 +577,7 @@ export function EditorialEditor({
     setDirty(true);
   };
 
-  // ── Section-order mutations (PRO) ─────────────────────────────────────────
+  // ── Section-order mutations (free — owner E4) ─────────────────────────────
   const moveSection = (index: number, dir: -1 | 1) => {
     setSectionOrder((order) => {
       const j = index + dir;
@@ -1210,24 +1210,19 @@ export function EditorialEditor({
         </section>
       ) : null}
 
-      {/* Section order — reorder the editorial's content sections (Editorial PRO).
-          The two locked-close sections (your words + your song) always close the
-          paper and can't be moved. Free couples see the order read-only. */}
+      {/* Section order — reorder the editorial's content sections. FREE for
+          every couple (owner E4 2026-09-25; ruling 2026-09-29: the story page
+          matches the Event Hub Maker, where moving a scene is never Pro — the
+          save action takes the order from anyone). The two locked-close
+          sections (your words + your song) always close the paper. */}
       <section className={card}>
         <div className="flex items-start justify-between gap-3">
           <h2 className="font-display text-lg italic text-ink">Section order</h2>
-          <ProChip owned={isPro} />
         </div>
         <p className="mt-0.5 text-sm text-ink/60">
-          The order your editorial&rsquo;s sections appear in.{' '}
-          {isPro ? 'Move any section up or down.' : 'This is the default order.'} Your words and
-          your song always close the paper.
+          The order your editorial&rsquo;s sections appear in. Move any section up or down. Your
+          words and your song always close the paper.
         </p>
-        {!isPro ? (
-          <ProUpsellLine eventId={eventId}>
-            Arrange your story your way with Editorial PRO.
-          </ProUpsellLine>
-        ) : null}
 
         <ol className="mt-4 space-y-1.5">
           {sectionOrder.map((k, i) => {
@@ -1259,7 +1254,7 @@ export function EditorialEditor({
                   <button
                     type="button"
                     onClick={() => moveSection(i, -1)}
-                    disabled={!isPro || i === 0}
+                    disabled={i === 0}
                     aria-label={`Move ${label} up`}
                     className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                   >
@@ -1268,7 +1263,7 @@ export function EditorialEditor({
                   <button
                     type="button"
                     onClick={() => moveSection(i, 1)}
-                    disabled={!isPro || i === sectionOrder.length - 1}
+                    disabled={i === sectionOrder.length - 1}
                     aria-label={`Move ${label} down`}
                     className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                   >

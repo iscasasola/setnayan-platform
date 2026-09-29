@@ -14,6 +14,10 @@
 
 import { customColumnKey, CUSTOM_COLUMN_KEY_PREFIX } from './custom-columns';
 
+// 🔓 E4 (owner 2026-09-25): arranging these — their order and whether each shows —
+// is FREE in the Event Hub Maker (Post Event's scene panel, drafted, written at
+// Apply). The story workroom's own order card predates that ruling.
+//
 // The RENDER-BLOCK identities of the reorderable content run — distinct from the
 // EditorialSections visibility map (some share a key: kwento/watchFilm). The
 // locked-close sections (couple's words + song) are NOT here: they pin to the end.

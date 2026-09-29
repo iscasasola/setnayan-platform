@@ -52,6 +52,7 @@ import {
 } from './post-event-scenes';
 import { postEventRunKey } from './post-event-draft';
 import { resolvePostEventStyle } from './post-event-styles';
+import { sanitizeHubCanvas } from './hub-canvas';
 import type { SceneTemplateId } from './scene-templates';
 import { stageShowsEntourage } from './stage-scenes';
 
@@ -442,11 +443,20 @@ function emptyOf(w: InvitationWidgetRow, input: MakerStageInput): string | undef
  * so neither the Maker's canvas nor this list shows it. Post Event keeps it —
  * that is a separate owner decision. ONE rule, read by the page and this list.
  */
-export function widgetsGuestsMeet<T extends { widget_type: string }>(widgets: readonly T[], stage: LifecyclePhase): T[] {
+export function widgetsGuestsMeet<T extends { widget_type: string; config_json?: unknown }>(
+  widgets: readonly T[],
+  stage: LifecyclePhase,
+): T[] {
   // 🗂 Since "EACH STAGE DOES ONE JOB" (owner 2026-09-27) the pitch is on NO
   // stage — Post Event included (`STAGE_SCENES`, `lib/stage-scenes.ts`).
-  void stage;
-  return widgets.filter((w) => w.widget_type !== 'tier_comparison');
+  // 🎞 A scene seeded from one of Post Event's presets can only be written
+  // AFTER something happened (strategy §5) — it is on Post Event and nowhere
+  // else, though it is one of the six the couple's own scenes share.
+  return widgets.filter(
+    (w) =>
+      w.widget_type !== 'tier_comparison' &&
+      (stage === 'editorial' || !isCustomSectionType(w.widget_type) || !sanitizeHubCanvas(w.config_json).postEventPreset),
+  );
 }
 
 export function makerStageList(input: MakerStageInput): MakerStageList {

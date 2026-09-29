@@ -1310,6 +1310,11 @@ export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas): 
 
 const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(config);
 
+/** The Post Event preset a scene was seeded from, or null (`lib/post-event-presets.ts`). */
+export function presetSceneOf(canvas: HubSectionCanvas): string | null {
+  return canvas.postEventPreset ?? null;
+}
+
 /**
  * The Main background, live → drafted (Maker Phase 10). All of it is LOOK — the
  * owner's "making media a background is pro", and "Adaptive theme is for PRO":

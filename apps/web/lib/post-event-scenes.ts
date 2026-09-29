@@ -283,7 +283,7 @@ const FIXED: Record<string, Def> = {
        scene (prototype types 14 · 15). Both live in the run's `watchFilm` block
        and answer to its one switch; the film open-up is the replay's when there
        is one, else the videos'. */
-    key: 'film', name: 'Live Stream', template: 14, open: 'film', pin: null, block: 'watchFilm', switch: 'watchFilm',
+    key: 'film', name: 'Watch Live', template: 14, open: 'film', pin: null, block: 'watchFilm', switch: 'watchFilm',
     fill: (s) => (s.broadcast ? { count: 1, source: 'Live Studio replay' } : { skip: 'No livestream on this event' }),
   },
   videos: {

@@ -480,13 +480,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
      app-store shell drops it. */
   customer_post_event_v1: {
     key: 'customer_post_event_v1',
-    label: 'Post Event — your story, written for you',
-    blurb: 'How the story after the day is written from what happened, scene by scene.',
+    label: 'Post Event — your story after the day, scene by scene',
+    blurb: 'How the story after the day is made of scenes you can style, arrange and add to — written for you from what happened.',
     slides: [
       {
         Icon: BookOpen,
-        title: 'Your story after the day, written for you',
-        body: 'After the day, the Event Hub Maker wrote Post Event from what happened &mdash; the chapters of your day, the gallery, the film, the wishes. There was nothing to type, and every scene says what filled it.',
+        title: 'Post Event is its own scenes',
+        body: 'The story after your day is not one block: the front page, the road to the day, the numbers, each chapter, the gallery, the notes, your thank-you &mdash; each is its own scene here. After the day they are written for you from what happened; there is nothing to type.',
       },
       {
         Icon: EyeOff,
@@ -501,7 +501,17 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Free — and yours to change, right here',
-        body: 'Tap a scene to pick its <b>Style</b>, hide it, or move it earlier or later &mdash; all free, all in your draft until you press <b>Apply</b>. Tap any part to change its words. A Pro theme, a part&rsquo;s own font and your own photos come with Event Hub Pro.',
+        body: 'Tap a scene to pick its <b>Style</b>, hide it, or move it earlier or later &mdash; all free, all in your draft until you press <b>Apply</b>. Tap any part to change its words.',
+      },
+      {
+        Icon: Users,
+        title: 'Your guests’ bar after the day',
+        body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Gallery · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
+      },
+      {
+        Icon: Wand2,
+        title: 'Add scenes made for after the day',
+        body: 'Press <b>+ Add a scene</b> on Post Event for twelve scenes made for the story after the day &mdash; The Toast, Before &amp; After, By Our Count, Since Then and more. Each is &#9670; Event Hub Pro: try one in your draft now, and Pro is asked for when you press <b>Apply</b>. A Pro theme, a part&rsquo;s own font and your own photos come with Pro too.',
         sells: true,
       },
     ],

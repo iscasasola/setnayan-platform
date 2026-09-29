@@ -72,6 +72,7 @@ import {
   isHubResetScope,
   mergeHubDraft,
   planHubDraftApply,
+  presetSceneOf,
   undoHubDraft,
   type HubDraftActionResult,
   type HubDraftItem,
@@ -81,7 +82,7 @@ import {
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
-import { HUB_MAIN_GROUND_KEY, isHubMainFollow, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { HUB_MAIN_GROUND_KEY, isHubMainFollow, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -92,6 +93,7 @@ import type { CustomSectionContent } from '@/lib/custom-sections';
 import { applyPostEventItems, postEventArrangementOf } from '@/lib/post-event-draft';
 import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraft } from '@/lib/fixed-scene-styles';
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
+import { postEventPreset } from '@/lib/post-event-presets';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -585,7 +587,15 @@ export async function hubDraftAction(
     revalidateGuestSite(typeof ownRow.slug === 'string' ? ownRow.slug : null);
     revalidatePath(`/dashboard/${eventId}/launch`);
 
-    const label = (t: WidgetType) => WIDGET_CATALOG_BY_TYPE[t]?.label ?? 'A section';
+    /* 🎞 A held Post Event preset scene is named by its preset, where it lives —
+       "Post Event · your scene “The Toast”" — so the Apply sheet can say what
+       Pro unlocks, by name and place. */
+    const label = (t: WidgetType) => {
+      const row = live.widgets.find((r) => r.widget_type === t);
+      const drafted = current.widgets[t]?.canvas;
+      const preset = postEventPreset(presetSceneOf(drafted !== undefined ? (drafted ?? {}) : sanitizeHubCanvas(row?.config_json)));
+      return preset ? `Post Event · your scene “${preset.name}”` : (WIDGET_CATALOG_BY_TYPE[t]?.label ?? 'A section');
+    };
     return done(
       toWrite.length,
       [

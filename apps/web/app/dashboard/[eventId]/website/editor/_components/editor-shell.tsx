@@ -83,6 +83,7 @@ import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, ScenePart
 import { SceneStyleCanvasRow } from './scene-style-row';
 import { FixedSceneStyleRow } from './fixed-scene-style-row';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
+import { POST_EVENT_PRESETS } from '@/lib/post-event-presets';
 import {
   PostEventScenePanel,
   PostEventWordsField,
@@ -243,6 +244,7 @@ export function MakerWork({
   proPriceLabel,
   showProCta,
   addScene = null,
+  postEventPresets = null,
   sceneFacts = null,
   madeOnce = null,
   revealStages = ['save_the_date'],
@@ -336,6 +338,13 @@ export function MakerWork({
       }
     | { note: string }
     | null;
+  /**
+   * 🎞 POST EVENT'S "+" — its twelve presets (`lib/post-event-presets.ts`),
+   * posted to the SAME `addCustomSection` draft door with `post_event_preset`.
+   * Offered to every couple (Pro is asked for at Apply — E3), null in the store
+   * shell. `used` = their own scenes across every stage (six, shared — E5).
+   */
+  postEventPresets?: { action: FormAction; returnTo: string; used: number; ownsPro: boolean; storeShell: boolean } | null;
   proUnlockHref: string;
   /** The live catalogue price, formatted — null when unread (never remembered). */
   proPriceLabel: string | null;
@@ -512,6 +521,11 @@ export function MakerWork({
   const setAddScene = maker?.setAddScene;
   useEffect(() => {
     if (!setAddScene) return;
+    if (stage === 'editorial' && postEventPresets) {
+      // 🎞 Post Event's own presets — ready for every couple (Pro at Apply).
+      setAddScene({ kind: 'ready', open: () => setAddOpen(true), tried: !postEventPresets.ownsPro });
+      return () => setAddScene(null);
+    }
     if (!addScene || !stageTakesOwnScenes(stage)) {
       setAddScene(null);
       return;
@@ -522,7 +536,7 @@ export function MakerWork({
         : { kind: 'refused', note: addScene.note },
     );
     return () => setAddScene(null);
-  }, [setAddScene, addScene, stage]);
+  }, [setAddScene, addScene, postEventPresets, stage]);
 
   /* The scene just added is SELECTED once the render that carries it lands.
      A tile's post lands back on this very address (`lib/maker-stay.ts` — the
@@ -1973,7 +1987,27 @@ export function MakerWork({
                 Adding your scene…
               </p>
             ) : null}
-            {!stageTakesOwnScenes(stage) ? null : addScene && 'action' in addScene ? (
+            {stage === 'editorial' && postEventPresets ? (
+              /* 🎞 POST EVENT'S OWN "+" (owner 2026-09-25) — its twelve
+                 presets, not the 25 templates; each ◆ Pro, each placed in the
+                 draft at once (try-then-pay: Apply asks for Pro). */
+              <div className="pl-4">
+                <SceneTemplatePicker
+                  overlay
+                  draft
+                  open={addOpen}
+                  onOpenChange={setAddOpen}
+                  onPick={onPickTemplate}
+                  action={postEventPresets.action}
+                  hidden={{ event_id: eventId, return_to: postEventPresets.returnTo }}
+                  stageLabel={PUBLIC_STAGE_LABELS.editorial}
+                  heading="Add a scene ·"
+                  triggerLabel="+ Add a scene"
+                  initialView={maker?.device === 'phone' ? 'phone' : 'desktop'}
+                  presets={{ items: POST_EVENT_PRESETS, used: postEventPresets.used, ownsPro: postEventPresets.ownsPro, storeShell: postEventPresets.storeShell }}
+                />
+              </div>
+            ) : !stageTakesOwnScenes(stage) ? null : addScene && 'action' in addScene ? (
               /* 🎬 "+" opens the 25 templates, headed with the stage being
                  edited and drawn in the view being edited (owner 2026-09-24).
                  💾 A tile ADDS INTO THE DRAFT (`draft`): the scene is on the

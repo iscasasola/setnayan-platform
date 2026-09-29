@@ -323,7 +323,9 @@ test('every form inside the Maker carries exactly one mark — the draft field, 
 
       // The template picker's mark is decided by its caller (`draft`) — held by
       // its own test below, caller by caller.
-      if (f.component === 'SceneTemplatePicker') {
+      // 🎞 Post Event's preset tiles (`PresetTiles`) are the SAME picker's tiles —
+      // its `draft` and its `action`, handed straight down.
+      if (f.component === 'SceneTemplatePicker' || f.component === 'PresetTiles') {
         assert.match(f.body, /\{draft \? <HubDraftField \/> : null\}/, `${where}: the picker's tiles must post draft=1 when drafted`);
         drafted += 1;
         continue;
@@ -469,7 +471,8 @@ test('the scene template picker: "Change template" and "+ Add a scene" both draf
       const isDraft = /^\s*draft\s*$/m.test(use) || /\sdraft(?:=\{true\})?[\s/]/.test(use);
       if (isDraft) {
         drafted += 1;
-        if (action === 'addCustomAction' || action === 'addScene.action') {
+        // 🎞 Post Event's twelve presets post the SAME add door (2026-09-29).
+        if (action === 'addCustomAction' || action === 'addScene.action' || action === 'postEventPresets.action') {
           // "+ Add a scene" — addCustomSection's draft door (hidden row, drafted shown).
           assert.match(use, /triggerLabel="\+ Add a scene"/, `${file}: ${action} is the add sheet`);
         } else {
@@ -486,7 +489,8 @@ test('the scene template picker: "Change template" and "+ Add a scene" both draf
   // The slots panel's saveAction really is saveCustomSection.
   assert.match(read(`${C}sections-panel.tsx`), /<SceneSlotsPanel\b[\s\S]*?saveAction=\{saveCustomAction\}/);
   assert.match(read(PAGE), /addScene=[\s\S]*?action: addCustomSection/);
+  assert.match(read(PAGE), /postEventPresets=[\s\S]*?action: addCustomSection/, 'the presets post the add door');
   console.log(`[maker-forms] template pickers: drafted ${drafted} · live ${live}`);
-  assert.equal(drafted, 3);
+  assert.equal(drafted, 4);
   assert.equal(live, 0);
 });

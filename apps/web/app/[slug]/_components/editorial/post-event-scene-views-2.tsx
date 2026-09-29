@@ -527,7 +527,7 @@ export function LiveStreamPreview({
     /* .replay .player — one player, large. */
     return (
       <div className="py-6">
-        <p className={EYEBROW}>{say(words, 'label', 'Live Stream · the replay')}</p>
+        <p className={EYEBROW}>{say(words, 'label', 'Watch Live · the replay')}</p>
         <h2 className={H2}>{say(words, 'heading', `As it was broadcast`)}</h2>
         <span className="relative -mx-5 mt-3.5 block aspect-video overflow-hidden bg-ink sm:-mx-10">
           <Photo url={still} alt={`${names} — the broadcast`} className="opacity-80" />
@@ -541,7 +541,7 @@ export function LiveStreamPreview({
     /* .hl — the replay listed by the chapters of the day, each at its place in it. */
     return (
       <div className="py-6">
-        <p className={EYEBROW}>{say(words, 'label', 'Live Stream · the replay')}</p>
+        <p className={EYEBROW}>{say(words, 'label', 'Watch Live · the replay')}</p>
         <h2 className={H2}>{say(words, 'heading', 'Jump to a moment')}</h2>
         {highlights.length > 0 ? (
           <span className="mt-4 flex flex-col gap-3">
@@ -568,7 +568,7 @@ export function LiveStreamPreview({
         <Photo url={still} alt={`${names} — the broadcast`} className="opacity-85" />
         {play}
       </span>
-      <p className={`${EYEBROW} mt-5`}>{say(words, 'label', 'Live Stream')}</p>
+      <p className={`${EYEBROW} mt-5`}>{say(words, 'label', 'Watch Live')}</p>
       <h2 className={H2}>{say(words, 'heading', 'Watch the replay')}</h2>
     </div>
   );

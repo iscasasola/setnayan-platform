@@ -41,6 +41,7 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { hubAutoSpeed, hubTransition, type HubAutoSpeed, type HubTransition } from '@/lib/hub-scenes';
 import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/scene-templates';
 import { sanitizeSceneStyleId } from '@/lib/scene-styles';
+import { isPostEventPresetId, type PostEventPresetId } from '@/lib/post-event-presets';
 import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/custom-columns';
 import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';
 import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style';
@@ -312,6 +313,13 @@ export type HubSectionCanvas = {
    * wherever that style is drawn.
    */
   style?: string;
+  /**
+   * 🎞 A POST EVENT PRESET SCENE (`lib/post-event-presets.ts`) — which of Post
+   * Event's twelve presets seeded this scene of the couple's own. NOT `preset`,
+   * which is the scene's motion. Its presence puts the scene on Post Event only
+   * (`widgetsGuestsMeet`) and makes showing it Event Hub Pro at Apply (E3).
+   */
+  postEventPreset?: PostEventPresetId;
   /**
    * What fills the template's slots, by position. A picture slot holds a
    * `media` ref (held to the public bucket by the SAME `hubMediaRef` fence as
@@ -642,6 +650,7 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (template) out.template = template;
   const style = sanitizeSceneStyleId(canvas.style);
   if (style) out.style = style;
+  if (isPostEventPresetId(canvas.postEventPreset)) out.postEventPreset = canvas.postEventPreset;
   const slots = hubSceneSlots(canvas.slots);
   if (slots) out.slots = slots;
   const free = hubFreeBoxes(canvas.free);
@@ -1043,7 +1052,7 @@ export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
      words, drawn by the scene itself; framing it would add motion nobody chose. */
   /* 🎨 Nor is a style pick (`style`) — the scene draws its own style; framing
      it would bring motion the couple never chose. */
-  return Object.keys(canvas).some((k) => k !== 'elements' && k !== 'details' && k !== 'style');
+  return Object.keys(canvas).some((k) => k !== 'elements' && k !== 'details' && k !== 'style' && k !== 'postEventPreset');
 }
 
 /**

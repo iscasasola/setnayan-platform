@@ -6,6 +6,7 @@ import { SlotButton, SlotFill, SlotNone, SlotRows } from './lazy-slot';
 import { prefetchMoodBoard } from '../../studio/mood-board/_components/mood-board-lazy';
 import { prefetchSchedule } from '../../schedule/_components/schedule-lazy';
 import { prefetchEntourage } from '../../guests/_components/entourage-lazy';
+import { prefetchSeating } from '../../seating/_components/seating-lazy';
 
 /**
  * ⚡ DETAILS PIECES LOAD WHEN THEY ARE OPENED — NEVER WITH THE MAKER.
@@ -29,9 +30,10 @@ import { prefetchEntourage } from '../../guests/_components/entourage-lazy';
  * 🛡 `details-pieces-are-lazy.test.ts` fails if a server file of the Maker
  * imports a lazy piece's own module again.
  *
- * 📦 THE PIECES TRAVEL AS THREE NAMED CHUNKS — `maker-details` (everything
- * here), `maker-mood-board`, `maker-schedule` (those two are also drawn by their
- * own standalone routes). Every `import()` names its chunk: webpack's runtime —
+ * 📦 THE PIECES TRAVEL AS NAMED CHUNKS — `maker-details` (everything here),
+ * `maker-mood-board`, `maker-schedule` and `maker-seating` (`seating-lazy.tsx`)
+ * — those three are also drawn by their own standalone routes, and a route
+ * that loads the `maker-details` group becomes its parent (see seating-lazy.tsx). Every `import()` names its chunk: webpack's runtime —
  * loaded on EVERY page, under the shared-bundle ceiling
  * (`scripts/check-bundle-size.mjs`) — carries an entry per async chunk and per
  * chunk an async group depends on. Unnamed, the first cut of this split grew
@@ -75,10 +77,12 @@ export const PabuyaMessageEditor = dynamic(
 export const PrintPreview = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-preview').then((m) => m.PrintPreview), { loading: SlotFill });
 export const PrintMenuEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-menu-editor').then((m) => m.PrintMenuEditor), { loading: SlotRows });
 export const PrintChoicePicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-choice-picker').then((m) => m.PrintChoicePicker), { loading: SlotRows });
+export const PassCardDesignPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './pass-card-design-picker').then((m) => m.PassCardDesignPicker), { loading: SlotRows });
 export const PrintSaveButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.PrintSaveButton), { loading: SlotButton });
 
 /* ── Your event (names · date · venues · parents & hosts · the march) ─────── */
 export const NamesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.NamesEditor), { loading: SlotRows });
+export const OneNameEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.OneNameEditor), { loading: SlotRows });
 export const DateEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateEditor), { loading: SlotRows });
 export const DateBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateBody), { loading: SlotFill });
 export const VenuesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuesEditor), { loading: SlotRows });
@@ -94,6 +98,16 @@ export const ParentCards = dynamic(() => import(/* webpackChunkName: "maker-deta
 export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.LoveStoryPieceFocus), { loading: SlotNone });
 export const ScheduleSlots = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.ScheduleSlots), { loading: SlotNone });
 export const MakerRsvpSettings = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask').then((m) => m.MakerRsvpSettings), { loading: SlotRows });
+
+/* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
+export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });
+export const HeroFrameSync = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.HeroFrameSync), { loading: SlotNone });
+export const SceneBackgroundRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row').then((m) => m.SceneBackgroundRow), { loading: SlotRows });
+
+/* ── What's left (Details part 5): a step's heading, its foot, the Ready screens ── */
+export const GuideHead = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideHead), { loading: SlotNone });
+export const GuideReady = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideReady), { loading: SlotFill });
+export const GuideFoot = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideFoot), { loading: SlotButton });
 
 /* ── The Look (Logo · Reveal — the pages the work area hands in) ─────────── */
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
@@ -113,6 +127,7 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './print-menu-editor'),
     import(/* webpackChunkName: "maker-details" */ './print-choice-picker'),
     import(/* webpackChunkName: "maker-details" */ './print-save-button'),
+    import(/* webpackChunkName: "maker-details" */ './pass-card-design-picker'),
     import(/* webpackChunkName: "maker-details" */ './details-your-event'),
     import(/* webpackChunkName: "maker-details" */ './details-march'),
     import(/* webpackChunkName: "maker-details" */ './details-people'),
@@ -121,6 +136,9 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask'),
     import(/* webpackChunkName: "maker-details" */ './maker-logo'),
     import(/* webpackChunkName: "maker-details" */ './maker-reveal'),
+    import(/* webpackChunkName: "maker-details" */ './details-guide'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row'),
     prefetchEntourage(),
   ]);
 
@@ -128,6 +146,7 @@ const loadDetailsPieces: Load = () =>
 const ITEM_OWN_CHUNK: Partial<Record<DetailsItemKey, Load>> = {
   'mood-board': prefetchMoodBoard,
   schedule: prefetchSchedule,
+  seating: prefetchSeating,
 };
 
 const asked = new Set<Load>();
@@ -150,6 +169,7 @@ export function prefetchDetails() {
   run(loadDetailsPieces);
   run(prefetchMoodBoard);
   run(prefetchSchedule);
+  run(prefetchSeating);
 }
 
 /**

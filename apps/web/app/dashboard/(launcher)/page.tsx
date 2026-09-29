@@ -77,6 +77,7 @@ import { paginateCollection, parseCollectionPage } from '@/lib/collection-pagina
 import { EventPoster } from '@/app/_components/event-poster';
 import { sceneCoverFor, type EventPosterFacts } from '@/lib/event-poster';
 import { resolveEventPoster } from '@/lib/event-poster.server';
+import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveMonogram } from '@/lib/monogram';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
@@ -1777,7 +1778,7 @@ function StanceChip({ stance }: { stance: EventStance }) {
  * / the mobile nudge row now (owner 2026-07-15: one home for overdue counts) —
  * this card carries identity/type/date/progress, never a decision pill.
  */
-function GlassEventCard({
+async function GlassEventCard({
   event,
   pct,
   heroSrc,
@@ -1856,6 +1857,11 @@ function GlassEventCard({
 
   // SEC-3: gated on read — both monogram columns are host-writable.
   const markSvg = poster ? resolveEventMonogramSvg(event) : null;
+  // ▶ Their logo plays on the card when it moves and the animation is on
+  // (owner 2026-09-29: "all logos should animate if animation is active").
+  // A logo that does not move asks nothing (`logoPlaysFor`); a moving one
+  // waits until the card scrolls into view (`CoupleLogo`).
+  const markPlays = await logoPlaysFor(event.event_id, resolveEventMonogramSvg(event));
   /*
     THE CARD IS THE COLLECTION CARD (build-sessions/STANDARD-collection-card.md,
     step 1). This function is now only PLANNING'S SLOT MAPPING — which event
@@ -1887,6 +1893,8 @@ function GlassEventCard({
             poster={poster}
             markText={resolveMonogram(event).text}
             markSvgUri={markSvg ? bespokeSvgToDataUri(markSvg) : null}
+            markSvg={markSvg}
+            markPlays={markPlays}
           />
         ) : (
           <EventScene
@@ -1917,6 +1925,8 @@ function GlassEventCard({
           size="lg"
           shape="square"
           className={collectionMarkClass}
+          plays={markPlays}
+          place="event-card"
         />
         )
       }

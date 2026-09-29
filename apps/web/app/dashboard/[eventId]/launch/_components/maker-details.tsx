@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
+  Armchair,
+  BookOpen,
   Bookmark,
   CalendarClock,
   CalendarDays,
@@ -82,8 +84,15 @@ import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
 import { yourEventParts, type YourEventInput } from './details-your-event-parts';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { SeatPlanSlot } from '../../seating/_components/seat-plan-slots';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
+import type { DetailsGuide } from './details-guide';
+import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
+import { parentsOffered } from '@/lib/details-your-event';
+import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
 import {
+  PassCardsPanel,
   PrintPieceBody,
   PrintPieceEditor,
   PrintSetBody,
@@ -228,6 +237,33 @@ export type MakerDetailsProps = {
   eventContext: DetailsItemContext;
   /** 🗓 Details part 2a — "Your event" (Names · Date · Venues · Parents & hosts · the march); null = not offered. */
   yourEvent?: YourEventInput | null;
+  /**
+   * 🪑 Details part 4 — the Seat plan: the shipped seating page, drawn in the
+   * Maker (`seating/page.tsx` with `maker=1`) — its plan is the middle, and
+   * the editor draws its place's elements and its guests into the two slots
+   * this page puts in the navigator and the right column. The counts are the
+   * launch page's reads; null = could not be read (never "0"). Null = not
+   * offered (a type with no seat plan, the lab).
+   */
+  seatPlan?: { page: ReactNode; tables: number | null; seated: number | null; open: boolean | null } | null;
+  /**
+   * 🪜 Details part 5 — the guided "What's left" (`lib/details-guided-flow.ts`).
+   * Its steps and their ✓ / ○ are built HERE from the navigator's own rows, so
+   * a step's "done" is its item's done — never a second opinion. Null = no flow
+   * (the lab without `?guide`).
+   */
+  guide?: {
+    /** Open on the flow (an unfinished event with nothing else named, or `?guide=`). */
+    open: boolean;
+    /** `?guide=ready-N` — that round's Ready screen. */
+    ready: GuidedRound | null;
+    /** The address named an item (`?item=`) — open on its step, or in All items. */
+    itemNamed: boolean;
+    /** The address named the flow itself (`?guide=`). */
+    guideNamed: boolean;
+    /** The flow's first-visit tour (a `MiniTour`), or null. */
+    tour?: ReactNode;
+  } | null;
 };
 
 const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
@@ -237,6 +273,7 @@ const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
   menu: <UtensilsCrossed aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   pass: <Ticket aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   poster: <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'story-poster': <BookOpen aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   card: <Bookmark aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
 };
 const FREE_ICON: Record<string, ReactNode> = {
@@ -318,6 +355,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
   const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem, eventContext } = props;
   const { facts, loveStory = null, schedule = null, rsvp = null } = props;
+  const seatPlan = props.seatPlan ?? null;
   const switches = detailsSwitchesFor(eventContext);
   const look = props.look ?? null;
   const PRINT_WORDS_ENDPOINT = '/api/hub-print/words';
@@ -339,9 +377,10 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* Each item's model (`DetailsItemModel`): done and used-on are derived from
      data that already exists — part 1 fills them for its own items. */
   const menuDone = menu.saved.some((m) => m.dishes.length > 0) || menu.caterer.some((m) => m.dishes.length > 0);
-  const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } => {
+  const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode; panelLabel?: string } => {
     const yeRow = ye?.rows[k as EventItemKey];
     if (yeRow) return yeRow;
+    if (k === 'seating') return seatPlanRow(seatPlan);
     if (look && (LOOK_ITEM_KEYS as readonly string[]).includes(k)) return lookLabel(k as LookItemKey, look, hasPalette);
     if (k === 'theme') {
       return {
@@ -365,29 +404,25 @@ export function MakerDetails(props: MakerDetailsProps) {
     if ((WORDS_ITEM_KEYS as readonly string[]).includes(k) || (STORY_ITEM_KEYS as readonly string[]).includes(k)) {
       const w = k as WordsItemKey | StoryItemKey;
       return {
-        ...wordsAndPlansItem(w, {
-          specialMessage,
-          thankYou: pabuyaMessage,
-          openingLine: stored.openingLine,
-          kindlyReply: Boolean(stored.rsvp),
-          include: {
-            specialMessage: inc.specialMessage,
-            thankYou: inc.thankYou,
-            openingLine: inc.openingLine,
-            rsvp: inc.rsvp,
-            loveStory: inc.loveStory !== 'none',
-            schedule: inc.schedule,
-          },
-          loveStoryMoments: loveStory ? loveStory.moments : 0,
-          scheduleMoments: schedule?.moments ?? null,
-        }),
+        /* ONE builder of this input (`wordsAndPlansInputFrom`) — the launch
+           page and Home read "done" through the very same one. */
+        ...wordsAndPlansItem(
+          w,
+          wordsAndPlansInputFrom({
+            specialMessage,
+            pabuyaMessage,
+            stored,
+            loveStoryMoments: loveStory ? loveStory.moments : 0,
+            scheduleMoments: schedule?.moments ?? null,
+          }),
+        ),
         icon: (WORDS_ICON as Record<string, ReactNode>)[w] ?? (STORY_ICON as Record<string, ReactNode>)[w],
       };
     }
     if ((PRINT_SET_KEYS as readonly string[]).includes(k)) {
       const p = k as PrintSetKey;
       // A piece is "done" once it would print — the Menu only with a dish (it is never printed blank).
-      return { label: PRINT_PIECES[p].label, sub: PRINT_PIECES[p].size, done: p === 'menu' ? menuDone : undefined, icon: PIECE_ICON[p] };
+      return { label: PRINT_PIECES[p].label, sub: PRINT_PIECES[p].size, done: p === 'menu' ? menuDone : p === 'story-poster' ? !prints.storyEmpty : undefined, icon: PIECE_ICON[p] };
     }
     const fp = free.find((f) => f.key === k);
     return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
@@ -399,12 +434,41 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...(seatPlan ? (['seating'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,
     items: g.keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
   }));
+
+  /* ══ 🪜 WHAT'S LEFT — the guided flow over these very rows ══ */
+  const plan = props.guide
+    ? buildGuidedPlan(
+        groups.flatMap((g) => g.items),
+        { solemn: eventContext.solemn, parentsOffered: props.yourEvent ? parentsOffered(props.yourEvent.kind) : switches.parents },
+      )
+    : null;
+  const opening = props.guide && plan && props.guide.open && !props.guide.itemNamed && !props.guide.ready ? firstOpenScreen(plan) : null;
+  const openingStep = opening?.kind === 'step' ? plan!.steps.find((s) => s.key === opening.step) : undefined;
+  /* The flow opens on its first step still left — on the item of it still not done. */
+  const startItem: DetailsItemKey = openingStep ? (openingStep.left[0] ?? openingStep.items[0]!) : initialItem;
+  const guide: DetailsGuide | null =
+    props.guide && plan
+      ? {
+          plan,
+          open: props.guide.open && (!props.guide.itemNamed || stepOfItem(plan, initialItem) !== null),
+          ready: props.guide.ready ?? (opening?.kind === 'ready' ? opening.round : null),
+          addressed: props.guide.itemNamed || props.guide.guideNamed,
+          actions: {
+            // The Save the Date as guests meet it, the draft — its way back lands on Details.
+            previewHref: slug ? previewCarriesPlace(`/${slug}?phase=save_the_date&preview=draft`, { kind: 'tool', key: 'details' }) : null,
+            shareUrl: slug ? `${siteOrigin()}${publicEventPath(slug)}` : null,
+            // The Guest list's own invite flow (its "Share the link" tab).
+            sendHref: `${base}/guests?gview=share`,
+          },
+          tour: props.guide.tour ?? null,
+        }
+      : null;
 
   /* ══ BODIES — each item's picture ══ */
   const bodies: Partial<Record<DetailsItemKey, ReactNode>> = {
@@ -509,8 +573,23 @@ export function MakerDetails(props: MakerDetailsProps) {
       {theme.tour ? <MiniTour tourKey="customer_print_menu_v1" storeShell={theme.storeShell} /> : null}
     </>
   );
+  // …and the Our Story poster's, once the Menu's is seen — never two at once.
+  bodies['story-poster'] = (
+    <>
+      {bodies['story-poster']}
+      {theme.tour ? <MiniTour tourKey="customer_print_story_poster_v1" after="customer_print_menu_v1" storeShell={theme.storeShell} /> : null}
+    </>
+  );
   for (const f of free) bodies[f.key] = f.body;
   if (ye) Object.assign(bodies, ye.bodies);
+  /* 🪑 The seat plan — the shipped editor fills the middle part ('fill'). */
+  if (seatPlan) {
+    bodies.seating = (
+      <div key="seating" data-details-seat-plan-page="" className="flex min-h-0 flex-1 flex-col">
+        {seatPlan.page}
+      </div>
+    );
+  }
   /* 🎨 THE LOOK — each shipped page moved in whole, in the split it shipped
      with (`detailsItemLayout`): the Mood Board and the Logo studio carry their
      own tools; the Hero and the Reveal are a live page with their controls on
@@ -635,15 +714,20 @@ export function MakerDetails(props: MakerDetailsProps) {
       </PrintPieceEditor>
     ),
     pass: (
-      <PrintPieceEditor input={prints} piece="pass">
-        <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
-        {qrAlways}
-        {save}
-      </PrintPieceEditor>
+      <>
+        <PrintPieceEditor input={prints} piece="pass">
+          <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
+          {qrAlways}
+          {save}
+        </PrintPieceEditor>
+        {/* 🎫 The pass guests save — its look (one dropdown) and its two outputs. */}
+        <PassCardsPanel input={prints} />
+      </>
     ),
     entourage: <PrintPieceEditor input={prints} piece="entourage" />,
     menu: <PrintPieceEditor input={prints} piece="menu" menu={menu} />,
     poster: <PrintPieceEditor input={prints} piece="poster" />,
+    'story-poster': <PrintPieceEditor input={prints} piece="story-poster" />,
     card: <PrintPieceEditor input={prints} piece="card" />,
     download: <PrintSetDownloads input={prints} />,
     /* ── Words ── */
@@ -701,6 +785,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       );
   }
   if (ye) Object.assign(editors, ye.editors);
+  /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
+  if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
 
   return (
     <ThemePickProvider eventId={eventId} current={theme.current}>
@@ -708,7 +794,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         groups={groups}
         bodies={bodies}
         editors={editors}
-        initial={initialItem}
+        initial={startItem}
+        guide={guide}
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{
@@ -727,6 +814,10 @@ export function MakerDetails(props: MakerDetailsProps) {
           ...(rsvp ? { rsvp: <ItemPieces item="rsvp" pieces={RSVP_PIECES} /> } : {}),
           /* Part 2a: the Wedding March's sections and lines, the parents and hosts. */
           ...(ye?.pieces ?? {}),
+          /* Part 4: the place's elements — the seating editor draws its rows here. */
+          ...(seatPlan
+            ? { seating: <SeatPlanSlot name="place" className="contents lg:flex lg:flex-col lg:gap-0.5" /> }
+            : {}),
         }}
         persistent={
           <>
@@ -953,4 +1044,30 @@ function WordsCard({ text, note }: { text: string | null; note: string }) {
       <p className="text-xs text-ink/55">{note}</p>
     </section>
   );
+}
+
+/**
+ * 🪑 The Seat plan as the navigator draws it — how many tables, how many are
+ * seated, and whether guests see it (its "done": the door is open). Plain
+ * words for every kind of event; a count that could not be read is SAID.
+ */
+function seatPlanRow(
+  seatPlan: { tables: number | null; seated: number | null; open: boolean | null } | null,
+): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode; panelLabel: string } {
+  const t = seatPlan?.tables ?? null;
+  const n = seatPlan?.seated ?? null;
+  const sub =
+    t === null || n === null
+      ? 'Could not be read just now'
+      : t === 0
+        ? 'No tables yet'
+        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : ''}`;
+  return {
+    label: 'Seat plan',
+    sub,
+    done: seatPlan?.open ?? undefined,
+    usedOn: [PUBLIC_STAGE_LABELS.event, 'Table signs', 'Passes', 'Find your seat'],
+    icon: <Armchair aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+    panelLabel: 'Guests',
+  };
 }

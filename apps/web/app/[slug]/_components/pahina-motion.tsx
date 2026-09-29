@@ -124,6 +124,13 @@ setTimeout(function(){if(!window.__pahinaArmed){r.classList.remove('pahina-js')}
  * canvas turns Parallax on in place without a reload. A page with none still
  * pays nothing but one passive, rAF-throttled listener.
  */
+/*
+ * 🌄 …AND THE MAIN BACKGROUND (owner 2026-09-29, "THE MAIN BACKGROUND OFFERS
+ * EVERY CHOICE"): a layer marked `data-pahina-parallax="page"` is FIXED behind
+ * the page, so its own box never moves — it drifts with the PAGE's scroll
+ * instead (top of the page → bottom = the same −6% → +6%). Same property, same
+ * rule, same exits.
+ */
 export function PahinaCoverParallax() {
   return (
     <script
@@ -136,9 +143,13 @@ if(!window.requestAnimationFrame)return;
 var MAX=6,pending=false;
 var tick=function(){pending=false;var vh=window.innerHeight||0;if(!vh)return;
 var ls=document.querySelectorAll('.sn-editorial [data-pahina-parallax]');
-for(var i=0;i<ls.length;i++){var el=ls[i],b=el.parentNode.getBoundingClientRect();
+var sh=Math.max(1,(document.documentElement.scrollHeight||0)-vh);
+for(var i=0;i<ls.length;i++){var el=ls[i],p;
+if(el.getAttribute('data-pahina-parallax')==='page'){p=(window.scrollY||0)/sh;}
+else{var b=el.parentNode.getBoundingClientRect();
 if(b.bottom<0||b.top>vh)continue;
-var p=(vh-b.top)/(vh+b.height);p=p<0?0:p>1?1:p;
+p=(vh-b.top)/(vh+b.height);}
+p=p<0?0:p>1?1:p;
 el.style.setProperty('--pahina-parallax',((p-0.5)*2*MAX).toFixed(2)+'%')}};
 var q=function(){if(!pending){pending=true;requestAnimationFrame(tick)}};
 window.addEventListener('scroll',q,{passive:true});

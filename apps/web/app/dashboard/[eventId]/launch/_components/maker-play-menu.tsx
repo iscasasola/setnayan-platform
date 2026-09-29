@@ -128,20 +128,24 @@ export function MakerPlayMenu({
  * "Preview the whole <stage>" — decided when the menu OPENS (it is never
  * server-rendered open, so reading the window here cannot mismatch hydration):
  * the same view on a phone or in an installed shell, a new tab on a desktop
- * browser (`previewOpensInSameView`).
+ * browser (`previewOpensInSameView`). The guided flow's Ready screen draws the
+ * same link (its words in `text`), only once it is mounted in the browser.
  */
-function PreviewStageLink({
+export function PreviewStageLink({
   href,
   stageLabel,
   storeShell,
   className,
   onPicked,
+  text,
 }: {
   href: string;
   stageLabel: string;
   storeShell: boolean;
   className: string;
   onPicked: () => void;
+  /** The link's words (default "Preview the whole <stage>"). */
+  text?: string;
 }) {
   const sameView = previewOpensInSameView({
     storeShell,
@@ -165,7 +169,7 @@ function PreviewStageLink({
       data-preview-same-view={sameView ? '1' : '0'}
       className={className}
     >
-      Preview the whole {stageLabel}
+      {text ?? `Preview the whole ${stageLabel}`}
     </a>
   );
 }

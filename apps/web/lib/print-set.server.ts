@@ -45,6 +45,7 @@ import {
   type RsvpChoice,
 } from '@/lib/print-pieces';
 import { fetchEgiftMethods } from '@/lib/egift';
+import { printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
@@ -636,6 +637,9 @@ export async function loadPrintSet(
       nfc: inc.nfc,
       storyExcerpt: inc.loveStory === 'excerpt' ? excerpt(storyText(event.love_story)) : null,
       guestNames: inc.guestNames,
+      // The couple's ONE pick of the pass card's look — the Phone card print
+      // and every saved card draw it (lib/pass-card.ts).
+      passDesign: stored.passDesign,
     },
     // The parents print on the Invitation card (the owner's sample), not twice.
     entourage: entourage.groups.filter((g) => g.key !== 'parents'),
@@ -643,8 +647,12 @@ export async function loadPrintSet(
     swatches: inc.moodBoard ? swatchesFrom(event.role_palette) : [],
     hubAddress,
     menu: menuHasDishes(stored.menu) ? stored.menu : catererMenu,
+    // The Our Story poster — the Love Story's one source, read from the same row.
+    story: printStoryChapters(event.love_story),
     hasStill: Boolean(images.still),
     hasEventQr,
+    // Paper says which day its facts are from (the pass card's "As of …").
+    asOf: opts.mode === 'print' ? `As of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}` : null,
   };
   return { event, theme, look, data, images, appUrl, ownerSlug, qrLook };
 }

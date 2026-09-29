@@ -4,7 +4,7 @@ import { CollectionCard } from '@/app/_components/collection-card';
 import type { OurService } from '@/lib/our-services';
 
 /**
- * OUR SERVICES — the six cards at the top of the event's services page.
+ * OUR SERVICES — the service cards at the top of the event's services page.
  *
  * Every card is the repo's one card (`CollectionCard`, "the only card"): the
  * service's poster wash and icon as the cover, its name on the cover, and ONE
@@ -13,7 +13,7 @@ import type { OurService } from '@/lib/our-services';
  * opens. What each card says is decided in `lib/our-services.ts`; this file
  * only lays it out.
  *
- * Phone first: two across at 375/390 (three rows for six services), three
+ * Phone first: two across at 375/390, three
  * across from `sm`.
  *
  * ◆ marks a paid service not yet on this event — never a padlock; the card

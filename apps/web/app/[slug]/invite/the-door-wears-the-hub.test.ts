@@ -148,7 +148,8 @@ test('2 · the RSVP page wears the Event Hub\'s look and Main background — the
   const REPLY = read('[slug]/invite/reply/page.tsx');
   // The door composition is gone from this page; the hub skin is on.
   assert.doesNotMatch(REPLY, /loadInviteLook\(|look\.skin/, 'the RSVP paints the door\'s composition again');
-  assert.match(REPLY, /skin=\{hubDoorSkin\(doorMarkFor\(event\)\)\}/);
+  // (The crest may PLAY a layered logo, behind the hero's own gate — one-question-screen-is-arranged.test.ts § 6.)
+  assert.match(REPLY, /skin=\{hubDoorSkin\(\{ \.\.\.doorMarkFor\(event\), animate: markPlays \}\)\}/);
   // The look: the one translation the layout wears, around the whole door.
   assert.match(REPLY, /return \(\s*<GuestLookScope \{\.\.\.lookScopeProps\(hub\.look\)\}>\s*\{hub\.ground\}\s*<DoorShell\b/);
   // For a guest: the very value the layout wears (cached). On the canvas with a

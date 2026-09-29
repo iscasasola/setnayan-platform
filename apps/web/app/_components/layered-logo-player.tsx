@@ -3,6 +3,8 @@
 import { useEffect, useRef } from 'react';
 import {
   isLayeredLogo,
+  logoAttributePlayable,
+  logoElementPlayable,
   logoInSeconds,
   parseWritePathD,
   penProgress,
@@ -12,6 +14,33 @@ import {
   writeRevealPlan,
 } from '@/lib/logo-layers';
 import { boxToPart, logoParts, partCovers } from '@/lib/logo-parts-dom';
+import { arrivalMotion } from '@/lib/couple-logo-plays';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * 🔒 The saved logo as a LIVE tree the player may animate — or null, and the
+ * caller draws its still `<img>`. Parsed by the browser into an inert
+ * `<template>` (nothing in it runs or loads), then every element and attribute
+ * of the PARSED result is checked against the allowlist in `lib/logo-layers.ts`
+ * (`logoElementPlayable` / `logoAttributePlayable`). Only inert metadata is
+ * dropped (`<metadata>`, and an editor's namespaced tags such as
+ * `sodipodi:namedview`); anything else unknown refuses the whole logo.
+ */
+export function inertLogoTree(svg: string): SVGSVGElement | null {
+  const t = document.createElement('template');
+  t.innerHTML = svg;
+  const root = t.content.firstElementChild;
+  if (!root || t.content.childElementCount !== 1) return null;
+  if (root.namespaceURI !== SVG_NS || root.localName !== 'svg') return null;
+  root.querySelectorAll('metadata').forEach((el) => el.remove());
+  for (const el of Array.from(root.querySelectorAll('*'))) if (el.localName.includes(':')) el.remove();
+  for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
+    if (el.namespaceURI !== SVG_NS || !logoElementPlayable(el.localName)) return null;
+    for (const a of Array.from(el.attributes)) if (!logoAttributePlayable(a.name, a.value)) return null;
+  }
+  return document.importNode(root, true) as SVGSVGElement;
+}
 
 /**
  * 🅻 THE LAYERED LOGO, PLAYING — each layer its OWN motion, in stack order
@@ -35,17 +64,38 @@ import { boxToPart, logoParts, partCovers } from '@/lib/logo-parts-dom';
  *
  * Before its delay a layer is hidden, so letter 2 truly arrives after letter 1.
  * `prefers-reduced-motion` → the still logo. The markup is the SAVED file, which
- * already passed the SVG gate (`safeMonogramSvg`); nothing here adds a URL.
- * Remount (a React key) to play again.
+ * already passed the SVG gate (`safeMonogramSvg`), and is built through
+ * `inertLogoTree` (an allowlist on the browser's own parse) — never innerHTML
+ * into the page; nothing here adds a URL. Remount (a React key) to play again;
+ * `settled` shows it arrived without its entrance (`CoupleLogo`'s plays-once).
  */
-export function LayeredLogoPlayer({ svg, className }: { svg: string; className?: string }) {
+export function LayeredLogoPlayer({
+  svg,
+  className,
+  settled = false,
+  onRefused,
+}: {
+  svg: string;
+  className?: string;
+  /** Already played here once (`CoupleLogo`): show it ARRIVED — no entrance
+   *  again — and keep its drift. The Maker's ▶ Play never passes this. */
+  settled?: boolean;
+  /** The markup did not pass `inertLogoTree` — the caller draws its still. */
+  onRefused?: () => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
+  const refusedRef = useRef(onRefused);
+  refusedRef.current = onRefused;
   useEffect(() => {
     const host = ref.current;
     if (!host || !isLayeredLogo(svg)) return;
-    host.innerHTML = svg;
-    const root = host.querySelector('svg');
-    if (!root) return;
+    const tree = inertLogoTree(svg);
+    if (!tree) {
+      refusedRef.current?.();
+      return;
+    }
+    host.replaceChildren(tree);
+    const root = tree;
     root.setAttribute('width', '100%');
     root.setAttribute('height', '100%');
     root.style.overflow = 'visible';
@@ -55,19 +105,24 @@ export function LayeredLogoPlayer({ svg, className }: { svg: string; className?:
 
     const anims: Animation[] = [];
     const frames: number[] = [];
-    const NS = 'http://www.w3.org/2000/svg';
+    const NS = SVG_NS;
     const defs = document.createElementNS(NS, 'defs');
     root.insertBefore(defs, root.firstChild);
     host.querySelectorAll<SVGGElement>('g[data-logo-layer]').forEach((layer, i) => {
       const body = layer.querySelector<SVGGElement>('g[data-logo-body]');
       if (!body) return;
       const durAttr = layer.getAttribute('data-dur');
-      const motion = sanitizeLogoMotion({
-        in: layer.getAttribute('data-in'),
-        during: layer.getAttribute('data-during'),
-        delay: Number(layer.getAttribute('data-delay')),
-        dur: durAttr === null ? undefined : Number(durAttr),
-      });
+      // Settled: it has already arrived here once — no entrance, no wait, its
+      // Drift kept (`arrivalMotion`, CoupleLogo's plays-once).
+      const motion = arrivalMotion(
+        sanitizeLogoMotion({
+          in: layer.getAttribute('data-in'),
+          during: layer.getAttribute('data-during'),
+          delay: Number(layer.getAttribute('data-delay')),
+          dur: durAttr === null ? undefined : Number(durAttr),
+        }),
+        settled,
+      );
       const delayMs = motion.delay * 1000;
       const inMs = logoInSeconds(motion) * 1000;
       body.style.transformBox = 'fill-box';
@@ -246,8 +301,8 @@ export function LayeredLogoPlayer({ svg, className }: { svg: string; className?:
     return () => {
       anims.forEach((a) => a.cancel());
       frames.forEach((f) => cancelAnimationFrame(f));
-      host.innerHTML = '';
+      host.replaceChildren();
     };
-  }, [svg]);
+  }, [svg, settled]);
   return <div ref={ref} aria-hidden data-layered-logo="" className={className ?? 'h-full w-full'} />;
 }

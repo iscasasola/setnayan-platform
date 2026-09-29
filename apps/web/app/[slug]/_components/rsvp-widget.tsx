@@ -5,9 +5,16 @@ import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
 import { plusOneSeats } from '@/lib/guests';
-import { plusOneNameSlots } from '@/lib/extra-seats';
+import { RsvpPlusOnes } from './rsvp-plus-ones';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { SelfieCapture } from './selfie-capture';
+import {
+  FACE_TAGGING_FIELD,
+  FACE_TAGGING_NO,
+  FACE_TAGGING_QUESTION,
+  FACE_TAGGING_YES,
+  faceTaggingHint,
+} from '@/lib/face-tagging-wish';
 // Shared with the keepsake ticket so the reply card and the keepsake always
 // print the SAME Nº for a given guest.
 import { stubNo } from './pahina-keepsake';
@@ -142,6 +149,15 @@ export function RsvpWidget({
    * mounted in three live places and self-hides once enrolled. The consequence,
    * stated plainly: fewer guests enrol early, so more are asked on the day —
    * which is the owner's stated intent, not an oversight.
+   *
+   * ⚖ AND WHERE IT IS OFFERED, IT IS ASKED FIRST (owner, verbatim 2026-09-29:
+   * *"only if the want tagging service. if the do not click tagging service. no
+   * selfie needed"* → *"it should only depend if they want to be tagged"*).
+   * This prop now governs ONE QUESTION — "Want to be tagged in the photos?",
+   * Yes, tag me / No thanks — and the selfie sits behind its Yes (a CSS-only
+   * `:has()` reveal, `.tag-yes-reveal`). No → nothing more is asked, and
+   * `submitRsvp` refuses any selfie that still rides along. The Event Hub card
+   * passes `false` when the couple declined face tagging for their event.
    */
   offerSelfie?: boolean;
   /**
@@ -201,6 +217,9 @@ export function RsvpWidget({
   // Meal + dietary share one reveal wrapper below — hide it outright when
   // BOTH are off, rather than rendering an empty grid with nothing inside it.
   const askMealOrDietary = askMeal || askDietary;
+  // With the plus-ones' own "Meal preference" just above, the guest's own box
+  // says whose it is (prototype rsvp_plus_ones_2026-09-29.html, frame A).
+  const bringsPlusOnes = askPlusOnes && guest.plus_one_allowed && !replyLocked;
   // The key gate found no number on record and the couple asks for one — the
   // page cannot be left without it (owner 2026-09-26: "filled first until they
   // are all answered").
@@ -264,8 +283,46 @@ export function RsvpWidget({
     .filter(Boolean)
     .join(' · ');
 
+  // "Want to be tagged in the photos?" — defaulted from the guest's stored
+  // answer, never pre-set otherwise (a default would be an answer nobody gave).
+  const taggingWish = guest.face_tagging_wanted ?? null;
+  const tagThenSelfie = (
+    <>
+      <fieldset data-rsvp-step data-face-tagging-choice className="space-y-2">
+        <legend className="mb-1 font-serif text-xl text-ink">{FACE_TAGGING_QUESTION}</legend>
+        <p className="pb-1 text-xs text-ink/60">{faceTaggingHint(faceMode, words.theOrganizer)}</p>
+        {(
+          [
+            { key: 'yes', label: FACE_TAGGING_YES, on: taggingWish === true },
+            { key: 'no', label: FACE_TAGGING_NO, on: taggingWish === false },
+          ] as const
+        ).map((option) => (
+          <label
+            key={option.key}
+            className="flex min-h-12 cursor-pointer items-center rounded-full bg-ink/[0.05] px-5 font-pahina text-base italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
+          >
+            <input
+              type="radio"
+              name={FACE_TAGGING_FIELD}
+              value={option.key}
+              defaultChecked={option.on}
+              className="sr-only"
+            />
+            {option.label}
+          </label>
+        ))}
+      </fieldset>
+      <div data-rsvp-step className="tag-yes-reveal">
+        <SelfieCapture faceMode={faceMode} />
+      </div>
+    </>
+  );
+
   return (
     <form action={action} className="rsvp-form space-y-6">
+      {/* FIRST in the form: the one-question progress sits above everything
+          the guest reads (rsvp-one-at-a-time.tsx, "THE SCREEN'S ORDER"). */}
+      {oneAtATime ? <RsvpOneAtATime /> : null}
       {flash ? (
         <p
           role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -274,13 +331,18 @@ export function RsvpWidget({
           {flash.text}
         </p>
       ) : null}
-      {oneAtATime ? <RsvpOneAtATime /> : null}
       {/* The selfie step reveals once the guest picks "attending" — pure
           CSS :has(), the same pattern as the has-[:checked] ring on the radios
           below, so this stays a server component with no client state.
           Omitted when the answer is locked: there is no radio to watch, so the
           rule is dead weight AND its selector text is the only `rsvp_status`
           left in the markup, which reads to any scan like a live control. */}
+      {/* The selfie waits for "Yes, tag me" — the same CSS-only :has() shape,
+          declared on its own because it must also work on a LOCKED card, where
+          the rule below is not rendered (there is no answer radio to watch). */}
+      {offerSelfie ? (
+        <style>{`.rsvp-form .tag-yes-reveal{display:none}.rsvp-form:has(input[name="${FACE_TAGGING_FIELD}"][value="yes"]:checked) .tag-yes-reveal{display:block}`}</style>
+      ) : null}
       {replyLocked ? null : (
         <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}`}</style>
       )}
@@ -293,7 +355,7 @@ export function RsvpWidget({
               is a card in real life, so it is the only thing still shaped like one:
               heavier paper-deep stock, letterpress "RSVP", a gild ticket stub, and
               the perforation rule. Everything else on the site is a plate. */}
-          <header className="space-y-3">
+          <header className="space-y-3" data-rsvp-context={oneAtATime ? '' : undefined}>
             <div className="flex items-start justify-between gap-4">
               <p className="pahina-eyebrow">
                 <span>Reply</span>
@@ -317,7 +379,7 @@ export function RsvpWidget({
           couple seats them later). Show the reassurance whenever they're
           attending — this is the "your place is reserved" confirmation. */}
       {guest.rsvp_status === 'attending' ? (
-        <>
+        <InvitationFacts fold={oneAtATime}>
           <p className="flex items-center gap-2.5 text-sm text-ink/80">
             <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gild" />
             {words.solemn
@@ -335,7 +397,7 @@ export function RsvpWidget({
               sub="Start free on Setnayan — no card needed."
             />
           )}
-        </>
+        </InvitationFacts>
       ) : null}
 
       {/* Three quiet outlined options; the chosen one takes the palette's DEEP
@@ -387,16 +449,18 @@ export function RsvpWidget({
           and the selfie step would vanish for exactly the guests who are
           coming — in the fortnight before the day, when getting their photos to
           find them is the whole point. Locked + attending renders it outright. */}
+      {/* ⚖ ONE QUESTION, THEN THE SELFIE ONLY AFTER ITS YES (owner 2026-09-29).
+          Two sibling steps, never nested, so one-at-a-time walks them as two
+          screens: the question, then — only once "Yes, tag me" is ticked and
+          the selfie is drawn — the selfie. "No thanks" leaves it undrawn, so
+          the walker skips it and nothing more is asked. Nobody is shown the
+          selfie without choosing it: with no answer ticked it stays hidden. */}
       {!offerSelfie ? null : replyLocked ? (
         guest.rsvp_status === 'attending' ? (
-          <div data-rsvp-step>
-            <SelfieCapture faceMode={faceMode} />
-          </div>
+          <div className="space-y-6">{tagThenSelfie}</div>
         ) : null
       ) : (
-        <div data-rsvp-step className="selfie-reveal">
-          <SelfieCapture faceMode={faceMode} />
-        </div>
+        <div className="selfie-reveal space-y-6">{tagThenSelfie}</div>
       )}
 
       {/* ── WHO ARE YOU BRINGING ────────────────────────────────────────────
@@ -420,40 +484,18 @@ export function RsvpWidget({
           touching who is allowed (a host action, done on the Guest list). */}
       {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
         <div id="plus-ones" data-rsvp-step className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
-          <span className="block text-sm font-medium text-ink">
-            Who are you bringing?
-          </span>
-          <p className="text-xs text-ink/55">
-            {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4), and
-                each seat gets its own optional name box below. */}
-            {words.theOrganizer.charAt(0).toUpperCase() + words.theOrganizer.slice(1)} saved
-            you {plusOneSeats(guest) > 1 ? `${plusOneSeats(guest)} more seats` : 'a seat for one more'}.
-            Give us {plusOneSeats(guest) > 1 ? 'their names and they each get' : 'their name and they get'} their own
-            invitation, their own QR and their own photos — you can add it later
-            if you are still asking.
-          </p>
-          {/* ⚖ Owner 2026-09-21 ("2. yes"): one name box per seat. Box i fills
-              seat i — its id rides along and the server re-checks it belongs
-              to this guest. Each is optional; a blank one leaves that seat TBA.
-              With no seats read (a failed read, or an older guest), this falls
-              back to the single box it always was. */}
-          {plusOneNameSlots(plusOneSeats(guest), guest.plus_one_seats, guest.plus_one_name).map((slot, i) => (
-            <div key={slot.seatId ?? i} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {slot.seatId ? <input type="hidden" name={`plus_one_seat_id_${i + 1}`} value={slot.seatId} /> : null}
-              <Field
-                id={`plus_one_first_name_${i + 1}`}
-                label={plusOneSeats(guest) > 1 ? `Guest ${i + 1} — first name` : 'Their first name'}
-                defaultValue={(slot.name ?? '').split(' ')[0] ?? ''}
-                placeholder="First name"
-              />
-              <Field
-                id={`plus_one_last_name_${i + 1}`}
-                label={plusOneSeats(guest) > 1 ? `Guest ${i + 1} — last name` : 'Their last name'}
-                defaultValue={(slot.name ?? '').split(' ').slice(1).join(' ')}
-                placeholder="Last name"
-              />
-            </div>
-          ))}
+          {/* One short set per seat + one "Filling in for ▾" switcher
+              (owner 2026-09-29) — its own file, so this card only mounts it. */}
+          <RsvpPlusOnes
+            count={plusOneSeats(guest)}
+            seats={guest.plus_one_seats}
+            legacyName={guest.plus_one_name}
+            theOrganizer={words.theOrganizer}
+            askMeal={askMeal}
+            askDietary={askDietary}
+            question={oneAtATime}
+            youName={oneAtATime ? null : guest.display_name || `${guest.first_name} ${guest.last_name}`.trim()}
+          />
         </div>
       ) : null}
 
@@ -491,7 +533,8 @@ export function RsvpWidget({
               <div data-rsvp-step>
               <Select
                 id="meal_preference"
-                label="Meal preference"
+                label={bringsPlusOnes ? 'Your meal preference' : 'Meal preference'}
+                question={oneAtATime}
                 defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
                 options={[
                   ['no_preference', 'No preference'],
@@ -509,7 +552,8 @@ export function RsvpWidget({
               <div data-rsvp-step>
               <Field
                 id="dietary_restrictions"
-                label="Dietary notes"
+                label={bringsPlusOnes ? 'Your dietary notes' : 'Dietary notes'}
+                question={oneAtATime}
                 defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
                 placeholder="halal · nut allergy · …"
               />
@@ -527,7 +571,7 @@ export function RsvpWidget({
       {askSong && !replyLocked ? (
         <div data-rsvp-step className={revealAll ? undefined : 'attending-reveal'}>
           <div className="space-y-4">
-            <Field id="song_title" label="A song to get you dancing (optional)" placeholder="Song" />
+            <Field id="song_title" label="A song to get you dancing (optional)" question={oneAtATime} placeholder="Song" />
             <Field id="song_artist" label="Who sings it?" placeholder="Artist" />
           </div>
         </div>
@@ -536,7 +580,7 @@ export function RsvpWidget({
       {/* ⚙ ASK TOGGLE (owner 2026-09-25): "Note to you" off. */}
       {askNote ? (
         <div data-rsvp-step className="space-y-1.5">
-          <label htmlFor="guest_note" className="block text-sm font-medium text-ink">
+          <label htmlFor="guest_note" className={questionClass(oneAtATime)}>
             A note to {words.theOrganizer} (optional)
           </label>
           {/* ⚠ `guest_note`, NOT `notes`. Until 2026-08-06 this box was bound to
@@ -602,7 +646,7 @@ export function RsvpWidget({
         </details>
       ) : (
         <div data-rsvp-step className="space-y-1.5">
-          <span className="block text-sm font-medium text-ink">
+          <span className={questionClass(oneAtATime)}>
             How {words.theOrganizer} can reach you
           </span>
           {contactFields}
@@ -780,6 +824,7 @@ function RsvpFocusForm({
   return (
     <>
       <form action={action} className="rsvp-form space-y-6" data-rsvp-focus>
+        {oneAtATime ? <RsvpOneAtATime /> : null}
         {flash ? (
           <p
             role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -790,9 +835,11 @@ function RsvpFocusForm({
             {flash.text}
           </p>
         ) : null}
-        {oneAtATime ? <RsvpOneAtATime /> : null}
         {guest.rsvp_status === 'attending' ? (
-          <div className="flex items-center gap-4 border-y border-gild/60 py-4">
+          <div
+            className="flex items-center gap-4 border-y border-gild/60 py-4"
+            data-rsvp-context={oneAtATime ? '' : undefined}
+          >
             <span
               aria-hidden
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-lg text-cream"
@@ -807,7 +854,7 @@ function RsvpFocusForm({
             </p>
           </div>
         ) : null}
-        <p className="font-serif text-xl text-ink">
+        <p className="font-serif text-xl text-ink" data-rsvp-context={oneAtATime ? '' : undefined}>
           {count === 1 ? 'One more thing' : count === 2 ? 'Two more things' : `${formatCount(count)} more things`}
         </p>
         {carried(false)}
@@ -816,6 +863,7 @@ function RsvpFocusForm({
             <Select
               id="meal_preference"
               label="Meal preference"
+              question={oneAtATime}
               defaultValue={profileDetails?.mealPreference ?? 'no_preference'}
               options={[
                 ['no_preference', 'No preference'],
@@ -834,6 +882,7 @@ function RsvpFocusForm({
             <Field
               id="contact_mobile"
               label="Mobile"
+              question={oneAtATime}
               type="tel"
               autoComplete="tel"
               required
@@ -936,7 +985,10 @@ function Field({
   type = 'text',
   autoComplete,
   required = false,
+  question = false,
 }: {
+  /** One question per screen: this label IS the screen's question (its heading). */
+  question?: boolean;
   id: string;
   label: string;
   defaultValue?: string;
@@ -952,7 +1004,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-ink">
+      <label htmlFor={id} className={questionClass(question)}>
         {label}
       </label>
       <input
@@ -974,7 +1026,9 @@ function Select({
   label,
   options,
   defaultValue,
+  question = false,
 }: {
+  question?: boolean;
   id: string;
   label: string;
   options: [string, string][];
@@ -982,7 +1036,7 @@ function Select({
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-ink">
+      <label htmlFor={id} className={questionClass(question)}>
         {label}
       </label>
       <select
@@ -1001,3 +1055,29 @@ function Select({
   );
 }
 
+
+/**
+ * A question's label. With "Ask one question at a time" on, the label IS the
+ * screen's heading — the house's one-question rule (vendor onboarding,
+ * DECISION_LOG 2026-08-10: "with one question per screen the field label
+ * already IS the title"), set like the answer screen's own "Will you be
+ * there?". Off, it is the scrolling form's small label, unchanged.
+ */
+function questionClass(question: boolean): string {
+  return question ? 'block font-serif text-xl leading-snug text-ink' : 'block text-sm font-medium text-ink';
+}
+
+/**
+ * The invitation's facts on the reply card — shown on the first screen only
+ * when the form asks one question at a time (`data-rsvp-context`), and exactly
+ * as before (a bare fragment, no wrapper) when it does not.
+ */
+function InvitationFacts({ fold, children }: { fold: boolean; children: React.ReactNode }) {
+  return fold ? (
+    <div className="space-y-6" data-rsvp-context="">
+      {children}
+    </div>
+  ) : (
+    <>{children}</>
+  );
+}

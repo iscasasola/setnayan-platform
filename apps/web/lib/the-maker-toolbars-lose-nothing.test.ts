@@ -60,9 +60,10 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // only show on stages."*) — drawn from the registration ON A STAGE only.
   ['＋ Add a scene', 'topBar', ['tool="Add"', '<AddSceneTool addScene={stageAdd} />', 'makerAddShowsOn(selection) ? addScene : null']],
   ['"● Invitation ▾" — Stages + Pages in one picker', 'topBar', ['<MakerBar']],
-  // "Both" was never a view — only a disabled row promising "the next build".
-  // It came out 2026-09-28 (App Review rejects "coming soon"); nothing it did is lost.
-  ['Desktop · Phone', 'topBar', ['label="View"', "setDevice('desktop')", "setDevice('phone')"]],
+  // "Both" was a disabled row promising "the next build" until 2026-09-28 (App
+  // Review rejects "coming soon"); it came back BUILT 2026-09-29. The items are
+  // drawn from `makerViewOptions` (Both only at 1024 px and wider).
+  ['Desktop · Phone · Both', 'topBar', ['label="View"', 'makerViewOptions(wide).map', 'setDevice(o.key)']],
   ['⊞ Snap grid (a note only)', 'topBar', ['Snap grid', 'MAKER_SNAP_NOTE']],
   ['ⓘ About the Maker', 'topBar', ['About the Maker', "setTour('again')"]],
   ['⋯ address, who can view', 'topBar', ['Your Event Hub address', 'Who can view', 'setMoreOpen(true)']],

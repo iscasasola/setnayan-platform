@@ -26,13 +26,13 @@ test('every writer of a +N makes the seats', () => {
   assert.equal((read(...G, 'inline-actions.ts').match(/syncExtraSeats\(supabase, eventId, guestId\)/g) ?? []).length, 2);
 });
 
-test('🔒 going below a NAMED plus-one is refused before anything is saved', () => {
+test('🔒 the picker asks the seat rule (a finalized list) before anything is saved', () => {
   const inline = read(...G, 'inline-actions.ts');
   const at = inline.indexOf('export async function setGuestPlusOneCount(');
   const body = inline.slice(at, inline.indexOf('\nexport async function', at + 1));
   const check = body.indexOf('checkExtraSeats(');
   const write = body.indexOf(".update({ plus_one_count: count");
-  assert.ok(check > -1 && write > check, 'the picker saves before asking whether a named plus-one would be cut');
+  assert.ok(check > -1 && write > check, 'the picker saves before asking whether the list is finalized');
 });
 
 test('the seats are seated BESIDE the guest', () => {

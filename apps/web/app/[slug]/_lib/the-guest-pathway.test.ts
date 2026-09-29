@@ -102,8 +102,10 @@ test('1 · WIRING: the event page redirects a key with missing answers to the RS
   assert.ok(redirectAt < firstGuestRender, 'the redirect now comes AFTER the guest page is built');
   assert.match(
     PAGE,
-    /if \(keyGate\.kind === 'ask' && !isEditorCanvas && !ownerCapability\) \{\s*redirect\(inviteReplyPath/,
-    'the gate must spare only the Maker canvas and the event’s own host',
+    // A plus-one is gated by `plusOneGate` instead — their own door, the
+    // minimum four (owner 2026-09-29) — never the full reply.
+    /if \(!isPlusOne && keyGate\.kind === 'ask' && !isEditorCanvas && !ownerCapability\) \{\s*redirect\(inviteReplyPath/,
+    'the gate must spare only the Maker canvas, the event’s own host, and a plus-one (who has their own door)',
   );
   assert.match(PAGE, /didntReply: keyGate\.kind === 'inside' && keyGate\.didntReply/, 'the "Didn\'t reply" mark no longer reaches the page');
   assert.match(BODY, /\{g\.didntReply \? \(/, 'the "Didn\'t reply · you\'re in" chip is not drawn');
@@ -305,7 +307,8 @@ test('3 · "Your guests": Send their invite for a named plus-one, Add their name
   );
   assert.match(html, /Ben Reyes/);
   assert.match(html, /Send their invite/);
-  assert.match(html, /Seat 3/);
+  assert.match(html, /\+2 · TBA/, 'an unnamed seat is numbered by seat — "+2 · TBA"');
+  assert.doesNotMatch(html, /Guest \d|Seat \d/, 'a seat numbered by headcount');
   assert.match(html, /href="\/ana\/invite\/reply#plus-ones"[^>]*>Add their name/);
   const none = renderToStaticMarkup(
     React.createElement(YourGuests, { guests: [], eventName: 'x', addNamesHref: '#' }),

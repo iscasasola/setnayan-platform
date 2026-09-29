@@ -438,7 +438,10 @@ test('6 · the Logo page has no header bar, and adds Text · Image · Frame', ()
 test('6 · every surface that plays the mark plays the layers', () => {
   const hero = code('app/_components/hero-monogram.tsx');
   assert.match(hero, /if \(animatedMonogram && isLayeredLogo\(bespokeSvg\)\)/, 'the hero does not play the layers');
-  assert.match(hero, /<LayeredLogoPlayer svg=\{bespokeSvg\} \/>/);
+  // Through CoupleLogo (owner 2026-09-29, "all logos should animate if
+  // animation is active") — which plays THE one player.
+  assert.match(hero, /<CoupleLogo\s+svg=\{bespokeSvg\}\s+plays\s/);
+  assert.match(code('app/_components/couple-logo.tsx'), /<LayeredLogoPlayer svg=\{svg\}/, 'CoupleLogo plays something other than the one player');
   const player = code('app/_components/studio-reveal-player.tsx');
   assert.match(player, /if \(svg && isLayeredLogo\(svg\)\) return <LayeredLogoPlayer/, 'the reveal player does not play the layers');
   // The editor's Play is the same player.

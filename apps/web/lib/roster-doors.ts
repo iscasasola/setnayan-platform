@@ -19,7 +19,9 @@
  *   (Wedding March    moved to the Maker's Details, owner 2026-09-29)
  *   Share the link    before the event (it was "Invite guests"); after it,
  *                     inviting people "is the one door that stops making sense"
- *   Arrange the room  before the event
+ *   (Arrange the room left on 2026-09-29 — owner, DECISION_LOG "THE GUEST
+ *   LIST KEEPS PEOPLE…": its home is the Maker's Details › Your event › Seat
+ *   plan, in the three parts; `/seating` lands there for the couple.)
  *   Check-in          after the event
  *   Share ▾           after the event, when there is a join link — the quick
  *                     copy survives the day, because the link still lets
@@ -34,7 +36,7 @@
 
 export type RosterDoor =
   | { kind: 'tab'; key: 'roster' | 'share'; label: string; href: string; current: boolean }
-  | { kind: 'link'; key: 'arrange' | 'checkin'; label: string; href: string }
+  | { kind: 'link'; key: 'checkin'; label: string; href: string }
   | { kind: 'shareMenu'; key: 'share-menu' };
 
 export function rosterDoors({
@@ -70,12 +72,16 @@ export function rosterDoors({
     tabs.push({ kind: 'tab', key: 'share', label: 'Share the link', href: `${base}?gview=share`, current: view === 'share' });
   }
 
+  // ⚖ NO "ARRANGE THE ROOM" (owner 2026-09-29, DECISION_LOG "THE GUEST LIST
+  // KEEPS PEOPLE…"): the seat plan's home is the Maker — Details › Your event ›
+  // Seat plan. The Guest list keeps people; arranging the room is not one of
+  // its doors any more (the seat plan still reaches every guest's name).
   const trailing: RosterDoor[] = finished
     ? // ⚖ Check-in is a PART of the guest list now (owner 2026-09-29,
       // `lib/pillar-parts.ts`): the desk renders in this page's body, so the
       // door keeps the page instead of leaving it — the Share the link rule.
       [{ kind: 'link', key: 'checkin', label: 'Check-in', href: `${base}?gview=checkin` }]
-    : [{ kind: 'link', key: 'arrange', label: 'Arrange the room', href: `/dashboard/${eventId}/seating` }];
+    : [];
   if (finished && hasJoinLink) trailing.push({ kind: 'shareMenu', key: 'share-menu' });
   // The free do-it-yourself QR sheet is NOT here any more (owner 2026-09-29,
   // DECISION_LOG "THE GUEST LIST KEEPS PEOPLE…"): the Guest list keeps people;

@@ -15,6 +15,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { STEPS, type StepKey } from '@/lib/planner';
 import {
   CONFIRMED_VENDOR_STATUSES,
@@ -636,6 +637,42 @@ export async function updateEventMatchCriteria(
   }
   if (!isHost) {
     return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };
+  }
+
+  // ── 🎂 ONE CELEBRANT'S NAME (owner 2026-09-29, DECISION_LOG "OWNER: YES TO
+  // ALL FOUR…", item 3) ──────────────────────────────────────────────────────
+  // A single-person event (a birthday, a debut, a wake) is named by its
+  // `display_name` — the very column the hero, every print and every pass
+  // already read. Until now it could only be set at creation. Details › Your
+  // event › Name posts `celebrant_name` ALONE, and this writes `display_name`
+  // and NOTHING else: never `bride_name` / `groom_name` (a birthday has no
+  // bride), and never region, feel, budget or birth data — which this
+  // action's full-form path writes whether or not they were posted. +0 actions:
+  // the same writer, one more door, the same host check above.
+  if (formData.has('celebrant_name')) {
+    const raw = formData.get('celebrant_name');
+    const name = (typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim() : '').slice(0, MAX_NAME_LEN);
+    if (!name) {
+      return { ok: false, code: 'invalid_input', message: 'Type a name first' };
+    }
+    const adminForName = createAdminClient();
+    const { data: prior } = await adminForName.from('events').select('display_name').eq('event_id', eventId).maybeSingle();
+    const { error: nameError } = await adminForName.from('events').update({ display_name: name }).eq('event_id', eventId);
+    if (nameError) {
+      return { ok: false, code: 'db_error', message: nameError.message };
+    }
+    // The name is saved; a lost audit row is logged (never silent), not a failed save.
+    const { error: auditError } = await adminForName.from('admin_audit_log').insert({
+      action: 'event_match_criteria_updated',
+      target_table: 'events',
+      target_id: eventId,
+      before_json: prior ?? null,
+      after_json: { display_name: name },
+      actor_user_id: user.id,
+    });
+    if (auditError) logQueryError('updateEventMatchCriteria.celebrantName.audit', auditError, { event_id: eventId }, 'graceful_degrade');
+    revalidatePath(`/dashboard/${eventId}`, 'layout');
+    return { ok: true };
   }
 
   // ── WHOSE MONEY IS THIS? ───────────────────────────────────────────────────

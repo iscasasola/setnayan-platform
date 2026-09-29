@@ -94,22 +94,29 @@ async function paintPrints(ownsPro: boolean, storeShell: boolean): Promise<strin
   const { renderToStaticMarkup } = await import('react-dom/server');
   // The whole-set downloads — the Details "Download the set" item since the
   // fold (2026-09-28) — carry the prints' Pro line.
-  const { PrintSetDownloads } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
+  // …and the pass cards' zip, drawn in Details › Pass beside them (\`PassCardsPanel\`).
+  const { PrintSetDownloads, PassCardsPanel } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
   const { PRINT_FORMATS } = await import('./print-pieces');
-  const { INVITE_THEME_IDS } = await import('./invite-themes');
+  const { INVITE_THEME_IDS, INVITE_THEMES } = await import('./invite-themes');
   const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
-  // A THEMED set (not Classic): since the free-prints rework, Classic prints carry no Pro line at all.
-  const theme = INVITE_THEME_IDS.find((id) => id !== 'house')!;
-  const el = React.createElement(PrintSetDownloads, {
-    input: {
-      eventId: 'E1',
-      slug: 'ana-ben',
-      theme,
-      ownsPro,
-      storeShell,
-      formats: { pass: first('pass'), invitation: first('invitation'), card: first('card') } as never,
-    },
-  });
+  // A PRO-THEMED set: since the free-prints rework, Classic prints carry no Pro
+  // line at all — and neither do Modern and Cyber Neon, free since 2026-09-29
+  // (and now FIRST in the one order, so "the first non-Classic" is no longer Pro).
+  const theme = INVITE_THEME_IDS.find((id) => INVITE_THEMES[id].tier === 'pro')!;
+  const input = {
+    eventId: 'E1',
+    slug: 'ana-ben',
+    theme,
+    ownsPro,
+    storeShell,
+    formats: { pass: first('pass'), invitation: first('invitation'), card: first('card') } as never,
+  };
+  const el = React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(PrintSetDownloads, { input }),
+    React.createElement(PassCardsPanel, { input }),
+  );
   /* ⚡ The save buttons load lazily (`launch/_components/details-lazy.tsx`): the
      first pass draws their loading slot (`data-lazy-slot`) and asks for their
      code. Render again once they have arrived, so a mark a button draws is
@@ -131,9 +138,12 @@ test('the themed prints wear the mark their owner has earned — both directions
   console.log(`[paid-mark] prints owned{${marks(owned)}} free{${marks(free)}} shell-free{${marks(shellFree)}}`);
   // 💎 Owner 2026-09-28: "let us remove padlock and just show that these tools
   // are for pro with the diamond icon" — no padlock anywhere in the Maker.
-  assert.equal(count(owned, 'data-paid-mark="unlocked"'), 1);
+  // The themed prints' mark + the pass cards' "Download all passes (.zip)"
+  // (Event Hub Pro, 2026-09-29) — ◆ for both, never a padlock.
+  assert.equal(count(owned, 'data-paid-mark="unlocked"'), 2);
   assert.equal(count(owned, 'data-paid-mark="locked"'), 0);
-  assert.equal(count(free, 'data-paid-mark="try"'), 1, 'a free couple is not shown ◆ PRO on the themed prints');
+  assert.equal(count(free, 'data-paid-mark="try"'), 2, 'a free couple is not shown ◆ PRO on the themed prints and the zip');
+  assert.match(free, /data-pass-cards-zip-pro=""/, 'a free couple’s zip is a door to the Pro unlock');
   assert.equal(count(free, 'data-paid-mark="locked"'), 0, 'a padlock in the Maker');
   assert.equal(count(free, 'data-paid-mark="unlocked"'), 0);
   assert.equal(count(shellFree, 'data-paid-mark='), 0, 'no padlock and no purchase hint in the store shell');

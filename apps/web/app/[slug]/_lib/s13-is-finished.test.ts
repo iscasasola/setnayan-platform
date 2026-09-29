@@ -119,6 +119,15 @@ const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string 
       'rest of this file stays under the guard.',
   },
   {
+    file: 'invite/_components/themes/seal-mark.tsx',
+    snippet: "from '@/app/_components/couple-logo'",
+    why:
+      'The shared logo player import (#6147, owner 2026-09-29: "all logos should animate if ' +
+      'animation is active") — the word is in the MODULE NAME and nothing is rendered from it; ' +
+      'the seal draws the event\'s own mark or initials for every event type. Keyed on the LINE, ' +
+      'so every other line of the seal stays under the scan.',
+  },
+  {
     file: 'recap/page.tsx',
     snippet: "from '@/lib/couple-website-pro'",
     why: 'The Pro-tier helper import. The rest of this file — its rendered stand-in included — stays under the scan.',

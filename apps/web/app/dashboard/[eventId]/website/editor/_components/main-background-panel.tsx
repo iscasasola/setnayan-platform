@@ -11,8 +11,19 @@ import { CALMER_CLIP_SCRIM, measureFrame, resolveAdaptiveTheme } from '@/lib/ada
 import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
-import { isHubMainFollow, type HubMainGround, type HubMainOwn } from '@/lib/hub-canvas';
+import { makerProMark, paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
+import {
+  HUB_MEDIA_MOTIONS,
+  HUB_MEDIA_MOTION_LABEL,
+  isHubMainChoice,
+  isHubMainFollow,
+  isHubMainOwn,
+  type HubMainGround,
+  type HubMainOwn,
+} from '@/lib/hub-canvas';
+import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
+import { ClipTile, PhotoTile, type SceneUpload } from './scene-background-row';
+import { PickMenu } from './pick-menu';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { uploadStill } from '@/lib/upload-still';
 
@@ -177,6 +188,9 @@ function Choice({
   disabled,
   onClick,
   data,
+  thumb = null,
+  mark = null,
+  keepEnabled = false,
 }: {
   on: boolean;
   label: string;
@@ -184,20 +198,33 @@ function Choice({
   disabled: boolean;
   onClick: () => void;
   data: Record<string, string>;
+  /** A small picture of the choice (the theme's still, the hero, the photo). */
+  thumb?: string | null;
+  /** ◆ PRO while tried, the owned mark once owned (`makerProMark`); never a lock. */
+  mark?: PaidMarkState | null;
+  /** Stay tappable while on (Upload media opens its picker again). */
+  keepEnabled?: boolean;
 }) {
   return (
     <button
       type="button"
       aria-pressed={on}
-      disabled={disabled || on}
+      disabled={disabled || (on && !keepEnabled)}
       onClick={onClick}
       {...data}
       className={`sn-press flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-sn-control ease-sn disabled:cursor-default ${
         on ? 'bg-ink text-cream' : 'bg-white text-ink hover:bg-white/80'
       }`}
     >
+      {thumb ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={thumb} alt="" className="h-9 w-12 shrink-0 rounded object-cover" />
+      ) : null}
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-semibold">{label}</span>
+        <span className="flex items-center gap-1.5 text-[13px] font-semibold">
+          {label}
+          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" tone="current" /> : null}
+        </span>
         {note ? <span className={`block text-[11.5px] ${on ? 'text-cream/80' : 'text-ink/60'}`}>{note}</span> : null}
       </span>
       {on ? <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.25} /> : null}
@@ -213,6 +240,10 @@ export function MainBackgroundPanel({
   overrideStillUrl,
   drafted,
   ownsPro,
+  themeStillUrl = null,
+  photoChoices = [],
+  videoChoice = null,
+  sceneUploads = [],
 }: {
   eventId: string;
   /** The couple's saved theme. Classic has no moving background at all. */
@@ -226,19 +257,36 @@ export function MainBackgroundPanel({
   /** The draft holds a different Main background from what guests see. */
   drafted: boolean;
   ownsPro: boolean;
+  /** The theme's own still (its public poster), for the "theme's background" choice. */
+  themeStillUrl?: string | null;
+  /** 🖼 The SAME pictures a scene's Upload media offers (`scene-background-row.tsx`). */
+  photoChoices?: readonly { ref: string; url: string }[];
+  videoChoice?: { ref: string; url: string; poster?: string | null } | null;
+  sceneUploads?: readonly SceneUpload[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
-  const [choosingOwn, setChoosingOwn] = useState(false);
+  const [choosingMedia, setChoosingMedia] = useState(false);
   const measuring = useRef<Promise<Measured | null> | null>(null);
 
   const theme = INVITE_THEMES[themeId];
-  const own: HubMainOwn | null = current && !isHubMainFollow(current) ? current : null;
+  const own: HubMainOwn | null = isHubMainOwn(current) ? current : null;
   const follow = current && isHubMainFollow(current) && current.of === hero.photoRef ? current : null;
   const tint = own?.tint ?? follow?.tint ?? null;
-  const onHero = !own && !choosingOwn;
+  /* 🖼 THE FOUR CHOICES (owner 2026-09-29, "THE MAIN BACKGROUND OFFERS EVERY
+     CHOICE"): the theme's own · same as my hero · upload media · none. Nothing
+     stored = the hero when there is a hero photo (it is being measured), else
+     the theme's own — so the theme's loop is a CHOICE, never forced. */
+  const choice: 'theme' | 'hero' | 'media' | 'none' = isHubMainChoice(current)
+    ? current.ground
+    : own || choosingMedia
+      ? 'media'
+      : follow || (!current && hero.photoRef)
+        ? 'hero'
+        : 'theme';
+  const proMark = makerProMark({ owns: ownsPro, storeShell: false });
 
   const adaptive = useMemo(() => (tint ? resolveAdaptiveTheme(theme, tint) : null), [tint, theme]);
   // What the theme would paint with the toggle ON — shown even while it is off,
@@ -279,15 +327,16 @@ export function MainBackgroundPanel({
     })();
   };
 
+  const COULD_NOT_READ =
+    'We could not read the colours of that picture, so it was not used — the words over it could not be checked. Please try another one.';
+
   const onUploaded = async (value: string | string[] | null) => {
     const ref = typeof value === 'string' ? value : null;
     if (!ref) return;
     const measured = await measuring.current;
     measuring.current = null;
     if (!measured || measured.frame.length === 0) {
-      setError(
-        'We could not read the colours of that file, so it was not used — the words over it could not be checked. Please try another one.',
-      );
+      setError(COULD_NOT_READ);
       return;
     }
     save(
@@ -298,8 +347,42 @@ export function MainBackgroundPanel({
         tint: { match: true, frame: measured.frame },
       },
       'Your background could not be saved. Please try again.',
-      () => setChoosingOwn(false),
     );
+  };
+
+  /* 🖼 ONE OF THE COUPLE'S PICTURES (or a ready-made one), picked in place —
+     its colours read straight off its URL (the media bucket and the ready-made
+     scenes answer the app's own origin), like the hero's own. A clip is read
+     through its still. */
+  const pickExisting = (media: { kind: 'photo' | 'snippet'; ref: string; stillUrl: string | null; poster?: string | null }) => {
+    if (!media.stillUrl) {
+      setError(COULD_NOT_READ);
+      return;
+    }
+    setError(null);
+    setReading(true);
+    void (async () => {
+      try {
+        const res = await fetch(media.stillUrl!, { mode: 'cors' });
+        if (!res.ok) throw new Error(String(res.status));
+        const frame = await readFrame(await res.blob());
+        if (frame.length === 0) throw new Error('empty frame');
+        save(
+          {
+            kind: media.kind,
+            media: media.ref,
+            ...(media.kind === 'snippet' && media.poster ? { poster: media.poster } : {}),
+            tint: { match: own?.tint?.match ?? true, frame },
+            ...(media.kind === 'photo' && own?.motion ? { motion: own.motion } : {}),
+          },
+          'Your background could not be saved. Please try again.',
+        );
+      } catch {
+        setError(COULD_NOT_READ);
+      } finally {
+        setReading(false);
+      }
+    })();
   };
 
   if (themeId === 'house') {
@@ -307,8 +390,8 @@ export function MainBackgroundPanel({
       <section className="rounded-md bg-white/70 px-3 py-3" data-maker-main-background="">
         <p className="text-[14px] font-semibold text-ink">Behind every scene</p>
         <p className="mt-0.5 text-[12.5px] text-ink/65">
-          Classic is plain paper by design, with nothing behind your scenes. Pick another theme and your hero photo
-          goes behind every scene — and the theme&rsquo;s colours follow it.
+          Classic is plain paper by design, with nothing behind your scenes. Pick another theme to put its background,
+          your hero or your own photo behind every scene.
         </p>
       </section>
     );
@@ -317,60 +400,146 @@ export function MainBackgroundPanel({
   const noun = own?.kind === 'snippet' ? 'video' : 'photo';
   const themeTokens = hubThemePageTokens(theme);
   const thumb = own ? overrideStillUrl : hero.photoUrl;
+  const urlOf = (ref: string | null | undefined) =>
+    ref ? (photoChoices.find((p) => p.ref === ref)?.url ?? sceneUploads.find((u) => u.ref === ref)?.url ?? null) : null;
 
   return (
     <section className="flex flex-col gap-3 rounded-md bg-white/70 px-3 py-3" data-maker-main-background="">
-      <div>
-        <p className="text-[14px] font-semibold text-ink">
-          Behind every scene
-          {/* Never in the store shell (the row is not built there), so ◆ PRO
-              while a couple without Pro tries it; the diamond once owned. */}
-          <PaidMark
-            state={ownsPro ? 'unlocked' : 'try'}
-            text={ownsPro ? 'Pro' : undefined}
-            label={paidMarkLabel(ownsPro ? 'unlocked' : 'try', 'Event Hub Pro')}
-            className="ml-2 align-middle"
-          />
-        </p>
-        <p className="mt-0.5 text-[12.5px] text-ink/65">
-          Your hero goes behind every scene, in place of {theme.name}&rsquo;s moving background, and your{' '}
-          {theme.name} buttons and accents take on its colours. Your words stay readable over it.
-          {!ownsPro ? ' Try it here — it goes live when you Apply with Event Hub Pro.' : ''}
-        </p>
-      </div>
+      <p className="text-[14px] font-semibold text-ink">Behind every scene</p>
 
       <div className="flex flex-col gap-1.5" role="group" aria-label="What is behind every scene">
         <Choice
-          on={onHero}
-          label="Same as my hero"
-          note={hero.photoRef ? 'Change it in Hero and it changes here too.' : 'Add a hero photo in Hero and it goes here too.'}
+          on={choice === 'theme'}
+          label={`${theme.name}’s own background`}
+          thumb={themeStillUrl}
           disabled={pending}
-          data={{ 'data-main-ground-source': 'hero' }}
-          onClick={() =>
-            own ? save(null, 'Your background could not be changed. Please try again.', () => setChoosingOwn(false)) : setChoosingOwn(false)
-          }
+          data={{ 'data-main-ground-source': 'theme' }}
+          onClick={() => {
+            setChoosingMedia(false);
+            save({ ground: 'theme' }, 'Your background could not be changed. Please try again.');
+          }}
         />
         <Choice
-          on={!onHero}
-          label="A different clip or photo"
-          note="Only if you want something other than your hero behind the page."
+          on={choice === 'hero'}
+          label="Same as my hero"
+          note={hero.photoRef ? undefined : 'Your hero is the written card — add a hero photo in Hero first.'}
+          thumb={hero.photoUrl}
+          mark={proMark}
+          disabled={pending || !hero.photoRef}
+          data={{ 'data-main-ground-source': 'hero' }}
+          onClick={() => {
+            setChoosingMedia(false);
+            save(null, 'Your background could not be changed. Please try again.');
+          }}
+        />
+        <Choice
+          on={choice === 'media'}
+          label="Upload media"
+          thumb={own ? overrideStillUrl : null}
+          mark={proMark}
           disabled={pending}
           data={{ 'data-main-ground-source': 'own' }}
-          onClick={() => setChoosingOwn(true)}
+          onClick={() => setChoosingMedia(true)}
+          keepEnabled
+        />
+        <Choice
+          on={choice === 'none'}
+          label="None — just the colour"
+          disabled={pending}
+          data={{ 'data-main-ground-source': 'none' }}
+          onClick={() => {
+            setChoosingMedia(false);
+            save({ ground: 'none' }, 'Your background could not be changed. Please try again.');
+          }}
         />
       </div>
-
-      {onHero ? (
-        hero.photoRef ? (
-          <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} />
-        ) : (
-          <p className="text-[12.5px] text-ink/65">
-            Your hero is the written invitation card, so {theme.name}&rsquo;s own background stays behind your scenes.
-          </p>
-        )
+      {choice === 'none' ? (
+        <p className="text-[12px] text-ink/60" data-main-ground-note="none">
+          No picture and no moving background — your Background colour is all there is.
+        </p>
       ) : null}
 
-      {(onHero && follow) || own ? (
+      {choice === 'hero' && hero.photoRef ? (
+        <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} />
+      ) : null}
+
+      {choice === 'media' ? (
+        <div className="flex flex-col gap-2" data-main-ground-media="">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Your pictures">
+            {videoChoice ? (
+              <ClipTile
+                still={urlOf(videoChoice.poster)}
+                on={own?.kind === 'snippet' && own.media === videoChoice.ref}
+                onPick={() =>
+                  pickExisting({ kind: 'snippet', ref: videoChoice.ref, stillUrl: urlOf(videoChoice.poster), poster: videoChoice.poster })
+                }
+              />
+            ) : null}
+            {sceneUploads.map((u) =>
+              u.kind === 'snippet' ? (
+                <ClipTile
+                  key={u.ref}
+                  still={u.posterUrl ?? null}
+                  on={own?.media === u.ref}
+                  onPick={() => pickExisting({ kind: 'snippet', ref: u.ref, stillUrl: u.posterUrl ?? null, poster: u.poster })}
+                />
+              ) : (
+                <PhotoTile key={u.ref} url={u.url} on={own?.media === u.ref} onPick={() => pickExisting({ kind: 'photo', ref: u.ref, stillUrl: u.url })} />
+              ),
+            )}
+            {photoChoices.map((p) => (
+              <PhotoTile key={p.ref} url={p.url} on={own?.media === p.ref} onPick={() => pickExisting({ kind: 'photo', ref: p.ref, stillUrl: p.url })} />
+            ))}
+          </div>
+          <p className="text-[12px] font-semibold text-ink/60">Ready-made</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Ready-made backgrounds" data-main-ground-library="">
+            {STD_REALISTIC_BACKGROUNDS.map((b) => (
+              <PhotoTile
+                key={b.id}
+                url={b.src}
+                label={b.label}
+                on={own?.media === b.src}
+                onPick={() => pickExisting({ kind: 'photo', ref: b.src, stillUrl: b.src })}
+              />
+            ))}
+          </div>
+          <FileUpload
+            bucket="media"
+            pathPrefix={`events/${eventId}/main-background`}
+            multiple={false}
+            maxSizeMB={100}
+            acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
+            compressImage
+            compressVideo
+            videoCompressProfile="maker"
+            videoSilent
+            maxVideoDurationS={MAKER_MAX_CLIP_SECONDS}
+            validateFile={makeMakerVideoDurationValidator()}
+            onFilePicked={onFilePicked}
+            onChange={onUploaded}
+            disabled={pending}
+            label="Upload a photo or clip"
+          />
+          {reading ? <p className="text-[12px] text-ink/60">Reading its colours…</p> : null}
+          {own?.kind === 'photo' ? (
+            <div className="flex items-center gap-2" data-main-ground-motion="">
+              <span className="w-16 text-[12.5px] text-ink/60">Motion</span>
+              <PickMenu
+                label="How the photo moves"
+                value={own.motion ?? 'still'}
+                options={HUB_MEDIA_MOTIONS.map((m) => ({ key: m, label: HUB_MEDIA_MOTION_LABEL[m] }))}
+                onPick={(k) => {
+                  const { motion: _m, ...rest } = own;
+                  save(k === 'parallax' ? { ...rest, motion: 'parallax' } : rest, 'Your choice could not be saved. Please try again.');
+                }}
+                dataAttr="data-main-ground-motion-pick"
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {(choice === 'hero' && follow) || (choice === 'media' && own) ? (
         <div className="flex items-start gap-3">
           {thumb ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -391,14 +560,14 @@ export function MainBackgroundPanel({
         </div>
       ) : null}
 
-      {adaptive && adaptive.scrim >= CALMER_CLIP_SCRIM && (onHero ? follow : own) ? (
+      {adaptive && adaptive.scrim >= CALMER_CLIP_SCRIM && (choice === 'hero' ? follow : choice === 'media' ? own : null) ? (
         <p role="status" className="rounded-md bg-ink/[0.04] px-2.5 py-2 text-[12px] text-ink/75" data-main-ground-advice="">
           Your words need a strong veil over this {own ? noun : 'photo'} to stay readable, so less of it shows. A calmer
           one — softer light, fewer bright-and-dark patches — will show more of itself.
         </p>
       ) : null}
 
-      {tint && ((onHero && follow) || own) ? (
+      {tint && ((choice === 'hero' && follow) || (choice === 'media' && own)) ? (
         <fieldset className="flex flex-col gap-1.5">
           <legend className="sr-only">Colours</legend>
           {([true, false] as const).map((value) => (
@@ -432,30 +601,6 @@ export function MainBackgroundPanel({
         </fieldset>
       ) : null}
 
-      {!onHero ? (
-        <>
-          <FileUpload
-            bucket="media"
-            pathPrefix={`events/${eventId}/main-background`}
-            multiple={false}
-            maxSizeMB={100}
-            acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
-            compressImage
-            compressVideo
-            videoCompressProfile="maker"
-            videoSilent
-            maxVideoDurationS={MAKER_MAX_CLIP_SECONDS}
-            validateFile={makeMakerVideoDurationValidator()}
-            onFilePicked={onFilePicked}
-            onChange={onUploaded}
-            disabled={pending}
-            label={own ? 'Choose a different clip or photo' : 'Choose a clip or photo'}
-            help={`A clip up to ${MAKER_MAX_CLIP_SECONDS} seconds (it plays silently, on a loop) or a photo.`}
-          />
-          {reading ? <p className="text-[12px] text-ink/60">Reading its colours…</p> : null}
-        </>
-      ) : null}
-
       {error ? (
         <p role="alert" className="rounded-md bg-terracotta/10 px-2.5 py-1.5 text-[12px] text-terracotta-700">
           {error}
@@ -464,3 +609,4 @@ export function MainBackgroundPanel({
     </section>
   );
 }
+

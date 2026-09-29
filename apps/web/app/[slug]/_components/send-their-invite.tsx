@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { buildGuestInviteMessage, type InviteEventFacts } from '@/lib/guest-invite-message';
 
 /**
  * "SEND THEIR INVITE" — the bringer hands a plus-one their OWN key (owner
@@ -17,20 +18,33 @@ export function SendTheirInvite({
   name,
   url,
   eventName,
+  facts,
   label = 'Send their invite',
 }: {
   name: string;
   url: string;
   eventName: string;
+  /** The event's words (name · type · date) — absent, the event's name alone. */
+  facts?: InviteEventFacts;
   label?: string;
 }) {
   const [said, setSaid] = useState<string | null>(null);
-  const first = name.split(/\s+/)[0] || name;
   async function send() {
-    const text = `${first}, here is your invitation to ${eventName} — it opens your own pass.`;
+    /* The SAME builder the couple's Send invite uses (owner 2026-09-29), in a
+       GUEST's voice ("the Event Hub", never "our"), and never the couple's own
+       reworded text — that is written in their voice, not this guest's. */
+    const text =
+      buildGuestInviteMessage({
+        ...(facts ?? { hostsName: eventName }),
+        guestName: name,
+        inviteUrl: url,
+        voice: 'guest',
+      }) ?? url;
     try {
       if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-        await navigator.share({ title: eventName, text, url });
+        // The link is IN the text, on its own line — passing it again as `url`
+        // makes some apps paste it twice and others drop the text.
+        await navigator.share({ text });
         return;
       }
     } catch (err) {
@@ -38,8 +52,8 @@ export function SendTheirInvite({
       if ((err as { name?: string })?.name === 'AbortError') return;
     }
     try {
-      await navigator.clipboard.writeText(url);
-      setSaid('Link copied — paste it to them');
+      await navigator.clipboard.writeText(text);
+      setSaid('Message copied — paste it to them');
     } catch {
       setSaid(url);
     }

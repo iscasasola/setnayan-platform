@@ -22,11 +22,13 @@ import {
   type RailGroup,
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
-import { hubMainGround, isHubMainFollow, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { HUB_THEMES, INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { hubMainGround, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { HeroFrameSync, MainBackgroundPanel } from './_components/main-background-panel';
+/* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
+import { HeroFrameSync, MainBackgroundPanel } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
@@ -447,7 +449,7 @@ export default async function WebsiteEditorPage({
     ref ? await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null) : null;
   const [heroPhotoUrl, mainOverrideStillUrl] = await Promise.all([
     signOrNull(draftedHero.photoRef),
-    signOrNull(mainNow && !isHubMainFollow(mainNow) ? (mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? null)) : null),
+    signOrNull(isHubMainOwn(mainNow) ? (mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? null)) : null),
   ]);
   /* 🎨 The theme being EDITED — drafted over live, since the theme is picked on
      Details into the draft (2026-09-28), the same overlay the canvas wears. */
@@ -676,9 +678,10 @@ export default async function WebsiteEditorPage({
                 label: 'Behind every scene',
                 blurb: 'Your hero behind every scene — the theme’s colours follow it.',
                 href: `${base}/launch?open=main-background`,
-                status:
-                  mainNow && !isHubMainFollow(mainNow)
-                    ? done(mainNow.kind === 'snippet' ? 'Your clip' : 'Your photo')
+                status: isHubMainOwn(mainNow)
+                  ? done(mainNow.kind === 'snippet' ? 'Your clip' : 'Your photo')
+                  : isHubMainChoice(mainNow)
+                    ? done(mainNow.ground === 'none' ? 'Just the colour' : 'Theme’s own')
                     : draftedHero.photoRef
                       ? done('Your hero')
                       : todo('Theme’s own'),
@@ -700,6 +703,13 @@ export default async function WebsiteEditorPage({
                       overrideStillUrl={mainOverrideStillUrl}
                       drafted={JSON.stringify(mainNow) !== JSON.stringify(mainLive)}
                       ownsPro={ownsPro}
+                      /* 🖼 The four choices (owner 2026-09-29): the theme's own
+                         (its public still), the hero, the SAME pictures a
+                         scene's Upload media offers, and none. */
+                      themeStillUrl={resolveThemeGround(mainThemeId, { ownColours: false })?.poster ?? null}
+                      photoChoices={photoChoices}
+                      videoChoice={videoChoice}
+                      sceneUploads={sceneUploads}
                     />
                   </>
                 ),
@@ -1200,7 +1210,9 @@ export default async function WebsiteEditorPage({
   /* The theme panel reads the registry as it stands at merge time (Phase 3
      owns it). Only id · name · ready cross — plain strings. */
   const currentTheme = currentThemeId;
-  const themes = Object.values(INVITE_THEMES).map((t) => ({
+  // 🔢 The one theme order (owner 2026-09-29: free three first, then Pro by
+  // loop size) — `HUB_THEMES`, never the object's key order.
+  const themes = HUB_THEMES.map((t) => ({
     id: t.id,
     name: t.name,
     ready: t.ready,

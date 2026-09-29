@@ -69,7 +69,11 @@ import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  /** `maker=1` — drawn inside the Maker's Details › Seat plan as its 3D view (`seating/page.tsx`). */
+  searchParams?: Promise<{ maker?: string }>;
+};
 
 /**
  * 3D seating lab — a 3D editor that renders the couple's real plan as a
@@ -80,10 +84,11 @@ type Props = { params: Promise<{ eventId: string }> };
  * lock + server actions as the 2D editor, so 3D and 2D share one plan. See the
  * as-built doc `0008_Seating_AS_BUILT_2026-06-21.md` for the data contract.
  */
-export default async function SeatingLabPage({ params }: Props) {
+export default async function SeatingLabPage({ params, searchParams }: Props) {
   if (process.env.NEXT_PUBLIC_SEATING_3D === 'false') notFound();
 
   const { eventId } = await params;
+  const inMaker = (await searchParams)?.maker === '1';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -499,7 +504,7 @@ export default async function SeatingLabPage({ params }: Props) {
   }
 
   return (
-    <section className="relative space-y-3">
+    <section className={inMaker ? 'relative h-full' : 'relative space-y-3'}>
       {/* No buy card. The 3D Plan is FREE for couples (owner 2026-09-05 —
           SEATING_3D sits in FREE_FOR_ALL_SKUS). The card that stood here sold a
           lock that was never on the door: nothing in the RPC, the route, publish
@@ -510,6 +515,7 @@ export default async function SeatingLabPage({ params }: Props) {
           fix) — no longer an overlay that crowds the Build panel. */}
       <SeatingLabLoader
         eventId={eventId}
+        inMaker={inMaker}
         ghostBooths={ghostBooths}
         ghostBoothsEnabled={ghostBoothsEnabled}
         tables={tables}

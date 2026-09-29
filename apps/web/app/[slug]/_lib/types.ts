@@ -182,6 +182,8 @@ export type EventRow = {
   std_film_venue_city?: string | null;
   // Manual STD ceremony venue (fallback when no finalized ceremony booking).
   std_film_ceremony_name?: string | null;
+  /** The ceremony's typed street address (20271252997367) — closes with venue_address (`withheldVenue`). */
+  ceremony_venue_address?: string | null;
   // Manual STD film accent hex override (null = follow Mood Board → mulberry).
   std_film_accent_hex?: string | null;
   // TRUE only for the Maria & Jose public-tour sample event. Used to suppress the
@@ -393,6 +395,9 @@ export type GuestContext =
       guestHubData: GuestHubData;
       seatMap: GuestSeatMap | null;
       rsvpFaceMode: PapicFaceMode;
+      /** May this guest be asked "Want to be tagged in the photos?" at all —
+       *  false when the couple declined face tagging (`resolveFaceTagging`). */
+      faceTaggingAskable: boolean;
       eventVendorCredits: VendorCard[];
     };
 
@@ -415,7 +420,16 @@ export type GuestRow = {
   plus_one_count?: number | null;
   /** The guest's seat rows, oldest first, with the name on each (null = still
    *  TBA) — one reply box per seat (owner 2026-09-21). Absent when not read. */
-  plus_one_seats?: { guest_id: string; name: string | null }[];
+  plus_one_seats?: {
+    guest_id: string;
+    name: string | null;
+    /** The seat's own name parts and answers, so its reply boxes open on what
+     *  is stored (owner 2026-09-29: name · meal · dietary per plus-one). */
+    first?: string | null;
+    last?: string | null;
+    meal?: string | null;
+    dietary?: string | null;
+  }[];
   /** The name the host recorded for the +1, mirrored here so the host's own
    *  list chips stop reading "+ TBA" once the guest names them. */
   plus_one_name: string | null;
@@ -436,4 +450,8 @@ export type GuestRow = {
   qr_token: string;
   photo_url: string | null;
   photo_source: 'oauth_google' | 'selfie' | 'couple_upload' | null;
+  /** The guest's own "Want to be tagged in the photos?" answer (owner
+   *  2026-09-29): null never answered · true yes · false no thanks. Optional so
+   *  a fixture or a read that predates it asks rather than assumes. */
+  face_tagging_wanted?: boolean | null;
 };

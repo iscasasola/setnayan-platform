@@ -155,15 +155,36 @@ export async function resolvePapicFaceMode(
   client: Pick<SupabaseClient, 'from'>,
   eventId: string,
 ): Promise<PapicFaceMode> {
+  return (await resolveFaceTagging(client, eventId)).mode;
+}
+
+/**
+ * The same ONE read, answering two questions: what runs on this event (`mode`),
+ * and may a guest be ASKED "Want to be tagged in the photos?" at all
+ * (`askable`, lib/face-tagging-wish.ts — owner 2026-09-29).
+ *
+ * `askable` is false when the couple declined face tagging for their event
+ * (`face_tagging_declined_by_couple`) — their "no" is the last word, so the
+ * question and the selfie behind it are not put to any guest. It is also false
+ * on a failed read: of the two ways to be wrong about asking for a face, asking
+ * is the worse one (the loaders' own rule: "a failed read must not ask for a
+ * face scan"). A guest who misses the question on one render sees it on the next.
+ *
+ * ⚠ NOT a new couple switch — the couple's existing decline, read once more.
+ */
+export async function resolveFaceTagging(
+  client: Pick<SupabaseClient, 'from'>,
+  eventId: string,
+): Promise<{ mode: PapicFaceMode; askable: boolean }> {
   try {
-    if (!eventId) return 'mode_b';
+    if (!eventId) return { mode: 'mode_b', askable: false };
     const { data, error } = await client
       .from('events')
       .select('papic_face_mode, event_type, face_tagging_declined_by_couple')
       .eq('event_id', eventId)
       .maybeSingle();
     if (error) console.error('[supabase-error] lib/papic-face-mode.ts · from:events.select', error);
-    if (error || !data) return 'mode_b';
+    if (error || !data) return { mode: 'mode_b', askable: false };
     const row = data as {
       papic_face_mode?: string | null;
       event_type?: string | null;
@@ -172,12 +193,15 @@ export async function resolvePapicFaceMode(
     // The couple's decline is passed here and NOWHERE ELSE derived — this is the
     // one function that answers "what actually runs on this event", so every
     // caller of it inherits the couple's choice without having to know about it.
-    return resolveFaceMode(
-      row.papic_face_mode,
-      row.event_type,
-      row.face_tagging_declined_by_couple,
-    );
+    return {
+      mode: resolveFaceMode(
+        row.papic_face_mode,
+        row.event_type,
+        row.face_tagging_declined_by_couple,
+      ),
+      askable: row.face_tagging_declined_by_couple !== true,
+    };
   } catch {
-    return 'mode_b';
+    return { mode: 'mode_b', askable: false };
   }
 }

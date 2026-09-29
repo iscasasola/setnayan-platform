@@ -42,6 +42,8 @@ const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
 
 type Props = {
   eventId: string;
+  /** Drawn inside the Maker's Details › Seat plan (its 3D view), beside the 2D editor. */
+  inMaker?: boolean;
   tables: Lab3DTable[];
   floor: Lab3DFloor;
   guests: Lab3DGuest[];

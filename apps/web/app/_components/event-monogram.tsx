@@ -8,6 +8,7 @@ import {
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { CoupleLogo } from '@/app/_components/couple-logo';
 
 /**
  * Circular monogram badge — iteration 0000 § event switcher (locked 2026-05-15).
@@ -60,6 +61,8 @@ export function EventMonogram({
   size = 'md',
   shape = 'circle',
   className,
+  plays = false,
+  place = 'event-chip',
 }: {
   event: Event;
   size?: Size;
@@ -69,6 +72,12 @@ export function EventMonogram({
    *  every other mount keeps the circular badge unchanged. */
   shape?: 'circle' | 'square';
   className?: string;
+  /** The logo moves and the animation is on (`logoPlaysFor`) — the chip plays
+   *  it (owner 2026-09-29: "all logos should animate if animation is active").
+   *  Absent → the still chip, exactly as before. */
+  plays?: boolean;
+  /** Which surface — a moving logo plays once per place (`CoupleLogo`). */
+  place?: string;
 }) {
   const { text, color } = resolveMonogram({
     display_name: event.display_name,
@@ -111,12 +120,20 @@ export function EventMonogram({
           .trim()}
         title={text}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={bespokeSvgToDataUri(customSvg)}
-          alt=""
-          className="h-full w-full object-contain p-0.5"
-          draggable={false}
+        <CoupleLogo
+          svg={customSvg}
+          plays={plays}
+          place={place}
+          className="flex h-full w-full p-0.5"
+          still={
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={bespokeSvgToDataUri(customSvg)}
+              alt=""
+              className="h-full w-full object-contain p-0.5"
+              draggable={false}
+            />
+          }
         />
       </span>
     );

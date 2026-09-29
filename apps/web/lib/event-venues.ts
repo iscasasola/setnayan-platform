@@ -202,6 +202,9 @@ export type EventVenueColumns = {
   venue_longitude?: number | string | null;
   std_film_ceremony_name?: string | null;
   std_film_venue_name?: string | null;
+  /** The ceremony's typed street address (owner 2026-09-29, "yes to all 4";
+   *  migration 20271252997367). Used only when no ceremony is booked. */
+  ceremony_venue_address?: string | null;
 };
 
 const norm = (s: string | null) =>
@@ -237,8 +240,16 @@ export function sameVenue(
 export function resolveEventVenues(bookings: VenueBookings, event: EventVenueColumns): EventVenue[] {
   const ceremony: (EventVenue & { placeKey?: string | null }) | null = bookings.ceremony
     ? { role: 'ceremony', ...bookings.ceremony }
-    : clean(event.std_film_ceremony_name)
-      ? { role: 'ceremony', name: clean(event.std_film_ceremony_name), address: null, latitude: null, longitude: null }
+    : clean(event.std_film_ceremony_name) || clean(event.ceremony_venue_address)
+      ? {
+          role: 'ceremony',
+          name: clean(event.std_film_ceremony_name),
+          // 🏠 The couple's typed street address (Details › Venues) — maps and
+          // directions search it with the name (`venueSearchQuery`).
+          address: clean(event.ceremony_venue_address),
+          latitude: null,
+          longitude: null,
+        }
       : null;
 
   let reception: (EventVenue & { placeKey?: string | null }) | null = null;

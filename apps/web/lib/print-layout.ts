@@ -21,6 +21,8 @@
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import type { FlatMark } from '@/lib/print-mark';
 import { roleLabel, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
+import { guestPassFacts } from '@/lib/guest-pass';
+import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import {
   BLEED_MM,
   PRINT_FONT_FILES,
@@ -36,6 +38,7 @@ import {
   menuHasDishes,
   parentLine,
   printableText,
+  storyHasMoments,
   type DieCut,
   type MenuMoment,
   type PrintDetails,
@@ -45,6 +48,7 @@ import {
   type PrintMode,
   type PrintPieceKey,
   type PrintSetKey,
+  type PrintStoryChapter,
 } from '@/lib/print-pieces';
 
 // ─── The drawing vocabulary ─────────────────────────────────────────────────
@@ -117,12 +121,34 @@ export type PrintSetData = {
   hubAddress: string | null;
   /** The Menu card's moments, in order (the couple's own, else their caterer's package lines). */
   menu?: MenuMoment[];
+  /** The Our Story poster's chapters — the Love Story, in reading order (`printStoryChapters`, lib/love-story-moments.ts). */
+  story?: PrintStoryChapter[];
   /** Is the theme's still (or the couple's hero) in `images.still`? */
   hasStill: boolean;
   hasEventQr: boolean;
+  /** The event type's own word, capitalised ("Wedding", "Debut") — the pass card's when-line. */
+  eventWord?: string;
+  /**
+   * "As of September 29, 2026" — stamped on a PRINTED pass card only (owner
+   * 2026-09-29, via the controller: tickets are drawn live from today's data,
+   * and paper says which day that was). A saved PNG carries none.
+   */
+  asOf?: string | null;
 };
 
-export type PrintPass = { name: string; seat: string | null; seatNumber?: string | null; qrRef: string | null; serial: string | null };
+export type PrintPass = {
+  name: string;
+  seat: string | null;
+  seatNumber?: string | null;
+  qrRef: string | null;
+  serial: string | null;
+  /** When the doors open, already formatted — the phone card's ARRIVE. Null/absent = unknown, omitted. */
+  arrive?: string | null;
+  /** A NAMED, confirmed companion — never a mere allowance (lib/guest-pass.ts). */
+  bringing?: string | null;
+  /** How many NAMED companions who are coming — the card's "and 1 guest". 0/absent = none. */
+  party?: number | null;
+};
 
 // ─── Fonts ──────────────────────────────────────────────────────────────────
 
@@ -143,29 +169,57 @@ function hasGlyph(font: OtFont, ch: string): boolean {
 
 type Run = { font: OtFont; ch: string; adv: number };
 
+/**
+ * ⚡ ONE LOOKUP PER CHARACTER, NOT PER DRAW. Which face draws a character, and
+ * its advance at 1 pt, are asked of opentype once per (face, character) and
+ * kept: an advance scales linearly with the size (opentype multiplies the
+ * glyph's advance by size / unitsPerEm), so any size is a multiplication.
+ * Measured 2026-09-29: the Our Story poster re-wraps a long Love Story at every
+ * type size it tries, and asking opentype per character per try took 26 s for
+ * 28 moments.
+ */
+const glyphCache = new Map<PrintFontKey, Map<string, { font: OtFont; unit: number } | null>>();
+function glyphFor(key: PrintFontKey, ch: string): { font: OtFont; unit: number } | null {
+  let m = glyphCache.get(key);
+  if (!m) {
+    m = new Map();
+    glyphCache.set(key, m);
+  }
+  let hit = m.get(ch);
+  if (hit === undefined) {
+    const primary = printFont(key);
+    const fallback = printFont('cardo');
+    const font = ch === ' ' || hasGlyph(primary, ch) ? primary : hasGlyph(fallback, ch) ? fallback : null;
+    hit = font ? { font, unit: font.getAdvanceWidth(ch, 1) } : null;
+    m.set(ch, hit);
+  }
+  return hit;
+}
+
 /** Characters → glyph runs, falling back to Cardo, then dropping a character
  *  no bundled face can draw (a `.notdef` box on a wedding invitation is worse
  *  than a missing ornament). */
 function runsFor(text: string, key: PrintFontKey, size: number, tracking: number): Run[] {
-  const primary = printFont(key);
-  const fallback = printFont('cardo');
   const out: Run[] = [];
   for (const ch of [...text]) {
-    if (ch === ' ') {
-      out.push({ font: primary, ch, adv: primary.getAdvanceWidth(' ', size) + tracking });
-      continue;
-    }
-    const font = hasGlyph(primary, ch) ? primary : hasGlyph(fallback, ch) ? fallback : null;
-    if (!font) continue;
-    out.push({ font, ch, adv: font.getAdvanceWidth(ch, size) + tracking });
+    const g = glyphFor(key, ch);
+    if (!g) continue;
+    out.push({ font: g.font, ch, adv: g.unit * size + tracking });
   }
   return out;
 }
 
 export function measure(text: string, key: PrintFontKey, size: number, tracking = 0): number {
-  const runs = runsFor(text, key, size, tracking);
-  const total = runs.reduce((a, r) => a + r.adv, 0);
-  return runs.length ? total - tracking : 0;
+  // The runs' advances summed without building them (`runsFor`'s arithmetic).
+  let total = 0;
+  let n = 0;
+  for (const ch of text) {
+    const g = glyphFor(key, ch);
+    if (!g) continue;
+    total += g.unit * size + tracking;
+    n += 1;
+  }
+  return n ? total - tracking : 0;
 }
 
 type TextOpts = {
@@ -1283,6 +1337,238 @@ function layoutMenu(ctx: Ctx): PrintDoc[] {
   });
 }
 
+// ─── The Our Story poster ────────────────────────────────────────────────────
+
+type ColumnPlacement = { i: number; y: number; sheet: number; col: number };
+
+/**
+ * Rows down COLUMNS, then onto a further sheet — the poster's own flow (the
+ * cards flow one column, `flowPages`). The poster is cut straight (`rect`), so
+ * only the floor bounds a row, never the die. `colFloor` caps the first sheet's
+ * columns lower than the sheet allows, to balance two columns.
+ */
+function flowColumns(
+  rows: readonly FlowRow[],
+  cols: number,
+  top: (sheet: number) => number,
+  floor: (sheet: number) => number,
+  colFloor = Infinity,
+): { placed: ColumnPlacement[]; sheets: number; fits: boolean; bottom: number } {
+  const placed: ColumnPlacement[] = [];
+  let sheet = 0;
+  let col = 0;
+  let y = top(0);
+  let inCol = 0;
+  let fits = true;
+  let bottom = y;
+  const fl = () => Math.min(floor(sheet), sheet === 0 ? colFloor : Infinity);
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i]!;
+    const next = rows[i + 1];
+    const need = (base: number) => base + r.below <= fl() && (!r.keepWithNext || !next || base + r.after + next.adv + next.below <= fl());
+    let base = y + r.adv;
+    if (!need(base) && inCol > 0) {
+      col += 1;
+      if (col === cols) {
+        col = 0;
+        sheet += 1;
+      }
+      y = top(sheet);
+      inCol = 0;
+      base = y + r.adv;
+    }
+    if (base + r.below > fl() + 0.01) fits = false;
+    placed.push({ i, y: base, sheet, col });
+    bottom = Math.max(bottom, sheet === 0 ? base + r.below : bottom);
+    y = base + r.after;
+    inCol += 1;
+  }
+  return { placed, sheets: sheet + 1, fits, bottom };
+}
+
+/**
+ * THE OUR STORY POSTER — owner 2026-09-26, verbatim: *"is it possible to
+ * generate a A3 printable of their stories? so they can print it and frame
+ * it?"* The couple's Love Story on an A3 sheet, in their theme: the theme's
+ * still where it puts one, their logo, "Our story", their names and date, then
+ * every chapter — its name, and each moment's date, words and place.
+ *
+ * MEASURED, LIKE EVERY PRINT. A short story sits in one column; a longer one in
+ * two balanced columns; the type comes down toward `PRINT_MIN_BODY_PT` before a
+ * story continues on a second sheet — no moment is shortened or dropped, and
+ * nothing passes the safe line (`every-print-fits.test.ts`). The Event Hub QR
+ * rides its corner, as on every card.
+ *
+ * With no story the poster is NEVER printed (the route refuses it and leaves it
+ * out of the set); the Maker's picture of it says where the story comes from.
+ */
+function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
+  const { look, data } = ctx;
+  const front = sheet('story-poster', ctx);
+  const { w, h, bleed } = front;
+  const placed = still(front.ops, look, data, w, h, bleed, 0.3);
+  const left = placed.left;
+  const cx = left + (w - left) / 2;
+  const inner = w - left - 140;
+  const ops = front.ops;
+  let y = placed.top > 0 ? placed.top + 6 : 150;
+  medallion(ops, look, data, cx, y, 40, placed.top > 0);
+  y += 82;
+  eyebrow(ops, look, 'Our story', cx, y, 14);
+  y += 58;
+  y = lockup(ops, look, data, cx, y, 46, ctx.foil, inner);
+  y += 22;
+  rule(ops, cx, y, 90, look.accent);
+  y += 30;
+  if (data.dateLabel) {
+    text(ops, data.dateLabel, cx, y, { font: look.bodyFont, size: 13, color: look.ink, align: 'center', caps: true, tracking: 0.14, maxWidth: inner });
+    y += 20;
+  }
+  const bodyTop = y + 34;
+
+  const chapters = (data.story ?? []).filter((c) => c.moments.length > 0);
+  if (!storyHasMoments(chapters)) {
+    let py = bodyTop + 40;
+    for (const line of wrap('Your Love Story prints here — every chapter, with each moment’s date, words and place. Add it in the Maker’s Love Story.', look.bodyFont, 14, Math.min(520, inner))) {
+      text(ops, line, cx, py, { font: look.bodyFont, size: 14, color: look.muted, align: 'center' });
+      py += 20;
+    }
+    if (data.hasEventQr) cornerQr(front);
+    safeGuide(front, ctx);
+    return [front];
+  }
+
+  // Rows of one column, centred on `ccx` — flowed at 0 (a row's height does
+  // not depend on where it stands), drawn at their column's centre.
+  const build = (f: number, colW: number, ccx = 0): FlowRow[] => {
+    const rows: FlowRow[] = [];
+    const head = Math.max(PRINT_MIN_BODY_PT, 11 * f);
+    const when = Math.max(PRINT_MIN_BODY_PT, 9.5 * f);
+    const body = 13 * f;
+    const where = Math.max(PRINT_MIN_BODY_PT, 10.5 * f);
+    chapters.forEach((c, ci) => {
+      rows.push(headRow(look, c.label, ccx, colW, (ci === 0 ? 10 : 34) * f, 6 * f, head));
+      c.moments.forEach((m, mi) => {
+        const gap = (mi === 0 ? 8 : 20) * f;
+        if (m.when) {
+          rows.push({
+            adv: gap + when,
+            after: 0,
+            top: when * ASC_EM,
+            below: when * DESC_EM,
+            x0: ccx - colW / 2,
+            x1: ccx + colW / 2,
+            keepWithNext: true,
+            draw: (o, yy) => {
+              text(o, m.when, ccx, yy, { font: look.bodyFont, size: when, color: look.accent, align: 'center', caps: true, tracking: 0.2, maxWidth: colW });
+            },
+          });
+        }
+        if (m.line) {
+          const lines = paraRows(look, m.line, body, look.ink, ccx, colW, body * 1.45, m.when ? 3 * f : gap);
+          // A place never starts a column on its own — it moves with the words it belongs to.
+          if (m.place && lines.length) lines[lines.length - 1] = { ...lines[lines.length - 1]!, keepWithNext: true };
+          rows.push(...lines);
+        }
+        if (m.place) rows.push(...paraRows(look, m.place, where, look.muted, ccx, colW, where * 1.5, m.line ? 2 * f : m.when ? 3 * f : gap));
+      });
+    });
+    return rows;
+  };
+
+  const pad = SAFE_PT + 42;
+  const avail = w - left - 2 * pad;
+  const gutter = 44;
+  const floor = (s: number) => h - SAFE_PT - (s === 0 ? 34 : 24);
+  // Where a further sheet's words start — asked once (it draws the head to find out).
+  const backTop = continuedHead(sheet('story-poster', ctx), ctx, 'Our Story') + 10;
+  const top = (s: number) => (s === 0 ? bodyTop : backTop);
+  const fMin = PRINT_MIN_BODY_PT / 9.5;
+
+  // One narrow column while the story is short and the type stays large; then
+  // two (where the sheet is wide enough — beside a left-hand still it is not);
+  // then, at the smallest type, as many sheets as the story needs.
+  type Plan = { cols: number; colW: number; f: number; flow: ReturnType<typeof flowColumns> };
+  const twoCols = avail >= 600;
+  const tries: Array<{ cols: number; colW: number; fLow: number }> = [
+    { cols: 1, colW: Math.min(560, avail), fLow: twoCols ? 0.84 : fMin },
+    ...(twoCols ? [{ cols: 2, colW: (avail - gutter) / 2, fLow: fMin }] : []),
+  ];
+  // The largest type (to 1 %) at which the story takes `sheets` sheets or
+  // fewer — found by halving, not by stepping: a long story is re-wrapped at
+  // every size tried, and stepping 2 % at a time tried twenty sizes per column.
+  const largest = (t: (typeof tries)[number], sheets: number): Plan | null => {
+    const at = (f: number) => ({ cols: t.cols, colW: t.colW, f, flow: flowColumns(build(f, t.colW), t.cols, top, floor) });
+    const ok = (p: Plan) => p.flow.fits && p.flow.sheets <= sheets;
+    const hiPlan = at(1);
+    if (ok(hiPlan)) return hiPlan;
+    let lo = at(t.fLow);
+    if (!ok(lo)) return null;
+    let hi = 1;
+    while (hi - lo.f > 0.01) {
+      const mid = at(Math.round(((lo.f + hi) / 2) * 1000) / 1000);
+      if (ok(mid)) lo = mid;
+      else hi = mid.f;
+    }
+    return lo;
+  };
+  let plan: Plan | null = null;
+  for (const t of tries) {
+    plan = largest(t, 1);
+    if (plan) break;
+  }
+  if (!plan) {
+    // Too long for one sheet even at the smallest type: the fewest sheets it
+    // takes there, at the largest type that still takes no more.
+    const t = tries[tries.length - 1]!;
+    const floorFlow = flowColumns(build(fMin, t.colW), t.cols, top, floor);
+    plan = largest(t, floorFlow.sheets) ?? { cols: t.cols, colW: t.colW, f: fMin, flow: floorFlow };
+  }
+  // Two columns on one sheet end TOGETHER: the lowest column floor that still fits.
+  if (plan.cols === 2 && plan.flow.sheets === 1) {
+    const rows = build(plan.f, plan.colW);
+    let lo = bodyTop;
+    let hi = floor(0);
+    for (let k = 0; k < 14; k += 1) {
+      const mid = (lo + hi) / 2;
+      const flow = flowColumns(rows, 2, top, floor, mid);
+      if (flow.fits && flow.sheets === 1) hi = mid;
+      else lo = mid;
+    }
+    plan = { ...plan, flow: flowColumns(rows, 2, top, floor, hi) };
+  }
+
+  const centres =
+    plan.cols === 1 ? [cx] : [left + pad + plan.colW / 2, left + pad + plan.colW + gutter + plan.colW / 2];
+  const rows = build(plan.f, plan.colW);
+  const colRows = centres.map((c) => build(plan!.f, plan!.colW, c));
+  // A further sheet carries no left-hand still, so one column sits in ITS middle.
+  const backRows = plan.cols === 1 && left > 0 ? [build(plan.f, plan.colW, w / 2)] : colRows;
+  // A short story in one column sits in the middle of the room it has, not under the header.
+  const lift = plan.cols === 1 && plan.flow.sheets === 1 ? Math.min(120, Math.max(0, (floor(0) - plan.flow.bottom) / 2)) : 0;
+  const docs: PrintDoc[] = [front];
+  for (let s = 1; s < plan.flow.sheets; s += 1) {
+    const doc = sheet('story-poster', ctx);
+    if (look.still === 'full' && data.hasStill) still(doc.ops, look, data, doc.w, doc.h, doc.bleed);
+    continuedHead(doc, ctx, 'Our Story');
+    docs.push(doc);
+  }
+  for (const p of plan.flow.placed) (p.sheet === 0 ? colRows : backRows)[p.col]![p.i]!.draw(docs[p.sheet]!.ops, p.y + (p.sheet === 0 ? lift : 0));
+  // Two columns: a hairline down the gutter, from the first line to the longer column's foot.
+  if (plan.cols === 2) {
+    docs.forEach((doc, s) => {
+      const mine = plan!.flow.placed.filter((p) => p.sheet === s);
+      if (!mine.some((p) => p.col === 1)) return;
+      const y0 = Math.min(...mine.map((p) => p.y - rows[p.i]!.top));
+      const y1 = Math.max(...mine.map((p) => p.y + rows[p.i]!.below));
+      doc.ops.push({ t: 'rect', x: left + pad + plan!.colW + gutter / 2 - 0.25, y: y0, w: 0.5, h: y1 - y0, fill: look.accent, opacity: 0.45 });
+    });
+  }
+  if (data.hasEventQr) cornerQr(front);
+  for (const doc of docs) safeGuide(doc, ctx);
+  return docs;
+}
+
 /**
  * THE PASS, in any of its formats (`PRINT_FORMATS`): a calling card, a CR80 ID
  * card, a train ticket (landscape, tear line) or a boarding pass (a stub, and
@@ -1290,6 +1576,9 @@ function layoutMenu(ctx: Ctx): PrintDoc[] {
  * from the sheet's own height — so a format is laid out, never stretched.
  */
 function layoutPass(ctx: Ctx, pass: PrintPass, fmt: PrintFormat = PRINT_FORMATS['calling-card']): PrintDoc {
+  // The phone card is its own composition (portrait, the QR the hero) — the
+  // same one the 1080 × 1440 picture a guest saves is drawn from.
+  if (fmt.style === 'phone') return PASS_CARD_LAYOUTS[ctx.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](ctx, pass, fmt);
   const { look, data } = ctx;
   const doc = sheet('pass', ctx, { w: fmt.wMm * PT_PER_MM, h: fmt.hMm * PT_PER_MM });
   const { w, h, bleed, ops } = doc;
@@ -1402,6 +1691,314 @@ function layoutPass(ctx: Ctx, pass: PrintPass, fmt: PrintFormat = PRINT_FORMATS[
   }
   eyebrow(ops, look, 'Scan at the door', sx, footY, 4.8 * k);
   return doc;
+}
+
+/**
+ * THE PASS CARD — 3 : 4 portrait, the picture a guest saves to Photos and the
+ * `phone-card` print format, ONE composition per look (owner 2026-09-29; the
+ * three looks are `Setnayan/prototypes/pass_card_designs_2026-09-29.html`,
+ * approved "event pass for digital downloads approved"):
+ *
+ *   A · classic — couple and date on top, the guest's name above a large code,
+ *                 Table · Arrive in one row beneath;
+ *   B · ticket  — a portrait ticket: whose day and who this is for above a
+ *                 perforation (real notches in the die), the code with Table
+ *                 and Arrive on the tear-off stub;
+ *   C · poster  — the couple's cover photo (or the theme's colour band) across
+ *                 the top third with the name over it, the code in a white
+ *                 rounded tile with Table and Arrive inside it.
+ *
+ * THE FACTS AND THEIR OMIT RULE ARE THE PROTOTYPE'S: couple mark · couple ·
+ * "<Event> · <date>" · the guest's name, biggest · "and 1 guest" only for a
+ * NAMED, confirmed companion · Table and Arrive only when they exist (never
+ * "Table TBA") · the code, always black on white · "Scans once at the door" ·
+ * a small Setnayan mark on free events only.
+ *
+ * Drawn in the prototype's own units (a 360 × 480 card) scaled by `u`, so the
+ * picture and the paper are one drawing at any size.
+ */
+/** One line that FITS: set at the size that meets `maxWidth`, rather than the
+ *  0.55 floor `text` stops shrinking at (a long couple in caps ran past the
+ *  safe line — every-print-fits.test.ts). */
+function fitLine(ops: PrintOp[], raw: string, x: number, y: number, o: TextOpts): number {
+  if (o.maxWidth) {
+    let t = printableText(raw);
+    if (o.caps) t = t.toUpperCase();
+    const width = measure(t, o.font, o.size, (o.tracking ?? 0) * o.size);
+    if (width > o.maxWidth) o = { ...o, size: o.size * (o.maxWidth / width) * 0.995 };
+  }
+  return text(ops, raw, x, y, o);
+}
+
+type CardFacts = { label: string; value: string }[];
+
+/** The facts a pass card prints, in order — Table and Arrive, each only when it exists. */
+export function passCardFacts(pass: PrintPass): CardFacts {
+  return guestPassFacts({
+    displayName: pass.name,
+    // Under a "TABLE" label the value is the table's own name ("7", "VIP").
+    tableLabel: pass.seat ? pass.seat.replace(/^Table\s+/i, '') : null,
+    arriveLabel: pass.arrive ?? null,
+  }).filter((f) => f.label === 'Table' || f.label === 'Arrive');
+}
+
+/** "and 1 guest" / "and 3 guests" — only for companions who are NAMED and coming. */
+export function partyLine(n: number | null | undefined): string | null {
+  return n && n > 0 ? `and ${n} ${n === 1 ? 'guest' : 'guests'}` : null;
+}
+
+/** "Wedding · Friday, December 18, 2026" (the event's own word, the long date). */
+function cardWhen(data: PrintSetData, withWord: boolean): string | null {
+  const date = data.dateLabel ? data.dateLabel.replace(' · ', ', ') : null;
+  const fromEyebrow = /^the (.+) of$/i.exec(data.eyebrow.trim())?.[1] ?? null;
+  const word = data.eventWord ?? (fromEyebrow ? fromEyebrow.charAt(0).toUpperCase() + fromEyebrow.slice(1) : null);
+  if (!withWord) return date;
+  return [word, date].filter(Boolean).join(' · ') || null;
+}
+
+/**
+ * The code on its white tile — ALWAYS black on white, whatever the theme (it
+ * must scan). The rounded tile is two rects and four corner discs, not a
+ * path: a filled PATH next to a code is what the fit guard reads as ink
+ * touching it (`every-print-fits.test.ts`); a plate is not ink.
+ */
+function codeTile(ops: PrintOp[], pass: PrintPass, x: number, y: number, size: number, pad: number, radius: number, extraH = 0) {
+  const w = size + pad * 2;
+  const h = size + pad * 2 + extraH;
+  const r = Math.min(radius, w / 2, h / 2);
+  ops.push({ t: 'rect', x: x + r, y, w: w - r * 2, h, fill: '#ffffff' });
+  ops.push({ t: 'rect', x, y: y + r, w, h: h - r * 2, fill: '#ffffff' });
+  for (const [cx, cy] of [[x + r, y + r], [x + w - r, y + r], [x + r, y + h - r], [x + w - r, y + h - r]] as const) {
+    ops.push({ t: 'circle', cx, cy, r, fill: '#ffffff' });
+  }
+  if (pass.qrRef) ops.push({ t: 'image', ref: pass.qrRef, x: x + pad, y: y + pad, w: size, h: size });
+}
+
+/** The couple's mark in a ring — their logo, else their initials ("IC"). */
+function cardMark(ops: PrintOp[], look: PrintLook, data: PrintSetData, cx: number, cy: number, r: number, onPhoto: boolean) {
+  if (data.monogram) {
+    drawMark(ops, look, data.monogram, cx, cy, r * 0.78);
+    return;
+  }
+  const ring = onPhoto ? '#ffffff' : look.accent;
+  ops.push({ t: 'circle', cx, cy, r, stroke: ring, sw: Math.max(0.5, r / 16), opacity: onPhoto ? 0.8 : 1 });
+  const initials = data.initials.replace(/\s*&\s*/g, '');
+  fitLine(ops, initials, cx, cy + r * 0.3, { font: look.headFont, size: r * 0.8, color: onPhoto ? '#ffffff' : look.accent, align: 'center', caps: true, tracking: 0.06, maxWidth: r * 1.6 });
+}
+
+/** "SCANS ONCE AT THE DOOR" · and, on a free event, "● SETNAYAN". On paper, "As of <date>" above it. */
+function cardFoot(ops: PrintOp[], look: PrintLook, data: PrintSetData, u: number, x0: number, x1: number, y: number, mode: PrintMode) {
+  if (mode === 'print' && data.asOf) {
+    fitLine(ops, data.asOf, (x0 + x1) / 2, y - 13 * u, { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 7 * u), color: look.muted, align: 'center', maxWidth: x1 - x0, opacity: 0.8 });
+  }
+  const o = { font: look.bodyFont, size: 9.5 * u, color: look.muted, caps: true, tracking: 0.16 } as const;
+  if (data.details.setnayanMark) {
+    fitLine(ops, 'Scans once at the door', x0, y, { ...o, align: 'left', maxWidth: (x1 - x0) * 0.66 });
+    const w = fitLine(ops, 'Setnayan', x1, y, { ...o, align: 'right', tracking: 0.2 });
+    ops.push({ t: 'circle', cx: x1 - w - 5 * u, cy: y - 3.2 * u, r: 3 * u, fill: look.accent });
+  } else {
+    fitLine(ops, 'Scans once at the door', (x0 + x1) / 2, y, { ...o, align: 'center', maxWidth: x1 - x0 });
+  }
+}
+
+/** Label over value, centred on `cx`. */
+function cardFact(ops: PrintOp[], look: PrintLook, f: { label: string; value: string }, cx: number, y: number, u: number, size: number, maxWidth: number, ink = look.ink, muted = look.muted) {
+  fitLine(ops, f.label, cx, y, { font: look.bodyFont, size: 9.5 * u, color: muted, align: 'center', caps: true, tracking: 0.18 });
+  fitLine(ops, f.value, cx, y + (size + 3) * u, { font: look.headFont, size: size * u, color: ink, align: 'center', maxWidth });
+}
+
+function cardSheet(ctx: Ctx, fmt: PrintFormat): { doc: PrintDoc; u: number } {
+  const doc = sheet('pass', ctx, { w: fmt.wMm * PT_PER_MM, h: fmt.hMm * PT_PER_MM });
+  return { doc, u: doc.w / 360 };
+}
+
+function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): PrintDoc {
+  const { look, data } = ctx;
+  const { doc, u } = cardSheet(ctx, fmt);
+  const { ops, w, h } = doc;
+  const X = (v: number) => v * u;
+  const pad = Math.max(X(22), SAFE_PT + 2);
+  const foil: PrintLayer | undefined = ctx.foil ? 'foil' : undefined;
+
+  // head — mark, couple beside it; the when-line under
+  cardMark(ops, look, data, pad + X(22), pad + X(22), X(22), false);
+  const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
+  fitLine(ops, couple, pad + X(56), pad + X(30), { font: look.headFont, size: X(24), color: look.heading, align: 'left', caps: look.capsNames, maxWidth: w - pad * 2 - X(56), layer: foil });
+  const when = cardWhen(data, true);
+  if (when) fitLine(ops, when, pad, pad + X(66), { font: look.bodyFont, size: X(11), color: look.accent, align: 'left', caps: true, tracking: 0.14, maxWidth: w - pad * 2 });
+
+  // foot — a rule, then the door line
+  const footY = h - Math.max(X(18), SAFE_PT) - X(2);
+  const ruleY = footY - X(22);
+  ops.push({ t: 'rect', x: pad, y: ruleY, w: w - pad * 2, h: Math.max(0.4, X(1)), fill: look.ink, opacity: 0.16 });
+  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
+
+  // the middle — name, party, the code, the facts — centred between the two
+  const party = partyLine(pass.party);
+  const facts = passCardFacts(pass);
+  const tile = X(176);
+  const tilePad = X(10);
+  const blockH = X(30) + (party ? X(20) : 0) + X(14) + tile + tilePad * 2 + (facts.length ? X(14) + X(35) : 0);
+  const top = pad + X(82);
+  const y0 = top + Math.max(0, (ruleY - X(8) - top - blockH) / 2);
+  let y = y0 + X(30);
+  fitLine(ops, pass.name, w / 2, y, { font: look.headFont, size: X(34), color: look.heading, align: 'center', maxWidth: w - pad * 2 });
+  if (party) {
+    y += X(20);
+    fitLine(ops, party, w / 2, y, { font: look.bodyFont, size: X(15), color: look.muted, align: 'center' });
+  }
+  y += X(14);
+  const size = Math.min(tile, ruleY - X(8) - y - tilePad * 2 - (facts.length ? X(49) : 0));
+  codeTile(ops, pass, w / 2 - size / 2 - tilePad, y, size, tilePad, X(16));
+  y += size + tilePad * 2 + X(14);
+  if (facts.length) {
+    const gap = X(100);
+    facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, y + X(9), u, 20, gap - X(8)));
+  }
+  return doc;
+}
+
+/** The ticket's outline: rounded corners and a half-circle notch in each side at the perforation. */
+function ticketDie(w: number, h: number, r: number, perfY: number, notch: number): string {
+  const k = 0.5523 * r;
+  return (
+    `M${f2(r)} 0H${f2(w - r)}C${f2(w - r + k)} 0 ${f2(w)} ${f2(r - k)} ${f2(w)} ${f2(r)}` +
+    `V${f2(perfY - notch)}A${f2(notch)} ${f2(notch)} 0 0 0 ${f2(w)} ${f2(perfY + notch)}` +
+    `V${f2(h - r)}C${f2(w)} ${f2(h - r + k)} ${f2(w - r + k)} ${f2(h)} ${f2(w - r)} ${f2(h)}` +
+    `H${f2(r)}C${f2(r - k)} ${f2(h)} 0 ${f2(h - r + k)} 0 ${f2(h - r)}` +
+    `V${f2(perfY + notch)}A${f2(notch)} ${f2(notch)} 0 0 0 0 ${f2(perfY - notch)}` +
+    `V${f2(r)}C0 ${f2(r - k)} ${f2(r - k)} 0 ${f2(r)} 0Z`
+  );
+}
+
+function layoutPassCardTicket(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): PrintDoc {
+  const { look, data } = ctx;
+  const { doc, u } = cardSheet(ctx, fmt);
+  const { ops, w, h } = doc;
+  const X = (v: number) => v * u;
+  const pad = Math.max(X(22), SAFE_PT + 2);
+  const perfY = X(228);
+  // The notches are part of the CUT (the die), so they are transparent in the
+  // picture and cut on paper — a ticket even in Photos.
+  doc.diePath = ticketDie(w, h, X(18), perfY, X(12));
+  const foil: PrintLayer | undefined = ctx.foil ? 'foil' : undefined;
+
+  // top half — whose day, and who this is for
+  cardMark(ops, look, data, pad + X(22), pad + X(22), X(22), false);
+  const word = cardWhen(data, true)?.split(' · ')[0] ?? null;
+  const kindO = { font: look.bodyFont, size: X(9.5), color: look.muted, align: 'right' as const, caps: true, tracking: 0.2 };
+  if (word && word !== cardWhen(data, false)) fitLine(ops, word, w - pad, pad + X(16), kindO);
+  fitLine(ops, PASS_CARD_WORDS.kind, w - pad, pad + X(30), kindO);
+  const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
+  fitLine(ops, couple, pad, pad + X(80), { font: look.headFont, size: X(24), color: look.heading, align: 'left', caps: look.capsNames, maxWidth: w - pad * 2, layer: foil });
+  const date = cardWhen(data, false);
+  if (date) fitLine(ops, date, pad, pad + X(98), { font: look.bodyFont, size: X(11), color: look.accent, align: 'left', caps: true, tracking: 0.14, maxWidth: w - pad * 2 });
+  const party = partyLine(pass.party);
+  const nameY = perfY - X(16) - (party ? X(22) : X(4));
+  fitLine(ops, 'Guest', pad, nameY - X(34), { font: look.bodyFont, size: X(9.5), color: look.muted, align: 'left', caps: true, tracking: 0.18 });
+  fitLine(ops, pass.name, pad, nameY, { font: look.headFont, size: X(34), color: look.heading, align: 'left', maxWidth: w - pad * 2 });
+  if (party) fitLine(ops, party, pad, nameY + X(20), { font: look.bodyFont, size: X(15), color: look.muted, align: 'left' });
+
+  // the perforation, and the stub's slightly deeper paper
+  ops.push({ t: 'rect', x: -doc.bleed, y: perfY, w: w + doc.bleed * 2, h: h - perfY + doc.bleed, fill: look.ink, opacity: 0.035 });
+  // The dashes stay inside the safe line; the notches are the cut itself.
+  const perfIn = Math.max(X(14), SAFE_PT + 1);
+  for (let x = perfIn; x + X(4) <= w - perfIn; x += X(8)) ops.push({ t: 'rect', x, y: perfY - X(1), w: X(4), h: Math.max(0.5, X(2)), fill: look.ink, opacity: 0.2 });
+
+  // the stub — the code, with Table and Arrive set like a gate and a time
+  const footY = h - Math.max(X(16), SAFE_PT) - X(2);
+  const facts = passCardFacts(pass);
+  const tilePad = X(10);
+  const size = X(128);
+  const tileY = perfY + X(18) + Math.max(0, (footY - X(20) - perfY - X(18) - size - tilePad * 2) / 2);
+  const tileX = facts.length ? pad : w / 2 - size / 2 - tilePad;
+  codeTile(ops, pass, tileX, tileY, size, tilePad, X(16));
+  if (facts.length) {
+    const cx0 = tileX + size + tilePad * 2 + X(16);
+    const colW = w - pad - cx0;
+    const stepH = X(62);
+    const firstY = tileY + (size + tilePad * 2) / 2 - (facts.length * stepH) / 2 + X(12);
+    facts.forEach((f, i) => {
+      const y = firstY + i * stepH;
+      fitLine(ops, f.label, cx0, y, { font: look.bodyFont, size: X(9.5), color: look.muted, align: 'left', caps: true, tracking: 0.18 });
+      fitLine(ops, f.value, cx0, y + X(31), { font: look.headFont, size: X(30), color: look.heading, align: 'left', maxWidth: colW });
+    });
+  }
+  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
+  return doc;
+}
+
+function layoutPassCardPoster(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): PrintDoc {
+  const { look, data } = ctx;
+  const { doc, u } = cardSheet(ctx, fmt);
+  const { ops, w, h, bleed } = doc;
+  const X = (v: number) => v * u;
+  const pad = Math.max(X(22), SAFE_PT + 2);
+  const bandH = X(196);
+
+  // the band — their cover photo, or the theme's own colour when there is none
+  // Every strip runs from its own top to the band's FOOT, so the strips only
+  // ever stack — no two edges meet, and no hairline seam shows between steps.
+  const band = (fill: string, from: number, to: number, steps: number) => {
+    const a = 1 - Math.pow(1 - to, 1 / steps);
+    for (let i = 0; i < steps; i += 1) {
+      const y = -bleed + ((bandH + bleed) * i) / steps;
+      ops.push({ t: 'rect', x: -bleed, y, w: w + bleed * 2, h: bandH - y, fill, opacity: i === 0 ? Math.max(from, a) : a });
+    }
+  };
+  if (data.hasStill) {
+    ops.push({ t: 'image', ref: 'still', x: -bleed, y: -bleed, w: w + bleed * 2, h: bandH + bleed });
+  } else {
+    ops.push({ t: 'rect', x: -bleed, y: -bleed, w: w + bleed * 2, h: bandH + bleed, fill: look.accent });
+    // The theme's accent, deepening toward the foot (the prototype's band).
+    band('#140f0f', 0.12, 0.55, 28);
+  }
+  // the veil that keeps white type readable on any photo
+  band('#000000', 0.05, 0.45, 20);
+  const top = Math.max(X(18), SAFE_PT + 2);
+  cardMark(ops, look, data, pad + X(17), top + X(17), X(17), true);
+  const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
+  fitLine(ops, couple, pad + X(44), top + X(24), { font: look.headFont, size: X(19), color: '#ffffff', align: 'left', caps: look.capsNames, maxWidth: w - pad * 2 - X(44) });
+  const when = cardWhen(data, true);
+  if (when) fitLine(ops, when, pad, top + X(56), { font: look.bodyFont, size: X(11), color: '#ffffff', opacity: 0.85, align: 'left', caps: true, tracking: 0.14, maxWidth: w - pad * 2 });
+  const party = partyLine(pass.party);
+  const nameY = bandH - X(16) - (party ? X(22) : X(6));
+  fitLine(ops, pass.name, pad, nameY, { font: look.headFont, size: X(36), color: '#ffffff', align: 'left', maxWidth: w - pad * 2 });
+  if (party) fitLine(ops, party, pad, nameY + X(20), { font: look.bodyFont, size: X(15), color: '#ffffff', opacity: 0.85, align: 'left' });
+
+  // below — the code in a white rounded tile, Table and Arrive inside it
+  const footY = h - Math.max(X(16), SAFE_PT) - X(2);
+  const facts = passCardFacts(pass);
+  const size = X(150);
+  const tp = X(14);
+  const factsH = facts.length ? X(48) : 0;
+  const tileW = size + tp * 2;
+  const tileH = size + tp + X(12) + factsH;
+  const tileY = bandH + X(18) + Math.max(0, (footY - X(20) - bandH - X(18) - tileH) / 2);
+  codeTile(ops, pass, w / 2 - tileW / 2, tileY, size, tp, X(22), tileH - (size + tp * 2));
+  if (facts.length) {
+    const gap = Math.min(X(96), tileW / facts.length);
+    facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, tileY + tp + size + X(20), u, 18, gap - X(6), '#2b241c', '#7a7368'));
+  }
+  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
+  return doc;
+}
+
+/** Every pass-card look, by key. The route, the zip and the print format all come through here. */
+const PASS_CARD_LAYOUTS: Record<PassCardDesign, (ctx: Ctx, pass: PrintPass, fmt: PrintFormat) => PrintDoc> = {
+  classic: layoutPassCardClassic,
+  ticket: layoutPassCardTicket,
+  poster: layoutPassCardPoster,
+};
+
+/**
+ * The pass card for ONE guest, in a given look — the picture a guest saves.
+ * The print format (`phone-card` in `layoutPasses`) draws the SAME function.
+ */
+export function layoutPassCard(input: LayoutInput, pass: PrintPass, design?: PassCardDesign): PrintDoc {
+  const ctx: Ctx = { look: input.look, data: input.data, mode: input.mode, foil: input.foil };
+  const doc = PASS_CARD_LAYOUTS[design ?? input.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](ctx, pass, PRINT_FORMATS[PASS_CARD_FORMAT_ID]);
+  return input.mode === 'print' && input.whiteInk ? underprintWhite(doc) : doc;
 }
 
 function layoutPoster(ctx: Ctx): PrintDoc {
@@ -1586,7 +2183,7 @@ function underprintWhite(doc: PrintDoc): PrintDoc {
   return { ...doc, ops };
 }
 
-type LayoutInput = {
+export type LayoutInput = {
   look: PrintLook;
   data: PrintSetData;
   mode: PrintMode;
@@ -1627,6 +2224,8 @@ export function layoutPieceDocs(piece: PrintSetKey, input: LayoutInput & { pass?
         ];
       case 'poster':
         return [layoutPoster(ctx)];
+      case 'story-poster':
+        return layoutStoryPoster(ctx);
       case 'card':
         return [fmt && fmt.wMm > fmt.hMm ? layoutCardLandscape(ctx, fmt) : fitDoc(layoutCard(ctx), w, h, ctx)];
     }

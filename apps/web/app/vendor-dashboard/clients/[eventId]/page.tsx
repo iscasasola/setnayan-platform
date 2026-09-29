@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { CoupleLogo } from '@/app/_components/couple-logo';
+import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -1245,6 +1247,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Framed on its ink like every other surface's (lib/logo-layers.ts) — a
   // Logo-editor logo placed left of centre is centred here too.
   const monogramSvg = centreLogoOnItsInk(safeMonogramSvg(brief.monogram.custom_svg));
+  // ▶ It plays when it moves and the couple's animation is on (owner
+  // 2026-09-29: "all logos should animate if animation is active"). The
+  // player builds its live tree through an ALLOWLIST on the browser's parse
+  // (`inertLogoTree`), so this vendor session still never receives the
+  // couple's raw markup; a logo that fails it stays the inert <img> below.
+  const monogramPlays = await logoPlaysFor(eventId, monogramSvg);
 
   // ---- Pipeline derivation (server-side, from data already loaded) ----
   //   Quoted    = any proposal row with status ≠ draft.
@@ -1602,6 +1610,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       paletteEntries={paletteEntries}
       mealEntries={mealEntries}
       monogramSvg={monogramSvg}
+      monogramPlays={monogramPlays}
       isImported={isImported}
       editorialEligibility={editorialEligibility}
       canEditCocktail={canEditCocktail}
@@ -2266,6 +2275,7 @@ function OverviewTab(props: {
   paletteEntries: { key: string; label: string; colors: string[] }[];
   mealEntries: [string, number][];
   monogramSvg: string | null;
+  monogramPlays: boolean;
   isImported: boolean;
   editorialEligibility: Awaited<ReturnType<typeof getEditorialEligibility>>;
   canEditCocktail: boolean;
@@ -2330,6 +2340,7 @@ function OverviewTab(props: {
     paletteEntries,
     mealEntries,
     monogramSvg,
+    monogramPlays,
     isImported,
     editorialEligibility,
     canEditCocktail,
@@ -2502,12 +2513,20 @@ function OverviewTab(props: {
                 /* SEC-3: inert data-URI <img>, NOT dangerouslySetInnerHTML —
                    this is the couple's host-writable mark rendering inside a
                    vendor's session. eslint-disable-next-line @next/next/no-img-element */
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={bespokeSvgToDataUri(monogramSvg)}
-                  alt=""
-                  className="h-full w-full object-contain p-0.5"
-                  draggable={false}
+                <CoupleLogo
+                  svg={monogramSvg}
+                  plays={monogramPlays}
+                  place="vendor-client-style"
+                  className="flex h-full w-full p-0.5"
+                  still={
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={bespokeSvgToDataUri(monogramSvg)}
+                      alt=""
+                      className="h-full w-full object-contain p-0.5"
+                      draggable={false}
+                    />
+                  }
                 />
               ) : brief.monogram.text ? (
                 <span

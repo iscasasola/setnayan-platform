@@ -9,7 +9,7 @@ import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
-import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
+import { CoupleLogo } from '@/app/_components/couple-logo';
 import { isLayeredLogo } from '@/lib/logo-layers';
 
 /**
@@ -51,6 +51,7 @@ export function HeroMonogram({
   inkOverride,
   plate,
   allowWebgl = false,
+  place = 'hero',
 }: {
   // Only the design columns are needed; a narrow shape keeps this reusable.
   event: {
@@ -88,6 +89,9 @@ export function HeroMonogram({
    *  branches into a faint cream-on-cream ring). Default off → light surfaces
    *  (public hero · editorial · recap cream body) are unchanged. */
   plate?: boolean;
+  /** Which surface this mark is on — a moving logo plays ONCE per place
+   *  (`CoupleLogo`), so a remount there shows it arrived. Default 'hero'. */
+  place?: string;
 }) {
   // The mark ink: an explicit override wins over the design's curated ink + the
   // monogram colour, so a caller can force e.g. the button accent.
@@ -103,10 +107,18 @@ export function HeroMonogram({
     // 🅻 A LAYERED LOGO (the Maker's Logo page) plays each layer's OWN motion,
     // in stack order — the same player as the editor's ▶ Play. Same gate as every
     // animated mark: owned (`animatedMonogram`), else the still mark below.
+    // ▶ Through `CoupleLogo` (owner 2026-09-29, "all logos should animate if
+    // animation is active"): it waits until scrolled into view, plays once per
+    // place, and is the still mark under reduced motion or when it has no motion.
     if (animatedMonogram && isLayeredLogo(bespokeSvg)) {
       return (
         <span aria-hidden className="inline-flex" style={{ width: HERO_PX, height: HERO_PX }} data-hero-layered-logo="">
-          <LayeredLogoPlayer svg={bespokeSvg} />
+          <CoupleLogo
+            svg={bespokeSvg}
+            plays
+            place={place}
+            still={<BespokeMonogramMark svg={bespokeSvg} color={markColor} size="md" shadow={shadow} plate={plate} />}
+          />
         </span>
       );
     }

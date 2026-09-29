@@ -60,12 +60,20 @@ test('the Maker tour promises nothing either', () => {
   assert.doesNotMatch(block, PROMISE);
 });
 
-test('`MAKER_COMING_NEXT` and the "Both" view are gone, not merely unused', () => {
+test('`MAKER_COMING_NEXT` is gone, and the View menu offers only views that are drawn', () => {
   const bar = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-bar.ts'), 'utf8'));
   assert.ok(bar.length > 500, 'maker-bar scanned nearly empty');
   assert.doesNotMatch(bar, /MAKER_COMING_NEXT/, 'the coming-next table is back');
   const shell = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), 'utf8'));
   const view = shell.slice(shell.indexOf('label="View"'), shell.indexOf('label="More"'));
-  assert.ok(view.includes("setDevice('phone')"), 'the View menu was not found — the scan is blind');
-  assert.doesNotMatch(view, />\s*Both\s*</, 'the View menu offers "Both" again — it is not built');
+  assert.ok(view.includes('makerViewOptions(wide).map'), 'the View menu was not found — the scan is blind');
+  assert.doesNotMatch(view, /disabled|note=/, 'a View item is drawn switched off — a view that is not built is not drawn');
+  /* "Both" came back 2026-09-29 as a BUILT view: offering it is honest only
+     while the canvas draws its second pane (`the-maker-both-view-is-live.test.ts`). */
+  if (bar.includes("label: 'Both'")) {
+    const work = stripComments(
+      readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'), 'utf8'),
+    );
+    assert.match(work, /data-maker-both-phone=""/, 'the View menu offers "Both" but the canvas draws no phone pane');
+  }
 });

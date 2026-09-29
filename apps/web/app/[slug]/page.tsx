@@ -39,6 +39,7 @@ import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { SeatDoorLine } from './_components/seat-door-line';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
@@ -48,6 +49,8 @@ import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { GuestMe } from './_components/guest-me';
+import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
+import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { addCelebrantFromEvent, setFollowByPublicId } from '@/app/dashboard/(account)/people/actions';
@@ -1480,19 +1483,45 @@ async function InvitationBody({
   // reply door also asks. 🔒 A SERVER redirect, so nothing inside renders first.
   // Never in the Maker's canvas and never for the event's own host (a host
   // holding a guest cookie for their own event is previewing, not arriving).
+  const gateLocked = guestListIsClosed({
+    lockedAt: event.guest_count_locked_at ?? null,
+    editDeadline: event.guest_list_edit_deadline ?? null,
+    eventDate: event.event_date ?? null,
+  });
+  // 👋 A PLUS-ONE IS ASKED THE MINIMUM (owner 2026-09-29: *"plus guests are
+  // only minimum questions"*) — their name and, when the couple asks it, their
+  // meal; never attendance (theirs follows their own reply IF they give one),
+  // never a mobile. Missing → THEIR OWN door (`/welcome`, frame F), never the
+  // full reply. The unnamed case already left above (`unconfirmed_tba`), so the
+  // name counts as given here. lib/plus-one-welcome.ts.
+  const isPlusOne = guestContext.guest.plus_one_of_guest_id !== null;
+  if (
+    isPlusOne &&
+    !isEditorCanvas &&
+    !ownerCapability &&
+    plusOneGate(
+      {
+        first_name: guestContext.guest.first_name,
+        last_name: guestContext.guest.last_name,
+        plus_one_name_confirmed_at: 'past-the-tba-door',
+        meal_preference: guestContext.guest.meal_preference,
+        dietary_restrictions: guestContext.guest.dietary_restrictions,
+      },
+      resolveRsvpAsk(event.rsvp_ask_config),
+      gateLocked,
+    ) === 'welcome'
+  ) {
+    redirect(`/${event.slug ?? slug}/welcome`);
+  }
   const keyGate = rsvpGate({
     rsvpStatus: guestContext.guest.rsvp_status,
     mealPreference: guestContext.guest.meal_preference,
     mobile: guestContext.guest.mobile,
     askMeal: resolveRsvpAsk(event.rsvp_ask_config).meal,
     askMobile: resolveRsvpAsk(event.rsvp_ask_config).mobile,
-    locked: guestListIsClosed({
-      lockedAt: event.guest_count_locked_at ?? null,
-      editDeadline: event.guest_list_edit_deadline ?? null,
-      eventDate: event.event_date ?? null,
-    }),
+    locked: gateLocked,
   });
-  if (keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability) {
+  if (!isPlusOne && keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability) {
     redirect(inviteReplyPath(event.slug ?? slug));
   }
 
@@ -1509,6 +1538,7 @@ async function InvitationBody({
     guestHubData,
     seatMap,
     rsvpFaceMode,
+    faceTaggingAskable,
     eventVendorCredits,
   } = guestContext;
 
@@ -1665,6 +1695,22 @@ async function InvitationBody({
           look: await resolveEventQrLook(admin, event.event_id, event),
         })
       : { guests: [], passes: {} };
+  // 🎫 THE PASS CARD (owner 2026-09-29: "only accepted accounts get their
+  // images" · "no pass for those who cannot come"). Asked once for this guest
+  // and for the plus-ones they brought; the card route asks again on its own.
+  const [passCard, plusOnePassIds]: [PassCardEligibility | null, Set<string>] = isEditorCanvas
+    ? [null, new Set<string>()]
+    : await Promise.all([
+        passCardEligibilityFor(admin, guest.guest_id),
+        plusOnePassCardIds(admin, event.event_id, guest.guest_id),
+      ]);
+  const passCardHrefs =
+    passCard === 'pass'
+      ? {
+          own: PASS_CARD_ROUTE,
+          plusOnes: Object.fromEntries([...plusOnePassIds].map((id) => [id, `${PASS_CARD_ROUTE}?guest=${id}`])),
+        }
+      : null;
   // "The celebrants" (owner 2026-09-28) — Follow or Add the people this event
   // is for. Only for a viewer whose OWN account holds this seat; nothing is read
   // for anybody else. Add re-checks all of it server-side.
@@ -1685,13 +1731,24 @@ async function InvitationBody({
       }
       slug={event.slug ?? slug}
       eventId={event.event_id}
+      guestId={guest.guest_id}
+      askMeal={resolveRsvpAsk(event.rsvp_ask_config).meal}
+      askDietary={resolveRsvpAsk(event.rsvp_ask_config).dietary}
+      askPlusOnes={resolveRsvpAsk(event.rsvp_ask_config).plus_ones}
       eventName={event.display_name ?? 'the celebration'}
       guests={myGuests.guests}
       passes={myGuests.passes}
+      passCards={passCardHrefs}
       account={account}
       hasEmail={Boolean(guest.email?.trim())}
       userAgent={(await headers()).get('user-agent')}
       termsCarried={rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value)}
+      inviteFacts={{
+        hostsName: event.display_name ?? null,
+        eventWord: eventTypeProfile.terminology.eventWord,
+        solemn: eventTypeProfile.terminology.register === 'solemn',
+        eventDate: event.event_date ?? null,
+      }}
       celebrants={celebrants}
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
@@ -1714,6 +1771,7 @@ async function InvitationBody({
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         identity={guestIdentity({
           guest,
+          passCard,
           qrSvg,
           invitationUrl,
           guestLiveGallery,
@@ -1729,6 +1787,7 @@ async function InvitationBody({
           saveFlash,
           rsvpFlash,
           faceMode: rsvpFaceMode,
+          faceTaggingAskable,
           profileDetails,
           didntReply: keyGate.kind === 'inside' && keyGate.didntReply,
           checklist,

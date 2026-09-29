@@ -127,6 +127,57 @@ export function NamesEditor({
   );
 }
 
+/**
+ * ONE NAME — a single-person event's (a birthday, a debut, a wake): the
+ * event's own `display_name`, which the hero, every print and every pass read
+ * (owner 2026-09-29, "yes to all 4", item 3). Saved through the same writer as
+ * the two names, `updateEventMatchCriteria`, which — when it is posted
+ * `celebrant_name` alone — writes `display_name` and nothing else.
+ */
+export function OneNameEditor({ eventId, initial, hint }: { eventId: string; initial: string; hint: string }) {
+  const [name, setName] = useState(initial);
+  const [pending, start] = useTransition();
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = () => {
+    setError(null);
+    setSaved(false);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('celebrant_name', name.trim());
+    start(async () => {
+      try {
+        const r = await makerSave(() => updateEventMatchCriteria(fd), requestMakerRefresh);
+        if (r.ok) setSaved(true);
+        else setError(r.message);
+      } catch {
+        setError('That did not save. Nothing changed — please try again.');
+      }
+    });
+  };
+  return (
+    <section data-details-one-name="" className="flex flex-col gap-3">
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-ink/70">Name</span>
+        <input
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            setSaved(false);
+          }}
+          maxLength={80}
+          autoCapitalize="words"
+          aria-label="Name, as guests read it"
+          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+        />
+        <span className="text-xs text-ink/60">{hint}</span>
+      </label>
+      <SaveRow pending={pending} saved={saved} error={error} onSave={save} />
+      <HubSavesImmediately />
+    </section>
+  );
+}
+
 // ── DATE ──────────────────────────────────────────────────────────────────────
 
 type GovernedDate = {
@@ -251,6 +302,11 @@ export type VenueSlot = {
   /** A confirmed booking names this place — shown, never retyped. */
   booked: { name: string; address: string | null } | null;
   typed: string;
+  /** Where its street address saves (`saveAllStdContent`): the reception's is
+   *  `venue_address`, the ceremony's `ceremony_venue_address`. */
+  addressField: 'venueAddress' | 'ceremonyAddress';
+  /** Its typed street address as stored. */
+  address: string;
 };
 
 export function VenuesEditor({
@@ -266,7 +322,9 @@ export function VenuesEditor({
   /** Posted back unchanged — `saveAllStdContent` always writes the launch date. */
   launchDate: string | null;
 }) {
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(slots.map((s) => [s.field, s.typed])));
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(slots.flatMap((s) => [[s.field, s.typed], [s.addressField, s.address]])),
+  );
   const [cityValue, setCityValue] = useState(city ?? '');
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -277,13 +335,21 @@ export function VenuesEditor({
     setError(null);
     setSaved(false);
     const data: Parameters<typeof saveAllStdContent>[1] = { launchDate };
-    for (const s of typedSlots) data[s.field] = values[s.field]?.trim() || null;
+    for (const s of typedSlots) {
+      data[s.field] = values[s.field]?.trim() || null;
+      data[s.addressField] = values[s.addressField]?.trim() || null;
+    }
     if (city !== null) data.filmVenueCity = cityValue.trim() || null;
     start(async () => {
       try {
         const r = await makerSave(() => saveAllStdContent(eventId, data), requestMakerRefresh);
         if (r.ok) setSaved(true);
-        else setError('That did not save. Nothing changed — please try again.');
+        else
+          setError(
+            r.error === 'address-too-long'
+              ? 'That address is longer than 300 characters — please shorten it.'
+              : 'That did not save. Nothing changed — please try again.',
+          );
       } catch {
         setError('That did not save. Nothing changed — please try again.');
       }
@@ -311,6 +377,21 @@ export function VenuesEditor({
               maxLength={160}
               placeholder="Name of the place"
               aria-label={`${s.label} — name of the place`}
+              className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+            />
+          )}
+          {s.booked ? null : (
+            <input
+              value={values[s.addressField] ?? ''}
+              onChange={(e) => {
+                setValues((v) => ({ ...v, [s.addressField]: e.target.value }));
+                setSaved(false);
+              }}
+              maxLength={300}
+              autoComplete="street-address"
+              placeholder="Street address — e.g. 1 Tandang Sora Ave, Quezon City"
+              aria-label={`${s.label} — street address`}
+              data-venue-address={s.addressField}
               className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
             />
           )}

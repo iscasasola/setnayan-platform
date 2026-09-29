@@ -68,7 +68,9 @@ export function ContextDock({
   children,
   onDismiss,
 }: {
-  variant: 'dock' | 'sheet';
+  /** `inline` — the phone sheet's content IN THE FLOW (Details' right part):
+   *  never fixed over the page (the Maker's rule, `MakerPage`). */
+  variant: 'dock' | 'sheet' | 'inline';
   edge?: DockEdge;
   tone?: DockTone;
   /** Type glyph — echoed so the referent is never lost (§1.1). */
@@ -113,14 +115,20 @@ export function ContextDock({
     };
   }, [variant, panel, edge, boundsRef, name]);
 
-  if (variant === 'sheet') {
+  if (variant === 'sheet' || variant === 'inline') {
     // Phone bottom sheet (§1.3) — the dock's sibling density. Fixed to the thumb
     // zone; the whole sheet scrolls, so no measured max-height is needed.
+    // `inline`: the same rows, in the flow of the column they are drawn in.
     return (
       <div
         onPointerDown={(e) => e.stopPropagation()}
-        className={`fixed inset-x-0 bottom-0 z-50 border-t bg-cream/95 px-4 pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] backdrop-blur-sm ${TONE_RING[tone]}`}
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        data-context-dock={variant}
+        className={
+          variant === 'inline'
+            ? `border-b pb-3 pt-1 ${TONE_RING[tone]}`
+            : `fixed inset-x-0 bottom-0 z-50 border-t bg-cream/95 px-4 pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] backdrop-blur-sm ${TONE_RING[tone]}`
+        }
+        style={variant === 'inline' ? undefined : { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <div className="mx-auto flex max-w-md flex-col gap-2.5">
           {name !== undefined ? (

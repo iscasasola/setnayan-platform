@@ -24,9 +24,15 @@ import {
   SIDE_LABELS,
   type GuestRow,
   plusOneSeats,
+  REQUEST_ENTRY_SOURCE,
 } from '@/lib/guests';
 import { QrActions } from '@/app/_components/qr-actions';
 import { GuestQrDownloadLink } from './guest-save-links';
+/* ⚡ TYPE ONLY — the pass card's save is handed in by the page that draws the
+   card (\`PassCardLink\`): the Guest list passes the real one, the Maker its
+   lazy stand-in, so the pass card's code stays out of the Maker's first load. */
+import type { GuestPassCardLink } from './guest-pass-card-link';
+import type { ComponentType } from 'react';
 
 // ── chips ─────────────────────────────────────────────────────────────────
 
@@ -57,10 +63,17 @@ export function GuestQrCard({
   guest,
   eventId,
   invitationBase,
+  sendSlot,
+  PassCardLink,
 }: {
   guest: GuestRow;
   eventId: string;
   invitationBase?: string | null;
+  /** The guest's pass-card save — handed in by the page (see the import above). Absent → not drawn. */
+  PassCardLink?: ComponentType<Parameters<typeof GuestPassCardLink>[0]>;
+  /** Send invite · Copy message (owner 2026-09-29), drawn under the strip —
+   *  "the thing you send them" and the way to send it, in one place. */
+  sendSlot?: React.ReactNode;
 }) {
   const name = guestDisplayName(guest);
   const qrFileName = `qr-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`;
@@ -121,6 +134,7 @@ export function GuestQrCard({
         }}
       />
     ) : null}
+    {sendSlot}
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink/[0.06] pt-3">
       {/* One-click download of the REAL PNG — the same route the Invitation
           surface uses, and the same one the preview above is an <img> of. Goes
@@ -130,6 +144,11 @@ export function GuestQrCard({
           saving it, which is the exact bug the owner reported. No ownership
           branch any more: the route draws every guest in the event's look. */}
       <GuestQrDownloadLink href={qrImageSrc} filename={qrFileName} />
+      {/* The guest's pass CARD, free — only for a guest who has one (accepted,
+          coming; the route decides for a plus-one by who brought them). */}
+      {PassCardLink && guest.qr_token && guest.entry_source !== REQUEST_ENTRY_SOURCE && guest.rsvp_status !== 'declined' && guest.passed_away !== true ? (
+        <PassCardLink guestId={guest.guest_id} />
+      ) : null}
       <Link
         href={`/dashboard/${eventId}/invitation`}
         className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink/80 underline-offset-4 hover:text-terracotta-700 hover:underline"

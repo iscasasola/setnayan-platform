@@ -302,5 +302,8 @@ export function buildSimulatedGuestIdentity(input: {
     // mode_b = no face embedding computed. The conservative arm, and correct:
     // there is no face to enroll for a guest who does not exist.
     faceMode: 'mode_b',
+    // The preview shows the reply card as a guest meets it, question included —
+    // nothing is written (the simulated guest has no session to save through).
+    faceTaggingAskable: true,
   });
 }

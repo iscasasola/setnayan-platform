@@ -46,7 +46,8 @@ import {
   sceneDrawEffect,
   type CanvasHold,
 } from './element-preview';
-import { makerSave, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerNeedsRender, makerSave, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
 
@@ -457,15 +458,24 @@ export function MakerWork({
   const canvasOrder = canvasOrderOf(navigator.stageLists);
   const canvasOrderRef = useRef(canvasOrder);
   canvasOrderRef.current = canvasOrder;
+  /** Every scene's canvas as the canvas iframe draws it: the render's, with the
+   *  Maker's own copy over it (`lib/maker-draft-store.ts`) — what a hold starts from. */
+  const drawnCanvases = (): Record<string, HubSectionCanvas> => {
+    const server = serverCanvasesRef.current ?? {};
+    return Object.fromEntries(Object.keys(server).map((t) => [t, draftedCanvasOr(t, server[t])]));
+  };
   useEffect(() => {
     const next = maker?.renderStamp ?? '';
     if (canvasKeepsItsPage(canvasHold.current, serverCanvasesRef.current ?? {}, Date.now(), canvasOrderRef.current)) return;
     canvasHold.current = NO_CANVAS_HOLD;
     setCanvasStamp(next);
   }, [maker?.renderStamp]);
-  /** A write the bridge did not draw: the next render reloads the canvas. */
+  /** A write the bridge did not draw: the next render reloads the canvas — and
+   *  a held save in the same burst must still bring that render
+   *  (`makerNeedsRender`: a held save owes none on its own). */
   const releaseCanvas = () => {
     canvasHold.current = NO_CANVAS_HOLD;
+    makerNeedsRender();
   };
   /* 🔓 EVERY OTHER WRITE RELEASES THE HOLD. A Maker form (the shell's submit
      listener) and every draft save not drawn by the bridge (`makerSave` without
@@ -1118,7 +1128,7 @@ export function MakerWork({
     broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key, shown: false });
     canvasHold.current = holdChange(
       canvasHold.current,
-      { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+      { canvases: drawnCanvases(), order: canvasOrderRef.current },
       { order: (o) => orderWithout(o, key) },
       Date.now(),
     );
@@ -1146,7 +1156,7 @@ export function MakerWork({
          page reads the eye alone): the render keeps the page as it is. */
       canvasHold.current = holdChange(
         canvasHold.current,
-        { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+        { canvases: drawnCanvases(), order: canvasOrderRef.current },
         {},
         Date.now(),
       );
@@ -1189,7 +1199,7 @@ export function MakerWork({
     else if (how.still) {
       canvasHold.current = holdChange(
         canvasHold.current,
-        { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+        { canvases: drawnCanvases(), order: canvasOrderRef.current },
         {},
         Date.now(),
       );
@@ -1200,6 +1210,8 @@ export function MakerWork({
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { [scene.type]: widget } }));
+    /* ⚡ A hide the bridge drew brings no render — the Apply count comes back with the save. */
+    if (held) fd.set(HUB_DRAFT_BAR_FIELD, '1');
     /* Serialised with the moves: each carries its own scene's whole gate. */
     reorderQueue.current = reorderQueue.current
       .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held }))
@@ -1412,8 +1424,10 @@ export function MakerWork({
      the stage's list, the canvases, the canvas frame and the navigator's own
      draft form (`post` / `move` / `eyeWrite`) live; the Inspector only lays
      them out. The Transition tab is folded into Animate (owner, answer 4). */
-  const canvasOf = (type: string): HubSectionCanvas =>
-    heldCanvasFor(canvasHold.current, type, Date.now()) ?? elementEditing?.canvases[type] ?? {};
+  /* ⚡ The Maker's own copy while it is newer than the render (`lib/maker-draft-store.ts`):
+     a pick the bridge drew brings no render any more, so the render's canvases
+     can be older than what this Maker wrote. */
+  const canvasOf = (type: string): HubSectionCanvas => draftedCanvasOr(type, elementEditing?.canvases[type]);
   /** "Every scene" = THIS stage's scenes (owner, answer 6), with their canvases. */
   const stageScenes = shownSceneIds.flatMap((id) => {
     const sc = sceneById.get(id);
@@ -1483,7 +1497,7 @@ export function MakerWork({
                 }
                 canvasHold.current = holdChange(
                   canvasHold.current,
-                  { canvases: elementEditing.canvases, order: canvasOrder },
+                  { canvases: drawnCanvases(), order: canvasOrder },
                   { canvases },
                   Date.now(),
                 );
@@ -2174,11 +2188,9 @@ export function MakerWork({
         <ElementSheet
           eventId={eventId}
           target={elementTarget}
-          canvas={
-            heldCanvasFor(canvasHold.current, elementTarget.widgetType, Date.now()) ??
-            elementEditing.canvases[elementTarget.widgetType] ??
-            {}
-          }
+          /* The RENDER's canvas — the sheet lays the Maker's own copy over it
+             (`draftedCanvasOr`), which is what keeps a pick from building on it. */
+          canvas={elementEditing.canvases[elementTarget.widgetType] ?? {}}
           palette={elementEditing.palette}
           ownsPro={ownsPro}
           hideLocked={maker.storeShell}
@@ -2200,7 +2212,7 @@ export function MakerWork({
             scheduleSnapshots(600);
           }}
           onSaving={(widgetType, canvas) => {
-            canvasHold.current = holdCanvas(canvasHold.current, elementEditing.canvases, widgetType, canvas, Date.now(), canvasOrder);
+            canvasHold.current = holdCanvas(canvasHold.current, drawnCanvases(), widgetType, canvas, Date.now(), canvasOrder);
           }}
           onPlay={() =>
             postToShownCanvases({ source: 'setnayan-editor', t: 'playEl', key: elementTarget.key, el: elementTarget.el })
@@ -2221,7 +2233,7 @@ export function MakerWork({
                DECISION_LOG "…TAP IS A SHORTCUT"). A scene the couple changed
                "just here" keeps the box that asked, so its ↺ is never lost. */
             const sceneKey = `w:${selectedScene.type}`;
-            const sceneCanvas: HubSectionCanvas = elementEditing?.canvases[selectedScene.type] ?? {};
+            const sceneCanvas: HubSectionCanvas = canvasOf(selectedScene.type);
             const ownWords = detailsBound?.ownWords.includes(selectedScene.type) ?? false;
             const boundItem: DetailsItemKey | null = ownWords
               ? null
@@ -2252,11 +2264,16 @@ export function MakerWork({
                      the render the save brings back keeps the page instead of
                      reloading it. "Use Details" and a cleared message reload —
                      the page must draw what it did not preview. */
+                  const type = selectedScene.type;
+                  const written = patch.widgets?.[type as WidgetType]?.canvas;
+                  if (written) noteDraftedCanvas(type, written, elementEditing.canvases[type]);
                   if (choice === 'use-details' || text.trim().length === 0) {
                     releaseCanvas();
                     return;
                   }
-                  const type = selectedScene.type;
+                  /* "Everywhere" writes the Details fact itself, which this page
+                     reads from the render — so that one burst still ends in ONE. */
+                  if (choice === 'everywhere') makerNeedsRender();
                   const now = Date.now();
                   // "Everywhere" also changes every other scene still bound to Details.
                   const others =
@@ -2275,10 +2292,10 @@ export function MakerWork({
                     releaseCanvas();
                     return;
                   }
-                  const shown = heldCanvasFor(canvasHold.current, type, now) ?? elementEditing.canvases[type] ?? {};
+                  const shown = heldCanvasFor(canvasHold.current, type, now) ?? canvasOf(type);
                   canvasHold.current = holdCanvas(
                     canvasHold.current,
-                    elementEditing.canvases,
+                    drawnCanvases(),
                     type,
                     patch.widgets?.[type as WidgetType]?.canvas ?? shown,
                     now,

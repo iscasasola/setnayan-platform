@@ -250,7 +250,8 @@ test('only saves the bridge drew are marked held; the shell announces every form
     'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx',
     'app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx',
   ];
-  for (const f of held) assert.match(read(f), /makerSave\([\s\S]*?\{ held: true \}\)/, `${f}: a drawn pick must be held`);
+  // `{ held: true }`, or with more options beside it (the part sheet's `ok`, 2026-09-30).
+  for (const f of held) assert.match(read(f), /makerSave\([\s\S]*?\{ held: true\b[^}]*\},?\s*\)/, `${f}: a drawn pick must be held`);
   for (const f of [
     'app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx',
     'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',

@@ -118,6 +118,7 @@ import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground }
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { resolveReturnTo } from '@/lib/editor-return';
+import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
@@ -1598,8 +1599,28 @@ export type HubDraftActionResult =
       applied: number;
       /** Keys held back, each with a sentence-ready label and a reason (apply only). */
       held: Array<{ label: string; reason: HubDraftRefusal }>;
+      /**
+       * ⚡ The Apply bar as it stands after this save — only when the save asked
+       * for it (`HUB_DRAFT_BAR_FIELD`, `lib/maker-refresh.ts`). A pick the bridge drew owes the Maker no
+       * render (`lib/maker-refresh.ts`), so the toolbar's count comes from here.
+       */
+      bar?: HubDraftBarLive;
     }
   | { ok: false; intent: HubDraftIntent | null; error: string };
+
+/**
+ * What the toolbar re-reads after a save (`hubDraftBarAfterSave`): the count for
+ * a couple WITHOUT Pro and for one WITH it — the save never asks which this
+ * viewer is (the view switch must never reach a server action), the toolbar
+ * picks with the render's own answer — plus the Pro effects and their price
+ * for the couple without it.
+ */
+export type HubDraftBarLive = {
+  free: HubDraftSummary;
+  owned: HubDraftSummary;
+  proEffects: HubProEffectView[];
+  priceLabel: string | null;
+};
 
 /**
  * Does the Maker toolbar's ⋯ panel stay OPEN once an action reports back? Only

@@ -69,6 +69,8 @@ export function guidedFactsFrom(input: {
   storyApplies: boolean;
   /** Top-level schedule moments; null when unread (never "0"). */
   scheduleMoments: number | null;
+  /** 🪑 The Seat plan's door is open (guests see it); null when unread, absent where no seat plan was read. */
+  seatPlanOpen?: boolean | null;
 }): GuidedDoneFacts & {
   /** The Love Story as edited — null when it could not be read (Details then says so). */
   story: Record<string, unknown> | null;
@@ -96,6 +98,7 @@ export function guidedFactsFrom(input: {
     palette: hasPalette(input.event.role_palette),
     logo: Boolean(col('monogram_custom_svg') || col('monogram_uploaded_svg')),
     hero: Boolean(col('landing_page_hero_image_url') || col('landing_page_hero_video_r2_key')),
+    seatPlanOpen: input.seatPlanOpen ?? null,
     words: wordsAndPlansInputFrom({
       specialMessage,
       pabuyaMessage: input.event.pabuya_message,
@@ -112,6 +115,8 @@ export function guidedPresent(input: {
   yourEvent: { kind: YourEventKind; namesWritable: boolean } | null;
   storyApplies: boolean;
   hasSlug: boolean;
+  /** 🪑 The Seat plan was read for this event (Details part 4 draws its item); the type's own rule still applies. */
+  seatPlan?: boolean;
 }): Set<DetailsItemKey> {
   return new Set<DetailsItemKey>([
     'theme',
@@ -119,6 +124,7 @@ export function guidedPresent(input: {
     ...(input.yourEvent ? yourEventPresentKeys(input.yourEvent.kind, input.yourEvent.namesWritable) : []),
     ...WORDS_ITEM_KEYS,
     ...(input.storyApplies ? (['love-story'] as const) : []),
+    ...(input.seatPlan ? (['seating'] as const) : []),
     'schedule',
     'rsvp',
     'download',
@@ -141,7 +147,7 @@ export async function readGuidedPlan({
   admin: SupabaseClient;
   eventId: string;
 }): Promise<GuidedPlan | null> {
-  const [event, hosts, parents, drafted, scheduleRes] = await Promise.all([
+  const [event, hosts, parents, drafted, scheduleRes, seatDoorRes] = await Promise.all([
     readPrintEvent(admin, eventId),
     readRsvpHosts(eventId),
     parentGuestsForEvent(eventId),
@@ -156,9 +162,12 @@ export async function readGuidedPlan({
       .select('block_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('parent_block_id', null),
+    // 🪑 The Seat plan's door — the same read the Maker's Seat plan row makes.
+    supabase.from('event_floor_plan').select('published_at').eq('event_id', eventId).maybeSingle(),
   ]);
   if (!event) return null;
   if (scheduleRes.error) logQueryError('HomeGuide.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
+  if (seatDoorRes.error) logQueryError('HomeGuide.seatDoor', seatDoorRes.error, { event_id: eventId }, 'graceful_degrade');
   const [profile, ye] = await Promise.all([
     resolveProfile(event.event_type ?? '').catch(() => GENERIC_PROFILE),
     readYourEventFacts({ admin, eventId, parentCount: parents.length, hostCount: hosts.length }),
@@ -172,6 +181,7 @@ export async function readGuidedPlan({
     yourEvent: ye ? { facts: ye.facts, kind: ye.kind } : null,
     storyApplies,
     scheduleMoments: scheduleRes.error ? null : (scheduleRes.count ?? 0),
+    seatPlanOpen: seatDoorRes.error ? null : Boolean((seatDoorRes.data as { published_at?: string | null } | null)?.published_at),
   });
   return guidedPlanFromFacts({
     ctx,
@@ -179,6 +189,7 @@ export async function readGuidedPlan({
       yourEvent: ye ? { kind: ye.kind, namesWritable: ye.namesWritable } : null,
       storyApplies,
       hasSlug: Boolean(event.slug),
+      seatPlan: detailsItemApplies('seating', ctx),
     }),
     facts,
     parentsOffered: ye ? parentsOffered(ye.kind) : false,

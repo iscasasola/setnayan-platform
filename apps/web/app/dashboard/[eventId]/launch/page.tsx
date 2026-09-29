@@ -1253,48 +1253,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          the story was read — a form built on an unread story would save it
          empty; Details then says it could not be read. */
       const eventContext = { profile: detailsProfile, solemn: eventWordsFromProfile(detailsProfile).solemn };
-      /* 🪜 THE ONE DERIVATION of what each guided step's "done" reads — handed to
-         Details' rows below (theme, Mood Board, logo, hero) AND to the decision
-         to open on What's left, so the two can never disagree. */
-      const guided = guidedFactsFrom({
-        event: printEvent,
-        drafted: draftedEvents,
-        liveLoveStory: storyLiveRes.error ? undefined : ((storyLiveRes.data as { love_story?: unknown } | null)?.love_story ?? null),
-        yourEvent: yourEvent ? { facts: yourEvent.facts, kind: yourEvent.kind } : null,
-        storyApplies: detailsItemApplies('love-story', eventContext),
-        scheduleMoments: scheduleMoments ? scheduleMoments.length : null,
-      });
-      detailsUnfinished = isUnfinished(
-        guidedPlanFromFacts({
-          ctx: eventContext,
-          present: guidedPresent({
-            yourEvent: yourEvent ? { kind: yourEvent.kind, namesWritable: yourEvent.names !== null } : null,
-            storyApplies: detailsItemApplies('love-story', eventContext),
-            hasSlug: Boolean(printEvent.slug),
-          }),
-          facts: guided,
-          parentsOffered: yourEvent ? parentsOffered(yourEvent.kind) : false,
-        }),
-      );
-      /* A plain landing on Details — nothing else named — is where the flow opens. */
-      const detailsLandsPlain =
-        !itemNamed && !one(search.print_theme) && !one(search.menu_saved) && !one(search.menu_error) && (rawTool === undefined || rawTool === 'details');
-      const story: LoveStoryBlob | null =
-        storyLiveRes.error && storyRaw == null
-          ? null
-          : storyRaw && typeof storyRaw === 'object' && !Array.isArray(storyRaw)
-            ? (storyRaw as LoveStoryBlob)
-            : {};
-      const storyApplies = detailsItemApplies('love-story', eventContext);
-      const withStory = story !== null && storyApplies;
-      factEditors = detailsFactEditors({
-        eventId,
-        specialMessage,
-        specialMessageAction: updateSpecialMessage.bind(null, eventId),
-        pabuyaMessage: printEvent.pabuya_message,
-        // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
-        loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
-      });
       /* 🪑 THE SEAT PLAN (Details part 4) — the shipped seating page, streamed
          so the Maker never waits on it; only where this type has a seat plan
          (`detailsItemApplies`). Its navigator row reads three COUNTS (never a
@@ -1323,6 +1281,51 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           open: seatDoorRes.error ? null : Boolean((seatDoorRes.data as { published_at?: string | null } | null)?.published_at),
         };
       }
+      /* 🪜 THE ONE DERIVATION of what each guided step's "done" reads — handed to
+         Details' rows below (theme, Mood Board, logo, hero) AND to the decision
+         to open on What's left, so the two can never disagree. */
+      const guided = guidedFactsFrom({
+        event: printEvent,
+        drafted: draftedEvents,
+        liveLoveStory: storyLiveRes.error ? undefined : ((storyLiveRes.data as { love_story?: unknown } | null)?.love_story ?? null),
+        yourEvent: yourEvent ? { facts: yourEvent.facts, kind: yourEvent.kind } : null,
+        storyApplies: detailsItemApplies('love-story', eventContext),
+        scheduleMoments: scheduleMoments ? scheduleMoments.length : null,
+        // 🪑 The Seat plan row's own done (its door) — read above, never re-read.
+        seatPlanOpen: seatPlan ? seatPlan.open : undefined,
+      });
+      detailsUnfinished = isUnfinished(
+        guidedPlanFromFacts({
+          ctx: eventContext,
+          present: guidedPresent({
+            yourEvent: yourEvent ? { kind: yourEvent.kind, namesWritable: yourEvent.names !== null } : null,
+            storyApplies: detailsItemApplies('love-story', eventContext),
+            hasSlug: Boolean(printEvent.slug),
+            seatPlan: seatPlan !== null,
+          }),
+          facts: guided,
+          parentsOffered: yourEvent ? parentsOffered(yourEvent.kind) : false,
+        }),
+      );
+      /* A plain landing on Details — nothing else named — is where the flow opens. */
+      const detailsLandsPlain =
+        !itemNamed && !one(search.print_theme) && !one(search.menu_saved) && !one(search.menu_error) && (rawTool === undefined || rawTool === 'details');
+      const story: LoveStoryBlob | null =
+        storyLiveRes.error && storyRaw == null
+          ? null
+          : storyRaw && typeof storyRaw === 'object' && !Array.isArray(storyRaw)
+            ? (storyRaw as LoveStoryBlob)
+            : {};
+      const storyApplies = detailsItemApplies('love-story', eventContext);
+      const withStory = story !== null && storyApplies;
+      factEditors = detailsFactEditors({
+        eventId,
+        specialMessage,
+        specialMessageAction: updateSpecialMessage.bind(null, eventId),
+        pabuyaMessage: printEvent.pabuya_message,
+        // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
+        loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
+      });
       /* 🗓 THE SCHEDULE, moved whole — the shipped page, streamed so the Maker
          never waits on it, with its own query when Details › Schedule is the item. */
       const schedulePage = (

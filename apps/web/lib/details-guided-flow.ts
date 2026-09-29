@@ -375,6 +375,11 @@ export type GuidedDoneFacts = {
   logo: boolean;
   hero: boolean;
   words: WordsAndPlansInput;
+  /**
+   * 🪑 The Seat plan's door (\`event_floor_plan.published_at\`) — its row's done
+   * (\`seatPlanRow\`: "guests see it"). Null/absent = unread (no claim).
+   */
+  seatPlanOpen?: boolean | null;
 };
 
 const EVENT_KEYS = new Set<string>(['names', 'date', 'venues', 'parents', 'march']);
@@ -394,6 +399,8 @@ export function guidedItemDone(key: DetailsItemKey, f: GuidedDoneFacts): boolean
       return f.logo;
     case 'hero':
       return f.hero;
+    case 'seating':
+      return f.seatPlanOpen ?? undefined;
     default:
       return undefined;
   }

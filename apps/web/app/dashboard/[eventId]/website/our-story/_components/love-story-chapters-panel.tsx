@@ -10,6 +10,7 @@ import { StoryChapterFields, type LoveStoryBlob } from './story-fields';
 import { ChapterMoments } from './chapter-moments';
 import { PanelFollowsThePage } from './panel-follows-the-page';
 import { formatCount } from '@/lib/format-number';
+import { DetailsPieceOnly } from '../../../launch/_components/details-piece';
 
 /**
  * THE MAKER'S LOVE STORY PANEL — THE PAGE'S FIVE CHAPTERS (owner 2026-09-27,
@@ -45,8 +46,11 @@ export function LoveStoryChaptersPanel({
     <div className="space-y-5" data-love-story-panel="">
       <PanelFollowsThePage />
       {chapters.map(({ chapter, moments: inChapter }) => (
+        /* In the Maker's Details this chapter is one PIECE of Love Story — shown
+           while it is the picked chapter (`details-piece.tsx`; hidden, never
+           unmounted, so its answers still post). Everywhere else: every chapter. */
+        <DetailsPieceOnly key={chapter} item="love-story" piece={chapter}>
         <section
-          key={chapter}
           data-love-story-panel-chapter={chapter}
           aria-label={LOVE_STORY_CHAPTER_LABEL[chapter]}
           className="space-y-3"
@@ -70,6 +74,7 @@ export function LoveStoryChaptersPanel({
           />
           <StoryChapterFields story={story} chapter={chapter} />
         </section>
+        </DetailsPieceOnly>
       ))}
     </div>
   );

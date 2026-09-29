@@ -66,6 +66,8 @@ const MAKER_FILES = [
   'app/dashboard/[eventId]/launch/_components/maker-logo.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-prints.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-details.tsx',
+  // Details part 2b: the special message's one editor (Words, its print switch, and a tap on a stage).
+  'app/dashboard/[eventId]/launch/_components/special-message-field.tsx',
   // Prints & Tickets' Menu editor (owner 2026-09-28, "add to print out our meals for tonight").
   'app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx',
 ];
@@ -174,10 +176,12 @@ const COMPONENT_WRITERS: Record<string, { writers: string[]; caller: string; bin
     caller: `${S}page.tsx`,
     binds: /const action = (\w+)\.bind/g,
   },
-  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx#MakerDetails#specialMessageAction']: {
+  // Details › Words › Special message — its own component since part 2b (the
+  // stage's tap opens it too); the launch page binds its writer once.
+  ['app/dashboard/[eventId]/launch/_components/special-message-field.tsx#SpecialMessageField#action']: {
     writers: ['updateSpecialMessage'],
     caller: 'app/dashboard/[eventId]/launch/page.tsx',
-    binds: /specialMessageAction=\{(\w+)\.bind/g,
+    binds: /specialMessageAction: (\w+)\.bind/g,
   },
 };
 

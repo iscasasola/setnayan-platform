@@ -26,6 +26,9 @@ import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
 import { resolveMoments } from '@/lib/love-story-moments';
 import { readOurEvents } from './_components/our-events-read';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
+import { detailsDoorHref } from '@/lib/maker-details-items';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 
 export const metadata = { title: 'Our Love Story' };
 
@@ -115,6 +118,24 @@ export default async function OurStoryEditorPage({
   // the form would silently no-op for them).
   if (membership?.member_type !== 'couple') {
     redirect(`/dashboard/${eventId}/website`);
+  }
+
+  /* 📦 LOVE STORY MOVED INTO THE MAKER'S DETAILS, WHOLE (Details part 2b —
+     Story & plans › Love Story: this scrapbook is its picture, the Story row's
+     words its editor). Where Details draws it — the couple of an event with an
+     Event Hub whose type has two named people (`detailsItemApplies`, the rule
+     the guest page draws the story by) — this address lands there, carrying a
+     save's flash. Anywhere else this page stays as it was. */
+  if (!inMaker && (await eventWordsForEvent(eventId)).twoPeople && (await detailsIsTheDoor(supabase, eventId, user.id))) {
+    redirect(
+      detailsDoorHref(eventId, 'love-story', {
+        saved: search.saved,
+        drafted: search.drafted,
+        error: search.error,
+        pro: search.pro,
+        slotted: search.slotted,
+      }),
+    );
   }
 
   /* 💾 THE SCRAPBOOK SHOWS THE DRAFT IT EDITS. Every form below posts

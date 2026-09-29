@@ -19,11 +19,15 @@ const ALL = new Set<DetailsItemKey>(DETAILS_ITEM_KEYS);
 const BIRTHDAY = { ...GENERIC_PROFILE, eventType: 'birthday' };
 
 test('a birthday and a wake get every part-1 item — the theme, the address, the QR and every print', () => {
-  // Part 1's items; "Your event" (part 2a) declares its own rules — `details-your-event.test.ts`.
-  const PART_1 = DETAILS_ITEM_KEYS.filter((k) => !(EVENT_ITEM_KEYS as readonly string[]).includes(k));
+  // Part 2b's one rule: the Love Story is drawn only where the type has two
+  // named people (`details-words-and-plans-fit-every-event.test.ts`); part 2a's
+  // Names and the march declare their own rules (`details-your-event.test.ts`);
+  // every other item — part 1's included — reaches every celebration.
+  const notYourEvent = (k: DetailsItemKey) => !(EVENT_ITEM_KEYS as readonly string[]).includes(k);
   for (const p of [BIRTHDAY, WAKE_PROFILE, WEDDING_PROFILE]) {
-    const keys = detailsNavigatorKeys(ctx(p), ALL).flatMap((g) => g.keys).filter((k) => PART_1.includes(k));
-    assert.deepEqual(keys, PART_1, `${p.eventType} lost an item`);
+    const keys = detailsNavigatorKeys(ctx(p), ALL).flatMap((g) => g.keys).filter(notYourEvent);
+    const expected = (p === WEDDING_PROFILE ? [...DETAILS_ITEM_KEYS] : DETAILS_ITEM_KEYS.filter((k) => k !== 'love-story')).filter(notYourEvent);
+    assert.deepEqual(keys, expected, `${p.eventType} lost an item`);
   }
   // …and the part-2a rules land through the same one mechanism.
   const has = (p: typeof WEDDING_PROFILE, k: DetailsItemKey) => detailsNavigatorKeys(ctx(p), ALL).some((g) => g.keys.includes(k));

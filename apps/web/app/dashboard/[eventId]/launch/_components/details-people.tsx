@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
-import { DetailsPieceHeading, DetailsPieceRow, useDetailsPiece } from './details-pieces';
+import { DetailsPieceButton, useDetailsPiece } from './details-go';
 
 /**
  * PARENTS & HOSTS, IN THE MAKER'S THREE PARTS (owner 2026-09-29, DECISION_LOG
@@ -26,34 +26,36 @@ const ADD = 'add';
 
 function usePick(parents: readonly PersonPiece[], hosts: readonly HostPiece[], parentsOffered: boolean) {
   const first = parentsOffered ? (parents[0]?.key ?? ADD) : (hosts[0]?.key ?? null);
-  const [pick, setPick] = useDetailsPiece('people.pick', first);
+  // Part 3's ONE piece mechanism (`details-go.tsx`), under the item's own key.
+  const [pick, setPick] = useDetailsPiece('parents');
   const known = pick === ADD ? parentsOffered : parents.some((p) => p.key === pick) || hosts.some((h) => h.key === pick);
-  return [known ? pick : first, setPick] as const;
+  return [known ? pick : first, (v: string) => setPick(v, { openEditor: true })] as const;
 }
 
 export function PeoplePieces({ parents, hosts, parentsOffered }: { parents: readonly PersonPiece[]; hosts: readonly HostPiece[]; parentsOffered: boolean }) {
   const [pick, setPick] = usePick(parents, hosts, parentsOffered);
+  const heading = (t: string) => <p className="hidden px-1 pb-0.5 pt-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/50 lg:block">{t}</p>;
+  const row = (key: string, label: string, sub?: string) => (
+    <DetailsPieceButton key={key} on={pick === key} onPick={() => setPick(key)} data={key}>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate">{label}</span>
+        {sub ? <small className="truncate text-[11px] opacity-70">{sub}</small> : null}
+      </span>
+    </DetailsPieceButton>
+  );
   return (
     <>
       {parentsOffered ? (
-        <li className="contents" data-people-piece="parents">
-          <DetailsPieceHeading>Parents</DetailsPieceHeading>
-          <ul className="contents">
-            {parents.map((p) => (
-              <DetailsPieceRow key={p.key} on={pick === p.key} label={p.name} sub="Parent" onPick={() => setPick(p.key)} dataKey={p.key} />
-            ))}
-            <DetailsPieceRow on={pick === ADD} label="+ Add a parent" onPick={() => setPick(ADD)} dataKey={ADD} />
-          </ul>
-        </li>
+        <div className="contents" data-people-piece="parents">
+          {heading('Parents')}
+          {parents.map((p) => row(p.key, p.name, 'Parent'))}
+          {row(ADD, '+ Add a parent')}
+        </div>
       ) : null}
-      <li className="contents" data-people-piece="hosts">
-        <DetailsPieceHeading>Hosts</DetailsPieceHeading>
-        <ul className="contents">
-          {hosts.map((h) => (
-            <DetailsPieceRow key={h.key} on={pick === h.key} label={h.label} sub="Host" onPick={() => setPick(h.key)} dataKey={h.key} />
-          ))}
-        </ul>
-      </li>
+      <div className="contents" data-people-piece="hosts">
+        {heading('Hosts')}
+        {hosts.map((h) => row(h.key, h.label, 'Host'))}
+      </div>
     </>
   );
 }

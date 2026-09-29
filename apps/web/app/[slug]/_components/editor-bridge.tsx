@@ -39,7 +39,7 @@ import { applySceneCardPreview } from '@/lib/scene-card-look';
  *   parent → frame  { source:'setnayan-editor', t:'scrollTo', key }
  *   parent → frame  { source:'setnayan-editor', t:'play',     key }
  *   parent → frame  { source:'setnayan-editor', t:'markEl',   key, el }
- *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el? }
+ *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el?, moment? }
  *   frame  → parent { source:'setnayan-site',   t:'select',   key, el, start, end, of, text }
  *   parent → frame  { source:'setnayan-editor', t:'playEl',   key, el }
  *   parent → frame  { source:'setnayan-editor', t:'words',    key, text }
@@ -497,10 +497,14 @@ export function EditorBridge() {
         // ✍ An empty scene (the Maker's placeholder) says so: its words are
         // what the couple came to write.
         const empty = el.matches('[data-maker-empty]') || el.querySelector('[data-maker-empty]') ? { empty: true } : {};
+        // 🗓 A tap on one schedule moment names it (`data-schedule-moment`,
+        // schedule-widget.tsx), so the Maker opens THAT moment in Details.
+        const momentId = (e.target as Element | null)?.closest?.('[data-schedule-moment]')?.getAttribute('data-schedule-moment');
+        const moment = momentId ? { moment: momentId } : {};
         window.parent?.postMessage(
           part
-            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el'), ...empty }
-            : { source: 'setnayan-site', t: 'edit', key, ...empty },
+            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el'), ...empty, ...moment }
+            : { source: 'setnayan-site', t: 'edit', key, ...empty, ...moment },
           origin,
         );
       };

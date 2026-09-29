@@ -40,6 +40,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { SCHEDULE_FOCUS_EVENT, takeQueuedScheduleFocus } from './schedule-focus';
+import { InSlot, pickDetailsPiece } from '../../launch/_components/details-piece';
 import { CalendarClock, Check, Eye, EyeOff, MessageSquare, Mic, MoveVertical, Plus } from 'lucide-react';
 import { useIsDesktop } from '@/lib/use-responsive';
 import { formatCount } from '@/lib/format-number';
@@ -116,7 +118,17 @@ export function ScheduleDay({
   emcee,
   hostPanel,
   actions,
+  inspectorSlot = null,
 }: {
+  /**
+   * 🧩 Inside the Event Hub Maker (Details › Schedule, part 2b — DECISION_LOG "A
+   * TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): the id of the
+   * Details right column's slot. The rail stays the picture; its inspector (the
+   * picked moment's fields, or the day's glance) is drawn THERE at every width —
+   * the same component, the same state — and the moment picked here is told to
+   * the navigator. Null: the page's own side column and phone panel, as ever.
+   */
+  inspectorSlot?: string | null;
   /** The existing server actions in `../actions`, handed down by the page. */
   actions: DayActions;
   /** Whole days until the event, for the glance column; null past it or undated. */
@@ -161,6 +173,32 @@ export function ScheduleDay({
   // A fresh server answer supersedes every optimistic guess.
   useEffect(() => {
     setOverrides({});
+  }, [moments]);
+
+  /* 🧩 In Details the moment picked on the rail is the navigator's piece too. */
+  useEffect(() => {
+    if (inspectorSlot && selectedId) pickDetailsPiece('schedule', selectedId);
+  }, [inspectorSlot, selectedId]);
+
+  /* 🎯 A moment tapped on a stage of the Event Hub Maker (Details part 2b,
+     `schedule-focus.ts`): select it here — its own inspector opens — and bring
+     it into view. Taken on mount (Details drew this page just now) and heard
+     while mounted. An id that is not one of these moments is ignored. */
+  useEffect(() => {
+    const focus = (id: string | null) => {
+      if (!id || !moments.some((m) => m.block_id === id)) return;
+      setSelectedId(id);
+      window.setTimeout(() => {
+        document.querySelector<HTMLElement>(`[data-rail-moment="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center' });
+      }, 60);
+    };
+    focus(takeQueuedScheduleFocus());
+    const onAsk = (e: Event) => {
+      takeQueuedScheduleFocus();
+      focus((e as CustomEvent<string>).detail ?? null);
+    };
+    window.addEventListener(SCHEDULE_FOCUS_EVENT, onAsk);
+    return () => window.removeEventListener(SCHEDULE_FOCUS_EVENT, onAsk);
   }, [moments]);
 
   // The venue's wall clock, read after mount (never during render, so the
@@ -384,6 +422,39 @@ export function ScheduleDay({
         : (suppliers.find((s) => s.vendor_id === lens.id)?.vendor_name ?? 'Supplier');
 
   // ── render ────────────────────────────────────────────────────────────────
+  /* THE SIDE — the picked moment's inspector, or the day in numbers. */
+  const side = selected ? (
+              <MomentInspector
+                key={selected.block_id}
+                eventId={eventId}
+                eventType={eventType}
+                moment={selected}
+                parts={partsOf.get(selected.block_id) ?? []}
+                suppliers={suppliers}
+                rosEnabled={rosEnabled}
+                canEdit={canEdit}
+                canStage={canStage}
+                request={requests.find((r) => r.block_id === selected.block_id) ?? null}
+                onClose={() => setSelectedId(null)}
+                onShift={() => setSheet({ kind: 'shift', fromId: selected.block_id })}
+                onOpenRequests={() => setSheet({ kind: 'requests' })}
+                onDeleted={() => setSelectedId(null)}
+                onOverride={override}
+                onRevert={revert}
+              />
+            ) : (
+              <Glance
+                count={topLevel.length}
+                visible={visibleCount}
+                staged={stagedCount}
+                topLevel={topLevel}
+                requests={requests.length}
+                role={role}
+                daysToGo={daysToGo}
+                onRequests={() => setSheet({ kind: 'requests' })}
+              />
+            );
+
   return (
     <DayActionsContext.Provider value={actions}>
     <div className="space-y-3" data-schedule-day="">
@@ -643,6 +714,7 @@ export function ScheduleDay({
                     return (
                       <div
                         key={m.block_id}
+                        data-rail-moment={m.block_id}
                         role="button"
                         tabIndex={faded ? -1 : 0}
                         aria-pressed={isSel}
@@ -794,44 +866,17 @@ export function ScheduleDay({
         {/* THE SIDE — a wide screen only. Nothing selected: the day in
             numbers. Selected: the one inspector. On a phone the inspector is
             the panel below instead, so it is reachable at every width. */}
-        {isDesktop ? (
+        {isDesktop && !inspectorSlot ? (
           <aside className="sticky top-20 w-[380px] flex-none self-start">
-            {selected ? (
-              <MomentInspector
-                key={selected.block_id}
-                eventId={eventId}
-                eventType={eventType}
-                moment={selected}
-                parts={partsOf.get(selected.block_id) ?? []}
-                suppliers={suppliers}
-                rosEnabled={rosEnabled}
-                canEdit={canEdit}
-                canStage={canStage}
-                request={requests.find((r) => r.block_id === selected.block_id) ?? null}
-                onClose={() => setSelectedId(null)}
-                onShift={() => setSheet({ kind: 'shift', fromId: selected.block_id })}
-                onOpenRequests={() => setSheet({ kind: 'requests' })}
-                onDeleted={() => setSelectedId(null)}
-                onOverride={override}
-                onRevert={revert}
-              />
-            ) : (
-              <Glance
-                count={topLevel.length}
-                visible={visibleCount}
-                staged={stagedCount}
-                topLevel={topLevel}
-                requests={requests.length}
-                role={role}
-                daysToGo={daysToGo}
-                onRequests={() => setSheet({ kind: 'requests' })}
-              />
-            )}
+            {side}
           </aside>
         ) : null}
       </div>
 
-      {!isDesktop && selected ? (
+      {/* 🧩 In the Maker's Details the inspector is the right column's, at every width. */}
+      {inspectorSlot ? <InSlot id={inspectorSlot}>{side}</InSlot> : null}
+
+      {!isDesktop && selected && !inspectorSlot ? (
         <div
           role="dialog"
           aria-label={`Moment: ${selected.label}`}

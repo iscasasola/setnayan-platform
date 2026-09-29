@@ -9,7 +9,7 @@ import { setEntourageLineOrder } from '../../guests/entourage-order-actions';
 import { joinEntourageLine, swapEntouragePlaces } from '../../guests/march-actions';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
-import { DetailsPieceHeading, DetailsPieceRow, useDetailsPiece } from './details-pieces';
+import { DetailsPieceButton, useDetailsPiece } from './details-go';
 
 /**
  * THE MARCH, IN THE MAKER'S THREE PARTS (owner 2026-09-29, DECISION_LOG "A TOOL
@@ -49,42 +49,37 @@ const SECTION = 'section:';
 /** The picked piece: a line's lead id, or `section:<key>`; the first section when none. */
 function usePick(sections: readonly MarchSectionData[]): [string | null, (v: string | null) => void] {
   const first = sections[0] ? `${SECTION}${sections[0].key}` : null;
-  const [pick, setPick] = useDetailsPiece('march.pick', first);
+  // Part 3's ONE piece mechanism (`details-go.tsx`), under the item's own key.
+  const [pick, setPick] = useDetailsPiece('march');
   const known =
     pick !== null &&
     sections.some((s) => `${SECTION}${s.key}` === pick || s.lines.some((l) => l.leadId === pick));
-  return [known ? pick : first, setPick];
+  return [known ? pick : first, (v) => setPick(v, { openEditor: true })];
 }
 
-/** LEFT — the sections and their lines. */
+/** LEFT — the sections and their lines, as part 3's navigator pieces. */
 export function MarchPieces({ sections }: { sections: readonly MarchSectionData[] }) {
   const [pick, setPick] = usePick(sections);
   return (
     <>
       {sections.map((s) => (
-        <li key={s.key} className="contents" data-march-piece-section={s.key}>
-          <DetailsPieceHeading>{s.label}</DetailsPieceHeading>
-          <ul className="contents">
-            <DetailsPieceRow
-              on={pick === `${SECTION}${s.key}`}
-              label={s.label}
-              sub={`${s.lines.length} line${s.lines.length === 1 ? '' : 's'} · the whole section`}
-              onPick={() => setPick(`${SECTION}${s.key}`)}
-              dataKey={`${SECTION}${s.key}`}
-            />
-            {s.lines.map((l) => (
-              <DetailsPieceRow
-                key={l.leadId}
-                on={pick === l.leadId}
-                lead={l.step}
-                label={l.label}
-                onPick={() => setPick(l.leadId)}
-                dataKey={l.leadId}
-                indent
-              />
-            ))}
-          </ul>
-        </li>
+        <div key={s.key} className="contents" data-march-piece-section={s.key}>
+          <p className="hidden px-1 pb-0.5 pt-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/50 lg:block">{s.label}</p>
+          <DetailsPieceButton on={pick === `${SECTION}${s.key}`} onPick={() => setPick(`${SECTION}${s.key}`)} data={`${SECTION}${s.key}`}>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate">{s.label}</span>
+              <small className="truncate text-[11px] opacity-70">
+                {s.lines.length} line{s.lines.length === 1 ? '' : 's'} · the whole section
+              </small>
+            </span>
+          </DetailsPieceButton>
+          {s.lines.map((l) => (
+            <DetailsPieceButton key={l.leadId} on={pick === l.leadId} onPick={() => setPick(l.leadId)} data={l.leadId}>
+              <span className="w-5 shrink-0 text-right font-mono text-[11px] opacity-60">{l.step}</span>
+              <span className="truncate">{l.label}</span>
+            </DetailsPieceButton>
+          ))}
+        </div>
       ))}
     </>
   );

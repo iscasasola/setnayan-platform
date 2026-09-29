@@ -77,6 +77,9 @@ export function PabuyaMessageEditor({
 
       <textarea
         value={text}
+        /* In the Event Hub Maker's Details this box has two doors (Words ›
+           Thank-you and The Finer Details' switch) — one value (`same-field.ts`). */
+        data-same-field="pabuya_message"
         onChange={(e) => setText(e.target.value.slice(0, PABUYA_MESSAGE_MAX))}
         rows={4}
         placeholder="Write your own, or pick one above…"

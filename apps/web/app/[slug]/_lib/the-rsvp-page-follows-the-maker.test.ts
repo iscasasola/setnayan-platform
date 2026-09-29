@@ -233,8 +233,8 @@ test('7 · the one-at-a-time switch: label, knob and value are the same value', 
         current: { oneAtATime },
         drafted: false,
         replyBy: null,
-        replyByHref: '#',
-        requests: { count: 0, href: '#' },
+        replyByOwn: { deadline: null, pricingMode: 'realtime' },
+        requests: { count: 0, list: null },
       }),
     );
   for (const on of [false, true]) {

@@ -13,16 +13,17 @@ import {
   hubElementDeclarations,
   hubElementHeroMotionVars,
   hubElementSceneCss,
-  hubRunDeclarations,
+  hubSceneRunsAttr,
   hubTextHash,
-  hubTextSegments,
   isHubElementKey,
+  readHubSceneRuns,
   sanitizeHubElements,
   type HubElementKey,
   type HubElementStyle,
   type HubElementStyles,
 } from '@/lib/element-style';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
+import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 
 /**
@@ -40,7 +41,7 @@ import { applySceneCardPreview } from '@/lib/scene-card-look';
  *   parent → frame  { source:'setnayan-editor', t:'play',     key }
  *   parent → frame  { source:'setnayan-editor', t:'markEl',   key, el }
  *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el? }
- *   frame  → parent { source:'setnayan-site',   t:'select',   key, el, start, end, of, text }
+ *   frame  → parent { source:'setnayan-site',   t:'select',   key, el, start, end, of, text, whole }
  *   parent → frame  { source:'setnayan-editor', t:'playEl',   key, el }
  *   parent → frame  { source:'setnayan-editor', t:'words',    key, text }
  *   parent → frame  { source:'setnayan-editor', t:'elStyle',  key, el, elements, motion, replay }
@@ -181,15 +182,17 @@ export function tappedElement(target: EventTarget | null, section: HTMLElement):
 /**
  * ✍ THE SELECTION INSIDE ONE PART, AS OFFSETS INTO ITS TEXT (owner 2026-09-27:
  * *"they can take 1 letter and change the font"*). Both ends must sit inside
- * the same `data-el` part whose text can carry runs (the hero's words); the
- * offsets are counted in that part's `textContent`, the SAME string the guest
- * page cuts its spans from, and `of` fingerprints it so a run can never land on
- * different letters after the text changes. Null when there is no such
- * selection — the choice then styles the whole part.
+ * the same `data-el` part whose text can carry runs (every part with words —
+ * the hero's and a scene's); the offsets are counted in that part's
+ * `textContent`, the SAME string the guest page cuts its spans from, and `of`
+ * fingerprints it so a run can never land on different letters after the text
+ * changes. `whole` is that text itself: with it, the part's older runs are
+ * ADAPTED onto the words drawn now when the choice is saved (`withRunChoice`).
+ * Null when there is no such selection — the choice then styles the whole part.
  */
 export function selectionInPart(
   sel: Selection | null,
-): { part: HTMLElement; el: HubElementKey; start: number; end: number; of: string; text: string } | null {
+): { part: HTMLElement; el: HubElementKey; start: number; end: number; of: string; text: string; whole: string } | null {
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
   const range = sel.getRangeAt(0);
   const startEl = (range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement) as Element | null;
@@ -204,7 +207,7 @@ export function selectionInPart(
   const text = range.toString();
   if (text.length === 0) return null;
   const whole = part.textContent ?? '';
-  return { part, el, start, end: start + text.length, of: hubTextHash(whole), text };
+  return { part, el, start, end: start + text.length, of: hubTextHash(whole), text, whole };
 }
 
 /**
@@ -250,7 +253,7 @@ export function previewSceneWords(section: Element, text: string): boolean {
 /* ── ⚡ THE INSTANT PREVIEW — one choice laid on the canvas, no reload ──── */
 
 /** The part of the DOM the preview writes through — a real document, or a test's. */
-type PreviewDoc = Pick<Document, 'createElement' | 'createTextNode'>;
+type PreviewDoc = RunsDoc;
 
 const LOOK_PROPS: readonly string[] = HUB_ELEMENT_LOOK_PROPS;
 
@@ -291,48 +294,12 @@ export function applyPartWords(part: HTMLElement, word: string | null | undefine
   target.textContent = word ?? target.getAttribute('data-el-word') ?? '';
 }
 
-function textNodesOf(node: Node, out: Text[]): Text[] {
-  node.childNodes.forEach((c) => {
-    if (c.nodeType === 3) out.push(c as Text);
-    else if (c.nodeType === 1) textNodesOf(c, out);
-  });
-  return out;
-}
-
 /**
- * ✍ A HERO PART'S RUNS, re-cut in place. The old run spans are unwrapped back
- * into plain text, then every text node is cut by `hubTextSegments` at its own
- * offset in the part's WHOLE text (`textContent` — the string the server's
- * `whole` is, and the one the selection's offsets are counted in), and each run
- * piece becomes the same `<span data-el-run>` the guest page draws.
+ * ✍ A HERO PART'S RUNS, re-cut in place — `applyPartRuns` (`part-runs.ts`), the
+ * one cutter every part's runs go through, on the canvas and on the guest page.
  */
 export function applyHeroPartRuns(part: HTMLElement, style: HubElementStyle | null | undefined, doc: PreviewDoc): void {
-  part.querySelectorAll('[data-el-run]').forEach((span) => {
-    span.parentNode?.replaceChild(doc.createTextNode(span.textContent ?? ''), span);
-  });
-  part.normalize();
-  const whole = part.textContent ?? '';
-  let at = 0;
-  for (const node of textNodesOf(part, [])) {
-    const text = node.data;
-    const segments = hubTextSegments(text, style, { text: whole, segmentStart: at });
-    at += text.length;
-    if (segments.length === 1 && !segments[0]!.run) continue;
-    const parent = node.parentNode;
-    if (!parent) continue;
-    for (const seg of segments) {
-      if (!seg.run) {
-        parent.insertBefore(doc.createTextNode(seg.text), node);
-        continue;
-      }
-      const span = doc.createElement('span');
-      span.setAttribute('data-el-run', '');
-      for (const [p, v] of hubRunDeclarations(seg.run)) span.style.setProperty(p, v);
-      span.appendChild(doc.createTextNode(seg.text));
-      parent.insertBefore(span, node);
-    }
-    parent.removeChild(node);
-  }
+  applyPartRuns(part, style, doc);
 }
 
 /** The scene's own `<style data-hub-els>` — after the scene, before the next scene's marker. */
@@ -357,15 +324,19 @@ export function applySceneElementStyles(
 ): HTMLStyleElement | null {
   if (HUB_ELEMENT_EXCLUDED_WIDGETS.includes(widgetType)) return null;
   const css = hubElementSceneCss(widgetType, elements) ?? '';
+  // ✍ The scene's runs ride on the same tag, as the frame renders them.
+  const runs = hubSceneRunsAttr(elements);
   let tag = sceneStyleOf(section, widgetType);
   if (!tag) {
-    if (!css) return null;
+    if (!css && !runs) return null;
     tag = doc.createElement('style');
     tag.hidden = true;
     tag.setAttribute('data-hub-els', widgetType);
     section.parentNode?.insertBefore(tag, section.nextSibling);
   }
   tag.textContent = css;
+  if (runs) tag.setAttribute('data-hub-runs', runs);
+  else tag.removeAttribute('data-hub-runs');
   return tag;
 }
 
@@ -404,6 +375,8 @@ export function applyElementPreview(
   // A ▶ Play leaves an inline `-p` twin that would outrank the new motion.
   if (motion) for (const part of parts) part.style.removeProperty('animation-name');
   applySceneElementStyles(section, key.slice(2), elements, doc);
+  // ✍ …and its runs, cut into the part they were made on (`applySceneRuns`).
+  if (!HUB_ELEMENT_EXCLUDED_WIDGETS.includes(key.slice(2))) applySceneRuns(section, elements, doc);
   return parts;
 }
 
@@ -539,7 +512,17 @@ export function EditorBridge() {
         const key = marker?.getAttribute('data-maker-section') ?? null;
         window.parent?.postMessage(
           hit && key
-            ? { source: 'setnayan-site', t: 'select', key, el: hit.el, start: hit.start, end: hit.end, of: hit.of, text: hit.text }
+            ? {
+                source: 'setnayan-site',
+                t: 'select',
+                key,
+                el: hit.el,
+                start: hit.start,
+                end: hit.end,
+                of: hit.of,
+                text: hit.text,
+                whole: hit.whole,
+              }
             : { source: 'setnayan-site', t: 'select', key: null },
           origin,
         );
@@ -622,7 +605,13 @@ export function EditorBridge() {
       if (data.t === 'words') {
         // ✍ The Content box's words, on the scene now (`previewSceneWords`).
         const text = (data as { text?: unknown }).text;
-        if (typeof text === 'string') previewSceneWords(el, text.slice(0, 2000));
+        if (typeof text === 'string' && previewSceneWords(el, text.slice(0, 2000)) && data.key.startsWith('w:')) {
+          /* ✍ The new words wiped the scene's run spans; its runs are laid
+             again, ADAPTED onto what is being typed — the couple sees each
+             styled letter keep its style as the words change around it. */
+          const tag = sceneStyleOf(el, data.key.slice(2));
+          applySceneRuns(el, readHubSceneRuns(tag?.getAttribute('data-hub-runs')), document);
+        }
         return;
       }
       if (data.t === 'scrollTo') {

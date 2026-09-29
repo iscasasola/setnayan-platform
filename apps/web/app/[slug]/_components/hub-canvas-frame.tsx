@@ -4,7 +4,7 @@ import { SceneClip } from './scene-clip';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { sceneFrameLook } from '@/lib/scene-frame-look';
-import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubElementSceneCss } from '@/lib/element-style';
+import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubElementSceneCss, hubSceneRunsAttr } from '@/lib/element-style';
 
 /**
  * THE CANVAS FRAME — a couple's arrangement, put around one section.
@@ -71,15 +71,19 @@ export function HubCanvasFrame({
      `<style>` placed straight AFTER the scene and addressing it with
      `:has(+ style…)`, so no widget is edited or wrapped and the scene stays its
      parent's direct child. Absent when nothing was chosen — the markup of an
-     untouched scene is byte-identical. ⛔ Never on the RSVP form. */
-  const elementCss = HUB_ELEMENT_EXCLUDED_WIDGETS.includes(widget.widget_type)
-    ? null
-    : hubElementSceneCss(widget.widget_type, canvas.elements);
-  const elementStyle = elementCss ? (
-    <style hidden data-hub-els={widget.widget_type}>
-      {elementCss}
-    </style>
-  ) : null;
+     untouched scene is byte-identical. ⛔ Never on the RSVP form.
+     ✍ The scene's RUNS (one letter, one word in its own font · colour · size)
+     ride on the same tag as `data-hub-runs` (`hubSceneRunsAttr`); the page
+     cuts them into the scene's words once it loads (`HubSceneRuns`). */
+  const excluded = HUB_ELEMENT_EXCLUDED_WIDGETS.includes(widget.widget_type);
+  const elementCss = excluded ? null : hubElementSceneCss(widget.widget_type, canvas.elements);
+  const runsAttr = excluded ? null : hubSceneRunsAttr(canvas.elements);
+  const elementStyle =
+    elementCss || runsAttr ? (
+      <style hidden data-hub-els={widget.widget_type} {...(runsAttr ? { 'data-hub-runs': runsAttr } : {})}>
+        {elementCss ?? ''}
+      </style>
+    ) : null;
   if (!hasHubCanvas(canvas)) {
     return elementStyle ? (
       <>

@@ -132,7 +132,9 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
-import { hubCanvasMediaRefs, hubSlotClipStillRefs } from '@/lib/hub-canvas';
+import { hubCanvasMediaRefs, hubSlotClipStillRefs, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubSceneRunsAttr } from '@/lib/element-style';
+import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
 import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
@@ -631,6 +633,14 @@ export async function SiteBody({
     stampElements: isMakerCanvas,
     design: heroDesignOf(heroCanvas),
   };
+  /* ✍ Does any scene carry a run (one letter, one word in its own look)? Only
+     then is the small script that lays them mounted (`HubSceneRuns`) — the
+     same test `HubCanvasFrame` puts the runs on the page by. */
+  const sceneRunsOnPage = widgets.some(
+    (w) =>
+      !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(w.widget_type) &&
+      hubSceneRunsAttr(sanitizeHubCanvas(w.config_json).elements) !== null,
+  );
 
   /*
     WHO IS ASKING — resolved ONCE, here, from the same facts this page already
@@ -2827,6 +2837,7 @@ export async function SiteBody({
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
       {isEditorCanvas && editorBridge && !themeTile ? <EditorBridge /> : null}
+      {sceneRunsOnPage ? <HubSceneRuns /> : null}
       </EventWordsProvider>
     </InvitationShell>
   );

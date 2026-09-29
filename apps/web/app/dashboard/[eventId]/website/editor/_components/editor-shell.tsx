@@ -665,7 +665,17 @@ export function MakerWork({
     const onSelect = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const d = event.data as
-        | { source?: string; t?: string; key?: string | null; el?: unknown; start?: unknown; end?: unknown; of?: unknown; text?: unknown }
+        | {
+            source?: string;
+            t?: string;
+            key?: string | null;
+            el?: unknown;
+            start?: unknown;
+            end?: unknown;
+            of?: unknown;
+            text?: unknown;
+            whole?: unknown;
+          }
         | null;
       if (!d || d.source !== 'setnayan-site' || d.t !== 'select') return;
       if (!d.key || !isHubElementKey(d.el) || !elementEditingOn) {
@@ -675,7 +685,8 @@ export function MakerWork({
       const key = d.key;
       const el = d.el;
       if (typeof d.start !== 'number' || typeof d.end !== 'number' || typeof d.of !== 'string' || typeof d.text !== 'string') return;
-      const range = { start: d.start, end: d.end, of: d.of, text: d.text };
+      /* `whole` — the part's text as drawn now — lets its older runs ADAPT onto it. */
+      const range = { start: d.start, end: d.end, of: d.of, text: d.text, ...(typeof d.whole === 'string' ? { was: d.whole } : {}) };
       const widgetType = key === 'f:hero' ? 'hero' : key.startsWith('w:') ? key.slice(2) : null;
       if (!widgetType) return;
       const picked = selectionForCanvasKey(key, scenes);

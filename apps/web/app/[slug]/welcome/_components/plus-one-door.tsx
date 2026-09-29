@@ -217,7 +217,7 @@ export function PlusOneDoor({
         <section className="space-y-2 text-center" data-plus-one-pass aria-label={PASS_CARD_WORDS.yours}>
           <p className="text-sm font-medium text-ink">{PASS_CARD_WORDS.yours}</p>
           <div
-            className="mx-auto w-48 bg-white p-2"
+            className="qr-slot mx-auto w-48 bg-white p-2 [&_svg]:h-auto [&_svg]:w-full"
             role="img"
             aria-label={PASS_CARD_WORDS.yours}
             dangerouslySetInnerHTML={{ __html: passSvg }}

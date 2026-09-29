@@ -142,7 +142,7 @@ export function YourGuests({
                     Show {g.name.split(/\s+/)[0]}’s {PASS_CARD_WORDS.noun}
                   </summary>
                   <div
-                    className="mx-auto mt-2 w-48 bg-white p-2"
+                    className="qr-slot mx-auto mt-2 w-48 bg-white p-2 [&_svg]:h-auto [&_svg]:w-full"
                     role="img"
                     aria-label={`${g.name}’s ${PASS_CARD_WORDS.noun}`}
                     dangerouslySetInnerHTML={{ __html: pass }}

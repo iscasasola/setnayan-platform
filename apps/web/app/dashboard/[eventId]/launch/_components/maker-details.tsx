@@ -367,6 +367,9 @@ export function MakerDetails(props: MakerDetailsProps) {
   // `v=` the render stamp, so a changed look shows at once.
   const qrSrc = slug ? `/api/website/qr/${encodeURIComponent(slug)}?draft=1&v=${encodeURIComponent(stamp)}` : null;
   const qrMark = makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell });
+  // ⭕ The plate follows the code (owner 2026-09-30): a round code sits on a round plate.
+  // The plate WRAPS the picture rather than clipping it, so a code drawn square still shows whole.
+  const qrPlate = qr.style.shape === 'circle' ? ' rounded-full' : '';
   const free = freePrintParts(eventId, slug);
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
@@ -491,8 +494,10 @@ export function MakerDetails(props: MakerDetailsProps) {
         className="flex flex-col items-center gap-3 rounded-md bg-white/80 p-4 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)] sm:flex-row sm:text-left"
       >
         {qrSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG
-          <img src={qrSrc} alt="QR code for your Event Hub address" width={176} height={176} className="h-40 w-40 shrink-0 bg-white p-1 sm:h-44 sm:w-44" />
+          <span className={`shrink-0 bg-white p-1${qrPlate}`} data-qr-plate="">
+            {/* eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG */}
+            <img src={qrSrc} alt="QR code for your Event Hub address" width={176} height={176} className="block h-[152px] w-[152px] sm:h-[168px] sm:w-[168px]" />
+          </span>
         ) : null}
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink">Your Event Hub address</p>
@@ -515,8 +520,10 @@ export function MakerDetails(props: MakerDetailsProps) {
     qr: (
       <section data-details-qr="" className="flex flex-col items-center gap-4">
         {qrSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG; `v` is the render stamp so a new look shows at once
-          <img src={qrSrc} alt="Your Event Hub QR code" width={240} height={240} className="h-56 w-56 bg-white p-2 shadow-[0_1px_2px_rgba(40,34,24,.08)]" />
+          <span className={`bg-white p-2 shadow-[0_1px_2px_rgba(40,34,24,.08)]${qrPlate}`} data-qr-plate="">
+            {/* eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG; `v` is the render stamp so a new look shows at once */}
+            <img src={qrSrc} alt="Your Event Hub QR code" width={240} height={240} className="block h-52 w-52" />
+          </span>
         ) : (
           <p className="text-sm text-ink/70">Set your Event Hub address first — the QR opens it.</p>
         )}

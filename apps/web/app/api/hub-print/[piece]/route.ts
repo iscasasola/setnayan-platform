@@ -202,6 +202,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       docs = layoutQrCodes(
         event.display_name ?? 'Guest QR codes',
         loaded.passes.map((p) => ({ name: p.name, sub: p.seat, qrRef: p.qrRef! })),
+        set.qrLook.shape,
       );
       subject = `${formatCount(loaded.passes.length)} guests`;
     } else {

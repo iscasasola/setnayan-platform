@@ -683,6 +683,8 @@ export async function loadPrintSet(
     hasStill: Boolean(images.still),
     hasPosterBg: Boolean(images.posterBg),
     hasEventQr,
+    // ⭕ Every slot a code sits in follows the code's shape (`qrPlate`).
+    qrShape: qrLook.shape,
     // Paper says which day its facts are from (the pass card's "As of …").
     asOf: opts.mode === 'print' ? `As of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}` : null,
   };

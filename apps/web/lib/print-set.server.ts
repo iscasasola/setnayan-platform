@@ -48,6 +48,8 @@ import { fetchEgiftMethods } from '@/lib/egift';
 import { printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
+import { isPlaceholderSeat } from '@/lib/extra-seats';
 
 /**
  * lib/print-set.server.ts — everything a print piece needs, read ONCE.
@@ -665,14 +667,27 @@ export async function loadPrintSet(
 export async function loadGuestPasses(
   set: Pick<LoadedPrintSet, 'event' | 'appUrl' | 'ownerSlug' | 'qrLook'>,
   /** `limit` — the first N guests only (the Maker's thumbnail draws page 1, not 200 QRs). */
-  opts: { width: number; limit?: number },
+  opts: {
+    width: number;
+    limit?: number;
+    /**
+     * 🎟 PRINTED TICKETS ONLY FOR WHO IS COMING (owner 2026-09-29, DECISION_LOG
+     * "OWNER ANSWERS — TEN OPEN QUESTIONS" (9)): the Printed ticket batch
+     * (calling card · ticket · boarding · phone card) drops every guest who
+     * can't come — the SAME rule the Digital ticket and the zip use
+     * (`filterPassCardRows`, lib/pass-card.ts): a decline, a plus-one of a
+     * declining bringer, a "+ TBA" seat. The free QR sheet is not a ticket and
+     * keeps everyone.
+     */
+    ticketsOnly?: boolean;
+  },
 ): Promise<{ passes: PrintPass[]; images: PrintImages; measured: boolean }> {
   const admin = createAdminClient();
   const eventId = set.event.event_id;
   const { data, error } = await admin
     .from('guests')
     // The canonical entourage columns (the dup-rule guard's reference list) + the QR token.
-    .select(`${ENTOURAGE_COLUMNS}, qr_token`)
+    .select(`${ENTOURAGE_COLUMNS}, qr_token, event_id, rsvp_status, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, passed_away, deleted_at`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // 🛂 No pass for a request until Keep or Link.
@@ -682,8 +697,14 @@ export async function loadGuestPasses(
     logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');
     return { passes: [], images: {}, measured: false };
   }
-  type G = { guest_id: string; first_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null };
-  const all = ((data ?? []) as G[]).filter((g) => g.qr_token);
+  type G = PassCardRow & { guest_id: string; first_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null };
+  const listed = ((data ?? []) as unknown as G[]).filter((g) => g.qr_token);
+  const all = opts.ticketsOnly
+    ? filterPassCardRows(listed, (g) => ({
+        ...g,
+        tba: Boolean(g.plus_one_of_guest_id) && isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: g.plus_one_name_confirmed_at }),
+      }))
+    : listed;
   const guests = opts.limit ? all.slice(0, opts.limit) : all;
 
   const seatOf = new Map<string, string>();

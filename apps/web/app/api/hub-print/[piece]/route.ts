@@ -271,10 +271,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     const input = { look: set.look, data: withPassDesign(set.data, url), mode: drawMode, foil: spot.foil, whiteInk: spot.whiteInk };
 
     if (piece === 'passes') {
-      const { passes, images, measured } = await loadGuestPasses(set, { width: 600 });
+      // 🎟 Printed tickets only for who is coming (owner 2026-09-29, OWNER ANSWERS (9)).
+      const { passes, images, measured } = await loadGuestPasses(set, { width: 600, ticketsOnly: true });
       if (!measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
       const docs = layoutPasses({ ...input, format: formatParam('passes') }, passes);
-      if (!docs.length) return new NextResponse('Add guests first — every guest gets a pass.', { status: 409 });
+      if (!docs.length) return new NextResponse('No guest has a ticket yet — a ticket appears once a guest is on your list and coming.', { status: 409 });
       // Ganged on A4 with cut lines (owner: print at home or at a shop).
       const fmt = formatFor('passes', formatParam('passes'))!;
       const bytes = await renderImposedPdf(docs, { ...set.images, ...images }, {

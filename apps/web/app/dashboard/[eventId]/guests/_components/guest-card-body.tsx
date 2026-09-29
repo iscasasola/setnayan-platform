@@ -31,7 +31,11 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
 import { GuestQrCard } from './guest-detail-body';
-import { GuestSendInvite } from './send-invite';
+/* ⚡ TYPE ONLY. The Send invite block is handed in by the page that draws it
+   (\`SendInvite\` below): the Guest list passes the real one, and the Maker —
+   whose parent cards never show it — passes nothing, so its code stays out of
+   the Maker's first load (\`check-maker-js-budget.mjs\`). */
+import type { GuestSendInvite } from './send-invite';
 import type { InviteSetup } from './invite-message-setup';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
@@ -146,6 +150,7 @@ export function GuestCardBody({
   errorMessage,
   inviteFlash,
   inviteSetup,
+  SendInvite,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -177,6 +182,8 @@ export function GuestCardBody({
    * QR card draws without the send block, exactly as before.
    */
   inviteSetup?: InviteSetup | null;
+  /** The Send invite block itself — given with \`inviteSetup\` by the pages that draw it. */
+  SendInvite?: typeof GuestSendInvite;
 }) {
   const {
     guest,
@@ -273,8 +280,8 @@ export function GuestCardBody({
           sendSlot={
             /* 🕯 Nothing is offered for a guest marked Passed away, and the
                couple do not invite themselves. */
-            inviteSetup && invitationBase && !guest.passed_away && !isCouple ? (
-              <GuestSendInvite
+            inviteSetup && SendInvite && invitationBase && !guest.passed_away && !isCouple ? (
+              <SendInvite
                 eventId={eventId}
                 guest={{
                   guestId: guest.guest_id,

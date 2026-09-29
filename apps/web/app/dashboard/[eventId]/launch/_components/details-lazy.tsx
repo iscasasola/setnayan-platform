@@ -100,6 +100,8 @@ export const MakerRsvpSettings = dynamic(() => import(/* webpackChunkName: "make
 
 /* ── The Look (Logo · Reveal — the pages the work area hands in) ─────────── */
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
+/* The Hero's poster preview — it plays the couple's logo (\`CoupleLogo\` → the layered player), ~7KB gz. */
+export const EventPoster = dynamic(() => import(/* webpackChunkName: "maker-details" */ '@/app/_components/event-poster').then((m) => m.EventPoster), { loading: SlotFill });
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
 
 /* ── Prefetch: the same imports, asked early so opening is instant ─────────── */
@@ -125,6 +127,7 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask'),
     import(/* webpackChunkName: "maker-details" */ './maker-logo'),
     import(/* webpackChunkName: "maker-details" */ './maker-reveal'),
+    import(/* webpackChunkName: "maker-details" */ '@/app/_components/event-poster'),
     prefetchEntourage(),
   ]);
 

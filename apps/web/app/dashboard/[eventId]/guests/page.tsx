@@ -86,6 +86,7 @@ import { ActiveFilters } from './_components/active-filters';
 import { LensPill } from './_components/lens-pill';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestCardBody, GUEST_CARD_ERROR_COPY } from './_components/guest-card-body';
+import { GuestSendInvite } from './_components/send-invite';
 import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -864,6 +865,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         }
         variant="panel"
         inviteSetup={inspectedInviteSetup}
+        SendInvite={GuestSendInvite}
         returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
         errorMessage={
           typeof search.error === 'string'

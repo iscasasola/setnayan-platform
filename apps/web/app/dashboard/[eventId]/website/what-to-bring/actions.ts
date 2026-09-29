@@ -7,11 +7,11 @@
  * renders nothing (section hides). Auth + RLS enforce that only event members
  * (couple / host moderators) can write. Mirrors updateSpecialMessage.
  */
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { resolveReturnTo } from '@/lib/editor-return';
 import { requireHostMembership } from '@/lib/host-gate';
 import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
@@ -31,7 +31,7 @@ export async function updateWhatToBring(
      words go into the couple's draft; guests keep the live page until Apply. */
   if (isHubDraftWrite(formData)) {
     await requireHostMembership(eventId);
-    await draftEventsAndReturn(eventId, { what_to_bring: note || null }, formData, `/dashboard/${eventId}/website/editor?open=what-to-bring`);
+    return draftEventsAndReturn(eventId, { what_to_bring: note || null }, formData, `/dashboard/${eventId}/website/editor?open=what-to-bring`);
   }
 
   const supabase = await createClient();
@@ -52,7 +52,5 @@ export async function updateWhatToBring(
 
   revalidatePath(`/dashboard/${eventId}/website`);
   if (event?.slug) revalidatePath(`/${event.slug}`);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/what-to-bring?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/what-to-bring?saved=1`, '?saved=1');
 }

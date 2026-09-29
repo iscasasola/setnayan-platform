@@ -111,6 +111,13 @@ export function SceneTemplatePicker({
     if (openProp === undefined) setOwnOpen(value);
     onOpenChange?.(value);
   };
+  /* ⚡ THE TAPPED TILE IS PRESSED AT ONCE (owner 2026-09-29: *"make sure 100%
+     that there is no slow response on the maker"*) — not when the render its
+     post brings lands. The server's `currentTemplate` takes over again as soon
+     as it moves, and whenever the sheet is opened afresh. */
+  const [tapped, setTapped] = useState<number | null>(null);
+  useEffect(() => setTapped(null), [currentTemplate, open]);
+  const pressed = tapped ?? currentTemplate;
   const [view, setView] = useState<SceneView>(initialView);
   // The view follows the one being edited each time the picker opens.
   useEffect(() => {
@@ -196,7 +203,14 @@ export function SceneTemplatePicker({
                 }`}
               >
                 {sceneTemplatesIn(family).map((t) => (
-                  <form key={t.id} action={action} onSubmit={() => onPick?.(t.id)}>
+                  <form
+                    key={t.id}
+                    action={action}
+                    onSubmit={() => {
+                      setTapped(t.id);
+                      onPick?.(t.id);
+                    }}
+                  >
                     {draft ? <HubDraftField /> : null}
                     {Object.entries(hidden).map(([k, v]) => (
                       <input key={k} type="hidden" name={k} value={v} />
@@ -204,10 +218,11 @@ export function SceneTemplatePicker({
                     <input type="hidden" name="template" value={String(t.id)} />
                     <button
                       type="submit"
-                      aria-pressed={currentTemplate === t.id}
+                      aria-pressed={pressed === t.id}
+                      aria-busy={tapped === t.id && tapped !== currentTemplate ? true : undefined}
                       title={t.builtOn ? SCENE_BUILT_ON_LABEL[t.builtOn] : t.name}
                       className={`flex w-full flex-col gap-1 rounded-md p-1.5 text-left transition-colors duration-sn-control ease-sn ${
-                        currentTemplate === t.id ? 'bg-ink/10 ring-1 ring-ink/40' : 'hover:bg-ink/5'
+                        pressed === t.id ? 'bg-ink/10 ring-1 ring-ink/40' : 'hover:bg-ink/5'
                       }`}
                     >
                       <span className={`flex items-start gap-1 ${view === 'both' ? '' : 'justify-center'}`}>

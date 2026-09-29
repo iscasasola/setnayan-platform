@@ -25,6 +25,7 @@
  * This file exists for the orphan settings only; do not grow it into a second
  * write layer.
  */
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -61,7 +62,7 @@ export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
     .maybeSingle();
   const stored = parseRsvpBackdropConfig((current as { rsvp_backdrop?: unknown } | null)?.rsvp_backdrop);
   // 💾 THE MAKER'S DRAFT (Phase 2): try it free, pay at Apply — see `draftBackdrop`.
-  if (isHubDraftWrite(formData)) await draftBackdrop(formData, eventId, { theme: themeRaw, intensity });
+  if (isHubDraftWrite(formData)) return draftBackdrop(formData, eventId, { theme: themeRaw, intensity });
   await requireLookPro(
     eventId,
     refChange(stored ? `${stored.theme}/${stored.intensity}` : null, `${themeRaw}/${intensity}`),
@@ -74,7 +75,7 @@ export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   revalidatePath('/[slug]', 'page');
-  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/editor?open=backdrop`));
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/editor?open=backdrop`);
 }
 
 /** Turn the spatial backdrop off (null the column). */
@@ -84,14 +85,14 @@ export async function clearRsvpBackdrop(formData: FormData): Promise<void> {
   const eventId = eventIdRaw;
 
   await requireHostMembership(eventId);
-  if (isHubDraftWrite(formData)) await draftBackdrop(formData, eventId, null);
+  if (isHubDraftWrite(formData)) return draftBackdrop(formData, eventId, null);
   const supabase = await createClient();
 
   await supabase.from('events').update({ rsvp_backdrop: null }).eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   revalidatePath('/[slug]', 'page');
-  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/editor?open=backdrop`));
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/editor?open=backdrop`);
 }
 
 /**
@@ -119,7 +120,7 @@ export async function setOpenBrowse(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   if (event?.slug) revalidatePath(`/${event.slug}`);
-  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/editor?open=open-browse`));
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/editor?open=open-browse`);
 }
 
 /**
@@ -183,9 +184,9 @@ async function draftBackdrop(
   formData: FormData,
   eventId: string,
   value: { theme: string; intensity: string } | null,
-): Promise<never> {
+): Promise<void> {
   const fallback = `/dashboard/${eventId}/website/editor?open=backdrop&drafted=1`;
   await saveHubDraftPatch(eventId, { events: { rsvp_backdrop: value } }, { formData, fallback });
   // ⚡ Draft only; the redirect carries the fresh render (no revalidatePath — owner 2026-09-28).
-  redirect(resolveReturnTo(formData, fallback, '?drafted=1'));
+  return landAfterWrite(formData, fallback, '?drafted=1');
 }

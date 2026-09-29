@@ -926,6 +926,9 @@ async function plusOneNameLocked(
     .eq('guest_id', guestId)
     .limit(1)
     .maybeSingle();
-  if (mErr) return true;
+  if (mErr) {
+    console.error('plusOneNameLocked: event_members read failed — treating as locked', eventId, guestId, mErr.message);
+    return true;
+  }
   return Boolean(member);
 }

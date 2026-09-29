@@ -58,18 +58,35 @@ import type { HubMotionPreset } from '@/lib/hub-canvas';
 import type { HubAutoSpeed, HubTransition } from '@/lib/hub-scenes';
 import type { RevealTemplateId } from '@/lib/reveal-config-pure';
 
-/** The ten, in the order the owner named them — the picker's order. */
+/**
+ * 🔢 THE ONE THEME ORDER — every list of themes reads it (the Details picker,
+ * Prints & Tickets' theme choice, the Maker's theme panel, the Pro pitch that
+ * names them). Owner, 2026-09-29, verbatim (DECISION_LOG "THEME ORDER: THE
+ * THREE FREE FIRST…"): *"arrange the themes to have the free as the first 3
+ * and the rest will be based on size also"*:
+ *
+ *   · the three FREE themes first — Classic · Modern · Cyber Neon;
+ *   · then the Pro themes, lightest background loop to heaviest (`loopMb`,
+ *     measured 2026-09-28): Luxe 0.60 · Vintage 2.09 · Regency 2.11 ·
+ *     Rustic 2.24 · Cinderella 2.25 · Great Gatsby 2.44 · Whimsical 2.44.
+ *
+ * Written out, not sorted at runtime: a list nobody can read is a list nobody
+ * can check. `lib/theme-order.test.ts` holds that it IS "free first, then Pro
+ * by `loopMb`", so a tier flip or a re-measured loop turns it red rather than
+ * silently reshuffling a couple's picker. No surface sorts themes locally, and
+ * a "Suggested for you" mark never moves a tile.
+ */
 export const INVITE_THEME_IDS = [
   'house',
-  'abaca',
   'galeriya',
-  'cinderella',
+  'cyber',
   'velvet',
   'vintage',
-  'whimsical',
   'regency',
+  'abaca',
+  'cinderella',
   'gatsby',
-  'cyber',
+  'whimsical',
 ] as const;
 export type InviteThemeId = (typeof INVITE_THEME_IDS)[number];
 
@@ -186,6 +203,12 @@ export type InviteTheme = {
   ornament: string;
   /** The loop and still — `null` for Classic, which is plain colour. */
   media: HubThemeMedia | null;
+  /**
+   * The background loop's size in MB, measured 2026-09-28 (the weights the
+   * owner chose the free themes by). `null` for Classic, which has no loop.
+   * Documentation for the ORDER (`INVITE_THEME_IDS`), never a runtime sort.
+   */
+  loopMb: number | null;
   /** Content motion (`HUB_MOTION_PRESETS`). */
   motion: HubMotionPreset;
   /**
@@ -241,6 +264,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Cormorant Garamond', body: 'EB Garamond', labels: 'Cormorant SC', script: 'Great Vibes' },
     ornament: 'engraved-gold',
     media: null,
+    loopMb: null,
     motion: 'still',
     transitions: { pattern: [SCROLL, SCROLL, SCROLL], rest: 'scroll' },
     radius: 4,
@@ -273,6 +297,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Fraunces', body: 'Lora', labels: 'Lora', script: 'Kaushan Script' },
     ornament: 'twine-sprig',
     media: mediaFor('rustic', { light: '#f0d5b4', dark: '#291d10' }),
+    loopMb: 2.24,
     motion: 'calm',
     transitions: { pattern: [SCROLL, SCROLL, SCROLL], rest: 'scroll' },
     radius: 6,
@@ -305,6 +330,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Instrument Serif', body: 'Jost', labels: 'Jost', script: null },
     ornament: 'hairline-arch',
     media: mediaFor('modern', { light: '#f5f0eb', dark: '#242c0b' }),
+    loopMb: 0.62,
     motion: 'still',
     transitions: { pattern: [SCRUB], rest: 'scroll' },
     radius: 999,
@@ -337,6 +363,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Italiana', body: 'Cormorant Garamond', labels: 'Cormorant SC', script: 'Alex Brush' },
     ornament: 'silver-arch',
     media: mediaFor('cinderella', { light: '#d4dfe7', dark: '#253039' }),
+    loopMb: 2.25,
     motion: 'cinematic',
     transitions: { pattern: [{ mode: 'auto', speed: 'slow' }, SCRUB], rest: 'scroll' },
     radius: 999,
@@ -369,6 +396,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Bodoni Moda', body: 'Cormorant Garamond', labels: 'Cormorant SC', script: 'Pinyon Script' },
     ornament: 'gilt-double',
     media: mediaFor('luxe', { light: '#f8cc95', dark: '#0e0504' }),
+    loopMb: 0.6,
     motion: 'cinematic',
     transitions: { pattern: [{ mode: 'auto', speed: 'slow' }, SCRUB], rest: 'scroll' },
     radius: 999,
@@ -401,6 +429,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Playfair Display', body: 'Libre Baskerville', labels: 'Libre Baskerville', script: 'Mrs Saint Delafield' },
     ornament: 'lace-postmark',
     media: mediaFor('vintage', { light: '#e8d9c4', dark: '#382918' }),
+    loopMb: 2.09,
     motion: 'calm',
     transitions: { pattern: [SCRUB], rest: 'scroll' },
     radius: 2,
@@ -433,6 +462,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Yeseva One', body: 'Quicksand', labels: 'Quicksand', script: 'Cookie' },
     ornament: 'confetti-butterfly',
     media: mediaFor('whimsical', { light: '#faf6ee', dark: '#828444' }),
+    loopMb: 2.44,
     motion: 'editorial',
     transitions: { pattern: [SCROLL, SCROLL, SCROLL], rest: 'scroll' },
     radius: 999,
@@ -465,6 +495,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Prata', body: 'Crimson Pro', labels: 'Crimson Pro', script: 'Parisienne' },
     ornament: 'gilt-ribbon',
     media: mediaFor('regency', { light: '#e2b997', dark: '#8a624e' }),
+    loopMb: 2.11,
     motion: 'editorial',
     transitions: { pattern: [SCRUB], rest: 'scroll' },
     radius: 999,
@@ -497,6 +528,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Limelight', body: 'Josefin Sans', labels: 'Poiret One', script: null },
     ornament: 'deco-fan',
     media: mediaFor('great-gatsby', { light: '#f9e0bb', dark: '#110504' }),
+    loopMb: 2.44,
     motion: 'cinematic',
     transitions: { pattern: [{ mode: 'auto', speed: 'normal' }, SCRUB], rest: 'scroll' },
     radius: 4,
@@ -529,6 +561,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     fonts: { heading: 'Syne', body: 'Outfit', labels: 'Outfit', script: 'Monoton' },
     ornament: 'hud-glow',
     media: mediaFor('cyber-neon', { light: '#ec8cd6', dark: '#0b0a12' }),
+    loopMb: 0.61,
     motion: 'cinematic',
     transitions: { pattern: [SCRUB, SCRUB], rest: 'scrub' },
     radius: 8,
@@ -538,13 +571,13 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
   },
 };
 
-/** The ten, as a list in the owner's order — what the Maker's Theme panel mounts. */
+/** The ten, as a list in THE ONE ORDER (`INVITE_THEME_IDS`) — what every theme list mounts. Never `Object.values(INVITE_THEMES)`. */
 export const HUB_THEMES: readonly InviteTheme[] = INVITE_THEME_IDS.map((id) => INVITE_THEMES[id]);
 
-/** The themes every couple may wear, in the owner's order — shipped ones only. */
+/** The themes every couple may wear, in the one order — shipped ones only. */
 export const FREE_THEMES: readonly InviteTheme[] = HUB_THEMES.filter((t) => t.ready && t.tier === 'free');
 
-/** The themes Event Hub Pro opens, in the owner's order — shipped ones only. */
+/** The themes Event Hub Pro opens, in the one order (lightest loop first) — shipped ones only. */
 export const PRO_THEMES: readonly InviteTheme[] = HUB_THEMES.filter((t) => t.ready && t.tier === 'pro');
 
 /**
@@ -668,7 +701,8 @@ export function suggestedInviteTheme(
 }
 
 /**
- * The themes a couple can pick right now, in the order the owner named them.
+ * The themes a couple can pick right now, in the one order (`INVITE_THEME_IDS`:
+ * the free three first, then Pro by loop size). Filtered, never re-sorted.
  *
  * The free themes (`FREE_THEMES`) are pickable for every celebration, the way
  * Classic always was. Pro themes are LISTED-BUT-DISABLED for a couple who simply has not bought the

@@ -100,18 +100,26 @@ async function paintPrints(ownsPro: boolean, storeShell: boolean): Promise<strin
   const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
   // A THEMED set (not Classic): since the free-prints rework, Classic prints carry no Pro line at all.
   const theme = INVITE_THEME_IDS.find((id) => id !== 'house')!;
-  return renderToStaticMarkup(
-    React.createElement(PrintSetDownloads, {
-      input: {
-        eventId: 'E1',
-        slug: 'ana-ben',
-        theme,
-        ownsPro,
-        storeShell,
-        formats: { pass: first('pass'), invitation: first('invitation'), card: first('card') } as never,
-      },
-    }),
-  );
+  const el = React.createElement(PrintSetDownloads, {
+    input: {
+      eventId: 'E1',
+      slug: 'ana-ben',
+      theme,
+      ownsPro,
+      storeShell,
+      formats: { pass: first('pass'), invitation: first('invitation'), card: first('card') } as never,
+    },
+  });
+  /* ⚡ The save buttons load lazily (`launch/_components/details-lazy.tsx`): the
+     first pass draws their loading slot (`data-lazy-slot`) and asks for their
+     code. Render again once they have arrived, so a mark a button draws is
+     counted — a bounded wait; a slot still there is left for the counts. */
+  let html = renderToStaticMarkup(el);
+  for (let i = 0; i < 50 && /data-lazy-slot=/.test(html); i++) {
+    await new Promise((r) => setTimeout(r, 10));
+    html = renderToStaticMarkup(el);
+  }
+  return html;
 }
 
 test('the themed prints wear the mark their owner has earned — both directions', async () => {

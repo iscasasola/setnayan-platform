@@ -91,10 +91,24 @@ test('5 · a sample picture is public (one render for every couple); a couple’
   assert.match(previewCacheControl(V), /^private/);
 });
 
+/* ⚡ The print pieces load lazily (`launch/_components/details-lazy.tsx`): the
+   first pass of a render draws each one's loading slot (`data-lazy-slot`) and
+   asks for its code, as a browser's first paint does. Render again once the
+   pieces have arrived — a bounded wait, and whatever is still a slot then is
+   left in the markup for the assertions to catch. */
+async function renderSettled(el: import('react').ReactElement): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  let html = renderToStaticMarkup(el);
+  for (let i = 0; i < 50 && /data-lazy-slot=/.test(html); i++) {
+    await new Promise((r) => setTimeout(r, 10));
+    html = renderToStaticMarkup(el);
+  }
+  return html;
+}
+
 test('6 · Details draws the couple’s own prints in the theme being edited — named in every address, drafted or not', async () => {
   const React = (await import('react')).default;
   (globalThis as unknown as { React: unknown }).React = React;
-  const { renderToStaticMarkup } = await import('react-dom/server');
   const { PrintPieceBody, PrintSetBody } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
   const { PRINT_FORMATS, PRINT_SET_KEYS } = await import('./print-pieces');
   const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
@@ -107,7 +121,7 @@ test('6 · Details draws the couple’s own prints in the theme being edited —
     previewVersion: V,
     formats: { pass: first('pass'), invitation: first('invitation'), card: first('card') } as never,
   };
-  const html = renderToStaticMarkup(
+  const html = await renderSettled(
     React.createElement(
       React.Fragment,
       null,

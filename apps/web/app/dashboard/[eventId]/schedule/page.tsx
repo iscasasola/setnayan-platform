@@ -39,13 +39,12 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 // CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be
 // edited on the time." Client component owns the view → edit form
 // toggle + calls the existing updateScheduleBlock server action.
-import { BlockTimeEditor } from './_components/block-time-editor';
+import { BlockTimeEditor } from './_components/schedule-lazy';
 // Preparation ⇄ Event Day toggle (chrome redesign delta #3, 2026-06-03).
 // The toggle is a URL-driven segmented control; the agenda is a read-only
 // aggregation of EXISTING dated data (payments / paperwork / meetings /
 // statutory milestones) — see lib/preparation.ts for the source map.
-import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
-import { EmceeScriptButton } from './_components/emcee-script-button';
+import { EmceeScriptButton, ScheduleModeToggle } from './_components/schedule-lazy';
 import { EmceePicks } from './_components/emcee-picks';
 import { HostQuestions } from './_components/host-questions';
 // "Tell the host" — the coordinator → emcee channel, on the EVENT side. The
@@ -60,7 +59,7 @@ import { PreparationAgendaView } from './_components/preparation-agenda';
 // editorial), a phase-grouped read-only view over the same agenda data plus
 // three lifecycle bookends. See lib/journey.ts.
 import { JourneyView } from './_components/journey-view';
-import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
+import { RunOfShowHeader } from './_components/schedule-lazy';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/event-moderators';
 // Coordinator P2 — filtered run-of-show. Gated by the Data Privacy board
@@ -109,9 +108,9 @@ import { formatCount } from '@/lib/format-number';
 // The Event Day view becomes the approved prototype's time rail
 // (`prototypes/schedule_redesign_2026-09-25.html`); the header gains Announce.
 // Every write below still goes through `./actions` and `_actions/day-of-broadcast`.
-import { ScheduleDay } from './_components/day-rail';
-import { AnnounceButton } from './_components/announce-button';
-import { Tip } from './_components/day-ui';
+/* ⚡ The day rail, Announce and the tips load when the Schedule is opened — never
+   with the Maker that draws this page (`_components/schedule-lazy.tsx`). */
+import { AnnounceButton, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {

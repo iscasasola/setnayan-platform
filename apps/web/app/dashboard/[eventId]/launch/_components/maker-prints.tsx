@@ -21,12 +21,10 @@ import {
 } from '@/lib/print-pieces';
 import { freePrints, type FreePrint } from '@/lib/free-prints';
 import { detailsItemHref } from '@/lib/maker-details-items';
-import { PrintSaveButton } from './print-save-button';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
-import { PrintPreview } from './print-preview';
-import { PrintChoicePicker } from './print-choice-picker';
-import { PrintMenuEditor } from './print-menu-editor';
+/* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
+import { PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 
 /**
  * THE PRINTS, AS PARTS OF THE DETAILS PAGE. Until 2026-09-28 this file drew

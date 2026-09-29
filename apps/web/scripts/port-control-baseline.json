@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e041406c2",
+  "generatedFromRef": "307a007fd",
   "routeCount": 436,
   "destinations": 939,
   "actions": 673,
-  "blocks": 5095,
+  "blocks": 5098,
   "routes": {
     "/": {
       "files": [
@@ -5608,6 +5608,7 @@
         "dashboard/[eventId]/guests/_components/arrange-controls.tsx",
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/chip-editors.tsx",
+        "dashboard/[eventId]/guests/_components/entourage-lazy.tsx",
         "dashboard/[eventId]/guests/_components/entourage-order-panel.tsx",
         "dashboard/[eventId]/guests/_components/filter-popover.tsx",
         "dashboard/[eventId]/guests/_components/find-add-row.tsx",
@@ -6105,6 +6106,7 @@
       "files": [
         "dashboard/[eventId]/launch/_components/details-date-finder.tsx",
         "dashboard/[eventId]/launch/_components/details-go.tsx",
+        "dashboard/[eventId]/launch/_components/details-lazy.tsx",
         "dashboard/[eventId]/launch/_components/details-look-pages.tsx",
         "dashboard/[eventId]/launch/_components/details-march.tsx",
         "dashboard/[eventId]/launch/_components/details-people.tsx",
@@ -6117,6 +6119,7 @@
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
+        "dashboard/[eventId]/launch/_components/lazy-slot.tsx",
         "dashboard/[eventId]/launch/_components/maker-bar.ts",
         "dashboard/[eventId]/launch/_components/maker-context.tsx",
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
@@ -6234,6 +6237,7 @@
         "LayeredLogoPlayer",
         "LifecyclePhase",
         "Link",
+        "Load",
         "LogoLayer",
         "LookFrame",
         "LoveStoryPieceFocus",
@@ -6312,6 +6316,8 @@
         "Segmented",
         "SheetHead",
         "SiteStage",
+        "Sk",
+        "SkLine",
         "Slider",
         "SlugField",
         "SoftPost",
@@ -6710,6 +6716,7 @@
         "dashboard/[eventId]/schedule/_components/preparation-agenda.tsx",
         "dashboard/[eventId]/schedule/_components/ros-p2.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-focus.ts",
+        "dashboard/[eventId]/schedule/_components/schedule-lazy.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx",
         "dashboard/[eventId]/schedule/_components/tell-the-host.tsx",
         "dashboard/[eventId]/schedule/_components/travel-itinerary.tsx",
@@ -7285,6 +7292,7 @@
         "dashboard/[eventId]/studio/mood-board/_components/majors-editor.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/mood-board-parts.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/moodboard-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-board-context.tsx",

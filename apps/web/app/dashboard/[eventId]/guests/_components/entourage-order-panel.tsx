@@ -28,8 +28,9 @@
  */
 
 import { ArrowDown, ArrowUp } from 'lucide-react';
-import { MarchButton } from './march-button';
-import { WalkingOrderLines, type MarchSlot } from './walking-order-lines';
+import type { MarchSlot } from './walking-order-lines';
+/* ⚡ Loaded when the march is opened — never with the Maker that draws this panel (`entourage-lazy.tsx`). */
+import { MarchButton, WalkingOrderLines } from './entourage-lazy';
 import { joinersFor, swapsFor } from '@/lib/march-moves';
 import { moveEntourageSection, resetEntourageSections } from '../march-actions';
 import { createClient } from '@/lib/supabase/server';

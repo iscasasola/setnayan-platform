@@ -13,10 +13,23 @@ import {
   type YourEventFacts,
   type YourEventKind,
 } from '@/lib/details-your-event';
-import { DateBody, DateEditor, NamesEditor, VenuesEditor, type VenueSlot } from './details-your-event';
-import { MarchAisleFocus, MarchControls, MarchPieces, type MarchSectionData } from './details-march';
-import { PeopleBody, PeopleControls, PeoplePieces, type HostPiece, type PersonPiece } from './details-people';
-import { ParentCards } from './parent-cards';
+import type { VenueSlot } from './details-your-event';
+import type { MarchSectionData } from './details-march';
+import type { HostPiece, PersonPiece } from './details-people';
+/* ⚡ Your event's editors and pictures load when Details is opened — never with the Maker (`details-lazy.tsx`). */
+import {
+  DateBody,
+  DateEditor,
+  MarchAisleFocus,
+  MarchControls,
+  MarchPieces,
+  NamesEditor,
+  ParentCards,
+  PeopleBody,
+  PeopleControls,
+  PeoplePieces,
+  VenuesEditor,
+} from './details-lazy';
 import { PrintPieceBody, type PrintsInput } from './maker-prints';
 
 /**

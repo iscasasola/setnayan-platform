@@ -32,7 +32,6 @@ import { InfoTip } from '@/app/_components/info-tip';
 import type { MenuMoment, PrintSetKey, StoredPrintDetails } from '@/lib/print-pieces';
 import { PRINT_PIECES, PRINT_SET_KEYS } from '@/lib/print-pieces';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
-import { PabuyaMessageEditor } from '../../pabuya/_components/pabuya-message-editor';
 import { OpeningLineField } from './opening-line-field';
 import { SoftPost } from './soft-post';
 import { SlugField } from '../../invitation/_components/slug-field';
@@ -42,7 +41,6 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { QrLookControls } from './qr-look-controls';
 import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-theme-picker';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
@@ -63,21 +61,28 @@ import {
   type StoryItemKey,
   type WordsItemKey,
 } from '@/lib/maker-details-items';
-import { SpecialMessageField } from './special-message-field';
-import { LoveStoryPieceFocus, ScheduleSlots } from './details-tool-pieces';
 import { LOVE_STORY_CHAPTERS, LOVE_STORY_CHAPTER_LABEL } from '@/lib/love-story-moments';
 import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
 import { updateOurStory } from '../../website/our-story/actions';
 
 import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-look-pages';
+/* ⚡ Each piece's editor and picture load when Details is opened — never with the
+   Maker (`details-lazy.tsx`; held by `details-pieces-are-lazy.test.ts`). */
+import {
+  LoveStoryPieceFocus,
+  PabuyaMessageEditor,
+  ParentCards,
+  QrLookControls,
+  ScheduleSlots,
+  SpecialMessageField,
+} from './details-lazy';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
 import { yourEventParts, type YourEventInput } from './details-your-event-parts';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
-import { ParentCards } from './parent-cards';
 import {
   PrintPieceBody,
   PrintPieceEditor,

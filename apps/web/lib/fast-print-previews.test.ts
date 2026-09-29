@@ -65,6 +65,20 @@ test('2 · the version follows the inputs — every input, the build, and not th
   assert.notEqual(printPreviewVersion(base, 'b2'), v, 'a new build draws anew');
 });
 
+/* ⚡ The print pieces load lazily (`launch/_components/details-lazy.tsx`): the
+   first pass of a render draws each one's loading slot (`data-lazy-slot`) and
+   asks for its code, as a browser's first paint does. Render again once the
+   pieces have arrived — a bounded wait, and whatever is still a slot then is
+   left in the markup for the assertions to catch. */
+async function renderSettled(el: React.ReactElement): Promise<string> {
+  let html = renderToStaticMarkup(el);
+  for (let i = 0; i < 50 && /data-lazy-slot=/.test(html); i++) {
+    await new Promise((r) => setTimeout(r, 10));
+    html = renderToStaticMarkup(el);
+  }
+  return html;
+}
+
 async function paintPrints(previewVersion: string | null, pass = 'boarding'): Promise<string> {
   // Prints & Tickets folded into Details (2026-09-28): each piece is an item, its
   // picture drawn by `PrintPieceBody` — here all seven, the first one first.
@@ -80,7 +94,7 @@ async function paintPrints(previewVersion: string | null, pass = 'boarding'): Pr
     previewVersion,
     formats: { pass: PRINT_FORMATS[pass as keyof typeof PRINT_FORMATS], invitation: first('invitation'), card: first('card') } as never,
   };
-  return renderToStaticMarkup(
+  return renderSettled(
     React.createElement(
       React.Fragment,
       null,

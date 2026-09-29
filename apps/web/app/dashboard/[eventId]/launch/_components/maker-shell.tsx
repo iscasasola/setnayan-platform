@@ -29,6 +29,7 @@ import { MakerTour } from './maker-tour';
 import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
+import { prefetchDetailsWhenIdle } from './details-lazy';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { makerAddShowsOn } from '@/lib/maker-selection';
@@ -193,6 +194,12 @@ export function MakerShell({
       /* private mode / blocked storage: the Maker simply opens on its defaults */
     }
   }, [memoryKey, stage, device, navOpen, selection]);
+
+  /* ⚡ Details' pieces are not in the Maker's first load (`details-lazy.tsx`); once
+     the Maker has loaded and the phone is idle they are fetched, so opening
+     Details — or tapping a fact on the stage — is instant. Only where there is
+     work: a coordinator has no Details. */
+  useEffect(() => (hasWork ? prefetchDetailsWhenIdle() : undefined), [hasWork]);
 
   /* A role is read per stage: a new stage starts back on the host's preview. */
   useEffect(() => setViewAsRole(null), [stage]);

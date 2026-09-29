@@ -48,7 +48,8 @@ import { readMakerRevealStages } from './_components/maker-made-once';
 import { MoodBoardMakerBody, MoodBoardMakerControls } from '../studio/mood-board/_components/mood-board-editor';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
-import { MakerRsvpSettings } from './_components/maker-rsvp-ask';
+/* ⚡ Loads when Details › RSVP is opened — never with the Maker (`details-lazy.tsx`). */
+import { MakerRsvpSettings } from './_components/details-lazy';
 import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
 import RequestsPage from '../guests/claims/page';

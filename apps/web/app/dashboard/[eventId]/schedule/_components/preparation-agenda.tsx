@@ -17,7 +17,7 @@ import {
 import {
   AddPreparationItem,
   DeletePreparationItemButton,
-} from './prep-item-controls';
+} from './schedule-lazy';
 import { formatCount } from '@/lib/format-number';
 
 /**

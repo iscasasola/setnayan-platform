@@ -37,8 +37,20 @@ import {
   creditLine,
   tradeLabelForCredit,
 } from '@/lib/moodboard-gallery';
-import { PaletteSection } from './palette-section';
-import { PartFinalizationPanel } from './part-finalization-panel';
+/* ⚡ The studio's client pieces load when the board is opened — never with the
+   Maker that draws it (`mood-board-lazy.tsx`). Types still come from their files. */
+import {
+  ConceptPdfButton,
+  InspirationBoard,
+  MakeItReal,
+  MoodboardBoard,
+  PaletteBoardProvider,
+  PaletteSection,
+  PartFinalizationPanel,
+  PrintablePdfButton,
+  ShareWithVendorsButton,
+  ThemeStudio,
+} from './mood-board-lazy';
 import {
   cancelPartFinalization,
   cancelPartReopen,
@@ -54,23 +66,10 @@ import {
 } from '@/lib/moodboard-finalization';
 import type { FinalizationPanelPart } from './part-finalization-panel';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
-import { PaletteBoardProvider } from './palette-board-context';
-import {
-  MoodboardBoard,
-  type BoardSection,
-  type BoardCard,
-} from './moodboard-board';
-import {
-  InspirationBoard,
-  type InspirationItem,
-} from './inspiration-board';
-import { ConceptPdfButton } from './concept-pdf-button';
-import { PrintablePdfButton } from './printable-pdf-button';
-import { ShareWithVendorsButton } from './share-with-vendors-button';
-import { ThemeStudio } from './theme-studio';
+import type { BoardSection, BoardCard } from './moodboard-board';
+import type { InspirationItem } from './inspiration-board';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { MakeItReal } from './make-it-real';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import {
   RENDER_PARTS,

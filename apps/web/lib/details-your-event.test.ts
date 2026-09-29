@@ -107,7 +107,8 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const L = 'app/dashboard/[eventId]/launch/_components/';
 const EDITORS = read(`${L}details-your-event.tsx`);
 const PARTS = read(`${L}details-your-event-parts.tsx`);
-const LOAD = read(`${L}details-your-event-load.tsx`);
+// The facts read lives apart from the JSX since train m (Home reads it too): one LOAD, both files.
+const LOAD = read(`${L}details-your-event-load.tsx`) + read(`${L}details-your-event-facts.ts`);
 
 test('every editor saves through the writer its own screen uses — +0 server actions', () => {
   assert.doesNotMatch(EDITORS, /['"]use server['"]/);

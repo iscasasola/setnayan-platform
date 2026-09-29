@@ -30,9 +30,10 @@ import { prefetchSeating } from '../../seating/_components/seating-lazy';
  * 🛡 `details-pieces-are-lazy.test.ts` fails if a server file of the Maker
  * imports a lazy piece's own module again.
  *
- * 📦 THE PIECES TRAVEL AS THREE NAMED CHUNKS — `maker-details` (everything here,
- * and the Seat plan's editor, `seating-lazy.tsx`), `maker-mood-board`,
- * `maker-schedule` (those two are also drawn by their own standalone routes). Every `import()` names its chunk: webpack's runtime —
+ * 📦 THE PIECES TRAVEL AS NAMED CHUNKS — `maker-details` (everything here),
+ * `maker-mood-board`, `maker-schedule` and `maker-seating` (`seating-lazy.tsx`)
+ * — those three are also drawn by their own standalone routes, and a route
+ * that loads the `maker-details` group becomes its parent (see seating-lazy.tsx). Every `import()` names its chunk: webpack's runtime —
  * loaded on EVERY page, under the shared-bundle ceiling
  * (`scripts/check-bundle-size.mjs`) — carries an entry per async chunk and per
  * chunk an async group depends on. Unnamed, the first cut of this split grew
@@ -98,9 +99,6 @@ export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "ma
 export const ScheduleSlots = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.ScheduleSlots), { loading: SlotNone });
 export const MakerRsvpSettings = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask').then((m) => m.MakerRsvpSettings), { loading: SlotRows });
 
-/* ── A parent's guest card (Details › The invitation): the pass card's save (#6150) ── */
-export const GuestPassCardLink = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../guests/_components/guest-pass-card-link').then((m) => m.GuestPassCardLink), { loading: SlotButton });
-
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
 export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });
 export const HeroFrameSync = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.HeroFrameSync), { loading: SlotNone });
@@ -141,7 +139,6 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './details-guide'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row'),
-    import(/* webpackChunkName: "maker-details" */ '../../guests/_components/guest-pass-card-link'),
     prefetchEntourage(),
   ]);
 

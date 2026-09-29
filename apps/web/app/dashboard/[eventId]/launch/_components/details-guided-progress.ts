@@ -22,7 +22,7 @@ import {
   type GuidedDoneFacts,
   type GuidedPlan,
 } from '@/lib/details-guided-flow';
-import { readYourEventFacts } from './details-your-event-load';
+import { readYourEventFacts } from './details-your-event-facts';
 
 /**
  * 🪜 THE GUIDED FLOW'S "DONE", FOR THE PAGES THAT DECIDE BEFORE DETAILS DRAWS

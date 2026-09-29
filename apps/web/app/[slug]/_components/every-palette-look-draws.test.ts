@@ -17,11 +17,8 @@
  *   4 · the reader's own panel ("You are …") follows the look too;
  *   5 · the other two LAYOUTS keep drawing the colours their own way — the look
  *       is never half-applied to a view it was not designed for;
- *   6 · THE DEFAULT IS STILL (owner 2026-09-30): an absent `canvas.palette` draws
- *       no entrance marker at all — the page's observer has nothing to mark, so
- *       a live page that never picked is as still as it always was. A PICK (any
- *       of the five, Tags on purpose included) or the scene's motion switched on
- *       is what plays it.
+ *   6 · NOTHING MOVES (owner 2026-09-30, palette animation cut): no look draws
+ *       a hook the page's scroll observer could mark, and no animation class.
  *
  * 🪤 Same harness as `every-scene-style-draws.test.ts`: `globalThis.React`
  * before the DYNAMIC imports, `server-only` stubbed.
@@ -112,7 +109,7 @@ test('1 · absent, `tags` and an unknown id are ONE markup — the shipped tags,
   const tagsDrawn = [...ours.matchAll(/<li class="w-\[3\.25rem\]"[^>]*><span aria-hidden="true" class="pahina-swatch outline outline-1 outline-ink\/20 \[outline-offset:-1px\]"/g)];
   assert.equal(tagsDrawn.length, drawn(ours).length, 'every colour is the shipped silk tag');
   assert.doesNotMatch(absent, /sn-pal/, 'no new look class reaches a page that never picked');
-  assert.doesNotMatch(absent, /data-pal-look|pahina-in/, 'and no entrance marker: the default is still');
+  assert.doesNotMatch(absent, /data-pal-look|pahina-in/, 'and no look marker: the default is exactly today\'s');
   // The role rows keep the shipped row-size tag.
   assert.match(block(absent, 'roles'), /pahina-swatch !h-7 !w-5 shrink-0/);
   assert.doesNotMatch(absent, /data-pal-row/);
@@ -123,8 +120,7 @@ test('2 · each of the five looks draws every colour of "Our colours", in order'
   // The couple's seven typed colours are all there (the Mood Board's lead, the rest follow).
   for (const c of SEVEN) assert.ok(want.includes(c.hex.toUpperCase()), `${c.name} is in the palette`);
   for (const look of LOOKS) {
-    const ours = block(await render({ paletteLook: look, paletteMoves: true }), 'ours');
-    assert.match(ours, new RegExp(`data-pal-look="${look}"`), `${look} marks its list for the entrance`);
+    const ours = block(await render({ paletteLook: look }), 'ours');
     // Circles draw the buttons, then the same colours again as the dots of the names under them.
     const expected = look === 'circles' ? [...want, ...want] : want;
     assert.deepEqual(drawn(ours), expected, `${look} draws every colour, in order`);
@@ -154,7 +150,7 @@ test('3 · the role rows follow the look at row size — every hex, in order', a
     const rows = block(await render({ paletteLook: look }), 'roles');
     assert.deepEqual(drawn(rows), want, `${look}: the same colours on the role rows`);
     assert.match(rows, new RegExp(`data-pal-row="${look}"`));
-    assert.doesNotMatch(rows, /data-pal-look/, 'row size has no entrance — the rows already arrive one by one');
+    assert.doesNotMatch(rows, /data-pal-look/, 'row size is only the swatches');
   }
 });
 
@@ -163,9 +159,9 @@ test('4 · the reader\'s own panel follows the look', async () => {
   const want = drawn(block(mine, 'you'));
   assert.ok(want.length > 0, 'the ninang is shown her colours');
   for (const look of LOOKS) {
-    const you = block(await render({ guestRole: 'principal_sponsor_ninang', paletteLook: look, paletteMoves: true }), 'you');
+    const you = block(await render({ guestRole: 'principal_sponsor_ninang', paletteLook: look }), 'you');
     assert.deepEqual(drawn(you), look === 'circles' ? [...want, ...want] : want, `${look}: her colours, in order`);
-    assert.match(you, new RegExp(`data-pal-look="${look}"`));
+    if (look !== 'tags') assert.match(you, new RegExp(`class="sn-pal sn-pal-${look}"`), `${look}: drawn in the look`);
   }
 });
 
@@ -178,45 +174,16 @@ test('5 · "The palette" and "The line" layouts draw the colours their own way, 
   }
 });
 
-test('6 · the default is STILL — the entrance plays only on a pick or with motion switched on', async () => {
-  const { paletteLookOfRow, paletteLookMovesOfRow } = await import('@/lib/scene-style-of-row');
-  const row = (canvas: Record<string, unknown> | null) => ({ config_json: canvas ? { canvas } : null });
-  const drawnFor = async (canvas: Record<string, unknown> | null) => {
-    const r = row(canvas);
-    return render({ paletteLook: paletteLookOfRow(r), paletteMoves: paletteLookMovesOfRow(r) });
-  };
-  // Never picked: no marker anywhere, byte-identical to the shipped render.
-  const shipped = await render({});
-  for (const canvas of [null, {}, { style: 'colours-and-roles' }, { palette: 'velvet' }]) {
-    assert.equal(paletteLookMovesOfRow(row(canvas)), false, `${JSON.stringify(canvas)} does not move`);
-    const out = await drawnFor(canvas);
-    assert.doesNotMatch(out, /data-pal-look/, `${JSON.stringify(canvas)}: no entrance marker`);
-    assert.equal(out, shipped, `${JSON.stringify(canvas)}: exactly today's page`);
-  }
-  // Picked — every one of the five, Tags on purpose included — plays.
+test('6 · nothing moves: no look draws a scroll hook or an animation class', async () => {
   for (const look of LOOKS) {
-    assert.equal(paletteLookMovesOfRow(row({ palette: look })), true);
-    const ours = block(await drawnFor({ palette: look }), 'ours');
-    assert.match(ours, new RegExp(`data-pal-look="${look}"`), `${look} picked: the entrance is marked`);
-  }
-  // Motion switched on for the scene, no look picked: the default tags play.
-  assert.equal(paletteLookMovesOfRow(row({ preset: 'calm' })), true);
-  assert.match(block(await drawnFor({ preset: 'calm' }), 'ours'), /data-pal-look="tags"/);
-  // The widget's ONE switch is `paletteMoves`: any look drawn without it has no marker.
-  for (const look of LOOKS) {
-    assert.doesNotMatch(await render({ paletteLook: look }), /data-pal-look/, `${look} without paletteMoves: still`);
-    assert.doesNotMatch(await render({ paletteLook: look, guestRole: 'principal_sponsor_ninang' }), /data-pal-look/);
-  }
-  // Row size never carries an entrance.
-  assert.doesNotMatch(block(await drawnFor({ palette: 'ribbon' }), 'roles'), /data-pal-look/);
-});
-
-test('6b · both guest mounts pass the moves rule, from the row', () => {
-  const fs = require('node:fs') as typeof import('node:fs');
-  const path = require('node:path') as typeof import('node:path');
-  for (const f of ['hideable-widget-render.tsx', 'public-hideable-widget.tsx']) {
-    const src = fs.readFileSync(path.join(__dirname, f), 'utf8');
-    const mount = /<DressCodeWidget\b[^>]*\/>/.exec(src)?.[0] ?? '';
-    assert.match(mount, /paletteMoves=\{paletteLookMovesOfRow\(widget\)\}/, `${f} decides the entrance from the row`);
+    for (const extra of [{}, { guestRole: 'principal_sponsor_ninang' }]) {
+      const out = await render({ paletteLook: look, ...extra });
+      assert.doesNotMatch(out, /pahina-in|sn-arrive|data-hub-rows="[^"]*"[^>]*sn-pal|animation/, `${look}: no motion hook`);
+      // The observer only marks `.hub-canvas`, `style[data-hub-els]` and `[data-hub-rows] > *`;
+      // a palette list is none of them.
+      for (const m of out.matchAll(/<ul class="sn-pal[^"]*"[^>]*>/g)) {
+        assert.doesNotMatch(m[0], /data-hub-rows|hub-canvas|style=/, `${look}: the list is not observable`);
+      }
+    }
   }
 });

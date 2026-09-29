@@ -89,7 +89,6 @@ export function DressCodeWidget({
   hideWhenEmpty = false,
   sceneStyle = null,
   paletteLook = null,
-  paletteMoves = false,
 }: {
   /**
    * 🚶 WHERE THIS READER WALKS (owner 2026-09-29, DECISION_LOG "THE WEDDING
@@ -127,13 +126,6 @@ export function DressCodeWidget({
    * panel follows it.
    */
   paletteLook?: PaletteLookId | null;
-  /**
-   * 🎬 Play the look's entrance (`paletteLookMovesOfRow`) — true only when the
-   * couple PICKED a look or switched the scene's motion on (owner 2026-09-30).
-   * False — the default — draws no `data-pal-look`, so the page's observer has
-   * nothing to mark and the colours are exactly as still as they always were.
-   */
-  paletteMoves?: boolean;
 }) {
   const look: PaletteLookId = paletteLook ?? PALETTE_LOOK_DEFAULT;
   // The couple's walima seating posture, surfaced to guests so they know what to
@@ -399,9 +391,9 @@ export function DressCodeWidget({
               only"). It used to be `mine.hex` — the role's FIRST colour — so a
               bridesmaid whose board holds three was shown one. */}
           {mine.hexes.length > 0 && look !== 'tags' ? (
-            <PaletteLookList look={look} moves={paletteMoves} items={mine.hexes.map((hex) => ({ hex }))} label="Your colours" />
+            <PaletteLookList look={look} items={mine.hexes.map((hex) => ({ hex }))} label="Your colours" />
           ) : mine.hexes.length > 0 ? (
-            <ul className="flex flex-wrap gap-2" aria-label="Your colours" {...(paletteMoves ? { 'data-pal-look': 'tags' } : {})}>
+            <ul className="flex flex-wrap gap-2" aria-label="Your colours">
               {mine.hexes.map((hex, i) => (
                 <li key={`${hex}-${i}`} className="w-[3.25rem]">
                   <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
@@ -422,14 +414,12 @@ export function DressCodeWidget({
         <div className="space-y-2" data-dress-code="ours">
           <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Our colours</p>
           {look !== 'tags' ? (
-            <PaletteLookList look={look} moves={paletteMoves} items={palette} label="Our colours" />
+            <PaletteLookList look={look} items={palette} label="Our colours" />
           ) : (
             /* gap-2: five full chips (the Mood Board's five main colours) fit
                one line at 375px; gap-3 wrapped the fifth onto a row alone.
-               🎨 Tags — the default look — is this list exactly as it shipped.
-               `data-pal-look` (its swing-in) is added ONLY when the couple
-               picked a look or switched motion on — never by default. */
-            <ul className="flex flex-wrap gap-2" {...(paletteMoves ? { 'data-pal-look': 'tags' } : {})}>
+               🎨 Tags — the default look — is this list exactly as it shipped. */
+            <ul className="flex flex-wrap gap-2">
               {palette.map((p, i) => (
                 <li key={`${p.hex}-${i}`} className="w-[3.25rem]" title={p.name || p.hex}>
                   <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: p.hex }} />

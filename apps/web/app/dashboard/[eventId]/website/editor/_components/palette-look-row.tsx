@@ -26,16 +26,12 @@ import { PickMenu } from './pick-menu';
 
 export function PaletteLookRow({
   value,
-  picked = true,
   colours,
   onPick,
   pending = false,
 }: {
   /** The look the palette is drawn in now (absent resolves to Tags). */
   value: PaletteLookId;
-  /** Whether the couple has chosen a look yet. Until they have, choosing the shown
-   *  default (Tags) on purpose is still a choice — it is stored, and it plays. */
-  picked?: boolean;
   /** The couple's own colours, for the thumbnails — the first three are drawn. */
   colours: readonly string[];
   onPick: (id: PaletteLookId) => void;
@@ -56,7 +52,7 @@ export function PaletteLookRow({
         }))}
         onPick={(id) => {
           const look = PALETTE_LOOKS.find((o) => o.id === id)?.id;
-          if (look && !pending && (look !== value || !picked)) onPick(look);
+          if (look && !pending && look !== value) onPick(look);
         }}
       />
     </IRow>

@@ -3299,16 +3299,10 @@ html.dark {
    `--c` is the colour; `--k` the ink that reads on it, chosen by contrast
    (`lib/palette-ink.ts`). `.sn-pal-row` is the same look shrunk for a role's row.
 
-   🎬 THE ENTRANCES bind only under `.pahina-js` AND `.pahina-in` — the mark the
-   page's ONE observer (`PahinaMotionObserver`) puts on `[data-pal-look]` as the
-   palette nears the screen. `[data-pal-look]` is drawn ONLY when the couple
-   PICKED a look or switched the scene's motion on (owner 2026-09-30,
-   `paletteLookMovesOfRow`): the default Tags carry no marker and stay still. So: plays once, on scroll into view; no script,
-   reduced motion or the 2s self-heal → no mark, and the colours simply rest in
-   place. `backwards` fill only — once an entrance ends nothing it set lingers.
-   One colour 100 ms after the last (`--pd`), capped at the seventh, so six
-   colours are done in 1.05 s and seven in 1.15 s — under the 1.2 s the design
-   allows. UNLAYERED, like the reveal above. */
+   ✂ NO MOTION. The approved design gave each look an entrance; the owner cut
+   palette animation on 2026-09-30 (DECISION_LOG "THE MAKER RE-PLAN IS CUT TO
+   ITS CORE"). Every look is drawn still, like the shipped tags.
+   `palette-looks.test.ts` holds that nothing here animates. UNLAYERED. */
 .sn-editorial .sn-pal {
   display: flex;
   flex-wrap: wrap;
@@ -3560,105 +3554,6 @@ html.dark {
 .sn-editorial .sn-pal-row.sn-pal-ribbon > li:last-child > i {
   margin-right: 0;
   clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 50%, 100% 100%, 0 100%);
-}
-
-/* ── THE ENTRANCES. Each colour's turn (`--pd`, 100 ms apart, capped at the
-   seventh) and its place from the top (`--pn`, the paint chips' fan and the
-   ribbon's seams). Harmless until an entrance reads them. */
-.sn-editorial [data-pal-look] > li:nth-child(2),
-.sn-editorial .sn-pal-legend > span:nth-child(2) { --pd: 0.1s; --pn: 1; }
-.sn-editorial [data-pal-look] > li:nth-child(3),
-.sn-editorial .sn-pal-legend > span:nth-child(3) { --pd: 0.2s; --pn: 2; }
-.sn-editorial [data-pal-look] > li:nth-child(4),
-.sn-editorial .sn-pal-legend > span:nth-child(4) { --pd: 0.3s; --pn: 3; }
-.sn-editorial [data-pal-look] > li:nth-child(5),
-.sn-editorial .sn-pal-legend > span:nth-child(5) { --pd: 0.4s; --pn: 4; }
-.sn-editorial [data-pal-look] > li:nth-child(6),
-.sn-editorial .sn-pal-legend > span:nth-child(6) { --pd: 0.5s; --pn: 5; }
-.sn-editorial [data-pal-look] > li:nth-child(n + 7),
-.sn-editorial .sn-pal-legend > span:nth-child(n + 7) { --pd: 0.6s; --pn: 6; }
-
-/* A · Tags swing in on their pin and settle. */
-.pahina-js .sn-editorial [data-pal-look='tags'].pahina-in > li > .pahina-swatch {
-  transform-origin: 50% 0.55rem;
-  animation: sn-pal-swing 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) var(--pd, 0s) backwards;
-}
-.pahina-js .sn-editorial [data-pal-look='tags'].pahina-in > li > span:not(.pahina-swatch),
-.pahina-js .sn-editorial [data-pal-look='fabric'].pahina-in > li > :is(b, small) {
-  animation: sn-pal-label 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) var(--pd, 0s) backwards;
-}
-/* B · Each square unfolds down from its top edge and flutters still. */
-.pahina-js .sn-editorial [data-pal-look='fabric'].pahina-in > li > i {
-  animation: sn-pal-unfold 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) var(--pd, 0s) backwards;
-}
-/* C · Every chip starts on top of the first and fans down into its place. */
-.pahina-js .sn-editorial [data-pal-look='chips'].pahina-in > li {
-  animation: sn-pal-fan 0.55s cubic-bezier(0.3, 0.9, 0.3, 1) var(--pd, 0s) backwards;
-}
-/* D · Each button rolls in from the left and pops; its name follows. */
-.pahina-js .sn-editorial [data-pal-look='circles'].pahina-in > li {
-  animation: sn-pal-pop 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) var(--pd, 0s) backwards;
-}
-.pahina-js .sn-editorial [data-pal-look='circles'].pahina-in + .sn-pal-legend > span {
-  animation: sn-pal-label 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--pd, 0s) + 0.1s) backwards;
-}
-/* E · The band unrolls as one length, then the seams open into the colours. */
-.pahina-js .sn-editorial [data-pal-look='ribbon'].pahina-in {
-  animation: sn-pal-unroll 0.45s cubic-bezier(0.4, 0, 0.2, 1) backwards;
-}
-.pahina-js .sn-editorial [data-pal-look='ribbon'].pahina-in > li > i {
-  animation: sn-pal-split 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--pn, 0) * 0.06s + 0.3s) backwards;
-}
-.pahina-js .sn-editorial [data-pal-look='ribbon'].pahina-in > li > :is(b, small) {
-  animation: sn-pal-label 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--pn, 0) * 0.06s + 0.35s) backwards;
-}
-@keyframes sn-pal-label {
-  0%, 50% { opacity: 0; transform: translateY(5px); }
-  100% { opacity: 1; transform: none; }
-}
-@keyframes sn-pal-swing {
-  0% { opacity: 0; transform: translateY(-18px) rotate(-30deg); }
-  27% { opacity: 1; }
-  50% { transform: translateY(0) rotate(16deg); }
-  70% { transform: rotate(-8deg); }
-  87% { transform: rotate(3.5deg); }
-  100% { transform: none; }
-}
-@keyframes sn-pal-unfold {
-  0% { opacity: 0; transform: perspective(380px) rotateX(-95deg); }
-  20% { opacity: 1; }
-  53% { transform: perspective(380px) rotateX(18deg); }
-  73% { transform: perspective(380px) rotateX(-8deg); }
-  90% { transform: perspective(380px) rotateX(3deg); }
-  100% { transform: perspective(380px) rotateX(0deg); }
-}
-@keyframes sn-pal-fan {
-  0% { opacity: 0; transform: translateY(calc(var(--pn, 0) * -100%)) rotate(-1.5deg); }
-  20% { opacity: 1; }
-  100% { transform: none; }
-}
-@keyframes sn-pal-pop {
-  0% { opacity: 0; transform: translateX(-28px) rotate(-150deg) scale(0.15); }
-  27% { opacity: 1; }
-  67% { transform: translateX(0) rotate(5deg) scale(1.14); }
-  87% { transform: scale(0.97); }
-  100% { transform: none; }
-}
-@keyframes sn-pal-unroll {
-  from { clip-path: inset(-20px 100% -200px 0); }
-  to { clip-path: inset(-20px 0 -200px 0); }
-}
-@keyframes sn-pal-split {
-  from { margin-left: 0; margin-right: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  /* belt and braces — RootFlag already withholds `.pahina-js` for these guests,
-     so no entrance binds; this holds even if some future path sets the flag. */
-  .sn-editorial [data-pal-look],
-  .sn-editorial [data-pal-look] *,
-  .sn-editorial .sn-pal-legend > span {
-    animation: none !important;
-  }
 }
 
 .sn-editorial {

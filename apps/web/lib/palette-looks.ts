@@ -19,11 +19,9 @@
  *   · ribbon   — one notched band splitting into the colours.
  *
  * Every look is FREE (a pick from a dropdown — nothing typed, uploaded or
- * tuned), and every look comes with its own CSS entrance that plays once when
- * the palette scrolls into view (globals.css, "THE FIVE PALETTE LOOKS") — but
- * ONLY once the couple has PICKED a look (Tags on purpose included) or switched
- * the scene's motion on. The default is still (owner 2026-09-30,
- * `paletteLookMovesOfRow` in `lib/scene-style-of-row.ts`).
+ * tuned) and STILL: the design's per-look entrances were cut by the owner on
+ * 2026-09-30 (DECISION_LOG "THE MAKER RE-PLAN IS CUT TO ITS CORE" — "palette
+ * animation" removed).
  *
  * ── WHERE A PICK LIVES ──────────────────────────────────────────────────────
  * On the Dress code row, BESIDE the scene's layout pick:

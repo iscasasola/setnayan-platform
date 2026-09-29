@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { EventScene } from '@/app/dashboard/(launcher)/_components/event-scene';
+import { resolveEventPoster } from '@/lib/event-poster.server';
+import { sceneCoverFor } from '@/lib/event-poster';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { eventTypePhotoSrc } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { renderableImageSrc } from '@/lib/event-card-art';
@@ -323,7 +325,7 @@ export async function EventDashboard({
     // Overview's fallback-to-'*' pattern for migration drift.
     (async () => {
       const leanSelect =
-        'event_id, display_name, event_date, event_date_precision, timezone, venue_name, region, estimated_budget_centavos, palette_finalized_at, event_type, ceremony_type, planning_mode, setnayan_ai_active';
+        'event_id, display_name, event_date, event_date_precision, timezone, venue_name, region, estimated_budget_centavos, palette_finalized_at, event_type, ceremony_type, planning_mode, setnayan_ai_active, landing_page_hero_image_url, invite_theme, std_background, monogram_text, monogram_color';
       const leanRes = await supabase
         // SEC-2b: public.events_host, not public.events — this select names a column
         // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -759,6 +761,38 @@ export async function EventDashboard({
   const displayName =
     (event as { display_name?: string | null }).display_name ??
     (eventType === 'wedding' ? 'Your wedding' : 'Your event');
+
+  /*
+    ─── THE FOCAL BAND WEARS THE EVENT HUB'S OWN COVER ──────────────────────
+    Owner, 2026-09-29, on this tile's band (then the stock
+    `/event-types/wedding.webp` under a random blue/violet grade): *"this needs
+    to adapt to the background of the event hub"*. The band asks the ONE poster
+    resolver the home board's card asks (`resolveEventPoster`, #6105): the
+    couple's hero photo → their Save-the-Date background (only where the hub
+    shows it) → their theme's still. A wake gets a quiet band. Only an event
+    that has chosen nothing (or whose words could not be read) falls to the
+    stock photo below — the last fallback, never the first.
+
+    ⚠ `landing_page_hero_image_url` was never in the lean select above until
+    this change, so `ownHeroSrc` was always null here and the couple's own
+    photo never reached this card at all.
+  */
+  const sceneCover = sceneCoverFor(
+    await resolveEventPoster(
+      {
+        event_id: eventId,
+        display_name: displayName,
+        event_date: (event.event_date as string | null) ?? null,
+        venue_name: (event.venue_name as string | null) ?? null,
+        event_type: eventType,
+        monogram_text: (event as { monogram_text?: string | null }).monogram_text ?? null,
+        monogram_color: (event as { monogram_color?: string | null }).monogram_color ?? null,
+        invite_theme: (event as { invite_theme?: string | null }).invite_theme ?? null,
+        std_background: (event as { std_background?: unknown }).std_background ?? null,
+      },
+      ownHeroSrc,
+    ).catch(() => null),
+  );
 
   // Precision resolution — the single source of truth for "is there a firm,
   // countdown-worthy day?" A present `event_date` with a NULL precision column
@@ -2151,6 +2185,7 @@ export async function EventDashboard({
                   eventType={eventType}
                   photoSrc={typeHeroSrc}
                   ownPhotoSrc={ownHeroSrc}
+                  cover={sceneCover}
                   muted={eventHasHappened}
                 />
                 {/* The card's own ink, brought up over the foot of the photo so

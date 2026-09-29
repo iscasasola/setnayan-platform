@@ -466,12 +466,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   // …and so is the invite message (`invite_message`, the guest list's Send
   // invite wording) and the pass card's look (the Prints panel's) — neither
   // is this form's.
-  const details = {
-    ...parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include }),
-    inviteMessage: stored.inviteMessage,
-    passDesign: stored.passDesign,
-    menu: stored.menu,
-  };
+  const details = { ...parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include }), inviteMessage: stored.inviteMessage, passDesign: stored.passDesign, menu: stored.menu };
 
   const { error } = await admin
     .from('events')

@@ -20,13 +20,13 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  */
 
 /** The event columns the "Your event" items read — each the column its existing screen reads. */
-export const YOUR_EVENT_COLUMNS =
+const YOUR_EVENT_COLUMNS =
   'event_type, display_name, bride_name, groom_name, region, mood_feel_key, event_date, event_date_precision, ' +
   'ceremony_type, secondary_ceremony_type, std_invitation_launch_date, ' +
   'std_film_ceremony_name, std_film_venue_name, std_film_venue_city, ceremony_venue_address, ' +
   'venue_name, venue_address, venue_latitude, venue_longitude';
 
-export type Row = {
+type Row = {
   event_type: string | null;
   display_name: string | null;
   bride_name: string | null;
@@ -48,7 +48,7 @@ export type Row = {
   venue_longitude: number | string | null;
 };
 
-export const coercePrecision = (v: unknown): EventDatePrecision | null =>
+const coercePrecision = (v: unknown): EventDatePrecision | null =>
   v === 'year' || v === 'month' || v === 'day' ? v : null;
 
 /**

@@ -4,6 +4,8 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { MakerContext, type MakerLookPages, type MakerState } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { DetailsPieceButton } from '@/app/dashboard/[eventId]/launch/_components/details-go';
+import { FontPick } from '@/app/dashboard/[eventId]/website/editor/_components/font-pick';
+import type { HubFontKey } from '@/lib/hub-fonts';
 
 /**
  * `/dev/details-lab?look=1` — the Look items (Details part 3) on fixtures. The
@@ -23,6 +25,21 @@ function Stand({ name, tall = false }: { name: string; tall?: boolean }) {
   );
 }
 
+function LabFontPick() {
+  const [font, setFont] = useState<HubFontKey | null>(null);
+  return (
+    <FontPick
+      eventId="lab"
+      label="Font"
+      dataAttr="data-element-font"
+      value={font}
+      lead="Event Hub font"
+      onPick={setFont}
+      className="min-h-11 w-full justify-between border border-ink/15"
+    />
+  );
+}
+
 export function LookLab({ children }: { children: ReactNode }) {
   const [detailsItem, setDetailsItem] = useState<DetailsItemKey | null>(null);
   const noop = () => {};
@@ -36,7 +53,17 @@ export function LookLab({ children }: { children: ReactNode }) {
           </div>
         </div>
       ),
-      hero: <Stand name="Hero — Designs 1–4, parts, photo, Main background" tall />,
+      hero: (
+        <>
+          {/* 🔤 The REAL font dropdown (`FontPick`), so its shelves, sticky
+              headings and "In use" can be checked at 375 / 390 — "In use" here
+              is the fixture below, not a page. */}
+          <div className="px-4 py-3" data-lab-font-pick="">
+            <LabFontPick />
+          </div>
+          <Stand name="Hero — Designs 1–4, parts, photo, Main background" tall />
+        </>
+      ),
       reveal: <Stand name="Reveal — play it, fine-tune, where it plays" />,
       revealOptions: (
         <>
@@ -48,6 +75,8 @@ export function LookLab({ children }: { children: ReactNode }) {
         </>
       ),
       heroParts: null,
+      /* Classic's faces + a couple's part font, as the page would register them. */
+      fontsInUse: ['cormorant', 'cormorantsc', 'playfair'],
       revealStages: ['save_the_date', 'rsvp'],
       publicLandingUrl: '/dev/hero-lab',
     }),

@@ -846,8 +846,9 @@ test('the event rail is the one tree — five rows (Stage D)', () => {
   /*
     🔄 2026-09-29 — Stage D (owner: *"so basically. this is what an event
     needs. Guestlist · Your Team · Event Hub Maker · Our Services"*). The
-    "by moment" sections (2026-09-24) became ONE list of five rows, plus the
-    Seat plan waiting for its Details home. Every key is the key it was; only
+    "by moment" sections (2026-09-24) became ONE list of five rows (the
+    interim Seat plan row left in train n — its Details home is on main).
+    Every key is the key it was; only
     the words moved (Overview → Home, Guests → Guest list, Suite → Our
     Services).
   */
@@ -855,10 +856,9 @@ test('the event rail is the one tree — five rows (Stage D)', () => {
   const keysByGroup = Object.fromEntries(
     groups.map((g) => [g.key, g.items.map((i) => i.key)]),
   );
-  assert.deepEqual(groups.map((g) => g.key), ['event', 'pillars', 'interim']);
+  assert.deepEqual(groups.map((g) => g.key), ['event', 'pillars']);
   assert.deepEqual(keysByGroup.event, ['personalization']);
   assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'launch', 'studio']);
-  assert.deepEqual(keysByGroup.interim, ['seat']);
   /*
     🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
     🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Personalization —

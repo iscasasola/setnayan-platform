@@ -29,10 +29,12 @@
  * lights Guest list, `/studio/papic` lights Our Services and `/schedule` the
  * Event Hub Maker — the rail and the bar never show "you are nowhere".
  *
- * ⏳ ONE INTERIM ROW: Seat plan. Its Details home (Details › Your event › Seat
- * plan) is not on main yet, so the row stays until it lands — and removing it
- * then is ONE line: drop `'seat'` from `INTERIM_ROWS` below (and, if the
- * standalone page is to light the Maker, move its claims onto `launch`).
+ * ✅ NO INTERIM ROW (train n, 2026-09-29). The Seat plan row waited here for
+ * its Details home (Details › Your event › Seat plan, #6138); that home is on
+ * main, and `/seating` lands the couple of an Event Hub event there
+ * (`detailsIsTheDoor`). So the row is gone and its pages — `/seating` and the
+ * 3D view (`STUDIO_ABSORBED.pa3d`) — are claimed by the Event Hub Maker, or by
+ * Our Services where there is no Maker (the Schedule's rule, `toolHasGoneHome`).
  *
  * ⚠ THE OLD PHASE-SWAPPING BAR IS RETIRED (plan 5 · day-of 5 · after 5, each a
  * different five — 2026-09-24). The owner's "simple and easy to manage" is one
@@ -141,9 +143,8 @@ export type EventMenuRow = {
   alsoMatch?: string[];
 };
 
-/** `event` = the event's name row (Event settings) · `pillars` = the five ·
- *  `interim` = a row waiting for its Details home (see the header). */
-export type EventMenuSectionKey = 'event' | 'pillars' | 'interim';
+/** `event` = the event's name row (Event settings) · `pillars` = the five. */
+export type EventMenuSectionKey = 'event' | 'pillars';
 
 export type EventMenuSection = {
   key: EventMenuSectionKey;
@@ -165,7 +166,8 @@ export type EventMenuCtx = {
    *  Mood Board, Logo, Editorial) are reached from Our Services instead — the
    *  page that keeps a tool "where there is no Maker" (`toolHasGoneHome`). */
   websiteEnabled?: boolean;
-  /** ⚠ UNDEFINED MEANS SHOW — only an explicit `false` drops Seat plan. */
+  /** ⚠ UNDEFINED MEANS SEATING — only an explicit `false` stops a row claiming
+   *  `/seating` (a kind with no seating, whose /seating redirects home). */
   seatingEnabled?: boolean;
   /**
    * The event's Studio products, from `railToolsSignedIn({eventId, count: 1,
@@ -207,9 +209,10 @@ export function storeShellRefusesMenuRow(href: string, storeShell: boolean | und
  * Every other product's pages are claimed by Our Services (its card is
  * there). These three live somewhere else, so they are claimed there:
  *
- *   pa3d        → Seat plan — the 3D view is the seat plan's own `List | 2D |
- *                 3D` segment (owner 2026-09-24, "the 3D version is on the
- *                 seatplan already").
+ *   pa3d        → the Event Hub Maker — the 3D view is the seat plan's own
+ *                 `List | 2D | 3D` segment (owner 2026-09-24, "the 3D version
+ *                 is on the seatplan already"), and the Seat plan is Details ›
+ *                 Your event › Seat plan.
  *   palogo      → the Event Hub Maker — Details › Logo (owner 2026-09-24/25:
  *                 "the logo maker lives in the editor").
  *   mood-board  → the Event Hub Maker — Details › Mood Board (owner
@@ -223,7 +226,7 @@ export function storeShellRefusesMenuRow(href: string, storeShell: boolean | und
 export const STUDIO_ABSORBED: Readonly<
   Record<string, { into: string; routes: (base: string) => string[] }>
 > = {
-  pa3d: { into: 'seat', routes: (base) => [`${base}/seating/lab`, `${base}/plan3d`] },
+  pa3d: { into: 'launch', routes: (base) => [`${base}/seating/lab`, `${base}/plan3d`] },
   palogo: { into: 'launch', routes: (base) => [`${base}/monogram`] },
   'mood-board': { into: 'launch', routes: (base) => [`${base}/studio/mood-board`] },
 };
@@ -241,8 +244,6 @@ export function eventMenuRowClaims(r: EventMenuRow): string[] {
 
 /** THE FIVE, in the owner's order. */
 const PILLAR_ROWS = ['home', 'guests', 'explore', 'launch', 'studio'] as const;
-/** Rows waiting for their Details home — see the header. One line to retire. */
-const INTERIM_ROWS = ['seat'] as const;
 
 /**
  * THE tree. Every event-menu surface reads this — the rail, the ☰ drawer and
@@ -255,6 +256,10 @@ export function buildEventMenuSections(
   const base = `/dashboard/${eventId}`;
   const hide = new Set(ctx.hideKeys ?? []);
   const maker = !!ctx.websiteEnabled;
+  // The Seat plan's page — held by the Maker (Details › Your event › Seat plan)
+  // or, with no Maker, by Our Services. None where the kind seats nobody (its
+  // /seating redirects home), so no row claims a door that is not there.
+  const seatPages = ctx.seatingEnabled !== false ? [`${base}/seating`] : [];
 
   const rows = new Map<string, EventMenuRow>();
   const put = (r: EventMenuRow) => rows.set(r.key, r);
@@ -296,7 +301,12 @@ export function buildEventMenuSections(
       href: `${base}/launch`,
       icon: 'hub',
       matchPrefix: `${base}/website`,
-      alsoMatch: [`${base}/story`, `${base}/schedule`],
+      alsoMatch: [
+        `${base}/story`,
+        `${base}/schedule`,
+        // `/seating` is Details › Your event › Seat plan (the page lands there).
+        ...seatPages,
+      ],
     });
   }
 
@@ -315,14 +325,9 @@ export function buildEventMenuSections(
       `${base}/studio`,
       `${base}/galleries`,
       ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
+      ...(maker ? [] : seatPages),
     ].filter((m) => m !== hub.split('?')[0]),
   });
-
-  // ⏳ SEAT PLAN — interim (see the header). Gated on the seating surface on
-  // every surface, so a kind whose /seating redirects gets no dead row.
-  if (ctx.seatingEnabled !== false) {
-    put({ key: 'seat', label: 'Seat plan', href: `${base}/seating`, icon: 'seat' });
-  }
 
   // THE PRODUCTS' PAGES — claimed by whichever row holds them.
   const claim = (key: string, paths: string[]) => {
@@ -350,7 +355,6 @@ export function buildEventMenuSections(
   const sections: EventMenuSection[] = [
     { key: 'event', label: '', rows: pick(['personalization']) },
     { key: 'pillars', label: '', rows: pick(PILLAR_ROWS) },
-    { key: 'interim', label: '', rows: pick(INTERIM_ROWS) },
   ];
   // An empty section is dropped here, so no surface can draw over nothing.
   return sections.filter((s) => s.rows.length > 0);
@@ -377,13 +381,6 @@ export const PHONE_BAR_SHORT: Readonly<Partial<Record<CustomerMenuKey, string>>>
 };
 
 /**
- * The rail rows that have no tab of their own, and the tab that lights for
- * their pages on a phone. Seat plan is a people room, so its pages light
- * Guest list (as they always did on the old Guests tab).
- */
-const BAR_HOST: Readonly<Record<string, CustomerMenuKey>> = { seat: 'guests' };
-
-/**
  * THE PHONE'S ONE BOTTOM BAR — the five pillars, picked out of the one tree,
  * the same in every phase:
  *
@@ -391,8 +388,8 @@ const BAR_HOST: Readonly<Record<string, CustomerMenuKey>> = { seat: 'guests' };
  *
  * Every label and href comes from `buildEventMenuSections`, so a tab and its ☰
  * row can never say two words for one page — except the two short words in
- * `PHONE_BAR_SHORT` (Maker · Services), which the owner chose for the bar. A tab lights across every page its
- * row claims, plus the claims of a rail row with no tab (`BAR_HOST`).
+ * `PHONE_BAR_SHORT` (Maker · Services), which the owner chose for the bar. A
+ * tab lights across every page its row claims — every rail row IS a tab now.
  *
  * 🔑 NOTHING DOCKS ABOVE IT. There is no section sub-nav and no moment strip
  * any more (owner 2026-09-29, "we do not want that sub bottom nav anymore");
@@ -407,9 +404,6 @@ export function buildCustomerMenuTree(
   const phase = ctx.phase ?? 'plan';
   const all = eventMenuRows(buildEventMenuSections(eventId, ctx));
   const byKey = new Map(all.map((r) => [r.key, r]));
-
-  const lent = (key: CustomerMenuKey): string[] =>
-    all.filter((r) => BAR_HOST[r.key] === key).flatMap(eventMenuRowClaims);
 
   return PILLAR_ROWS.flatMap((key): CustomerMenu[] => {
     const r = byKey.get(key);
@@ -436,7 +430,7 @@ export function buildCustomerMenuTree(
         // After the day, Your Team opens on the suppliers who worked it, each
         // with its review chip — the SHIPPED deep link (2026-06-12).
         href: key === 'explore' && phase === 'after' ? `${r.href}?tab=build` : r.href,
-        activeMatch: [...new Set([...eventMenuRowClaims(r), ...lent(key)])],
+        activeMatch: [...new Set(eventMenuRowClaims(r))],
       },
     ];
   });

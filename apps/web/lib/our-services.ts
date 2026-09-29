@@ -332,7 +332,9 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   compare: { home: 'Your Team — its Compare tab' },
   // Catalogue tools.
   'mood-board': { home: 'the Event Hub Maker — Details › Mood Board', needsWebsite: true },
-  seating: { home: 'the Seat plan menu row' },
+  // Train n (2026-09-29): the Seat plan row left the menu — its home is
+  // Details › Your event › Seat plan, and its old page lands there.
+  seating: { home: 'the Event Hub Maker — Details › Your event › Seat plan', needsWebsite: true },
   'landing-page': { home: 'the Event Hub Maker menu row', needsWebsite: true },
   'save-the-date': { home: 'the Event Hub Maker — Save the Date', needsWebsite: true },
   rsvp: { home: 'the Event Hub Maker — the invitation editor', needsWebsite: true },

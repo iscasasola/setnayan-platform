@@ -136,11 +136,15 @@ test('the three measured overlaps resolve the way a person would read them', () 
     3D Plan's favour; the 3D Plan row is absorbed into Seat plan
     (`STUDIO_ABSORBED`), which now CLAIMS the 3D view and the /plan3d control
     centre. So every one of these lights Seat plan — and nothing lights 'pa3d'.
+    🔄 Train n (2026-09-29): the Seat plan row itself left the menu — its home
+    is Details › Your event › Seat plan — so the whole family lights the Event
+    Hub Maker, and no Seat plan row is matchable either.
   */
   for (const p of ['/seating', '/seating/lab', '/plan3d']) {
-    assert.equal(activeRailKey(rail, `${BASE}${p}`), 'seat', `${p} must light Seat plan`);
+    assert.equal(activeRailKey(rail, `${BASE}${p}`), 'launch', `${p} must light the Event Hub Maker`);
   }
-  assert.ok(!rail.some((r) => r.key === 'pa3d'), 'a 3D Plan row is matchable again beside Seat plan');
+  assert.ok(!rail.some((r) => r.key === 'pa3d'), 'a 3D Plan row is matchable again');
+  assert.ok(!rail.some((r) => r.key === 'seat'), 'a Seat plan row is matchable again beside the Maker');
   /*
     THE PAIR THAT FORCED "EXACT BEATS PREFIX" — RE-MEASURED 2026-09-02 (EH3).
 

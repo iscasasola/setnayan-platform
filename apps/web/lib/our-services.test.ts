@@ -216,7 +216,10 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
     'mood-board': () =>
       (DETAILS_ITEM_KEYS as readonly string[]).includes('mood-board') &&
       read(EV, 'studio', 'mood-board', 'page.tsx').includes("redirect(detailsItemHref(eventId, 'mood-board'))"),
-    seating: () => row('seat')?.href === `${base}/seating`,
+    seating: () =>
+      (DETAILS_ITEM_KEYS as readonly string[]).includes('seating') &&
+      read(EV, 'seating', 'page.tsx').includes("redirect(detailsDoorHref(eventId, 'seating'") &&
+      !row('seat'),
     'landing-page': () => row('launch')?.href === addOnHref('landing-page', EVENT),
     rsvp: () =>
       addOnHref('rsvp', EVENT).startsWith(`${base}/website/`) &&

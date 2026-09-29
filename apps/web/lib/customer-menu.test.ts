@@ -71,12 +71,14 @@ test('each tab lights the pages it now holds', () => {
     studioRows: [...STUDIO, { key: 'pa3d', href: `${BASE}/seating/lab`, name: '3D Plan' }],
   });
   const lit = (key: string) => tree.find((m) => m.key === key)!.activeMatch as string[];
-  // Guest list: Hosts, the event QR, People — and the Seat plan, which has no tab.
-  for (const p of ['/guests', '/hosts', '/event-qr', '/people', '/seating', '/plan3d']) {
+  // Guest list: Hosts, the event QR, People.
+  for (const p of ['/guests', '/hosts', '/event-qr', '/people']) {
     assert.ok(lit('guests').includes(`${BASE}${p}`), `Guest list does not light ${p}`);
   }
   assert.ok(lit('explore').includes(`${BASE}/budget`), 'Your Team does not light /budget');
-  for (const p of ['/launch', '/website', '/story', '/schedule']) {
+  // The Maker — and the Seat plan (Details › Your event › Seat plan, train n)
+  // with its 3D view.
+  for (const p of ['/launch', '/website', '/story', '/schedule', '/seating', '/plan3d']) {
     assert.ok(lit('launch').includes(`${BASE}${p}`), `the Maker does not light ${p}`);
   }
   assert.ok(lit('studio').includes(`${BASE}/galleries`), 'Our Services does not light Galleries');

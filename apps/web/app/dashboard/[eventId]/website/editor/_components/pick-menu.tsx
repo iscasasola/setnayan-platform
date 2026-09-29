@@ -61,6 +61,7 @@ export function PickMenu({
   dataAttr,
   className = '',
   buttonText,
+  stickyGroups = false,
 }: {
   /** What the control is, for a screen reader ("This stage's menu"). */
   label: string;
@@ -73,6 +74,8 @@ export function PickMenu({
   className?: string;
   /** Words on the button instead of the current option's label ("Round 1 · 3 of 7"). */
   buttonText?: string;
+  /** A long list (the font dropdown's shelves): each group heading stays in view while its options scroll. */
+  stickyGroups?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PickListPlacement | null>(null);
@@ -213,7 +216,12 @@ export function PickMenu({
                     data-pick-group={run.group}
                     className={ri > 0 ? 'mt-1 border-t border-ink/10 pt-1' : ''}
                   >
-                    <p aria-hidden className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
+                    <p
+                      aria-hidden
+                      className={`px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50 ${
+                        stickyGroups ? 'sticky top-0 z-[1] rounded-lg bg-cream/95' : ''
+                      }`}
+                    >
                       {run.group}
                     </p>
                     <ul role="none">{run.options.map(renderOption)}</ul>
@@ -229,7 +237,10 @@ export function PickMenu({
 
   function renderOption(o: PickOption) {
     return (
-      <li key={o.key} role="none">
+      /* ⚡ A face is fetched when text is laid out in it — `content-visibility:
+         auto` skips laying out a row that is off the list's screen, so a font
+         row's face downloads only once it scrolls into view. */
+      <li key={o.key} role="none" className={o.fontFamily ? '[contain-intrinsic-size:auto_44px] [content-visibility:auto]' : undefined}>
         <button
           type="button"
           role="option"

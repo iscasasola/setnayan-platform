@@ -29,6 +29,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import * as es from '@/lib/element-style';
+import { HUB_FONTS_MOST_USED } from '@/lib/hub-fonts';
 import * as ep from './element-preview';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -237,8 +238,8 @@ const styleOf = (el: FakeEl) => Object.fromEntries(el.style.map);
 
 /* ── fixtures ────────────────────────────────────────────────────────────── */
 
-const FONT = es.HUB_ELEMENT_FONTS[0]!.key;
-const FONT_2 = es.HUB_ELEMENT_FONTS[3]!.key;
+const FONT = HUB_FONTS_MOST_USED[0]!;
+const FONT_2 = HUB_FONTS_MOST_USED[3]!;
 
 function masthead(elements: Styles | null): FakeEl {
   const html = renderToStaticMarkup(

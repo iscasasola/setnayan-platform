@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { AlignCenter, AlignLeft, AlignRight, PencilLine, Play } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { HUB_FONT_FACES, hubFontBoldWeight, hubFontPreviewStack } from '@/lib/hub-fonts';
+import { HUB_FONT_FACES, hubFontBoldWeight } from '@/lib/hub-fonts';
+import { FontPick } from './font-pick';
 import {
   HUB_EL_DELAY,
   HUB_EL_DELAY_LABEL,
@@ -21,7 +22,6 @@ import {
   HUB_ELEMENT_ALIGNS,
   HUB_ELEMENT_ALIGN_LABEL,
   HUB_ELEMENT_FIELDS,
-  HUB_ELEMENT_FONTS,
   HUB_ELEMENT_LABEL,
   HUB_ELEMENT_WEIGHTS,
   HUB_ELEMENT_WEIGHT_LABEL,
@@ -179,20 +179,15 @@ export function PartTextTab({
           }
           data="font"
         >
-          <PickMenu
+          {/* 🔤 The one font dropdown (owner 2026-09-29) — Recently used ·
+              Most used · All fonts, "In use" marked; `font-pick.tsx`. */}
+          <FontPick
+            eventId={eventId}
             label="Font"
             dataAttr="data-element-font"
-            value={face.font ?? 'hub'}
-            options={[
-              { key: 'hub', label: 'Event Hub font' },
-              ...HUB_ELEMENT_FONTS.map((f) => ({
-                key: f.key,
-                label: f.label,
-                fontFamily: hubFontPreviewStack(f.key),
-                group: f.pickGroup,
-              })),
-            ]}
-            onPick={(key) => choose('font', key === 'hub' ? null : key)}
+            value={face.font ?? null}
+            lead="Event Hub font"
+            onPick={(key) => choose('font', key)}
             className="min-h-11 min-w-0 flex-1 lg:min-h-9"
           />
         </IRow>

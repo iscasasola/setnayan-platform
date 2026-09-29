@@ -58,6 +58,7 @@ import { BOTH_PHONE_WIDTH, bothDesktopFit, usePaneSize } from './both-view';
 import { PickMenu } from './pick-menu';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { HubFontKey } from '@/lib/hub-fonts';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
@@ -296,6 +297,8 @@ export function MakerWork({
     palette: ElementPalette;
     /** `hubDraftAction` — the one draft door; every choice is a draft save. */
     draftAction: ElementDraftAction;
+    /** 🔤 The faces the Event Hub renders now (`hubFontsInUse`) — the font dropdowns' "In use". */
+    fontsInUse?: readonly HubFontKey[];
   } | null;
   /** Where the couple has the reveal play (drafted over live, `lib/reveal-stages.ts`)
    *  — the Reveal page previews the first of them. */
@@ -610,6 +613,7 @@ export function MakerWork({
         : null,
       revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
       publicLandingUrl,
+      fontsInUse: elementEditing?.fontsInUse ?? [],
     });
   }, [setLookPages, madeOnce, mainBackgroundRow, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);

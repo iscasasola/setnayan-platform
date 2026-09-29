@@ -55,8 +55,10 @@ import {
   MakerHeroPanel,
   MakerLogoPanel,
   MakerRevealPanel,
+  readMakerLogoFonts,
   readMakerRevealStages,
 } from '../../launch/_components/maker-made-once';
+import { hubFontsInUse } from '@/lib/hub-font-shelves';
 import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
@@ -1218,6 +1220,10 @@ export default async function WebsiteEditorPage({
     current: t.id === currentTheme,
   }));
 
+  /* Every scene's canvas as the canvas draws it (the draft over live) — what
+     per-element editing edits, and what the font dropdowns' "In use" reads. */
+  const elementCanvases = Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)]));
+
   return (
     <MakerWork
       eventId={eventId}
@@ -1281,12 +1287,22 @@ export default async function WebsiteEditorPage({
         startingHint: INVITATION_WORDS_HINT,
       }}
       elementEditing={{
-        canvases: Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
+        canvases: elementCanvases,
         palette: (() => {
           const pal = INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES]?.palette ?? INVITE_THEMES.house.palette;
           return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };
         })(),
         draftAction: hubDraftAction,
+        /* 🔤 "In use" on every font dropdown (owner 2026-09-29: "actively
+           used") — from the SAME draft over live the canvas draws: the theme's
+           faces, the couple's typeface, every part and letter run above, and
+           the logo's text layers. */
+        fontsInUse: hubFontsInUse({
+          themeFaces: (INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES] ?? INVITE_THEMES.house).fonts,
+          siteFontKey: (drafted as { site_font_key?: string | null }).site_font_key ?? null,
+          canvases: elementCanvases,
+          logoFonts: await readMakerLogoFonts(eventId),
+        }),
       }}
       scenes={scenes}
       navigator={navigator}

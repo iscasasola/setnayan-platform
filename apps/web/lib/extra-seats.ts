@@ -227,6 +227,27 @@ export function planSeatNames(
 }
 
 /**
+ * 🔒 A PLUS-ONE WHO LINKED THEIR OWN ACCOUNT KEEPS THEIR OWN NAME (owner
+ * 2026-09-29, DECISION_LOG "OWNER ANSWERS — TEN OPEN QUESTIONS" (10): *"To change
+ * the name: if connected to an account, cannot change anymore"* — account
+ * details win, extending 2026-09-26 "account details win on sync"). A name the
+ * bringer types for a seat whose person is linked is NOT written: the op keeps
+ * only its meal / dietary. `linked` = the seat ids an `event_members` row holds.
+ */
+export function lockLinkedSeatNames(ops: readonly SeatNameOp[], linked: ReadonlySet<string>): SeatNameOp[] {
+  return ops.map((op) => {
+    if (op.kind !== 'name' || !linked.has(op.seatId)) return op;
+    const d: SeatDetails = {};
+    if (op.meal !== undefined) d.meal = op.meal;
+    if (op.dietary !== undefined) d.dietary = op.dietary;
+    return { kind: 'details', seatId: op.seatId, ...d };
+  });
+}
+
+/** The words for a name locked by its person's own account — bringer and host alike. */
+export const LINKED_NAME_WORDS = 'Linked to their account';
+
+/**
  * The reply's name boxes: one per seat the guest was given, each carrying the
  * seat it fills and the name already on it. A seat not made yet still gets a
  * box (naming it makes it, up to the count). With no seats read at all, one

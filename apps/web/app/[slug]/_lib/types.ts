@@ -425,6 +425,9 @@ export type GuestRow = {
     last?: string | null;
     meal?: string | null;
     dietary?: string | null;
+    /** 🔒 This seat's person linked their own account — their name is theirs
+     *  (owner 2026-09-29, OWNER ANSWERS (10)); the reply shows it read-only. */
+    linked?: boolean;
   }[];
   /** The name the host recorded for the +1, mirrored here so the host's own
    *  list chips stop reading "+ TBA" once the guest names them. */

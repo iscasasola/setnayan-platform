@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { plusOneNameSlots } from '@/lib/extra-seats';
+import { LINKED_NAME_WORDS, plusOneNameSlots } from '@/lib/extra-seats';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
 import { formatCount } from '@/lib/format-number';
 
@@ -42,6 +42,7 @@ export type PlusOneSeatInput = {
   last?: string | null;
   meal?: string | null;
   dietary?: string | null;
+  linked?: boolean;
 };
 
 export type PlusOneSlot = {
@@ -50,6 +51,8 @@ export type PlusOneSlot = {
   last: string;
   meal: string;
   dietary: string;
+  /** 🔒 Their own account holds this seat — the name is theirs (owner 2026-09-29). */
+  linked?: boolean;
 };
 
 /** The meal order the bringer's own picker uses. */
@@ -73,6 +76,7 @@ export function plusOneSlots(
       last: slot.name ? last : '',
       meal: seat?.meal && (MEAL_ORDER as string[]).includes(seat.meal) ? seat.meal : 'no_preference',
       dietary: seat?.dietary ?? '',
+      linked: Boolean(seat?.linked && slot.name),
     };
   });
 }
@@ -253,6 +257,16 @@ export function PlusOneSeatPanels({
               </p>
             ) : null}
             {slot.seatId ? <input type="hidden" name={`plus_one_seat_id_${n}`} value={slot.seatId} /> : null}
+            {/* 🔒 LOCKED ONCE THEY LINK THEIR OWN ACCOUNT (owner 2026-09-29,
+                OWNER ANSWERS (10)): the name is shown, never posted — so the
+                reply writes only this seat's meal and dietary. `submitRsvp`
+                refuses a posted name for a linked seat as well. */}
+            {slot.linked ? (
+              <p className="text-sm text-ink" data-plus-one-linked="">
+                <span className="font-medium">{`${slot.first} ${slot.last}`.trim()}</span>
+                <span className="text-ink/60"> · {LINKED_NAME_WORDS}</span>
+              </p>
+            ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <SeatField
                 id={`${idPrefix}plus_one_first_name_${n}`}
@@ -273,6 +287,7 @@ export function PlusOneSeatPanels({
                 onInput={(e) => readName(e.currentTarget)}
               />
             </div>
+            )}
             {askMeal ? (
               <div className="space-y-1.5">
                 <label htmlFor={`${idPrefix}plus_one_meal_${n}`} className="block text-sm font-medium text-ink">

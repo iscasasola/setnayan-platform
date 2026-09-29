@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { planSeatNames, readSeatNames, type ExtraSeatRow } from '@/lib/extra-seats';
+import { lockLinkedSeatNames, planSeatNames, readSeatNames, type ExtraSeatRow } from '@/lib/extra-seats';
 import { plusOneSeats } from '@/lib/guests';
 import { after } from 'next/server';
 import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
@@ -953,7 +953,15 @@ async function nameTheSeats(
         confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
         created_at: (r.created_at as string | null) ?? null,
       }));
-      const ops = planSeatNames(seatNames, seats, plusOneSeats(primary));
+      // 🔒 A seat whose person linked their own account keeps their name
+      // (owner 2026-09-29, OWNER ANSWERS (10)) — asked here, not only on screen.
+      const seatIds = seats.map((s) => s.guest_id);
+      const { data: linkedRows, error: linkedErr } = seatIds.length
+        ? await admin.from('event_members').select('guest_id').eq('event_id', eventId).in('guest_id', seatIds)
+        : { data: [], error: null };
+      if (linkedErr) return { ok: false, error: 'Their name did not save — try again.' };
+      const linkedSeats = new Set(((linkedRows ?? []) as Array<{ guest_id: string | null }>).map((r) => r.guest_id).filter((x): x is string => Boolean(x)));
+      const ops = lockLinkedSeatNames(planSeatNames(seatNames, seats, plusOneSeats(primary)), linkedSeats);
       const stamp = new Date().toISOString();
       let failed = false;
       let namedCount = 0;

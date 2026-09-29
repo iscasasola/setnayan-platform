@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { LINKED_NAME_WORDS } from '@/lib/extra-seats';
 import {
   Armchair,
   ArrowRight,
@@ -205,6 +206,7 @@ export function GuestCardBody({
     recordedAt,
     access,
     canManageAccess,
+    nameLinked,
   } = data;
   const accessTagLabel = access ? accessTag(access) : null;
 
@@ -351,7 +353,26 @@ export function GuestCardBody({
         {/* ── 2 · DETAILS — name, contact, private note: one line each ───── */}
         <Section title="Details">
           <div className="overflow-hidden rounded-lg border border-ink/10">
-            <Disclosure summary="Name" value={guestDisplayName(guest)}>
+            <Disclosure summary="Name" value={nameLinked ? `${guestDisplayName(guest)} · ${LINKED_NAME_WORDS}` : guestDisplayName(guest)}>
+              {/* 🔒 A plus-one who linked their own account keeps their own name
+                  (owner 2026-09-29, OWNER ANSWERS (10)): read-only here, and
+                  `updateGuest` leaves the name out of its write. The stored
+                  parts still post, so the form's own checks are satisfied. */}
+              {nameLinked ? (
+                <div data-guest-name-linked="">
+                  <p className="text-sm text-ink">
+                    <span className="font-medium">{guestDisplayName(guest)}</span>
+                    <span className="text-ink/60"> · {LINKED_NAME_WORDS}</span>
+                  </p>
+                  <input type="hidden" name="first_name" value={guest.first_name} />
+                  <input type="hidden" name="last_name" value={guest.last_name} />
+                  <input type="hidden" name="name_prefix" value={guest.name_prefix ?? ''} />
+                  <input type="hidden" name="middle_name" value={guest.middle_name ?? ''} />
+                  <input type="hidden" name="name_suffix" value={guest.name_suffix ?? ''} />
+                  <input type="hidden" name="display_name" value={guest.display_name ?? ''} />
+                </div>
+              ) : (
+              <>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Field id="name_prefix" label="Prefix" defaultValue={guest.name_prefix ?? ''} />
                 <Field id="first_name" label="First name *" required defaultValue={guest.first_name} />
@@ -367,6 +388,8 @@ export function GuestCardBody({
                   placeholder="e.g. Tito Boy & Tita Cora"
                 />
               </div>
+              </>
+              )}
             </Disclosure>
 
             <Disclosure

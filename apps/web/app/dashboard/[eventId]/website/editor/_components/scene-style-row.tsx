@@ -30,7 +30,7 @@ import { PickMenu } from './pick-menu';
 import { useSceneCanvas } from './scene-inspector';
 import type { ElementDraftAction } from './element-sheet';
 import { PaletteLookRow } from './palette-look-row';
-import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
+import { isPaletteLookId, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 
 export type SceneStyleChoice = { id: string; name: string; line: string; isDefault: boolean };
 
@@ -131,10 +131,12 @@ export function SceneStyleCanvasRow({
     type === 'dress_code' && colours.length > 0 && layoutDrawsPaletteLook(layout) ? (
       <PaletteLookRow
         value={resolvePaletteLook(shown.palette)}
+        picked={isPaletteLookId(shown.palette)}
         colours={colours}
         pending={pending}
-        /* Tags is the default, and "Auto is an absence": picking it clears the key. */
-        onPick={(id) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; })}
+        /* Every pick is stored as chosen — Tags on purpose too — because a PICK is
+           what plays the entrance; an absence stays still (owner 2026-09-30). */
+        onPick={(id) => save((c) => { c.palette = id; })}
       />
     ) : null;
   if (!styleRow && !paletteRow) return null;

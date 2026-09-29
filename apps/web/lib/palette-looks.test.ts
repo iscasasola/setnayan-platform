@@ -179,6 +179,20 @@ test('the Palette picker is ONE dropdown of the five looks, each with a thumbnai
   menu.props.onPick('tags');
   menu.props.onPick('not-a-look');
   assert.deepEqual(picks, ['ribbon'], 'a pick of the current look, or of nothing, saves nothing');
+  // Before the couple has chosen, choosing the shown default (Tags) ON PURPOSE is a
+  // choice: it is saved, and a saved pick is what plays the entrance (owner 2026-09-30).
+  const first: string[] = [];
+  const unpicked = PaletteLookRow({ value: 'tags', picked: false, colours: ['#351115'], onPick: (id) => first.push(id) });
+  const m2 = React.Children.toArray((unpicked as React.ReactElement<{ children: React.ReactNode }>).props.children)[0] as typeof menu;
+  m2.props.onPick('tags');
+  assert.deepEqual(first, ['tags']);
+});
+
+test('the Maker stores every pick as chosen — Tags on purpose is kept, never cleared into an absence', () => {
+  const src = stripComments(read('app/dashboard/[eventId]/website/editor/_components/scene-style-row.tsx'));
+  assert.match(src, /onPick=\{\(id\) => save\(\(c\) => \{ c\.palette = id; \}\)\}/);
+  assert.doesNotMatch(src, /delete c\.palette/, 'clearing the key would turn a deliberate Tags back into the still default');
+  assert.match(src, /picked=\{isPaletteLookId\(shown\.palette\)\}/);
 });
 
 test('the Palette picker loads only inside the lazy `maker-details` chunk', () => {

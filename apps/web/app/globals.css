@@ -3301,7 +3301,9 @@ html.dark {
 
    🎬 THE ENTRANCES bind only under `.pahina-js` AND `.pahina-in` — the mark the
    page's ONE observer (`PahinaMotionObserver`) puts on `[data-pal-look]` as the
-   palette nears the screen. So: plays once, on scroll into view; no script,
+   palette nears the screen. `[data-pal-look]` is drawn ONLY when the couple
+   PICKED a look or switched the scene's motion on (owner 2026-09-30,
+   `paletteLookMovesOfRow`): the default Tags carry no marker and stay still. So: plays once, on scroll into view; no script,
    reduced motion or the 2s self-heal → no mark, and the colours simply rest in
    place. `backwards` fill only — once an entrance ends nothing it set lingers.
    One colour 100 ms after the last (`--pd`), capped at the seventh, so six

@@ -16,8 +16,9 @@ import { paletteInkOn } from '@/lib/palette-ink';
  * into one line under the row.
  *
  * 🎬 THE ENTRANCE IS CSS, AND IT RIDES THE PAGE'S ONE OBSERVER. `data-pal-look`
- * is what `PahinaMotionObserver` (`pahina-motion.tsx`) marks `.pahina-in` as the
- * palette nears the screen; the keyframes bind only under `.pahina-js` +
+ * — drawn ONLY when `moves` (the couple picked a look or switched motion on;
+ * owner 2026-09-30) — is what `PahinaMotionObserver` (`pahina-motion.tsx`)
+ * marks `.pahina-in` as the palette nears the screen; the keyframes bind only under `.pahina-js` +
  * `.pahina-in`, so no script, reduced motion or the 2s self-heal all leave the
  * colours resting in place. No client JavaScript here — a server component.
  *
@@ -32,6 +33,7 @@ export function PaletteLookList({
   items,
   size = 'full',
   label,
+  moves = false,
 }: {
   /** One of the four drawn here — never `tags` (the widget draws that itself). */
   look: Exclude<PaletteLookId, 'tags'>;
@@ -40,6 +42,8 @@ export function PaletteLookList({
   size?: 'full' | 'row';
   /** What the list is, for a screen reader. */
   label?: string;
+  /** Play the entrance — only when the couple picked a look or switched motion on. */
+  moves?: boolean;
 }) {
   if (items.length === 0) return null;
   if (size === 'row') {
@@ -56,7 +60,7 @@ export function PaletteLookList({
   const circles = look === 'circles';
   return (
     <>
-      <ul className={`sn-pal sn-pal-${look}`} data-pal-look={look} aria-label={label}>
+      <ul className={`sn-pal sn-pal-${look}`} {...(moves ? { 'data-pal-look': look } : {})} aria-label={label}>
         {items.map((it, i) => (
           <li key={`${it.hex}-${i}`} title={it.name || it.hex} style={swatchVars(it.hex)}>
             <i aria-hidden />

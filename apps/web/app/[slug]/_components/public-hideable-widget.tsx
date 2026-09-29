@@ -26,7 +26,7 @@ import { TierComparisonWidget } from './tier-comparison-widget';
 import { VenueWidget } from './venue-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
 import type { HubStage } from '@/lib/hub-canvas';
-import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow, paletteLookMovesOfRow } from '@/lib/scene-style-of-row';
 
 /**
  * Per-widget renderer for the anonymous public landing path. Mirrors the
@@ -162,7 +162,7 @@ function PublicHideableWidgetBody({
          nobody is identified here — so this is always the general view.
          `role_palette` is already on this row: `loadEventShell` selects it
          with the admin client, the same read the page's theme colours use. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} paletteMoves={paletteLookMovesOfRow(widget)} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;

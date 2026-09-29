@@ -18,11 +18,14 @@ Owner, on `prototypes/palette_styles_2026-09-29.html`: *"palette. yes · Style o
   ribbon unrolls then splits; 100 ms apart, capped at the seventh colour, every one done by 1.15 s. It plays once,
   when the palette nears the screen: the page's ONE observer (`PahinaMotionObserver`) now also marks
   `[data-pal-look]` `.pahina-in` — one selector added to `hsel`, no new script. Reduced motion, no script and the
-  2s self-heal all leave the colours resting in place. ⚠ Tags is the default, so its swing-in now plays on live
-  pages that never picked (the resting look is unchanged).
+  2s self-heal all leave the colours resting in place. **The default is still** (owner 2026-09-30): the entrance
+  plays ONLY when the couple explicitly picked a look — any of the five, Tags on purpose included — or switched the
+  scene's motion on (`paletteLookMovesOfRow`); an absent `canvas.palette` draws no `data-pal-look` at all, so a
+  live page that never picked is byte-for-byte today's.
 - **The Maker: "Palette ▾"** — one PickMenu under the Dress code's "Style ▾" in the scene panel, each of the five
   with a thumbnail in the couple's own first three colours. Saved through the Style row's own `useSceneCanvas`
-  (the same draft door, so the two picks never overwrite each other); picking Tags clears the key. Shown only
+  (the same draft door, so the two picks never overwrite each other); every pick is stored as chosen — Tags on
+  purpose included, since a pick is what plays the entrance. Shown only
   where "Our colours" is drawn in the look (Colours and roles, or a stage with no layouts) and the couple has
   colours. Loaded with the Style row in the existing lazy `maker-details` chunk. **Budgets held, none raised:**
   Maker first load 504.8KB / 505KB (was 504.7KB — the canvas key and one prop); shared bundle 201.9KB / 202KB.
@@ -31,7 +34,8 @@ Owner, on `prototypes/palette_styles_2026-09-29.html`: *"palette. yes · Style o
   five with thumbnails, the picker loads only through `maker-details`) and
   `app/[slug]/_components/every-palette-look-draws.test.ts` (absent = tags = unknown = the shipped markup; each
   look draws every colour in order at 2 and 7 colours; role rows and the reader's panel follow; the other
-  layouts are untouched). `the-motion-reaches-the-guest.test.ts` pins the widened observer selector.
+  layouts are untouched; the default carries no entrance marker, a pick or motion does, both mounts pass the
+  rule). `the-motion-reaches-the-guest.test.ts` pins the widened observer selector.
 
 SPEC IMPACT: DECISION_LOG.md — "AS BUILT — FIVE PALETTE STYLES" row (what shipped, the stored key, the entrance's
-mechanism, and that Tags' swing-in now plays on live pages).
+mechanism, and that the default Tags stay still until the couple picks).

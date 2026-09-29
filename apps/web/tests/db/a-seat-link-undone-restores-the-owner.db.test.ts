@@ -182,3 +182,35 @@ test('a name in another celebration of the cluster never inherits a CLAIMED pers
   assert.ok(b.rows[0]!.person_id, 'the gate also stopped two unclaimed cluster-mates converging (7b broken)');
   assert.equal(await personOf(a.rows[0]!.guest_id), b.rows[0]!.person_id);
 });
+
+test('a couple row’s key + a typed email never makes the typist a celebrant (20271255305468)', async () => {
+  const owner = await newUser('typed-email-owner@example.com');
+  const stranger = await newUser('typed-email-stranger@example.com');
+  const eventId = await newEvent('Typed email wedding', owner.id);
+
+  // The partner's celebrant row, name-only — exactly what a key-holder reaches.
+  const c = await db.query<{ guest_id: string }>(
+    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category, role)
+     VALUES ($1,'Cale','Reyes','both','family','celebrant') RETURNING guest_id`,
+    [eventId],
+  );
+  const coupleRow = c.rows[0]!.guest_id;
+  // The guest path writes the typist's own address onto that row.
+  await db.query(`UPDATE public.guests SET email = $2 WHERE guest_id = $1`, [
+    coupleRow,
+    'typed-email-stranger@example.com',
+  ]);
+  assert.equal(await personOf(coupleRow), null, 'a typed address pointed a couple row at the typist’s account');
+  assert.equal(await celebrant(eventId, stranger.id), false, 'a typed email made the typist a celebrant');
+
+  // (No extra-role case here: `guests_extra_roles_no_singletons` already
+  // refuses bride / groom as an extra role at the database.)
+
+  // Control: an ordinary guest row still resolves from its email (unchanged).
+  const g = await db.query<{ guest_id: string }>(
+    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category, email)
+     VALUES ($1,'Ana','Cruz','both','family',$2) RETURNING guest_id`,
+    [eventId, 'typed-email-stranger@example.com'],
+  );
+  assert.equal(await personOf(g.rows[0]!.guest_id), stranger.personId, 'the gate also stopped ordinary guest rows resolving');
+});

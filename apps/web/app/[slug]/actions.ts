@@ -30,6 +30,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSessionForEvent, sendKeepLinkOnce } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { isCoupleSeat } from '@/lib/seat-binding';
 import {
   RSVP_TERMS_COOKIE,
   TERMS_FIELD,
@@ -315,7 +316,7 @@ export async function submitRsvp(
   // The guest's OWN contact details. Named `contact_*` on the form so nothing
   // here can ever collide with the sign-in-link box elsewhere on this page,
   // which posts `email` to a completely different action.
-  const contactEmail = clean(formData.get('contact_email')) || null;
+  let contactEmail = clean(formData.get('contact_email')) || null;
   const contactMobile = clean(formData.get('contact_mobile')) || null;
   const contactName = clean(formData.get('contact_display_name')) || null;
 
@@ -389,10 +390,20 @@ export async function submitRsvp(
   // draft of this very note turned the guard red.
   const { data: before } = await admin
     .from('guests')
-    .select('rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name')
+    .select('rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name, role, extra_roles')
     .eq('guest_id', guestId)
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // 🔒 A COUPLE ROW'S EMAIL IS NEVER WRITTEN FROM THE GUEST FORM (2026-09-30,
+  // lib/seat-binding.ts). Whoever holds a bride / groom / celebrant row's key
+  // could type their own address here, and the `set_guest_person` trigger
+  // would point the row's person — and so `is_event_celebrant` — at that
+  // account. The couple sets their own row's email from the guest card. An
+  // unreadable row (`!before`) is treated the same: no proof it is not theirs.
+  if (!before || isCoupleSeat(before.role as string | null, before.extra_roles as string[] | null)) {
+    contactEmail = null;
+  }
 
   let answerRefused = false;
   if (replyLocked && RSVP_VALUES.includes(status)) {

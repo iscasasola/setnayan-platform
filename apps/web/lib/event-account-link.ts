@@ -67,12 +67,25 @@ export async function sendEventAccountMagicLink(params: {
   // 1. Stamp the email on the guest row (couple contact + the cross-device
   //    email-match key). Best-effort: only fills a NULL email so we never clobber
   //    a different address the couple already recorded for that seat.
-  await admin
+  //    🔒 NEVER onto a COUPLE row from a guest door (2026-09-30): an address
+  //    typed by whoever holds the bride / groom / celebrant key would point the
+  //    row's person at their account (`set_guest_person`). Only the couple's own
+  //    "send them a sign-in link" (`sentByCouple`) may stamp it.
+  const { data: seatRow } = await admin
     .from('guests')
-    .update({ email, updated_at: new Date().toISOString() })
+    .select('role, extra_roles')
     .eq('guest_id', params.guestId)
     .eq('event_id', params.eventId)
-    .is('email', null);
+    .maybeSingle();
+  const coupleRow = !seatRow || isCoupleSeat(seatRow.role as string | null, seatRow.extra_roles as string[] | null);
+  if (!coupleRow || params.sentByCouple) {
+    await admin
+      .from('guests')
+      .update({ email, updated_at: new Date().toISOString() })
+      .eq('guest_id', params.guestId)
+      .eq('event_id', params.eventId)
+      .is('email', null);
+  }
 
   // 2. Ensure an auth user exists for this email. createUser is idempotent for
   //    our purposes — if the address is already registered it errors, which we

@@ -249,3 +249,17 @@ test('6 · the guest card offers Unlink on every bound row, couple rows included
     /if \(formData\.get\('unlink_account'\) === '1'\) return unlinkSeatAccount\(eventId, guestId\);/,
   );
 });
+
+// ── 7 · A COUPLE ROW TAKES NO TYPED EMAIL FROM THE GUEST SIDE ─────────────
+
+test('7 · the RSVP and the keep-link never write a couple row’s email from the guest side', () => {
+  const rsvp = fn(code('app/[slug]/actions.ts'), 'submitRsvp');
+  const gate = rsvp.indexOf('if (!before || isCoupleSeat(before.role as string | null, before.extra_roles as string[] | null)) {');
+  const write = rsvp.indexOf('...(contactEmail ? { email: contactEmail } : {})');
+  assert.ok(gate > 0 && write > gate, 'the RSVP writes a typed email onto a couple row again');
+  assert.match(rsvp.slice(gate, gate + 200), /contactEmail = null;/);
+  const send = fn(code('lib/event-account-link.ts'), 'sendEventAccountMagicLink');
+  const stampGate = send.indexOf('if (!coupleRow || params.sentByCouple) {');
+  const stamp = send.indexOf(".update({ email, updated_at");
+  assert.ok(stampGate > 0 && stamp > stampGate, 'the keep-link stamps a typed email onto a couple row again');
+});

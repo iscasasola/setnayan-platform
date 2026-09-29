@@ -51,6 +51,19 @@ What changed (rules in `apps/web/lib/seat-binding.ts`):
    same-name row when that person is CLAIMED by an account. Unclaimed
    name-only rows still converge (7b unchanged).
 
+6. **A couple row takes no typed email (controller decision, same PR).** Whoever
+   held a couple row's key could type their own address into it (RSVP email box
+   or the keep-link), and `set_guest_person` then pointed the row's person — and
+   `is_event_celebrant` — at that account, with no binding at all. Closed at the
+   source: `submitRsvp` drops the email for a couple row (or an unreadable row),
+   and `sendEventAccountMagicLink` stamps a couple row's email only when the
+   couple sent the link. DB floor, migration
+   `20271255305468_a_couple_row_takes_no_typed_email.sql`: on a couple row the
+   email resolves the person only when it is an existing couple member's own
+   address; a partner is linked via the couple's signed link → binding →
+   `link_guest_to_account_person` (account evidence). #6157 removes email from
+   the guest RSVP entirely; this guard stays regardless.
+
 `lib/guest-membership-session.ts`'s "known defect" note now records the fix.
 
 Guards: `apps/web/lib/seat-links-only-on-purpose.test.ts` (13 tests — login/

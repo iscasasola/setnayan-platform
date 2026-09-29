@@ -82,7 +82,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-setnayan',
         title: 'What is Setnayan?',
-        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first life-events platform — one free account to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free with no guest limit; couples book verified Filipino suppliers at 0% commission and pay them directly; and everything a couple creates gathers into one living memory (Alaala) they keep.",
+        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first life-events platform — one free account to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free with no guest limit; couples book verified Filipino suppliers at 0% commission and pay them directly; and everything a couple creates gathers into one living memory (Memories) they keep.",
       },
       {
         slug: 'how-much-does-setnayan-cost',
@@ -131,7 +131,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'what-is-pakanta',
-        title: 'What is Pakanta?',
+        title: 'What is Music Maker?',
         body: 'A custom Filipino-style song written for the couple — a one-time per-event purchase (current price on setnayan.com/pricing). Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
       },
       {
@@ -207,7 +207,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'plan-a-debut-christening-or-other-event',
         title: 'Can I use Setnayan for a debut, christening or other event?',
-        body: 'Yes. The same free planning tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, gala nights, wakes and more. And for the people you celebrate with again and again, a samahan gives your barkada, clan or parish its own space: short stories that disappear after 24 hours, one group chat, and the events you plan together.',
+        body: 'Yes. The same free planning tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, gala nights, wakes and more. And for the people you celebrate with again and again, a group gives your barkada, clan or parish its own space: short stories that disappear after 24 hours, one group chat, and the events you plan together.',
       },
       // ─── THE WORRIES AN ANSWER ENGINE RAISES (2026-09-28) ────────────────
       // Asked of ChatGPT/Gemini, "Setnayan's weaknesses" came back as four

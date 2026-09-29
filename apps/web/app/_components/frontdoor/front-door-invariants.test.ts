@@ -379,15 +379,15 @@ test('every Studio row leads to a page that exists', () => {
   );
 });
 
-test('Pakanta is one of them', () => {
+test('Music Maker (was Pakanta) is one of them', () => {
   /*
     Named on its own because it is the one that was deliberately held OUT for
     three months, and because the check above would go quiet about it the
     moment somebody removed the row: an empty promise is caught, a missing
     product is not.
   */
-  const row = railToolsSignedOut().find((r) => r.name === 'Pakanta');
-  assert.ok(row, 'Pakanta is sold and must have a Studio row (owner 2026-08-21)');
+  const row = railToolsSignedOut().find((r) => r.name === 'Music Maker');
+  assert.ok(row, 'Music Maker is sold and must have a Studio row (owner 2026-08-21)');
   assert.equal(row?.href, '/pakanta');
 });
 

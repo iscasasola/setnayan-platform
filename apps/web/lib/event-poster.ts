@@ -26,26 +26,50 @@
  * ─── THE ORDER, and why each step is where it is ────────────────────────────
  *   1. SOLEMN → `quiet`. A wake never celebrates (the-wake-never-celebrates);
  *      its masthead is typographic and still, whatever else is set.
- *   2. HERO PHOTO → `photo`. The couple's own picture wins when set.
- *   3. AN ACCENT THAT CARRIES WHITE TYPE → `deep`: the words sit straight on
- *      their colour (FABLE3: "Wine carries white at 7.7"). Capiz panes fill the
- *      upper sheet only when the invite wears the Capiz theme.
- *   4. AN ACCENT THAT CANNOT CARRY TYPE → `moon`: "Gold cannot carry text, so
- *      the art makes room: a white moon … holds every word."
+ *   2. HERO PHOTO → `photo` (ground `hero`). The couple's own picture wins.
+ *   3. THE SAVE-THE-DATE BACKGROUND → `photo` (ground `background`). A Pro
+ *      theme is painted on the couple's reveal background (`std_background`,
+ *      owner 2026-09-10); `resolveHubLook().photo` hands it over already gated
+ *      — null for House and for a lapsed unlock — so the card can never wear a
+ *      background the Event Hub would not.
+ *   4. A THEME WITH ITS OWN ART → `theme`: the invitation card in their theme,
+ *      printed over the theme's still (`resolveThemeGround().poster` — owner
+ *      2026-09-24: *"the image can be used for the invitations, tickets, and
+ *      poster"*).
  *   5. NOTHING CHOSEN → `invitation`: the hub's invitation card itself —
  *      eyebrow, their mark in a circle, the names, the invitation line.
  *
- * 🔑 3 vs 4 IS A CONTRAST MEASUREMENT, NOT A TASTE. The accent is
- * host-writable and can be any colour; white type on a pale one is unreadable.
- * The WCAG ratio against white decides, at the AA line (4.5).
+ * 🔑 2–4 ARE READABLE BY MEASUREMENT, NOT BY TASTE (owner 2026-09-25: text
+ * adapts to every background). Their ink and veil come from `hubLegibility`,
+ * the Event Hub's one rule: over the theme's still it is the theme's own ink
+ * over its measured scrim; over a photo nobody has sampled it is the ink that
+ * clears AA over BOTH a black and a white pixel — any photo at all. Before
+ * 2026-09-29 a photo card laid a fixed dark gradient that faded out below the
+ * names on a phone-width card, and a Pro event with a background and a theme
+ * but no hero photo drew plain white paper ("did not adjust to the event
+ * cover") — the background never reached this file.
+ *
+ * (`deep` / `moon` are retired from the order — 2026-09-26, below — and kept
+ * only as drawable kinds.)
  */
 import { invitationCard } from '@/app/[slug]/_lib/invitation-card';
 import type { EventWords } from '@/app/[slug]/_lib/event-words';
 import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
 import { relativeLuminance } from '@/lib/booth-studio';
-import type { InviteThemeId } from '@/lib/invite-themes';
+import { hubLegibility, hubLegibilityVars } from '@/lib/hub-legibility';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 
-export type PosterKind = 'quiet' | 'photo' | 'deep' | 'moon' | 'invitation';
+export type PosterKind = 'quiet' | 'photo' | 'theme' | 'deep' | 'moon' | 'invitation';
+
+/** Which cover a `photo` / `theme` poster is wearing — the hub's own ground. */
+export type PosterGround = 'hero' | 'background' | 'theme';
+
+/**
+ * The pixel extremes a photo nobody has sampled can put under the words. Ink
+ * that clears AA over both, once veiled, clears it over any photo — the same
+ * worst case `sceneGroundSamples` measures an unknown ground against.
+ */
+export const ANY_PHOTO_SAMPLES = ['#000000', '#ffffff'] as const;
 
 export type EventPosterFacts = {
   kind: PosterKind;
@@ -66,7 +90,16 @@ export type EventPosterFacts = {
   line: string | null;
   /** Quiet only — the one place line a wake's masthead carries. */
   venue: string | null;
+  /** Photo / theme only — the image the card wears. */
   photoSrc: string | null;
+  /** Photo / theme only — where `photoSrc` came from. */
+  ground: PosterGround | null;
+  /**
+   * Photo / theme only — `hubLegibilityVars` of the Event Hub's legibility rule
+   * for this ground: `--hub-ink`, `--hub-heading`, `--hub-accent-text`,
+   * `--hub-scrim`. Hex / rgba built from parsed values only.
+   */
+  legibility: Record<string, string> | null;
 };
 
 /** WCAG AA for body text — the line between "type on the colour" and "a moon". */
@@ -110,6 +143,10 @@ export function posterFor(input: {
   theme: InviteThemeId;
   accent: unknown;
   heroSrc: string | null;
+  /** `resolveHubLook().photo` — the Save-the-Date background, already Pro-gated. */
+  backgroundSrc?: string | null;
+  /** `resolveThemeGround(theme).poster` — the theme's still, or null (Classic). */
+  themeStillSrc?: string | null;
 }): EventPosterFacts {
   const card = invitationCard({ words: input.words, firstStartAt: null });
   const split = splitCoupleNames(input.displayName, input.words.twoPeople);
@@ -125,13 +162,42 @@ export function posterFor(input: {
     line: null,
     venue: null,
     photoSrc: null,
+    ground: null,
+    legibility: null,
   };
 
   if (card === null) {
     return { ...base, kind: 'quiet', dark: false, venue: input.venueName?.trim() || null };
   }
-  if (input.heroSrc) {
-    return { ...base, kind: 'photo', dark: true, photoSrc: input.heroSrc };
+  const theme = INVITE_THEMES[input.theme] ?? INVITE_THEMES.house;
+  const photo = input.heroSrc
+    ? { src: input.heroSrc, ground: 'hero' as const }
+    : input.backgroundSrc
+      ? { src: input.backgroundSrc, ground: 'background' as const }
+      : null;
+  if (photo) {
+    const legible = hubLegibility(theme, { kind: 'media', samples: ANY_PHOTO_SAMPLES });
+    return {
+      ...base,
+      kind: 'photo',
+      dark: legible.tone === 'light',
+      photoSrc: photo.src,
+      ground: photo.ground,
+      legibility: hubLegibilityVars(legible),
+    };
+  }
+  if (theme.media && input.themeStillSrc) {
+    const legible = hubLegibility(theme, { kind: 'theme' });
+    return {
+      ...base,
+      kind: 'theme',
+      dark: legible.tone === 'light',
+      eyebrow: card.eyebrow,
+      line: card.line,
+      photoSrc: input.themeStillSrc,
+      ground: 'theme',
+      legibility: hubLegibilityVars(legible),
+    };
   }
   // 🃏 THE COVER IS THE EVENT HUB HERO — The Card, on Classic, by default (owner
   // 2026-09-26: *"is it using the template provided on the event hub? our

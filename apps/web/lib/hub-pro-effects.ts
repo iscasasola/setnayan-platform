@@ -33,6 +33,7 @@ import { WIDGET_PHASES, type LifecyclePhase, type WidgetType } from '@/lib/invit
 import { MAKER_TOOL_EDITOR_NAME, makerSceneLabel, type MakerFixedKey } from '@/lib/maker-scene-list';
 import { PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { hubMainGround, isHubMainFollow, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
@@ -142,6 +143,15 @@ function eventEffect(
       return { what: 'Reveal effects', where: 'Save the Date', jump: { kind: 'tool', key: 'reveal' } };
     case 'love_story':
       return { what: 'Photos or chapters', where: 'Love Story', jump: { kind: 'tool', key: 'love-story' } };
+    // 💎 The last three Pro tools (owner 2026-09-29, "yes to all 3").
+    case 'site_bg_music_r2_key':
+      return { what: 'Background music', where: 'Whole Event Hub', jump: { kind: 'row', key: 'music' } };
+    case 'landing_page_hero_video_r2_key':
+      return { what: 'Hero video', where: 'Hero', jump: { kind: 'row', key: 'music' } };
+    case 'our_photos':
+      return { what: 'Your photos', where: 'Photos you add', jump: { kind: 'row', key: 'gallery' } };
+    case 'style_preferences':
+      return { what: 'QR look', where: 'Your QR code', jump: { kind: 'tool', key: 'details' } };
     default:
       return { what: 'Pro look', where: 'Event Hub', jump: null };
   }
@@ -215,6 +225,23 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
         remove: {
           widgets: {
             [item.widgetType]: { mode: row?.mode ?? 'auto', is_visible: row?.is_visible ?? true },
+          } as HubDraftPatch['widgets'],
+        },
+      });
+      continue;
+    }
+    if (item.field === 'custom') {
+      // ✍ Words in a scene of their own that is empty live — the words go back
+      // to what guests see (nothing), never anything else of the scene.
+      const liveWords = sanitizeCustomSection(row?.config_json);
+      push({
+        id: `words:${item.widgetType}`,
+        what: 'Words',
+        where: scene,
+        jump: { kind: 'scene', widgetId: item.widgetId, widgetType: item.widgetType, tab: 'content', stages, ...fixedOf(item.widgetType) },
+        remove: {
+          widgets: {
+            [item.widgetType]: { custom: liveWords.title || liveWords.body ? liveWords : null },
           } as HubDraftPatch['widgets'],
         },
       });

@@ -833,7 +833,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'p',
-        text: 'Customs vary across regions and faiths, and many couples now blend tradition with their own ideas — a same-day-edit video, a live band for the first dance, a Pakanta song written just for them. The traditions ground the day; the personal touches make it yours.',
+        text: 'Customs vary across regions and faiths, and many couples now blend tradition with their own ideas — a same-day-edit video, a live band for the first dance, a Music Maker song written just for them. The traditions ground the day; the personal touches make it yours.',
       },
       {
         type: 'cta',

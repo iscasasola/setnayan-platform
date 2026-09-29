@@ -88,22 +88,34 @@ const code = stripComments(raw);
 const READER = stripComments(readFileSync(join(import.meta.dirname, '../../../lib/scene-ground.ts'), 'utf8'));
 
 test('HubCanvasFrame reads its media URL ONLY through the gated reader, which calls heroVideoRefForGuests', () => {
-  assert.match(READER, /import \{ heroVideoRefForGuests \} from '\.\/guest-hero-video';/);
+  assert.match(READER, /import \{ heroVideoRefForGuests, sceneClipRefForGuests \} from '\.\/guest-hero-video';/);
+  /* 🎞 2026-09-28/29: a scene clip may play when the HERO switch allows it, when
+     the SCENE-CLIP switch allows it (`GUEST_SCENE_CLIP_PLAYBACK`, opened by the
+     owner's "make it move"), or on the couple's own Maker canvas (`ownClipPlays`,
+     a verified host — never a guest's default). ONE predicate, asked twice. */
   assert.match(
     READER,
-    /bg && bg\.kind === 'snippet'\s*\?\s*\(heroVideoRefForGuests\(bg\.media\) \? rawMediaUrl : null\)\s*:\s*rawMediaUrl/,
+    /const clipMayPlay = \(ref: string\) =>\s*Boolean\(heroVideoRefForGuests\(ref\)\) \|\|\s*Boolean\(sceneClipRefForGuests\(ref, opts\.sceneClipsOpen\)\) \|\|\s*opts\.ownClipPlays === true;/,
+  );
+  assert.match(
+    READER,
+    /bg && bg\.kind === 'snippet'\s*\?\s*\(clipMayPlay\(bg\.media\) \? rawMediaUrl : null\)\s*:\s*rawMediaUrl/,
   );
   assert.match(READER, /return \{ canvas, bg, mediaUrl, painted \};/, 'the reader must hand back the GATED url');
   // The frame takes `mediaUrl` from the reader, and reads no raw URL of its own.
-  assert.match(code, /import \{ sceneGround \} from '@\/lib\/scene-ground';/);
-  assert.match(code, /const \{ bg, mediaUrl, painted \} = sceneGround\(widget, mediaUrls\);/);
+  // (…and the clip's still for its first frame, from the same reader file.)
+  assert.match(code, /import \{ sceneClipStillUrl, sceneGround \} from '@\/lib\/scene-ground';/);
+  assert.match(code, /const ground = sceneGround\(widget, mediaUrls, \{ ownClipPlays \}\);\s*const \{ bg, mediaUrl, painted \} = ground;/);
   assert.doesNotMatch(code, /mediaUrls\?\.\[/, 'the frame reads a raw, ungated media URL');
 });
 
 test('the video element only renders once mediaUrl has passed the gate — no second, ungated read of canvas.media', () => {
   // The <video> tag must read the GATED `mediaUrl`, never `canvas.media` or a
   // raw `mediaUrls[...]` lookup directly — that would be a second doorway.
-  const videoBlock = code.slice(code.indexOf('<video'), code.indexOf('/>', code.indexOf('<video')));
+  /* The clip is the shipped `SceneClip` (loop · muted · inline · on-screen
+     only), handed the GATED url. */
+  assert.ok(code.includes('<SceneClip'), 'the frame draws its clip through SceneClip');
+  const videoBlock = code.slice(code.indexOf('<SceneClip'), code.indexOf('/>', code.indexOf('<SceneClip')));
   assert.match(videoBlock, /src=\{mediaUrl\}/);
   assert.doesNotMatch(videoBlock, /mediaUrls\?\.\[/);
 });

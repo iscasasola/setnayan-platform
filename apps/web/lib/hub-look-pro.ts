@@ -192,6 +192,11 @@ export const HUB_CANVAS_LOOK_KEYS = [
   // Scroll · Scrub · Auto-scroll into the next scene (#5951, `lib/hub-scenes.ts`).
   'transition',
   'autoSpeed',
+  // 🌄 How a photo background moves (Still · Parallax) and 🎞 a clip's still —
+  // both exist only beside media, which is Pro (owner 2026-09-28: *"adding
+  // media for background"*), so a free couple drafts them and Apply asks.
+  'mediaMotion',
+  'poster',
   // One element's own look (`lib/element-style.ts`). Only PART of it is Pro —
   // its font and its motion (`HUB_ELEMENT_PRO_FIELDS`); its colour, size and
   // the Text tab's other rows are free (owner 2026-09-28). `canvasLookChange`

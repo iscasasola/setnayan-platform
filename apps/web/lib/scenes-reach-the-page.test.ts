@@ -100,6 +100,8 @@ test('🔒 the couple’s words are text, never markup', async () => {
 test('🎬 a clip slot loops silently by default; a tap-to-play clip waits behind ▶', async () => {
   const { renderToStaticMarkup, renderScene } = await load();
   const clip = { template: 14 as const, slots: [{ media: REF(0), kind: 'snippet' as const }] };
+  /* 🎞 A guest gets the clip (the scene-clip switch is open — owner 2026-09-29);
+     closed, the still — held by `scene-upload-media.test.ts` §6. */
   const loop = renderToStaticMarkup(renderScene({ canvas: clip, words: { title: '', body: '' }, mediaUrls: URLS, facts: FACTS })!);
   // (React does not serialise `muted` into server HTML; the prop is on the element.)
   assert.match(loop, /<video[^>]*loop=""/i);

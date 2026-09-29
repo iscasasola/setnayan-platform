@@ -59,3 +59,30 @@ export function heroVideoRefForGuests(
   if (!GUEST_HERO_VIDEO_PLAYBACK) return null;
   return typeof ref === 'string' && ref.trim().length > 0 ? ref : null;
 }
+
+/**
+ * 🎞 A SCENE'S CLIP — a scene BACKGROUND snippet, or a clip in a template
+ * scene's picture slot — PLAYS FOR GUESTS (owner 2026-09-29, DECISION_LOG
+ * "OWNER ANSWERS — NINE PENDING DECISIONS", answer 2, verbatim *"make it
+ * move"*: the owner accepts that an unscreened couple video reaches guests as a
+ * scene background; the report / take-down path stays).
+ *
+ * ⚠ THIS IS NOT `GUEST_HERO_VIDEO_PLAYBACK`. The hero's own clip on the
+ * masthead, the editorial site, /realstories and the Main background ("behind
+ * every scene") stay behind that closed switch — the owner opened SCENE clips
+ * only. A code constant, like its sibling: closing it again puts every scene
+ * clip back on its still (`canvas.poster` / the hero photo) in one line.
+ */
+export const GUEST_SCENE_CLIP_PLAYBACK = true;
+
+/**
+ * Gate a scene clip ref on its way to a guest render. `open` defaults to the
+ * constant above; tests pass `false` to hold the closed path (the still).
+ */
+export function sceneClipRefForGuests(
+  ref: string | null | undefined,
+  open: boolean = GUEST_SCENE_CLIP_PLAYBACK,
+): string | null {
+  if (!open) return null;
+  return typeof ref === 'string' && ref.trim().length > 0 ? ref : null;
+}

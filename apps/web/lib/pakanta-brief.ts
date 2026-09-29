@@ -243,7 +243,7 @@ export function composePakantaBrief(input: PakantaBriefInput): PakantaBrief {
 
   // --- single copy-paste block for the music team / Suno ---
   const lines: string[] = [];
-  lines.push(`PAKANTA SONG BRIEF — ${names}`);
+  lines.push(`MUSIC MAKER SONG BRIEF — ${names}`);
   lines.push('');
   if (petNames) lines.push(`They call each other: ${petNames}`);
   if (paragraphs.length > 0) {
@@ -271,7 +271,7 @@ export function composePakantaBrief(input: PakantaBriefInput): PakantaBrief {
   if (!hasMaterial) {
     lines.push('');
     lines.push(
-      `⚠ No story material yet — the ${organizer} has not completed the love-story onboarding or a Pakanta intake.`,
+      `⚠ No story material yet — the ${organizer} has not completed the love-story onboarding or a Music Maker intake.`,
     );
   }
 

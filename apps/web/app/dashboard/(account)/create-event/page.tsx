@@ -54,9 +54,9 @@ const ERROR_COPY: Record<string, string> = {
   wedding_exists:
     'You already have a wedding in planning — you can only plan one wedding at a time. Finish it first, or open it and choose “Put this away”.',
   samahan_invalid_type:
-    'That event type belongs to a person, not a samahan — pick a community event type.',
+    'That event type belongs to a person, not a group — pick a community event type.',
   samahan_not_organizer:
-    'Only an organizer of that samahan can plan its events.',
+    'Only an organizer of that group can plan its events.',
   // Copy corrected 2026-07-31: this told the user to type into “Para kanino?”,
   // a field the live create path no longer renders — the generic onboarding
   // wizard asks “Who are we celebrating?” instead, and it now surfaces this
@@ -259,7 +259,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
             Planning for <span className="font-medium text-ink">{samahan.name}</span>
           </span>
           <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Samahan
+            Group
           </span>
         </p>
       ) : null}

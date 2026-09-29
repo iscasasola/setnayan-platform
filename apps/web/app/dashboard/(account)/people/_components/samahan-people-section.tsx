@@ -39,7 +39,7 @@ export async function SamahanPeopleSection() {
     <section className="mt-10">
       <header className="mb-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
-          Samahan
+          Groups
         </h2>
       </header>
 
@@ -65,7 +65,7 @@ export async function SamahanPeopleSection() {
         </ul>
       ) : (
         <p className="mb-4 rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
-          No samahan yet.{' '}
+          No group yet.{' '}
           <Link href="/dashboard/samahan/new" className="font-medium underline underline-offset-2 hover:text-ink">
             Create one
           </Link>{' '}
@@ -76,7 +76,7 @@ export async function SamahanPeopleSection() {
       {secondDegree.length > 0 ? (
         <div>
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-ink/40">
-            Through your samahan — second degree
+            Through your groups — second degree
           </p>
           <ul className="mt-2 flex flex-wrap gap-2">
             {secondDegree.map((p) => (

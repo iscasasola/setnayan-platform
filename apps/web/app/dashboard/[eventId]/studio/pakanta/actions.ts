@@ -52,7 +52,7 @@ export async function adoptPakantaSongAsSiteMusic(eventId: string): Promise<Resu
     // Re-verify the active (admin-approved, bundle-aware) PAKANTA entitlement.
     const db = createAdminClient();
     const active = await eventSkuActive(db, id, 'PAKANTA');
-    if (!active) return { ok: false, error: 'Pakanta isn’t active on this event.' };
+    if (!active) return { ok: false, error: 'Music Maker isn’t active on this event.' };
 
     const { error: updErr } = await db
       .from('events')

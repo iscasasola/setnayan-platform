@@ -23,6 +23,8 @@ import { requireHostMembership } from '@/lib/host-gate';
 import { refChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
+import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
+import type { HubDraftEvents } from '@/lib/hub-draft';
 
 /**
  * 🔴 SEC-1: a client-supplied ref, pinned to THIS event's own media folder.
@@ -83,6 +85,23 @@ export async function updateSiteChrome(
     .eq('event_id', eventId)
     .maybeSingle();
   let refused = false;
+
+  /* 💾 IN THE MAKER (`draft=1`) — TRIED FREE, PAID AT APPLY (owner 2026-09-29,
+     "yes to all 3"). The same fields, the same ref rule, into the DRAFT: no Pro
+     question here — Apply asks it (`planHubDraftApply`) and names the song and
+     the video on its sheet. Guests hear and see nothing until Apply. */
+  if (isHubDraftWrite(formData)) {
+    const events: HubDraftEvents = {};
+    if (formData.has('bg_music_url')) {
+      const musicRef = r2RefOrNull(formData.get('bg_music_url'), eventId);
+      events.site_bg_music_r2_key = musicRef;
+      events.site_bg_music_enabled = formData.get('bg_music_enabled') === 'on' && Boolean(musicRef);
+    }
+    if (formData.has('hero_video_url')) {
+      events.landing_page_hero_video_r2_key = r2RefOrNull(formData.get('hero_video_url'), eventId);
+    }
+    return draftEventsAndReturn(eventId, events, formData, `/dashboard/${eventId}/website/editor?open=music`);
+  }
 
   if (formData.has('bg_music_url')) {
     const musicRef = r2RefOrNull(formData.get('bg_music_url'), eventId);

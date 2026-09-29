@@ -922,7 +922,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     order: 9.7,
     phase: 'style_identity',
     kind: 'external_process',
-    title: 'Order your wedding song (Pakanta)',
+    title: 'Order your wedding song (Music Maker)',
     whyItMatters:
       "Custom wedding song by Setnayan AI music. Pick a tier — Basic / 24 hr, Premium / 2-5 days with lyric approval, or the Wedding Suite / 5-7 days for 3 matching songs. The song saves to your event so every Setnayan-rendered video uses it.",
     pillLabel: 'Style & Identity',

@@ -42,35 +42,37 @@ test('a snippet stays behind under left / right — at the PLACEMENT level, unaf
 });
 
 /**
- * SEC-6 (Event Hub Maker Phase 4) — `HubCanvasFrame` closes the snippet
- * bypass this test used to assume open. A snippet's ONLY source is the
- * couple's `landing_page_hero_video_r2_key` (`setWidgetBackground`'s own
- * docblock), the same unscreened clip `GUEST_HERO_VIDEO_PLAYBACK`/
- * `heroVideoRefForGuests` keeps off every other guest surface — so
- * `HubCanvasFrame` now gates it identically. While the flag is CLOSED (it is,
- * today: `lib/guest-hero-video.ts`), no snippet reaches a guest `<video>` at
- * all, however valid its signed URL — it renders exactly like a ref whose
- * signing failed: no video, no empty still-picture column either.
+ * SEC-6 → OWNER 2026-09-29 (*"make it move"*): a SCENE clip now plays for
+ * guests through its own switch (`GUEST_SCENE_CLIP_PLAYBACK`), while the hero's
+ * own clip switch stays closed. Held both ways: open, the guest frame draws the
+ * clip BEHIND the words (never in a still-picture column, even under
+ * left / right); closed (`sceneClipsOpen: false`), it draws nothing — exactly
+ * like a ref whose signing failed.
  */
-test('a snippet does NOT draw its video while hero-video playback is closed (SEC-6)', async () => {
+test('a snippet draws its video behind the words (scene switch open) — and nothing when it is closed', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HubCanvasFrame } = await import('../app/[slug]/_components/hub-canvas-frame');
-  const { GUEST_HERO_VIDEO_PLAYBACK } = await import('./guest-hero-video');
-  assert.equal(GUEST_HERO_VIDEO_PLAYBACK, false, 'this test documents behaviour while the flag is closed');
+  const { GUEST_HERO_VIDEO_PLAYBACK, GUEST_SCENE_CLIP_PLAYBACK } = await import('./guest-hero-video');
+  const { sceneGround } = await import('./scene-ground');
+  assert.equal(GUEST_HERO_VIDEO_PLAYBACK, false, 'the hero clip switch stays closed');
+  assert.equal(GUEST_SCENE_CLIP_PLAYBACK, true, 'the scene clip switch is open (owner 2026-09-29)');
   const Frame = HubCanvasFrame as unknown as React.FunctionComponent<Record<string, unknown>>;
+  const canvas = { media: REF, kind: 'snippet', arrangement: 'left' };
   const html = renderToStaticMarkup(
     React.createElement(
       Frame,
       {
-        widget: { widget_id: 'W', event_id: 'E', widget_type: 'custom_1', config_json: { canvas: { media: REF, kind: 'snippet', arrangement: 'left' } } },
+        widget: { widget_id: 'W', event_id: 'E', widget_type: 'custom_1', config_json: { canvas } },
         mediaUrls: { [REF]: 'https://example.test/clip.mp4' },
       },
       React.createElement('p', null, 'words'),
     ),
   );
-  assert.doesNotMatch(html, /<video/, 'the unscreened snippet must not reach a guest <video>');
-  assert.doesNotMatch(html, /hub-canvas-photo/, 'no empty still-picture column either');
-  assert.match(html, /hub-no-media/, 'falls back exactly like a ref whose signing failed');
+  assert.match(html, /<video[^>]*class="hub-canvas-media"/, 'the clip is the background');
+  assert.doesNotMatch(html, /hub-canvas-photo/, 'never a still-picture column');
+  const closed = sceneGround({ config_json: { canvas } }, { [REF]: 'https://example.test/clip.mp4' }, { sceneClipsOpen: false });
+  assert.equal(closed.mediaUrl, null, 'closed: falls back exactly like a ref whose signing failed');
+  assert.equal(closed.painted, false);
 });
 
 test('nothing drawn means no ground class — the snippet scrim needs its video', () => {

@@ -55,7 +55,7 @@ import {
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Alaala — A New Way to Remember · Setnayan';
+const PAGE_TITLE = 'Memories — A New Way to Remember · Setnayan';
 /** The document title ONLY. `metadata.title` is rendered through the root
  *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
  *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
@@ -63,7 +63,7 @@ const PAGE_TITLE = 'Alaala — A New Way to Remember · Setnayan';
  *  correct WITH the brand — which is why this strips it here and nowhere else. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION =
-  'Alaala brings together everything you create on Setnayan — Papic, Live Studio, your Event Hub, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
+  'Memories brings together everything you create on Setnayan — Papic, Live Studio, your Event Hub, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 /*
@@ -88,7 +88,7 @@ export const metadata = {
     'remember your wedding',
     'event memories',
     'memories that move',
-    'Alaala',
+    'Memories',
     'Setnayan',
   ],
   openGraph: {
@@ -96,7 +96,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/alaala',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Alaala — a new way to remember' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Memories — a new way to remember' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -111,7 +111,7 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Alaala — Living Event Memories',
+  name: 'Memories — a living keepsake of every event',
   url: `${SITE_URL}/alaala`,
   applicationCategory: 'MultimediaApplication',
   operatingSystem: 'Any (web browser)',
@@ -130,12 +130,12 @@ const APP_LD = {
 
 const FAQ = [
   {
-    q: 'What is Alaala?',
-    a: 'Alaala (ah-LAH-lah) is Tagalog for the memory you keep. On Setnayan it’s everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Live Studio), your event page (Event Hub), your 3D plan (3D Plan), and your monogram (Logo Maker) — gathered into one living memory you can return to any time.',
+    q: 'What is Memories?',
+    a: 'Memories is everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Live Studio), your event page (Event Hub), your 3D plan (3D Plan), and your monogram (Logo Maker) — gathered into one living memory you can return to any time.',
   },
   {
     q: 'Is it free?',
-    a: 'Your Setnayan event is free to plan, and your Alaala gathers as you go. Some pieces — like live broadcast or extra capture — are upgrades. You’ll always see what’s free and what’s an add-on before anything.',
+    a: 'Your Setnayan event is free to plan, and your Memories gather as you go. Some pieces — like live broadcast or extra capture — are upgrades. You’ll always see what’s free and what’s an add-on before anything.',
   },
   {
     q: 'Do my guests need an app?',
@@ -143,11 +143,11 @@ const FAQ = [
   },
   {
     q: 'What happens after the day?',
-    a: 'Your Alaala stays with you. Relive it, share it with the people you love, and keep it for as long as you like.',
+    a: 'Your Memories stay with you. Relive them, share them with the people you love, and keep them for as long as you like.',
   },
   {
     q: 'Does it replace our photographer?',
-    a: 'No. Your photographer still makes the grand keepsake. Alaala holds the moments in between and the people who couldn’t be there — it adds to the day, and is built so the tech never gets in the way of being present.',
+    a: 'No. Your photographer still makes the grand keepsake. Memories holds the moments in between and the people who couldn’t be there — it adds to the day, and is built so the tech never gets in the way of being present.',
   },
 ];
 
@@ -226,7 +226,7 @@ export default function AlaalaLandingPage() {
         {/* Hero — text-led; line-reveal headline + quiet rise. */}
         <header className="mx-auto max-w-2xl text-center">
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--m-orange-2)]">
-            Alaala · the memory you keep
+            Memories · the memory you keep
           </p>
           <LineRevealHeading
             as="h1"
@@ -237,7 +237,7 @@ export default function AlaalaLandingPage() {
           </LineRevealHeading>
           <RevealBand stagger={0.08} y={14}>
             <p data-reveal-item className={`mx-auto mt-4 max-w-xl text-base sm:text-lg ${DOORWAY_TONE.muted}`}>
-              Albums freeze a day into a few still frames. Alaala holds what it was really like — moving,
+              Albums freeze a day into a few still frames. Memories holds what it was really like — moving,
               many-voiced, alive. Everything you make on Setnayan — Papic, Live Studio, your Event Hub, your plan, your
               mark — woven into one living memory you can open any time.
             </p>
@@ -268,12 +268,12 @@ export default function AlaalaLandingPage() {
         </section>
 
         {/* The five pieces — Alaala is the combination of all of them. */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="The five pieces that make an Alaala">
+        <section className="mx-auto mt-16 max-w-3xl" aria-label="The five pieces that make your Memories">
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
             Five pieces. One living memory.
           </LineRevealHeading>
           <p className={`mx-auto mt-3 max-w-xl text-center text-base ${DOORWAY_TONE.muted}`}>
-            Each one stands on its own — and together, they are your Alaala.
+            Each one stands on its own — and together, they are your Memories.
           </p>
           <HowItWorksPanel>
             <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -316,7 +316,7 @@ export default function AlaalaLandingPage() {
         {/* The evolution — paper → digital → living. Rows rise in a stagger. */}
         <section className="mx-auto mt-16 max-w-3xl" aria-label="How remembering has changed">
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
-            Albums kept the photo. Alaala keeps the day.
+            Albums kept the photo. Memories keeps the day.
           </LineRevealHeading>
           <RevealList className="mt-7 overflow-hidden rounded-2xl border border-[var(--m-line)] shadow-[var(--m-shadow-sm)]" stagger={0.06} y={12}>
             {VS.map(([before, after], i) => (
@@ -333,7 +333,7 @@ export default function AlaalaLandingPage() {
         </section>
 
         {/* FAQ (backs the FAQPage schema) — incidental fade-up. */}
-        <section className="mx-auto mt-16 max-w-2xl" aria-label="Alaala questions">
+        <section className="mx-auto mt-16 max-w-2xl" aria-label="Memories questions">
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
             Questions, answered
           </LineRevealHeading>
@@ -354,7 +354,7 @@ export default function AlaalaLandingPage() {
           <section className={`mx-auto mt-14 max-w-2xl px-6 py-10 text-center ${DOORWAY_TONE.closingPanel}`}>
             <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Start the memory</h2>
             <p className={`mx-auto mt-3 max-w-lg text-base ${DOORWAY_TONE.muted}`}>
-              Your Alaala gathers as you plan — free, from the first day. Begin your event, and your memory
+              Your Memories gather as you plan — free, from the first day. Begin your event, and your memory
               begins with it.
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-3">

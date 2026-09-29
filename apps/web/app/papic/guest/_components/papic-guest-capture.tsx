@@ -1243,9 +1243,9 @@ export function PapicGuestCapture({
         json.error === 'keep_it_sweet'
           ? "Let's keep it sweet 💛 — try rephrasing."
           : json.error === 'limit_reached'
-            ? "You've shared your 10 kwentos for this celebration — salamat!"
+            ? "You've shared your 10 photo notes for this celebration — salamat!"
             : json.error === 'too_fast'
-              ? 'One kwento at a time — give it a few seconds.'
+              ? 'One photo note at a time — give it a few seconds.'
               : "That didn't send — try again.",
       );
     } catch {
@@ -1288,9 +1288,9 @@ export function PapicGuestCapture({
         json.error === 'keep_it_sweet'
           ? "Let's keep it sweet 💛 — try rephrasing that one."
           : json.error === 'limit_reached'
-            ? "You've shared your 10 kwentos for this celebration — salamat!"
+            ? "You've shared your 10 photo notes for this celebration — salamat!"
             : json.error === 'too_fast'
-              ? 'One kwento at a time — give it a few seconds.'
+              ? 'One photo note at a time — give it a few seconds.'
               : "That didn't send — try again.",
       );
     } catch {

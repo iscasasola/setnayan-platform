@@ -19,9 +19,9 @@ import type { UpdateQrStyleResult } from '../qr-look-actions';
  *     pill row.
  *   · ◆ PRO, never a padlock (owner 2026-09-28: *"let us remove padlock and
  *     just show that these tools are for pro with the diamond icon"*); the
- *     diamond once owned. ⚠ The QR look still saves LIVE (it is not in the
- *     draft), so a free couple's pick is still taken to the Event Hub Pro page
- *     — the server refuses too (qr-look-actions). Drafting it is its own build.
+ *     diamond once owned. Every pick is DRAFTED (owner 2026-09-29, "yes to
+ *     all 3"): the preview draws it for the host, the Apply sheet names it, and
+ *     Apply writes it only with Event Hub Pro (qr-look-actions).
  *   · In the app-store shell a locked door is ABSENT, not locked (the same rule
  *     maker-made-once follows): nothing here renders for a free couple there.
  *   · Colour offers only the couple's Mood Board colours that clear the
@@ -29,18 +29,17 @@ import type { UpdateQrStyleResult } from '../qr-look-actions';
  *     never listed, because a QR that photographs well and scans to nothing is
  *     worse than a plain one.
  *
- * The preview beside these is the real `/api/website/qr/<slug>` PNG with a
- * version query; the refresh after a save re-renders the page with a new
- * stamp, so the couple sees their choice on the actual code.
+ * The preview beside these is the real `/api/website/qr/<slug>` PNG — with
+ * `draft=1`, drawn from the host's draft — and a version query; the refresh
+ * after a save re-renders the page with a new stamp, so the couple sees their
+ * choice on the actual code.
  *
  * ⚡ THE PICK SHOWS AT ONCE, AND IT IS ONE RENDER (owner 2026-09-29: *"make
  * sure 100% that there is no slow response on the maker"*). The dropdowns
  * read the couple's choice from local state the moment it is picked — not from
  * the server's props after the round trip — and it is put back, with the
- * reason, if the save is refused. The save goes through `makerSave` (one
- * refresh per burst, `lib/maker-refresh.ts`); the action no longer
- * `revalidatePath`s the Maker as well, which made every pick render the whole
- * Maker twice.
+ * reason, if the draft save is refused. The save goes through `makerSave`
+ * (one refresh per burst, `lib/maker-refresh.ts`).
  */
 export function QrLookControls({
   eventId,
@@ -80,12 +79,10 @@ export function QrLookControls({
   // The store shell shows no paid door to a free couple (App Review 3.1.1).
   if (!ownsPro && storeShell) return null;
 
-  const proPage = `/dashboard/${eventId}/studio/website-pro`;
+  /* 💾 Every pick goes into the DRAFT (owner 2026-09-29, "yes to all 3") —
+     a couple without Pro tries it too; the Apply sheet names it, and Apply
+     puts it on the live code only with Event Hub Pro. */
   const save = (patch: StoredQrStyle) => {
-    if (!ownsPro) {
-      router.push(proPage);
-      return;
-    }
     setNote(null);
     const before = latest.current;
     const next: StoredQrStyle = { ...before, ...patch };
@@ -105,11 +102,9 @@ export function QrLookControls({
           setShown(before);
         }
         setNote(
-          r.reason === 'not_pro'
-            ? 'This is part of Event Hub Pro.'
-            : r.reason === 'signed_out'
-              ? 'Sign in again to change your QR.'
-              : 'That did not save. Nothing changed — please try again.',
+          r.reason === 'signed_out'
+            ? 'Sign in again to change your QR.'
+            : 'That did not save. Nothing changed — please try again.',
         );
       }
     });
@@ -171,7 +166,7 @@ export function QrLookControls({
           />
         </span>
       </Row>
-      {inks.length === 0 && ownsPro ? (
+      {inks.length === 0 ? (
         <p className="text-xs text-ink/55">Build your Mood Board to pick a colour — only colours dark enough to scan are offered.</p>
       ) : null}
       {note ? (

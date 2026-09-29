@@ -50,7 +50,7 @@ import { SamahanIdentityHeader } from './_components/samahan-identity-header';
 import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
-  title: 'Samahan',
+  title: 'Group',
 };
 
 // Samahan space page (plan §4b) — Overview · Members · Events as
@@ -67,7 +67,7 @@ type Tab = (typeof TABS)[number];
 
 const ERROR_COPY: Record<string, string> = {
   last_organizer:
-    'You are the last organizer. Promote someone first, or archive the samahan.',
+    'You are the last organizer. Promote someone first, or archive the group.',
   member_gone: 'That member is no longer on the roster.',
 };
 
@@ -144,13 +144,13 @@ export default async function SamahanSpacePage({
       : sp.joined === '1'
         ? `Welcome to ${community.name}!`
         : sp.already === '1'
-          ? 'You’re already a member of this samahan.'
+          ? 'You’re already a member of this group.'
           : sp.rotated === '1'
             ? 'New invite link ready — the old link no longer works.'
             : sp.removed === '1'
               ? 'Member removed from the roster.'
               : sp.updated === '1'
-                ? 'Set na ’yan — your samahan’s new look is saved.'
+                ? 'Set na ’yan — your group’s new look is saved.'
                 : null;
 
   return (
@@ -160,7 +160,7 @@ export default async function SamahanSpacePage({
         className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Samahan
+        Back to Groups
       </Link>
 
       {/* Header band — the samahan's face, edited WHERE IT IS (owner
@@ -206,7 +206,7 @@ export default async function SamahanSpacePage({
       ) : null}
 
       {/* Tab bar — three text tabs; active = ink underline + gold accent dot. */}
-      <nav aria-label="Samahan sections" className="mb-6 flex gap-6 border-b border-ink/10">
+      <nav aria-label="Group sections" className="mb-6 flex gap-6 border-b border-ink/10">
         {TABS.map((t) => {
           const active = t === tab;
           return (
@@ -372,7 +372,7 @@ function OverviewTab({
               the last person leaves, so a sentence sits where the control was
               — silence here would read as an unfinished feature. */}
           <p className="text-xs leading-relaxed text-ink/55">
-            A samahan lives for as long as one person is still in it. It closes
+            A group lives for as long as one person is still in it. It closes
             on its own when the last member leaves.
           </p>
         </div>
@@ -508,7 +508,7 @@ function MembersTab({
                     pendingLabel="Leaving…"
                     className="rounded-md px-2 py-1 text-xs font-medium text-ink/55 hover:text-terracotta-700"
                   >
-                    Leave samahan
+                    Leave group
                   </SubmitButton>
                 </form>
               ) : isOrganizer ? (

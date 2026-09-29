@@ -128,12 +128,12 @@ test('the Logo Maker lives inside the Event Hub Maker — one row, 19 on a weddi
     'Events', 'Details',
     'Overview', 'Papic', 'Galleries',
     'Your Team', 'Budget',
-    'Mood Board', 'Pakanta',
+    'Mood Board', 'Music Maker',
     'Guests', 'Hosts', 'Event Hub Maker',
     'Schedule', 'Seat plan', 'Live Studio', 'Patiktok',
     // NEXT_PUBLIC_SUITE is on in production (read 2026-09-22); the word
     // follows the one flag branch in lib/studio-hub.ts either way.
-    'Setnayan AI', SUITE_NAV_ON ? 'Suite' : 'Studio', 'Refer a couple',
+    'Setnayan AI', SUITE_NAV_ON ? 'Our Services' : 'Studio', 'Refer a couple',
   ]);
 });
 

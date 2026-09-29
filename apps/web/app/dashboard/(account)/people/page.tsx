@@ -110,7 +110,7 @@ export default async function PeoplePage({
         <div className="mb-4 flex flex-wrap justify-end gap-2">
           {showDependents ? <AddAlagaButton /> : null}
           <Link href="/dashboard/samahan/new" className="button-secondary text-sm">
-            New samahan
+            New group
           </Link>
         </div>
       ) : null}
@@ -175,7 +175,7 @@ function PeoplePreview() {
             {/* ⚠ WAS "There's nothing to do on this page yet." That sentence was FALSE for
                 anyone with a samahan, and it is the sentence the owner read. Scope the
                 claim to connections — never to the page. */}
-            Your samahan above are ready now.
+            Your groups above are ready now.
           </p>
         </div>
       </div>

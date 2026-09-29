@@ -67,7 +67,13 @@ import {
   type LifecyclePhase,
   type WidgetType,
 } from '@/lib/invitation-widgets';
-import { isCustomSectionType } from '@/lib/custom-sections';
+import {
+  customSectionHasContent,
+  isCustomSectionType,
+  readCustomSectionInput,
+  sanitizeCustomSection,
+  type CustomSectionContent,
+} from '@/lib/custom-sections';
 import {
   STAGE_ORDER_KEY,
   configWithStageOrder,
@@ -92,12 +98,14 @@ import {
   HUB_ELEMENT_PRO_FIELDS,
   HUB_LOOK_EVENT_COLUMNS,
   combineChanges,
+  galleryChange,
   lookWriteAllowed,
   refChange,
   type LookChange,
 } from '@/lib/hub-look-pro';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
-import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
+import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle } from '@/lib/qr-look';
 import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config-pure';
 import { REVEAL_NONE, revealTemplateWriteAllowed } from '@/lib/reveal-access';
 import { sanitizeStudioConfig, sanitizeStudioSvg } from '@/lib/monogram-studio-shared';
@@ -309,6 +317,33 @@ export const HUB_DRAFT_WORDS_COLUMNS = [
   'photo_moments_config',
 ] as const;
 
+/**
+ * 💎 TRY-THEN-PAY REACHES THE LAST THREE PRO TOOLS (owner 2026-09-29, verbatim:
+ * *"yes to all 3, do the follow-up"* — DECISION_LOG "TRY-THEN-PAY REACHES THE
+ * LAST THREE PRO TOOLS…"). Each used to save LIVE and send a couple without
+ * Pro to the buy page; now each is drafted, drawn on the host's canvas and
+ * named on the Apply sheet, and Apply writes it only with Event Hub Pro:
+ *
+ *   · background music + the hero video (`updateSiteChrome`) —
+ *     `site_bg_music_r2_key` · `site_bg_music_enabled` ·
+ *     `landing_page_hero_video_r2_key`;
+ *   · the couple's own gallery (`updateOurPhotos`) — `our_photos`;
+ *   · the QR's look (`updateQrStyle`) — `style_preferences`, drafted as
+ *     `{ qr }` ONLY: the blob's other keys (onboarding answers) are never
+ *     drafted, never overlaid away and never written by Apply, which MERGES
+ *     the drafted `qr` into the live blob (`hub-draft-actions.ts`).
+ */
+export const HUB_DRAFT_MEDIA_COLUMNS = [
+  'site_bg_music_r2_key',
+  'site_bg_music_enabled',
+  'landing_page_hero_video_r2_key',
+  'our_photos',
+  'style_preferences',
+] as const;
+
+/** The gallery's size — `updateOurPhotos`' own cap. */
+export const HUB_DRAFT_GALLERY_MAX = 24;
+
 export const HUB_DRAFT_EVENT_COLUMNS = [
   'rsvp_backdrop',
   'landing_page_hero_image_url',
@@ -331,6 +366,8 @@ export const HUB_DRAFT_EVENT_COLUMNS = [
   // Love Story's moment cap, which Apply re-asks). The guest page reads every
   // one of them from the event row the host canvas already overlays.
   ...HUB_DRAFT_WORDS_COLUMNS,
+  // 💎 THE LAST THREE PRO TOOLS, TRIED FREE (owner 2026-09-29: "yes to all 3").
+  ...HUB_DRAFT_MEDIA_COLUMNS,
 ] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
@@ -373,6 +410,15 @@ export type HubDraftWidget = {
    * default. Dropped on any other section: one home for one choice. Never Pro.
    */
   std_lead?: StdLead | null;
+  /**
+   * ✍ A SCENE OF THEIR OWN — its heading and words (`config_json.custom`),
+   * `custom_*` rows ONLY. Drafted from the Maker when the scene has nothing in
+   * it live (owner 2026-09-29, "yes to all 3": an empty scene of their own takes
+   * new words into the draft instead of a live save that demands Pro). Starting
+   * to fill an EMPTY scene is Pro at Apply (`customSectionWriteAllowed`'s own
+   * line); editing words a scene already has is free.
+   */
+  custom?: CustomSectionContent | null;
 };
 
 export type HubDraftState = {
@@ -459,6 +505,26 @@ export function sanitizeHubDraftEventValue(
       // holds them to a plain object of a sane size (the live writer is the
       // one the host could already call with the same shape).
       return isPlainObject(raw) && JSON.stringify(raw).length <= HUB_DRAFT_CONFIG_MAX_CHARS ? raw : undefined;
+    // 💎 The last three Pro tools — each through its live writer's own rule.
+    case 'site_bg_music_r2_key':
+    case 'landing_page_hero_video_r2_key': {
+      // An `r2://` ref in the ONE public bucket (`siteMediaServeRef`) — which
+      // event's folder it sits in is asked at Apply, where the event is known.
+      if (typeof raw !== 'string' || !raw.startsWith('r2://')) return undefined;
+      return siteMediaServeRef(raw) === raw ? raw : undefined;
+    }
+    case 'site_bg_music_enabled':
+      return typeof raw === 'boolean' ? raw : undefined;
+    case 'our_photos': {
+      if (!Array.isArray(raw)) return undefined;
+      const refs = raw.filter((r): r is string => typeof r === 'string' && r.startsWith('r2://') && siteMediaServeRef(r) === r);
+      return [...new Set(refs)].slice(0, HUB_DRAFT_GALLERY_MAX);
+    }
+    case 'style_preferences': {
+      // ONLY the QR's look — never another key of the blob.
+      if (!isPlainObject(raw)) return undefined;
+      return { [QR_STYLE_PREF_KEY]: sanitizeQrStyle(raw[QR_STYLE_PREF_KEY]) };
+    }
     // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? — through the SAME sanitizer the
     // guest render and `submitRsvp` read: unknown keys and non-boolean values
     // are dropped rather than repaired, exactly like every config above.
@@ -531,6 +597,13 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
   }
   const places = sanitizeStageOrder(src.stage_order);
   if (places) out.stage_order = places;
+  if (isCustomSectionType(type) && 'custom' in src) {
+    if (src.custom === null) out.custom = null;
+    else if (isPlainObject(src.custom)) {
+      const words = readCustomSectionInput(src.custom.title, src.custom.body);
+      if (words.ok) out.custom = words.value;
+    }
+  }
   if (type === 'our_photos' && 'std_lead' in src) {
     if (src.std_lead === null) out.std_lead = null;
     else {
@@ -641,7 +714,14 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
   draft: HubDraftState | null,
 ): T {
   if (!draft || Object.keys(draft.events).length === 0) return row;
-  return { ...row, ...draft.events };
+  const out: Record<string, unknown> = { ...row, ...draft.events };
+  /* 🔳 The drafted QR look is laid INTO the live blob — the blob's other keys
+     (onboarding answers the page may read) are never overlaid away. */
+  if ('style_preferences' in draft.events) {
+    const live = row.style_preferences && typeof row.style_preferences === 'object' ? (row.style_preferences as Record<string, unknown>) : {};
+    out.style_preferences = { ...live, ...(draft.events.style_preferences as Record<string, unknown>) };
+  }
+  return out as T;
 }
 
 function configWithCanvas(config: unknown, canvas: HubSectionCanvas | null): Record<string, unknown> {
@@ -651,6 +731,17 @@ function configWithCanvas(config: unknown, canvas: HubSectionCanvas | null): Rec
       : {};
   if (canvas === null) delete base.canvas;
   else base.canvas = canvas;
+  return base;
+}
+
+/** `config_json` with a scene of their own's words set or taken off; every sibling key kept. */
+export function configWithCustom(config: unknown, custom: CustomSectionContent | null): Record<string, unknown> {
+  const base =
+    config && typeof config === 'object' && !Array.isArray(config)
+      ? { ...(config as Record<string, unknown>) }
+      : {};
+  if (custom === null) delete base.custom;
+  else base.custom = custom;
   return base;
 }
 
@@ -679,6 +770,7 @@ export function overlayHubDraftWidgets(
     if (w.main !== undefined && row.widget_type === 'hero') config = configWithMainGround(config, w.main);
     if (w.stage_order !== undefined) config = configWithStageOrder(config, w.stage_order);
     if (w.std_lead !== undefined && row.widget_type === 'our_photos') config = configWithStdLead(config, w.std_lead);
+    if (w.custom !== undefined && isCustomSectionType(row.widget_type)) config = configWithCustom(config, w.custom);
     return {
       ...row,
       ...(w.mode !== undefined && !row.is_always_on ? { mode: w.mode } : {}),
@@ -717,7 +809,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead' | 'custom';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -781,6 +873,23 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       const hex = (v: unknown) => (typeof v === 'string' && v.length > 0 ? v.toLowerCase() : null);
       return refChange(hex(live), hex(next));
     }
+    case 'our_photos':
+      // Exactly as `updateOurPhotos` classifies it (`galleryChange`): taking
+      // photos out in order is a removal; a new one or a reorder is a change.
+      return galleryChange(siteMediaServeRefs(live), siteMediaServeRefs(next));
+    case 'site_bg_music_r2_key':
+    case 'landing_page_hero_video_r2_key':
+      return refChange(siteMediaServeRef(live), siteMediaServeRef(next));
+    case 'site_bg_music_enabled':
+      return refChange(live === true ? 'on' : null, next === true ? 'on' : null);
+    case 'style_preferences': {
+      // Only the QR's look is compared; the blob's other keys are not the Maker's.
+      const qr = (v: unknown) => {
+        const s = qrStyleFromPreferences(v);
+        return Object.keys(s).length > 0 ? JSON.stringify(s) : null;
+      };
+      return refChange(qr(live), qr(next));
+    }
     case 'invite_theme': {
       // Compared as guests meet it: never chosen and Classic are the same page,
       // and a retired id is its alias (`capiz` is Vintage).
@@ -826,6 +935,12 @@ export function eventItemIsPro(
       momentCapRefusal({ before: resolveMoments(live), after: resolveMoments(value), ownsPro: false }) !== null
     );
   }
+  // 🎵 Switching the couple's EXISTING song on or off is free (`updateSiteChrome`);
+  // only a new or different song is Pro — that is `site_bg_music_r2_key`.
+  if (column === 'site_bg_music_enabled') return false;
+  // 🔳 The QR's shape · pattern · colour are Event Hub Pro (`updateQrStyle`);
+  // going back to the plain code is a removal, which is free.
+  if (column === 'style_preferences') return true;
   if (column === 'invite_theme') {
     // 🎨 Classic is free; every other theme is Event Hub Pro (owner 2026-09-28,
     // "WHAT IS FREE VS PRO … REDRAWN": "only when you start adding themes will
@@ -990,7 +1105,7 @@ export function canvasFacetGrows(f: CanvasLookFacet): boolean {
 }
 
 /** The background's own keys — they travel together, so a media ground is put back whole. */
-const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape'] as const;
+const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape', 'mediaMotion', 'poster'] as const;
 
 /**
  * `next` with ONE facet put back to what is live — every other key, and every
@@ -1239,6 +1354,28 @@ export function classifyHubDraft(
         });
       }
     }
+    /* ✍ A scene of their own's words. Free to change words it already has;
+       starting to fill a scene that is EMPTY live is Pro — the same line
+       `customSectionWriteAllowed` draws live (a hand-crafted draft is still
+       held at Apply). The value written is the words; Apply merges them into
+       the live `config_json`, every sibling key kept. */
+    if (w.custom !== undefined && isCustomSectionType(type)) {
+      const liveWords = sanitizeCustomSection(row.config_json);
+      const nextWords = w.custom ?? { title: '', body: '' };
+      if (liveWords.title !== nextWords.title || liveWords.body !== nextWords.body) {
+        const fills =
+          !customSectionHasContent(row.config_json) && customSectionHasContent(configWithCustom(row.config_json, w.custom));
+        items.push({
+          kind: 'widget',
+          widgetType: type,
+          widgetId: row.widget_id,
+          field: 'custom',
+          value: w.custom,
+          change: fills ? 'add' : 'change',
+          pro: fills,
+        });
+      }
+    }
     if (w.canvas !== undefined) {
       const liveCanvas = liveCanvasOf(row.config_json);
       const nextCanvas = w.canvas ?? {};
@@ -1308,6 +1445,7 @@ export function planHubDraftApply(
       // A held scene of their own stays SHOWN in the draft, so the couple still sees it.
       else if (item.field === 'mode') w.mode = item.value as HubSectionMode;
       else if (item.field === 'is_visible') w.is_visible = item.value as boolean;
+      else if (item.field === 'custom') w.custom = item.value as CustomSectionContent | null;
     }
   }
   return { apply, refused, remaining, orphans };
@@ -1485,6 +1623,11 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_font_key: 'Your typeface',
   site_magic_traveller: 'Magic move',
   invite_theme: 'Your theme',
+  site_bg_music_r2_key: 'Your background music',
+  site_bg_music_enabled: 'Background music on or off',
+  landing_page_hero_video_r2_key: 'Your hero video',
+  our_photos: 'Your photos',
+  style_preferences: 'Your QR code',
   special_message: 'Your special message',
   what_to_bring: 'What to bring',
   love_story: 'Your Love Story',
@@ -1499,6 +1642,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
   if (item.field === 'main') return 'Behind every scene';
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
+  if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;
   const what =
     item.field === 'mode' || item.field === 'is_visible'
       ? 'shown or hidden'

@@ -1177,7 +1177,7 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
 
   const { data: row, error: readErr } = await supabase
     .from('invitation_widgets')
-    .select('widget_id, widget_type, config_json, is_visible, mode')
+    .select('widget_id, widget_type, config_json')
     .eq('widget_id', widgetId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -1199,15 +1199,11 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
   /* 💎 TRIED IN THE MAKER, PAID AT APPLY (owner 2026-09-28). With `draft=1` a
      scene's canvas (template · slot · clip · layout) goes to the DRAFT, where
      Apply classifies every Pro facet of it — so the door does not ask. Its
-     WORDS stay a live write, and are let through only onto a scene guests do
-     not see (a scene just added is hidden live), whose showing Apply refuses
-     without Pro. A POST without the field is gated exactly as before. */
+     WORDS on `draft=1` go to the draft too (2026-09-29): starting to fill an
+     empty scene is Pro at Apply. A POST without the field is gated exactly as
+     before. */
   const draftingHere = isHubDraftWrite(formData);
-  const hiddenFromGuests =
-    (row as { is_visible?: boolean | null }).is_visible === false &&
-    (row as { mode?: string | null }).mode !== 'shown';
-  const triedInTheDraft =
-    draftingHere && (CANVAS_INTENTS_DRAFTED.has(intent) || (intent === 'save' && hiddenFromGuests));
+  const triedInTheDraft = draftingHere && (CANVAS_INTENTS_DRAFTED.has(intent) || intent === 'save');
   await refuseCustomSectionWithoutPro(eventId, {
     intent,
     ownsPro:
@@ -1240,7 +1236,8 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
      layout go to the DRAFT: they are all the section's canvas. Every check
      still runs; the Pro question moves to Apply (`hubDraftAction`), which
      classifies slot media and playback exactly as the gates below do. The
-     words (`save`) and removal (`delete`) stay live — the Maker marks them. */
+     words (`save`) draft on `draft=1` — the Maker sends it for an empty scene
+     without Pro (2026-09-29) — and otherwise stay live; removal stays live. */
   const drafting = isHubDraftWrite(formData);
   let next: Record<string, unknown>;
   if (intent === 'template' || intent === 'slot' || intent === 'video') {
@@ -1323,6 +1320,10 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
   } else {
     const input = readCustomSectionInput(formData.get('title'), formData.get('body'));
     if (!input.ok) redirect(back('?error=too_long'));
+    /* ✍ Into the DRAFT on `draft=1` (owner 2026-09-29): an empty scene's first
+       words, tried without Pro — Apply asks Pro to fill it (`classifyHubDraft`,
+       "a scene of their own's words"). */
+    if (drafting) await saveWidgetToDraft(formData, eventId, row.widget_type, { custom: input.value });
     next = { ...existing, custom: input.value };
   }
 

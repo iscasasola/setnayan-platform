@@ -170,7 +170,7 @@ export function SamahanIdentityHeader({
                 autoFocus
                 minLength={2}
                 maxLength={80}
-                aria-label="What this samahan is called"
+                aria-label="What this group is called"
                 className="min-w-0 flex-1 rounded-xl border border-ink/20 bg-white px-2 py-1 font-sans text-2xl font-semibold tracking-tight text-ink sm:text-3xl"
               />
               <button

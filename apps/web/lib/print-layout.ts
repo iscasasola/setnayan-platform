@@ -20,7 +20,7 @@
  */
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import type { FlatMark } from '@/lib/print-mark';
-import { roleLabel, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
+import { roleBlocks, type EntourageGroup } from '@/lib/entourage';
 import { guestPassFacts } from '@/lib/guest-pass';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import {
@@ -772,8 +772,12 @@ function sectionHead(ops: PrintOp[], look: PrintLook, s: string, cx: number, y: 
 
 // ─── The Entourage: measured, balanced, never off the card ─────────────────
 
-/** One printed line of a group: a pair across the middle, or one name down it. */
-export type EntourageLine = { l?: string; r?: string; c?: string };
+/**
+ * One printed line of a group: a pair across the middle, or one name down it —
+ * or `sub`, a small role sub-heading (Secondary Sponsors' "Candle"), which is
+ * not a name and carries none.
+ */
+export type EntourageLine = { l?: string; r?: string; c?: string; sub?: string };
 
 /**
  * A group as printed lines.
@@ -792,17 +796,24 @@ export type EntourageLine = { l?: string; r?: string; c?: string };
  * because the card is full, in two balanced columns.
  */
 export function printedEntourageLines(g: EntourageGroup, flow: boolean): EntourageLine[] {
+  /* ⚖ OWNER 2026-09-30 — the Secondary Sponsors print BY ROLE, as on the
+     invitation page: "Candle" once as a small sub-heading, the pair(s) under
+     it, and no "· Candle Sponsor" after any name. Same `roleBlocks` the page
+     uses, so the card and the page cannot group them differently. */
+  const blocks = roleBlocks(g);
+  if (blocks) {
+    return blocks.flatMap((b) => [
+      { sub: b.label },
+      ...printedEntourageLines({ ...g, key: `${g.key}:${b.key}`, rows: b.rows }, flow),
+    ]);
+  }
   const pairs: EntourageLine[] = [];
   const left: string[] = [];
   const right: string[] = [];
-  const withRole = (p: EntouragePerson) => {
-    const label = roleLabel(p.role);
-    return g.key === 'secondary_sponsors' && label ? `${p.name} · ${label}` : p.name;
-  };
   for (const [l, r] of g.rows) {
     if (l && r) pairs.push({ l: l.name, r: r.name });
-    else if (l) left.push(withRole(l));
-    else if (r) right.push(withRole(r));
+    else if (l) left.push(l.name);
+    else if (r) right.push(r.name);
   }
   const twoCols = (list: string[]): EntourageLine[] => {
     const half = Math.ceil(list.length / 2);
@@ -821,7 +832,7 @@ export function printedEntourageLines(g: EntourageGroup, flow: boolean): Entoura
   return out;
 }
 
-type PlacedText = { s: string; x: number; y: number; align: 'left' | 'right' | 'center'; width: number };
+type PlacedText = { s: string; x: number; y: number; align: 'left' | 'right' | 'center'; width: number; sub?: boolean };
 
 /**
  * One name → its printed line(s) in a column this wide. A name a hair too long
@@ -893,6 +904,27 @@ function planEntourage(
     let headDone = false;
     for (let i = 0; i < lines.length; i += 1) {
       const row = lines[i]!;
+      if (row.sub !== undefined) {
+        /* A role sub-heading: one small muted line, kept with the name after
+           it — never stranded at the foot of a side. */
+        const subLead = size * 1.2;
+        const headH = headDone ? 0 : gap;
+        if (y + headH + subLead + lead + desc > geo.floor(page) && (pages[page]!.texts.length > 0 || pages[page]!.heads.length > 0)) {
+          newPage();
+          headDone = false;
+        }
+        if (!headDone) {
+          y += gap * 0.78;
+          for (let k = 0; k < 400 && !lineSafe(y, cx - (w - 56) / 2, cx + (w - 56) / 2); k += 1) y += 1;
+          pages[page]!.heads.push({ label: i > 0 ? `${g.label} · continued` : g.label, y });
+          y += gap * 0.2;
+          headDone = true;
+        }
+        y += subLead + (i > 0 ? size * 0.4 : 0);
+        for (let t = 0; t < 400 && !lineSafe(y, cx - fullW / 2, cx + fullW / 2); t += 1) y += 1;
+        pages[page]!.texts.push({ s: row.sub, x: cx, y, align: 'center', width: fullW, sub: true });
+        continue;
+      }
       const wrapped = row.c !== undefined
         ? { c: nameLines(row.c, geo.font, size, fullW) }
         : { l: row.l ? nameLines(row.l, geo.font, size, colW) : [], r: row.r ? nameLines(row.r, geo.font, size, colW) : [] };
@@ -994,7 +1026,10 @@ function layoutEntourage(ctx: Ctx): PrintDoc[] {
       continuedHead(doc, ctx, 'The Entourage');
     }
     for (const hd of p.heads) sectionHead(doc.ops, look, hd.label, cx, hd.y, (w - 56) / 2);
-    for (const t of p.texts) text(doc.ops, t.s, t.x, t.y, { font: look.bodyFont, size, color: look.ink, align: t.align, maxWidth: t.width });
+    for (const t of p.texts) {
+      if (t.sub) text(doc.ops, t.s, t.x, t.y, { font: look.bodyFont, size: size * 0.82, color: look.muted, align: t.align, maxWidth: t.width });
+      else text(doc.ops, t.s, t.x, t.y, { font: look.bodyFont, size, color: look.ink, align: t.align, maxWidth: t.width });
+    }
     if (i === 0 && data.hasEventQr) cornerQr(doc);
     safeGuide(doc, ctx);
     docs.push(doc);

@@ -132,18 +132,20 @@ test('the panel offers the opposite action, and names both states', () => {
     hud.includes('onClick={published ? onUnpublish : onPublish}'),
     'the one button must swap action with the state, not sit beside a second one',
   );
-  assert.ok(hud.includes("'Take it down'"), 'the live state must offer a way down');
-  assert.ok(hud.includes("'Publish'"), 'the draft state must still offer a way up');
+  // 2026-09-30 (owner: "seatplan will show on the date of the event"): the
+  // switch is now "show early" — on the day the walk opens by itself.
+  assert.ok(hud.includes("'Hide until the day'"), 'the shown-early state must offer a way down');
+  assert.ok(hud.includes("'Show early'"), 'the before-the-day state must still offer a way up');
 
-  // The status line. "Live" is the word that tells a couple strangers can walk
+  // The status line says WHEN guests can walk
   // their reception; without it the dot is decoration.
   assert.ok(
-    /Live — guests can walk your reception/.test(hud),
-    'the live state must say what live MEANS',
+    /Shown early — guests can walk your reception/.test(hud),
+    'the shown-early state must say what it MEANS',
   );
   assert.ok(
-    /Draft — only you can see this/.test(hud),
-    'the draft state must say who can see it',
+    /Guests can walk your reception on the day/.test(hud),
+    'the default state must say WHEN guests see it',
   );
 
   // The promise unpublishSeating actually keeps, told to the person deciding.

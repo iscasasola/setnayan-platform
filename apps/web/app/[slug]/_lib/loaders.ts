@@ -49,7 +49,7 @@ import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { resolveFaceMode, resolveFaceTagging, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { dayOfFaceCatchShows, type FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { resolveGuestCamera } from '@/lib/papic-limited';
-import { eventSeatingPublished } from '@/lib/seat-pass';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { DEFAULT_STUDIO_ANIM, heroMarkSvg } from '@/lib/hero-monogram-data';
@@ -1140,7 +1140,7 @@ export const loadDoorwayFacts = cache(
     );
     const pabuyaRouteEnabled = isPabuyaPublicRouteEnabled();
     const [seatingPublished, enabledEgiftCount] = await Promise.all([
-      seatingSurfaceEnabled ? eventSeatingPublished(admin, eventId) : Promise.resolve(false),
+      seatingSurfaceEnabled ? guestsMaySeeSeatsFor(admin, eventId) : Promise.resolve(false),
       pabuyaRouteEnabled
         ? fetchEgiftMethods(admin, eventId, { enabledOnly: true }).then((m) => m.length)
         : Promise.resolve(0),
@@ -1447,9 +1447,15 @@ export const loadGuestContext = cache(
     // Graceful-degrade: if the join fails or no assignment exists, tableLabel
     // stays null and the card shows "Not yet assigned" — safe for every event
     // regardless of whether the seating editor has been used.
+    //
+    // 🪑 Read ONLY when guests may see their seats (`doorway.seatingPublished`
+    // is `guestsMaySeeSeatsFor` — on the event's day, or early by the couple's
+    // switch). Every reader of `tableLabel` downstream (the hub card's seat
+    // tile, YourSeatBlock, the door line, the keepsake) then withholds the
+    // table before the day without each having to ask.
     let guestTableLabel: string | null = null;
     let guestTableId: string | null = null;
-    try {
+    if (doorway.seatingPublished) try {
       const { data: assignmentRow } = await admin
         .from('event_seat_assignments')
         .select('table_id')
@@ -1571,6 +1577,7 @@ export const loadGuestContext = cache(
         `${guest.first_name} ${guest.last_name}`.trim(),
       rsvpStatus: guest.rsvp_status,
       tableLabel: guestTableLabel,
+      seatsOpen: seatPassActive,
       mealPreference: guest.meal_preference,
       dietaryRestrictions: guest.dietary_restrictions,
       // "Coming up" follows the host-set run-of-show pointer when the trigger

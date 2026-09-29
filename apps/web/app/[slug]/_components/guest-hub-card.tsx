@@ -37,6 +37,10 @@ export type GuestHubData = {
   rsvpStatus: RsvpStatus;
   /** Table label (e.g. "Table 5") when the guest has a seat assignment. */
   tableLabel: string | null;
+  /** 🪑 May guests see their seats yet? The one rule (lib/guests-may-see-seats.ts):
+   *  on the event's day, or earlier by the couple's switch. False → the tile says
+   *  "on the day" and no seat link shows. Absent = closed (the honest default). */
+  seatsOpen?: boolean;
   mealPreference: string | null;
   dietaryRestrictions: string | null;
   /** Next upcoming public schedule block (may be null when none are set). */

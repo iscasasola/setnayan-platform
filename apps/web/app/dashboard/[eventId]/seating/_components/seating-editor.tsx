@@ -147,6 +147,7 @@ import {
   toggleSeatLock,
   publishSeating,
   unpublishSeating,
+  stampTableSigns,
   saveBooths,
   saveFloorPlan,
   savePriorityOrder,
@@ -277,6 +278,9 @@ type Props = {
   // capacity banners moved into the editor's command bar + banner slot, so the
   // data they need arrives as props. ─────────────────────────────────────────
   eventDate: string | null;
+  /** 🪑 Has the event's day begun (Manila)? From then guests always see their
+   *  seats — `seatDayHasCome` in lib/guests-may-see-seats.ts, read server-side. */
+  seatDayHasCome?: boolean;
   /** Walima gender-separation advisory (null when not requested). */
   genderSeparationNote: string | null;
   /** How many non-declined guests exceed total effective seats (0 = enough). */
@@ -361,6 +365,7 @@ export function SeatingEditor({
   constraints: constraintsProp,
   me,
   eventDate,
+  seatDayHasCome = false,
   genderSeparationNote,
   seatShortfall,
   nonDeclinedCount,
@@ -1494,11 +1499,12 @@ export function SeatingEditor({
     // Await inside the transition so the callback returns Promise<void>
     // (startTransition rejects a value-returning promise); the {published}
     // result is intentionally ignored — the print route reads live data.
-    // 🪑 In Details, printing the table signs opens the door too (DECISION_LOG
-    // "THE SEAT PLAN IS LIVE BEHIND ONE DOOR"): the switch says so at once.
-    if (details) setDoorOpen(true);
+    // 🖨 Printing the table signs stamps the signs only — it no longer opens
+    // guests' seats early (owner 2026-09-30: "seatplan will show on the date of
+    // the event"; `stampTableSigns`). "Show guests their seats early" is its own
+    // switch.
     startTransition(async () => {
-      await publishSeating(fd);
+      await stampTableSigns(fd);
       if (details) router.refresh();
     });
     window.open(`/dashboard/${eventId}/seating/print`, '_blank');
@@ -5338,12 +5344,15 @@ export function SeatingEditor({
   // Blueprint), or the new-table panel.
   const [guestsMode, setGuestsMode] = useState<'guests' | 'rules' | 'map'>(details?.part === 'map' ? 'map' : 'guests');
 
-  // 🚪 "GUESTS SEE THIS NOW" — the ONE door guests' seat reads open on
-  // (`event_floor_plan.published_at`: Find your seat, the seat pass roster, the
-  // 3D walk). On = `publishSeating` (the Publish & print action, which also
-  // stamps the table signs); off = `unpublishSeating` — shipped for the 3D
-  // Plan's own switch, it clears that one gate and leaves the printed signs'
-  // stamps alone (its docblock says why). Saves immediately; never drafted.
+  // 🚪 "SHOW GUESTS THEIR SEATS EARLY" (owner 2026-09-30: "seatplan will show
+  // on the date of the event"). Guests' seats open BY THEMSELVES from 00:00
+  // Manila on the event's day — the one rule, `guestsMaySeeSeats` in
+  // lib/guests-may-see-seats.ts, which Find your seat, the seat passes and the
+  // 3D walk all ask. This switch is `event_floor_plan.published_at`: on =
+  // `publishSeating` (the Publish & print action, which also stamps the table
+  // signs) opens seats BEFORE the day; off = `unpublishSeating` hides them
+  // again before the day. From the day on it no longer hides anything.
+  // Saves immediately; never drafted.
   const [doorOpen, setDoorOpen] = useState(Boolean(floorPlan.published_at));
   useEffect(() => {
     setDoorOpen(Boolean(floorPlan.published_at));
@@ -5368,21 +5377,22 @@ export function SeatingEditor({
   };
   const doorStrip = details ? (
     <div
-      data-seat-plan-door={doorOpen ? 'open' : 'closed'}
-      className={`flex shrink-0 items-center gap-3 border-b border-ink/10 px-3 py-2 ${doorOpen ? 'bg-success-50/70' : 'bg-cream'}`}
+      data-seat-plan-door={doorOpen || seatDayHasCome ? 'open' : 'closed'}
+      className={`flex shrink-0 items-center gap-3 border-b border-ink/10 px-3 py-2 ${doorOpen || seatDayHasCome ? 'bg-success-50/70' : 'bg-cream'}`}
     >
       <span className="flex min-w-0 flex-1 flex-col">
-        <InfoTip
-          label={doorOpen ? 'Guests see this now' : 'Guests don’t see this yet'}
-          labelClassName="text-sm font-semibold text-ink"
-          align="start"
-        >
-          Your seat plan saves as you work — one editor at a time. Guests see nothing until you switch this on; then
-          Find your seat, the seat passes and the 3D walk of your room follow every change at once. Printing the table
-          signs switches it on too. Apply in the Maker does not cover the seat plan.
+        <InfoTip label="Show guests their seats early" labelClassName="text-sm font-semibold text-ink" align="start">
+          Guests see their seats on the day. Want them to see it earlier? Turn this on. Turn it off before the day and
+          they are hidden again. From the day itself guests always see their seats — this switch no longer hides them
+          then. Find your seat, the seat passes and the 3D walk of your room all follow this. Printing the table signs
+          does not turn it on. Apply in the Maker does not cover the seat plan.
         </InfoTip>
         <span className="truncate text-[11.5px] text-ink/60">
-          {doorOpen ? 'Live — every change shows at once. Saves immediately.' : 'Arrange freely, then switch it on. Saves immediately.'}
+          {seatDayHasCome
+            ? 'It’s the day — guests see their seats.'
+            : doorOpen
+              ? 'Guests see their seats now.'
+              : 'Guests see their seats on the day.'}
         </span>
         {doorNote ? (
           <span role="alert" className="text-[11.5px] text-danger-700">
@@ -5394,7 +5404,7 @@ export function SeatingEditor({
         type="button"
         role="switch"
         aria-checked={doorOpen}
-        aria-label="Guests see this now"
+        aria-label="Show guests their seats early"
         data-seat-plan-door-switch=""
         onClick={() => flipDoor(!doorOpen)}
         className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-sn-control ease-sn ${doorOpen ? 'bg-success-700' : 'bg-ink/25'}`}

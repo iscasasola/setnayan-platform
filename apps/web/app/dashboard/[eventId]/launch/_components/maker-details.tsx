@@ -1048,8 +1048,10 @@ function WordsCard({ text, note }: { text: string | null; note: string }) {
 
 /**
  * 🪑 The Seat plan as the navigator draws it — how many tables, how many are
- * seated, and whether guests see it (its "done": the door is open). Plain
- * words for every kind of event; a count that could not be read is SAID.
+ * seated, and whether guests see it yet. Its "done" is ARRANGED (a guest is
+ * seated), never visibility: seats open by themselves on the event's day, so a
+ * visibility "done" could never be finished before it. Plain words for every
+ * kind of event; a count that could not be read is SAID.
  */
 function seatPlanRow(
   seatPlan: { tables: number | null; seated: number | null; open: boolean | null } | null,
@@ -1061,11 +1063,11 @@ function seatPlanRow(
       ? 'Could not be read just now'
       : t === 0
         ? 'No tables yet'
-        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : ''}`;
+        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : seatPlan?.open === false ? ' · guests see it on the day' : ''}`;
   return {
     label: 'Seat plan',
     sub,
-    done: seatPlan?.open ?? undefined,
+    done: n === null ? undefined : n > 0,
     usedOn: [PUBLIC_STAGE_LABELS.event, 'Table signs', 'Passes', 'Find your seat'],
     icon: <Armchair aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
     panelLabel: 'Guests',

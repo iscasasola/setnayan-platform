@@ -94,8 +94,8 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
       {event.slug ? (
         <>
           <p className="text-sm text-ink/70">
-            Your invitation is ready — your seat, your QR and everything shared
-            with guests are waiting on it.
+            Your invitation is ready — your QR and everything shared with
+            guests are waiting on it.
           </p>
           <Link className="button-primary w-full sm:w-auto" href={`/${event.slug}`}>
             Open your invitation

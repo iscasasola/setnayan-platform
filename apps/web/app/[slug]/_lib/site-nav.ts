@@ -415,7 +415,8 @@ export type DoorwayInput = {
    * the answer is no.
    */
   seatingSurfaceEnabled: boolean;
-  /** `event_floor_plan.published_at IS NOT NULL` — the RPC's own gate. */
+  /** May guests see their seats? `guestsMaySeeSeatsFor` (lib/guests-may-see-seats.ts) — on the
+   *  event's day, or earlier by the couple's switch. The seat rooms' own gate. */
   seatingPublished: boolean;
   /** `PABUYA_PUBLIC_ROUTE_ENABLED`. Off ⇒ the route 404s, so no door. */
   pabuyaRouteEnabled: boolean;

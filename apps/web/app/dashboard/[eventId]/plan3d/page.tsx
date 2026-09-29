@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { guestsMaySeeSeats, seatDayHasCome } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';
 import { ArrowRight, PencilLine, Users, LayoutGrid, Palette, Store, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -100,7 +101,7 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
     await Promise.all([
       supabase
         .from('events')
-        .select('slug, event_date, timezone, guest_list_edit_deadline, guest_count_locked_at, seating_autoplace_enabled')
+        .select('slug, event_date, event_date_precision, timezone, guest_list_edit_deadline, guest_count_locked_at, seating_autoplace_enabled')
         .eq('event_id', eventId)
         .maybeSingle(),
       // THE GATE, READ WITH ERROR AWARENESS (see the docblock).
@@ -122,6 +123,7 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
   const eventRow = eventRes.data as {
     slug?: string | null;
     event_date?: string | null;
+    event_date_precision?: string | null;
     timezone?: string | null;
     guest_list_edit_deadline?: string | null;
     guest_count_locked_at?: string | null;
@@ -143,7 +145,13 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
   const publishedAt = (gateRes.data as { published_at?: string | null } | null)?.published_at ?? null;
   const planRead: Plan3dPlanRead = {
     measured: !gateRes.error,
-    published: publishedAt != null,
+    // 🪑 "Live" = guests may see their seats: the one rule (lib/guests-may-see-seats.ts)
+    // — on the event's day by itself, or earlier by the couple's Show early switch.
+    published: guestsMaySeeSeats({
+      shownEarlyAt: publishedAt,
+      eventDate: eventRow?.event_date ?? null,
+      eventDatePrecision: eventRow?.event_date_precision ?? null,
+    }),
     publishedAt,
     tables: tables.length,
     seated: new Set(assignments.map((a) => a.guest_id)).size,
@@ -171,9 +179,9 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
     !standing.measured
       ? { strong: 'We could not read your room just now.', rest: 'So we are not going to guess what your guests would see. Nothing has been lost.' }
       : standing.state === 'draft'
-        ? { strong: 'Only you can see this.', rest: 'Publish whenever you like — seats can change right up to and during the day, and your guests always open the latest version.' }
+        ? { strong: 'Your guests see this on the day.', rest: 'Want them to walk it earlier? Turn on Show early. Seats can change right up to and during the day, and your guests always open the latest version.' }
         : standing.state === 'after'
-          ? { strong: 'Your day has passed.', rest: 'Your guests can still walk the room — it stays up until you take it down.' }
+          ? { strong: 'Your day has passed.', rest: 'Your guests can still walk the room.' }
           : { strong: `Live${planRead.publishedAt ? ` since ${shortDate(planRead.publishedAt)}` : ''}.`, rest: 'Anyone with the address can walk your reception and find their seat in it.' };
 
   const miniature: StageMiniature = {
@@ -189,6 +197,11 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
   };
 
   const live = standing.state === 'live' || standing.state === 'after';
+  // The switch itself is "Show guests their seats early": it can open the room
+  // BEFORE the day and hide it again before the day; from the day on the room
+  // is open by itself and the switch no longer hides it.
+  const dayHasCome = seatDayHasCome(eventRow?.event_date ?? null, eventRow?.event_date_precision ?? null);
+  const shownEarly = publishedAt != null;
   const ICON = { guests: Users, seatplan: LayoutGrid, moodboard: Palette } as const;
 
   return (
@@ -212,26 +225,34 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
 
       {/* THE SWITCH — the one gate, named for what it does. Same two actions the
           lab panel posts; this strip only adds the sentence. */}
-      <section aria-label="Publish switch" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3">
+      <section aria-label="Show guests their seats early" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3">
         <div className="flex items-center gap-2 text-sm">
           <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${!standing.measured ? 'bg-ink/30' : live ? 'bg-emerald-500' : 'bg-ink/30'}`} />
           <span className="font-medium text-ink">
-            {!standing.measured ? 'We couldn’t read whether the room is up' : live ? 'Live — guests can walk your reception' : 'Draft — only you can see this'}
+            {!standing.measured
+              ? 'We couldn’t read whether the room is up'
+              : dayHasCome
+                ? 'It’s the day — guests can walk your reception'
+                : shownEarly
+                  ? 'Shown early — guests can walk your reception'
+                  : 'Guests can walk your reception on the day'}
           </span>
         </div>
-        {!standing.measured ? null : live ? (
+        {!standing.measured ? null : dayHasCome ? (
+          <span className="text-xs text-ink/50">From the day itself guests always see their seats.</span>
+        ) : shownEarly ? (
           <form action={unpublishFromControlCentre} className="flex items-center gap-3">
             <input type="hidden" name="event_id" value={eventId} />
-            <span className="text-xs text-ink/50">Taking it down hides the 3D walk. Printed table signs keep working.</span>
-            <button type="submit" className="h-9 rounded-md border border-ink/15 px-3 text-sm font-semibold text-ink hover:bg-ink/5">Take it down</button>
+            <span className="text-xs text-ink/50">Hides the 3D walk until the day. Printed table signs keep working.</span>
+            <button type="submit" className="h-9 rounded-md border border-ink/15 px-3 text-sm font-semibold text-ink hover:bg-ink/5">Hide until the day</button>
           </form>
         ) : planRead.tables === 0 ? (
           <span className="text-xs text-ink/50">Place your first table and the room draws itself.</span>
         ) : (
           <form action={publishFromControlCentre} className="flex items-center gap-3">
             <input type="hidden" name="event_id" value={eventId} />
-            <span className="text-xs text-ink/50">Opens the moment you publish. Stays up until you take it down.</span>
-            <button type="submit" className="h-9 rounded-md bg-mulberry px-3 text-sm font-semibold text-cream hover:bg-mulberry-600">Publish</button>
+            <span className="text-xs text-ink/50">Want them to see it earlier? Turn this on.</span>
+            <button type="submit" className="h-9 rounded-md bg-mulberry px-3 text-sm font-semibold text-cream hover:bg-mulberry-600">Show early</button>
           </form>
         )}
       </section>

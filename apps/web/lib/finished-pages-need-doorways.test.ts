@@ -168,11 +168,11 @@ test('WIRING — the hub mounts BOTH doors, each gated on its OWN resolved href'
   }
 });
 
-test('WIRING — the 3D door is gated on the floor plan being PUBLISHED', () => {
+test('WIRING — the 3D door is gated on the one seat rule (the day, or shown early)', () => {
   const hub = hubSource();
   assert.ok(
-    hub.includes('eventSeatingPublished('),
-    'the hub must ask whether the couple published the plan — the RPC own gate',
+    hub.includes('guestsMaySeeSeatsFor('),
+    'the hub must ask whether guests may see their seats — the RPC own gate (guests_may_see_seats)',
   );
   assert.ok(
     /surfaceEnabled\(eventTypeProfile, 'seating'\)/.test(hub),

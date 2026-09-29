@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';
 import {
   MonitorPlay,
@@ -1263,11 +1264,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         const [seatTablesRes, seatSeatedRes, seatDoorRes] = await Promise.all([
           supabase.from('event_tables').select('table_id', { count: 'exact', head: true }).eq('event_id', eventId),
           supabase.from('event_seat_assignments').select('guest_id', { count: 'exact', head: true }).eq('event_id', eventId),
-          supabase.from('event_floor_plan').select('published_at').eq('event_id', eventId).maybeSingle(),
+          // 🪑 Do guests see their seats? The one rule (lib/guests-may-see-seats.ts):
+          // on the event's day by itself, or earlier by "Show guests their seats early".
+          guestsMaySeeSeatsFor(supabase, eventId, { throwOnReadError: true }).catch((e: unknown) => {
+            logQueryError('LaunchPage.seatDoor', { message: e instanceof Error ? e.message : String(e) }, { event_id: eventId }, 'graceful_degrade');
+            return null;
+          }),
         ]);
         if (seatTablesRes.error) logQueryError('LaunchPage.seatTables', seatTablesRes.error, { event_id: eventId }, 'graceful_degrade');
         if (seatSeatedRes.error) logQueryError('LaunchPage.seatSeated', seatSeatedRes.error, { event_id: eventId }, 'graceful_degrade');
-        if (seatDoorRes.error) logQueryError('LaunchPage.seatDoor', seatDoorRes.error, { event_id: eventId }, 'graceful_degrade');
         seatPlan = {
           page: (
             <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening your seat plan…</p>}>
@@ -1279,7 +1284,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           ),
           tables: seatTablesRes.error ? null : (seatTablesRes.count ?? 0),
           seated: seatSeatedRes.error ? null : (seatSeatedRes.count ?? 0),
-          open: seatDoorRes.error ? null : Boolean((seatDoorRes.data as { published_at?: string | null } | null)?.published_at),
+          open: seatDoorRes,
         };
       }
       /* 🪜 THE ONE DERIVATION of what each guided step's "done" reads — handed to
@@ -1293,7 +1298,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         storyApplies: detailsItemApplies('love-story', eventContext),
         scheduleMoments: scheduleMoments ? scheduleMoments.length : null,
         // 🪑 The Seat plan row's own done (its door) — read above, never re-read.
-        seatPlanOpen: seatPlan ? seatPlan.open : undefined,
+        // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
+        seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
       });
       detailsUnfinished = isUnfinished(
         guidedPlanFromFacts({

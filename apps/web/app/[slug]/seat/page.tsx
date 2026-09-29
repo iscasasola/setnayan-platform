@@ -15,8 +15,8 @@ import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import {
   eventOwnsCustomQrGuest,
   eventOwnsPakanta,
-  eventSeatingPublished,
 } from '@/lib/seat-pass';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { resolveMonogram } from '@/lib/monogram';
 import type { EventTableRow } from '@/lib/seating';
@@ -65,9 +65,10 @@ export const dynamic = 'force-dynamic';
  * (checkOrderOwnership → false on 42P01 / 42703) → friendly "ask the couple"
  * card, no seating leaked.
  *
- * PUBLICATION — both surfaces ALSO gate on the couple having PUBLISHED the
- * seating pack (event_floor_plan.published_at IS NOT NULL · eventSeatingPublished),
- * mirroring the PR1 free finder. A DRAFT plan never leaks the table roster
+ * SEAT GATE — both surfaces ALSO ask `guestsMaySeeSeatsFor` (owner
+ * 2026-09-30: "seatplan will show on the date of the event"): open from 00:00
+ * Manila on the event's day, or earlier only if the couple turned on "Show
+ * guests their seats early" — the same rule the free finder asks. A DRAFT plan never leaks the table roster
  * (table view) nor a guest's room/seat (personal pass) — the guest sees a
  * "seating isn't posted yet" / "your seat is being arranged" card instead.
  *
@@ -218,14 +219,14 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
     const entrance = await fetchEntrance(admin, event.event_id);
     if (tablesFailed) return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
-    const published = await eventSeatingPublished(admin, event.event_id);
+    const published = await guestsMaySeeSeatsFor(admin, event.event_id);
 
     if (!published) {
       return (
         <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
           <PromptCard
-            title="Seating isn’t posted yet"
-            body={`The host hasn’t published the seating for this ${noun}. Check back closer to the day — this table’s guests will appear here once it’s posted.`}
+            title="Seating shows on the day"
+            body={`The seating for this ${noun} shows here on the day. This table’s guests will appear here then.`}
           />
         </SeatPassShell>
       );
@@ -404,13 +405,13 @@ async function PersonalPass({
   // guest's NAME is fine to greet; the room + seat marker stay hidden until the
   // couple publishes the seating pack. (The /claim hop already recorded the
   // personal scan; no scan insert here.)
-  const published = await eventSeatingPublished(admin, event.event_id);
+  const published = await guestsMaySeeSeatsFor(admin, event.event_id);
   if (!published) {
     return (
       <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title={`Welcome, ${firstName}`}
-          body={`Your seat is being arranged. Once ${words.theOrganizer} posts the seating, your exact table and a map to it will appear right here.`}
+          body={`Your seat is being arranged. On the day, your exact table and a map to it will appear right here.`}
         />
       </SeatPassShell>
     );

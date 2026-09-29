@@ -150,7 +150,7 @@ export const GUIDED_STEPS: readonly StepDef[] = [
   },
   { key: 'prints', round: 2, items: ['download'], title: 'Check your prints', shows: () => 'Your whole set, in your look — save what you need.' },
 
-  { key: 'seat-plan', round: 3, items: SEAT_PLAN_STEP_ITEMS, title: 'Seat plan', shows: () => 'Guests find their table on the day — once you switch it on.' },
+  { key: 'seat-plan', round: 3, items: SEAT_PLAN_STEP_ITEMS, title: 'Seat plan', shows: () => 'Guests find their table on the day.' },
   {
     key: 'day-prints',
     round: 3,
@@ -401,10 +401,13 @@ export type GuidedDoneFacts = {
   hero: boolean;
   words: WordsAndPlansInput;
   /**
-   * 🪑 The Seat plan's door (\`event_floor_plan.published_at\`) — its row's done
-   * (\`seatPlanRow\`: "guests see it"). Null/absent = unread (no claim).
+   * 🪑 The Seat plan is ARRANGED — at least one guest is seated
+   * (\`event_seat_assignments\`). Its row's done (\`seatPlanRow\`). Deliberately
+   * NOT whether guests can see it: from 2026-09-30 seats open by themselves on
+   * the event's day, so a visibility "done" could never be finished before the
+   * day (controller ruling). Null/absent = unread (no claim).
    */
-  seatPlanOpen?: boolean | null;
+  seatPlanArranged?: boolean | null;
 };
 
 const EVENT_KEYS = new Set<string>(['names', 'date', 'venues', 'parents', 'march']);
@@ -425,7 +428,7 @@ export function guidedItemDone(key: DetailsItemKey, f: GuidedDoneFacts): boolean
     case 'hero':
       return f.hero;
     case 'seating':
-      return f.seatPlanOpen ?? undefined;
+      return f.seatPlanArranged ?? undefined;
     default:
       return undefined;
   }

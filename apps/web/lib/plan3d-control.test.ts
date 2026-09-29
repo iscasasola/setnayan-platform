@@ -72,12 +72,14 @@ test('next step: one rung per state, in order', () => {
   // Owner 2026-09-06: "seating can always change in the last minute and even
   // during the event" — there is no wait step and no gate, ever.
   const pub = step(ev(), plan({ seated: 178 }), guests({ total: 178 }));
-  assert.equal(pub.headline, 'Publish — your guests can walk the room');
+  // 2026-09-30 (owner: "seatplan will show on the date of the event"): the
+  // walk opens by itself on the day; the switch only opens it EARLY.
+  assert.equal(pub.headline, 'Your guests walk the room on the day');
   assert.equal(pub.tone, 'act');
   assert.match(pub.blurb, /right up to and during the day/);
   assert.doesNotMatch(pub.blurb, /wait|settled/i);
   assert.equal(pub.href, null, 'the act is the switch on the page — not a door');
-  assert.equal(step(ev({ guestListLockedAt: '2026-09-01T00:00:00Z' }), plan({ seated: 178 }), guests({ total: 178 })).headline, 'Publish — your guests can walk the room');
+  assert.equal(step(ev({ guestListLockedAt: '2026-09-01T00:00:00Z' }), plan({ seated: 178 }), guests({ total: 178 })).headline, 'Your guests walk the room on the day');
   // live → print
   assert.equal(step(ev(), plan({ published: true, seated: 178 }), guests({ total: 178 })).headline, 'Print your table signs');
   // after → nothing to do, quietly

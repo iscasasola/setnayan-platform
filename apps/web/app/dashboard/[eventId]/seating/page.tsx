@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { seatDayHasCome } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';
 import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-room-size';
 import { createClient } from '@/lib/supabase/server';
@@ -103,7 +104,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       fetchSigns(supabase, eventId),
       supabase
         .from('events')
-        .select('event_date, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency')
+        .select('event_date, event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),
@@ -116,6 +117,9 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       fetchBookedVenueRoomSize(supabase, eventId),
     ]);
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
+  // 🪑 From the event's day guests always see their seats (lib/guests-may-see-seats.ts);
+  // the switch's words say so.
+  const seatsDayHasCome = seatDayHasCome(eventDate, (eventRow.data?.event_date_precision as string | null) ?? null);
   // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). Advisory only:
   // drives a gentle notice on a manual "Table 4" + the skip-4 auto-draft. Derived
   // via the shared overlay predicate (primary OR secondary Chinese rite).
@@ -226,6 +230,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       }
       constraints={constraints}
       eventDate={eventDate}
+      seatDayHasCome={seatsDayHasCome}
       genderSeparationNote={genderSeparationNote}
       seatShortfall={seatShortfall}
       nonDeclinedCount={nonDeclinedCount}

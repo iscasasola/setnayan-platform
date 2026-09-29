@@ -10,7 +10,10 @@
  *
  * Held here, each assertion seen to fail once:
  *   R1 a one-letter run renders on the GUEST page, as a span, server-side;
- *   R2 when the text changes, its runs are DROPPED — never moved onto other letters;
+ *   R2 when the text changes, a run is never moved onto OTHER letters — it
+ *      follows its own surviving letters when the old words are known
+ *      (`was`, owner 2026-09-28 "can't it adapt?" — `element-runs-adapt.test.ts`),
+ *      and is dropped when they are not;
  *   R3 with no selection a choice styles the whole element;
  *   R4 hostile input is dropped (no CSS text, no out-of-range offsets);
  *   M1 In and During play TOGETHER, and choosing one never clears the other;
@@ -83,7 +86,7 @@ test('R1 · a run across a word in the invitation line, and in the date', async 
   assert.match(html, /invite you to <span data-el-run="" style="font-family:var\(--font-cinzel\), Georgia, serif">celebrate<\/span> their wedding/);
 });
 
-test('R2 · when the text CHANGES, its runs are dropped — never moved onto other letters', async () => {
+test('R2 · when the text CHANGES and the old words are unknown, its runs are dropped — never moved onto other letters', async () => {
   const html = await renderCard({
     names: { runs: [{ start: 7, end: 8, font: 'script' }], of: hubTextHash('MariaandJose') },
   });
@@ -92,6 +95,16 @@ test('R2 · when the text CHANGES, its runs are dropped — never moved onto oth
   const older = sanitizeHubElements({ names: { runs: [{ start: 0, end: 1, font: 'script' }], of: hubTextHash('Old') } });
   const next = withRunChoice(older, 'names', { start: 2, end: 3, of: hubTextHash(NAMES_TEXT) }, 'color', '#112233');
   assert.deepEqual(next?.names?.runs, [{ start: 2, end: 3, color: '#112233' }], 'a run made on old text never survives beside new ones');
+});
+
+test('R2 · when the text CHANGES and the old words are known, a run follows ITS letter on the guest page', async () => {
+  // Made on "CaleandIvy" (the second name was Ivy); the page now says Cale & Ice.
+  const was = 'CaleandIvy';
+  const html = await renderCard({ names: { runs: [{ start: 0, end: 1, font: 'script' }, { start: 7, end: 10, color: '#8a1c2b' }], of: hubTextHash(was), was } });
+  // The "C" kept its letter and its style; of "Ivy" only the "I" survives in "Ice".
+  assert.match(html, /<span data-el-run="" style="font-family:var\(--font-script\), cursive">C<\/span>ale/, html);
+  assert.match(html, /<span data-el-run="" style="color:#8a1c2b">I<\/span>ce/, html);
+  assert.equal((html.match(/data-el-run/g) ?? []).length, 2);
 });
 
 test('R3 · with NO selection, a choice styles the whole element; with one, only the range', () => {
@@ -123,7 +136,8 @@ test('R4 · hostile runs are dropped — no CSS text, no out-of-range offsets, n
       ],
     },
     line: { of: 'not-a-hash', runs: [{ start: 0, end: 1, font: 'script' }] },
-    heading: { of: hubTextHash('x'), runs: [{ start: 0, end: 1, font: 'script' }] },
+    // The mark has no words, so it can carry no run.
+    mark: { of: hubTextHash('x'), runs: [{ start: 0, end: 1, font: 'script' }] },
   });
   assert.deepEqual(out, { names: { runs: [{ start: 3, end: 4, color: '#abcdef' }], of: hubTextHash(NAMES_TEXT) } });
 });

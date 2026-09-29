@@ -18,6 +18,7 @@ import {
   withElementChoice,
   withElementMotion,
   withRunChoice,
+  hubRunsForRange,
   withoutMotion,
   withoutRuns,
   withoutTextStyle,
@@ -85,9 +86,10 @@ export type ElementTarget = {
   /**
    * ✍ The text selected INSIDE the part (a word, one letter), as offsets into
    * its text and the text's hash — from the bridge's `selectionInPart`. Null =
-   * the choices style the whole part.
+   * the choices style the whole part. `was` is the part's whole text, so the
+   * part's older runs ADAPT onto it when a choice is saved (`withRunChoice`).
    */
-  range?: { start: number; end: number; of: string; text: string } | null;
+  range?: { start: number; end: number; of: string; text: string; was?: string } | null;
 };
 
 /**
@@ -245,7 +247,7 @@ export function ElementSheet({
   useEffect(() => setUseRange(true), [target.range?.start, target.range?.end, target.range?.of]);
   const range = target.range && useRange && HUB_ELEMENT_RUN_KEYS.includes(target.el) ? target.range : null;
   const run: HubElementRun | null = range
-    ? ((style.of === range.of ? style.runs : undefined)?.find((r) => r.start === range.start && r.end === range.end) ?? null)
+    ? (hubRunsForRange(style, range).find((r) => r.start === range.start && r.end === range.end) ?? null)
     : null;
   /** What the font · colour · size controls show: the run's own, or the part's. */
   const face = range ? { font: run?.font, color: run?.color, size: run?.size } : style;

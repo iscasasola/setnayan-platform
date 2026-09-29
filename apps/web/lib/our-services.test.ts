@@ -15,10 +15,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ADD_ONS, addOnHref, type AddOnEntry } from './add-ons-catalog';
+import { ADD_ONS, addOnHref, appStoreDetailHref, type AddOnEntry } from './add-ons-catalog';
 import {
   buildOurServices,
   OUR_SERVICE_ADD_ON_KEYS,
+  shownAddOnKeys,
   TOOL_HOMES,
   toolHasGoneHome,
   type OurServicesInput,
@@ -52,11 +53,11 @@ const byKey = (i: OurServicesInput, key: string) => {
   return c;
 };
 
-test('the six services, in the owner’s order, with the owner’s names', () => {
+test('the services, in the owner’s order, with the owner’s names', () => {
   const cards = buildOurServices(input());
   assert.deepEqual(
     cards.map((c) => c.name),
-    ['Papic', 'Live Studio', 'Gallery', 'Patiktok', 'Music Maker', 'Setnayan AI (SAI)'],
+    ['Papic', 'Live Studio', 'Gallery', 'Patiktok', 'Music Maker', 'Setnayan AI (SAI)', 'Event Hub Pro'],
   );
 });
 
@@ -180,7 +181,7 @@ test('the Suite route IS Our Services: six cards first, as CollectionCards', () 
 test('the lists below leave the six out, so nothing shows twice', () => {
   assert.match(PAGE, /const eligible = ADD_ONS\.filter\(\s*\(a\) =>\s*notOurs\(a\) &&/);
   assert.match(PAGE, /notOurs\(e\) &&/, 'the recommendations must skip the six too');
-  for (const k of ['papic', 'papic-guest', 'panood', 'live-studio-roam', 'patiktok', 'pakanta', 'setnayan-ai']) {
+  for (const k of ['papic', 'papic-guest', 'panood', 'live-studio-roam', 'patiktok', 'pakanta', 'setnayan-ai', 'website-pro']) {
     assert.ok(OUR_SERVICE_ADD_ON_KEYS.has(k), `${k} would show twice`);
   }
 });
@@ -214,12 +215,6 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
     compare: () => read(EV, 'vendors', 'page.tsx').includes('<BuildCompare'),
     'save-the-date': () =>
       read(EV, 'website', 'editor', 'page.tsx').includes('`${base}/studio/save-the-date`'),
-    // The Maker mounts the Apply dock; the dock's data carries the Pro page;
-    // the Apply sheet's one button is "Unlock Pro and Apply" to that page.
-    'website-pro': () =>
-      read(EV, 'launch', 'page.tsx').includes('<HubDraftDock ') &&
-      read(LIB, 'hub-draft-store.ts').includes('`/dashboard/${eventId}/studio/website-pro?from=maker`') &&
-      read(EV, 'website', '_components', 'apply-pro-sheet.tsx').includes('href={unlockAndApplyHref(proHref)}'),
     'animated-monogram': () =>
       STUDIO_ABSORBED.palogo?.into === 'launch' &&
       fs.existsSync(path.join(EV, 'launch', '_components', 'maker-logo.tsx')),
@@ -249,13 +244,64 @@ test('a tool whose home is the Maker stays here where there is no Maker', () => 
 });
 
 test('the tools with no home yet stay on this page', () => {
-  for (const key of ['find-date', 'playlist', 'thank-you']) {
+  for (const key of ['find-date']) {
     assert.equal(toolHasGoneHome(key, true), false, `${key} has no home yet and must stay`);
   }
 });
 
 test('the page sends both lists home, and drops the section when it is empty', () => {
   assert.match(PAGE, /freeToolOk\(t\) && !toolHasGoneHome\(t\.key, websiteOn\)/);
-  assert.match(PAGE, /!OUR_SERVICE_ADD_ON_KEYS\.has\(a\.key\) && !toolHasGoneHome\(a\.key, websiteOn\)/);
+  assert.match(PAGE, /const onTheCards = shownAddOnKeys\(ourServices\);/);
+  assert.match(PAGE, /!onTheCards\.has\(a\.key\) && !toolHasGoneHome\(a\.key, websiteOn\)/);
   assert.match(PAGE, /\{moreCount > 0 \? \(/);
+});
+
+/* ── Owner "yes to all 4" (2026-09-29) ───────────────────────────────────── */
+
+test('Event Hub Pro can be bought upfront: ◆ + the catalogue price → the Pro page', () => {
+  const pro = ADD_ONS.find((a) => a.key === 'website-pro')!;
+  const priced = byKey(input({ prices: new Map([[pro.serviceKey!, '₱9,999']]) }), 'event-hub-pro');
+  assert.equal(priced.stateText, 'Add for ₱9,999');
+  assert.equal(priced.pro, true);
+  assert.equal(priced.href, addOnHref('website-pro', EVENT));
+  assert.equal(byKey(input(), 'event-hub-pro').stateText, 'See the price', 'no price is typed');
+  const owned = byKey(
+    input({ owned: { active: new Set([pro.serviceKey!]), pending: new Set() } }),
+    'event-hub-pro',
+  );
+  assert.equal(owned.stateText, 'Added to your event');
+  assert.equal(owned.pro, false);
+});
+
+test('Event Hub Pro is hidden where it is not offered — the store shell, no website', () => {
+  // The page's `offered` is the Suite's surfaceOk, which refuses every
+  // STORE_SHELL_HIDDEN_ADDON_KEYS entry in the shell; website-pro is one.
+  const shell = read(LIB, 'store-shell.ts');
+  assert.match(shell, /STORE_SHELL_HIDDEN_ADDON_KEYS[\s\S]*?'website-pro'/);
+  assert.match(PAGE, /!\(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS\.has\(a\.key\)\)/);
+  const noPro = input({ offered: (a) => a.key !== 'website-pro' });
+  assert.equal(buildOurServices(noPro).some((c) => c.key === 'event-hub-pro'), false);
+});
+
+test('Thank-You Video lives under Papic, Playlist under Music Maker', () => {
+  const cards = buildOurServices(input());
+  const papic = cards.find((c) => c.key === 'papic')!;
+  const music = cards.find((c) => c.key === 'music-maker')!;
+  assert.deepEqual(papic.part && [papic.part.name, papic.part.href], [
+    'Thank-You Video',
+    appStoreDetailHref('thank-you', EVENT),
+  ]);
+  assert.deepEqual(music.part && [music.part.name, music.part.href], [
+    'Playlist',
+    appStoreDetailHref('playlist', EVENT),
+  ]);
+  const shown = shownAddOnKeys(cards);
+  assert.ok(shown.has('thank-you') && shown.has('playlist'), 'the lists below would repeat them');
+});
+
+test('never unreachable: a part whose card is absent stays in the lists below', () => {
+  const noSong = buildOurServices(input({ offered: (a) => a.key !== 'pakanta' }));
+  assert.equal(shownAddOnKeys(noSong).has('playlist'), false, 'Playlist must fall back to the section');
+  const noThankYou = buildOurServices(input({ offered: (a) => a.key !== 'thank-you' }));
+  assert.equal(noThankYou.find((c) => c.key === 'papic')!.part, null, 'a part not offered is not drawn');
 });

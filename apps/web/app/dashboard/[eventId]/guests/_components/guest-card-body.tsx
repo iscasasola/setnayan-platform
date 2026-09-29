@@ -144,7 +144,7 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   unlink_not_allowed: 'Only the couple can unlink an account from an invitation.',
   unlink_nothing_linked: 'No account holds this invitation — there is nothing to unlink.',
   unlink_holds_access:
-    'That account is a Co-host or helper through this guest. Set their Access back to None first, then unlink.',
+    'That account is a Co-host or helper through this guest. Set their Access back to None first, then unlink. (On the bride, groom or celebrant row a Co-host cannot be removed here — ask Setnayan support.)',
   unlink_failed: 'The account could not be unlinked just now — nothing was changed. Please try again.',
 };
 

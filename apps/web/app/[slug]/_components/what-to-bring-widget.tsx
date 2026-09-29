@@ -1,11 +1,22 @@
+import { WhatToBringGiftLine, WhatToBringList } from './what-to-bring-styles';
+
 /**
  * What to Bring — the couple's gift / registry / no-gift note (Increment
  * A.3). Reads events.what_to_bring; renders nothing when blank so the
  * section hides.
  */
-export function WhatToBringWidget({ text }: { text: string | null }) {
+export function WhatToBringWidget({
+  text,
+  sceneStyle = null,
+}: {
+  text: string | null;
+  /** 🎨 `note` (this, the default) · `list` · `gift-line` — `what-to-bring-styles.tsx`. */
+  sceneStyle?: string | null;
+}) {
   const msg = (text ?? '').trim();
   if (!msg) return null;
+  if (sceneStyle === 'list') return <WhatToBringList text={msg} />;
+  if (sceneStyle === 'gift-line') return <WhatToBringGiftLine text={msg} />;
   // Pahina (design 2026-07-25 §7): the second "Good to know" plate — same
   // grammar as SpecialMessageWidget, likewise unnumbered.
   return (

@@ -1,5 +1,8 @@
 import { loveStoryScenes } from '@/lib/love-story-moments';
 
+import { LoveStoryYears } from './our-love-story-styles';
+import { OurStory, ourStoryRenders } from './our-story';
+
 /**
  * Our Love Story — the guest render of `events.love_story`.
  *
@@ -29,12 +32,28 @@ import { loveStoryScenes } from '@/lib/love-story-moments';
 export function OurLoveStoryWidget({
   config,
   mediaUrls,
+  sceneStyle = null,
 }: {
   config: unknown;
   mediaUrls?: Readonly<Record<string, string>>;
+  /**
+   * 🎨 `chapters` (this, the default) · `essay` (the shipped `OurStory`
+   * full variant) · `years` (`our-love-story-styles.tsx`). The essay composes
+   * from the onboarding words; a story told only in moments has none of them,
+   * so there it falls back to the chapters rather than drawing nothing.
+   */
+  sceneStyle?: string | null;
 }) {
   const scenes = loveStoryScenes(config);
   if (scenes.length === 0) return null;
+  if (sceneStyle === 'essay' && ourStoryRenders(config)) {
+    return (
+      <div data-scene-style="essay">
+        <OurStory loveStory={config} variant="full" />
+      </div>
+    );
+  }
+  if (sceneStyle === 'years') return <LoveStoryYears scenes={scenes} mediaUrls={mediaUrls} />;
 
   // Pahina chapter grammar (design 2026-07-25 §7). NOTE: this widget carries an
   // unnumbered eyebrow — `OurStory` also renders a story chapter from the same

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { EntourageGroup, EntouragePerson } from '@/lib/entourage';
 import { roleLabel, peopleOf } from '@/lib/entourage';
+import { EntourageMarch, EntourageTwoSides, entourageHasTwoSides } from './entourage-styles';
 
 /**
  * THE ENTOURAGE — the people standing up with the couple, on the invitation.
@@ -29,6 +30,8 @@ export function EntourageSection({
   id,
   previewHref,
   previewGroups = 2,
+  sceneStyle = null,
+  myGuestId = null,
 }: {
   groups: readonly EntourageGroup[];
   id?: string;
@@ -40,11 +43,23 @@ export function EntourageSection({
    */
   previewHref?: string;
   previewGroups?: number;
+  /**
+   * 🎨 `roll-call` (this, the default) · `two-sides` · `march`
+   * (`entourage-styles.tsx`). "Two sides" draws only when the roles put
+   * someone on each side; otherwise this, the roll call, draws.
+   */
+  sceneStyle?: string | null;
+  /** The signed-in guest's own id — the march marks their line. */
+  myGuestId?: string | null;
 }) {
   // Nothing assigned, or a read that did not happen — either way there is no
   // heading over an empty list. See `loadEntourage` on why a failed read draws
   // nothing rather than an apology on somebody's wedding invitation.
   if (groups.length === 0) return null;
+  if (sceneStyle === 'two-sides' && entourageHasTwoSides(groups)) return <EntourageTwoSides groups={groups} id={id} />;
+  if (sceneStyle === 'march') {
+    return <EntourageMarch groups={groups} id={id} myGuestId={myGuestId} previewHref={previewHref} />;
+  }
 
   /*
     ⚖ OWNER 2026-09-15: *"Both — a preview that opens the full list."* The

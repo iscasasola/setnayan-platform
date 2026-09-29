@@ -25,6 +25,9 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { detailsFactOfScene, sceneBoundText } from '@/lib/details-bound';
 import { loveStoryScenes } from '@/lib/love-story-moments';
 import type { PostEventMakerRead } from '@/lib/post-event-scenes';
+import type { PostEventArrangement } from '@/lib/post-event-draft';
+import { postEventLookKey, postEventStyleHome } from '@/lib/post-event-styles';
+import { postEventStyleOptions, resolvePostEventStyle } from '@/lib/post-event-style-resolve';
 import { formatCount } from '@/lib/format-number';
 
 export type SceneMini = {
@@ -49,7 +52,23 @@ export type MakerNavigatorData = {
    * scenes could not be read (then the one "story after the day" tile stands
    * in, and the navigator SAYS the list is unavailable). Null before the day.
    */
-  postEvent: { generatedAt: string } | 'unreadable' | null;
+  postEvent:
+    | {
+        generatedAt: string;
+        /** 🕰 False before the day — the scenes wait, and nothing was written. */
+        dayHappened: boolean;
+        /** Live with the draft laid over it — what the Post Event controls edit. */
+        arrangement: PostEventArrangement;
+        /**
+         * 🎨 The style each scene is DRAWN in (its pick, else the default) — only
+         * for scenes the registry gives styles; absent = shipped block, no parts.
+         * Resolved HERE, on the server, so the Maker's client never loads the
+         * style registry (`lib/post-event-style-resolve.ts`).
+         */
+        styles: Record<string, string>;
+      }
+    | 'unreadable'
+    | null;
 };
 
 const firstLine = (s: unknown, max = 70): string | undefined => {
@@ -159,9 +178,22 @@ export function buildMakerNavigatorData(input: {
   const pe = input.postEvent && input.postEvent.ok ? input.postEvent : null;
   for (const r of pe?.rows ?? []) {
     const tpl = r.template ? SCENE_TEMPLATES[r.template]?.name : null;
+    /* 🎨 The scene's style names the tile — its own pick, or the default. */
+    const home = postEventStyleHome(r.key);
+    const picked = home
+      ? sanitizeHubCanvas(input.sectionRows.find((w) => w.widget_type === home)?.config_json).style
+      : pe?.arrangement.sceneLooks[postEventLookKey(r.key)]?.style;
+    const opts = postEventStyleOptions(r.key);
+    const styleName = (opts.find((o) => o.id === picked) ?? opts.find((o) => o.isDefault))?.name ?? null;
     minis[`p:${r.key}`] = {
       eyebrow:
-        r.status === 'skipped' ? 'Skipped' : r.status === 'optional' ? 'Optional' : r.open ? 'Opens full screen' : (tpl ?? 'Auto'),
+        r.status === 'skipped'
+          ? 'Skipped'
+          : r.status === 'optional'
+            ? 'Optional'
+            : r.status === 'waiting'
+              ? 'After the day'
+              : (styleName ?? (r.open ? 'Opens full screen' : (tpl ?? 'Auto'))),
       title: r.name,
       line: r.status === 'auto' ? r.source : (r.note ?? undefined),
       ...(r.key === 'cover' && pe?.coverPhotoUrl ? { photoUrl: pe.coverPhotoUrl } : {}),
@@ -169,8 +201,27 @@ export function buildMakerNavigatorData(input: {
   }
 
   return {
-    postEvent: pe ? { generatedAt: pe.generatedAt } : input.postEvent && !input.postEvent.ok ? 'unreadable' : null,
-    stageLists: makerStageLists({ ...input.plan, postEvent: pe?.rows ?? null }),
+    postEvent: pe
+      ? {
+          generatedAt: pe.generatedAt,
+          dayHappened: pe.dayHappened,
+          arrangement: pe.arrangement,
+          styles: Object.fromEntries(
+            pe.rows.flatMap((r) => {
+              if (resolvePostEventStyle(r.key, null) === null) return [];
+              const drawn = resolvePostEventStyle(r.key, pe.arrangement.sceneLooks[r.key]?.style);
+              return drawn ? [[r.key, drawn]] : [];
+            }),
+          ),
+        }
+      : input.postEvent && !input.postEvent.ok
+        ? 'unreadable'
+        : null,
+    stageLists: makerStageLists({
+      ...input.plan,
+      postEvent: pe?.rows ?? null,
+      postEventStyled: (sceneKey) => resolvePostEventStyle(sceneKey, null) !== null,
+    }),
     fullOrders: Object.fromEntries(
       PUBLIC_STAGE_ORDER.map((stage) => [
         stage,

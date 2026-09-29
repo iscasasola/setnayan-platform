@@ -10,7 +10,22 @@ import {
   type SceneThumbBox,
 } from '@/lib/scene-templates';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
+import dynamic from 'next/dynamic';
 import { PickMenu } from './pick-menu';
+import { SlotRows } from '../../../launch/_components/lazy-slot';
+import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { CUSTOM_SECTION_TYPES } from '@/lib/custom-sections';
+
+/** The six scenes of their own, shared across every stage (E5). */
+export const MAX_OWN_SCENES = CUSTOM_SECTION_TYPES.length;
+/* ⚡ Post Event's twelve preset tiles load with its sheet (the EXISTING
+   `maker-details` chunk), never in the Maker's first load
+   (`scripts/check-maker-js-budget.mjs`). */
+const PresetTiles = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './post-event-preset-tiles').then((m) => m.PresetTiles),
+  { loading: SlotRows },
+);
+import type { PostEventPresetsProp } from './post-event-preset-tiles';
 
 /** Desktop · Phone · Both — one dropdown (owner: a set of choices is one PickMenu, never a pill row). */
 const SCENE_VIEW_OPTIONS = [
@@ -53,7 +68,17 @@ export function SceneTemplatePicker({
   onOpenChange,
   onPick,
   tour = null,
+  presets = null,
 }: {
+  /**
+   * 🎞 POST EVENT'S OWN "+" (owner 2026-09-25: *"scene creation will have
+   * different preset scenes as well"*) — the twelve presets instead of the 25
+   * templates. Each tile posts the SAME form, plus `post_event_preset`; every
+   * one is ◆ Pro (E3) and a tap still places it in the draft (try-then-pay —
+   * Apply is where Pro is asked). `used` = the couple's own scenes across every
+   * stage (six, shared — E5).
+   */
+  presets?: PostEventPresetsProp | null;
   /**
    * Controlled open state, for a sheet with a second door (the Maker's toolbar
    * ＋ opens the same "Add a scene" sheet as the navigator's button). Absent →
@@ -187,6 +212,18 @@ export function SceneTemplatePicker({
             ) : null}
           </div>
           {tour}
+          {presets ? (
+            <PresetTiles
+              presets={presets}
+              action={action}
+              hidden={hidden}
+              draft={draft}
+              view={view}
+              onPick={onPick}
+            />
+          ) : null}
+          {presets ? null : (
+          <>
           <p className="mt-1 text-[0.62rem] text-ink/50">
             ★ the four approved arrangements · shown{' '}
             {view === 'desktop' ? 'as on a desktop' : view === 'phone' ? 'as on a phone' : 'desktop · phone'} · each
@@ -242,6 +279,8 @@ export function SceneTemplatePicker({
               </div>
             </div>
           ))}
+          </>
+          )}
         </div>
       ) : null}
     </div>
@@ -268,7 +307,7 @@ function label(t: SceneTemplate): string {
  * draws at any size; a fixed frame (16:10 desktop, 9:16 phone) keeps every
  * thumbnail the same shape, content inside it.
  */
-function Thumb({
+export function Thumb({
   boxes,
   shape,
   hideMedia,

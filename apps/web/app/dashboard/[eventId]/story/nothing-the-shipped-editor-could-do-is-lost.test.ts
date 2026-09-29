@@ -153,14 +153,20 @@ test('every capability the shipped editor had is still on the Story Maker', () =
 
 /**
  * ✅ OWNER RULED 2026-09-09: THE PRO GATE STAYS EXACTLY AS SHIPPED. Naming and
- * writing the moments, section order, placing your own columns and featuring
- * guest wishes stay PRO. The prototype drew them ungated; that was an omission,
- * not a repricing, and shipping four paid abilities as free is a repricing
- * nobody chose. This is the guard against doing it by accident.
+ * writing the moments, placing your own columns and featuring guest wishes stay
+ * PRO. The prototype drew them ungated; that was an omission, not a repricing,
+ * and shipping paid abilities as free is a repricing nobody chose. This is the
+ * guard against doing it by accident.
+ *
+ * ✏️ ONE DELIBERATE REPRICING SINCE: SECTION ORDER IS FREE (owner E4
+ * 2026-09-25 — reorder and hide Post Event's scenes free; controller ruling
+ * 2026-09-29 — "the story page's reorder is FREE too", so it matches the Event
+ * Hub Maker). Pinned below in the opposite direction, so the old gate cannot
+ * creep back either.
  */
-test('the four PRO abilities are still gated, on the client AND on the server', () => {
+test('the PRO abilities are still gated, on the client AND on the server — and section order is free', () => {
   const clientGated = [
-    /disabled=\{!isPro \|\| i === 0\}/, // reorder controls
+    /disabled=\{!isPro \|\| i === 0\}/, // moment + wish reorder controls
     /disabled=\{!isPro\}/, // moment name / write-up / wish fields
   ];
   for (const re of clientGated) {
@@ -168,9 +174,16 @@ test('the four PRO abilities are still gated, on the client AND on the server', 
   }
   // The client flag is presentation only — the SERVER strip is the real gate.
   assert.ok(
-    /if \(isPro\) \{[\s\S]*?chapterOverrides[\s\S]*?sectionOrder[\s\S]*?reviews[\s\S]*?\}/.test(actions),
+    /if \(isPro\) \{[\s\S]*?chapterOverrides[\s\S]*?customColumns[\s\S]*?reviews[\s\S]*?\}/.test(actions),
     'saveEditorial no longer strips the PRO keys from a non-PRO save',
   );
+  // Section order: free on both sides, and the order can only name columns the story holds.
+  const proBlock = actions.match(/if \(isPro\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
+  assert.ok(proBlock.includes('chapterOverrides'), 'the Pro block was not found');
+  assert.ok(!/draft\.sectionOrder =/.test(proBlock), 'section order went back behind Pro on the server');
+  assert.match(actions, /sanitizeSectionOrder\(\s*input\.sectionOrder,\s*sanitizeCustomColumns\(draft\.customColumns\)/);
+  assert.match(editor, /moveSection\(i, -1\)\}\s*disabled=\{i === 0\}/, 'moving a section up went back behind Pro');
+  assert.match(editor, /moveSection\(i, 1\)\}\s*disabled=\{i === sectionOrder\.length - 1\}/, 'moving a section down went back behind Pro');
   assert.ok(
     /isEditorialProActive\(/.test(actions),
     'saveEditorial no longer resolves PRO server-side',

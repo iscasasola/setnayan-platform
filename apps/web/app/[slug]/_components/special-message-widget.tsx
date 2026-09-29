@@ -1,10 +1,24 @@
+import { SpecialMessageLetter, SpecialMessageQuote } from './special-message-styles';
+
 /**
  * Special Message — the couple's note to guests (Increment A.1). Reads
  * events.special_message; renders nothing when blank so the section hides.
  */
-export function SpecialMessageWidget({ text }: { text: string | null }) {
+export function SpecialMessageWidget({
+  text,
+  sceneStyle = null,
+  signedBy = null,
+}: {
+  text: string | null;
+  /** 🎨 `note` (this, the default) · `letter` · `quote` — `special-message-styles.tsx`. */
+  sceneStyle?: string | null;
+  /** The letter's signature — the event's display name. Read by `letter` only. */
+  signedBy?: string | null;
+}) {
   const msg = (text ?? '').trim();
   if (!msg) return null;
+  if (sceneStyle === 'letter') return <SpecialMessageLetter text={msg} signedBy={signedBy} />;
+  if (sceneStyle === 'quote') return <SpecialMessageQuote text={msg} />;
   // Pahina (design 2026-07-25 §7): a "Good to know" plate. Unnumbered on
   // purpose — `WhatToBringWidget` is its sibling and both can render on one
   // page, so they read as two notes rather than two competing chapters.

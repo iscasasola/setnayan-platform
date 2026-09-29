@@ -10,7 +10,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
-import { makerProMark } from '@/lib/paid-mark';
+import { makerProMark, makerProUsable } from '@/lib/paid-mark';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
@@ -112,6 +112,7 @@ import { updateSpecialMessage } from '../special-message/actions';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { sceneUploadRefs, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { hubDraftAction } from '../hub-draft-actions';
+import { fixedSceneStylesAfter, fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
 import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
@@ -119,6 +120,7 @@ import { buildMakerNavigatorData } from './_components/maker-navigator-data';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { resolveHubPhase } from '@/lib/event-hub-control';
 import { readPostEventForMaker } from '@/lib/post-event-compile.server';
+import { postEventElementScope } from '@/lib/post-event-styles';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { ourStoryRenders } from '@/app/[slug]/_components/our-story';
@@ -431,6 +433,21 @@ export default async function WebsiteEditorPage({
           },
         ]
       : [],
+  );
+
+  /* 🎨 THE FIVE FIXED PARTS' STYLE PICKS — live (`events.style_preferences
+     .scene_styles`, read through `events_host`, the couple-scoped read) with the
+     draft laid on, so the Style row shows what the canvas draws. A failed read
+     shows the defaults, which is what the page draws without a pick. */
+  const { data: prefsRow, error: prefsErr } = await supabase
+    .from('events_host')
+    .select('style_preferences')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (prefsErr) logQueryError('WebsiteEditorPage.fixedStyles', prefsErr, { eventId }, 'graceful_degrade');
+  const fixedStyles = fixedSceneStylesAfter(
+    fixedSceneStylesFromPreferences((prefsRow as { style_preferences?: unknown } | null)?.style_preferences),
+    hubDraft?.fixedStyles,
   );
 
   /* 🎞 THE MAIN BACKGROUND (Maker Phase 10) — BY DEFAULT THE HERO (owner,
@@ -1116,15 +1133,25 @@ export default async function WebsiteEditorPage({
     the moment it is written (`lib/post-event-compile.server.ts`). This page is
     couple-only (the membership gate above), so this open may write.
   */
-  const postEvent =
-    resolveHubPhase({
-      measured: true,
-      eventDate: (event.event_date as string | null) ?? null,
-      eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
-      timezone: (event as { timezone?: string | null }).timezone ?? null,
-    }) === 'after'
-      ? await readPostEventForMaker({ eventId, eventEnded: true, isCouple: true })
-      : null;
+  /*
+    🎞 AND BEFORE THE DAY TOO (owner 2026-09-25, "POST EVENT IS MANY SMALL
+    SCENES"): Post Event is always its separate scenes. Before the day the SAME
+    scenes are listed, each saying what will fill it — from a light read, and
+    nothing is written (`eventEnded: false` never compiles). The couple's drafted
+    arrangement and looks ride in, so the navigator lists what the canvas shows.
+  */
+  const postEvent = await readPostEventForMaker({
+    eventId,
+    eventEnded:
+      resolveHubPhase({
+        measured: true,
+        eventDate: (event.event_date as string | null) ?? null,
+        eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
+        timezone: (event as { timezone?: string | null }).timezone ?? null,
+      }) === 'after',
+    isCouple: true,
+    draftEditorial: hubDraft?.editorial ?? null,
+  });
 
   const navigator = buildMakerNavigatorData({
     postEvent,
@@ -1136,6 +1163,9 @@ export default async function WebsiteEditorPage({
       solemn: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn,
       hasHeroMedia: Boolean(heroRef || videoRef),
       hasEntourage: entourageCount === null ? true : entourageCount > 0,
+      // 🎨 The day's own parts (find your seat, photos, announcements, live hub):
+      // the canvas draws their stand-ins, so the navigator lists them.
+      dayParts: true,
       storyRenders: ourStoryRenders(event.love_story),
       countdownPast: countdownMs !== null && countdownMs <= Date.now(),
     },
@@ -1281,7 +1311,21 @@ export default async function WebsiteEditorPage({
         startingHint: INVITATION_WORDS_HINT,
       }}
       elementEditing={{
-        canvases: Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
+        canvases: {
+          ...Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
+          /* 🎞 Post Event's scenes, as the part sheet sees them: each scene's part
+             looks (`sceneLooks[<scene>].elements`) under its own scope, drafted
+             over live — so a part edited there is held on the canvas like any
+             section's (`element-preview.ts`). */
+          ...(postEvent.ok
+            ? Object.fromEntries(
+                Object.entries(postEvent.arrangement.sceneLooks).map(([key, look]) => [
+                  postEventElementScope(key),
+                  look.elements ? { elements: look.elements } : {},
+                ]),
+              )
+            : {}),
+        },
         palette: (() => {
           const pal = INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES]?.palette ?? INVITE_THEMES.house.palette;
           return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };
@@ -1305,6 +1349,7 @@ export default async function WebsiteEditorPage({
         openBrowse,
         hideLocked: storeShell,
         twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
+        eventType: (event.event_type as string | null) ?? null,
         /* The hero is the invitation card unless there is a hero photo/video or
            the page is solemn — the same two facts the navigator's hero tile
            reads (`hasHeroMedia`, `solemn` above), and the ones the guest page
@@ -1312,6 +1357,7 @@ export default async function WebsiteEditorPage({
         heroCard:
           !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
         heroPhoto: Boolean(heroRef || videoRef),
+        fixedStyles,
       }}
       rows={rows}
       themes={themes}
@@ -1348,6 +1394,22 @@ export default async function WebsiteEditorPage({
           return d !== null && d >= 0 ? d : null;
         })(),
       }}
+      /* 🎞 Post Event's twelve presets — every couple may try one in the draft
+         (Pro is asked for at Apply, E3); six of their own, shared across stages
+         (E5). #6091's Maker rule, `makerProUsable` (owns || !storeShell): in the
+         store shell a couple WITHOUT Pro is shown no tile, diamond or note — a
+         Pro hint there is a purchase hint; a couple who owns Pro keeps them. */
+      postEventPresets={
+        !makerProUsable({ owns: ownsPro, storeShell })
+          ? null
+          : {
+              action: addCustomSection,
+              returnTo: `/dashboard/${eventId}/launch`,
+              used: allWidgets.filter((w) => isCustomSectionType(w.widget_type)).length,
+              ownsPro,
+              storeShell,
+            }
+      }
       addScene={
         storeShell
           ? null

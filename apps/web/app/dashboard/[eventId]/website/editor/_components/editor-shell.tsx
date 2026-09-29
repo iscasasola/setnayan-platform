@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowUpRight, Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
+import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
@@ -23,7 +23,6 @@ import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, stageTakesOwnScenes, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
-import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
@@ -82,6 +81,11 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
+import { FixedSceneStyleRow, PostEventAddScene, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
+import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
+import { postEventSetElements } from '@/lib/post-event-draft';
+import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
 import { SceneBackgroundRow } from '../../../launch/_components/details-lazy';
@@ -234,6 +238,7 @@ export function MakerWork({
   proPriceLabel,
   showProCta,
   addScene = null,
+  postEventPresets = null,
   sceneFacts = null,
   madeOnce = null,
   revealStages = ['save_the_date'],
@@ -261,6 +266,8 @@ export function MakerWork({
     hideLocked: boolean;
     /** Two people at the centre — the hero has a Joiner to style. */
     twoPeople: boolean;
+    /** 🎨 The event type — a scene's styles adapt to it (`lib/scene-styles.ts`). */
+    eventType?: string | null;
     /**
      * The hero is the invitation card (no hero photo, not the solemn register)
      * — it draws the line, time and link; otherwise the venue. Absent = every
@@ -269,6 +276,8 @@ export function MakerWork({
     heroCard?: boolean;
     /** A hero photo/video — its cover plate draws the Photo caption. Absent = listed. */
     heroPhoto?: boolean;
+    /** 🎨 The five fixed parts' style picks, live with the draft laid on (`lib/fixed-scene-styles.ts`). */
+    fixedStyles?: FixedSceneStyles;
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -323,6 +332,13 @@ export function MakerWork({
       }
     | { note: string }
     | null;
+  /**
+   * 🎞 POST EVENT'S "+" — its twelve presets (`lib/post-event-presets.ts`),
+   * posted to the SAME `addCustomSection` draft door with `post_event_preset`.
+   * Offered to every couple (Pro is asked for at Apply — E3), null in the store
+   * shell. `used` = their own scenes across every stage (six, shared — E5).
+   */
+  postEventPresets?: { action: FormAction; returnTo: string; used: number; ownsPro: boolean; storeShell: boolean } | null;
   proUnlockHref: string;
   /** The live catalogue price, formatted — null when unread (never remembered). */
   proPriceLabel: string | null;
@@ -455,6 +471,9 @@ export function MakerWork({
      2026-09-28: every pick the bridge already drew keeps the page; a render
      that drew other scenes still reloads). */
   const canvasOrder = canvasOrderOf(navigator.stageLists);
+  /* 🎨 Post Event scenes drawn in a style → the style, resolved on the server
+     (`maker-navigator-data.ts`), so the Maker never loads the style registry. */
+  const peStyles = navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent.styles : null;
   const canvasOrderRef = useRef(canvasOrder);
   canvasOrderRef.current = canvasOrder;
   useEffect(() => {
@@ -515,6 +534,11 @@ export function MakerWork({
   const setAddScene = maker?.setAddScene;
   useEffect(() => {
     if (!setAddScene) return;
+    if (stage === 'editorial' && postEventPresets) {
+      // 🎞 Post Event's own presets — ready for every couple (Pro at Apply).
+      setAddScene({ kind: 'ready', open: () => setAddOpen(true), tried: !postEventPresets.ownsPro });
+      return () => setAddScene(null);
+    }
     if (!addScene || !stageTakesOwnScenes(stage)) {
       setAddScene(null);
       return;
@@ -525,7 +549,7 @@ export function MakerWork({
         : { kind: 'refused', note: addScene.note },
     );
     return () => setAddScene(null);
-  }, [setAddScene, addScene, stage]);
+  }, [setAddScene, addScene, postEventPresets, stage]);
 
   /* The scene just added is SELECTED once the render that carries it lands.
      A tile's post lands back on this very address (`lib/maker-stay.ts` — the
@@ -802,7 +826,17 @@ export function MakerWork({
           event.source,
         );
         postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: data.key }, event.source);
-        const widgetType = data.key === 'f:hero' ? 'hero' : data.key.startsWith('w:') ? data.key.slice(2) : null;
+        /* 🎞 A Post Event scene drawn in its style: its parts are its own
+           (`pe_<scene>`), saved into the story's looks, never a section row. */
+        const peScene = data.key.startsWith('p:') ? data.key.slice(2) : null;
+        const widgetType =
+          data.key === 'f:hero'
+            ? 'hero'
+            : data.key.startsWith('w:')
+              ? data.key.slice(2)
+              : peScene && peStyles?.[peScene]
+                ? postEventElementScope(peScene)
+                : null;
         const el = data.el;
         setElementTarget((prev) =>
           isHubElementKey(el) && elementEditingOn && widgetType
@@ -1449,6 +1483,17 @@ export function MakerWork({
       format:
         elementEditing && sceneFormat ? (
           <>
+            {/* 🎨 Style — one dropdown, free; drawn only where the registry
+                offers this scene a choice on this stage. */}
+            <SceneStyleCanvasRow
+              key={`style-${type}`}
+              eventId={eventId}
+              widgetType={type}
+              canvas={canvas}
+              stage={stage}
+              eventType={sceneFormat.eventType ?? null}
+              draftAction={elementEditing.draftAction}
+            />
             <SceneBackgroundRow
               key={type}
               eventId={eventId}
@@ -1679,6 +1724,13 @@ export function MakerWork({
                   Your story’s scenes could not be read just now. The story itself is unchanged — open the Maker
                   again in a moment.
                 </InfoTip>
+              ) : !navigator.postEvent.dayHappened ? (
+                /* 🕰 Before the day — the same scenes, waiting (owner 2026-09-25). */
+                <InfoTip className="min-w-0 max-w-full" label="Before the day · scenes wait" align="start">
+                  Post Event is its own scenes, and each one is here already. The ones marked Not yet fill themselves
+                  from your day once it has happened — until then your guests never meet an empty box. Pick each
+                  scene’s style, hide the ones you do not want and move them earlier or later.
+                </InfoTip>
               ) : (
                 <InfoTip className="min-w-0 max-w-full"
                   label={`Auto · written ${new Date(navigator.postEvent.generatedAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`}
@@ -1788,7 +1840,7 @@ export function MakerWork({
                       aria-label={
                         tile.kind === 'post-event'
                           ? postEventTileLabel(tile)
-                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ' (always here on this stage · comes from your guest list)' : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
+                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ` (always here on this stage · comes from ${MAKER_FIXED_SOURCE[tile.fixed]!.from ?? 'your guest list'})` : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
                       }
                       onClick={() => {
                         select?.(selectionForTile(tile));
@@ -1988,7 +2040,27 @@ export function MakerWork({
                 Adding your scene…
               </p>
             ) : null}
-            {!stageTakesOwnScenes(stage) ? null : addScene && 'action' in addScene ? (
+            {stage === 'editorial' && postEventPresets ? (
+              /* 🎞 POST EVENT'S OWN "+" (owner 2026-09-25) — its twelve
+                 presets, not the 25 templates; each ◆ Pro, each placed in the
+                 draft at once (try-then-pay: Apply asks for Pro). */
+              <div className="pl-4">
+                <PostEventAddScene
+                  overlay
+                  draft
+                  open={addOpen}
+                  onOpenChange={setAddOpen}
+                  onPick={onPickTemplate}
+                  action={postEventPresets.action}
+                  hidden={{ event_id: eventId, return_to: postEventPresets.returnTo }}
+                  stageLabel={PUBLIC_STAGE_LABELS.editorial}
+                  heading="Add a scene ·"
+                  triggerLabel="+ Add a scene"
+                  initialView={maker?.device === 'phone' ? 'phone' : 'desktop'}
+                  presets={{ used: postEventPresets.used, ownsPro: postEventPresets.ownsPro, storeShell: postEventPresets.storeShell }}
+                />
+              </div>
+            ) : !stageTakesOwnScenes(stage) ? null : addScene && 'action' in addScene ? (
               /* 🎬 "+" opens the 25 templates, headed with the stage being
                  edited and drawn in the view being edited (owner 2026-09-24).
                  💾 A tile ADDS INTO THE DRAFT (`draft`): the scene is on the
@@ -2185,12 +2257,51 @@ export function MakerWork({
           draftAction={elementEditing.draftAction}
           resize={toolsResize}
           parts={elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}
+          /* 🎞 A Post Event scene's part: saved into the story's looks, and its
+             own words edited right here (no "Edit in … ↗"). */
+          {...(() => {
+            const peScene = postEventSceneOfScope(elementTarget.widgetType);
+            const pe = navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent : null;
+            if (!peScene || !pe) return {};
+            // 🎨 The style it is drawn in, resolved on the server (`postEvent.styles`).
+            const drawn = pe.styles[peScene] ?? null;
+            const words = drawn ? postEventWordParts(peScene, drawn) : [];
+            const el = elementTarget.el;
+            return {
+              saveCanvasWith: (next: HubSectionCanvas) => {
+                const patch = postEventSetElements(pe.arrangement, peScene, next.elements ?? null);
+                const fd = new FormData();
+                fd.set('intent', 'save');
+                fd.set('patch', JSON.stringify({ editorial: patch ?? {} }));
+                return elementEditing.draftAction(eventId, fd);
+              },
+              wordsSlot:
+                el === 'label' || el === 'heading' || el === 'body'
+                  ? words.includes(el)
+                    ? (
+                        <PostEventWordsField
+                          key={`${peScene}:${el}`}
+                          eventId={eventId}
+                          scene={peScene}
+                          part={el}
+                          arrangement={pe.arrangement}
+                          draftAction={elementEditing.draftAction}
+                        />
+                      )
+                    : null
+                  : null,
+            };
+          })()}
           onPart={(el) => {
             postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el });
             setElementTarget({ key: elementTarget.key, widgetType: elementTarget.widgetType, el });
           }}
           sceneLabel={
-            elementTarget.widgetType === 'hero' ? 'Names & date' : (scenes.find((sc) => sc.type === elementTarget.widgetType)?.label ?? undefined)
+            elementTarget.widgetType === 'hero'
+              ? 'Names & date'
+              : postEventSceneOfScope(elementTarget.widgetType)
+                ? (list.shown.find((t) => t.kind === 'post-event' && postEventElementScope(t.scene) === elementTarget.widgetType)?.label ?? undefined)
+                : (scenes.find((sc) => sc.type === elementTarget.widgetType)?.label ?? undefined)
           }
           onOpenHero={elementTarget.widgetType === 'hero' ? () => select?.({ kind: 'tool', key: 'hero' }) : undefined}
           usedColours={usedColours}
@@ -2297,7 +2408,54 @@ export function MakerWork({
               ? ((list.shown.find((t) => t.kind === 'post-event' && t.scene === selection.scene) as PostEventTile | undefined) ?? null)
               : null
           }
-          postEventWrittenAt={navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent.generatedAt : null}
+          postEventPanel={(() => {
+            if (selection.kind !== 'post-event') return null;
+            const tile = list.shown.find((t) => t.kind === 'post-event' && t.scene === selection.scene) as PostEventTile | undefined;
+            const pe = navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent : null;
+            if (!tile || !elementEditing) return null;
+            return (
+              <PostEventScenePanel
+                key={tile.scene}
+                eventId={eventId}
+                tile={tile}
+                arrangement={pe?.arrangement ?? null}
+                writtenAt={pe?.generatedAt ?? null}
+                dayHappened={pe?.dayHappened ?? true}
+                eventType={sceneFormat?.eventType ?? null}
+                sectionCanvases={elementEditing.canvases}
+                draftAction={elementEditing.draftAction}
+                onPart={
+                  pe?.styles[tile.scene]
+                    ? (el) => {
+                        postToShownCanvases({
+                          source: 'setnayan-editor',
+                          t: 'markEl',
+                          key: `p:${tile.anchor?.slice(2) ?? tile.scene}`,
+                          el,
+                        });
+                        setElementTarget({ key: tile.anchor ?? `p:${tile.scene}`, widgetType: postEventElementScope(tile.scene), el });
+                      }
+                    : null
+                }
+              />
+            );
+          })()}
+          fixedStylePanel={(() => {
+            if (selection.kind !== 'row' || !elementEditing) return null;
+            const fixed = fixedOfKey(selection.key);
+            if (!fixed || !isFixedStyleScene(fixed)) return null;
+            return (
+              <FixedSceneStyleRow
+                key={`${fixed}:${stage}`}
+                eventId={eventId}
+                scene={fixed}
+                stage={stage}
+                eventType={sceneFormat?.eventType ?? null}
+                picked={sceneFormat?.fixedStyles?.[fixed] ?? null}
+                draftAction={elementEditing.draftAction}
+              />
+            );
+          })()}
           scene={selectedScene}
           scenePanel={selectedScene ? scenePanels[selectedScene.id] : null}
           sceneTabs={sceneTabs}
@@ -2396,31 +2554,8 @@ function isShellPage(key: string): key is 'details' {
 
 
 
-/* ── 📖 POST EVENT TILES (Maker Phase 8) ─────────────────────────────────── */
-type PostEventTile = Extract<MakerStageList['shown'][number], { kind: 'post-event' }>;
-
-/** The one word on the tile — what filled it, or why guests do not meet it. */
-function postEventStatusWord(tile: PostEventTile): string {
-  if (tile.status === 'skipped') return 'Skipped';
-  if (tile.status === 'optional') return 'Optional';
-  if (tile.hidden) return 'Hidden';
-  return 'Auto';
-}
-
-function postEventTileLabel(tile: PostEventTile): string {
-  if (tile.status === 'skipped') return `${tile.label} (skipped — ${tile.note ?? 'nothing to show yet'})`;
-  if (tile.status === 'optional') return `${tile.label} (optional — ${tile.note ?? 'not chosen'})`;
-  if (tile.hidden) return `${tile.label} (hidden from guests)`;
-  return `${tile.label} (written for you)`;
-}
-
-/** The ⓘ under the tile: the template, and what filled it or why it is skipped. */
-function postEventTileNote(tile: PostEventTile): string {
-  const tpl = tile.template ? `${tile.template} · ${SCENE_TEMPLATES[tile.template]?.name ?? ''}` : 'Its own part of the page';
-  const what = tile.status === 'auto' ? `Filled from: ${tile.source}` : (tile.note ?? '');
-  const open = tile.open ? ' A tap opens it full screen; Back returns to the same place.' : '';
-  return `${tpl}. ${what}.${open}`;
-}
+/* ── 📖 POST EVENT TILES (Maker Phase 8) — their words live beside the scene
+   panel (`post-event-scene-panel.tsx`), one place for both. ──────────── */
 
 
 
@@ -2663,7 +2798,8 @@ function Inspector({
   sceneTabs = null,
   contentBound = null,
   postEventTile = null,
-  postEventWrittenAt = null,
+  postEventPanel = null,
+  fixedStylePanel = null,
   scene,
   scenePanel,
   rows,
@@ -2698,8 +2834,10 @@ function Inspector({
   selection: NonNullable<MakerSelection>;
   /** 📖 The selected Post Event scene's tile (Maker Phase 8). */
   postEventTile?: PostEventTile | null;
-  /** When the story was written — shown as the scene's "Auto · written …". */
-  postEventWrittenAt?: string | null;
+  /** 🎞 The selected Post Event scene's own panel (`post-event-scene-panel.tsx`). */
+  postEventPanel?: ReactNode;
+  /** 🎨 A fixed part's Style row (the entourage and the day's own parts) — its Format, Style only. */
+  fixedStylePanel?: ReactNode;
   scene: MakerScene | null;
   scenePanel: ReactNode;
   rows: Record<string, MakerRowPanel>;
@@ -2738,57 +2876,21 @@ function Inspector({
   let body: ReactNode = null;
   if (selection.kind === 'post-event') {
     /*
-      📖 A SCENE THE MAKER WROTE (Phase 8). It says what it is, what filled it
-      — or why it is skipped — and where it is changed. Showing, hiding and
-      the order of these scenes live in the story workroom until that desk
-      moves into the Maker (the story's `sections` / `sectionOrder` are the one
-      source for both, so the two can never disagree).
+      📖 ONE POST EVENT SCENE (Phase 8 → owner 2026-09-25, "POST EVENT IS MANY
+      SMALL SCENES"; 2026-09-29, "EVERY STYLE OF EVERY SCENE SHIPS"). Its own
+      panel: Style · Shown · Order · its parts · what fills it. Every control
+      saves to the DRAFT (`post-event-scene-panel.tsx`), built on the story's
+      own keys, so the workroom and the Maker can never disagree about one
+      fact — and nothing here sends the couple anywhere else.
     */
     const t = postEventTile;
     body = t ? (
-      <section className="space-y-3 px-1" data-maker-post-event-panel={t.scene}>
-        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/60">
-          {postEventStatusWord(t)}
-          {t.status === 'auto' && postEventWrittenAt
-            ? ` · written ${new Date(postEventWrittenAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`
-            : ''}
-        </p>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[13px]">
-          <dt className="text-ink/60">Template</dt>
-          <dd className="text-ink">
-            {t.template ? `${t.template} · ${SCENE_TEMPLATES[t.template]?.name ?? ''}` : 'Its own part of the page'}
-          </dd>
-          <dt className="text-ink/60">{t.status === 'auto' ? 'Filled from' : 'Why'}</dt>
-          <dd className="text-ink">{t.status === 'auto' ? t.source : t.note}</dd>
-          {t.open ? (
-            <>
-              <dt className="text-ink/60">On the page</dt>
-              <dd className="text-ink">A preview in the flow; a tap opens it full screen, and Back returns to it.</dd>
-            </>
-          ) : null}
-          {t.pinned ? (
-            <>
-              <dt className="text-ink/60">Place</dt>
-              <dd className="text-ink">Fixed — the story always {t.scene === 'cover' ? 'opens' : 'closes'} here.</dd>
-            </>
-          ) : null}
-        </dl>
-        {t.status === 'skipped' ? (
-          <p className="text-[13px] text-ink/70">
-            Nothing is shown to guests here — never an empty box. It appears on its own when something arrives.
-          </p>
-        ) : null}
-        <Link
-          href={`/dashboard/${eventId}/story`}
-          className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-5 text-sm font-semibold text-cream hover:bg-ink/90"
-        >
-          Show, hide or reorder in your story workroom
-          <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
+      <>
+        {postEventPanel}
         {(TOOL_ROWS['post-event'] ?? []).filter((k) => rows[k]).map((k) => (
           <RowBlock key={k} row={rows[k]!} />
         ))}
-      </section>
+      </>
     ) : (
       <p className="px-1 text-[13px] text-ink/70">This scene is not on this stage.</p>
     );
@@ -2829,6 +2931,8 @@ function Inspector({
     const f = fixedScenePanel(fixed);
     body = (
       <section className="space-y-3 px-1" data-maker-fixed-panel={fixed}>
+        {/* 🎨 Its Style first — the same one row every scene wears. */}
+        {fixedStylePanel}
         {fixedFact ? null : <p className="text-[13px] text-ink/75">{f.line}</p>}
         {fixedFact}
         {!fixedFact && f.tool && f.button ? (

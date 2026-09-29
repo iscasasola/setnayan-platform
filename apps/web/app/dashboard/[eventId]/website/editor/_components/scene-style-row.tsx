@@ -27,7 +27,7 @@ import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
 import { IRow } from './inspector-kit';
 import { PickMenu } from './pick-menu';
-import { useSceneCanvas } from './scene-inspector';
+import { useSceneCanvas } from './use-scene-canvas';
 import type { ElementDraftAction } from './element-sheet';
 
 export type SceneStyleChoice = { id: string; name: string; line: string; isDefault: boolean };

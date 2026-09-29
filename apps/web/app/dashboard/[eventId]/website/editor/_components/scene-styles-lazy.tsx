@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { SlotButton, SlotRows } from '../../../launch/_components/lazy-slot';
+import { SlotRows } from '../../../launch/_components/lazy-slot';
 
 /**
  * ⚡ THE STYLE ROWS AND THE POST EVENT PANEL LOAD WHEN THEY ARE FIRST OPENED —
@@ -22,8 +22,9 @@ import { SlotButton, SlotRows } from '../../../launch/_components/lazy-slot';
  * already prefetches that chunk when it is idle (`prefetchDetails`), so a tap
  * almost never sees the slot.
  *
- * The Post Event stage's "+" (`post-event-add-scene.tsx`, with its twelve
- * presets' words) loads the first time that stage is drawn.
+ * The Post Event stage's "+" is the shipped picker itself (first screen); its
+ * twelve preset tiles (`post-event-preset-tiles.tsx`, with the presets' words)
+ * load in this same chunk when the sheet opens.
  *
  * What stays in the first load, on purpose: the navigator's Post Event tile
  * words (`post-event-tile-words.ts`) — the rows are on the first screen.
@@ -43,8 +44,4 @@ export const PostEventScenePanel = dynamic(
 export const PostEventWordsField = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './post-event-scene-panel').then((m) => m.PostEventWordsField),
   { loading: SlotRows },
-);
-export const PostEventAddScene = dynamic(
-  () => import(/* webpackChunkName: "maker-details" */ './post-event-add-scene').then((m) => m.PostEventAddScene),
-  { loading: SlotButton },
 );

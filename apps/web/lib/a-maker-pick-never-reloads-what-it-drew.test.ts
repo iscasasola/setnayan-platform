@@ -252,7 +252,8 @@ test('only saves the bridge drew are marked held; the shell announces every form
   ];
   for (const f of held) assert.match(read(f), /makerSave\([\s\S]*?\{ held: true \}\)/, `${f}: a drawn pick must be held`);
   for (const f of [
-    'app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx',
+    // The scene inspector's save is `useSceneCanvas`, in its own module since train n.
+    'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts',
     'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
     'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx',

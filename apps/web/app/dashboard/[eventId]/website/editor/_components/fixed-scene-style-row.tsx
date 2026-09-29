@@ -51,10 +51,11 @@ export function FixedSceneStyleRow({
       recommendedId={recommendedStageSceneStyle(scene, stage, eventType)}
       pending={pending}
       error={error}
-      onPick={(id) =>
+      onPick={(id) => {
+        /* Drawn at the tap, then saved behind it (`every-maker-edit-shows-before-it-saves`). */
+        setError(null);
+        setShown(id);
         start(async () => {
-          setError(null);
-          setShown(id);
           try {
             const fd = new FormData();
             fd.set('intent', 'save');
@@ -68,8 +69,8 @@ export function FixedSceneStyleRow({
             setShown(picked);
             setError('That change could not be saved. Please try again — nothing was lost.');
           }
-        })
-      }
+        });
+      }}
     />
   );
 }

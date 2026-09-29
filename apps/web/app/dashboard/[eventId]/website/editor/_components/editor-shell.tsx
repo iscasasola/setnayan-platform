@@ -81,7 +81,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { FixedSceneStyleRow, PostEventAddScene, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { FixedSceneStyleRow, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import { postEventSetElements } from '@/lib/post-event-draft';
@@ -2045,7 +2045,7 @@ export function MakerWork({
                  presets, not the 25 templates; each ◆ Pro, each placed in the
                  draft at once (try-then-pay: Apply asks for Pro). */
               <div className="pl-4">
-                <PostEventAddScene
+                <SceneTemplatePicker
                   overlay
                   draft
                   open={addOpen}

@@ -5,12 +5,17 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { formatCount } from '@/lib/format-number';
-import type { PostEventPreset } from '@/lib/post-event-presets';
+import { POST_EVENT_PRESETS } from '@/lib/post-event-presets';
 import { HubDraftField } from '../../_components/hub-draft-field';
-import { MAX_OWN_SCENES, Thumb, type SceneView } from './scene-template-picker';
+import { MAX_OWN_SCENES, Thumb } from './scene-thumb';
+import type { SceneView } from './scene-template-picker';
 
-/** What the sheet is handed for Post Event: the twelve, the six slots used, and Pro. */
-export type PostEventPresetsProp = { items: readonly PostEventPreset[]; used: number; ownsPro: boolean; storeShell: boolean };
+/**
+ * What the sheet is handed for Post Event: the six slots used, and Pro. The
+ * twelve themselves (`POST_EVENT_PRESETS`) travel HERE, in this lazy module —
+ * never in the Maker's first load (`scripts/check-maker-js-budget.mjs`).
+ */
+export type PostEventPresetsProp = { used: number; ownsPro: boolean; storeShell: boolean };
 
 /**
  * THE TWELVE, as tiles — a real mini picture of the template each is drawn
@@ -56,7 +61,7 @@ export function PresetTiles({
             : 'Every preset is part of Event Hub Pro — try it now; Pro is asked for when you press Apply.'}
       </p>
       <div className={`mt-2 grid gap-2 ${view === 'desktop' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
-        {presets.items.map((p) => {
+        {POST_EVENT_PRESETS.map((p) => {
           const t = SCENE_TEMPLATES[p.template];
           return (
             <form key={p.id} action={action} onSubmit={() => onPick?.(p.template)} className="relative">

@@ -177,9 +177,11 @@ export function PostEventScenePanel({
             type="button"
             role="switch"
             aria-checked={!hiddenNow}
-            disabled={pending}
             data-post-event-eye={hiddenNow ? 'show' : 'hide'}
-            onClick={() => save({ editorial: postEventShow(arrangement, tile.switchKey!, tile.hidden) }, { hidden: !tile.hidden })}
+            /* Flips at the tap and saves behind it — never greyed while a save
+               runs (`every-maker-edit-shows-before-it-saves` D). Read from what
+               is DRAWN, so a second tap before the first answers flips back. */
+            onClick={() => save({ editorial: postEventShow(arrangement, tile.switchKey!, hiddenNow) }, { hidden: !hiddenNow })}
             className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink/5 px-3 text-sm font-semibold text-ink hover:bg-ink/10 disabled:opacity-40"
           >
             {hiddenNow ? <EyeOff aria-hidden className="h-4 w-4" strokeWidth={1.75} /> : <Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} />}

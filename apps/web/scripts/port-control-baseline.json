@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ee0a5e222",
+  "generatedFromRef": "462e86c24",
   "routeCount": 437,
   "destinations": 946,
   "actions": 673,
-  "blocks": 5225,
+  "blocks": 5224,
   "routes": {
     "/": {
       "files": [
@@ -8801,7 +8801,6 @@
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-place.ts",
         "dashboard/[eventId]/website/editor/_components/pick-menu.tsx",
-        "dashboard/[eventId]/website/editor/_components/post-event-add-scene.tsx",
         "dashboard/[eventId]/website/editor/_components/post-event-preset-tiles.tsx",
         "dashboard/[eventId]/website/editor/_components/post-event-scene-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/post-event-tile-words.ts",
@@ -8816,10 +8815,12 @@
         "dashboard/[eventId]/website/editor/_components/scene-style-row.tsx",
         "dashboard/[eventId]/website/editor/_components/scene-styles-lazy.tsx",
         "dashboard/[eventId]/website/editor/_components/scene-template-picker.tsx",
+        "dashboard/[eventId]/website/editor/_components/scene-thumb.tsx",
         "dashboard/[eventId]/website/editor/_components/sections-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/text-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/tools-resize.tsx",
         "dashboard/[eventId]/website/editor/_components/unlock-label.ts",
+        "dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts",
         "dashboard/[eventId]/website/editor/actions.ts",
         "dashboard/[eventId]/website/editor/page.tsx"
       ],
@@ -8936,7 +8937,6 @@
         "PhotoTile",
         "PickListPlacement",
         "PickMenu",
-        "PostEventAddScene",
         "PostEventDrawn",
         "PostEventScenePanel",
         "PostEventWordsField",

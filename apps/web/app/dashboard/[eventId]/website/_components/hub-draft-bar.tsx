@@ -2,10 +2,11 @@
 
 import { MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
+import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDetail } from './maker-press-apply';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Check, MoreVertical, RotateCcw, Undo2 } from 'lucide-react';
 import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
@@ -215,6 +216,30 @@ export function HubDraftToolbar({
     run(fields);
     setAsking(false);
   };
+  /* The guided flow's Ready screen presses THIS Apply (`maker-press-apply.ts`):
+     the same three answers the button gives, and the first of the two mounted
+     bars answers — one press is one Apply. */
+  const pressRef = useRef<() => MakerApplyOutcome>(() => 'nothing');
+  pressRef.current = () => {
+    if (pending) return 'busy';
+    if (!summary.hasChanges) return 'nothing';
+    if (asksForPro) {
+      setSheetOpen(true);
+      return 'pro-sheet';
+    }
+    act({ intent: 'apply' });
+    return 'applying';
+  };
+  useEffect(() => {
+    const press = (e: Event) => {
+      const detail = (e as CustomEvent<MakerPressApplyDetail>).detail;
+      if (!detail || detail.handled) return;
+      detail.handled = true;
+      detail.outcome = pressRef.current();
+    };
+    window.addEventListener(MAKER_PRESS_APPLY_EVENT, press);
+    return () => window.removeEventListener(MAKER_PRESS_APPLY_EVENT, press);
+  }, []);
   /** "Go to" — the stage it is on, the scene (or row / tool), then its part. */
   const goTo = (effect: HubProEffectView) => {
     const j = effect.jump;

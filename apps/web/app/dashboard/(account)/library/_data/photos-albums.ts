@@ -1,3 +1,4 @@
+import { logoPlaysFor } from '@/lib/logo-plays.server';
 import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
@@ -56,6 +57,10 @@ export type Album = {
    * not "where may THIS PERSON go?". `href` below is the second question.
    */
   slug: string | null;
+  /** The event's logo moves and the animation is on (`logoPlaysFor`) — the
+   *  card's mark plays it (owner 2026-09-29, "all logos should animate if
+   *  animation is active"). No read for a logo that does not move. */
+  markPlays: boolean;
   /**
    * Where the card opens FOR THIS USER — `lib/event-board.eventAlbumHref`, the
    * one place that answers "where may this member_type go".
@@ -247,11 +252,14 @@ export async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData>
         thumbs = [];
       }
 
+      const markPlays = await logoPlaysFor(event.event_id, event.monogram_custom_svg);
+
       return {
         event,
         role: event.role,
         count,
         thumbs,
+        markPlays,
         slug: slugByEvent.get(event.event_id) ?? null,
         href: eventAlbumHref({
           event_id: event.event_id,

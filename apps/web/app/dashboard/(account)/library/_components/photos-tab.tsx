@@ -308,7 +308,7 @@ function AlbumCard({ album }: { album: Album }) {
       {/* Card body */}
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-start gap-3">
-          <EventMonogram event={event} size="lg" />
+          <EventMonogram event={event} size="lg" plays={album.markPlays} place="album-card" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="truncate text-sm font-semibold text-ink">

@@ -8,6 +8,7 @@ import { renderableImageSrc } from '@/lib/event-card-art';
 import { resolveEventPoster } from '@/lib/event-poster.server';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
+import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveMonogram } from '@/lib/monogram';
 import { fetchRevealConfig } from '@/lib/reveal-config';
 import { REVEAL_NONE } from '@/lib/reveal-access';
@@ -171,6 +172,8 @@ export async function MakerHeroPanel({
     heroSrc,
   ).catch(() => null);
   const markSvg = resolveEventMonogramSvg(drafted);
+  // ▶ The poster's logo plays as it will for guests (owner 2026-09-29).
+  const markPlays = await logoPlaysFor(eventId, markSvg);
   const returnTo = `/dashboard/${eventId}/launch?tool=hero`;
   const canUpload = ownsPro || !storeShell;
   const photoMark = makerProMark({ owns: ownsPro, storeShell });
@@ -196,6 +199,8 @@ export async function MakerHeroPanel({
               poster={poster}
               markText={resolveMonogram(drafted).text}
               markSvgUri={markSvg ? bespokeSvgToDataUri(markSvg) : null}
+              markSvg={markSvg}
+              markPlays={markPlays}
             />
           ) : (
             <p className="p-2 text-[11px] text-ink/60">The poster preview could not be drawn.</p>

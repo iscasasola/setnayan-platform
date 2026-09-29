@@ -40,6 +40,7 @@ import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/l
 import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { CoupleLogo } from '@/app/_components/couple-logo';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
@@ -321,10 +322,20 @@ function FilmMonogram({
         </span>
       );
     }
+    // ▶ Owned but no studio reveal threaded here: a MOVING layered logo still
+    // plays (owner 2026-09-29, "all logos should animate if animation is
+    // active"); any other mark, or a couple without the animation, is still.
     return (
       <span aria-hidden className={`${sizeCls} inline-flex items-center justify-center`} style={{ filter: glow }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={bespokeSvgToDataUri(svg)} alt="" className="h-full w-full object-contain" />
+        <CoupleLogo
+          svg={svg}
+          plays={Boolean(animatedMonogram)}
+          place="std-film"
+          still={
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={bespokeSvgToDataUri(svg)} alt="" className="h-full w-full object-contain" />
+          }
+        />
       </span>
     );
   }

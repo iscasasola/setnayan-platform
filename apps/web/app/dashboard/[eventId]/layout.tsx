@@ -20,6 +20,7 @@ import { railToolsSignedIn } from '@/lib/studio-rail';
 import type { EventStudioRow } from '@/lib/customer-menu';
 import { EventRailContext } from './_components/event-rail-context';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { logoPlaysFor } from '@/lib/logo-plays.server';
 import {
   eventRailMatchRows,
   type EventRailInputs,
@@ -372,6 +373,14 @@ export default async function EventLayout({ children, params }: Props) {
   const plaqueName =
     ((event.display_name as string | null) ?? '').trim() || `Your ${plaqueTypeLabel}`;
   const homeLabel = 'Home · all your events';
+  /* ▶ The rail chip's logo, and whether it plays (owner 2026-09-29: "all
+     logos should animate if animation is active"). 🔑 A logo that does not
+     move asks nothing — `logoPlaysFor` returns before any read — so this
+     layout pays for the gate only when there is a moving logo to play. */
+  const railMarkPlays = await logoPlaysFor(
+    eventId,
+    resolveEventMonogramSvg(event as { monogram_uploaded_svg?: string | null; monogram_custom_svg?: string | null }),
+  );
 
   /*
     ─── THE EVENT'S OWN TOP-BAR CLUSTER (One top bar, 2026-08-14) ───────────
@@ -573,6 +582,7 @@ export default async function EventLayout({ children, params }: Props) {
                   monogram_custom_svg?: string | null;
                 },
               ),
+              plays: railMarkPlays,
             }}
           />
         }

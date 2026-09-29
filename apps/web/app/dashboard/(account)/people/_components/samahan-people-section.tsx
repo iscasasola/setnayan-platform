@@ -17,7 +17,13 @@ import { formatCount } from '@/lib/format-number';
  * stays on its own page under Spaces; this is the relational view, not a
  * second door.
  */
-export async function SamahanPeopleSection() {
+export async function SamahanPeopleSection({
+  heading = true,
+}: {
+  /** False in the Samahan VIEW, where the page's picker already names it
+   *  (owner 2026-09-28, People redesign). The coming-soon preview keeps it. */
+  heading?: boolean;
+} = {}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -26,7 +32,7 @@ export async function SamahanPeopleSection() {
 
   const admin = createAdminClient();
   // 2°→1° upgrade (flag-gated): mark co-members I already have a pending or
-  // confirmed edge with, so their chips carry no Connect affordance.
+  // confirmed edge with, so their chips carry no Add affordance.
   const connectionsOn = peopleConnectionsEnabled();
   const knownUserIds = connectionsOn ? await fetchKnownConnectionUserIds(supabase, admin, user.id) : new Set<string>();
   const [communities, secondDegree] = await Promise.all([
@@ -36,12 +42,15 @@ export async function SamahanPeopleSection() {
   const active = communities.filter((c) => !c.archived);
 
   return (
-    <section className="mt-10">
-      <header className="mb-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
-          Groups
-        </h2>
-      </header>
+    <section aria-label="Groups" className={heading ? 'mt-10' : undefined}>
+      {heading ? (
+        <header className="mb-3">
+          {/* The People page's one heading style (the roster's rule). */}
+          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">
+            Groups
+          </h2>
+        </header>
+      ) : null}
 
       {active.length > 0 ? (
         <ul className="mb-4 space-y-2.5">
@@ -75,7 +84,7 @@ export async function SamahanPeopleSection() {
 
       {secondDegree.length > 0 ? (
         <div>
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-ink/40">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">
             Through your groups — second degree
           </p>
           <ul className="mt-2 flex flex-wrap gap-2">
@@ -93,7 +102,10 @@ export async function SamahanPeopleSection() {
                       className="rounded-full border border-ink/15 bg-cream px-2 py-0.5 text-[0.7rem] font-medium text-ink/70 transition-colors hover:bg-ink/5"
                       pendingLabel="…"
                     >
-                      Connect
+                      {/* "Add", never "Connect" — the same request the rest of
+                          the page calls Add (owner 2026-09-28: one word per
+                          concept). */}
+                      Add
                     </SubmitButton>
                   </form>
                 ) : null}

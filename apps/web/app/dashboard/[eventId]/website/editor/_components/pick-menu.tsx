@@ -36,6 +36,9 @@ export type PickOption = {
   label: string;
   /** The terracotta "live today" dot, beside the label. */
   dot?: boolean;
+  /** The words beside the dot in the open list. Default "live today" (the
+   *  Maker's stages); the People picker says "waiting on you" for Requests. */
+  dotNote?: string;
   /** Listed but not pickable, with its reason (a tab that opens its own page). */
   disabledNote?: string;
   /** Draw the option IN a face (the font dropdown — each font in its own face). */
@@ -244,7 +247,7 @@ export function PickMenu({
           <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
             {o.label}
           </span>
-          {o.dot ? <span className="text-[12px] font-medium opacity-70">· live today</span> : null}
+          {o.dot ? <span className="text-[12px] font-medium opacity-70">· {o.dotNote ?? 'live today'}</span> : null}
           {o.disabledNote ? <span className="text-[12px] font-medium">· {o.disabledNote}</span> : null}
         </button>
       </li>

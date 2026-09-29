@@ -21,6 +21,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -64,6 +65,9 @@ export function TagSheet({
   onScanActiveChange: (active: boolean) => void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  // The name field's label also wraps its "Use" button — `htmlFor` pins the
+  // label to the field (lib/a-label-controls-its-switch.test.ts).
+  const manualId = useId();
   useModalA11y({ open: true, onClose, containerRef: dialogRef });
 
   const [query, setQuery] = useState('');
@@ -341,12 +345,13 @@ export function TagSheet({
 
         {/* Just a name */}
         <section>
-          <label className="block">
+          <label className="block" htmlFor={manualId}>
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
               Or just a name
             </span>
             <div className="mt-1 flex gap-2">
               <input
+                id={manualId}
                 type="text"
                 value={manual}
                 onChange={(e) => setManual(e.target.value)}

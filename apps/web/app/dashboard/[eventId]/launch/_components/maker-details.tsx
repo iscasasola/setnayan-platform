@@ -818,7 +818,7 @@ function SaveWords() {
  * only while it is ON — CSS alone (`group-has`), so it works before hydration.
  * `form` joins it to the print words form wherever it is drawn.
  */
-function Toggle({
+export function Toggle({
   form,
   name,
   label,
@@ -837,9 +837,16 @@ function Toggle({
   note?: ReactNode;
   children?: ReactNode;
 }) {
+  // 🔒 A LABEL CONTROLS ITS FIRST LABELABLE DESCENDANT unless `for` names one.
+  // The ⓘ (InfoTip) is a <button> and comes first, so without `htmlFor` a tap on
+  // the row opened the tip and the switch never moved (owner, live: "why can't i
+  // toggle them?"). A server component has no useId — the field name is unique
+  // on the Details page, so the id is derived from it.
+  // Held by lib/a-label-controls-its-switch.test.ts.
+  const id = `maker-inc-${name}`;
   return (
     <div className="group/inc flex flex-col gap-2 border-b border-ink/5 py-2.5 last:border-0" data-include={name}>
-      <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
+      <label htmlFor={id} className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
         <span className="flex items-center gap-1.5 text-sm text-ink">
           {/* InfoTip prints its own label beside the ⓘ — one name, never two. */}
           {tip ? (
@@ -850,7 +857,7 @@ function Toggle({
             label
           )}
         </span>
-        <input form={form} type="checkbox" role="switch" name={name} defaultChecked={on} disabled={disabled} className="peer sr-only" />
+        <input id={id} form={form} type="checkbox" role="switch" name={name} defaultChecked={on} disabled={disabled} className="peer sr-only" />
         <span
           aria-hidden
           className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry peer-disabled:opacity-40"

@@ -82,7 +82,7 @@ test('each moved writer saves to the draft BEFORE its live write, and the draft 
 
 test('the doors leave before the live write: the redirecting door returns never; the returning one returns', () => {
   const store = read('lib/hub-draft-store.ts');
-  assert.match(fn(store, 'draftEventsAndReturn'), /Promise<never>[\s\S]*redirect\(resolveReturnTo\(formData, fallback\)\)/);
+  assert.match(fn(store, 'draftEventsAndReturn'), /Promise<void>[\s\S]*return landAfterWrite\(formData, fallback\)/);
   const photo = fn(read(`${W}photo-moments/actions.ts`), 'updatePhotoMoments');
   const door = photo.slice(photo.search(/if \(isHubDraftWrite\(formData\)\)/), photo.search(/\.update\s*\(/));
   assert.match(door, /saveHubDraftPatch\([\s\S]*return \{ ok: true \};\s*\}\s*const \{ error \} = await supabase/, 'the Camera cues door must return before the live write');
@@ -90,7 +90,7 @@ test('the doors leave before the live write: the redirecting door returns never;
 
 test('a Pro colour is tried in the draft: updateSiteColors leaves for the draft BEFORE its Pro gate', () => {
   const body = fn(read(`${W}colors/actions.ts`), 'updateSiteColors');
-  const door = body.search(/if \(isHubDraftWrite\(formData\)\) await draftEventsAndReturn\(/);
+  const door = body.search(/if \(isHubDraftWrite\(formData\)\) return draftEventsAndReturn\(/);
   const gate = body.search(/requireLookPro\(/);
   assert.ok(door > 0 && gate > door, 'the draft door must come before requireLookPro — Pro is asked at Apply');
 });

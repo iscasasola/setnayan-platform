@@ -22,11 +22,11 @@
  * special_message, which has no such gate). Surfaced for DPO visibility in
  * the corpus DECISION_LOG row.
  */
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { resolveReturnTo } from '@/lib/editor-return';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite } from '@/lib/revalidate-site';
 import { requireHostMembership } from '@/lib/host-gate';
@@ -144,7 +144,7 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
   const togetherSince = str(formData.get('together_since'), SHORT_MAX);
 
   if (drafting) {
-    await draftEventsAndReturn(
+    return draftEventsAndReturn(
       eventId,
       { love_story: merged, together_since: togetherSince || null },
       formData,
@@ -171,9 +171,7 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
 
   revalidatePath(`/dashboard/${eventId}/website`);
   if (event.slug) revalidatePath(`/${event.slug}`);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/our-story?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/our-story?saved=1`, '?saved=1');
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -355,7 +353,7 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
   const nextStory = { ...existing, moments: storableMoments(after) };
 
   if (drafting) {
-    await draftEventsAndReturn(
+    return draftEventsAndReturn(
       eventId,
       { love_story: nextStory },
       formData,

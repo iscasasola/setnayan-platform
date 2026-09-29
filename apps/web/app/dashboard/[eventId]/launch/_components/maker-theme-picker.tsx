@@ -106,25 +106,45 @@ export function ThemePickProvider({ eventId, current, children }: { eventId: str
      and the selection follows. */
   useEffect(() => setPicked(current), [current]);
 
+  /* ⚡ EVERY TAP COUNTS, THE LAST ONE WINS (owner 2026-09-29: *"make sure 100%
+     that there is no slow response on the maker"*). A tap while a save is on
+     its way used to be dropped without a word. Now the theme is picked at once,
+     and the saves run one after another; a pick already overtaken by a newer
+     tap is never sent. A refused save puts back what is saved — only if no
+     newer tap has replaced it. */
+  const lastTap = useRef<string | null>(null);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const saved = useRef(current);
+  useEffect(() => {
+    saved.current = current;
+  }, [current]);
   const pick = (id: string) => {
-    if (id === picked || pending) return;
-    const before = picked;
+    if (id === picked) return;
+    lastTap.current = id;
     setPicked(id);
     setError(null);
-    start(async () => {
+    queue.current = queue.current.then(async () => {
+      if (lastTap.current !== id) return; // overtaken — the newer tap is sent instead
+      let r: { ok: true } | { ok: false; error: string };
       try {
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { invite_theme: id } }));
-        const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
-        if (!r.ok) {
-          setPicked(before);
-          setError(r.error);
-        }
+        r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
       } catch {
-        setPicked(before);
-        setError('That did not save. Please try again.');
+        r = { ok: false, error: 'That did not save. Please try again.' };
       }
+      /* What is saved — put back on a refusal, unless a newer tap took over. */
+      const before = saved.current;
+      if (r.ok) saved.current = id;
+      else if (lastTap.current !== id) return;
+      if (!r.ok) {
+        setPicked(before);
+        setError(r.error);
+      }
+    });
+    start(async () => {
+      await queue.current;
     });
   };
 

@@ -126,7 +126,8 @@ export function DetailsLookPieces({ item }: { item: Exclude<LookPageKey, 'logo'>
 const HERO_KEY = canvasKeyOfSelection({ kind: 'tool', key: 'hero' }, []) ?? 'f:hero';
 
 function heroFrame(): HTMLIFrameElement | null {
-  return document.querySelector<HTMLIFrameElement>('[data-details-look="hero"] iframe');
+  /* The frame SHOWN — `MakerPageFrame` is double-buffered, so a new render may be loading behind it. */
+  return document.querySelector<HTMLIFrameElement>('[data-details-look="hero"] iframe[data-maker-page-frame]');
 }
 
 /** Ring the picked part on the hero (or clear it) — the bridge's `markEl`. */
@@ -193,6 +194,8 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
   const maker = useMaker()!;
   const look = maker.lookPages!;
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+  /** The frame now shown (the page frame is double-buffered) — the canvas guard re-attaches to it. */
+  const [shownKey, setShownKey] = useState('');
   const [revealPick, setRevealPick] = useState<LifecyclePhase | null>(null);
   const stages = look.revealStages;
   const revealStage = revealPick && stages.includes(revealPick) ? revealPick : (stages[0] ?? null);
@@ -242,11 +245,11 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
           options={REVEAL_STAGE_CHOICES.filter((s) => stages.includes(s)).map((s) => [s, PUBLIC_STAGE_LABELS[s]] as const)}
         />
       ) : null}
-      <MakerPageFrame src={src} title={title} device={maker.device} frameKey={frameKey} frameRef={frameRef} />
+      <MakerPageFrame src={src} title={title} device={maker.device} frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
       <CanvasStaysOnThePage
         frameRef={frameRef}
         pagePath={look.publicLandingUrl}
-        resetKey={frameKey}
+        resetKey={shownKey}
         stageLabel={title}
         onBack={() => {
           const f = frameRef.current;

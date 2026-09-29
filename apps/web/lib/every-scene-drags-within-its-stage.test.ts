@@ -189,7 +189,8 @@ test('4 · SOURCE: every scene drags, each move names its stage, no "order is fi
   assert.doesNotMatch(SHELL, /orderIsAutomatic|isCustomSectionType/);
   assert.doesNotMatch(SHELL, /Order set for you|order its job needs/);
   assert.match(SHELL, /<input type="hidden" name="stage" value=\{stage\} readOnly \/>/, 'the move form names the stage');
-  assert.match(SHELL, /const fullOrder = fullOrders\[stage\];/, 'a drop is counted in the STAGE’s list');
+  /* An optimistic drop (`lib/maker-reorder.ts`) counts in the order it just showed — still THIS stage's. */
+  assert.match(SHELL, /const fullOrder = (?:override \?\? )?fullOrders\[stage\];/, 'a drop is counted in the STAGE’s list');
   assert.match(SHELL, /aria-label="What opens your Save the Date"/);
   assert.match(SHELL, /\{ widgets: \{ our_photos: \{ std_lead: next \} \} \}/, 'the switch saves through the draft');
   const ACTIONS = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/website/widgets/actions.ts'), 'utf8'));

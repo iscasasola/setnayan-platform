@@ -1,6 +1,8 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { MAKER_STAY_FIELD } from '@/lib/maker-stay';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
@@ -1111,7 +1113,16 @@ export async function addCustomSection(formData: FormData): Promise<void> {
        verbatim), so the App Router keeps the Maker mounted and only the data
        changes; the work area selects the scene that appeared (`editor-shell.tsx`
        `scenesBeforeAdd`). A `?scene=<id>` here would be a NEW page key — the
-       whole Maker remounting for one tap, the very reload the owner named. */
+       whole Maker remounting for one tap, the very reload the owner named.
+       ⚠ MEASURED 2026-09-29: even that same-address REDIRECT remounts the whole
+       Maker (twice) — the canvas and every warm stage load again from nothing.
+       So from the Maker it does not redirect at all: the Maker route is
+       revalidated and this response carries its fresh render, applied in place
+       like `router.refresh()`. Anywhere else, the redirect as before. */
+    if (formData.get(MAKER_STAY_FIELD) === '1') {
+      revalidatePath(`/dashboard/${eventId}/launch`);
+      return;
+    }
     redirect(resolveReturnTo(formData, `/dashboard/${eventId}/launch?drafted=1`, '?drafted=1'));
   }
 

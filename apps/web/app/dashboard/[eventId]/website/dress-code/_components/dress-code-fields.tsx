@@ -234,6 +234,8 @@ function CarriedAttire({
  */
 export function foldEventRoles(
   rows: ReadonlyArray<{ role: string | null }>,
+  /** `events.role_names` — the couple's words for roles (#6170). Omitted → the usual words. */
+  names?: RoleNames | null,
 ): { role: GuestRole; label: string; count: number }[] {
   const counts = new Map<GuestRole, number>();
   for (const { role } of rows) {
@@ -242,7 +244,7 @@ export function foldEventRoles(
     counts.set(role as GuestRole, (counts.get(role as GuestRole) ?? 0) + 1);
   }
   return [...counts.entries()]
-    .map(([role, count]) => ({ role, label: roleLabel(role) as string, count }))
+    .map(([role, count]) => ({ role, label: roleLabel(role, names) as string, count }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 

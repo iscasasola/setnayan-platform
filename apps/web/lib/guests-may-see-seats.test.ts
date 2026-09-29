@@ -103,11 +103,18 @@ const READERS = [
   'app/[slug]/hub/page.tsx',
   'app/[slug]/_lib/loaders.ts',
   'app/[slug]/_lib/your-own-day.server.ts',
-  'lib/pass-card.server.ts',
   'lib/print-set.server.ts',
   'lib/guest-reminder-emails.ts',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx',
 ];
+
+// 🎟 `lib/pass-card.server.ts` left READERS in the 2026-09-30 train: the Digital
+// ticket reads NO seat plan at all (no table on any ticket — TICKET_SHOWS_TABLE),
+// which is stronger than asking the rule. Held here and by the-pass-card-is-a-card.
+test('the ticket kit reads no seat plan at all', () => {
+  const code = stripComments(src('lib/pass-card.server.ts'));
+  assert.doesNotMatch(code, /event_seat_assignments|event_floor_plan/, 'the ticket reads the seat plan again — ask guestsMaySeeSeatsFor');
+});
 
 test('every guest-facing seat reader asks guestsMaySeeSeatsFor', () => {
   for (const f of READERS) {

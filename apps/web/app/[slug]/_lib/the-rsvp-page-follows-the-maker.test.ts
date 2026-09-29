@@ -169,10 +169,20 @@ test('4 · flipping a DRAFT switch changes the canvas form, before Apply', async
   const without = resolveRsvpAsk(drafted.rsvp_ask_config);
   const before = await card({ ask: withMeal, oneAtATime: askOneAtATime(live.rsvp_ask_config) });
   const after = await card({ ask: without, oneAtATime: askOneAtATime(drafted.rsvp_ask_config) });
+  // 🗳 Since the RSVP stage (#6176) the canvas DRAWS every question and hides
+  // a switched-off one (`data-rsvp-ask` + `hidden`), so the next flip shows it
+  // on the tap with no new page. Off = hidden on the canvas; on = shown.
+  const shown = (html: string, ask: string) => {
+    const tag = new RegExp(`<[a-z]+[^>]*data-rsvp-ask="${ask}"[^>]*>`).exec(html)?.[0];
+    assert.ok(tag, `the ${ask} question is not drawn on the canvas at all`);
+    return !/\shidden=""/.test(tag!);
+  };
   assert.match(before, /name="meal_preference"/);
-  assert.doesNotMatch(after, /name="meal_preference"/, 'the meal question survives the switch being off');
+  assert.equal(shown(before, 'meal'), true);
+  assert.equal(shown(after, 'meal'), false, 'the meal question survives the switch being off');
   assert.match(before, /name="song_title"/);
-  assert.doesNotMatch(after, /name="song_title"/, 'the song question survives the switch being off');
+  assert.equal(shown(before, 'song_request'), true);
+  assert.equal(shown(after, 'song_request'), false, 'the song question survives the switch being off');
   assert.doesNotMatch(before, /data-rsvp-progress|Back/);
   // Both surfaces read the one value, from the overlaid (draft) event.
   assert.match(REPLY, /const event = overlayHubDraftEvent\(liveEvent as Record<string, unknown>, hostDraft\)/);
@@ -248,7 +258,9 @@ test('7 · the one-at-a-time switch: label, knob and value are the same value', 
     assert.match(block, on ? /On · one question per screen/ : /Off · one scrolling page/);
   }
   const SRC = read('dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
-  assert.match(SRC, /setLocal\(JSON\.parse\(currentKey\) as RsvpAskConfig\);/, 'the switch keeps a value the draft no longer holds');
+  // (#6176: re-seeded through `saved.current`, which `seen()` normalises.)
+  assert.match(SRC, /saved\.current = seen\(JSON\.parse\(currentKey\) as RsvpAskConfig\);/);
+  assert.match(SRC, /setLocal\(saved\.current\);\s*\}, \[currentKey\]\);/, 'the switch keeps a value the draft no longer holds');
 });
 
 // ═══ 8 · the preview wears this event's own guest (owner 2026-09-27) ══════

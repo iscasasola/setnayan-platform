@@ -85,6 +85,7 @@ import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
 import { foldEventRoles, normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
 import { eventNoun } from '@/lib/event-noun';
@@ -543,7 +544,10 @@ export default async function WebsiteEditorPage({
   if (roleRowsError) {
     logQueryError('WebsiteEditorPage.dressCodeRoles', roleRowsError, { eventId }, 'graceful_degrade');
   }
-  const dressCodeRoles = foldEventRoles((roleRows ?? []) as { role: string | null }[]);
+  const dressCodeRoles = foldEventRoles(
+    (roleRows ?? []) as { role: string | null }[],
+    await loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'),
+  );
   // Dress code starts from the Mood Board (owner 2026-07-25): when the couple
   // hasn't set a palette yet, seed the panel's swatches from role_palette so
   // "edit" begins from their own colours, not a blank. Saving persists the

@@ -28,17 +28,17 @@ export default async function RsvpStageLabFrame({ searchParams }: { searchParams
   if (sp.scene === 'thanks' || sp.scene === 'decline') {
     const status = sp.scene === 'thanks' ? 'attending' : 'declined';
     const ownHeadline = thankYouHeadline({ status, firstName: guest.first_name, eventDate: '2026-12-18', solemn: words.solemn });
-    const couple = thankYouWords({ status, words: {}, ownHeadline, name: guest.first_name });
+    const theirWords = thankYouWords({ status, words: {}, ownHeadline, name: guest.first_name });
     return (
       <DoorShell
         eyebrow="Thank you"
-        title={couple.heading}
+        title={theirWords.heading}
         sub={replySummary({ status, seats: 1, meal: null, solemn: words.solemn, answerWord: rsvpAnswerWord({}, status, words.solemn) })}
         meta={meta}
       >
         <RsvpCanvasBridge inertButtons />
-        <i hidden data-rsvp-word-proxy={rsvpWordBridgeKey(couple.keys!.heading)} data-rsvp-target="[data-door-header] h1" data-rsvp-default={ownHeadline} data-rsvp-name={guest.first_name} />
-        <p className="text-base leading-relaxed text-ink/80" data-thank-you-message="" data-rsvp-word={rsvpWordBridgeKey(couple.keys!.message)} data-rsvp-word-optional="" data-rsvp-name={guest.first_name} hidden />
+        <i hidden data-rsvp-word-proxy={rsvpWordBridgeKey(theirWords.keys!.heading)} data-rsvp-target="[data-door-header] h1" data-rsvp-default={ownHeadline} data-rsvp-name={guest.first_name} />
+        <p className="text-base leading-relaxed text-ink/80" data-thank-you-message="" data-rsvp-word={rsvpWordBridgeKey(theirWords.keys!.message)} data-rsvp-word-optional="" data-rsvp-name={guest.first_name} hidden />
         <p className="text-sm text-ink/70">
           {status === 'attending' ? 'Your Digital tickets and “Copy my link” show here for a real guest.' : 'A guest who can’t come sees no ticket.'}
         </p>

@@ -121,15 +121,18 @@ test('the page that mounts it has already matched the cookie to THIS event', () 
   // recognise. No key → the event page, where a stranger gets "Get inside".
   assert.match(
     ENTER,
-    /const session = await readGuestSessionForEvent\(event\.event_id as string\);/,
+    // 🗳 #6176: the Maker's RSVP canvas (a VERIFIED host only) draws a sample and reads no key.
+    /const session = canvas \? null : await readGuestSessionForEvent\(event\.event_id as string\);/,
     'the Enter door no longer reads the guest key for THIS event',
   );
   assert.match(
     ENTER,
-    /if \(!session \|\| session\.event_id !== event\.event_id\) redirect\(`\/\$\{home\}`\);/,
+    /if \(!canvas && \(!session \|\| session\.event_id !== event\.event_id\)\) redirect\(`\/\$\{home\}`\);/,
     'the session/event match is gone — a cookie for another event would be shown this event’s QR',
   );
-  assert.match(ENTER, /\.eq\('guest_id', session\.guest_id\)/, 'the guest row is no longer keyed on the session');
+  assert.match(ENTER, /\.eq\('guest_id', session!\.guest_id\)/, 'the guest row is no longer keyed on the session');
+  // …and `canvas` is only ever set for a signed-in HOST of this event — never from the param alone.
+  assert.match(ENTER, /if \(viewer && \(await loadHostMembership\(admin, liveEvent\.event_id as string, viewer\.id\)\)\) \{\s*canvas = true;/);
   assert.match(ENTER, /\.eq\('event_id', event\.event_id\)/, 'the guest row is no longer scoped to this event');
   // Nothing in the door reads an id out of the URL.
   assert.doesNotMatch(ENTER, /search\.guest|params\.guestId/, 'a guest id is being taken from the URL');

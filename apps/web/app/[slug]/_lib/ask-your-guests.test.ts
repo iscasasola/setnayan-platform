@@ -208,7 +208,10 @@ test('song_request asks a song ON the reply card too, behind the same switch (ow
   // nothing before the day — "a switch that does nothing is a lie". The card
   // now asks one song question of its own, drawn only while the switch is on.
   const w = read('_components', 'rsvp-widget.tsx');
-  assert.match(w, /const askSong = rsvpAsks\(ask, 'song_request'\);/);
+  // 🗳 #6176: `asked` is the switch, widened ONLY on the Maker's canvas
+  // (`previewEveryQuestion`), which draws every question to show / hide it.
+  assert.match(w, /const asked = \(field: RsvpAskField\) => previewEveryQuestion \|\| rsvpAsks\(ask, field\);/);
+  assert.match(w, /const askSong = asked\('song_request'\);/);
   assert.match(w, /\{askSong && !replyLocked \? \(/);
 });
 

@@ -487,7 +487,8 @@ test('the sheet previews BEFORE it saves, and a refusal previews the saved look'
   const refused = commit.slice(commit.indexOf('if (!res.ok)'));
   assert.match(refused, /revertAfterFailedSave\(/);
   assert.match(refused, /onPreview\?\.\(elementPreview\(target\.key, target\.el, next, back, false\)\)/);
-  assert.match(refused, /setError\(res\.error\)/);
+  // (#6176 / maker-instant: the refusal says WHICH choice was refused, in words — `refusedChoiceWords`.)
+  assert.match(refused, /setError\(refusedChoiceWords\(target\.el, what, res\.error \|\| null\)\)/);
 });
 
 /* ═══ 4 · A MOTION CHANGE REPLAYS THE ARRIVAL ════════════════════════════ */

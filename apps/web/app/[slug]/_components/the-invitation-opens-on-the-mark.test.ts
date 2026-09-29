@@ -22,11 +22,12 @@ const SRC = readFileSync(join(__dirname, 'site-body.tsx'), 'utf8');
 /** The index of the guest branch's own copy of a mount, not the anonymous tree's. */
 function guestBranchIndex(needle: string): number {
   // The anonymous tree renders its own masthead earlier in the file; the guest
-  // branch is the one that mounts <KeepOnHomeScreen>, so anchor every lookup
-  // after the last hero that precedes it. (It anchored on <GuestHubCard> until
-  // 2026-09-30, when the owner removed that card — "Hi again · Your invitation
-  // summary" duplicated the Digital ticket on Me.)
-  const guestCard = SRC.indexOf('<KeepOnHomeScreen');
+  // branch is the one that mounts <GuestAccountCard>, so anchor every lookup
+  // after the last hero that precedes it. (It anchored on <GuestHubCard>, then
+  // <KeepOnHomeScreen>, until 2026-09-30, when the owner removed both — the
+  // summary card duplicated the Digital ticket on Me; the home-screen card left
+  // the Event Hub outright.)
+  const guestCard = SRC.indexOf('<GuestAccountCard');
   assert.ok(guestCard > 0, 'precondition: the guest branch mounts its first personal card');
   const at = SRC.lastIndexOf(needle, guestCard);
   return at >= 0 ? at : SRC.indexOf(needle, guestCard);
@@ -34,7 +35,7 @@ function guestBranchIndex(needle: string): number {
 
 test('the hero runs BEFORE the guest’s first personal card', () => {
   const hero = guestBranchIndex("plan.body === 'normal' && plan.heroShouldRender");
-  const card = SRC.indexOf('<KeepOnHomeScreen');
+  const card = SRC.indexOf('<GuestAccountCard');
   assert.ok(hero > 0, 'precondition: found the hero in the guest branch');
   assert.ok(
     hero < card,

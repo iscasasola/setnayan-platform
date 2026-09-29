@@ -147,7 +147,10 @@ test('2 · the RSVP page: crest → progress → the invitation → the question
   // The door that carries a lead says so — that is how the walker reaches the header it folds.
   assert.match(page, /<main[^>]*data-door-lead=""/);
   // …and the page really hands the slot to DoorShell.
-  assert.match(REPLY, /lead=\{oneAtATime \? <div data-rsvp-progress-slot="" \/> : undefined\}/);
+  // 🗳 #6176: the Maker's RSVP canvas draws the one-question frame too — the
+  // guest's own frame is still exactly `oneAtATime`.
+  assert.match(REPLY, /const oneQuestionFrame = oneAtATime \|\| canvas;/);
+  assert.match(REPLY, /lead=\{oneQuestionFrame \? <div data-rsvp-progress-slot="" \/> : undefined\}/);
 });
 
 test('2 · a door without a lead is byte-identical in order — the slot adds nothing when absent', async () => {
@@ -192,9 +195,9 @@ test('3 · the invitation folds after the first screen, to one line — on the p
   assert.match(WALKER, /\[data-rsvp-past-first\] \[data-rsvp-context-line\]\{display:block!important\}/);
   assert.match(WALKER, /scopeRef\.current\?\.toggleAttribute\('data-rsvp-past-first', clamped > 0\)/);
   // The page: whose reply this is, and the reply-by / saved line, are first-screen only…
-  assert.match(REPLY, /<FirstScreenOnly on=\{oneAtATime\}>\s*<div className="flex flex-wrap items-baseline justify-between gap-x-3">\s*<p className="font-serif text-lg text-ink" data-reply-for="">/);
-  assert.match(REPLY, /\{hasAnswered \? \(\s*<FirstScreenOnly on=\{oneAtATime\}>\s*<DoorNotice>/);
-  assert.match(REPLY, /<FirstScreenOnly on=\{oneAtATime\}>\s*<p className="text-sm text-ink\/70">Please reply by/);
+  assert.match(REPLY, /<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<div className="flex flex-wrap items-baseline justify-between gap-x-3">\s*<p className="font-serif text-lg text-ink" data-reply-for="">/);
+  assert.match(REPLY, /\{hasAnswered \? \(\s*<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<DoorNotice>/);
+  assert.match(REPLY, /<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<p className="text-sm text-ink\/70"[^>]*>\s*Please reply by/);
   // …and the one line that replaces them is hidden until the walker says so (no script = no line).
   assert.match(REPLY, /<p hidden data-rsvp-context-line=""/);
   // The Event Hub card's letterpress head is first-screen only.

@@ -259,10 +259,10 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     solemn: words.solemn,
   });
   const firstName = ((guest.display_name as string | null)?.trim() || (guest.first_name as string | null) || '').split(/\s+/)[0] ?? '';
-  const couple = thankYouWords({ status, words: rsvpWords, ownHeadline, name: firstName });
-  const wordKeys = couple.keys;
-  const ownMessage = couple.message;
-  const headline = couple.heading;
+  const theirWords = thankYouWords({ status, words: rsvpWords, ownHeadline, name: firstName });
+  const wordKeys = theirWords.keys;
+  const ownMessage = theirWords.message;
+  const headline = theirWords.heading;
   const summary = replySummary({
     status,
     seats: 1 + guestsToSend.length,

@@ -60,7 +60,10 @@ test('🔒 no greeting on the guest page says "Welcome" to someone at home', () 
   const at = body.indexOf('const greetingBlock');
   assert.ok(at > -1, 'the salutation moved — re-point this guard');
   const greeting = body.slice(at, body.indexOf('</section>', at));
-  assert.match(greeting, /Hi, /, 'precondition: this is the salutation');
+  // The "Hi, <name>." salutation left on 2026-09-30 (DECISION_LOG "NO CASUAL
+  // GREETINGS", #6171); the sentence that stays is the one this block renders.
+  assert.match(greeting, /joining us as/, 'precondition: this is the greeting block');
+  assert.doesNotMatch(greeting, /Hi, /, 'a casual greeting is back');
   assert.doesNotMatch(greeting, /welcome/i);
 });
 

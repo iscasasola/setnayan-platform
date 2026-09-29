@@ -23,6 +23,7 @@
  */
 
 import { sceneStyleOptions, sceneStyleTypeOfWidget, resolveSceneStyle } from '@/lib/scene-styles';
+import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
 import { IRow } from './inspector-kit';
 import { PickMenu } from './pick-menu';
@@ -37,8 +38,16 @@ export function SceneStyleRow({
   onPick,
   pending = false,
   error = null,
+  recommendedId = null,
 }: {
   options: readonly SceneStyleChoice[];
+  /**
+   * The style the design recommends, when it is NOT the default — the
+   * Invitation / Day scenes keep their shipped look as the default (no surprise
+   * change to a live page) and carry the recommendation as this hint. Null =
+   * the default is the recommendation (Post Event).
+   */
+  recommendedId?: string | null;
   /** The style the scene is drawn in now. */
   value: string | null;
   onPick: (id: string) => void;
@@ -56,7 +65,7 @@ export function SceneStyleRow({
           options={options.map((o) => ({
             key: o.id,
             label: o.name,
-            hint: o.isDefault ? `${o.line} · Recommended` : o.line,
+            hint: (recommendedId ? o.id === recommendedId : o.isDefault) ? `${o.line} · Recommended` : o.line,
           }))}
           onPick={(id) => {
             if (!pending && id !== value) onPick(id);
@@ -96,6 +105,7 @@ export function SceneStyleCanvasRow({
     <SceneStyleRow
       options={options}
       value={resolveSceneStyle(type, stage, shown.style, eventType)}
+      recommendedId={recommendedStageSceneStyle(type, stage, eventType)}
       pending={pending}
       error={error}
       /* One row, one value across stages: the pick is stored as chosen. */

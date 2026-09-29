@@ -11,8 +11,8 @@
  * a route's SERVER files import into that route's first load, eagerly — drawn
  * or not. So a piece leaves the first load only when the Maker's server graph
  * reaches it through a client-side `import()`: the stand-ins in
- * `details-lazy.tsx`, `mood-board-lazy.tsx`, `schedule-lazy.tsx` and
- * `entourage-lazy.tsx`.
+ * `details-lazy.tsx`, `mood-board-lazy.tsx`, `schedule-lazy.tsx`,
+ * `entourage-lazy.tsx` and `seating-lazy.tsx`.
  *
  * ── WHAT IT CLAIMS, AS PROPERTIES (no list of file names to keep in step) ───
  *   1. Walk the Maker route's server graph from `launch/page.tsx` the way Next
@@ -53,6 +53,7 @@ const STAND_INS = [
   'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy.tsx',
   'app/dashboard/[eventId]/schedule/_components/schedule-lazy.tsx',
   'app/dashboard/[eventId]/guests/_components/entourage-lazy.tsx',
+  'app/dashboard/[eventId]/seating/_components/seating-lazy.tsx',
 ];
 const HEAVY = /^(?:three(?:\/.*)?|@react-three\/.+|opentype\.js|fabric(?:\/.*)?)$/;
 
@@ -156,6 +157,7 @@ test('floors — the walk reaches Details, the Mood Board and the Schedule, and 
     'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx',
     'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx',
     'app/dashboard/[eventId]/schedule/page.tsx',
+    'app/dashboard/[eventId]/seating/page.tsx',
   ]) {
     assert.ok(server.includes(f), `the Maker's server graph no longer reaches ${f} — the walk is not seeing Details`);
   }

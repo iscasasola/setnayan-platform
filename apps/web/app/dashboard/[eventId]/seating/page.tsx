@@ -32,7 +32,9 @@ import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
 import { detailsDoorHref } from '@/lib/maker-details-items';
 import { SIDE_ORDER } from '@/lib/guests';
 import { peopleLabels } from '@/lib/details-your-event';
-import { SeatingEditor, type SeatingDetailsShell, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
+import type { SeatingDetailsShell, SeatingGuest, SeatingGroup } from './_components/seating-editor';
+/* ⚡ The editor loads when the Seat plan is opened — never with the Maker (`seating-lazy.tsx`). */
+import { SeatingEditor } from './_components/seating-lazy';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
 import SeatingLabPage from './lab/page';
 

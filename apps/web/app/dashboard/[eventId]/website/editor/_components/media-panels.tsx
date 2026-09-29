@@ -223,7 +223,7 @@ export function VisibilityPanel({
         </legend>
         {(
           [
-            ['private', 'Private', 'Only you and your hosts.'],
+            ['private', 'Private', 'Only your hosts and your guests.'],
             ['unlisted', 'Unlisted', 'Anyone with the link — not listed publicly.'],
             ['public', 'Public', 'Anyone can find and open it.'],
           ] as const
@@ -269,7 +269,7 @@ export function OpenBrowsePanel({
       <ReturnTo eventId={eventId} rowKey="open-browse" />
       <p className="text-xs text-ink/60">
         {on
-          ? 'Guests can browse every page of your site from day one — the five-tab site.'
+          ? 'Guests can browse every page of your Event Hub from day one.'
           : 'Guests currently see only the page for the current moment (invitation, day-of, after).'}
       </p>
       <SaveButton label={on ? 'Turn off open browsing' : 'Turn on open browsing'} />
@@ -326,7 +326,7 @@ export function LaunchPhasePanel({
       <p className="text-xs text-ink/60">
         {pinned
           ? `Every guest sees the ${launchPhaseLabel(pinned)} version until you switch back to Automatic — the date no longer moves it.`
-          : 'Your site changes by itself as the day gets closer. Pin a version to keep it on one — for example, keep the Invitation up so guests can still RSVP.'}
+          : 'Your Event Hub changes by itself as the day gets closer. Pin a version to keep it on one — for example, keep the Invitation up so guests can still RSVP.'}
       </p>
       <fieldset className="mt-2">
         <legend className="sr-only">Which version guests see</legend>

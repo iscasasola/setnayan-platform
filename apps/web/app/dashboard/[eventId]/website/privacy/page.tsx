@@ -239,7 +239,7 @@ export default async function PrivacyEditorPage({
             currentValue={currentVisibility}
             icon={<Globe aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
             title="Public"
-            blurb={`Anyone with your ${eventNoun(event.event_type)}'s URL can view your landing page \u2014 and join. One shared link admits anyone who has it: they get your event hub and a camera for the day, and they land on your guest list for you to keep or remove. That is the whole invitation for an event with no guest list, and the way an unlisted extra gets in when you do have one. Search engines may index the page after your ${eventNoun(event.event_type)} day.`}
+            blurb={`Anyone can open your ${eventNoun(event.event_type)}'s page and read it, and it may be shown on Setnayan's public pages. Getting inside is different: your Event Hub and a camera for the day open only with a guest's own key \u2014 the personal link or QR you send them. If you turn on \u201cAnyone, I approve\u201d in your RSVP settings, someone without a key can ask to join; they wait in Requests until you Keep, Link or Remove them. Search engines may index the page after your ${eventNoun(event.event_type)} day.`}
           />
 
           <VisibilityCard
@@ -247,7 +247,7 @@ export default async function PrivacyEditorPage({
             currentValue={currentVisibility}
             icon={<EyeOff aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
             title="Unlisted"
-            blurb="The URL works for anyone you share it with \u2014 to view your page and to join, which hands them your event hub and a camera for the day. Your landing page won't be indexed by search engines or surfaced on Setnayan's public pages, but the link itself is the whole gate: anyone it reaches can walk in."
+            blurb="Anyone you share the link with can open your page and read it. It won't be indexed by search engines or shown on Setnayan's public pages. The link shows the page only — your Event Hub and a camera still need a guest's own key. With “Anyone, I approve” on in your RSVP settings, someone without a key can ask to join, and they wait in Requests until you Keep, Link or Remove them."
           />
 
           {/* Owner 2026-08-15 — the fourth audience, between "link only" and
@@ -263,7 +263,7 @@ export default async function PrivacyEditorPage({
             currentValue={currentVisibility}
             icon={<Users aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
             title="Only guests with a Setnayan account"
-            blurb="People on your guest list who are signed in to Setnayan can view it. Anyone else — including someone you send the link to — sees the locked screen. Guests are recognised by the email on their guest-list entry, so a guest with no email saved, or who hasn't signed up, won't be let in yet. This locks the page, not the join link — someone you share the link with can still join and get a camera, the same as on Public. That shared link is deliberate: it is how a guest who isn't on your list still gets in, and they land on your list for you to keep or remove. Your guests' own QR codes sit alongside it, carrying each guest's name, seat and your limits for them. Choose Private when you want the shared link switched off."
+            blurb="People on your guest list who are signed in to Setnayan can view it. Anyone else — including someone you send the link to — sees the locked screen. Guests are recognised by the email on their guest-list entry, so a guest with no email saved, or who hasn't signed up, won't be let in yet. This locks the page, not the join link — with “Anyone, I approve” on in your RSVP settings, someone you share the link with can still ask to join, and they wait in Requests until you Keep, Link or Remove them. Nobody gets inside on the link alone. Your guests' own QR codes carry each guest's name, seat and your limits for them. Choose Private when you want the join link closed."
           />
 
           <VisibilityCard
@@ -271,7 +271,7 @@ export default async function PrivacyEditorPage({
             currentValue={currentVisibility}
             icon={<Lock aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
             title="Private"
-            blurb="Only your guests (in your guest list) and your event moderators can view. Anyone else opening the URL sees a polite locked screen. This is also the only setting that closes your join link, so nobody new can add themselves or pick up a camera."
+            blurb="Only your guests (in your guest list) and your event moderators can view. Anyone else opening the URL sees a polite locked screen. This is also the only setting that closes your join link, so nobody new can ask to join."
           />
         </fieldset>
 

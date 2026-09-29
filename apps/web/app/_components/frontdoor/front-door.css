@@ -1613,6 +1613,103 @@ h2.fd-sechead,
   color: var(--fd-gold);
 }
 
+/* ── DISCOVER · THE EVENT CARD (2026-09-29) ───────────────────────────────
+   Ported from `prototypes/discover_upcoming_2026-09-29.html` — the page's own
+   `.fd-item` grammar with a date plate over the cover, the event's mark as a
+   typographic hero (no hero image is read: a public event's photo is the
+   host's to show on their own page), and exactly one action.
+
+   🔑 `.fd-act` IS RAISED ABOVE THE TITLE'S STRETCH, the same stacking rule as
+   `.fd-chan`. Drop its z-index and "Ask to join" still looks like a button and
+   presses the card instead. */
+.fd-up .fd-thumb-event,
+.fd-thumb-event {
+  background: linear-gradient(160deg, #efe6d6, #dccdb4);
+}
+.fd-mono-cover {
+  font: 500 34px 'Cormorant Garamond', Georgia, serif;
+  letter-spacing: 0.06em;
+  color: var(--fd-gold);
+  text-transform: none;
+}
+.fd-date {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--fd-ink);
+  border-radius: var(--m-r-xs);
+  padding: 3px 7px;
+  font: 700 10.5px var(--fd-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px rgba(30, 26, 18, 0.15);
+}
+.fd-rel {
+  color: var(--fd-m1);
+}
+.fd-act {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  position: relative;
+  z-index: 2;
+}
+/* 44px tall — the locked tap floor; the drawing's 36px was a desktop mock. */
+.fd-ask {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--m-r-full);
+  background: var(--fd-ink);
+  color: #fff;
+  font-weight: 650;
+  font-size: 12.5px;
+  border: 0;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.fd-ask.quiet {
+  background: #f0ede6;
+  color: var(--fd-ink);
+  font-weight: 600;
+  cursor: default;
+}
+button.fd-ask.quiet {
+  cursor: pointer;
+}
+.fd-ask:focus-visible {
+  outline: 2px solid var(--fd-link);
+  outline-offset: 2px;
+}
+.fd-act-note {
+  font-size: 11px;
+  color: var(--fd-m1);
+}
+/* People to follow: no cover — the face (or initials) IS the card. */
+.fd-person .fd-imeta {
+  padding-top: 0;
+  align-items: flex-start;
+}
+.fd-ava-lg {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  font-size: 13px;
+  overflow: hidden;
+}
+.fd-ava-lg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* A story told in writing leads with its opening line, not with an empty box.
    Same rule as the shop card one block up: the card shows what the thing IS —
    never the words "THEIR STORY", which made a real couple's piece look like a

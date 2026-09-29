@@ -160,6 +160,9 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     'didntReply',
     'eventVendorCredits',
     'faceMode',
+    // `faceTaggingAskable` (2026-09-29) — true here: the preview shows the reply
+    // card's "Want to be tagged?" question as a guest meets it.
+    'faceTaggingAskable',
     'guest',
     'guestHubData',
     'guestLiveGallery',

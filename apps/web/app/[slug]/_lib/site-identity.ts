@@ -120,6 +120,10 @@ export type GuestSiteIdentity = {
   /** Server-resolved effective face-tag mode (One-Pool spec §3.4) for the
    *  RSVP selfie + day-of enroll surfaces. mode_b ⇒ no descriptor computed. */
   faceMode: PapicFaceMode;
+  /** May the reply card ask "Want to be tagged in the photos?" (and, after a
+   *  Yes, the selfie)? False when the couple declined face tagging for their
+   *  event (`resolveFaceTagging`, owner 2026-09-29). */
+  faceTaggingAskable: boolean;
   /**
    * This person's OWN saved meal + dietary answers, from their Setnayan account
    * (owner 2026-08-21). Offered as the reply card's DEFAULT when they have not
@@ -485,6 +489,7 @@ export function guestIdentity(
     saveFlash: input.saveFlash,
     rsvpFlash: input.rsvpFlash,
     faceMode: input.faceMode,
+    faceTaggingAskable: input.faceTaggingAskable,
     profileDetails: input.profileDetails ?? null,
     didntReply: input.didntReply === true,
     checklist: input.checklist ?? null,

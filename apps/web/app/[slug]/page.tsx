@@ -1502,6 +1502,7 @@ async function InvitationBody({
     guestHubData,
     seatMap,
     rsvpFaceMode,
+    faceTaggingAskable,
     eventVendorCredits,
   } = guestContext;
 
@@ -1722,6 +1723,7 @@ async function InvitationBody({
           saveFlash,
           rsvpFlash,
           faceMode: rsvpFaceMode,
+          faceTaggingAskable,
           profileDetails,
           didntReply: keyGate.kind === 'inside' && keyGate.didntReply,
           checklist,

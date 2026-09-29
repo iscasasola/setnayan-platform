@@ -123,6 +123,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 2, why: 'Both feed resolveVendorDisplayName (name-reveal) — no "Verified" badge renders on this page.' },
   ],
   [
+    'lib/messages-team-picker.ts',
+    { count: 1, why: 'Feeds resolveVendorDisplayName only (name-reveal) — the Messages team picker lists names, no "Verified" badge renders.' },
+  ],
+  [
     'app/dashboard/[eventId]/messages/page.tsx',
     { count: 2, why: 'Both feed resolveVendorDisplayName (name-reveal) — no "Verified" badge renders on this page.' },
   ],

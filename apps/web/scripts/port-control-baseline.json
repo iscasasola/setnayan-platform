@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d70f4c6b4",
-  "routeCount": 437,
+  "generatedFromRef": "12962aff4",
+  "routeCount": 436,
   "destinations": 947,
   "actions": 673,
-  "blocks": 5170,
+  "blocks": 5165,
   "routes": {
     "/": {
       "files": [
@@ -4997,7 +4997,6 @@
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
         "dashboard/[eventId]/_components/pillar-part-picker.tsx",
-        "dashboard/[eventId]/_components/placeholder.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
         "dashboard/[eventId]/_components/reveal-preview.tsx",
@@ -6489,6 +6488,7 @@
     },
     "/dashboard/[eventId]/messages": {
       "files": [
+        "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
         "dashboard/[eventId]/messages/actions.ts",
         "dashboard/[eventId]/messages/loading.tsx",
         "dashboard/[eventId]/messages/page.tsx"
@@ -6505,6 +6505,8 @@
         "FeedPageSkeleton",
         "Link",
         "PageMasthead",
+        "PickMenu",
+        "StartThreadPicker",
         "SubmitButton",
         "ThreadArchiveToggle",
         "ThreadListAvatar",
@@ -7270,18 +7272,11 @@
     },
     "/dashboard/[eventId]/studio/[addon]": {
       "files": [
-        "dashboard/[eventId]/studio/[addon]/loading.tsx",
         "dashboard/[eventId]/studio/[addon]/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/studio"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "GridPageSkeleton",
-        "IterationPlaceholder",
-        "Link"
-      ]
+      "blocks": []
     },
     "/dashboard/[eventId]/studio/about/[addon]": {
       "files": [
@@ -8023,7 +8018,7 @@
       ],
       "destinations": [
         "/api/oauth/photo-delivery/start?event_id=[seg]&switch=1",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/galleries"
       ],
       "actions": [
         "action",
@@ -8176,42 +8171,20 @@
         "SubmitButton"
       ]
     },
-    "/dashboard/[eventId]/studio/supplies-marketplace": {
-      "files": [
-        "dashboard/[eventId]/studio/supplies-marketplace/_components/cart-drawer.tsx",
-        "dashboard/[eventId]/studio/supplies-marketplace/loading.tsx",
-        "dashboard/[eventId]/studio/supplies-marketplace/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/studio",
-        "/help"
-      ],
-      "actions": [],
-      "blocks": [
-        "CartDrawer",
-        "CategoryChip",
-        "GridPageSkeleton",
-        "HTMLDivElement",
-        "Link",
-        "ProductCard",
-        "StudioBuyHero",
-        "SuppliesMarketplaceBrowser",
-        "SupplyCategoryKey"
-      ]
-    },
     "/dashboard/[eventId]/studio/thank-you": {
       "files": [
         "dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx",
         "dashboard/[eventId]/studio/thank-you/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/studio"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
+        "InlineCheckoutDrawer",
         "PageMasthead",
+        "PaidMark",
         "Phase",
+        "SavePanel",
+        "StudioBuyHero",
         "ThankYouMaker"
       ]
     },
@@ -9927,7 +9900,10 @@
         "papic/decorate/_components/kwento-decorator.tsx",
         "papic/decorate/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/",
+        "/papic/guest"
+      ],
       "actions": [],
       "blocks": [
         "DoorShell",
@@ -9936,6 +9912,7 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "KwentoDecorator",
+        "Link",
         "PapicStyle"
       ]
     },
@@ -10074,10 +10051,14 @@
         "papic/pool/_components/pool-grid.tsx",
         "papic/pool/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/",
+        "/papic/me/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "DoorShell",
+        "Link",
         "PoolGrid"
       ]
     },

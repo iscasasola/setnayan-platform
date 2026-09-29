@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
@@ -30,10 +31,19 @@ export default async function PapicDecoratePage() {
         }
         title="Open your invitation first."
         sub="Scan your personal QR or open your invite link, then come back here to decorate a photo for the host."
-      />
+      >
+        {/* 🚪 A dead end still has a way out — see /papic/pool. */}
+        <Link href="/" className="button-secondary">
+          Back to Setnayan
+        </Link>
+      </DoorShell>
     );
   }
 
+  // 🚪 THE WAY BACK (2026-09-30): the guest came from their own photos page
+  // through the session bridge; the session names their token, exactly as
+  // /papic/guest links it.
+  const myPhotosHref = `/papic/me/${encodeURIComponent(session.qr_token)}`;
   const admin = createAdminClient();
   /* 🔴 "OFF" AND "WE COULD NOT TELL" ARE DIFFERENT SENTENCES, and only one of
      them is about the host. This asked a boolean that fails closed on a read
@@ -59,7 +69,11 @@ export default async function PapicDecoratePage() {
             ? 'Something on our side didn’t answer, so we can’t open the decorator yet. Give it a moment and try again — nothing is wrong with your invitation.'
             : 'Guest cameras aren’t on for this event yet, so there’s nothing to decorate. Enjoy the celebration!'
         }
-      />
+      >
+        <Link href={myPhotosHref} className="button-secondary">
+          Back to my photos
+        </Link>
+      </DoorShell>
     );
   }
 
@@ -83,6 +97,11 @@ export default async function PapicDecoratePage() {
   ).slice(0, 6);
 
   return (
-    <KwentoDecorator eventName={eventName} canKwento={canKwento} themeColors={themeColors} />
+    <KwentoDecorator
+      eventName={eventName}
+      canKwento={canKwento}
+      themeColors={themeColors}
+      myPhotosHref={myPhotosHref}
+    />
   );
 }

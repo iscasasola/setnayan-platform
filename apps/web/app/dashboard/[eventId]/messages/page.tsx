@@ -14,6 +14,9 @@ import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { startThreadByVendorEmail } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { teamPicksForMessages, type TeamProfile, type TeamRow } from '@/lib/messages-team-picker';
+import { StartThreadPicker } from './_components/start-thread-picker';
 
 export const metadata = { title: 'Messages' };
 
@@ -33,6 +36,41 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   const supabase = await createClient();
 
   const threads = await fetchCoupleThreads(supabase, eventId);
+
+  // ── Who the couple can start a conversation with: the suppliers on Your
+  // Team (the same `event_vendors` rows the Your Team page reads). See
+  // lib/messages-team-picker.ts for why this replaced the email box.
+  // 🔴 AN UNREAD TEAM IS NOT AN EMPTY TEAM. A refused read must not tell a
+  // couple with five suppliers to "add a supplier first" — `teamReadFailed`
+  // reaches the render and says what actually happened.
+  const teamRes = await supabase
+    .from('event_vendors')
+    .select('vendor_id, marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: true });
+  if (teamRes.error) {
+    logQueryError('CoupleMessagesPage.team', teamRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  const teamRows = (teamRes.data ?? []) as TeamRow[];
+  const shopIds = [
+    ...new Set(teamRows.map((r) => r.marketplace_vendor_id).filter((v): v is string => Boolean(v))),
+  ];
+  // Same columns the thread list's vendor embed reads (lib/chat.ts
+  // COUPLE_VENDOR_EMBED), under the couple's own session — the anonymity
+  // resolver needs them. A failed read shows no names, never real ones.
+  const profRes = shopIds.length
+    ? await supabase
+        .from('vendor_profiles')
+        .select(
+          'vendor_profile_id, business_name, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
+        )
+        .in('vendor_profile_id', shopIds)
+    : { data: [] as TeamProfile[], error: null };
+  if (profRes.error) {
+    logQueryError('CoupleMessagesPage.teamNames', profRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  const teamReadFailed = Boolean(teamRes.error);
+  const team = teamPicksForMessages(teamRows, (profRes.data ?? []) as TeamProfile[]);
 
   // Viber-style archive split (Data Retention Schedule 2026-07-11). Archiving
   // deletes nothing — it just moves a thread out of the active list into the
@@ -69,7 +107,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           primary_canonical_service: t.vendor.services?.[0] ?? null,
           location_city: t.vendor.location_city ?? null,
         })
-      : 'Vendor';
+      : 'Supplier';
     // Hybrid-anonymity logo gate (Data Flow Map audit gap #6): the
     // vendor's real logo is as identifying as the business name, so it
     // must stay masked until the SAME predicate that reveals the name
@@ -144,38 +182,44 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       ) : null}
 
       <section className="sn-tile p-5">
-        <h2 className="sn-eye mb-3">Start a new thread</h2>
-        {search.prefill_vendor_email ? (
-          <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-            Pre-filled from vendor profile · just tap Start thread
+        <h2 className="sn-eye mb-3">Start a conversation</h2>
+        {teamReadFailed ? (
+          <p role="alert" className="text-sm text-ink/70">
+            We couldn&rsquo;t load your team just now &mdash; this does not mean it is
+            empty. Reload in a moment.
           </p>
+        ) : team.length > 0 ? (
+          <StartThreadPicker eventId={eventId} team={team} />
+        ) : (
+          <p className="text-sm text-ink/70">
+            Nobody on your team can be messaged yet. Add a supplier from Setnayan to{' '}
+            <Link
+              href={`/dashboard/${eventId}/vendors`}
+              className="font-medium text-mulberry underline underline-offset-2"
+            >
+              Your Team
+            </Link>{' '}
+            and you can message them from here.
+          </p>
+        )}
+        {/* The old email box, kept for ONE arrival only: the budget card's
+            Message link for a supplier the couple typed in by hand carries the
+            address THEY typed (`prefill_vendor_email` — never a Setnayan shop's,
+            see vendor-itemization-card.tsx). If that address belongs to a shop,
+            this opens it; otherwise the action says so. No arrival → no box. */}
+        {search.prefill_vendor_email ? (
+          <form action={startThreadByVendorEmail} className="mt-3">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="vendor_email" value={search.prefill_vendor_email} />
+            <SubmitButton
+              className="button-secondary inline-flex items-center justify-center gap-2"
+              pendingLabel="Looking…"
+            >
+              <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+              Look for {search.prefill_vendor_email} on Setnayan
+            </SubmitButton>
+          </form>
         ) : null}
-        <form
-          action={startThreadByVendorEmail}
-          className="flex flex-col gap-2 sm:flex-row sm:items-stretch"
-        >
-          <input type="hidden" name="event_id" value={eventId} />
-          <input
-            name="vendor_email"
-            type="email"
-            required
-            placeholder="vendor's contact email"
-            defaultValue={search.prefill_vendor_email ?? ''}
-            autoFocus={!!search.prefill_vendor_email}
-            className="input-field flex-1"
-          />
-          <SubmitButton
-            className="button-primary inline-flex items-center justify-center gap-2"
-            pendingLabel="Starting…"
-          >
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Start thread
-          </SubmitButton>
-        </form>
-        <p className="mt-2 text-xs text-ink/55">
-          Works when the email you have is the one on their Setnayan shop. New thread or
-          resume an existing one — Setnayan keeps one per pair.
-        </p>
       </section>
 
       {threads.length === 0 ? (
@@ -193,16 +237,15 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
                 them communicate outside the app"). The way to reach a shop on
                 Setnayan is its Message / Inquire button, which opens the
                 conversation here. */}
-            The easiest way to start is from the shop itself: tap Message on a
-            supplier in your Vendors list, or Inquire on any shop&rsquo;s page — the
-            conversation opens right here.
+            Pick a supplier above, or tap Inquire on any shop&rsquo;s page &mdash;
+            the conversation opens right here.
           </p>
           <div className="mt-4">
             <Link
               href={`/dashboard/${eventId}/vendors`}
               className="button-secondary"
             >
-              Open vendors
+              Open Your Team
             </Link>
           </div>
         </div>

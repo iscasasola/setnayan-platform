@@ -17,7 +17,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImagePlus, Loader2, RotateCw, Smile, Type, Undo2, X } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft, ImagePlus, Loader2, RotateCw, Smile, Type, Undo2, X } from 'lucide-react';
 import { PAPIC_STYLES, cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 
@@ -63,11 +64,14 @@ export function KwentoDecorator({
   eventName,
   canKwento,
   themeColors = [],
+  myPhotosHref,
 }: {
   eventName: string;
   canKwento: boolean;
   /** The couple's mood-board colours, merged into the text swatches. */
   themeColors?: string[];
+  /** The guest's own photos page (/papic/me/[token]) — the way back. */
+  myPhotosHref: string;
 }) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [style, setStyle] = useState<PapicStyle>('ORIG');
@@ -78,6 +82,9 @@ export function KwentoDecorator({
   const [textPill, setTextPill] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  // The one refusal the guest can fix themselves, on another page — so the
+  // message carries the door to it rather than naming a page and stopping.
+  const [termsRequired, setTermsRequired] = useState(false);
   const [done, setDone] = useState(false);
   const [history, setHistory] = useState<Overlay[][]>([]); // undo stack (add/delete)
 
@@ -214,6 +221,7 @@ export function KwentoDecorator({
     if (!img || !img.naturalWidth) return;
     setSaving(true);
     setStatus(null);
+    setTermsRequired(false);
     try {
       const scale = Math.min(1, MAX_EXPORT_PX / Math.max(img.naturalWidth, img.naturalHeight));
       const w = Math.round(img.naturalWidth * scale);
@@ -295,6 +303,7 @@ export function KwentoDecorator({
         setStatus('You’ve used all your photos for this event.');
       } else if (data.status === 'terms_required') {
         setStatus('Please accept the photo terms on the camera page first.');
+        setTermsRequired(true);
       } else {
         setStatus('Couldn’t save — please try again.');
       }
@@ -346,6 +355,13 @@ export function KwentoDecorator({
   return (
     <main className="min-h-screen bg-cream px-4 py-8 text-ink">
       <div className="mx-auto w-full max-w-md">
+        <Link
+          href={myPhotosHref}
+          className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink/70 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Back to my photos
+        </Link>
         <h1 className="text-xl font-semibold tracking-tight">Decorate a photo</h1>
         <p className="mt-1 text-sm text-ink/60">
           Add stickers, text, and a filter, then save it to {eventName}&rsquo;s gallery.
@@ -551,6 +567,14 @@ export function KwentoDecorator({
               <p className={`mt-2 text-center text-sm ${done ? 'text-success-600' : 'text-ink/70'}`}>
                 {status}
               </p>
+            ) : null}
+            {termsRequired && !done ? (
+              <Link
+                href="/papic/guest"
+                className="mt-2 flex min-h-11 w-full items-center justify-center rounded-md border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink hover:border-ink/30"
+              >
+                Open the camera page
+              </Link>
             ) : null}
 
             {/* Slice 2 — the Kwento caption on the saved decorated photo. Only

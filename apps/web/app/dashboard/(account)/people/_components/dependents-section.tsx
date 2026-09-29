@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { myLovedOnes, spouseIdSet } from '@/lib/my-loved-ones';
 import { manilaToday } from '@/lib/std-views';
 import {
   DEPENDENT_RELATIONSHIP_LABELS,
@@ -115,16 +116,11 @@ export async function DependentsSection() {
   // spouse) saw another user's business, "Indigo Caterers", on his own People
   // page tagged "Shared by your spouse". A personal page shows: my own rows,
   // rows I handed over (read-only history), and rows my ACTUAL spouse shared.
-  // `current_spouse_user_ids()` RETURNS SETOF uuid — PostgREST hands back uuid strings.
-  const spouseSet = new Set(
-    (Array.isArray(spouseIds) ? (spouseIds as unknown[]) : []).filter((v): v is string => typeof v === 'string'),
-  );
-  const dependents = rows.filter(
-    (d) =>
-      d.owner_user_id === myUserId ||
-      d.handed_over_by_user_id === myUserId ||
-      (d.shared_with_spouse && spouseSet.has(d.owner_user_id)),
-  );
+  // 🔑 THE RULE LIVES IN `lib/my-loved-ones.ts` — the People roster's count reads
+  // the SAME function (2026-09-29: it didn't, and "Loved ones 1" sat above "No
+  // loved ones yet." for the owner, counting that same Indigo Caterers row).
+  const spouseSet = spouseIdSet(spouseIds);
+  const dependents = myLovedOnes(rows, myUserId, spouseSet);
 
   // Godparents (ninong/ninang) per dependent — RLS scopes to the owner's rows.
   const { data: gpData, error: gpDataError } = await supabase

@@ -88,8 +88,9 @@ export function buildChecklist(input: {
   /** Only once the venue is open to this guest (they replied, or it is the day). */
   mapsHref: string | null;
   tableLabel: string | null;
-  /** Where "Save to Photos" downloads this guest's own pass. */
-  passHref: string;
+  /** Where "Save to Photos" downloads this guest's own pass. Null: they have no
+   *  pass yet (lib/pass-card.ts) — no pass item is drawn. */
+  passHref: string | null;
 }): ChecklistItem[] {
   const items: ChecklistItem[] = [];
   if (input.wear || input.wearNote) {
@@ -106,12 +107,14 @@ export function buildChecklist(input: {
     });
   }
   if (input.tableLabel) items.push({ key: 'table', title: 'Your table', sub: input.tableLabel });
-  items.push({
-    key: 'pass',
-    title: 'Your QR pass saved',
-    sub: null,
-    link: { label: 'Save to Photos', href: input.passHref, download: true },
-  });
+  if (input.passHref) {
+    items.push({
+      key: 'pass',
+      title: 'Your QR pass saved',
+      sub: null,
+      link: { label: 'Save to Photos', href: input.passHref, download: true },
+    });
+  }
   return items;
 }
 

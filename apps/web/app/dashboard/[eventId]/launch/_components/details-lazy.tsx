@@ -76,6 +76,7 @@ export const PabuyaMessageEditor = dynamic(
 export const PrintPreview = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-preview').then((m) => m.PrintPreview), { loading: SlotFill });
 export const PrintMenuEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-menu-editor').then((m) => m.PrintMenuEditor), { loading: SlotRows });
 export const PrintChoicePicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-choice-picker').then((m) => m.PrintChoicePicker), { loading: SlotRows });
+export const PassCardDesignPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './pass-card-design-picker').then((m) => m.PassCardDesignPicker), { loading: SlotRows });
 export const PrintSaveButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.PrintSaveButton), { loading: SlotButton });
 
 /* ── Your event (names · date · venues · parents & hosts · the march) ─────── */
@@ -115,6 +116,7 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './print-menu-editor'),
     import(/* webpackChunkName: "maker-details" */ './print-choice-picker'),
     import(/* webpackChunkName: "maker-details" */ './print-save-button'),
+    import(/* webpackChunkName: "maker-details" */ './pass-card-design-picker'),
     import(/* webpackChunkName: "maker-details" */ './details-your-event'),
     import(/* webpackChunkName: "maker-details" */ './details-march'),
     import(/* webpackChunkName: "maker-details" */ './details-people'),

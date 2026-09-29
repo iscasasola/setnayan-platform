@@ -21,6 +21,8 @@
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import type { FlatMark } from '@/lib/print-mark';
 import { roleLabel, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
+import { guestPassFacts } from '@/lib/guest-pass';
+import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import {
   BLEED_MM,
   PRINT_FONT_FILES,
@@ -124,9 +126,29 @@ export type PrintSetData = {
   /** Is the theme's still (or the couple's hero) in `images.still`? */
   hasStill: boolean;
   hasEventQr: boolean;
+  /** The event type's own word, capitalised ("Wedding", "Debut") — the pass card's when-line. */
+  eventWord?: string;
+  /**
+   * "As of September 29, 2026" — stamped on a PRINTED pass card only (owner
+   * 2026-09-29, via the controller: tickets are drawn live from today's data,
+   * and paper says which day that was). A saved PNG carries none.
+   */
+  asOf?: string | null;
 };
 
-export type PrintPass = { name: string; seat: string | null; seatNumber?: string | null; qrRef: string | null; serial: string | null };
+export type PrintPass = {
+  name: string;
+  seat: string | null;
+  seatNumber?: string | null;
+  qrRef: string | null;
+  serial: string | null;
+  /** When the doors open, already formatted — the phone card's ARRIVE. Null/absent = unknown, omitted. */
+  arrive?: string | null;
+  /** A NAMED, confirmed companion — never a mere allowance (lib/guest-pass.ts). */
+  bringing?: string | null;
+  /** How many NAMED companions who are coming — the card's "and 1 guest". 0/absent = none. */
+  party?: number | null;
+};
 
 // ─── Fonts ──────────────────────────────────────────────────────────────────
 
@@ -1554,6 +1576,9 @@ function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
  * from the sheet's own height — so a format is laid out, never stretched.
  */
 function layoutPass(ctx: Ctx, pass: PrintPass, fmt: PrintFormat = PRINT_FORMATS['calling-card']): PrintDoc {
+  // The phone card is its own composition (portrait, the QR the hero) — the
+  // same one the 1080 × 1440 picture a guest saves is drawn from.
+  if (fmt.style === 'phone') return PASS_CARD_LAYOUTS[ctx.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](ctx, pass, fmt);
   const { look, data } = ctx;
   const doc = sheet('pass', ctx, { w: fmt.wMm * PT_PER_MM, h: fmt.hMm * PT_PER_MM });
   const { w, h, bleed, ops } = doc;
@@ -1666,6 +1691,314 @@ function layoutPass(ctx: Ctx, pass: PrintPass, fmt: PrintFormat = PRINT_FORMATS[
   }
   eyebrow(ops, look, 'Scan at the door', sx, footY, 4.8 * k);
   return doc;
+}
+
+/**
+ * THE PASS CARD — 3 : 4 portrait, the picture a guest saves to Photos and the
+ * `phone-card` print format, ONE composition per look (owner 2026-09-29; the
+ * three looks are `Setnayan/prototypes/pass_card_designs_2026-09-29.html`,
+ * approved "event pass for digital downloads approved"):
+ *
+ *   A · classic — couple and date on top, the guest's name above a large code,
+ *                 Table · Arrive in one row beneath;
+ *   B · ticket  — a portrait ticket: whose day and who this is for above a
+ *                 perforation (real notches in the die), the code with Table
+ *                 and Arrive on the tear-off stub;
+ *   C · poster  — the couple's cover photo (or the theme's colour band) across
+ *                 the top third with the name over it, the code in a white
+ *                 rounded tile with Table and Arrive inside it.
+ *
+ * THE FACTS AND THEIR OMIT RULE ARE THE PROTOTYPE'S: couple mark · couple ·
+ * "<Event> · <date>" · the guest's name, biggest · "and 1 guest" only for a
+ * NAMED, confirmed companion · Table and Arrive only when they exist (never
+ * "Table TBA") · the code, always black on white · "Scans once at the door" ·
+ * a small Setnayan mark on free events only.
+ *
+ * Drawn in the prototype's own units (a 360 × 480 card) scaled by `u`, so the
+ * picture and the paper are one drawing at any size.
+ */
+/** One line that FITS: set at the size that meets `maxWidth`, rather than the
+ *  0.55 floor `text` stops shrinking at (a long couple in caps ran past the
+ *  safe line — every-print-fits.test.ts). */
+function fitLine(ops: PrintOp[], raw: string, x: number, y: number, o: TextOpts): number {
+  if (o.maxWidth) {
+    let t = printableText(raw);
+    if (o.caps) t = t.toUpperCase();
+    const width = measure(t, o.font, o.size, (o.tracking ?? 0) * o.size);
+    if (width > o.maxWidth) o = { ...o, size: o.size * (o.maxWidth / width) * 0.995 };
+  }
+  return text(ops, raw, x, y, o);
+}
+
+type CardFacts = { label: string; value: string }[];
+
+/** The facts a pass card prints, in order — Table and Arrive, each only when it exists. */
+export function passCardFacts(pass: PrintPass): CardFacts {
+  return guestPassFacts({
+    displayName: pass.name,
+    // Under a "TABLE" label the value is the table's own name ("7", "VIP").
+    tableLabel: pass.seat ? pass.seat.replace(/^Table\s+/i, '') : null,
+    arriveLabel: pass.arrive ?? null,
+  }).filter((f) => f.label === 'Table' || f.label === 'Arrive');
+}
+
+/** "and 1 guest" / "and 3 guests" — only for companions who are NAMED and coming. */
+export function partyLine(n: number | null | undefined): string | null {
+  return n && n > 0 ? `and ${n} ${n === 1 ? 'guest' : 'guests'}` : null;
+}
+
+/** "Wedding · Friday, December 18, 2026" (the event's own word, the long date). */
+function cardWhen(data: PrintSetData, withWord: boolean): string | null {
+  const date = data.dateLabel ? data.dateLabel.replace(' · ', ', ') : null;
+  const fromEyebrow = /^the (.+) of$/i.exec(data.eyebrow.trim())?.[1] ?? null;
+  const word = data.eventWord ?? (fromEyebrow ? fromEyebrow.charAt(0).toUpperCase() + fromEyebrow.slice(1) : null);
+  if (!withWord) return date;
+  return [word, date].filter(Boolean).join(' · ') || null;
+}
+
+/**
+ * The code on its white tile — ALWAYS black on white, whatever the theme (it
+ * must scan). The rounded tile is two rects and four corner discs, not a
+ * path: a filled PATH next to a code is what the fit guard reads as ink
+ * touching it (`every-print-fits.test.ts`); a plate is not ink.
+ */
+function codeTile(ops: PrintOp[], pass: PrintPass, x: number, y: number, size: number, pad: number, radius: number, extraH = 0) {
+  const w = size + pad * 2;
+  const h = size + pad * 2 + extraH;
+  const r = Math.min(radius, w / 2, h / 2);
+  ops.push({ t: 'rect', x: x + r, y, w: w - r * 2, h, fill: '#ffffff' });
+  ops.push({ t: 'rect', x, y: y + r, w, h: h - r * 2, fill: '#ffffff' });
+  for (const [cx, cy] of [[x + r, y + r], [x + w - r, y + r], [x + r, y + h - r], [x + w - r, y + h - r]] as const) {
+    ops.push({ t: 'circle', cx, cy, r, fill: '#ffffff' });
+  }
+  if (pass.qrRef) ops.push({ t: 'image', ref: pass.qrRef, x: x + pad, y: y + pad, w: size, h: size });
+}
+
+/** The couple's mark in a ring — their logo, else their initials ("IC"). */
+function cardMark(ops: PrintOp[], look: PrintLook, data: PrintSetData, cx: number, cy: number, r: number, onPhoto: boolean) {
+  if (data.monogram) {
+    drawMark(ops, look, data.monogram, cx, cy, r * 0.78);
+    return;
+  }
+  const ring = onPhoto ? '#ffffff' : look.accent;
+  ops.push({ t: 'circle', cx, cy, r, stroke: ring, sw: Math.max(0.5, r / 16), opacity: onPhoto ? 0.8 : 1 });
+  const initials = data.initials.replace(/\s*&\s*/g, '');
+  fitLine(ops, initials, cx, cy + r * 0.3, { font: look.headFont, size: r * 0.8, color: onPhoto ? '#ffffff' : look.accent, align: 'center', caps: true, tracking: 0.06, maxWidth: r * 1.6 });
+}
+
+/** "SCANS ONCE AT THE DOOR" · and, on a free event, "● SETNAYAN". On paper, "As of <date>" above it. */
+function cardFoot(ops: PrintOp[], look: PrintLook, data: PrintSetData, u: number, x0: number, x1: number, y: number, mode: PrintMode) {
+  if (mode === 'print' && data.asOf) {
+    fitLine(ops, data.asOf, (x0 + x1) / 2, y - 13 * u, { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 7 * u), color: look.muted, align: 'center', maxWidth: x1 - x0, opacity: 0.8 });
+  }
+  const o = { font: look.bodyFont, size: 9.5 * u, color: look.muted, caps: true, tracking: 0.16 } as const;
+  if (data.details.setnayanMark) {
+    fitLine(ops, 'Scans once at the door', x0, y, { ...o, align: 'left', maxWidth: (x1 - x0) * 0.66 });
+    const w = fitLine(ops, 'Setnayan', x1, y, { ...o, align: 'right', tracking: 0.2 });
+    ops.push({ t: 'circle', cx: x1 - w - 5 * u, cy: y - 3.2 * u, r: 3 * u, fill: look.accent });
+  } else {
+    fitLine(ops, 'Scans once at the door', (x0 + x1) / 2, y, { ...o, align: 'center', maxWidth: x1 - x0 });
+  }
+}
+
+/** Label over value, centred on `cx`. */
+function cardFact(ops: PrintOp[], look: PrintLook, f: { label: string; value: string }, cx: number, y: number, u: number, size: number, maxWidth: number, ink = look.ink, muted = look.muted) {
+  fitLine(ops, f.label, cx, y, { font: look.bodyFont, size: 9.5 * u, color: muted, align: 'center', caps: true, tracking: 0.18 });
+  fitLine(ops, f.value, cx, y + (size + 3) * u, { font: look.headFont, size: size * u, color: ink, align: 'center', maxWidth });
+}
+
+function cardSheet(ctx: Ctx, fmt: PrintFormat): { doc: PrintDoc; u: number } {
+  const doc = sheet('pass', ctx, { w: fmt.wMm * PT_PER_MM, h: fmt.hMm * PT_PER_MM });
+  return { doc, u: doc.w / 360 };
+}
+
+function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): PrintDoc {
+  const { look, data } = ctx;
+  const { doc, u } = cardSheet(ctx, fmt);
+  const { ops, w, h } = doc;
+  const X = (v: number) => v * u;
+  const pad = Math.max(X(22), SAFE_PT + 2);
+  const foil: PrintLayer | undefined = ctx.foil ? 'foil' : undefined;
+
+  // head — mark, couple beside it; the when-line under
+  cardMark(ops, look, data, pad + X(22), pad + X(22), X(22), false);
+  const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
+  fitLine(ops, couple, pad + X(56), pad + X(30), { font: look.headFont, size: X(24), color: look.heading, align: 'left', caps: look.capsNames, maxWidth: w - pad * 2 - X(56), layer: foil });
+  const when = cardWhen(data, true);
+  if (when) fitLine(ops, when, pad, pad + X(66), { font: look.bodyFont, size: X(11), color: look.accent, align: 'left', caps: true, tracking: 0.14, maxWidth: w - pad * 2 });
+
+  // foot — a rule, then the door line
+  const footY = h - Math.max(X(18), SAFE_PT) - X(2);
+  const ruleY = footY - X(22);
+  ops.push({ t: 'rect', x: pad, y: ruleY, w: w - pad * 2, h: Math.max(0.4, X(1)), fill: look.ink, opacity: 0.16 });
+  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
+
+  // the middle — name, party, the code, the facts — centred between the two
+  const party = partyLine(pass.party);
+  const facts = passCardFacts(pass);
+  const tile = X(176);
+  const tilePad = X(10);
+  const blockH = X(30) + (party ? X(20) : 0) + X(14) + tile + tilePad * 2 + (facts.length ? X(14) + X(35) : 0);
+  const top = pad + X(82);
+  const y0 = top + Math.max(0, (ruleY - X(8) - top - blockH) / 2);
+  let y = y0 + X(30);
+  fitLine(ops, pass.name, w / 2, y, { font: look.headFont, size: X(34), color: look.heading, align: 'center', maxWidth: w - pad * 2 });
+  if (party) {
+    y += X(20);
+    fitLine(ops, party, w / 2, y, { font: look.bodyFont, size: X(15), color: look.muted, align: 'center' });
+  }
+  y += X(14);
+  const size = Math.min(tile, ruleY - X(8) - y - tilePad * 2 - (facts.length ? X(49) : 0));
+  codeTile(ops, pass, w / 2 - size / 2 - tilePad, y, size, tilePad, X(16));
+  y += size + tilePad * 2 + X(14);
+  if (facts.length) {
+    const gap = X(100);
+    facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, y + X(9), u, 20, gap - X(8)));
+  }
+  return doc;
+}
+
+/** The ticket's outline: rounded corners and a half-circle notch in each side at the perforation. */
+function ticketDie(w: number, h: number, r: number, perfY: number, notch: number): string {
+  const k = 0.5523 * r;
+  return (
+    `M${f2(r)} 0H${f2(w - r)}C${f2(w - r + k)} 0 ${f2(w)} ${f2(r - k)} ${f2(w)} ${f2(r)}` +
+    `V${f2(perfY - notch)}A${f2(notch)} ${f2(notch)} 0 0 0 ${f2(w)} ${f2(perfY + notch)}` +
+    `V${f2(h - r)}C${f2(w)} ${f2(h - r + k)} ${f2(w - r + k)} ${f2(h)} ${f2(w - r)} ${f2(h)}` +
+    `H${f2(r)}C${f2(r - k)} ${f2(h)} 0 ${f2(h - r + k)} 0 ${f2(h - r)}` +
+    `V${f2(perfY + notch)}A${f2(notch)} ${f2(notch)} 0 0 0 0 ${f2(perfY - notch)}` +
+    `V${f2(r)}C0 ${f2(r - k)} ${f2(r - k)} 0 ${f2(r)} 0Z`
+  );
+}
+
+function layoutPassCardTicket(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): PrintDoc {
+  const { look, data } = ctx;
+  const { doc, u } = cardSheet(ctx, fmt);
+  const { ops, w, h } = doc;
+  const X = (v: number) => v * u;
+  const pad = Math.max(X(22), SAFE_PT + 2);
+  const perfY = X(228);
+  // The notches are part of the CUT (the die), so they are transparent in the
+  // picture and cut on paper — a ticket even in Photos.
+  doc.diePath = ticketDie(w, h, X(18), perfY, X(12));
+  const foil: PrintLayer | undefined = ctx.foil ? 'foil' : undefined;
+
+  // top half — whose day, and who this is for
+  cardMark(ops, look, data, pad + X(22), pad + X(22), X(22), false);
+  const word = cardWhen(data, true)?.split(' · ')[0] ?? null;
+  const kindO = { font: look.bodyFont, size: X(9.5), color: look.muted, align: 'right' as const, caps: true, tracking: 0.2 };
+  if (word && word !== cardWhen(data, false)) fitLine(ops, word, w - pad, pad + X(16), kindO);
+  fitLine(ops, PASS_CARD_WORDS.kind, w - pad, pad + X(30), kindO);
+  const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
+  fitLine(ops, couple, pad, pad + X(80), { font: look.headFont, size: X(24), color: look.heading, align: 'left', caps: look.capsNames, maxWidth: w - pad * 2, layer: foil });
+  const date = cardWhen(data, false);
+  if (date) fitLine(ops, date, pad, pad + X(98), { font: look.bodyFont, size: X(11), color: look.accent, align: 'left', caps: true, tracking: 0.14, maxWidth: w - pad * 2 });
+  const party = partyLine(pass.party);
+  const nameY = perfY - X(16) - (party ? X(22) : X(4));
+  fitLine(ops, 'Guest', pad, nameY - X(34), { font: look.bodyFont, size: X(9.5), color: look.muted, align: 'left', caps: true, tracking: 0.18 });
+  fitLine(ops, pass.name, pad, nameY, { font: look.headFont, size: X(34), color: look.heading, align: 'left', maxWidth: w - pad * 2 });
+  if (party) fitLine(ops, party, pad, nameY + X(20), { font: look.bodyFont, size: X(15), color: look.muted, align: 'left' });
+
+  // the perforation, and the stub's slightly deeper paper
+  ops.push({ t: 'rect', x: -doc.bleed, y: perfY, w: w + doc.bleed * 2, h: h - perfY + doc.bleed, fill: look.ink, opacity: 0.035 });
+  // The dashes stay inside the safe line; the notches are the cut itself.
+  const perfIn = Math.max(X(14), SAFE_PT + 1);
+  for (let x = perfIn; x + X(4) <= w - perfIn; x += X(8)) ops.push({ t: 'rect', x, y: perfY - X(1), w: X(4), h: Math.max(0.5, X(2)), fill: look.ink, opacity: 0.2 });
+
+  // the stub — the code, with Table and Arrive set like a gate and a time
+  const footY = h - Math.max(X(16), SAFE_PT) - X(2);
+  const facts = passCardFacts(pass);
+  const tilePad = X(10);
+  const size = X(128);
+  const tileY = perfY + X(18) + Math.max(0, (footY - X(20) - perfY - X(18) - size - tilePad * 2) / 2);
+  const tileX = facts.length ? pad : w / 2 - size / 2 - tilePad;
+  codeTile(ops, pass, tileX, tileY, size, tilePad, X(16));
+  if (facts.length) {
+    const cx0 = tileX + size + tilePad * 2 + X(16);
+    const colW = w - pad - cx0;
+    const stepH = X(62);
+    const firstY = tileY + (size + tilePad * 2) / 2 - (facts.length * stepH) / 2 + X(12);
+    facts.forEach((f, i) => {
+      const y = firstY + i * stepH;
+      fitLine(ops, f.label, cx0, y, { font: look.bodyFont, size: X(9.5), color: look.muted, align: 'left', caps: true, tracking: 0.18 });
+      fitLine(ops, f.value, cx0, y + X(31), { font: look.headFont, size: X(30), color: look.heading, align: 'left', maxWidth: colW });
+    });
+  }
+  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
+  return doc;
+}
+
+function layoutPassCardPoster(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): PrintDoc {
+  const { look, data } = ctx;
+  const { doc, u } = cardSheet(ctx, fmt);
+  const { ops, w, h, bleed } = doc;
+  const X = (v: number) => v * u;
+  const pad = Math.max(X(22), SAFE_PT + 2);
+  const bandH = X(196);
+
+  // the band — their cover photo, or the theme's own colour when there is none
+  // Every strip runs from its own top to the band's FOOT, so the strips only
+  // ever stack — no two edges meet, and no hairline seam shows between steps.
+  const band = (fill: string, from: number, to: number, steps: number) => {
+    const a = 1 - Math.pow(1 - to, 1 / steps);
+    for (let i = 0; i < steps; i += 1) {
+      const y = -bleed + ((bandH + bleed) * i) / steps;
+      ops.push({ t: 'rect', x: -bleed, y, w: w + bleed * 2, h: bandH - y, fill, opacity: i === 0 ? Math.max(from, a) : a });
+    }
+  };
+  if (data.hasStill) {
+    ops.push({ t: 'image', ref: 'still', x: -bleed, y: -bleed, w: w + bleed * 2, h: bandH + bleed });
+  } else {
+    ops.push({ t: 'rect', x: -bleed, y: -bleed, w: w + bleed * 2, h: bandH + bleed, fill: look.accent });
+    // The theme's accent, deepening toward the foot (the prototype's band).
+    band('#140f0f', 0.12, 0.55, 28);
+  }
+  // the veil that keeps white type readable on any photo
+  band('#000000', 0.05, 0.45, 20);
+  const top = Math.max(X(18), SAFE_PT + 2);
+  cardMark(ops, look, data, pad + X(17), top + X(17), X(17), true);
+  const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
+  fitLine(ops, couple, pad + X(44), top + X(24), { font: look.headFont, size: X(19), color: '#ffffff', align: 'left', caps: look.capsNames, maxWidth: w - pad * 2 - X(44) });
+  const when = cardWhen(data, true);
+  if (when) fitLine(ops, when, pad, top + X(56), { font: look.bodyFont, size: X(11), color: '#ffffff', opacity: 0.85, align: 'left', caps: true, tracking: 0.14, maxWidth: w - pad * 2 });
+  const party = partyLine(pass.party);
+  const nameY = bandH - X(16) - (party ? X(22) : X(6));
+  fitLine(ops, pass.name, pad, nameY, { font: look.headFont, size: X(36), color: '#ffffff', align: 'left', maxWidth: w - pad * 2 });
+  if (party) fitLine(ops, party, pad, nameY + X(20), { font: look.bodyFont, size: X(15), color: '#ffffff', opacity: 0.85, align: 'left' });
+
+  // below — the code in a white rounded tile, Table and Arrive inside it
+  const footY = h - Math.max(X(16), SAFE_PT) - X(2);
+  const facts = passCardFacts(pass);
+  const size = X(150);
+  const tp = X(14);
+  const factsH = facts.length ? X(48) : 0;
+  const tileW = size + tp * 2;
+  const tileH = size + tp + X(12) + factsH;
+  const tileY = bandH + X(18) + Math.max(0, (footY - X(20) - bandH - X(18) - tileH) / 2);
+  codeTile(ops, pass, w / 2 - tileW / 2, tileY, size, tp, X(22), tileH - (size + tp * 2));
+  if (facts.length) {
+    const gap = Math.min(X(96), tileW / facts.length);
+    facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, tileY + tp + size + X(20), u, 18, gap - X(6), '#2b241c', '#7a7368'));
+  }
+  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
+  return doc;
+}
+
+/** Every pass-card look, by key. The route, the zip and the print format all come through here. */
+const PASS_CARD_LAYOUTS: Record<PassCardDesign, (ctx: Ctx, pass: PrintPass, fmt: PrintFormat) => PrintDoc> = {
+  classic: layoutPassCardClassic,
+  ticket: layoutPassCardTicket,
+  poster: layoutPassCardPoster,
+};
+
+/**
+ * The pass card for ONE guest, in a given look — the picture a guest saves.
+ * The print format (`phone-card` in `layoutPasses`) draws the SAME function.
+ */
+export function layoutPassCard(input: LayoutInput, pass: PrintPass, design?: PassCardDesign): PrintDoc {
+  const ctx: Ctx = { look: input.look, data: input.data, mode: input.mode, foil: input.foil };
+  const doc = PASS_CARD_LAYOUTS[design ?? input.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](ctx, pass, PRINT_FORMATS[PASS_CARD_FORMAT_ID]);
+  return input.mode === 'print' && input.whiteInk ? underprintWhite(doc) : doc;
 }
 
 function layoutPoster(ctx: Ctx): PrintDoc {
@@ -1850,7 +2183,7 @@ function underprintWhite(doc: PrintDoc): PrintDoc {
   return { ...doc, ops };
 }
 
-type LayoutInput = {
+export type LayoutInput = {
   look: PrintLook;
   data: PrintSetData;
   mode: PrintMode;

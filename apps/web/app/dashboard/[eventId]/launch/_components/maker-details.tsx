@@ -92,6 +92,7 @@ import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, t
 import { parentsOffered } from '@/lib/details-your-event';
 import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
 import {
+  PassCardsPanel,
   PrintPieceBody,
   PrintPieceEditor,
   PrintSetBody,
@@ -713,11 +714,15 @@ export function MakerDetails(props: MakerDetailsProps) {
       </PrintPieceEditor>
     ),
     pass: (
-      <PrintPieceEditor input={prints} piece="pass">
-        <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
-        {qrAlways}
-        {save}
-      </PrintPieceEditor>
+      <>
+        <PrintPieceEditor input={prints} piece="pass">
+          <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
+          {qrAlways}
+          {save}
+        </PrintPieceEditor>
+        {/* 🎫 The pass guests save — its look (one dropdown) and its two outputs. */}
+        <PassCardsPanel input={prints} />
+      </>
     ),
     entourage: <PrintPieceEditor input={prints} piece="entourage" />,
     menu: <PrintPieceEditor input={prints} piece="menu" menu={menu} />,

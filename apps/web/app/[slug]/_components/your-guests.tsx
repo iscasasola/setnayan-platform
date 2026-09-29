@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { AddNameInPlace } from './add-name-in-place';
 import { SendTheirInvite } from './send-their-invite';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
+import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
+import { PASS_CARD_WORDS } from '@/lib/pass-card';
 
 /**
  * "YOUR GUESTS" — the people this guest is bringing, each a guest row with their
@@ -27,6 +29,7 @@ export function YourGuests({
   passes,
   addName,
   inviteFacts,
+  passCards,
 }: {
   guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
   eventName: string;
@@ -46,8 +49,15 @@ export function YourGuests({
   passes?: Readonly<Record<string, string>>;
   /** The event's words for "Send their invite" (lib/guest-invite-message.ts). */
   inviteFacts?: InviteEventFacts;
+  /**
+   * 🎫 The pass CARDS this bringer may save (owner 2026-09-29) — their own and
+   * each named plus-one's who is coming, keyed by guest id. Given only on the
+   * bringer's own Me tab; absent everywhere else (the thank-you).
+   */
+  passCards?: { own: string; plusOnes: Readonly<Record<string, string>> } | null;
 }) {
   if (guests.length === 0) return null;
+  const cardHrefs = passCards ? [passCards.own, ...guests.flatMap((g) => (g.name && passCards.plusOnes[g.guestId] ? [passCards.plusOnes[g.guestId]!] : []))] : [];
   return (
     <section aria-labelledby="your-guests" className="space-y-2">
       <h2 id="your-guests" className="font-serif text-xl text-ink">
@@ -56,6 +66,7 @@ export function YourGuests({
       <p className="text-xs text-ink/60">
         Each name gets their own pass and QR — sent from your phone, with their own link.
       </p>
+      {cardHrefs.length > 1 ? <SavePassCardButton hrefs={cardHrefs} label={PASS_CARD_WORDS.saveAll} /> : null}
       <ul className="divide-y divide-ink/10">
         {guests.map((g, i) => {
           const pass = g.name ? passes?.[g.guestId] : undefined;
@@ -105,6 +116,13 @@ export function YourGuests({
                     dangerouslySetInnerHTML={{ __html: pass }}
                   />
                 </details>
+              ) : null}
+              {g.name && passCards?.plusOnes[g.guestId] ? (
+                <SavePassCardButton
+                  hrefs={[passCards.plusOnes[g.guestId]!]}
+                  label={PASS_CARD_WORDS.saveOf(g.name.split(/\s+/)[0]!)}
+                  variant="link"
+                />
               ) : null}
             </li>
           );

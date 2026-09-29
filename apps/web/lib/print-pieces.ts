@@ -28,6 +28,7 @@
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
+import { DEFAULT_PASS_CARD_DESIGN, passCardDesignFrom, type PassCardDesign } from '@/lib/pass-card';
 
 /** 72 PDF points to the inch. */
 export const PT_PER_IN = 72;
@@ -170,6 +171,7 @@ export type PrintFormatId =
   | 'cr80'
   | 'train'
   | 'boarding'
+  | 'phone-card'
   | 'inv-5x7'
   | 'inv-a5'
   | 'card-a5'
@@ -184,7 +186,7 @@ export type PrintFormat = {
   wMm: number;
   hMm: number;
   /** The pass's composition in this format. */
-  style?: 'card' | 'train' | 'boarding';
+  style?: 'card' | 'train' | 'boarding' | 'phone';
   /** Imposition on A4 (per-guest batch). */
   sheet?: { cols: number; rows: number; landscape: boolean };
 };
@@ -197,6 +199,11 @@ export const PRINT_FORMATS: Record<PrintFormatId, PrintFormat> = {
   train: { id: 'train', for: 'pass', label: 'Train ticket', wMm: 140, hMm: 70, style: 'train', sheet: { cols: 1, rows: 3, landscape: false } },
   // Boarding pass 3.25 × 8 in — Table · Seat · Time where a gate and seat would be.
   boarding: { id: 'boarding', for: 'pass', label: 'Boarding pass', wMm: 203, hMm: 82, style: 'boarding', sheet: { cols: 1, rows: 2, landscape: true } },
+  // THE PASS CARD A GUEST SAVES, on paper (owner 2026-09-29: "this should be a
+  // 4:3 portrait digital image. which can also be added on the prints"). 3 : 4
+  // portrait — the SAME layout the 1080 × 1440 picture is drawn from
+  // (`layoutPassCard`, lib/pass-card.ts), four to an A4 with cut lines.
+  'phone-card': { id: 'phone-card', for: 'pass', label: 'Phone card (3:4 portrait)', wMm: 90, hMm: 120, style: 'phone', sheet: { cols: 2, rows: 2, landscape: false } },
   'inv-5x7': { id: 'inv-5x7', for: 'invitation', label: '5 × 7 in', wMm: 127, hMm: 177.8 },
   'inv-a5': { id: 'inv-a5', for: 'invitation', label: 'A5', wMm: 148, hMm: 210 },
   'card-a5': { id: 'card-a5', for: 'card', label: 'A5', wMm: 148, hMm: 210 },
@@ -537,6 +544,10 @@ export type PrintDetails = {
   storyExcerpt?: string | null;
   /** Print guests' names on their passes (the Guest list toggle). */
   guestNames?: boolean;
+  /** The pass card's look (lib/pass-card.ts) — the couple's one pick, stored as `pass_design`. */
+  passDesign?: PassCardDesign;
+  /** A small Setnayan mark in the pass card's foot — free events only (never on Pro). */
+  setnayanMark?: boolean;
 };
 
 /**
@@ -631,6 +642,8 @@ export type StoredPrintDetails = {
    * a message save never touches the prints.
    */
   inviteMessage: string | null;
+  /** The pass card's look (owner 2026-09-29) — absent reads as the default, Classic. */
+  passDesign?: PassCardDesign;
 };
 
 // ─── The Menu ───────────────────────────────────────────────────────────────
@@ -732,7 +745,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * absent or broken value is nothing — never an invented opening line.
  */
 export function parsePrintDetails(raw: unknown): StoredPrintDetails {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [], inviteMessage: null };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [], inviteMessage: null, passDesign: DEFAULT_PASS_CARD_DESIGN };
   const r = raw as Record<string, unknown>;
   let rsvp: RsvpChoice | null = null;
   const c = r.rsvp && typeof r.rsvp === 'object' ? (r.rsvp as Record<string, unknown>) : null;
@@ -748,6 +761,7 @@ export function parsePrintDetails(raw: unknown): StoredPrintDetails {
     include: parseInclude(r.include),
     menu: parseMenu(r.menu),
     inviteMessage: sanitizeInviteTemplate(r.invite_message),
+    passDesign: passCardDesignFrom(r.pass_design),
   };
 }
 
@@ -759,6 +773,7 @@ export function serializePrintDetails(d: StoredPrintDetails): Record<string, unk
     include: d.include,
     menu: d.menu,
     invite_message: d.inviteMessage,
+    pass_design: d.passDesign ?? DEFAULT_PASS_CARD_DESIGN,
   };
 }
 

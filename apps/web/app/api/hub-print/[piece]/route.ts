@@ -5,7 +5,8 @@ import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadGuestPasses, loadPrintSet, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
-import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages } from '@/lib/print-layout';
+import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages, type PrintSetData } from '@/lib/print-layout';
+import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
@@ -121,6 +122,17 @@ function fieldsHeader(doc: PrintDoc): Record<string, string> {
   return doc.fields?.length
     ? { 'x-print-fields': JSON.stringify({ w: doc.w, h: doc.h, fields: doc.fields.map((b) => ({ ...b, x: +b.x.toFixed(1), y: +b.y.toFixed(1), w: +b.w.toFixed(1), h: +b.h.toFixed(1) })) }) }
     : {};
+}
+
+/**
+ * `pass_design=<key>` — the pass card's look for THIS drawing only (the Prints
+ * panel shows each look before the couple picks; a preview never writes).
+ * Without it the couple's saved pick (`print_details.pass_design`) stands.
+ */
+function withPassDesign(data: PrintSetData, url: URL): PrintSetData {
+  const asked = url.searchParams.get('pass_design');
+  if (!asked || !(PASS_CARD_DESIGNS as readonly string[]).includes(asked)) return data;
+  return { ...data, details: { ...data.details, passDesign: passCardDesignFrom(asked) } };
 }
 
 function pdfResponse(bytes: Uint8Array, name: string, inline: boolean): NextResponse {
@@ -256,7 +268,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     const set = await loadPrintSet(eventId, { mode: drawMode, previewTheme: theme });
     if (!set) return new NextResponse('Event not found.', { status: 404 });
     const spot = spotLayersFor(set.theme);
-    const input = { look: set.look, data: set.data, mode: drawMode, foil: spot.foil, whiteInk: spot.whiteInk };
+    const input = { look: set.look, data: withPassDesign(set.data, url), mode: drawMode, foil: spot.foil, whiteInk: spot.whiteInk };
 
     if (piece === 'passes') {
       const { passes, images, measured } = await loadGuestPasses(set, { width: 600 });
@@ -321,7 +333,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   const set = await loadPrintSet(eventId, { mode: 'sample', previewTheme: theme });
   if (!set) return new NextResponse('Event not found.', { status: 404 });
   const spot = spotLayersFor(set.theme);
-  const input = { look: set.look, data: set.data, mode: 'sample' as const, foil: spot.foil };
+  const input = { look: set.look, data: withPassDesign(set.data, url), mode: 'sample' as const, foil: spot.foil };
   const pieceView = wantsSet ? null : layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) });
   const jpeg = wantsSet
     ? await renderSampleSheetJpeg(
@@ -354,7 +366,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
  */
 export async function POST(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece } = await ctx.params;
-  if (piece !== 'words' && piece !== 'menu') return new NextResponse('Not found.', { status: 404 });
+  if (piece !== 'words' && piece !== 'menu' && piece !== 'pass-design') return new NextResponse('Not found.', { status: 404 });
 
   // A form post from another site carries no Origin of ours.
   const origin = req.headers.get('origin');
@@ -376,6 +388,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
     return NextResponse.redirect(back, 303);
   }
   const stored = parsePrintDetails(current.print_details);
+
+  // 🎫 THE PASS CARD'S LOOK (owner 2026-09-29: three designs, "event pass for
+  // digital downloads approved") — the couple's ONE pick, saved immediately like
+  // the menu and the words: it drives the picture every guest saves, their
+  // "Save all passes", the couple's zip and the Phone card print. Everything
+  // else in `print_details` is carried over untouched. Answers JSON — the
+  // picker swaps its preview at once and only reports a refusal.
+  if (piece === 'pass-design') {
+    const asked = String(form.get('design') ?? '');
+    if (!(PASS_CARD_DESIGNS as readonly string[]).includes(asked)) return NextResponse.json({ ok: false }, { status: 400 });
+    const { error } = await admin
+      .from('events')
+      .update({ print_details: serializePrintDetails({ ...stored, passDesign: passCardDesignFrom(asked) }) })
+      .eq('event_id', eventId);
+    if (error) logQueryError('hub-print.pass-design', error, { event_id: eventId }, 'graceful_degrade');
+    return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
+  }
 
   if (piece === 'menu') {
     // The editor posts the whole menu as JSON; the parser drops anything unknown
@@ -435,8 +464,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   // Round-trip through the parser: what is stored is exactly what prints. The
   // menu is carried over untouched — it is the Menu editor's, not this form's.
   // …and so is the invite message (`invite_message`, the guest list's Send
-  // invite wording) — it is not this form's either.
-  const details = { ...parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include }), inviteMessage: stored.inviteMessage, menu: stored.menu };
+  // invite wording) and the pass card's look (the Prints panel's) — neither
+  // is this form's.
+  const details = {
+    ...parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include }),
+    inviteMessage: stored.inviteMessage,
+    passDesign: stored.passDesign,
+    menu: stored.menu,
+  };
 
   const { error } = await admin
     .from('events')

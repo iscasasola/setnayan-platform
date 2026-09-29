@@ -18,15 +18,19 @@ import { stripComments } from './strip-comments';
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-test('the hero may be the page ground exactly on the Pro themes — keyed on tier, never on "not House"', () => {
+test('the hero may be the page ground on a Pro theme, or on a free one the event owns Pro for — never Classic', () => {
   const pro = INVITE_THEME_IDS.filter((t) => INVITE_THEMES[t].tier === 'pro');
   assert.ok(pro.length >= 1 && pro.length < INVITE_THEME_IDS.length, 'precondition: both tiers exist');
   for (const t of INVITE_THEME_IDS) {
-    assert.equal(heroMayBePageGround(t), INVITE_THEMES[t].tier === 'pro', t);
+    const classic = t === 'house';
+    // Without the unlock: a Pro theme only (it resolved, so ownership is decided upstream).
+    assert.equal(heroMayBePageGround(t, false), INVITE_THEMES[t].tier === 'pro', `${t} without Pro`);
+    // With it (owner 2026-09-29, "yes"): every theme but Classic.
+    assert.equal(heroMayBePageGround(t, true), !classic, `${t} with Pro`);
   }
-  assert.equal(heroMayBePageGround('house'), false, 'Classic never wears the hero as its ground');
-  assert.equal(heroMayBePageGround(null), false);
-  assert.equal(heroMayBePageGround(undefined), false);
+  assert.equal(heroMayBePageGround('house', true), false, 'Classic never wears the hero as its ground');
+  assert.equal(heroMayBePageGround(null, true), false);
+  assert.equal(heroMayBePageGround(undefined, true), false);
 });
 
 test('Classic never shows the hero as the page background, whatever the Maker stored', () => {
@@ -72,10 +76,10 @@ test('every surface that paints the page ground asks the one rule', () => {
     The gate assertions below are the same ones that read site-body before.
   */
   const helper = read('app/[slug]/_lib/main-ground-layer.tsx');
-  assert.match(helper, /import \{ heroMayBePageGround \} from '@\/lib\/page-ground';/);
+  assert.match(helper, /import \{ heroGroundNeedsOwnership, heroMayBePageGround \} from '@\/lib\/page-ground';/);
   assert.match(
     helper,
-    /const mainGround = heroMayBePageGround\(theme\)\s*\?\s*resolveMainGround\(/,
+    /const mainGround = heroMayBePageGround\(theme, ownsPro\)\s*\?\s*resolveMainGround\(/,
     'the Main background is resolved without asking the one rule',
   );
   assert.equal(helper.split('resolveMainGround(').length - 1, 1, 'a second, ungated resolveMainGround call');

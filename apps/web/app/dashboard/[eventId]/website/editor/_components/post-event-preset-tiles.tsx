@@ -9,6 +9,9 @@ import type { PostEventPreset } from '@/lib/post-event-presets';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { MAX_OWN_SCENES, Thumb, type SceneView } from './scene-template-picker';
 
+/** What the sheet is handed for Post Event: the twelve, the six slots used, and Pro. */
+export type PostEventPresetsProp = { items: readonly PostEventPreset[]; used: number; ownsPro: boolean; storeShell: boolean };
+
 /**
  * THE TWELVE, as tiles — a real mini picture of the template each is drawn
  * with, its name, the template's name small, ◆ (Pro — never a padlock: a tap
@@ -23,7 +26,7 @@ export function PresetTiles({
   view,
   onPick,
 }: {
-  presets: { items: readonly PostEventPreset[]; used: number; ownsPro: boolean; storeShell: boolean };
+  presets: PostEventPresetsProp;
   action: (formData: FormData) => void | Promise<void>;
   hidden: Readonly<Record<string, string>>;
   draft: boolean;

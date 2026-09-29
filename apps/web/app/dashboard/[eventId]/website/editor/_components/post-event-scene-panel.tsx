@@ -25,7 +25,7 @@
  */
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Eye, EyeOff, PencilLine, RotateCcw } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { makerSave } from '@/lib/maker-refresh';
@@ -51,12 +51,27 @@ import { IRow, ISection } from './inspector-kit';
 
 type DraftAction = (eventId: string, formData: FormData) => Promise<HubDraftActionResult>;
 
+/**
+ * ⚡ What the panel draws AT ONCE, before the server answers — the Maker never
+ * waits on the server to show a tap (`every-maker-edit-shows-before-it-saves.test.ts`).
+ * Cleared when the Maker's fresh props arrive (the draft then says the same),
+ * and when a save fails (the panel goes back to what is saved).
+ */
+type PostEventDrawn = { style?: string; hidden?: boolean; moved?: 'earlier' | 'later' };
+
 /** Save story keys (or a section's canvas) to the Event Hub draft — the one door. */
-function useDraftSave(eventId: string, draftAction: DraftAction) {
+function useDraftSave(eventId: string, draftAction: DraftAction, fresh?: unknown) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const save = (patch: { editorial?: PostEventDraft; widgets?: Record<string, { canvas: HubSectionCanvas }> }) =>
+  const [drawn, setDrawn] = useState<PostEventDrawn | null>(null);
+  useEffect(() => setDrawn(null), [fresh]);
+  const save = (
+    patch: { editorial?: PostEventDraft; widgets?: Record<string, { canvas: HubSectionCanvas }> },
+    draw: PostEventDrawn = {},
+  ) => {
+    // Drawn first — then the draft save runs behind it.
+    setDrawn(draw);
     start(async () => {
       setError(null);
       try {
@@ -64,12 +79,17 @@ function useDraftSave(eventId: string, draftAction: DraftAction) {
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify(patch));
         const r = await makerSave(() => draftAction(eventId, fd), () => router.refresh());
-        if (!r.ok) setError(r.error);
+        if (!r.ok) {
+          setDrawn(null);
+          setError(r.error);
+        }
       } catch {
+        setDrawn(null);
         setError('That change could not be saved. Please try again — nothing was lost.');
       }
     });
-  return { pending, error, setError, save };
+  };
+  return { pending, error, setError, save, drawn };
 }
 
 export function PostEventScenePanel({
@@ -96,8 +116,10 @@ export function PostEventScenePanel({
   /** Open one part of this scene in the part sheet (words, font, size, colour). */
   onPart: ((el: HubElementKey) => void) | null;
 }) {
-  const { pending, error, save } = useDraftSave(eventId, draftAction);
+  // `tile` is new each time the Maker refreshes — the moment the draft is read back.
+  const { pending, error, save, drawn } = useDraftSave(eventId, draftAction, tile);
   const scene = tile.scene;
+  const hiddenNow = drawn?.hidden ?? tile.hidden;
   const home = postEventStyleHome(scene);
   const picked = home ? sectionCanvases[home]?.style : arrangement ? postEventLookOf(arrangement, scene).style : undefined;
   const style = resolvePostEventStyle(scene, picked, eventType);
@@ -111,12 +133,12 @@ export function PostEventScenePanel({
     if (home) {
       /* 🔗 One value across stages — the section's own canvas, merged whole
          (the draft replaces a canvas whole), so nothing else on it moves. */
-      save({ widgets: { [home]: { canvas: { ...(sectionCanvases[home] ?? {}), style: id } } } });
+      save({ widgets: { [home]: { canvas: { ...(sectionCanvases[home] ?? {}), style: id } } } }, { style: id });
       return;
     }
     if (!arrangement) return;
     const patch = postEventSetStyle(arrangement, scene, id, def);
-    if (patch) save({ editorial: patch });
+    if (patch) save({ editorial: patch }, { style: id });
   };
 
   const statusLine =
@@ -143,7 +165,7 @@ export function PostEventScenePanel({
       {/* 🎨 Style — one dropdown, free. */}
       <SceneStyleRow
         options={options.map((o) => ({ id: o.id, name: o.name, line: o.line, isDefault: o.isDefault }))}
-        value={style}
+        value={drawn?.style ?? style}
         pending={pending}
         onPick={pickStyle}
       />
@@ -154,14 +176,14 @@ export function PostEventScenePanel({
           <button
             type="button"
             role="switch"
-            aria-checked={!tile.hidden}
+            aria-checked={!hiddenNow}
             disabled={pending}
-            data-post-event-eye={tile.hidden ? 'show' : 'hide'}
-            onClick={() => save({ editorial: postEventShow(arrangement, tile.switchKey!, tile.hidden) })}
+            data-post-event-eye={hiddenNow ? 'show' : 'hide'}
+            onClick={() => save({ editorial: postEventShow(arrangement, tile.switchKey!, tile.hidden) }, { hidden: !tile.hidden })}
             className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink/5 px-3 text-sm font-semibold text-ink hover:bg-ink/10 disabled:opacity-40"
           >
-            {tile.hidden ? <EyeOff aria-hidden className="h-4 w-4" strokeWidth={1.75} /> : <Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            {tile.hidden ? 'Hidden from guests' : 'Shown to guests'}
+            {hiddenNow ? <EyeOff aria-hidden className="h-4 w-4" strokeWidth={1.75} /> : <Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            {hiddenNow ? 'Hidden from guests' : 'Shown to guests'}
           </button>
         </IRow>
       ) : null}
@@ -173,7 +195,7 @@ export function PostEventScenePanel({
             type="button"
             disabled={pending || !earlier}
             data-post-event-move="earlier"
-            onClick={() => earlier && save({ editorial: earlier })}
+            onClick={() => earlier && save({ editorial: earlier }, { moved: 'earlier' })}
             className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full bg-ink/5 px-3 text-sm font-semibold text-ink hover:bg-ink/10 disabled:opacity-40"
           >
             <ArrowUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -183,13 +205,18 @@ export function PostEventScenePanel({
             type="button"
             disabled={pending || !later}
             data-post-event-move="later"
-            onClick={() => later && save({ editorial: later })}
+            onClick={() => later && save({ editorial: later }, { moved: 'later' })}
             className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full bg-ink/5 px-3 text-sm font-semibold text-ink hover:bg-ink/10 disabled:opacity-40"
           >
             <ArrowDown aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Later
           </button>
         </IRow>
+      ) : null}
+      {drawn?.moved ? (
+        <p role="status" className="px-1 text-[12px] font-medium text-ink/70" data-post-event-moved={drawn.moved}>
+          Moved {drawn.moved}.
+        </p>
       ) : null}
 
       {/* ✍ Its parts — each opens right here, in the part sheet. */}

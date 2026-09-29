@@ -25,7 +25,7 @@ const PresetTiles = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './post-event-preset-tiles').then((m) => m.PresetTiles),
   { loading: SlotRows },
 );
-import type { PostEventPreset } from '@/lib/post-event-presets';
+import type { PostEventPresetsProp } from './post-event-preset-tiles';
 
 /** Desktop · Phone · Both — one dropdown (owner: a set of choices is one PickMenu, never a pill row). */
 const SCENE_VIEW_OPTIONS = [
@@ -78,7 +78,7 @@ export function SceneTemplatePicker({
    * Apply is where Pro is asked). `used` = the couple's own scenes across every
    * stage (six, shared — E5).
    */
-  presets?: { items: readonly PostEventPreset[]; used: number; ownsPro: boolean; storeShell: boolean } | null;
+  presets?: PostEventPresetsProp | null;
   /**
    * Controlled open state, for a sheet with a second door (the Maker's toolbar
    * ＋ opens the same "Add a scene" sheet as the navigator's button). Absent →

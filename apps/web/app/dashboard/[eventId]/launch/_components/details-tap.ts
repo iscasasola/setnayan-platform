@@ -44,3 +44,16 @@ export function parsePrintFields(raw: string | null): PrintFieldsHeader | null {
     return null;
   }
 }
+
+/**
+ * ✍ THE SCENE A FACT'S EDITOR IS OPEN FOR (Details part 2b — "tap a fact on a
+ * stage → the same Details field on the right"). The stage's inspector wraps a
+ * Details item's OWN editor in this when it shows it for a scene (`w:<type>`),
+ * so the editor can put what is typed on that scene as it is typed — the
+ * canvas's `words` preview, `canvas-words.tsx`. Null in Details itself.
+ */
+export const DetailsFactSceneContext = createContext<string | null>(null);
+
+export function useDetailsFactScene(): string | null {
+  return useContext(DetailsFactSceneContext);
+}

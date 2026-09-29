@@ -187,6 +187,9 @@ test('(d) no made-once page carries a "Back to …" button', () => {
     `${L}/maker-reveal.tsx`,
     `${L}/maker-rsvp-ask.tsx`,
     `${L}/maker-shell.tsx`,
+    // Details part 3: the Logo, Hero and Reveal are drawn inside Details now.
+    `${L}/details-look-pages.tsx`,
+    `${L}/details-workspace.tsx`,
   ];
   for (const rel of FILES) {
     const src = code(read(rel));

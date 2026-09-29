@@ -74,7 +74,16 @@ export function MakerRevealPicker({
   ownsPro,
   storeShell,
   stdWindowDays,
+  part = 'all',
 }: {
+  /**
+   * 🧩 Which of the picker's three parts to draw (DECISION_LOG "A TOOL MOVED
+   * INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): in Details the openings
+   * are the NAVIGATOR ('options') and the rest — play, fine-tune, where it
+   * plays — the RIGHT column ('settings'); the reveal playing is the middle.
+   * 'all' draws both, as the Reveal page did. Same saves either way.
+   */
+  part?: 'all' | 'options' | 'settings';
   /** `STD_THRESHOLD_DAYS` — how long before the day the Save the Date is out. */
   stdWindowDays: number;
   /** Where it plays (drafted over live, resolved — the Save the Date alone when never chosen). */
@@ -164,7 +173,7 @@ export function MakerRevealPicker({
        PREVIEW (`?preview=draft`, `makerPageCanvasSrc`), never the editing
        canvas — the canvas skips the opening by design (owner 2026-09-26:
        *"that role is for the preview stage"*). */
-    const frame = document.querySelector<HTMLIFrameElement>('[data-maker-page="reveal"] iframe');
+    const frame = document.querySelector<HTMLIFrameElement>('[data-maker-page="reveal"] iframe, [data-details-look="reveal"] iframe');
     try {
       frame?.contentWindow?.location.reload();
     } catch {
@@ -181,8 +190,8 @@ export function MakerRevealPicker({
     return (
       <li
         className={`relative flex min-h-12 items-center gap-3 rounded-md px-3 py-2 text-ink transition-colors duration-sn-control ease-sn ${
-          on ? 'bg-white ring-2 ring-ink' : 'bg-white/70 hover:bg-white'
-        }`}
+          part === 'options' ? 'w-52 shrink-0 self-center lg:w-auto lg:self-auto' : ''
+        } ${on ? 'bg-white ring-2 ring-ink' : 'bg-white/70 hover:bg-white'}`}
       >
         <button
           type="button"
@@ -211,27 +220,52 @@ export function MakerRevealPicker({
     );
   };
 
+  const intro = (
+    <InfoTip label="Opening" labelAs="h3" labelClassName="text-[13px] font-semibold text-ink" align="start">
+      How your Event Hub opens for a guest — once, before the page. Your {themeName} theme dresses it
+      {dressing ? `: ${dressing.charAt(0).toLowerCase()}${dressing.slice(1)}.` : '.'}
+      {!ownsPro && !storeShell && openings.length > 0
+        ? ' Every opening is part of Event Hub Pro — try one here; guests see it after you Apply with Pro.'
+        : null}
+    </InfoTip>
+  );
+  const choices = (
+    <ul
+      className={part === 'options' ? 'contents lg:flex lg:flex-col lg:gap-1.5' : 'flex flex-col gap-1.5'}
+      aria-label="Choose how your Event Hub opens"
+      data-maker-reveal-options=""
+    >
+      <Row id="none" label="No reveal" note="Your page opens straight away. Always free." pro={false} />
+      {openings.map((o) => (
+        <Row
+          key={o.id}
+          id={o.id}
+          label={o.label}
+          note={o.id === defaultOpening && defaultIsTheme ? `Your theme’s opening · ${o.blurb}` : o.blurb}
+          pro
+        />
+      ))}
+    </ul>
+  );
+  const failed = error ? (
+    <p role="alert" className="text-[13px] text-terracotta-700">
+      {error}
+    </p>
+  ) : null;
+  /* 🧩 The navigator's part: the openings alone. */
+  if (part === 'options') {
+    return (
+      <>
+        {choices}
+        {failed}
+      </>
+    );
+  }
+
   return (
     <section className="flex flex-col gap-3 px-1" data-made-once="reveal">
-      <InfoTip label="Opening" labelAs="h3" labelClassName="text-[13px] font-semibold text-ink" align="start">
-        How your Event Hub opens for a guest — once, before the page. Your {themeName} theme dresses it
-        {dressing ? `: ${dressing.charAt(0).toLowerCase()}${dressing.slice(1)}.` : '.'}
-        {!ownsPro && !storeShell && openings.length > 0
-          ? ' Every opening is part of Event Hub Pro — try one here; guests see it after you Apply with Pro.'
-          : null}
-      </InfoTip>
-      <ul className="flex flex-col gap-1.5" aria-label="Choose how your Event Hub opens">
-        <Row id="none" label="No reveal" note="Your page opens straight away. Always free." pro={false} />
-        {openings.map((o) => (
-          <Row
-            key={o.id}
-            id={o.id}
-            label={o.label}
-            note={o.id === defaultOpening && defaultIsTheme ? `Your theme’s opening · ${o.blurb}` : o.blurb}
-            pro
-          />
-        ))}
-      </ul>
+      {intro}
+      {part === 'all' ? choices : null}
       {drafted ? (
         <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
           In your draft — guests see it after you Apply.
@@ -293,11 +327,7 @@ export function MakerRevealPicker({
           </p>
         ) : null}
       </fieldset>
-      {error ? (
-        <p role="alert" className="text-[13px] text-terracotta-700">
-          {error}
-        </p>
-      ) : null}
+      {failed}
     </section>
   );
 }

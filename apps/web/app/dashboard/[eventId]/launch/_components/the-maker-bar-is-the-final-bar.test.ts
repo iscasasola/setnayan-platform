@@ -11,39 +11,29 @@ import { TOURS } from '@/lib/tours';
 (globalThis as unknown as { React: unknown }).React = React;
 
 /**
- * THE BAR IS THE OWNER'S FINAL BAR — in order, with its two dividers.
+ * THE BAR IS THE OWNER'S FINAL BAR — in order, with its one divider.
  *
- *   Details · Logo · Hero · Reveal · Love Story · RSVP │ Save the Date · Invitation · On the Day · Post Event
+ *   Save the Date · Invitation · On the Day · Post Event │ Details
  *
- * 🖨 Prints & Tickets left the bar on 2026-09-28 (owner, verbatim: *"1 fold
- * prints and tickets into details"*; DECISION_LOG "PRINTS & TICKETS FOLDS INTO
- * DETAILS") — every print is an item of Details, so the third group is gone.
+ * 🗂 OPTION B (owner 2026-09-28, verbatim: *"B. maximize this concept so it is
+ * easier to find everything to populate the event hub"*; DECISION_LOG "OPTION B
+ * — EVERYTHING MADE ONCE LIVES IN DETAILS; THE TOP MENU IS THE FOUR STAGES +
+ * DETAILS"): the place menu is the four stages and Details — nothing else.
+ * Logo, Hero, Reveal, Love Story and RSVP were pages here (the 2026-09-25/27
+ * bar); they are items of Details now, and their old addresses land on them
+ * (`lib/maker-details-items.ts` `movedPageItem`). Prints & Tickets folded in
+ * the same way on 2026-09-28.
  *
- * (DECISION_LOG 2026-09-24/25; EVENT_HUB_MAKER_BUILD_PLAN Phase 1.) Asserted on
- * the RENDERED bar, not only the list: a list can be right while the component
- * drops an item, merges a group, or forgets a divider.
+ * Asserted on the RENDERED bar, not only the list: a list can be right while
+ * the component drops an item, merges a group, or forgets a divider.
  */
 
-/* Owner, FINAL (2026-09-25): "DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
-   INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS". */
-const FINAL = [
-  // Owner-final 2026-09-25: "DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
-  // INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS" (MAKER_DETAILS_LABEL).
-  'Details',
-  'Logo',
-  'Hero',
-  'Reveal',
-  'Love Story',
-  // Guest pathway, owner 2026-09-27: "RSVP is its own made-once page in the Maker bar".
-  'RSVP',
-  'Save the Date',
-  'Invitation',
-  'On the Day',
-  'Post Event',
-];
+/* Owner, 2026-09-28 (Option B): "Save the Date · Invitation · The Day · Post
+   Event · Details" — the stages in their one vocabulary (`PUBLIC_STAGE_LABELS`). */
+const FINAL = ['Save the Date', 'Invitation', 'On the Day', 'Post Event', 'Details'];
 
 async function paint(
-  opts: { hasWork?: boolean; liveStage?: 'rsvp' | null; selection?: { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'rsvp-page' } | null } = {},
+  opts: { hasWork?: boolean; liveStage?: 'rsvp' | null; selection?: { kind: 'tool'; key: 'details' } | null } = {},
 ) {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerBar } = await import('./maker-shell');
@@ -62,7 +52,7 @@ test('the list is the final bar', () => {
   assert.deepEqual(MAKER_BAR.map((i) => i.label), FINAL);
 });
 
-test('the rendered bar has the ten items in order and exactly one divider', async () => {
+test('the rendered bar has the five items in order and exactly one divider', async () => {
   const html = await paint();
   const order = FINAL.map((label) => html.indexOf(label.replace('&', '&amp;')));
   for (const [i, at] of order.entries()) assert.ok(at > -1, `"${FINAL[i]}" is missing from the bar`);
@@ -71,8 +61,12 @@ test('the rendered bar has the ten items in order and exactly one divider', asyn
   }
   assert.equal((html.match(/data-maker-divider/g) ?? []).length, 1, 'one divider, two groups');
   const firstDivider = html.indexOf('data-maker-divider');
-  assert.ok(order[5]! < firstDivider && firstDivider < order[6]!, 'the divider sits after RSVP');
+  assert.ok(order[3]! < firstDivider && firstDivider < order[4]!, 'the divider sits between the stages and Details');
   assert.doesNotMatch(html, /Prints &amp; Tickets/, 'Prints & Tickets is part of Details now — not a page of its own');
+  // The five pages that moved into Details are not buttons of their own any more.
+  for (const gone of ['logo', 'hero', 'reveal', 'love-story', 'rsvp-page']) {
+    assert.doesNotMatch(html, new RegExp(`data-maker-bar-item="${gone}"`), `${gone} is still a page of its own on the bar`);
+  }
 });
 
 test('the live stage wears the red dot, and only it', async () => {
@@ -111,7 +105,7 @@ test('every bar item is reachable by scrolling — the bar never centres by just
   assert.doesNotMatch(nav, /justify-(center|around|evenly|end)|justify-content:\s*center/, 'the scrolling bar must not justify-center');
   assert.match(nav, /overflow-x-auto/, 'the bar must scroll when it overflows');
   const groups = [...html.matchAll(/<span class="flex shrink-0 items-center gap-0\.5([^"]*)"/g)].map((m) => m[1]!);
-  // Two groups since Prints & Tickets folded into Details (2026-09-28).
+  // Two groups: the four stages, then Details (Option B, 2026-09-28).
   assert.equal(groups.length, 2, 'two groups');
   assert.match(groups[0]!, /\bms-auto\b/, 'the first group centres with margin-inline-start:auto');
   assert.match(groups[1]!, /\bme-auto\b/, 'the last group centres with margin-inline-end:auto');
@@ -123,8 +117,6 @@ test('ONE highlight in every state — a tool takes it from the stage, and any i
   const pressed = (html: string) => [...html.matchAll(/data-maker-bar-item="([^"]+)"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*data-maker-bar-item="([^"]+)"/g)].map((m) => m[1] ?? m[2]);
   const none = pressed(await paint());
   assert.deepEqual(none, ['rsvp'], 'with no tool open the stage is the one highlight');
-  for (const key of ['logo', 'hero', 'reveal', 'love-story', 'rsvp-page'] as const) {
-    const on = pressed(await paint({ selection: { kind: 'tool', key } }));
-    assert.deepEqual(on, [key], `with ${key} open, ${key} alone is highlighted (got ${on.join(', ')})`);
-  }
+  const on = pressed(await paint({ selection: { kind: 'tool', key: 'details' } }));
+  assert.deepEqual(on, ['details'], `with Details open, Details alone is highlighted (got ${on.join(', ')})`);
 });

@@ -127,7 +127,7 @@ test('C · website media is held to the public bucket wherever it is signed', ()
 test('D · the pinned doors are what the render surfaces actually call (anti-vacuity)', () => {
   const byRel = new Map(sources().map((s) => [s.rel, s.code] as const));
   const expect: Array<[string, string]> = [
-    ['app/dashboard/[eventId]/studio/mood-board/page.tsx', 'signOwnRenderImage('],
+    ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx', 'signOwnRenderImage('],
     ['app/admin/moodboard-renders/page.tsx', 'signOwnRenderImage('],
     ['app/dashboard/[eventId]/studio/mood-board/render-actions.ts', 'signOwnRenderImage('],
     ['app/dashboard/[eventId]/studio/mood-board/actions.ts', 'signPooledGalleryImage('],

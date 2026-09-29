@@ -26,7 +26,14 @@ export const metadata = { title: 'Requests' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ error?: string; done?: string; bound?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    done?: string;
+    bound?: string;
+    /** `1` = drawn IN PLACE in the Event Hub Maker (Details › RSVP › Requests
+     *  waiting, part 2b): no way back, no masthead, and each save stays put. */
+    maker?: string;
+  }>;
 };
 
 type RequestRow = {
@@ -66,7 +73,8 @@ const DONE_COPY: Record<string, string> = {
  */
 export default async function RequestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const { error: actionError, done } = await searchParams;
+  const { error: actionError, done, maker } = await searchParams;
+  const inMaker = maker === '1';
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -162,18 +170,23 @@ export default async function RequestsPage({ params, searchParams }: Props) {
   const answerLabel = (s: RsvpStatus) => REQUEST_ANSWERS.find((a) => a.value === s)?.label ?? RSVP_LABELS[s];
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6" data-requests-page="">
-      <Link
-        href={`/dashboard/${eventId}/guests`}
-        className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" /> Guest List
-      </Link>
+    <div className={inMaker ? 'w-full' : 'mx-auto w-full max-w-2xl px-4 py-6 sm:px-6'} data-requests-page="">
+      {/* In the Maker these rows sit inside RSVP's own panel — the panel is the way back. */}
+      {inMaker ? null : (
+        <>
+          <Link
+            href={`/dashboard/${eventId}/guests`}
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+          >
+            <ArrowLeft className="h-4 w-4" /> Guest List
+          </Link>
 
-      <PageMasthead title="Requests" />
-      <p aria-hidden className="mt-2 text-3xl font-semibold tracking-tight text-ink">
-        Requests
-      </p>
+          <PageMasthead title="Requests" />
+          <p aria-hidden className="mt-2 text-3xl font-semibold tracking-tight text-ink">
+            Requests
+          </p>
+        </>
+      )}
 
       {actionError ? (
         <p role="alert" className="mt-4 border-l-2 border-danger-700 pl-3 text-sm text-danger-900">
@@ -247,9 +260,9 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                       >
                         Keep
                       </summary>
-                      <form action={keepGuestAction.bind(null, eventId)} className="mt-3 w-[min(100vw-2rem,36rem)] space-y-3">
+                      <form action={keepGuestAction.bind(null, eventId)} className={`mt-3 space-y-3 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`}>
                         <input type="hidden" name="guest_id" value={g.guest_id} />
-                        <input type="hidden" name="from" value="requests" />
+                        {inMaker ? null : <input type="hidden" name="from" value="requests" />}
                         <KeepQuickAdd
                           defaultLine={keepLineFor(name, g.notes)}
                           offeredRoles={offeredRoles}
@@ -284,10 +297,10 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                         </summary>
                         <form
                           action={linkGuestAction.bind(null, eventId)}
-                          className="mt-3 flex w-[min(100vw-2rem,36rem)] flex-wrap items-center gap-2"
+                          className={`mt-3 flex flex-wrap items-center gap-2 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`}
                         >
                           <input type="hidden" name="guest_id" value={g.guest_id} />
-                          <input type="hidden" name="from" value="requests" />
+                          {inMaker ? null : <input type="hidden" name="from" value="requests" />}
                           <span className="text-sm text-ink/60">Same as</span>
                           <LinkPicker candidates={candidates} initial={match} />
                           <SubmitButton className="button-primary" pendingLabel="Linking…">

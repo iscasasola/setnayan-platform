@@ -1,7 +1,11 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import type { DetailsItemKey } from '@/lib/maker-details-items';
+import type { HubElementKey } from '@/lib/element-style';
+import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { ElementDraftAction, ElementPalette } from '../../website/editor/_components/element-sheet';
 
 /**
  * THE MAKER'S SHARED STATE — what the toolbar says, the navigator, canvas and
@@ -58,6 +62,60 @@ export type MakerState = {
   /** ＋ Add a scene, as the work area registered it — see `MakerAddScene` below. */
   addScene: MakerAddScene | null;
   setAddScene: (next: MakerAddScene | null) => void;
+  /**
+   * 🧭 The item Details is on (or will open on) — Details reports it as the
+   * couple moves, and a door elsewhere in the Maker (an old Hero or Reveal
+   * button, `select({ kind: 'tool', key: 'hero' })`) sets it before Details
+   * opens. Null until Details has said. Optional: a harness may leave it out.
+   */
+  detailsItem?: DetailsItemKey | null;
+  setDetailsItem?: (key: DetailsItemKey) => void;
+  /** 🎨 The Look pages the work area moved into Details — see `MakerLookPages`. */
+  lookPages?: MakerLookPages | null;
+  setLookPages?: (next: MakerLookPages | null) => void;
+  /**
+   * ✍ TAP A FACT, EDIT IT ON THE RIGHT (Details part 2b): the Details items'
+   * OWN editors, built once by the launch page (`detailsFactEditors`) and handed
+   * to both Details and the stage — so a fact tapped on a stage opens the SAME
+   * component its Details item shows, never a copy. Empty outside the Maker.
+   */
+  factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
+};
+
+/**
+ * 🎨 THE LOOK PAGES THAT MOVED INTO DETAILS (Details part 3, owner 2026-09-28
+ * "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS"). Logo, Hero and Reveal
+ * are built by the WORK AREA's server page (`website/editor/page.tsx`
+ * `madeOnce`), with every read and bound action they always had; Details is
+ * built by the launch page. The two trees meet only here, so the work area
+ * REGISTERS the three — the same nodes, moved whole, never a second build —
+ * and Details draws them (`details-look-pages.tsx`).
+ */
+export type MakerLookPages = {
+  /** The Logo studio — canvas and panel, its own split. */
+  logo: ReactNode | null;
+  /** The Hero's controls: Designs 1–4, its parts, the photo — and the Main background it carries. */
+  hero: ReactNode | null;
+  /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
+  reveal: ReactNode | null;
+  /** The Reveal's openings — its pieces, listed in Details' NAVIGATOR. */
+  revealOptions: ReactNode | null;
+  /**
+   * The Hero's parts and what edits one — the SAME per-part editing a tap on
+   * the hero scene opens (`element-sheet.tsx`, its one draft door); null when
+   * per-part editing is not offered.
+   */
+  heroParts: {
+    keys: readonly HubElementKey[];
+    canvases: Record<string, HubSectionCanvas>;
+    palette: ElementPalette;
+    draftAction: ElementDraftAction;
+    ownsPro: boolean;
+  } | null;
+  /** Where the reveal plays (drafted over live) — its page previews the first. */
+  revealStages: readonly LifecyclePhase[];
+  /** The guest page's address (`/<slug>`), or null before there is one. */
+  publicLandingUrl: string | null;
 };
 
 export const MakerContext = createContext<MakerState | null>(null);

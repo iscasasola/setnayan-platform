@@ -11,7 +11,7 @@ import {
   rankWithPin,
 } from '../../find-date/_components/find-your-date';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
-import { useDetailsPiece } from './details-pieces';
+import { useDetailsPiece } from './details-go';
 
 /**
  * FIND YOUR DATE, IN THE MAKER'S THREE PARTS (owner 2026-09-29, DECISION_LOG
@@ -31,15 +31,41 @@ import { useDetailsPiece } from './details-pieces';
 
 const TOP = 3;
 
+/**
+ * THE DATE ITEM'S ONE PIECE (part 3's mechanism, `details-go.tsx`, under
+ * 'date'): "I have a date" or "Help me choose" — and, while helping, the picked
+ * day and the must-have supplier — so the middle and the right read one value.
+ * Stored as `have` or `help|<day>|<supplier>`; nothing picked yet means
+ * "I have a date" (or "Help me choose" when the page opened there).
+ */
+export type DateState = { mode: 'have' | 'help'; pick: string | null; pin: string | null };
+
+export function parseDateState(piece: string | null, helpFirst = false): DateState {
+  if (!piece) return { mode: helpFirst ? 'help' : 'have', pick: null, pin: null };
+  const [mode, pick, pin] = piece.split('|');
+  return { mode: mode === 'help' ? 'help' : 'have', pick: pick || null, pin: pin || null };
+}
+
+export function formatDateState(s: DateState): string {
+  return s.mode === 'have' ? 'have' : `help|${s.pick ?? ''}|${s.pin ?? ''}`;
+}
+
+export function useDateState(helpFirst = false): [DateState, (patch: Partial<DateState>) => void] {
+  const [piece, setPiece] = useDetailsPiece('date');
+  const state = parseDateState(piece, helpFirst);
+  return [state, (patch) => setPiece(formatDateState({ ...state, ...patch }))];
+}
+
 function useRanked(m: ScheduleMatrix) {
-  const [pinned] = useDetailsPiece('date.pin');
+  const [{ pin: pinned }] = useDateState(true);
   return useMemo(() => (m.exactDate ? m.dates : rankWithPin(m.dates, pinned)), [m.dates, m.exactDate, pinned]);
 }
 
 /** MIDDLE — the candidate days, best first. */
 export function FindDateCandidates({ matrix }: { matrix: Promise<ScheduleMatrix | null> }) {
   const m = use(matrix);
-  const [picked, setPicked] = useDetailsPiece('date.pick');
+  const [{ pick: picked }, setDate] = useDateState(true);
+  const setPicked = (dateKey: string) => setDate({ mode: 'help', pick: dateKey });
   const [all, setAll] = useState(false);
   const ranked = useRanked(m ?? { hasDate: false, hasShortlist: false, exactDate: false, offPlatformCount: 0, dates: [] });
   if (!m) return <Unread />;
@@ -110,8 +136,8 @@ export function FindDatePicked({
   pending: boolean;
 }) {
   const m = use(matrix);
-  const [picked] = useDetailsPiece('date.pick');
-  const [pinned, setPinned] = useDetailsPiece('date.pin');
+  const [{ pick: picked, pin: pinned }, setDate] = useDateState(true);
+  const setPinned = (pin: string | null) => setDate({ mode: 'help', pin });
   const ranked = useRanked(m ?? { hasDate: false, hasShortlist: false, exactDate: false, offPlatformCount: 0, dates: [] });
   const pins = useMemo(() => {
     const seen = new Set<string>();

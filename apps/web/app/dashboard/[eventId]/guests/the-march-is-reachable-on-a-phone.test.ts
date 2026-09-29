@@ -38,6 +38,8 @@ test('on a phone, the Details navigator — and the march’s own lines in it �
   const nav = ws.slice(ws.indexOf('<nav aria-label="Details'), ws.indexOf('>', ws.indexOf('<nav aria-label="Details')));
   assert.ok(nav.length > 0, 'the Details navigator is gone');
   assert.doesNotMatch(nav.replace(/lg:[\w-]+/g, ''), /\bhidden\b/, 'the Details navigator is hidden on a phone');
-  // The march's lines ride in that same navigator while the item is open.
-  assert.match(ws, /\{pieces\[selected\] && !allItems \? \(/);
+  // The march's lines ride in that same navigator while the item is open —
+  // part 3's one piece mechanism, a strip on a phone (`contents`).
+  assert.match(ws, /\{on && pieces\[i\.key\] \? \(/);
+  assert.match(ws, /data-details-pieces=\{i\.key\}\s*className="contents lg:flex/);
 });

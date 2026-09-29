@@ -188,5 +188,9 @@ test('/find-date lands on Details › Date with "Help me choose" open — for a 
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /helpFirst: one\(search\.date\) === 'help',/);
   // Both halves of the date item open on the same mode.
-  assert.equal((EDITORS.match(/useDetailsPiece\('date\.mode', helpFirst \? 'help' : 'have'\)/g) ?? []).length, 2);
+  assert.equal((EDITORS.match(/useDateState\(helpFirst\)/g) ?? []).length, 2);
+  // …through part 3's one piece mechanism, under the item's own key.
+  const finder = read(`${L}details-date-finder.tsx`);
+  assert.match(finder, /useDetailsPiece\('date'\)/);
+  assert.match(finder, /if \(!piece\) return \{ mode: helpFirst \? 'help' : 'have', pick: null, pin: null \};/);
 });

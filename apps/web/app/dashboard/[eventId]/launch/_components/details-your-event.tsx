@@ -8,8 +8,7 @@ import type { ScheduleMatrix } from '@/lib/schedule-matrix';
 import { updateEventDate, updateEventMatchCriteria } from '../../actions';
 import { saveAllStdContent } from '../../studio/save-the-date/actions';
 import { GovernedFields } from '../../details/_components/governed-fields';
-import { FindDateCandidates, FindDatePicked } from './details-date-finder';
-import { useDetailsPiece } from './details-pieces';
+import { FindDateCandidates, FindDatePicked, useDateState } from './details-date-finder';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 
@@ -155,9 +154,8 @@ export function DateEditor({
   nudge?: ReactNode;
 }) {
   // Shared with the middle (`DateBody`): "Help me choose" puts the candidate days there.
-  const [modeRaw, setModeRaw] = useDetailsPiece('date.mode', helpFirst ? 'help' : 'have');
-  const mode = modeRaw === 'help' ? 'help' : 'have';
-  const setMode = (m: 'have' | 'help') => setModeRaw(m);
+  const [{ mode }, setDate] = useDateState(helpFirst);
+  const setMode = (m: 'have' | 'help') => setDate({ mode: m });
   const [proposal, setProposal] = useState<{ field: 'date'; value: string; n: number } | null>(null);
   const [monthError, setMonthError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -234,7 +232,7 @@ export function DateEditor({
  * IS REBUILT INTO THE THREE PARTS").
  */
 export function DateBody({ matrix, picture, helpFirst = false }: { matrix: Promise<ScheduleMatrix | null>; picture: ReactNode; helpFirst?: boolean }) {
-  const [mode] = useDetailsPiece('date.mode', helpFirst ? 'help' : 'have');
+  const [{ mode }] = useDateState(helpFirst);
   if (mode !== 'help') return <>{picture}</>;
   return (
     <Suspense fallback={<p className="text-sm text-ink/60">Checking your suppliers’ calendars…</p>}>

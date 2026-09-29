@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import type { InvitationWidgetRow, WidgetType } from './invitation-widgets';
 import { makerStageLists, type MakerStageInput, type MakerTile } from './maker-scene-list';
+import { resolvePostEventStyle } from './post-event-style-resolve';
 import { POST_EVENT_WAITING, compilePostEventScenes, postEventSceneList, type PostEventSources } from './post-event-scenes';
 
 const WEB = join(__dirname, '..');
@@ -102,7 +103,8 @@ const pe = (t: MakerTile) => (t.kind === 'post-event' ? t : null);
 
 test('1 · BEFORE THE DAY: every default scene is listed, Not yet, each with its placeholder — none hidden, none empty', () => {
   const rows = postEventSceneList(compilePostEventScenes(BEFORE, AT, { dayHappened: false }), {});
-  const lists = makerStageLists({ ...PLAN, postEvent: rows });
+  // The server caller (`maker-navigator-data.ts`) hands in the registry's answer.
+  const lists = makerStageLists({ ...PLAN, postEvent: rows, postEventStyled: (k) => resolvePostEventStyle(k, null) !== null });
   const keys = lists.editorial.shown.map((t) => t.key);
   assert.ok(!keys.includes('f:editorial'), 'the single "The story after the day" tile is gone');
   const tiles = lists.editorial.shown.map(pe).filter((t): t is NonNullable<typeof t> => t !== null);

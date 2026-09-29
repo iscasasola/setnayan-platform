@@ -33,7 +33,7 @@
  * Pure. No I/O. Client-safe.
  */
 
-import { resolveSceneStyle, sanitizeSceneStyleId, sceneStyleOptions, type SceneStyle } from '@/lib/scene-styles';
+import { sanitizeSceneStyleId } from '@/lib/scene-style-id';
 
 /** The owner's proposed plain name for Papic's photo-anchored guest messages ("Kwento"). */
 export const PHOTO_NOTES_LABEL = 'Photo Notes';
@@ -130,27 +130,6 @@ export const POST_EVENT_STYLE_HOME: Readonly<Record<string, string>> = {
 /** The section row a Post Event scene's style lives on, or null (it lives in `sceneLooks`). */
 export function postEventStyleHome(sceneKey: string): string | null {
   return POST_EVENT_STYLE_HOME[postEventLookKey(sceneKey)] ?? null;
-}
-
-/**
- * The style a Post Event scene is DRAWN in: its pick when Post Event draws it,
- * else the type's default. Null for a scene with no styles registered yet — the
- * page then keeps the scene's shipped block, and the Maker offers no dropdown.
- */
-export function resolvePostEventStyle(
-  sceneKey: string,
-  picked: unknown,
-  eventType?: string | null,
-): PostEventStyleId | null {
-  return resolveSceneStyle(postEventSceneTypeOf(sceneKey), 'editorial', picked, eventType);
-}
-
-/** The dropdown's options for a Post Event scene — empty when there is no choice. */
-export function postEventStyleOptions(
-  sceneKey: string,
-  eventType?: string | null,
-): Array<SceneStyle & { isDefault: boolean }> {
-  return sceneStyleOptions(postEventSceneTypeOf(sceneKey), 'editorial', eventType);
 }
 
 /**

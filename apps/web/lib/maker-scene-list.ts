@@ -51,7 +51,6 @@ import {
   type PostEventSectionSwitch,
 } from './post-event-scenes';
 import { postEventRunKey } from './post-event-draft';
-import { resolvePostEventStyle } from './post-event-styles';
 import { sanitizeHubCanvas } from './hub-canvas';
 import type { SceneTemplateId } from './scene-templates';
 import { stageShowsEntourage } from './stage-scenes';
@@ -346,6 +345,14 @@ export type MakerStageInput = {
    * (`postEventSceneList`). Absent/empty → the one "story after the day" tile.
    */
   postEvent?: readonly PostEventListRow[] | null;
+  /**
+   * 🎨 Whether a Post Event scene has styles in the registry (so a waiting one is
+   * drawn on the couple's canvas). Handed in by the server-side caller
+   * (`maker-navigator-data.ts` → `resolvePostEventStyle`) so this file — which
+   * the Maker's client also imports — never loads the style registry.
+   * Absent = no scene is styled.
+   */
+  postEventStyled?: (sceneKey: string) => boolean;
 };
 
 /**
@@ -354,7 +361,7 @@ export type MakerStageInput = {
  * marker, and Before the day sits on the cover's page. A scene the page does
  * not draw has no anchor — the tile still says what it is and why.
  */
-function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
+function postEventTiles(rows: readonly PostEventListRow[], styled: (sceneKey: string) => boolean = () => false): MakerTile[] {
   return rows.map((r) => {
     const drawn = postEventSceneDrawn(r.status, r.hidden);
     // 🛤 The Road to the Day is its own scene (with its own marker) since 2026-09-29.
@@ -362,7 +369,7 @@ function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
     /* 🕰 A waiting scene drawn in its style ALSO stands on the couple's canvas —
        its layout with the line that says what fills it (never for a guest) —
        so its tile scrolls there too. */
-    const onCanvas = drawn || (r.status === 'waiting' && !r.hidden && resolvePostEventStyle(r.key, null) !== null);
+    const onCanvas = drawn || (r.status === 'waiting' && !r.hidden && styled(r.key));
     return {
       kind: 'post-event',
       key: `p:${r.key}`,
@@ -493,7 +500,7 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   // 📖 Post Event (Maker Phase 8): the story's own scenes, when the compiled
   // list was handed in — otherwise the one tile that stands for all of it.
   if (plan.body === 'editorial') {
-    if (input.postEvent && input.postEvent.length > 0) shown.push(...postEventTiles(input.postEvent));
+    if (input.postEvent && input.postEvent.length > 0) shown.push(...postEventTiles(input.postEvent, input.postEventStyled));
     else shown.push(fixed('editorial'));
   }
   if (plan.body === 'save_the_date') shown.push(fixed('film'));

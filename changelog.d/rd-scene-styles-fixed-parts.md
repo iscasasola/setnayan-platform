@@ -7,7 +7,7 @@ your seat, each guest's own photos, the announcements and the live hub — now h
 - **Draft → Apply, never live before Apply.** New hub-draft key `fixedStyles` (sanitised, merged part by part,
   undoable), classified at Apply against the live picks (free — never Pro, never held), and written by
   `hubDraftAction`'s existing Apply branch (**+0 exported "use server"**) through ONE read-merge-write,
-  `lib/style-preferences.server.ts` → `writeStylePreferenceKey`, which the QR look now uses too. Every other key
+  `lib/style-preferences.server.ts` → `writeStylePreferenceKey`. (Folded onto main 2026-09-29: the QR look is now itself drafted and applied by main's own Apply branch, so it no longer calls this writer.) Every other key
   of `style_preferences` is kept; a write that changed no row is a failure. Admin client after the host check
   (`authenticated` holds no UPDATE grant on the column); the live read is `events_host` (couple-scoped).
 - **Guest page:** `lib/fixed-scene-styles.ts` resolves each part's style through the one registry. No pick =

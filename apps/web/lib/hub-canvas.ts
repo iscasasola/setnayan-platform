@@ -40,7 +40,7 @@
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { hubAutoSpeed, hubTransition, type HubAutoSpeed, type HubTransition } from '@/lib/hub-scenes';
 import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/scene-templates';
-import { sanitizeSceneStyleId } from '@/lib/scene-styles';
+import { sanitizeSceneStyleId } from '@/lib/scene-style-id';
 import { isPostEventPresetId, type PostEventPresetId } from '@/lib/post-event-presets';
 import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/custom-columns';
 import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';

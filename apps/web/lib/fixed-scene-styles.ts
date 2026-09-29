@@ -20,7 +20,7 @@
  * exactly what it drew before. Pure; client-safe.
  */
 import type { HubStage } from '@/lib/hub-canvas';
-import { resolveSceneStyle, sanitizeSceneStyleId } from '@/lib/scene-styles';
+import { sanitizeSceneStyleId } from '@/lib/scene-style-id';
 
 /** The five, by their registry type. The Maker's fixed key for each is the same word. */
 export const FIXED_STYLE_SCENES = ['entourage', 'find_your_seat', 'photos_of_you', 'announcements', 'live_hub'] as const;
@@ -104,19 +104,4 @@ export function stylePreferencesWithDraftedStyles(stylePreferences: unknown, dra
   if (next === undefined) delete base[SCENE_STYLES_PREF_KEY];
   else base[SCENE_STYLES_PREF_KEY] = next;
   return base;
-}
-
-/**
- * The style one fixed part is DRAWN in on this stage — its pick when this
- * stage draws it, else the stage's default (style A). Null only when the
- * registry holds no styles for it here.
- */
-export function fixedSceneStyleOf(
-  stylePreferences: unknown,
-  scene: FixedStyleScene,
-  stage: HubStage | null | undefined,
-  eventType?: string | null,
-): string | null {
-  if (!stage) return null;
-  return resolveSceneStyle(scene, stage, fixedSceneStylesFromPreferences(stylePreferences)[scene], eventType ?? null);
 }

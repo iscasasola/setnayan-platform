@@ -80,20 +80,12 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { SceneStyleCanvasRow } from './scene-style-row';
-import { FixedSceneStyleRow } from './fixed-scene-style-row';
+import { FixedSceneStyleRow, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import { POST_EVENT_PRESETS } from '@/lib/post-event-presets';
-import {
-  PostEventScenePanel,
-  PostEventWordsField,
-  postEventStatusWord,
-  postEventTileLabel,
-  postEventTileNote,
-  type PostEventTile,
-} from './post-event-scene-panel';
 import { postEventSetElements } from '@/lib/post-event-draft';
-import { postEventElementScope, postEventSceneOfScope, postEventWordParts, resolvePostEventStyle } from '@/lib/post-event-styles';
+import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import { SceneBackgroundRow, type SceneUpload } from './scene-background-row';
 
 /**
@@ -461,6 +453,9 @@ export function MakerWork({
      2026-09-28: every pick the bridge already drew keeps the page; a render
      that drew other scenes still reloads). */
   const canvasOrder = canvasOrderOf(navigator.stageLists);
+  /* 🎨 Post Event scenes drawn in a style → the style, resolved on the server
+     (`maker-navigator-data.ts`), so the Maker never loads the style registry. */
+  const peStyles = navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent.styles : null;
   const canvasOrderRef = useRef(canvasOrder);
   canvasOrderRef.current = canvasOrder;
   useEffect(() => {
@@ -814,7 +809,7 @@ export function MakerWork({
             ? 'hero'
             : data.key.startsWith('w:')
               ? data.key.slice(2)
-              : peScene && resolvePostEventStyle(peScene, null) !== null
+              : peScene && peStyles?.[peScene]
                 ? postEventElementScope(peScene)
                 : null;
         const el = data.el;
@@ -2149,8 +2144,9 @@ export function MakerWork({
             const peScene = postEventSceneOfScope(elementTarget.widgetType);
             const pe = navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent : null;
             if (!peScene || !pe) return {};
-            const shownAs = resolvePostEventStyle(peScene, null) ? peScene : null;
-            const words = shownAs ? postEventWordParts(peScene, resolvePostEventStyle(peScene, pe.arrangement.sceneLooks[peScene]?.style)) : [];
+            // 🎨 The style it is drawn in, resolved on the server (`postEvent.styles`).
+            const drawn = pe.styles[peScene] ?? null;
+            const words = drawn ? postEventWordParts(peScene, drawn) : [];
             const el = elementTarget.el;
             return {
               saveCanvasWith: (next: HubSectionCanvas) => {
@@ -2319,7 +2315,7 @@ export function MakerWork({
                 sectionCanvases={elementEditing.canvases}
                 draftAction={elementEditing.draftAction}
                 onPart={
-                  resolvePostEventStyle(tile.scene, null) !== null
+                  pe?.styles[tile.scene]
                     ? (el) => {
                         frameRef.current?.contentWindow?.postMessage(
                           { source: 'setnayan-editor', t: 'markEl', key: `p:${tile.anchor?.slice(2) ?? tile.scene}`, el },

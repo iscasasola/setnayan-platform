@@ -7,7 +7,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { DayOfAnnouncement } from './_components/day-of-announcement';
 import { GuestLookScope } from './_components/guest-look-scope';
 import { lookScopeProps } from './_components/host-draft-look';
-import { fixedSceneStyleOf } from '@/lib/fixed-scene-styles';
+import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { loadDayOfBroadcast, loadEventShell, loadGuestLook, type GuestLook } from './_lib/loaders';
 
 /**

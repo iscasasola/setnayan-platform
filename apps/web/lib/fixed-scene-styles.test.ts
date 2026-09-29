@@ -17,8 +17,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { fixedSceneStyleOf } from './fixed-scene-style-of';
 import {
-  fixedSceneStyleOf,
   fixedSceneStylesAfter,
   fixedSceneStylesFromPreferences,
   sanitizeFixedSceneStylesDraft,
@@ -128,5 +128,8 @@ test('4 · ONE exported server action, and the pick is written only by Apply, th
   assert.ok(src.indexOf('requireHostMembershipOrThrow(') < writeAt, 'the host check runs first');
   assert.match(src, /writeStylePreferenceKey\(createAdminClient\(\), eventId, SCENE_STYLES_PREF_KEY,/);
   const qr = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/qr-look-actions.ts'), 'utf8'));
-  assert.match(qr, /writeStylePreferenceKey\(admin, eventId, QR_STYLE_PREF_KEY,/, 'the QR look uses the same writer');
+  /* The QR look is DRAFTED on main (2026-09-29): its pick goes to the draft and
+     Apply merges it into the blob — so it never writes the column live. */
+  assert.match(qr, /saveHubDraftPatch\(eventId, \{ events: \{ style_preferences: \{ \[QR_STYLE_PREF_KEY\]: merged \} \} \}\)/, 'the QR look is drafted');
+  assert.ok(!/\.update\(/.test(qr), 'the QR look never writes style_preferences live');
 });

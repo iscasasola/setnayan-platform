@@ -56,6 +56,7 @@ import type { SceneTemplateId } from '@/lib/scene-templates';
 import type { HubStage } from '@/lib/hub-canvas';
 import { POST_EVENT_SCENE_STYLE_SETS } from '@/lib/scene-styles-post-event';
 import { STAGE_SCENE_STYLE_SETS } from '@/lib/scene-styles-stages';
+import { SCENE_STYLE_ID_RE, sanitizeSceneStyleId } from '@/lib/scene-style-id';
 
 export type SceneStyle = {
   /** Permanent, semantic, shared by every stage that draws it: `[a-z][a-z0-9-]{0,31}`. */
@@ -83,12 +84,8 @@ export type SceneStyleSet = {
   defaults?: Partial<Record<HubStage, string>>;
 };
 
-export const SCENE_STYLE_ID_RE = /^[a-z][a-z0-9-]{0,31}$/;
-
-/** A stored style id, or undefined. The registry — not this — decides whether it is drawn. */
-export function sanitizeSceneStyleId(v: unknown): string | undefined {
-  return typeof v === 'string' && SCENE_STYLE_ID_RE.test(v) ? v : undefined;
-}
+// The id's shape lives on its own (`lib/scene-style-id.ts`) so a sanitizer need not load this registry.
+export { SCENE_STYLE_ID_RE, sanitizeSceneStyleId };
 
 /**
  * Many files' sets → one registry. Same type = one set (the first label wins);

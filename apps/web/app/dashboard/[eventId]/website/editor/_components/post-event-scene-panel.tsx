@@ -29,8 +29,6 @@ import { useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Eye, EyeOff, PencilLine, RotateCcw } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { makerSave } from '@/lib/maker-refresh';
-import type { MakerStageList } from '@/lib/maker-scene-list';
-import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import {
@@ -44,44 +42,14 @@ import {
   type PostEventDraft,
   type PostEventPart,
 } from '@/lib/post-event-draft';
-import {
-  postEventStyleHome,
-  postEventStyleOptions,
-  postEventWordParts,
-  resolvePostEventStyle,
-} from '@/lib/post-event-styles';
+import { postEventStyleHome, postEventWordParts } from '@/lib/post-event-styles';
+import { postEventStyleOptions, resolvePostEventStyle } from '@/lib/post-event-style-resolve';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { SceneStyleRow } from './scene-style-row';
+import { postEventStatusWord, type PostEventTile } from './post-event-tile-words';
 import { IRow, ISection } from './inspector-kit';
 
-export type PostEventTile = Extract<MakerStageList['shown'][number], { kind: 'post-event' }>;
-
 type DraftAction = (eventId: string, formData: FormData) => Promise<HubDraftActionResult>;
-
-/** The one word on the tile — what filled it, or why guests do not meet it. */
-export function postEventStatusWord(tile: Pick<PostEventTile, 'status' | 'hidden'>): string {
-  if (tile.status === 'skipped') return 'Skipped';
-  if (tile.status === 'optional') return 'Optional';
-  if (tile.status === 'waiting') return 'Not yet';
-  if (tile.hidden) return 'Hidden';
-  return 'Auto';
-}
-
-export function postEventTileLabel(tile: PostEventTile): string {
-  if (tile.status === 'skipped') return `${tile.label} (skipped — ${tile.note ?? 'nothing to show yet'})`;
-  if (tile.status === 'optional') return `${tile.label} (optional — ${tile.note ?? 'not chosen'})`;
-  if (tile.status === 'waiting') return `${tile.label} (not yet — ${tile.note ?? 'it fills itself after the day'})`;
-  if (tile.hidden) return `${tile.label} (hidden from guests)`;
-  return `${tile.label} (written for you)`;
-}
-
-/** The ⓘ under the tile: what filled it — or what will. */
-export function postEventTileNote(tile: PostEventTile): string {
-  const tpl = tile.template ? `${SCENE_TEMPLATES[tile.template]?.name ?? ''}. ` : '';
-  const what = tile.status === 'auto' ? `Filled from: ${tile.source}` : (tile.note ?? '');
-  const open = tile.open ? ' A tap opens it full screen; Back returns to the same place.' : '';
-  return `${tpl}${what}.${open}`;
-}
 
 /** Save story keys (or a section's canvas) to the Event Hub draft — the one door. */
 function useDraftSave(eventId: string, draftAction: DraftAction) {

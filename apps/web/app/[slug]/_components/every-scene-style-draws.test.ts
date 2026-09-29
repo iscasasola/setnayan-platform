@@ -530,7 +530,7 @@ test('🔒 an event with no stored style renders byte-identically to the shipped
 });
 
 test('🔒 the five fixed parts with no pick render byte-identically to the shipped part', async () => {
-  const { fixedSceneStyleOf } = await import('@/lib/fixed-scene-styles');
+  const { fixedSceneStyleOf } = await import('@/lib/fixed-scene-style-of');
   const { EntourageSection } = await import('./entourage-section');
   const { YourSeatBlock } = await import('./your-seat-block');
   const { DayOfAnnouncement } = await import('./day-of-announcement');

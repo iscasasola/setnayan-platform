@@ -32,7 +32,8 @@ import {
 import { hasHubCanvas, sanitizeHubCanvas } from './hub-canvas';
 import { HUB_CANVAS_LOOK_KEYS, canvasHasMotion } from './hub-look-pro';
 import { canvasLookChange } from './hub-draft';
-import { postEventSceneTypeOf, postEventStyleHome, resolvePostEventStyle } from './post-event-styles';
+import { postEventSceneTypeOf, postEventStyleHome } from './post-event-styles';
+import { resolvePostEventStyle } from './post-event-style-resolve';
 
 test('1 · every registered scene type offers at least three styles, each with a permanent semantic id', () => {
   const sets = Object.values(SCENE_STYLE_SETS);

@@ -26,7 +26,8 @@ import { detailsFactOfScene, sceneBoundText } from '@/lib/details-bound';
 import { loveStoryScenes } from '@/lib/love-story-moments';
 import type { PostEventMakerRead } from '@/lib/post-event-scenes';
 import type { PostEventArrangement } from '@/lib/post-event-draft';
-import { postEventLookKey, postEventStyleHome, postEventStyleOptions } from '@/lib/post-event-styles';
+import { postEventLookKey, postEventStyleHome } from '@/lib/post-event-styles';
+import { postEventStyleOptions, resolvePostEventStyle } from '@/lib/post-event-style-resolve';
 import { formatCount } from '@/lib/format-number';
 
 export type SceneMini = {
@@ -58,6 +59,13 @@ export type MakerNavigatorData = {
         dayHappened: boolean;
         /** Live with the draft laid over it — what the Post Event controls edit. */
         arrangement: PostEventArrangement;
+        /**
+         * 🎨 The style each scene is DRAWN in (its pick, else the default) — only
+         * for scenes the registry gives styles; absent = shipped block, no parts.
+         * Resolved HERE, on the server, so the Maker's client never loads the
+         * style registry (`lib/post-event-style-resolve.ts`).
+         */
+        styles: Record<string, string>;
       }
     | 'unreadable'
     | null;
@@ -193,8 +201,27 @@ export function buildMakerNavigatorData(input: {
   }
 
   return {
-    postEvent: pe ? { generatedAt: pe.generatedAt, dayHappened: pe.dayHappened, arrangement: pe.arrangement } : input.postEvent && !input.postEvent.ok ? 'unreadable' : null,
-    stageLists: makerStageLists({ ...input.plan, postEvent: pe?.rows ?? null }),
+    postEvent: pe
+      ? {
+          generatedAt: pe.generatedAt,
+          dayHappened: pe.dayHappened,
+          arrangement: pe.arrangement,
+          styles: Object.fromEntries(
+            pe.rows.flatMap((r) => {
+              if (resolvePostEventStyle(r.key, null) === null) return [];
+              const drawn = resolvePostEventStyle(r.key, pe.arrangement.sceneLooks[r.key]?.style);
+              return drawn ? [[r.key, drawn]] : [];
+            }),
+          ),
+        }
+      : input.postEvent && !input.postEvent.ok
+        ? 'unreadable'
+        : null,
+    stageLists: makerStageLists({
+      ...input.plan,
+      postEvent: pe?.rows ?? null,
+      postEventStyled: (sceneKey) => resolvePostEventStyle(sceneKey, null) !== null,
+    }),
     fullOrders: Object.fromEntries(
       PUBLIC_STAGE_ORDER.map((stage) => [
         stage,

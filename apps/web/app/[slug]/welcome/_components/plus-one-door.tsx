@@ -4,6 +4,7 @@ import { MEAL_LABELS, MEAL_PREFERENCES, type MealPreference } from '@/lib/guests
 import type { GuestAccountState } from '@/lib/guest-one-path';
 import type { PlusOneAnswers, PlusOneRow } from '@/lib/plus-one-welcome';
 import { SaveToAccount } from '../../_components/save-to-account';
+import { PASS_CARD_WORDS } from '@/lib/pass-card';
 
 /**
  * 👋 THE PLUS-ONE'S OWN DOOR — its body (the page, `../page.tsx`, reads the
@@ -205,7 +206,7 @@ export function PlusOneDoor({
         formNoValidate
         className="inline-flex min-h-[44px] items-center font-medium text-ink underline underline-offset-4"
       >
-        just show my pass
+        just show my {PASS_CARD_WORDS.noun}
       </button>
     </p>
   );
@@ -213,12 +214,12 @@ export function PlusOneDoor({
   return (
     <>
       {passSvg ? (
-        <section className="space-y-2 text-center" data-plus-one-pass aria-label="Your pass">
-          <p className="text-sm font-medium text-ink">Your pass</p>
+        <section className="space-y-2 text-center" data-plus-one-pass aria-label={PASS_CARD_WORDS.yours}>
+          <p className="text-sm font-medium text-ink">{PASS_CARD_WORDS.yours}</p>
           <div
             className="mx-auto w-48 bg-white p-2"
             role="img"
-            aria-label="Your pass"
+            aria-label={PASS_CARD_WORDS.yours}
             dangerouslySetInnerHTML={{ __html: passSvg }}
           />
           <p className="text-xs text-ink/60">Scans once at the door. It is also in Me, on the invitation.</p>

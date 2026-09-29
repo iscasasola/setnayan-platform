@@ -154,8 +154,8 @@ export function defaultInviteTemplate(opts: {
 } = {}): string {
   const hub = opts.voice === 'guest' ? 'the Event Hub' : 'our Event Hub';
   const qr = opts.qrAttached
-    ? `Here${APOS}s your QR code for the event (attached). Save it — it opens ${hub} anytime, and it${APOS}s your pass at the door.`
-    : `Your QR code for the event is on that page too. Save it — it opens ${hub} anytime, and it${APOS}s your pass at the door.`;
+    ? `Here${APOS}s your QR code for the event (attached). Save it — it opens ${hub} anytime, and it${APOS}s your ticket at the door.`
+    : `Your QR code for the event is on that page too. Save it — it opens ${hub} anytime, and it${APOS}s your ticket at the door.`;
   const keep = `This link is just for you, so please don${APOS}t forward it.`;
   if (opts.solemn) {
     return [

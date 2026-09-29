@@ -254,7 +254,7 @@ test('F · Ben’s door: his name and meal shown "from Maria", ONLY dietary aske
   assert.ok(!/name="meal_preference"/.test(missing), 'the meal Maria gave is asked again');
   assert.match(html, /name="terms_agreed"/);
   assert.equal((html.match(/Save to my account/g) ?? []).length, 1, 'not ONE save button');
-  assert.match(html, /just show my pass/);
+  assert.match(html, /just show my ticket/);
 });
 
 test('F · an unnamed seat’s door asks the name (required) — and "Not now" still skips it', async () => {

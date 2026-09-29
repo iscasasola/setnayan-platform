@@ -140,7 +140,7 @@ export type MakerStageList = {
 export const MAKER_SCENE_LABEL: Partial<Record<WidgetType, string>> = {
   hero: 'Names & date',
   greeting: 'Personal greeting',
-  qr_card: "Guest's QR pass",
+  qr_card: "Guest's ticket",
   tier_comparison: 'Two ways to celebrate',
 };
 
@@ -152,7 +152,7 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
      with "Your guest" — never sample content — so the couple sees where each
      guest's own part sits on the page. */
   greeting: { label: 'Personal greeting', why: 'Each guest sees their own — their name, and how they are joining you.' },
-  pass: { label: "Guest's QR pass", why: 'Each guest sees their own pass and QR code.' },
+  pass: { label: "Guest's ticket", why: 'Each guest sees their own Digital ticket and QR code.' },
   rsvp: { label: 'RSVP', why: 'Each guest replies from their own link.' },
   entourage: { label: 'The entourage', why: 'Always here on this stage, after your sections — it lists everyone with a role.' },
   story: { label: 'Our story', why: 'Always here on this stage, after the entourage — written from your love story.' },
@@ -200,7 +200,7 @@ export const MAKER_FIXED_SOURCE: Partial<Record<MakerFixedKey, { text: string; p
     link: 'Open your guest list',
   },
   pass: {
-    text: 'Each guest sees their own pass and QR — made from your guest list.',
+    text: 'Each guest sees their own Digital ticket and QR — made from your guest list.',
     page: 'guests',
     link: 'Open your guest list',
   },

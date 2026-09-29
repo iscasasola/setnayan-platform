@@ -33,3 +33,18 @@ card's `OAuthButtonRow` and the save's direct provider forms are replaced by the
 one Save).
 
 SPEC IMPACT: None — implements DECISION_LOG 2026-09-29 rows already in the corpus.
+
+## 2026-09-29 · feat(guest): the word is "ticket"
+
+Owner ruling, DECISION_LOG "OWNER ANSWERS — TEN OPEN QUESTIONS" (4): *"Digital
+ticket"*. `PASS_CARD_WORDS` flipped — the saved PNG is a **Digital ticket**, the PDF
+a **Printed ticket**; guests read "Your ticket" / "Save my ticket" / "Save all
+tickets"; the couple "Download ticket (PNG)" / "Download all tickets (.zip)";
+files are `<Guest>-ticket-<Couple>-<date>.png` and `<Couple>-<date>-tickets.zip`.
+Hand-spelt "pass" copy on the same card moved to the words object (plus-one door,
+Your guests, the pass-card routes' refusals) or to "ticket" (day-of "Show your
+ticket", the invite message's "your ticket at the door", the Maker scene label
+"Guest's ticket", the print piece "Every guest’s ticket"). Guarded in
+`the-pass-card-is-a-card.test.ts` (the words, plus no hand-spelt "pass").
+
+SPEC IMPACT: None.

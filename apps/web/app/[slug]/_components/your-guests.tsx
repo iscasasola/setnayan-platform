@@ -64,7 +64,7 @@ export function YourGuests({
         Your guests
       </h2>
       <p className="text-xs text-ink/60">
-        Each name gets their own pass and QR — sent from your phone, with their own link.
+        Each name gets their own {PASS_CARD_WORDS.digitalTicket} — sent from your phone, with their own link.
       </p>
       {cardHrefs.length > 1 ? <SavePassCardButton hrefs={cardHrefs} label={PASS_CARD_WORDS.saveAll} /> : null}
       <ul className="divide-y divide-ink/10">
@@ -107,12 +107,12 @@ export function YourGuests({
               {g.name && pass ? (
                 <details className="mt-1" data-plus-one-pass>
                   <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center text-sm font-medium text-ink underline underline-offset-4">
-                    Show {g.name.split(/\s+/)[0]}’s pass
+                    Show {g.name.split(/\s+/)[0]}’s {PASS_CARD_WORDS.noun}
                   </summary>
                   <div
                     className="mx-auto mt-2 w-48 bg-white p-2"
                     role="img"
-                    aria-label={`${g.name}’s pass`}
+                    aria-label={`${g.name}’s ${PASS_CARD_WORDS.noun}`}
                     dangerouslySetInnerHTML={{ __html: pass }}
                   />
                 </details>

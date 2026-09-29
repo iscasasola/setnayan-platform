@@ -90,7 +90,7 @@ export const PRINT_PIECES: Record<PrintPieceKey, PrintPieceSpec> = {
   'story-poster': { key: 'story-poster', label: 'Our Story poster', size: 'A3 · 297 × 420 mm', widthPt: mm(297), heightPt: mm(420), kind: 'set' },
   // Laid out at 3 : 4 and fitted to its FORMAT (A5 by default, or an index card).
   card: { key: 'card', label: 'Event card', size: 'A5 · index card', widthPt: inch(4.5), heightPt: inch(6), kind: 'set' },
-  passes: { key: 'passes', label: 'Every guest’s pass', size: 'ganged on A4 with cut lines', widthPt: 90 * (72 / 25.4), heightPt: 54 * (72 / 25.4), kind: 'batch' },
+  passes: { key: 'passes', label: 'Every guest’s ticket', size: 'ganged on A4 with cut lines', widthPt: 90 * (72 / 25.4), heightPt: 54 * (72 / 25.4), kind: 'batch' },
   'qr-codes': { key: 'qr-codes', label: 'QR codes', size: 'A4 · every guest', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
   // The FREE group's documents (owner 2026-09-25, "PRINTS & TICKETS HOLDS EVERY
   // PRINT"). Each is an A4 PDF laid out in the same op vocabulary

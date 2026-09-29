@@ -55,7 +55,7 @@ test('🕐 THE DAY IS MANILA’S DAY, and the boundary is not off by eight hours
   // The wedding day itself.
   const day = resolveArrivalAction({ ...BASE, rsvpStatus: 'attending', today: '2026-12-18', hasPass: true });
   assert.equal(day?.kind, 'day-of');
-  assert.equal(day?.label, 'Show your pass');
+  assert.equal(day?.label, 'Show your ticket'); // 🎫 owner 2026-09-29: it is a ticket
   // After.
   assert.equal(resolveArrivalAction({ ...BASE, rsvpStatus: 'attending', today: '2026-12-19' })?.kind, 'after');
 

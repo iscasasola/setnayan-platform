@@ -16,7 +16,9 @@
  *     home → details → story → gallery → me
  *
  * and each scene belongs to the anchor it sits under: the opening sections
- * (film, names, the story after the day, a Post Event scene) under Home; the
+ * (film, names, the story after the day, a Post Event scene) and the
+ * Invitation's Welcome page (the guest's look, Reminders, E-Gifts) under Home
+ * — the tab guests read as "Welcome" on the Invitation; the
  * page's sections and the entourage under Details; the love story under Story.
  * When a stage's bar has no tab for that anchor (On the Day has no Details),
  * the scene belongs to the nearest tab ABOVE it on the page — which is exactly
@@ -43,6 +45,10 @@ export const PAGE_ANCHOR_ORDER = ['home', 'details', 'story', 'gallery', 'me'] a
 /** Which anchor a navigator tile sits under on the page. */
 export function anchorOfTile(tileKey: string): (typeof PAGE_ANCHOR_ORDER)[number] {
   if (tileKey === 'f:story' || tileKey === 'w:our_love_story') return 'story';
+  // 🏠 The Invitation's Welcome page (owner 2026-09-30, `lib/invitation-welcome.ts`):
+  // the guest's look, the couple's Reminders and E-Gifts sit under Welcome — the
+  // page's first tab, anchor `home` — not under Details.
+  if (tileKey === 'f:look' || tileKey === 'f:gifts' || tileKey === 'w:what_to_bring') return 'home';
   if (tileKey === 'f:entourage' || tileKey.startsWith('w:')) return 'details';
   // f:film · f:hero · f:editorial · p:<post event scene>
   return 'home';

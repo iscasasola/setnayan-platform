@@ -142,6 +142,8 @@ import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
 import { stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
+import { GuestWelcome } from './guest-welcome';
+import { scenesLeftForDetails, welcomeCarriesGifts, welcomeParts } from '@/lib/invitation-welcome';
 import { mainGroundLayerFor } from '../_lib/main-ground-layer';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
@@ -1072,8 +1074,25 @@ export async function SiteBody({
     // taps went nowhere (the council's no-dead-anchors rule, broken by its own
     // open-browse branch).
     const bodyRenders = browsableBodyRenders(plan);
+    /* 🏠 THE WELCOME PAGE, for a stranger and for the Maker's canvas (owner
+       2026-09-30 — `lib/invitation-welcome.ts`). A stranger has no look to be
+       shown (no role), so they meet Reminders and E-Gifts; the canvas draws
+       every place so the couple can fill it, in the order the navigator lists. */
+    const welcome = welcomeParts({
+      stage: pageStage,
+      bodyNormal: plan.body === 'normal',
+      scenes: plan.publicSafeWidgets.map((w) => w.widget_type),
+      identified: false,
+      reminders: event.what_to_bring,
+      giftHref: doorways.pabuya,
+      maker: isMakerCanvas,
+    });
+    const detailsScenes = scenesLeftForDetails(plan.publicSafeWidgets, welcome);
+    const remindersScene = welcome.includes('reminders')
+      ? (plan.publicSafeWidgets.find((w) => w.widget_type === 'what_to_bring') ?? null)
+      : null;
     const menuSections = {
-      details: bodyRenders && (plan.openBrowse || plan.publicSafeWidgets.length > 0),
+      details: bodyRenders && (plan.openBrowse || detailsScenes.length > 0),
       // 🔴 THE OWNER SAW THIS ONE: a Story tab on a seven-year-old's birthday.
       // The love story is wedding-by-nature — it asks how the two of them met,
       // and a type with no two people has no answer.
@@ -1095,8 +1114,8 @@ export async function SiteBody({
     // 🎬 Scroll · Scrub per section — the same scenes as the guest tree, so a
     // stranger following the link sees the page the couple arranged.
     const publicWidgetNodes = (
-      <HubScenes widgets={plan.publicSafeWidgets} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
-      {plan.publicSafeWidgets.map((widget) => (
+      <HubScenes widgets={detailsScenes} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+      {detailsScenes.map((widget) => (
       /* One node per widget still (HubScenes pairs by position): the marker
          and the section travel together in one fragment. */
       <Fragment key={widget.widget_id}>
@@ -1388,6 +1407,41 @@ export async function SiteBody({
                 mark={makerMark}
               />
             ) : null}
+            {/* 🏠 WELCOME — after the reply, before Details (owner 2026-09-30).
+                A stranger meets Reminders and E-Gifts here; the Maker's canvas
+                draws all three places, each after its navigator marker. */}
+            {welcome.length > 0 ? (
+              <div className="mt-12">
+                <GuestWelcome
+                  parts={welcome}
+                  words={clientWords}
+                  look={null}
+                  reminders={
+                    remindersScene ? (
+                      <PublicHideableWidget
+                        widget={remindersScene}
+                        canvasMediaUrls={canvasMediaUrls}
+                        hubTheme={sceneTheme}
+                        ownClipPlays={isMakerCanvas}
+                        guestView={!isMakerCanvas}
+                        makerEmpty={
+                          isMakerCanvas &&
+                          (openBrowseContent as Partial<Record<string, boolean>>).what_to_bring === false
+                        }
+                        event={event}
+                        words={clientWords}
+                        scheduleBlocks={scheduleBlocks}
+                        isLive={dayOfPhase === 'live'}
+                        ourPhotoUrls={ourPhotoUrls}
+                      />
+                    ) : null
+                  }
+                  giftHref={doorways.pabuya}
+                  mark={makerMark}
+                  maker={isMakerCanvas}
+                />
+              </div>
+            ) : null}
             {plan.openBrowse ? (
               // Open-browse Details — always present so the tab is never dead:
               // event-level facts (the anonymous event_details variant — §5.10),
@@ -1400,11 +1454,11 @@ export async function SiteBody({
                   venues={event.venues}
                 />
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
-                {plan.publicSafeWidgets.length === 0 ? (
+                {detailsScenes.length === 0 ? (
                   <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                 ) : null}
               </section>
-            ) : plan.publicSafeWidgets.length > 0 ? (
+            ) : detailsScenes.length > 0 ? (
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
               </section>
@@ -1630,8 +1684,25 @@ export async function SiteBody({
     // sr-only spans inside the normal body, so they are absent in the phases
     // `phasedBody` does not reach.
     const guestBodyRenders = browsableBodyRenders(plan);
+    /* 🏠 THE WELCOME PAGE (owner 2026-09-30 — `lib/invitation-welcome.ts`):
+       this guest's look · the couple's Reminders · E-Gifts, after the reply.
+       Reminders LEAVES Details for it; the dress code stays on Details as the
+       everyone view, and this guest's own half moves to Welcome. */
+    const welcome = welcomeParts({
+      stage: pageStage,
+      bodyNormal: plan.body === 'normal',
+      scenes: plan.hideableInOrder.map((w) => w.widget_type),
+      identified: !isMakerCanvas,
+      reminders: event.what_to_bring,
+      giftHref: doorways.pabuya,
+      maker: false,
+    });
+    const detailsScenes = scenesLeftForDetails(plan.hideableInOrder, welcome);
+    const remindersScene = welcome.includes('reminders')
+      ? (plan.hideableInOrder.find((w) => w.widget_type === 'what_to_bring') ?? null)
+      : null;
     const menuSections = {
-      details: guestBodyRenders && plan.hideableInOrder.length > 0,
+      details: guestBodyRenders && detailsScenes.length > 0,
       story: guestBodyRenders && Boolean(event.love_story),
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
@@ -1792,14 +1863,12 @@ export async function SiteBody({
     ) : null;
 
     const greetingBlock = plan.greetingShouldRender ? (
-      /* Pahina §7: the greeting becomes a left-aligned SALUTATION in
-         the display face with the guest's name in gild — the
-         personalization (nobody else in the market has it) is
-         unchanged, only its setting. */
+      /* Pahina §7: the greeting's setting. 🎩 NO CASUAL GREETING (owner
+         2026-09-30, DECISION_LOG "NO CASUAL GREETINGS": *"no casual
+         greeting"*) — the "Hi, <first name>." salutation that led this block
+         is gone from the Welcome page; the sentence that says when, where and
+         as whom stays, and names nobody. */
       <section className="space-y-3">
-        <p className="font-pahina text-3xl font-light italic leading-tight text-ink">
-          Hi, <span className="text-gild">{guest.first_name}</span>.
-        </p>
         <p className="max-w-prose text-base leading-relaxed text-ink/70">
           {clientWords.solemn
             ? 'We hope you can be with us on'
@@ -2355,6 +2424,43 @@ export async function SiteBody({
                 </section>
               ) : null}
 
+              {/* 🏠 WELCOME — after the reply: this guest's look · Reminders ·
+                  E-Gifts (owner 2026-09-30). One self-contained section; what
+                  it holds is `welcomeParts`' answer above, nothing decided here.
+                  Guarded by `lib/welcome-is-the-guests-own.test.ts`. */}
+              <GuestWelcome
+                parts={welcome}
+                words={clientWords}
+                look={{
+                  config: event.dress_code_config ?? null,
+                  ceremonyType: event.ceremony_type ?? null,
+                  genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
+                  guestRole: guest.role ?? null,
+                  march: marchPlaceOf(entourage, guest.guest_id),
+                  rolePalette: event.role_palette,
+                }}
+                reminders={
+                  remindersScene ? (
+                    <HideableWidgetRender
+                      widget={remindersScene}
+                      canvasMediaUrls={canvasMediaUrls}
+                      hubTheme={sceneTheme}
+                      ownClipPlays={isMakerCanvas}
+                      guestView={!isMakerCanvas}
+                      event={event}
+                      guest={guest}
+                      sideLabel={sideLabel}
+                      scheduleBlocks={scheduleBlocks}
+                      isLive={isLive}
+                      isLimitedPlusOne={isLimitedPlusOne}
+                      ourPhotoUrls={ourPhotoUrls}
+                      words={clientWords}
+                    />
+                  ) : null
+                }
+                giftHref={doorways.pabuya}
+              />
+
               {guest.photo_source === 'selfie' ? (
                 <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
               ) : null}
@@ -2377,7 +2483,7 @@ export async function SiteBody({
               {/* Menu-shell "Details" anchor (PR6) — the couple's detail widgets
                   (schedule · dress code · FAQ · registry · …). Present only when
                   at least one such widget rendered, matching menuSections.details. */}
-              {menuOn && plan.hideableInOrder.length > 0 ? (
+              {menuOn && detailsScenes.length > 0 ? (
                 <span id={SITE_MENU_ANCHORS.details} aria-hidden className="sr-only" />
               ) : null}
               {/* 🪑 "Your seat · Table 3 →" — the Details scene's seat line (owner
@@ -2391,11 +2497,13 @@ export async function SiteBody({
                   children unless a section scrubs AND the event owns Event Hub
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               <div className="sn-hub-cards space-y-4">
-              <HubScenes widgets={plan.hideableInOrder} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
-              {plan.hideableInOrder.map((widget) => (
+              <HubScenes widgets={detailsScenes} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+              {detailsScenes.map((widget) => (
                 <HideableWidgetRender
                   key={widget.widget_id}
                   widget={widget}
+                  /* 🏠 This guest's own look is on Welcome; Details keeps everyone's. */
+                  dressCodeGeneral={welcome.includes('look')}
                   canvasMediaUrls={canvasMediaUrls}
                   hubTheme={sceneTheme}
                   ownClipPlays={isMakerCanvas}
@@ -2780,7 +2888,13 @@ export async function SiteBody({
       {plan.fullBleed || isEditorCanvas ? null : (
         <GuestDoorwayStrip words={clientWords}
           venueWalk={doorways.venueWalk}
-          pabuya={doorways.pabuya}
+          /* 🏠 On the Invitation the gift door is on the Welcome page instead
+             (owner 2026-09-30) — one door per page, never two. */
+          pabuya={
+            welcomeCarriesGifts({ stage: pageStage, bodyNormal: plan.body === 'normal', giftHref: doorways.pabuya, maker: false })
+              ? null
+              : doorways.pabuya
+          }
           broadcast={broadcastNotice}
           personalised={identity.kind === 'guest'}
           dateLabel={event.event_date ? formatEventDate(event.event_date) : null}

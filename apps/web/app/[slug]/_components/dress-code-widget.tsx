@@ -90,7 +90,16 @@ export function DressCodeWidget({
   march = null,
   rolePalette = null,
   hideWhenEmpty = false,
+  part = 'all',
 }: {
+  /**
+   * 🏠 WHICH HALF (owner 2026-09-30, DECISION_LOG "THE INVITATION'S HOME IS THE
+   * GUEST'S OWN PAGE"). `'you'` is the Welcome page's: only this reader's own
+   * look — the "You are …" block and the Do's & Don'ts — and NOTHING when there
+   * is nothing personal to say (the everyone view stays on Details). `'all'`
+   * (default) is the section as it has always been.
+   */
+  part?: 'all' | 'you';
   /**
    * 🚶 WHERE THIS READER WALKS (owner 2026-09-29, DECISION_LOG "THE WEDDING
    * MARCH ON THE INVITATION TELLS EACH ENTOURAGE MEMBER THEIR ROLE…"): their
@@ -209,6 +218,9 @@ export function DressCodeWidget({
     // …and so is their place in the march: "you walk 5th" is what to be ready for.
     march !== null;
 
+  // 🏠 The Welcome page's half says only what is this reader's own — or nothing.
+  if (part === 'you' && !mine && !march) return null;
+
   // Empty state — section stays visible (so guests know to expect it) but
   // reads as an intentional note in the host's brand voice.
   if (!hasAnything) {
@@ -293,6 +305,11 @@ export function DressCodeWidget({
 
   return (
     <section className="space-y-5">
+      {part === 'you' ? (
+        <p className="pahina-eyebrow">
+          <span>What to wear</span>
+        </p>
+      ) : (
       <header className="space-y-2">
         <p className="pahina-eyebrow">
           <span>Dress code</span>
@@ -301,7 +318,8 @@ export function DressCodeWidget({
           {shownTitle}
         </h3>
       </header>
-      {shownDescription ? (
+      )}
+      {shownDescription && part !== 'you' ? (
         <p className="max-w-prose text-base leading-relaxed text-ink/70">{shownDescription}</p>
       ) : null}
       {mine || march ? (
@@ -396,7 +414,7 @@ export function DressCodeWidget({
       ) : null}
       {/* The full palette is everyone else's instructions. A reader who has
           their own line above does not need it (owner 2026-09-20). */}
-      {!mine && palette.length > 0 ? (
+      {part !== 'you' && !mine && palette.length > 0 ? (
         <div className="space-y-2" data-dress-code="ours">
           <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Our colours</p>
           {/* gap-2: five full chips (the Mood Board's five main colours) fit
@@ -422,7 +440,7 @@ export function DressCodeWidget({
           chips on the right, wrapping under on a narrow phone), in the Mood
           Board's own order. Roles with no colours and no outfit are left out
           by `dressCodeForEveryone`, never drawn empty. */}
-      {!mine && everyone.rows.length > 0 ? (
+      {part !== 'you' && !mine && everyone.rows.length > 0 ? (
         /* 📜 `data-hub-rows`: one role per row, arriving in turn in a "One
            part after another" scene — the run of show's mechanism, not its own. */
         <ul className="divide-y divide-ink/10 border-y border-ink/10" data-dress-code="roles" data-hub-rows="">
@@ -481,7 +499,7 @@ export function DressCodeWidget({
           ) : null}
         </div>
       ) : null}
-      {genderNote ? (
+      {genderNote && part !== 'you' ? (
         <p className="max-w-prose text-sm font-medium text-ink/75">{genderNote}</p>
       ) : null}
     </section>

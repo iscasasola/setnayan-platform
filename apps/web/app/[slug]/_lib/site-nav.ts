@@ -197,10 +197,13 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   const isCouple = viewer.kind === 'couple';
   const slots: NavSlot[] = [];
 
-  // 1 — HOME. Always present; its name follows the phase.
+  // 1 — HOME. Always present; its name follows the phase. Before the day it
+  //     is "Welcome" — the guest's own page (owner 2026-09-30, verbatim: *"on
+  //     Invitation, the menu is Welcome - Details - Our Love Story - Me"*). The
+  //     key and the anchor stay `home`: only the word changed.
   slots.push({
     key: 'home',
-    label: phase === 'day' ? 'Now' : phase === 'after' ? 'Recap' : 'Home',
+    label: phase === 'day' ? 'Now' : phase === 'after' ? 'Recap' : 'Welcome',
     state: 'live',
     href: ANCHOR.home,
   });
@@ -232,7 +235,8 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     happening, Now/Watch/Camera/Gallery are what a guest needs, and the bar
   //     holds five.
   if (phase === 'before' && !isVendor && hasStory) {
-    slots.push({ key: 'story', label: 'Story', state: 'live', href: ANCHOR.story });
+    // "Our Love Story" (owner 2026-09-30) — the tab's words, the key stays `story`.
+    slots.push({ key: 'story', label: 'Our Love Story', state: 'live', href: ANCHOR.story });
   }
 
   // 3½ — RSVP, after Story: the Invitation bar is Home · Details · Story ·

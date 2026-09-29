@@ -1668,6 +1668,12 @@ async function InvitationBody({
       hasEmail={Boolean(guest.email?.trim())}
       userAgent={(await headers()).get('user-agent')}
       termsCarried={rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value)}
+      inviteFacts={{
+        hostsName: event.display_name ?? null,
+        eventWord: eventTypeProfile.terminology.eventWord,
+        solemn: eventTypeProfile.terminology.register === 'solemn',
+        eventDate: event.event_date ?? null,
+      }}
     />
     </>
   );

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SendTheirInvite } from './send-their-invite';
+import type { InviteEventFacts } from '@/lib/guest-invite-message';
 
 /**
  * "YOUR GUESTS" — the people this guest is bringing, each a guest row with their
@@ -20,6 +21,7 @@ export function YourGuests({
   addNamesHref,
   sendLabel,
   passes,
+  inviteFacts,
 }: {
   guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
   eventName: string;
@@ -32,6 +34,8 @@ export function YourGuests({
    * hands each one their own key").
    */
   passes?: Readonly<Record<string, string>>;
+  /** The event's words for "Send their invite" (lib/guest-invite-message.ts). */
+  inviteFacts?: InviteEventFacts;
 }) {
   if (guests.length === 0) return null;
   return (
@@ -55,7 +59,7 @@ export function YourGuests({
                   {g.name ? null : <span className="block text-xs text-ink/60">TBA</span>}
                 </span>
                 {g.name && g.inviteUrl ? (
-                  <SendTheirInvite name={g.name} url={g.inviteUrl} eventName={eventName} label={sendLabel} />
+                  <SendTheirInvite name={g.name} url={g.inviteUrl} eventName={eventName} facts={inviteFacts} label={sendLabel} />
                 ) : (
                   <Link
                     href={addNamesHref}

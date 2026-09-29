@@ -218,6 +218,13 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         guests={guestsToSend}
         eventName={(event.display_name as string | null) ?? words.eventWord}
         addNamesHref={`${inviteReplyPath(home)}#plus-ones`}
+        inviteFacts={{
+          hostsName: (event.display_name as string | null) ?? null,
+          eventWord: words.eventWord,
+          solemn: words.solemn,
+          eventDate: (event.event_date as string | null) ?? null,
+          datePrecision: (event.event_date_precision as string | null) ?? null,
+        }}
       />
 
       {nothingToSave ? (

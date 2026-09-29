@@ -21,6 +21,7 @@ import {
 } from './actions';
 import { GuestInviteModal } from './_components/guest-invite-modal';
 import { buildGuestInviteMessage } from '@/lib/guest-invite-message';
+import { loadInviteSetup } from '../guests/_components/invite-message-setup';
 import { SlugField } from './_components/slug-field';
 import { ReissueQrButton } from './_components/reissue-qr-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -67,12 +68,13 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      /* `venue_name` joins the read for ONE reason: the message names where the
-         wedding is. The sponsors page already reads it for its own invitation
-         template, so this is the same host-only fact on a second host-only page. */
+      /* `venue_name` left this read on 2026-09-29: the per-guest message is the
+         owner's shorter one now (name · event · date · their link · their QR)
+         and names no venue — its facts come from `loadInviteSetup`, shared with
+         the guest list's Send invite. */
       // + the CANONICAL monogram list and the QR look's two columns
       // (lib/qr-look.server.ts) — every code on this page wears the event's look.
-      `event_id, public_id, event_date, slug, venue_name, ${QR_LOOK_COLUMNS}`,
+      `event_id, public_id, event_date, slug, ${QR_LOOK_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -82,7 +84,12 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   }
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  const guests = await fetchGuestsByEvent(supabase, eventId);
+  const [guests, inviteSetup] = await Promise.all([
+    fetchGuestsByEvent(supabase, eventId),
+    /* The ONE message builder's inputs — the event's words and the couple's own
+       wording — shared with the guest list's Send invite (2026-09-29). */
+    loadInviteSetup(supabase, eventId),
+  ]);
   /* Counted from the rows already in hand — no second query for a number the
      page has already read. */
   const invitationsMarked = guests.filter((g) => g.invitation_sent_at !== null).length;
@@ -417,13 +424,12 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               /* One message per guest, carrying THAT guest's own link. Null when
                  they have no link yet — the modal then offers no Copy button. */
               const inviteMessage = buildGuestInviteMessage({
-                guestName: guestDisplayName(guest),
-                role: guest.role,
-                coupleNames: event.display_name ?? '',
-                weddingDate: event.event_date,
-                venue: event.venue_name,
-                inviteUrl: qr?.url ?? '',
-              });
+            ...inviteSetup.facts,
+            firstName: guest.first_name,
+            guestName: guestDisplayName(guest),
+            inviteUrl: qr?.url ?? '',
+            template: inviteSetup.template,
+          });
               const markSentAction = markGuestInvitationSent.bind(null, eventId, guest.guest_id);
               return (
                 <tr key={guest.guest_id} className="border-t border-ink/5 align-top">
@@ -498,12 +504,11 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           /* One message per guest, carrying THAT guest's own link. Null when
              they have no link yet — the modal then offers no Copy button. */
           const inviteMessage = buildGuestInviteMessage({
+            ...inviteSetup.facts,
+            firstName: guest.first_name,
             guestName: guestDisplayName(guest),
-            role: guest.role,
-            coupleNames: event.display_name ?? '',
-            weddingDate: event.event_date,
-            venue: event.venue_name,
             inviteUrl: qr?.url ?? '',
+            template: inviteSetup.template,
           });
           const markSentAction = markGuestInvitationSent.bind(null, eventId, guest.guest_id);
           return (

@@ -2,6 +2,7 @@ import type { GuestAccountState } from '@/lib/guest-one-path';
 import { NotYouSwitch } from './not-you-switch';
 import { SaveToAccount } from './save-to-account';
 import { YourGuests } from './your-guests';
+import type { InviteEventFacts } from '@/lib/guest-invite-message';
 
 /**
  * ME — the guest's own tab (owner 2026-09-26/27: Invitation bar Home · Details ·
@@ -28,6 +29,7 @@ export function GuestMe({
   hasEmail,
   userAgent,
   termsCarried,
+  inviteFacts,
 }: {
   name: string;
   slug: string;
@@ -39,6 +41,8 @@ export function GuestMe({
   hasEmail: boolean;
   userAgent: string | null;
   termsCarried: boolean;
+  /** The event's words for "Send their invite". */
+  inviteFacts?: InviteEventFacts;
 }) {
   return (
     <div className="space-y-6" data-guest-me>
@@ -51,6 +55,7 @@ export function GuestMe({
         eventName={eventName}
         addNamesHref={`/${slug}/invite/reply#plus-ones`}
         passes={passes}
+        inviteFacts={inviteFacts}
       />
       {account ? (
         <SaveToAccount

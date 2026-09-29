@@ -86,6 +86,7 @@ import { ActiveFilters } from './_components/active-filters';
 import { LensPill } from './_components/lens-pill';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestCardBody, GUEST_CARD_ERROR_COPY } from './_components/guest-card-body';
+import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { PillarPartPicker } from '../_components/pillar-part-picker';
@@ -848,9 +849,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
      `loadGuestCard` is the one extra round trip a selection costs; it is only
      paid when a guest is actually open. */
-  const inspectedCard = inspectedGuest
-    ? await loadGuestCard(supabase, eventId, inspectedGuest.guest_id)
-    : null;
+  const [inspectedCard, inspectedInviteSetup] = inspectedGuest
+    ? await Promise.all([
+        loadGuestCard(supabase, eventId, inspectedGuest.guest_id),
+        // Send invite · Copy message: the event's words + the couple's wording.
+        loadInviteSetup(supabase, eventId),
+      ])
+    : [null, null];
   const inspectorBody = inspectedGuest && inspectedCard ? (
     <InspectorColumn
       eyebrow="Guest"
@@ -868,6 +873,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           null
         }
         variant="panel"
+        inviteSetup={inspectedInviteSetup}
         returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
         errorMessage={
           typeof search.error === 'string'
@@ -1037,7 +1043,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           finished={finished}
           hasProcessional={hasProcessional}
           hasJoinLink={Boolean(joinUrl)}
-          shareMenu={joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
+          shareMenu={joinUrl ? <ShareDropdown joinUrl={joinUrl} eventId={eventId} /> : null}
           viewSwitch={<GuestsViewSwitcher eventId={eventId} active={gview} search={search} />}
         />
       </div>
@@ -1978,7 +1984,7 @@ function FacetRow({ label, children }: { label: string; children: React.ReactNod
 // the header keeps the share affordance one tap away without spending a
 // stacked row above the guest list. Native <details> so it needs no
 // client JS; the panel is absolutely positioned under the summary.
-function ShareDropdown({ joinUrl }: { joinUrl: string }) {
+function ShareDropdown({ joinUrl, eventId }: { joinUrl: string; eventId: string }) {
   return (
     <details className="group relative">
       <summary className="button-secondary inline-flex cursor-pointer list-none select-none items-center gap-2">
@@ -1993,6 +1999,14 @@ function ShareDropdown({ joinUrl }: { joinUrl: string }) {
         <code className="block break-all rounded bg-ink/5 p-3 font-mono text-[11px] leading-relaxed text-ink/80">
           {joinUrl}
         </code>
+        {/* Each guest their OWN link and QR, one by one (owner 2026-09-29). */}
+        <Link
+          href={`/dashboard/${eventId}/guests/send`}
+          className="mt-3 flex items-center justify-between gap-2 border-t border-ink/10 pt-3 text-sm font-medium text-ink hover:text-terracotta-700"
+        >
+          Send invites one by one
+          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        </Link>
       </div>
     </details>
   );

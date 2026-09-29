@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { peopleConnectionsEnabled, type ConnectionRelation } from '@/lib/people-connections';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { lovedOnesInMyCare, myLovedOnes, spouseIdSet } from '@/lib/my-loved-ones';
 
 /**
  * people-roster.ts — ONE LIST OF EVERYONE, shaped like the guest list.
@@ -23,7 +24,7 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
  * ── FOUR STATES, AND THEY ARE NOT DECORATION ───────────────────────────────
  *   connected     both sides said yes — the only state kinship derives from
  *   waiting_them  you asked; they have not answered
- *   waiting_you   they asked YOU; the row carries Confirm / Decline
+ *   waiting_you   they asked YOU; the row carries Accept / Decline
  *   in_your_care  an alaga — their profile lives inside yours
  *
  * ── WHY A NAME IS SOMETIMES THE ONE YOU TYPED ──────────────────────────────
@@ -46,7 +47,30 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
  * Every optional read degrades to "unknown" and is logged; the roster renders
  * what it could prove. `samahanUnavailable` is surfaced so the page can say the
  * groups could not be loaded rather than silently drawing everybody as belonging
- * to nothing.
+ * to nothing — and `connectionsUnavailable` (2026-09-28) does the same for the
+ * list itself: a refused read used to print "Nobody here yet. Add the first
+ * person above", byte-identical to a brand-new account (the #4579–#4585
+ * disease). The page RENDERS it; a log line never changed a pixel.
+ *
+ * ── ALAGA LEFT THE PEOPLE LIST (owner 2026-09-28, People redesign) ────────
+ * One alaga was drawn three times on one page — a roster row wearing four
+ * labels ("You hold this", "in your care", "In your care · alaga", "My child"),
+ * the card, and the rail's row. The Alaga VIEW owns them now
+ * (`dependents-section.tsx`), so `people-roster-view.tsx` no longer draws them.
+ * ⚠ THEY STAY IN THIS RESULT: the guest list's "Add from people" sheet
+ * (`lib/people-you-can-invite.ts`) reads alaga rows from here to offer a child
+ * or an elder as a guest. Dropping them HERE would have deleted that quietly.
+ *
+ * ── A REQUEST SAYS WHERE IT CAME FROM ──────────────────────────────────────
+ * Owner: *"{name} is trying to add you from your {event} event · Accept /
+ * Decline"*. The event is `person_connections.created_by_event_id`, and its
+ * name is read through `connection_request_events()` under the reader's own
+ * session — never `events` (`authenticated` is denied columns on the base
+ * table). That function answers only the RECIPIENT of a pending request, only
+ * with the event's name and kind, and only when they are a celebrant of it or
+ * host it (owner 2026-09-28: a request from an event always names the event,
+ * co-host or not). The database also refuses a request that names an event its
+ * sender is not at — migration 20271253740454.
  */
 
 export type RosterState = 'connected' | 'waiting_them' | 'waiting_you' | 'in_your_care';
@@ -65,6 +89,10 @@ export type RosterPerson = {
   /** Alaga rows carry their own word ("My child"), which is not a ConnectionRelation. */
   careLabel: string | null;
   state: RosterState;
+  /** A request made from one of YOUR events — its name and kind, for "…is
+   *  trying to add you from your {name} {type} event". Null = a plain request,
+   *  or an event you do not host (the name is then never shown). */
+  fromEvent: { name: string; type: string } | null;
   /** Samahan this person is in, by name. Empty is a real answer; see `samahanUnavailable`. */
   samahan: string[];
   /** Only the person who made the claim may label it. */
@@ -79,13 +107,20 @@ export type PeopleRoster = {
   mySamahan: Array<{ id: string; name: string }>;
   /** TRUE when the samahan read failed — the chips are unknown, not absent. */
   samahanUnavailable: boolean;
+  /** TRUE when the list itself could not be read — "we couldn't load", never
+   *  "nobody here yet". */
+  connectionsUnavailable: boolean;
   counts: {
+    /** Connection rows (alaga are counted on their own, below). */
     all: number;
     connected: number;
     waitingThem: number;
     waitingYou: number;
-    inYourCare: number;
     unlabelled: number;
+    /** Alaga in your care — the Alaga view's count. Null = could not be read. */
+    alaga: number | null;
+    /** Samahan you are in — the Samahan view's count. Null = could not be read. */
+    samahan: number | null;
   };
 };
 
@@ -93,7 +128,8 @@ const EMPTY: PeopleRoster = {
   people: [],
   mySamahan: [],
   samahanUnavailable: false,
-  counts: { all: 0, connected: 0, waitingThem: 0, waitingYou: 0, inYourCare: 0, unlabelled: 0 },
+  connectionsUnavailable: false,
+  counts: { all: 0, connected: 0, waitingThem: 0, waitingYou: 0, unlabelled: 0, alaga: 0, samahan: 0 },
 };
 
 type ConnRow = {
@@ -103,12 +139,14 @@ type ConnRow = {
   declared_name: string | null;
   from_person_id: string;
   to_person_id: string;
+  created_by_event_id: string | null;
 };
 
 export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   const supabase = await createClient();
   const people: RosterPerson[] = [];
   let samahanUnavailable = false;
+  let connectionsUnavailable = false;
 
   // ── connections ──────────────────────────────────────────────────────────
   let myPerson: string | null = null;
@@ -119,7 +157,10 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       .eq('claimed_by_user_id', userId)
       .is('deleted_at', null)
       .maybeSingle();
-    if (meError) logQueryError('getPeopleRoster.me', meError, {}, 'graceful_degrade');
+    if (meError) {
+      connectionsUnavailable = true;
+      logQueryError('getPeopleRoster.me', meError, {}, 'graceful_degrade');
+    }
     myPerson = (me as { person_id: string } | null)?.person_id ?? null;
   }
 
@@ -129,12 +170,17 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   if (myPerson) {
     const { data, error } = await supabase
       .from('person_connections')
-      .select('connection_id, relation, status, declared_name, from_person_id, to_person_id')
+      .select(
+        'connection_id, relation, status, declared_name, from_person_id, to_person_id, created_by_event_id',
+      )
       .or(`from_person_id.eq.${myPerson},to_person_id.eq.${myPerson}`)
       .is('deleted_at', null)
       .neq('status', 'declined')
       .order('created_at', { ascending: true });
-    if (error) logQueryError('getPeopleRoster.connections', error, {}, 'graceful_degrade');
+    if (error) {
+      connectionsUnavailable = true;
+      logQueryError('getPeopleRoster.connections', error, {}, 'graceful_degrade');
+    }
     for (const r of (data ?? []) as ConnRow[]) {
       pendingRows.push(r);
       personIdsToResolve.push(r.from_person_id === myPerson ? r.to_person_id : r.from_person_id);
@@ -147,10 +193,37 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
     const { data, error } = await supabase.rpc('visible_connection_names', {
       p_person_ids: [...new Set(personIdsToResolve)],
     });
-    if (error) logQueryError('getPeopleRoster.names', error, {}, 'graceful_degrade');
+    if (error) {
+      connectionsUnavailable = true;
+      logQueryError('getPeopleRoster.names', error, {}, 'graceful_degrade');
+    }
     for (const r of (data ?? []) as Array<{ person_id: string; display_name: string | null }>) {
       const label = (r.display_name ?? '').trim();
       if (label) names.set(r.person_id, label);
+    }
+  }
+
+  // The events requests came FROM — only those asking ME, through the one
+  // narrow door (`connection_request_events`, migration 20271253740454): the
+  // event's name and kind, for a pending request addressed to me, when I am a
+  // celebrant of that event or host it. Owner 2026-09-28: "a connection request
+  // from an event always names the event" — co-host or not, which `events_host`
+  // (hosts only) could not do. A refusal, or nothing returned, leaves the plain
+  // request copy, which is still true: somebody is trying to add you.
+  const eventByConnection = new Map<string, { name: string; type: string }>();
+  const askedFromAnEvent = pendingRows.some(
+    (r) => r.status === 'pending' && r.to_person_id === myPerson && r.created_by_event_id,
+  );
+  if (askedFromAnEvent) {
+    const { data, error } = await supabase.rpc('connection_request_events');
+    if (error) logQueryError('getPeopleRoster.fromEvents', error, {}, 'graceful_degrade');
+    for (const e of (data ?? []) as Array<{
+      connection_id: string;
+      event_name: string | null;
+      event_type: string | null;
+    }>) {
+      const name = (e.event_name ?? '').trim();
+      if (name) eventByConnection.set(e.connection_id, { name, type: e.event_type ?? '' });
     }
   }
 
@@ -182,6 +255,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   // before this query was written.
   const mySamahan: Array<{ id: string; name: string }> = [];
   const samahanByUser = new Map<string, string[]>();
+  let samahanCount = 0;
   {
     const { data: mine, error: mineError } = await supabase
       .from('community_members')
@@ -226,6 +300,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
           mySamahan.push({ id: c.community_id, name: c.name });
         }
       }
+      samahanCount = nameById.size;
       for (const m of (members ?? []) as Array<{ community_id: string; user_id: string }>) {
         const label = nameById.get(m.community_id);
         if (!label || m.user_id === userId) continue;
@@ -247,30 +322,58 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       kind: 'connection',
       connectionId: r.connection_id,
       dependentId: null,
-      // Their real name when the rule allows it; otherwise the name I typed.
-      name: names.get(otherId) ?? r.declared_name?.trim() ?? 'Someone',
+      // Their real name when the rule allows it; otherwise, on a row I made, the
+      // name I typed. ⚠ NEVER `declared_name` on a row somebody else made: that
+      // is the name THEY typed for ME, and printing it as theirs would show me
+      // my own name on their request.
+      name: names.get(otherId) ?? (iDeclared ? r.declared_name?.trim() : null) ?? 'Someone',
       relation: (r.relation as ConnectionRelation | null) ?? null,
       careLabel: null,
       state,
+      fromEvent: state === 'waiting_you' ? (eventByConnection.get(r.connection_id) ?? null) : null,
       samahan: (otherUser && samahanByUser.get(otherUser)) || [],
       canLabel: iDeclared,
     });
   }
 
   // ── alaga ────────────────────────────────────────────────────────────────
+  // 🔒 WHOSE ROWS — `lib/my-loved-ones.ts`, the SAME rule the Loved ones view
+  // lists by. RLS admits an ADMIN to every dependent on the platform (prod's
+  // admin is the owner), so the raw read is everybody's: on 2026-09-29 another
+  // user's business ("Indigo Caterers") was counted here as "Loved ones 1" while
+  // the view — which applies the rule — said "No loved ones yet."
+  //   · the COUNT is exactly what the view lists (mine · handed over · my actual
+  //     spouse's shared rows) — it can never claim a row the list cannot show;
+  //   · the ROWS (read by the guest list's "Add from people" sheet) are the ones
+  //     still in my care.
+  let alagaCount: number | null = 0;
   if (dependentPeopleEnabled() && (await isDataPrivacyControlActive('dependent_minor_profiles'))) {
-    const { data, error } = await supabase
-      .from('dependents')
-      .select('dependent_id, name, relationship, dependent_kind, handed_over_at')
-      .is('handed_over_at', null)
-      .order('created_at', { ascending: true });
+    const [{ data, error }, { data: spouseIds, error: spouseError }] = await Promise.all([
+      supabase
+        .from('dependents')
+        .select(
+          'dependent_id, name, relationship, dependent_kind, handed_over_at, owner_user_id, handed_over_by_user_id, shared_with_spouse',
+        )
+        .order('created_at', { ascending: true }),
+      supabase.rpc('current_spouse_user_ids'),
+    ]);
     if (error) logQueryError('getPeopleRoster.alaga', error, {}, 'graceful_degrade');
-    for (const d of (data ?? []) as Array<{
+    // Refused, a spouse's shared rows are left out — exactly as the view leaves
+    // them out, so the count and the list still agree.
+    if (spouseError) logQueryError('getPeopleRoster.alagaSpouse', spouseError, {}, 'graceful_degrade');
+    const rows = (data ?? []) as Array<{
       dependent_id: string;
       name: string;
       relationship: string | null;
       dependent_kind: string | null;
-    }>) {
+      handed_over_at: string | null;
+      owner_user_id: string | null;
+      handed_over_by_user_id: string | null;
+      shared_with_spouse: boolean | null;
+    }>;
+    const spouses = spouseIdSet(spouseIds);
+    alagaCount = error ? null : myLovedOnes(rows, userId, spouses).length;
+    for (const d of lovedOnesInMyCare(rows, userId, spouses)) {
       people.push({
         key: d.dependent_id,
         kind: 'alaga',
@@ -280,22 +383,25 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
         relation: null,
         careLabel: careLabelFor(d.relationship, d.dependent_kind),
         state: 'in_your_care',
+        fromEvent: null,
         samahan: [],
         canLabel: false,
       });
     }
   }
 
+  const connections = people.filter((p) => p.kind === 'connection');
   const counts = {
-    all: people.length,
-    connected: people.filter((p) => p.state === 'connected').length,
-    waitingThem: people.filter((p) => p.state === 'waiting_them').length,
-    waitingYou: people.filter((p) => p.state === 'waiting_you').length,
-    inYourCare: people.filter((p) => p.state === 'in_your_care').length,
-    unlabelled: people.filter((p) => p.kind === 'connection' && p.relation === null).length,
+    all: connections.length,
+    connected: connections.filter((p) => p.state === 'connected').length,
+    waitingThem: connections.filter((p) => p.state === 'waiting_them').length,
+    waitingYou: connections.filter((p) => p.state === 'waiting_you').length,
+    unlabelled: connections.filter((p) => p.state !== 'waiting_you' && p.relation === null).length,
+    alaga: alagaCount,
+    samahan: samahanUnavailable ? null : samahanCount,
   };
 
-  return { people, mySamahan, samahanUnavailable, counts };
+  return { people, mySamahan, samahanUnavailable, connectionsUnavailable, counts };
 }
 
 /** The alaga's own word, which is not one of the seven stored relations. */
@@ -315,6 +421,39 @@ function careLabelFor(relationship: string | null, kind: string | null): string 
     default:
       return 'In my care';
   }
+}
+
+/**
+ * How many people are waiting on MY answer — the rail's Requests row, read on
+ * every People page. Null when it could not be read: the rail then still draws
+ * Requests (a refused read must never hide a request), just without a number.
+ */
+export async function waitingRequestCount(userId: string): Promise<number | null> {
+  if (!peopleConnectionsEnabled()) return 0;
+  const supabase = await createClient();
+  const { data: me, error: meError } = await supabase
+    .from('people')
+    .select('person_id')
+    .eq('claimed_by_user_id', userId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (meError) {
+    logQueryError('waitingRequestCount.me', meError, {}, 'graceful_degrade');
+    return null;
+  }
+  const myPerson = (me as { person_id: string } | null)?.person_id;
+  if (!myPerson) return 0;
+  const { count, error } = await supabase
+    .from('person_connections')
+    .select('connection_id', { count: 'exact', head: true })
+    .eq('to_person_id', myPerson)
+    .eq('status', 'pending')
+    .is('deleted_at', null);
+  if (error) {
+    logQueryError('waitingRequestCount.requests', error, {}, 'graceful_degrade');
+    return null;
+  }
+  return count ?? 0;
 }
 
 export const EMPTY_ROSTER = EMPTY;

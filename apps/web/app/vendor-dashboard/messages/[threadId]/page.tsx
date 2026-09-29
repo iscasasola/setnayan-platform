@@ -218,9 +218,30 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
 
+  // ═══ EVERY READ BELOW STARTS AT ONCE (perf, 2026-09-29) ══════════════════
+  // The 2026-07-01 batch below took the first fourteen reads off the serial
+  // path, but it still waited for three reads before it, and about twenty more
+  // ran ONE AFTER ANOTHER after it — add-ons, the revision seed, attribution,
+  // the trust badge, the founder seat, pipeline pressure, pax proposals, the
+  // stage, decisions, the service label, budget bands, the handshake, the fee
+  // forecast, booked money, payout readiness, the standing, then the whole
+  // conversation column — although most needed nothing but the thread. Each is
+  // now STARTED here as a promise, with its own graceful-degrade exactly as it
+  // was, and they are awaited together in the one `Promise.all` at the end of
+  // the run. A read that needs another's answer awaits that one promise INSIDE its
+  // own started block (the fee forecast waits for the handshake).
+  //
+  // ⚠ THE TWO WRITES KEEP THEIR PLACE. `markThreadRead` (the read marker) and
+  // `resolveLivePax` (which can take the lazy guest-count lock) start only once
+  // the three reads that preceded them have succeeded — they were inside the
+  // batch, and the batch came after those three — and the conversation column,
+  // which reads `chat_thread_reads`, still waits for the read marker's write.
+  // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
+  // RUN — one stray `await` puts a full database trip back in front of the page.
+
   // Voice/video calling is a paid-vendor capability (gate-dark by default).
   // When it's locked for this vendor's tier the launcher shows an upgrade nudge.
-  const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
+  const callsEnabledRead = resolveThreadCallsEnabled(thread.vendor_profile_id);
 
   /**
    * THE TWO MONEY LINES UNDER THE QUOTE TOTAL — resolved ONCE here so the
@@ -236,7 +257,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // composers so the supplier prices the job knowing what Setnayan takes.
   // Unlike the gift basis this is resolved even on a FREE booking: "free, 3 of
   // your first 5 left" is the disclosure, and silence would be the old defect.
-  const composerFeeStanding = await resolveBookingFeeStanding(createAdminClient(), {
+  const composerFeeStandingRead = resolveBookingFeeStanding(createAdminClient(), {
     vendorProfileId: profile.vendor_profile_id,
     eventId: thread.event_id,
   }).catch(() => null);
@@ -251,11 +272,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * exactly `giftQuoteBasis`'s contract. Asking twice would let the two halves
    * of one screen be resolved against two different moments.
    */
-  const composerPapicStanding = await resolvePapicQuoteStanding(createAdminClient(), {
+  const composerPapicStandingRead = resolvePapicQuoteStanding(createAdminClient(), {
     eventId: thread.event_id,
     vendorProfileId: thread.vendor_profile_id,
   });
-  const composerGiftBasis = giftBasisFrom(composerPapicStanding);
+  // The two writes in the batch below wait for these three — they used to be
+  // awaited in turn before the batch started, so no write ran while one of them
+  // could still fail the page.
+  const writesWaitFor = Promise.all([
+    callsEnabledRead,
+    composerFeeStandingRead,
+    composerPapicStandingRead,
+  ]);
 
   // ── Concurrent fetch (2026-07-01 perf) ──────────────────────────────────
   // Every read below the ownership gate is independent — only paxProposals needs
@@ -264,46 +292,57 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // contract via per-item .catch(). markThreadRead is a WRITE fired inside the
   // batch (last element, result ignored): it still clears unread on this load,
   // but concurrently, adding zero serial round-trips instead of blocking render.
+  // (2026-09-29) The batch is now STARTED, not awaited on its own; the members
+  // other reads chain on — the event, interests + services, live pax and the
+  // read marker — are started just above it and slotted into it by name.
   const msgTimer = new ServerTimer('vendor-dashboard/messages-thread');
   const paxAdmin = createAdminClient();
-  const [
-    blockState,
-    { data: event },
-    initialMessages,
-    [existingInterests, ownServices],
-    [tplRes, pkgRes],
-    returningMap,
-    livePax,
-    pendingPayments,
-    planProgress,
-    reasonCodes,
-    { data: existingOutcome },
-    customerPlan,
-    ownPaymentMethods,
-  ] = await msgTimer.track('thread', () => Promise.all([
-    // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
-    getThreadBlockState(thread, user.id, 'vendor'),
-    // WHO IS ASKING. Read with the ADMIN client, like the three sibling reads
-    // below, because a vendor holds no `events` RLS — not even after accepting
-    // (measured in prod 2026-09-08: an accepted thread's vendor still had
-    // `vendor_is_event_member = 0`). With the vendor's own client this row came
-    // back null on EVERY load, so the header fell back to "Couple" and the rail
-    // read "Not set yet" against a real 2026-12-18 date. The ownership gate
-    // above (`thread.vendor_profile_id !== profile.vendor_profile_id` →
-    // notFound) is what authorises the bypass.
-    paxAdmin
+  // WHO IS ASKING. Read with the ADMIN client, like the three sibling reads
+  // below, because a vendor holds no `events` RLS — not even after accepting
+  // (measured in prod 2026-09-08: an accepted thread's vendor still had
+  // `vendor_is_event_member = 0`). With the vendor's own client this row came
+  // back null on EVERY load, so the header fell back to "Couple" and the rail
+  // read "Not set yet" against a real 2026-12-18 date. The ownership gate
+  // above (`thread.vendor_profile_id !== profile.vendor_profile_id` →
+  // notFound) is what authorises the bypass.
+  const eventRead = (async () => {
+    return await paxAdmin
       .from('events')
       .select('display_name, event_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type')
       .eq('event_id', thread.event_id)
-      .maybeSingle(),
+      .maybeSingle();
+  })();
+  // Inverse cross-sell (owner-locked 2026-06-12) — active services minus those
+  // already recorded as thread interests.
+  const interestsAndServicesRead = Promise.all([
+    fetchThreadInterests(supabase, threadId),
+    fetchVendorServices(supabase, profile.vendor_profile_id),
+  ]);
+  // Adaptive Pax Pricing Phase 5 — recompute live pax FRESH on view (admin
+  // client, gated by the thread-ownership check above).
+  // ⚠ `resolveLivePax` CAN WRITE (`ensureFinalized` takes the lazy guest-count
+  // lock once the deadline has passed) — it waits for the three reads above.
+  const livePaxRead = (async () => {
+    await writesWaitFor;
+    return resolveLivePax(paxAdmin, thread.event_id);
+  })();
+  // Mark read (WRITE) — fired concurrently; result ignored. No-op + logged if
+  // migration 20260728000000_chat_thread_reads.sql isn't pushed yet.
+  // ⚠ It waits for the three reads above, and the conversation column waits
+  // for it (that column reads the `chat_thread_reads` row this writes).
+  const markedRead = (async () => {
+    await writesWaitFor;
+    await markThreadRead(threadId).catch(() => undefined);
+  })();
+  const batchRead = msgTimer.track('thread', () => Promise.all([
+    // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
+    getThreadBlockState(thread, user.id, 'vendor'),
+    // WHO IS ASKING — started above as `eventRead` (admin client; see there).
+    eventRead,
     // Server-rendered first batch (SSR + SEO). Realtime takes over from here.
     fetchMessages(supabase, threadId),
-    // Inverse cross-sell (owner-locked 2026-06-12) — active services minus those
-    // already recorded as thread interests.
-    Promise.all([
-      fetchThreadInterests(supabase, threadId),
-      fetchVendorServices(supabase, profile.vendor_profile_id),
-    ]),
+    // Inverse cross-sell — started above as `interestsAndServicesRead`.
+    interestsAndServicesRead,
     // In-chat proposals — the vendor's own templates + packages (RLS-scoped).
     Promise.all([
       supabase
@@ -333,9 +372,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     thread.inquiry_status === 'pending'
       ? fetchReturningClientFlags(supabase, profile.vendor_profile_id, [thread.event_id])
       : Promise.resolve(null),
-    // Adaptive Pax Pricing Phase 5 — recompute live pax FRESH on view (admin
-    // client, gated by the thread-ownership check above).
-    resolveLivePax(paxAdmin, thread.event_id),
+    // Live pax — started above as `livePaxRead` (it can write; see there).
+    livePaxRead,
     // Phase 2 PR-C — couple-logged payments awaiting confirmation. Best-effort:
     // a failure degrades to no cards.
     fetchPendingVendorPayments({
@@ -428,10 +466,509 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     fetchOwnPaymentMethods(supabase, profile.vendor_profile_id).catch(
       (): Awaited<ReturnType<typeof fetchOwnPaymentMethods>> => [],
     ),
-    // Mark read (WRITE) — fired concurrently; result ignored. No-op + logged if
-    // migration 20260728000000_chat_thread_reads.sql isn't pushed yet.
-    markThreadRead(threadId).catch(() => undefined),
+    // Mark read (WRITE) — started above as `markedRead`; result ignored.
+    markedRead,
   ]));
+
+  const kindLabelRead = cardKindLabeller();
+
+  // The add-ons and "comes with" rows of the shop's ACTIVE cards — see THE
+  // SHOP'S CARDS FOR THE QUOTE below. Needs the services, so it chains on them.
+  const shopCardsRead = (async () => {
+    const [, ownServices] = await interestsAndServicesRead;
+    const activeServices = ownServices.filter((s) => s.is_active);
+    const activeIds = activeServices.map((s) => s.vendor_service_id);
+    const [addonsByService, linkRows] = await Promise.all([
+      fetchAddonsByService(supabase, activeIds),
+      activeIds.length > 0
+        ? supabase
+            .from('vendor_service_links')
+            .select('vendor_service_id, linked_label')
+            .in('vendor_service_id', activeIds)
+            .order('display_order', { ascending: true })
+        : Promise.resolve({ data: null }),
+    ]);
+    return { activeServices, addonsByService, linkRows };
+  })();
+
+  /**
+   * S5 · "UPDATE THIS QUOTE" — the builder opens seeded from the LIVE quote.
+   *
+   * Only on `?compose=quote`. The live quote is the newest non-draft row for
+   * (this event × this shop) that is still sent / viewed / accepted — the same
+   * rule `fetchLiveQuoteTotalPhp` and the thread's own card use ("one thread,
+   * one live quote"). Read under the supplier's OWN session (RLS: own org).
+   * Null when there is nothing live to revise: the builder then opens empty,
+   * which is the ordinary Build-a-quote, not an error.
+   */
+  const quoteRevisionRead = (async () => {
+    let quoteRevision: QuoteRevisionSeed | null = null;
+    if (composeMode === 'quote') {
+      const { data: liveQuote, error: liveQuoteErr } = await supabase
+        .from('vendor_proposals')
+        // The column list is a constant in lib/quote-revision-seed.ts so a unit
+        // test can EXECUTE it — a query in a server component can only be
+        // grepped, and this read silently dropped the supplier's gift answer.
+        .select(QUOTE_REVISION_SELECT)
+        .eq('event_id', thread.event_id)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .in('status', ['sent', 'viewed', 'accepted'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (liveQuoteErr) {
+        console.error('[vendor thread] live quote read for revision refused', liveQuoteErr);
+      } else if (liveQuote) {
+        quoteRevision = seedQuoteRevision(liveQuote as QuoteRevisionSource);
+      }
+    }
+    return quoteRevision;
+  })();
+
+  // ── Creator Economy PR-C · inquiry provenance (PRIVATE to the vendor) ──────
+  // The source chip (owner's taxonomy; NULL = "Website Inquiry"), the returning
+  // companion chip, the "Referred by [Storyteller] · via [chapter]" block with
+  // the promised audience rate, and the "creator collab active" marker (the
+  // INQUIRER holds an accepted collab with THIS vendor → agreed creator rate
+  // applies). All fail-soft/pre-migration-safe.
+  const sourceChipLabel = inquirySourceLabel(thread.inquiry_source ?? null);
+  const attributionRead = Promise.all([
+    thread.referring_chapter_id
+      ? fetchThreadAttribution(thread)
+      : Promise.resolve<ThreadAttribution | null>(null),
+    fetchInquirerCollabActive(
+      profile.vendor_profile_id,
+      thread.created_by_user_id ?? null,
+    ),
+  ]);
+
+  // Phase D — lead trust badge (fake-inquiry protection · "informed accept").
+  // Flag-gated + pending-only + fail-soft. "Active planner" is a purely positive
+  // cue (real engagement) — a new couple simply has no badge, never a warning.
+  const leadActivePlannerRead =
+    leadTrustBadgeEnabled() && thread.inquiry_status === 'pending'
+      ? fetchLeadTrustActivePlanner(supabase, profile.vendor_profile_id, thread.event_id)
+      : Promise.resolve(false);
+
+  // Founder-seat inquiry — the explicit, server-asserted founder signal
+  // (owner-locked 2026-07-16). Read from the founder_seats definer helper only
+  // (never profile text — impersonation guard), shown pre- AND post-accept: the
+  // vendor must know they're serving the people who built the app, and that
+  // accepting was/is token-free. Unlike the trust badge this is NOT flag-gated —
+  // pre-migration the RPC gracefully degrades to false.
+  const founderInquiryRead = eventHostHoldsFounderSeat(supabase, thread.event_id);
+
+  // How full is this shop's pipeline for THIS couple's date — the number the
+  // per-tier ceiling refuses on, said out loud BEFORE the refusal. Pending-only
+  // (an accepted thread has already spent its slot) and read through the
+  // supplier's OWN session, because the RPC is caller-scoped and answering with
+  // the service role would answer for a thread they do not own. Returns null —
+  // and the component draws nothing — whenever the ceilings are switched off,
+  // the couple has no date yet, or the read fails.
+  const pipelinePressureRead =
+    thread.inquiry_status === 'pending'
+      ? fetchPipelinePressure(supabase, threadId)
+      : Promise.resolve(null);
+
+  // paxProposals depends on livePax, so it's the one query that follows the batch.
+  // The date-demand counts ride alongside it rather than adding a third round
+  // trip: two `head: true` counts, batched, never one per row.
+  // (2026-09-29) Each now chains on the ONE read it needs — the proposals on
+  // live pax, the date demand on the event — instead of on the whole batch.
+  const paxProposalsRead = (async () => {
+    const livePax = await livePaxRead;
+    return fetchVendorPaxProposals(paxAdmin, {
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+      livePax,
+      paxAtInquiry: thread.pax_at_inquiry,
+    });
+  })();
+  const dateDemandRead = (async () => {
+    const { data: event } = await eventRead;
+    /*
+      WHO ELSE WANTS THIS DATE (owner: *"Target date for vendors will show who
+      are also inquiring for that day so they do not need to browse their
+      calendar?"*).
+
+      🔒 COUNTS, NEVER NAMES, AND SUPPLIER SIDE ONLY. See
+      lib/vendor-date-demand.ts — including why the shipped
+      `get_vendor_same_day_bookings` could not answer this (it refuses unless
+      the caller is already BOOKED on the event on screen, which an inquiry by
+      definition is not) and why this is not built on the pipeline-ceiling RPC
+      whose line sits a few rows below.
+    */
+    return fetchVendorDateDemand({
+      adminClient: paxAdmin,
+      vendorProfileId: profile.vendor_profile_id,
+      eventDate: event?.event_date ?? null,
+      excludeThreadId: threadId,
+    });
+  })();
+
+  // ── Customer info rail (Customer Card respine PR-3) ──────────────────────
+  // The rail no longer hides anything (owner ruling 2026-09-08). This flag now
+  // means ONLY what its name says: a pending inquiry sits at the 'inquiry'
+  // stage by definition, so there is no pipeline to derive yet. It must never
+  // regain an identity meaning — that was the token wallet's lock.
+  const threadIsPendingInquiry = thread.inquiry_status === 'pending';
+  const railStageRead = threadIsPendingInquiry
+    ? Promise.resolve('inquiry' as const)
+    : deriveThreadStage({
+        supabase,
+        adminClient: paxAdmin,
+        eventId: thread.event_id,
+        vendorProfileId: profile.vendor_profile_id,
+        // Without this a declined, withdrawn, expired or displaced thread keeps
+        // reading as a live `Inquiry` — the pill said the conversation was
+        // still open long after it had ended.
+        inquiryStatus: thread.inquiry_status,
+      });
+  // ── DECISIONS · the two sources that are not messages ─────────────────────
+  // Payments and the guest-count change are page sections rendered around the
+  // stream, so the Decisions view can only get them from here. Both reads are
+  // graceful — a refusal costs those rows, never the conversation.
+  const decisionsRead = Promise.all([
+    fetchThreadPayments({
+      adminClient: paxAdmin,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    }),
+    // Under the supplier's OWN session — they read their own proposals.
+    fetchLiveQuoteTotalPhp({
+      supabase,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    }),
+  ]);
+
+  // Service/category of the inquiry — the first recorded interest chip (the
+  // same source the interest chips + cross-sell already use on this page).
+  const railServiceRead = (async () => {
+    const [existingInterests] = await interestsAndServicesRead;
+    const firstInterest = existingInterests[0];
+    return firstInterest
+      ? (await interestLabeller(paxAdmin, [firstInterest]))(firstInterest)
+      : null;
+  })();
+
+  // The budget bands for STEP 1 OF THE QUOTE (see there, below) — only when the
+  // event names a band, so it chains on the event read.
+  const budgetBandsRead = (async () => {
+    const { data: event } = await eventRead;
+    return event?.budget_band
+      ? await fetchBudgetBands(paxAdmin).catch((): Awaited<ReturnType<typeof fetchBudgetBands>> => [])
+      : [];
+  })();
+
+  // PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
+  // A supplier CANNOT read `event_vendors` through their own session — all four
+  // policies on that table are couple- or moderator-scoped — so this uses the
+  // admin client already in scope, narrowed to (this event × THIS shop's own
+  // profile), the same pair the thread-ownership check above already proved.
+  // Three handshake columns; no money, no guest data, no schedule.
+  const lockHandshakeRead = fetchThreadLockHandshake(paxAdmin, {
+    eventId: thread.event_id,
+    vendorProfileId: profile.vendor_profile_id,
+  });
+
+  // WHAT AGREEING WILL COST THIS SHOP — resolved for the chat card's Agree
+  // button, through the SAME `forecastForBooking` the Today feed and the client
+  // page use, so the three cannot price or word it differently. Null when no
+  // ask is on the card: nothing is read and nothing renders.
+  const chatFeeForecastRead = (async () => {
+    const lockHandshake = await lockHandshakeRead;
+    return lockHandshake?.eventVendorId
+      ? await forecastForBooking(paxAdmin, {
+          vendorProfileId: profile.vendor_profile_id,
+          eventVendorId: lockHandshake.eventVendorId,
+        })
+      : null;
+  })();
+
+  // THE SUPPLIER'S END OF THE NEXT MONEY STEP (2026-09-20) — the same
+  // `readBookedMoney` → `moneyStep` the couple's card reads, so the two ends
+  // say the same thing. Admin client: a supplier holds no `event_vendors` RLS,
+  // and this page already refused anyone but this thread's supplier (notFound
+  // above); the read is scoped to their own profile on this event.
+  const bookedMoneyRead = (async () => {
+    const { data: event } = await eventRead;
+    return readBookedMoney(paxAdmin, {
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+      eventDate: event?.event_date ?? null,
+      viewer: 'vendor',
+      otherName: 'the couple',
+    });
+  })();
+  // 2026-09-19 · can this couple see anywhere to pay you? Shown on the live
+  // ACCEPTED quote card as the same one-tap door the Overview's booking card
+  // carries. The shop's OWN profile id (proved above), never a param.
+  const payoutReadinessRead: Promise<PayoutReadiness> = readSupplierPayoutReadiness({
+    adminClient: paxAdmin,
+    vendorProfileId: profile.vendor_profile_id,
+    vendorUserId: profile.user_id,
+  }).catch((): PayoutReadiness => 'unreadable');
+
+  // The facts beside the rung (SUP-2) — the SAME reader the couple's bench and
+  // thread page use. `paxAdmin` because a supplier cannot read `event_vendors`
+  // through their own session (see PR-H above); narrowed to this event × THIS
+  // shop's own profile, the pair the ownership check already proved.
+  const standingNowMs = Date.now();
+  const standingExtrasRead = readStandingExtras(
+    paxAdmin,
+    thread.event_id,
+    [profile.vendor_profile_id],
+    standingNowMs,
+  ).then((extras) => extras.get(profile.vendor_profile_id));
+
+  /* ── THE LEFT COLUMN: every conversation, beside the one being read ────────
+     Owner 2026-09-08: "list · conversation · context".
+
+     ⚡ FOUR BATCHED READS FOR THE WHOLE LIST, not four per row. The stage
+     probes live in buildVendorConversationRows; here we gather the three things
+     a row shows that are not already on the thread row itself.
+
+     ⚠ EVERY ONE FAILS QUIET. This column is navigation, not the page — a
+     refused read must leave the conversation itself readable, so each degrades
+     to an empty map and the row falls back to what it can still say. */
+  const conversationRowsRead = (async () => {
+    // The column reads `chat_thread_reads` (the unread dots, and the archived
+    // embed on the thread list) — the row `markThreadRead` writes. It waits for
+    // that write, as it did when the batch that held it was awaited first.
+    await markedRead;
+    const listThreads = await fetchVendorThreads(supabase, profile.vendor_profile_id).catch(
+      (caught: unknown) => {
+        logQueryError(
+          'VendorThreadPage.conversationList',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { vendor_profile_id: profile.vendor_profile_id },
+          'graceful_degrade',
+        );
+        return [] as Awaited<ReturnType<typeof fetchVendorThreads>>;
+      },
+    );
+    const listThreadIds = listThreads.map((t) => t.thread_id);
+    const listEventIds = [...new Set(listThreads.map((t) => t.event_id))];
+
+    const [listCustomers, lastMessageRes, listInterestRes, listReadRes] = await Promise.all([
+      // Who each couple is. A vendor's own RLS nulls `events` out on every thread,
+      // so this is the admin-scoped helper the inbox already uses — the caller's
+      // ownership proof is fetchVendorThreads above.
+      fetchInquiryCustomerFacts(paxAdmin, listEventIds),
+      // The last line of each conversation. Ordered newest-first and capped: the
+      // reducer keeps the FIRST row it sees per thread, which is that thread's
+      // latest. The cap is a ceiling on work, not on correctness — a shop past it
+      // loses the preview on its oldest conversations, never the conversation.
+      listThreadIds.length > 0
+        ? supabase
+            .from('chat_messages')
+            .select('thread_id, sender_role, body, created_at')
+            .in('thread_id', listThreadIds)
+            .order('created_at', { ascending: false })
+            .limit(600)
+        : Promise.resolve({ data: [], error: null }),
+      // The service each couple asked about — one grey tag on the row.
+      listThreadIds.length > 0
+        ? supabase
+            .from('thread_service_interests')
+            .select('thread_id, category_key, vendor_service_id, created_at')
+            .in('thread_id', listThreadIds)
+            .order('created_at', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
+      // When this viewer last opened each thread — the dot and the bold preview.
+      // ⚠ The read markers are a LATER migration than the threads themselves, so
+      // this degrades to "nothing is unread": a missing dot understates, an
+      // invented one sends a supplier into a conversation with nothing in it.
+      listThreadIds.length > 0
+        ? supabase
+            .from('chat_thread_reads')
+            .select('thread_id, last_read_at')
+            .eq('user_id', user.id)
+            .in('thread_id', listThreadIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (lastMessageRes.error) {
+      logQueryError(
+        'VendorThreadPage.lastMessages',
+        lastMessageRes.error,
+        { vendor_profile_id: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+    }
+    const lastMessages = new Map<string, { sender_role: string; body: string | null }>();
+    const lastMessageAt = new Map<string, string>();
+    for (const m of (lastMessageRes.data ?? []) as Array<{
+      thread_id: string;
+      sender_role: string;
+      body: string | null;
+      created_at: string;
+    }>) {
+      if (!lastMessages.has(m.thread_id)) {
+        lastMessages.set(m.thread_id, { sender_role: m.sender_role, body: m.body });
+        lastMessageAt.set(m.thread_id, m.created_at);
+      }
+    }
+
+    /* Unread = something was said after this viewer last opened the thread.
+       ⚠ A THREAD WITH NO READ MARKER IS NOT UNREAD HERE. The marker is written on
+       open, so "never opened" and "the marker table is not reachable" are the same
+       absence — and a whole column of dots on a shop that has read everything is
+       noise that trains the eye to ignore the one that matters. */
+    if (listReadRes.error) {
+      logQueryError(
+        'VendorThreadPage.listReads',
+        listReadRes.error,
+        { vendor_profile_id: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+    }
+    const listUnread = new Set<string>();
+    for (const r of (listReadRes.data ?? []) as Array<{
+      thread_id: string;
+      last_read_at: string | null;
+    }>) {
+      const said = lastMessageAt.get(r.thread_id);
+      if (said && r.last_read_at && new Date(said) > new Date(r.last_read_at)) {
+        listUnread.add(r.thread_id);
+      }
+    }
+
+    if (listInterestRes.error) {
+      logQueryError(
+        'VendorThreadPage.listInterests',
+        listInterestRes.error,
+        { vendor_profile_id: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+    }
+    const interestByThread = new Map<string, string>();
+    const listInterests = (listInterestRes.data ?? []) as Array<{
+      thread_id: string;
+      category_key: string | null;
+      vendor_service_id: string | null;
+    }>;
+    const labelListInterest = await interestLabeller(paxAdmin, listInterests);
+    for (const i of listInterests) {
+      // First interest wins — the same "what did they ask about" the rail shows.
+      if (!interestByThread.has(i.thread_id) && (i.category_key || i.vendor_service_id)) {
+        interestByThread.set(i.thread_id, labelListInterest(i));
+      }
+    }
+
+    // ⚠ A TAG THAT NEVER CHANGES SAYS NOTHING. If this shop's whole inbox is
+    // one category, tagging every row with it (per `interestByThread` above)
+    // repeats the same word down the column and costs a line for free — the
+    // service tag earns its spot only once it actually distinguishes a row from
+    // its neighbours.
+    const showServiceTag = serviceTagVaries([...interestByThread.values()]);
+    const nowMs = Date.now();
+
+    const listDisplayNames = new Map<string, string | null>();
+    const listLabels = new Map<string, string[]>();
+    for (const t of listThreads) {
+      const facts = listCustomers.get(t.event_id);
+      listDisplayNames.set(t.event_id, facts?.displayName ?? null);
+      const tags: string[] = [];
+      const service = interestByThread.get(t.thread_id);
+      if (service && showServiceTag) tags.push(service);
+      // ⚠ `event_date` is a DATE column, so it goes through the repo's own
+      // formatter — `new Date('2026-12-18')` is the 17th west of Greenwich.
+      // And only close to the day: a wedding sixteen months out is not live
+      // context on who this row is, it's noise repeated down the column.
+      if (isDateTagWorthShowing(facts?.eventDate, nowMs)) {
+        const day = dayMonth(facts?.eventDate);
+        if (day) tags.push(day);
+      }
+      listLabels.set(t.event_id, tags);
+    }
+
+    const conversationRows = await buildVendorConversationRows({
+      supabase,
+      adminClient: paxAdmin,
+      vendorProfileId: profile.vendor_profile_id,
+      threads: listThreads.map((t) => ({
+        thread_id: t.thread_id,
+        event_id: t.event_id,
+        inquiry_status: t.inquiry_status ?? null,
+        updated_at: t.updated_at,
+      })),
+      displayNames: listDisplayNames,
+      labels: listLabels,
+      lastMessages,
+      unreadThreadIds: listUnread,
+      formatTime: formatChatTimestamp,
+    });
+    return conversationRows;
+  })();
+
+  // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
+  const [
+    callsEnabled,
+    composerFeeStanding,
+    composerPapicStanding,
+    [
+      blockState,
+      { data: event },
+      initialMessages,
+      [existingInterests, ownServices],
+      [tplRes, pkgRes],
+      returningMap,
+      livePax,
+      pendingPayments,
+      planProgress,
+      reasonCodes,
+      { data: existingOutcome },
+      customerPlan,
+      ownPaymentMethods,
+    ],
+    kindLabel,
+    { activeServices, addonsByService, linkRows },
+    quoteRevision,
+    [attribution, inquirerCollabActive],
+    leadActivePlanner,
+    founderInquiry,
+    pipelinePressure,
+    paxProposals,
+    dateDemand,
+    railStage,
+    [decisionPayments, liveQuoteTotalPhp],
+    railService,
+    budgetBands,
+    lockHandshake,
+    chatFeeForecast,
+    bookedMoney,
+    payoutReadiness,
+    standingExtras,
+    conversationRows,
+  ] = await Promise.all([
+    callsEnabledRead,
+    composerFeeStandingRead,
+    composerPapicStandingRead,
+    batchRead,
+    kindLabelRead,
+    shopCardsRead,
+    quoteRevisionRead,
+    attributionRead,
+    leadActivePlannerRead,
+    founderInquiryRead,
+    pipelinePressureRead,
+    paxProposalsRead,
+    dateDemandRead,
+    railStageRead,
+    decisionsRead,
+    railServiceRead,
+    budgetBandsRead,
+    lockHandshakeRead,
+    chatFeeForecastRead,
+    bookedMoneyRead,
+    payoutReadinessRead,
+    standingExtrasRead,
+    conversationRowsRead,
+  ]);
+
+  const composerGiftBasis = giftBasisFrom(composerPapicStanding);
 
   // WHO IS ASKING — one label, the same before and after accepting. The
   // anonymization-until-accept placeholder ("A couple planning a wedding in
@@ -449,7 +986,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       .map((r) => r.vendor_service_id)
       .filter((v): v is string => v !== null),
   );
-  const kindLabel = await cardKindLabeller();
   const offerOptions: VendorOfferOption[] = ownServices
     .filter((s) => s.is_active && !alreadyOnThread.has(s.vendor_service_id))
     .map((s) => ({
@@ -467,18 +1003,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * the picker can offer them; the seed itself is read again on the server
    * when a card is picked (`loadServiceCardLinesForQuote`).
    */
-  const activeServices = ownServices.filter((s) => s.is_active);
-  const activeIds = activeServices.map((s) => s.vendor_service_id);
-  const [addonsByService, linkRows] = await Promise.all([
-    fetchAddonsByService(supabase, activeIds),
-    activeIds.length > 0
-      ? supabase
-          .from('vendor_service_links')
-          .select('vendor_service_id, linked_label')
-          .in('vendor_service_id', activeIds)
-          .order('display_order', { ascending: true })
-      : Promise.resolve({ data: null }),
-  ]);
   const comesWith = new Map<string, string[]>();
   for (const r of ((linkRows as { data: { vendor_service_id: string; linked_label: string | null }[] | null }).data ?? [])) {
     if (!r.linked_label) continue;
@@ -530,83 +1054,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     publishable: m.is_shown && m.moderation_status === 'approved',
   }));
 
-  /**
-   * S5 · "UPDATE THIS QUOTE" — the builder opens seeded from the LIVE quote.
-   *
-   * Only on `?compose=quote`. The live quote is the newest non-draft row for
-   * (this event × this shop) that is still sent / viewed / accepted — the same
-   * rule `fetchLiveQuoteTotalPhp` and the thread's own card use ("one thread,
-   * one live quote"). Read under the supplier's OWN session (RLS: own org).
-   * Null when there is nothing live to revise: the builder then opens empty,
-   * which is the ordinary Build-a-quote, not an error.
-   */
-  let quoteRevision: QuoteRevisionSeed | null = null;
-  if (composeMode === 'quote') {
-    const { data: liveQuote, error: liveQuoteErr } = await supabase
-      .from('vendor_proposals')
-      // The column list is a constant in lib/quote-revision-seed.ts so a unit
-      // test can EXECUTE it — a query in a server component can only be
-      // grepped, and this read silently dropped the supplier's gift answer.
-      .select(QUOTE_REVISION_SELECT)
-      .eq('event_id', thread.event_id)
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .in('status', ['sent', 'viewed', 'accepted'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (liveQuoteErr) {
-      console.error('[vendor thread] live quote read for revision refused', liveQuoteErr);
-    } else if (liveQuote) {
-      quoteRevision = seedQuoteRevision(liveQuote as QuoteRevisionSource);
-    }
-  }
-
   const returning = returningMap ? returningMap.get(thread.event_id) : undefined;
-
-  // ── Creator Economy PR-C · inquiry provenance (PRIVATE to the vendor) ──────
-  // The source chip (owner's taxonomy; NULL = "Website Inquiry"), the returning
-  // companion chip, the "Referred by [Storyteller] · via [chapter]" block with
-  // the promised audience rate, and the "creator collab active" marker (the
-  // INQUIRER holds an accepted collab with THIS vendor → agreed creator rate
-  // applies). All fail-soft/pre-migration-safe.
-  const sourceChipLabel = inquirySourceLabel(thread.inquiry_source ?? null);
-  const [attribution, inquirerCollabActive] = await Promise.all([
-    thread.referring_chapter_id
-      ? fetchThreadAttribution(thread)
-      : Promise.resolve<ThreadAttribution | null>(null),
-    fetchInquirerCollabActive(
-      profile.vendor_profile_id,
-      thread.created_by_user_id ?? null,
-    ),
-  ]);
-
-  // Phase D — lead trust badge (fake-inquiry protection · "informed accept").
-  // Flag-gated + pending-only + fail-soft. "Active planner" is a purely positive
-  // cue (real engagement) — a new couple simply has no badge, never a warning.
-  const leadActivePlanner =
-    leadTrustBadgeEnabled() && thread.inquiry_status === 'pending'
-      ? await fetchLeadTrustActivePlanner(supabase, profile.vendor_profile_id, thread.event_id)
-      : false;
-
-  // Founder-seat inquiry — the explicit, server-asserted founder signal
-  // (owner-locked 2026-07-16). Read from the founder_seats definer helper only
-  // (never profile text — impersonation guard), shown pre- AND post-accept: the
-  // vendor must know they're serving the people who built the app, and that
-  // accepting was/is token-free. Unlike the trust badge this is NOT flag-gated —
-  // pre-migration the RPC gracefully degrades to false.
-  const founderInquiry = await eventHostHoldsFounderSeat(supabase, thread.event_id);
-
-  // How full is this shop's pipeline for THIS couple's date — the number the
-  // per-tier ceiling refuses on, said out loud BEFORE the refusal. Pending-only
-  // (an accepted thread has already spent its slot) and read through the
-  // supplier's OWN session, because the RPC is caller-scoped and answering with
-  // the service role would answer for a thread they do not own. Returns null —
-  // and the component draws nothing — whenever the ceilings are switched off,
-  // the couple has no date yet, or the read fails.
-  const pipelinePressure =
-    thread.inquiry_status === 'pending'
-      ? await fetchPipelinePressure(supabase, threadId)
-      : null;
 
   const headerPax = livePax ?? thread.pax_current;
 
@@ -628,35 +1076,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     live: headerPax ?? null,
     atInquiry: thread.pax_at_inquiry ?? null,
   };
-  // paxProposals depends on livePax, so it's the one query that follows the batch.
-  // The date-demand counts ride alongside it rather than adding a third round
-  // trip: two `head: true` counts, batched, never one per row.
-  const [paxProposals, dateDemand] = await Promise.all([
-    fetchVendorPaxProposals(paxAdmin, {
-      eventId: thread.event_id,
-      vendorProfileId: profile.vendor_profile_id,
-      livePax,
-      paxAtInquiry: thread.pax_at_inquiry,
-    }),
-    /*
-      WHO ELSE WANTS THIS DATE (owner: *"Target date for vendors will show who
-      are also inquiring for that day so they do not need to browse their
-      calendar?"*).
-
-      🔒 COUNTS, NEVER NAMES, AND SUPPLIER SIDE ONLY. See
-      lib/vendor-date-demand.ts — including why the shipped
-      `get_vendor_same_day_bookings` could not answer this (it refuses unless
-      the caller is already BOOKED on the event on screen, which an inquiry by
-      definition is not) and why this is not built on the pipeline-ceiling RPC
-      whose line sits a few rows below.
-    */
-    fetchVendorDateDemand({
-      adminClient: paxAdmin,
-      vendorProfileId: profile.vendor_profile_id,
-      eventDate: event?.event_date ?? null,
-      excludeThreadId: threadId,
-    }),
-  ]);
 
   const peso = (n: number) =>
     `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
@@ -681,42 +1100,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     />
   );
 
-  // ── Customer info rail (Customer Card respine PR-3) ──────────────────────
-  // The rail no longer hides anything (owner ruling 2026-09-08). This flag now
-  // means ONLY what its name says: a pending inquiry sits at the 'inquiry'
-  // stage by definition, so there is no pipeline to derive yet. It must never
-  // regain an identity meaning — that was the token wallet's lock.
-  const threadIsPendingInquiry = thread.inquiry_status === 'pending';
-  const railStage = threadIsPendingInquiry
-    ? ('inquiry' as const)
-    : await deriveThreadStage({
-        supabase,
-        adminClient: paxAdmin,
-        eventId: thread.event_id,
-        vendorProfileId: profile.vendor_profile_id,
-        // Without this a declined, withdrawn, expired or displaced thread keeps
-        // reading as a live `Inquiry` — the pill said the conversation was
-        // still open long after it had ended.
-        inquiryStatus: thread.inquiry_status,
-      });
-  // ── DECISIONS · the two sources that are not messages ─────────────────────
-  // Payments and the guest-count change are page sections rendered around the
-  // stream, so the Decisions view can only get them from here. Both reads are
-  // graceful — a refusal costs those rows, never the conversation.
-  const [decisionPayments, liveQuoteTotalPhp] = await Promise.all([
-    fetchThreadPayments({
-      adminClient: paxAdmin,
-      eventId: thread.event_id,
-      vendorProfileId: profile.vendor_profile_id,
-    }),
-    // Under the supplier's OWN session — they read their own proposals.
-    fetchLiveQuoteTotalPhp({
-      supabase,
-      eventId: thread.event_id,
-      vendorProfileId: profile.vendor_profile_id,
-    }),
-  ]);
-
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read — the rung and the
   // live quote total just above decide it, and they were moved up here only so
   // the tool panels below can use them. Before a quote is out, the composer's
@@ -728,12 +1111,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   // ── The customer summary and the quote's step-1 brief are built BEFORE the
   // tools mount: `toolNodes` is JSX created eagerly, and it carries the brief. ──
-  // Service/category of the inquiry — the first recorded interest chip (the
-  // same source the interest chips + cross-sell already use on this page).
-  const firstInterest = existingInterests[0];
-  const railService = firstInterest
-    ? (await interestLabeller(paxAdmin, [firstInterest]))(firstInterest)
-    : null;
 
   // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
   // the rows cannot disagree with each other or with the header above them.
@@ -766,9 +1143,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * the flag off (production, 2026-09-22) nothing is withheld and nothing is
    * announced. The rows themselves come from the rail, never from the RPC.
    */
-  const budgetBands = event?.budget_band
-    ? await fetchBudgetBands(paxAdmin).catch((): Awaited<ReturnType<typeof fetchBudgetBands>> => [])
-    : [];
   const briefStage: 'quoting' | 'unlocked' =
     isFeeUnlocksEventEnabled() && !THREAD_STAGE_HAS_AGREEMENT[railStage] ? 'quoting' : 'unlocked';
   const bandSlug = (event?.budget_band as string | null | undefined) ?? null;
@@ -943,48 +1317,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const railInitials = initialsFor(coupleLabel);
   const decisionGuestCounts = paxProposalsToGuestCounts(paxProposals, Date.now());
 
-  // PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
-  // A supplier CANNOT read `event_vendors` through their own session — all four
-  // policies on that table are couple- or moderator-scoped — so this uses the
-  // admin client already in scope, narrowed to (this event × THIS shop's own
-  // profile), the same pair the thread-ownership check above already proved.
-  // Three handshake columns; no money, no guest data, no schedule.
-  const lockHandshake = await fetchThreadLockHandshake(paxAdmin, {
-    eventId: thread.event_id,
-    vendorProfileId: profile.vendor_profile_id,
-  });
-
-  // WHAT AGREEING WILL COST THIS SHOP — resolved for the chat card's Agree
-  // button, through the SAME `forecastForBooking` the Today feed and the client
-  // page use, so the three cannot price or word it differently. Null when no
-  // ask is on the card: nothing is read and nothing renders.
-  const chatFeeForecast = lockHandshake?.eventVendorId
-    ? await forecastForBooking(paxAdmin, {
-        vendorProfileId: profile.vendor_profile_id,
-        eventVendorId: lockHandshake.eventVendorId,
-      })
-    : null;
-
-  // THE SUPPLIER'S END OF THE NEXT MONEY STEP (2026-09-20) — the same
-  // `readBookedMoney` → `moneyStep` the couple's card reads, so the two ends
-  // say the same thing. Admin client: a supplier holds no `event_vendors` RLS,
-  // and this page already refused anyone but this thread's supplier (notFound
-  // above); the read is scoped to their own profile on this event.
-  const bookedMoney = await readBookedMoney(paxAdmin, {
-    eventId: thread.event_id,
-    vendorProfileId: profile.vendor_profile_id,
-    eventDate: event?.event_date ?? null,
-    viewer: 'vendor',
-    otherName: 'the couple',
-  });
-  // 2026-09-19 · can this couple see anywhere to pay you? Shown on the live
-  // ACCEPTED quote card as the same one-tap door the Overview's booking card
-  // carries. The shop's OWN profile id (proved above), never a param.
-  const payoutReadiness: PayoutReadiness = await readSupplierPayoutReadiness({
-    adminClient: paxAdmin,
-    vendorProfileId: profile.vendor_profile_id,
-    vendorUserId: profile.user_id,
-  }).catch((): PayoutReadiness => 'unreadable');
 
   /**
    * WHERE YOU STAND — the SAME derivation the couple's thread page and bench
@@ -1000,14 +1332,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * The rung is `railStage`, the one the header pill already shows, so the
    * pill and this line cannot contradict each other.
    */
-  // The facts beside the rung (SUP-2) — the SAME reader the couple's bench and
-  // thread page use. `paxAdmin` because a supplier cannot read `event_vendors`
-  // through their own session (see PR-H above); narrowed to this event × THIS
-  // shop's own profile, the pair the ownership check already proved.
-  const standingNowMs = Date.now();
-  const standingExtras = (
-    await readStandingExtras(paxAdmin, thread.event_id, [profile.vendor_profile_id], standingNowMs)
-  ).get(profile.vendor_profile_id);
 
   const lastThreadMessage = initialMessages[initialMessages.length - 1];
   const threadStanding = buildSupplierStanding({
@@ -1050,180 +1374,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     */
     hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
   };
-
-  /* ── THE LEFT COLUMN: every conversation, beside the one being read ────────
-     Owner 2026-09-08: "list · conversation · context".
-
-     ⚡ FOUR BATCHED READS FOR THE WHOLE LIST, not four per row. The stage
-     probes live in buildVendorConversationRows; here we gather the three things
-     a row shows that are not already on the thread row itself.
-
-     ⚠ EVERY ONE FAILS QUIET. This column is navigation, not the page — a
-     refused read must leave the conversation itself readable, so each degrades
-     to an empty map and the row falls back to what it can still say. */
-  const listThreads = await fetchVendorThreads(supabase, profile.vendor_profile_id).catch(
-    (caught: unknown) => {
-      logQueryError(
-        'VendorThreadPage.conversationList',
-        caught instanceof Error ? caught : new Error(String(caught)),
-        { vendor_profile_id: profile.vendor_profile_id },
-        'graceful_degrade',
-      );
-      return [] as Awaited<ReturnType<typeof fetchVendorThreads>>;
-    },
-  );
-  const listThreadIds = listThreads.map((t) => t.thread_id);
-  const listEventIds = [...new Set(listThreads.map((t) => t.event_id))];
-
-  const [listCustomers, lastMessageRes, listInterestRes, listReadRes] = await Promise.all([
-    // Who each couple is. A vendor's own RLS nulls `events` out on every thread,
-    // so this is the admin-scoped helper the inbox already uses — the caller's
-    // ownership proof is fetchVendorThreads above.
-    fetchInquiryCustomerFacts(paxAdmin, listEventIds),
-    // The last line of each conversation. Ordered newest-first and capped: the
-    // reducer keeps the FIRST row it sees per thread, which is that thread's
-    // latest. The cap is a ceiling on work, not on correctness — a shop past it
-    // loses the preview on its oldest conversations, never the conversation.
-    listThreadIds.length > 0
-      ? supabase
-          .from('chat_messages')
-          .select('thread_id, sender_role, body, created_at')
-          .in('thread_id', listThreadIds)
-          .order('created_at', { ascending: false })
-          .limit(600)
-      : Promise.resolve({ data: [], error: null }),
-    // The service each couple asked about — one grey tag on the row.
-    listThreadIds.length > 0
-      ? supabase
-          .from('thread_service_interests')
-          .select('thread_id, category_key, vendor_service_id, created_at')
-          .in('thread_id', listThreadIds)
-          .order('created_at', { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
-    // When this viewer last opened each thread — the dot and the bold preview.
-    // ⚠ The read markers are a LATER migration than the threads themselves, so
-    // this degrades to "nothing is unread": a missing dot understates, an
-    // invented one sends a supplier into a conversation with nothing in it.
-    listThreadIds.length > 0
-      ? supabase
-          .from('chat_thread_reads')
-          .select('thread_id, last_read_at')
-          .eq('user_id', user.id)
-          .in('thread_id', listThreadIds)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-
-  if (lastMessageRes.error) {
-    logQueryError(
-      'VendorThreadPage.lastMessages',
-      lastMessageRes.error,
-      { vendor_profile_id: profile.vendor_profile_id },
-      'graceful_degrade',
-    );
-  }
-  const lastMessages = new Map<string, { sender_role: string; body: string | null }>();
-  const lastMessageAt = new Map<string, string>();
-  for (const m of (lastMessageRes.data ?? []) as Array<{
-    thread_id: string;
-    sender_role: string;
-    body: string | null;
-    created_at: string;
-  }>) {
-    if (!lastMessages.has(m.thread_id)) {
-      lastMessages.set(m.thread_id, { sender_role: m.sender_role, body: m.body });
-      lastMessageAt.set(m.thread_id, m.created_at);
-    }
-  }
-
-  /* Unread = something was said after this viewer last opened the thread.
-     ⚠ A THREAD WITH NO READ MARKER IS NOT UNREAD HERE. The marker is written on
-     open, so "never opened" and "the marker table is not reachable" are the same
-     absence — and a whole column of dots on a shop that has read everything is
-     noise that trains the eye to ignore the one that matters. */
-  if (listReadRes.error) {
-    logQueryError(
-      'VendorThreadPage.listReads',
-      listReadRes.error,
-      { vendor_profile_id: profile.vendor_profile_id },
-      'graceful_degrade',
-    );
-  }
-  const listUnread = new Set<string>();
-  for (const r of (listReadRes.data ?? []) as Array<{
-    thread_id: string;
-    last_read_at: string | null;
-  }>) {
-    const said = lastMessageAt.get(r.thread_id);
-    if (said && r.last_read_at && new Date(said) > new Date(r.last_read_at)) {
-      listUnread.add(r.thread_id);
-    }
-  }
-
-  if (listInterestRes.error) {
-    logQueryError(
-      'VendorThreadPage.listInterests',
-      listInterestRes.error,
-      { vendor_profile_id: profile.vendor_profile_id },
-      'graceful_degrade',
-    );
-  }
-  const interestByThread = new Map<string, string>();
-  const listInterests = (listInterestRes.data ?? []) as Array<{
-    thread_id: string;
-    category_key: string | null;
-    vendor_service_id: string | null;
-  }>;
-  const labelListInterest = await interestLabeller(paxAdmin, listInterests);
-  for (const i of listInterests) {
-    // First interest wins — the same "what did they ask about" the rail shows.
-    if (!interestByThread.has(i.thread_id) && (i.category_key || i.vendor_service_id)) {
-      interestByThread.set(i.thread_id, labelListInterest(i));
-    }
-  }
-
-  // ⚠ A TAG THAT NEVER CHANGES SAYS NOTHING. If this shop's whole inbox is
-  // one category, tagging every row with it (per `interestByThread` above)
-  // repeats the same word down the column and costs a line for free — the
-  // service tag earns its spot only once it actually distinguishes a row from
-  // its neighbours.
-  const showServiceTag = serviceTagVaries([...interestByThread.values()]);
-  const nowMs = Date.now();
-
-  const listDisplayNames = new Map<string, string | null>();
-  const listLabels = new Map<string, string[]>();
-  for (const t of listThreads) {
-    const facts = listCustomers.get(t.event_id);
-    listDisplayNames.set(t.event_id, facts?.displayName ?? null);
-    const tags: string[] = [];
-    const service = interestByThread.get(t.thread_id);
-    if (service && showServiceTag) tags.push(service);
-    // ⚠ `event_date` is a DATE column, so it goes through the repo's own
-    // formatter — `new Date('2026-12-18')` is the 17th west of Greenwich.
-    // And only close to the day: a wedding sixteen months out is not live
-    // context on who this row is, it's noise repeated down the column.
-    if (isDateTagWorthShowing(facts?.eventDate, nowMs)) {
-      const day = dayMonth(facts?.eventDate);
-      if (day) tags.push(day);
-    }
-    listLabels.set(t.event_id, tags);
-  }
-
-  const conversationRows = await buildVendorConversationRows({
-    supabase,
-    adminClient: paxAdmin,
-    vendorProfileId: profile.vendor_profile_id,
-    threads: listThreads.map((t) => ({
-      thread_id: t.thread_id,
-      event_id: t.event_id,
-      inquiry_status: t.inquiry_status ?? null,
-      updated_at: t.updated_at,
-    })),
-    displayNames: listDisplayNames,
-    labels: listLabels,
-    lastMessages,
-    unreadThreadIds: listUnread,
-    formatTime: formatChatTimestamp,
-  });
 
   msgTimer.flush();
 

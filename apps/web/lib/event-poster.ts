@@ -207,3 +207,42 @@ export function posterFor(input: {
   // same stamp and matched no hero the Event Hub draws.
   return { ...base, kind: 'invitation', dark: false, eyebrow: card.eyebrow, line: card.line };
 }
+
+/**
+ * THE COVER A SCENE BAND WEARS — the same poster, read for a photo band.
+ *
+ * Owner, 2026-09-29, on the event Overview's "THE WEDDING DAY" tile, whose top
+ * band showed the generic `/event-types/wedding.webp` under a random per-event
+ * colour grade: *"this needs to adapt to the background of the event hub"*. A
+ * band (`EventScene` — the Overview's focal tile, the home board's glass cards)
+ * has no room for the poster's words, so it wears only the poster's GROUND,
+ * decided by the one resolver (`resolveEventPoster`), never a second order:
+ *
+ *   • `photo` / `theme` → that picture (hero photo → Save-the-Date background →
+ *     the theme's still), under the Event Hub's own legibility veil
+ *     (`legibility`, i.e. `hubLegibilityVars`);
+ *   • `quiet` → a still, colourless band. A wake never wears a photo or a
+ *     colour grade here, exactly as its poster keeps its quiet masthead;
+ *   • `invitation` (nothing chosen) → `null`: the caller's stock event-type
+ *     photo is the LAST fallback, only when the event has nothing of its own;
+ *   • no poster at all (its words could not be read) → `null`: the caller
+ *     keeps the cover it already had rather than guessing.
+ */
+export type SceneCover =
+  | { kind: 'quiet' }
+  | {
+      kind: 'photo' | 'theme';
+      src: string;
+      ground: PosterGround;
+      /** `hubLegibilityVars` for this ground — `--hub-scrim` tints the band. */
+      legibility: Record<string, string> | null;
+    };
+
+export function sceneCoverFor(poster: EventPosterFacts | null | undefined): SceneCover | null {
+  if (!poster) return null;
+  if (poster.kind === 'quiet') return { kind: 'quiet' };
+  if ((poster.kind === 'photo' || poster.kind === 'theme') && poster.photoSrc && poster.ground) {
+    return { kind: poster.kind, src: poster.photoSrc, ground: poster.ground, legibility: poster.legibility };
+  }
+  return null;
+}

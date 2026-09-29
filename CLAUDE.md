@@ -609,6 +609,25 @@ For each `NNNN` iteration in the spec corpus:
 
 ## PR workflow — auto-merge is the default
 
+### 🛑 NEVER MERGE UNTIL EVERY CHECK HAS CLEARED (owner-locked 2026-09-29)
+
+Owner, verbatim: **"never allow merge until everything is cleared"** and **"apply the same rule to the
+other sessions as well"**. So, for every session and every account:
+
+- A PR merges ONLY through auto-merge, AFTER every required check has PASSED. **Never `gh pr merge --admin`,
+  never bypass branch protection, and never merge because a LOCAL typecheck or test run was clean.** A
+  local run is not the CI suite.
+- **This holds even when the owner says "merge now" / "merge it".** Say which checks are still pending and
+  roughly how long they have left, keep auto-merge armed, and report when it lands. If CI is stuck (runners
+  queued), say so plainly. Do not offer to skip it.
+- If the owner wants something LIVE sooner, the lever is the **deploy** after a clean merge, never the merge.
+- A fix for a broken `main` is a PR like any other: it waits for its checks too. If there is no time, the
+  answer is a revert PR, which also waits.
+
+🔑 **Why:** on 2026-09-29 two PRs (#6140, #6134) were admin-merged while GitHub's runners were queued and
+their checks had not even started; #6134 was 2,400 lines that had never been typechecked anywhere. A broken
+`main` breaks every other session's PRs and the batched prod deploy.
+
 Immediately after `gh pr create` on this repo, enable auto-merge:
 
 ```bash

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { myLovedOnes, spouseIdSet } from '@/lib/my-loved-ones';
 import { manilaToday } from '@/lib/std-views';
 import {
   DEPENDENT_RELATIONSHIP_LABELS,
@@ -16,7 +17,6 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { CopyButton } from '@/app/dashboard/[eventId]/studio/papic/crew/_components/copy-button';
-import { AddAlagaButton } from './add-alaga-button';
 import {
   deleteDependent,
   addGodparent,
@@ -116,16 +116,11 @@ export async function DependentsSection() {
   // spouse) saw another user's business, "Indigo Caterers", on his own People
   // page tagged "Shared by your spouse". A personal page shows: my own rows,
   // rows I handed over (read-only history), and rows my ACTUAL spouse shared.
-  // `current_spouse_user_ids()` RETURNS SETOF uuid — PostgREST hands back uuid strings.
-  const spouseSet = new Set(
-    (Array.isArray(spouseIds) ? (spouseIds as unknown[]) : []).filter((v): v is string => typeof v === 'string'),
-  );
-  const dependents = rows.filter(
-    (d) =>
-      d.owner_user_id === myUserId ||
-      d.handed_over_by_user_id === myUserId ||
-      (d.shared_with_spouse && spouseSet.has(d.owner_user_id)),
-  );
+  // 🔑 THE RULE LIVES IN `lib/my-loved-ones.ts` — the People roster's count reads
+  // the SAME function (2026-09-29: it didn't, and "Loved ones 1" sat above "No
+  // loved ones yet." for the owner, counting that same Indigo Caterers row).
+  const spouseSet = spouseIdSet(spouseIds);
+  const dependents = myLovedOnes(rows, myUserId, spouseSet);
 
   // Godparents (ninong/ninang) per dependent — RLS scopes to the owner's rows.
   const { data: gpData, error: gpDataError } = await supabase
@@ -144,12 +139,10 @@ export async function DependentsSection() {
   }
 
   return (
-    <section className="mt-10">
-      <header className="mb-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
-          Loved ones
-        </h2>
-      </header>
+    // The ALAGA VIEW (owner 2026-09-28, People redesign): the page's picker
+    // already names it and the page draws "Add an alaga" at its head, so this
+    // section carries neither a second heading nor a second door.
+    <section aria-label="Loved ones">
 
       {dependents.length > 0 ? (
         <ul className="mb-6 space-y-2.5">
@@ -429,20 +422,15 @@ export async function DependentsSection() {
         </p>
       )}
 
-      {/* THE ADD FORM MOVED OUT (owner 2026-08-21: "Add an alaga needs to be a
-          button to generate the wizard") and the WIZARD'S BUTTON now stands
-          here too. Owner, 2026-09-23, pointing at the live heading: *"Alaga
-          should be together meaning Alaga will have a button to create an
-          alaga under it same to samahan."*
-
-          ⚠ THE TOP ACTION ROW KEEPS ITS OWN COPY — that is the owner's
-          2026-08-22 ruling (*"where the buttons live add an alaga, new group
-          (samahan)"*), pinned by `the-buttons-live-together.test.ts`, and this
-          does not touch it. Samahan offers BOTH "New samahan" at the top and
-          "Create one" inside its section, so a door in each place is precisely
-          what "same to samahan" asks for. Nothing about the form changed: this
-          is the same <AddAlagaButton>, opening the same drawer. */}
-      <AddAlagaButton />
+      {/* THE ADD BUTTON LIVES AT THE HEAD OF THE ALAGA VIEW, ONCE (owner
+          2026-09-28: *"we already agreed this will be on the alaga and samahan
+          row"*, pointing at the People redesign — supersedes both the 2026-08-22
+          header row and the 2026-09-23 copy that stood here, under the list,
+          whose ruling it CONTINUES: *"Alaga should be together meaning Alaga
+          will have a button to create an alaga under it same to samahan."*).
+          `page.tsx` draws <AddAlagaButton> above this section; drawing it here
+          too would put the same door on one screen twice. Pinned by
+          `the-buttons-live-together.test.ts` + `alaga-has-its-own-door.test.ts`. */}
     </section>
   );
 }

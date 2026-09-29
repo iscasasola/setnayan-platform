@@ -21,6 +21,12 @@ export type PersonHit = {
   handle: string | null;
   /** Why you might know them. Null when there is nothing shared to say. */
   hint: string | null;
+  /** Their profile is public, so a Follow is accepted (owner 2026-09-28:
+   *  "They can follow without request"). `followUser` refuses anything else,
+   *  so a Follow button is drawn only when this is true. */
+  followable: boolean;
+  /** The viewer already follows them — the row says "Following", not "Follow". */
+  following: boolean;
 };
 
 /**

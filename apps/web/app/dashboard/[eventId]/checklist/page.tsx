@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   fetchChecklistItems,
@@ -67,9 +68,11 @@ export async function generateMetadata({ params }: Props) {
 export default async function EventChecklistPage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // The request-cached reader, not a second `supabase.auth.getUser()`: the
+  // event layout above this page already asked the auth server who this is,
+  // and `getCurrentUser` hands back that same answer instead of a second trip.
+  // Same `User | null`, used exactly as before — `!user` and `user.id`.
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // Membership gate, matching the check-in desk / souvenirs / galleries / live
@@ -100,33 +103,162 @@ export default async function EventChecklistPage({ params }: Props) {
   }
   if (!checklistMembership) redirect(`/dashboard/${eventId}`);
 
-  // Top-up missing template tasks on open (idempotent · ceremony-tailored).
-  try {
-    await ensureChecklistSeeded(eventId);
-  } catch (caught) {
-    logQueryError(
-      'EventChecklistPage (ensureChecklistSeeded threw)',
-      caught instanceof Error ? caught : new Error(String(caught)),
-      { event_id: eventId },
-      'graceful_degrade',
-    );
-  }
+  // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
+  // 🔑 THE GATES ABOVE RUN FIRST; NOTHING BELOW NEEDS ANOTHER READ'S ANSWER
+  // except where it says so, and there it waits for THAT read only. These used
+  // to run one after another — the seed, the event row, the rows, the profile,
+  // the budget, the suggestions, the vendors — each waiting for the last, and
+  // the page took about a second (measured on prod, 2026-09-29). Each block is
+  // STARTED here, as a promise, with its own graceful-degrade exactly as it was,
+  // and they are all awaited together in the one `Promise.all` below.
+  //   · the seed is a WRITE and the rows are read AFTER it, inside the SAME
+  //     started promise — so the rows still include whatever the seed added;
+  //   · the profile and the budget check need the event TYPE, so they wait for
+  //     the event row (and only for it).
+  // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
+  // RUN — one stray `await` puts a full database trip back in front of the page.
 
-  const { data: eventRow, error: eventRowError } = await supabase
-    .from('events')
-    .select(
-      'event_date, event_end_date, cleared_at, timezone, event_type, date_candidates, date_window_start, created_at',
-    )
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (eventRowError) {
-    logQueryError(
-      'EventChecklistPage.event',
-      eventRowError,
-      { event_id: eventId },
-      'graceful_degrade',
-    );
-  }
+  // Top-up missing template tasks on open (idempotent · ceremony-tailored).
+  // ⚠ The seed MUST finish before `fetchChecklistItems` reads — that order is
+  // kept inside this one promise, never split across two.
+  const rawRowsRead = (async () => {
+    try {
+      await ensureChecklistSeeded(eventId);
+    } catch (caught) {
+      logQueryError(
+        'EventChecklistPage (ensureChecklistSeeded threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return fetchChecklistItems(supabase, eventId);
+  })();
+
+  const eventRowRead = (async () => {
+    const { data: eventRow, error: eventRowError } = await supabase
+      .from('events')
+      .select(
+        'event_date, event_end_date, cleared_at, timezone, event_type, date_candidates, date_window_start, created_at',
+      )
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (eventRowError) {
+      logQueryError(
+        'EventChecklistPage.event',
+        eventRowError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return eventRow;
+  })();
+  // The event type — the one input the profile and the budget check wait for.
+  const eventTypeRead = eventRowRead.then(
+    (eventRow) => (eventRow?.event_type as string | null) ?? null,
+  );
+
+  // The event-type profile — the gate the rows are filtered through below.
+  const checklistProfileRead = eventTypeRead.then((eventType) =>
+    resolveProfile(eventType ?? 'wedding'),
+  );
+
+  const budgetHealthRead = (async () => {
+    const eventType = await eventTypeRead;
+    // Live budget health-check — null when the couple hasn't set a budget yet, or
+    // graceful-degrades to null if the budget tables aren't present. Never blocks
+    // the checklist render. WEDDING-ONLY for now: computeBudgetHealth's tiers,
+    // benchmarks, and paperwork line are all wedding-shaped, and generic
+    // onboarding DOES write estimated_budget_centavos — without this guard a
+    // birthday with a budget would render wedding-shaped health numbers. The
+    // per-event-type budget model lifts this (see
+    // Budget_Genericization_Design_2026-07-08.md §4 PR-B3); mirrors the
+    // isWeddingBudget gate on the budget page itself.
+    const isWeddingBudget = eventType == null || eventType === 'wedding';
+    let budgetHealth: ChecklistBudgetHealth | null | typeof BUDGET_HEALTH_UNREADABLE = null;
+    try {
+      budgetHealth = isWeddingBudget ? await computeBudgetHealth(eventId) : null;
+    } catch (caught) {
+      // A throw is not "no budget set" either — the card says it could not check.
+      budgetHealth = BUDGET_HEALTH_UNREADABLE;
+      logQueryError(
+        'EventChecklistPage (computeBudgetHealth threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return budgetHealth;
+  })();
+
+  // "You might also want…" — relevance-gated leaf-category suggestions. Defensive
+  // (returns [] on any failure) so it never blocks the checklist render.
+  const leafSuggestionsRead = (async () => {
+    let leafSuggestions: LeafSuggestion[] = [];
+    try {
+      leafSuggestions = await suggestLeafCategories(eventId);
+    } catch (caught) {
+      logQueryError(
+        'EventChecklistPage (suggestLeafCategories threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return leafSuggestions;
+  })();
+
+  // Vendor-category progress — the couple's shortlisted/booked vendors resolved
+  // to live states ("comparing options", "confirmed"). A read error leaves the
+  // list empty and the card hidden.
+  //
+  // ⚠ THE try/catch BELOW COULD NOT SEE THE COMMON FAILURE. Supabase RESOLVES
+  // ⚠ with { error } rather than throwing, so a refused read — a phantom
+  // ⚠ column, a missing grant — walked straight past the catch, `?? []` emptied
+  // ⚠ the list, and the card vanished with nothing written anywhere. The catch
+  // ⚠ stays for a genuine throw; the bound error is what actually fires.
+  // ⚖ The card is HIDDEN rather than mis-stated, so this stays a silent
+  // ⚖ degrade — but a silent degrade nobody can see is how it ran for months.
+  const vendorProgressRead = (async () => {
+    let vendorProgress: VendorCategoryProgress[] = [];
+    try {
+      const { data: vendorRows, error: vendorRowsError } = await supabase
+        .from('event_vendors')
+        .select('category, status')
+        .eq('event_id', eventId);
+      if (vendorRowsError) {
+        logQueryError(
+          'EventChecklistPage.vendorProgress',
+          vendorRowsError,
+          { event_id: eventId },
+          'graceful_degrade',
+        );
+      }
+      vendorProgress = resolveVendorCategoryProgress(
+        (vendorRows ?? []) as { category: string | null; status: string }[],
+      );
+    } catch (caught) {
+      logQueryError(
+        'EventChecklistPage (vendor progress threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return vendorProgress;
+  })();
+
+  // ─── THE ONE WAIT ────────────────────────────────────────────────────────
+  const [rawRows, eventRow, checklistProfile, budgetHealth, leafSuggestions, vendorProgress] =
+    await Promise.all([
+      rawRowsRead,
+      eventRowRead,
+      checklistProfileRead,
+      budgetHealthRead,
+      leafSuggestionsRead,
+      vendorProgressRead,
+    ]);
+
   const eventType = (eventRow?.event_type as string | null) ?? null;
   // Deadline anchor. Non-wedding events keep event_date NULL until locked
   // (date-as-output), but they now seed candidate/window dates at creation —
@@ -135,7 +267,7 @@ export default async function EventChecklistPage({ params }: Props) {
   // so the layout's day-of/recap mode + SetDateNudge are unchanged. Weddings
   // anchor solely on the locked event_date (they lock via the date-selection
   // ceremony; anchoring weddings on candidates is a separate flagship decision)
-  // — same wedding-or-unset guard as the budget gate below.
+  // — same wedding-or-unset guard as the budget gate above.
   //
   // The ladder itself now lives in `checklistAnchorDateFor` so the launcher's
   // per-event card resolves it identically: it used to read `event_date` alone
@@ -148,7 +280,6 @@ export default async function EventChecklistPage({ params }: Props) {
   });
   const chrome = checklistChrome(eventType);
 
-  const rawRows = await fetchChecklistItems(supabase, eventId);
   // Vendor-free / budget-off gate (owner 2026-09-25 — "the simple event is
   // only for our own services"). Seeding is top-up-only and never deletes
   // (see ensureChecklistSeeded's docblock), so an event seeded before this
@@ -156,8 +287,8 @@ export default async function EventChecklistPage({ params }: Props) {
   // 'Book a photographer' / 'Set your budget' rows in the database forever.
   // Hidden HERE, at read time, on the same profile flag the seed path now
   // filters on: no user data is deleted, and a couple never sees a task it
-  // can never complete through this product.
-  const checklistProfile = await resolveProfile(eventType ?? 'wedding');
+  // can never complete through this product. (`checklistProfile` is resolved
+  // in `checklistProfileRead` above, from the event row's type.)
   const rows = rawRows.filter((r) =>
     checklistItemAllowedForProfile(r.category, r.template_key, checklistProfile),
   );
@@ -200,81 +331,6 @@ export default async function EventChecklistPage({ params }: Props) {
     eventIsOver,
   );
   const doneCount = rows.filter((r) => r.status === 'done').length;
-
-  // Live budget health-check — null when the couple hasn't set a budget yet, or
-  // graceful-degrades to null if the budget tables aren't present. Never blocks
-  // the checklist render. WEDDING-ONLY for now: computeBudgetHealth's tiers,
-  // benchmarks, and paperwork line are all wedding-shaped, and generic
-  // onboarding DOES write estimated_budget_centavos — without this guard a
-  // birthday with a budget would render wedding-shaped health numbers. The
-  // per-event-type budget model lifts this (see
-  // Budget_Genericization_Design_2026-07-08.md §4 PR-B3); mirrors the
-  // isWeddingBudget gate on the budget page itself.
-  const isWeddingBudget = eventType == null || eventType === 'wedding';
-  let budgetHealth: ChecklistBudgetHealth | null | typeof BUDGET_HEALTH_UNREADABLE = null;
-  try {
-    budgetHealth = isWeddingBudget ? await computeBudgetHealth(eventId) : null;
-  } catch (caught) {
-    // A throw is not "no budget set" either — the card says it could not check.
-    budgetHealth = BUDGET_HEALTH_UNREADABLE;
-    logQueryError(
-      'EventChecklistPage (computeBudgetHealth threw)',
-      caught instanceof Error ? caught : new Error(String(caught)),
-      { event_id: eventId },
-      'graceful_degrade',
-    );
-  }
-
-  // "You might also want…" — relevance-gated leaf-category suggestions. Defensive
-  // (returns [] on any failure) so it never blocks the checklist render.
-  let leafSuggestions: LeafSuggestion[] = [];
-  try {
-    leafSuggestions = await suggestLeafCategories(eventId);
-  } catch (caught) {
-    logQueryError(
-      'EventChecklistPage (suggestLeafCategories threw)',
-      caught instanceof Error ? caught : new Error(String(caught)),
-      { event_id: eventId },
-      'graceful_degrade',
-    );
-  }
-
-  // Vendor-category progress — the couple's shortlisted/booked vendors resolved
-  // to live states ("comparing options", "confirmed"). A read error leaves the
-  // list empty and the card hidden.
-  //
-  // ⚠ THE try/catch BELOW COULD NOT SEE THE COMMON FAILURE. Supabase RESOLVES
-  // ⚠ with { error } rather than throwing, so a refused read — a phantom
-  // ⚠ column, a missing grant — walked straight past the catch, `?? []` emptied
-  // ⚠ the list, and the card vanished with nothing written anywhere. The catch
-  // ⚠ stays for a genuine throw; the bound error is what actually fires.
-  // ⚖ The card is HIDDEN rather than mis-stated, so this stays a silent
-  // ⚖ degrade — but a silent degrade nobody can see is how it ran for months.
-  let vendorProgress: VendorCategoryProgress[] = [];
-  try {
-    const { data: vendorRows, error: vendorRowsError } = await supabase
-      .from('event_vendors')
-      .select('category, status')
-      .eq('event_id', eventId);
-    if (vendorRowsError) {
-      logQueryError(
-        'EventChecklistPage.vendorProgress',
-        vendorRowsError,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
-    }
-    vendorProgress = resolveVendorCategoryProgress(
-      (vendorRows ?? []) as { category: string | null; status: string }[],
-    );
-  } catch (caught) {
-    logQueryError(
-      'EventChecklistPage (vendor progress threw)',
-      caught instanceof Error ? caught : new Error(String(caught)),
-      { event_id: eventId },
-      'graceful_degrade',
-    );
-  }
 
   return (
     <ChecklistFull

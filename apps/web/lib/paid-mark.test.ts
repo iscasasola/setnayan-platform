@@ -96,10 +96,12 @@ async function paintPrints(ownsPro: boolean, storeShell: boolean): Promise<strin
   // fold (2026-09-28) — carry the prints' Pro line.
   const { PrintSetDownloads } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
   const { PRINT_FORMATS } = await import('./print-pieces');
-  const { INVITE_THEME_IDS } = await import('./invite-themes');
+  const { INVITE_THEME_IDS, INVITE_THEMES } = await import('./invite-themes');
   const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
-  // A THEMED set (not Classic): since the free-prints rework, Classic prints carry no Pro line at all.
-  const theme = INVITE_THEME_IDS.find((id) => id !== 'house')!;
+  // A PRO-THEMED set: since the free-prints rework, Classic prints carry no Pro
+  // line at all — and neither do Modern and Cyber Neon, free since 2026-09-29
+  // (and now FIRST in the one order, so "the first non-Classic" is no longer Pro).
+  const theme = INVITE_THEME_IDS.find((id) => INVITE_THEMES[id].tier === 'pro')!;
   const el = React.createElement(PrintSetDownloads, {
     input: {
       eventId: 'E1',

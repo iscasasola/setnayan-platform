@@ -22,7 +22,7 @@ import {
   type RailGroup,
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { HUB_THEMES, INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { hubMainGround, isHubMainFollow, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -1199,7 +1199,9 @@ export default async function WebsiteEditorPage({
   /* The theme panel reads the registry as it stands at merge time (Phase 3
      owns it). Only id · name · ready cross — plain strings. */
   const currentTheme = currentThemeId;
-  const themes = Object.values(INVITE_THEMES).map((t) => ({
+  // 🔢 The one theme order (owner 2026-09-29: free three first, then Pro by
+  // loop size) — `HUB_THEMES`, never the object's key order.
+  const themes = HUB_THEMES.map((t) => ({
     id: t.id,
     name: t.name,
     ready: t.ready,

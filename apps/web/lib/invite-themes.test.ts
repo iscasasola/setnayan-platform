@@ -282,10 +282,13 @@ test('every theme a couple can actually SAVE exists in the database', () => {
 
 const HEX = /^#[0-9a-f]{6}$/;
 
-test('the registry is exactly the ten the owner named, in his order, and Classic, Modern and Cyber Neon are free', () => {
+test('the registry is exactly the ten the owner named, in the one order, and Classic, Modern and Cyber Neon are free', () => {
+  // Owner 2026-09-29: "arrange the themes to have the free as the first 3 and
+  // the rest will be based on size also" — the ORDER is held (and explained)
+  // by lib/theme-order.test.ts; here, that the ten are exactly his ten.
   assert.deepEqual(
     HUB_THEMES.map((t) => t.name),
-    ['Classic', 'Rustic', 'Modern', 'Cinderella', 'Luxe', 'Vintage', 'Whimsical', 'Regency', 'Great Gatsby', 'Cyber Neon'],
+    ['Classic', 'Modern', 'Cyber Neon', 'Luxe', 'Vintage', 'Regency', 'Rustic', 'Cinderella', 'Great Gatsby', 'Whimsical'],
   );
   assert.equal(new Set(INVITE_THEME_IDS).size, 10, 'a theme id is listed twice');
   assert.deepEqual(HUB_THEMES.filter((t) => t.tier === 'free').map((t) => t.id), ['house', 'galeriya', 'cyber']);

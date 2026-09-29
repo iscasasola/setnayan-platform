@@ -32,11 +32,14 @@ export function DressCodePanel({
   eventId,
   config,
   eventNoun,
+  eventRoles = [],
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
   config: DressCodeConfig;
   eventNoun: string;
+  /** The roles on this event's guest list — so each role's outfit is set right here. */
+  eventRoles?: React.ComponentProps<typeof DressCodeFields>['eventRoles'];
 }) {
   return (
     <form action={action} className={PANEL}>
@@ -46,7 +49,7 @@ export function DressCodePanel({
         name="return_to"
         value={`/dashboard/${eventId}/website/editor?open=dress-code`}
       />
-      <DressCodeFields config={config} eventNoun={eventNoun} compact />
+      <DressCodeFields config={config} eventNoun={eventNoun} eventRoles={eventRoles} compact />
       <SubmitButton
         pendingLabel="Saving…"
         className="mt-3 inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink/90"

@@ -83,7 +83,9 @@ test('NOTHING IS GUESSED: an unset role gets a state, not an assumption', () => 
   assert.ok(mine, 'the role and colour are still worth showing');
   assert.equal(mine.style, null);
   assert.equal(mine.styleLabel, null);
-  assert.match(STYLE_UNSET_LINE, /has(n’t| not) said/i);
+  // It says the state, and blames nobody (owner 2026-09-30).
+  assert.match(STYLE_UNSET_LINE, /not set yet/i);
+  assert.doesNotMatch(STYLE_UNSET_LINE, /couple has(n’t| not)/i);
 });
 
 test('a plain guest gets no personal panel at all', () => {

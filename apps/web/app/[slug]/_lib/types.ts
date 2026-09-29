@@ -223,6 +223,8 @@ export type EventRow = {
     dos?: string[];
     donts?: string[];
     palette?: { name: string; hex: string }[];
+    /** 👗 The outfit figure — shown unless `false` (owner 2026-09-30). */
+    show_figure?: boolean;
   } | null;
   // Landing page visibility lever from PR #381 — ‹public, unlisted, private›.
   // Private renders <PrivateLanding> for non-guest visitors.

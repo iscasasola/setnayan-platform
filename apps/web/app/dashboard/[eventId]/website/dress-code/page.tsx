@@ -219,6 +219,7 @@ const INC_DRESS_CODE_SUGGESTION: DressCodeConfig = {
     'Overly casual wear (shorts, slippers)',
   ],
   palette: [],
+  show_figure: true,
 };
 
 /**

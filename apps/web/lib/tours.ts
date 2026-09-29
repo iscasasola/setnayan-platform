@@ -109,6 +109,7 @@ export type TourKey =
   | 'customer_hero_designs_v1'
   | 'customer_people_v1'
   | 'customer_apply_pro_v1'
+  | 'customer_event_menu_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -137,6 +138,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_hero_designs_v1',
   'customer_people_v1',
   'customer_apply_pro_v1',
+  'customer_event_menu_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -851,6 +853,44 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Heart,
         title: 'Following needs no request',
         body: 'Follow anyone with a public profile. Say yes to an event and you follow its hosts on your own. Only you can see who follows you, and you can unfollow any time &mdash; even someone you’re connected with.',
+      },
+    ],
+  },
+  /* 🧭 THE EVENT MENU — FIVE PLACES (Stage D, owner 2026-09-29: "Home · Guest
+     list · Your Team · Event Hub Maker · Our Services"; "on mobile mode … we
+     want it to be simple and easy to manage"; 2026-09-25: every feature gets a
+     first-visit tour). Mounted on the event's Home (`[eventId]/page.tsx`),
+     after the couple welcome, so the two never stack. Words fit every event
+     type — no "wedding", no "couple". No price is named, so nothing here sells. */
+  customer_event_menu_v1: {
+    key: 'customer_event_menu_v1',
+    label: 'Your event menu',
+    blurb: 'The five places that hold everything for an event — the same on phone and laptop.',
+    slides: [
+      {
+        Icon: Sparkles,
+        title: 'Five places for your whole event',
+        body: 'Home, Guest list, Your Team, Event Hub Maker and Our Services. The same five sit at the bottom of your phone and down the side of your laptop.',
+      },
+      {
+        Icon: Users,
+        title: 'Guest list',
+        body: 'Your guests, your hosts and, on the day, check-in. Switch between them from the menu at the top of the page.',
+      },
+      {
+        Icon: Briefcase,
+        title: 'Your Team',
+        body: 'The suppliers you book and your budget, in one place.',
+      },
+      {
+        Icon: Wand2,
+        title: 'Event Hub Maker',
+        body: 'Your Event Hub, the invitation and every print. Names, date, schedule, mood board and logo are all in its Details.',
+      },
+      {
+        Icon: Camera,
+        title: 'Our Services',
+        body: 'Papic, Live Studio, Gallery, Patiktok, Music Maker and Setnayan AI &mdash; add the ones you want for your day.',
       },
     ],
   },

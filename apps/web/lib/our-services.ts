@@ -323,13 +323,15 @@ export type ToolHome = { home: string; needsWebsite?: true };
 export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   // Free planning tools (the Suite's FREE_TOOLS) — each is its own menu row,
   // or a door on a page that is one.
-  guests: { home: 'the Guests menu row' },
-  budget: { home: 'the Budget menu row' },
-  schedule: { home: 'the Schedule menu row' },
+  // Stage D (2026-09-29): the menu is five rows. Budget is a part of Your
+  // Team; Schedule and the Mood Board are Details items of the Maker.
+  guests: { home: 'the Guest list menu row' },
+  budget: { home: 'Your Team — its Budget part' },
+  schedule: { home: 'the Event Hub Maker — Details › Schedule', needsWebsite: true },
   checklist: { home: 'Overview — "View your full checklist"' },
   compare: { home: 'Your Team — its Compare tab' },
   // Catalogue tools.
-  'mood-board': { home: 'the Mood Board menu row' },
+  'mood-board': { home: 'the Event Hub Maker — Details › Mood Board', needsWebsite: true },
   seating: { home: 'the Seat plan menu row' },
   'landing-page': { home: 'the Event Hub Maker menu row', needsWebsite: true },
   'save-the-date': { home: 'the Event Hub Maker — Save the Date', needsWebsite: true },

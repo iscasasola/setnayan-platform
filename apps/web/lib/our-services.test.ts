@@ -25,6 +25,8 @@ import {
   type OurServicesInput,
 } from './our-services';
 import { buildEventMenuSections, eventMenuRows, STUDIO_ABSORBED } from './customer-menu';
+import { yourTeamParts } from './pillar-parts';
+import { DETAILS_ITEM_KEYS } from './maker-details-items';
 
 const LIB = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(LIB, '..', 'app');
@@ -202,9 +204,18 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
   const base = `/dashboard/${EVENT}`;
   return {
     guests: () => row('guests')?.href === `${base}/guests`,
-    budget: () => row('budget')?.href === `${base}/budget`,
-    schedule: () => row('schedule')?.href === `${base}/schedule`,
-    'mood-board': () => !!row('mood-board'),
+    // Stage D: Budget is Your Team's part; Schedule and the Mood Board are
+    // Details items, and their old pages land there for the couple.
+    budget: () =>
+      row('explore')?.href === `${base}/vendors` &&
+      yourTeamParts({ eventId: EVENT, budgetEnabled: true }).some((p) => p.key === 'budget') &&
+      read(EV, 'budget', 'page.tsx').includes('redirect(yourTeamBudgetHref(eventId))'),
+    schedule: () =>
+      (DETAILS_ITEM_KEYS as readonly string[]).includes('schedule') &&
+      read(EV, 'schedule', 'page.tsx').includes("redirect(detailsDoorHref(eventId, 'schedule'"),
+    'mood-board': () =>
+      (DETAILS_ITEM_KEYS as readonly string[]).includes('mood-board') &&
+      read(EV, 'studio', 'mood-board', 'page.tsx').includes("redirect(detailsItemHref(eventId, 'mood-board'))"),
     seating: () => row('seat')?.href === `${base}/seating`,
     'landing-page': () => row('launch')?.href === addOnHref('landing-page', EVENT),
     rsvp: () =>

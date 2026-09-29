@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerNavGroups } from '../_components/customer-nav-config';
+import { guestListParts } from '@/lib/pillar-parts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..', '..');
@@ -89,14 +90,43 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
   },
 ];
 
+/**
+ * 🔄 STAGE D (owner 2026-09-29) MOVED TWO OF THESE DOORS OFF THE RAIL — on
+ * purpose, to their new homes, never to nowhere. The rail is five rows now, so
+ * a page that is not a row must PROVE its door in a mounted surface instead:
+ *
+ *   hosts → the Guest list's parts picker (`guestListParts`, rendered by the
+ *           guest list page), and the old `/hosts` address lands there;
+ *   refer → the account menu: the event layout hands `referHref` to the
+ *           mounted <AccountSwitcher>, which draws "Refer a couple".
+ *
+ * Each proof reads the REAL builder and the REAL mount, so deleting the new
+ * door turns this red exactly as deleting the old rail row did.
+ */
+const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+const MOVED_DOOR: Record<string, () => boolean> = {
+  hosts: () =>
+    guestListParts({ eventId: 'EVT123', phase: 'plan', current: 'roster' }).some((p) => p.key === 'hosts') &&
+    read('app/dashboard/[eventId]/guests/page.tsx').includes('guestListParts(') &&
+    read('app/dashboard/[eventId]/hosts/page.tsx').includes('GUEST_LIST_PART_VIEW.hosts'),
+  refer: () =>
+    read('app/dashboard/[eventId]/layout.tsx').includes('referHref={referralEnabled ? `/dashboard/${eventId}/refer` : null}') &&
+    read('app/_components/account-switcher/account-switcher.tsx').includes('href={referHref}') &&
+    isMounted('app/_components/account-switcher/account-switcher.tsx'),
+};
+
+/** Is this event page reachable by clicking — a rail row, or a proven moved door? */
+function hasDoor(segment: string, railHrefs: string[]): boolean {
+  if (railHrefs.includes(`/dashboard/EVT123/${segment}`)) return true;
+  return MOVED_DOOR[segment]?.() ?? false;
+}
+
 test('the pages people go to are linked from the event rail, not just addressable', () => {
   const groups = buildCustomerNavGroups('EVT123', { websiteEnabled: true });
   const hrefs = groups.flatMap((g) => g.items).map((i) => i.href);
   assert.ok(hrefs.length >= 5, 'the rail lost destinations — every check below would pass vacuously');
 
-  const unreachable = MUST_HAVE_A_DOOR.filter(
-    ({ segment }) => !hrefs.includes(`/dashboard/EVT123/${segment}`),
-  ).map(({ segment, whatIsLost }) => `${segment} — ${whatIsLost}`);
+  const unreachable = MUST_HAVE_A_DOOR.filter(({ segment }) => !hasDoor(segment, hrefs)).map(({ segment, whatIsLost }) => `${segment} — ${whatIsLost}`);
 
   assert.deepEqual(
     unreachable,
@@ -156,7 +186,7 @@ test('every event link in the retired menu has a home in a mounted surface', () 
     .flatMap((g) => g.items)
     .map((i) => i.href);
 
-  const stranded = segments.filter((seg) => !hrefs.includes(`/dashboard/EVT123/${seg}`));
+  const stranded = segments.filter((seg) => !hasDoor(seg, hrefs));
   assert.deepEqual(
     stranded,
     [],

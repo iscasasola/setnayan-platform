@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Wand2,
   Clapperboard,
+  Gift,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -23,6 +24,13 @@ type Props = {
   /** Panel "Home" item label override (couple surfaces pass
    *  "Home · all your events" — see SwitcherPanelBody). */
   homeLabel?: string;
+  /**
+   * "Refer a couple" — the event's referral page, handed in by the event
+   * layout ONLY while the referral programme is on (Stage D, owner 2026-09-29:
+   * "Refer a couple → account menu"; it left the event menu). Null/absent →
+   * no link, so the programme's master toggle is still the one gate.
+   */
+  referHref?: string | null;
 };
 
 /**
@@ -72,10 +80,12 @@ function SwitcherPanelBody({
   data,
   close,
   homeLabel = 'Home',
+  referHref = null,
 }: {
   data: SwitcherData;
   close: () => void;
   homeLabel?: string;
+  referHref?: string | null;
 }) {
   const showShop = data.context.hasVendor;
   const showHQ = data.context.isAdmin;
@@ -197,6 +207,19 @@ function SwitcherPanelBody({
               <Clapperboard aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Your Story
             </Link>
           ) : null}
+          {/* Refer a couple — its home since Stage D (owner 2026-09-29:
+              "Refer a couple → account menu"). Handed in by the event layout
+              only while the referral programme is on; hidden for anon-drafts,
+              matching Your Story. */}
+          {!data.isAnonymous && referHref ? (
+            <Link
+              href={referHref}
+              className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
+              onClick={close}
+            >
+              <Gift aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Refer a couple
+            </Link>
+          ) : null}
           {/* Create your shop — the SAME defect as Your Story above, in the same
               panel, found 2026-08-10: /open-shop is a finished wizard whose only
               doorways in the entire app were the PUBLIC /vendors marketing page
@@ -248,7 +271,7 @@ function SwitcherPanelBody({
   );
 }
 
-export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
+export function AccountSwitcher({ data, currentEventName, homeLabel, referHref }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -372,7 +395,7 @@ export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
         {/* Drag handle (mobile only) */}
         <div aria-hidden className="mx-auto mb-1 mt-2 h-1 w-10 shrink-0 rounded-full bg-ink/15 lg:hidden" />
 
-        <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} />
+        <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} referHref={referHref} />
       </div>
     );
   }

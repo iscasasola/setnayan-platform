@@ -78,7 +78,7 @@ import {
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
-import { HUB_MAIN_GROUND_KEY, isHubMainFollow, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { HUB_MAIN_GROUND_KEY, isHubMainOwn, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -216,8 +216,16 @@ export async function hubDraftAction(
        must be uploads into THIS event's own Main-background folder, or a photo
        the page already shows. Same reason as the hero: a draft is a public POST. */
     const ownMainPrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/main-background/`;
+    /* …or one of the couple's pictures the Main background's Upload media
+       offers — their own (`ownRefs`, which carries the Save the Date upload),
+       a scene's own upload, or a ready-made Save the Date scene (owner
+       2026-09-29, "THE MAIN BACKGROUND OFFERS EVERY CHOICE"). */
     const mainIsOwn = (ref: unknown) =>
-      typeof ref === 'string' && (ownRefs.has(ref) || ref.startsWith(ownMainPrefix));
+      typeof ref === 'string' &&
+      (ownRefs.has(ref) ||
+        ref.startsWith(ownMainPrefix) ||
+        ref.startsWith(`r2://${PUBLIC_R2_BUCKET}/events/${eventId}/${SCENE_BACKGROUND_FOLDER}/`) ||
+        isStdLibrarySrc(ref));
 
     /* 🖼 A SCENE'S OWN UPLOAD ("Upload media", in place) — into THIS event's
        own scene-background folder, like the Main background's. */
@@ -276,7 +284,7 @@ export async function hubDraftAction(
       // Following the hero stores no media of its own (only a frame measured
       // off the hero, which the render uses only while it IS the hero) — so
       // only an override's clip, photo and still are held to this event.
-      if (item.kind === 'widget' && item.field === 'main' && item.value !== null && !isHubMainFollow(item.value as HubMainGround)) {
+      if (item.kind === 'widget' && item.field === 'main' && isHubMainOwn(item.value as HubMainGround | null)) {
         const main = item.value as HubMainOwn;
         if (![main.media, main.poster].every((r) => r === undefined || mainIsOwn(r))) {
           held.push({ item, reason: 'not_your_photo' });

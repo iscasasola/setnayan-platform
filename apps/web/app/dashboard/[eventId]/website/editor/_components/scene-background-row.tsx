@@ -690,8 +690,8 @@ export function SceneBackgroundRow({
   );
 }
 
-/** One of the couple's photos, as a tap target. */
-function PhotoTile({ url, on, onPick, label }: { url: string; on: boolean; onPick: () => void; label?: string }) {
+/** One of the couple's photos, as a tap target (also the Main background's picker). */
+export function PhotoTile({ url, on, onPick, label }: { url: string; on: boolean; onPick: () => void; label?: string }) {
   return (
     <button
       type="button"
@@ -708,7 +708,7 @@ function PhotoTile({ url, on, onPick, label }: { url: string; on: boolean; onPic
 }
 
 /** One of the couple's clips, as a tap target — on its still when there is one. */
-function ClipTile({ on, onPick, still }: { on: boolean; onPick: () => void; still: string | null }) {
+export function ClipTile({ on, onPick, still }: { on: boolean; onPick: () => void; still: string | null }) {
   return (
     <button
       type="button"

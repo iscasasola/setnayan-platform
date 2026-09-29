@@ -36,7 +36,7 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
-import { hubMainGround, isHubMainFollow, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { hubMainGround, isHubMainChoice, isHubMainFollow, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   canvasFacetGrows,
   canvasLookFacets,
@@ -159,7 +159,7 @@ function eventEffect(
 
 /** The Main background (hero row) → its name. */
 function mainWhat(main: HubMainGround | null): string {
-  if (!main) return 'Background';
+  if (!main || isHubMainChoice(main)) return 'Background';
   if (isHubMainFollow(main)) return 'Adaptive theme';
   return main.kind === 'snippet' ? 'Video background' : 'Photo background';
 }

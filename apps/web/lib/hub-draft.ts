@@ -87,6 +87,7 @@ import {
   HUB_MAIN_GROUND_KEY,
   hubMainGround,
   isHubMainFollow,
+  isHubMainOwn,
   sanitizeHubCanvas,
   sanitizeHubMainGround,
   type HubMainGround,
@@ -1223,15 +1224,19 @@ const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(co
  * measured frame and toggle are compared: the adaptive tint, which is Pro.
  */
 export function mainGroundChange(live: HubMainGround | null, next: HubMainGround | null): LookChange {
-  const ref = (m: HubMainGround | null) => (m && !isHubMainFollow(m) ? `${m.kind}:${m.media}` : null);
-  const poster = (m: HubMainGround | null) => (m && !isHubMainFollow(m) ? (m.poster ?? null) : null);
+  /* 🖼 "The theme's background" and "None — just the colour" carry no media
+     and no tint: going to either is a removal (free), never an addition. */
+  const ref = (m: HubMainGround | null) => (isHubMainOwn(m) ? `${m.kind}:${m.media}` : null);
+  const poster = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.poster ?? null) : null);
   const tint = (m: HubMainGround | null) =>
-    m ? asText(isHubMainFollow(m) ? { of: m.of, ...m.tint } : (m.tint ?? null)) : null;
-  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null));
+    isHubMainFollow(m) ? asText({ of: m.of, ...m.tint }) : isHubMainOwn(m) ? asText(m.tint ?? null) : null;
+  const motion = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.motion ?? null) : null);
+  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null), refChange(motion(live), null));
   return combineChanges(
     refChange(ref(live), ref(next)),
     refChange(poster(live), poster(next)),
     refChange(tint(live), tint(next)),
+    refChange(motion(live), motion(next)),
   );
 }
 

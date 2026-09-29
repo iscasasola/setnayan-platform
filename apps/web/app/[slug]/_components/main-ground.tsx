@@ -40,6 +40,7 @@ export function MainGround({
   clip,
   adaptive,
   vars,
+  parallax = false,
 }: {
   /** The photo, or the clip's still — a signed URL. */
   still: string | null;
@@ -48,6 +49,12 @@ export function MainGround({
   adaptive: AdaptiveTheme;
   /** `adaptiveThemeVars(adaptive, …)` — `{}` when the couple keeps the theme's colours. */
   vars: Record<string, string>;
+  /**
+   * 🌄 Parallax on the couple's own photo — the SHIPPED hero parallax: the
+   * layer wears `data-pahina-parallax="page"` and `PahinaCoverParallax` drifts
+   * it with the PAGE's scroll (this layer is fixed, so its own box never moves).
+   */
+  parallax?: boolean;
 }) {
   if (!still && !clip) return null;
   const declarations = Object.entries(vars)
@@ -63,12 +70,13 @@ export function MainGround({
         aria-hidden
         data-main-ground=""
         data-main-ground-tint={adaptive.tint ? 'match' : 'theme'}
-        className="pointer-events-none fixed inset-0 -z-10"
+        className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
       >
         {still ? (
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url(${JSON.stringify(still)})` }}
+            {...(parallax && !clip ? { 'data-pahina-parallax': 'page' } : {})}
           />
         ) : null}
         {clip ? (
@@ -90,5 +98,19 @@ export function MainGround({
         />
       </div>
     </>
+  );
+}
+
+/**
+ * 🖼 "NONE — JUST THE COLOUR" — the couple switched the theme's own loop off
+ * (owner 2026-09-29: *"the background animated video cannot be unpicked"*).
+ * The SAME switch `MainGround` uses to hide the loop under a hero, and nothing
+ * laid over the page: the Background colour (the layout's paper) is all there is.
+ */
+export function MainGroundNone() {
+  return (
+    <style data-main-ground-none="">
+      {'[data-guest-ground] [data-theme-loop],[data-guest-ground] [data-theme-poster]{display:none}'}
+    </style>
   );
 }

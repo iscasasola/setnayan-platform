@@ -386,6 +386,19 @@ export async function submitRsvp(
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // ⚖ NO MIDDLE ANSWER FROM A GUEST (owner 2026-09-30: "for now. let us fix the
+  // RSVP remove the maybe"). The card offers only yes / no, so a NEW 'maybe'
+  // arrives only from a stale tab or a crafted post — refused, nothing written,
+  // and the guest is sent back to the card with a sentence asking them to pick
+  // one. ⚠ Only a CHANGE to 'maybe' is refused: a guest ALREADY saved as maybe
+  // (their row is left alone) reposts it unchanged from the missing-details
+  // card's hidden field, and that save must still land. The column and its
+  // CHECK are untouched — the couple's Guest list can still set 'maybe'.
+  if (!replyLocked && status === 'maybe' && before?.rsvp_status !== 'maybe') {
+    if (toInvite && evRsvp?.slug) redirect(`${inviteReplyPath(evRsvp.slug)}?rsvp=choose`);
+    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=choose` : '/');
+  }
+
   let answerRefused = false;
   if (replyLocked && RSVP_VALUES.includes(status)) {
     answerRefused = Boolean(before) && before!.rsvp_status !== status;

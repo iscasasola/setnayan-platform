@@ -30,10 +30,15 @@ import { MEAL_LABELS, type MealPreference, type RsvpStatus } from '@/lib/guests'
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { formatCount } from '@/lib/format-number';
 
-/** What the guest may answer on the ask-to-join form (the three RSVP choices). */
-export const REQUEST_ANSWERS: readonly { value: Extract<RsvpStatus, 'attending' | 'maybe' | 'declined'>; label: string }[] = [
+/**
+ * What the guest may answer on the ask-to-join form — yes or no, nothing else.
+ * ⚖ NO MIDDLE ANSWER (owner 2026-09-30: "for now. let us fix the RSVP remove
+ * the maybe"). A posted 'maybe' finds no entry here and is refused as
+ * `missing_answer` ("Please tell us whether you will be there."). The column and
+ * its CHECK still allow 'maybe' — the couple's own Guest list can set it.
+ */
+export const REQUEST_ANSWERS: readonly { value: Extract<RsvpStatus, 'attending' | 'declined'>; label: string }[] = [
   { value: 'attending', label: 'Joyfully accepts' },
-  { value: 'maybe', label: 'Undecided, for now' },
   { value: 'declined', label: 'Regretfully declines' },
 ];
 
@@ -44,7 +49,7 @@ const MEALS = Object.keys(MEAL_LABELS) as MealPreference[];
 
 export type RequestAnswers = {
   name: string;
-  rsvp_status: 'attending' | 'maybe' | 'declined';
+  rsvp_status: 'attending' | 'declined';
   seats: number;
   meal_preference: MealPreference;
   dietary_restrictions: string | null;

@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getHostUserId } from '@/lib/host-gate';
 import { readGuestSession } from '@/lib/guest-session';
-import { decidePassCardAccess, passCardDesignFrom } from '@/lib/pass-card';
+import { PASS_CARD_REFUSED, PASS_CARD_WORDS, decidePassCardAccess, passCardDesignFrom } from '@/lib/pass-card';
 import {
   asPassCardRow,
   loadPassCardKit,
@@ -59,7 +59,7 @@ async function callerIsHost(eventId: string): Promise<boolean> {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const asked = url.searchParams.get('guest');
-  if (asked !== null && !UUID.test(asked)) return new NextResponse('No pass here.', { status: 404 });
+  if (asked !== null && !UUID.test(asked)) return new NextResponse(PASS_CARD_REFUSED, { status: 404 });
   const design = passCardDesignFrom(url.searchParams.get('design'));
 
   const session = await readGuestSession();
@@ -84,10 +84,10 @@ export async function GET(req: Request) {
     readFailed: failed,
   });
   if (!verdict.allow) return new NextResponse(verdict.message, { status: verdict.status });
-  if (!target) return new NextResponse('No pass here.', { status: 404 });
+  if (!target) return new NextResponse(PASS_CARD_REFUSED, { status: 404 });
 
   const kit = await loadPassCardKit(admin, target.event_id, { seatsFor: [target.guest_id] });
-  if (!kit?.set.event.slug) return new NextResponse('No pass here.', { status: 404 });
+  if (!kit?.set.event.slug) return new NextResponse(PASS_CARD_REFUSED, { status: 404 });
 
   const etag = `"${passCardVersion(kit, target, design)}"`;
   const headers = {
@@ -103,6 +103,6 @@ export async function GET(req: Request) {
     return new NextResponse(Buffer.from(png), { status: 200, headers });
   } catch (err) {
     logQueryError('pass-card.render', err, { guest_id: target.guest_id }, 'graceful_degrade');
-    return new NextResponse('Could not draw your pass just now. Try again.', { status: 503 });
+    return new NextResponse(`Could not draw your ${PASS_CARD_WORDS.noun} just now. Try again.`, { status: 503 });
   }
 }

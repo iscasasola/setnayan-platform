@@ -5,7 +5,7 @@ import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { joinDoorMeta } from '@/lib/join-door-meta';
-import { INVITE_LINK_SENT_COOKIE, inviteReplyPath } from '@/lib/invite-arrival';
+import { inviteReplyPath } from '@/lib/invite-arrival';
 import { arrivalDestinationFor, arrivalDestinationWords } from '@/lib/invite-destination';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -13,7 +13,7 @@ import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
 import { QR_LOOK_COLUMNS_AFTER_INVITE_MARK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { guestAccountState } from '@/lib/guest-one-path';
-import { keepLinkSentFor, readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.server';
+import { readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.server';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { eventWordsFor } from '../../_lib/event-words';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
@@ -21,6 +21,11 @@ import { thankYouHeadline, replySummary } from '../../_lib/thank-you-words';
 import { SaveToAccount } from '../../_components/save-to-account';
 import { YourGuests } from '../../_components/your-guests';
 import { InviteQrPanel } from '../_components/invite-qr-panel';
+import { CopyMyLink } from '../../_components/copy-my-link';
+import { TicketRow } from '../../_components/ticket-row';
+import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
+import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine } from '@/lib/pass-card';
+import { REQUEST_WORDS } from '@/lib/request-key';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 
 export const metadata = { title: 'Thank you', robots: { index: false, follow: false } };
@@ -28,7 +33,7 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ rsvp?: string; keep?: string }>;
+  searchParams: Promise<{ rsvp?: string; keep?: string; in?: string }>;
 };
 
 /**
@@ -39,8 +44,9 @@ type Props = {
  *
  * The method behind that one button is CHOSEN BY THE DEVICE, never shown as a
  * choice (`saveMethodFor`, lib/guest-one-path.ts): Messenger / Instagram /
- * Facebook webviews → the emailed link (Google blocks sign-in there); iPhone
- * → Apple; Android and desktop → Google. It REPLACES the "Two ways to
+ * Facebook webviews → "Open in your browser" (Google blocks sign-in there, and
+ * 📵 nothing is emailed to a guest — owner 2026-09-29); iPhone → Apple; Android
+ * and desktop → Google. It REPLACES the "Two ways to
  * celebrate" pitch the invitation used to carry (owner 2026-09-26: *"when
  * linking to an account. make sure all details … will be filled. if they
  * filled it up, they choose a login page."*).
@@ -79,7 +85,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
 
   const { data: guest, error: guestError } = await admin
     .from('guests')
-    .select('guest_id, role, email, entry_source, qr_token, first_name, last_name, display_name, rsvp_status, meal_preference')
+    .select('guest_id, role, entry_source, qr_token, first_name, last_name, display_name, rsvp_status, meal_preference')
     .eq('guest_id', session.guest_id)
     .eq('event_id', event.event_id)
     .is('deleted_at', null)
@@ -90,10 +96,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   if (!guest) redirect(`/${home}`);
 
   const cookieStore = await cookies();
-  const email = (guest.email as string | null)?.trim() || null;
-  const linkSent =
-    search.keep === 'sent' ||
-    (cookieStore.get(INVITE_LINK_SENT_COOKIE)?.value === event.event_id && Boolean(email));
 
   // What happened to the reply they just saved — the same sentences the
   // Event Hub's card renders, so the arrival and the site never disagree.
@@ -165,6 +167,25 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     inviteUrl: s.qrToken ? buildInvitationUrl({ ...qrParams, qrToken: s.qrToken }) : null,
   }));
 
+  // ── 🎟 THE TICKETS (owner 2026-09-29, DECISION_LOG "TICKETS ON THE THANK-YOU
+  // SCREEN"; prototype guest_ticket_flow_2026-09-29.html frame A): their own
+  // Digital ticket and one per NAMED plus-one who has one — the same cards the
+  // route draws and "Save" hands over, and only for an accepted guest who is
+  // coming (`passCardEligibility`). A blank seat keeps "Add name".
+  const [passCard, plusOneTicketIds] = await Promise.all([
+    passCardEligibilityFor(admin, guest.guest_id as string),
+    plusOnePassCardIds(admin, event.event_id as string, guest.guest_id as string),
+  ]);
+  const passCards =
+    passCard === 'pass'
+      ? {
+          own: PASS_CARD_ROUTE,
+          plusOnes: Object.fromEntries([...plusOneTicketIds].map((id) => [id, `${PASS_CARD_ROUTE}?guest=${id}`])),
+        }
+      : null;
+  const namedComing = seats.filter((s) => plusOneTicketIds.has(s.guest_id)).length;
+  const partyLine = namedComing > 0 ? `and ${namedComing} ${namedComing === 1 ? 'guest' : 'guests'}` : null;
+
   // ── THE ONE ACCOUNT BUTTON — the same decision the Event Hub's card makes.
   const supabase = await createClient();
   const {
@@ -174,7 +195,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
     seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
-    linkSentForThisEvent: linkSent || (await keepLinkSentFor(event.event_id as string)),
   });
   const userAgent = (await headers()).get('user-agent');
 
@@ -193,11 +213,21 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   });
   const nothingToSave = account.kind === 'linked' || account.kind === 'held_elsewhere';
 
+  /* 🔓 "YOU'RE IN!" (frame D) — a requester whose request the couple accepted
+     arrives here from the redeem hop (`?in=1`) with the SAME key they were given
+     on Send. A saved picture cannot change, so the button says to save the
+     updated ticket (owner 2026-09-29, "THE REQUEST IMAGE" + its correction). */
+  const justIn = search.in === '1' && passCard === 'pass';
+  const hosts = ((event.display_name as string | null) ?? '').trim() || words.TheOrganizer;
+  const eyebrow = justIn ? REQUEST_WORDS.inTitle : 'Thank you';
+  const title = justIn ? headline.replace(/!$/, '') : headline;
+  const sub = justIn ? REQUEST_WORDS.inSub(hosts, null) : summary;
+
   return (
     <DoorShell
-      eyebrow="Thank you"
-      title={headline}
-      sub={summary}
+      eyebrow={eyebrow}
+      title={title}
+      sub={sub}
       meta={joinDoorMeta({
         event_date: event.event_date as string | null,
         event_date_precision: event.event_date_precision as string | null,
@@ -207,12 +237,43 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     >
       {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
 
-      {unlisted ? (
+      {unlisted && !justIn ? (
         <DoorNotice>
           You weren&rsquo;t on the original list, so we&rsquo;ve let the hosts know — they&rsquo;ll
           confirm you shortly.
         </DoorNotice>
       ) : null}
+
+      {/* 🎟 YOUR DIGITAL TICKET — first, the thing to keep (frame A). A guest
+          without one (can't come) is told why in one line; a seat with no
+          card at all keeps the plain QR panel, as before. */}
+      {passCards ? (
+        <section aria-labelledby="your-ticket" className="space-y-2" data-thank-you-ticket="">
+          <h2 id="your-ticket" className="font-serif text-xl text-ink">
+            Your {PASS_CARD_WORDS.digitalTicket}
+          </h2>
+          <p className="text-xs text-ink/60">
+            Save it to your phone — show it at the door. It’s a picture, so it can’t change by itself; the page
+            here always has the latest table and time.
+          </p>
+          <TicketRow
+            href={PASS_CARD_ROUTE}
+            name={guestName}
+            sub={partyLine}
+            saveLabel={justIn ? REQUEST_WORDS.saveUpdated : undefined}
+            saveNote={justIn ? REQUEST_WORDS.saveUpdatedWhy : null}
+          />
+        </section>
+      ) : passCard === 'cannotCome' ? (
+        <p className="text-sm text-ink/70">{passCardLine(passCard)}</p>
+      ) : (
+        <InviteQrPanel
+          qrSvg={qrSvg}
+          invitationUrl={invitationUrl}
+          guestName={guestName}
+          eventWord={words.eventWord}
+        />
+      )}
 
       <YourGuests
         guests={guestsToSend}
@@ -225,7 +286,13 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           eventDate: (event.event_date as string | null) ?? null,
           datePrecision: (event.event_date_precision as string | null) ?? null,
         }}
+        passCards={passCards}
+        ticketRows={{ ownName: guestName }}
       />
+
+      {/* "Copy my link" — their own link is their way back and their ticket at
+          the door too (📵 nothing is emailed — owner 2026-09-29). */}
+      <CopyMyLink link={invitationUrl} />
 
       {nothingToSave ? (
         <>
@@ -233,11 +300,9 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             state={account}
             eventId={event.event_id as string}
             slug={home}
-            hasEmail={Boolean(email)}
+            personalLink={invitationUrl}
             userAgent={userAgent}
             termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-            failed={search.keep === 'error'}
-            askEmail={search.keep === 'email'}
           />
           <p className="text-sm text-ink/70">{destinationWords.blurb}</p>
           <Link className="button-primary w-full" href={`/${home}`}>
@@ -250,12 +315,11 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             state={account}
             eventId={event.event_id as string}
             slug={home}
-            hasEmail={Boolean(email)}
+            personalLink={invitationUrl}
             userAgent={userAgent}
             termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-            failed={search.keep === 'error'}
-            askEmail={search.keep === 'email'}
-            sentTo={linkSent ? email : null}
+            termsMissing={search.keep === 'terms'}
+            carries="your name, mobile, meal and your guests come along"
           />
           <p className="text-center">
             <Link
@@ -267,15 +331,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           </p>
         </>
       )}
-
-      {/* 🔒 KEPT, NOT RESTATED. The pass (owner 2026-09-13: "they get to see the
-          QR Code") — below the one button, never in front of it. */}
-      <InviteQrPanel
-        qrSvg={qrSvg}
-        invitationUrl={invitationUrl}
-        guestName={guestName}
-        eventWord={words.eventWord}
-      />
     </DoorShell>
   );
 }

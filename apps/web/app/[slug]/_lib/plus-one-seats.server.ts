@@ -37,7 +37,25 @@ export type PlusOneSeat = {
   last: string | null;
   meal: string | null;
   dietary: string | null;
+  /** 🔒 The seat's person linked their own account — the name is read-only. */
+  linked: boolean;
 };
+
+/**
+ * The seats whose person has linked their OWN account (an `event_members` row
+ * holds the seat) — their name is theirs from then on (owner 2026-09-29, OWNER
+ * ANSWERS (10)). A failed read returns an empty set: the boxes stay editable,
+ * and `submitRsvp` re-asks before it writes a name, so nothing is overwritten.
+ */
+export async function linkedSeatIds(admin: AdminClient, eventId: string, seatIds: readonly string[]): Promise<Set<string>> {
+  if (seatIds.length === 0) return new Set();
+  const { data, error } = await admin.from('event_members').select('guest_id').eq('event_id', eventId).in('guest_id', [...seatIds]);
+  if (error) {
+    console.error('[supabase-error] app/[slug]/_lib/plus-one-seats.server.ts · from:event_members.select', error);
+    return new Set();
+  }
+  return new Set(((data ?? []) as Array<{ guest_id: string | null }>).map((r) => r.guest_id).filter((x): x is string => Boolean(x)));
+}
 
 /**
  * The bringer's plus-ones as "Your guests" draws them: each named one's own
@@ -89,6 +107,7 @@ export async function plusOneSeatsFor(
     console.error('[supabase-error] app/[slug]/_lib/plus-one-seats.server.ts · from:guests.select', error);
     return [];
   }
+  const linked = await linkedSeatIds(admin, eventId, (data ?? []).map((r) => r.guest_id as string));
   return (data ?? []).map((r) => {
     const placeholder = isPlaceholderSeat({
       guest_id: r.guest_id as string,
@@ -104,6 +123,7 @@ export async function plusOneSeatsFor(
       last: placeholder ? null : ((r.last_name as string | null) ?? null),
       meal: (r.meal_preference as string | null) ?? null,
       dietary: (r.dietary_restrictions as string | null) ?? null,
+      linked: linked.has(r.guest_id as string),
     };
   });
 }

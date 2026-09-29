@@ -7,10 +7,10 @@ import { formatEventDate } from '@/lib/events';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { guestAccountState } from '@/lib/guest-one-path';
-import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
+import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { plusOneFilled, plusOneGate, plusOneMissing, type PlusOneRow } from '@/lib/plus-one-welcome';
-import { renderInvitationQrSvg } from '@/lib/qr';
+import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
@@ -132,7 +132,6 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
     seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
-    linkSentForThisEvent: search.keep === 'sent' || (await keepLinkSentFor(event.event_id as string)),
   });
   const showPass = search.pass === '1';
   // Kept in their account and nothing required missing — nothing to welcome.
@@ -144,13 +143,19 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   // ── "JUST SHOW MY PASS" — their own QR, the same renderer and url as every
   // other guest pass, wearing the event's look.
   let passSvg: string | null = null;
-  if (showPass && guest.qr_token) {
-    const params = {
-      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
-      slug: home,
-      qrToken: guest.qr_token as string,
-      ownerSlug: await resolveEventOwnerSlug(admin, event.event_id as string),
-    };
+  // Their OWN link — "Open in your browser" hands it over inside Messenger,
+  // where no provider can sign in and nothing is emailed (owner 2026-09-29).
+  const linkParams = guest.qr_token
+    ? {
+        appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+        slug: home,
+        qrToken: guest.qr_token as string,
+        ownerSlug: await resolveEventOwnerSlug(admin, event.event_id as string),
+      }
+    : null;
+  const personalLink = linkParams ? buildInvitationUrl(linkParams) : null;
+  if (showPass && linkParams) {
+    const params = linkParams;
     passSvg = await renderInvitationQrSvg({
       ...params,
       look: await resolveEventQrLook(admin, event.event_id as string, event as unknown as QrLookRow),
@@ -183,7 +188,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
         filled={filled}
         inside={inside}
         account={account}
-        hasEmail={Boolean((guest.email as string | null)?.trim())}
+        personalLink={personalLink}
         userAgent={userAgent}
         termsCarried={termsCarried}
         passSvg={passSvg}

@@ -50,7 +50,8 @@ test('a guest naming their plus-one fills a seat — never adds one', () => {
   assert.ok(!/\.eq\('plus_one_of_guest_id', guestId\)\s*\.maybeSingle\(\)/.test(rsvp), 'maybeSingle on the seats is back — two seats read as none, and every RSVP adds another');
   // One box per seat (owner 2026-09-21): planSeatNames fills seats and caps
   // new ones at what the couple gave — the reply can never mint extra seats.
-  assert.match(rsvp, /const ops = planSeatNames\(seatNames, seats, plusOneSeats\(primary\)\);/, 'the RSVP does not use the seat plan, or does not cap it');
+  // Wrapped since 2026-09-29 by the linked-name lock (lockLinkedSeatNames) — the plan and its cap are unchanged.
+  assert.match(rsvp, /const ops = lockLinkedSeatNames\(planSeatNames\(seatNames, seats, plusOneSeats\(primary\)\), linkedSeats\);/, 'the RSVP does not use the seat plan, or does not cap it');
   assert.match(rsvp, /\.eq\('plus_one_of_guest_id', guestId\);/, 'a named seat is not scoped to this guest');
 });
 

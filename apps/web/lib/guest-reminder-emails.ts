@@ -15,6 +15,7 @@ import { guestChecklistItems } from '@/app/[slug]/_lib/guest-checklist-facts';
 import { isSendableEmail, resolveCoupleName, type StdGuestRow } from '@/lib/save-the-date-emails-core';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
+  GUEST_REMINDER_EMAILS_ON,
   buildGuestReminderEmail,
   dueMilestone,
   reminderEventDates,
@@ -26,6 +27,10 @@ import {
 
 /**
  * GUEST REMINDER EMAILS — 30 · 7 · 1 DAYS BEFORE THE EVENT. The sender.
+ *
+ * 📵 SWITCHED OFF FOR GUESTS 2026-09-29 (`GUEST_REMINDER_EMAILS_ON`, owner: "No
+ * email. Either use the qr and link only"). Kept whole, not deleted: the lock
+ * table and the renderer are the owner's to turn back on.
  *
  * Owner 2026-09-26 (DECISION_LOG "THE LAST 30 DAYS: EACH GUEST GETS YOUR
  * CHECKLIST"): optional reminder emails at 30 / 7 / 1 days to identified guests
@@ -127,6 +132,8 @@ const num = (v: number | string | null | undefined): number | null => {
 export type GuestReminderRunSummary = { events: number; scanned: number; sent: number };
 
 export async function runGuestReminderEmails(now: Date = new Date()): Promise<GuestReminderRunSummary> {
+  // 📵 Switched off for guests (owner 2026-09-29) — see GUEST_REMINDER_EMAILS_ON.
+  if (!GUEST_REMINDER_EMAILS_ON) return { events: 0, scanned: 0, sent: 0 };
   // No Resend key → nothing can send. Return BEFORE any lock is claimed, so the
   // day Resend is keyed the reminders that are due still go out.
   if (!(await isEmailConfigured())) return { events: 0, scanned: 0, sent: 0 };

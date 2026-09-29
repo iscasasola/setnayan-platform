@@ -139,7 +139,8 @@ test('DEFAULT (no ask prop, or {}): every field the widget has always asked is s
     assert.match(html, /id="dietary_restrictions"/);
     assert.match(html, /id="guest_note"/);
     assert.match(html, /id="contact_mobile"/);
-    assert.match(html, /id="contact_email"/);
+    // 📵 No email box (owner 2026-09-29, "NO EMAIL TO GUESTS").
+    assert.doesNotMatch(html, /id="contact_email"/);
     // plus_one_allowed=true on the fixture guest — the box must render.
     assert.match(html, /Who are you bringing/);
   }
@@ -179,14 +180,15 @@ test('note off removes the note textarea — nothing else moves', async () => {
   assert.match(on, /id="guest_note"/);
   assert.doesNotMatch(off, /id="guest_note"/);
   // The neighbouring contact boxes are untouched by the note toggle.
-  assert.match(off, /id="contact_email"/);
+  assert.match(off, /id="contact_display_name"/);
   assert.match(off, /id="contact_mobile"/);
 });
 
-test('mobile off removes ONLY the mobile box — email always stays (it is also the sign-in address)', async () => {
+test('mobile off removes ONLY the mobile box — the name box stays, and there is never an email box', async () => {
   const html = await render({ mobile: false });
   assert.doesNotMatch(html, /id="contact_mobile"/);
-  assert.match(html, /id="contact_email"/);
+  assert.match(html, /id="contact_display_name"/);
+  assert.doesNotMatch(html, /id="contact_email"/);
 });
 
 test('plus_ones off hides the name box even for a guest the host already allowed one', async () => {

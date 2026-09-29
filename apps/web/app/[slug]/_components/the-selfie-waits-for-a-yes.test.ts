@@ -195,7 +195,8 @@ test('2 · the Event Hub card asks only where the couple has not declined', () =
 
 test('3 · submitRsvp stores the answer and refuses the selfie after a "No"', () => {
   const src = read('app/[slug]/actions.ts');
-  assert.match(src, /const taggingWish = parseFaceTaggingAnswer\(formData\.get\(FACE_TAGGING_FIELD\)\)/, 'the answer is not read');
+  // `let` since 2026-09-29: an unconfirmed "No" after a selfie changes nothing (no-thanks-deletes-the-selfie.test.ts).
+  assert.match(src, /(?:const|let) taggingWish = parseFaceTaggingAnswer\(formData\.get\(FACE_TAGGING_FIELD\)\)/, 'the answer is not read');
   assert.match(src, /\.update\(\{ face_tagging_wanted: taggingWish \}\)/, 'the answer is not stored — the day-of catch cannot honour it');
   const gate = src.match(/if \(selfieRef && biometricConsent && ageAffirmed[^{]*\{/)?.[0] ?? '';
   assert.notEqual(gate, '', 'the enrolment gate is gone — read actions.ts');

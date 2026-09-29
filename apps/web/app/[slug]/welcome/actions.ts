@@ -19,7 +19,6 @@ import {
 } from '@/lib/terms-agreement';
 import { PLUS_ONE_WELCOMED_COOKIE, PLUS_ONE_WELCOMED_MAX_AGE, plusOneUnnamed } from '@/lib/plus-one-welcome';
 import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
-import { claimAccountAction } from '../actions';
 
 /**
  * THE PLUS-ONE'S OWN DOOR — the save (prototype `rsvp_plus_ones_2026-09-29.html`,
@@ -29,8 +28,8 @@ import { claimAccountAction } from '../actions';
  * One form, three ways out (`then`):
  *   · `keep` — "Save to my account": saves the answers and the Terms tick, then
  *     takes the DEVICE's method, re-decided here (`saveMethodFor`) — Apple or
- *     Google through `/join/{eventId}/connect`, or the emailed link
- *     (`claimAccountAction`, the Event Hub's own). The shipped doors, reused.
+ *     Google through `/join/{eventId}/connect`. The shipped doors, reused.
+ *     📵 Never an emailed link (owner 2026-09-29, "NO EMAIL TO GUESTS").
  *   · `pass` — "Not now — just show my pass": saves whatever was typed (nothing
  *     is required) and shows their QR on this same door.
  *   · absent — the older name-only form ("Correct — that's me"): name required,
@@ -165,10 +164,10 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
     next.set('next', `/join/${event.event_id}/connect`);
     return method === 'apple' ? signInWithApple(next) : signInWithGoogle(next);
   }
-  // The emailed link — the Event Hub's own claim, with this form's email box
-  // and tick (it reads `keep_email` and the Terms from the form or the cookie).
-  formData.delete('return_to');
-  return claimAccountAction(event.event_id as string, home, formData);
+  // 📵 No provider on this device (an in-app browser): there is no email link
+  // any more (owner 2026-09-29, "NO EMAIL TO GUESTS"). The answers are saved;
+  // the door hands over "Open in your browser" under its plain Save.
+  redirect(`/${home}`);
 }
 
 export async function abandonPlusOneInvite(

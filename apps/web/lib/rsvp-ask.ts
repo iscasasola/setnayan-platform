@@ -179,9 +179,6 @@ export function readGuestReminders(raw: unknown): boolean {
   return sanitizeRsvpAskConfig(raw).guestReminders !== false;
 }
 
-export const GUEST_REMINDERS_TIP =
-  'Guests who gave an email get three short reminders — 30 days, 7 days and the day before — each listing only what they have not ticked on their checklist, with a link to their own page. A guest who has not replied is asked to reply by your date first. Off means nobody is emailed. Guests without an email are never emailed either way.';
-
 export const ONE_AT_A_TIME_TIP =
   'OFF: every question on one scrolling page. ON: one question per screen with progress dots and Back — easier for elders and small screens. Same questions either way.';
 

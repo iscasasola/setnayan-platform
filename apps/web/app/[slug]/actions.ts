@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { planSeatNames, readSeatNames, type ExtraSeatRow } from '@/lib/extra-seats';
+import { lockLinkedSeatNames, planSeatNames, readSeatNames, type ExtraSeatRow } from '@/lib/extra-seats';
 import { plusOneSeats } from '@/lib/guests';
 import { after } from 'next/server';
 import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
@@ -27,24 +27,29 @@ import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-a
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
-import { readGuestSessionForEvent, sendKeepLinkOnce } from '@/lib/guest-one-path.server';
+import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import {
   RSVP_TERMS_COOKIE,
+  RSVP_TERMS_COOKIE_MAX_AGE,
   TERMS_FIELD,
+  TERMS_VERSION,
   hasAgreedToTerms,
   rsvpTermsCarried,
 } from '@/lib/terms-agreement';
-import { KEEP_EMAIL_SHAPE } from '@/lib/guest-one-path';
+import { saveMethodFor, saveMethodSignsIn } from '@/lib/guest-one-path';
+import { envFlagEnabled } from '@/lib/env-flag';
+import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
+import { eventConnectPath } from '@/lib/signup-landing';
 import { applyTick, isChecklistKey } from '@/lib/guest-checklist';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { SONG_ARTIST_MAX, SONG_TITLE_MAX } from '@/lib/guest-song-request-rule';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
-import { FACE_TAGGING_FIELD, parseFaceTaggingAnswer } from '@/lib/face-tagging-wish';
+import { FACE_TAGGING_FIELD, SELFIE_DELETE_FIELD, parseFaceTaggingAnswer } from '@/lib/face-tagging-wish';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_VALUES: MealPreference[] = [
@@ -110,56 +115,51 @@ async function eventHome(eventId: string): Promise<string> {
 }
 
 /**
- * THE ONE ACCOUNT CARD's press — "This is me — keep this invitation in my
- * account" (owner 2026-09-25).
+ * "SAVE TO MY ACCOUNT" — the one press on the thank-you, Me, the Event Hub's
+ * account card and the plus-one's welcome (owner 2026-09-26/27).
  *
- * 🔑 IT ASKS FOR NO ADDRESS. The address is the one this guest's reply holds —
- * the same `guests.email` the reply form's email box writes — so the email is
- * asked ONCE on the whole page. A guest whose reply has no address yet is sent to
- * the reply, where the box is (the card links there instead of posting here).
+ * 📵 IT SENDS NO EMAIL (owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS — THE
+ * QR AND THE LINK DO EVERYTHING"). This used to be `claimAccountAction`, which
+ * emailed a passwordless sign-in link. Now it is the device's provider and
+ * nothing else — Apple on an iPhone, Google elsewhere (`saveMethodFor`,
+ * re-decided HERE from the request, never from the form). Inside an in-app
+ * browser there is no press to post: the page draws "Open in your browser"
+ * (a copy of the guest's own link) instead, so a POST from one is sent back.
  *
- * 🔒 The Terms box is the affirmative act (lib/terms-agreement.ts): this link
- * creates an account, so an unticked POST sends nothing. The guest is read from
- * the SIGNED cookie or the signed-in account's own seat, never from the form.
+ * 🔒 The Terms tick is the affirmative act (lib/terms-agreement.ts): this CREATES
+ * an account, so it takes the tick on THIS form or the one given on the RSVP
+ * page a screen earlier (the server-set cookie, never a hidden field) — and the
+ * tick is carried into the provider round-trip by that same cookie, which the
+ * OAuth callback records (app/auth/callback/route.ts).
  */
-export async function claimAccountAction(eventId: string, _slug: string, formData: FormData) {
+export async function startAccountSaveAction(eventId: string, _slug: string, formData: FormData) {
   const home = await eventHome(eventId);
-  // "Save to my account" on the RSVP thank-you and the Me tab (owner 2026-09-27)
-  // comes back to the screen it was pressed on — a KEYWORD, the address built
-  // from the slug the database returned, never from the form.
   const fromThankYou = isInviteReturn(formData.get('return_to')) && home !== '/';
   const back = fromThankYou ? inviteEnterPath(home.slice(1)) : home;
   const session = await readGuestSessionForEvent(eventId);
   if (!session) return redirect(home);
-  const { data: seat } = await createAdminClient()
-    .from('guests')
-    .select('email')
-    .eq('guest_id', session.guest_id)
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    .maybeSingle();
-  let email = ((seat?.email as string | null) ?? '').trim();
-  // The thank-you's ONE box, shown only when the reply held no address — the
-  // email is still asked once. `sendEventAccountMagicLink` stamps it onto the
-  // seat only where the seat had none.
-  if (!email) {
-    const typed = clean(formData.get('keep_email'));
-    if (KEEP_EMAIL_SHAPE.test(typed)) email = typed;
-  }
-  if (!email) return redirect(fromThankYou ? `${back}?keep=email` : `${home}#your-details`);
-  // 🔒 The agreement is the tick on THIS form, or the one this guest gave on
-  // the RSVP page a screen earlier (the server-set cookie, never a hidden field).
   const jar = await cookies();
-  const sent = await sendKeepLinkOnce({
-    eventId,
-    guestId: session.guest_id,
-    email,
-    termsAgreed:
-      hasAgreedToTerms(formData.get(TERMS_FIELD)) ||
-      rsvpTermsCarried(jar.get(RSVP_TERMS_COOKIE)?.value),
+  const tickedHere = hasAgreedToTerms(formData.get(TERMS_FIELD));
+  if (!tickedHere && !rsvpTermsCarried(jar.get(RSVP_TERMS_COOKIE)?.value)) {
+    return redirect(`${back}?keep=terms`);
+  }
+  if (tickedHere) {
+    jar.set(RSVP_TERMS_COOKIE, TERMS_VERSION, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: RSVP_TERMS_COOKIE_MAX_AGE,
+    });
+  }
+  const method = saveMethodFor((await headers()).get('user-agent'), {
+    apple: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED),
+    google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
   });
-  if (fromThankYou) return redirect(`${back}?keep=${sent ? 'sent' : 'error'}`);
-  return redirect(sent ? home : `${home}?keep=error`);
+  if (!saveMethodSignsIn(method)) return redirect(back);
+  const next = new FormData();
+  next.set('next', eventConnectPath(eventId));
+  return method === 'apple' ? signInWithApple(next) : signInWithGoogle(next);
 }
 
 /**
@@ -308,7 +308,6 @@ export async function submitRsvp(
   // The guest's OWN contact details. Named `contact_*` on the form so nothing
   // here can ever collide with the sign-in-link box elsewhere on this page,
   // which posts `email` to a completely different action.
-  const contactEmail = clean(formData.get('contact_email')) || null;
   const contactMobile = clean(formData.get('contact_mobile')) || null;
   const contactName = clean(formData.get('contact_display_name')) || null;
 
@@ -393,29 +392,15 @@ export async function submitRsvp(
   }
 
   /**
-   * 🔒 OWNER RULED 2026-08-23 — "No for email, yes for the rest."
-   *
-   * A guest MAY CHANGE the address to their own: the couple typed it from a
-   * chat thread and getting it wrong is ordinary. A guest may NOT EMPTY it,
-   * because it is the key back in — the cross-device sign-in match runs on this
-   * column. Every box on this card is `defaultValue=`, so a blank one is far
-   * likelier to be a browser that did not prefill than a decision to erase.
-   *
-   * ⚠ THE TEST IS LOCK-OUT, NOT OWNERSHIP — do not generalise it. `mobile` and
-   * `display_name` stay freely clearable a few lines below, deliberately:
-   * clearing either costs the guest nothing they cannot undo.
-   *
-   * ⛔ AND THIS IS NOT `.is('email', null)`. That is the JOIN DOOR's rule
-   * (lib/event-account-link.ts:47 — "only fills a NULL email so we never
-   * clobber a different address"), which refuses to CHANGE an existing value —
-   * exactly the thing the owner permitted. Same column, opposite question.
-   * Copying that shape here would implement a rule nobody asked for.
-   *
-   * Omitting the key — rather than writing back `before.email` — also keeps this
-   * safe when the `before` read fails: no value, no write, nothing lost.
+   * 📵 THE REPLY NO LONGER CARRIES AN EMAIL (owner 2026-09-29, DECISION_LOG "NO
+   * EMAIL TO GUESTS — THE QR AND THE LINK DO EVERYTHING": *"No email. Either use
+   * the qr and link only"*). The form has no email box and this action reads
+   * none, so a guest's reply can neither set nor clear `guests.email` — whatever
+   * the couple recorded stays exactly as it is. (Superseded: the 2026-08-23
+   * "No for email, yes for the rest" rule about a guest changing the address.)
    */
   /** What the row will actually hold afterwards — the change report must agree. */
-  const storedEmail = contactEmail ?? ((before?.email as string | null) ?? null);
+  const storedEmail = (before?.email as string | null) ?? null;
 
   /**
    * ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25) — an OFF field is
@@ -469,14 +454,7 @@ export async function submitRsvp(
       // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
       // phone number corrected the week of the event is worth more then than
       // at any other time.
-      // 🔒 An empty box leaves the stored address alone — see the block above.
-      // ⚠ INLINE, NOT HOISTED TO A CONST. `only-the-answer-freezes.test.ts`
-      // slices this payload and requires the literal `email:` inside it and
-      // outside the frozen branch. A hoisted `...emailPatch` moves the literal
-      // out of the slice and turns that shipped guard RED — measured. Keeping
-      // it inline means no existing guard has to be re-pointed to fit this
-      // change, which is the safer of the two legal options.
-      ...(contactEmail ? { email: contactEmail } : {}),
+      // 📵 No `email` here — the reply does not collect one (see above).
       mobile: mobileToWrite,
       display_name: contactName,
       updated_at: new Date().toISOString(),
@@ -564,7 +542,24 @@ export async function submitRsvp(
   // is hidden by CSS after a "No", and a hidden input still POSTS — a guest who
   // took a selfie, ticked both boxes and then tapped "No thanks" must not be
   // enrolled by the leftovers. This only ever NARROWS the consent gate.
-  const taggingWish = parseFaceTaggingAnswer(formData.get(FACE_TAGGING_FIELD));
+  let taggingWish = parseFaceTaggingAnswer(formData.get(FACE_TAGGING_FIELD));
+  // 🗑 "NO THANKS" AFTER A SELFIE (owner 2026-09-29, OWNER ANSWERS (3)): with a
+  // live enrollment, a "No" deletes the selfie and the automatic tags — but ONLY
+  // with the one confirm (`SELFIE_DELETE_FIELD`). An unconfirmed "No" changes
+  // nothing at all, so a stray tap can never erase a face on its own.
+  if (taggingWish === false) {
+    const { count: liveSelfies, error: liveErr } = await admin
+      .from('guest_face_enrollments')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .is('revoked_at', null);
+    if (liveErr) console.error('[supabase-error] app/[slug]/actions.ts · from:guest_face_enrollments.count', liveErr);
+    if ((liveSelfies ?? 0) > 0) {
+      if (clean(formData.get(SELFIE_DELETE_FIELD)) === '1') await eraseGuestFaceData(admin, eventId, guestId);
+      else taggingWish = undefined;
+    }
+  }
   if (taggingWish !== undefined) {
     const { error: wishErr } = await admin
       .from('guests')
@@ -879,22 +874,8 @@ export async function submitRsvp(
     before this.
   */
   await everyCopyIsNowStale(eventId);
-  /*
-    FORM FIRST, THEN SIGN UP — ONE ADDRESS, ONE PRESS (owner 2026-09-25).
-    The reply's own email box IS the sign-up: when the guest ticked "keep this
-    invitation on my phone · I agree to the Terms", the same Save emails the
-    passwordless sign-in link to the address the row now holds. This used to
-    happen only on the invite arrival's Reply door; the `/{slug}` sheet saved
-    the address and sent nothing, and a second box then asked for it again.
-    AFTER the write (a failed save sends no link) and BEFORE the redirect, which
-    throws. Sends at most once per browser per event (lib/guest-one-path.ts).
-  */
-  await sendKeepLinkOnce({
-    eventId,
-    guestId,
-    email: storedEmail,
-    termsAgreed: hasAgreedToTerms(formData.get(TERMS_FIELD)),
-  });
+  // 📵 Saving the reply sends NOTHING (owner 2026-09-29, "NO EMAIL TO GUESTS") —
+  // "Save to my account" is the thank-you's own press, with no email in it.
   // `details` = their information was saved and their answer was left alone
   // (the list is final). `refused` additionally says an attempted CHANGE of
   // answer did not take — the one outcome a guest would otherwise never learn.
@@ -972,7 +953,15 @@ async function nameTheSeats(
         confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
         created_at: (r.created_at as string | null) ?? null,
       }));
-      const ops = planSeatNames(seatNames, seats, plusOneSeats(primary));
+      // 🔒 A seat whose person linked their own account keeps their name
+      // (owner 2026-09-29, OWNER ANSWERS (10)) — asked here, not only on screen.
+      const seatIds = seats.map((s) => s.guest_id);
+      const { data: linkedRows, error: linkedErr } = seatIds.length
+        ? await admin.from('event_members').select('guest_id').eq('event_id', eventId).in('guest_id', seatIds)
+        : { data: [], error: null };
+      if (linkedErr) return { ok: false, error: 'Their name did not save — try again.' };
+      const linkedSeats = new Set(((linkedRows ?? []) as Array<{ guest_id: string | null }>).map((r) => r.guest_id).filter((x): x is string => Boolean(x)));
+      const ops = lockLinkedSeatNames(planSeatNames(seatNames, seats, plusOneSeats(primary)), linkedSeats);
       const stamp = new Date().toISOString();
       let failed = false;
       let namedCount = 0;
@@ -1074,26 +1063,19 @@ async function nameTheSeats(
 }
 
 /**
- * Guest withdraws face-recognition consent (RA 10173 — the data subject's
- * right to withdraw / erasure). This is a real erasure, not just a revoke:
- * we (1) null the biometric `face_vector`, (2) delete the enrolled selfie
- * object from R2, and (3) tombstone the enrollment via `revoked_at`, so the
- * privacy policy's promise that withdrawal "permanently deletes your face
- * vector and enrolled selfie" is literally true. The selfie display photo is
- * also cleared (reverting to initials); a Gmail avatar, being display-only
- * and non-biometric, is left intact. Admin-client + guest-session authorized,
- * the same trust model as submitRsvp.
+ * THE ERASURE ITSELF — face vector nulled + enrollment tombstoned, the guest's
+ * own selfie objects deleted from R2, a linked account's face profile nulled,
+ * the selfie display photo cleared, and every live auto-face tag pulled. ONE
+ * body for both doors that remove a guest's face data: "Delete my face data"
+ * (`withdrawFaceConsent`) and the RSVP's "No thanks" after a selfie, confirmed
+ * (owner 2026-09-29, OWNER ANSWERS (3): *"Selfie: yes"* — "same path as the
+ * existing delete button"). Never two copies of an erasure.
  */
-export async function withdrawFaceConsent(
+async function eraseGuestFaceData(
+  admin: ReturnType<typeof createAdminClient>,
   eventId: string,
   guestId: string,
-  _formData: FormData,
 ): Promise<void> {
-  const session = await readGuestSession();
-  if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
-    return;
-  }
-  const admin = createAdminClient();
   const now = new Date().toISOString();
 
   // Grab the live enrollment rows FIRST so we can erase the R2 selfie objects
@@ -1192,6 +1174,35 @@ export async function withdrawFaceConsent(
     .eq('guest_id', guestId)
     .eq('source', 'auto_face')
     .is('removed_at', null);
+
+  // The tags pulled above are what the story's veto is built from — every copy
+  // of the story, recap, keepsake and share card is thrown away here, in the
+  // one erasure, whichever door called it.
+  await everyCopyIsNowStale(eventId);
+}
+
+/**
+ * Guest withdraws face-recognition consent (RA 10173 — the data subject's
+ * right to withdraw / erasure). This is a real erasure, not just a revoke:
+ * we (1) null the biometric `face_vector`, (2) delete the enrolled selfie
+ * object from R2, and (3) tombstone the enrollment via `revoked_at`, so the
+ * privacy policy's promise that withdrawal "permanently deletes your face
+ * vector and enrolled selfie" is literally true. The selfie display photo is
+ * also cleared (reverting to initials); a Gmail avatar, being display-only
+ * and non-biometric, is left intact. Admin-client + guest-session authorized,
+ * the same trust model as submitRsvp.
+ */
+export async function withdrawFaceConsent(
+  eventId: string,
+  guestId: string,
+  _formData: FormData,
+): Promise<void> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
+    return;
+  }
+  const admin = createAdminClient();
+  await eraseGuestFaceData(admin, eventId, guestId);
 
   const { data: ev } = await admin
     .from('events')

@@ -31,29 +31,39 @@ export const PASS_CARD_ROUTE = '/api/guest/pass-card';
 export const PASS_CARDS_ZIP_ROUTE = '/api/guest/pass-card/all';
 
 /**
- * 🔤 EVERY USER-FACING WORD FOR THE CARD, IN ONE PLACE. The owner has floated
- * "Digital tickets" for it (controller 2026-09-29); a rename is a change to
- * this object and nothing else — the buttons, the lines, the filenames and the
+ * 🔤 EVERY USER-FACING WORD FOR THE CARD, IN ONE PLACE — a rename is a change to
+ * this object and nothing else: the buttons, the lines, the filenames and the
  * zip's name all read it.
+ *
+ * 🎫 IT IS A TICKET (owner 2026-09-29, DECISION_LOG "OWNER ANSWERS — TEN OPEN
+ * QUESTIONS" (4): *"Digital ticket"*): the saved PNG is a **Digital ticket**,
+ * the PDF a **Printed ticket**; the guest reads "Your ticket" / "Save my
+ * ticket"; the couple "Download all tickets (.zip)". Never "pass", "pass image"
+ * or "QR card" (prototype guest_ticket_flow_2026-09-29.html, rule 9).
  */
 export const PASS_CARD_WORDS = {
-  /** The thing, singular / plural ("pass" / "passes"). */
-  noun: 'pass',
-  plural: 'passes',
+  /** The thing, singular / plural ("ticket" / "tickets"). */
+  noun: 'ticket',
+  plural: 'tickets',
+  /** The saved PNG, and the printed PDF. */
+  digitalTicket: 'Digital ticket',
+  printedTicket: 'Printed ticket',
+  /** The guest's own heading. */
+  yours: 'Your ticket',
   /** The ticket design's corner label. */
-  kind: 'Guest pass',
-  saveOwn: 'Save to Photos',
-  saveAll: 'Save all passes',
-  saveOf: (first: string) => `Save ${first}’s pass`,
+  kind: 'Guest ticket',
+  saveOwn: 'Save my ticket',
+  saveAll: 'Save all tickets',
+  saveOf: (first: string) => `Save ${first}’s ticket`,
   /** The couple's per-guest download (free). */
-  downloadOne: 'Download pass (PNG)',
+  downloadOne: 'Download ticket (PNG)',
   /** The couple's zip of every card (Event Hub Pro). */
-  downloadAll: 'Download all passes (.zip)',
+  downloadAll: 'Download all tickets (.zip)',
   /** The Prints panel's block and its two outputs (owner: "print outs are PDF. digital versions are png"). */
-  section: 'The pass guests save',
-  style: 'Pass style',
-  digital: 'Digital (PNG)',
-  print: 'Print (PDF)',
+  section: 'The ticket guests save',
+  style: 'Ticket style',
+  digital: 'Digital ticket (PNG)',
+  print: 'Printed ticket (PDF)',
 } as const;
 
 /** The three looks, as the couple reads them in the one dropdown. */
@@ -213,7 +223,7 @@ export type PassCardVerdict =
  * replied (the `/api/og` existence-oracle lesson). The page, which already
  * knows who is asking, says the plain line.
  */
-export const PASS_CARD_REFUSED = 'No pass here.';
+export const PASS_CARD_REFUSED = `No ${PASS_CARD_WORDS.noun} here.`;
 
 export function decidePassCardAccess(input: {
   session: { guest_id: string; event_id: string } | null;
@@ -268,7 +278,7 @@ function isoDay(d: string | null | undefined): string | null {
 }
 
 /**
- * `Maria-Santos-pass-Indalecio-Claire-2026-12-18.png` — the PERSON first, so a
+ * `Maria-Santos-ticket-Indalecio-Claire-2026-12-18.png` — the PERSON first, so a
  * camera roll holding six of them reads as six people. The couple's "&" is a
  * separator, not a word.
  */
@@ -283,7 +293,7 @@ export function passCardFileName(input: {
   return [who, fileSafe(PASS_CARD_WORDS.noun), couple || null, day].filter(Boolean).join('-') + '.png';
 }
 
-/** `Indalecio-Claire-2026-12-18-passes.zip` — the couple's own download of every card. */
+/** `Indalecio-Claire-2026-12-18-tickets.zip` — the couple's own download of every card. */
 export function passCardsZipFileName(eventName: string | null | undefined, eventDate: string | null | undefined): string {
   const couple = fileSafe((eventName ?? '').replace(/\s*(?:&|\+|\band\b)\s*/gi, ' ')) || 'Event';
   const day = isoDay(eventDate);

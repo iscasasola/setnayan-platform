@@ -132,16 +132,16 @@ test('every refusal after sign-in is the SAME 404 and the same words — no name
 test('the file is named for the PERSON, then the couple and the day — safe characters only', () => {
   assert.equal(
     passCardFileName({ guestName: 'Maria Santos', eventName: 'Indalecio & Claire', eventDate: '2026-12-18' }),
-    'Maria-Santos-pass-Indalecio-Claire-2026-12-18.png',
+    'Maria-Santos-ticket-Indalecio-Claire-2026-12-18.png',
   );
   assert.equal(
     passCardFileName({ guestName: 'Lola Nena Peñafiel', eventName: 'José and Ñiña', eventDate: '2026-12-18' }),
-    'Lola-Nena-Penafiel-pass-Jose-Nina-2026-12-18.png',
+    'Lola-Nena-Penafiel-ticket-Jose-Nina-2026-12-18.png',
     'accents folded',
   );
   const evil = passCardFileName({ guestName: 'A"\r\nSet-Cookie: x=1', eventName: '../../etc', eventDate: 'not a date' });
   assert.match(evil, /^[A-Za-z0-9-]+\.png$/, 'nothing that can end a header or a path survives');
-  assert.equal(passCardsZipFileName('Indalecio & Claire', '2026-12-18'), 'Indalecio-Claire-2026-12-18-passes.zip');
+  assert.equal(passCardsZipFileName('Indalecio & Claire', '2026-12-18'), 'Indalecio-Claire-2026-12-18-tickets.zip');
   assert.deepEqual(uniqueFileNames(['A-pass.png', 'B-pass.png', 'a-pass.png']), ['A-pass.png', 'B-pass.png', 'a-pass-2.png'], 'two guests of one name never overwrite each other');
 });
 
@@ -341,8 +341,18 @@ test('the page withholds the card for pending / can’t come, and says the plain
 test('every user-facing word for the card comes from ONE constant (a rename is one line)', () => {
   for (const f of ['app/[slug]/_components/your-guests.tsx', 'app/[slug]/_components/guest-code-keepers.tsx', 'app/dashboard/[eventId]/guests/_components/guest-pass-card-link.tsx']) {
     const s = src(f);
-    assert.doesNotMatch(s, /'Save all passes'|"Save all passes"|>Save all passes<|label="Save to Photos"/, `${f} spells the words itself`);
+    assert.doesNotMatch(s, /'Save all (passes|tickets)'|"Save all (passes|tickets)"|>Save all (passes|tickets)<|label="Save (to Photos|my ticket)"/, `${f} spells the words itself`);
   }
-  assert.equal(PASS_CARD_WORDS.digital, 'Digital (PNG)');
-  assert.equal(PASS_CARD_WORDS.print, 'Print (PDF)');
+  // 🎫 IT IS A TICKET (owner 2026-09-29, "OWNER ANSWERS — TEN OPEN QUESTIONS" (4)).
+  assert.equal(PASS_CARD_WORDS.digital, 'Digital ticket (PNG)');
+  assert.equal(PASS_CARD_WORDS.print, 'Printed ticket (PDF)');
+  assert.equal(PASS_CARD_WORDS.saveOwn, 'Save my ticket');
+  assert.equal(PASS_CARD_WORDS.saveAll, 'Save all tickets');
+  assert.equal(PASS_CARD_WORDS.yours, 'Your ticket');
+  assert.equal(PASS_CARD_WORDS.downloadAll, 'Download all tickets (.zip)');
+  // …and no guest-facing "pass" is spelt by hand where the card is meant.
+  for (const f of ['app/[slug]/_components/your-guests.tsx', 'app/[slug]/welcome/_components/plus-one-door.tsx']) {
+    const s = src(f);
+    assert.doesNotMatch(s, />[^<{]*\b(Y|y)our pass\b|just show my pass|’s pass\b/, `${f} still calls the ticket a pass`);
+  }
 });

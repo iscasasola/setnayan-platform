@@ -7,7 +7,7 @@ import { REQUEST_ANSWERS, REQUEST_MAX_SEATS } from '@/lib/guest-requests';
 /**
  * ASK TO JOIN — the request form (guest pathway prototype frame 7b, owner
  * 2026-09-26/27). The person types their name (the guest list is NEVER shown),
- * answers the RSVP and leaves a way to reach them. It produces a REQUEST, not an
+ * answers the RSVP (📵 no email — owner 2026-09-29). It produces a REQUEST, not an
  * admission: the join actions write no membership and no guest session, and the
  * couple Keeps, Links or Removes it in Guest List → Requests.
  *
@@ -15,7 +15,7 @@ import { REQUEST_ANSWERS, REQUEST_MAX_SEATS } from '@/lib/guest-requests';
  * `rsvp_ask_config` the RSVP enforces), and the server reads back only those
  * (`readRequestAnswers`). Field names match the RSVP's own
  * (`rsvp_status`, `meal_preference`, `dietary_restrictions`, `guest_note`,
- * `contact_email`, `contact_mobile`).
+ * `contact_mobile`).
  *
  * A server component — nothing here needs JavaScript to post.
  */
@@ -114,23 +114,9 @@ export function RequestForm({
         </div>
       ) : null}
 
-      {accountEmail ? null : (
-        <div className="space-y-1.5">
-          <label htmlFor="request-email" className="block text-sm font-medium text-ink">
-            Email <span className="font-normal text-ink/60">— we write here once you are in</span>
-          </label>
-          <input
-            id="request-email"
-            name="contact_email"
-            type="email"
-            required={!rsvpAsks(ask, 'mobile')}
-            autoComplete="email"
-            inputMode="email"
-            className="input-field"
-          />
-        </div>
-      )}
-
+      {/* 📵 NO EMAIL BOX (owner 2026-09-29, "NO EMAIL TO GUESTS"): the requester
+          gets their own key on Send — the pending Digital ticket and their link —
+          so nothing needs an address to reach them. */}
       {rsvpAsks(ask, 'mobile') ? (
         <div className="space-y-1.5">
           <label htmlFor="request-mobile" className="block text-sm font-medium text-ink">

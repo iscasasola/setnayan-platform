@@ -125,6 +125,8 @@ export type PrintSetData = {
   story?: PrintStoryChapter[];
   /** Is the theme's still (or the couple's hero) in `images.still`? */
   hasStill: boolean;
+  /** 🖼 The couple chose their own photo for the Our Story poster (`images.posterBg`). */
+  hasPosterBg?: boolean;
   hasEventQr: boolean;
   /** The event type's own word, capitalised ("Wedding", "Debut") — the pass card's when-line. */
   eventWord?: string;
@@ -148,6 +150,14 @@ export type PrintPass = {
   bringing?: string | null;
   /** How many NAMED companions who are coming — the card's "and 1 guest". 0/absent = none. */
   party?: number | null;
+  /**
+   * 🔓 A REQUEST NOT YET ACCEPTED (owner 2026-09-29, "IT IS THEIR DIGITAL TICKET,
+   * IN A 'REQUEST PENDING' STATE"; prototype guest_ticket_flow_2026-09-29.html
+   * frame B): the band's second line ("waiting for Indalecio & Claire"). Set →
+   * no Table / Arrive / party, a dashed "Request pending" band where the facts
+   * sit, and "Not valid at the door yet" at the foot. Classic layout only.
+   */
+  pending?: string | null;
 };
 
 // ─── Fonts ──────────────────────────────────────────────────────────────────
@@ -472,6 +482,13 @@ function still(ops: PrintOp[], look: PrintLook, data: PrintSetData, w: number, h
     ops.push({ t: 'rect', x: -b, y: y0, w: w + 2 * b, h: (bh - fadeFrom) / steps + 0.5, fill: look.paper, opacity: Math.min(1, (i + 1) / steps) });
   }
   return { top: bh, left: 0 };
+}
+
+/** The couple's own poster photo, full bleed, under a paper veil so the story reads over it. */
+function posterGround(ops: PrintOp[], look: PrintLook, w: number, h: number, b: number): { top: number; left: number } {
+  ops.push({ t: 'image', ref: 'posterBg', x: -b, y: -b, w: w + 2 * b, h: h + 2 * b });
+  ops.push({ t: 'rect', x: -b, y: -b, w: w + 2 * b, h: h + 2 * b, fill: look.paper, opacity: 0.8 });
+  return { top: 0, left: 0 };
 }
 
 /** The two names, stacked: first · and · second. `layer` = foil where the theme foils. */
@@ -1406,7 +1423,10 @@ function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
   const { look, data } = ctx;
   const front = sheet('story-poster', ctx);
   const { w, h, bleed } = front;
-  const placed = still(front.ops, look, data, w, h, bleed, 0.3);
+  // 🖼 The couple's own photo behind the whole poster (owner 2026-09-29, OWNER
+  // ANSWERS (1)), veiled in the paper colour so every line reads; else the
+  // theme's picture, as before.
+  const placed = data.hasPosterBg ? posterGround(front.ops, look, w, h, bleed) : still(front.ops, look, data, w, h, bleed, 0.3);
   const left = placed.left;
   const cx = left + (w - left) / 2;
   const inner = w - left - 140;
@@ -1787,17 +1807,17 @@ function cardMark(ops: PrintOp[], look: PrintLook, data: PrintSetData, cx: numbe
 }
 
 /** "SCANS ONCE AT THE DOOR" · and, on a free event, "● SETNAYAN". On paper, "As of <date>" above it. */
-function cardFoot(ops: PrintOp[], look: PrintLook, data: PrintSetData, u: number, x0: number, x1: number, y: number, mode: PrintMode) {
+function cardFoot(ops: PrintOp[], look: PrintLook, data: PrintSetData, u: number, x0: number, x1: number, y: number, mode: PrintMode, door = 'Scans once at the door') {
   if (mode === 'print' && data.asOf) {
     fitLine(ops, data.asOf, (x0 + x1) / 2, y - 13 * u, { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 7 * u), color: look.muted, align: 'center', maxWidth: x1 - x0, opacity: 0.8 });
   }
   const o = { font: look.bodyFont, size: 9.5 * u, color: look.muted, caps: true, tracking: 0.16 } as const;
   if (data.details.setnayanMark) {
-    fitLine(ops, 'Scans once at the door', x0, y, { ...o, align: 'left', maxWidth: (x1 - x0) * 0.66 });
+    fitLine(ops, door, x0, y, { ...o, align: 'left', maxWidth: (x1 - x0) * 0.66 });
     const w = fitLine(ops, 'Setnayan', x1, y, { ...o, align: 'right', tracking: 0.2 });
     ops.push({ t: 'circle', cx: x1 - w - 5 * u, cy: y - 3.2 * u, r: 3 * u, fill: look.accent });
   } else {
-    fitLine(ops, 'Scans once at the door', (x0 + x1) / 2, y, { ...o, align: 'center', maxWidth: x1 - x0 });
+    fitLine(ops, door, (x0 + x1) / 2, y, { ...o, align: 'center', maxWidth: x1 - x0 });
   }
 }
 
@@ -1831,11 +1851,12 @@ function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Pri
   const footY = h - Math.max(X(18), SAFE_PT) - X(2);
   const ruleY = footY - X(22);
   ops.push({ t: 'rect', x: pad, y: ruleY, w: w - pad * 2, h: Math.max(0.4, X(1)), fill: look.ink, opacity: 0.16 });
-  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
+  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode, pass.pending ? 'Not valid at the door yet' : undefined);
 
-  // the middle — name, party, the code, the facts — centred between the two
-  const party = partyLine(pass.party);
-  const facts = passCardFacts(pass);
+  // the middle — name, party, the code, the facts — centred between the two.
+  // A pending request carries none of them: the band takes the facts' place.
+  const party = pass.pending ? null : partyLine(pass.party);
+  const facts = pass.pending ? [{ label: '', value: '' }] : passCardFacts(pass);
   const tile = X(176);
   const tilePad = X(10);
   const blockH = X(30) + (party ? X(20) : 0) + X(14) + tile + tilePad * 2 + (facts.length ? X(14) + X(35) : 0);
@@ -1851,7 +1872,13 @@ function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Pri
   const size = Math.min(tile, ruleY - X(8) - y - tilePad * 2 - (facts.length ? X(49) : 0));
   codeTile(ops, pass, w / 2 - size / 2 - tilePad, y, size, tilePad, X(16));
   y += size + tilePad * 2 + X(14);
-  if (facts.length) {
+  if (pass.pending) {
+    // The dashed band (frame B) — "REQUEST PENDING" over "waiting for <couple>".
+    const bw = w - pad * 2 - X(20);
+    ops.push({ t: 'rect', x: (w - bw) / 2, y: y - X(6), w: bw, h: X(44), stroke: look.accent, sw: Math.max(0.5, X(1.2)), dash: true });
+    fitLine(ops, 'Request pending', w / 2, y + X(12), { font: look.headFont, size: X(17), color: look.heading, align: 'center', caps: true, tracking: 0.12, maxWidth: bw - X(16) });
+    fitLine(ops, pass.pending, w / 2, y + X(29), { font: look.bodyFont, size: X(11), color: look.muted, align: 'center', maxWidth: bw - X(16) });
+  } else if (facts.length) {
     const gap = X(100);
     facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, y + X(9), u, 20, gap - X(8)));
   }

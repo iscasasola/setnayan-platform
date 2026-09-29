@@ -180,13 +180,13 @@ test('4 · flipping a DRAFT switch changes the canvas form, before Apply', async
 
 test('4 · every switched-on question is shown in the canvas, none waiting on "attending"', async () => {
   const html = await card({ ask: {} });
-  for (const name of ['rsvp_status', 'plus_one_first_name_1', 'meal_preference', 'dietary_restrictions', 'song_title', 'guest_note', 'contact_email', 'contact_mobile', 'terms_agreed']) {
+  for (const name of ['rsvp_status', 'plus_one_first_name_1', 'meal_preference', 'dietary_restrictions', 'song_title', 'guest_note', 'contact_mobile', 'terms_agreed']) {
     assert.match(html, new RegExp(`name="${name}"`), `${name} is missing from the canvas`);
   }
   const plus = html.indexOf('id="plus-ones"');
   assert.doesNotMatch(html.slice(plus, plus + 200), /attending-reveal/, 'the canvas hides the plus-one question behind a tap');
   // …in the reference order: answer · who you bring · meal · dietary · song · note · contact · Terms.
-  const order = ['name="rsvp_status"', 'id="plus-ones"', 'name="meal_preference"', 'name="dietary_restrictions"', 'name="song_title"', 'name="guest_note"', 'name="contact_email"', 'name="terms_agreed"'];
+  const order = ['name="rsvp_status"', 'id="plus-ones"', 'name="meal_preference"', 'name="dietary_restrictions"', 'name="song_title"', 'name="guest_note"', 'name="contact_mobile"', 'name="terms_agreed"'];
   const at = order.map((k) => html.indexOf(k));
   assert.deepEqual([...at].sort((a, b) => a - b), at, `the questions are out of order: ${at.join(',')}`);
 });

@@ -330,6 +330,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
               last: s.last,
               meal: s.meal,
               dietary: s.dietary,
+              linked: s.linked,
             })),
           }}
           eventId={event.event_id as string}

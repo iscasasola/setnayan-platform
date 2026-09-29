@@ -20,6 +20,7 @@
 // slug-only — see its doc block).
 import { plusOneSeats } from '@/lib/guests';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
+import { linkedSeatIds } from './plus-one-seats.server';
 import { cache } from 'react';
 import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
@@ -1640,6 +1641,7 @@ export const loadGuestContext = cache(
       if (seatErr) {
         logQueryError('loadGuestContext.seats', seatErr, { event_id: event.event_id }, 'graceful_degrade');
       } else {
+        const linked = await linkedSeatIds(admin, event.event_id, (seatRows ?? []).map((r) => r.guest_id as string));
         plusOneSeatRows = (seatRows ?? []).map((r) => {
           const placeholder = isPlaceholderSeat({
             guest_id: r.guest_id as string,
@@ -1653,6 +1655,7 @@ export const loadGuestContext = cache(
             last: placeholder ? null : ((r.last_name as string | null) ?? null),
             meal: (r.meal_preference as string | null) ?? null,
             dietary: (r.dietary_restrictions as string | null) ?? null,
+            linked: linked.has(r.guest_id as string),
           };
         });
       }

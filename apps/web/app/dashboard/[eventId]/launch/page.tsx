@@ -1120,6 +1120,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         storyEmpty: !storyHasMoments(printStoryChapters(printEvent.love_story)),
         /* 🎫 The pass guests save — its saved look and the couple's zip's name. */
         passDesign: stored.passDesign,
+        /* 🖼 The Our Story poster's own photo (owner 2026-09-29). */
+        posterPhoto: stored.posterPhoto ?? null,
         passCardsZip: passCardsZipFileNameOf(printEvent),
         formats: {
           pass: formatFor('pass', one(search.pass_format))!,
@@ -1197,13 +1199,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       const rsvpItem = {
         page: rsvpSrc && rsvpRepliedSrc ? (
           <>
-            {/* 📮 The reminder-emails hint (owner 2026-09-25 — every feature
-                gets a first-visit tour), on the item's PICTURE: Details mounts
-                a picture only when its item is first opened (every editor is
-                mounted at once), so it shows on the first open of RSVP and
-                never stacks on another item's tour — nor on the Maker's very
-                first visit. */}
-            {!firstVisit ? <MiniTour tourKey="customer_guest_reminders_v1" storeShell={storeShell} /> : null}
             <MakerRsvpCanvas questionsSrc={rsvpSrc} repliedSrc={rsvpRepliedSrc} stamp={rsvpStamp} />
           </>
         ) : (

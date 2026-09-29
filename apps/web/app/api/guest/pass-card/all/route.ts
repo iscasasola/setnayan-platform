@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getHostUserId } from '@/lib/host-gate';
 import { printOwnsPro } from '@/lib/print-set.server';
-import { PASS_CARD_ZIP_MAX, PASS_CARD_ZIP_PRO_MESSAGE, passCardDesignFrom, passCardsZipFileName, uniqueFileNames } from '@/lib/pass-card';
+import { PASS_CARD_WORDS, PASS_CARD_ZIP_MAX, PASS_CARD_ZIP_PRO_MESSAGE, passCardDesignFrom, passCardsZipFileName, uniqueFileNames } from '@/lib/pass-card';
 import { eligiblePassCardGuests, loadPassCardKit, passCardFileNameFor, renderPassCardFor } from '@/lib/pass-card.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return new NextResponse('Sign in to download your passes.', { status: 401 });
+  if (!user) return new NextResponse(`Sign in to download your ${PASS_CARD_WORDS.plural}.`, { status: 401 });
   if (!(await getHostUserId(eventId))) {
     return new NextResponse('Only the hosts of this event can download its passes.', { status: 403 });
   }
@@ -66,7 +66,7 @@ export async function GET(req: Request) {
   const { guests, measured } = await eligiblePassCardGuests(admin, eventId);
   if (!measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
   if (guests.length === 0) {
-    return new NextResponse('No guest has a pass yet — a pass appears once a guest is on your list and coming.', { status: 409 });
+    return new NextResponse(`No guest has a ${PASS_CARD_WORDS.noun} yet — a ${PASS_CARD_WORDS.noun} appears once a guest is on your list and coming.`, { status: 409 });
   }
   if (guests.length > PASS_CARD_ZIP_MAX) {
     return new NextResponse(

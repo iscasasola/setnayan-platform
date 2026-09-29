@@ -32,7 +32,7 @@ export async function fetchPassCards(hrefs: readonly string[]): Promise<File[] |
     const res = await fetch(href, { credentials: 'same-origin' }).catch(() => null);
     if (!res || !res.ok) {
       const said = res ? (await res.text().catch(() => '')).trim() : '';
-      return { message: said && said.length < 200 ? said : 'Could not get your pass just now. Try again.' };
+      return { message: said && said.length < 200 ? said : 'Could not get your ticket just now. Try again.' };
     }
     const blob = await res.blob();
     out.push(new File([blob], fileNameFromDisposition(res.headers.get('content-disposition')), { type: 'image/png' }));

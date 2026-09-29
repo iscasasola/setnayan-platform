@@ -75,3 +75,18 @@ export function dayOfFaceCatchShows(input: {
   if (input.enrolled) return false;
   return input.wish !== false;
 }
+
+/**
+ * 🗑 "NO THANKS" AFTER A SELFIE (owner 2026-09-29, DECISION_LOG "OWNER ANSWERS —
+ * TEN OPEN QUESTIONS" (3): *"Selfie: yes"* — a guest who picks "No thanks" after
+ * giving a selfie → one confirm → their selfie and automatic face tags are
+ * deleted, through the same erasure as the "Delete my face data" button).
+ * The confirm posts this field as `1`; without it a "No" never deletes.
+ */
+export const SELFIE_DELETE_FIELD = 'delete_selfie';
+export const SELFIE_DELETE_CONFIRM = {
+  title: 'Delete your selfie?',
+  body: 'Your selfie and the photos we tagged you in automatically are removed. You can still find yourself in the album by hand.',
+  yes: 'Yes, delete my selfie',
+  keep: 'Keep it — tag me',
+} as const;

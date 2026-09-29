@@ -174,7 +174,7 @@ import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
-import { hostPitchShows, replyOffersKeep } from '@/lib/guest-one-path';
+import { hostPitchShows } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
 import { marchPlaceOf } from '@/lib/march-place';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
@@ -1992,7 +1992,7 @@ export async function SiteBody({
               state={account}
               eventId={event.event_id}
               slug={event.slug ?? ''}
-              knownEmail={guest.email ?? null}
+              personalLink={invitationUrl}
               photosClosing={accountlessPhotosClosed}
               eventWord={clientWords.eventWord}
             />
@@ -2539,7 +2539,6 @@ export async function SiteBody({
                 flash={rsvpFlash}
                 replyLocked={plan.guestListClosed}
                 profileDetails={profileDetails}
-                keepOffer={account ? replyOffersKeep(account) : false}
                 hostPitch={account ? hostPitchShows(account) : false}
                 ask={rsvpAsk}
                 /* "Ask one question at a time" — the SAME stored value the RSVP

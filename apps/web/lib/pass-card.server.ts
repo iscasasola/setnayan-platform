@@ -306,6 +306,7 @@ export async function renderPassCardFor(
   kit: PassCardKit,
   g: PassCardGuest,
   design: PassCardDesign = DEFAULT_PASS_CARD_DESIGN,
+  opts: { pending?: string | null } = {},
 ): Promise<Uint8Array> {
   const { set } = kit;
   if (!g.qr_token || !set.event.slug) throw new Error('pass-card: no code to draw');
@@ -318,7 +319,12 @@ export async function renderPassCardFor(
     width: 720,
   });
   const ref = `qr-${g.guest_id}`;
-  const doc = layoutPassCard({ look: set.look, data: set.data, mode: 'screen', foil: false }, passCardPass(kit, g, ref), design);
+  // 🔓 A pending request's ticket (frame B): no facts, the band, and always the
+  // Classic card — the one layout that draws the band.
+  const pass = opts.pending
+    ? { ...passCardPass(kit, g, ref), seat: null, arrive: null, party: 0, bringing: null, pending: opts.pending }
+    : passCardPass(kit, g, ref);
+  const doc = layoutPassCard({ look: set.look, data: set.data, mode: 'screen', foil: false }, pass, opts.pending ? 'classic' : design);
   return renderPassCardPng(doc, { ...set.images, [ref]: { bytes: new Uint8Array(qr), mime: 'image/png' } });
 }
 

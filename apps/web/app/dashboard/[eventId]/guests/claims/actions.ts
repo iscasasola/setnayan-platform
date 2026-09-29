@@ -11,6 +11,7 @@ import { readKeepLine, type KeepLine } from '@/lib/unlisted-guests';
 import { quickCreateGroup } from '../quick-add-actions';
 import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
 import { closeRequestClaim, issueRequestKey, type IssuedKey } from '@/lib/guest-request-key';
+import { LINKED_INTO_PREFIX, linkedIntoFrom, linkedIntoTag, undoStillOpen } from '@/lib/request-key';
 
 /** Back to the page with a sentence the couple can act on. */
 function back(eventId: string, message: string): never {
@@ -18,14 +19,16 @@ function back(eventId: string, message: string): never {
 }
 
 /**
- * After Keep or Link from the Requests page, say what reached the person — the
- * key went by email, or they left no email and the couple shares it. The
- * roster's inline buttons (no `from`) keep revalidating in place.
+ * After Keep or Link from the Requests page, come back saying it is done. 📵
+ * Nothing is emailed (owner 2026-09-29, "NO EMAIL TO GUESTS"): the person holds
+ * their key already, and reopening it now opens their invitation. The roster's
+ * inline buttons (no `from`) keep revalidating in place.
  */
-function doneOnRequests(eventId: string, formData: FormData, issued: IssuedKey): void {
+function doneOnRequests(eventId: string, formData: FormData, issued: IssuedKey, who: string): void {
   if (String(formData.get('from') ?? '') !== 'requests') return;
-  const sent = issued.emailed ? 'emailed' : issued.noEmail ? 'no_email' : 'not_sent';
-  redirect(`/dashboard/${eventId}/guests/claims?done=${sent}${issued.bound ? '&bound=1' : ''}`);
+  // `who` = the row that now holds their seat — the Requests page draws it as
+  // "Accepted · just now" with Send invite · Copy message · Undo (frame G2).
+  redirect(`/dashboard/${eventId}/guests/claims?done=kept&who=${encodeURIComponent(who)}${issued.bound ? '&bound=1' : ''}`);
 }
 
 /**
@@ -187,7 +190,7 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
   revalidatePath(`/dashboard/${eventId}/guests`);
-  doneOnRequests(eventId, formData, issued);
+  doneOnRequests(eventId, formData, issued, guestId);
 }
 
 /** REMOVE: soft-delete the unlisted guest and revoke any account membership. */
@@ -273,6 +276,82 @@ export async function removeGuestAction(eventId: string, formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
   revalidatePath(`/dashboard/${eventId}/guests`);
+  // Frame G2: the declined row stays in view — "his QR will say …" — with Undo.
+  if (String(formData.get('from') ?? '') === 'requests') {
+    redirect(`/dashboard/${eventId}/guests/claims?done=declined&who=${encodeURIComponent(guestId)}`);
+  }
+}
+
+/**
+ * UNDO ACCEPT (frame G2) — within `UNDO_WINDOW_MS` (lib/request-key.ts) of the Accept, the row goes
+ * back to being a request: their key reads "Waiting for the couple" again, the
+ * account Accept bound (if they asked signed in) is unbound, and their claim is
+ * open again. Groups and seats Accept made stay — they wait with the request.
+ */
+export async function undoAcceptAction(eventId: string, formData: FormData) {
+  await assertCouple(eventId);
+  const admin = createAdminClient();
+  const guestId = String(formData.get('guest_id') ?? '');
+  const { data: row } = await admin
+    .from('guests')
+    .select('guest_id, entry_source, deleted_at, updated_at')
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const fresh = undoStillOpen(row?.updated_at as string | null | undefined, Date.now());
+  if (!row || row.deleted_at || row.entry_source !== 'host_seeded' || !fresh) {
+    back(eventId, 'Too late to undo — they are on your list. Remove them from the guest list if you need to.');
+  }
+  const { error } = await admin
+    .from('guests')
+    .update({ entry_source: 'self_added_unlisted', updated_at: new Date().toISOString() })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId);
+  if (error) back(eventId, 'We could not undo that — they are still on your list.');
+  const { error: unbindErr } = await admin.from('event_members').delete().eq('event_id', eventId).eq('guest_id', guestId).eq('joined_via', 'invite_claim');
+  if (unbindErr) back(eventId, 'They are a request again, but their account still holds the seat — remove them from the guest list if needed.');
+  const { error: reopenErr } = await admin
+    .from('guest_claims')
+    .update({ status: 'pending_review', resolved_guest_id: null, reviewed_at: null, reviewed_by_user_id: null, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .eq('target_guest_id', guestId)
+    .eq('status', 'confirmed');
+  if (reopenErr) back(eventId, 'They are a request again, but their sign-in claim did not reopen — Accept them again to finish.');
+  revalidatePath(`/dashboard/${eventId}/guests/claims`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  redirect(`/dashboard/${eventId}/guests/claims`);
+}
+
+/** UNDO DECLINE (frame G2) — within `UNDO_WINDOW_MS`, the request is back, pending. */
+export async function undoDeclineAction(eventId: string, formData: FormData) {
+  await assertCouple(eventId);
+  const admin = createAdminClient();
+  const guestId = String(formData.get('guest_id') ?? '');
+  const { data: row } = await admin
+    .from('guests')
+    .select('guest_id, entry_source, deleted_at, custom_tags')
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const fresh = undoStillOpen(row?.deleted_at as string | null | undefined, Date.now());
+  if (!row || row.entry_source !== 'self_added_unlisted' || !fresh || linkedIntoFrom(row.custom_tags as string[] | null)) {
+    back(eventId, 'Too late to undo — ask them to send their request again.');
+  }
+  const { error } = await admin
+    .from('guests')
+    .update({ deleted_at: null, updated_at: new Date().toISOString() })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId);
+  if (error) back(eventId, 'We could not undo that — the request is still declined.');
+  const { error: reopenErr } = await admin
+    .from('guest_claims')
+    .update({ status: 'pending_review', reviewed_at: null, reviewed_by_user_id: null, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .eq('target_guest_id', guestId)
+    .eq('status', 'rejected');
+  if (reopenErr) back(eventId, 'Their request is back, but their sign-in claim did not reopen — Accept or Decline it again.');
+  revalidatePath(`/dashboard/${eventId}/guests/claims`);
+  redirect(`/dashboard/${eventId}/guests/claims`);
 }
 
 /**
@@ -331,7 +410,7 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
       .eq('event_id', eventId)
       .eq('guest_id', sourceId)
       .maybeSingle(),
-    admin.from('guests').select('email').eq('guest_id', sourceId).maybeSingle(),
+    admin.from('guests').select('email, custom_tags').eq('guest_id', sourceId).maybeSingle(),
   ]);
 
   // Don't merge into a seat already claimed by a different account.
@@ -396,9 +475,18 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
   }
 
   // Soft-delete the merged-away unlisted row.
+  // 🔑 THE FORWARD (owner 2026-09-29, "A REQUESTER GETS THEIR QR AT ONCE"): the
+  // requester already holds THIS row's key. `linked_into:<target>` is what lets
+  // that same key open the guest they were joined to (lib/request-key.ts) —
+  // without it a Linked request would read exactly like a Declined one.
+  const sourceTags = ((source?.custom_tags as string[] | null) ?? []).filter((t) => !t.startsWith(LINKED_INTO_PREFIX));
   const { error: mergeDelErr } = await admin
     .from('guests')
-    .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      custom_tags: [...sourceTags, linkedIntoTag(targetId)],
+    })
     .eq('guest_id', sourceId)
     .eq('event_id', eventId);
   if (mergeDelErr) {
@@ -415,5 +503,5 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
 
   revalidatePath(backTo);
   revalidatePath(`/dashboard/${eventId}/guests`);
-  doneOnRequests(eventId, formData, issued);
+  doneOnRequests(eventId, formData, issued, targetId);
 }

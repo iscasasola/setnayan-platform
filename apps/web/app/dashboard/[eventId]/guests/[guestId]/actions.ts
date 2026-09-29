@@ -320,15 +320,16 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     : answerChanged
       ? new Date().toISOString()
       : ((prevGuest?.rsvp_responded_at as string | null) ?? null);
+  /* 🔒 A PLUS-ONE WHO LINKED THEIR OWN ACCOUNT KEEPS THEIR OWN NAME (owner
+     2026-09-29, DECISION_LOG "OWNER ANSWERS — TEN OPEN QUESTIONS" (10): *"if
+     connected to an account, cannot change anymore"*). The host sees it
+     read-only ("Linked to their account"); this is the refusal behind that
+     screen — the name keys are left OUT of the write, so what is stored stays. */
+  const nameLocked = await plusOneNameLocked(createAdminClient(), eventId, guestId);
   const { data: updatedRows, error } = await supabase
     .from('guests')
     .update({
-      first_name,
-      last_name,
-      name_prefix,
-      middle_name,
-      name_suffix,
-      display_name,
+      ...(nameLocked ? {} : { first_name, last_name, name_prefix, middle_name, name_suffix, display_name }),
       side: resolvedSide,
       group_category,
       role,
@@ -898,4 +899,36 @@ export async function releaseGuestClaim(
   revalidatePath(`/dashboard/${eventId}/guests/${guestId}`);
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(`/dashboard/${eventId}/guests/${guestId}?released=1`);
+}
+
+/**
+ * Is this row a plus-one whose person linked their OWN account? (An
+ * `event_members` row holds the seat.) Unread is treated as locked — refusing a
+ * rename is recoverable, overwriting a person's own name is not.
+ */
+async function plusOneNameLocked(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  guestId: string,
+): Promise<boolean> {
+  const { data: row, error } = await admin
+    .from('guests')
+    .select('plus_one_of_guest_id')
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error) return true;
+  if (!row?.plus_one_of_guest_id) return false;
+  const { data: member, error: mErr } = await admin
+    .from('event_members')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .limit(1)
+    .maybeSingle();
+  if (mErr) {
+    console.error('plusOneNameLocked: event_members read failed — treating as locked', eventId, guestId, mErr.message);
+    return true;
+  }
+  return Boolean(member);
 }

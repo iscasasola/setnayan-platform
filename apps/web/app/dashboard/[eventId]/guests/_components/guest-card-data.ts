@@ -81,6 +81,9 @@ export type GuestCardData = {
   access: GuestAccessState | null;
   /** The viewer is a co-host, so the Access dropdown is theirs to change. */
   canManageAccess: boolean;
+  /** 🔒 A plus-one who linked their OWN account — their name is shown read-only,
+   *  "Linked to their account" (owner 2026-09-29, OWNER ANSWERS (10)). */
+  nameLinked: boolean;
 };
 
 export async function loadGuestCard(
@@ -230,5 +233,18 @@ export async function loadGuestCard(
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),
     access: accessMap?.get(guest.guest_id) ?? null,
     canManageAccess,
+    nameLinked: guest.plus_one_of_guest_id
+      ? await (async () => {
+          const { data, error } = await createAdminClient()
+            .from('event_members')
+            .select('id')
+            .eq('event_id', eventId)
+            .eq('guest_id', guest.guest_id)
+            .limit(1)
+            .maybeSingle();
+          if (error) logQueryError('loadGuestCard.nameLinked', error, { eventId, guestId }, 'graceful_degrade');
+          return Boolean(data);
+        })()
+      : false,
   };
 }

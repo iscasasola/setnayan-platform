@@ -301,8 +301,10 @@ export async function setGuestPlusOneCount(
     return { ok: false, error: 'Pick none, or +1 to +4.' };
   }
   const supabase = await createClient();
-  // A named plus-one is a person: refuse to go below them BEFORE saving, so a
-  // refused change leaves nothing half-written.
+  // A finalized list is refused BEFORE saving, so a refused change leaves
+  // nothing half-written. Going below the NAMED seats is allowed (owner
+  // 2026-09-29 — the host decides): the named people stay, and the row says
+  // "3 named · 1 allowed" with a Remove beside each (`PlusOneSeatsNote`).
   const check = await checkExtraSeats(supabase, eventId, guestId, count);
   if (!check.ok) return { ok: false, error: check.error };
 

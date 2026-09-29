@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { envFlagEnabled } from '@/lib/env-flag';
@@ -45,6 +46,7 @@ export function SaveToAccount({
   failed = false,
   askEmail = false,
   sentTo = null,
+  through,
 }: {
   state: GuestAccountState;
   eventId: string;
@@ -55,6 +57,18 @@ export function SaveToAccount({
   failed?: boolean;
   askEmail?: boolean;
   sentTo?: string | null;
+  /**
+   * 👋 THE PLUS-ONE'S OWN DOOR (owner 2026-09-29, frame F: *"One button: Save
+   * to my account; his answers save with it"*). In the `offer` state the ONE
+   * button posts `action` instead — the door's own save, which writes the
+   * answers in `fields` and the Terms tick, THEN takes the device's method
+   * (the same `saveMethodFor`, re-decided on the server). Because the tick is
+   * in THIS form and is carried as a cookie before the provider is reached,
+   * the device's own method is used even when no tick was carried in.
+   * `after` is drawn inside the same form, under the button ("Not now").
+   * Every other state renders exactly as without it.
+   */
+  through?: { action: (formData: FormData) => Promise<void>; fields: ReactNode; after?: ReactNode };
 }) {
   if (state.kind === 'linked') {
     return (
@@ -106,8 +120,9 @@ export function SaveToAccount({
     google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
   };
   const deviceMethod = saveMethodFor(userAgent, providers);
-  // A provider cannot carry a Terms tick — see the docblock.
-  const method: SaveMethod = termsCarried ? deviceMethod : 'email';
+  // A provider cannot carry a Terms tick — see the docblock. `through` can:
+  // its own save carries the tick before the provider is reached.
+  const method: SaveMethod = termsCarried || through ? deviceMethod : 'email';
   const connect = `/join/${eventId}/connect`;
   const button = (
     <SubmitButton
@@ -120,6 +135,72 @@ export function SaveToAccount({
       <span className="text-xs font-normal opacity-80">{saveMethodLine(method)}</span>
     </SubmitButton>
   );
+  const emailBox = (
+    <label className="block space-y-1.5">
+      <span className="block text-sm font-medium text-ink">
+        {askEmail ? 'Your email — the link goes here' : 'Your email'}
+      </span>
+      <input
+        name="keep_email"
+        type="email"
+        autoComplete="email"
+        required
+        placeholder="you@email.com"
+        className="input-field"
+      />
+    </label>
+  );
+  const termsTick = (
+    <label className="flex min-h-[44px] items-start gap-3 text-sm text-ink/80">
+      <input
+        name={TERMS_FIELD}
+        type="checkbox"
+        required
+        className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
+      />
+      <span>
+        I agree to the{' '}
+        <Link href="/terms" className="font-medium text-link underline underline-offset-2">
+          Terms
+        </Link>{' '}
+        and the{' '}
+        <Link href="/privacy" className="font-medium text-link underline underline-offset-2">
+          Privacy Notice
+        </Link>
+      </span>
+    </label>
+  );
+  if (through) {
+    return (
+      <div className="space-y-2" data-save-method={method} data-save-through>
+        {failed ? (
+          <p role="alert" className="text-sm text-terracotta-700">
+            We could not send the link just now. Please try again.
+          </p>
+        ) : null}
+        <form action={through.action} className="space-y-4">
+          {through.fields}
+          {method === 'email' && !hasEmail ? emailBox : null}
+          {termsCarried ? null : termsTick}
+          <SubmitButton
+            name="then"
+            value="keep"
+            className="button-primary flex min-h-[56px] w-full flex-col items-center justify-center gap-0.5"
+            pendingLabel={
+              method === 'apple' ? 'Opening Apple…' : method === 'google' ? 'Opening Google…' : 'Sending your link…'
+            }
+          >
+            <span className="text-base">Save to my account</span>
+            <span className="text-xs font-normal opacity-80">{saveMethodLine(method)}</span>
+          </SubmitButton>
+          {through.after}
+        </form>
+        <p className="text-center text-xs text-ink/60">
+          Keeps the photos of you, and opens this invitation on any phone.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-2" data-save-method={method}>
       {failed ? (
@@ -140,41 +221,8 @@ export function SaveToAccount({
       ) : (
         <form action={claimAccountAction.bind(null, eventId, slug)} className="space-y-3">
           <input type="hidden" name="return_to" value={INVITE_RETURN} />
-          {hasEmail ? null : (
-            <label className="block space-y-1.5">
-              <span className="block text-sm font-medium text-ink">
-                {askEmail ? 'Your email — the link goes here' : 'Your email'}
-              </span>
-              <input
-                name="keep_email"
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="you@email.com"
-                className="input-field"
-              />
-            </label>
-          )}
-          {termsCarried ? null : (
-            <label className="flex min-h-[44px] items-start gap-3 text-sm text-ink/80">
-              <input
-                name={TERMS_FIELD}
-                type="checkbox"
-                required
-                className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
-              />
-              <span>
-                I agree to the{' '}
-                <Link href="/terms" className="font-medium text-link underline underline-offset-2">
-                  Terms
-                </Link>{' '}
-                and the{' '}
-                <Link href="/privacy" className="font-medium text-link underline underline-offset-2">
-                  Privacy Notice
-                </Link>
-              </span>
-            </label>
-          )}
+          {hasEmail ? null : emailBox}
+          {termsCarried ? null : termsTick}
           {button}
         </form>
       )}

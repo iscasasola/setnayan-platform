@@ -26,6 +26,14 @@ import {
 } from '@/app/_components/inspector/inspector-column';
 import { SeatChip } from './seat-chip';
 import {
+  BringerSeatsProvider,
+  PlusOneOverNote,
+  PlusOneSeatsSummary,
+  useBringerSeats,
+  usePlaceholderLabel,
+} from './plus-one-seats-note';
+import type { BringerSeat } from '@/lib/extra-seats';
+import {
   AddToGroupControl,
   GuestListFinalizedContext,
   PlusOneChipEditor,
@@ -320,6 +328,10 @@ function DesktopRow({
   // `ctx` is null and this is inert (mobile unchanged).
   const inspectorCtx = useInspectorContext();
   const inspected = Boolean(inspectorCtx && inspectorCtx.selectedId === guest.guest_id);
+  // Frame G (owner 2026-09-29): "+3 (2 named)", an unnamed seat reads "+2 · TBA".
+  const extraSeats = useBringerSeats(guest.guest_id);
+  const seatLabel = usePlaceholderLabel(guest.guest_id);
+  const shownName = seatLabel ?? guestFullName(guest) ?? guestDisplayName(guest);
   return (
     <tr
       className={`border-t border-ink/5 align-middle transition-colors ${
@@ -367,9 +379,9 @@ function DesktopRow({
                   losing half a guest's name is not. */}
               <p
                 className="truncate font-medium text-ink"
-                title={guestFullName(guest) ?? guestDisplayName(guest)}
+                title={shownName}
               >
-                {(guestFullName(guest) ?? guestDisplayName(guest))}
+                {shownName}
               </p>
               {/* 🕯 Listed, never counted — the guest card's "Passed away". */}
               {guest.passed_away ? (
@@ -377,10 +389,10 @@ function DesktopRow({
                   {PASSED_AWAY_LINE}
                 </p>
               ) : null}
-              {plusOneSeats(guest) > 0 ? (
+              {plusOneSeats(guest) > 0 || extraSeats.some((s) => s.named) ? (
                 <p className="truncate text-xs text-ink/55">
-                  {/* One named plus-one, or the count when there are more. */}
-                  + {guest.plus_one_name ?? (plusOneSeats(guest) > 1 ? `${plusOneSeats(guest)} guests` : 'TBA')}
+                  {/* The host's number and how many are named — "+3 (2 named)". */}
+                  <PlusOneSeatsSummary count={plusOneSeats(guest)} seats={extraSeats} />
                 </p>
               ) : null}
               {/* 🔑 A PAIR THAT NOTHING RENDERS IS NOT A PAIR. The column has
@@ -403,6 +415,14 @@ function DesktopRow({
               presents as a column at ≥xl and a peek sheet below. */}
           <QuickViewButton guest={guest} />
         </div>
+        {/* More names than seats — allowed, and said, with a Remove per name.
+            OUTSIDE the name trigger: a button cannot sit inside a link. */}
+        <PlusOneOverNote
+          eventId={eventId}
+          guestName={shownName}
+          count={plusOneSeats(guest)}
+          seats={extraSeats}
+        />
       </td>
       <td className="px-3 py-2.5">
         {/* Inline editors (P2): the chip opens an anchored popover that applies
@@ -640,7 +660,15 @@ type Props = {
   listFinalized?: boolean;
   /** guest_id → "Co-host" / "Limited helper" (· waiting…) from the live seats. */
   accessTagByGuest?: Record<string, string>;
+  /**
+   * Every guest's extra seats, from the FULL roster (`bringerSeatsFrom`, built
+   * in page.tsx before any filter): "+3 (2 named)", "+2 · TBA", and the
+   * "3 named · 1 allowed" warning (owner 2026-09-29, frame G).
+   */
+  seatsByBringer?: Readonly<Record<string, readonly BringerSeat[]>>;
 };
+
+const NO_SEATS: Readonly<Record<string, readonly BringerSeat[]>> = {};
 
 export function GuestListMultiselect({
   eventId,
@@ -660,6 +688,7 @@ export function GuestListMultiselect({
   recentlyApplied,
   listFinalized = false,
   accessTagByGuest = {},
+  seatsByBringer = NO_SEATS,
 }: Props) {
   // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5). Reused as
   // the role-editor popover's option groups (P2).
@@ -892,6 +921,7 @@ export function GuestListMultiselect({
   return (
     <GuestListFinalizedContext.Provider value={listFinalized}>
     <GuestAccessTagContext.Provider value={accessTagByGuest}>
+    <BringerSeatsProvider seats={seatsByBringer}>
     <div className="space-y-4">
       {/* Floating bulk-action bar — DESKTOP ONLY (lg+). On phones + tablets
           the carousel's Customize panel + Assign bottom sheet own bulk
@@ -1196,6 +1226,7 @@ export function GuestListMultiselect({
         ))}
       </div>
     </div>
+    </BringerSeatsProvider>
     </GuestAccessTagContext.Provider>
     </GuestListFinalizedContext.Provider>
   );
@@ -1796,6 +1827,10 @@ function MobileListRow({
   // dangle a Delete that can only fail).
   const swipeable =
     !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
+  // Frame G (owner 2026-09-29): "+3 (2 named)", an unnamed seat reads "+2 · TBA".
+  const extraSeats = useBringerSeats(guest.guest_id);
+  const seatLabel = usePlaceholderLabel(guest.guest_id);
+  const shownName = seatLabel ?? guestFullName(guest) ?? guestDisplayName(guest);
 
   const row = (
     <div
@@ -1836,7 +1871,7 @@ function MobileListRow({
       )}
       <div className="relative z-10 min-w-0 flex-1">
         <p className="pointer-events-none truncate text-sm font-medium text-ink">
-          {(guestFullName(guest) ?? guestDisplayName(guest))}
+          {shownName}
         </p>
         {guest.passed_away ? (
           <p className="pointer-events-none truncate text-xs text-ink/55" data-passed-away="">
@@ -1875,9 +1910,9 @@ function MobileListRow({
             groups={groups}
             memberGroupIds={groupIds}
           />
-          {guest.plus_one_allowed ? (
+          {plusOneSeats(guest) > 0 || extraSeats.some((s) => s.named) ? (
             <span className="pointer-events-none whitespace-nowrap text-xs text-ink/55">
-              + {guest.plus_one_name ?? 'TBA'}
+              <PlusOneSeatsSummary count={plusOneSeats(guest)} seats={extraSeats} />
             </span>
           ) : null}
           </div>
@@ -1918,6 +1953,15 @@ function MobileListRow({
       ) : (
         row
       )}
+      {/* More names than seats — below the row, where its Removes can be
+          tapped (the row itself is one stretched link). */}
+      <PlusOneOverNote
+        eventId={eventId}
+        guestName={shownName}
+        count={plusOneSeats(guest)}
+        seats={extraSeats}
+        className="mx-3"
+      />
     </li>
   );
 }

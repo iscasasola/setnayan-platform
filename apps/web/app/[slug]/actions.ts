@@ -266,6 +266,34 @@ export async function submitRsvp(
     return;
   }
 
+  /*
+    👥 "ADD NAME" IN PLACE, ON ME (owner 2026-09-29, prototype frame E: *"No new
+    page. Tapping 'Add name' on +2 unfolds the same four boxes under the row"*).
+    The same guest's own save, already matched to THIS guest on THIS event
+    above, so naming a seat rides it as its own branch — +0 server actions, the
+    checklist tick's precedent — and returns before anything of the reply is
+    read or written: no answer, none of the guest's own meal or contact details.
+    The seat rule is the reply's own (`nameTheSeats`: the entitlement re-read,
+    the couple's switches, only THIS guest's seats). THROWN on failure, so the
+    boxes stay open and say so — never a closed form that looks saved.
+  */
+  if (clean(formData.get('seat_names_only')) === '1') {
+    const seatAdmin = createAdminClient();
+    const { data: evAsk, error: evAskErr } = await seatAdmin
+      .from('events')
+      .select('slug, rsvp_ask_config')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (evAskErr || !evAsk) throw new Error('Their name did not save — try again.');
+    const saved = await nameTheSeats(seatAdmin, eventId, guestId, formData, resolveRsvpAsk(evAsk.rsvp_ask_config));
+    if (!saved.ok) throw new Error(saved.error);
+    if (saved.named === 0) throw new Error('Type their first or last name, then Save name.');
+    revalidatePath(`/dashboard/${eventId}/guests`);
+    // Me re-renders with the seat NAMED — "Send their invite · Show pass".
+    if (evAsk.slug) revalidatePath(`/${evAsk.slug}`);
+    return;
+  }
+
   const status = clean(formData.get('rsvp_status')) as RsvpStatus;
   const meal_raw = clean(formData.get('meal_preference'));
   const meal = (meal_raw || 'no_preference') as MealPreference;
@@ -784,128 +812,10 @@ export async function submitRsvp(
     }
   }
 
-  // ── THE PERSON THEY ARE BRINGING ──────────────────────────────────────────
-  // The couple is promised in writing that this name arrives; until now nothing
-  // on the guest side could send it. No name ⇒ no row ⇒ no QR ⇒ no camera for
-  // that person.
-  //
-  // 🔒 THE ENTITLEMENT IS RE-READ FROM THE DATABASE, NEVER TAKEN FROM THE FORM.
-  // The block only RENDERS when `plus_one_allowed`, but a rendered gate is not a
-  // gate: these two fields can be posted by anyone with the URL. Without this
-  // read, any guest could mint themselves a second seat — with its own QR and
-  // its own camera — at an event whose host allowed them none.
-  //
-  // ⚖ A BLANK BOX IS NOT A REMOVAL, the same rule the contact boxes follow.
-  const seatNames = readSeatNames(formData);
-  if (seatNames.length > 0) {
-    const { data: primary } = await admin
-      .from('guests')
-      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category')
-      .eq('guest_id', guestId)
-      .eq('event_id', eventId)
-      .maybeSingle();
-
-    // ⚙ ASK TOGGLE (owner 2026-09-25): `ask.plus_ones` off refuses the write
-    // regardless of what a crafted POST carries — a MASTER switch beside the
-    // per-guest `plus_one_allowed` re-read above, which still decides WHO may
-    // have one.
-    if (primary?.plus_one_allowed && ask.plus_ones) {
-      /*
-        ⚖ Owner 2026-09-21 ("2. yes"): one name box per seat — up to +4, each
-        seat a row beside this guest. `planSeatNames` decides which seat each
-        name fills and REFUSES to mint a seat beyond what the couple gave (the
-        form is postable by anyone with the link). It replaced a `.maybeSingle()`
-        lookup that errored on two seats and inserted another every reply.
-      */
-      const { data: seatRows } = await admin
-        .from('guests')
-        .select('guest_id, first_name, plus_one_name_confirmed_at, created_at')
-        .eq('event_id', eventId)
-        .eq('plus_one_of_guest_id', guestId)
-        .is('deleted_at', null);
-      const seats: ExtraSeatRow[] = (seatRows ?? []).map((r) => ({
-        guest_id: r.guest_id as string,
-        first_name: (r.first_name as string | null) ?? null,
-        confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
-        created_at: (r.created_at as string | null) ?? null,
-      }));
-      const ops = planSeatNames(seatNames, seats, plusOneSeats(primary));
-      const stamp = new Date().toISOString();
-
-      for (const op of ops) {
-        // ⚖ Owner 2026-09-29: each plus-one is asked ONLY first name, last
-        // name, meal and dietary. The two answers ride on THEIR row, under the
-        // couple's same switches the bringer's own answers obey — and a meal
-        // outside the list is dropped, never stored.
-        const seatAnswers = {
-          ...(ask.meal && op.meal !== undefined && MEAL_VALUES.includes(op.meal as MealPreference)
-            ? { meal_preference: op.meal }
-            : {}),
-          ...(ask.dietary && op.dietary !== undefined ? { dietary_restrictions: op.dietary } : {}),
-        };
-        if (op.kind === 'details') {
-          if (Object.keys(seatAnswers).length > 0) {
-            await admin
-              .from('guests')
-              .update({ ...seatAnswers, updated_at: stamp })
-              .eq('guest_id', op.seatId)
-              .eq('event_id', eventId)
-              .eq('plus_one_of_guest_id', guestId);
-          }
-          continue;
-        }
-        const first = op.first || 'TBA';
-        const last = op.last || '+1';
-        if (op.kind === 'name') {
-          await admin
-            .from('guests')
-            .update({
-              ...seatAnswers,
-              first_name: first,
-              last_name: last,
-              // Clearing this is what actually replaces "+ TBA · brought by …":
-              // guestDisplayName PREFERS display_name, so leaving it would keep
-              // the placeholder on the seating chart and in the emcee script.
-              display_name: null,
-              plus_one_name_confirmed_at: stamp,
-              updated_at: stamp,
-            })
-            .eq('guest_id', op.seatId)
-            .eq('event_id', eventId)
-            .eq('plus_one_of_guest_id', guestId);
-        } else {
-          // Same shape the host's own "add a guest" form inserts, so the seat
-          // gets a real row — and with it the qr_token the column mints by DEFAULT.
-          await admin.from('guests').insert({
-            ...seatAnswers,
-            event_id: eventId,
-            first_name: first,
-            last_name: last,
-            side: primary.side,
-            group_category: primary.group_category,
-            role: 'guest',
-            rsvp_status: 'pending',
-            photo_consent: true,
-            plus_one_of_guest_id: guestId,
-            plus_one_mode: primary.plus_one_mode,
-            plus_one_name_confirmed_at: stamp,
-          });
-        }
-      }
-
-      // Mirror onto the primary so the host's list chips stop reading "+ TBA":
-      // the first name given, as the single-seat reply always did.
-      const named = ops.find((o) => o.kind !== 'details');
-      const firstNamed = named ? `${named.first} ${named.last}`.trim() : '';
-      if (firstNamed) {
-        await admin
-          .from('guests')
-          .update({ plus_one_name: firstNamed, updated_at: stamp })
-          .eq('guest_id', guestId)
-          .eq('event_id', eventId);
-      }
-    }
-  }
+  // ── THE PERSON THEY ARE BRINGING — `nameTheSeats`, below. A seat that does
+  // not take never costs the guest their reply, so its outcome is not awaited
+  // into a refusal here (Me's "Save name" is where it is said).
+  await nameTheSeats(admin, eventId, guestId, formData, ask);
 
   /*
     🎵 THE SONG ON THE RSVP (owner 2026-09-27: the "Song request" switch must
@@ -974,6 +884,162 @@ export async function submitRsvp(
   // event hub") pins it, and adding a branch ahead of it re-points no guard.
   if (toInvite && ev?.slug) redirect(`${inviteEnterPath(ev.slug)}?rsvp=${outcome}`);
   redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : '/');
+}
+
+/**
+ * THE SEATS A GUEST NAMES — the reply's per-seat boxes and Me's in-place "Add
+ * name" (owner 2026-09-29, prototype frame E) are ONE write, so both obey the
+ * same entitlement re-read, the same "ask" switches and the same seat rule.
+ * Called only after the caller has matched THIS guest to THIS event.
+ *
+ * Returns what happened rather than throwing: the reply keeps its own answer
+ * when a seat does not take (a name must never cost a guest their RSVP), while
+ * Me's "Save name" says so and keeps the boxes open.
+ */
+async function nameTheSeats(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  guestId: string,
+  formData: FormData,
+  ask: ReturnType<typeof resolveRsvpAsk>,
+): Promise<{ ok: true; named: number } | { ok: false; error: string }> {
+  // ── THE PERSON THEY ARE BRINGING ──────────────────────────────────────────
+  // The couple is promised in writing that this name arrives; until now nothing
+  // on the guest side could send it. No name ⇒ no row ⇒ no QR ⇒ no camera for
+  // that person.
+  //
+  // 🔒 THE ENTITLEMENT IS RE-READ FROM THE DATABASE, NEVER TAKEN FROM THE FORM.
+  // The block only RENDERS when `plus_one_allowed`, but a rendered gate is not a
+  // gate: these two fields can be posted by anyone with the URL. Without this
+  // read, any guest could mint themselves a second seat — with its own QR and
+  // its own camera — at an event whose host allowed them none.
+  //
+  // ⚖ A BLANK BOX IS NOT A REMOVAL, the same rule the contact boxes follow.
+  const seatNames = readSeatNames(formData);
+  if (seatNames.length > 0) {
+    const { data: primary, error: primaryErr } = await admin
+      .from('guests')
+      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category')
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    // Unread is not "not allowed": said, never shown as a saved name.
+    if (primaryErr) return { ok: false, error: 'Their name did not save — try again.' };
+
+    // ⚙ ASK TOGGLE (owner 2026-09-25): `ask.plus_ones` off refuses the write
+    // regardless of what a crafted POST carries — a MASTER switch beside the
+    // per-guest `plus_one_allowed` re-read above, which still decides WHO may
+    // have one.
+    if (primary?.plus_one_allowed && ask.plus_ones) {
+      /*
+        ⚖ Owner 2026-09-21 ("2. yes"): one name box per seat — up to +4, each
+        seat a row beside this guest. `planSeatNames` decides which seat each
+        name fills and REFUSES to mint a seat beyond what the couple gave (the
+        form is postable by anyone with the link). It replaced a `.maybeSingle()`
+        lookup that errored on two seats and inserted another every reply.
+      */
+      const { data: seatRows, error: seatsErr } = await admin
+        .from('guests')
+        .select('guest_id, first_name, plus_one_name_confirmed_at, created_at')
+        .eq('event_id', eventId)
+        .eq('plus_one_of_guest_id', guestId)
+        .is('deleted_at', null);
+      if (seatsErr) return { ok: false, error: 'Their name did not save — try again.' };
+      const seats: ExtraSeatRow[] = (seatRows ?? []).map((r) => ({
+        guest_id: r.guest_id as string,
+        first_name: (r.first_name as string | null) ?? null,
+        confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
+        created_at: (r.created_at as string | null) ?? null,
+      }));
+      const ops = planSeatNames(seatNames, seats, plusOneSeats(primary));
+      const stamp = new Date().toISOString();
+      let failed = false;
+      let namedCount = 0;
+
+      for (const op of ops) {
+        // ⚖ Owner 2026-09-29: each plus-one is asked ONLY first name, last
+        // name, meal and dietary. The two answers ride on THEIR row, under the
+        // couple's same switches the bringer's own answers obey — and a meal
+        // outside the list is dropped, never stored.
+        const seatAnswers = {
+          ...(ask.meal && op.meal !== undefined && MEAL_VALUES.includes(op.meal as MealPreference)
+            ? { meal_preference: op.meal }
+            : {}),
+          ...(ask.dietary && op.dietary !== undefined ? { dietary_restrictions: op.dietary } : {}),
+        };
+        if (op.kind === 'details') {
+          if (Object.keys(seatAnswers).length > 0) {
+            const { error } = await admin
+              .from('guests')
+              .update({ ...seatAnswers, updated_at: stamp })
+              .eq('guest_id', op.seatId)
+              .eq('event_id', eventId)
+              .eq('plus_one_of_guest_id', guestId);
+            if (error) failed = true;
+          }
+          continue;
+        }
+        const first = op.first || 'TBA';
+        const last = op.last || '+1';
+        if (op.kind === 'name') {
+          const { error } = await admin
+            .from('guests')
+            .update({
+              ...seatAnswers,
+              first_name: first,
+              last_name: last,
+              // Clearing this is what actually replaces "+ TBA · brought by …":
+              // guestDisplayName PREFERS display_name, so leaving it would keep
+              // the placeholder on the seating chart and in the emcee script.
+              display_name: null,
+              plus_one_name_confirmed_at: stamp,
+              updated_at: stamp,
+            })
+            .eq('guest_id', op.seatId)
+            .eq('event_id', eventId)
+            .eq('plus_one_of_guest_id', guestId);
+          if (error) failed = true;
+          else namedCount += 1;
+        } else {
+          // Same shape the host's own "add a guest" form inserts, so the seat
+          // gets a real row — and with it the qr_token the column mints by DEFAULT.
+          const { error } = await admin.from('guests').insert({
+            ...seatAnswers,
+            event_id: eventId,
+            first_name: first,
+            last_name: last,
+            side: primary.side,
+            group_category: primary.group_category,
+            role: 'guest',
+            rsvp_status: 'pending',
+            photo_consent: true,
+            plus_one_of_guest_id: guestId,
+            plus_one_mode: primary.plus_one_mode,
+            plus_one_name_confirmed_at: stamp,
+          });
+          if (error) failed = true;
+          else namedCount += 1;
+        }
+      }
+
+      // Mirror onto the primary so the host's list chips stop reading "+ TBA":
+      // the first name given, as the single-seat reply always did.
+      const named = ops.find((o) => o.kind !== 'details');
+      const firstNamed = named ? `${named.first} ${named.last}`.trim() : '';
+      if (firstNamed) {
+        const { error } = await admin
+          .from('guests')
+          .update({ plus_one_name: firstNamed, updated_at: stamp })
+          .eq('guest_id', guestId)
+          .eq('event_id', eventId);
+        if (error) failed = true;
+      }
+      return failed ? { ok: false, error: 'Their name did not save — try again.' } : { ok: true, named: namedCount };
+    }
+    return { ok: false, error: 'The couple is not taking names for your guests right now.' };
+  }
+  return { ok: true, named: 0 };
+
 }
 
 /**

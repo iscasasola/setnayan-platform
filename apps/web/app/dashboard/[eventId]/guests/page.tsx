@@ -63,6 +63,7 @@ import {
   ROLE_SECTION_ORDER,
 } from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
+import { bringerSeatsFrom } from '@/lib/extra-seats';
 import { FilterPopover } from './_components/filter-popover';
 import { FindAddRow } from './_components/find-add-row';
 import { RosterMeters } from './_components/roster-meters';
@@ -1325,6 +1326,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               selfJoinIds={selfJoinIds}
               seatByGuest={seatByGuest}
               accessTagByGuest={accessTagByGuest}
+              // From the FULL roster, before any filter (frame G, 2026-09-29).
+              seatsByBringer={bringerSeatsFrom(guests)}
               photoDisplayUrls={photoDisplayUrls}
               accountFaceByGuest={accountFaceByGuest}
               grouping={grouping}

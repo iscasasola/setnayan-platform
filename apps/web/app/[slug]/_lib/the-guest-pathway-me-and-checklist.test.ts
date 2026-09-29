@@ -164,6 +164,10 @@ test('4 · Me holds name + Switch, the plus-ones, and Save — mounted INTO the 
       name: 'Ana Reyes',
       slug: 'ana',
       eventId: 'e-1',
+      guestId: 'g-ana',
+      askMeal: true,
+      askDietary: true,
+      askPlusOnes: true,
       eventName: 'Indalecio & Claire',
       guests: [
         { guestId: 'p1', name: 'Lola Nena', inviteUrl: 'https://x/ana?invite=t1' },
@@ -181,7 +185,9 @@ test('4 · Me holds name + Switch, the plus-ones, and Save — mounted INTO the 
   assert.match(html, /Send their invite/);
   assert.match(html, /Show Lola’s pass/);
   assert.match(html, /data-pass="lola"/);
-  assert.match(html, /Add their name/);
+  // A TBA seat is named IN PLACE on Me (owner 2026-09-29, frame E) — no link back to the reply.
+  assert.match(html, /data-add-name-in-place/);
+  assert.ok(!html.includes('/invite/reply'), 'Me links a TBA seat back to the reply');
   assert.match(html, /Saved to your account/);
   // One #site-me: Me is a SLOT in GuestHubBar's section, never a second one.
   assert.match(HUBBAR, /<section id="site-me" className="mt-12 scroll-mt-6">\s*\{meSlot \?/);

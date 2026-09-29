@@ -259,8 +259,9 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   }
 
   const supabase = await createClient();
-  // A named plus-one is a person: going below them is refused BEFORE anything
-  // on this form is saved (owner 2026-09-21 — extra seats are real chairs).
+  // A finalized list refuses a seat change BEFORE anything on this form is
+  // saved (owner 2026-09-21). Below the NAMED seats is allowed since 2026-09-29
+  // — the named people are kept, never removed by a number.
   if (typeof plusOneWrite.plus_one_count === 'number') {
     const check = await checkExtraSeats(supabase, eventId, guestId, plusOneWrite.plus_one_count);
     if (!check.ok) return redirect(`${backTo}?error=${encodeURIComponent(check.error)}`);

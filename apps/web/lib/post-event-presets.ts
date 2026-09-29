@@ -26,6 +26,7 @@
  */
 
 import type { SceneTemplateId } from '@/lib/scene-templates';
+import { POST_EVENT_PRESET_IDS, isPostEventPresetId, type PostEventPresetId } from '@/lib/post-event-preset-ids';
 
 export type PostEventPreset = {
   /** Permanent — stored on the scene's canvas. */
@@ -40,21 +41,9 @@ export type PostEventPreset = {
   fields: string;
 };
 
-export const POST_EVENT_PRESET_IDS = [
-  'thank_you_from_us',
-  'the_toast',
-  'best_of',
-  'before_and_after',
-  'behind_the_scenes',
-  'what_almost_happened',
-  'by_our_count',
-  'near_and_far',
-  'our_playlist',
-  'the_guestbook',
-  'wish_you_were_here',
-  'since_then',
-] as const;
-export type PostEventPresetId = (typeof POST_EVENT_PRESET_IDS)[number];
+// The ids (and their check) live on their own (`lib/post-event-preset-ids.ts`) so the canvas
+// sanitizer need not load the twelve presets' words.
+export { POST_EVENT_PRESET_IDS, isPostEventPresetId, type PostEventPresetId };
 
 /** P1–P12, in the strategy's order. */
 export const POST_EVENT_PRESETS: readonly PostEventPreset[] = [
@@ -71,10 +60,6 @@ export const POST_EVENT_PRESETS: readonly PostEventPreset[] = [
   { id: 'wish_you_were_here', name: 'Wish You Were Here', purpose: 'For the ones who could not come.', template: 8, fields: 'Words only' },
   { id: 'since_then', name: 'Since Then', purpose: 'An update — the honeymoon, the first anniversary, the news.', template: 1, fields: 'Photo left, words right' },
 ];
-
-export function isPostEventPresetId(v: unknown): v is PostEventPresetId {
-  return typeof v === 'string' && (POST_EVENT_PRESET_IDS as readonly string[]).includes(v);
-}
 
 export function postEventPreset(id: unknown): PostEventPreset | null {
   return isPostEventPresetId(id) ? (POST_EVENT_PRESETS.find((p) => p.id === id) ?? null) : null;

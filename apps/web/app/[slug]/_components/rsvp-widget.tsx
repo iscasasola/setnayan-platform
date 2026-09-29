@@ -400,9 +400,16 @@ export function RsvpWidget({
         </InvitationFacts>
       ) : null}
 
-      {/* Three quiet outlined options; the chosen one takes the palette's DEEP
+      {/* TWO quiet outlined options; the chosen one takes the palette's DEEP
           accent fill. Labels are the spec's reply-card wording — the `key`
-          values (and therefore the server action's contract) are unchanged. */}
+          values (and therefore the server action's contract) are unchanged.
+          ⚖ NO MIDDLE ANSWER (owner 2026-09-30: "for now. let us fix the RSVP
+          remove the maybe"). A guest is offered yes or no, nothing else; the
+          couple's own Guest list tools still see and set 'maybe'. A guest
+          ALREADY saved as 'maybe' keeps that row — but no radio matches it, so
+          nothing is preselected, and the answer is REQUIRED for them so a Save
+          cannot post an empty answer and be dropped. `submitRsvp` refuses a
+          NEW 'maybe' from a crafted post (`?rsvp=choose`). */}
       {replyLocked ? (
         <LockedAnswer status={guest.rsvp_status} />
       ) : (
@@ -417,12 +424,10 @@ export function RsvpWidget({
             words.solemn
               ? ([
                   { key: 'attending', label: 'Will be there' },
-                  { key: 'maybe', label: 'Undecided, for now' },
                   { key: 'declined', label: 'Unable to come' },
                 ] as const)
               : ([
                   { key: 'attending', label: 'Joyfully accepts' },
-                  { key: 'maybe', label: 'Undecided, for now' },
                   { key: 'declined', label: 'Regretfully declines' },
                 ] as const)
           ).map((option) => (
@@ -435,7 +440,7 @@ export function RsvpWidget({
                 name="rsvp_status"
                 value={option.key}
                 defaultChecked={guest.rsvp_status === option.key}
-                required={termsOnSend || undefined}
+                required={termsOnSend || guest.rsvp_status === 'maybe' || undefined}
                 className="sr-only"
               />
               {option.label}

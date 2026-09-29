@@ -1629,6 +1629,13 @@ async function InvitationBody({
             tone: 'error' as const,
             text: 'We could not save your reply just now. Please try again — it has not been recorded yet.',
           }
+        : // A 'maybe' posted from a stale tab (owner 2026-09-30: guests are
+          // offered yes or no only). Nothing saved — say so, and reopen the card.
+          search.rsvp === 'choose'
+          ? {
+              tone: 'error' as const,
+              text: 'Please choose whether you will be there — yes or no. Your reply has not been saved yet.',
+            }
         : // The guest list is final, so the going-or-not answer is frozen. Their
           // DETAILS still saved — say which, or a guest reads a warning and
           // assumes their allergy note went nowhere.

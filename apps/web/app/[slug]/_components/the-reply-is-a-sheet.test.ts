@@ -268,11 +268,13 @@ test('🔑 A HALF-TYPED NOTE SURVIVES A CLOSE — the form is rendered while clo
 test('🔑 A GUEST WHO ALREADY ANSWERED OPENS THE SAME SHEET SHOWING THEIR ANSWER', async () => {
   const html = await renderClosed({ rsvp_status: 'attending' });
   // Not a blank form: their own answer is the checked one — and, just as much,
-  // the other two are NOT. ⚠ Order-independent on purpose: React emits
+  // the other one is NOT. ⚠ Order-independent on purpose: React emits
   // `checked=""` BEFORE `value="attending"`, so a regex written in the order a
   // person would write the JSX matches nothing and fails for the wrong reason.
   const radios = html.match(/<input[^>]*name="rsvp_status"[^>]*>/g) ?? [];
-  assert.equal(radios.length, 3, 'the three answer controls are not all rendered');
+  // TWO, not three: guests are offered yes or no only (owner 2026-09-30, "remove
+  // the maybe" — see a-guest-answers-yes-or-no.test.ts).
+  assert.equal(radios.length, 2, 'the two answer controls are not both rendered');
   for (const radio of radios) {
     const isTheirs = radio.includes('value="attending"');
     assert.equal(

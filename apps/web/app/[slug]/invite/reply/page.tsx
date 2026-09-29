@@ -215,6 +215,11 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           tone: 'error' as const,
           text: 'We could not save your reply just now. Please try again — it has not been recorded yet.',
         }
+      : search.rsvp === 'choose'
+        ? {
+            tone: 'error' as const,
+            text: 'Please choose whether you will be there — yes or no. Your reply has not been saved yet.',
+          }
       : search.rsvp === 'terms'
         ? {
             tone: 'error' as const,

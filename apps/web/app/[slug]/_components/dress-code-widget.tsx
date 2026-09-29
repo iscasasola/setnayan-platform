@@ -13,6 +13,8 @@ import { STYLE_UNSET_LINE, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { roleLabel } from '@/lib/entourage';
 import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
 import { DressCodeLine, DressCodePalette } from './dress-code-styles';
+import { PaletteLookList } from './dress-code-palette-looks';
+import { PALETTE_LOOK_DEFAULT, type PaletteLookId } from '@/lib/palette-looks';
 
 /*
  * 🧵 THE SILK CHIP, VISIBLE ON ANY GROUND. `.pahina-swatch` shades a chip with
@@ -86,6 +88,7 @@ export function DressCodeWidget({
   rolePalette = null,
   hideWhenEmpty = false,
   sceneStyle = null,
+  paletteLook = null,
 }: {
   /**
    * 🚶 WHERE THIS READER WALKS (owner 2026-09-29, DECISION_LOG "THE WEDDING
@@ -113,7 +116,18 @@ export function DressCodeWidget({
    * page knows still sees just their own role's panel, in every style.
    */
   sceneStyle?: string | null;
+  /**
+   * 🎨 HOW THE COLOURS ARE DRAWN (owner 2026-09-29, "FIVE PALETTE STYLES") —
+   * `canvas.palette`, resolved (`paletteLookOfRow`). Null / `tags` = the
+   * shipped tags, markup unchanged; the other four are `dress-code-palette-looks.tsx`.
+   * "Our colours", the reader's own colours and every role row follow it (a
+   * role row at row size). "The palette" and "The line" layouts draw the
+   * general view's colours their own way, so there only the reader's own
+   * panel follows it.
+   */
+  paletteLook?: PaletteLookId | null;
 }) {
+  const look: PaletteLookId = paletteLook ?? PALETTE_LOOK_DEFAULT;
   // The couple's walima seating posture, surfaced to guests so they know what to
   // expect at the reception. Muslim-only; 'none' (default) shows nothing. Neutral
   // tone per the spec — we describe, never editorialize.
@@ -376,8 +390,10 @@ export function DressCodeWidget({
           {/* 🎨 THEIR PALETTE, ALL OF IT (owner 2026-09-28: "show their palette
               only"). It used to be `mine.hex` — the role's FIRST colour — so a
               bridesmaid whose board holds three was shown one. */}
-          {mine.hexes.length > 0 ? (
-            <ul className="flex flex-wrap gap-2" aria-label="Your colours">
+          {mine.hexes.length > 0 && look !== 'tags' ? (
+            <PaletteLookList look={look} items={mine.hexes.map((hex) => ({ hex }))} label="Your colours" />
+          ) : mine.hexes.length > 0 ? (
+            <ul className="flex flex-wrap gap-2" aria-label="Your colours" data-pal-look="tags">
               {mine.hexes.map((hex, i) => (
                 <li key={`${hex}-${i}`} className="w-[3.25rem]">
                   <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
@@ -397,22 +413,28 @@ export function DressCodeWidget({
       {!mine && palette.length > 0 ? (
         <div className="space-y-2" data-dress-code="ours">
           <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Our colours</p>
-          {/* gap-2: five full chips (the Mood Board's five main colours) fit
-              one line at 375px; gap-3 wrapped the fifth onto a row alone. */}
-          <ul className="flex flex-wrap gap-2">
-            {palette.map((p, i) => (
-              <li key={`${p.hex}-${i}`} className="w-[3.25rem]" title={p.name || p.hex}>
-                <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: p.hex }} />
-                {p.name ? (
-                  <span className="mt-2 block text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/60">
-                    {p.name}
-                  </span>
-                ) : (
-                  <span className="sr-only">{p.hex}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+          {look !== 'tags' ? (
+            <PaletteLookList look={look} items={palette} label="Our colours" />
+          ) : (
+            /* gap-2: five full chips (the Mood Board's five main colours) fit
+               one line at 375px; gap-3 wrapped the fifth onto a row alone.
+               🎨 Tags — the default look — is this list exactly as it shipped;
+               `data-pal-look` only lets its swing-in entrance find it. */
+            <ul className="flex flex-wrap gap-2" data-pal-look="tags">
+              {palette.map((p, i) => (
+                <li key={`${p.hex}-${i}`} className="w-[3.25rem]" title={p.name || p.hex}>
+                  <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: p.hex }} />
+                  {p.name ? (
+                    <span className="mt-2 block text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/60">
+                      {p.name}
+                    </span>
+                  ) : (
+                    <span className="sr-only">{p.hex}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       ) : null}
       {/* 👥 EVERY ROLE'S COLOURS — the general view's second half. One tidy row
@@ -435,7 +457,9 @@ export function DressCodeWidget({
                   </p>
                 ))}
               </div>
-              {row.hexes.length > 0 ? (
+              {row.hexes.length > 0 && look !== 'tags' ? (
+                <PaletteLookList look={look} size="row" items={row.hexes.map((hex) => ({ hex }))} label={`${row.label} colours`} />
+              ) : row.hexes.length > 0 ? (
                 <ul className="flex flex-wrap gap-1.5" aria-label={`${row.label} colours`}>
                   {row.hexes.map((hex, i) => (
                     <li key={`${hex}-${i}`} title={hex}>

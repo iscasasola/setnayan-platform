@@ -236,6 +236,14 @@ q();
  * and neither can count siblings in CSS.
  * Fail-visible like everything else here: no mark, nothing bound, the row sits
  * where the layout put it.
+ *
+ * ── 🎨 …AND A PALETTE'S ENTRANCE (2026-09-29) ─────────────────────────────
+ * Owner, on the Dress code's colours: *"is it possible that these palettes
+ * have an animation"* (DECISION_LOG "FIVE PALETTE STYLES"). A palette list
+ * (`[data-pal-look]`, `dress-code-widget.tsx` / `dress-code-palette-looks.tsx`)
+ * is marked `.pahina-in` by the SAME scene observer as it nears the screen, and
+ * its look's CSS entrance binds on the mark (globals.css, "THE FIVE PALETTE
+ * LOOKS"). One selector added to `hsel`; no second observer, no new script.
  */
 export function PahinaMotionObserver() {
   return (
@@ -259,7 +267,7 @@ for(var i=0;i<es.length;i++){if(es[i].isIntersecting){es[i].target.classList.add
 },{rootMargin:'0px 0px -6% 0px',threshold:0.01});
 for(var i=0;i<n.length;i++){io.observe(n[i])}
 return true};
-var hsel='.hub-canvas, style[data-hub-els]';
+var hsel='.hub-canvas, style[data-hub-els], [data-pal-look]';
 var rsel='.hub-canvas [data-hub-rows] > *';
 var hio=null;
 var hub=function(){try{

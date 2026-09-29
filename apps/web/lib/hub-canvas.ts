@@ -314,6 +314,13 @@ export type HubSectionCanvas = {
    */
   style?: string;
   /**
+   * 🎨 HOW THE DRESS CODE'S "OUR COLOURS" IS DRAWN (owner 2026-09-29, "APPROVED —
+   * FIVE PALETTE STYLES, PICKED ON THE TOOLBAR") — one of the five looks in
+   * `lib/palette-looks.ts`, beside `style` and stored the same way. FREE: not a
+   * look key. Absent = Tags, today's look.
+   */
+  palette?: string;
+  /**
    * 🎞 A POST EVENT PRESET SCENE (`lib/post-event-presets.ts`) — which of Post
    * Event's twelve presets seeded this scene of the couple's own. NOT `preset`,
    * which is the scene's motion. Its presence puts the scene on Post Event only
@@ -650,6 +657,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (template) out.template = template;
   const style = sanitizeSceneStyleId(canvas.style);
   if (style) out.style = style;
+  const palette = sanitizeSceneStyleId(canvas.palette);
+  if (palette) out.palette = palette;
   if (isPostEventPresetId(canvas.postEventPreset)) out.postEventPreset = canvas.postEventPreset;
   const slots = hubSceneSlots(canvas.slots);
   if (slots) out.slots = slots;
@@ -1050,9 +1059,11 @@ export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
      their own scoped style (`hubElementSceneCss`), framed or not. */
   /* 🔗 Nor is a scene's own version of a Details fact (`details`) — it is
      words, drawn by the scene itself; framing it would add motion nobody chose. */
-  /* 🎨 Nor is a style pick (`style`) — the scene draws its own style; framing
-     it would bring motion the couple never chose. */
-  return Object.keys(canvas).some((k) => k !== 'elements' && k !== 'details' && k !== 'style' && k !== 'postEventPreset');
+  /* 🎨 Nor is a style pick (`style`) or a palette look (`palette`) — the scene
+     draws its own style; framing it would bring motion the couple never chose. */
+  return Object.keys(canvas).some(
+    (k) => k !== 'elements' && k !== 'details' && k !== 'style' && k !== 'palette' && k !== 'postEventPreset',
+  );
 }
 
 /**

@@ -1434,6 +1434,7 @@ export function MakerWork({
               stage={stage}
               eventType={sceneFormat.eventType ?? null}
               draftAction={elementEditing.draftAction}
+              colours={sceneFormat.colorChoices}
             />
             <SceneBackgroundRow
               key={type}

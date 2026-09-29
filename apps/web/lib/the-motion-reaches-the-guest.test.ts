@@ -213,7 +213,8 @@ test('5 ⏳ every "Plays once" arrival binds only on a scene the page has marked
   assert.match(css, /\.pahina-in:has\(\+ style[^{]*\{[^}]*el-in-fade/, 'and plays once they do');
   // …and the page's ONE observer is what sets the mark.
   const OBS = read('app/[slug]/_components/pahina-motion.tsx');
-  assert.match(OBS, /var hsel='\.hub-canvas, style\[data-hub-els\]';/);
+  // (…and a palette's entrance rides the same selector — `[data-pal-look]`, 2026-09-29.)
+  assert.match(OBS, /var hsel='\.hub-canvas, style\[data-hub-els\], \[data-pal-look\]';/);
 });
 
 /* ── 6 — "Goes out" on parts ──────────────────────────────────────────────── */

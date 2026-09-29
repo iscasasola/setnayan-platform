@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e9c23ea98",
-  "routeCount": 438,
-  "destinations": 947,
-  "actions": 671,
-  "blocks": 5186,
+  "generatedFromRef": "fafcc1852",
+  "routeCount": 441,
+  "destinations": 949,
+  "actions": 672,
+  "blocks": 5230,
   "routes": {
     "/": {
       "files": [
@@ -794,6 +794,7 @@
         "[slug]/_components/guest-me.tsx",
         "[slug]/_components/guest-preload.tsx",
         "[slug]/_components/guest-ticket.tsx",
+        "[slug]/_components/guest-welcome.tsx",
         "[slug]/_components/hero-background-media.tsx",
         "[slug]/_components/hideable-widget-render.tsx",
         "[slug]/_components/host-draft-look.tsx",
@@ -804,7 +805,6 @@
         "[slug]/_components/hub/hub-shell.tsx",
         "[slug]/_components/invitation-shell.tsx",
         "[slug]/_components/invitation-skeleton.tsx",
-        "[slug]/_components/keep-on-home-screen.tsx",
         "[slug]/_components/live-wall-block.tsx",
         "[slug]/_components/magic-move.tsx",
         "[slug]/_components/main-ground.tsx",
@@ -842,6 +842,7 @@
         "[slug]/_components/reveal/wax-seal.tsx",
         "[slug]/_components/roam-watch-picker.tsx",
         "[slug]/_components/room-footer.tsx",
+        "[slug]/_components/rsvp-canvas-bridge.tsx",
         "[slug]/_components/rsvp-one-at-a-time.tsx",
         "[slug]/_components/rsvp-plus-ones.tsx",
         "[slug]/_components/rsvp-sheet-state.ts",
@@ -988,6 +989,7 @@
         "BackgroundMusic",
         "Bar",
         "Blob",
+        "ByRoleGroup",
         "ByTheNumbers",
         "CaptureTile",
         "CapturesByHour",
@@ -998,7 +1000,6 @@
         "ChallengeCountdown",
         "Chapter",
         "ChapterWriteUp",
-        "Choice",
         "ClientEventWords",
         "ClipFrame",
         "CollagePreview",
@@ -1054,6 +1055,7 @@
         "GalleryLightbox",
         "Gap",
         "GetInside",
+        "GiftDoorCard",
         "GlowBlob",
         "GracefulFallback",
         "GuestAccountCard",
@@ -1075,6 +1077,7 @@
         "GuestPreload",
         "GuestTicket",
         "GuestToHostCta",
+        "GuestWelcome",
         "HTMLAudioElement",
         "HTMLButtonElement",
         "HTMLCanvasElement",
@@ -1100,12 +1103,10 @@
         "HubSceneRuns",
         "HubScenes",
         "Icon",
-        "InstallPlatform",
         "InvitationBody",
         "InvitationFacts",
         "InvitationShell",
         "InvitationSkeleton",
-        "KeepOnHomeScreen",
         "KwentoClip",
         "KwentoWall",
         "Layer",
@@ -1127,6 +1128,8 @@
         "MainGroundNone",
         "MakerEmptyScene",
         "MakerGuestScenes",
+        "MakerWelcomeGiftsEmpty",
+        "MakerWelcomeLook",
         "Marked",
         "MediaStream",
         "MinuteEntry",
@@ -1135,6 +1138,7 @@
         "Monogram",
         "NavLinksRow",
         "NotYouSwitch",
+        "OneLinePairs",
         "OpenInBrowser",
         "OpenUpScene",
         "OpenUpTabs",
@@ -1189,6 +1193,7 @@
         "RoadEntry",
         "RoamWatchPicker",
         "RoleFigure",
+        "RoleNames",
         "RoomFreeze",
         "RoomLink",
         "RoomPlan",
@@ -1196,6 +1201,7 @@
         "RowGroup",
         "RsvpFocusForm",
         "RsvpOneAtATime",
+        "RsvpOneAtATimeLive",
         "RsvpPill",
         "RsvpPlusOnes",
         "RsvpSheet",
@@ -1296,6 +1302,8 @@
         "WaxSeal",
         "WaxSealGLState",
         "WayfindingMap",
+        "WelcomeGifts",
+        "WelcomeSlot",
         "WereYouThere",
         "WhatToBringWidget",
         "WishesPreview",
@@ -1478,6 +1486,7 @@
         "DoorShell",
         "InviteQrPanel",
         "Link",
+        "RsvpCanvasBridge",
         "SaveToAccount",
         "TicketRow",
         "YourGuests"
@@ -1496,6 +1505,7 @@
         "GuestLookScope",
         "Link",
         "NotYouSwitch",
+        "RsvpCanvasBridge",
         "RsvpWidget"
       ]
     },
@@ -5687,6 +5697,7 @@
         "dashboard/[eventId]/guests/_components/plus-one-seats-note.tsx",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
         "dashboard/[eventId]/guests/_components/remove-guest-confirm.tsx",
+        "dashboard/[eventId]/guests/_components/role-names-context.tsx",
         "dashboard/[eventId]/guests/_components/roster-meters.tsx",
         "dashboard/[eventId]/guests/_components/roster-tabs.tsx",
         "dashboard/[eventId]/guests/_components/seat-chip.tsx",
@@ -5703,7 +5714,8 @@
         "dashboard/[eventId]/guests/page.tsx",
         "dashboard/[eventId]/guests/pair-actions.ts",
         "dashboard/[eventId]/guests/people-add-actions.ts",
-        "dashboard/[eventId]/guests/quick-add-actions.ts"
+        "dashboard/[eventId]/guests/quick-add-actions.ts",
+        "dashboard/[eventId]/guests/role-name-actions.ts"
       ],
       "destinations": [
         "/api/website/qr/guest/[seg]",
@@ -5746,6 +5758,7 @@
         "CheckinDeskPage",
         "ChipTrigger",
         "ConfirmForm",
+        "Ctx",
         "CustomizePanel",
         "DesktopCanvas",
         "DesktopRow",
@@ -5753,6 +5766,7 @@
         "Drawer",
         "EditGroupForm",
         "EditResult",
+        "EitherOrRow",
         "EmptyState",
         "EventHostsPage",
         "FacetRow",
@@ -5846,8 +5860,12 @@
         "QuickRoleResult",
         "QuickViewButton",
         "RemoveGuestConfirm",
+        "RenameRoleResult",
+        "RenameThisRole",
         "RestoreResult",
         "RoleChipEditor",
+        "RoleNamesContext.Provider",
+        "RoleNamesProvider",
         "RoleTexts",
         "RosterMeters",
         "RosterTabs",
@@ -5934,6 +5952,7 @@
         "MediaStream",
         "NotSharedWithYou",
         "ReadRefusedNotice",
+        "RoleNamesProvider",
         "TicketCheck",
         "UndoActionResult"
       ]
@@ -5956,6 +5975,7 @@
         "LinkCandidate",
         "LinkPicker",
         "PageMasthead",
+        "RoleNamesProvider",
         "SendInviteActions",
         "SubmitButton"
       ]
@@ -6025,6 +6045,7 @@
         "InvitedToChips",
         "Link",
         "PlusOneToggle",
+        "RoleNamesProvider",
         "Select",
         "SubmitButton"
       ]
@@ -6231,6 +6252,7 @@
         "dashboard/[eventId]/launch/_components/maker-prints.tsx",
         "dashboard/[eventId]/launch/_components/maker-reveal.tsx",
         "dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx",
+        "dashboard/[eventId]/launch/_components/maker-rsvp-stage.tsx",
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-theme-picker.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
@@ -6267,6 +6289,7 @@
         "action",
         "qrStyleAction",
         "removeHeroPhoto",
+        "replyByAction",
         "uploadHeroPhoto"
       ],
       "blocks": [
@@ -6351,6 +6374,7 @@
         "LayeredLogoPlayer",
         "LifecyclePhase",
         "Link",
+        "LiveReplyByField",
         "Load",
         "LogoLayer",
         "LookFrame",
@@ -6371,6 +6395,7 @@
         "MakerRevealPicker",
         "MakerRsvpCanvas",
         "MakerRsvpSettings",
+        "MakerRsvpStage",
         "MakerSelection",
         "MakerShell",
         "MakerState",
@@ -6427,11 +6452,13 @@
         "RequestsPage",
         "Row",
         "RsvpAskConfig",
+        "RsvpStageScene",
         "SVGGElement",
         "SVGSVGElement",
         "SaveRow",
         "SaveState",
         "SaveWords",
+        "SavedReplyByField",
         "ScheduleMatrix",
         "ScheduleSlots",
         "SeatPlan3dNote",
@@ -6459,6 +6486,8 @@
         "TuneSlider",
         "Unread",
         "UpdateQrStyleResult",
+        "VenuePhotoPicker",
+        "VenueSlot",
         "VenuesEditor",
         "VenuesSeen",
         "ViewAsFreeKeeper",
@@ -6468,6 +6497,7 @@
         "WebsiteEditorPage",
         "WhatsLeftDoor",
         "Window",
+        "WordField",
         "WordsCard",
         "YourEventInput"
       ]
@@ -7466,6 +7496,7 @@
         "CouldNotLoad",
         "CustomRolesEditor",
         "DetailsPieceButton",
+        "DressCodeListsForm",
         "EventLinkedBadge",
         "FinalizationActionResult",
         "GalleryPage",
@@ -8695,6 +8726,7 @@
         "DraftButton",
         "HTMLDivElement",
         "HubDraftActionResult",
+        "HubDraftBarLive",
         "HubDraftToolbar",
         "InfoTip",
         "Link",
@@ -8717,6 +8749,7 @@
     "/dashboard/[eventId]/website/dress-code": {
       "files": [
         "dashboard/[eventId]/website/dress-code/_components/dress-code-fields.tsx",
+        "dashboard/[eventId]/website/dress-code/_components/dress-code-lists-form.tsx",
         "dashboard/[eventId]/website/dress-code/_components/group-attire-field.tsx",
         "dashboard/[eventId]/website/dress-code/_components/list-field.tsx",
         "dashboard/[eventId]/website/dress-code/_components/palette-field.tsx",
@@ -8727,15 +8760,19 @@
       ],
       "destinations": [
         "/[seg]",
+        "/dashboard/[seg]/studio/mood-board",
         "/dashboard/[seg]/website"
       ],
       "actions": [
         "updateAction"
       ],
       "blocks": [
+        "CarriedAttire",
         "DressCodeFields",
         "DressCodePreview",
         "GroupAttireField",
+        "HubDraftField",
+        "InfoTip",
         "Link",
         "ListField",
         "PageMasthead",
@@ -8761,6 +8798,7 @@
         "dashboard/[eventId]/website/editor/_components/maker-canvas-guard.tsx",
         "dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts",
         "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
+        "dashboard/[eventId]/website/editor/_components/page-pick.tsx",
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-place.ts",
         "dashboard/[eventId]/website/editor/_components/pick-menu.tsx",
@@ -8872,6 +8910,7 @@
         "MainBackgroundPanel",
         "MakerHeroPanel",
         "MakerLogoPanel",
+        "MakerPagePick",
         "MakerRefusesToBeFramed",
         "MakerRevealPanel",
         "MakerSelection",
@@ -9246,6 +9285,33 @@
         "PahinaMasthead"
       ]
     },
+    "/dev/rsvp-stage-lab": {
+      "files": [
+        "dev/rsvp-stage-lab/actions.ts",
+        "dev/rsvp-stage-lab/lab.tsx",
+        "dev/rsvp-stage-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "HTMLIFrameElement",
+        "HubDraftActionResult",
+        "MakerRsvpStage",
+        "RsvpStageLab"
+      ]
+    },
+    "/dev/rsvp-stage-lab/frame": {
+      "files": [
+        "dev/rsvp-stage-lab/frame/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DoorShell",
+        "RsvpCanvasBridge",
+        "RsvpWidget"
+      ]
+    },
     "/dev/schedule-lab": {
       "files": [
         "dev/schedule-lab/page.tsx",
@@ -9461,6 +9527,23 @@
         "DoorNotice",
         "DoorShell",
         "Link"
+      ]
+    },
+    "/join/[eventId]/connect/confirm": {
+      "files": [
+        "join/[eventId]/connect/confirm/actions.ts",
+        "join/[eventId]/connect/confirm/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorActions",
+        "DoorNotice",
+        "DoorShell",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/join/[eventId]/set-password": {
@@ -10006,6 +10089,7 @@
       "blocks": [
         "ArmedChallenge",
         "Blob",
+        "CardFrame",
         "ChallengePanelInner",
         "DayOfFaceEnroll",
         "DoorShell",

@@ -1,5 +1,6 @@
 'use client';
 
+import { formatCount } from '@/lib/format-number';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
@@ -237,7 +238,7 @@ export function DetailsWorkspace({
   const whatsLeftLine = (() => {
     if (!plan) return '';
     const h = homeProgress(plan);
-    return h ? `Round ${h.round} · ${h.done} of ${h.total}` : 'All set';
+    return h ? `Round ${h.round} · ${formatCount(h.done)} of ${formatCount(h.total)}` : 'All set';
   })();
   /* The navigator, narrowed in the flow to the step's own items (and their pieces). */
   const navGroups: DetailsNavGroup[] =

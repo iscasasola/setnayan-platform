@@ -12,6 +12,7 @@ import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { RevealList } from '@/app/_components/reveal-list';
 import { formatCount } from '@/lib/format-number';
+import { MiniTour } from '@/app/_components/mini-tour';
 
 export const metadata = { title: 'Galleries' };
 
@@ -278,6 +279,8 @@ export default async function GalleriesHubPage({ params }: Props) {
           );
         })}
       </RevealList>
+      {/* First visit only — the shipped MiniTour (owner 2026-09-25). */}
+      <MiniTour tourKey="customer_galleries_v1" />
     </div>
   );
 }

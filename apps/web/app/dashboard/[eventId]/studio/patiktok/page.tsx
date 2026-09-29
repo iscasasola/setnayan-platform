@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import {
@@ -687,33 +688,26 @@ function CategoryChips({
     { key: 'all', label: 'All templates' },
     ...PATIKTOK_CATEGORIES,
   ];
+  // ONE dropdown, not a row of category pills (owner rule 2026-09-28). Each
+  // option is still the same address the pills linked to, so a category
+  // survives a refresh and the page stays server-rendered.
   return (
-    <nav
-      aria-label="Filter templates by category"
-      className="flex flex-wrap gap-2"
-    >
-      {items.map((item) => {
-        const isActive = item.key === active;
-        const href =
-          item.key === 'all'
-            ? `/dashboard/${eventId}/studio/patiktok`
-            : `/dashboard/${eventId}/studio/patiktok?category=${item.key}`;
-        return (
-          <Link
-            key={item.key}
-            href={href}
-            aria-current={isActive ? 'page' : undefined}
-            className={
-              isActive
-                ? 'inline-flex items-center gap-1.5 rounded-full bg-terracotta px-3 py-1 text-xs font-medium text-cream'
-                : 'inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700'
-            }
-          >
-            <Hash aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            {item.label}
-          </Link>
-        );
-      })}
+    <nav aria-label="Filter templates by category" className="flex items-center gap-2">
+      <Hash aria-hidden className="h-3.5 w-3.5 text-ink/50" strokeWidth={1.75} />
+      <LinkPickMenu
+        label="Template category"
+        value={active}
+        dataAttr="data-patiktok-category"
+        options={items.map((item) => ({
+          key: item.key,
+          label: item.label,
+          href:
+            item.key === 'all'
+              ? `/dashboard/${eventId}/studio/patiktok`
+              : `/dashboard/${eventId}/studio/patiktok?category=${item.key}`,
+        }))}
+        className="border border-ink/15"
+      />
     </nav>
   );
 }

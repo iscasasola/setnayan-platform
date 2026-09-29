@@ -6038,35 +6038,34 @@ export function SeatingEditor({
             ) : null}
             {/* Feature B — room-size presets: one tap sets a common footprint and
                 switches to-scale mode on (the typed inputs stay for fine-tuning). */}
+            {/* Room sizes — ONE dropdown (owner rule 2026-09-28: a choice of
+                several is a dropdown, never a pill row). Picking one sets the
+                footprint and turns to-scale on, as the preset pills did. */}
             <div className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Presets</span>
-              <div className="flex flex-wrap gap-1.5">
-                {ROOM_PRESETS.map((p) => {
-                  const active = venueScaled && venue.width === p.width && venue.length === p.length;
-                  return (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => {
-                        setVenue({ enabled: true, width: p.width, length: p.length });
-                        setFloorDirty(true);
-                      }}
-                      title={`${p.width} × ${p.length} m`}
-                      aria-pressed={active}
-                      className={`rounded-lg border px-2 py-1 text-xs font-medium ${
-                        active
-                          ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-                          : 'border-ink/15 bg-cream text-ink/70 hover:border-terracotta hover:text-terracotta'
-                      }`}
-                    >
-                      {p.label}{' '}
-                      <span className="tabular-nums text-ink/40">
-                        {p.width}×{p.length}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Room size</span>
+              <PickMenu
+                label="Room size"
+                value={
+                  venueScaled
+                    ? (ROOM_PRESETS.find((p) => venue.width === p.width && venue.length === p.length)?.label ?? null)
+                    : null
+                }
+                dataAttr="data-room-preset"
+                buttonText={
+                  venueScaled &&
+                  ROOM_PRESETS.some((p) => venue.width === p.width && venue.length === p.length)
+                    ? undefined
+                    : 'Pick a common size'
+                }
+                options={ROOM_PRESETS.map((p) => ({ key: p.label, label: `${p.label} · ${p.width} × ${p.length} m` }))}
+                onPick={(key) => {
+                  const p = ROOM_PRESETS.find((r) => r.label === key);
+                  if (!p) return;
+                  setVenue({ enabled: true, width: p.width, length: p.length });
+                  setFloorDirty(true);
+                }}
+                className="self-start border border-ink/15"
+              />
             </div>
             {/* Stage + dance-floor dimensions in metres. Sizes store as percent
                 of the canvas, so they only map to metres once a room size is

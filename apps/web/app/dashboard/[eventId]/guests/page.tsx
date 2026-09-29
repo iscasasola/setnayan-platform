@@ -104,6 +104,7 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
 import { accessTag } from '@/lib/guest-access';
+import { MiniTour } from '@/app/_components/mini-tour';
 
 export const metadata = { title: 'Guests' };
 
@@ -1376,6 +1377,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           InspectorLayout at every width. */}
       <UndoToastHost />
 
+      {/* First visit only — the shipped MiniTour (owner 2026-09-25). */}
+      <MiniTour tourKey="customer_guest_list_v1" />
     </section>
   );
 

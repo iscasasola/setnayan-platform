@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d70f4c6b4",
+  "generatedFromRef": "efd3c36ad",
   "routeCount": 437,
   "destinations": 947,
   "actions": 673,
-  "blocks": 5170,
+  "blocks": 5178,
   "routes": {
     "/": {
       "files": [
@@ -4548,8 +4548,8 @@
         "EditorialsTab",
         "EventMonogram",
         "FacebookGlyph",
-        "Icon",
         "Link",
+        "LinkPickMenu",
         "PageMasthead",
         "PhotosTab",
         "SavedVendorCardItem",
@@ -5360,9 +5360,11 @@
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
+        "MiniTour",
         "NoFinalizedVendors",
         "OverspendBanner",
         "PageMasthead",
+        "PickMenu",
         "PinnedStat",
         "RecordCostResult",
         "RecordedCostRow",
@@ -5374,7 +5376,6 @@
         "SuggestMilestonesResult",
         "SummaryStat",
         "SupplierInvite",
-        "TiltButton",
         "TiltEditor",
         "TotalCell",
         "UpcomingRow",
@@ -5625,6 +5626,7 @@
         "Icon",
         "Link",
         "ListPageSkeleton",
+        "MiniTour",
         "PageMasthead",
         "RevealList"
       ]
@@ -5791,6 +5793,7 @@
         "MarchCell",
         "MarchResult",
         "Meter",
+        "MiniTour",
         "MobileGuestCarousel",
         "MobileListRow",
         "MobileSelfJoinCard",
@@ -5840,8 +5843,6 @@
         "SeatsIndex",
         "Section",
         "SectionMoveButton",
-        "Seg",
-        "SegRow",
         "Select",
         "SelectFilter",
         "SelectionBar",
@@ -6460,6 +6461,7 @@
         "Link",
         "LiveWallControls",
         "PageMasthead",
+        "PickMenu",
         "WallMode",
         "WallModeControl"
       ]
@@ -7774,6 +7776,7 @@
         "PapicStage",
         "PapicWindowPicker",
         "PaymentUnderReview",
+        "PickMenu",
         "PickerFilters",
         "PoolGalleryCard",
         "PoolGalleryToggle",
@@ -7959,6 +7962,7 @@
         "Icon",
         "InlineCheckoutDrawer",
         "Link",
+        "LinkPickMenu",
         "MediaRecorder",
         "MediaStream",
         "MusicTrackOption",
@@ -8424,6 +8428,7 @@
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
+        "PickMenu",
         "PillarPartPicker",
         "PlanBudgetAccordion",
         "PlansRowPick",
@@ -9936,7 +9941,8 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "KwentoDecorator",
-        "PapicStyle"
+        "PapicStyle",
+        "PickMenu"
       ]
     },
     "/papic/demo/[token]": {
@@ -9980,6 +9986,7 @@
         "DayOfFaceEnroll",
         "DoorShell",
         "GridPageSkeleton",
+        "GuestGuidedTour",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -10047,6 +10054,7 @@
         "File",
         "FormPageSkeleton",
         "GuestGallery",
+        "GuestGuidedTour",
         "GuestStoryMaker",
         "GuestStoryPlan",
         "Link",
@@ -10394,9 +10402,9 @@
         "Money",
         "OverspendBanner",
         "PaymentSection",
+        "PickMenu",
         "PriceSourceChip",
         "SummaryStat",
-        "TiltButton",
         "TiltEditor",
         "TourBudgetPlanner",
         "TourVendorItemization"

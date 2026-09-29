@@ -494,7 +494,7 @@ export function MobileGuestCarousel({
       />
 
       {/* Filter bottom sheet — opened from the compose-bar filter icon. Reuses
-          the SegRow/Seg/SelectFilter controls; each writes a URL param so the
+          the SelectFilter dropdowns; each writes a URL param so the
           list updates live behind the sheet (owner directive 2026-06-03). */}
       {filterSheet ? (
         <div
@@ -534,32 +534,32 @@ export function MobileGuestCarousel({
               )}
             </div>
 
-            <SegRow label="Side">
-              <Seg href={buildHref({ team: null })} active={teamFilter === 'all'}>
-                All
-              </Seg>
-              <Seg href={buildHref({ team: 'bride' })} active={teamFilter === 'bride'}>
-                Bride
-              </Seg>
-              <Seg href={buildHref({ team: 'groom' })} active={teamFilter === 'groom'}>
-                Groom
-              </Seg>
-            </SegRow>
-
-            <SegRow label="RSVP">
-              <Seg href={buildHref({ rsvp: null })} active={!currentRsvp}>
-                All
-              </Seg>
-              <Seg href={buildHref({ rsvp: 'attending' })} active={currentRsvp === 'attending'}>
-                Going
-              </Seg>
-              <Seg href={buildHref({ rsvp: 'pending' })} active={currentRsvp === 'pending'}>
-                Pending
-              </Seg>
-              <Seg href={buildHref({ rsvp: 'declined' })} active={currentRsvp === 'declined'}>
-                Declined
-              </Seg>
-            </SegRow>
+            {/* Side + RSVP — dropdowns like Role and Group below them (owner rule
+                2026-09-28: a choice of several is ONE dropdown, never a pill row).
+                They were segmented pills; same params, same `buildHref`. */}
+            <div className="grid grid-cols-2 gap-2">
+              <SelectFilter
+                label="Side"
+                allLabel="All"
+                value={teamFilter !== 'all' ? teamFilter : ''}
+                options={[
+                  { value: 'bride', label: 'Bride' },
+                  { value: 'groom', label: 'Groom' },
+                ]}
+                onChange={(v) => router.push(buildHref({ team: v || null }))}
+              />
+              <SelectFilter
+                label="RSVP"
+                allLabel="All"
+                value={currentRsvp}
+                options={[
+                  { value: 'attending', label: 'Going' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'declined', label: 'Declined' },
+                ]}
+                onChange={(v) => router.push(buildHref({ rsvp: v || null }))}
+              />
+            </div>
 
             <div className="grid grid-cols-2 gap-2">
               {/* Role + Group are independent filters now (2026-06-13) — each
@@ -647,42 +647,6 @@ export function MobileGuestCarousel({
         </div>
       ) : null}
     </>
-  );
-}
-
-// SegRow / Seg — an iOS-style segmented toggle (label + a connected pill
-// group) for the small fixed-set filters (Side, RSVP). Each Seg is a Link
-// that flips one URL param, so filters compose and survive refresh.
-function SegRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-10 shrink-0 font-mono text-[10px] uppercase tracking-[0.08em] text-ink/45">
-        {label}
-      </span>
-      <div className="flex flex-1 gap-0.5 rounded-lg bg-ink/5 p-0.5">{children}</div>
-    </div>
-  );
-}
-
-function Seg({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? 'true' : undefined}
-      className={`flex-1 rounded-md py-1.5 text-center text-[11px] font-medium transition-colors ${
-        active ? 'bg-cream text-terracotta-700 shadow-sm ring-1 ring-ink/5' : 'text-ink/55 hover:text-ink'
-      }`}
-    >
-      {children}
-    </Link>
   );
 }
 

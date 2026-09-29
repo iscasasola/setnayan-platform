@@ -9,6 +9,7 @@ import { sceneFactsFor } from '../_lib/scene-facts';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
@@ -62,6 +63,12 @@ type HideableWidgetProps = {
   canvasMediaUrls?: Readonly<Record<string, string>>;
   /** The live theme, so a scene's text follows its own background (free). */
   hubTheme?: InviteThemeId;
+  /**
+   * 🎞 The couple's own Maker canvas (`isMakerCanvas`, a VERIFIED host): their
+   * scene clip plays (`sceneGround`'s `ownClipPlays`). Never set for a guest —
+   * absent = the SEC-6 gate, and a guest sees the clip's still.
+   */
+  ownClipPlays?: boolean;
   /** The guest's invitation is linked to their account — only then may the
    *  "plan your own" pitch show (lib/guest-one-path.ts `hostPitchShows`). */
   hostPitch?: boolean;
@@ -86,6 +93,7 @@ function HideableWidgetBody({
   ourPhotoUrls,
   words,
   canvasMediaUrls,
+  ownClipPlays = false,
   hostPitch = false,
   guestView = false,
   marchPlace = null,
@@ -97,7 +105,7 @@ function HideableWidgetBody({
   if (widget.is_always_on) return null;
   /* 🖼 The scene background owns the box — the widget then draws no card of
      its own (owner 2026-09-27, "no background means no box"). */
-  const bare = sceneWidgetIsBare(widget, canvasMediaUrls);
+  const bare = sceneWidgetIsBare(widget, canvasMediaUrls, { ownClipPlays });
 
   switch (widget.widget_type) {
     case 'event_details':
@@ -222,6 +230,8 @@ function HideableWidgetBody({
         config: widget.config_json,
         mediaUrls: canvasMediaUrls,
         facts: sceneFactsFor(event, { solemn: words.solemn }),
+        ownClipPlays,
+        clipStillRef: siteMediaServeRef(event.landing_page_hero_image_url),
       });
 
     case 'our_love_story':
@@ -275,5 +285,5 @@ function Detail({
  * here — lives in `hub-canvas-frame.tsx`.
  */
 export function HideableWidgetRender(props: HideableWidgetProps) {
-  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme}>{HideableWidgetBody(props)}</HubCanvasFrame>;
+  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme} ownClipPlays={props.ownClipPlays}>{HideableWidgetBody(props)}</HubCanvasFrame>;
 }

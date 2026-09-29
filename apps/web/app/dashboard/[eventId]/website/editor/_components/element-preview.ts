@@ -239,7 +239,9 @@ export function backgroundPickRedrawsBox(
 export function sceneCardBareFor(canvas: HubSectionCanvas, mediaUrls: Readonly<Record<string, string>>): boolean | null {
   const bg = resolveHubBackground(canvas);
   if (bg && hubBackgroundIsMedia(bg) && !(bg.media in mediaUrls)) return null;
-  return sceneWidgetIsBare({ config_json: { canvas } }, mediaUrls);
+  /* 🎞 The Maker's canvas is the couple's own (`ownClipPlays`) — their clip
+     plays there, so ask the question the way that canvas answers it. */
+  return sceneWidgetIsBare({ config_json: { canvas } }, mediaUrls, { ownClipPlays: true });
 }
 
 /** A canvas map in one spelling — keys sorted, empty canvases dropped (absent = empty). */

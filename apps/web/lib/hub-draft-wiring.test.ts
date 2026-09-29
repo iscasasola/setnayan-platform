@@ -172,6 +172,10 @@ test('a template scene (Phase 5) drafts its template, slot and clip writes, buil
 
 test('Apply re-checks every slot picture is the couple\'s own, not only the background', () => {
   const body = fn(read(ACTIONS), 'hubDraftAction');
-  assert.match(body, /drafted\?\.media,\s*\.\.\.\(drafted\?\.slots \?\? \[\]\)\.map\(\(s\) => s\.media\)/);
-  assert.match(body, /refs\.some\(\(r\) => !ownRefs\.has\(r\)\)/);
+  /* The background (and a clip's still) may also be the scene's own upload
+     folder (`sceneIsOwn`, 2026-09-28 "Upload media"); a slot picture is held to
+     the couple's pictures, as before. */
+  assert.match(body, /\[drafted\?\.media, drafted\?\.poster\]/);
+  assert.match(body, /\(drafted\?\.slots \?\? \[\]\)\.map\(\(s\) => s\.media\)/);
+  assert.match(body, /ground\.some\(\(r\) => !sceneIsOwn\(r\)\) \|\| slotRefs\.some\(\(r\) => !ownRefs\.has\(r\)\)/);
 });

@@ -283,8 +283,11 @@ test('⛔ no rule branches on a class the contract can never emit', async () => 
   const tplUrl = (i: number) => `r2://${PUBLIC_R2_BUCKET}/events/E1/t${i}.jpg`;
   const tplUrls = Object.fromEntries([0, 1, 2, 3, 4, 5].map((i) => [tplUrl(i), `https://cdn.test/t${i}.jpg`]));
   const facts = { names: 'A & B', monogram: 'A & B', daysToGo: 9, specialMessage: 'Hi', milestones: [] };
+  /* 🎞 …and both ways a clip is drawn: a guest (SEC-6 — an unscreened clip is
+     shown as its still) and the couple's own Maker canvas (`ownClipPlays`),
+     where the clip and its ▶ are real (2026-09-28, scene Upload media). */
   for (const id of SCENE_TEMPLATE_IDS) {
-    for (const play of ['loop', 'tap'] as const) {
+    for (const play of ['loop', 'tap', 'tap-host'] as const) {
       const slots = [0, 1, 2, 3, 4, 5].map((i) => ({
         media: tplUrl(i),
         ...(id === 5 || id === 14 ? { kind: 'snippet' as const } : {}),
@@ -292,10 +295,11 @@ test('⛔ no rule branches on a class the contract can never emit', async () => 
         text: 't',
       }));
       const el = renderScene({
-        canvas: { template: id, slots, ...(play === 'tap' ? { video: { play } } : {}) },
+        canvas: { template: id, slots, ...(play !== 'loop' ? { video: { play: 'tap' as const } } : {}) },
         words: { title: 'T', body: 'B' },
         mediaUrls: tplUrls,
         facts,
+        ownClipPlays: play === 'tap-host',
       });
       const html = el ? renderToStaticMarkup(el) : '';
       for (const m of html.matchAll(/class="([^"]*)"/g)) {

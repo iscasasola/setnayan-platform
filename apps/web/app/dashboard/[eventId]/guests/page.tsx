@@ -87,6 +87,12 @@ import { UndoToastHost } from './_components/undo-toast';
 import { GuestCardBody, GUEST_CARD_ERROR_COPY } from './_components/guest-card-body';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PillarPartPicker } from '../_components/pillar-part-picker';
+import { guestListParts, GUEST_LIST_PART_VIEW } from '@/lib/pillar-parts';
+// The Guest list's two other parts are the SHIPPED pages, rendered whole in
+// this page's body (owner 2026-09-29) — never a second copy of either.
+import EventHostsPage from '../hosts/page';
+import CheckinDeskPage from './checkin/page';
 import {
   InspectorColumn,
   InspectorLayout,
@@ -249,6 +255,14 @@ type Props = {
     group_saved?: string;
     group_deleted?: string;
     group_member_removed?: string;
+    // The Hosts part's own flash (hosts/actions.ts redirects to /hosts, which
+    // lands here with every param carried — see `partHref`).
+    invite_sent?: string;
+    invite_error?: string;
+    invite_revoked?: string;
+    grant_updated?: string;
+    host_removed?: string;
+    token?: string;
   }>;
 };
 
@@ -331,6 +345,81 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const viewer = await fetchEventViewer(supabase, eventId, user.id);
   if (isDelegateWithoutArea(viewer, 'guest_list')) {
     return <NotSharedWithYou title="Guests" thing="guest list" />;
+  }
+
+  /*
+    ⚖ THE GUEST LIST'S OTHER PARTS — owner 2026-09-29: "this is what an event
+    needs. Guestlist · Your Team · Event Hub Maker · Our Services", with Hosts
+    and Check-in placed inside the Guest list. Each is its SHIPPED page,
+    rendered whole in this body under the part picker (`lib/pillar-parts.ts`);
+    `/hosts` now lands here, `/guests/checkin` still stands on its own for the
+    door crew and the day-of menu row.
+
+    🔑 IT RETURNS BEFORE THE ROSTER'S READS. Hosts and the check-in desk read
+    what they need themselves; the roster's whole fan-out (guests, groups,
+    seats, the floor plan…) would be fetched and thrown away — and the desk
+    re-renders this page on a timer on the day itself (`LiveRefresher`).
+  */
+  const part =
+    search.gview === GUEST_LIST_PART_VIEW.hosts
+      ? 'hosts'
+      : search.gview === GUEST_LIST_PART_VIEW.checkin
+        ? 'checkin'
+        : null;
+  if (part) {
+    const { data: when, error: whenError } = await supabase
+      .from('events')
+      .select('event_date, event_end_date, cleared_at, timezone')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (whenError) {
+      // Refused, the event reads as still being planned — the picker then
+      // offers one door fewer (Check-in), never a wrong one.
+      logQueryError('GuestsPage.partPhase', whenError, { eventId }, 'graceful_degrade');
+    }
+    const w = when as {
+      event_date?: string | null;
+      event_end_date?: string | null;
+      cleared_at?: string | null;
+      timezone?: string | null;
+    } | null;
+    const partPhase = getMenuLifecyclePhase(
+      w?.event_date ?? null,
+      w?.cleared_at ?? null,
+      w?.timezone ?? undefined,
+      undefined,
+      w?.event_end_date ?? null,
+    );
+    const partParams = Promise.resolve({ eventId });
+    return (
+      <section className="sn-col space-y-6">
+        <PageMasthead title="Guests" />
+        <PillarPartPicker
+          label="Guest list part"
+          parts={guestListParts({ eventId, phase: partPhase, current: part })}
+          current={part}
+        />
+        {part === 'hosts' ? (
+          <EventHostsPage
+            params={partParams}
+            searchParams={Promise.resolve({
+              invite_sent: search.invite_sent,
+              invite_error: search.invite_error,
+              invite_revoked: search.invite_revoked,
+              grant_updated: search.grant_updated,
+              host_removed: search.host_removed,
+              token: search.token,
+              gview: GUEST_LIST_PART_VIEW.hosts,
+            })}
+          />
+        ) : (
+          <CheckinDeskPage
+            params={partParams}
+            searchParams={Promise.resolve({ gview: GUEST_LIST_PART_VIEW.checkin })}
+          />
+        )}
+      </section>
+    );
   }
 
   // All reads fire in ONE parallel batch — including the share-invite token,
@@ -451,14 +540,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     how the guest list and the dashboard would come to disagree about whether
     the wedding happened.
   */
-  const finished =
-    getMenuLifecyclePhase(
-      (eventRow.data as { event_date?: string | null } | null)?.event_date ?? null,
-      (eventRow.data as { cleared_at?: string | null } | null)?.cleared_at ?? null,
-      (eventRow.data as { timezone?: string | null } | null)?.timezone ?? undefined,
-      undefined,
-      (eventRow.data as { event_end_date?: string | null } | null)?.event_end_date ?? null,
-    ) === 'after';
+  const phase = getMenuLifecyclePhase(
+    (eventRow.data as { event_date?: string | null } | null)?.event_date ?? null,
+    (eventRow.data as { cleared_at?: string | null } | null)?.cleared_at ?? null,
+    (eventRow.data as { timezone?: string | null } | null)?.timezone ?? undefined,
+    undefined,
+    (eventRow.data as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+  );
+  const finished = phase === 'after';
   // ⚠ `arrived.count` is null when the read was REFUSED, and `arrivedCount`
   // above collapses that to 0. Fine for a meter; NOT fine for a sentence that
   // tells somebody how many people came to their wedding. This keeps the
@@ -922,6 +1011,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           the owner asked for exactly that on 2026-09-20 ("just make this an
           icon on mobile same row as roster wedding march and share the link").
           All of that shipped behind `hidden`. */}
+      {/* The Guest list's parts — Guests · Hosts · Check-in (owner
+          2026-09-29). One dropdown above the roster's own row of doors, so
+          that row keeps the width the owner measured it at. */}
+      <PillarPartPicker
+        label="Guest list part"
+        parts={guestListParts({ eventId, phase, current: 'roster' })}
+        current="roster"
+      />
       <div>
         <RosterTabs
           eventId={eventId}

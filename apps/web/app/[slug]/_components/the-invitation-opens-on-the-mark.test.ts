@@ -46,7 +46,10 @@ test('everything personal sits below the hero, not just the status card', () => 
   const hero = guestBranchIndex("plan.body === 'normal' && plan.heroShouldRender");
   // `<GuestAccountCard` replaced the `showClaimAccountCta &&` claim box on
   // 2026-09-25 (the ONE account prompt) — same slot, same property.
-  for (const personal of ['<KeepOnHomeScreen', '<GuestAccountCard']) {
+  // `<KeepOnHomeScreen` left this list 2026-09-30: the owner removed the card
+  // from the Event Hub outright (the-event-hub-has-no-home-screen-card.test.ts);
+  // `<GuestHubCard` left it the same day (the Digital ticket moved onto Me).
+  for (const personal of ['<GuestAccountCard']) {
     const at = SRC.indexOf(personal, hero);
     assert.ok(at > hero, `${personal} renders after the hero`);
   }
@@ -93,7 +96,7 @@ test('a shared phone does not announce the reader before the couple', () => {
 test('nothing was dropped in the move', () => {
   // The reorder is a move, not a rewrite: each mount still appears exactly once
   // in the guest branch.
-  for (const mount of ['<KeepOnHomeScreen']) {
+  for (const mount of ['<GuestAccountCard']) {
     const count = SRC.split(mount).length - 1;
     assert.equal(count, 1, `${mount} appears once (found ${count})`);
   }

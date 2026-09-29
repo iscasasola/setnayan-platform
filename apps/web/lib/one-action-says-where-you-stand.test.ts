@@ -97,9 +97,10 @@ test('it renders under the mark, and is not a second fixed bar', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8');
   const hero = src.lastIndexOf("plan.body === 'normal' && plan.heroShouldRender", src.indexOf('<ArrivalActionRow'));
   const row = src.indexOf('<ArrivalActionRow');
-  // (It sat above the "Hi again" status card until the owner removed that
-  // card on 2026-09-30; the first personal card below it is now this one.)
-  const card = src.indexOf('<KeepOnHomeScreen');
+  // (It sat above the "Hi again" status card, then above the home-screen card,
+  // until the owner removed both on 2026-09-30; the first personal card below
+  // it is now the account card.)
+  const card = src.indexOf('<GuestAccountCard');
   assert.ok(hero > 0 && row > hero, 'the action sits below the hero');
   assert.ok(card > 0 && row < card, 'and above the guest’s personal cards');
 

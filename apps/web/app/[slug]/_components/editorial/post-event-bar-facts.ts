@@ -53,18 +53,32 @@ export function postEventFilmDrawn(input: PostEventBarInput): boolean {
 }
 
 /**
+ * 🤝 Is the Supplier Stories scene drawn? It is the run's `fromVendors` block,
+ * and it credits the booked team as well as their own frames — so it draws when
+ * either exists and the couple left it on. While it does, the article's own
+ * team list steps aside (the team is never listed twice).
+ */
+export function postEventSupplierStoriesDrawn(
+  input: Pick<PostEventBarInput, 'sections' | 'vendorMedia' | 'teamVendors'>,
+): boolean {
+  return input.sections?.fromVendors !== false && (input.vendorMedia > 0 || input.teamVendors > 0);
+}
+
+/**
  * Which team block carries the Suppliers anchor — the FIRST one drawn, in the
- * order the guest reads: the article's team first (it sits above the run), then
- * the couple's own saved order for the other two. Null → the slot is not drawn.
+ * order the guest reads: the article's team (above the run) only when the
+ * Supplier Stories scene is not drawn, else the couple's own saved order of the
+ * run's team scenes. Null → the slot is not drawn.
  */
 export function postEventSuppliersAnchorKey(
   input: PostEventBarInput,
   order: readonly EditorialOrderKey[],
 ): PostEventTeamKey | null {
   const isOn = (k: string) => input.sections?.[k] !== false;
-  if (isOn('team') && input.teamVendors > 0) return 'team';
+  const stories = postEventSupplierStoriesDrawn(input);
+  if (!stories && isOn('team') && input.teamVendors > 0) return 'team';
   for (const key of order) {
-    if (key === 'fromVendors' && isOn('fromVendors') && input.vendorMedia > 0) return 'fromVendors';
+    if (key === 'fromVendors' && stories) return 'fromVendors';
     if (key === 'vendorsWeLoved' && isOn('vendorsWeLoved') && input.vendorsWeLoved > 0) return 'vendorsWeLoved';
   }
   return null;

@@ -142,6 +142,7 @@ export function StorySpine({
   sheets = [],
   makerMarkers = false,
   coverScene = null,
+  hideRoad = false,
 }: {
   data: EditorialData;
   facts: StorySpineFacts;
@@ -194,6 +195,12 @@ export function StorySpine({
    * they are the cover's controls, not its title. Null → the shipped cover.
    */
   coverScene?: ReactNode;
+  /**
+   * 🛤 THE ROAD IS A SCENE NOW ("The Road to the Day", in the style the couple
+   * picked, drawn right after the Front Page) — so the spine does not draw it a
+   * second time. False → the shipped road, unchanged.
+   */
+  hideRoad?: boolean;
 }): ReactElement {
   // A sample carries no audience and exists to be read — the same exemption the
   // shipped gate and `redactStoryLayers` both make, for the same reason.
@@ -821,7 +828,7 @@ export function StorySpine({
         <div className="min-[1100px]:grid min-[1100px]:grid-cols-[minmax(0,1fr)_320px] min-[1100px]:gap-11">
           <div className="min-w-0">
             {/* ════ THE ROAD ════ */}
-            {roadPlaced.length > 0 ? (
+            {roadPlaced.length > 0 && !hideRoad ? (
               <>
                 <PartHead
                   title="The road"

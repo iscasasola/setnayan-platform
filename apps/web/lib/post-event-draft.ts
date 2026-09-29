@@ -78,6 +78,9 @@ export const POST_EVENT_SECTION_KEYS = [
   'challengeAnswers',
   'guestColumns',
   'watchFilm',
+  'seating',
+  'entourage',
+  'beforeAfter',
 ] as const;
 export type PostEventSectionKey = (typeof POST_EVENT_SECTION_KEYS)[number];
 
@@ -120,6 +123,7 @@ export const POST_EVENT_LOOK_KEYS = [
   'chapters',
   'gallery',
   'film',
+  'videos',
   'you',
   'wishes',
   'asked',
@@ -132,6 +136,9 @@ export const POST_EVENT_LOOK_KEYS = [
   'couple',
   'song',
   'next',
+  'seating',
+  'entourage',
+  'beforeAfter',
 ] as const;
 const LOOK_KEYS = new Set<string>(POST_EVENT_LOOK_KEYS);
 
@@ -323,6 +330,7 @@ export function overlayPostEventDraftJson(
  */
 export function postEventRunKey(sceneKey: string): string | null {
   if (sceneKey === 'chapters' || /^ch-\d+$/.test(sceneKey)) return 'chapters';
+  if (sceneKey === 'videos') return 'watchFilm'; // the films move with the replay — one block
   for (const block of EDITORIAL_ORDERABLE_KEYS) {
     if (block !== 'chapters' && postEventSceneKeyForBlock(block) === sceneKey) return block;
   }

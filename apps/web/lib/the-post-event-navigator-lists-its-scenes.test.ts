@@ -108,7 +108,7 @@ test('skipped, hidden and optional scenes are listed as such — no number, no a
   assert.deepEqual(numbered, numbered.map((_, i) => i + 1));
   assert.equal(by.get('gallery')!.anchor, 'p:gallery');
   assert.equal(by.get('ch-2')!.anchor, 'p:ch-1', 'later chapters scroll to the chapters block');
-  assert.equal(by.get('before')!.anchor, 'p:cover', 'Before the day sits on the cover’s page');
+  assert.equal(by.get('before')!.anchor, 'p:before', 'The Road to the Day is its own scene, right after the cover');
 });
 
 test('before the day — or when the list was not read — the one story tile stands in', () => {

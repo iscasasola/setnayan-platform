@@ -105,8 +105,17 @@ test('the landings are the page’s own: film follows the run’s gate, supplier
   const order = ['chapters', 'vendorsWeLoved', 'fromVendors'] as const;
   assert.equal(postEventSuppliersAnchorKey(none, order), null);
   assert.equal(postEventSuppliersAnchorKey({ ...none, vendorMedia: 2, vendorsWeLoved: 1 }, order), 'vendorsWeLoved', 'the couple’s own order decides');
-  assert.equal(postEventSuppliersAnchorKey({ ...none, teamVendors: 3, vendorMedia: 2 }, order), 'team', 'the article’s team sits above the run');
-  assert.equal(postEventSuppliersAnchorKey({ ...none, teamVendors: 3, sections: { team: false } }, order), null);
+  assert.equal(
+    postEventSuppliersAnchorKey({ ...none, teamVendors: 3 }, ['chapters', 'fromVendors', 'vendorsWeLoved']),
+    'fromVendors',
+    'Supplier Stories credits the team — it is where the slot lands',
+  );
+  assert.equal(
+    postEventSuppliersAnchorKey({ ...none, teamVendors: 3, sections: { fromVendors: false } }, order),
+    'team',
+    'with Supplier Stories off, the article’s own team list is the landing',
+  );
+  assert.equal(postEventSuppliersAnchorKey({ ...none, teamVendors: 3, sections: { team: false, fromVendors: false } }, order), null);
 });
 
 test('SOURCE: both bars are told what the recap drew, and the page stamps the Suppliers landing', () => {

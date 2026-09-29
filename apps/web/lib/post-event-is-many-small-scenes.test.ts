@@ -120,7 +120,8 @@ test('1 · BEFORE THE DAY: every default scene is listed, Not yet, each with its
   // A waiting scene drawn in its style stands on the couple's canvas, so its tile scrolls there.
   assert.equal(tiles.find((t) => t.scene === 'numbers')!.anchor, 'p:numbers');
   assert.equal(tiles.find((t) => t.scene === 'couple')!.anchor, 'p:couple');
-  assert.equal(tiles.find((t) => t.scene === 'asked')!.anchor, null, 'a shipped block with nothing is not on the canvas');
+  assert.equal(tiles.find((t) => t.scene === 'asked')!.anchor, 'p:asked', 'every scene drawn in a style waits on the canvas too');
+  assert.equal(tiles.find((t) => t.scene === 'wall')!.anchor, null, 'a shipped block with nothing is not on the canvas');
 });
 
 test('2 · after the compile the SAME keys are filled, never replaced by others', () => {
@@ -156,7 +157,11 @@ test('4 · SOURCE: a waiting scene’s placeholder is the COUPLE’s — the can
   assert.match(body, /hostPreview=\{isEditorCanvas\}/);
   assert.match(body, /draft=\{isEditorCanvas \? editorialDraft : null\}/, 'a guest never gets the host’s draft');
   const content = read('app/[slug]/_components/editorial/editorial-content.tsx');
-  assert.match(content, /const placeholderOf = \(scene: string\) => \(hostPreview \? \(POST_EVENT_WAITING\[scene\] \?\? null\) : null\);/);
+  assert.match(
+    content,
+    /const placeholderOf = \(scene: string\) => \(hostPreview && !dayHappened \? \(POST_EVENT_WAITING\[scene\] \?\? null\) : null\);/,
+    'a placeholder is the couple’s, and only before the day',
+  );
   // Every placeholder the page draws comes through that one gate.
   assert.ok(!/POST_EVENT_WAITING\[/.test(content.replace(/const placeholderOf[^\n]*\n/, '')), 'a placeholder is read around the gate');
   // And the bridge stamps parts only on a scene drawn in its style.

@@ -275,6 +275,10 @@ export type EditorialSections = {
   challengeAnswers: boolean;
   guestColumns: boolean;
   watchFilm: boolean;
+  /** 🎞 Post Event's own scenes (2026-09-29): where everyone sat · the entourage · before & after. */
+  seating: boolean;
+  entourage: boolean;
+  beforeAfter: boolean;
 };
 
 export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
@@ -291,6 +295,9 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'challengeAnswers',
   'guestColumns',
   'watchFilm',
+  'seating',
+  'entourage',
+  'beforeAfter',
 ];
 
 // ── Section ORDER (Editorial PRO — "the Editor's Desk") ──────────────────────
@@ -644,6 +651,10 @@ export type EditorialData = {
    * It carries no order and no eye — `sections` / `sectionOrder` above are those.
    */
   sceneLooks?: PostEventSceneLooks;
+  /** 🎞 The story's cover was chosen for after the day (not the hero) — Before & After's gate. */
+  coverChosen?: boolean;
+  /** The Save the Date's cover (the event's hero), signed — only when `coverChosen`. */
+  eventHeroUrl?: string | null;
 };
 
 export type Review = {
@@ -1456,6 +1467,16 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // after the hero instead of in front of it. The Maker's Post Event cover
   // scene reads the same order (`lib/post-event-scenes.ts`), so the navigator
   // names the picture this page actually draws.
+  /* 🎞 BEFORE & AFTER (Post Event, 2026-09-29): the story's cover was CHOSEN
+     for after the day (their upload or a curated capture, above) — so the Save
+     the Date's own cover, the hero, is a different picture worth showing beside
+     it. Signed only then: every other story's cover IS the hero. */
+  const coverChosen = Boolean(heroPhotoUrl);
+  let eventHeroUrl: string | null = null;
+  if (coverChosen) {
+    const heroOfEvent = resolveHero(event as Record<string, unknown>).photoRef;
+    if (heroOfEvent) eventHeroUrl = await displayUrlForStoredAsset(heroOfEvent).catch(() => null);
+  }
   if (!heroPhotoUrl) {
     const heroOfEvent = resolveHero(event as Record<string, unknown>).photoRef;
     if (heroOfEvent) {
@@ -2850,6 +2871,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     sectionOrder: readSectionOrder(draftJson),
     customColumns: readCustomColumns(draftJson),
     sceneLooks: readSceneLooks(draftJson.sceneLooks),
+    coverChosen,
+    eventHeroUrl,
   };
 }
 

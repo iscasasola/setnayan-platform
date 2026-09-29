@@ -99,8 +99,14 @@ export function postEventSceneTypeOf(sceneKey: string): string | null {
       return 'supplier-stories';
     case 'film':
       return 'live-stream';
+    case 'videos':
+      return 'videos';
     case 'couple':
       return 'thank-you';
+    case 'seating':
+      return 'where-everyone-sat';
+    case 'entourage':
+      return 'entourage';
     default:
       return null;
   }
@@ -153,13 +159,14 @@ export function postEventStyleOptions(
  * `pe_<look key>` so a Post Event scene can never collide with a section row.
  */
 export function postEventElementScope(sceneKey: string): string {
-  return `pe_${postEventLookKey(sceneKey)}`;
+  // A scope is `[a-z0-9_]` (`hubElementScope`): `beforeAfter` → `pe_before_after`.
+  return `pe_${postEventLookKey(sceneKey).replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)}`;
 }
 
 /** The scene a `pe_<look key>` scope names, or null. */
 export function postEventSceneOfScope(scope: string): string | null {
-  const m = /^pe_([a-z]+)$/.exec(scope);
-  return m ? m[1]! : null;
+  const m = /^pe_([a-z]+(?:_[a-z]+)*)$/.exec(scope);
+  return m ? m[1]!.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase()) : null;
 }
 
 /**
@@ -178,6 +185,21 @@ export function postEventWordParts(sceneKey: string, style: PostEventStyleId | n
     case 'schedule':
       return style === 'timeline' ? ['label', 'heading'] : ['label'];
     case 'gallery':
+      return ['label', 'heading'];
+    case 'photo-notes':
+      return style === 'swipe-story' ? ['label'] : ['label', 'heading'];
+    case 'messages':
+      return style === 'note-wall' ? ['label', 'heading'] : ['label'];
+    case 'papic-challenge':
+      return ['label'];
+    case 'supplier-stories':
+      return style === 'credits-roll' ? ['label'] : ['label', 'heading'];
+    case 'live-stream':
+    case 'videos':
+      return ['label', 'heading'];
+    case 'road-to-the-day':
+    case 'where-everyone-sat':
+    case 'entourage':
       return ['label', 'heading'];
     case 'thank-you':
       return style === 'letter' ? ['label', 'body'] : style === 'words-only' ? ['label', 'heading'] : ['label', 'heading', 'body'];

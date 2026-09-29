@@ -47,9 +47,10 @@ import { formatCount } from '@/lib/format-number';
  *       above the phone's home bar when a question runs longer than the screen.
  *
  * WHERE THE PROGRESS GOES: into `[data-rsvp-progress-slot]` when the page drew
- * one inside this form's `[data-rsvp-scope]` (the RSVP page puts it under the
- * crest, via DoorShell's `lead`); otherwise right here, at the top of the form
- * (the Event Hub's reply sheet, whose own heading is the header).
+ * one inside this form's scope — the door that carries a `lead`
+ * (`[data-door-lead]`; the RSVP page puts the slot under the crest), or any
+ * `[data-rsvp-scope]` — otherwise right here, at the top of the form (the
+ * Event Hub's reply sheet, whose own heading is the header).
  */
 export function RsvpOneAtATime() {
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -105,7 +106,7 @@ export function RsvpOneAtATime() {
   useEffect(() => {
     const f = anchorRef.current?.closest('form') ?? null;
     if (!f) return;
-    const scope = f.closest<HTMLElement>('[data-rsvp-scope]') ?? f;
+    const scope = f.closest<HTMLElement>('[data-rsvp-scope],[data-door-lead]') ?? f;
     scopeRef.current = scope;
     setForm(f);
     setLead(scope.querySelector<HTMLElement>('[data-rsvp-progress-slot]'));

@@ -250,11 +250,10 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
      progress goes UNDER THE COUPLE'S MARK (DoorShell `lead`), and the facts
      below it — the invitation's heading, whose reply this is, the reply-by
      line — show on the first screen only, folding to one line after it. The
-     walker (`RsvpOneAtATime`) finds both through `data-rsvp-scope`. With the
-     switch off, none of this renders and the page is exactly as before. */
+     walker (`RsvpOneAtATime`) finds both through the door that carries the
+     `lead`. With the switch off, none of this renders and the page is exactly
+     as before. */
   const oneAtATime = askOneAtATime(event.rsvp_ask_config);
-  const firstScreenOnly = (node: React.ReactNode) =>
-    oneAtATime && node ? <div data-rsvp-context="">{node}</div> : node;
 
   return (
     /* 🎨 THE EVENT HUB'S LOOK AND GROUND (owner 2026-09-28: "background should
@@ -265,35 +264,35 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
        `hubDoorSkin` keeps the card a card and paints nothing behind it. */
     <GuestLookScope {...lookScopeProps(hub.look)}>
       {hub.ground}
-      <RsvpScope on={oneAtATime}>
-        <DoorShell
-          eyebrow="You’re invited"
-          title={(event.display_name as string | null) || guestName}
-          meta={joinDoorMeta({
-            event_date: event.event_date as string | null,
-            event_date_precision: event.event_date_precision as string | null,
-            venue_name: event.venue_name as string | null,
-          })}
-          width="lg"
-          skin={hubDoorSkin(doorMarkFor(event))}
-          lead={oneAtATime ? <div data-rsvp-progress-slot="" /> : undefined}
-        >
-          {oneAtATime ? (
-            <p hidden data-rsvp-context-line="" className="truncate text-sm text-ink/70">
-              {[event.display_name as string | null, `for ${guestName}`].filter(Boolean).join(' · ')}
+      <DoorShell
+        eyebrow="You’re invited"
+        title={(event.display_name as string | null) || guestName}
+        meta={joinDoorMeta({
+          event_date: event.event_date as string | null,
+          event_date_precision: event.event_date_precision as string | null,
+          venue_name: event.venue_name as string | null,
+        })}
+        width="lg"
+        skin={hubDoorSkin(doorMarkFor(event))}
+        lead={oneAtATime ? <div data-rsvp-progress-slot="" /> : undefined}
+      >
+        {oneAtATime ? (
+          <p hidden data-rsvp-context-line="" className="truncate text-sm text-ink/70">
+            {[event.display_name as string | null, `for ${guestName}`].filter(Boolean).join(' · ')}
+          </p>
+        ) : null}
+        {/* Whose reply this is — and, on a phone a family shares, the way out. */}
+        <FirstScreenOnly on={oneAtATime}>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <p className="font-serif text-lg text-ink" data-reply-for="">
+              {guestName}
             </p>
-          ) : null}
-          {/* Whose reply this is — and, on a phone a family shares, the way out. */}
-          {firstScreenOnly(
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-              <p className="font-serif text-lg text-ink" data-reply-for="">
-                {guestName}
-              </p>
-              {canvas ? null : <NotYouSwitch slug={home} />}
-            </div>,
-          )}
+            {canvas ? null : <NotYouSwitch slug={home} />}
+          </div>
+        </FirstScreenOnly>
 
-          {firstScreenOnly(hasAnswered ? (
+        {hasAnswered ? (
+          <FirstScreenOnly on={oneAtATime}>
             <DoorNotice>
               Your reply is saved.{' '}
               <Link
@@ -304,43 +303,45 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
               </Link>
               {replyLocked ? null : <> &mdash; or change your answer below.</>}
             </DoorNotice>
-          ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
+          </FirstScreenOnly>
+        ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
+          <FirstScreenOnly on={oneAtATime}>
             <p className="text-sm text-ink/70">Please reply by {closesLabel}.</p>
-          ) : null)}
+          </FirstScreenOnly>
+        ) : null}
 
-          <RsvpWidget
-            words={words}
-            guest={{
-              ...(guest as unknown as GuestRow),
-              // One name box per seat (+1…+4). Names only — a seat's key is for
-              // the thank-you's "Send their invite", never for this form.
-              plus_one_seats: seats.map((s) => ({ guest_id: s.guest_id, name: s.name })),
-            }}
-            eventId={event.event_id as string}
-            eventPublicId={event.public_id as string}
-            faceMode={faceMode}
-            flash={flash}
-            replyLocked={replyLocked}
-            profileDetails={profileDetails}
-            doorAction={submitInviteReply.bind(null, event.event_id as string, guest.guest_id as string)}
-            /* 🔑 NO FACE TAGGING ON THE INVITE (owner, verbatim 2026-09-11: "face
-               tagging does not happen on the invite. it happens on their first view
-               on the day of the event? or on the day papic becomes available to use
-               for them."). The catch he describes ALREADY SHIPS —
-               `_components/day-of-face-enroll.tsx`, mounted on the day-of landing,
-               in the hub (`needsFaceEnroll`) and inside the Papic guest camera,
-               self-hiding once enrolled. So this is a removal from ONE surface, not
-               a feature taken away: a prop, because this card is shared with the
-               Event Hub's own RSVP card, which keeps its selfie. */
-            offerSelfie={false}
-            ask={resolveRsvpAsk(event.rsvp_ask_config)}
-            gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
-            termsOnSend
-            oneAtATime={askOneAtATime(event.rsvp_ask_config)}
-            previewEveryQuestion={canvas}
-          />
-        </DoorShell>
-      </RsvpScope>
+        <RsvpWidget
+          words={words}
+          guest={{
+            ...(guest as unknown as GuestRow),
+            // One name box per seat (+1…+4). Names only — a seat's key is for
+            // the thank-you's "Send their invite", never for this form.
+            plus_one_seats: seats.map((s) => ({ guest_id: s.guest_id, name: s.name })),
+          }}
+          eventId={event.event_id as string}
+          eventPublicId={event.public_id as string}
+          faceMode={faceMode}
+          flash={flash}
+          replyLocked={replyLocked}
+          profileDetails={profileDetails}
+          doorAction={submitInviteReply.bind(null, event.event_id as string, guest.guest_id as string)}
+          /* 🔑 NO FACE TAGGING ON THE INVITE (owner, verbatim 2026-09-11: "face
+             tagging does not happen on the invite. it happens on their first view
+             on the day of the event? or on the day papic becomes available to use
+             for them."). The catch he describes ALREADY SHIPS —
+             `_components/day-of-face-enroll.tsx`, mounted on the day-of landing,
+             in the hub (`needsFaceEnroll`) and inside the Papic guest camera,
+             self-hiding once enrolled. So this is a removal from ONE surface, not
+             a feature taken away: a prop, because this card is shared with the
+             Event Hub's own RSVP card, which keeps its selfie. */
+          offerSelfie={false}
+          ask={resolveRsvpAsk(event.rsvp_ask_config)}
+          gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
+          termsOnSend
+          oneAtATime={askOneAtATime(event.rsvp_ask_config)}
+          previewEveryQuestion={canvas}
+        />
+      </DoorShell>
     </GuestLookScope>
   );
 }
@@ -391,17 +392,10 @@ async function wearTheHub(
 }
 
 /**
- * The one-question walker's reach on this page: its progress slot (under the
- * crest) and the facts it folds after the first screen both sit OUTSIDE the
- * form, so the walker looks for them in the nearest `[data-rsvp-scope]`.
- * `display: contents` — it adds no box, so the door lays out as it always did.
+ * What only the FIRST one-question screen shows (`data-rsvp-context`) — the
+ * walker folds it to one line from screen 2. Off, a bare fragment: the page is
+ * exactly as before.
  */
-function RsvpScope({ on, children }: { on: boolean; children: React.ReactNode }) {
-  return on ? (
-    <div data-rsvp-scope="" className="contents">
-      {children}
-    </div>
-  ) : (
-    <>{children}</>
-  );
+function FirstScreenOnly({ on, children }: { on: boolean; children: React.ReactNode }) {
+  return on ? <div data-rsvp-context="">{children}</div> : <>{children}</>;
 }

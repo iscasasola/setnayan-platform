@@ -262,6 +262,9 @@ export function DoorShell({
           : skin?.style
       }
       data-door-action={skin?.action ? '' : undefined}
+      /* The `lead`'s owner reaches the rest of the card through this (the RSVP
+         walker folds the header after screen 1). Absent without a lead. */
+      data-door-lead={lead ? '' : undefined}
       data-door-title-fit={titleFit ? '' : undefined}
     >
       {skin?.ground ? (

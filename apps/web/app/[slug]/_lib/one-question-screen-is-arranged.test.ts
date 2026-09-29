@@ -141,20 +141,20 @@ test('2 · the RSVP page: crest → progress → the invitation → the question
   );
   assert.ok(at.every((i) => i > -1), `something is missing: ${at.join(',')}`);
   assert.deepEqual([...at].sort((a, b) => a - b), at, `out of order (mark · progress · header · question): ${at.join(',')}`);
-  // …and the page really hands the slot to DoorShell, inside the walker's scope.
+  // The door that carries a lead says so — that is how the walker reaches the header it folds.
+  assert.match(page, /<main[^>]*data-door-lead=""/);
+  // …and the page really hands the slot to DoorShell.
   assert.match(REPLY, /lead=\{oneAtATime \? <div data-rsvp-progress-slot="" \/> : undefined\}/);
-  assert.match(REPLY, /<RsvpScope on=\{oneAtATime\}>\s*<DoorShell/);
-  assert.match(REPLY, /<div data-rsvp-scope="" className="contents">/);
 });
 
 test('2 · a door without a lead is byte-identical in order — the slot adds nothing when absent', async () => {
   const { DoorShell } = await import('../../_components/door/door-shell');
   const bare = await html(React.createElement(DoorShell, { title: 'A door' }));
-  assert.doesNotMatch(bare, /data-rsvp/);
+  assert.doesNotMatch(bare, /data-rsvp|data-door-lead/);
 });
 
 test('2 · the walker puts the progress IN that slot, and falls back to the top of the form', () => {
-  assert.match(WALKER, /const scope = f\.closest<HTMLElement>\('\[data-rsvp-scope\]'\) \?\? f;/);
+  assert.match(WALKER, /const scope = f\.closest<HTMLElement>\('\[data-rsvp-scope\],\[data-door-lead\]'\) \?\? f;/);
   assert.match(WALKER, /setLead\(scope\.querySelector<HTMLElement>\('\[data-rsvp-progress-slot\]'\)\)/);
   assert.match(WALKER, /\{lead \? \(progress \? createPortal\(progress, lead\) : null\) : progress\}/);
 });
@@ -189,8 +189,9 @@ test('3 · the invitation folds after the first screen, to one line — on the p
   assert.match(WALKER, /\[data-rsvp-past-first\] \[data-rsvp-context-line\]\{display:block!important\}/);
   assert.match(WALKER, /scopeRef\.current\?\.toggleAttribute\('data-rsvp-past-first', clamped > 0\)/);
   // The page: whose reply this is, and the reply-by / saved line, are first-screen only…
-  assert.match(REPLY, /\{firstScreenOnly\(\s*<div className="flex flex-wrap items-baseline justify-between gap-x-3">\s*<p className="font-serif text-lg text-ink" data-reply-for="">/);
-  assert.match(REPLY, /\{firstScreenOnly\(hasAnswered \? \(/);
+  assert.match(REPLY, /<FirstScreenOnly on=\{oneAtATime\}>\s*<div className="flex flex-wrap items-baseline justify-between gap-x-3">\s*<p className="font-serif text-lg text-ink" data-reply-for="">/);
+  assert.match(REPLY, /\{hasAnswered \? \(\s*<FirstScreenOnly on=\{oneAtATime\}>\s*<DoorNotice>/);
+  assert.match(REPLY, /<FirstScreenOnly on=\{oneAtATime\}>\s*<p className="text-sm text-ink\/70">Please reply by/);
   // …and the one line that replaces them is hidden until the walker says so (no script = no line).
   assert.match(REPLY, /<p hidden data-rsvp-context-line=""/);
   // The Event Hub card's letterpress head is first-screen only.
@@ -238,5 +239,5 @@ test('5 · with the switch OFF nothing of this renders — the scrolling page is
     assert.doesNotMatch(out, /data-rsvp-context|data-one-at-a-time|font-serif text-xl leading-snug/);
     assert.match(out, /<label for="meal_preference" class="block text-sm font-medium text-ink">/);
   }
-  assert.match(REPLY, /oneAtATime && node \? <div data-rsvp-context="">\{node\}<\/div> : node/);
+  assert.match(REPLY, /return on \? <div data-rsvp-context="">\{children\}<\/div> : <>\{children\}<\/>;/);
 });

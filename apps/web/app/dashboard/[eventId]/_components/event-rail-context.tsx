@@ -20,27 +20,18 @@
  *
  * ─── NOTHING HERE IS A NEW IA ────────────────────────────────────────────
  * The rows, their order, their labels, their routes and their gating all come
- * from `buildCustomerNavGroups` — the rail's projection of the ONE sectioned
- * tree in `lib/customer-menu.ts` (`buildEventMenuSections`), which the phone's
- * bottom bar and moment strip read too. By moment (owner 2026-09-24):
+ * from `buildCustomerNavGroups` — the rail's projection of the ONE tree in
+ * `lib/customer-menu.ts` (`buildEventMenuSections`), which the phone's one
+ * bottom bar reads too. Stage D (owner 2026-09-29):
  *
- *   (name row)  → Details
- *   (spine)     → Overview · Papic ✦ · Galleries · Editorial (after)
- *   Book        → Your Team · Budget
- *   Look        → Mood Board ✦ · Logo Maker ✦ · Pakanta ✦
- *   Invite      → Guests · Hosts · Event Hub Controller
- *   The day     → Schedule · Check-in (day-of) · Seat plan · 3D Plan ✦ ·
- *                 Live Studio ✦ · Patiktok ✦
- *   (end)       → Setnayan AI ✦ · Suite · Refer a couple
+ *   (name row)  → Details (Event settings)
+ *   (the five)  → Home · Guest list · Your Team · Event Hub Maker · Our Services
+ *   (interim)   → Seat plan, until its Details home ships
  *
  * 🔒 EVERY ROW IS A PLAIN LEAF — "solid menu with no submenus" (owner-locked
- * 2026-07-15). `NavItem.children` is deliberately NOT rendered here. Sub-
- * navigation lives inside each page (the Marketplace tab strip, the Studio hub
- * body), and the phone keeps its docked sub-nav. A rail that expands children
- * would reverse that lock silently while looking like a nicety.
- *
- * 🔒 BUDGET IS NOT A MAIN ROOM (owner 2026-07-10). It is a quiet row under
- * Book, beside the people you pay — never a phone tab.
+ * 2026-07-15). `NavItem.children` is deliberately NOT rendered here. A
+ * pillar's parts live inside its page (Guest list · Your Team pick theirs from
+ * one dropdown; Our Services is a page of cards; the Maker has Details).
  *
  * ─── WHICH ROW IS LIT — DECIDED ABOVE, READ HERE (2026-08-23) ────────────
  * This component no longer resolves anything. The shell draws the Studio group
@@ -124,14 +115,14 @@ export function EventRailContext({
   monogramEnabled?: boolean;
   slug?: string | null;
   guestCount?: number | null;
-  /** Event lifecycle phase, resolved server-side in layout.tsx. In the After
-   *  phase the builder relabels the first section and adds the Editorial +
-   *  Galleries rows — see `buildCustomerNavGroups`. Omitted ⇒ 'plan'. */
+  /** Event lifecycle phase, resolved server-side in layout.tsx. The five rows
+   *  are the same in every phase; the builder receives it for its own use —
+   *  see `buildCustomerNavGroups`. Omitted ⇒ 'plan'. */
   phase?: MenuLifecyclePhase;
   /** Gates the Seat plan row. Undefined ⇒ shown. */
   seatingEnabled?: boolean;
   /** The event's Studio products as PLAIN DATA (key · href · name) — see
-   *  `EventRailInputs.studioRows`. Placed at their moments by the one tree. */
+   *  `EventRailInputs.studioRows`. Claimed by the row that holds each one. */
   studioRows?: ReadonlyArray<EventStudioRow>;
   /** The App Store / Play Store shell — the one tree drops every row whose
    *  door `lib/store-shell.ts` refuses (`storeShellRefusesMenuRow`). This is
@@ -168,11 +159,11 @@ export function EventRailContext({
   );
 
   /*
-    ─── THE SUITE ROW STAYS NOW (2026-09-24) ────────────────────────────────
-    This used to drop the `studio` row, because the shell drew a Studio group
-    below whose "All services" row opened the same page. That group is
-    dissolved — its products are rows at their moments in THIS menu — so the
-    row, now called "Suite", is the only door to the shelf and closes the list.
+    ─── OUR SERVICES IS A ROW OF THE FIVE (Stage D, 2026-09-29) ─────────────
+    The shop of Setnayan's own services — Papic, Live Studio, Gallery,
+    Patiktok, Music Maker, Setnayan AI — is ONE row, "Our Services" (the
+    `studio` key, the /suite page). The products are cards on that page, not
+    rows here; their pages light this row.
 
     The event's Details row is not drawn as a row: it IS the event's name row
     (the `event` group), so the place you are in opens its own facts.
@@ -264,14 +255,11 @@ export function EventRailContext({
               Event drops Marketplace; an admin can hide a row). */}
           {group.items.length === 0 ? null : (
             <>
-              {/* The spine and the end of the list carry no heading — an
-                  empty label draws nothing rather than an empty eyebrow. */}
+              {/* The five carry no heading — an empty label draws nothing
+                  rather than an empty eyebrow. */}
               {group.label ? (
                 <div className="fd-rlabel fd-rsub">
                   {group.label}
-                  {/* "now" on The day while it is the day — the drawing's
-                      marker, so the moment you are in reads as current. */}
-                  {group.key === 'day' && phase === 'dayof' ? <small>now</small> : null}
                 </div>
               ) : null}
               {group.items.map((item) => {
@@ -294,11 +282,6 @@ export function EventRailContext({
                     </span>
                     <span className="fd-label-text">
                       {item.label}
-                      {/* ✦ — a Studio product, sitting at its moment. The
-                          heading that used to say so is dissolved. */}
-                      {item.studio ? (
-                        <span className="fd-spark" aria-hidden="true">✦</span>
-                      ) : null}
                     </span>
                     <span className="fd-icon-caption">{item.label}</span>
                     {item.badge ? (

@@ -28,7 +28,6 @@ import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { CustomerNavFab } from './_components/customer-nav-fab';
-import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
@@ -248,8 +247,9 @@ export default async function EventLayout({ children, params }: Props) {
     res.data ? resolveProfile((res.data.event_type as string | null) ?? 'wedding') : null,
   );
   /*
-    Couple referral program — hidden from every nav surface (sidebar, bottom
-    nav, sub-nav) unless an admin has turned the program on (master toggle).
+    Couple referral program — its door is the ACCOUNT MENU (Stage D, owner
+    2026-09-29: "Refer a couple → account menu"), shown only while an admin
+    has the program on (master toggle): `referHref` on <AccountSwitcher>.
 
     ⚠ THIS GATE HID NOTHING FOR A MONTH AND STILL COST A QUERY EVERY RENDER.
     It filters by item KEY, and the 'refer' row had been deleted from both nav
@@ -261,9 +261,10 @@ export default async function EventLayout({ children, params }: Props) {
     Nothing errors; the list simply never contains the thing it excludes. It is
     the mirror of the gate-with-no-handle: a handle with no gate.
 
-    It is live again because the row is back and keyed 'refer'. Keeping the
-    existing key-based gate is deliberate — a second, parallel gate is how the
-    two halves drift apart.
+    🔑 SO THE GATE MOVED WITH THE DOOR. The 'refer' row left the event menu
+    for the account menu in Stage D, and the key-based hide went with it:
+    `referHref` is null while the program is off, so the account menu draws
+    no link — one gate, on the one door.
   */
   const referralEnabledRead = isReferralProgramEnabled();
   // Nav registry: resolve the admin-managed name+icon overrides server-side and
@@ -271,7 +272,7 @@ export default async function EventLayout({ children, params }: Props) {
   const navSlotsRead = getNavSlotMap();
   /*
     🍎 THE APP STORE / PLAY STORE SHELL, ASKED ONCE, HERE (2026-09-25).
-    Every event menu — the rail, the ☰ drawer, the moment strip and the bottom
+    Every event menu — the rail, the ☰ drawer and the one bottom
     bar — is built from `eventRailInputs` or from the props below, and the one
     tree drops each row whose door `lib/store-shell.ts` refuses
     (`storeShellRefusesMenuRow`). Server-side, so the FIRST paint is already
@@ -369,14 +370,17 @@ export default async function EventLayout({ children, params }: Props) {
   // the type is honest without a cast, and resolveProfile is React-cached.
   const profile =
     profileIfEvent ?? (await resolveProfile((event.event_type as string | null) ?? 'wedding'));
-  const navHideKeys = [
-    ...(profile.marketplaceEnabled ? [] : ['explore']),
-    ...(surfaceEnabled(profile, 'budget') ? [] : ['budget']),
-    ...(referralEnabled ? [] : ['refer']),
-  ];
-  // Gates the Studio "Launch" child (preview + go-live) to event types whose
-  // profile enables the public website (weddings today). Threaded to the
-  // desktop sidebar + the mobile section sub-nav.
+  /*
+    Only Your Team is hidden by key now (a vendor-free kind has no suppliers).
+    ⚠ 'budget' and 'refer' LEFT THIS LIST WITH THEIR ROWS (Stage D,
+    2026-09-29): Budget is a part of Your Team (`yourTeamParts` reads the
+    budget surface itself) and Refer a couple is in the account menu, gated by
+    `referHref` below. A key left here would hide nothing — the handle-with-no-
+    gate trap the referral note above describes.
+  */
+  const navHideKeys = [...(profile.marketplaceEnabled ? [] : ['explore'])];
+  // Gates the Event Hub Maker row to event types whose profile enables the
+  // public website. Threaded to the desktop rail + the phone's bottom bar.
   const websiteEnabled = surfaceEnabled(profile, 'website');
   // Gates the Studio "Monogram" child to event types whose profile enables the
   // 'monogram' surface (weddings today). Non-wedding events without it never see
@@ -395,8 +399,9 @@ export default async function EventLayout({ children, params }: Props) {
     per-kind gating (`addOnOfferedForEvent`) and the Suite-grid parity it pins
     are unchanged — `count: 1` because this IS the one event.
 
-    🛑 KEY · HREF · NAME ONLY. This list is handed to three client components
-    (the rail, the bottom bar, the moment strip). A `LucideIcon` or any other
+    🛑 KEY · HREF · NAME ONLY. This list is handed to two client components
+    (the rail and the bottom bar), which claim each product's pages for the
+    row that holds it. A `LucideIcon` or any other
     function crossing that boundary threw "Functions cannot be passed directly
     to Client Components" and took production down for ~7 hours on 2026-09-23.
     Each client side resolves its own icon from the row's key.
@@ -491,7 +496,11 @@ export default async function EventLayout({ children, params }: Props) {
         group is headed by the event's name.
       */}
       <div>
-        <AccountSwitcher data={switcherData} homeLabel={homeLabel} />
+        <AccountSwitcher
+          data={switcherData}
+          homeLabel={homeLabel}
+          referHref={referralEnabled ? `/dashboard/${eventId}/refer` : null}
+        />
       </div>
     </div>
   );
@@ -537,8 +546,8 @@ export default async function EventLayout({ children, params }: Props) {
         event's own menu PUSHES in underneath their own rows.
 
         ⚠ THE MOBILE CHROME IS DELIBERATELY OUTSIDE THIS WRAPPER. Below 1024
-        the app variant paints nothing, but keeping the bottom nav, the FAB and
-        the docked sub-nav as siblings of the rail rather than children of its
+        the app variant paints nothing, but keeping the bottom nav and the FAB
+        as siblings of the rail rather than children of its
         content column means the phone's DOM is untouched by this change — not
         merely "styled back to the same place".
       */}
@@ -689,23 +698,17 @@ export default async function EventLayout({ children, params }: Props) {
       </div>
       </AppRailShell>
       {/*
-        ⚓ ONE DOCK FOR THE PHONE'S BOTTOM CHROME (owner 2026-09-25: *"the
-        bottom nav is not fixed"*). The moment/section strip and the bar render
-        INSIDE one <BottomDock> — anchored flush to the bottom edge, the strip
-        attached directly above the tabs — instead of two floating pills with the
-        page showing between and under them. Strip first, bar second: that is
-        their order on screen. Both self-hide at lg (the dock is `lg:hidden`),
-        and both sit outside the rail's content column so they don't inherit it.
-
-        ONE docked section sub-nav for all menus (owner 2026-06-17 "sub nav are
-        child menus of the 6 menus"), which is also the MOMENT strip (owner
-        2026-09-24). Reads the canonical tree in lib/customer-menu.ts; mounted
-        here (a layout sibling of <CustomerBottomNav>, NOT inside any page) so
-        it paints the instant a section opens. Self-gates to null outside any
-        menu's section or moment. eventDate drives the Guests Day-of time-gate.
+        ⚓ ONE DOCK, ONE BAR (owner 2026-09-25: *"the bottom nav is not fixed"*;
+        Stage D 2026-09-29: *"on mobile mode. we do not want that sub bottom nav
+        anymore. we want it to be simple and easy to manage"*). The phone's
+        bottom chrome is the five pillars — Home · Guest list · Your Team ·
+        Event Hub Maker · Our Services — anchored flush to the bottom edge, and
+        NOTHING docks above it: the section sub-nav / moment strip that used
+        to ride on top is retired, and each pillar picks its own parts inside
+        its page. The dock is `lg:hidden`; the rail is the menu from 1024 up.
+        `the-phone-has-one-bottom-bar.test.ts` fails if a second row returns.
       */}
       <BottomDock>
-        <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} seatingEnabled={seatingEnabled} studioRows={studioRows} slug={(event.slug as string | null) ?? null} storeShell={storeShell} />
         <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} />
       </BottomDock>
       {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of

@@ -316,7 +316,7 @@ export function QuickAddSheet({
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
-    [eventId, role, clearNames, router, showToast],
+    [eventId, role, roleNames, clearNames, router, showToast],
   );
   const applyChangeRole = useCallback(
     (g: ExistingGuest) => {
@@ -337,7 +337,7 @@ export function QuickAddSheet({
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
-    [eventId, role, clearNames, router, showToast],
+    [eventId, role, roleNames, clearNames, router, showToast],
   );
 
   /* resolver state for the TOP name match (dups are sorted best-first) */

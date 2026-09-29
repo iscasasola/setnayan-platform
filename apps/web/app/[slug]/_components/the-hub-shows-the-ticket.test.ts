@@ -14,9 +14,9 @@
  *   2 · ONE SOURCE — the picture shown and the file saved are the same route;
  *   3 · the ticket is mounted on Me (page.tsx's `meSlot`), and Home has no
  *       pass, no QR block and no second `#site-pass`;
- *   4 · the QR on the ticket DECODES at the size a phone shows it (300 CSS px,
- *       read at 1× — no retina help — and at 2×), every design, and the
- *       pending ticket too.
+ *   4 · the QR on the ticket DECODES at the size a phone shows it (300 CSS px
+ *       at 2× and 3×; the free square look at 1× too), every design, square
+ *       and circle looks, the pending ticket too — and it opens THAT guest.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -140,33 +140,81 @@ const DATA: PrintSetData = {
 } as unknown as PrintSetData;
 const PASS: PrintPass = { name: 'Maria Santos', seat: null, qrRef: 'qr-g-1', serial: null, arrive: '3:30 PM', party: 1 };
 
-test('the ticket’s QR DECODES at phone size — 300 × 400 read at 1× and 2×, every design, and pending', async () => {
-  const url = 'https://setnayan.com/cale-ice?invite=tok-abc123';
-  const qr = await renderInvitationQrPng({
-    appUrl: 'https://setnayan.com',
-    slug: 'cale-ice',
-    qrToken: 'tok-abc123',
-    look: { ...FREE_QR_LOOK, dark: '#111111', light: '#FFFFFF' },
-    ownerSlug: null,
-    width: 720,
-  });
-  const images = { 'qr-g-1': { bytes: new Uint8Array(qr), mime: 'image/png' } };
-  const cases: Array<[string, PrintPass, (typeof PASS_CARD_DESIGNS)[number]]> = [
-    ...PASS_CARD_DESIGNS.map((d) => [d, PASS, d] as [string, PrintPass, (typeof PASS_CARD_DESIGNS)[number]]),
-    ['pending', { ...PASS, arrive: null, party: 0, pending: 'waiting for Indalecio & Claire' }, 'classic'],
-  ];
-  for (const [name, pass, design] of cases) {
-    const doc = layoutPassCard({ look: printLookFor('house'), data: DATA, mode: 'screen', foil: false }, pass, design);
-    const png = Buffer.from(await renderPassCardPng(doc, images));
-    for (const scale of [1, 2]) {
-      // What the phone's screen holds: the 1080 × 1440 file drawn into a
-      // 300 × 400 CSS box, at `scale` device pixels per CSS pixel.
-      const shown = await sharp(png)
-        .resize({ width: 300 * scale, height: 400 * scale, fit: 'fill' })
-        .flatten({ background: '#ffffff' })
-        .png()
-        .toBuffer();
-      assert.equal(await decodeQrPayloadFromImage(shown), url, `${name} at ${scale}×: the code on screen does not scan`);
+// 🔑 OWNER 2026-09-30: "the QR for each guest must be ready also". Every guest
+// row is BORN with its code — `guests.qr_token TEXT NOT NULL UNIQUE DEFAULT
+// encode(gen_random_bytes(16),'hex')` (iteration 0001) — and no insert in the
+// app or in SQL supplies its own, so plus-ones, requesters (keyed on Send) and
+// bulk imports all get one from the column. The ticket draws THAT code in the
+// event's own QR look (shape · pattern · centre; ink forced black on white so
+// it scans), and the code opens THAT guest's page (`?invite=` → redeem →
+// `.eq('qr_token', token)` in this event).
+
+const TOKEN = '0123456789abcdef0123456789abcdef';
+const APP = 'https://setnayan.com';
+
+test('the ticket draws THIS guest’s code, in the event’s own look', () => {
+  const kit = stripComments(readFileSync(join(HERE, '..', '..', '..', 'lib', 'pass-card.server.ts'), 'utf8'));
+  const draw = kit.slice(kit.indexOf('export async function renderPassCardFor'), kit.indexOf('export async function eligiblePassCardGuests'));
+  assert.match(draw, /qrToken: g\.qr_token,/, 'the ticket is not drawn from this guest’s own code');
+  assert.match(draw, /look: set\.qrLook,/, 'the ticket ignores the event’s QR look');
+  assert.match(kit, /qrLook: \{ \.\.\.set\.qrLook, dark: '#111111', light: '#FFFFFF' \}/, 'shape, pattern and centre must survive; only the ink is forced');
+  // The event's look is the couple's own (free → Setnayan centre, Pro → theirs).
+  const set = stripComments(readFileSync(join(HERE, '..', '..', '..', 'lib', 'print-set.server.ts'), 'utf8'));
+  assert.match(set, /const qrLook = await resolveEventQrLook\(admin, eventId, event\);/);
+  // …and the code opens that guest: the page hands `?invite=` to redeem, which
+  // finds the ONE row holding that token, in this event.
+  const page = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
+  assert.match(page, /const invite = \(search\.invite \?\? ''\)\.trim\(\);/);
+  assert.match(page, /\/redeem\?slug=\$\{encodeURIComponent\(slug\)\}&token=\$\{encodeURIComponent\(invite\)\}/);
+  const redeem = stripComments(readFileSync(join(HERE, '..', 'redeem', 'route.ts'), 'utf8'));
+  assert.match(redeem, /\.eq\('qr_token', token\)/);
+  assert.match(redeem, /keyRow\.event_id !== event\.event_id/, 'a code from another event must not open this one');
+});
+
+test('every guest row is born with a code — the column, not the caller, supplies it', () => {
+  const mig = readFileSync(join(HERE, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260513010000_iteration_0001_guests.sql'), 'utf8');
+  assert.match(mig, /qr_token\s+TEXT NOT NULL UNIQUE DEFAULT encode\(gen_random_bytes\(16\), 'hex'\)/);
+});
+
+test('the ticket’s QR DECODES at phone size and opens THAT guest — square and circle looks, every design, and pending', async () => {
+  const { buildInvitationUrl } = await import('@/lib/qr');
+  const url = buildInvitationUrl({ appUrl: APP, slug: 'cale-ice', qrToken: TOKEN, ownerSlug: null });
+  assert.equal(new URL(url).searchParams.get('invite'), TOKEN, 'precondition: the code carries this guest’s token');
+  for (const shape of ['square', 'circle'] as const) {
+    const qr = await renderInvitationQrPng({
+      appUrl: APP,
+      slug: 'cale-ice',
+      qrToken: TOKEN,
+      look: { ...FREE_QR_LOOK, shape, dark: '#111111', light: '#FFFFFF' },
+      ownerSlug: null,
+      width: 720,
+    });
+    const images = { 'qr-g-1': { bytes: new Uint8Array(qr), mime: 'image/png' } };
+    const cases: Array<[string, PrintPass, (typeof PASS_CARD_DESIGNS)[number]]> = [
+      ...PASS_CARD_DESIGNS.map((d) => [d, PASS, d] as [string, PrintPass, (typeof PASS_CARD_DESIGNS)[number]]),
+      ['pending', { ...PASS, arrive: null, party: 0, pending: 'waiting for Indalecio & Claire' }, 'classic'],
+    ];
+    for (const [name, pass, design] of cases) {
+      const doc = layoutPassCard({ look: printLookFor('house'), data: DATA, mode: 'screen', foil: false }, pass, design);
+      const png = Buffer.from(await renderPassCardPng(doc, images));
+      // The saved file itself…
+      assert.equal(await decodeQrPayloadFromImage(png), url, `${shape} · ${name}: the saved ticket does not scan`);
+      // 📱 2× and 3× — the densities of the phones this is shown on (every
+      // iPhone is 3×; Android phones 2–3.5×). MEASURED 2026-09-30: a CIRCLE code
+      // on the Photo-poster design does NOT decode at 1× (300 × 400 device px —
+      // a desktop monitor), every other look × design does; all decode at 2×
+      // and 3×, and in the saved file. Round codes in round slots are the
+      // round-slot builder's; if they enlarge the poster's code, add 1× here.
+      for (const scale of [2, 3]) {
+        // …and what the phone's screen holds: the file drawn into a 300 × 400
+        // CSS box, at `scale` device pixels per CSS pixel.
+        const shown = await sharp(png)
+          .resize({ width: 300 * scale, height: 400 * scale, fit: 'fill' })
+          .flatten({ background: '#ffffff' })
+          .png()
+          .toBuffer();
+        assert.equal(await decodeQrPayloadFromImage(shown), url, `${shape} · ${name} at ${scale}×: the code on screen does not scan`);
+      }
     }
   }
 });

@@ -22,6 +22,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { stripComments } from '@/lib/strip-comments';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,10 +41,12 @@ const TREE = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** Comment-stripped source — a sentence in a comment must never satisfy a
  *  check about rendered words (the s13 rule). */
 function src(rel: string): string {
-  return readFileSync(join(TREE, rel), 'utf8')
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+  // The ONE shared stripper. The hand-rolled `\{\s*\/\*[\s\S]*?\*\/\s*\}` this
+  // used to run is lazy only up to the next `*/ }` — so a `{ /* … */ const x`
+  // block matched all the way to the NEXT JSX comment, and removing an
+  // unrelated JSX comment (2026-09-30, the pass leaving Home) moved that end
+  // past the salutation and "deleted" it. A stripper that parses cannot do that.
+  return stripComments(readFileSync(join(TREE, rel), 'utf8'));
 }
 
 // ── 1 · THE FUNERAL'S OWN WORDS ─────────────────────────────────────────────

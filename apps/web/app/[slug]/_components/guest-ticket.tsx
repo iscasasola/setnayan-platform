@@ -63,7 +63,7 @@ export function GuestTicket({
         src={PASS_CARD_ROUTE}
         alt={`${name}’s ${PASS_CARD_WORDS.digitalTicket}`}
         fallback={
-          <div data-ticket-fallback="" className="mx-auto w-[300px] max-w-full">
+          <div data-ticket-fallback="" className="mx-auto w-[min(300px,100%)]">
             {pending ? null : (
               // The bare code, from the route that needs no drawing — the door
               // still works when the picture could not be made.

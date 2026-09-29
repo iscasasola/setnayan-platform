@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3ca3a5218",
-  "routeCount": 437,
+  "generatedFromRef": "e9c23ea98",
+  "routeCount": 438,
   "destinations": 947,
   "actions": 671,
-  "blocks": 5171,
+  "blocks": 5186,
   "routes": {
     "/": {
       "files": [
@@ -793,6 +793,7 @@
         "[slug]/_components/guest-look-scope.tsx",
         "[slug]/_components/guest-me.tsx",
         "[slug]/_components/guest-preload.tsx",
+        "[slug]/_components/guest-ticket.tsx",
         "[slug]/_components/hero-background-media.tsx",
         "[slug]/_components/hideable-widget-render.tsx",
         "[slug]/_components/host-draft-look.tsx",
@@ -856,6 +857,7 @@
         "[slug]/_components/schedule-widget.tsx",
         "[slug]/_components/seat-door-line.tsx",
         "[slug]/_components/selfie-capture.tsx",
+        "[slug]/_components/selfie-no-thanks-confirm.tsx",
         "[slug]/_components/send-their-invite.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
@@ -886,6 +888,8 @@
         "[slug]/_components/supplier-desk.tsx",
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
+        "[slug]/_components/ticket-picture.tsx",
+        "[slug]/_components/ticket-row.tsx",
         "[slug]/_components/tier-comparison-widget.tsx",
         "[slug]/_components/upload-your-qr.tsx",
         "[slug]/_components/vendor-doorway.tsx",
@@ -943,13 +947,11 @@
       "destinations": [
         "/",
         "/[seg]",
-        "/[seg]/find-my-table",
         "/[seg]/find-seat",
         "/[seg]/hub",
         "/[seg]/invite",
         "/[seg]/print",
         "/[seg]/recap",
-        "/[seg]/welcome",
         "/api/guest/qr",
         "/dashboard/profile",
         "/join/[seg]",
@@ -1067,11 +1069,11 @@
         "GuestGround",
         "GuestGuidedTour",
         "GuestHubBar",
-        "GuestHubCard",
         "GuestLook",
         "GuestLookScope",
         "GuestMe",
         "GuestPreload",
+        "GuestTicket",
         "GuestToHostCta",
         "HTMLAudioElement",
         "HTMLButtonElement",
@@ -1222,6 +1224,7 @@
         "Selection",
         "SelfRotateResult",
         "SelfieCapture",
+        "SelfieNoThanksConfirm",
         "SendTheirInvite",
         "SetnayanExperience",
         "ShareButtons",
@@ -1268,6 +1271,8 @@
         "TeamBehindTheDay",
         "TermsTick",
         "TheirSong",
+        "TicketPicture",
+        "TicketRow",
         "TierComparisonWidget",
         "ToolTile",
         "UnnameResult",
@@ -1468,11 +1473,13 @@
       ],
       "actions": [],
       "blocks": [
+        "CopyMyLink",
         "DoorNotice",
         "DoorShell",
         "InviteQrPanel",
         "Link",
         "SaveToAccount",
+        "TicketRow",
         "YourGuests"
       ]
     },
@@ -1569,6 +1576,21 @@
         "SaveStoryCardButton",
         "ShareButtons",
         "Voices"
+      ]
+    },
+    "/[slug]/request": {
+      "files": [
+        "[slug]/request/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "CopyMyLink",
+        "DoorShell",
+        "Link",
+        "TicketRow"
       ]
     },
     "/[slug]/seat": {
@@ -5896,6 +5918,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/guests/souvenirs"
       ],
       "actions": [],
@@ -5911,6 +5934,7 @@
         "MediaStream",
         "NotSharedWithYou",
         "ReadRefusedNotice",
+        "TicketCheck",
         "UndoActionResult"
       ]
     },
@@ -5932,6 +5956,7 @@
         "LinkCandidate",
         "LinkPicker",
         "PageMasthead",
+        "SendInviteActions",
         "SubmitButton"
       ]
     },
@@ -6212,6 +6237,7 @@
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
         "dashboard/[eventId]/launch/_components/parent-cards.tsx",
         "dashboard/[eventId]/launch/_components/pass-card-design-picker.tsx",
+        "dashboard/[eventId]/launch/_components/poster-photo-picker.tsx",
         "dashboard/[eventId]/launch/_components/print-choice-picker.tsx",
         "dashboard/[eventId]/launch/_components/print-menu-editor.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
@@ -6249,6 +6275,7 @@
         "BufferedCanvasFrame",
         "CanvasStaysOnThePage",
         "CategoryLine",
+        "ChangedSincePrinted",
         "ChineseSpecialistNudge",
         "Chip",
         "ColourRow",
@@ -6381,6 +6408,8 @@
         "PickContext.Provider",
         "PickMenu",
         "PickOption",
+        "PosterPhoto",
+        "PosterPhotoPicker",
         "PreviewStageLink",
         "PrintChoicePicker",
         "PrintMenuEditor",
@@ -6390,6 +6419,7 @@
         "PrintSaveButton",
         "PrintSetBody",
         "PrintSetDownloads",
+        "PrintedStamp",
         "ProMark",
         "ProfileShareButton",
         "QrLookControls",

@@ -50,7 +50,7 @@ export function TicketPicture({
       data-ticket-picture={state}
       onLoad={() => setState('shown')}
       onError={() => setState('failed')}
-      className={`mx-auto block aspect-[3/4] h-auto w-[300px] max-w-full drop-shadow-md ${
+      className={`mx-auto block aspect-[3/4] h-auto w-[min(300px,100%)] drop-shadow-md ${
         state === 'loading' ? 'motion-safe:animate-pulse rounded-2xl bg-ink/[0.06]' : ''
       }`}
     />

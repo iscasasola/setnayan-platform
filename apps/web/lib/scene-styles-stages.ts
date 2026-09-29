@@ -33,14 +33,12 @@
  * (`recommendedStageSceneStyle`, read by `scene-style-row.tsx`), never a
  * default.
  *
- * ── NOT REGISTERED HERE, ON PURPOSE ────────────────────────────────────────
+ * ── THE FIVE FIXED PARTS ───────────────────────────────────────────────────
  * The entourage, Find your seat, each guest's own photos, the announcements and
- * the live hub have their three styles drawn (`entourage-styles.tsx`,
- * `your-seat-styles.tsx`, `photos-of-you-styles.tsx`,
- * `announcement-styles.tsx`, `live-hub-styles.tsx`) but NO section row, so
- * there is no `canvas.style` for a pick to live in. Registering them would
- * offer a dropdown whose pick cannot be saved, or draw a default nobody can
- * change back. They join this list the day they have a home.
+ * the live hub have no section row, so their pick is not a `canvas.style`: it
+ * lives in `events.style_preferences.scene_styles` (`lib/fixed-scene-styles.ts`),
+ * drafted and written by Apply like every other Maker edit. Their sets are
+ * registered here like any other, so the ONE resolver answers for them too.
  */
 import type { HubStage } from '@/lib/hub-canvas';
 import type { SceneStyleSet } from '@/lib/scene-styles';
@@ -157,6 +155,53 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     // Post Event's Grid is listed first; the shipped Save the Date look stays the default.
     defaults: { save_the_date: 'mosaic' },
   },
+  /* ── The five fixed parts (picks in `events.style_preferences.scene_styles`). ── */
+  {
+    type: 'entourage',
+    label: 'Entourage',
+    styles: [
+      { id: 'roll-call', name: 'Roll call', line: 'Each group under its heading, pairs side by side.', stages: INV_DAY },
+      // Sides are read from roles only a wedding's entourage carries.
+      { id: 'two-sides', name: 'Two sides', line: 'The two sides as two columns; the pairs under a rule.', stages: INV_DAY, eventTypes: ['wedding'] },
+      { id: 'march', name: 'The march', line: 'Numbered, in walking order, each role under its names.', stages: INV_DAY },
+    ],
+  },
+  {
+    type: 'find_your_seat',
+    label: 'Find your seat',
+    styles: [
+      { id: 'map', name: 'The map', line: 'Their table, the room map and the path to it.', stages: DAY },
+      { id: 'table-number', name: 'The table number', line: 'The number fills the screen; the map is a tap away.', stages: DAY },
+      { id: 'place-card', name: 'The place card', line: 'Their name on a place card, the map beneath.', stages: DAY },
+    ],
+  },
+  {
+    type: 'photos_of_you',
+    label: "Each guest's own photos",
+    styles: [
+      { id: 'grid', name: 'The grid', line: 'Three across, with the count.', stages: DAY },
+      { id: 'lead', name: 'The big one', line: 'The latest photo large, the rest as a strip.', stages: DAY },
+      { id: 'polaroids', name: 'Polaroids', line: 'Each photo as an instant print, with its time.', stages: DAY },
+    ],
+  },
+  {
+    type: 'announcements',
+    label: 'Announcements',
+    styles: [
+      { id: 'banner', name: 'The banner', line: 'A banner at the top of the page.', stages: INV_DAY },
+      { id: 'notice', name: 'The notice', line: 'The first sentence as a headline.', stages: INV_DAY },
+      { id: 'line', name: 'The line', line: 'One quiet line.', stages: INV_DAY },
+    ],
+  },
+  {
+    type: 'live_hub',
+    label: 'Live hub',
+    styles: [
+      { id: 'player-and-wall', name: 'Player and wall', line: 'The live player, then the photo wall.', stages: DAY },
+      { id: 'theatre', name: 'Theatre', line: 'Dark, the player first and large, the wall under it.', stages: DAY },
+      { id: 'wall-first', name: 'Wall first', line: 'The photo wall leads; the player follows.', stages: DAY },
+    ],
+  },
 ];
 
 /**
@@ -174,6 +219,7 @@ const RECOMMENDED: Readonly<Record<string, (stage: HubStage, eventType: string |
   schedule: (stage) => (stage === 'event' ? 'one-per-screen' : stage === 'rsvp' ? 'programme-rail' : null),
   photo_moments: (stage) => (stage === 'event' ? 'down-the-day' : null),
   rsvp: () => 'question',
+  find_your_seat: (stage) => (stage === 'event' ? 'table-number' : null),
 };
 
 /** The style the prototype recommends for this scene here, or null for "the default". */

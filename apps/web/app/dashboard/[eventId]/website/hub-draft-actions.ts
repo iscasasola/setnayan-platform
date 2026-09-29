@@ -90,6 +90,8 @@ import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import type { CustomSectionContent } from '@/lib/custom-sections';
 import { applyPostEventItems, postEventArrangementOf } from '@/lib/post-event-draft';
+import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraft } from '@/lib/fixed-scene-styles';
+import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -235,7 +237,9 @@ export async function hubDraftAction(
        asked only when a Pro theme is about to be written. The picker never
        offers one where the fence is shut; a draft is a public POST, so it is
        asked again here. An unreadable profile is not a wedding. */
-    const draftedTheme = plan.apply.find((i) => i.kind === 'event' && i.column === 'invite_theme');
+    const draftedTheme = plan.apply.find(
+      (i): i is Extract<HubDraftItem, { kind: 'event' }> => i.kind === 'event' && i.column === 'invite_theme',
+    );
     const draftedThemeId = draftedTheme ? normalizeThemeId(draftedTheme.value) : null;
     const themeFenceOpen =
       draftedThemeId !== null && INVITE_THEMES[draftedThemeId].tier === 'pro'
@@ -535,13 +539,32 @@ export async function hubDraftAction(
       }
     }
 
-    // 4 · The draft keeps only what was held back (and a record of this apply).
+    // 4 · 🎨 The fixed parts' style picks — ONE key of `events.style_preferences`,
+    //     read-merge-written (every other key kept: the QR look, onboarding…)
+    //     through the one writer the QR look uses. Admin client because
+    //     `authenticated` holds no UPDATE grant on that column; the host check
+    //     at the top of this action has already run. A pick is free — no Pro.
+    const picks: FixedSceneStylesDraft = {};
+    for (const item of toWrite) if (item.kind === 'fixed-style') picks[item.scene] = item.value;
+    if (Object.keys(picks).length > 0) {
+      const res = await writeStylePreferenceKey(createAdminClient(), eventId, SCENE_STYLES_PREF_KEY, (current) =>
+        sceneStylesValueAfter(current, picks),
+      );
+      if (!res.ok) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      snapshot.sceneStyles = res.before ?? null;
+    }
+
+    // 5 · The draft keeps only what was held back (and a record of this apply).
     const remaining: HubDraftState = { events: {}, widgets: {} };
     for (const { item } of held) {
       if (item.kind === 'event') remaining.events[item.column] = item.value;
       else if (item.kind === 'editorial') {
         // A held look keeps the WHOLE drafted map — its free part is now live.
         if (item.item.field === 'sceneLooks') remaining.editorial = { ...(remaining.editorial ?? {}), sceneLooks: item.item.value };
+      } else if (item.kind === 'fixed-style') {
+        // A style pick is free and never held; nothing to keep.
       } else if (item.field === 'canvas') {
         (remaining.widgets[item.widgetType] ??= {}).canvas = item.value as HubSectionCanvas | null;
       } else if (item.field === 'main') {

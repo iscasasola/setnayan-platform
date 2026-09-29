@@ -60,6 +60,13 @@
  *           both live in `config_json` and both are free (`lib/stage-scenes.ts`).
  */
 import {
+  sanitizeFixedSceneStylesDraft,
+  stylePreferencesWithDraftedStyles,
+  type FixedSceneStyles,
+  type FixedSceneStylesDraft,
+  type FixedStyleScene,
+} from '@/lib/fixed-scene-styles';
+import {
   WIDGET_PHASES,
   WIDGET_TYPES,
   isWidgetType,
@@ -443,6 +450,15 @@ export type HubDraftState = {
    * story's row (`lib/post-event-draft.ts`). Absent = nothing drafted.
    */
   editorial?: PostEventDraft;
+  /**
+   * 🎨 THE FIVE FIXED PARTS' STYLE PICKS (owner 2026-09-29, "EVERY SCENE … AT
+   * LEAST THREE PREMADE STYLES") — the entourage, Find your seat, each guest's
+   * own photos, the announcements and the live hub have no section row, so
+   * their pick is drafted here and Apply writes it into
+   * `events.style_preferences.scene_styles` (`lib/fixed-scene-styles.ts`).
+   * `null` = back to the default. Never Pro. Absent = nothing drafted.
+   */
+  fixedStyles?: FixedSceneStylesDraft;
 };
 
 export type HubDraft = HubDraftState & {
@@ -655,7 +671,14 @@ function sanitizeState(raw: unknown): HubDraftState {
   }
   // 📖 Post Event's scenes — through the story's own readers (`post-event-draft.ts`).
   const editorial = sanitizePostEventDraft(src.editorial);
-  return editorial ? { events, widgets, editorial } : { events, widgets };
+  // 🎨 The fixed parts' style picks — through their own reader.
+  const fixedStyles = sanitizeFixedSceneStylesDraft(src.fixedStyles);
+  return {
+    events,
+    widgets,
+    ...(editorial ? { editorial } : {}),
+    ...(fixedStyles ? { fixedStyles } : {}),
+  };
 }
 
 /** Anything → a well-formed draft. Unknown keys and unusable values are dropped. */
@@ -673,7 +696,8 @@ export function hubDraftHasChanges(d: HubDraftState): boolean {
   return (
     Object.keys(d.events).length > 0 ||
     Object.keys(d.widgets).length > 0 ||
-    Object.keys(d.editorial ?? {}).length > 0
+    Object.keys(d.editorial ?? {}).length > 0 ||
+    Object.keys(d.fixedStyles ?? {}).length > 0
   );
 }
 
@@ -687,6 +711,8 @@ export type HubDraftPatch = {
   widgets?: Partial<Record<WidgetType, HubDraftWidget>>;
   /** 📖 Post Event: the story keys this save changes, each replaced whole. */
   editorial?: PostEventDraft;
+  /** 🎨 The fixed parts' style picks this save changes, part by part. */
+  fixedStyles?: FixedSceneStylesDraft;
 };
 
 const stateOf = (d: HubDraftState): HubDraftState => ({
@@ -695,6 +721,7 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
     Object.entries(d.widgets).map(([k, v]) => [k, { ...v }]),
   ) as HubDraftState['widgets'],
   ...(d.editorial ? { editorial: { ...d.editorial } } : {}),
+  ...(d.fixedStyles ? { fixedStyles: { ...d.fixedStyles } } : {}),
 });
 
 /**
@@ -719,6 +746,8 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
   // 📖 Post Event: each story key the save carries replaces the drafted one whole
   // (the Maker computes it from live-with-the-draft, so it already holds the rest).
   if (clean.editorial) next.editorial = { ...(next.editorial ?? {}), ...clean.editorial };
+  // 🎨 A pick for one fixed part never forgets another's.
+  if (clean.fixedStyles) next.fixedStyles = { ...(next.fixedStyles ?? {}), ...clean.fixedStyles };
   const history = [...current.history, stateOf(current)].slice(-HUB_DRAFT_HISTORY_LIMIT);
   return fitHubDraftHistory({ v: 1, ...next, history });
 }
@@ -744,7 +773,9 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
   row: T,
   draft: HubDraftState | null,
 ): T {
-  if (!draft || Object.keys(draft.events).length === 0) return row;
+  if (!draft) return row;
+  const picks = draft.fixedStyles && Object.keys(draft.fixedStyles).length > 0 ? draft.fixedStyles : null;
+  if (Object.keys(draft.events).length === 0 && !picks) return row;
   const out: Record<string, unknown> = { ...row, ...draft.events };
   /* 🔳 The drafted QR look is laid INTO the live blob — the blob's other keys
      (onboarding answers the page may read) are never overlaid away. */
@@ -752,6 +783,9 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
     const live = row.style_preferences && typeof row.style_preferences === 'object' ? (row.style_preferences as Record<string, unknown>) : {};
     out.style_preferences = { ...live, ...(draft.events.style_preferences as Record<string, unknown>) };
   }
+  // 🎨 The fixed parts' drafted picks ride on `style_preferences` too, every
+  // other key of it kept — the host's canvas then draws the part in the picked style.
+  if (picks) out.style_preferences = stylePreferencesWithDraftedStyles(out.style_preferences, picks);
   return out as T;
 }
 
@@ -831,6 +865,8 @@ export type HubLiveState = {
    * arrangement (every scene shown, the default order, every style recommended).
    */
   editorial?: unknown;
+  /** 🎨 The fixed parts' live picks (`events.style_preferences.scene_styles`). Absent reads as none. */
+  fixedStyles?: FixedSceneStyles;
 };
 
 export type HubDraftItem =
@@ -873,6 +909,16 @@ export type HubDraftItem =
       pro: boolean;
       /** The free part of a held look — reported and kept by its refused twin. */
       freePart?: true;
+    }
+  | {
+      /** 🎨 One fixed part's style pick (`lib/fixed-scene-styles.ts`). Free. */
+      kind: 'fixed-style';
+      scene: FixedStyleScene;
+      /** The id to store, or null = back to the default. */
+      value: string | null;
+      change: LookChange;
+      pro: false;
+      freePart?: undefined;
     };
 
 const asText = (v: unknown): string | null =>
@@ -1454,6 +1500,11 @@ export function classifyHubDraft(
       items.push({ kind: 'editorial', item, value: item.value, change: item.change, pro: item.pro });
     }
   }
+  // 🎨 The fixed parts' style picks, last — each compared with what is live.
+  for (const [scene, value] of Object.entries(draft.fixedStyles ?? {}) as Array<[FixedStyleScene, string | null]>) {
+    const liveId = live.fixedStyles?.[scene] ?? null;
+    if ((value ?? null) !== liveId) items.push({ kind: 'fixed-style', scene, value: value ?? null, change: 'change', pro: false });
+  }
   return { items, orphans };
 }
 
@@ -1520,6 +1571,9 @@ export function planHubDraftApply(
       // A held look keeps the WHOLE drafted map, so the next Apply (after Pro)
       // finds it — and finds its free part already live.
       if (item.item.field === 'sceneLooks') remaining.editorial = { ...(remaining.editorial ?? {}), sceneLooks: item.item.value };
+    } else if (item.kind === 'fixed-style') {
+      // Never refused (a style pick is free) — kept for completeness.
+      remaining.fixedStyles = { ...(remaining.fixedStyles ?? {}), [item.scene]: item.value };
     } else {
       const w = (remaining.widgets[item.widgetType] ??= {});
       if (item.field === 'canvas') w.canvas = item.value as HubSectionCanvas | null;
@@ -1542,7 +1596,8 @@ export function hubDraftWriteTables(
   items: readonly HubDraftItem[],
 ): Array<'events' | 'invitation_widgets' | 'event_editorial'> {
   const out = new Set<'events' | 'invitation_widgets' | 'event_editorial'>();
-  for (const i of items) out.add(i.kind === 'event' ? 'events' : i.kind === 'editorial' ? 'event_editorial' : 'invitation_widgets');
+  // 🎨 A fixed part's style pick is a key of `events.style_preferences`.
+  for (const i of items) out.add(i.kind === 'event' || i.kind === 'fixed-style' ? 'events' : i.kind === 'editorial' ? 'event_editorial' : 'invitation_widgets');
   return [...out];
 }
 
@@ -1725,10 +1780,20 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   rsvp_ask_config: 'What you ask your guests',
 };
 
+/** A sentence-ready name for each fixed part whose style is drafted. */
+export const FIXED_STYLE_LABEL: Record<FixedStyleScene, string> = {
+  entourage: 'The entourage',
+  find_your_seat: 'Find your seat',
+  photos_of_you: "Each guest's own photos",
+  announcements: 'Announcements',
+  live_hub: 'The live hub',
+};
+
 /** A sentence-ready name for one draft key. */
 export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetType) => string): string {
   if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
   if (item.kind === 'editorial') return postEventItemLabel(item.item);
+  if (item.kind === 'fixed-style') return `${FIXED_STYLE_LABEL[item.scene]} · its style`;
   if (item.field === 'main') return 'Behind every scene';
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
   if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;

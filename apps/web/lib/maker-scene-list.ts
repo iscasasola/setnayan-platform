@@ -56,7 +56,22 @@ import type { SceneTemplateId } from './scene-templates';
 import { stageShowsEntourage } from './stage-scenes';
 
 /** The sections that are always in their place on a stage — never dragged. */
-export type MakerFixedKey = 'film' | 'editorial' | 'hero' | 'greeting' | 'pass' | 'rsvp' | 'entourage' | 'story';
+export type MakerFixedKey =
+  | 'film'
+  | 'editorial'
+  | 'hero'
+  | 'greeting'
+  | 'pass'
+  | 'rsvp'
+  | 'entourage'
+  | 'story'
+  /* 🎨 The day's own parts (owner 2026-09-29, "every scene … three styles"):
+     each guest meets their own, so the Maker draws a stand-in and offers its
+     Style — the key is the part's registry type (`lib/fixed-scene-styles.ts`). */
+  | 'find_your_seat'
+  | 'photos_of_you'
+  | 'announcements'
+  | 'live_hub';
 
 export type MakerTile =
   | {
@@ -168,7 +183,28 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
   rsvp: { label: 'RSVP', why: 'Each guest replies from their own link.' },
   entourage: { label: 'The entourage', why: 'Always here on this stage, after your sections — it lists everyone with a role.' },
   story: { label: 'Our story', why: 'Always here on this stage, after the entourage — written from your love story.' },
+  find_your_seat: { label: 'Find your seat', why: 'Each guest sees their own table here, once your seating plan is published.' },
+  photos_of_you: { label: "Each guest's own photos", why: 'Each guest sees the photos they are in, as they are taken.' },
+  announcements: { label: 'Announcements', why: 'Your messages to guests appear at the top of the page once you send one.' },
+  live_hub: { label: 'Live hub', why: 'Your live stream and live photo wall, when you have them on the day.' },
 };
+
+/**
+ * 🎨 THE DAY'S OWN PARTS — on the stages where guests meet them. Listed after
+ * the entourage, in the order the Maker's canvas draws their stand-ins
+ * (`maker-fixed-parts.tsx`), so the navigator and the canvas stay one list.
+ */
+export const MAKER_DAY_PARTS: ReadonlyArray<{ key: MakerFixedKey; stages: readonly LifecyclePhase[] }> = [
+  { key: 'announcements', stages: ['rsvp', 'event'] },
+  { key: 'find_your_seat', stages: ['event'] },
+  { key: 'live_hub', stages: ['event'] },
+  { key: 'photos_of_you', stages: ['event'] },
+];
+
+/** The day's parts this stage lists — the canvas draws exactly these, in this order. */
+export function makerDayPartsOn(stage: LifecyclePhase): MakerFixedKey[] {
+  return MAKER_DAY_PARTS.filter((p) => p.stages.includes(stage)).map((p) => p.key);
+}
 
 /**
  * 🔒 WHERE A FIXED SECTION IS EDITED (owner 2026-09-25: *"if not editable then
@@ -200,12 +236,22 @@ export const MAKER_TOOL_EDITOR_NAME: Record<NonNullable<(typeof MAKER_FIXED_TOOL
 };
 
 /** For a fixed section with no Maker tool: what fills it, and the page that changes it. */
-export const MAKER_FIXED_SOURCE: Partial<Record<MakerFixedKey, { text: string; page: 'guests'; link: string }>> = {
+export type MakerFixedSourcePage = 'guests' | 'seating' | 'galleries' | 'schedule' | 'live';
+export const MAKER_FIXED_SOURCE: Partial<
+  Record<MakerFixedKey, { text: string; page: MakerFixedSourcePage; link: string; from?: string }>
+> = {
   entourage: {
-    text: 'Nothing to edit here. It comes from your guest list — the roles you give people there.',
+    // 🎨 Its STYLE is picked in this panel (2026-09-29); only its names come from elsewhere.
+    text: 'The names come from your guest list — the roles you give people there.',
     page: 'guests',
     link: 'Open your guest list',
   },
+  /* 🎨 The day's own parts: their Style is picked in the panel; what fills them
+     comes from here. */
+  find_your_seat: { text: 'Each table comes from your seating plan.', page: 'seating', link: 'Open your seating plan', from: 'your seating plan' },
+  photos_of_you: { text: 'Filled from the photos taken on the day.', page: 'galleries', link: 'Open your galleries', from: 'the photos taken on the day' },
+  announcements: { text: 'You send them from your schedule on the day.', page: 'schedule', link: 'Open your schedule', from: 'your schedule' },
+  live_hub: { text: 'Filled from your live stream and your live photo wall.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
   greeting: {
     text: 'Each guest sees their own greeting — written from your guest list.',
     page: 'guests',
@@ -289,6 +335,11 @@ export type MakerStageInput = {
   storyRenders: boolean;
   /** The countdown retires once the day arrives. */
   countdownPast?: boolean;
+  /**
+   * 🎨 List the day's own parts (`MAKER_DAY_PARTS`) — true from the Maker, whose
+   * canvas draws their stand-ins in the same place. Absent = not listed.
+   */
+  dayParts?: boolean;
   /**
    * 📖 Post Event's compiled scenes, in the page's order
    * (`postEventSceneList`). Absent/empty → the one "story after the day" tile.
@@ -461,6 +512,9 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   }
   // The entourage is not the Save the Date's job (`STAGE_FIXED`).
   if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));
+  // 🎨 The day's own parts, where the normal body draws them (their stand-ins sit
+  // right after the entourage on the Maker's canvas).
+  if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage)) shown.push(fixed(k));
   if (input.storyRenders) shown.push(fixed('story'));
 
   // ── The fold: every other section, with the reason this stage leaves it out.

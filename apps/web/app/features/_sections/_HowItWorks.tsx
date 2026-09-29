@@ -89,7 +89,7 @@ const COPY: Record<
     roles: [
       {
         label: 'Host',
-        who: 'You’re planning a celebration — a wedding, a debut, a christening, a reunion, and thirteen more. An event can have several hosts.',
+        who: 'You’re planning a celebration — a wedding, a debut, a christening, a reunion, a concert — and more. An event can have several hosts.',
         where: [
           'Guest list, invitation site, suppliers, budget, seating, mood board',
           'Day-of mode from T-1h to T+8h with table + schedule + photo wall',
@@ -184,7 +184,7 @@ const COPY: Record<
     roles: [
       {
         label: 'Host',
-        who: 'Nagpaplano ka ng pagdiriwang — kasal, debut, binyag, reunion, at labintatlo pa. Pwedeng maraming host ang isang event.',
+        who: 'Nagpaplano ka ng pagdiriwang — kasal, debut, binyag, reunion, concert, at iba pa. Pwedeng maraming host ang isang event.',
         where: [
           'Guest list, invitation site, suppliers, budget, seating, mood board',
           'Day-of mode from T-1h to T+8h — table + schedule + photo wall',

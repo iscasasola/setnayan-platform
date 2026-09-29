@@ -165,6 +165,34 @@ export function anyoneMayAskToJoin(raw: unknown): boolean {
   return readWhoCanRsvp(raw) === 'anyone';
 }
 
+/**
+ * 🌐 CHOOSING PUBLIC TURNS ON "ASK TO JOIN" (owner 2026-09-29, DECISION_LOG
+ * "DISCOVER BUILD — TWO LAST ANSWERS", item 1: *"yes to both"*). An event listed
+ * on Discover with no way to ask is a dead end — the default "Only my Guest
+ * List" shows a stranger nothing to press.
+ *
+ * So the MOMENT visibility moves INTO `public` from anything else, "Who can
+ * RSVP?" becomes "Anyone, I approve". Returns the config to write, or `null`
+ * when nothing must change:
+ *   · not a transition into public (public → public, or to any other value) —
+ *     the host may have turned requests OFF after going public, and a later
+ *     save must never re-force it;
+ *   · already "Anyone, I approve" — nothing to write.
+ * Every other key the couple set rides through untouched (the same sanitizer
+ * the Maker's RSVP page and the join door read).
+ */
+export function rsvpAskConfigOnGoingPublic(input: {
+  previousVisibility: string | null | undefined;
+  nextVisibility: string;
+  rawConfig: unknown;
+}): RsvpAskConfig | null {
+  if (input.nextVisibility !== 'public') return null;
+  if (input.previousVisibility === 'public') return null;
+  const current = sanitizeRsvpAskConfig(input.rawConfig);
+  if (current.whoCanRsvp === 'anyone') return null;
+  return { ...current, whoCanRsvp: 'anyone' };
+}
+
 /** "Ask one question at a time" — absent reads as OFF (one scrolling page). */
 export function readOneAtATime(raw: unknown): boolean {
   return sanitizeRsvpAskConfig(raw).oneAtATime === true;

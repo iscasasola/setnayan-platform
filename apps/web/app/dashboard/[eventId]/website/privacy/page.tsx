@@ -239,7 +239,7 @@ export default async function PrivacyEditorPage({
             currentValue={currentVisibility}
             icon={<Globe aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
             title="Public"
-            blurb={`Anyone can open your ${eventNoun(event.event_type)}'s page and read it, and it may be shown on Setnayan's public pages. Getting inside is different: your Event Hub and a camera for the day open only with a guest's own key \u2014 the personal link or QR you send them. If you turn on \u201cAnyone, I approve\u201d in your RSVP settings, someone without a key can ask to join; they wait in Requests until you Keep, Link or Remove them. Search engines may index the page after your ${eventNoun(event.event_type)} day.`}
+            blurb={`Anyone can open your ${eventNoun(event.event_type)}'s page and read it, and it may be shown on Setnayan's public pages. Getting inside is different: your Event Hub and a camera for the day open only with a guest's own key \u2014 the personal link or QR you send them. Choosing Public turns on \u201cAnyone, I approve\u201d in your RSVP settings, so someone without a key can ask to join; they wait in Requests until you Keep, Link or Remove them. You can turn requests off there at any time. Search engines may index the page after your ${eventNoun(event.event_type)} day.`}
           />
 
           <VisibilityCard

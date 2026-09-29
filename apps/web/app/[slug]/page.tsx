@@ -65,6 +65,8 @@ import {
   isScheduledLaunchDue,
   publishSaveTheDate,
 } from '@/lib/launch-save-the-date';
+import { carryAskToJoinIntoDraft } from '@/lib/going-public.server';
+import { publicTicketUrl } from '@/lib/ticket-url';
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
@@ -750,6 +752,8 @@ async function InvitationBody({
     after(async () => {
       try {
         const published = await publishSaveTheDate(admin, event.event_id);
+        // Going public turned on "Ask to join" — the Maker draft follows it.
+        if (published?.askToJoinTurnedOn) await carryAskToJoinIntoDraft(admin, event.event_id);
         if (published?.slug) revalidatePath(`/${published.slug}`);
         await fanOutSaveTheDateEmails(event.event_id);
       } catch {
@@ -1298,6 +1302,9 @@ async function InvitationBody({
     // the Maker, which would hear its bridge as the canvas's.
     themeTile: triedTheme !== null,
     canvasGuestBars: isEditorCanvas && search.bars === '1',
+    // 🎟 Public events only — `visibility` is the effective one this page
+    // renders from, so a private or unlisted event never draws the button.
+    ticketUrl: publicTicketUrl({ visibility, ticketUrl: event.ticket_url }),
     // 🖼 `?only=hero` — the Maker's Hero page draws the hero alone. Host canvas
     // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's
     // `?only=` is ignored). See `_lib/editor-canvas.ts`.

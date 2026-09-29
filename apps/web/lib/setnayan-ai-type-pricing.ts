@@ -71,6 +71,14 @@ export const AI_TIER_BY_EVENT_TYPE: Readonly<Record<string, AiPriceTier>> = {
   // Whether the assisted planner should offer itself for a funeral at all, or
   // at a different rung, is flagged as an open owner decision.
   wake: 'C',
+  // ⚠ THE DEFAULT MADE EXPLICIT, NOT A PRICE DECISION — the same footing as
+  // `wake` above. The owner approved these three types on 2026-09-29 and has
+  // not banded them: their `event_type_vocab.ai_price_tier` is seeded NULL
+  // (migration 20271255436935), which /admin/pricing shows as "no band yet",
+  // and setnayan_ai_price_tier() resolves NULL to 'C' exactly as this does.
+  concert: 'C',
+  open_house: 'C',
+  grand_opening: 'C',
 };
 
 /**

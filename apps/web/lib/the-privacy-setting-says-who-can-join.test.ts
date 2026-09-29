@@ -155,3 +155,23 @@ test('🔒 the gate still refuses ONLY "private" — if that changes, this copy 
   assert.match(action, /resolveEffectiveVisibility\(visRow\) === 'private'/,
     'selfJoinAction no longer refuses exactly "private" — revisit the privacy copy');
 });
+
+test('🌐 Public says requests are ON by default — because choosing it turns them on', () => {
+  /* Owner 2026-09-29 (DECISION_LOG "DISCOVER BUILD — TWO LAST ANSWERS"):
+     switching visibility TO public sets "Anyone, I approve". The Public blurb
+     must say so — and say it can be turned off — and that is only true while
+     the visibility action still turns it on. Both halves are asserted. */
+  const src = read(...PRIVACY);
+  const blurb = unescape(blurbFor(src, 'public'));
+  assert.match(blurb, /Choosing Public turns on "Anyone, I approve"/,
+    'the Public blurb must say choosing it turns requests on');
+  assert.match(blurb, /turn requests off/i, 'and that the couple can turn them off again');
+  for (const value of ['unlisted', 'invited_accounts']) {
+    assert.doesNotMatch(unescape(blurbFor(src, value)), /turns on "Anyone, I approve"/,
+      `"${value}" does not turn requests on — only Public does`);
+  }
+
+  const action = read('app', 'dashboard', '[eventId]', 'website', 'privacy', 'actions.ts');
+  assert.match(action, /rsvpAskConfigOnGoingPublic\(/,
+    'the visibility action no longer turns requests on for Public — revisit the Public copy');
+});

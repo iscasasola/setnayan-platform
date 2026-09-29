@@ -131,6 +131,11 @@ export const HOST_ROLES_BY_EVENT_TYPE: Readonly<
   tournament: [...ORGANISERS, 'viewer'],
   gala_night: [...ORGANISERS, 'viewer'],
   simple_event: [...ORGANISERS, 'viewer'],
+  // The three public, organizer-run kinds (owner 2026-09-29) — work-event
+  // shaped: organisers and people who can look, no family vocabulary.
+  concert: [...ORGANISERS, 'viewer'],
+  open_house: [...ORGANISERS, 'viewer'],
+  grand_opening: [...ORGANISERS, 'viewer'],
 };
 
 /**

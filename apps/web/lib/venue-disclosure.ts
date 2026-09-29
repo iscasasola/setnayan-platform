@@ -109,6 +109,8 @@ export function venueIsOpen(viewer: VenueViewer): boolean {
 /** The fields that carry the precise location. */
 export type VenueFields = {
   venue_address?: string | null;
+  /** The ceremony's typed street address — closes with `venue_address`. */
+  ceremony_venue_address?: string | null;
   venue_latitude?: number | null;
   venue_longitude?: number | null;
   venue_withheld?: boolean;
@@ -129,6 +131,8 @@ export function withheldVenue<T extends VenueFields>(event: T): T {
   return {
     ...event,
     venue_address: null,
+    // 🏠 The ceremony's own typed address closes under the same rule (2026-09-29).
+    ...('ceremony_venue_address' in event ? { ceremony_venue_address: null } : {}),
     venue_latitude: null,
     venue_longitude: null,
     // 🏛💒 BOTH venues close, never just the one the event columns describe

@@ -182,6 +182,8 @@ export type EventRow = {
   std_film_venue_city?: string | null;
   // Manual STD ceremony venue (fallback when no finalized ceremony booking).
   std_film_ceremony_name?: string | null;
+  /** The ceremony's typed street address (20271252997367) — closes with venue_address (`withheldVenue`). */
+  ceremony_venue_address?: string | null;
   // Manual STD film accent hex override (null = follow Mood Board → mulberry).
   std_film_accent_hex?: string | null;
   // TRUE only for the Maria & Jose public-tour sample event. Used to suppress the

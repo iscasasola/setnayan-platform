@@ -124,7 +124,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     .select(
       // The CANONICAL monogram list + the QR look's two columns, never a
       // hand-typed near-copy: the guest's code below wears the event's look.
-      `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at`,
+      `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at`,
     )
     .ilike('slug', slug)
     .maybeSingle();

@@ -13,10 +13,11 @@
  * actually true of it, from data the event type already carries:
  *
  *   · NAMES — two named people at the centre (`EventWords.twoPeople`, read
- *     from the profile's `person_a`/`person_b`). Their labels are those words
- *     (`peopleLabels`). An event with one honoree has no names-only writer
- *     today (its name is set at creation), so the item is not shown — never a
- *     box that would write a second person's column for it.
+ *     from the profile's `person_a`/`person_b`): "Names", labelled with those
+ *     words (`peopleLabels`). Every other event gets "Name" — ONE name, the
+ *     event's own `display_name`, which the hero, every print and every pass
+ *     already read (owner 2026-09-29, "yes to all 4", item 3). Never a
+ *     second person's column for a birthday.
  *   · DATE · VENUES — every event has a day and a place.
  *   · PARENTS — only where the event's OWN role set offers a role in the
  *     invitation's "Parents" group. Hosts are every event's, so the item stays
@@ -50,9 +51,7 @@ export function marchOffered(kind: Pick<YourEventKind, 'offeredRoles'>): boolean
 
 /** The "Your event" items this event shows, in the navigator's order. */
 export function yourEventItems(kind: YourEventKind): EventItemKey[] {
-  const out: EventItemKey[] = [];
-  if (kind.words.twoPeople) out.push('names');
-  out.push('date', 'venues', 'parents');
+  const out: EventItemKey[] = ['names', 'date', 'venues', 'parents'];
   if (marchOffered(kind)) out.push('march');
   return out;
 }
@@ -67,7 +66,7 @@ function capital(s: string): string {
 export function yourEventLabel(key: EventItemKey, kind: YourEventKind): string {
   switch (key) {
     case 'names':
-      return 'Names';
+      return kind.words.twoPeople ? 'Names' : 'Name';
     case 'date':
       return 'Date';
     case 'venues':
@@ -100,6 +99,8 @@ export function yourEventUsedOn(key: EventItemKey, kind: YourEventKind): string[
 export type YourEventFacts = {
   /** The two first names as stored (`bride_name` / `groom_name`, split). */
   names: readonly [string, string];
+  /** A one-person event's name — `display_name` (null for a two-person event). */
+  oneName?: string | null;
   /** `events.event_date`, and whether it is a whole day (`event_date_precision`). */
   date: { value: string | null; dayPrecise: boolean };
   /** How many venues the Event Hub resolves (`resolveEventVenues`). */
@@ -113,6 +114,7 @@ export type YourEventFacts = {
 export function yourEventDone(key: EventItemKey, f: YourEventFacts): boolean {
   switch (key) {
     case 'names':
+      if (f.oneName !== undefined && f.oneName !== null) return f.oneName.trim() !== '';
       return f.names[0].trim() !== '' && f.names[1].trim() !== '';
     case 'date':
       return Boolean(f.date.value) && f.date.dayPrecise;

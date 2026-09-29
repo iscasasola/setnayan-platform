@@ -26,13 +26,14 @@ import { joinersFor, swapsFor } from '@/lib/march-moves';
 
 /** The event columns the "Your event" items read — each the column its existing screen reads. */
 const YOUR_EVENT_COLUMNS =
-  'event_type, bride_name, groom_name, region, mood_feel_key, event_date, event_date_precision, ' +
+  'event_type, display_name, bride_name, groom_name, region, mood_feel_key, event_date, event_date_precision, ' +
   'ceremony_type, secondary_ceremony_type, std_invitation_launch_date, ' +
-  'std_film_ceremony_name, std_film_venue_name, std_film_venue_city, ' +
+  'std_film_ceremony_name, std_film_venue_name, std_film_venue_city, ceremony_venue_address, ' +
   'venue_name, venue_address, venue_latitude, venue_longitude';
 
 type Row = {
   event_type: string | null;
+  display_name: string | null;
   bride_name: string | null;
   groom_name: string | null;
   region: string | null;
@@ -45,6 +46,7 @@ type Row = {
   std_film_ceremony_name: string | null;
   std_film_venue_name: string | null;
   std_film_venue_city: string | null;
+  ceremony_venue_address: string | null;
   venue_name: string | null;
   venue_address: string | null;
   venue_latitude: number | string | null;
@@ -122,10 +124,33 @@ export async function loadYourEvent({
   const venues = resolveEventVenues(bookings, row);
   const slots: VenueSlot[] = words.twoPeople
     ? [
-        { field: 'filmCeremonyName', label: VENUE_ROLE_LABEL.ceremony, booked: bookings.ceremony, typed: row.std_film_ceremony_name ?? '' },
-        { field: 'filmVenueName', label: VENUE_ROLE_LABEL.reception, booked: bookings.reception, typed: row.std_film_venue_name ?? '' },
+        {
+          field: 'filmCeremonyName',
+          label: VENUE_ROLE_LABEL.ceremony,
+          booked: bookings.ceremony,
+          typed: row.std_film_ceremony_name ?? '',
+          addressField: 'ceremonyAddress',
+          address: row.ceremony_venue_address ?? '',
+        },
+        {
+          field: 'filmVenueName',
+          label: VENUE_ROLE_LABEL.reception,
+          booked: bookings.reception,
+          typed: row.std_film_venue_name ?? '',
+          addressField: 'venueAddress',
+          address: row.venue_address ?? '',
+        },
       ]
-    : [{ field: 'filmVenueName', label: 'Venue', booked: bookings.reception, typed: row.std_film_venue_name ?? '' }];
+    : [
+        {
+          field: 'filmVenueName',
+          label: 'Venue',
+          booked: bookings.reception,
+          typed: row.std_film_venue_name ?? '',
+          addressField: 'venueAddress',
+          address: row.venue_address ?? '',
+        },
+      ];
 
   const marchLines = groups.reduce((n, g) => n + g.rows.length, 0);
 
@@ -133,12 +158,21 @@ export async function loadYourEvent({
     kind,
     facts: {
       names: [a.first, b.first],
+      oneName: people ? null : (row.display_name ?? ''),
       date: { value: row.event_date, dayPrecise: precision === 'day' },
       venueCount: venues.length,
       parentCount,
       hostCount,
       marchLines,
     },
+    oneName: people
+      ? null
+      : {
+          initial: row.display_name ?? '',
+          // No person-noun: a wake's "celebrant" word is the family, not the
+          // person the page is named for — so the hint names the places instead.
+          hint: `Guests read it on your ${words.eventWord} page, on every print and on every pass.`,
+        },
     names:
       namesWritable && people
         ? { people, initial: [a, b], keep: { region: row.region ?? '', feel: row.mood_feel_key ?? '' }, wholeForm: null }

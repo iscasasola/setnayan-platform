@@ -33,6 +33,8 @@
  * Pure: no I/O — executed by `lib/request-key.test.ts`.
  */
 
+import { formatCount } from '@/lib/format-number';
+
 export const REQUEST_SOURCE = 'self_added_unlisted';
 
 /** The forward Link leaves on the removed request row: `linked_into:<guest id>`. */
@@ -126,7 +128,7 @@ export const DOOR_WORDS = {
   declined: 'Not approved',
   declinedWhy: 'The couple declined this request. This code does not admit anyone.',
   next: 'Scan the next guest',
-  checkedLive: (time: string, arrived: number, of: number) => `Checked live at ${time} · ${arrived} of ${of} arrived`,
+  checkedLive: (time: string, arrived: number, of: number) => `Checked live at ${time} · ${formatCount(arrived)} of ${formatCount(of)} arrived`,
 } as const;
 
 // ─── The guest's screens ─────────────────────────────────────────────────────

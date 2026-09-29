@@ -113,7 +113,9 @@ test('🛂 both actions end a request on "Request sent", never on the celebratio
     const at = body.indexOf('await createJoinRequest(');
     assert.ok(at > -1, `${name} no longer creates a request`);
     const after = body.slice(at);
-    assert.match(after, /return requestSent\(eventId, token\);/, `${name}: a request does not end on "Request sent"`);
+    // 🔓 Since 2026-09-29 "Request sent" also hands the requester their own key
+    // (their pending ticket — lib/request-key.ts), never a guest session.
+    assert.match(after, /return requestSent\(admin, eventId, token, requestId\);/, `${name}: a request does not end on "Request sent"`);
     assert.doesNotMatch(after, /setGuestSession|enterAsGuest|inviteReplyPath|bindMemberToSeed/, `${name}: something opens after a request`);
   }
   assert.match(fn('requestSent'), /redirect\(`\/join\/\$\{eventId\}\?sent=1/);

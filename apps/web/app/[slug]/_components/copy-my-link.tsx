@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { Check, Copy } from 'lucide-react';
 
 /**
@@ -95,6 +96,9 @@ export function CopyMyLink({
 export function OpenInBrowser({ link }: { link: string }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<boolean | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  // The sheet is a real modal: focus moves in, Escape closes, the page stays put.
+  useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheetRef });
 
   async function start() {
     setOpen(true);
@@ -112,9 +116,16 @@ export function OpenInBrowser({ link }: { link: string }) {
         <span className="text-xs font-normal opacity-80">Save to my account · Messenger can’t sign you in here</span>
       </button>
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true" aria-labelledby="open-in-browser-title">
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
           <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="absolute inset-0 bg-ink/40" />
-          <div className="relative w-full max-w-md space-y-3 rounded-t-2xl bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-left shadow-xl">
+          <div
+            ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="open-in-browser-title"
+            tabIndex={-1}
+            className="relative w-full max-w-md space-y-3 rounded-t-2xl bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-left shadow-xl"
+          >
             <div aria-hidden className="mx-auto h-1 w-10 rounded-full bg-ink/20" />
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/60">Save to my account</p>
             <h2 id="open-in-browser-title" className="font-serif text-2xl leading-tight text-ink">

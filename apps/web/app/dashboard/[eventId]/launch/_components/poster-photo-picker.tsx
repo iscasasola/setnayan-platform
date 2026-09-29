@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { requestMakerRefresh } from '@/lib/maker-refresh';
 import { FileUpload } from '@/app/_components/file-upload';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { POSTER_PHOTO_MIN_PX, posterPhotoTooSmall, type PosterPhoto } from '@/lib/print-pieces';
@@ -19,7 +19,6 @@ import { POSTER_PHOTO_MIN_PX, posterPhotoTooSmall, type PosterPhoto } from '@/li
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 export function PosterPhotoPicker({ eventId, saved }: { eventId: string; saved: PosterPhoto | null }) {
-  const router = useRouter();
   const [photo, setPhoto] = useState<PosterPhoto | null>(saved);
   const [mode, setMode] = useState<'theme' | 'photo'>(saved ? 'photo' : 'theme');
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +37,9 @@ export function PosterPhotoPicker({ eventId, saved }: { eventId: string; saved: 
         return;
       }
       setPhoto(body.photo ?? null);
-      // The poster's picture is drawn from the saved details — show the new one.
-      router.refresh();
+      // The poster's picture is drawn from the saved details — ask the Maker to
+      // refresh (its one refresh path; no router is mounted in a render test).
+      requestMakerRefresh();
     });
 
   const small = posterPhotoTooSmall(photo);

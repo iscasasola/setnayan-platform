@@ -154,7 +154,8 @@ test('E · the seat-only branch: same key check, the ONE seat rule, returns befo
   assert.match(seg, /return;/);
   // The reply path uses the SAME rule — one mechanism, never two.
   assert.match(submit, /await nameTheSeats\(admin, eventId, guestId, formData, ask\);/);
-  assert.equal((actions.match(/const ops = planSeatNames\(/g) ?? []).length, 1, 'a second seat writer appeared');
+  // One rule, wrapped since 2026-09-29 by the linked-name lock (a-linked-plus-one-keeps-their-name.test.ts).
+  assert.equal((actions.match(/planSeatNames\(seatNames,/g) ?? []).length, 1, 'a second seat writer appeared');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

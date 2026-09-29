@@ -5,6 +5,7 @@ import type { InviteEventFacts } from '@/lib/guest-invite-message';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { PASS_CARD_WORDS, fileSafe } from '@/lib/pass-card';
 import { TicketRow } from './ticket-row';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "YOUR GUESTS" — the people this guest is bringing, each a guest row with their
@@ -163,7 +164,7 @@ export function YourGuests({
         <div className="space-y-1 pt-1" data-save-all-tickets="">
           <SavePassCardButton hrefs={cardHrefs} label={PASS_CARD_WORDS.saveAll} />
           <p className="text-xs text-ink/60">
-            {cardHrefs.length} pictures · {saveAllNames.join(' · ')}
+            {formatCount(cardHrefs.length)} pictures · {saveAllNames.join(' · ')}
           </p>
         </div>
       ) : null}

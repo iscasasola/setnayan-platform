@@ -140,6 +140,12 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   swap_needs_name: 'Type the name of the person taking the spot.',
   swap_after_day: 'The day has passed — this spot can no longer be given away.',
   swap_failed: 'The spot could not be given away just now — nothing was changed. Please try again.',
+  // "Unlink" (lib/seat-unlink.ts).
+  unlink_not_allowed: 'Only the couple can unlink an account from an invitation.',
+  unlink_nothing_linked: 'No account holds this invitation — there is nothing to unlink.',
+  unlink_holds_access:
+    'That account is a Co-host or helper through this guest. Set their Access back to None first, then unlink.',
+  unlink_failed: 'The account could not be unlinked just now — nothing was changed. Please try again.',
 };
 
 export function GuestCardBody({
@@ -205,6 +211,7 @@ export function GuestCardBody({
     recordedAt,
     access,
     canManageAccess,
+    linkedAccount,
   } = data;
   const accessTagLabel = access ? accessTag(access) : null;
 
@@ -769,6 +776,31 @@ export function GuestCardBody({
             />
           </div>
         </Section>
+      ) : null}
+
+      {/* 🔗 WHO HOLDS THIS INVITATION — and the undo (2026-09-30: a test account
+          held the owner's GROOM row, and there was no door to take it back).
+          Shown on EVERY row the couple can see bound, couple rows included.
+          Rides the release door (`unlink_account`), so +0 actions. */}
+      {linkedAccount ? (
+        <form action={releaseAction} className="space-y-2 border-t border-ink/10 pt-4" data-unlink-account="">
+          <input type="hidden" name="unlink_account" value="1" />
+          <p className="text-sm text-ink/80">
+            This invitation is linked to{' '}
+            <span className="font-medium text-ink">{linkedAccount.email ?? 'a Setnayan account'}</span>.
+          </p>
+          <SubmitButton
+            className="block w-full rounded-lg border border-ink/15 px-3.5 py-2.5 text-left text-sm font-medium text-ink/70 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
+            aria-label={`Unlink ${linkedAccount.email ?? 'this account'} from ${guestDisplayName(guest)}'s invitation`}
+            pendingLabel="Unlinking…"
+          >
+            Unlink
+          </SubmitButton>
+          <p className="text-xs text-ink/50">
+            Not them? Unlinking gives this invitation a new QR and link, and that account stops seeing it.
+            The guest, their reply and their seat stay.
+          </p>
+        </form>
       ) : null}
 
       {/* ── 8 · REMOVE — explicit, never autosaved, and never nested inside the

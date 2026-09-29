@@ -29,6 +29,7 @@ import { classifyClaimMatch, MAX_NAME_LENGTH, type SeedCandidate } from '@/lib/g
 import { MEAL_LABELS, type MealPreference, type RsvpStatus } from '@/lib/guests';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { formatCount } from '@/lib/format-number';
+import { isCoupleSeat } from '@/lib/seat-binding';
 
 /** What the guest may answer on the ask-to-join form (the three RSVP choices). */
 export const REQUEST_ANSWERS: readonly { value: Extract<RsvpStatus, 'attending' | 'maybe' | 'declined'>; label: string }[] = [
@@ -124,9 +125,15 @@ export function readRequestedSeats(notes: string | null | undefined): number {
  * A SUGGESTION ONLY — the couple presses Link to act on it. Ambiguous (two
  * people on the list look alike) or no match → null ("No one like this on
  * your list").
+ *
+ * 🔒 NEVER A COUPLE SEAT (2026-09-30): "Same as <the groom>" beside a stranger's
+ * request is one tap from binding a guest to the groom's row.
  */
 export function suggestRequestMatch(name: string, candidates: SeedCandidate[]): SeedCandidate | null {
-  const m = classifyClaimMatch(name, candidates);
+  const m = classifyClaimMatch(
+    name,
+    candidates.filter((c) => !isCoupleSeat(c.role)),
+  );
   return m.kind === 'confident' ? m.candidate : null;
 }
 

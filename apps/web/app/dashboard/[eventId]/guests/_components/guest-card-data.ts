@@ -17,6 +17,7 @@ import { loadGuestAccessMap } from '@/lib/guest-access.server';
 import type { GuestAccessState } from '@/lib/guest-access';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { readSeatAccount } from '@/lib/seat-unlink';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -81,6 +82,12 @@ export type GuestCardData = {
   access: GuestAccessState | null;
   /** The viewer is a co-host, so the Access dropdown is theirs to change. */
   canManageAccess: boolean;
+  /**
+   * The account this row is bound to (`event_members.guest_id`), shown to the
+   * couple with an Unlink (lib/seat-unlink.ts). Null when nobody holds it, or
+   * when the viewer is not a couple member — the read is another account's.
+   */
+  linkedAccount: { email: string | null; memberType: string } | null;
 };
 
 export async function loadGuestCard(
@@ -215,6 +222,9 @@ export async function loadGuestCard(
     })(),
   ]);
 
+  // Who holds this row — read only for the couple (another account's email).
+  const linkedAccount = canManageAccess ? await readSeatAccount(eventId, guest.guest_id) : null;
+
   return {
     guest,
     isCouple,
@@ -230,5 +240,6 @@ export async function loadGuestCard(
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),
     access: accessMap?.get(guest.guest_id) ?? null,
     canManageAccess,
+    linkedAccount,
   };
 }

@@ -113,13 +113,20 @@ export default async function RequestsPage({ params, searchParams }: Props) {
   // bound to an account (owner 2026-09-21). Measured separately: one read can be
   // refused while the other is not, and a refused read here hides Link, which
   // would read as "there is nobody to link them to".
-  type Candidate = { guest_id: string; first_name: string; last_name: string; display_name: string | null };
+  type Candidate = {
+    guest_id: string;
+    first_name: string;
+    last_name: string;
+    display_name: string | null;
+    role: string | null;
+    extra_roles: string[] | null;
+  };
   let candidates: Candidate[] = [];
   let candidatesMeasured = true;
   if (rows.length > 0) {
     const { data: candRaw, error: candError } = await supabase
       .from('guests')
-      .select('guest_id, first_name, last_name, display_name')
+      .select('guest_id, first_name, last_name, display_name, role, extra_roles')
       .eq('event_id', eventId)
       .eq('entry_source', 'host_seeded')
       .is('deleted_at', null)
@@ -159,7 +166,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
 
   // The suggested match for each request — a suggestion the couple acts on with
   // Link, never a bind (a name is not a secret).
-  const seeds = candidates.map((c) => ({ guestId: c.guest_id, name: candidateName(c), email: null }));
+  const seeds = candidates.map((c) => ({ guestId: c.guest_id, name: candidateName(c), email: null, role: c.role }));
   const byId = new Map(candidates.map((c) => [c.guest_id, c]));
   const items = rows.map((g) => {
     const name = (g.display_name?.trim() || `${g.first_name} ${g.last_name === '—' ? '' : g.last_name}`).trim();

@@ -12,6 +12,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import { planFaceSelfieDelete } from '@/lib/face-data-retention-core';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
+import { unlinkSeatFromAccount } from '@/lib/seat-unlink';
 import {
   INVITED_TO_BLOCKS,
   singletonRoleDuplicateMessage,
@@ -121,7 +122,10 @@ export async function inviteGuestByEmailAction(eventId: string, guestId: string)
     return redirect(`${backTo}?invite=no_email`);
   }
 
-  const { ok } = await sendEventAccountMagicLink({ eventId, guestId, email });
+  // `sentByCouple`: this is the couple's own door, so the return is signed — the
+  // one way a couple seat (the partner's own bride / groom row) can be kept by
+  // the account this address belongs to (lib/seat-link-approval.ts).
+  const { ok } = await sendEventAccountMagicLink({ eventId, guestId, email, sentByCouple: true });
   revalidatePath(backTo);
   return redirect(`${backTo}?invite=${ok ? 'sent' : 'failed'}`);
 }
@@ -811,6 +815,21 @@ async function giveSpotToSomeoneElse(eventId: string, guestId: string, newName: 
 }
 
 /**
+ * UNLINK — the seat stays, the wrong account lets go of it. Couple rows too:
+ * that is how the owner takes his own groom row back (2026-09-30).
+ */
+async function unlinkSeatAccount(eventId: string, guestId: string): Promise<void> {
+  const supabase = await createClient();
+  const result = await unlinkSeatFromAccount(supabase, { eventId, guestId });
+  revalidatePath(`/dashboard/${eventId}/guests/${guestId}`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  if (!result.ok) {
+    redirect(`/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(`unlink_${result.reason}`)}`);
+  }
+  redirect(`/dashboard/${eventId}/guests/${guestId}?unlinked=1`);
+}
+
+/**
  * RELEASE A CLAIMED SEAT — the couple's undo for a forwarded invitation.
  *
  * Owner ruling 2026-08-06: *"the couple has full control of their guests."*
@@ -849,6 +868,10 @@ export async function releaseGuestClaim(
   // that also hands the seat to a named new person. See giveSpotToSomeoneElse.
   const swapName = String(formData.get('swap_name') ?? '').trim().slice(0, 120);
   if (swapName) return giveSpotToSomeoneElse(eventId, guestId, swapName);
+  // 🔗 "This invitation is linked to <account> — Unlink" (2026-09-30) rides this
+  // door too (+0 exports): rotate the key, delete that ONE guest membership,
+  // undo only what that account wrote. lib/seat-unlink.ts.
+  if (formData.get('unlink_account') === '1') return unlinkSeatAccount(eventId, guestId);
 
   // Authorisation is RLS, exactly as softDeleteGuest does it: read the guest
   // through the SESSION client first. A caller who is not a host of this event

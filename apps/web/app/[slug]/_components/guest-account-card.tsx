@@ -4,6 +4,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
 import { eventConnectPath } from '@/lib/signup-landing';
 import type { GuestAccountState } from '@/lib/guest-one-path';
+import { COUPLE_SEAT_REFUSED, seatConfirmLine } from '@/lib/seat-binding';
 import { claimAccountAction, linkThisSeatAction } from '../actions';
 
 /**
@@ -114,19 +115,30 @@ export function GuestAccountCard({
   }
 
   if (state.kind === 'link_this_seat') {
+    // 🔒 A couple seat is kept only by the couple's own accounts — no press.
+    if (state.coupleSeat) {
+      return shell(
+        <>
+          <h2 className="text-base font-semibold text-ink">This invitation</h2>
+          <p className="mt-1 text-sm text-ink/70">{COUPLE_SEAT_REFUSED}</p>
+        </>,
+      );
+    }
+    // 🔒 ASKED, NOT ASSUMED (2026-09-30): whose invitation, and which account.
+    const line = seatConfirmLine({ seatName: state.seatName, accountEmail: state.accountEmail });
     return shell(
       <>
-        <h2 className="text-base font-semibold text-ink">This is me</h2>
+        <h2 className="text-base font-semibold text-ink">{line.whose}</h2>
         <p className="mt-1 text-sm text-ink/70">
-          Keep this invitation in your Setnayan account — {why.charAt(0).toLowerCase() + why.slice(1)}
+          {line.where} {why}
         </p>
-        <form action={linkThisSeatAction.bind(null, eventId)} className="mt-3">
+        <form action={linkThisSeatAction.bind(null, eventId)} className="mt-3" data-seat-confirm="">
           <SubmitButton
             className="button-primary min-h-[44px] w-full sm:w-auto"
             pendingLabel="Linking…"
             overlay={false}
           >
-            Keep it in my account
+            Yes, keep it in my account
           </SubmitButton>
         </form>
       </>,

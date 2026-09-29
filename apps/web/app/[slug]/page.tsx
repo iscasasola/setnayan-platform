@@ -37,6 +37,7 @@ import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
+import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
 import { SeatDoorLine } from './_components/seat-door-line';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
@@ -1609,6 +1610,8 @@ async function InvitationBody({
     viewerEmail: viewerAccount?.email ?? null,
     seatHolderUserId,
     linkSentForThisEvent: await keepLinkSentFor(event.event_id),
+    seatName: seatDisplayName(guest),
+    seatIsCouple: isCoupleSeat(guest.role as string | null),
   });
   const account =
     accountBase.kind === 'offer' && search.keep === 'error'

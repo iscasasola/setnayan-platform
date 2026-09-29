@@ -87,6 +87,8 @@ export type SeedCandidate = {
   guestId: string;
   name: string;
   email: string | null;
+  /** The row's role, when the caller read it — lets a couple seat be left out. */
+  role?: string | null;
 };
 
 export type ClaimMatchResult =

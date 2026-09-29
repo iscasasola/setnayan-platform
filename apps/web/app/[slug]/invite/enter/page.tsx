@@ -13,6 +13,7 @@ import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
 import { QR_LOOK_COLUMNS_AFTER_INVITE_MARK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { guestAccountState } from '@/lib/guest-one-path';
+import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
 import { keepLinkSentFor, readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.server';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { eventWordsFor } from '../../_lib/event-words';
@@ -175,6 +176,8 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     viewerEmail: user?.email ?? null,
     seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
     linkSentForThisEvent: linkSent || (await keepLinkSentFor(event.event_id as string)),
+    seatName: seatDisplayName(guest),
+    seatIsCouple: isCoupleSeat(guest.role as string | null),
   });
   const userAgent = (await headers()).get('user-agent');
 

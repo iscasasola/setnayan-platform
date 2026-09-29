@@ -79,7 +79,11 @@ export function resolveGuestViewer(input: {
  *   link_sent      — a sign-in link is on its way. Nothing to fill in.
  *   sign_in        — this seat is already kept in an account, and this browser
  *                    is not signed in to it. One link: sign in.
- *   link_this_seat — signed in, and this seat is free. One press binds it.
+ *   link_this_seat — signed in, and this seat is free. One press binds it —
+ *                    and the press is ASKED first: "This invitation is for
+ *                    <seatName>. Save it to <accountEmail>?" (2026-09-30). A
+ *                    couple seat (`coupleSeat`) offers no press at all: it is
+ *                    kept only by the couple's own accounts (lib/seat-binding.ts).
  *   linked         — "Linked to <email> ✓". Only NOW may the host pitch show.
  *   held_elsewhere — signed in, but the seat is bound to a DIFFERENT account.
  *                    Said plainly, never silently re-bound.
@@ -88,7 +92,7 @@ export type GuestAccountState =
   | { kind: 'offer'; failed?: boolean }
   | { kind: 'link_sent' }
   | { kind: 'sign_in' }
-  | { kind: 'link_this_seat' }
+  | { kind: 'link_this_seat'; seatName: string | null; accountEmail: string | null; coupleSeat: boolean }
   | { kind: 'linked'; accountEmail: string | null }
   | { kind: 'held_elsewhere' };
 
@@ -100,12 +104,21 @@ export function guestAccountState(input: {
   seatHolderUserId: string | null;
   /** A keep-link was already sent to this browser for this event. */
   linkSentForThisEvent: boolean;
+  /** The seat's name as the couple wrote it — said back before any press binds it. */
+  seatName?: string | null;
+  /** The seat is one of the celebration's own people (bride · groom · celebrant). */
+  seatIsCouple?: boolean;
 }): GuestAccountState {
   const { viewerUserId, viewerEmail, seatHolderUserId, linkSentForThisEvent } = input;
   if (viewerUserId) {
     if (seatHolderUserId === viewerUserId) return { kind: 'linked', accountEmail: viewerEmail };
     if (seatHolderUserId) return { kind: 'held_elsewhere' };
-    return { kind: 'link_this_seat' };
+    return {
+      kind: 'link_this_seat',
+      seatName: input.seatName ?? null,
+      accountEmail: viewerEmail,
+      coupleSeat: input.seatIsCouple === true,
+    };
   }
   if (seatHolderUserId) return { kind: 'sign_in' };
   if (linkSentForThisEvent) return { kind: 'link_sent' };

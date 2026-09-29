@@ -167,6 +167,12 @@ export async function claimAccountAction(eventId: string, _slug: string, formDat
  * pass in this browser, but whose seat is not yet bound to the account — one
  * press, no email. Uses the canonical binder (`linkGuestSessionToUser`), which
  * refuses a seat another account already holds.
+ *
+ * 🔒 ON PURPOSE, AND ASKED (2026-09-30). The button that posts here reads
+ * "This invitation is for <name>. Save it to <email>?" (`seatConfirmLine`), and
+ * the binder is told THIS event, so a pass for another celebration binds
+ * nothing. A couple seat this account may not hold comes back `couple_seat`
+ * and the page says so in plain words (`?keep=couple_seat`).
  */
 export async function linkThisSeatAction(eventId: string) {
   const home = await eventHome(eventId);
@@ -176,8 +182,9 @@ export async function linkThisSeatAction(eventId: string) {
   } = await supabase.auth.getUser();
   const session = await readGuestSession();
   if (!user || !session || session.event_id !== eventId) return redirect(home);
-  await linkGuestSessionToUser(user.id);
+  const result = await linkGuestSessionToUser(user.id, { eventId });
   revalidatePath(home);
+  if (result.reason === 'couple_seat') return redirect(`${home}?keep=couple_seat`);
   return redirect(home);
 }
 

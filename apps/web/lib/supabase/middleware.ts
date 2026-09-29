@@ -1,14 +1,22 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import type { User } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 import { applyPersistentCookieDefaults, readClientType } from './cookies';
 import { SESSION_CHECK_BUDGET_MS, withBudget } from './session-budget';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
+/**
+ * Who the signed-in token belongs to — the id and nothing else, because that is
+ * all the middleware's two readers (`?demo=1` and the signed-in redirect) use.
+ * Deliberately NOT the full supabase `User`: the check below reads the token's
+ * claims, not the auth server's row, so fields like `last_sign_in_at` are not
+ * here to read — and a type that promised them would hand back `undefined`.
+ */
+export type SessionUser = { id: string };
+
 export type UpdateSessionResult = {
   response: NextResponse;
-  user: User | null;
+  user: SessionUser | null;
 };
 
 // Proactively refresh the session when the access token is within this many
@@ -60,21 +68,41 @@ export async function updateSession(
     },
   );
 
-  // getUser() validates and refreshes the access token if it has already
-  // expired. We additionally check the local session and refresh proactively
-  // if the token is near expiry — covers the "tab open for an hour" case
-  // where getUser succeeds but the very next API call would fail. Native-like
-  // clients get a wider window so the boundary is essentially never hit.
+  // getClaims() refreshes the session if the access token has already expired
+  // (it reads it through getSession()), then VERIFIES THE TOKEN'S SIGNATURE ON
+  // THIS SERVER against the project's published ES256 key — no trip to the
+  // auth server. The key is fetched once and cached for 10 minutes per
+  // instance (auth-js JWKS_TTL). A token signed the legacy HS way has no key to
+  // check against, and getClaims falls back to the old getUser() round trip on
+  // its own, so nothing is refused that used to be let in.
+  //
+  // 🔑 WHY NOT getUser() ANY MORE (owner, 2026-09-29, "change it"). getUser()
+  // asked Supabase over the network on EVERY request — public pages included —
+  // for an answer this file only uses for `?demo=1` and one signed-in redirect.
+  // ⚖ THE TRADE, STATED: the auth server knows about a sign-out-everywhere, a
+  // ban or a deleted account the instant it happens; a still-valid token does
+  // not, until it expires (up to an hour). That trade reaches ONLY those two
+  // uses. Every protected surface still does its own server-side
+  // `auth.getUser()` / `getCurrentUser()` and redirects (see session-budget.ts),
+  // so no door that is shut there is opened here.
+  //
+  // We additionally check the local session and refresh proactively if the
+  // token is near expiry — covers the "tab open for an hour" case where the
+  // check succeeds but the very next API call would fail. Native-like clients
+  // get a wider window so the boundary is essentially never hit.
   //
   // ⏱ ALL OF IT UNDER ONE DEADLINE. This runs in front of EVERY page, and on
   // 2026-08-20 an unbounded version of it turned an unreachable database into
   // 504s across the entire site — public pages included, for visitors with no
   // session at all. See ./session-budget.ts for the incident and for why the
   // safe direction is "nobody is signed in".
-  const outcome = await withBudget(async () => {
-    const {
-      data: { user: authedUser },
-    } = await supabase.auth.getUser();
+  const outcome = await withBudget(async (): Promise<SessionUser | null> => {
+    const { data } = await supabase.auth.getClaims();
+    // `sub` is the user id. No claims (no session, an expired session that
+    // could not refresh, a bad signature) is exactly the old "no user".
+    const sub = data?.claims?.sub;
+    const authedUser: SessionUser | null =
+      typeof sub === 'string' && sub.length > 0 ? { id: sub } : null;
 
     if (authedUser) {
       const {

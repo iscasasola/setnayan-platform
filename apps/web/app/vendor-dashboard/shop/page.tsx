@@ -293,6 +293,23 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const vendorId = profile.vendor_profile_id;
   const businessName = profile.business_name ?? 'Your shop';
 
+  // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
+  // 🔑 THE GATE ABOVE RUNS FIRST — who is signed in, and which shop is theirs
+  // (`fetchOwnVendorProfile`, owned OR via team). Every read below is scoped to
+  // THAT `vendorId`, and none of them needs another one's answer except where it
+  // says so, and there it waits for THAT read only. They used to run one after
+  // another — about twenty trips to the database, each waiting for the last —
+  // and My Shop took 1.7 s to load (measured on prod, 2026-09-29). Each block is
+  // STARTED here, as a promise, with its own graceful-degrade exactly as it was,
+  // and they are all awaited together in the one `Promise.all` below.
+  //   · stories + recaps wait for the pool bookings (they need its eventIds);
+  //   · the contact stamps wait for the verification application (its id);
+  //   · the branch fee + payout accounts wait for the tier (Enterprise-only);
+  //   · the team's names wait for the team rows — the admin client that reads
+  //     them must only ever see members already scoped to THIS shop.
+  // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
+  // RUN — one stray `await` puts a full database trip back in front of the page.
+
   // THIS shop's open correction requests. Read here rather than in the card so
   // the card stays a client component with no data access — and scoped to
   // `vendorId` EXPLICITLY, because RLS is not the scope: the read policy is
@@ -301,61 +318,67 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // admin (production has exactly one — the owner's own shop) would see every
   // OTHER shop's requests rendered as their own "waiting on Setnayan", and
   // would lose the ability to ask about those fields themselves.
-  const openCorrections = await fetchCorrectionRequests(supabase, {
+  const openCorrectionsRead = fetchCorrectionRequests(supabase, {
     status: 'open',
     vendorProfileId: vendorId,
   });
 
   // Tier — not in the shared profile select; soft-probe it.
-  let tier: string | null = null;
-  try {
-    const { data, error } = await supabase
-      .from('vendor_profiles')
-      .select('tier_state')
-      .eq('vendor_profile_id', vendorId)
-      .maybeSingle();
-    // ⚠ THEIR PLAN. Refused, the shop reads as having no tier — every
-    // ⚠ tier-gated thing on this page then looks like something they never
-    // ⚠ bought. The soft fallback stays; the reason now reaches the logs.
-    if (error) {
-      logQueryError('VendorShopPage.tierState', error, { vendorId }, 'graceful_degrade');
+  const tierRead = (async () => {
+    let tier: string | null = null;
+    try {
+      const { data, error } = await supabase
+        .from('vendor_profiles')
+        .select('tier_state')
+        .eq('vendor_profile_id', vendorId)
+        .maybeSingle();
+      // ⚠ THEIR PLAN. Refused, the shop reads as having no tier — every
+      // ⚠ tier-gated thing on this page then looks like something they never
+      // ⚠ bought. The soft fallback stays; the reason now reaches the logs.
+      if (error) {
+        logQueryError('VendorShopPage.tierState', error, { vendorId }, 'graceful_degrade');
+      }
+      tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
+    } catch {
+      tier = null;
     }
-    tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
-  } catch {
-    tier = null;
-  }
+    return tier;
+  })();
 
   // Visibility preferences — deliberately a SEPARATE soft-probe, not columns
   // added to FULL_VENDOR_PROFILE_SELECT: a column lagging a migration there
   // fails the whole projection and drops the page to the LEGACY select, which
   // would silently strip hq_* and the 0043 compat columns from every panel.
   // Failure here degrades to the column defaults and nothing else.
-  let sameDayAvailable = false;
-  let socialFeatureOptOut = false;
-  let socialAlreadyFeatured = false;
-  try {
-    const { data, error } = await supabase
-      .from('vendor_profiles')
-      .select('same_day_available, social_feature_opt_out, social_featured_at')
-      .eq('vendor_profile_id', vendorId)
-      .maybeSingle();
-    // ⚠ SWITCHES THIS SUPPLIER SET THEMSELVES. Refused, a setting they turned
-    // ⚠ ON renders OFF — and the obvious response is to turn it on again, which
-    // ⚠ writes over whatever is really stored.
-    if (error) {
-      logQueryError('VendorShopPage.shopSwitches', error, { vendorId }, 'graceful_degrade');
+  const shopSwitchesRead = (async () => {
+    let sameDayAvailable = false;
+    let socialFeatureOptOut = false;
+    let socialAlreadyFeatured = false;
+    try {
+      const { data, error } = await supabase
+        .from('vendor_profiles')
+        .select('same_day_available, social_feature_opt_out, social_featured_at')
+        .eq('vendor_profile_id', vendorId)
+        .maybeSingle();
+      // ⚠ SWITCHES THIS SUPPLIER SET THEMSELVES. Refused, a setting they turned
+      // ⚠ ON renders OFF — and the obvious response is to turn it on again, which
+      // ⚠ writes over whatever is really stored.
+      if (error) {
+        logQueryError('VendorShopPage.shopSwitches', error, { vendorId }, 'graceful_degrade');
+      }
+      const row = data as {
+        same_day_available?: boolean | null;
+        social_feature_opt_out?: boolean | null;
+        social_featured_at?: string | null;
+      } | null;
+      sameDayAvailable = row?.same_day_available === true;
+      socialFeatureOptOut = row?.social_feature_opt_out === true;
+      socialAlreadyFeatured = row?.social_featured_at != null;
+    } catch {
+      /* pre-migration or read hiccup — fall back to the column defaults */
     }
-    const row = data as {
-      same_day_available?: boolean | null;
-      social_feature_opt_out?: boolean | null;
-      social_featured_at?: string | null;
-    } | null;
-    sameDayAvailable = row?.same_day_available === true;
-    socialFeatureOptOut = row?.social_feature_opt_out === true;
-    socialAlreadyFeatured = row?.social_featured_at != null;
-  } catch {
-    /* pre-migration or read hiccup — fall back to the column defaults */
-  }
+    return { sameDayAvailable, socialFeatureOptOut, socialAlreadyFeatured };
+  })();
 
   const weekStart = startOfWeekIso();
 
@@ -378,68 +401,417 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
    */
   const soft = new SoftReadLog('VendorShopPage');
 
+  // Latest verification application — feeds the Get-verified stepper + the
+  // Hero "N of 3" pill. Cheap read (no presigns — those stay lazy on Step 1
+  // expand). Null when the vendor has never started.
+  const verifyAppRead = soft.read(
+    'latestApplication',
+    () => fetchLatestApplication(supabase, vendorId),
+    null,
+  );
+  /*
+   * 🔑 `null`, NOT A ZEROED ROW. The old `.catch(() => ({…: 0}))` widened the
+   * type and handed every consumer a fabricated stats row that is
+   * indistinguishable from a real shop with no reviews. Padding the fallback
+   * out to a full `ReviewStatsRow` of zeroes to satisfy the compiler would
+   * have undone this whole change — the tile would print a confident 0 again.
+   * The Reviews tile already consults `cantRead('reviewStats')`.
+   */
+  const reviewStatsRead = soft.read<ReviewStatsRow | null>(
+    'reviewStats',
+    () => fetchReviewStats(supabase, vendorId),
+    null,
+  );
+  const savesRead = soft.rpcNumber('savedByCouples', () =>
+    supabase.rpc('count_saves_for_vendor', { p_vendor_profile_id: vendorId }),
+  );
+  const viewsRead = soft.count('profileViewsWeek', () =>
+    supabase
+      .from('vendor_profile_views')
+      .select('view_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorId)
+      .gte('viewed_at', weekStart),
+  );
+  // Service-role ORDER reader (branch rows still run under the caller's RLS).
+  // A shop's second manager cannot see the order its owner paid, so without
+  // this a live branch reads back to them as "Pending payment" — and that
+  // status is now what decides whether the branch is public and usable.
+  const branchesRead = soft.read(
+    'branches',
+    () => fetchVendorBranches(supabase, vendorId, createAdminClient()),
+    [],
+  );
+  const teamRead = soft.read(
+    'team',
+    () => fetchVendorTeam(supabase, vendorId),
+    [] as VendorTeamMemberRow[],
+  );
+  // LEFT ON THE POOL READ: these eventIds become the "Featured editorials"
+  // picker, i.e. what this shop publishes about itself. Same reason as
+  // real-stories — a public claim needs the pool row, not the handshake.
+  const bookingsRead = soft.read(
+    'poolBookings',
+    () => fetchVendorPoolBookings(supabase, vendorId),
+    [],
+  );
+  const partnershipsRead = soft.count('partnerships', () =>
+    supabase
+      .from('vendor_partnerships')
+      .select('id', { count: 'exact', head: true })
+      .eq('recommended_vendor_id', vendorId)
+      .eq('status', 'accepted')
+      .eq('is_active', true),
+  );
+
+  // Stories + recaps need the pool bookings' eventIds — they wait for that read
+  // alone, and run beside each other once it lands.
+  const storiesAndRecapsRead = (async () => {
+    const bookings = await bookingsRead;
+    const eventIds = bookings.map((b) => b.eventId);
+    return Promise.all([
+      soft.read('featuredStories', () => loadVendorFeaturedStories(eventIds), []),
+      soft.read('recaps', () => loadVendorRecaps(eventIds).then((r) => r.length), 0),
+    ]);
+  })();
+
+  // ── Get-verified summary (owner redesign 2026-07-03) ─────────────────────
+  // Everything the always-visible stepper needs, WITHOUT presigning documents
+  // (that stays lazy on Step 1 expand). Contact stamps + the VALIDATE send-to
+  // settings are soft probes — their columns land in a parallel migration, so
+  // pre-migration reads degrade to "waiting" / defaults instead of crashing.
+  // The stamps are keyed on the application — they wait for that read only.
+  const contactStampsRead = (async () => {
+    const verifyApp = await verifyAppRead;
+    return verifyApp
+      ? await readContactStamps(supabase, verifyApp.application_id)
+      : { emailConfirmedAt: null, phoneConfirmedAt: null };
+  })();
+  const validateContactsRead = (async () => {
+    let validateEmail = 'verify@setnayan.com';
+    let validatePhone: string | null = null;
+    try {
+      const { data, error } = await supabase
+        .from('platform_settings')
+        .select('vendor_validate_email,vendor_validate_phone')
+        .eq('id', 1)
+        .maybeSingle();
+      // ⚠ OUR OWN support contacts, not theirs — a refusal falls back to the
+      // ⚠ defaults above, which is honest enough to render but still worth knowing.
+      if (error) {
+        logQueryError('VendorShopPage.validateContacts', error, { vendorId }, 'graceful_degrade');
+      }
+      const row = data as { vendor_validate_email?: string | null; vendor_validate_phone?: string | null } | null;
+      if (row?.vendor_validate_email?.trim()) validateEmail = row.vendor_validate_email.trim();
+      validatePhone = row?.vendor_validate_phone?.trim() || null;
+    } catch {
+      // pre-migration → defaults above
+    }
+    return { validateEmail, validatePhone };
+  })();
+  // Anti-farm identity gate input (migration 20270925937630) — soft-probe the
+  // vendor's registration number so the shared submit gate can require it. A
+  // collided number keeps raw (needs_review) → still counts as "on file".
+  const registrationNumberOnFileRead = (async () => {
+    let registrationNumberOnFile = false;
+    try {
+      const { data, error } = await supabase
+        // `vendor_profiles_self` (migration 20271217955839), never the table:
+        // `registration_number_raw` is off `authenticated`'s column allowlist, and
+        // the catch below SWALLOWS the 42501 — read off the table this probe would
+        // report "not on file" for a shop that HAS one, forever, and the gate then
+        // asks the supplier for a number we are already holding.
+        .from('vendor_profiles_self')
+        .select('registration_number_raw')
+        .eq('vendor_profile_id', vendorId)
+        .maybeSingle();
+      // ⚠ THE WORST OF THE SIX. Refused, this reads NOT on file, and the gate
+      // ⚠ then asks the supplier for a registration number they have already
+      // ⚠ given us — the product asking again for something it is holding.
+      if (error) {
+        logQueryError('VendorShopPage.registrationOnFile', error, { vendorId }, 'graceful_degrade');
+      }
+      registrationNumberOnFile = Boolean(
+        (data as { registration_number_raw?: string | null } | null)?.registration_number_raw,
+      );
+    } catch {
+      // pre-migration → treated as not-on-file (the gate then asks for it)
+    }
+    return registrationNumberOnFile;
+  })();
+
+  // Vendor-declared travel rings (migration 20271013561924 · §17) — SOFT-PROBED
+  // in their own query, deliberately, for the same deploy-order reason as
+  // `registration_number_raw` above and `std-video-gate.ts:116`. Vercel ships on
+  // merge and migrations apply on their own schedule, so there is a window where
+  // this code is live and the columns are not. Folded into a big select, a
+  // missing column (42703) nulls the WHOLE row and would blank the shop page;
+  // isolated, the worst case is a null declaration — which reads as "not
+  // declared yet", which is the correct state in that window anyway.
+  const travelRingsRead = (async () => {
+    let innerRadiusKm: number | null = null;
+    let outerRadiusKm: number | null = null;
+    try {
+      const { data, error } = await supabase
+        .from('vendor_profiles')
+        .select('inner_radius_km, outer_radius_km')
+        .eq('vendor_profile_id', vendorId)
+        .maybeSingle();
+      // ⚠ the travel radius they set. Refused, it reads as never set, so the
+      // ⚠ page invites them to define a service area they have already defined.
+      if (error) {
+        logQueryError('VendorShopPage.serviceRadius', error, { vendorId }, 'graceful_degrade');
+      }
+      const rings = (data ?? null) as {
+        inner_radius_km?: number | null;
+        outer_radius_km?: number | null;
+      } | null;
+      innerRadiusKm = rings?.inner_radius_km ?? null;
+      outerRadiusKm = rings?.outer_radius_km ?? null;
+    } catch {
+      // pre-migration → both stay null (the card renders empty fields)
+    }
+    return { innerRadiusKm, outerRadiusKm };
+  })();
+
+  // Branch add/manage data — only Enterprise-or-higher renders the inline
+  // manager, so the fee + payout accounts are only fetched for that tier (skips
+  // two reads for everyone else). The tier gate lives INSIDE this promise: it
+  // waits for the tier read only, then decides whether to read at all.
+  const branchPayRead = (async () => {
+    const tier = await tierRead;
+    let branchFeePhp = BRANCH_FEE_PHP;
+    // Below Enterprise the manager does not render; `open: []` is never read.
+    let branchPay: PayInfo = {
+      bdoName: null,
+      bdoNumber: null,
+      gcashName: null,
+      gcashNumber: null,
+      open: [],
+    };
+    if (isTierAtLeast(tier, 'enterprise')) {
+      const [fee, settings] = await Promise.all([
+        soft.read('branchFee', () => fetchBranchFeePhp(supabase), BRANCH_FEE_PHP),
+        soft.read('platformSettings', () => fetchPlatformSettings(supabase), null),
+      ]);
+      branchFeePhp = fee;
+      if (settings) {
+        // Only an OPEN rail's details reach the "How to pay" box — printing a
+        // number IS offering the rail (lib/payment-channels.ts · openRailDetails).
+        branchPay = openRailDetails(settings);
+      }
+    }
+    return { branchFeePhp, branchPay };
+  })();
+
+  /*
+   * 🔑 WHAT COULD NOT BE LOADED, AS OPPOSED TO WHAT IS NOT THERE.
+   *
+   * Every optional read below degrades to an empty value so one hiccup cannot
+   * blank My Shop — that part is right and stays. What was wrong is that the
+   * empty value it degrades to is BYTE-IDENTICAL to a supplier who genuinely
+   * has no logo, no reviews and no Instagram. The comment beside
+   * `logoDisplayMap` said so in as many words: failures collapse "exactly like
+   * a vendor who hasn't set those yet".
+   *
+   * So each probe whose result a supplier can SEE now records that it failed,
+   * and the panel says so instead of rendering as emptiness. Logging alone
+   * would not have been enough — a log line never changed a pixel, and they
+   * would still be looking at a shop that appears empty.
+   *
+   * ⚠ Only probes whose failure is otherwise INDISTINGUISHABLE get a flag. The
+   * portfolio thumbnails do not: the page knows how many keys it asked for, so
+   * a short list is already visible without being announced.
+   *
+   * Each flag is set inside the started read it belongs to and handed back with
+   * that read's value — the four reads now run side by side.
+   */
+
+  // Attach email/display_name (Pattern A — other users' identity needs the
+  // admin client). Fail-soft: keep the rows nameless rather than crash.
+  // ⚠ Waits for the team rows: the admin client only ever sees members the
+  // RLS read above already scoped to THIS shop.
+  const enrichedTeamRead = (async () => {
+    const team = await teamRead;
+    let teamNamesUnavailable = false;
+    let enrichedTeam: TeamMember[];
+    try {
+      enrichedTeam = await enrichTeamWithUsers(createAdminClient(), team);
+    } catch (err) {
+      logQueryError('VendorShopPage.enrichTeam', err, { vendorId, members: team.length });
+      teamNamesUnavailable = team.length > 0;
+      enrichedTeam = team.map((m) => ({ ...m, email: null, display_name: null }));
+    }
+    return { enrichedTeam, teamNamesUnavailable };
+  })();
+
+  // Live field values + editor vocabulary for the inline Business-Profile editor
+  // (the My Shop Profile panel). Degrade-safe: a logo-presign or taxonomy hiccup
+  // must not blank the whole My Shop page, so failures collapse to neutral
+  // defaults (no thumbnail · in-code service labels · no extra leaves) exactly
+  // like a vendor who hasn't set those yet.
+  const logoRead = (async () => {
+    let logoUnavailable = false;
+    let logoDisplayMap: Record<string, string> = {};
+    try {
+      const logoDisplayUrl = profile.logo_url
+        ? await displayUrlForStoredAsset(profile.logo_url)
+        : null;
+      if (profile.logo_url && logoDisplayUrl) {
+        logoDisplayMap = { [profile.logo_url]: logoDisplayUrl };
+      }
+    } catch (err) {
+      logQueryError('VendorShopPage.logoDisplayUrl', err, { vendorId, hasLogo: !!profile.logo_url });
+      logoUnavailable = !!profile.logo_url;
+      logoDisplayMap = {};
+    }
+    return { logoDisplayMap, logoUnavailable };
+  })();
+  const serviceVocabRead = fetchVendorServicePickerVocab();
+
+  // Microsite customization (My Shop → Website editor). Soft/defensive read —
+  // decoupled from the shared profile select so a not-yet-applied migration
+  // never blanks My Shop.
+  const micrositeRead = fetchVendorMicrosite(supabase, vendorId);
+  // Precise founding date (optional) — guarded, so a not-yet-applied migration
+  // never blanks My Shop. Feeds the exact business anniversary/monthsary day.
+  const businessStartDateRead = fetchVendorBusinessStartDate(supabase, vendorId);
+
+  // Portfolio thumbnails — reused by BOTH the Pro hero-photo picker and the
+  // Gallery-&-media <FileUpload> first-paint. Best-effort — a presign hiccup
+  // just drops that thumbnail, never crashes the page.
+  const portfolioRefs = (profile.portfolio_r2_keys ?? []) as string[];
+  const portfolioPhotosRead = (async () =>
+    (
+      await Promise.all(
+        portfolioRefs.map(async (key) => {
+          try {
+            const url = await displayUrlForStoredAsset(key);
+            return url ? { key, url } : null;
+          } catch (err) {
+            logQueryError('VendorShopPage.portfolioThumb', err, { vendorId, key });
+            return null;
+          }
+        }),
+      )
+    ).filter((p): p is { key: string; url: string } => p !== null))();
+
+  // Instagram connect + sync (inert when the Meta App env is unset). Both loaders
+  // are best-effort + degrade to null/[] on any error (pre-migration DB, etc.) so
+  // the IG card never blanks My Shop. Mirrors the retired /profile page.
+  const igConfigured = isInstagramConnectConfigured();
+  const instagramRead = (async () => {
+    let igUnavailable = false;
+    let igConnection: VendorIgConnectionStatus | null = null;
+    let igMedia: VendorIgMediaRow[] = [];
+    try {
+      igConnection = await fetchVendorIgConnection(vendorId);
+      igMedia = igConnection ? await fetchVendorIgMediaForOwner(vendorId) : [];
+    } catch (err) {
+      logQueryError('VendorShopPage.instagram', err, { vendorId });
+      igUnavailable = true;
+      igConnection = null;
+      igMedia = [];
+    }
+    return { igConnection, igMedia, igUnavailable };
+  })();
+
+  // Review options for the Pro pinned-review picker. Best-effort — a fetch
+  // hiccup just yields an empty picker ("no reviews yet"), never a crash.
+  const reviewOptionsRead = (async () => {
+    let reviewOptionsUnavailable = false;
+    let reviewOptions: { id: string; label: string }[] = [];
+    try {
+      const rows = await fetchReviewsForVendorWithCouple(supabase, vendorId, {
+        limit: 20,
+        offset: 0,
+      });
+      reviewOptions = rows.map((r) => {
+        const name = r.couple_display_name ?? 'A couple';
+        const snippet = r.body
+          ? `“${r.body.slice(0, 60)}${r.body.length > 60 ? '…' : ''}”`
+          : `${r.rating_overall}★`;
+        return { id: r.review_id, label: `${name} · ${snippet}` };
+      });
+    } catch (err) {
+      logQueryError('VendorShopPage.reviewOptions', err, { vendorId });
+      reviewOptionsUnavailable = true;
+      reviewOptions = [];
+    }
+    return { reviewOptions, reviewOptionsUnavailable };
+  })();
+
+  // "Your website suggests you also do…" (C5, 2026-08-28) — best-effort; a
+  // read hiccup here must never break My Shop, so it degrades to "nothing to
+  // suggest" exactly like the review-options read above.
+  const pendingCoverageSuggestionRead = (async () => {
+    let pendingCoverageSuggestion: PendingCoverageSuggestion | null = null;
+    try {
+      pendingCoverageSuggestion = await fetchPendingSignupCoverageSuggestion(
+        vendorId,
+        profile.services ?? [],
+      );
+    } catch (err) {
+      logQueryError('VendorShopPage.coverageSuggestion', err, { vendorId });
+      pendingCoverageSuggestion = null;
+    }
+    return pendingCoverageSuggestion;
+  })();
+
+  // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
+    openCorrections,
+    tier,
+    { sameDayAvailable, socialFeatureOptOut, socialAlreadyFeatured },
     verifyApp,
     reviewStats,
     savesRes,
     viewsRes,
     branches,
     team,
-    bookings,
     partnershipsRes,
+    [stories, recapCount],
+    contactStamps,
+    { validateEmail, validatePhone },
+    registrationNumberOnFile,
+    { innerRadiusKm, outerRadiusKm },
+    { branchFeePhp, branchPay },
+    { enrichedTeam, teamNamesUnavailable },
+    { logoDisplayMap, logoUnavailable },
+    { serviceLabels, extraServiceLeaves },
+    microsite,
+    businessStartDate,
+    portfolioPhotos,
+    { igConnection, igMedia, igUnavailable },
+    { reviewOptions, reviewOptionsUnavailable },
+    pendingCoverageSuggestion,
   ] = await Promise.all([
-    // Latest verification application — feeds the Get-verified stepper + the
-    // Hero "N of 3" pill. Cheap read (no presigns — those stay lazy on Step 1
-    // expand). Null when the vendor has never started.
-    soft.read('latestApplication', () => fetchLatestApplication(supabase, vendorId), null),
-    /*
-     * 🔑 `null`, NOT A ZEROED ROW. The old `.catch(() => ({…: 0}))` widened the
-     * type and handed every consumer a fabricated stats row that is
-     * indistinguishable from a real shop with no reviews. Padding the fallback
-     * out to a full `ReviewStatsRow` of zeroes to satisfy the compiler would
-     * have undone this whole change — the tile would print a confident 0 again.
-     * The Reviews tile already consults `cantRead('reviewStats')`.
-     */
-    soft.read<ReviewStatsRow | null>(
-      'reviewStats',
-      () => fetchReviewStats(supabase, vendorId),
-      null,
-    ),
-    soft.rpcNumber('savedByCouples', () =>
-      supabase.rpc('count_saves_for_vendor', { p_vendor_profile_id: vendorId }),
-    ),
-    soft.count('profileViewsWeek', () =>
-      supabase
-        .from('vendor_profile_views')
-        .select('view_id', { count: 'exact', head: true })
-        .eq('vendor_profile_id', vendorId)
-        .gte('viewed_at', weekStart),
-    ),
-    // Service-role ORDER reader (branch rows still run under the caller's RLS).
-    // A shop's second manager cannot see the order its owner paid, so without
-    // this a live branch reads back to them as "Pending payment" — and that
-    // status is now what decides whether the branch is public and usable.
-    soft.read('branches', () => fetchVendorBranches(supabase, vendorId, createAdminClient()), []),
-    soft.read('team', () => fetchVendorTeam(supabase, vendorId), [] as VendorTeamMemberRow[]),
-    // LEFT ON THE POOL READ: these eventIds become the "Featured editorials"
-    // picker, i.e. what this shop publishes about itself. Same reason as
-    // real-stories — a public claim needs the pool row, not the handshake.
-    soft.read('poolBookings', () => fetchVendorPoolBookings(supabase, vendorId), []),
-    soft.count('partnerships', () =>
-      supabase
-        .from('vendor_partnerships')
-        .select('id', { count: 'exact', head: true })
-        .eq('recommended_vendor_id', vendorId)
-        .eq('status', 'accepted')
-        .eq('is_active', true),
-    ),
+    openCorrectionsRead,
+    tierRead,
+    shopSwitchesRead,
+    verifyAppRead,
+    reviewStatsRead,
+    savesRead,
+    viewsRead,
+    branchesRead,
+    teamRead,
+    partnershipsRead,
+    storiesAndRecapsRead,
+    contactStampsRead,
+    validateContactsRead,
+    registrationNumberOnFileRead,
+    travelRingsRead,
+    branchPayRead,
+    enrichedTeamRead,
+    logoRead,
+    serviceVocabRead,
+    micrositeRead,
+    businessStartDateRead,
+    portfolioPhotosRead,
+    instagramRead,
+    reviewOptionsRead,
+    pendingCoverageSuggestionRead,
   ]);
 
-  const eventIds = bookings.map((b) => b.eventId);
-  const [stories, recapCount] = await Promise.all([
-    soft.read('featuredStories', () => loadVendorFeaturedStories(eventIds), []),
-    soft.read('recaps', () => loadVendorRecaps(eventIds).then((r) => r.length), 0),
-  ]);
   const storiesTagged = stories.length;
   // Picker options for the Pro "Featured editorials" control (id = event_id).
   const editorialOptions = stories.map((s) => ({
@@ -455,93 +827,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       ? 0
       : Math.round((completion.done / completion.total) * 100);
 
-  // ── Get-verified summary (owner redesign 2026-07-03) ─────────────────────
-  // Everything the always-visible stepper needs, WITHOUT presigning documents
-  // (that stays lazy on Step 1 expand). Contact stamps + the VALIDATE send-to
-  // settings are soft probes — their columns land in a parallel migration, so
-  // pre-migration reads degrade to "waiting" / defaults instead of crashing.
   const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
-  const contactStamps = verifyApp
-    ? await readContactStamps(supabase, verifyApp.application_id)
-    : { emailConfirmedAt: null, phoneConfirmedAt: null };
-  let validateEmail = 'verify@setnayan.com';
-  let validatePhone: string | null = null;
-  try {
-    const { data, error } = await supabase
-      .from('platform_settings')
-      .select('vendor_validate_email,vendor_validate_phone')
-      .eq('id', 1)
-      .maybeSingle();
-    // ⚠ OUR OWN support contacts, not theirs — a refusal falls back to the
-    // ⚠ defaults above, which is honest enough to render but still worth knowing.
-    if (error) {
-      logQueryError('VendorShopPage.validateContacts', error, { vendorId }, 'graceful_degrade');
-    }
-    const row = data as { vendor_validate_email?: string | null; vendor_validate_phone?: string | null } | null;
-    if (row?.vendor_validate_email?.trim()) validateEmail = row.vendor_validate_email.trim();
-    validatePhone = row?.vendor_validate_phone?.trim() || null;
-  } catch {
-    // pre-migration → defaults above
-  }
-  // Anti-farm identity gate input (migration 20270925937630) — soft-probe the
-  // vendor's registration number so the shared submit gate can require it. A
-  // collided number keeps raw (needs_review) → still counts as "on file".
-  let registrationNumberOnFile = false;
-  try {
-    const { data, error } = await supabase
-      // `vendor_profiles_self` (migration 20271217955839), never the table:
-      // `registration_number_raw` is off `authenticated`'s column allowlist, and
-      // the catch below SWALLOWS the 42501 — read off the table this probe would
-      // report "not on file" for a shop that HAS one, forever, and the gate then
-      // asks the supplier for a number we are already holding.
-      .from('vendor_profiles_self')
-      .select('registration_number_raw')
-      .eq('vendor_profile_id', vendorId)
-      .maybeSingle();
-    // ⚠ THE WORST OF THE SIX. Refused, this reads NOT on file, and the gate
-    // ⚠ then asks the supplier for a registration number they have already
-    // ⚠ given us — the product asking again for something it is holding.
-    if (error) {
-      logQueryError('VendorShopPage.registrationOnFile', error, { vendorId }, 'graceful_degrade');
-    }
-    registrationNumberOnFile = Boolean(
-      (data as { registration_number_raw?: string | null } | null)?.registration_number_raw,
-    );
-  } catch {
-    // pre-migration → treated as not-on-file (the gate then asks for it)
-  }
-
-  // Vendor-declared travel rings (migration 20271013561924 · §17) — SOFT-PROBED
-  // in their own query, deliberately, for the same deploy-order reason as
-  // `registration_number_raw` above and `std-video-gate.ts:116`. Vercel ships on
-  // merge and migrations apply on their own schedule, so there is a window where
-  // this code is live and the columns are not. Folded into a big select, a
-  // missing column (42703) nulls the WHOLE row and would blank the shop page;
-  // isolated, the worst case is a null declaration — which reads as "not
-  // declared yet", which is the correct state in that window anyway.
-  let innerRadiusKm: number | null = null;
-  let outerRadiusKm: number | null = null;
-  try {
-    const { data, error } = await supabase
-      .from('vendor_profiles')
-      .select('inner_radius_km, outer_radius_km')
-      .eq('vendor_profile_id', vendorId)
-      .maybeSingle();
-    // ⚠ the travel radius they set. Refused, it reads as never set, so the
-    // ⚠ page invites them to define a service area they have already defined.
-    if (error) {
-      logQueryError('VendorShopPage.serviceRadius', error, { vendorId }, 'graceful_degrade');
-    }
-    const rings = (data ?? null) as {
-      inner_radius_km?: number | null;
-      outer_radius_km?: number | null;
-    } | null;
-    innerRadiusKm = rings?.inner_radius_km ?? null;
-    outerRadiusKm = rings?.outer_radius_km ?? null;
-  } catch {
-    // pre-migration → both stay null (the card renders empty fields)
-  }
-
   const meetSlot = verifyUploads.google_meet;
   const meetScheduledAt =
     meetSlot && typeof meetSlot === 'object' && !Array.isArray(meetSlot) && 'scheduled_at' in meetSlot
@@ -588,88 +874,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // Custom (runs as Enterprise) inherits without a hard equality.
   const branchSub = isTierAtLeast(tier, 'enterprise') ? 'Add locations' : 'Upgrade to add';
 
-  // Branch add/manage data — only Enterprise-or-higher renders the inline
-  // manager, so the fee + payout accounts are only fetched for that tier (skips
-  // two reads for everyone else).
-  let branchFeePhp = BRANCH_FEE_PHP;
-  // Below Enterprise the manager does not render; `open: []` is never read.
-  let branchPay: PayInfo = {
-    bdoName: null,
-    bdoNumber: null,
-    gcashName: null,
-    gcashNumber: null,
-    open: [],
-  };
-  if (isTierAtLeast(tier, 'enterprise')) {
-    const [fee, settings] = await Promise.all([
-      soft.read('branchFee', () => fetchBranchFeePhp(supabase), BRANCH_FEE_PHP),
-      soft.read('platformSettings', () => fetchPlatformSettings(supabase), null),
-    ]);
-    branchFeePhp = fee;
-    if (settings) {
-      // Only an OPEN rail's details reach the "How to pay" box — printing a
-      // number IS offering the rail (lib/payment-channels.ts · openRailDetails).
-      branchPay = openRailDetails(settings);
-    }
-  }
-
-  /*
-   * 🔑 WHAT COULD NOT BE LOADED, AS OPPOSED TO WHAT IS NOT THERE.
-   *
-   * Every optional read below degrades to an empty value so one hiccup cannot
-   * blank My Shop — that part is right and stays. What was wrong is that the
-   * empty value it degrades to is BYTE-IDENTICAL to a supplier who genuinely
-   * has no logo, no reviews and no Instagram. The comment beside
-   * `logoDisplayMap` said so in as many words: failures collapse "exactly like
-   * a vendor who hasn't set those yet".
-   *
-   * So each probe whose result a supplier can SEE now records that it failed,
-   * and the panel says so instead of rendering as emptiness. Logging alone
-   * would not have been enough — a log line never changed a pixel, and they
-   * would still be looking at a shop that appears empty.
-   *
-   * ⚠ Only probes whose failure is otherwise INDISTINGUISHABLE get a flag. The
-   * portfolio thumbnails do not: the page knows how many keys it asked for, so
-   * a short list is already visible without being announced.
-   */
-  let teamNamesUnavailable = false;
-  let logoUnavailable = false;
-  let igUnavailable = false;
-  let reviewOptionsUnavailable = false;
-
-  // Attach email/display_name (Pattern A — other users' identity needs the
-  // admin client). Fail-soft: keep the rows nameless rather than crash.
-  let enrichedTeam: TeamMember[];
-  try {
-    enrichedTeam = await enrichTeamWithUsers(createAdminClient(), team);
-  } catch (err) {
-    logQueryError('VendorShopPage.enrichTeam', err, { vendorId, members: team.length });
-    teamNamesUnavailable = team.length > 0;
-    enrichedTeam = team.map((m) => ({ ...m, email: null, display_name: null }));
-  }
-
-  // Live field values + editor vocabulary for the inline Business-Profile editor
-  // (the My Shop Profile panel). Degrade-safe: a logo-presign or taxonomy hiccup
-  // must not blank the whole My Shop page, so failures collapse to neutral
-  // defaults (no thumbnail · in-code service labels · no extra leaves) exactly
-  // like a vendor who hasn't set those yet.
-  let logoDisplayMap: Record<string, string> = {};
-  try {
-    const logoDisplayUrl = profile.logo_url
-      ? await displayUrlForStoredAsset(profile.logo_url)
-      : null;
-    if (profile.logo_url && logoDisplayUrl) {
-      logoDisplayMap = { [profile.logo_url]: logoDisplayUrl };
-    }
-  } catch (err) {
-    logQueryError('VendorShopPage.logoDisplayUrl', err, { vendorId, hasLogo: !!profile.logo_url });
-    logoUnavailable = !!profile.logo_url;
-    logoDisplayMap = {};
-  }
   // The Hero avatar shows the uploaded logo when present (owner 2026-07-02),
   // falling back to initials. Same presigned URL the Profile row's thumbnail uses.
   const logoUrl = profile.logo_url ? (logoDisplayMap[profile.logo_url] ?? null) : null;
-  const { serviceLabels, extraServiceLeaves } = await fetchVendorServicePickerVocab();
   const profileFields: ProfileFieldData = {
     business_name: profile.business_name ?? '',
     business_owner_name: profile.business_owner_name ?? '',
@@ -696,13 +903,6 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     vendorProfileId: vendorId,
   };
 
-  // Microsite customization (My Shop → Website editor). Soft/defensive read —
-  // decoupled from the shared profile select so a not-yet-applied migration
-  // never blanks My Shop.
-  const microsite = await fetchVendorMicrosite(supabase, vendorId);
-  // Precise founding date (optional) — guarded, so a not-yet-applied migration
-  // never blanks My Shop. Feeds the exact business anniversary/monthsary day.
-  const businessStartDate = await fetchVendorBusinessStartDate(supabase, vendorId);
   const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
   const canPersonalize = micrositeCan(tier).canPersonalize;
   const isEnterpriseWebsite = micrositeCan(tier).isEnterprise;
@@ -710,23 +910,6 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
     : null;
 
-  // Portfolio thumbnails — reused by BOTH the Pro hero-photo picker and the
-  // Gallery-&-media <FileUpload> first-paint. Best-effort — a presign hiccup
-  // just drops that thumbnail, never crashes the page.
-  const portfolioRefs = (profile.portfolio_r2_keys ?? []) as string[];
-  const portfolioPhotos = (
-    await Promise.all(
-      portfolioRefs.map(async (key) => {
-        try {
-          const url = await displayUrlForStoredAsset(key);
-          return url ? { key, url } : null;
-        } catch (err) {
-          logQueryError('VendorShopPage.portfolioThumb', err, { vendorId, key });
-          return null;
-        }
-      }),
-    )
-  ).filter((p): p is { key: string; url: string } => p !== null);
   // Map form for <FileUpload initialDisplayUrls> so the thumbnails render on
   // first paint (mirrors the retired /profile page's portfolioDisplayMap).
   const portfolioDisplayMap: Record<string, string> = {};
@@ -741,57 +924,6 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // Featured-video links (all tiers · gallery_video_links) — the relocated
   // <VideoLinksEditor> seed.
   const galleryVideoLinks = (profile.gallery_video_links ?? []) as string[];
-
-  // Instagram connect + sync (inert when the Meta App env is unset). Both loaders
-  // are best-effort + degrade to null/[] on any error (pre-migration DB, etc.) so
-  // the IG card never blanks My Shop. Mirrors the retired /profile page.
-  const igConfigured = isInstagramConnectConfigured();
-  let igConnection: VendorIgConnectionStatus | null = null;
-  let igMedia: VendorIgMediaRow[] = [];
-  try {
-    igConnection = await fetchVendorIgConnection(vendorId);
-    igMedia = igConnection ? await fetchVendorIgMediaForOwner(vendorId) : [];
-  } catch (err) {
-    logQueryError('VendorShopPage.instagram', err, { vendorId });
-    igUnavailable = true;
-    igConnection = null;
-    igMedia = [];
-  }
-
-  // Review options for the Pro pinned-review picker. Best-effort — a fetch
-  // hiccup just yields an empty picker ("no reviews yet"), never a crash.
-  let reviewOptions: { id: string; label: string }[] = [];
-  try {
-    const rows = await fetchReviewsForVendorWithCouple(supabase, vendorId, {
-      limit: 20,
-      offset: 0,
-    });
-    reviewOptions = rows.map((r) => {
-      const name = r.couple_display_name ?? 'A couple';
-      const snippet = r.body
-        ? `“${r.body.slice(0, 60)}${r.body.length > 60 ? '…' : ''}”`
-        : `${r.rating_overall}★`;
-      return { id: r.review_id, label: `${name} · ${snippet}` };
-    });
-  } catch (err) {
-    logQueryError('VendorShopPage.reviewOptions', err, { vendorId });
-    reviewOptionsUnavailable = true;
-    reviewOptions = [];
-  }
-
-  // "Your website suggests you also do…" (C5, 2026-08-28) — best-effort; a
-  // read hiccup here must never break My Shop, so it degrades to "nothing to
-  // suggest" exactly like the review-options read above.
-  let pendingCoverageSuggestion: PendingCoverageSuggestion | null = null;
-  try {
-    pendingCoverageSuggestion = await fetchPendingSignupCoverageSuggestion(
-      vendorId,
-      profile.services ?? [],
-    );
-  } catch (err) {
-    logQueryError('VendorShopPage.coverageSuggestion', err, { vendorId });
-    pendingCoverageSuggestion = null;
-  }
 
   return {
     businessName,

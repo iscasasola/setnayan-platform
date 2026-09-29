@@ -13,14 +13,19 @@
  * Samahan's section has always done the opposite — a sentence plus "Create
  * one" — so one column held two different ideas of what an empty list is.
  *
- * ── WHY THIS PINS THE PAIR, NOT JUST THE BUTTON ───────────────────────────
- * The obvious "tidy-up" is to notice that Add an alaga now appears twice and
- * delete one. Both are deliberate and BOTH are owner rulings: the top action
- * row is 2026-08-22 (*"where the buttons live"*, pinned by
- * `the-buttons-live-together.test.ts`) and the in-section door is the ruling
- * above. Samahan likewise offers "New samahan" at the top AND "Create one" in
- * its section — that duplication is what "same to samahan" means here. So this
- * asserts both ends; removing either is a red test, not a cleanup.
+ * ── RE-POINTED 2026-09-28: ONE DOOR, AT THE HEAD OF THE ALAGA VIEW ────────
+ * This file used to pin a PAIR — the top action row's copy (2026-08-22) AND an
+ * in-section copy under the list (2026-09-23). The People redesign made Alaga a
+ * view of its own, and the owner ruled where its door goes: *"we already agreed
+ * this will be on the alaga and samahan row."* So the door is drawn ONCE, by
+ * the page, at the head of the Alaga view — which is still "a button to create
+ * an alaga under it" (under the Alaga name in the picker), still "same to
+ * samahan" (whose view opens with "New samahan"). What this guards now:
+ *   · the Alaga view carries its own way to create one, AHEAD of its list;
+ *   · an empty Alaga list is still answered with a sentence, never nothing;
+ *   · the section does not draw a SECOND copy (the drift the ruling ended).
+ * `the-buttons-live-together.test.ts` pins the page-wide half: once, never in
+ * the header.
  */
 
 import { test } from 'node:test';
@@ -70,19 +75,21 @@ test('the fixtures are real — both sources loaded and stripping kept the code'
   );
 });
 
-test('🔴 the Alaga section carries its own way to create one', () => {
-  assert.ok(
-    SECTION_CODE.includes('<AddAlagaButton />'),
-    'the Alaga section lost its create button — the heading is a dead end again',
-  );
+test('🔴 the Alaga VIEW carries its own way to create one — ahead of the list', () => {
+  const open = PAGE_CODE.indexOf("{view === 'alaga' ? (");
+  assert.ok(open >= 0, 'the page has no Alaga view');
+  const branch = PAGE_CODE.slice(open, PAGE_CODE.indexOf('{view ===', open + 10));
+  const door = branch.indexOf('<AddAlagaButton />');
+  assert.ok(door >= 0, 'the Alaga view lost its create button — the view is a dead end again');
+  assert.ok(door < branch.indexOf('<DependentsSection />'), 'the create button trails the list');
 });
 
 test('🔴 an empty Alaga list is answered, never rendered as nothing', () => {
   // The exact shape that shipped the defect: the list branch falling through
-  // to a bare null, which draws a heading and stops.
+  // to a bare null, which draws nothing and stops.
   assert.ok(
-    !/\)\s*:\s*null\}\s*\n\s*\{?\s*<AddAlagaButton/.test(SECTION_CODE),
-    'the empty branch is back to `: null` — a heading with nothing under it',
+    !/\)\s*:\s*null\}\s*\n\s*<\/section>/.test(SECTION_CODE),
+    'the empty branch is back to `: null` — a view with nothing in it',
   );
   assert.ok(
     /No loved ones yet/.test(SECTION_CODE),
@@ -90,10 +97,11 @@ test('🔴 an empty Alaga list is answered, never rendered as nothing', () => {
   );
 });
 
-test('🔒 the top action row KEEPS its copy — the duplication is the ruling', () => {
+test('🔒 the section does NOT draw a second copy — one door, one place', () => {
   assert.ok(
-    PAGE_CODE.includes('<AddAlagaButton />'),
-    'Add an alaga was removed from the top action row; that is the 2026-08-22 ruling, ' +
-      'not a duplicate to clean up (see the-buttons-live-together.test.ts)',
+    !SECTION_CODE.includes('<AddAlagaButton'),
+    'the Alaga section draws its own "Add an alaga" again — the page already heads the ' +
+      'view with one (owner 2026-09-28: "we already agreed this will be on the alaga and samahan row")',
   );
+  assert.equal(PAGE_CODE.split('<AddAlagaButton />').length - 1, 1, 'the page draws the door more than once');
 });

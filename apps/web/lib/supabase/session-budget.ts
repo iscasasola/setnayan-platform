@@ -8,8 +8,9 @@
  * session and no data at all. The one path that stayed up the whole time was
  * `/api/health`, and only because the middleware matcher excludes it.
  *
- * The mechanism: `updateSession()` awaits `supabase.auth.getUser()` on every
- * request. Measured in the edge logs during the incident, `/auth/v1/token` and
+ * The mechanism: `updateSession()` awaited `supabase.auth.getUser()` on every
+ * request (since 2026-09-29 it is `getClaims()`, which checks the token locally
+ * and only goes to the network to REFRESH one — so the budget still matters). Measured in the edge logs during the incident, `/auth/v1/token` and
  * `/rest/v1/*` were both returning **522 (connection timed out)** — so that
  * await simply never came back, and Vercel killed the request after ~25s.
  *

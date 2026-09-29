@@ -10,14 +10,23 @@ import { sendEmail } from '@/lib/email';
 import { renderBrandedEmail } from '@/lib/email-template';
 import { emitNotification } from '@/lib/notification-emit';
 import {
+  CONNECTION_RELATIONS,
   layerForRelation,
   peopleConnectionsEnabled,
   type ConnectionRelation,
   DECLARABLE_RELATIONS,
 } from '@/lib/people-connections';
+import {
+  isOnePartnerRefusal,
+  labelRequestLine,
+  partnerHolding,
+  replacePartnerQuestion,
+  type PartnerRuleRow,
+} from '@/lib/people-label-handshake';
 import { getSpouseContext } from '@/lib/people-spouse-context';
 import { searchPeopleByName, type PersonHit } from '@/lib/people-search';
 import {
+  RELATION_LABEL,
   connectionRequestSentence,
   firstNameOf,
   normalizeEmail,
@@ -243,25 +252,145 @@ export async function addPersonConnection(input: {
 }
 
 /**
- * SET (or CLEAR) THE LABEL on somebody already on your list.
+ * What a label action can answer. `replacePartner` is not an error — it is the
+ * question "one partner at a time" asks (owner 2026-09-29: a second pick asks
+ * to replace, in plain words). The screen shows `question` and, on yes, calls
+ * again with `replacePartner: true`.
+ */
+export type LabelResult =
+  | { ok: true; asked: boolean }
+  | { ok: false; error: string }
+  | { ok: false; replacePartner: { question: string } };
+
+type PartnerRow = PartnerRuleRow & { declared_name: string | null };
+
+/** Every live row I am on — the input the one-partner rule reads. */
+async function myRowsForPartnerRule(
+  supabase: SupabaseServer,
+  myPerson: string,
+): Promise<PartnerRow[] | null> {
+  const { data, error } = await supabase
+    .from('person_connections')
+    .select(
+      'connection_id, from_person_id, to_person_id, relation, status, proposed_relation, proposed_status, declared_name',
+    )
+    .or(`from_person_id.eq.${myPerson},to_person_id.eq.${myPerson}`)
+    .is('deleted_at', null);
+  if (error) return null;
+  return (data ?? []) as PartnerRow[];
+}
+
+/** The name I may see for somebody — the one rule's answer, else what I typed. */
+async function nameICanSee(
+  supabase: SupabaseServer,
+  personId: string,
+  fallback: string | null,
+): Promise<string> {
+  const { data } = await supabase.rpc('visible_connection_names', { p_person_ids: [personId] });
+  const hit = ((data ?? []) as Array<{ person_id: string; display_name: string | null }>).find(
+    (r) => r.person_id === personId,
+  );
+  return (hit?.display_name ?? '').trim() || (fallback ?? '').trim() || 'them';
+}
+
+/**
+ * END the partner I hold on another row, because I said yes to replacing it.
+ * Only ever REMOVES: an ask I sent is taken back, an agreed partner label is
+ * taken off (either side may, on a confirmed connection), an unanswered
+ * partner request I sent loses its label. The connection itself stays.
+ */
+async function endMyPartner(
+  supabase: SupabaseServer,
+  myPerson: string,
+  row: PartnerRow,
+): Promise<boolean> {
+  const mine = row.from_person_id === myPerson;
+  const patch: Record<string, unknown> = {};
+  if (mine && row.proposed_relation === 'partner' && row.proposed_status === 'pending') {
+    Object.assign(patch, {
+      proposed_relation: null,
+      proposed_status: null,
+      proposed_at: null,
+      proposal_answered_at: null,
+    });
+  }
+  if (row.relation === 'partner') Object.assign(patch, { relation: null, layer: null });
+  if (Object.keys(patch).length === 0) return true;
+  const { error } = await supabase
+    .from('person_connections')
+    .update(patch)
+    .eq('connection_id', row.connection_id)
+    .is('deleted_at', null);
+  return !error;
+}
+
+/**
+ * The one-partner rule, asked BEFORE the write so the answer can be a question
+ * rather than a refusal. `null` = go ahead (and, when `replace` is set, the old
+ * partner has been ended). The database's trigger is the actual control.
+ */
+async function checkOnePartner(input: {
+  supabase: SupabaseServer;
+  myPerson: string;
+  exceptConnectionId: string;
+  nextName: string;
+  replace: boolean;
+}): Promise<LabelResult | null> {
+  const rows = await myRowsForPartnerRule(input.supabase, input.myPerson);
+  if (!rows) return { ok: false, error: 'Couldn’t check your partner just now — try again.' };
+  const held = partnerHolding(rows, input.myPerson, input.exceptConnectionId);
+  if (!held) return null;
+  const row = rows.find((r) => r.connection_id === held.connectionId)!;
+  if (!input.replace) {
+    const current = await nameICanSee(
+      input.supabase,
+      held.otherPersonId,
+      row.from_person_id === input.myPerson ? row.declared_name : null,
+    );
+    return {
+      ok: false,
+      replacePartner: {
+        question: replacePartnerQuestion({ name: current, kind: held.kind }, input.nextName),
+      },
+    };
+  }
+  const ended = await endMyPartner(input.supabase, input.myPerson, row);
+  return ended ? null : { ok: false, error: 'Couldn’t change your partner just now — try again.' };
+}
+
+/** A database refusal, in words a person can act on — never the raw message. */
+function labelWriteError(error: { code?: string; message?: string }): string {
+  if (isOnePartnerRefusal(error.message)) {
+    return 'One partner at a time — they may have just named someone else. Refresh and try again.';
+  }
+  return error.code === '23505' ? 'You’ve already used that label for them.' : 'Couldn’t save that label.';
+}
+
+/**
+ * SET (or CLEAR) THE LABEL on somebody on your list — and, on a connection you
+ * both already accepted, ASK for it.
  *
- * Owner, 2026-08-21: *"just add them first. Then you can set a label."* This is
- * that second step, and it is the same shape as a chip edit on a guest row.
+ * Owner, 2026-08-21: *"just add them first. Then you can set a label."* And
+ * 2026-09-29: *"assigning a label needs a handshake."* So:
+ *   · on a request still waiting, the label rides that request — they see it
+ *     when they decide, and accepting the request accepts the label;
+ *   · on a connection they already accepted, the label is ASKED
+ *     (`proposed_relation`). It says "Waiting for <name> to confirm", derives
+ *     no kin, and lands in their Requests and on their bell. No email.
+ *   · clearing is never asked: taking a label back only ever removes.
  *
  * ⚖ ONLY THE DECLARER LABELS. `relation` means "what to_person IS to
- * from_person", so the label is the adder's statement about their own life. The
- * other side answers the CLAIM (confirm / decline); they do not get to rewrite
- * what it says. RLS would allow the recipient to update the row — the
- * `from_person_id = my person` filter below is what actually holds the line.
+ * from_person", so the ask is the declarer's statement about their own life;
+ * the other side answers it. The `from_person_id = my person` filter holds
+ * that line here, and the transition guard holds it in the database.
  *
- * 🔒 The spouse rule applies here too. Labelling somebody "Spouse" after the
- * fact is the same claim as adding them as one, and a chip the browser never
- * drew is still a value a hand-made request can post.
+ * 🔒 The spouse rule applies here too, and so does one partner at a time.
  */
 export async function setConnectionLabel(
   connectionId: string,
   relation: ConnectionRelation | null,
-): Promise<ActionResult> {
+  opts: { replacePartner?: boolean } = {},
+): Promise<LabelResult> {
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
   if (relation !== null && !DECLARABLE_RELATIONS.includes(relation)) {
     return { ok: false, error: 'That isn’t a label.' };
@@ -284,26 +413,232 @@ export async function setConnectionLabel(
   const myPerson = await myPersonId(supabase, user.id);
   if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
 
+  const { data: rowData } = await supabase
+    .from('person_connections')
+    .select('to_person_id, status, relation, proposed_relation, proposed_status, declared_name')
+    .eq('connection_id', connectionId)
+    .eq('from_person_id', myPerson)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const row = rowData as {
+    to_person_id: string;
+    status: string;
+    relation: string | null;
+    proposed_relation: string | null;
+    proposed_status: string | null;
+    declared_name: string | null;
+  } | null;
+  if (!row) return { ok: false, error: 'That person isn’t on your list any more.' };
+  const connected = row.status === 'confirmed';
+
+  // ── CLEAR — never asked; only ever removes ────────────────────────────────
+  if (relation === null) {
+    const { error } = await supabase
+      .from('person_connections')
+      .update({
+        relation: null,
+        layer: null,
+        ...(connected
+          ? { proposed_relation: null, proposed_status: null, proposed_at: null, proposal_answered_at: null }
+          : {}),
+      })
+      .eq('connection_id', connectionId)
+      .eq('from_person_id', myPerson)
+      .is('deleted_at', null);
+    if (error) return { ok: false, error: 'Couldn’t remove that label.' };
+    revalidatePath('/dashboard/people');
+    return { ok: true, asked: false };
+  }
+
+  // Already what we both stand behind, or already asked and waiting: nothing to do.
+  if (connected && row.relation === relation && !row.proposed_relation) {
+    return { ok: true, asked: false };
+  }
+  if (connected && row.proposed_relation === relation && row.proposed_status === 'pending') {
+    return { ok: true, asked: true };
+  }
+
+  const theirName = await nameICanSee(supabase, row.to_person_id, row.declared_name);
+
+  if (relation === 'partner') {
+    const stop = await checkOnePartner({
+      supabase,
+      myPerson,
+      exceptConnectionId: connectionId,
+      nextName: theirName,
+      replace: opts.replacePartner === true,
+    });
+    if (stop) return stop;
+  }
+
+  // ── A REQUEST STILL WAITING — the label rides it ──────────────────────────
+  if (!connected) {
+    const { error } = await supabase
+      .from('person_connections')
+      .update({ relation, layer: layerForRelation(relation) })
+      .eq('connection_id', connectionId)
+      .eq('from_person_id', myPerson)
+      .is('deleted_at', null);
+    if (error) return { ok: false, error: labelWriteError(error) };
+    revalidatePath('/dashboard/people');
+    return { ok: true, asked: false };
+  }
+
+  // ── A CONNECTION WE BOTH ACCEPTED — ASK ───────────────────────────────────
+  // The old word comes off as the new one is asked: "you changed it" should
+  // not leave the tree reading the old fact while the new one waits. Declined,
+  // the result is no label — the owner's "removed quietly".
   const { error } = await supabase
     .from('person_connections')
     .update({
-      relation,
-      // The layer travels with the label — the database refuses the half-state
-      // (person_connections_label_pair_chk), which is the point of that check.
-      layer: relation ? layerForRelation(relation) : null,
+      relation: null,
+      layer: null,
+      proposed_relation: relation,
+      proposed_status: 'pending',
+      proposed_at: new Date().toISOString(),
+      proposal_answered_at: null,
     })
     .eq('connection_id', connectionId)
     .eq('from_person_id', myPerson)
+    .eq('status', 'confirmed')
     .is('deleted_at', null);
-  if (error) {
-    return {
-      ok: false,
-      error:
-        error.code === '23505'
-          ? 'You’ve already used that label for them.'
-          : 'Couldn’t save that label.',
-    };
+  if (error) return { ok: false, error: labelWriteError(error) };
+
+  // THE BELL — the same `connection_request` notice a request to connect uses,
+  // pointed at the same Requests view. No email (owner 2026-09-29).
+  const admin = createAdminClient();
+  const [{ data: them }, { data: me }] = await Promise.all([
+    admin.from('people').select('claimed_by_user_id').eq('person_id', row.to_person_id).maybeSingle(),
+    admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+  ]);
+  const theirUserId = (them as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
+  if (theirUserId) {
+    await emitNotification({
+      userId: theirUserId,
+      type: 'connection_request',
+      title: labelRequestLine(
+        (me as { display_name: string | null } | null)?.display_name ?? 'Someone',
+        relation,
+      ),
+      body: 'Open your requests to confirm. Nothing changes until you say so.',
+      relatedUrl: '/dashboard/people?view=requests',
+    });
   }
+
+  revalidatePath('/dashboard/people');
+  return { ok: true, asked: true };
+}
+
+/**
+ * CONFIRM a label somebody asked of me. The person it is ABOUT is the only one
+ * who can, and only while it waits — `to_person_id = me` and
+ * `proposed_status = 'pending'` here, the transition guard in the database.
+ * One partner at a time applies: saying yes to a partner while holding one
+ * asks to replace, in the same plain words.
+ */
+export async function confirmLabel(
+  connectionId: string,
+  opts: { replacePartner?: boolean } = {},
+): Promise<LabelResult> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const supabase = await createClient();
+  const myPerson = await myPersonId(supabase, user.id);
+  if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  const { data: rowData } = await supabase
+    .from('person_connections')
+    .select('from_person_id, proposed_relation, proposed_status')
+    .eq('connection_id', connectionId)
+    .eq('to_person_id', myPerson)
+    .eq('status', 'confirmed')
+    .is('deleted_at', null)
+    .maybeSingle();
+  const row = rowData as {
+    from_person_id: string;
+    proposed_relation: string | null;
+    proposed_status: string | null;
+  } | null;
+  const asked = row?.proposed_status === 'pending' ? (row.proposed_relation as ConnectionRelation) : null;
+  if (!row || !asked || !CONNECTION_RELATIONS.includes(asked)) {
+    return { ok: false, error: 'That isn’t waiting on you any more.' };
+  }
+
+  if (asked === 'partner') {
+    const stop = await checkOnePartner({
+      supabase,
+      myPerson,
+      exceptConnectionId: connectionId,
+      nextName: await nameICanSee(supabase, row.from_person_id, null),
+      replace: opts.replacePartner === true,
+    });
+    if (stop) return stop;
+  }
+
+  const { data, error } = await supabase
+    .from('person_connections')
+    .update({
+      relation: asked,
+      layer: layerForRelation(asked),
+      proposed_relation: null,
+      proposed_status: null,
+      proposed_at: null,
+      proposal_answered_at: null,
+    })
+    .eq('connection_id', connectionId)
+    .eq('to_person_id', myPerson)
+    .eq('proposed_status', 'pending')
+    .select('from_person_id');
+  if (error) return { ok: false, error: labelWriteError(error) };
+
+  // The answer travels back, on the same notice a confirmed connection uses.
+  if (((data ?? []) as unknown[]).length > 0) {
+    const admin = createAdminClient();
+    const [{ data: asker }, { data: me }] = await Promise.all([
+      admin.from('people').select('claimed_by_user_id').eq('person_id', row.from_person_id).maybeSingle(),
+      admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
+    ]);
+    const askerUserId = (asker as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
+    if (askerUserId) {
+      const myName = firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'They';
+      await emitNotification({
+        userId: askerUserId,
+        type: 'connection_confirmed',
+        title: `${myName} confirmed — they’re your ${RELATION_LABEL[asked]}`,
+        body:
+          asked === 'partner'
+            ? 'You’re a couple on Setnayan now. Plan an event together whenever you’re ready.'
+            : 'It’s on your people now.',
+        relatedUrl: '/dashboard/people',
+      });
+    }
+  }
+
+  revalidatePath('/dashboard/people');
+  return { ok: true, asked: false };
+}
+
+/**
+ * DECLINE a label somebody asked of me. Quiet on purpose (owner 2026-09-29):
+ * no notice goes back; the asker's own row says "<name> didn't confirm", and
+ * the connection underneath stays exactly as it was.
+ */
+export async function declineLabel(connectionId: string): Promise<ActionResult> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const supabase = await createClient();
+  const myPerson = await myPersonId(supabase, user.id);
+  if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  const { error } = await supabase
+    .from('person_connections')
+    .update({ proposed_status: 'declined', proposal_answered_at: new Date().toISOString() })
+    .eq('connection_id', connectionId)
+    .eq('to_person_id', myPerson)
+    .eq('proposed_status', 'pending');
+  if (error) return { ok: false, error: 'Couldn’t decline.' };
   revalidatePath('/dashboard/people');
   return { ok: true };
 }
@@ -380,13 +715,38 @@ export async function resendConnectionInvitation(
 }
 
 /** The TO-person accepts a pending request (mutual confirmation). */
-export async function confirmConnection(connectionId: string): Promise<ActionResult> {
+export async function confirmConnection(
+  connectionId: string,
+  opts: { replacePartner?: boolean } = {},
+): Promise<ActionResult | { ok: false; replacePartner: { question: string } }> {
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
   const supabase = await createClient();
   const myPerson = await myPersonId(supabase, user.id);
   if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
+
+  // A REQUEST THAT CARRIES "PARTNER" — accepting it accepts the label, so one
+  // partner at a time asks to replace here too, in the same plain words.
+  const { data: carried } = await supabase
+    .from('person_connections')
+    .select('from_person_id, relation')
+    .eq('connection_id', connectionId)
+    .eq('to_person_id', myPerson)
+    .eq('status', 'pending')
+    .is('deleted_at', null)
+    .maybeSingle();
+  const carriedRow = carried as { from_person_id: string; relation: string | null } | null;
+  if (carriedRow?.relation === 'partner') {
+    const stop = await checkOnePartner({
+      supabase,
+      myPerson,
+      exceptConnectionId: connectionId,
+      nextName: await nameICanSee(supabase, carriedRow.from_person_id, null),
+      replace: opts.replacePartner === true,
+    });
+    if (stop) return stop.ok ? { ok: true } : stop;
+  }
 
   // Only the recipient may confirm: to_person = me AND still pending.
   // `.select()` so the answer can be carried back to whoever asked — an UPDATE
@@ -401,7 +761,14 @@ export async function confirmConnection(connectionId: string): Promise<ActionRes
     .eq('to_person_id', myPerson)
     .eq('status', 'pending')
     .select('from_person_id');
-  if (error) return { ok: false, error: 'Couldn’t confirm.' };
+  if (error) {
+    return {
+      ok: false,
+      error: isOnePartnerRefusal(error.message)
+        ? 'One partner at a time — refresh and try again.'
+        : 'Couldn’t confirm.',
+    };
+  }
   const rows = (data ?? []) as Array<{ from_person_id: string }>;
 
   // THE ANSWER TRAVELS BACK. Without this the person who asked learns nothing —

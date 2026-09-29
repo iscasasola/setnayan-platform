@@ -129,7 +129,7 @@ export async function eventPapicSeatsActive(
  *                    any other bundle, so it must be listed explicitly).
  * (owner 2026-06-26 · the "add-ons require Papic active" prerequisite.)
  */
-const PAPIC_INCLUSIVE_SKUS = ['PAPIC_UNLOCK', 'PAPIC_SEATS', 'PAPIC_GUEST'] as const;
+export const PAPIC_INCLUSIVE_SKUS = ['PAPIC_UNLOCK', 'PAPIC_SEATS', 'PAPIC_GUEST'] as const;
 
 /**
  * Is "Papic active" for this event — the prerequisite every Papic ADD-ON

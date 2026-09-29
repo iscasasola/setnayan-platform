@@ -149,7 +149,9 @@ test('off the Save the Date the reveal belongs to the first page', () => {
 
   // The overlay: stands aside off the first page, and is gone after the lift.
   const overlay = read('app/[slug]/_components/reveal/reveal-overlay.tsx');
-  assert.match(overlay, /firstPageOnly &&\s*!landedOnTheFirstPage\(/, 'a guest who lands part-way down is not met by it');
+  // Since 2026-09-29 the landing check runs on EVERY stage — on the Save the
+  // Date the film it leads is lifted for that landing (`StdFilmHandoff`).
+  assert.match(overlay, /if \(!landedOnTheFirstPage\(\{ hash: window\.location\.hash/, 'a guest who lands part-way down is not met by it');
   assert.match(overlay, /!offTheFirstPage &&/, 'standing aside must reach `active`');
   assert.match(overlay, /addEventListener\('std-reveal-done', onDone\)/, 'once opened, it must retire');
   assert.match(overlay, /window\.scrollY > window\.innerHeight\) setGone\(true\)/, 'scrolling past the first page retires it');

@@ -53,7 +53,7 @@ import { studioDescription } from '@/lib/studio-apps';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Samahan — Your Barkada, Ninongs, Family · Setnayan';
+const PAGE_TITLE = 'Groups — Your Barkada, Ninongs, Family · Setnayan';
 /** The document title ONLY — see the sibling doorways. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION = studioDescription('samahan');
@@ -77,7 +77,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/samahan',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Samahan — your barkada, ninongs, family' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Groups — your barkada, ninongs, family' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -90,19 +90,19 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Samahan — Your Barkada, Ninongs, Family',
+  name: 'Groups — Your Barkada, Ninongs, Family',
   url: `${SITE_URL}/samahan`,
   applicationCategory: 'SocialNetworkingApplication',
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'Create a samahan for your barkada, parish, or clan — a name, a line about it, a group photo',
+    'Create a group for your barkada, parish, or clan — a name, a line about it, a group photo',
     'Bring people in with a standing invite link organizers can rotate at any time',
     'Usapan, the group chat, where your own messages are yours to take down',
-    'Samahan Stories — short clips recorded on your phone that are gone after 24 hours',
+    'Group Stories — short clips recorded on your phone that are gone after 24 hours',
     'Play the day — every clip still up, watched in the order it happened',
     'Organizers plan a reunion, an outing, a tournament or a celebration for the whole group',
-    'A samahan that lives for as long as one person is still in it',
+    'A group that lives for as long as one person is still in it',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
@@ -110,28 +110,28 @@ const APP_LD = {
 
 const FAQ = [
   {
-    q: 'What is a Samahan?',
-    a: 'A samahan is a group in your Setnayan account: one shared space for your barkada, parish, or clan — their reunions, tournaments, and outings all in one place. It has a name and a group photo, a chat called Usapan, a strip of short stories, and the events an organizer plans for it. It belongs to you as a person, not to any one event.',
+    q: 'What is a group?',
+    a: 'A group is one shared space in your Setnayan account for your barkada, parish, or clan — their reunions, tournaments, and outings all in one place. It has a name and a group photo, a chat called Usapan, a strip of short stories, and the events an organizer plans for it. It belongs to you as a person, not to any one event.',
   },
   {
     q: 'How do we make one, and who runs it?',
-    a: 'Give it a name, add a line about what it is if you like, and it is yours — creating one is free. You start as its organizer, and an invite link is ready the moment it is created. Any member can rename the samahan or change its photo, post in Usapan, record a story, and leave. Organizers hold the invite link, promote or demote members, remove someone, and plan events.',
+    a: 'Give it a name, add a line about what it is if you like, and it is yours — creating one is free. You start as its organizer, and an invite link is ready the moment it is created. Any member can rename the group or change its photo, post in Usapan, record a story, and leave. Organizers hold the invite link, promote or demote members, remove someone, and plan events.',
   },
   {
     q: 'How does someone join?',
-    a: 'An organizer shares the invite link. Whoever opens it sees the samahan’s name and how many people are in it, signs in or creates a free account, and taps Join. If the link leaks, an organizer rotates it and the old link stops working immediately.',
+    a: 'An organizer shares the invite link. Whoever opens it sees the group’s name and how many people are in it, signs in or creates a free account, and taps Join. If the link leaks, an organizer rotates it and the old link stops working immediately.',
   },
   {
-    q: 'What are Samahan Stories?',
+    q: 'What are Group Stories?',
     a: 'Tap Record and your phone camera takes a short clip, shrinks it, and posts it to the strip. The rest of the group is told your clip is there for the next 24 hours. When those hours are up it is gone — and you can take it down sooner yourself. Play the day plays every clip that is still up, from the oldest to the newest.',
   },
   {
     q: 'What is Usapan?',
-    a: 'Usapan is the group chat. Say something and the rest of the samahan is told once in their Setnayan bell, however busy the chat gets. Your own messages are yours to take down.',
+    a: 'Usapan is the group chat. Say something and the rest of the group is told once in their Setnayan bell, however busy the chat gets. Your own messages are yours to take down.',
   },
   {
-    q: 'Can a samahan plan an event?',
-    a: 'Yes. An organizer plans a reunion, an outing, a tournament or a celebration from the Events tab, and it shows up there for every member. A samahan cannot own a wedding or another personal milestone — those stay with the person. You open the events you have been added to; for the rest, ask an organizer to add you.',
+    q: 'Can a group plan an event?',
+    a: 'Yes. An organizer plans a reunion, an outing, a tournament or a celebration from the Events tab, and it shows up there for every member. A group cannot own a wedding or another personal milestone — those stay with the person. You open the events you have been added to; for the rest, ask an organizer to add you.',
   },
 ];
 
@@ -147,12 +147,12 @@ const FAQ_LD = {
 
 const STEPS = [
   {
-    t: 'Name your samahan',
+    t: 'Name your group',
     d: 'Give it a name and, if you like, a line about what it is. You start as its organizer, and an invite link is ready the moment it is created. Tap the photo to add one and tap the name to change it — any member can.',
   },
   {
     t: 'Bring everyone in',
-    d: 'Share the invite link. Whoever opens it sees the samahan’s name and how many people are in it, signs in, and taps Join. Rotate the link whenever you want and the old one stops working immediately.',
+    d: 'Share the invite link. Whoever opens it sees the group’s name and how many people are in it, signs in, and taps Join. Rotate the link whenever you want and the old one stops working immediately.',
   },
   {
     t: 'Live in it',
@@ -164,7 +164,7 @@ const VS = [
   ['The reunion planned in a thread nobody can find again', 'The event on its own tab, where every member finds it'],
   ['Clips that sit in everyone’s phone forever', 'Stories that are gone after 24 hours'],
   ['An invite that keeps working after it leaks', 'A link an organizer can rotate — the old one stops immediately'],
-  ['A group one person can shut down on everyone', 'A samahan that lives while one person is still in it'],
+  ['A group one person can shut down on everyone', 'A group that lives while one person is still in it'],
 ] as const;
 
 /*
@@ -175,7 +175,7 @@ const VS = [
  */
 const SPOTLIGHTS: readonly Spotlight[] = [
   {
-    chip: 'Your samahan',
+    chip: 'Your group',
     t: 'Your barkada, ninongs and family, in one place',
     d: 'Name it, add a line about what it is, and give it a photo — the barkada, the parish youth, the clan. Every member sees the same space, and only members can open it.',
     media: { kind: 'photo', src: '/demo/maria-jose/wall-5.webp', alt: 'Friends raising their glasses together in a garden at dusk' },
@@ -183,7 +183,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Invite link',
     t: 'One link brings everyone in',
-    d: 'Organizers share a standing invite link. Whoever opens it sees the samahan’s name and how many people are in it, signs in, and taps Join. If it leaks, rotate it — the old link stops working immediately.',
+    d: 'Organizers share a standing invite link. Whoever opens it sees the group’s name and how many people are in it, signs in, and taps Join. If it leaks, rotate it — the old link stops working immediately.',
     media: { kind: 'photo', src: '/demo/maria-jose/wall-4.webp', alt: 'Two women embracing and laughing beside a sunlit window' },
   },
   {
@@ -201,13 +201,13 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Usapan',
     t: 'The group chat, inside the group',
-    d: 'Say something to the group and the rest of the samahan is told once in their Setnayan bell, however busy the chat gets. Your own messages are yours to take down.',
+    d: 'Say something to the group and the rest of the group is told once in their Setnayan bell, however busy the chat gets. Your own messages are yours to take down.',
     media: { kind: 'photo', src: '/demo/maria-jose/wall-8.webp', alt: 'Bridesmaids laughing together with their bouquets' },
   },
   {
     chip: 'Events',
     t: 'Plan the reunion from here',
-    d: 'An organizer plans the reunion, the outing, the tournament or the celebration from the Events tab, and every member finds it there. A samahan cannot own a wedding or another personal milestone — those stay with the person.',
+    d: 'An organizer plans the reunion, the outing, the tournament or the celebration from the Events tab, and every member finds it there. A group cannot own a wedding or another personal milestone — those stay with the person.',
     media: { kind: 'photo', src: '/demo/maria-jose/toast.webp', alt: 'A wedding party raising their glasses over candlelight' },
   },
 ];
@@ -222,27 +222,27 @@ export default function SamahanLandingPage() {
         a signed-out person meets the sign-in wall there, which is the honest
         first step for a thing that needs an account to exist.
       */
-      primary={{ href: '/dashboard/samahan/new', label: 'Create a samahan' }}
+      primary={{ href: '/dashboard/samahan/new', label: 'Create a group' }}
       secondary={{ href: '/features', label: 'See what else is free' }}
-      productName="Samahan"
+      productName="Groups"
       studioKey="samahan"
       steps={STEPS}
       differentiator={{
         heading: 'A group that belongs to you, not to one event',
-        lede: 'A samahan lives in your Setnayan account, not inside any wedding or party — so it is there whether or not something is on the calendar, and the next reunion or outing is planned from the same place.',
+        lede: 'A group lives in your Setnayan account, not inside any wedding or party — so it is there whether or not something is on the calendar, and the next reunion or outing is planned from the same place.',
         rows: VS,
       }}
       faq={FAQ}
       closing={{
         heading: 'Start with the people',
-        body: 'Name your samahan, share the link, and the barkada is in — with Usapan, stories that are gone after 24 hours, and the reunion planned from the same place.',
+        body: 'Name your group, share the link, and the barkada is in — with Usapan, stories that are gone after 24 hours, and the reunion planned from the same place.',
         href: '/dashboard/samahan/new',
-        label: 'Create a samahan',
+        label: 'Create a group',
       }}
       structuredData={[APP_LD, FAQ_LD]}
     >
       <SpotlightSection
-        productName="Samahan"
+        productName="Groups"
         heading="Chat, stories, and the next get-together"
         lede="Inside your group, for members only."
         items={SPOTLIGHTS}

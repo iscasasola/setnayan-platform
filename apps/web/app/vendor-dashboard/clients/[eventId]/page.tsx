@@ -136,6 +136,7 @@ import {
 // Reused as-is; no payment logic is reimplemented here.
 import { VendorPaymentLive } from '../../messages/[threadId]/_components/vendor-payment-live';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
+import { centreLogoOnItsInk } from '@/lib/logo-layers';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -1241,7 +1242,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // script execution and no external fetches, so this surface no longer
   // depends on the sanitizer being exhaustive. Same pattern as
   // BespokeMonogramMark / EventMonogram elsewhere in the app.
-  const monogramSvg = safeMonogramSvg(brief.monogram.custom_svg);
+  // Framed on its ink like every other surface's (lib/logo-layers.ts) — a
+  // Logo-editor logo placed left of centre is centred here too.
+  const monogramSvg = centreLogoOnItsInk(safeMonogramSvg(brief.monogram.custom_svg));
 
   // ---- Pipeline derivation (server-side, from data already loaded) ----
   //   Quoted    = any proposal row with status ≠ draft.

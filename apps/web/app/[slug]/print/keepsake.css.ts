@@ -356,7 +356,7 @@ export const KEEPSAKE_CSS = `
   margin: 1mm 0 0;
 }
 
-/* ── two-up columns for kwento / credits on the back ──────────────────────── */
+/* ── two-up columns for photo notes / credits on the back ──────────────────────── */
 .k-cols-2 { columns: 2; column-gap: 9mm; }
 .k-quote {
   break-inside: avoid;

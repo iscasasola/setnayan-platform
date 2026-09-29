@@ -140,7 +140,7 @@ export function AccountRailContext({
             {
               key: 'alaga',
               href: '/dashboard/people#alaga',
-              label: 'Alaga',
+              label: 'Loved ones',
               Icon: HandHeart,
               on: false,
             },
@@ -149,7 +149,7 @@ export function AccountRailContext({
       {
         key: 'samahan',
         href: '/dashboard/samahan',
-        label: 'Samahan',
+        label: 'Groups',
         Icon: Handshake,
         on: under(pathname, '/dashboard/samahan'),
       },

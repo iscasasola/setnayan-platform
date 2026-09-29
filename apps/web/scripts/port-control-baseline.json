@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "87beb979a",
+  "generatedFromRef": "8d11e0408",
   "routeCount": 435,
-  "destinations": 941,
+  "destinations": 942,
   "actions": 673,
-  "blocks": 4988,
+  "blocks": 4997,
   "routes": {
     "/": {
       "files": [
@@ -4955,6 +4955,7 @@
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
+        "dashboard/[eventId]/_components/pillar-part-picker.tsx",
         "dashboard/[eventId]/_components/placeholder.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
@@ -5121,6 +5122,7 @@
         "PaymentPlanRows",
         "PaymentSection",
         "PhaseRows",
+        "PickMenu",
         "PostSaveStep",
         "PreviewConflictsResult",
         "PriceSourceChip",
@@ -5664,6 +5666,7 @@
         "AutosaveState",
         "BulkApplyForm",
         "CaptureBar",
+        "CheckinDeskPage",
         "ChipTrigger",
         "ConfirmForm",
         "CustomizePanel",
@@ -5675,6 +5678,7 @@
         "EditResult",
         "EmptyState",
         "EntourageOrderPanel",
+        "EventHostsPage",
         "FacetRow",
         "Field",
         "FilterPopover",
@@ -5748,6 +5752,7 @@
         "PairSelectedForm",
         "PartnerLine",
         "PickMenu",
+        "PillarPartPicker",
         "PlusBadge",
         "PlusOneChipEditor",
         "Popover",
@@ -5833,6 +5838,7 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
+        "DeskTitle",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",
@@ -6131,7 +6137,6 @@
       "blocks": [
         "AddBtn",
         "AddSceneTool",
-        "BufferedCanvasFrame",
         "Chip",
         "ColourRow",
         "ComingNext",
@@ -6217,7 +6222,6 @@
         "SlugField",
         "SoftPost",
         "State",
-        "StoredQrStyle",
         "Switch",
         "SwitchRow",
         "Toggle",
@@ -6228,8 +6232,7 @@
         "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
-        "WebsiteEditorPage",
-        "Window"
+        "WebsiteEditorPage"
       ]
     },
     "/dashboard/[eventId]/live": {
@@ -8002,6 +8005,7 @@
     },
     "/dashboard/[eventId]/suite": {
       "files": [
+        "dashboard/[eventId]/suite/_components/our-services-grid.tsx",
         "dashboard/[eventId]/suite/_components/suite-search.tsx",
         "dashboard/[eventId]/suite/_components/suite-service-card.tsx",
         "dashboard/[eventId]/suite/_components/suite-vignette-card.tsx",
@@ -8019,11 +8023,14 @@
         "routes.explore.index"
       ],
       "blocks": [
+        "CollectionCard",
         "Icon",
         "Link",
         "ListPageSkeleton",
+        "OurServicesGrid",
         "PageMasthead",
         "PaidMark",
+        "PickMenu",
         "RevealList",
         "RowPill",
         "Scene",
@@ -8094,6 +8101,7 @@
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
+        "/dashboard/[seg]/vendors?part=budget",
         "/explore?q=[seg]"
       ],
       "actions": [
@@ -8118,6 +8126,7 @@
         "BenchUnread",
         "BenchVendorActions",
         "BudgetBuildTab",
+        "BudgetPage",
         "BuildActionResult",
         "BuildCompare",
         "BuildFallbackResult",
@@ -8185,6 +8194,7 @@
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
+        "PillarPartPicker",
         "PlanBudgetAccordion",
         "PlansRowPick",
         "PoolIcon",
@@ -8547,6 +8557,7 @@
         "CanvasWordsContext.Provider",
         "ChipRow",
         "Choice",
+        "ClipTile",
         "ColorsPanel",
         "ColourWell",
         "DetailsBoundField",
@@ -8620,6 +8631,7 @@
         "PartWordsRow",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
+        "PhotoTile",
         "PickListPlacement",
         "PickMenu",
         "ProLockPanel",

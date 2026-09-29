@@ -59,7 +59,7 @@ const KEPT: Array<{ mock: FeatureMockKind; eyebrow: string; title: string; line:
     eyebrow: 'The stories',
     title: 'The night, told back to you.',
     line: 'The little moments you never saw — your guests leave them for you, in their own words, beside the photo it happened in.',
-    via: 'Kwento',
+    via: 'Photo Notes',
   },
   {
     mock: 'keepsake',
@@ -111,7 +111,7 @@ export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
                 className="m-serif italic mt-3 text-center lg:text-left"
                 style={{ color: '#FBFBFA', fontSize: 'clamp(3rem, 8vw, 5.5rem)', lineHeight: 1.0, letterSpacing: '-0.01em' }}
               >
-                Alaala.
+                Memories.
               </h1>
               <p
                 className="m-mono mt-1 text-center lg:text-left"
@@ -125,8 +125,8 @@ export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
               >
                 Everyone gives you a record.
                 <br />
-                We give you an{' '}
-                <span style={{ color: 'var(--m-orange-3)' }}>Alaala.</span>
+                We give you{' '}
+                <span style={{ color: 'var(--m-orange-3)' }}>Memories.</span>
               </p>
               <p
                 className="mt-4 text-center lg:text-left"
@@ -336,7 +336,7 @@ export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
                 className="m-serif italic mx-auto mt-6"
                 style={{ color: 'var(--m-orange-3)', fontSize: 'clamp(1.2rem, 3vw, 1.6rem)', lineHeight: 1.3, maxWidth: 540 }}
               >
-                We call it Alaala — the memory you keep.
+                We call it Memories — the moments you keep.
               </p>
               <div className="mt-9">
                 <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">

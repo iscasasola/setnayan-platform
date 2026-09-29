@@ -217,7 +217,8 @@ test('a photo or snippet the Maker has no URL for is never guessed — that pick
 test('the row decides with backgroundPickRedrawsBox and tells the shell both ways; the shell releases on it', () => {
   const row = read('app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx');
   const save = row.slice(row.indexOf('const save = ('), row.indexOf('const put = '));
-  assert.match(save, /const redrawsBox = backgroundPickRedrawsBox\(before, touched, mediaUrls\);/, 'the row must ask the one function');
+  // 🎞 …or a clip goes on / comes off (the bridge draws no <video>), 2026-09-28.
+  assert.match(save, /const redrawsBox = clipMoves \|\| backgroundPickRedrawsBox\(before, touched, mediaUrls\);/, 'the row must ask the one function');
   assert.ok(save.indexOf('const redrawsBox') < save.indexOf('onSaving?.(touched, redrawsBox)'), 'decided before the shell is told');
   assert.match(save, /if \(!res\.ok\) \{[\s\S]*onSaving\?\.\(before, redrawsBox\);/, 'a refused save tells the shell the same answer');
   // The URLs the row hands it are the couple's own uploads — the same map the server reads.
@@ -228,6 +229,6 @@ test('the row decides with backgroundPickRedrawsBox and tells the shell both way
   // The function asks the server's own answer, never a second rule.
   const preview = read('app/dashboard/[eventId]/website/editor/_components/element-preview.ts');
   const fn = preview.slice(preview.indexOf('export function backgroundPickRedrawsBox'), preview.indexOf('export function canvasesFingerprint'));
-  assert.match(fn, /sceneWidgetIsBare\(\{ config_json: \{ canvas \} \}, mediaUrls\)/);
+  assert.match(fn, /sceneWidgetIsBare\(\{ config_json: \{ canvas \} \}, mediaUrls, \{ ownClipPlays: true \}\)/);
   assert.doesNotMatch(fn, /kind === 'none'/, 'no second rule about "none" — the server’s function decides');
 });

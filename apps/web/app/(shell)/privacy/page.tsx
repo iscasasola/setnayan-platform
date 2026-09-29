@@ -532,15 +532,15 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Samahan (groups)">
+        <Section title="Groups">
           <p>
-            You can create or join a <em>samahan</em> — a group you and your people name
-            yourselves (a barkada, a clan, an org, anything). For each samahan we store
+            You can create or join a <em>group</em> — one you and your people name
+            yourselves (a barkada, a clan, an org, anything). For each group we store
             only the group&rsquo;s chosen name, an optional description, your role
             (organizer or member), and when you joined. <strong>We do not classify or
             categorize groups</strong> — the name is yours, and we attach no type,
             affiliation, or category to it. Your display name is visible to fellow
-            members of the same samahan (that&rsquo;s what a group is), and never to
+            members of the same group (that&rsquo;s what a group is for), and never to
             anyone outside it. Your memberships are included in your data export and are
             removed when you leave a group or delete your account.
           </p>
@@ -1690,7 +1690,7 @@ export default function PrivacyPage() {
               &ldquo;Reading your payment receipt&rdquo; above for exactly what
               is sent and what is kept.
             </li>
-            <li>Suno (AI music generation for Pakanta and rendered videos · United States · no guest or personal data is sent)</li>
+            <li>Suno (AI music generation for Music Maker and rendered videos · United States · no guest or personal data is sent)</li>
             <li>
               Google (YouTube Data API — used for any event broadcast through
               Live Studio, under either the couple&rsquo;s own connected channel

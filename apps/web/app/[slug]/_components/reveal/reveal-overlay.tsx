@@ -149,6 +149,13 @@ type Props = {
    *
    * Absent on the Save the Date, where the opening leads the film and keeps its
    * persistent valance (2026-06-18/19 rulings, unchanged).
+   *
+   * ⬅ THE LANDING HALF IS NOT THIS PROP'S (2026-09-29). A guest who lands
+   * part-way down is not met by ANY opening — on the Save the Date too: there
+   * the film the opening leads is already lifted for that landing
+   * (`StdFilmHandoff`, the same `landedOnTheFirstPage` rule), so a veil would
+   * cover the page with nothing to lead. "Back to the invitation" from Find
+   * your seat (`/slug#site-details`) replayed the whole film before this.
    */
   firstPageOnly?: boolean;
 };
@@ -195,10 +202,11 @@ export function RevealOverlay({
       if (oncePerVisit === 'defer') {
         setAlreadySeen(revealAlreadySeen(window.sessionStorage, seenEventId));
       }
-      if (
-        firstPageOnly &&
-        !landedOnTheFirstPage({ hash: window.location.hash, scrollY: window.scrollY, viewportHeight: window.innerHeight })
-      ) {
+      // Every stage: a part-way-down landing is not met by the opening (see the
+      // `firstPageOnly` prop). Read HERE, in the effect that sets `mounted`, so
+      // a stood-down opening never draws a frame — not left to the film
+      // handoff's lift event, which this overlay may mount after.
+      if (!landedOnTheFirstPage({ hash: window.location.hash, scrollY: window.scrollY, viewportHeight: window.innerHeight })) {
         setOffTheFirstPage(true);
       }
     } catch {

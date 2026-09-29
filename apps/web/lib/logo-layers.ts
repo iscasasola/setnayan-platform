@@ -32,7 +32,9 @@
  * `keepWhite` puts a white card back under the layer for a couple who wants it.
  */
 
-import { STUDIO_FONT_KEYS, type StudioFontKey } from './monogram-studio-fonts';
+import { sanitizeHubFontKey, type HubFontKey } from './hub-fonts';
+import { LOGO_FONT_OUTLINE_ITALIC, LOGO_LEGACY_FONT } from './logo-fonts';
+import { flattenSvgMark, parseTransform, partsBounds } from './print-mark';
 
 /** The logo's square frame, in SVG units. */
 export const LOGO_FRAME = 1000;
@@ -139,9 +141,14 @@ export type LogoLayerMeta = {
   /** A hex, or null = the image's own colours (text/frame always carry one). */
   color: string | null;
   motion: LogoMotion;
-  /** Text: the words, and the face they are set in. */
+  /** Text: the words, and the face they are set in — a key of the stages'
+   *  own font list (`lib/logo-fonts.ts`). */
   text?: string;
-  font?: StudioFontKey;
+  font?: HubFontKey;
+  /** Text: set in the face's italic. Only a logo made before the stage list
+   *  carries it (the studio's Cardo was Cardo Italic) — always a boolean once
+   *  saved, so an upright Cardo never reads back as the old italic. */
+  italic?: boolean;
   /** Frame: which one. */
   frame?: LogoFrameKind;
   /** Image: keep a white card under it (default: the white is gone). */
@@ -232,7 +239,12 @@ export function sanitizeLogoLayers(raw: unknown): LogoLayerMeta[] {
     };
     if (kind === 'text') {
       layer.text = plain(o.text, MAX_TEXT);
-      layer.font = pick(o.font, STUDIO_FONT_KEYS, 'cardo');
+      const font = sanitizeHubFontKey(typeof o.font === 'string' ? (LOGO_LEGACY_FONT[o.font] ?? o.font) : null) ?? 'cardo';
+      layer.font = font;
+      // No `italic` saved = a layer from before the stage list, whose Cardo was
+      // the italic; a face with no italic outlines is always upright.
+      const italic = typeof o.italic === 'boolean' ? o.italic : font === 'cardo';
+      layer.italic = italic && Boolean(LOGO_FONT_OUTLINE_ITALIC[font]);
     }
     if (kind === 'frame') layer.frame = pick(o.frame, LOGO_FRAME_KINDS, 'ring');
     if (kind === 'image' && o.keepWhite === true) layer.keepWhite = true;
@@ -634,6 +646,20 @@ export function snapInFrame(layer: Pick<LogoLayer, 'w' | 'h' | 'scale'>, x: numb
   return clampToFrame(layer, snap1(x, hx), snap1(y, hy));
 }
 
+/** How close (a share of the slider's range) a DRAG must come to the middle of
+ *  the Across / Up and down sliders to land on it (owner 2026-09-28, of those
+ *  two sliders: *"allow snap to center here"*). */
+export const LOGO_SLIDER_SNAP = 0.03;
+
+/** A dragged slider value, snapped onto the exact centre of its range when it
+ *  comes within `band` of it — the true centre (500 of 0 … 1000), never 498.
+ *  Outside the band the value is the couple's own, unchanged. The arrow keys
+ *  never call this: a step from the keyboard moves freely. */
+export function snapSliderToCentre(v: number, min: number, max: number, band: number = LOGO_SLIDER_SNAP): number {
+  const mid = (min + max) / 2;
+  return Math.abs(v - mid) <= (max - min) * band ? mid : v;
+}
+
 /* ── the stack ─────────────────────────────────────────────────────────────── */
 
 /** Move one layer up (towards the top of the stack) or down. */
@@ -800,6 +826,123 @@ export function parseLogoSvg(svg: string): Map<string, { body: string; w: number
     inner = inner.replace(/^<rect width="[\d.]+" height="[\d.]+" fill="#FFFFFF"\/>/, '');
     out.set(s.id, { body: originalColours(inner), w: Number(bm[1]), h: Number(bm[2]) });
   });
+  return out;
+}
+
+/* ── CENTRED BY ITS INK ─────────────────────────────────────────────────────
+   Owner 2026-09-28, showing an "AM" logo sitting left of centre above the
+   names on the hero: *"when a logo is created and it is not centered. you
+   should automatically center it and not rely on how they aligned it to the
+   left"* (DECISION_LOG "A LOGO IS ALWAYS CENTRED BY ITS INK, WHEREVER IT IS
+   PLACED IN THE LOGO EDITOR").
+
+   The composed file's viewBox is the editor's whole square artboard, so every
+   surface that centres the MARK centred the ARTBOARD — and a logo dragged to
+   the left, or an upload whose ink sits off-centre on its canvas, drew off
+   centre everywhere. `centreLogoOnItsInk` re-frames the file on what is
+   actually drawn: the union of every layer's ink (text and traced images by
+   their outlines, measured at each curve's own extrema — an italic swash
+   reaches past its advance box and past its control points' hull both ways —
+   a kept white card and a frame by the box they paint), plus one even margin.
+   The layers themselves are untouched, so the couple's arrangement between
+   them is exactly what they made; only the empty artboard around it goes.
+
+   🔑 DERIVED ON READ, NEVER STORED. It runs inside THE resolver
+   (`resolveEventMonogramSvg`), so every logo already saved is centred with no
+   migration, the editor keeps its artboard, and a surface cannot forget it.
+   It is idempotent (it reads the ink, never the old viewBox). The Draw-on
+   player works in each layer's own box, so a new viewBox moves nothing in it. */
+
+/** The even margin around the ink, as a share of its longer side. */
+export const LOGO_INK_MARGIN = 0.04;
+
+export type LogoInkBox = { x: number; y: number; w: number; h: number };
+
+/** A shape with something to draw — an empty `<path d="">` (a text layer
+ *  with no words yet) is no ink at all. */
+const HAS_SHAPE = /<(?:rect|circle|ellipse|polygon|polyline|line|image|text|use)\b|<path\b[^>]*\sd="[^"]*\d/i;
+
+/**
+ * The bounds of what the composed logo actually draws, in frame units — or
+ * null when it is not a layered logo or a layer's place cannot be read.
+ */
+export function logoInkBox(svg: string): LogoInkBox | null {
+  if (!isLayeredLogo(svg)) return null;
+  const starts: number[] = [];
+  const re = /<g data-logo-layer="[a-z0-9]{1,16}"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(svg))) starts.push(m.index);
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  const add = (b: LogoInkBox) => {
+    x0 = Math.min(x0, b.x);
+    y0 = Math.min(y0, b.y);
+    x1 = Math.max(x1, b.x + b.w);
+    y1 = Math.max(y1, b.y + b.h);
+  };
+  for (let i = 0; i < starts.length; i++) {
+    const end = i + 1 < starts.length ? (starts[i + 1] as number) : svg.lastIndexOf('</svg>');
+    const chunk = svg.slice(starts[i], end);
+    if (!HAS_SHAPE.test(chunk)) continue;
+    // The layer's own outlines, its transform baked in (`lib/print-mark.ts`).
+    const flat = flattenSvgMark(`<svg xmlns="http://www.w3.org/2000/svg">${chunk}</svg>`);
+    const ink = flat ? partsBounds(flat.parts) : null;
+    if (ink) {
+      add(ink);
+      continue;
+    }
+    // Not outlines (a raster, a stroke-only flourish): the box the layer is
+    // drawn in — never smaller than what it can paint.
+    const open = /^<g\b[^>]*>/.exec(chunk)?.[0] ?? '';
+    const t = parseTransform(/\stransform="([^"]*)"/.exec(open)?.[1] ?? null);
+    const body = /<g data-logo-body="([\d.]+) ([\d.]+)">/.exec(chunk);
+    if (!t || !body) return null;
+    const w = Number(body[1]);
+    const h = Number(body[2]);
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const [px, py] of [[0, 0], [w, 0], [0, h], [w, h]] as const) {
+      xs.push(t[0] * px + t[2] * py + t[4]);
+      ys.push(t[1] * px + t[3] * py + t[5]);
+    }
+    add({ x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) });
+  }
+  if (!(x1 > x0) || !(y1 > y0)) return null;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+const inkCache = new Map<string, string>();
+const INK_CACHE_MAX = 32;
+
+/**
+ * THE LOGO, FRAMED ON ITS INK — the composed file with its viewBox set to the
+ * ink box plus `LOGO_INK_MARGIN` on every side, so any surface that centres
+ * the mark centres what is drawn. Anything that is not a layered logo, or
+ * whose ink cannot be measured, comes back exactly as it went in.
+ */
+export function centreLogoOnItsInk(svg: string | null): string | null {
+  if (!svg || !isLayeredLogo(svg)) return svg;
+  const hit = inkCache.get(svg);
+  if (hit !== undefined) return hit;
+  let out = svg;
+  const box = logoInkBox(svg);
+  const open = /^\s*<svg\b[^>]*>/.exec(svg);
+  if (box && open && /\sviewBox="[^"]*"/.test(open[0])) {
+    const pad = Math.max(box.w, box.h) * LOGO_INK_MARGIN;
+    // Outward to the hundredth, so rounding can never shave the ink.
+    const lo = (v: number) => Math.floor(v * 100) / 100;
+    const hi = (v: number) => Math.ceil(v * 100) / 100;
+    const x = lo(box.x - pad);
+    const y = lo(box.y - pad);
+    const w = Math.round((hi(box.x + box.w + pad) - x) * 100) / 100;
+    const h = Math.round((hi(box.y + box.h + pad) - y) * 100) / 100;
+    const tag = open[0].replace(/\sviewBox="[^"]*"/, ` viewBox="${x} ${y} ${w} ${h}"`);
+    out = tag + svg.slice(open[0].length);
+  }
+  if (inkCache.size >= INK_CACHE_MAX) inkCache.delete(inkCache.keys().next().value as string);
+  inkCache.set(svg, out);
   return out;
 }
 

@@ -127,7 +127,7 @@ const SECTIONS: Array<{ key: string; label: string; match: (p: RosterPerson) => 
     label: 'No label yet',
     match: (p) => p.kind === 'connection' && p.state !== 'waiting_you' && p.relation === null,
   },
-  { key: 'alaga', label: 'In your care · alaga', match: (p) => p.kind === 'alaga' },
+  { key: 'alaga', label: 'In your care · loved ones', match: (p) => p.kind === 'alaga' },
 ];
 
 export function PeopleRosterView({
@@ -385,7 +385,7 @@ export function PeopleRosterView({
       {spouseNote ? <p className="text-xs text-ink/45">{spouseNote}</p> : null}
       {roster.samahanUnavailable ? (
         <p className="text-xs text-ink/55">
-          We couldn’t read your samahan just now, so the groups column may be missing some.
+          We couldn’t read your groups just now, so the groups column may be missing some.
         </p>
       ) : null}
 
@@ -403,7 +403,7 @@ export function PeopleRosterView({
               <tr>
                 <th className="px-4 py-2.5 font-medium">Name</th>
                 <th className="w-[20%] px-3 py-2.5 font-medium">Label</th>
-                <th className="w-[20%] px-3 py-2.5 font-medium">Samahan</th>
+                <th className="w-[20%] px-3 py-2.5 font-medium">Group</th>
                 <th className="w-[18%] px-3 py-2.5 font-medium">Status</th>
                 <th className="w-[18%] px-3 py-2.5 font-medium">
                   <span className="sr-only">Actions</span>
@@ -655,11 +655,11 @@ function SamahanCell({
         onClick={() => setOpen(true)}
         disabled={disabled || busy}
         aria-haspopup="menu"
-        aria-label={`Ask ${person.name} into a samahan`}
+        aria-label={`Ask ${person.name} into a group`}
         className="inline-flex items-center gap-1 rounded-full border border-dashed border-ink/25 px-2 py-0.5 text-[11px] font-medium text-ink/50 outline-none focus-visible:ring-2 focus-visible:ring-terracotta disabled:opacity-50"
       >
         <Plus aria-hidden className="h-3 w-3" strokeWidth={2.2} />
-        Samahan
+        Group
       </button>
       {open ? (
         <Popover anchorRef={triggerRef} onClose={() => setOpen(false)} width={240}>

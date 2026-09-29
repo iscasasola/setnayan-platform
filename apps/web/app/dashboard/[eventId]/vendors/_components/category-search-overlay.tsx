@@ -44,7 +44,7 @@ const CSS = `
   /* Gold text on a GOLD TINT has no headroom: --gold-deep measures 4.06:1 on
      the .16 pills and 3.96:1 on the .18 ones — both AA fails at 8-9px. It is
      fine at 4.78:1 on the paper, so this is a second slot, not a deepening of
-     the first. Same law that put the Alaala eyebrows below the floor on their
+     the first. Same law that put the Memories eyebrows below the floor on their
      tinted card: measure gold against the surface it actually lands on. */
   --gold-on-tint:#6F5A2E;
   --line:rgba(30,26,18,.1);

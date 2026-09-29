@@ -220,11 +220,11 @@ export type DependentSubjectRow = {
 };
 
 const KIND_SUBTITLE: Record<string, string> = {
-  person: 'Alaga · person',
-  pet: 'Alaga · pet',
-  business: 'Alaga · business',
-  item: 'Alaga · something you own',
-  other: 'Alaga · something you care for',
+  person: 'Loved one · person',
+  pet: 'Loved one · pet',
+  business: 'Loved one · business',
+  item: 'Loved one · something you own',
+  other: 'Loved one · something you care for',
 };
 
 /**

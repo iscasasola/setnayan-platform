@@ -109,7 +109,7 @@ export function SectionsPanel({
   photoChoices = [],
   ownsPro = true,
   customLock = null,
-  hiddenLive = [],
+  emptyLive = [],
   videoChoice = null,
   colorChoices = [],
   only = null,
@@ -220,13 +220,13 @@ export function SectionsPanel({
    */
   customLock?: React.ReactNode;
   /**
-   * 💎 The couple's own scenes guests do NOT see live (a scene just added in the
-   * Maker is inserted hidden). Their words may be written without Pro — no guest
-   * meets them, and showing the scene is what Apply asks Pro for
-   * (`saveCustomSection`'s `hiddenFromGuests`). Read from the LIVE rows by the
-   * page: `rows` here are the draft laid over live, which says "shown".
+   * 💎 The couple's own scenes with NOTHING in them live (hidden or visible).
+   * Without Event Hub Pro their words go into the DRAFT (owner 2026-09-29, "yes
+   * to all 3") — the form posts `draft=1`, Apply asks Pro to fill the scene and
+   * the sheet names it ("Words · …"). Read from the LIVE rows by the page:
+   * `rows` here are the draft laid over live, which may already hold words.
    */
-  hiddenLive?: readonly string[];
+  emptyLive?: readonly string[];
 }) {
   if (rows.length === 0) {
     return (
@@ -754,10 +754,8 @@ export function SectionsPanel({
                   /* The grandfather rule, the same one `lockedIf` states for
                      every other Pro row: a couple who already has words here
                      keeps editing them. Only an EMPTY section is locked. */
-                  const locked =
-                    !ownsPro &&
-                    !customSectionHasContent(row.config_json) &&
-                    !(proUsable && hiddenLive.includes(row.widget_id));
+                  const wordsDrafted = !ownsPro && proUsable && emptyLive.includes(row.widget_id);
+                  const locked = !ownsPro && !customSectionHasContent(row.config_json) && !wordsDrafted;
                   const arrangement =
                     sanitizeHubCanvas(row.config_json).arrangement ?? HUB_DEFAULT_ARRANGEMENT;
                   const removeForm = (
@@ -800,7 +798,9 @@ export function SectionsPanel({
                       action={saveCustomAction}
                       className="mt-2 space-y-1.5 border-t border-dashed border-ink/10 pt-2"
                     >
-                      <HubSavesImmediately />
+                      {/* 💎 An empty scene's first words, without Pro, are TRIED in the
+                          draft; words a scene already has are saved live, free. */}
+                      {wordsDrafted ? <HubDraftField /> : <HubSavesImmediately />}
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="widget_id" value={row.widget_id} />
                       <input type="hidden" name="return_to" value={back} />

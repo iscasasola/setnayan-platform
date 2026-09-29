@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Play } from 'lucide-react';
+import { landedOnTheFirstPage } from '@/lib/reveal-stages';
 import { STD_FILM_EXIT_EVENT } from './save-the-date-film';
 import { StageAutoplay } from './stage-autoplay';
 
@@ -45,7 +46,32 @@ export const STD_FILM_RETURN_EVENT = 'std:film-return';
  * The gate conflated two questions: "may this visitor browse the new open
  * site?" (what `openBrowse` decides) and "may this visitor LEAVE a full-screen
  * takeover?" (never a flag's business). This is now mounted unconditionally.
+ *
+ * ── A GUEST COMING BACK TO A SECTION LANDS ON IT, NOT ON THE FILM (2026-09-29) ─
+ * "Back to the invitation" on Find your seat returns to `/slug#site-details`
+ * (`find-seat/_lib/back-to-the-invitation.ts`) — the Details scene they left.
+ * On every other stage that hash already stands the opening down
+ * (`landedOnTheFirstPage`, lib/reveal-stages.ts); on the Save the Date the film
+ * still started over from its first beat, a whole film between the guest and
+ * the seat line they had just used. The SAME rule now decides the film: a
+ * landing that is not the first page (a `#section`, a restored scroll) starts
+ * with the film lifted — by the same `STD_FILM_EXIT_EVENT` "See our page"
+ * sends, so the veil retires with it and "Watch our film again" is there. A
+ * bare address is the front door and plays the film exactly as before.
  */
+/**
+ * Does this landing start with the film lifted? Only off the first page (the
+ * Event Hub's one rule, `landedOnTheFirstPage`), and never in the Maker's
+ * canvas, where the film is a slide. Pure, so the decision is executed by
+ * `find-seat/back-lands-on-the-invitation.test.ts`, not just read.
+ */
+export function filmLiftedOnLanding(
+  landing: { hash: string; scrollY: number; viewportHeight: number },
+  asSlide: boolean,
+): boolean {
+  return !asSlide && !landedOnTheFirstPage(landing);
+}
+
 export function StdFilmHandoff({
   film,
   children,
@@ -74,7 +100,20 @@ export function StdFilmHandoff({
   useEffect(() => {
     const onExit = () => setShowFilm(false);
     window.addEventListener(STD_FILM_EXIT_EVENT, onExit);
+    // ⬅ Landed part-way down → the film starts lifted (docblock above). Never
+    // in the Maker's canvas, where the film is a slide and nothing is lifted.
+    if (
+      filmLiftedOnLanding(
+        { hash: window.location.hash, scrollY: window.scrollY, viewportHeight: window.innerHeight },
+        asSlide,
+      )
+    ) {
+      window.dispatchEvent(new CustomEvent(STD_FILM_EXIT_EVENT));
+    }
     return () => window.removeEventListener(STD_FILM_EXIT_EVENT, onExit);
+    // Read once, at landing — a later hash change is the guest moving around
+    // the page, not arriving at it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (asSlide) {

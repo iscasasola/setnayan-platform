@@ -2,10 +2,17 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { ImageIcon, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
+import { FileUpload } from '@/app/_components/file-upload';
+import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 import { makerSave } from '@/lib/maker-refresh';
+import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
+import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
+import { uploadStill } from '@/lib/upload-still';
+import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
+import { extractPosterFrame } from '../../../_components/std-media-picker';
 import {
   HUB_DEFAULT_FOCAL,
   HUB_DEFAULT_SCENE_SHAPE,
@@ -15,6 +22,8 @@ import {
   HUB_GLASS_OPACITY_MAX,
   HUB_GLASS_OPACITY_MIN,
   HUB_GLASS_OPACITY_STEP,
+  HUB_MEDIA_MOTIONS,
+  HUB_MEDIA_MOTION_LABEL,
   HUB_SCENE_SHAPES,
   HUB_SCENE_SHAPE_LABEL,
   HUB_ZOOMS,
@@ -39,6 +48,7 @@ import { ColourWell } from './colour-well';
 import type { ElementDraftAction } from './element-sheet';
 import { IButton, IHint, IRow, ISection, ISeg, ISegmented } from './inspector-kit';
 import { backgroundPickRedrawsBox } from './element-preview';
+import { PickMenu } from './pick-menu';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 
 /**
@@ -52,7 +62,11 @@ import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-pr
  *                the publish button), "every scene" = this stage (answer 6)
  *   Colour       one split well above the first five (`colour-well.tsx`)
  *   Opacity      20–100%, on Opaque AND Frosted (answer 5: "both")
- *   Media        the couple's uploads as thumbnails, then the crop
+ *   Media        the couple's pictures as thumbnails (hero · gallery · the Save
+ *                the Date background · the one video · a scene's own uploads)
+ *                and an upload IN PLACE (`<FileUpload>`, compressed in the
+ *                browser), then — for a photo — Motion: Still · Parallax (the
+ *                shipped hero parallax) and the crop
  *   Shape        Framed · Full width — hidden under No background (no box)
  *
  * A scene kept different wears "Own background · ↺ Use the Event Hub's" (the
@@ -64,14 +78,18 @@ import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-pr
  * scene" is ONE save of every scene of the stage (`everySceneBackgroundPatch`).
  * Apply re-checks every photo is the couple's own (`hubDraftAction`).
  *
- * 🔓 No background, Plain, both ombrés, both glasses, opacity and the shape are
- * free (owner 2026-09-24: *"changing background color is free. making media a
- * background is pro."*). Media behind a scene is Pro — 💎 TRIED FREE, PAID AT
- * APPLY (owner 2026-09-28): on the web every couple may pick it (◆ PRO), the
- * pick is drafted, and the Apply sheet names it "Photo background · <scene>";
- * only the app-store shell hides it from a couple without Pro
- * (`a-free-section-tries-every-look-control.test.ts`). A photo already up can
- * always be taken off.
+ * 🔓 PRO: No background, Plain, both ombrés, both glasses, opacity and the
+ * shape are free (owner 2026-09-24: *"changing background color is free.
+ * making media a background is pro."*). Upload media is Pro and is ALWAYS
+ * drawn (owner 2026-09-28: *"where is the upload media"*) — and, since the
+ * owner's same-day rule *"they can edit it with pro features. but need to
+ * upgrade to pro when clicked on apply"*, it is OPEN for every couple: a free
+ * couple picks, uploads and sees media on the canvas, in the DRAFT only; Apply
+ * holds it until Event Hub Pro (`planHubDraftApply`), so guests never see it.
+ * The small ◆ Pro mark is information, never a lock. In the app-store shell a
+ * free couple is not shown it at all (`makerProUsable`, the shell's rule for
+ * every Pro control); the mark is `makerProMark` — ◆ PRO while tried, the
+ * diamond once owned.
  */
 
 type Choice = 'none' | 'color' | 'diagonal' | 'glow' | 'glass' | 'frost' | 'media';
@@ -86,6 +104,19 @@ const CHOICE_LABEL: Record<Choice, string> = {
 };
 const TINTED: readonly Choice[] = ['color', 'diagonal', 'glow', 'glass', 'frost'];
 
+const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+
+/** One upload a scene of this Event Hub already wears (its own folder), signed by the page. */
+export type SceneUpload = {
+  ref: string;
+  url: string;
+  kind: 'photo' | 'snippet';
+  /** A clip's still (its ref) and a URL to show it by, when there is one. */
+  poster?: string | null;
+  posterUrl?: string | null;
+};
+
 export function SceneBackgroundRow({
   eventId,
   widgetType,
@@ -97,9 +128,9 @@ export function SceneBackgroundRow({
   usedColours = [],
   photoChoices = [],
   videoChoice = null,
+  sceneUploads = [],
   ownsPro,
   storeShell = false,
-  mediaHref,
   onPreview,
   onSaving,
   hubTheme,
@@ -137,16 +168,17 @@ export function SceneBackgroundRow({
   themeColours: readonly string[];
   usedColours?: readonly string[];
   photoChoices?: readonly { ref: string; url: string }[];
-  videoChoice?: { ref: string; url: string } | null;
+  /** The event's one video; `poster` = its still (the hero photo) for guests. */
+  videoChoice?: { ref: string; url: string; poster?: string | null } | null;
+  /** Photos and clips the scenes already wear from their own upload folder. */
+  sceneUploads?: readonly SceneUpload[];
   ownsPro: boolean;
   /**
    * 💎 The app-store shell. On the web media behind a scene is TRIED without Pro
-   * (the pick is drafted; Apply names it "Photo background · <scene>" and asks
-   * for Pro — owner 2026-09-28); only the shell hides it from a free couple.
+   * (the pick is drafted; Apply names it and asks for Pro — owner 2026-09-28);
+   * only the shell hides it from a free couple (`makerProUsable`).
    */
   storeShell?: boolean;
-  /** Where the couple adds photos (the gallery), for "Upload a photo or clip". */
-  mediaHref: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -166,14 +198,22 @@ export function SceneBackgroundRow({
   /* A new scene is a new question. */
   useEffect(() => setAsking(false), [widgetType]);
 
+  /* 📤 What was uploaded HERE, this visit — shown from the file itself (a
+     local object URL) until the save's refresh brings the signed one. */
+  const [justUploaded, setJustUploaded] = useState<SceneUpload[]>([]);
+  const uploads: SceneUpload[] = [
+    ...justUploaded.filter((u) => !sceneUploads.some((s) => s.ref === u.ref)),
+    ...sceneUploads,
+  ];
   /** The couple's own photo URLs, by ref — what a photo background paints with. */
-  const mediaUrl = (ref: string) =>
-    photoChoices.find((p) => p.ref === ref)?.url ?? (videoChoice?.ref === ref ? videoChoice.url : null);
-  /** The same URLs as the map the server's `sceneWidgetIsBare` reads. */
   const mediaUrls: Record<string, string> = Object.fromEntries([
     ...photoChoices.map((p) => [p.ref, p.url] as const),
     ...(videoChoice ? [[videoChoice.ref, videoChoice.url] as const] : []),
+    ...uploads.map((u) => [u.ref, u.url] as const),
+    /* 🖼 The ready-made Save the Date scenes — public pictures, their own URL. */
+    ...STD_REALISTIC_BACKGROUNDS.map((b) => [b.src, b.src] as const),
   ]);
+  const mediaUrl = (ref: string) => mediaUrls[ref] ?? null;
   const theme = INVITE_THEMES[hubTheme ?? 'house'] ?? INVITE_THEMES.house;
   const save = (
     patch: { widgets: Record<string, { canvas: HubSectionCanvas }> },
@@ -202,8 +242,12 @@ export function SceneBackgroundRow({
       );
     /* 🖼 Does this pick change who draws the box — a widget's own card on or
        off (`backgroundPickRedrawsBox`)? The bridge paints the frame, never the
-       card, so such a save is told to the shell as one it must NOT hold. */
-    const redrawsBox = backgroundPickRedrawsBox(before, touched, mediaUrls);
+       card, so such a save is told to the shell as one it must NOT hold.
+       🎞 Nor does it draw a <video>: a clip going on or coming off a scene is
+       released too, so the save's render reloads the canvas with it. */
+    const isClip = (c: HubSectionCanvas | undefined) => resolveHubBackground(c ?? {})?.kind === 'snippet';
+    const clipMoves = Object.keys(touched).some((type) => isClip(touched[type]) || isClip(before[type]));
+    const redrawsBox = clipMoves || backgroundPickRedrawsBox(before, touched, mediaUrls);
     /* ⚡ On the canvas first — every scene the patch touches — then the hold,
        then the save. */
     lay(touched);
@@ -255,17 +299,39 @@ export function SceneBackgroundRow({
   const tint = hubBackgroundTint(bg) ?? themeColours[0] ?? HUB_GLASS_DEFAULT_TINT;
   const scenes = stageScenes.map((s) => (s.type === widgetType ? { ...s, canvas: shown } : s));
   const scope = sceneBackgroundScope(scenes, widgetType, shown);
-  const hasMedia = Boolean(photoChoices.length || videoChoice);
-  const mediaUsable = makerProUsable({ owns: ownsPro, storeShell });
+  /* 🖼 ALWAYS DRAWN (owner 2026-09-28) — with nothing uploaded yet it opens the
+     panel on its in-place upload. Only the store shell's free couple is not
+     shown it (a Pro control there would be a paid pitch). */
+  const offerMedia = makerProUsable({ owns: ownsPro, storeShell });
+  /** ◆ PRO while tried, the diamond once owned (`makerProMark`); never a padlock. */
   const mediaMark = makerProMark({ owns: ownsPro, storeShell });
-  const offerMedia = mediaUsable && hasMedia;
+  const [mediaOpen, setMediaOpen] = useState(false);
+  useEffect(() => setMediaOpen(false), [widgetType]);
+  const showMedia = current === 'media' || (mediaOpen && offerMedia);
+  /** A photo's put — a new photo keeps the chosen Motion (Still · Parallax). */
+  const photoBg = (ref: string): Partial<HubSectionCanvas> => ({
+    media: ref,
+    ...(bg?.kind === 'photo' && shown.mediaMotion ? { mediaMotion: shown.mediaMotion } : {}),
+  });
+  /** The clip's put — with its still, so guests see that moment. */
+  const clipBg = (ref: string, poster?: string | null): Partial<HubSectionCanvas> => ({
+    kind: 'snippet',
+    media: ref,
+    ...(poster ? { poster } : {}),
+  });
 
   const pick = (c: Choice) => {
+    if (c !== 'media') setMediaOpen(false);
     if (c === 'none') return put({ kind: 'none' as HubBackgroundKind });
     if (c === 'media') {
-      const first = bg && (bg.kind === 'photo' || bg.kind === 'snippet') ? null : (photoChoices[0]?.ref ?? null);
-      if (first) return put({ media: first });
-      if (!photoChoices.length && videoChoice) return put({ kind: 'snippet', media: videoChoice.ref });
+      setMediaOpen(true);
+      if (bg && (bg.kind === 'photo' || bg.kind === 'snippet')) return;
+      const firstPhoto = photoChoices[0]?.ref ?? uploads.find((u) => u.kind === 'photo')?.ref ?? null;
+      if (firstPhoto) return put({ media: firstPhoto });
+      if (videoChoice) return put(clipBg(videoChoice.ref, videoChoice.poster));
+      const firstClip = uploads.find((u) => u.kind === 'snippet');
+      if (firstClip) return put(clipBg(firstClip.ref, firstClip.poster));
+      /* Nothing uploaded yet: the panel opens on its upload. */
       return;
     }
     /* One colour holds across Plain and both ombrés. A glass starts LIGHT and
@@ -276,6 +342,43 @@ export function SceneBackgroundRow({
     const color = glass ? (wasGlass ? tint : HUB_GLASS_DEFAULT_TINT) : tint;
     const keepOpacity = glass && wasGlass ? { opacity: shown.opacity } : {};
     return put({ kind: c as HubBackgroundKind, color, ...keepOpacity });
+  };
+
+  /* 📤 UPLOAD IN PLACE — the Main background's pattern: the file is read in the
+     browser the moment it is picked (a clip's still is grabbed and uploaded
+     beside it), and the upload's ref becomes this scene's background at once,
+     in the draft. */
+  const picked = useRef<Promise<{ kind: 'photo' | 'snippet'; local: string; poster: string | null; posterUrl: string | null }> | null>(null);
+  const [reading, setReading] = useState(false);
+  const onFilePicked = (file: File) => {
+    setError(null);
+    const kind = file.type.startsWith('video/') ? ('snippet' as const) : ('photo' as const);
+    const local = URL.createObjectURL(file);
+    if (kind === 'photo') {
+      picked.current = Promise.resolve({ kind, local, poster: null, posterUrl: null });
+      return;
+    }
+    setReading(true);
+    picked.current = (async () => {
+      try {
+        const still = await extractPosterFrame(file);
+        const poster = still ? await uploadStill(still, eventId, SCENE_BACKGROUND_FOLDER) : null;
+        return { kind, local, poster, posterUrl: still && poster ? URL.createObjectURL(still) : null };
+      } catch {
+        return { kind, local, poster: null, posterUrl: null };
+      } finally {
+        setReading(false);
+      }
+    })();
+  };
+  const onUploaded = async (value: string | string[] | null) => {
+    const ref = typeof value === 'string' ? value : null;
+    const file = await picked.current;
+    picked.current = null;
+    if (!ref || !file) return;
+    setJustUploaded((was) => [{ ref, url: file.local, kind: file.kind, poster: file.poster, posterUrl: file.posterUrl }, ...was]);
+    if (file.kind === 'snippet') put(clipBg(ref, file.poster));
+    else put(photoBg(ref));
   };
 
   const opacityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -291,17 +394,21 @@ export function SceneBackgroundRow({
             <button
               key={c}
               type="button"
-              aria-pressed={current === c}
+              aria-pressed={c === 'media' ? showMedia : current === c}
               data-scene-bg-choice={c}
               onClick={() => pick(c)}
               className={`sn-press flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-1.5 text-center text-[11px] font-semibold leading-tight ring-1 transition-colors duration-sn-control ease-sn ${
-                current === c ? 'bg-white text-ink shadow-sm ring-ink' : 'bg-white/60 text-ink/60 ring-ink/12 hover:ring-ink/35'
+                (c === 'media' ? showMedia : current === c)
+                  ? 'bg-white text-ink shadow-sm ring-ink'
+                  : 'bg-white/60 text-ink/60 ring-ink/12 hover:ring-ink/35'
               }`}
             >
               <span aria-hidden className="h-6 w-10 rounded border border-black/10" style={preview(c, tint, photoChoices[0]?.url)} />
               <span className="inline-flex items-center gap-1">
                 {CHOICE_LABEL[c]}
-                {/* 💎 Media behind a scene is Event Hub Pro — ◆ PRO while tried, the diamond once owned. */}
+                {/* 💎 Media behind a scene is Event Hub Pro. The mark is
+                    INFORMATION, never a lock (owner 2026-09-28) — the chip is
+                    open to every couple; Apply asks for Pro. */}
                 {c === 'media' && mediaMark ? (
                   <PaidMark state={mediaMark} label={paidMarkLabel(mediaMark, 'Event Hub Pro')} size="xs" tone="current" />
                 ) : null}
@@ -435,65 +542,101 @@ export function SceneBackgroundRow({
         </IRow>
       ) : null}
 
-      {current === 'media' && !mediaUsable ? (
-        /* 🔓 A free couple may always take a photo or clip OFF (never gated). */
-        <IRow label="Media" data="scene-media-off">
-          <IButton data="media-off" disabled={pending} onClick={() => put({}, false)}>
-            {bg?.kind === 'snippet' ? 'Remove this scene’s video' : 'Remove this scene’s photo'}
-          </IButton>
-        </IRow>
-      ) : current === 'media' ? (
+      {showMedia ? (
         <>
-          <IRow label="Media" wrap data="scene-media">
-            <a
-              href={mediaHref}
-              className="sn-press inline-flex min-h-11 flex-1 items-center gap-2 rounded-md border border-ink/15 bg-white px-3 text-[12.5px] font-semibold text-ink lg:min-h-9"
-            >
-              <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Upload a photo or clip
-              <small className="ml-auto font-medium text-ink/50">up to 15 s</small>
-            </a>
-          </IRow>
-          <IRow label="Your uploads" wrap data="scene-uploads">
-            <div className="flex flex-1 flex-wrap gap-2">
+          <IRow label="Media" wrap data="scene-uploads">
+            <div className="flex flex-1 flex-wrap gap-2" role="group" aria-label="Your pictures">
               {videoChoice ? (
-                <button
-                  type="button"
-                  aria-pressed={bg?.kind === 'snippet'}
-                  onClick={() => put({ kind: 'snippet', media: videoChoice.ref })}
-                  className={`sn-press grid h-11 w-14 place-items-center rounded-md border-2 bg-ink text-[10px] font-bold text-cream ${
-                    bg?.kind === 'snippet' ? 'border-ink' : 'border-transparent'
-                  }`}
-                >
-                  ▶ Clip
-                </button>
+                <ClipTile
+                  still={videoChoice.poster ? mediaUrl(videoChoice.poster) : null}
+                  on={bg?.kind === 'snippet' && bg.media === videoChoice.ref}
+                  onPick={() => put(clipBg(videoChoice.ref, videoChoice.poster))}
+                />
               ) : null}
-              {photoChoices.map((p) => {
-                    const on = bg?.kind === 'photo' && bg.media === p.ref;
-                    return (
-                      <button
-                        key={p.ref}
-                        type="button"
-                        aria-pressed={on}
-                        aria-label={on ? 'Current background' : 'Use this photo as the background'}
-                        onClick={() => put({ media: p.ref })}
-                        className={`sn-press block h-11 w-14 overflow-hidden rounded-md border-2 ${on ? 'border-ink' : 'border-transparent hover:border-ink/30'}`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={p.url} alt="" className="h-full w-full object-cover" loading="lazy" />
-                      </button>
-                    );
-                  })}
+              {uploads.map((u) =>
+                u.kind === 'snippet' ? (
+                  <ClipTile
+                    key={u.ref}
+                    still={u.posterUrl ?? null}
+                    on={bg?.kind === 'snippet' && bg.media === u.ref}
+                    onPick={() => put(clipBg(u.ref, u.poster))}
+                  />
+                ) : (
+                  <PhotoTile key={u.ref} url={u.url} on={bg?.kind === 'photo' && bg.media === u.ref} onPick={() => put(photoBg(u.ref))} />
+                ),
+              )}
+              {photoChoices.map((p) => (
+                <PhotoTile key={p.ref} url={p.url} on={bg?.kind === 'photo' && bg.media === p.ref} onPick={() => put(photoBg(p.ref))} />
+              ))}
             </div>
           </IRow>
+          {bg?.kind === 'photo' || bg?.kind === 'snippet' ? (
+            /* 🔓 Taking a photo or clip OFF is never gated — back to the Event Hub's own look. */
+            <IRow data="scene-media-off">
+              <IButton data="media-off" disabled={pending} onClick={() => put({}, false)}>
+                {bg.kind === 'snippet' ? 'Remove this scene’s video' : 'Remove this scene’s photo'}
+              </IButton>
+            </IRow>
+          ) : null}
+          {/* 🖼 READY-MADE (owner 2026-09-29, answer 3: *"yes"*) — the Save the
+              Date's ready-made scenes, after the couple's own. */}
+          <IRow label="Ready-made" wrap data="scene-library">
+            <div className="flex flex-1 flex-wrap gap-2" role="group" aria-label="Ready-made backgrounds">
+              {STD_REALISTIC_BACKGROUNDS.map((b) => (
+                <PhotoTile key={b.id} url={b.src} label={b.label} on={bg?.kind === 'photo' && bg.media === b.src} onPick={() => put(photoBg(b.src))} />
+              ))}
+            </div>
+          </IRow>
+          <div className="border-b border-ink/[0.07] py-2.5" data-inspector-row="scene-upload">
+            <FileUpload
+              bucket="media"
+              pathPrefix={sceneBackgroundPathPrefix(eventId)}
+              multiple={false}
+              maxSizeMB={100}
+              acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
+              compressImage
+              compressVideo
+              videoCompressProfile="maker"
+              videoSilent
+              maxVideoDurationS={MAKER_MAX_CLIP_SECONDS}
+              validateFile={makeMakerVideoDurationValidator()}
+              onFilePicked={onFilePicked}
+              onChange={onUploaded}
+              disabled={pending}
+              label="Upload a photo or clip"
+            />
+            {reading ? <p className="pt-1 text-[12px] text-ink/60">Reading your clip…</p> : null}
+          </div>
+          {bg?.kind === 'photo' ? (
+            <IRow label="Motion" data="scene-media-motion">
+              <PickMenu
+                label="How the photo moves"
+                value={shown.mediaMotion ?? 'still'}
+                options={HUB_MEDIA_MOTIONS.map((m) => ({ key: m, label: HUB_MEDIA_MOTION_LABEL[m] }))}
+                onPick={(k) => putKeys({ mediaMotion: k === 'parallax' ? 'parallax' : undefined })}
+                dataAttr="data-scene-media-motion"
+              />
+              <InfoTip label="" ariaLabel="About Motion" align="end">
+                Parallax drifts the photo gently as guests scroll — the same drift as your hero. Guests who turn
+                motion off see it still.
+              </InfoTip>
+            </IRow>
+          ) : bg?.kind === 'snippet' ? (
+            <IRow label="Clip" data="scene-media-clip">
+              <p className="flex-1 text-[12.5px] text-ink/70">Plays silently, on a loop.</p>
+              <InfoTip label="" ariaLabel="About the clip" align="end">
+                Up to {MAKER_MAX_CLIP_SECONDS} seconds. It plays only while on screen.
+              </InfoTip>
+            </IRow>
+          ) : null}
           {bg?.kind === 'photo' ? (
             <IRow label="In frame" wrap data="scene-crop">
               <div
                 className="relative h-[72px] w-[96px] shrink-0 overflow-hidden rounded-md border border-ink/15 bg-ink/5 bg-cover"
                 style={
-                  photoChoices.find((p) => p.ref === bg.media)
+                  mediaUrl(bg.media)
                     ? {
-                        backgroundImage: `url("${photoChoices.find((p) => p.ref === bg.media)!.url}")`,
+                        backgroundImage: `url("${mediaUrl(bg.media)}")`,
                         backgroundPosition: focalToObjectPosition(shown.focal ?? HUB_DEFAULT_FOCAL),
                       }
                     : undefined
@@ -544,6 +687,41 @@ export function SceneBackgroundRow({
         </p>
       ) : null}
     </section>
+  );
+}
+
+/** One of the couple's photos, as a tap target. */
+function PhotoTile({ url, on, onPick, label }: { url: string; on: boolean; onPick: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      title={label}
+      aria-label={on ? `Current background${label ? ` — ${label}` : ''}` : `Use ${label ?? 'this photo'} as the background`}
+      onClick={onPick}
+      className={`sn-press block h-11 w-14 overflow-hidden rounded-md border-2 ${on ? 'border-ink' : 'border-transparent hover:border-ink/30'}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
+    </button>
+  );
+}
+
+/** One of the couple's clips, as a tap target — on its still when there is one. */
+function ClipTile({ on, onPick, still }: { on: boolean; onPick: () => void; still: string | null }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label={on ? 'Current background' : 'Use this clip as the background'}
+      onClick={onPick}
+      className={`sn-press grid h-11 w-14 place-items-center overflow-hidden rounded-md border-2 bg-ink bg-cover bg-center text-[10px] font-bold text-cream ${
+        on ? 'border-terracotta' : 'border-transparent'
+      }`}
+      style={still ? { backgroundImage: `url("${still.replace(/"/g, '%22')}")` } : undefined}
+    >
+      <span className="rounded bg-ink/70 px-1">▶ Clip</span>
+    </button>
   );
 }
 

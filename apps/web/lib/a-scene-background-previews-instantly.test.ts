@@ -64,6 +64,9 @@ class El {
   setAttribute(n: string, v: string) {
     this.attrs[n] = v;
   }
+  removeAttribute(n: string) {
+    delete this.attrs[n];
+  }
   appendChild(c: El) {
     return this.insertBefore(c, null);
   }

@@ -994,7 +994,7 @@ export async function GET() {
       'API-access audit log — genuinely does not exist: the 0033 gateway ships api_keys only and V1 has no public API endpoints, so no per-request access trail was ever recorded.',
       'admin_data_access_log — this DOES exist and IS keyed to you (accessed_user_id): it records which Setnayan admin viewed your account, when, and on which surface. It is not shipped in this file because each row also names the admin who looked, and the disclosure shape for that is pending DPO review. Request it from the DPO and it will be provided.',
       'face_vector embeddings (biometric raw data — metadata only is exported)',
-      'active alaga claim_token values (live bearer secrets — never exported)',
+      'active loved-one claim_token values (live bearer secrets — never exported)',
       'working notes + day-of broadcasts authored by OTHERS (third-party personal data — the export ships what the subject wrote, not what they received)',
       'in payment_ledger, the account ids of the supplier-side people and the Setnayan admin who confirmed, refused or ruled on a payment (their identifiers, not yours — what each of them recorded, and when, IS included)',
       // Anything that failed or went unread on THIS run, named. Empty on a

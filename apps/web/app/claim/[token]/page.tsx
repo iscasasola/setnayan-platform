@@ -51,7 +51,7 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
     return (
       <DoorShell
         tone="dead_end"
-        eyebrow="Alaga"
+        eyebrow="Loved ones"
         title="This link isn't active."
         sub="It may have expired, been revoked, or already been used. Ask the person who sent it to create a fresh one from their People page."
       >
@@ -72,7 +72,7 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
     return (
       <DoorShell
         tone="dead_end"
-        eyebrow="Alaga"
+        eyebrow="Loved ones"
         title="This is your own link."
         sub={
           isClaim
@@ -93,7 +93,7 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
     : `A guardian wants to hand ${row.name}'s profile over to you. Accepting moves it into your account — their dates and celebrations become yours to keep.`;
 
   return (
-    <DoorShell eyebrow="Alaga" title={heading} sub={body}>
+    <DoorShell eyebrow="Loved ones" title={heading} sub={body}>
       {user ? (
         <form action={claimAlaga}>
           <input type="hidden" name="token" value={token} />

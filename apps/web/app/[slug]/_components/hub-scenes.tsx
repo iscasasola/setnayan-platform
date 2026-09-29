@@ -1,4 +1,4 @@
-import { Children } from 'react';
+import { Children, Fragment } from 'react';
 import { sanitizeHubCanvas } from '@/lib/hub-canvas';
 import {
   HUB_DEFAULT_AUTO_SPEED,
@@ -10,6 +10,7 @@ import {
   sceneTimelineName,
 } from '@/lib/hub-scenes';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
+import { STAGE_HOLD_ATTR, STAGE_SCENE_ATTR, stageSceneHoldMs, stageSceneKey } from '@/lib/stage-autoplay';
 import { HubAutoRun } from './hub-auto-run';
 
 /**
@@ -54,13 +55,28 @@ import { HubAutoRun } from './hub-auto-run';
  * 🔒 NO FUNCTION crosses to the client: this is a server component that
  * writes classes and custom properties. The only script is `HubAutoRun`, and
  * only on a page that has an Auto run.
+ *
+ * 🎬 THE STAGE'S AUTO READS ITS SCENES FROM HERE (`stageMarks`, the Save the
+ * Date for guests and the preview tab only — `lib/stage-autoplay.ts`). This is
+ * the one place that holds the scene list the page renders, in the order it
+ * renders it, so the walker's stops are stamped here and nowhere else — never
+ * a second order. Each scene gets `data-stage-scene` (its navigator key) and
+ * `data-stage-hold` (its own canvas clock): as ATTRIBUTES on the wrapper when
+ * there is one — a hidden element inside a wrapper would make an empty scrub
+ * scene non-`:empty` and pin a blank screen — and as a hidden marker in front
+ * of the node when there is none (`sn-hub-cards`' `space-y` skips `[hidden]`).
+ * Without `stageMarks` the output is exactly what it was.
  */
 export function HubScenes({
   widgets,
   scrubAllowed,
+  stageMarks = false,
   children,
 }: {
   widgets: readonly InvitationWidgetRow[];
+  /** Stamp the stage Auto's stops (see the docblock). Off everywhere but the
+   *  Save the Date for guests and the preview tab. */
+  stageMarks?: boolean;
   /** Event Hub Pro, resolved once by the page. Without it every section
    *  scrolls — Scrub AND Auto (the name predates Auto). */
   scrubAllowed: boolean;
@@ -72,12 +88,47 @@ export function HubScenes({
      section's choice on its neighbour — so the page is left exactly as given. */
   if (nodes.length !== widgets.length) return <>{children}</>;
 
+  /* Each scene's motion, read ONCE — the runs below and the stage marks both
+     read this, so the walker's clock is the clock the page plays. */
+  const motionOf = new Map(
+    widgets.map((w) => {
+      const canvas = sanitizeHubCanvas(w.config_json);
+      return [
+        w,
+        {
+          transition: renderedTransition(resolveTransition(canvas), scrubAllowed),
+          speed: canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED,
+        },
+      ] as const;
+    }),
+  );
   const segments = groupSceneRuns(
     widgets,
-    (w) => renderedTransition(resolveTransition(sanitizeHubCanvas(w.config_json)), scrubAllowed),
-    (w) => sanitizeHubCanvas(w.config_json).autoSpeed ?? HUB_DEFAULT_AUTO_SPEED,
+    (w) => motionOf.get(w)!.transition,
+    (w) => motionOf.get(w)!.speed,
   );
-  if (!hasScrubRun(segments)) return <>{children}</>;
+  /** The stage mark for scene `i`, as attributes — or nothing. */
+  const mark = (i: number): Record<string, string> => {
+    const w = widgets[i];
+    if (!stageMarks || !w) return {};
+    return {
+      [STAGE_SCENE_ATTR]: stageSceneKey(w.widget_type),
+      [STAGE_HOLD_ATTR]: String(stageSceneHoldMs(motionOf.get(w)!)),
+    };
+  };
+  if (!hasScrubRun(segments)) {
+    if (!stageMarks) return <>{children}</>;
+    return (
+      <>
+        {nodes.map((node, i) => (
+          <Fragment key={widgets[i]?.widget_id ?? i}>
+            <span hidden {...mark(i)} />
+            {node}
+          </Fragment>
+        ))}
+      </>
+    );
+  }
 
   const names = widgets.map((_, i) => sceneTimelineName(i));
   const tl = (i: number) => ({ '--hub-tl': names[i] }) as React.CSSProperties;
@@ -112,13 +163,13 @@ export function HubScenes({
             speed={seg.speed}
           >
             {seg.entries.map((e) => (
-              <div key={`s${e.index}`} className="hub-scene hub-auto">
+              <div key={`s${e.index}`} className="hub-scene hub-auto" {...mark(e.index)}>
                 {nodes[e.index]}
               </div>
             ))}
           </HubAutoRun>
         ) : seg.kind === 'scroll' ? (
-          <div key={seg.entry.index} className="hub-scene hub-scroll" style={tl(seg.entry.index)}>
+          <div key={seg.entry.index} className="hub-scene hub-scroll" style={tl(seg.entry.index)} {...mark(seg.entry.index)}>
             {nodes[seg.entry.index]}
           </div>
         ) : (
@@ -128,7 +179,7 @@ export function HubScenes({
             style={{ '--hub-n': seg.entries.length } as React.CSSProperties}
           >
             {seg.entries.flatMap((e) => [
-              <div key={`s${e.index}`} className="hub-scene hub-scrub" style={tl(e.index)}>
+              <div key={`s${e.index}`} className="hub-scene hub-scrub" style={tl(e.index)} {...mark(e.index)}>
                 {nodes[e.index]}
               </div>,
               <i key={`p${e.index}`} className="hub-sp" aria-hidden="true" style={tl(e.index)} />,

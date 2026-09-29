@@ -76,8 +76,8 @@ function read(rel: string): string {
  */
 const code = (rel: string) => stripComments(read(rel));
 
-/** Every row the phone shows in a phase — top-level tabs AND docked sub-nav
- *  children, because a second name one tap down is still a second name.
+/** Every row the phone shows in a phase — its tabs (the docked sub-nav that
+ *  used to add a second level is retired, Stage D).
  *  `plan` is the DEFAULT (no `phase` argument), exactly as layout.tsx calls it
  *  for an event that has not happened yet. */
 function phoneRows(phase: (typeof PHASES)[number]) {
@@ -85,10 +85,8 @@ function phoneRows(phase: (typeof PHASES)[number]) {
     websiteEnabled: true,
     ...(phase === 'plan' ? {} : { phase }),
   });
-  return [
-    ...tree.map((m) => ({ label: m.label, href: m.href })),
-    ...tree.flatMap((m) => (m.children ?? []).map((c) => ({ label: c.label, href: c.href ?? '' }))),
-  ];
+  // Stage D (2026-09-29): nothing docks under a tab any more.
+  return tree.map((m) => ({ label: m.label, href: m.href }));
 }
 
 /** Every row the desktop rail shows in a phase, across all its sections. */

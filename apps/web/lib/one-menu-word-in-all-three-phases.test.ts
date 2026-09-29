@@ -59,25 +59,17 @@ const HUB_KEY = 'launch';
 const HUB_LABEL = 'Event Hub Maker';
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
-/** Every menu word the phone shows in a phase — top-level tabs AND docked
- *  sub-nav children, because a second name one tap down is still a second
- *  name. `plan` is the DEFAULT (no phase argument), exactly as layout.tsx
+/** Every menu word the phone shows in a phase — its tabs (the docked sub-nav
+ *  that used to add a second level is retired, Stage D). `plan` is the DEFAULT (no phase argument), exactly as layout.tsx
  *  calls it for an event that has not happened. */
 function phoneEntries(phase: (typeof PHASES)[number]) {
   const tree: CustomerMenu[] = buildCustomerMenuTree(EVENT_ID, {
     websiteEnabled: true,
     ...(phase === 'plan' ? {} : { phase }),
   });
-  return [
-    ...tree.map((m) => ({ key: m.key as string, label: m.label, href: m.href })),
-    ...tree.flatMap((m) =>
-      (m.children ?? []).map((c) => ({
-        key: c.key,
-        label: c.label,
-        href: c.href ?? '',
-      })),
-    ),
-  ];
+  // Stage D (2026-09-29): nothing docks under a tab any more — the tabs ARE
+  // every word the phone's menu shows.
+  return tree.map((m) => ({ key: m.key as string, label: m.label, href: m.href }));
 }
 
 /** Every row the desktop rail shows in a phase, across all its sections. */

@@ -178,7 +178,13 @@ test('✂ a bar or strip label wraps onto a second line, never an ellipsis', () 
 
 /* ══ 5 · THE EVENT LAYOUT MOUNTS THEM IN ONE DOCK ════════════════════════ */
 
-test('⚓ the event layout mounts the strip and the bar inside one <BottomDock>, both told the shell', () => {
+test('⚓ the event layout mounts its one bar inside one <BottomDock>, told the shell', () => {
+  /*
+    🔄 Stage D (owner 2026-09-29: *"on mobile mode. we do not want that sub
+    bottom nav anymore"*): the strip that rode above the bar is retired, so the
+    dock holds the bar alone. `the-phone-has-one-bottom-bar.test.ts` holds the
+    "nothing else docks" half across the whole event tree.
+  */
   const src = stripComments(
     readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'layout.tsx'), 'utf8'),
   );
@@ -187,18 +193,12 @@ test('⚓ the event layout mounts the strip and the bar inside one <BottomDock>,
   assert.ok(open >= 0 && close > open, 'the event layout no longer mounts a <BottomDock>');
   assert.equal(src.split('<BottomDock>').length - 1, 1, 'more than one dock in the event layout');
   const inside = src.slice(open, close);
-  for (const el of ['<CustomerSectionSubnav', '<CustomerBottomNav']) {
-    assert.ok(inside.includes(el), `${el} is mounted outside the dock — it floats on its own again`);
-    const outside = src.slice(0, open) + src.slice(close);
-    assert.ok(!outside.includes(el), `${el} is mounted a second time outside the dock`);
-  }
-  assert.ok(
-    inside.indexOf('<CustomerSectionSubnav') < inside.indexOf('<CustomerBottomNav'),
-    'the strip must come first in the dock — it sits above the bar',
-  );
+  assert.ok(inside.includes('<CustomerBottomNav'), '<CustomerBottomNav is mounted outside the dock — it floats on its own again');
+  const outside = src.slice(0, open) + src.slice(close);
+  assert.ok(!outside.includes('<CustomerBottomNav'), '<CustomerBottomNav is mounted a second time outside the dock');
   assert.equal(
     (inside.match(/storeShell=\{storeShell\}/g) ?? []).length,
-    2,
-    'both the strip and the bar must be told the store shell, or one of them offers refused doors',
+    1,
+    'the bar must be told the store shell, or it offers refused doors',
   );
 });

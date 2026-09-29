@@ -105,16 +105,18 @@ test('the Seat plan row is gated on seatingEnabled, on every surface and phase',
   }
 });
 
-test('layout resolves seatingEnabled and hands it to both navs', () => {
+test('layout resolves seatingEnabled and hands it to the bar and the rail', () => {
   const src = code('app/dashboard/[eventId]/layout.tsx');
   assert.ok(
     times(src, "surfaceEnabled(profile, 'seating')") === 1,
     'layout.tsx no longer resolves seatingEnabled.',
   );
+  // 🔄 Stage D (2026-09-29): the section sub-nav is retired — the phone has
+  // ONE bar, whose Guest list tab lights the Seat plan's pages. Exactly one
+  // phone mount must be told the gate.
   assert.ok(
-    times(src, 'seatingEnabled={seatingEnabled}') === 2,
-    'seatingEnabled must reach BOTH the bottom nav and the section sub-nav — ' +
-      'the moment strip draws Seat plan on the phone.',
+    times(src, 'seatingEnabled={seatingEnabled}') === 1,
+    'seatingEnabled must reach the bottom bar — it decides whether /seating lights Guest list.',
   );
   const inputs = src.slice(src.indexOf('const eventRailInputs'));
   assert.ok(

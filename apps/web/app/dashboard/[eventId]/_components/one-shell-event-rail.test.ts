@@ -234,41 +234,33 @@ test('the account menu is reachable on the couple desktop', () => {
 
 /* ══ 5 · THE MENU IS THE SSOT'S, NOT A NEW IA ════════════════════════════ */
 
-test('the rail reproduces the moments, from the shipped SSOT', () => {
+test('the rail reproduces the five rows, from the shipped SSOT', () => {
   /*
-    🔄 2026-09-24 — "event menu by moment" (owner-approved; binding drawing
-    `event_menu_by_moment_2026-09-24.html`). Plan · Go live · Also in this
-    event became Book · Look · Invite · The day, with the event's name row,
-    the spine (Overview · Papic · Galleries) and the end of the list carrying
-    no heading. The rail still renders whatever the SSOT gives it, so a change
-    here is a change to the couple IA on the rail, ☰ and phone at once.
+    🔄 2026-09-29 — Stage D (owner: *"this is what an event needs. Guestlist ·
+    Your Team · Event Hub Maker · Our Services"*). The "by moment" headings
+    (Book · Look · Invite · The day, 2026-09-24) are gone: the rail is the
+    event's name row, then five plain rows, then the interim Seat plan — none
+    with a heading. The rail still renders whatever the SSOT gives it, so a
+    change here is a change to the couple IA on the rail, ☰ and phone at once.
   */
   const studioRows = [
     { key: 'papic', href: `/dashboard/${EVENT_ID}/studio/papic`, name: 'Papic' },
     { key: 'mood-board', href: `/dashboard/${EVENT_ID}/studio/mood-board`, name: 'Mood Board' },
   ];
   const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true, studioRows });
+  assert.deepEqual(groups.map((g) => g.label), ['', '', ''], 'the five rows carry no headings');
   assert.deepEqual(
-    groups.map((g) => g.label),
-    ['', '', 'Book', 'Look', 'Invite', 'The day', ''],
-    'The moments changed. Book · Look · Invite · The day is the approved shape; ' +
-      'the name row, the spine and the end of the list carry no heading.',
+    groups.find((g) => g.key === 'pillars')?.items.map((i) => i.key),
+    ['home', 'guests', 'explore', 'launch', 'studio'],
   );
-  // …and a moment with nothing in it never draws its heading.
-  const bare = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true });
-  assert.ok(!bare.some((g) => g.label === 'Look'), 'an empty Look moment drew a heading over nothing');
 });
 
-test('Budget is a row under Book, never a main room — owner 2026-07-10', () => {
-  const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true });
-  const book = groups.find((g) => g.label === 'Book');
-  assert.ok(book);
-  assert.deepEqual(
-    book.items.map((i) => i.key),
-    ['explore', 'budget'],
-    'Book is Your Team then Budget — the budget fills from what Your Team agrees ' +
-      'to. Budget is still a quiet row (2026-07-10 holds): the drawing says ' +
-      '"Still a row, not a main room".',
+test('Budget is never a main room — owner 2026-07-10 (a part of Your Team since Stage D)', () => {
+  const rows = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true }).flatMap((g) => g.items);
+  assert.ok(!rows.some((i) => i.key === 'budget'), 'Budget is a menu row again');
+  assert.ok(
+    rows.find((i) => i.key === 'explore')?.alsoMatch?.includes(`/dashboard/${EVENT_ID}/budget`),
+    'the old /budget page must light Your Team, which holds it',
   );
 });
 

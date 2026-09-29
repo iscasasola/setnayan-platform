@@ -1,34 +1,26 @@
 /**
- * the-event-menu-is-one-tree.test.ts — "event menu by moment" (owner 2026-09-24).
- *
- * Owner: *"realign what the sidebar of an event is and the bottom nav and
- * hamburger menu on mobile mode so everything is easier to access by its flow.
- * like finding the logo maker at the bottom feels so far."* Binding drawing:
- * `build-sessions/prototypes/event_menu_by_moment_2026-09-24.html`.
+ * the-event-menu-is-one-tree.test.ts — THE EVENT MENU IS FIVE ROWS (Stage D,
+ * owner 2026-09-29: *"so basically. this is what an event needs. Guestlist ·
+ * Your Team · Event Hub Maker · Our Services"*; *"on mobile mode. we do not
+ * want that sub bottom nav anymore"*). Supersedes the 2026-09-24 "by moment"
+ * tree this file used to hold.
  *
  * WHAT THIS HOLDS, and how each half fails without a sound:
  *
- *   1 · THE ACCEPTANCE TEST, in the owner's own terms — Logo Maker is row 9 of
- *       21 on a wedding's planning rail, directly under Mood Board (it was row
- *       26 of 27, +11 behind "Show more"). Counted from the REAL builders with
- *       the REAL product list, so a re-order anywhere upstream moves the count.
- *   2 · ONE TREE. The phone's tabs are picked out of the same rows the rail
- *       draws: a tab and its ☰ row can never say two words for one page. And
- *       the registry defaults — which the bar overlays FIRST — must say the
- *       same word, or the bar would still disagree with nothing thrown.
- *   3 · THE BOUNDARY. Product rows reach three client components from a server
- *       layout. They must be plain strings — a function across that boundary
- *       took production down for ~7 hours on 2026-09-23.
- *   4 · NOTHING SILENTLY LOST. Every product the Suite offers the event is a
- *       row; an unknown future product goes to the END, never nowhere; a kind
- *       without a surface loses exactly those rows, and an emptied moment
- *       loses its heading.
- *   5 · THE MOMENT STRIP finds the right moment from the path.
- *   6 · 3D PLAN LIVES IN SEAT PLAN (owner 2026-09-24: *"remove the 3D Plan
- *       menu. since the 3D version is on the seatplan already. but make sure
- *       mapping stay consistent"*). No 3D Plan row on any surface; its pages
- *       light Seat plan on the rail AND the strip; the `pa3d` key survives;
- *       and the seat plan itself still opens both the 3D view and /plan3d.
+ *   1 · THE OWNER'S LIST — Home · Guest list · Your Team · Event Hub Maker ·
+ *       Our Services on a wedding's rail, in that order, in every phase, from
+ *       the REAL builders with the REAL product list (+ Seat plan, interim).
+ *   2 · ONE TREE. The phone's tabs are the same rows under the same words, and
+ *       the registry defaults — which the bar and the rail overlay FIRST —
+ *       say the same words too.
+ *   3 · THE BOUNDARY. Product rows reach client components from a server
+ *       layout. They must be plain strings (the 2026-09-23 outage).
+ *   4 · NOTHING SILENTLY LOST. Every product page the event is offered lights
+ *       a row — Our Services, or the row that holds it — including an unknown
+ *       future product; no row opens a page twice.
+ *   5 · EVERY OLD ROW'S PAGE LIGHTS ITS NEW HOME on the rail (one resolver).
+ *   6 · 3D PLAN LIVES IN SEAT PLAN — its pages light Seat plan; the `pa3d`
+ *       key survives; the seat plan still opens both 3D doors.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,9 +31,7 @@ import {
   buildCustomerMenuTree,
   buildEventMenuSections,
   eventMenuRows,
-  eventMomentForPath,
-  eventMomentChildren,
-  activeRouteChildKey,
+  eventMenuRowClaims,
   STUDIO_ABSORBED,
   type EventStudioRow,
 } from './customer-menu';
@@ -104,62 +94,48 @@ function rail(profile: EventTypeProfile, phase: 'plan' | 'dayof' | 'after' = 'pl
   });
 }
 
-/* ══ 1 · THE OWNER'S SENTENCE ══════════════════════════════════════════════ */
+/* ══ 1 · THE OWNER'S LIST ═════════════════════════════════════════════════ */
 
-test('the Logo Maker lives inside the Event Hub Maker — one row, 19 on a wedding planning rail', () => {
+const OUR_SERVICES = SUITE_NAV_ON ? 'Our Services' : 'Studio';
+
+test('the rail is the owner’s five — plus the interim Seat plan — in every phase', () => {
   /*
     Counted the way the drawing counts: row 1 is the "Events" focus row above
     the event, row 2 is the event's name (Details), then every menu row.
-
-    ✏️ 2026-09-25 (owner: one sidebar row "Event Hub Maker"; "the logo maker
-    lives in the editor"): the Logo Maker's row — which the 2026-09-24 ruling
-    had lifted from row 26 to row 9 because it felt "so far" — now has no row
-    at all. Its door is the Maker bar's "Logo", and `/monogram` lights the Maker
-    row (`STUDIO_ABSORBED.palogo`), so it is never unreachable and never unlit.
+    NEXT_PUBLIC_SUITE is on in production (read 2026-09-22); the word follows
+    the one flag branch in lib/studio-hub.ts either way.
   */
-  const labels = ['Events', ...rail(WEDDING).flatMap((g) => g.items.map((i) => i.label))];
-  // 21 → 20 on 2026-09-24: the 3D Plan row folded into Seat plan (§6).
-  // 20 → 19 on 2026-09-25: the Logo Maker folded into the Event Hub Maker.
-  assert.equal(labels.length, 19, `the rail is ${labels.length} rows: ${labels.join(' · ')}`);
-  assert.equal(labels.indexOf('Logo Maker'), -1, 'the Logo Maker is a door in the Maker, not a row');
-  const maker = rail(WEDDING).flatMap((g) => g.items).find((i) => i.key === 'launch');
-  assert.ok(maker, 'the Event Hub Maker row is on the rail');
-  assert.deepEqual(labels, [
-    'Events', 'Details',
-    'Overview', 'Papic', 'Galleries',
-    'Your Team', 'Budget',
-    'Mood Board', 'Music Maker',
-    'Guests', 'Hosts', 'Event Hub Maker',
-    'Schedule', 'Seat plan', 'Live Studio', 'Patiktok',
-    // NEXT_PUBLIC_SUITE is on in production (read 2026-09-22); the word
-    // follows the one flag branch in lib/studio-hub.ts either way.
-    'Setnayan AI', SUITE_NAV_ON ? 'Our Services' : 'Studio', 'Refer a couple',
-  ]);
+  for (const phase of ['plan', 'dayof', 'after'] as const) {
+    const labels = ['Events', ...rail(WEDDING, phase).flatMap((g) => g.items.map((i) => i.label))];
+    assert.deepEqual(
+      labels,
+      ['Events', 'Details', 'Home', 'Guest list', 'Your Team', 'Event Hub Maker', OUR_SERVICES, 'Seat plan'],
+      `${phase}: ${labels.join(' · ')}`,
+    );
+  }
 });
 
-test('Check-in joins The day on the day; Editorial is reached through the Maker after it', () => {
-  const day = rail(WEDDING, 'dayof').find((g) => g.key === 'day')!.items.map((i) => i.key);
-  assert.deepEqual(day, ['schedule', 'checkin', 'seat', 'panood', 'patiktok']);
-  // ✏️ 2026-09-25: Editorial's door is the Maker bar's "Post Event"; the
-  // Maker row claims `/story` so the workroom still lights a row.
-  const spine = rail(WEDDING, 'after').find((g) => g.key === 'spine')!.items.map((i) => i.key);
-  assert.deepEqual(spine, ['home', 'papic', 'galleries']);
-  assert.ok(
-    !rail(WEDDING).flatMap((g) => g.items).some((i) => i.key === 'checkin' || i.key === 'editorial'),
-    'Check-in or Editorial shows before its moment',
-  );
+test('the rows that left are gone from every phase — their homes hold them', () => {
+  const gone = [
+    'papic', 'galleries', 'editorial', 'budget', 'hosts', 'checkin', 'schedule',
+    'mood-board', 'palogo', 'pakanta', 'panood', 'patiktok', 'pa3d', 'setnayan-ai', 'refer',
+  ];
+  for (const phase of ['plan', 'dayof', 'after'] as const) {
+    const keys = rail(WEDDING, phase).flatMap((g) => g.items.map((i) => i.key));
+    for (const k of gone) assert.ok(!keys.includes(k), `${phase}: "${k}" is a menu row again`);
+  }
 });
 
 /* ══ 2 · ONE TREE — THE PHONE PICKS FROM IT ═══════════════════════════════ */
 
-const BARS = {
-  plan: [['home', 'Overview'], ['papic', 'Papic'], ['explore', 'Your Team'], ['guests', 'Guests'], ['launch', 'Event Hub Maker']],
-  dayof: [['now', 'Overview'], ['papic', 'Papic'], ['checkin', 'Check-in'], ['launch', 'Event Hub Maker'], ['schedule', 'Schedule']],
-  after: [['home', 'Overview'], ['papic', 'Papic'], ['galleries', 'Galleries'], ['review', 'Your Team'], ['launch', 'Event Hub Maker']],
-} as const;
+const FIVE = [
+  ['home', 'Home'], ['guests', 'Guest list'], ['explore', 'Your Team'],
+  ['launch', 'Event Hub Maker'], ['studio', OUR_SERVICES],
+] as const;
+const BARS = { plan: FIVE, dayof: FIVE, after: FIVE } as const;
 
 for (const phase of ['plan', 'dayof', 'after'] as const) {
-  test(`the ${phase} phone bar is the owner-approved five, in the tree's own words`, () => {
+  test(`the ${phase} phone bar is the owner's five, in the tree's own words`, () => {
     const bar = buildCustomerMenuTree(EVENT_ID, {
       phase,
       websiteEnabled: true,
@@ -182,7 +158,8 @@ test('the bar\'s registry defaults say the tree\'s words — the bar overlays th
   /*
     `customer-bottom-nav.tsx` renders `slot?.label ?? m.label`, and prod
     `nav_slot_override` holds no rows, so these defaults ARE what a phone
-    shows. A stale "Now" or "Review" here would survive every tree test.
+    shows. A stale "Overview" or "Guests" here would survive every tree test.
+    The rail overlays `customer.sidebar.<key>` the same way.
   */
   const bySlot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s]));
   for (const phase of ['plan', 'dayof', 'after'] as const) {
@@ -192,8 +169,17 @@ test('the bar\'s registry defaults say the tree\'s words — the bar overlays th
       assert.equal(slot!.label, label, `customer.bottom-nav.${key} says "${slot!.label}", the tree says "${label}"`);
     }
   }
+  for (const [key, label] of FIVE) {
+    const slot = bySlot.get(`customer.sidebar.${key}`);
+    assert.ok(slot, `customer.sidebar.${key} has no registry default`);
+    assert.equal(slot!.label, label, `customer.sidebar.${key} says "${slot!.label}", the tree says "${label}"`);
+  }
   // The retired slots are gone, so /admin/menus offers no rename for a dead tab.
-  for (const retired of ['customer.bottom-nav.seats', 'customer.bottom-nav.studio']) {
+  for (const retired of [
+    'customer.bottom-nav.seats', 'customer.bottom-nav.now', 'customer.bottom-nav.checkin',
+    'customer.bottom-nav.papic', 'customer.bottom-nav.schedule', 'customer.bottom-nav.review',
+    'customer.bottom-nav.galleries',
+  ]) {
     assert.ok(!bySlot.has(retired), `${retired} is still offered for a tab that no longer renders`);
   }
 });
@@ -215,7 +201,7 @@ test('product rows cross the boundary as plain strings, and the layout sends not
   );
   // Every client consumer is handed the same list — the #5938 lesson: a caller
   // that is not passed the input silently loses the rows gated on it.
-  assert.equal((layout.match(/studioRows=\{studioRows\}/g) ?? []).length, 2, 'bottom bar + moment strip');
+  assert.equal((layout.match(/studioRows=\{studioRows\}/g) ?? []).length, 1, 'the one bottom bar');
   const inputs = layout.slice(layout.indexOf('const eventRailInputs'));
   assert.match(inputs.slice(0, inputs.indexOf('};')), /studioRows,/, 'the rail (eventRailInputs)');
 });
@@ -223,73 +209,79 @@ test('product rows cross the boundary as plain strings, and the layout sends not
 /* ══ 4 · NOTHING SILENTLY LOST ═════════════════════════════════════════════ */
 
 for (const [label, profile] of [['wedding', WEDDING], ['date', DATE]] as const) {
-  test(`${label}: every product the Suite offers is a ✦ row, and nothing is listed twice`, () => {
-    const offered = studioRowsFor(profile)
-      .map((r) => r.key)
-      .filter((k) => k !== 'pawebsite' && k !== '__all__' && !STUDIO_ABSORBED[k]);
+  test(`${label}: every product page the event is offered lights a row, and no row opens a page twice`, () => {
+    const matchRows = eventRailMatchRows({
+      eventId: EVENT_ID, websiteEnabled: true,
+      seatingEnabled: profile.enabledSurfaces.includes('seating'),
+      studioRows: studioRowsFor(profile),
+    });
+    for (const r of studioRowsFor(profile)) {
+      if (r.key === '__all__') continue;
+      const lit = activeRailKey(matchRows, r.href.split('?')[0]!);
+      assert.ok(lit, `${r.key} (${r.href}) lights no row — a page with no home in the menu`);
+    }
     const rows = rail(profile).flatMap((g) => g.items);
-    const products = rows.filter((r) => r.studio).map((r) => r.key);
-    assert.deepEqual([...products].sort(), [...offered].sort());
     const hrefs = rows.map((r) => r.href);
     assert.equal(new Set(hrefs).size, hrefs.length, `two rows open one page: ${hrefs.join(' ')}`);
   });
 }
 
-test('a thin kind drops its rows, and an emptied moment drops its heading', () => {
+test('a thin kind drops its rows, and an empty section is never drawn', () => {
   const groups = rail(DATE);
   const keys = groups.flatMap((g) => g.items.map((i) => i.key));
-  for (const gone of ['seat', 'pa3d', 'panood', 'palogo', 'pakanta']) {
-    assert.ok(!keys.includes(gone), `${gone} shows for a kind without its surface`);
-  }
-  assert.ok(groups.every((g) => g.items.length > 0), 'a moment renders a heading over nothing');
+  assert.ok(!keys.includes('seat'), 'Seat plan shows for a kind without seating');
+  assert.ok(groups.every((g) => g.items.length > 0), 'a section renders over nothing');
 });
 
-test('an unknown future product lands at the end — never nowhere', () => {
+test('an unknown future product lights Our Services — never nowhere', () => {
   const rows = eventMenuRows(
     buildEventMenuSections(EVENT_ID, {
       websiteEnabled: true,
-      studioRows: [
-        ...studioRowsFor(WEDDING),
-        { key: 'panew', href: `${BASE}/studio/panew`, name: 'Panew' },
-      ],
+      studioRows: [...studioRowsFor(WEDDING), { key: 'panew', href: `${BASE}/studio/panew`, name: 'Panew' }],
     }),
   );
-  const end = buildEventMenuSections(EVENT_ID, {
-    studioRows: [{ key: 'panew', href: `${BASE}/studio/panew`, name: 'Panew' }],
-  }).find((s) => s.key === 'end')!;
-  assert.ok(rows.some((r) => r.key === 'panew'), 'an unplaced product was dropped');
-  assert.ok(end.rows.some((r) => r.key === 'panew' && r.studio), 'it must sit in the end of the list, marked ✦');
+  const studio = rows.find((r) => r.key === 'studio')!;
+  assert.ok(eventMenuRowClaims(studio).includes(`${BASE}/studio/panew`), 'an unplaced product was dropped');
+  assert.ok(!rows.some((r) => r.key === 'panew'), 'a product became a menu row again');
 });
 
-/* ══ 5 · THE MOMENT STRIP ═════════════════════════════════════════════════ */
+/* ══ 5 · EVERY OLD ROW'S PAGE LIGHTS ITS NEW HOME ══════════════════════════ */
 
-test('the phone strip docks the moment the page belongs to', () => {
-  const sections = buildEventMenuSections(EVENT_ID, {
-    websiteEnabled: true,
-    studioRows: studioRowsFor(WEDDING),
+test('each page that lost its row lights the pillar that holds it (one resolver)', () => {
+  const matchRows = eventRailMatchRows({
+    eventId: EVENT_ID, websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
   });
-  const at = (p: string) => eventMomentForPath(`${BASE}${p}`, sections)?.key ?? null;
-  // ✏️ 2026-09-25: the Logo Maker is inside the Event Hub Maker, so the Look
-  // strip is Mood Board · Pakanta, and `/monogram` docks the Maker's moment.
-  const look = eventMomentForPath(`${BASE}/studio/mood-board`, sections)!;
-  assert.deepEqual(look.rows.map((r) => r.key), ['mood-board', 'pakanta']);
-  assert.equal(at('/monogram'), 'invite');
-  assert.equal(at('/story'), 'invite');
-  assert.equal(at('/seating/lab'), 'day');
-  assert.equal(at('/plan3d'), 'day');
-  assert.equal(at('/guests'), 'invite');
-  assert.equal(at('/vendors'), 'book');
-  assert.equal(at('/studio/papic'), 'spine');
-  // Overview is the front page, not a moment; unlisted pages dock nothing.
-  assert.equal(at(''), null);
-  assert.equal(at('/messages'), null);
+  const HOMES: Array<[string, string]> = [
+    ['', 'home'],
+    ['/guests', 'guests'], ['/guests/checkin', 'guests'], ['/hosts', 'guests'],
+    ['/event-qr', 'guests'], ['/people', 'guests'],
+    ['/vendors', 'explore'], ['/budget', 'explore'],
+    ['/launch', 'launch'], ['/website/editor', 'launch'], ['/story', 'launch'],
+    ['/schedule', 'launch'], ['/studio/mood-board', 'launch'], ['/monogram', 'launch'],
+    ['/suite', 'studio'], ['/studio', 'studio'], ['/galleries', 'studio'],
+    ['/studio/papic', 'studio'], ['/studio/patiktok', 'studio'], ['/studio/pakanta', 'studio'],
+    ['/studio/setnayan-ai', 'studio'],
+    ['/seating', 'seat'],
+  ];
+  for (const [p, key] of HOMES) {
+    assert.equal(activeRailKey(matchRows, `${BASE}${p}`), key, `${p || '(home)'} does not light ${key}`);
+  }
+});
+
+test('the Refer a couple row went to the account menu, behind the programme toggle', () => {
+  const layout = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/layout.tsx'), 'utf8'));
+  assert.match(layout, /referHref=\{referralEnabled \? `\/dashboard\/\$\{eventId\}\/refer` : null\}/);
+  const switcher = stripComments(
+    readFileSync(join(WEB, 'app/_components/account-switcher/account-switcher.tsx'), 'utf8'),
+  );
+  assert.match(switcher, /referHref \? \(\s*<Link\s+href=\{referHref\}/, 'the account menu draws no Refer a couple link');
 });
 
 /* ══ 6 · 3D PLAN LIVES IN SEAT PLAN ═══════════════════════════════════════ */
 
 const THREE_D_PAGES = ['/seating/lab', '/seating/lab?mode=play', '/plan3d'];
 
-test('no surface draws a 3D Plan row — rail and ☰, phone bar, moment strip', () => {
+test('no surface draws a 3D Plan row — rail and ☰, phone bar', () => {
   for (const phase of ['plan', 'dayof', 'after'] as const) {
     const rows = rail(WEDDING, phase).flatMap((g) => g.items);
     assert.ok(
@@ -300,13 +292,6 @@ test('no surface draws a 3D Plan row — rail and ☰, phone bar, moment strip',
       phase, websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
     });
     assert.ok(!bar.some((m) => (m.key as string) === 'pa3d' || m.label === '3D Plan'), `${phase}: the phone bar has a 3D Plan tab`);
-    const sections = buildEventMenuSections(EVENT_ID, {
-      phase, websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
-    });
-    for (const p of ['/seating', ...THREE_D_PAGES]) {
-      const strip = eventMomentChildren(`${BASE}${p}`, eventMomentForPath(`${BASE}${p.split('?')[0]}`, sections));
-      assert.ok(!strip.some((c) => c.key === 'pa3d' || c.label === '3D Plan'), `${phase}: the strip on ${p} draws 3D Plan`);
-    }
   }
 });
 
@@ -319,19 +304,13 @@ test('the 3D pages light Seat plan on the rail, exactly as /seating does', () =>
   }
 });
 
-test('the 3D pages dock The day and light the Seat plan chip in the phone strip', () => {
-  const sections = buildEventMenuSections(EVENT_ID, {
+test('the 3D pages light the Guest list tab on the phone, as /seating does', () => {
+  const bar = buildCustomerMenuTree(EVENT_ID, {
     websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
   });
+  const guests = bar.find((m) => m.key === 'guests')!.activeMatch as string[];
   for (const p of ['/seating', '/seating/lab', '/plan3d']) {
-    const path = `${BASE}${p}`;
-    const moment = eventMomentForPath(path, sections);
-    assert.equal(moment?.key, 'day', `${p} docks ${moment?.key ?? 'nothing'}, not The day`);
-    assert.equal(
-      activeRouteChildKey(path, eventMomentChildren(path, moment)),
-      'seat',
-      `${p}: the strip docks but the Seat plan chip is dark`,
-    );
+    assert.ok(guests.includes(`${BASE}${p}`), `${p} lights no tab on the phone`);
   }
 });
 
@@ -341,15 +320,15 @@ test('the pa3d key survives — still offered, absorbed by rule, and never silen
   assert.equal(STUDIO_ABSORBED.pa3d?.into, 'seat', 'pa3d is no longer absorbed into Seat plan by the documented rule');
   /*
     ⚠ NOT A DROP. With the host row absent (seatingEnabled false) but the
-    product somehow offered, the 3D Plan row stands in its OWN slot in The day
-    — not at the unknown-product end, and not nowhere. Today both ride the one
-    `seating` surface, so this state cannot arise from the layout.
+    product somehow offered, its pages light Our Services — not nowhere.
+    Today both ride the one `seating` surface, so this cannot arise from the
+    layout.
   */
-  const day = buildEventMenuSections(EVENT_ID, {
-    seatingEnabled: false,
-    studioRows: studioRowsFor(WEDDING),
-  }).find((s) => s.key === 'day')!;
-  assert.deepEqual(day.rows.map((r) => r.key), ['schedule', 'pa3d', 'panood', 'patiktok']);
+  const rows = eventMenuRows(
+    buildEventMenuSections(EVENT_ID, { seatingEnabled: false, studioRows: studioRowsFor(WEDDING) }),
+  );
+  const studio = rows.find((r) => r.key === 'studio')!;
+  assert.ok(eventMenuRowClaims(studio).includes(`${BASE}/plan3d`), 'the 3D Plan is lost with no Seat plan row');
 });
 
 test('the seat plan still opens the 3D view, and the 3D view opens /plan3d', () => {

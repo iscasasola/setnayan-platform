@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE SCHEDULE'S OTHER TWO STYLES — One chapter per screen and Clock face
@@ -78,12 +79,12 @@ export function ScheduleOneChapter({ moments, currentIndex, upNextIndex }: BodyP
               <p
                 className={`font-sans text-xs uppercase tracking-[0.2em] ${isNow ? 'text-terracotta' : 'text-ink/60'}`}
               >
-                {isNow ? 'Happening now' : isNext ? 'Up next' : `${i + 1} of ${moments.length}`}
+                {isNow ? 'Happening now' : isNext ? 'Up next' : `${formatCount(i + 1)} of ${formatCount(moments.length)}`}
               </p>
               <p className="mt-3 font-mono text-base tabular-nums text-gild">{m.timeLabel}</p>
               <p className="mt-2 font-sans text-xs uppercase tracking-[0.2em] text-ink/60">
                 {m.kindLabel}
-                {isNow || isNext ? ` · ${i + 1} of ${moments.length}` : ''}
+                {isNow || isNext ? ` · ${formatCount(i + 1)} of ${formatCount(moments.length)}` : ''}
               </p>
               <p className="mt-2 font-pahina text-4xl font-light leading-tight text-ink">{m.label}</p>
               {m.location ? (

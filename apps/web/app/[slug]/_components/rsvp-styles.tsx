@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE RSVP'S OTHER TWO STYLES — B · The question and C · The ticket
@@ -44,7 +45,7 @@ export function RsvpQuestionHeader({
         {firstName ? `${firstName}, ${lowered}` : question}
       </p>
       {admitCount > 1 ? (
-        <p className="font-sans text-xs uppercase tracking-[0.2em] text-gild">{admitCount} seats are yours</p>
+        <p className="font-sans text-xs uppercase tracking-[0.2em] text-gild">{formatCount(admitCount)} seats are yours</p>
       ) : null}
     </header>
   );
@@ -72,7 +73,7 @@ export function RsvpTicketHeader({
       </div>
       <div className="flex items-stretch border border-ink/20 bg-paper-deep">
         <div className="min-w-0 flex-1 px-4 py-3">
-          <p className="font-sans text-xs uppercase tracking-[0.28em] text-ink/60">Admit {admitCount}</p>
+          <p className="font-sans text-xs uppercase tracking-[0.28em] text-ink/60">Admit {formatCount(admitCount)}</p>
           <p className="mt-1 truncate font-pahina text-2xl font-light leading-tight text-ink">{guestName}</p>
         </div>
         <div className="flex w-24 shrink-0 flex-col items-center justify-center border-l border-dashed border-ink/30 px-2 py-3 text-center">

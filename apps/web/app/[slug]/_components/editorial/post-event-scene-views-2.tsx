@@ -27,6 +27,7 @@ import type { EventFilm } from '@/lib/event-films';
 import type { PostEventStyleId } from '@/lib/post-event-styles';
 import type { PeWords } from './post-event-scene-views';
 import { byVoiceWeight, roleLabel, voiceOf } from './voices';
+import { formatCount } from '@/lib/format-number';
 
 const say = (words: PeWords, part: keyof PeWords, fallback: string): string => words[part] ?? fallback;
 const EYEBROW = 'pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700';
@@ -93,7 +94,7 @@ export function PhotoNotesScene({
                   ))}
                 </span>
                 <span className="absolute left-4 top-6 font-mono text-xs uppercase tracking-[0.2em] text-cream">
-                  {i + 1} of {quotes.length}
+                  {formatCount(i + 1)} of {formatCount(quotes.length)}
                 </span>
                 <figcaption className="absolute inset-x-5 bottom-10 text-cream">
                   <span className="block font-serif text-[1.8rem] leading-[1.1]">&ldquo;{q.body}&rdquo;</span>
@@ -240,7 +241,7 @@ export function MessagesScene({
           <article key={i} className="flex min-h-[60svh] w-[88%] shrink-0 snap-center flex-col px-1.5 sm:w-[560px]">
             <span className={`${MICRO} flex justify-between gap-3`}>
               <span>
-                Letters · {i + 1} of {letters.length}
+                Letters · {formatCount(i + 1)} of {formatCount(letters.length)}
               </span>
               <span className="truncate">{c.title}</span>
             </span>

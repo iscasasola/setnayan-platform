@@ -16,6 +16,7 @@ import { PickMenu } from './pick-menu';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { CUSTOM_SECTION_TYPES } from '@/lib/custom-sections';
+import { formatCount } from '@/lib/format-number';
 
 /** The six scenes of their own, shared across every stage (E5). */
 const MAX_OWN_SCENES = CUSTOM_SECTION_TYPES.length;
@@ -310,7 +311,7 @@ function PresetTiles({
     <div data-post-event-presets="">
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className="text-[0.7rem] font-semibold text-ink">Six slots</span>
-        <span aria-label={`${presets.used} of ${MAX_OWN_SCENES} used`} className="flex gap-1">
+        <span aria-label={`${formatCount(presets.used)} of ${formatCount(MAX_OWN_SCENES)} used`} className="flex gap-1">
           {Array.from({ length: MAX_OWN_SCENES }, (_, i) => (
             <span key={i} aria-hidden className={`h-2 w-2 rounded-full ${i < presets.used ? 'bg-ink' : 'bg-ink/15'}`} />
           ))}
@@ -339,7 +340,7 @@ function PresetTiles({
                 type="submit"
                 disabled={full}
                 data-post-event-preset={p.id}
-                className="flex w-full flex-col gap-1 rounded-md p-1.5 text-left transition-colors duration-sn-control ease-sn hover:bg-ink/5 disabled:opacity-45"
+                className="flex min-h-11 w-full flex-col gap-1 rounded-md p-1.5 text-left transition-colors duration-sn-control ease-sn hover:bg-ink/5 disabled:opacity-45"
               >
                 <span className="flex justify-center">
                   <Thumb boxes={view === 'desktop' ? t.thumb.desk : t.thumb.phone} shape={view === 'desktop' ? 'desk' : 'phone'} hideMedia={false} word={p.name} />

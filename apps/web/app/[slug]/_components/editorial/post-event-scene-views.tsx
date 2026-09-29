@@ -576,7 +576,7 @@ export function ScheduleScene({
               <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-ink/5 via-transparent to-ink/60" />
               <div className="absolute inset-x-5 bottom-4 z-[1] text-cream">
                 <span className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-cream/90">
-                  Chapter {i + 1} of {chapters.length}
+                  Chapter {fmt(i + 1)} of {fmt(chapters.length)}
                   {clock ? ` · ${clock.t} ${clock.ap}` : ''}
                 </span>
                 <h3 className="mt-1 font-serif text-[2.6rem] leading-none text-cream">{chapterName(c, i)}</h3>

@@ -105,20 +105,43 @@ ON CONFLICT (event_type) DO NOTHING;
 -- would be offered no sound, no stage, no photographer. `corporate` is the
 -- nearest shipped reach (the 2026-07-22 reach study), so each new type joins
 -- every tile corporate is in — an owner-tunable starting point, not a study.
+-- 🔑 ONLY A TILE CORPORATE CAN ACTUALLY FILL: a tile whose leaves cannot serve
+-- corporate (today `editorial`, zero canonicals — tests/db/
+-- tile-event-type-fillable.db.test.ts KNOWN_UNFILLABLE) would advertise the
+-- new kind on a shelf that stays empty forever. The same leaves are extended
+-- below, so every tile a new kind joins has a leaf that serves it.
 UPDATE public.service_categories
    SET applicable_event_types = applicable_event_types || ARRAY['concert']::text[], updated_at = now()
  WHERE applicable_event_types IS NOT NULL
    AND 'corporate' = ANY(applicable_event_types)
+   AND EXISTS (
+     SELECT 1 FROM public.canonical_service_taxonomy c
+      WHERE c.tile_id = service_categories.id
+        AND COALESCE(c.marketplace_hidden, false) = false
+        AND (NULLIF(c.applicable_event_types, '{}') IS NULL OR 'corporate' = ANY(c.applicable_event_types))
+   )
    AND NOT ('concert' = ANY(applicable_event_types));
 UPDATE public.service_categories
    SET applicable_event_types = applicable_event_types || ARRAY['open_house']::text[], updated_at = now()
  WHERE applicable_event_types IS NOT NULL
    AND 'corporate' = ANY(applicable_event_types)
+   AND EXISTS (
+     SELECT 1 FROM public.canonical_service_taxonomy c
+      WHERE c.tile_id = service_categories.id
+        AND COALESCE(c.marketplace_hidden, false) = false
+        AND (NULLIF(c.applicable_event_types, '{}') IS NULL OR 'corporate' = ANY(c.applicable_event_types))
+   )
    AND NOT ('open_house' = ANY(applicable_event_types));
 UPDATE public.service_categories
    SET applicable_event_types = applicable_event_types || ARRAY['grand_opening']::text[], updated_at = now()
  WHERE applicable_event_types IS NOT NULL
    AND 'corporate' = ANY(applicable_event_types)
+   AND EXISTS (
+     SELECT 1 FROM public.canonical_service_taxonomy c
+      WHERE c.tile_id = service_categories.id
+        AND COALESCE(c.marketplace_hidden, false) = false
+        AND (NULLIF(c.applicable_event_types, '{}') IS NULL OR 'corporate' = ANY(c.applicable_event_types))
+   )
    AND NOT ('grand_opening' = ANY(applicable_event_types));
 
 UPDATE public.canonical_service_taxonomy

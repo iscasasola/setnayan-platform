@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Dices } from 'lucide-react';
 
@@ -41,6 +41,9 @@ export function SecretValueInput({
   generateHint?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  // The label also wraps the Generate button — `htmlFor` pins it to the field
+  // (lib/a-label-controls-its-switch.test.ts).
+  const inputId = useId();
   const { pending } = useFormStatus();
   const wasPending = useRef(false);
   const [revealGenerated, setRevealGenerated] = useState(false);
@@ -56,11 +59,12 @@ export function SecretValueInput({
   const canGenerate = Boolean(generateHint) && generateHint !== undefined;
 
   return (
-    <label className="block">
+    <label className="block" htmlFor={inputId}>
       <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
         {label}
       </span>
       <input
+        id={inputId}
         ref={ref}
         // A generated value is shown once so the owner can copy it into any
         // other system that needs the same secret; a pasted value stays masked.

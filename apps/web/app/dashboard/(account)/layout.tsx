@@ -12,6 +12,7 @@ import { HomePillNav } from '../(launcher)/_components/home-pill-nav';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { waitingRequestCount } from '@/lib/people-roster';
 import { AccountRailContext } from './_components/account-rail-context';
 import { ACCOUNT_FOCUS_PATHS } from './_components/account-focus-paths';
 
@@ -92,7 +93,7 @@ export default async function AccountDashboardLayout({
     eventsMeasured: false,
     context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
   };
-  const [{ unreadCount }, switcherData, dependentsControlOn] = await Promise.all([
+  const [{ unreadCount }, switcherData, dependentsControlOn, requestsWaiting] = await Promise.all([
     getDashboardShell(user.id),
     // getSwitcherData never returns null after the 2026-06-17 always-on fix; the
     // .catch guards against any unexpected outer throw so the chrome still paints.
@@ -106,6 +107,9 @@ export default async function AccountDashboardLayout({
     dependentPeopleEnabled()
       ? isDataPrivacyControlActive('dependent_minor_profiles')
       : Promise.resolve(false),
+    // The People rail's Requests row (owner 2026-09-28: listed while any wait).
+    // Null when unreadable — the row then stays, without a number.
+    peopleConnectionsEnabled() ? waitingRequestCount(user.id) : Promise.resolve(0),
   ]);
 
   return (
@@ -127,6 +131,7 @@ export default async function AccountDashboardLayout({
           <AccountRailContext
             showConnections={peopleConnectionsEnabled()}
             showDependents={dependentsControlOn}
+            requestsWaiting={requestsWaiting}
           />
         }
         topBarSlot={

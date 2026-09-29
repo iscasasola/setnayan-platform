@@ -46,6 +46,7 @@
 
 import { HUB_FONT_BY_KEY, hubFontsForPicker, sanitizeHubFontKey, type HubFontKey } from '@/lib/hub-fonts';
 import { contrastRatio } from '@/lib/hub-legibility';
+import { adaptHubRuns } from '@/lib/element-runs-adapt';
 
 /* ── THE ELEMENTS ───────────────────────────────────────────────────────── */
 
@@ -189,14 +190,35 @@ export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[
 /**
  * ✍ THE ELEMENTS WHOSE TEXT CAN CARRY RUNS (one letter, one word in its own
  * font · colour · size — owner 2026-09-27: *"they can take 1 letter and change
- * the font"*). Only the hero's parts: their words are drawn HERE
- * (`PahinaMasthead`), so the guest page can render the runs as spans, server-
- * side, exactly as the canvas shows them. A scene's label / heading / words are
- * drawn by widgets that must stay ignorant of the canvas
- * (`every-widget-is-one-section.test.ts`), so a run there could not reach a
- * guest — offering it would be a control that moves no guest's pixels.
+ * the font"*). Every part with words: the hero's and every scene's.
+ *
+ * ONE MECHANISM, TWO PLACES IT IS LAID. The hero's words are drawn HERE
+ * (`PahinaMasthead`), so its runs are cut into spans server-side. A scene's
+ * label / heading / words are drawn by widgets that must stay ignorant of the
+ * canvas (`every-widget-is-one-section.test.ts`), so the scene's runs ride on
+ * its scoped `<style data-hub-runs>` (`hubSceneRunsAttr`) and are cut into the
+ * SAME `<span data-el-run>` by the SAME segmenter (`hubTextSegments`) once the
+ * page is in the browser (`HubSceneRuns`, `app/[slug]/_components/part-runs.ts`). A page
+ * whose script never runs shows the scene's words whole, in the part's own
+ * look — every letter readable, none on a wrong style.
+ *
+ * A scene key addresses EVERY heading (every paragraph) of its scene, so a
+ * scene's runs are laid on the one part whose words they were made on
+ * (`hubRunsTarget`), never on each of them.
  */
-export const HUB_ELEMENT_RUN_KEYS: readonly HubElementKey[] = ['eyebrow', 'names', 'line', 'date', 'time', 'link', 'venue', 'caption'];
+export const HUB_ELEMENT_RUN_KEYS: readonly HubElementKey[] = [
+  'eyebrow',
+  'names',
+  'line',
+  'date',
+  'time',
+  'link',
+  'venue',
+  'caption',
+  'label',
+  'heading',
+  'body',
+];
 
 /* ── THE CHOICES ────────────────────────────────────────────────────────── */
 
@@ -527,6 +549,14 @@ export type HubElementStyle = {
   runs?: HubElementRun[];
   /** The hash (`hubTextHash`) of the text the runs were made on. */
   of?: string;
+  /**
+   * ✍ The text the runs were made on, itself — only with `of`, and only while
+   * it still hashes to it. With it, a run ADAPTS when the words change
+   * (`adaptHubRuns`: kept letters keep their style); without it (a run made
+   * before 2026-09-29, or on text longer than `HUB_ELEMENT_RUN_TEXT_MAX`) a
+   * run on changed words is dropped, as it always was.
+   */
+  was?: string;
 };
 
 export type HubElementStyles = Partial<Record<HubElementKey, HubElementStyle>>;
@@ -536,6 +566,8 @@ const HASH = /^[0-9a-f]{8}$/;
 /** Runs per element, and the longest text a run may reach into. */
 export const HUB_ELEMENT_MAX_RUNS = 24;
 const MAX_OFFSET = 400;
+/** The longest text kept as `was` — a run cannot reach past it anyway. */
+export const HUB_ELEMENT_RUN_TEXT_MAX = MAX_OFFSET;
 
 /**
  * `#rrggbb` — or `#rrggbbaa` when the Colour panel's Opacity is below 100% —
@@ -561,6 +593,69 @@ export function hubTextHash(text: string): string {
     h = Math.imul(h, 0x01000193) >>> 0;
   }
   return h.toString(16).padStart(8, '0');
+}
+
+/** `raw` as a run's own text: a string no longer than a run can reach, that hashes to `of`. */
+function runText(raw: unknown, of: unknown): string | null {
+  if (typeof raw !== 'string' || typeof of !== 'string') return null;
+  if (raw.length > HUB_ELEMENT_RUN_TEXT_MAX) return null;
+  return hubTextHash(raw) === of ? raw : null;
+}
+
+const ADAPTED = new WeakMap<HubElementStyle, Map<string, HubElementRun[] | null>>();
+
+/**
+ * ✍ THE ELEMENT'S RUNS, AS THEY FALL ON `text` — the part's WHOLE text as it
+ * is drawn now. The ONE place a run meets its words (the guest page, the Maker
+ * canvas and the sheet all read through here):
+ *
+ *   · the text is the one the runs were made on (`of`) → the runs, as stored;
+ *   · it changed, and the old text is known (`was`) → the runs ADAPTED onto it
+ *     (`adaptHubRuns`: kept letters keep their style, inserted ones are plain,
+ *     deleted ones drop theirs) — so a name edited in Details, or words edited
+ *     in place, keep every style that still has its letter;
+ *   · otherwise → null. A run is never laid on offsets into different words.
+ */
+export function hubRunsOn(style: HubElementStyle | null | undefined, text: string): HubElementRun[] | null {
+  const runs = style?.runs;
+  if (!style || !runs || runs.length === 0 || !style.of) return null;
+  if (style.of === hubTextHash(text)) return runs;
+  const was = runText(style.was, style.of);
+  if (was === null) return null;
+  let memo = ADAPTED.get(style);
+  if (!memo) ADAPTED.set(style, (memo = new Map()));
+  if (memo.has(text)) return memo.get(text) ?? null;
+  const adapted = adaptHubRuns(runs, was, text);
+  const out = adapted.length > 0 ? adapted : null;
+  memo.set(text, out);
+  return out;
+}
+
+/**
+ * ✍ WHICH OF A SCENE'S PARTS ITS RUNS BELONG TO. A scene key addresses every
+ * heading (every paragraph) of its scene, but the runs were made on ONE of
+ * them: the part whose words still hash to `of`, else — the words changed —
+ * the part whose words keep the most of `was` (at least half of its letters),
+ * else none. `texts` are the parts' whole texts, in page order; -1 = none.
+ */
+export function hubRunsTarget(texts: readonly string[], style: HubElementStyle | null | undefined): number {
+  if (!style?.runs?.length || !style.of) return -1;
+  const exact = texts.findIndex((t) => hubTextHash(t) === style.of);
+  if (exact >= 0) return exact;
+  const was = runText(style.was, style.of);
+  if (was === null || was.length === 0) return -1;
+  const whole = [{ start: 0, end: was.length }];
+  let best = -1;
+  let bestKept = 0;
+  texts.forEach((t, i) => {
+    if (t.length > HUB_ELEMENT_RUN_TEXT_MAX * 2) return;
+    const kept = adaptHubRuns(whole, was, t).reduce((n, r) => n + (r.end - r.start), 0);
+    if (kept > bestKept) {
+      bestKept = kept;
+      best = i;
+    }
+  });
+  return bestKept * 2 >= was.length ? best : -1;
 }
 
 const isIn = <T,>(list: readonly T[], v: unknown): v is T => (list as readonly unknown[]).includes(v);
@@ -648,6 +743,8 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
     if (runs) {
       out.runs = runs;
       out.of = src.of;
+      const was = runText(src.was, src.of);
+      if (was !== null) out.was = was;
     }
   }
   return Object.keys(out).length > 0 ? out : null;
@@ -728,6 +825,7 @@ export function withoutTextStyle(elements: HubElementStyles | null | undefined, 
   for (const f of HUB_ELEMENT_TEXT_FIELDS) delete style[f];
   delete style.runs;
   delete style.of;
+  delete style.was;
   next[key] = style;
   let out = sanitizeHubElements(next);
   // The hero's alignment is one choice for the whole hero — taken off together.
@@ -761,40 +859,78 @@ export function withElementMotion(
 }
 
 /**
+ * ✍ WHERE A RANGE WAS MEASURED — the offsets, the hash of the part's whole
+ * text (`of`), and that text itself (`was`) when the canvas sent it
+ * (`selectionInPart`).
+ */
+export type HubRunRange = { start: number; end: number; of: string; was?: string };
+
+/**
+ * The element's runs as they fall on the text a range was measured on: as
+ * stored when that is still their text, ADAPTED onto it when the words changed
+ * and both texts are known (`hubRunsOn`), and none otherwise — a run is never
+ * left on the offsets of words that are gone.
+ */
+export function hubRunsForRange(style: HubElementStyle, range: HubRunRange): HubElementRun[] {
+  if (style.of === range.of) return style.runs ?? [];
+  const now = runText(range.was, range.of);
+  return (now !== null ? hubRunsOn(style, now) : null) ?? [];
+}
+
+/** `{ of, was }` for the text a range was measured on — `was` only when it may be kept. */
+function anchorOf(range: HubRunRange): { of: string; was?: string } {
+  const was = runText(range.was, range.of);
+  return was !== null ? { of: range.of, was } : { of: range.of };
+}
+
+/**
  * ✍ A RANGE OF THE ELEMENT'S TEXT GETS ONE CHOICE. A run with exactly this
  * range is updated; runs that overlap it partly are replaced by it (a letter
  * never belongs to two runs). `of` is the hash of the text the range was
- * measured on — the element's runs are re-anchored to THAT text, and any run
- * made on older text is dropped rather than moved onto the wrong letters.
+ * measured on — the element's runs are re-anchored to THAT text: ADAPTED onto
+ * it when the words changed since they were made and both texts are known
+ * (`adaptHubRuns` — the save-side half of "styles adapt"), dropped otherwise,
+ * never moved onto the wrong letters.
  */
 export function withRunChoice(
   elements: HubElementStyles | null | undefined,
   key: HubElementKey,
-  range: { start: number; end: number; of: string },
+  range: HubRunRange,
   field: 'font' | 'color' | 'size',
   value: string | number | null,
 ): HubElementStyles | null {
   const style: HubElementStyle = { ...(elements?.[key] ?? {}) };
-  const current = style.of === range.of ? (style.runs ?? []) : [];
+  const current = hubRunsForRange(style, range);
   const same = current.find((r) => r.start === range.start && r.end === range.end);
   const others = current.filter((r) => r.end <= range.start || r.start >= range.end);
   const run: Record<string, unknown> = { ...(same ?? {}), start: range.start, end: range.end };
   if (value === null || (field === 'size' && value === HUB_ELEMENT_SIZE_BASE)) delete run[field];
   else run[field] = value;
   const next: Record<string, unknown> = { ...(elements ?? {}) };
-  next[key] = { ...style, runs: [...others, run], of: range.of };
+  const { was: _was, ...rest } = style;
+  next[key] = { ...rest, runs: [...others, run], ...anchorOf(range) };
   return sanitizeHubElements(next);
 }
 
-/** Every run on this range (or overlapping it) gone. */
+/**
+ * Every run on this range (or overlapping it) gone. The range is measured on
+ * the text as drawn now, so the runs are first laid on THAT text (adapted, as
+ * `withRunChoice` does) — never filtered by offsets into words that changed.
+ */
 export function withoutRuns(
   elements: HubElementStyles | null | undefined,
   key: HubElementKey,
-  range: { start: number; end: number } | null,
+  range: HubRunRange | { start: number; end: number } | null,
 ): HubElementStyles | null {
   const style: HubElementStyle = { ...(elements?.[key] ?? {}) };
-  const runs = range ? (style.runs ?? []).filter((r) => r.end <= range.start || r.start >= range.end) : [];
   const next: Record<string, unknown> = { ...(elements ?? {}) };
+  if (range && 'of' in range) {
+    const runs = hubRunsForRange(style, range).filter((r) => r.end <= range.start || r.start >= range.end);
+    const { was: _was, ...rest } = style;
+    next[key] = { ...rest, runs, ...anchorOf(range) };
+    return sanitizeHubElements(next);
+  }
+  const runs = range ? (style.runs ?? []).filter((r) => r.end <= range.start || r.start >= range.end) : [];
   next[key] = { ...style, runs };
   return sanitizeHubElements(next);
 }
@@ -1133,17 +1269,17 @@ export const HUB_ELEMENT_MOTION_PROPS = [
  * ✍ THE TEXT, CUT INTO SEGMENTS BY ITS RUNS — what the guest page renders.
  *
  * `segmentStart` is where this piece of text sits inside the element's whole
- * text (the names are three pieces: first · joiner · second). Runs are applied
- * ONLY while `style.of` is the hash of the element's whole text — otherwise
- * the text changed after they were made, and every run is dropped rather than
- * landing on different letters.
+ * text (the names are three pieces: first · joiner · second). The runs are the
+ * ones `hubRunsOn` lays on that whole text: as made while it is unchanged,
+ * ADAPTED when it changed and the old text is known, none otherwise — never on
+ * different letters.
  */
 export function hubTextSegments(
   text: string,
   style: HubElementStyle | null | undefined,
   whole: { text: string; segmentStart: number },
 ): Array<{ text: string; run: HubElementRun | null }> {
-  const runs = style?.runs && style.of === hubTextHash(whole.text) ? style.runs : null;
+  const runs = hubRunsOn(style, whole.text);
   if (!runs) return [{ text, run: null }];
   const from = whole.segmentStart;
   const to = from + text.length;
@@ -1253,6 +1389,34 @@ export function hubElementSceneCss(
     );
   }
   return css.length > 0 ? css.join('\n') : null;
+}
+
+/**
+ * ✍ A SCENE'S RUNS, AS THE GUEST PAGE CARRIES THEM — the value of the scene's
+ * `<style data-hub-runs>` (`HubCanvasFrame`), or null when no part of the scene
+ * has a run. Only what laying a run needs: its runs, `of` and `was`, per part.
+ * Read back through `readHubSceneRuns`, which sanitizes it again — the page
+ * never trusts its own markup to be a closed set.
+ */
+export function hubSceneRunsAttr(elements: HubElementStyles | null | undefined): string | null {
+  if (!elements) return null;
+  const out: Partial<Record<HubSceneElementKey, Pick<HubElementStyle, 'runs' | 'of' | 'was'>>> = {};
+  for (const key of HUB_SCENE_ELEMENT_KEYS) {
+    const style = elements[key];
+    if (!style?.runs?.length || !style.of) continue;
+    out[key] = { runs: style.runs, of: style.of, ...(style.was !== undefined ? { was: style.was } : {}) };
+  }
+  return Object.keys(out).length > 0 ? JSON.stringify(out) : null;
+}
+
+/** `hubSceneRunsAttr`'s value, read back and sanitized; null when unusable. */
+export function readHubSceneRuns(raw: string | null | undefined): HubElementStyles | null {
+  if (!raw) return null;
+  try {
+    return sanitizeHubElements(JSON.parse(raw));
+  } catch {
+    return null;
+  }
 }
 
 /* ── THE SHEET'S HELPERS ────────────────────────────────────────────────── */

@@ -47,8 +47,8 @@ export type YourEventInput = {
     /** Where the BaZi section is live, the shipped whole form instead (see the editor's docblock). */
     wholeForm: ReactNode | null;
   } | null;
-  /** A one-person event's name (`display_name`) — null for a two-person event. */
-  oneName: { initial: string; hint: string } | null;
+  /** A one-person event's name (`display_name`) — null / absent for a two-person event. */
+  oneName?: { initial: string; hint: string } | null;
   date: {
     confirmedVendorCount: number;
     dateDisplay: string | null;
@@ -94,7 +94,7 @@ export function yourEventParts({
   pieces: Partial<Record<EventItemKey, ReactNode>>;
 } {
   const { kind, facts } = input;
-  const keys = yourEventPresentKeys(kind, input.names !== null || input.oneName !== null);
+  const keys = yourEventPresentKeys(kind, input.names !== null || input.oneName != null);
   const sub: Record<EventItemKey, string | undefined> = {
     names: input.oneName
       ? input.oneName.initial.trim() || 'Not set yet'

@@ -88,6 +88,8 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
               wholeForm: null,
             }
           : null,
+        // A one-person event's Name (owner 2026-09-29, "yes to all 4") — the lab's birthday.
+        oneName: hasTwoNamedPeople(profile) ? null : { initial: fresh ? '' : 'Mateo', hint: 'Guests read it on your page, on every print and on every pass.' },
         date: {
           confirmedVendorCount: 0,
           dateDisplay: fresh ? null : 'December 18, 2026',

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
 import { notFound, redirect } from 'next/navigation';
@@ -43,6 +44,7 @@ import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
+import { DetailsGuideHomeCard } from './_components/details-guide-home-card';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
 import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
@@ -567,8 +569,16 @@ export default async function EventHomePage({
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land
   // between the At-a-glance bento and the journey rail.
+  /* 🪜 "Round N · x of y · Continue" — the Event Hub's guided flow (Details
+     part 5), for whom Details is. Streamed: its reads never hold Home. */
+  const guideMemberType = (papicViewerMembership as { member_type?: string | null } | null)?.member_type ?? null;
   const overlays = (
     <>
+      {guideMemberType === 'couple' ? (
+        <Suspense fallback={null}>
+          <DetailsGuideHomeCard eventId={eventId} memberType={guideMemberType} />
+        </Suspense>
+      ) : null}
       {/* The five essentials of your Nikah — the signature card for the Muslim
        *  wedding track. Shows ONLY for muslim weddings (primary ceremony OR a
        *  mixed ceremony with a muslim leg). Turns the five validity pillars of
@@ -703,7 +713,7 @@ export default async function EventHomePage({
   );
 
   const hasOverlays =
-    isNikahEvent || !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer);
+    guideMemberType === 'couple' || isNikahEvent || !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer);
 
   return (
     <>

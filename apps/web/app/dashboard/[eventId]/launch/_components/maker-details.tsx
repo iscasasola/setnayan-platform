@@ -83,6 +83,10 @@ import { DetailsGoTo } from './details-go';
 import { yourEventParts, type YourEventInput } from './details-your-event-parts';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
+import type { DetailsGuide } from './details-guide';
+import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
+import { parentsOffered } from '@/lib/details-your-event';
+import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
 import {
   PrintPieceBody,
   PrintPieceEditor,
@@ -228,6 +232,24 @@ export type MakerDetailsProps = {
   eventContext: DetailsItemContext;
   /** 🗓 Details part 2a — "Your event" (Names · Date · Venues · Parents & hosts · the march); null = not offered. */
   yourEvent?: YourEventInput | null;
+  /**
+   * 🪜 Details part 5 — the guided "What's left" (`lib/details-guided-flow.ts`).
+   * Its steps and their ✓ / ○ are built HERE from the navigator's own rows, so
+   * a step's "done" is its item's done — never a second opinion. Null = no flow
+   * (the lab without `?guide`).
+   */
+  guide?: {
+    /** Open on the flow (an unfinished event with nothing else named, or `?guide=`). */
+    open: boolean;
+    /** `?guide=ready-N` — that round's Ready screen. */
+    ready: GuidedRound | null;
+    /** The address named an item (`?item=`) — open on its step, or in All items. */
+    itemNamed: boolean;
+    /** The address named the flow itself (`?guide=`). */
+    guideNamed: boolean;
+    /** The flow's first-visit tour (a `MiniTour`), or null. */
+    tour?: ReactNode;
+  } | null;
 };
 
 const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
@@ -365,22 +387,18 @@ export function MakerDetails(props: MakerDetailsProps) {
     if ((WORDS_ITEM_KEYS as readonly string[]).includes(k) || (STORY_ITEM_KEYS as readonly string[]).includes(k)) {
       const w = k as WordsItemKey | StoryItemKey;
       return {
-        ...wordsAndPlansItem(w, {
-          specialMessage,
-          thankYou: pabuyaMessage,
-          openingLine: stored.openingLine,
-          kindlyReply: Boolean(stored.rsvp),
-          include: {
-            specialMessage: inc.specialMessage,
-            thankYou: inc.thankYou,
-            openingLine: inc.openingLine,
-            rsvp: inc.rsvp,
-            loveStory: inc.loveStory !== 'none',
-            schedule: inc.schedule,
-          },
-          loveStoryMoments: loveStory ? loveStory.moments : 0,
-          scheduleMoments: schedule?.moments ?? null,
-        }),
+        /* ONE builder of this input (`wordsAndPlansInputFrom`) — the launch
+           page and Home read "done" through the very same one. */
+        ...wordsAndPlansItem(
+          w,
+          wordsAndPlansInputFrom({
+            specialMessage,
+            pabuyaMessage,
+            stored,
+            loveStoryMoments: loveStory ? loveStory.moments : 0,
+            scheduleMoments: schedule?.moments ?? null,
+          }),
+        ),
         icon: (WORDS_ICON as Record<string, ReactNode>)[w] ?? (STORY_ICON as Record<string, ReactNode>)[w],
       };
     }
@@ -405,6 +423,35 @@ export function MakerDetails(props: MakerDetailsProps) {
     label: g.label,
     items: g.keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
   }));
+
+  /* ══ 🪜 WHAT'S LEFT — the guided flow over these very rows ══ */
+  const plan = props.guide
+    ? buildGuidedPlan(
+        groups.flatMap((g) => g.items),
+        { solemn: eventContext.solemn, parentsOffered: props.yourEvent ? parentsOffered(props.yourEvent.kind) : switches.parents },
+      )
+    : null;
+  const opening = props.guide && plan && props.guide.open && !props.guide.itemNamed && !props.guide.ready ? firstOpenScreen(plan) : null;
+  const openingStep = opening?.kind === 'step' ? plan!.steps.find((s) => s.key === opening.step) : undefined;
+  /* The flow opens on its first step still left — on the item of it still not done. */
+  const startItem: DetailsItemKey = openingStep ? (openingStep.left[0] ?? openingStep.items[0]!) : initialItem;
+  const guide: DetailsGuide | null =
+    props.guide && plan
+      ? {
+          plan,
+          open: props.guide.open && (!props.guide.itemNamed || stepOfItem(plan, initialItem) !== null),
+          ready: props.guide.ready ?? (opening?.kind === 'ready' ? opening.round : null),
+          addressed: props.guide.itemNamed || props.guide.guideNamed,
+          actions: {
+            // The Save the Date as guests meet it, the draft — its way back lands on Details.
+            previewHref: slug ? previewCarriesPlace(`/${slug}?phase=save_the_date&preview=draft`, { kind: 'tool', key: 'details' }) : null,
+            shareUrl: slug ? `${siteOrigin()}${publicEventPath(slug)}` : null,
+            // The Guest list's own invite flow (its "Share the link" tab).
+            sendHref: `${base}/guests?gview=share`,
+          },
+          tour: props.guide.tour ?? null,
+        }
+      : null;
 
   /* ══ BODIES — each item's picture ══ */
   const bodies: Partial<Record<DetailsItemKey, ReactNode>> = {
@@ -708,7 +755,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         groups={groups}
         bodies={bodies}
         editors={editors}
-        initial={initialItem}
+        initial={startItem}
+        guide={guide}
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{

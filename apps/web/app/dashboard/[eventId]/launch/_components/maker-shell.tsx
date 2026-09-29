@@ -84,6 +84,7 @@ export function MakerShell({
   liveStage,
   initialStage,
   initialSelection = null,
+  opensOnGuide = false,
   storeShell,
   priceLabel,
   firstVisit,
@@ -113,6 +114,12 @@ export function MakerShell({
   liveStage: LifecyclePhase | null;
   initialStage: LifecyclePhase;
   initialSelection?: MakerSelection;
+  /**
+   * 🪜 Details opened because this event is unfinished (its guided "What's
+   * left", Details part 5) — NOT because the address named it. What the couple
+   * last had open in this tab then wins, so a stage they went to stays theirs.
+   */
+  opensOnGuide?: boolean;
   storeShell: boolean;
   /** The live catalogue price of Event Hub Pro, formatted; null when unread. */
   priceLabel: string | null;
@@ -166,7 +173,8 @@ export function MakerShell({
   const memoryKey = `sn-maker:${eventId}`;
   const restored = useRef(false);
   /** The address named what to open — memory then never moves Details' item. */
-  const addressNamed = useRef(initialSelection !== null);
+  const addressNamed = useRef(initialSelection !== null && !opensOnGuide);
+  const openedOnGuide = useRef(opensOnGuide);
   useEffect(() => {
     let saved: { stage?: string; device?: string; navOpen?: boolean; selection?: MakerSelection } | null = null;
     try {
@@ -179,7 +187,12 @@ export function MakerShell({
     else if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
     // An address that names what to open (a save's `?scene=`) wins over memory.
-    if (saved?.selection) {
+    if (openedOnGuide.current && saved && 'selection' in saved) {
+      // 🪜 Opened on What's left by default: the tab's own last place wins — a stage included.
+      const moved = movedSelection(saved.selection ?? null);
+      setSelection(moved.selection);
+      if (moved.item) setDetailsItem(moved.item);
+    } else if (saved?.selection) {
       const moved = movedSelection(saved.selection);
       setSelection((cur) => cur ?? moved.selection);
       if (moved.item && !addressNamed.current) setDetailsItem((d) => d ?? moved.item);

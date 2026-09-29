@@ -622,6 +622,9 @@ export async function loadPrintSet(
       nfc: inc.nfc,
       storyExcerpt: inc.loveStory === 'excerpt' ? excerpt(storyText(event.love_story)) : null,
       guestNames: inc.guestNames,
+      // The couple's ONE pick of the pass card's look — the Phone card print
+      // and every saved card draw it (lib/pass-card.ts).
+      passDesign: stored.passDesign,
     },
     // The parents print on the Invitation card (the owner's sample), not twice.
     entourage: entourage.groups.filter((g) => g.key !== 'parents'),
@@ -631,6 +634,8 @@ export async function loadPrintSet(
     menu: menuHasDishes(stored.menu) ? stored.menu : catererMenu,
     hasStill: Boolean(images.still),
     hasEventQr,
+    // Paper says which day its facts are from (the pass card's "As of …").
+    asOf: opts.mode === 'print' ? `As of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}` : null,
   };
   return { event, theme, look, data, images, appUrl, ownerSlug, qrLook };
 }

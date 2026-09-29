@@ -24,9 +24,10 @@ import {
   SIDE_LABELS,
   type GuestRow,
   plusOneSeats,
+  REQUEST_ENTRY_SOURCE,
 } from '@/lib/guests';
 import { QrActions } from '@/app/_components/qr-actions';
-import { GuestQrDownloadLink } from './guest-save-links';
+import { GuestPassCardLink, GuestQrDownloadLink } from './guest-save-links';
 
 // ── chips ─────────────────────────────────────────────────────────────────
 
@@ -130,6 +131,11 @@ export function GuestQrCard({
           saving it, which is the exact bug the owner reported. No ownership
           branch any more: the route draws every guest in the event's look. */}
       <GuestQrDownloadLink href={qrImageSrc} filename={qrFileName} />
+      {/* The guest's pass CARD, free — only for a guest who has one (accepted,
+          coming; the route decides for a plus-one by who brought them). */}
+      {guest.qr_token && guest.entry_source !== REQUEST_ENTRY_SOURCE && guest.rsvp_status !== 'declined' && guest.passed_away !== true ? (
+        <GuestPassCardLink guestId={guest.guest_id} />
+      ) : null}
       <Link
         href={`/dashboard/${eventId}/invitation`}
         className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink/80 underline-offset-4 hover:text-terracotta-700 hover:underline"

@@ -43,6 +43,9 @@ export type PickOption = {
   /** A labelled group heading ("Stages", "Pages"); consecutive options with the
    *  same group share one heading. Omitted = no heading (every other picker). */
   group?: string;
+  /** A small picture of the choice, drawn before its label (the pass card's
+   *  three looks — the couple sees each while picking). Decorative. */
+  thumb?: string;
 };
 
 export function PickMenu({
@@ -234,6 +237,10 @@ export function PickMenu({
           }`}
         >
           {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
+          {o.thumb ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a generated preview from our own route
+            <img src={o.thumb} alt="" aria-hidden width={27} height={36} loading="lazy" className="my-1 h-9 w-[27px] shrink-0 rounded-[3px] object-cover ring-1 ring-ink/10" />
+          ) : null}
           <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
             {o.label}
           </span>

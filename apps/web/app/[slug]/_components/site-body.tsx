@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import Link from 'next/link';
 import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
 import { guestPassFacts } from '@/lib/guest-pass';
+import { PASS_CARD_ROUTE, passCardLine } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
 import { MapPin } from 'lucide-react';
@@ -1684,7 +1685,17 @@ export async function SiteBody({
       plusOneName: guest.plus_one_allowed ? guest.plus_one_name : null,
     });
 
-    const passCard = plan.qrCardShouldRender ? (
+    /* 🛂 NO PASS UNTIL ACCEPTED, NONE FOR "CAN'T COME" (owner 2026-09-29:
+       "only accepted accounts get their images" · "no pass for those who
+       cannot come"). The card's place holds ONE plain line instead — under the
+       same anchor, so "Show your pass" still lands somewhere that explains.
+       Derived from the row at render time: change the reply and it is back. */
+    const passWithheld = g.passCard === 'awaiting' || g.passCard === 'cannotCome' ? passCardLine(g.passCard) : null;
+    const passCard = plan.qrCardShouldRender && passWithheld ? (
+      <section id={PASS_ANCHOR} data-pass-card-withheld={g.passCard ?? ''} className="mx-auto max-w-md scroll-mt-6 text-center">
+        <p className="text-sm text-ink/70">{passWithheld}</p>
+      </section>
+    ) : plan.qrCardShouldRender ? (
       <section
         id={PASS_ANCHOR}
         data-motion="pass"
@@ -1745,7 +1756,11 @@ export async function SiteBody({
         </p>
         {/* Save it or copy it — the code is drawn as an inline SVG, so a
             long-press offers nothing and a screenshot was the only answer. */}
-        <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
+        <GuestCodeKeepers
+          invitationUrl={invitationUrl}
+          className="mt-4"
+          passCardHref={g.passCard === 'pass' ? PASS_CARD_ROUTE : null}
+        />
         {/* 🔑 ONE SEAT LINK (owner 2026-09-21). This card used to carry TWO —
             "Find my table" (the Indoor Blueprint map) and "Your seat pass"
             (this guest's exact seat, the same map, their tablemates and the
@@ -1934,6 +1949,8 @@ export async function SiteBody({
                 venueLatitude: firstPlace ? firstPlace.latitude : event.venue_latitude,
                 venueLongitude: firstPlace ? firstPlace.longitude : event.venue_longitude,
                 tableLabel: guestHubData.tableLabel,
+                // The pass card, or no pass item at all for a guest who has none yet.
+                passHref: g.passCard === null ? undefined : g.passCard === 'pass' ? PASS_CARD_ROUTE : null,
               })}
               initialTicks={g.checklist.ticks}
               readFailed={g.checklist.readFailed}

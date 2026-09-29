@@ -62,6 +62,7 @@ import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
+import { passCardsZipFileName } from '@/lib/pass-card';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -1127,6 +1128,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           /* ⚡ The access is part of the picture (a sample or the real piece). */
           previewVersion={printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null}
           seatPlan={stored.include.seatPlan}
+          passDesign={stored.passDesign}
+          passCardsZip={passCardsZipFileName(printEvent.display_name, printEvent.event_date)}
           menu={{
             saved: stored.menu,
             ...menuSources,

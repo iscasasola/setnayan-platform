@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { FREE_THEMES, HUB_THEMES, INVITE_THEMES, themeNames, type InviteThemeId } from '@/lib/invite-themes';
 import {
   CLASSIC_PRINT_THEME,
+  PRINT_FORMATS,
   PRINT_PIECES,
   PRINT_SET_KEYS,
   isProPrint,
@@ -22,7 +23,16 @@ import { freePrints } from '@/lib/free-prints';
 import { MAKER_DETAILS_LABEL } from './maker-bar';
 import { PrintSaveButton } from './print-save-button';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
+import {
+  DEFAULT_PASS_CARD_DESIGN,
+  PASS_CARD_DESIGNS,
+  PASS_CARD_FORMAT_ID,
+  PASS_CARDS_ZIP_ROUTE,
+  PASS_CARD_WORDS,
+  type PassCardDesign,
+} from '@/lib/pass-card';
+import { PassCardDesignPicker } from './pass-card-design-picker';
 import { PrintPreview } from './print-preview';
 import { PrintChoicePicker } from './print-choice-picker';
 import { PrintMenuEditor } from './print-menu-editor';
@@ -70,7 +80,13 @@ export function MakerPrints({
   seatPlan = 'none',
   menu = { saved: [], caterer: [], suggestions: [], flash: null },
   previewVersion = null,
+  passDesign = DEFAULT_PASS_CARD_DESIGN,
+  passCardsZip = 'passes.zip',
 }: {
+  /** The couple's saved pass card look (`print_details.pass_design`). */
+  passDesign?: PassCardDesign;
+  /** The zip's file name — `<Couple>-<date>-passes.zip` (`passCardsZipFileName`). */
+  passCardsZip?: string;
   /**
    * ⚡ The hash of everything the pieces are drawn from (`printInputsVersion`),
    * put in each on-screen preview's address as `v` — a versioned preview is
@@ -147,6 +163,10 @@ export function MakerPrints({
     return `/dashboard/${eventId}/launch?tool=prints${t2 !== savedTheme ? `&print_theme=${t2}` : ''}&pass_format=${f.pass}&invitation_format=${f.invitation}&card_format=${f.card}`;
   };
   const previewHref = (id: InviteThemeId) => hrefWith({ theme: id });
+  // The zip of every card is Event Hub Pro: ◆ unlocked when owned, ◆ PRO (a
+  // door to the one unlock) on the web, absent in the store shell.
+  const zipMark = makerProMark({ owns: ownsPro, storeShell });
+  const classicPhoneCards = `/api/hub-print/passes?event=${eventId}&mode=print&theme=${CLASSIC_PRINT_THEME}&pass_format=${PASS_CARD_FORMAT_ID}`;
 
   return (
     <div data-maker-prints="" className="h-full overflow-y-auto bg-cream px-4 py-5 sm:px-6">
@@ -283,6 +303,54 @@ export function MakerPrints({
               ) : null}
             </div>
             <p className="text-xs text-ink/55">Passes print {formats.pass.label} size, ganged on A4 with cut lines.</p>
+          </div>
+
+          {/* ══ THE PASS GUESTS SAVE (owner 2026-09-29) — one look for every card,
+              and its two outputs: "print outs are PDF. digital versions are
+              png". Each guest saves their own card free; the couple's zip of
+              every card is Event Hub Pro (◆, never a padlock); the Phone card
+              print is the SAME drawing as a PDF. ══ */}
+          <div data-pass-cards="" className="sn-glass-bare flex flex-col gap-3 rounded-xl px-4 py-3">
+            <p className="text-sm font-semibold text-ink">{PASS_CARD_WORDS.section}</p>
+            <PassCardDesignPicker
+              eventId={eventId}
+              saved={passDesign}
+              previews={
+                Object.fromEntries(
+                  PASS_CARD_DESIGNS.map((d) => [d, `${q('pass', 'screen', PASS_CARD_FORMAT_ID)}&pass_design=${d}`]),
+                ) as Record<PassCardDesign, string>
+              }
+            />
+            <div className="flex flex-col gap-2 text-sm">
+              <div className="flex flex-wrap items-center gap-2" data-pass-cards-digital="">
+                <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/60">{PASS_CARD_WORDS.digital}</span>
+                {zipMark === null ? null : zipMark === 'unlocked' ? (
+                  <PrintSaveButton href={`${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`} file={passCardsZip}>
+                    <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />
+                    {PASS_CARD_WORDS.downloadAll}
+                  </PrintSaveButton>
+                ) : (
+                  <Link
+                    href={`/dashboard/${eventId}/studio/website-pro`}
+                    data-pass-cards-zip-pro=""
+                    className="inline-flex min-h-10 items-center gap-1 rounded-full border border-ink/15 px-3 text-sm font-medium text-ink"
+                  >
+                    <PaidMark state={zipMark} label={paidMarkLabel(zipMark, 'Event Hub Pro')} className="mr-1 align-middle" />
+                    {PASS_CARD_WORDS.downloadAll}
+                  </Link>
+                )}
+                <span className="text-xs text-ink/55">One PNG per guest who is coming. Each guest&rsquo;s own saves free.</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2" data-pass-cards-print="">
+                <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/60">{PASS_CARD_WORDS.print}</span>
+                <PrintSaveButton
+                  href={themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID)}
+                  file={themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes')}
+                >
+                  Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}
+                </PrintSaveButton>
+              </div>
+            </div>
           </div>
 
           {/* Preview the set in another theme — a preview only; the theme is chosen in

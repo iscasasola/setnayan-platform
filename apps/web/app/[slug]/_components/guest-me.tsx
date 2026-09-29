@@ -24,6 +24,7 @@ export function GuestMe({
   eventName,
   guests,
   passes,
+  passCards = null,
   account,
   hasEmail,
   userAgent,
@@ -35,6 +36,9 @@ export function GuestMe({
   eventName: string;
   guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
   passes: Readonly<Record<string, string>>;
+  /** The pass cards this guest may save (lib/pass-card.ts) — their own and each
+   *  named plus-one's who is coming. Null: they have no card yet. */
+  passCards?: { own: string; plusOnes: Readonly<Record<string, string>> } | null;
   account: GuestAccountState | null;
   hasEmail: boolean;
   userAgent: string | null;
@@ -51,6 +55,7 @@ export function GuestMe({
         eventName={eventName}
         addNamesHref={`/${slug}/invite/reply#plus-ones`}
         passes={passes}
+        passCards={passCards}
       />
       {account ? (
         <SaveToAccount

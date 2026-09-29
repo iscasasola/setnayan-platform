@@ -48,6 +48,8 @@ import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { GuestMe } from './_components/guest-me';
+import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
+import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { loadPreviewPerson } from './_lib/preview-person.server';
 import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
 import { AdoptSeatSession } from './_components/adopt-seat-session';
@@ -1648,6 +1650,22 @@ async function InvitationBody({
           look: await resolveEventQrLook(admin, event.event_id, event),
         })
       : { guests: [], passes: {} };
+  // 🎫 THE PASS CARD (owner 2026-09-29: "only accepted accounts get their
+  // images" · "no pass for those who cannot come"). Asked once for this guest
+  // and for the plus-ones they brought; the card route asks again on its own.
+  const [passCard, plusOnePassIds]: [PassCardEligibility | null, Set<string>] = isEditorCanvas
+    ? [null, new Set<string>()]
+    : await Promise.all([
+        passCardEligibilityFor(admin, guest.guest_id),
+        plusOnePassCardIds(admin, event.event_id, guest.guest_id),
+      ]);
+  const passCardHrefs =
+    passCard === 'pass'
+      ? {
+          own: PASS_CARD_ROUTE,
+          plusOnes: Object.fromEntries([...plusOnePassIds].map((id) => [id, `${PASS_CARD_ROUTE}?guest=${id}`])),
+        }
+      : null;
   const meSlot = isEditorCanvas ? null : (
     <>
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
@@ -1664,6 +1682,7 @@ async function InvitationBody({
       eventName={event.display_name ?? 'the celebration'}
       guests={myGuests.guests}
       passes={myGuests.passes}
+      passCards={passCardHrefs}
       account={account}
       hasEmail={Boolean(guest.email?.trim())}
       userAgent={(await headers()).get('user-agent')}
@@ -1687,6 +1706,7 @@ async function InvitationBody({
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         identity={guestIdentity({
           guest,
+          passCard,
           qrSvg,
           invitationUrl,
           guestLiveGallery,

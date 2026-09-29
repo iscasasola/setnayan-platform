@@ -31,6 +31,14 @@ the day."*
   arrived (no date / month-or-year-only counts as upcoming). Past and today
   events, the signs' `qr_published_at`, tables and seat assignments untouched.
   Guarded by `tests/db/seats-early-stamp-reset.db.test.ts`.
+- **More doors follow the rule** (controller audit): the everything-else
+  "Find my table" row (its "NOT day-gated" comment retired — it opens with the
+  rule via `venueWalkHref`), the 3D room's unopened plate ("The 3D room opens
+  on the day"), and no "your seat" promise before the day in the arrival words
+  (`lib/invite-destination.ts`), the join success page or the home-screen card.
+- **The Maker's Seat plan is done when ARRANGED** (a guest is seated), never
+  when guests can see it — `seatPlanArranged` replaces `seatPlanOpen`
+  (controller ruling: visibility can't be finished before the day).
 - **Printing the table signs no longer opens seats early.** New
   `stampTableSigns` stamps `event_tables.qr_published_at` only; "Publish & print"
   uses it instead of `publishSeating`.

@@ -1,6 +1,5 @@
 import 'server-only';
 
-import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { GENERIC_PROFILE, resolveProfile } from '@/lib/event-type-profile';
@@ -70,8 +69,8 @@ export function guidedFactsFrom(input: {
   storyApplies: boolean;
   /** Top-level schedule moments; null when unread (never "0"). */
   scheduleMoments: number | null;
-  /** 🪑 The Seat plan's door is open (guests see it); null when unread, absent where no seat plan was read. */
-  seatPlanOpen?: boolean | null;
+  /** 🪑 The Seat plan is arranged (a guest is seated) — never whether guests can see it; null when unread, absent where no seat plan was read. */
+  seatPlanArranged?: boolean | null;
 }): GuidedDoneFacts & {
   /** The Love Story as edited — null when it could not be read (Details then says so). */
   story: Record<string, unknown> | null;
@@ -99,7 +98,7 @@ export function guidedFactsFrom(input: {
     palette: hasPalette(input.event.role_palette),
     logo: Boolean(col('monogram_custom_svg') || col('monogram_uploaded_svg')),
     hero: Boolean(col('landing_page_hero_image_url') || col('landing_page_hero_video_r2_key')),
-    seatPlanOpen: input.seatPlanOpen ?? null,
+    seatPlanArranged: input.seatPlanArranged ?? null,
     words: wordsAndPlansInputFrom({
       specialMessage,
       pabuyaMessage: input.event.pabuya_message,
@@ -163,13 +162,11 @@ export async function readGuidedPlan({
       .select('block_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('parent_block_id', null),
-    // 🪑 Do guests see their seats? The one rule (lib/guests-may-see-seats.ts) —
-    // the same read the Maker's Seat plan row makes. A failed read is null (unread).
-    guestsMaySeeSeatsFor(supabase, eventId, { throwOnReadError: true }).catch((e: unknown) => {
-      logQueryError('HomeGuide.seatDoor', { message: e instanceof Error ? e.message : String(e) }, { event_id: eventId }, 'graceful_degrade');
-      return null;
-    }),
+    // 🪑 Is the seat plan ARRANGED (a guest seated)? The same count the Maker's
+    // Seat plan row reads — never whether guests can see it yet.
+    supabase.from('event_seat_assignments').select('guest_id', { count: 'exact', head: true }).eq('event_id', eventId),
   ]);
+  if (seatDoorRes.error) logQueryError('HomeGuide.seatArranged', seatDoorRes.error, { event_id: eventId }, 'graceful_degrade');
   if (!event) return null;
   if (scheduleRes.error) logQueryError('HomeGuide.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
   const [profile, ye] = await Promise.all([
@@ -185,7 +182,7 @@ export async function readGuidedPlan({
     yourEvent: ye ? { facts: ye.facts, kind: ye.kind } : null,
     storyApplies,
     scheduleMoments: scheduleRes.error ? null : (scheduleRes.count ?? 0),
-    seatPlanOpen: seatDoorRes,
+    seatPlanArranged: seatDoorRes.error ? null : (seatDoorRes.count ?? 0) > 0,
   });
   return guidedPlanFromFacts({
     ctx,

@@ -69,8 +69,8 @@ export function KeepOnHomeScreen({ coupleName }: { coupleName: string }) {
         Put {coupleName} on your home screen
       </h3>
       <p className="max-w-prose text-sm leading-relaxed text-ink/70">
-        You get an icon with their monogram. One tap opens this invitation — your seat, your QR and
-        the schedule — without hunting for the link.
+        You get an icon with their monogram. One tap opens this invitation — your QR and the
+        schedule, and your seat on the day — without hunting for the link.
       </p>
       <ol className="space-y-1.5 text-sm text-ink/75">
         {steps.map((step, i) => (

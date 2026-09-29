@@ -111,9 +111,11 @@ export function resolveEverythingElseRows(input: EverythingElseInput): Everythin
     );
   }
 
-  // Table lookup shares the seating-published signal with the 3D room, but
-  // is NOT day-gated by it — a couple can publish seating weeks ahead, and
-  // the moment they do the row must go live rather than wait for `isLive`.
+  // 🪑 Table lookup opens with the 3D room, on the ONE seat rule
+  // (lib/guests-may-see-seats.ts, via `venueWalkHref` ← doorway facts'
+  // `seatingPublished` ← `guestsMaySeeSeatsFor`): on the event's day, or earlier
+  // only if the couple chose "Show guests their seats early". Owner 2026-09-30:
+  // "seat plan is only on the day" — never a row that opens onto "not yet".
   if (input.venueWalkHref) {
     rows.push({
       key: 'find-my-table',

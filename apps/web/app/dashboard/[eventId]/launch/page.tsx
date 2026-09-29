@@ -1303,7 +1303,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         storyApplies: detailsItemApplies('love-story', eventContext),
         scheduleMoments: scheduleMoments ? scheduleMoments.length : null,
         // 🪑 The Seat plan row's own done (its door) — read above, never re-read.
-        seatPlanOpen: seatPlan ? seatPlan.open : undefined,
+        // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
+        seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
       });
       detailsUnfinished = isUnfinished(
         guidedPlanFromFacts({

@@ -366,14 +366,15 @@ test('a FAR-FUTURE event is not promised an invitation', () => {
   assert.doesNotMatch(farWords.cta, /Open your invitation/, 'the button still says invitation');
   assert.match(farWords.cta, /save the date/i, 'the button does not name what it opens');
 
-  // …and the near case is untouched: the shipped sentence, byte for byte.
+  // …and the near case: the shipped sentence, minus "your seat" (owner
+  // 2026-09-30: "seat plan is only on the day" — seats open on the day itself).
   const near = getLifecyclePhase(iso(NOW + 30 * day), MNL, null, NOW);
   assert.equal(near, 'rsvp', 'fixture drifted: 30 days out is no longer the invitation phase');
   const nearWords = arrivalDestinationWords(arrivalDestination({ phasesEnabled: true, lifecyclePhase: near }));
   assert.equal(
     nearWords.blurb,
-    'Your invitation is ready — your seat, your QR and everything shared with guests are waiting on it.',
-    'the sentence that was never wrong has been rewritten',
+    'Your invitation is ready — your QR and everything shared with guests are waiting on it.',
+    'the invitation-phase sentence must not promise a seat before the day',
   );
   assert.equal(nearWords.cta, 'Open your invitation');
 });

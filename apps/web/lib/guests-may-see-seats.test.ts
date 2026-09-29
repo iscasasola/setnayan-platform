@@ -17,6 +17,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from './strip-comments';
 import { guestsMaySeeSeats, seatDayHasCome } from './guests-may-see-seats';
+import { arrivalDestinationWords } from './invite-destination';
 
 const WEB = join(__dirname, '..');
 const REPO = join(WEB, '..', '..');
@@ -164,6 +165,41 @@ test('the public landing’s "Find your seat" pill asks the rule (site-body.tsx)
   const code = stripComments(src('app/[slug]/_components/site-body.tsx'));
   assert.match(code, /\{insideAllowed && doorwayFacts\?\.seatingSurfaceEnabled && doorwayFacts\?\.seatingPublished \? \(\s*<div className="mt-8 text-center">\s*<Link\s*href=\{`\/\$\{event\.slug\}\/find-seat`\}/);
   assert.match(code, /\{seatPassActive && !isMakerCanvas \? \(\s*<SeatDoorLine/, 'the Details seat line (data-seat-door)');
+});
+
+test('the everything-else "Find my table" row opens only with the rule (everything-else-rows.ts + site-nav.ts)', () => {
+  const rows = stripComments(src('app/[slug]/_lib/everything-else-rows.ts'));
+  assert.match(rows, /if \(input\.venueWalkHref\) \{\s*rows\.push\(\{\s*key: 'find-my-table'/, 'the row sits behind venueWalkHref');
+  const nav = stripComments(src('app/[slug]/_lib/site-nav.ts'));
+  assert.match(nav, /const venueWalk =\s*input\.seatingSurfaceEnabled && input\.seatingPublished/, 'venueWalkHref is the seat rule');
+  const loaders = stripComments(src('app/[slug]/_lib/loaders.ts'));
+  assert.match(loaders, /seatingSurfaceEnabled \? guestsMaySeeSeatsFor\(admin, eventId\)/, 'seatingPublished IS guestsMaySeeSeatsFor');
+});
+
+test('the 3D room says "find your seat" only once the rule opens it (venue/page.tsx)', () => {
+  const page = stripComments(src('app/[slug]/venue/page.tsx'));
+  const gate = page.indexOf('if (!scene.published) {');
+  const mount = page.indexOf('<GuestVenueLoader');
+  assert.ok(gate > 0 && mount > gate, 'the unopened room returns before the 3D (and its "find your seat" line) mounts');
+  assert.match(page.slice(gate, mount), /return \(/);
+});
+
+test('no arrival words promise "your seat" before the day — only the day-of door does', () => {
+  for (const d of ['save_the_date', 'invitation', 'story'] as const) {
+    assert.doesNotMatch(arrivalDestinationWords(d).blurb, /your seat/i, `${d} promises a seat before the day`);
+  }
+  assert.match(arrivalDestinationWords('day_of').blurb, /your seat/, 'on the day the seat IS there');
+});
+
+test('the Maker’s Seat plan is DONE when arranged, never when guests can see it (controller 2026-09-30)', () => {
+  const md = stripComments(src('app/dashboard/[eventId]/launch/_components/maker-details.tsx'));
+  const row = md.slice(md.indexOf('function seatPlanRow('));
+  assert.match(row, /done: n === null \? undefined : n > 0,/);
+  assert.doesNotMatch(row.slice(0, 1500), /done: seatPlan\?\.open/);
+  const flow = stripComments(src('lib/details-guided-flow.ts'));
+  assert.match(flow, /case 'seating':\s*return f\.seatPlanArranged \?\? undefined;/);
+  const progress = stripComments(src('app/dashboard/[eventId]/launch/_components/details-guided-progress.ts'));
+  assert.ok(!/guestsMaySeeSeats/.test(progress), 'the guided plan must not read visibility for "done"');
 });
 
 // ── 3 · the SQL twin ────────────────────────────────────────────────────────

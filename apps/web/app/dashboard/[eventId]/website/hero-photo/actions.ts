@@ -1,5 +1,6 @@
 'use server';
 
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -38,7 +39,7 @@ import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
  */
 
 /** The hero photo, into the couple's draft — then back to the Maker. Never returns. */
-async function draftHero(eventId: string, ref: string | null, formData: FormData): Promise<never> {
+async function draftHero(eventId: string, ref: string | null, formData: FormData): Promise<void> {
   await saveHubDraftPatch(
     eventId,
     { events: { landing_page_hero_image_url: ref } },
@@ -48,7 +49,7 @@ async function draftHero(eventId: string, ref: string | null, formData: FormData
      guest page — `'/[slug]', 'page'` — was invalidated for nothing), and the
      redirect carries the Maker's fresh render back in this response (owner
      2026-09-28, `a-maker-pick-never-reloads-what-it-drew.test.ts`). */
-  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/launch`));
+  return landAfterWrite(formData, `/dashboard/${eventId}/launch`);
 }
 
 export async function uploadHeroPhoto(formData: FormData) {
@@ -82,7 +83,7 @@ export async function uploadHeroPhoto(formData: FormData) {
      the live hero until Apply, and Apply is where Pro is checked — a free couple
      may TRY their own photo and pays at Apply (owner 2026-09-25). The draft holds
      it to the public bucket; Apply holds it to this event's own uploads. */
-  if (isHubDraftWrite(formData)) await draftHero(eventId, heroImageUrlRaw, formData);
+  if (isHubDraftWrite(formData)) return draftHero(eventId, heroImageUrlRaw, formData);
 
   const supabase = await createClient();
 
@@ -116,9 +117,7 @@ export async function uploadHeroPhoto(formData: FormData) {
   revalidatePath('/[slug]', 'page');
 
   // Land back on the editor so the host sees the new preview tile.
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/hero-photo`),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/hero-photo`);
 }
 
 export async function removeHeroPhoto(formData: FormData) {
@@ -132,7 +131,7 @@ export async function removeHeroPhoto(formData: FormData) {
 
   // 💾 The draft door: "Use the invitation card" in the Maker takes the photo
   // off IN THE DRAFT — guests keep it until Apply. Removing is never Pro.
-  if (isHubDraftWrite(formData)) await draftHero(eventId, null, formData);
+  if (isHubDraftWrite(formData)) return draftHero(eventId, null, formData);
 
   const supabase = await createClient();
 
@@ -149,7 +148,5 @@ export async function removeHeroPhoto(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/website`);
   revalidatePath('/[slug]', 'page');
 
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/hero-photo`),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/hero-photo`);
 }

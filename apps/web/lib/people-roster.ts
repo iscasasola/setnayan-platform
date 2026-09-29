@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { peopleConnectionsEnabled, type ConnectionRelation } from '@/lib/people-connections';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { lovedOnesInMyCare, myLovedOnes, spouseIdSet } from '@/lib/my-loved-ones';
 
 /**
  * people-roster.ts — ONE LIST OF EVERYONE, shaped like the guest list.
@@ -336,22 +337,43 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   }
 
   // ── alaga ────────────────────────────────────────────────────────────────
+  // 🔒 WHOSE ROWS — `lib/my-loved-ones.ts`, the SAME rule the Loved ones view
+  // lists by. RLS admits an ADMIN to every dependent on the platform (prod's
+  // admin is the owner), so the raw read is everybody's: on 2026-09-29 another
+  // user's business ("Indigo Caterers") was counted here as "Loved ones 1" while
+  // the view — which applies the rule — said "No loved ones yet."
+  //   · the COUNT is exactly what the view lists (mine · handed over · my actual
+  //     spouse's shared rows) — it can never claim a row the list cannot show;
+  //   · the ROWS (read by the guest list's "Add from people" sheet) are the ones
+  //     still in my care.
   let alagaCount: number | null = 0;
   if (dependentPeopleEnabled() && (await isDataPrivacyControlActive('dependent_minor_profiles'))) {
-    const { data, error } = await supabase
-      .from('dependents')
-      .select('dependent_id, name, relationship, dependent_kind, handed_over_at')
-      .is('handed_over_at', null)
-      .order('created_at', { ascending: true });
+    const [{ data, error }, { data: spouseIds, error: spouseError }] = await Promise.all([
+      supabase
+        .from('dependents')
+        .select(
+          'dependent_id, name, relationship, dependent_kind, handed_over_at, owner_user_id, handed_over_by_user_id, shared_with_spouse',
+        )
+        .order('created_at', { ascending: true }),
+      supabase.rpc('current_spouse_user_ids'),
+    ]);
     if (error) logQueryError('getPeopleRoster.alaga', error, {}, 'graceful_degrade');
+    // Refused, a spouse's shared rows are left out — exactly as the view leaves
+    // them out, so the count and the list still agree.
+    if (spouseError) logQueryError('getPeopleRoster.alagaSpouse', spouseError, {}, 'graceful_degrade');
     const rows = (data ?? []) as Array<{
       dependent_id: string;
       name: string;
       relationship: string | null;
       dependent_kind: string | null;
+      handed_over_at: string | null;
+      owner_user_id: string | null;
+      handed_over_by_user_id: string | null;
+      shared_with_spouse: boolean | null;
     }>;
-    alagaCount = error ? null : rows.length;
-    for (const d of rows) {
+    const spouses = spouseIdSet(spouseIds);
+    alagaCount = error ? null : myLovedOnes(rows, userId, spouses).length;
+    for (const d of lovedOnesInMyCare(rows, userId, spouses)) {
       people.push({
         key: d.dependent_id,
         kind: 'alaga',

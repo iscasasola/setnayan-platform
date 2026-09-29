@@ -317,6 +317,7 @@ export {
   sectionOrderToPersist,
 } from './custom-columns';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { readSceneLooks, type PostEventSceneLooks } from '@/lib/post-event-draft';
 export type { CustomColumn };
 export { readCustomColumns };
 
@@ -634,6 +635,15 @@ export type EditorialData = {
   // each, placed in the run above via a `custom:<id>` key. Absent/[] for every
   // editorial that has none, which today is all of them.
   customColumns?: CustomColumn[];
+  /**
+   * 🎞 EACH POST EVENT SCENE'S LOOK (owner 2026-09-29, "EVERY STYLE OF EVERY
+   * SCENE SHIPS") — `draft_json.sceneLooks`: which style a scene is drawn in,
+   * and the couple's own words and part styles for it. Read through the ONE
+   * reader (`readSceneLooks`, `lib/post-event-draft.ts`) the Maker writes with.
+   * Absent/{} = every scene in its recommended style, words written from the day.
+   * It carries no order and no eye — `sections` / `sectionOrder` above are those.
+   */
+  sceneLooks?: PostEventSceneLooks;
 };
 
 export type Review = {
@@ -2839,6 +2849,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     sections: readSections(draftJson),
     sectionOrder: readSectionOrder(draftJson),
     customColumns: readCustomColumns(draftJson),
+    sceneLooks: readSceneLooks(draftJson.sceneLooks),
   };
 }
 

@@ -20,6 +20,9 @@
  *             2026-09-25). Nothing unpaid reaches a live column even when this
  *             action is called by hand.
  *   restore — throw the draft away. The live page is not touched.
+ *           📖 Post Event's drafted story keys (show/hide, order, each scene's
+ *           look — `lib/post-event-draft.ts`) are written into the story's
+ *           own row, `event_editorial.draft_json`, and nothing else of it.
  *   reset   — write the page we wrote for one stage (`stage`) INTO THE DRAFT, so
  *             it can be undone until Apply. Its plan names `invitation_widgets`
  *             and one `events` look column only — never guests, replies,
@@ -86,6 +89,7 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import type { CustomSectionContent } from '@/lib/custom-sections';
+import { applyPostEventItems, postEventArrangementOf } from '@/lib/post-event-draft';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -296,6 +300,8 @@ export async function hubDraftAction(
           continue;
         }
       }
+      // A held Post Event look's free part is reported, and kept whole, by its
+      // refused twin — it is written below like any other applied item.
       // "Shown" must never manufacture a blank section — `setSectionMode`'s rule.
       if (item.kind === 'widget' && item.field === 'mode' && item.value === 'shown' && !hasContent(item.widgetType, contentMap)) {
         held.push({ item, reason: 'empty_section' });
@@ -501,11 +507,42 @@ export async function hubDraftAction(
       }
     }
 
-    // 3 · The draft keeps only what was held back (and a record of this apply).
+    // 3 · 📖 Post Event's scenes — the story's OWN row, its `draft_json` and
+    //     nothing else (`applyPostEventItems` touches three keys). Re-read right
+    //     before the write so a save the story workroom or the lazy compile made
+    //     a moment ago is built on, not reverted. Who may read the story is not
+    //     in `draft_json` and is never named here: Apply changes WHAT the story
+    //     shows, never WHO reads it.
+    const storyItems = toWrite.flatMap((i) => (i.kind === 'editorial' ? [i.item] : []));
+    if (storyItems.length > 0) {
+      const { data: storyRow, error: storyErr } = await supabase
+        .from('event_editorial')
+        .select('draft_json')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (storyErr || !storyRow) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      const liveStory = (storyRow as { draft_json?: unknown }).draft_json ?? {};
+      snapshot.editorial = postEventArrangementOf(liveStory);
+      const { data: sRows, error: sErr } = await supabase
+        .from('event_editorial')
+        .update({ draft_json: applyPostEventItems(liveStory, storyItems) })
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (sErr || !Array.isArray(sRows) || sRows.length === 0) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+
+    // 4 · The draft keeps only what was held back (and a record of this apply).
     const remaining: HubDraftState = { events: {}, widgets: {} };
     for (const { item } of held) {
       if (item.kind === 'event') remaining.events[item.column] = item.value;
-      else if (item.field === 'canvas') {
+      else if (item.kind === 'editorial') {
+        // A held look keeps the WHOLE drafted map — its free part is now live.
+        if (item.item.field === 'sceneLooks') remaining.editorial = { ...(remaining.editorial ?? {}), sceneLooks: item.item.value };
+      } else if (item.field === 'canvas') {
         (remaining.widgets[item.widgetType] ??= {}).canvas = item.value as HubSectionCanvas | null;
       } else if (item.field === 'main') {
         (remaining.widgets[item.widgetType] ??= {}).main = item.value as HubMainGround | null;

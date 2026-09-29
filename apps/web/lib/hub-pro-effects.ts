@@ -50,6 +50,9 @@ import {
   type HubDraftState,
   type HubLiveState,
 } from '@/lib/hub-draft';
+import { HUB_ELEMENT_PRO_FIELDS } from '@/lib/hub-look-pro';
+import { postEventArrangementOf, sceneLooksFreePart, type PostEventSceneLooks } from '@/lib/post-event-draft';
+import { POST_EVENT_SCENE_TYPE_LABEL, postEventSceneTypeOf } from '@/lib/post-event-styles';
 
 /** Where "Go to" takes the couple in the Maker (a `MakerSelection`, plus a part). */
 export type HubProEffectJump =
@@ -185,6 +188,10 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
   };
 
   for (const item of refused) {
+    if (item.kind === 'editorial') {
+      for (const effect of postEventEffects(item.item.field === 'sceneLooks' ? item.item.value : null, live)) push(effect);
+      continue;
+    }
     if (item.kind === 'event') {
       const named = eventEffect(item.column, item.value);
       push({
@@ -249,6 +256,47 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
     }
     if (item.field === 'canvas') {
       for (const effect of canvasEffects(item, row?.config_json, scene, stages)) push(effect);
+    }
+  }
+  return out;
+}
+
+/**
+ * 📖 A refused Post Event look (`sceneLooks`) → one effect per scene part whose
+ * OWN font or animation is new — the only Pro in a Post Event scene (show/hide,
+ * order, styles and words are free). Asked the same way the plan asks it:
+ * `sceneLooksFreePart` is what Apply writes for a couple without Pro, so a part
+ * whose free write differs from its drafted one is exactly what the plan holds.
+ * "Remove" puts that one field back to what guests see today, for that part
+ * only; "Go to" opens the scene's tile (`p:<scene>`) in the navigator.
+ */
+function postEventEffects(drafted: PostEventSceneLooks | null, live: HubLiveState): HubProEffect[] {
+  if (!drafted) return [];
+  const liveLooks = postEventArrangementOf(live.editorial ?? null).sceneLooks;
+  const out: HubProEffect[] = [];
+  for (const [key, look] of Object.entries(drafted)) {
+    const freeLook = sceneLooksFreePart(liveLooks, { [key]: look })[key];
+    const type = postEventSceneTypeOf(key);
+    const where = (type && POST_EVENT_SCENE_TYPE_LABEL[type]) || 'Post Event';
+    for (const [part, style] of Object.entries(look.elements ?? {}) as Array<[HubElementKey, Record<string, unknown>]>) {
+      const free = (freeLook?.elements?.[part] ?? {}) as Record<string, unknown>;
+      for (const field of HUB_ELEMENT_PRO_FIELDS) {
+        if (JSON.stringify(style[field]) === JSON.stringify(free[field])) continue;
+        const backed: Record<string, unknown> = { ...style };
+        if (free[field] === undefined) delete backed[field];
+        else backed[field] = free[field];
+        out.push({
+          id: `pe:${key}:${part}:${field}`,
+          what: field === 'font' ? 'Font' : 'Animation',
+          where: `${HUB_ELEMENT_LABEL[part]} on ${where}`,
+          jump: { kind: 'row', key: `p:${key === 'chapters' ? 'ch-1' : key}` },
+          remove: {
+            editorial: {
+              sceneLooks: { ...drafted, [key]: { ...look, elements: { ...look.elements, [part]: backed } } } as PostEventSceneLooks,
+            },
+          },
+        });
+      }
     }
   }
   return out;

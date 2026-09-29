@@ -141,6 +141,7 @@ export function StorySpine({
   storyCard,
   sheets = [],
   makerMarkers = false,
+  coverScene = null,
 }: {
   data: EditorialData;
   facts: StorySpineFacts;
@@ -185,6 +186,14 @@ export function StorySpine({
   sheets?: readonly DrawnSheet[];
   /** 🧭 The Maker's canvas only — a hidden `p:you` marker for the navigator (Maker Phase 8). */
   makerMarkers?: boolean;
+  /**
+   * 🎞 THE FRONT PAGE, IN THE STYLE THE COUPLE PICKED (owner 2026-09-29,
+   * "EVERY STYLE OF EVERY SCENE SHIPS") — drawn where the cover's own names,
+   * sentence and facts stood, so the story never prints its name twice. The
+   * mark, the edition, Relive, share and the sample / complete badges stay:
+   * they are the cover's controls, not its title. Null → the shipped cover.
+   */
+  coverScene?: ReactNode;
 }): ReactElement {
   // A sample carries no audience and exists to be read — the same exemption the
   // shipped gate and `redactStoryLayers` both make, for the same reason.
@@ -743,6 +752,10 @@ export function StorySpine({
           ) : null}
         </div>
 
+        {coverScene ? (
+          coverScene
+        ) : (
+        <>
         <div className="mt-6">
           {data.eventDateFormatted ? (
             <span className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
@@ -772,6 +785,8 @@ export function StorySpine({
             ))}
           </dl>
         </div>
+        </>
+        )}
       </header>
 
       {/* ═══════════ THE DIAL ═══════════ */}

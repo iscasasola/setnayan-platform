@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
@@ -46,6 +46,13 @@ export type PickOption = {
   /** A labelled group heading ("Stages", "Pages"); consecutive options with the
    *  same group share one heading. Omitted = no heading (every other picker). */
   group?: string;
+  /**
+   * 🎨 One line under the label — what the choice looks like (a scene's Style
+   * dropdown: "One figure leads; the rest step down"). Omitted = one line.
+   */
+  hint?: string;
+  /** 🎨 A small live picture of the choice, left of the label (a Style's mini preview). */
+  preview?: ReactNode;
 };
 
 export function PickMenu({
@@ -233,13 +240,23 @@ export function PickMenu({
             onPick(o.key);
           }}
           className={`flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-300 ease-in-out disabled:cursor-default disabled:text-ink/40 ${
-            o.key === value ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'
-          }`}
+            o.hint || o.preview ? 'py-2' : ''
+          } ${o.key === value ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'}`}
         >
           {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
-          <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
-            {o.label}
-          </span>
+          {o.preview ? <span aria-hidden className="shrink-0">{o.preview}</span> : null}
+          {o.hint ? (
+            <span className="min-w-0">
+              <span className="block font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+                {o.label}
+              </span>
+              <span className="block text-[12px] font-medium leading-snug opacity-75">{o.hint}</span>
+            </span>
+          ) : (
+            <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+              {o.label}
+            </span>
+          )}
           {o.dot ? <span className="text-[12px] font-medium opacity-70">· {o.dotNote ?? 'live today'}</span> : null}
           {o.disabledNote ? <span className="text-[12px] font-medium">· {o.disabledNote}</span> : null}
         </button>

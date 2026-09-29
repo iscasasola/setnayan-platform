@@ -546,5 +546,9 @@ test('GUARD: the Our Story poster is never printed blank', () => {
   const maker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
   assert.match(maker, /\{menuEmpty \|\| storyMissing \? null : \(/, 'the Maker offers no download for an empty story poster');
   const page = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/page.tsx'), 'utf8'));
-  assert.match(page, /storyEmpty=\{!storyHasMoments\(printStoryChapters\(printEvent\.love_story\)\)\}/, 'the Maker asks the same read the print draws');
+  // Details carries the prints as one input (\`PrintsInput\`), so the flag is a property of it.
+  assert.match(page, /storyEmpty: !storyHasMoments\(printStoryChapters\(printEvent\.love_story\)\)/, 'the Maker asks the same read the print draws');
+  // The Love Story lives in Details: "Add your Love Story" opens that item IN PLACE — no link out.
+  assert.match(maker, /<DetailsGoTo item="love-story"/, 'the poster opens Details › Love Story in place');
+  assert.doesNotMatch(maker, /tool=love-story/, 'never a link out of the Maker to the Love Story');
 });

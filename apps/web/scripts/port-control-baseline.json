@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d70f4c6b4",
+  "generatedFromRef": "3ca3a5218",
   "routeCount": 437,
   "destinations": 947,
-  "actions": 673,
-  "blocks": 5170,
+  "actions": 671,
+  "blocks": 5171,
   "routes": {
     "/": {
       "files": [
@@ -754,6 +754,7 @@
         "[slug]/_components/arrival-action.tsx",
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/background-music.tsx",
+        "[slug]/_components/copy-my-link.tsx",
         "[slug]/_components/countdown.tsx",
         "[slug]/_components/custom-section-widget.tsx",
         "[slug]/_components/day-of-announcement.tsx",
@@ -967,8 +968,6 @@
       "actions": [
         "action",
         "arrivalAction",
-        "signInWithApple",
-        "signInWithGoogle",
         "submit",
         "toggle",
         "toggleBlur",
@@ -1007,6 +1006,7 @@
         "ConsoleHeading",
         "ConsolePlate",
         "ConsoleRule",
+        "CopyMyLink",
         "CountdownWidget",
         "CoupleLogo",
         "CssFallback",
@@ -1133,7 +1133,7 @@
         "Monogram",
         "NavLinksRow",
         "NotYouSwitch",
-        "OAuthButtonRow",
+        "OpenInBrowser",
         "OpenUpScene",
         "OpenUpTabs",
         "OurLoveStoryWidget",

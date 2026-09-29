@@ -55,7 +55,7 @@ import { celebrantsForViewer } from '@/lib/event-celebrants.server';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { addCelebrantFromEvent, setFollowByPublicId } from '@/app/dashboard/(account)/people/actions';
 import { loadPreviewPerson } from './_lib/preview-person.server';
-import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
+import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { AdoptSeatSession } from './_components/adopt-seat-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
 import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
@@ -170,8 +170,8 @@ type Props = {
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
     save?: string;
     rsvp?: string;
-    // The one account card's own outcome (`claimAccountAction`): `error` when
-    // the sign-in link could not be sent. A sent link is read from its cookie.
+    // The one account press's outcome (`startAccountSaveAction`): `terms` when
+    // it came back for the Terms tick. Nothing is emailed (owner 2026-09-29).
     keep?: string;
     // Editor RSVP'd tab (2026-07-26) — `?as=replied` previews the `rsvp` phase
     // as a guest who already answered "attending". Honoured ONLY for a viewer
@@ -1604,25 +1604,18 @@ async function InvitationBody({
     viewerSeat && viewerAccount && viewerSeat.guestId === guest.guest_id
       ? viewerAccount.id
       : await readSeatHolder(event.event_id, guest.guest_id);
-  const accountBase = guestAccountState({
+  const account = guestAccountState({
     viewerUserId: viewerAccount?.id ?? null,
     viewerEmail: viewerAccount?.email ?? null,
     seatHolderUserId,
-    linkSentForThisEvent: await keepLinkSentFor(event.event_id),
   });
-  const account =
-    accountBase.kind === 'offer' && search.keep === 'error'
-      ? { kind: 'offer' as const, failed: true }
-      : accountBase;
 
   const rsvpFlash =
     search.rsvp === 'ok'
       ? {
           tone: 'ok' as const,
           text:
-            account.kind === 'link_sent'
-              ? 'Your reply is in — thank you. Check your email for the link that keeps this invitation on your phone.'
-              : 'Your reply is in — thank you.',
+            'Your reply is in — thank you.',
         }
       : search.rsvp === 'error'
         ? {
@@ -1733,7 +1726,7 @@ async function InvitationBody({
       passes={myGuests.passes}
       passCards={passCardHrefs}
       account={account}
-      hasEmail={Boolean(guest.email?.trim())}
+      personalLink={invitationUrl}
       userAgent={(await headers()).get('user-agent')}
       termsCarried={rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value)}
       inviteFacts={{

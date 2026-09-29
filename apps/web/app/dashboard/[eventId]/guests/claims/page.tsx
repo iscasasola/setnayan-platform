@@ -50,9 +50,8 @@ type RequestRow = {
 
 /** What reached the person after Keep or Link (`doneOnRequests` in actions.ts). */
 const DONE_COPY: Record<string, string> = {
-  emailed: 'Done — their invitation is on its way by email, with "Save to my account" waiting on it.',
-  no_email: 'Done — they left no email, so share their invitation from the guest list.',
-  not_sent: 'Done — but their invitation email did not send. Share it from the guest list.',
+  // 📵 Nothing is emailed (owner 2026-09-29). Their own link already opens.
+  kept: 'Done — they’re on your list. The link they already have now opens their invitation.',
 };
 
 /**

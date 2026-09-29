@@ -8,7 +8,6 @@ import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { DetailsPieceOnly } from './details-piece';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
-  GUEST_REMINDERS_TIP,
   ONE_AT_A_TIME_TIP,
   RSVP_ASK_FIELDS,
   RSVP_ASK_LABEL,
@@ -16,7 +15,6 @@ import {
   WHO_CAN_RSVP,
   WHO_CAN_RSVP_LABEL,
   WHO_CAN_RSVP_TIP,
-  readGuestReminders,
   readOneAtATime,
   readWhoCanRsvp,
   rsvpAsks,
@@ -40,8 +38,8 @@ import { formatCount } from '@/lib/format-number';
  *                                   rule "no link-outs"), the same column and the
  *                                   same save as Details › pax settings
  *                                   (`updatePaxSettings`): one column, two doors
- *   · Reminder emails              (`rsvp_ask_config.guestReminders` — the
- *                                   30 · 7 · 1 day guest emails; absent = On)
+ *   (· Reminder emails — REMOVED 2026-09-29: no email to guests, owner ruling;
+ *      `GUEST_REMINDER_EMAILS_ON` in lib/guest-reminder-emails-core.ts)
  *   · Requests waiting             — the shipped Requests rows (Keep · Remove ·
  *                                   Link) drawn IN PLACE (`requests.list`, the
  *                                   Requests page itself with `maker=1`)
@@ -161,7 +159,6 @@ export function MakerRsvpSettings({
 
   const oneAtATime = readOneAtATime(local);
   const who = readWhoCanRsvp(local);
-  const guestReminders = readGuestReminders(local);
 
   return (
     <div className="flex flex-col gap-5 px-1" data-made-once="rsvp-page">
@@ -256,32 +253,6 @@ export function MakerRsvpSettings({
       </section>
       </DetailsPieceOnly>
 
-      <DetailsPieceOnly item="rsvp" piece="reminders">
-      {/* ── Reminder emails — 30 · 7 · 1 days (owner 2026-09-26). ONE switch,
-          `rsvp_ask_config.guestReminders`; absent = On. The sender
-          (`lib/guest-reminder-emails.ts`) reads the LIVE value, so like every
-          setting on this page it takes effect when the couple presses Apply. ── */}
-      <section className="flex flex-col gap-1" data-rsvp-setting="guest-reminders">
-        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-          <InfoTip label="Reminder emails" align="start">
-            {GUEST_REMINDERS_TIP}
-          </InfoTip>
-        </p>
-        <Switch
-          label={
-            guestReminders
-              ? 'On · 30 days, 7 days and the day before'
-              : 'Off · no reminder emails'
-          }
-          on={guestReminders}
-          onChange={(v) => save({ guestReminders: v })}
-        />
-        <p className="text-xs text-ink/60">
-          Only guests with an email. Each reminder lists what they have not ticked on their checklist and links to their own page.
-        </p>
-      </section>
-      </DetailsPieceOnly>
-
       <DetailsPieceOnly item="rsvp" piece="requests">
       {/* ── Requests waiting — the shipped rows, in place (Keep · Remove · Link) ── */}
       <section className="flex flex-col gap-2" data-rsvp-setting="requests">
@@ -323,7 +294,6 @@ export function MakerRsvpSettings({
 function rsvpSettingName(patch: RsvpAskConfig): string {
   if ('oneAtATime' in patch) return '“Ask one question at a time”';
   if ('whoCanRsvp' in patch) return '“Who can RSVP?”';
-  if ('guestReminders' in patch) return '“Reminder emails”';
   const field = RSVP_ASK_FIELDS.find((f) => f in patch);
   return field ? `“${RSVP_ASK_LABEL[field]}”` : 'That change';
 }

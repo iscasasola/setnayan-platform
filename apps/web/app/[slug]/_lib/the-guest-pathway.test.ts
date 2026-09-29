@@ -194,7 +194,6 @@ test('2 · 🔒 "only what is missing" carries every unasked answer through AS S
     ['meal_preference', 'fish'],
     ['dietary_restrictions', 'nut allergy'],
     ['guest_note', 'See you!'],
-    ['contact_email', 'tita@example.com'],
     ['contact_display_name', 'Tita Baby'],
   ] as const) {
     assert.match(
@@ -247,15 +246,17 @@ test('3 · the method is chosen by the DEVICE, never shown as a choice', () => {
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
   const IOS_APP = `${IOS_SAFARI} SetnayanApp`;
   const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
-  assert.equal(saveMethodFor(MESSENGER, both), 'email', 'Google blocks sign-in inside Messenger — it must be the email link');
-  assert.equal(saveMethodFor(INSTAGRAM, both), 'email');
+  // 📵 Never the email link any more (owner 2026-09-29, "NO EMAIL TO GUESTS"):
+  // inside Messenger the button is "Open in your browser" (frame F).
+  assert.equal(saveMethodFor(MESSENGER, both), 'browser', 'Google blocks sign-in inside Messenger — it must be "Open in your browser"');
+  assert.equal(saveMethodFor(INSTAGRAM, both), 'browser');
   assert.ok(isInAppWebview(MESSENGER) && !isInAppWebview(IOS_SAFARI));
   assert.equal(saveMethodFor(IOS_SAFARI, both), 'apple');
   assert.equal(saveMethodFor(IOS_APP, both), 'apple');
   assert.equal(saveMethodFor(ANDROID, both), 'google');
   // A provider that is not switched on is never offered.
   assert.equal(saveMethodFor(IOS_SAFARI, { apple: false, google: true }), 'google');
-  assert.equal(saveMethodFor(ANDROID, { apple: false, google: false }), 'email');
+  assert.equal(saveMethodFor(ANDROID, { apple: false, google: false }), 'link', 'no provider must fall back to the guest’s own link, never an email');
 });
 
 test('3 · WIRING: the thank-you mounts ONE Save, "Your guests", and a small "Not now"', () => {

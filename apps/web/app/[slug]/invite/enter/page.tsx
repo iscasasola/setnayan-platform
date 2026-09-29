@@ -5,7 +5,7 @@ import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { joinDoorMeta } from '@/lib/join-door-meta';
-import { INVITE_LINK_SENT_COOKIE, inviteReplyPath } from '@/lib/invite-arrival';
+import { inviteReplyPath } from '@/lib/invite-arrival';
 import { arrivalDestinationFor, arrivalDestinationWords } from '@/lib/invite-destination';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -13,7 +13,7 @@ import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
 import { QR_LOOK_COLUMNS_AFTER_INVITE_MARK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { guestAccountState } from '@/lib/guest-one-path';
-import { keepLinkSentFor, readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.server';
+import { readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.server';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { eventWordsFor } from '../../_lib/event-words';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
@@ -39,8 +39,9 @@ type Props = {
  *
  * The method behind that one button is CHOSEN BY THE DEVICE, never shown as a
  * choice (`saveMethodFor`, lib/guest-one-path.ts): Messenger / Instagram /
- * Facebook webviews → the emailed link (Google blocks sign-in there); iPhone
- * → Apple; Android and desktop → Google. It REPLACES the "Two ways to
+ * Facebook webviews → "Open in your browser" (Google blocks sign-in there, and
+ * 📵 nothing is emailed to a guest — owner 2026-09-29); iPhone → Apple; Android
+ * and desktop → Google. It REPLACES the "Two ways to
  * celebrate" pitch the invitation used to carry (owner 2026-09-26: *"when
  * linking to an account. make sure all details … will be filled. if they
  * filled it up, they choose a login page."*).
@@ -79,7 +80,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
 
   const { data: guest, error: guestError } = await admin
     .from('guests')
-    .select('guest_id, role, email, entry_source, qr_token, first_name, last_name, display_name, rsvp_status, meal_preference')
+    .select('guest_id, role, entry_source, qr_token, first_name, last_name, display_name, rsvp_status, meal_preference')
     .eq('guest_id', session.guest_id)
     .eq('event_id', event.event_id)
     .is('deleted_at', null)
@@ -90,10 +91,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   if (!guest) redirect(`/${home}`);
 
   const cookieStore = await cookies();
-  const email = (guest.email as string | null)?.trim() || null;
-  const linkSent =
-    search.keep === 'sent' ||
-    (cookieStore.get(INVITE_LINK_SENT_COOKIE)?.value === event.event_id && Boolean(email));
 
   // What happened to the reply they just saved — the same sentences the
   // Event Hub's card renders, so the arrival and the site never disagree.
@@ -174,7 +171,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
     seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
-    linkSentForThisEvent: linkSent || (await keepLinkSentFor(event.event_id as string)),
   });
   const userAgent = (await headers()).get('user-agent');
 
@@ -233,11 +229,9 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             state={account}
             eventId={event.event_id as string}
             slug={home}
-            hasEmail={Boolean(email)}
+            personalLink={invitationUrl}
             userAgent={userAgent}
             termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-            failed={search.keep === 'error'}
-            askEmail={search.keep === 'email'}
           />
           <p className="text-sm text-ink/70">{destinationWords.blurb}</p>
           <Link className="button-primary w-full" href={`/${home}`}>
@@ -250,12 +244,10 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             state={account}
             eventId={event.event_id as string}
             slug={home}
-            hasEmail={Boolean(email)}
+            personalLink={invitationUrl}
             userAgent={userAgent}
             termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-            failed={search.keep === 'error'}
-            askEmail={search.keep === 'email'}
-            sentTo={linkSent ? email : null}
+            termsMissing={search.keep === 'terms'}
           />
           <p className="text-center">
             <Link

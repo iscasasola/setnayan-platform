@@ -215,6 +215,8 @@ const DOOR = () => read(...SLUG, 'welcome', '_components', 'plus-one-door.tsx');
 
 async function renderDoor(row: PlusOneRow, extra: Record<string, unknown> = {}) {
   const { renderToStaticMarkup } = await import('react-dom/server');
+  // A provider is on, as in production — without one the Save is the guest's own link.
+  process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED = 'true';
   const { PlusOneDoor } = await import('../welcome/_components/plus-one-door');
   return renderToStaticMarkup(
     React.createElement(PlusOneDoor as never, {
@@ -227,7 +229,7 @@ async function renderDoor(row: PlusOneRow, extra: Record<string, unknown> = {}) 
       filled: plusOneFilled(row, ASK_ALL),
       inside: plusOneGate(row, ASK_ALL, false) === 'inside',
       account: { kind: 'offer' },
-      hasEmail: true,
+      personalLink: 'https://www.setnayan.com/ic?invite=0123456789abcdef0123456789abcdef',
       userAgent: null,
       termsCarried: false,
       passSvg: null,
@@ -298,7 +300,8 @@ test('F · the save writes only their own four, then takes the device’s method
   assert.match(save, /session\.guest_id/, 'the guest is not the one the pass names');
   assert.match(save, /saveMethodFor\(/, 'the method is not the device’s');
   assert.match(save, /signInWithApple\(next\)/);
-  assert.match(save, /claimAccountAction\(/);
+  // 📵 No emailed link any more (owner 2026-09-29, "NO EMAIL TO GUESTS").
+  assert.doesNotMatch(save, /claimAccountAction|sendEmail|sendEventAccountMagicLink/, 'the plus-one door mails a sign-in link again');
   assert.match(save, /PLUS_ONE_WELCOMED_COOKIE/);
   // "Not now" never demands a name.
   assert.match(save, /if \(then !== 'pass' && unnamed && \(!first_name \|\| !last_name\)\)/);
@@ -313,7 +316,7 @@ test('F · SaveToAccount’s through-mode is ONE form: the fields, the tick, the
       state: { kind: 'offer' },
       eventId: 'e-1',
       slug: 'ic',
-      hasEmail: false,
+      personalLink: 'https://www.setnayan.com/ic?invite=0123456789abcdef0123456789abcdef',
       userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1',
       termsCarried: false,
       through: {
@@ -329,6 +332,17 @@ test('F · SaveToAccount’s through-mode is ONE form: the fields, the tick, the
   assert.match(html, /data-save-method="apple"/, 'an iPhone is not given Apple — the tick rides the same form');
   assert.match(html, /just show my pass/);
   delete process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED;
+});
+
+test('F · 📵 inside Messenger the door saves the answers and hands over "Open in your browser" — never an email', async () => {
+  const html = await renderDoor(BEN, {
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/430.0]',
+  });
+  assert.equal((html.match(/Save to my account/g) ?? []).length, 1, 'the sheet eyebrow aside, no provider button may show');
+  assert.match(html, /data-save-open-in-browser=""/, 'Messenger is not handed "Open in your browser"');
+  assert.match(html, />Open in your browser</);
+  assert.match(html, /<button[^>]*value="done"[^>]*>Save<\/button>|>Save<\/button>/, 'the answers have no plain Save');
+  assert.doesNotMatch(html, /type="email"|Check your email/);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

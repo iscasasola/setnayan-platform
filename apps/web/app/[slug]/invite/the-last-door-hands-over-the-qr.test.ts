@@ -65,7 +65,7 @@ test('door 03 mounts the QR panel, and builds the image from the SESSION guest',
   assert.match(ENTER, /qrToken: guest\.qr_token as string/, 'the code is no longer built from the guest row the session resolved');
   assert.match(
     ENTER,
-    /\.select\('guest_id, role, email, entry_source, qr_token/,
+    /\.select\('guest_id, role, entry_source, qr_token/,
     'the door stopped reading qr_token — the QR would be built from undefined',
   );
   // The image is handed DOWN, pre-rendered. A panel that could render its own

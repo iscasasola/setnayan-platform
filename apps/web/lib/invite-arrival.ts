@@ -98,11 +98,3 @@ export function inviteEnterPath(slug: string): string {
   return `/${slug}/invite/enter`;
 }
 
-/**
- * Set by the Reply door's save when it emails a sign-in link, and read by the
- * Enter door so "your sign-in link is on its way" is only ever said when a link
- * actually went. Holds the EVENT id (not the address), so a guest invited to two
- * weddings is never told about a link for the other one — and it doubles as the
- * de-dupe: a guest who saves their reply three times gets one email, not three.
- */
-export const INVITE_LINK_SENT_COOKIE = 'sn_invite_link_sent';

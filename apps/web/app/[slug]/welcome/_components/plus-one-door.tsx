@@ -34,7 +34,7 @@ export function PlusOneDoor({
   filled,
   inside,
   account,
-  hasEmail,
+  personalLink,
   userAgent,
   termsCarried,
   passSvg,
@@ -53,7 +53,8 @@ export function PlusOneDoor({
   /** Nothing REQUIRED is missing — the Event Hub will open for them. */
   inside: boolean;
   account: GuestAccountState;
-  hasEmail: boolean;
+  /** Their own invitation link — handed over where no provider can sign in. */
+  personalLink: string | null;
   userAgent: string | null;
   termsCarried: boolean;
   passSvg: string | null;
@@ -234,7 +235,7 @@ export function PlusOneDoor({
           state={account}
           eventId={eventId}
           slug={home}
-          hasEmail={hasEmail}
+          personalLink={personalLink}
           userAgent={userAgent}
           termsCarried={termsCarried}
           through={{ action: confirmAction, fields, after: showPass ? null : notNow }}
@@ -252,7 +253,7 @@ export function PlusOneDoor({
             state={account}
             eventId={eventId}
             slug={home}
-            hasEmail={hasEmail}
+            personalLink={personalLink}
             userAgent={userAgent}
             termsCarried={termsCarried}
           />

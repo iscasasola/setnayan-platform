@@ -18,14 +18,14 @@ function back(eventId: string, message: string): never {
 }
 
 /**
- * After Keep or Link from the Requests page, say what reached the person — the
- * key went by email, or they left no email and the couple shares it. The
- * roster's inline buttons (no `from`) keep revalidating in place.
+ * After Keep or Link from the Requests page, come back saying it is done. 📵
+ * Nothing is emailed (owner 2026-09-29, "NO EMAIL TO GUESTS"): the person holds
+ * their key already, and reopening it now opens their invitation. The roster's
+ * inline buttons (no `from`) keep revalidating in place.
  */
 function doneOnRequests(eventId: string, formData: FormData, issued: IssuedKey): void {
   if (String(formData.get('from') ?? '') !== 'requests') return;
-  const sent = issued.emailed ? 'emailed' : issued.noEmail ? 'no_email' : 'not_sent';
-  redirect(`/dashboard/${eventId}/guests/claims?done=${sent}${issued.bound ? '&bound=1' : ''}`);
+  redirect(`/dashboard/${eventId}/guests/claims?done=kept${issued.bound ? '&bound=1' : ''}`);
 }
 
 /**

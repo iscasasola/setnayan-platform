@@ -1197,13 +1197,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       const rsvpItem = {
         page: rsvpSrc && rsvpRepliedSrc ? (
           <>
-            {/* 📮 The reminder-emails hint (owner 2026-09-25 — every feature
-                gets a first-visit tour), on the item's PICTURE: Details mounts
-                a picture only when its item is first opened (every editor is
-                mounted at once), so it shows on the first open of RSVP and
-                never stacks on another item's tour — nor on the Maker's very
-                first visit. */}
-            {!firstVisit ? <MiniTour tourKey="customer_guest_reminders_v1" storeShell={storeShell} /> : null}
             <MakerRsvpCanvas questionsSrc={rsvpSrc} repliedSrc={rsvpRepliedSrc} stamp={rsvpStamp} />
           </>
         ) : (

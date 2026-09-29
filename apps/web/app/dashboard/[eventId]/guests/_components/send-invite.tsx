@@ -243,7 +243,8 @@ export function SendInviteActions({
             <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2.25} />
             <span className="font-medium">Sent ✓</span>
             <span className="text-ink/55">
-              {new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {/* A fixed zone: the server (UTC) and the phone must draw the same day, or the card fails to hydrate. */}
+              {new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
             </span>
             <button type="button" onClick={() => mark(false)} disabled={pending} className={quiet}>
               <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

@@ -447,10 +447,8 @@ export function RsvpWidget({
                 className="sr-only"
               />
               {/* 📝 The couple's words for YES / NO (the value posted is unchanged). */}
-              <span
-                data-rsvp-word={option.key === 'maybe' ? undefined : rsvpWordBridgeKey(option.key)}
-              >
-                {option.key === 'maybe' ? option.label : answerWords?.[option.key] ?? option.label}
+              <span data-rsvp-word={rsvpWordBridgeKey(option.key)}>
+                {answerWords?.[option.key] ?? option.label}
               </span>
             </label>
           ))}

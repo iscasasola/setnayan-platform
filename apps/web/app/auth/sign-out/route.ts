@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { GUEST_SESSION_COOKIE_NAME } from '@/lib/guest-session';
 import { RSVP_TERMS_COOKIE } from '@/lib/terms-agreement';
-import { INVITE_LINK_SENT_COOKIE } from '@/lib/invite-arrival';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -37,7 +36,7 @@ export async function POST(request: NextRequest) {
   // holding nothing of the last person's. Held by
   // seat-links-only-on-purpose.test.ts. The Terms tick a guest carried from the
   // RSVP page goes too — it was that person's agreement, not the next one's.
-  for (const name of [GUEST_SESSION_COOKIE_NAME, RSVP_TERMS_COOKIE, INVITE_LINK_SENT_COOKIE]) {
+  for (const name of [GUEST_SESSION_COOKIE_NAME, RSVP_TERMS_COOKIE]) {
     response.cookies.set(name, '', {
       maxAge: 0,
       path: '/',

@@ -115,7 +115,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         data: {
           ...rsvpCanvasGuestFor(await loadPreviewPerson(admin, event.event_id as string)),
           role: 'guest',
-          email: null as string | null,
           entry_source: 'guest_list',
           qr_token: null as string | null,
           rsvp_status: search.as === 'declined' ? 'declined' : 'attending',
@@ -238,7 +237,11 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
     seatHolderUserId: canvas ? null : await readSeatHolder(event.event_id as string, guest.guest_id as string),
-    seatName: seatDisplayName(guest),
+    seatName: seatDisplayName({
+      display_name: guest.display_name as string | null,
+      first_name: guest.first_name as string | null,
+      last_name: guest.last_name as string | null,
+    }),
     seatIsCouple: isCoupleSeat(guest.role as string | null),
   });
   const userAgent = (await headers()).get('user-agent');

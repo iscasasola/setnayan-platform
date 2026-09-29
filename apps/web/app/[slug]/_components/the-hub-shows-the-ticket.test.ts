@@ -189,7 +189,7 @@ test('the ticket’s QR DECODES at phone size and opens THAT guest — square an
       ownerSlug: null,
       width: 720,
     });
-    const images = { 'qr-g-1': { bytes: new Uint8Array(qr), mime: 'image/png' } };
+    const images = { 'qr-g-1': { bytes: new Uint8Array(qr), mime: 'image/png' as const } };
     const cases: Array<[string, PrintPass, (typeof PASS_CARD_DESIGNS)[number]]> = [
       ...PASS_CARD_DESIGNS.map((d) => [d, PASS, d] as [string, PrintPass, (typeof PASS_CARD_DESIGNS)[number]]),
       ['pending', { ...PASS, arrive: null, party: 0, pending: 'waiting for Indalecio & Claire' }, 'classic'],

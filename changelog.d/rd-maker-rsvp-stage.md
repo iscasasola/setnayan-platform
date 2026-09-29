@@ -13,8 +13,10 @@ relayed hard requirement *"make sure what we rebuild is fast and realtime and ch
   one-question mode included) · **2 After they submit** (`invite/enter?as=attending`) · **3 When they decline**
   (`invite/enter?as=declined` — new canvas mode on the thank-you page, its buttons inert on the sample).
 - **Controls on the right** — the SAME `MakerRsvpSettings` Details' RSVP item draws, now by `scene`: the form's YES /
-  NO **wording** (type your own, or Wording ▾ premade lines; empty = today's words), one at a time, the questions, Who
-  can RSVP (a dropdown), Reply by; the thank-you's and the decline's **heading · message**. Requests and reminders are
+  NO **wording** (type your own, or Wording ▾ — ONLY lines that already exist: the owner's listed answers and the words
+  those screens already print; no invented presets, per "✂ THE MAKER RE-PLAN IS CUT TO ITS CORE"; empty = today's words),
+  one at a time, the questions, Who can RSVP (a dropdown), Reply by; the thank-you's and the decline's **heading ·
+  message** (`{name}` fills each guest's name, as the approved prototype says). Requests and reminders are
   not on the stage (people belong to the Guest list — "THE MAKER EDITS HOW IT LOOKS…").
 - **Stored:** `events.rsvp_ask_config.words` (`attending · declined · thanksHeading · thanksMessage · declineHeading ·
   declineMessage`), through the one sanitizer the draft and the guest render share (`sanitizeRsvpWords`, capped, junk

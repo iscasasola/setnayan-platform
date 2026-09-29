@@ -61,12 +61,13 @@ test('hubDraftAction: save · reset · undo · restore revalidate nothing; Apply
 test('the redirecting draft doors revalidate nothing — the redirect brings the fresh render', () => {
   const store = read('lib/hub-draft-store.ts');
   const door = store.slice(store.indexOf('export async function draftEventsAndReturn('), store.indexOf('export async function draftedEventColumn('));
-  assert.match(door, /redirect\(resolveReturnTo\(formData, fallback\)\)/);
+  /* It lands through `landAfterWrite` (`lib/maker-land.server.ts`): from the Maker, ONE render of the page it is on, in place. */
+  assert.match(door, /return landAfterWrite\(formData, fallback\)/);
   assert.doesNotMatch(door, REVALIDATES, 'draftEventsAndReturn re-rendered the Maker layout on every save');
 
   const widgets = read('app/dashboard/[eventId]/website/widgets/actions.ts');
   const finish = widgets.slice(widgets.indexOf('function finishDraftSave('), widgets.indexOf('async function saveWidgetToDraft('));
-  assert.match(finish, /redirect\(/);
+  assert.match(finish, /return landAfterWrite\(/);
   assert.doesNotMatch(finish, REVALIDATES, 'the eye / Hidden / a move re-rendered the Maker twice');
 
   const hero = read('app/dashboard/[eventId]/website/hero-photo/actions.ts');

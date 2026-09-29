@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "37d7395c5",
+  "generatedFromRef": "3f8accb88",
   "routeCount": 435,
   "destinations": 942,
   "actions": 673,
-  "blocks": 5005,
+  "blocks": 5008,
   "routes": {
     "/": {
       "files": [
@@ -6150,6 +6150,7 @@
       "blocks": [
         "AddBtn",
         "AddSceneTool",
+        "BufferedCanvasFrame",
         "Chip",
         "ColourRow",
         "ComingNext",
@@ -6235,6 +6236,7 @@
         "SlugField",
         "SoftPost",
         "State",
+        "StoredQrStyle",
         "Switch",
         "SwitchRow",
         "Toggle",
@@ -6245,7 +6247,8 @@
         "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
-        "WebsiteEditorPage"
+        "WebsiteEditorPage",
+        "Window"
       ]
     },
     "/dashboard/[eventId]/live": {

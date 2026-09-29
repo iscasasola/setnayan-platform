@@ -148,7 +148,7 @@ test('W · addCustomSection: Pro refusal → six-cap → draft door → hidden i
     drafting: body.search(/const drafting = isHubDraftWrite\(formData\)/),
     insert: body.search(/\.\.\.ADDED_SCENE_LIVE,/),
     drafted: body.search(/saveHubDraftPatch\(\s*eventId,\s*\{\s*widgets: \{ \[slot as string\]: addedSceneDraft\([\s\S]{0,160}\{ formData, fallback: DRAFT_FALLBACK\(eventId\) \}/),
-    back: body.search(/redirect\(resolveReturnTo\(formData, `\/dashboard\/\$\{eventId\}\/launch\?drafted=1`/),
+    back: body.search(/return landAfterWrite\(formData, `\/dashboard\/\$\{eventId\}\/launch\?drafted=1`/),
     live: body.search(/is_visible: true,/),
   };
   console.log(`[add-a-scene] addCustomSection anchors: ${JSON.stringify(at)}`);
@@ -160,7 +160,7 @@ test('W · addCustomSection: Pro refusal → six-cap → draft door → hidden i
   assert.ok(at.door > at.cap, 'the draft door must come AFTER the Pro refusal and the six-cap');
   assert.ok(at.insert > at.door, 'the draft door must insert the row hidden (ADDED_SCENE_LIVE)');
   assert.ok(at.drafted > at.insert, 'the draft must then say the scene is shown');
-  assert.ok(at.back > at.drafted, 'the draft door must end by landing back through resolveReturnTo (the Maker stays mounted)');
+  assert.ok(at.back > at.drafted, 'the draft door must end by landing back in place through landAfterWrite (the Maker stays mounted)');
   assert.ok(at.live > at.back, 'the live insert (is_visible: true) must sit AFTER the draft door, unreachable from it');
   const door = body.slice(at.door, at.live);
   assert.doesNotMatch(door, /is_visible:\s*true/, 'the draft door must never insert a visible row');

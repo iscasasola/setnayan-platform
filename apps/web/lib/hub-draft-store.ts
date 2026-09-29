@@ -2,7 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { resolveReturnTo } from '@/lib/editor-return';
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
@@ -194,7 +194,7 @@ export async function draftEventsAndReturn(
   events: HubDraftEvents,
   formData: FormData,
   fallback: string,
-): Promise<never> {
+): Promise<void> {
   await saveHubDraftPatch(eventId, { events }, { formData, fallback });
   /* ⚡ NO `revalidatePath` — and never the Maker's whole LAYOUT. A draft write
      changes nothing a guest can see (guests meet the draft only at Apply), and
@@ -202,8 +202,10 @@ export async function draftEventsAndReturn(
      this same response; revalidating `/website` as a 'layout' re-rendered and
      invalidated every Maker route under it on every keystroke-save (owner
      2026-09-28: *"picking something takes a lot of time before the website
-     reacts"*). Held by `a-maker-pick-never-reloads-what-it-drew.test.ts`. */
-  redirect(resolveReturnTo(formData, fallback));
+     reacts"*). Held by `a-maker-pick-never-reloads-what-it-drew.test.ts`.
+     From the Maker it RETURNS (`lib/maker-land.server.ts`): only the Maker's
+     own page is re-rendered, in place — callers `return` this. */
+  return landAfterWrite(formData, fallback);
 }
 
 /**

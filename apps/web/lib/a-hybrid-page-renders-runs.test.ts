@@ -236,7 +236,7 @@ test('⛔ setWidgetMotion refuses a free couple landing on Scrub / Auto-scroll �
   // reaches it — the Pro gate for a draft is `hubDraftAction` apply
   // (`lib/hub-draft-wiring.test.ts` holds both halves).
   if (/!drafting && step\.needsPro/.test(body)) {
-    const divert = body.indexOf('if (drafting) await saveCanvasToDraft(', body.indexOf('step.needsPro'));
+    const divert = body.indexOf('if (drafting) return saveCanvasToDraft(', body.indexOf('step.needsPro'));
     assert.ok(divert > 0 && divert < body.indexOf('.update({ config_json: next })'), 'a skipped gate must divert to the draft before the live write');
   }
 });

@@ -6,7 +6,8 @@ import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
 import { plusOneSeats } from '@/lib/guests';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
-import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
+import { rsvpAsks, type RsvpAskConfig, type RsvpAskField, type RsvpWords } from '@/lib/rsvp-ask';
+import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { SelfieCapture } from './selfie-capture';
 import { SelfieNoThanksConfirm } from './selfie-no-thanks-confirm';
 import {
@@ -22,6 +23,7 @@ import { stubNo } from './pahina-keepsake';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
 import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
+import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 
@@ -42,7 +44,14 @@ export function RsvpWidget({
   termsOnSend = false,
   oneAtATime = false,
   previewEveryQuestion = false,
+  answerWords = null,
 }: {
+  /**
+   * 📝 The couple's own YES / NO wording (the RSVP stage, owner 2026-09-30 —
+   * `rsvp_ask_config.words`, `readRsvpWords`). DISPLAY ONLY: the radios still
+   * post `attending` / `declined`. Absent = today's wording.
+   */
+  answerWords?: RsvpWords | null;
   /**
    * The Maker's RSVP canvas (a host looking at the SAMPLE guest): every
    * switched-on question is shown, none waiting on an "attending" tap — so
@@ -194,12 +203,20 @@ export function RsvpWidget({
       />
     );
   }
-  const askPlusOnes = rsvpAsks(ask, 'plus_ones');
-  const askMeal = rsvpAsks(ask, 'meal');
-  const askDietary = rsvpAsks(ask, 'dietary');
-  const askNote = rsvpAsks(ask, 'note');
-  const askMobile = rsvpAsks(ask, 'mobile');
-  const askSong = rsvpAsks(ask, 'song_request');
+  /* 🗳 THE RSVP STAGE'S CANVAS (owner 2026-09-30: every edit shows at once):
+     on the Maker's sample every question is DRAWN — one the couple switched off
+     is hidden and marked (`data-rsvp-ask`), so flipping its switch shows or
+     hides it on the tap, with no new page (`rsvp-canvas-bridge.tsx`). A guest's
+     page never takes this arm: it draws only what is asked, as before. */
+  const asked = (field: RsvpAskField) => previewEveryQuestion || rsvpAsks(ask, field);
+  const canvasAsk = (field: RsvpAskField) =>
+    previewEveryQuestion ? { 'data-rsvp-ask': field, hidden: !rsvpAsks(ask, field) || undefined } : {};
+  const askPlusOnes = asked('plus_ones');
+  const askMeal = asked('meal');
+  const askDietary = asked('dietary');
+  const askNote = asked('note');
+  const askMobile = asked('mobile');
+  const askSong = asked('song_request');
   // The Maker's canvas shows EVERY switched-on question at once — the couple is
   // looking at what they ask, not answering it, so nothing waits on "attending".
   const revealAll = previewEveryQuestion;
@@ -214,6 +231,16 @@ export function RsvpWidget({
   // are all answered").
   const requireMobile = askMobile && Boolean(gate?.missing.includes('mobile'));
 
+  const mobileField = (
+    <Field
+      id="contact_mobile"
+      label="Mobile"
+      autoComplete="tel"
+      required={requireMobile}
+      defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
+      placeholder="+63 …"
+    />
+  );
   // The contact boxes, declared ONCE so the folded and unfolded arms can never
   // drift apart. Both arms render them, so both POST them.
   //
@@ -225,14 +252,8 @@ export function RsvpWidget({
   const contactFields = (
     <>
       {askMobile ? (
-        <Field
-          id="contact_mobile"
-          label="Mobile"
-          autoComplete="tel"
-          required={requireMobile}
-          defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
-          placeholder="+63 …"
-        />
+        // 🗳 Wrapped only on the Maker's canvas (to show / hide on its switch).
+        previewEveryQuestion ? <div {...canvasAsk('mobile')}>{mobileField}</div> : mobileField
       ) : null}
       <Field
         id="contact_display_name"
@@ -304,7 +325,7 @@ export function RsvpWidget({
     <form action={action} className="rsvp-form space-y-6">
       {/* FIRST in the form: the one-question progress sits above everything
           the guest reads (rsvp-one-at-a-time.tsx, "THE SCREEN'S ORDER"). */}
-      {oneAtATime ? <RsvpOneAtATime /> : null}
+      {previewEveryQuestion ? <RsvpOneAtATimeLive initial={oneAtATime} /> : oneAtATime ? <RsvpOneAtATime /> : null}
       {flash ? (
         <p
           role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -425,7 +446,12 @@ export function RsvpWidget({
                 required={termsOnSend || guest.rsvp_status === 'maybe' || undefined}
                 className="sr-only"
               />
-              {option.label}
+              {/* 📝 The couple's words for YES / NO (the value posted is unchanged). */}
+              <span
+                data-rsvp-word={option.key === 'maybe' ? undefined : rsvpWordBridgeKey(option.key)}
+              >
+                {option.key === 'maybe' ? option.label : answerWords?.[option.key] ?? option.label}
+              </span>
             </label>
           ))}
         </fieldset>
@@ -470,7 +496,7 @@ export function RsvpWidget({
           box for every guest the couple already allowed one, without
           touching who is allowed (a host action, done on the Guest list). */}
       {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
-        <div id="plus-ones" data-rsvp-step className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
+        <div id="plus-ones" data-rsvp-step {...canvasAsk('plus_ones')} className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
           {/* One short set per seat + one "Filling in for ▾" switcher
               (owner 2026-09-29) — its own file, so this card only mounts it. */}
           <RsvpPlusOnes
@@ -517,7 +543,7 @@ export function RsvpWidget({
         <div className={replyLocked || revealAll ? undefined : 'attending-reveal'}>
           <div className="space-y-6">
             {askMeal ? (
-              <div data-rsvp-step>
+              <div data-rsvp-step {...canvasAsk('meal')}>
               <Select
                 id="meal_preference"
                 label={bringsPlusOnes ? 'Your meal preference' : 'Meal preference'}
@@ -536,7 +562,7 @@ export function RsvpWidget({
               </div>
             ) : null}
             {askDietary ? (
-              <div data-rsvp-step>
+              <div data-rsvp-step {...canvasAsk('dietary')}>
               <Field
                 id="dietary_restrictions"
                 label={bringsPlusOnes ? 'Your dietary notes' : 'Dietary notes'}
@@ -556,7 +582,7 @@ export function RsvpWidget({
           SAME door the day-of card uses (`guest_submit_song_request`). Optional;
           a blank box asks nothing. Only for somebody who is coming. */}
       {askSong && !replyLocked ? (
-        <div data-rsvp-step className={revealAll ? undefined : 'attending-reveal'}>
+        <div data-rsvp-step {...canvasAsk('song_request')} className={revealAll ? undefined : 'attending-reveal'}>
           <div className="space-y-4">
             <Field id="song_title" label="A song to get you dancing (optional)" question={oneAtATime} placeholder="Song" />
             <Field id="song_artist" label="Who sings it?" placeholder="Artist" />
@@ -566,7 +592,7 @@ export function RsvpWidget({
 
       {/* ⚙ ASK TOGGLE (owner 2026-09-25): "Note to you" off. */}
       {askNote ? (
-        <div data-rsvp-step className="space-y-1.5">
+        <div data-rsvp-step {...canvasAsk('note')} className="space-y-1.5">
           <label htmlFor="guest_note" className={questionClass(oneAtATime)}>
             A note to {words.theOrganizer} (optional)
           </label>

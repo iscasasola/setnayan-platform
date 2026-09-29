@@ -18,7 +18,7 @@ import { readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.s
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { eventWordsFor } from '../../_lib/event-words';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
-import { thankYouHeadline, replySummary } from '../../_lib/thank-you-words';
+import { thankYouHeadline, thankYouWords, replySummary } from '../../_lib/thank-you-words';
 import { SaveToAccount } from '../../_components/save-to-account';
 import { YourGuests } from '../../_components/your-guests';
 import { InviteQrPanel } from '../_components/invite-qr-panel';
@@ -28,13 +28,22 @@ import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.serv
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
+import { readRsvpWords, rsvpAnswerWord } from '@/lib/rsvp-ask';
+import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
+import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
+import { asksForHostCanvas } from '../../_lib/editor-canvas';
+import { loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { loadPreviewPerson } from '../../_lib/preview-person.server';
+import { getCurrentUser } from '@/lib/auth';
+import { overlayHubDraftEvent } from '@/lib/hub-draft';
+import { SIMULATED_GUEST_INVITATION_TEXT, SIMULATED_GUEST_QR_SVG, rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
 
 export const metadata = { title: 'Thank you', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ rsvp?: string; keep?: string; in?: string }>;
+  searchParams: Promise<{ rsvp?: string; keep?: string; in?: string; editor?: string; preview?: string; as?: string }>;
 };
 
 /**
@@ -62,37 +71,67 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: event, error: eventError } = await admin
+  const { data: liveEvent, error: eventError } = await admin
     .from('events')
     .select(
       // + the QR look's remaining columns (the invite look and the invite mark
       // already carry display_name · monogram_text · monogram_color · the two
       // SVGs · role_palette): the pass drawn below wears the event's look —
       // lib/qr-look.server.ts.
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
     )
     .ilike('slug', slug)
     .maybeSingle();
   if (eventError) {
     throw new Error(`invite/enter: could not read the event for "${slug}": ${eventError.message}`);
   }
-  if (!event?.slug) notFound();
+  if (!liveEvent?.slug) notFound();
+
+  /* 🗳 THE MAKER'S RSVP STAGE (owner 2026-09-30, "After they submit" · "When
+     they decline"): `?editor=1` from a VERIFIED host of this event — the same
+     door every Maker canvas uses, never the param alone — draws this screen
+     for a SAMPLE guest (`?as=attending|declined`), wearing the couple's DRAFT so
+     their words show before Apply. No guest row is read, nothing is written,
+     and the page's buttons do nothing there (`RsvpCanvasBridge`). */
+  let canvas = false;
+  let hostDraft: Awaited<ReturnType<typeof loadHostPreviewDraft>> = null;
+  if (asksForHostCanvas(search)) {
+    const viewer = await getCurrentUser();
+    if (viewer && (await loadHostMembership(admin, liveEvent.event_id as string, viewer.id))) {
+      canvas = true;
+      hostDraft = await loadHostPreviewDraft(admin, liveEvent.event_id as string, viewer.id);
+    }
+  }
+  const event = overlayHubDraftEvent(liveEvent as Record<string, unknown>, hostDraft) as typeof liveEvent;
   const home = event.slug as string;
 
   // The guest's KEY for THIS event — their pass, or the seat their signed-in
   // account holds (`readGuestSessionForEvent` never answers for another event).
-  const session = await readGuestSessionForEvent(event.event_id as string);
-  if (!session || session.event_id !== event.event_id) redirect(`/${home}`);
+  const session = canvas ? null : await readGuestSessionForEvent(event.event_id as string);
+  if (!canvas && (!session || session.event_id !== event.event_id)) redirect(`/${home}`);
 
-  const { data: guest, error: guestError } = await admin
+  const { data: guest, error: guestError } = canvas
+    ? {
+        data: {
+          ...rsvpCanvasGuestFor(await loadPreviewPerson(admin, event.event_id as string)),
+          role: 'guest',
+          email: null as string | null,
+          entry_source: 'guest_list',
+          qr_token: null as string | null,
+          rsvp_status: search.as === 'declined' ? 'declined' : 'attending',
+          meal_preference: null as string | null,
+        },
+        error: null,
+      }
+    : await admin
     .from('guests')
     .select('guest_id, role, entry_source, qr_token, first_name, last_name, display_name, rsvp_status, meal_preference')
-    .eq('guest_id', session.guest_id)
+    .eq('guest_id', session!.guest_id)
     .eq('event_id', event.event_id)
     .is('deleted_at', null)
     .maybeSingle();
   if (guestError) {
-    throw new Error(`invite/enter: could not read guest ${session.guest_id}: ${guestError.message}`);
+    throw new Error(`invite/enter: could not read guest ${session?.guest_id}: ${guestError.message}`);
   }
   if (!guest) redirect(`/${home}`);
 
@@ -147,12 +186,15 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     qrToken: guest.qr_token as string,
     ownerSlug,
   };
-  const qrSvg = await renderInvitationQrSvg({
-    ...qrParams,
-    // The event's look (lib/qr-look.ts): the Setnayan mark, or the couple's own on Pro.
-    look: await resolveEventQrLook(admin, event.event_id as string, event as QrLookRow),
-  });
-  const invitationUrl = buildInvitationUrl(qrParams);
+  // The sample on the Maker's canvas has no key of its own — its QR says SAMPLE.
+  const qrSvg = canvas
+    ? SIMULATED_GUEST_QR_SVG
+    : await renderInvitationQrSvg({
+        ...qrParams,
+        // The event's look (lib/qr-look.ts): the Setnayan mark, or the couple's own on Pro.
+        look: await resolveEventQrLook(admin, event.event_id as string, event as QrLookRow),
+      });
+  const invitationUrl = canvas ? SIMULATED_GUEST_INVITATION_TEXT : buildInvitationUrl(qrParams);
   const words = await eventWordsFor(event.event_type as string);
   const guestName =
     (guest.display_name as string | null)?.trim() ||
@@ -160,7 +202,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     'you';
 
   // ── YOUR GUESTS — each named plus-one's OWN key, handed on by the bringer.
-  const seats = await plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string);
+  const seats = canvas ? [] : await plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string);
   const guestsToSend = seats.map((s) => ({
     guestId: s.guest_id,
     name: s.name,
@@ -195,24 +237,36 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const account = guestAccountState({
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
-    seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
+    seatHolderUserId: canvas ? null : await readSeatHolder(event.event_id as string, guest.guest_id as string),
     seatName: seatDisplayName(guest),
     seatIsCouple: isCoupleSeat(guest.role as string | null),
   });
   const userAgent = (await headers()).get('user-agent');
 
   const status = (guest.rsvp_status as string | null) ?? 'pending';
-  const headline = thankYouHeadline({
+  /* 📝 THE COUPLE'S OWN WORDS (the RSVP stage, owner 2026-09-30): the heading and
+     message of "After they submit" (attending) and "When they decline". Unset,
+     the headline is today's and there is no extra message. Words only — the
+     status, the tickets and the counts never read them. */
+  const rsvpWords = readRsvpWords(event.rsvp_ask_config);
+  const ownHeadline = thankYouHeadline({
     status,
     firstName: (guest.display_name as string | null)?.trim() || (guest.first_name as string | null),
     eventDate: event.event_date as string | null,
     solemn: words.solemn,
   });
+  const firstName = ((guest.display_name as string | null)?.trim() || (guest.first_name as string | null) || '').split(/\s+/)[0] ?? '';
+  const couple = thankYouWords({ status, words: rsvpWords, ownHeadline, name: firstName });
+  const wordKeys = couple.keys;
+  const ownMessage = couple.message;
+  const headline = couple.heading;
   const summary = replySummary({
     status,
     seats: 1 + guestsToSend.length,
     meal: guest.meal_preference as string | null,
     solemn: words.solemn,
+    answerWord:
+      status === 'attending' || status === 'declined' ? rsvpAnswerWord(rsvpWords, status, words.solemn) : null,
   });
   const nothingToSave = account.kind === 'linked' || account.kind === 'held_elsewhere';
 
@@ -239,6 +293,27 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
       skin={look.skin}
     >
       {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
+      {/* 📝 The couple's message under the heading — on the canvas always drawn
+          (hidden while empty) so typing shows it; the heading itself is the
+          door's title, reached through the proxy below. */}
+      {canvas && wordKeys ? (
+        <>
+          <RsvpCanvasBridge inertButtons />
+          <i hidden data-rsvp-word-proxy={rsvpWordBridgeKey(wordKeys.heading)} data-rsvp-target="[data-door-header] h1" data-rsvp-default={ownHeadline} data-rsvp-name={firstName} />
+        </>
+      ) : null}
+      {ownMessage || (canvas && wordKeys) ? (
+        <p
+          className="text-base leading-relaxed text-ink/80"
+          data-thank-you-message=""
+          data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
+          data-rsvp-word-optional={canvas ? '' : undefined}
+          data-rsvp-name={canvas ? firstName : undefined}
+          hidden={!ownMessage || undefined}
+        >
+          {ownMessage}
+        </p>
+      ) : null}
 
       {unlisted && !justIn ? (
         <DoorNotice>

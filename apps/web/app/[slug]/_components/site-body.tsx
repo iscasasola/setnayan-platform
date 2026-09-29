@@ -36,7 +36,7 @@ import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
-import { anyoneMayAskToJoin, resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { anyoneMayAskToJoin, readRsvpWords, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
@@ -2541,6 +2541,7 @@ export async function SiteBody({
                    screen"). In the Maker's canvas `event` is the couple's DRAFT,
                    so the switch shows here before Apply. */
                 oneAtATime={askOneAtATime(event.rsvp_ask_config)}
+                answerWords={readRsvpWords(event.rsvp_ask_config)}
               />
             </div>
             {/* ⚖ THE SCAN-TRAIL OPT-OUT, unchanged, as one small line at the

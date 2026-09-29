@@ -102,6 +102,8 @@ export const ParentCards = dynamic(() => import(/* webpackChunkName: "maker-deta
 export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.LoveStoryPieceFocus), { loading: SlotNone });
 export const ScheduleSlots = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.ScheduleSlots), { loading: SlotNone });
 export const MakerRsvpSettings = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask').then((m) => m.MakerRsvpSettings), { loading: SlotRows });
+/* 🗳 The RSVP stage (owner 2026-09-30 re-plan: RSVP is its own stage) — its scenes, canvas and controls, in this chunk. */
+export const MakerRsvpStage = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-stage').then((m) => m.MakerRsvpStage), { loading: SlotFill });
 
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
 export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });
@@ -138,6 +140,7 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './parent-cards'),
     import(/* webpackChunkName: "maker-details" */ './details-tool-pieces'),
     import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask'),
+    import(/* webpackChunkName: "maker-details" */ './maker-rsvp-stage'),
     import(/* webpackChunkName: "maker-details" */ './maker-logo'),
     import(/* webpackChunkName: "maker-details" */ './maker-reveal'),
     import(/* webpackChunkName: "maker-details" */ './details-guide'),

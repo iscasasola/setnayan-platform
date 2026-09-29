@@ -155,7 +155,7 @@ export function EntourageSection({
 function Cell({ person, group }: { person: EntouragePerson | null; group: EntourageGroup }) {
   if (!person) return <span aria-hidden className="hidden sm:block" />;
   const beside = roleBesideName(group, person);
-  const spoken = beside ? null : roleLabel(person.role);
+  const spoken = beside ? null : roleLabel(person.role, group.names);
   return (
     <span>
       <span className="text-base text-ink">{person.name}</span>
@@ -185,7 +185,7 @@ function OneLinePairs({ group }: { group: EntourageGroup }) {
           const beside = people.map((p) => roleBesideName(group, p)).filter(Boolean);
           const spoken = people
             .filter((p) => !roleBesideName(group, p))
-            .map((p) => roleLabel(p.role))
+            .map((p) => roleLabel(p.role, group.names))
             .filter(Boolean);
           return (
             <li key={`${group.key}-${i}`} className="leading-snug" data-pair-line={people.length > 1 ? '' : undefined}>

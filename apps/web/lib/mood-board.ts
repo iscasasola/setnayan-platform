@@ -247,8 +247,10 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
   best_man: {
     min: 1,
     max: 3,
-    label: 'Best Man',
-    hint: 'The best man — 1 to 3 colors (falls back to Wedding Party)',
+    // Key stays `best_man` (stored on live boards); the words cover both
+    // (owner 2026-09-30: "either best man or best woman").
+    label: 'Best Man / Best Woman',
+    hint: 'The best man or best woman — 1 to 3 colors (falls back to Wedding Party)',
     meaning: 'outfit',
     slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
@@ -613,6 +615,9 @@ export function paletteKeyForRole(role: GuestRole): PaletteKey {
     case 'matron_of_honor':
       return 'maid_of_honor';
     case 'best_man':
+    // ⚖ Owner 2026-09-30: best man OR best woman — one honour attendant on the
+    // groom's side, one colour slot. Same family as the maid/matron pair above.
+    case 'best_woman':
       return 'best_man';
     case 'bridesmaid':
       return 'bridesmaids';

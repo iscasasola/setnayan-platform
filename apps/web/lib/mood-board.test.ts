@@ -176,6 +176,7 @@ test('paletteKeyForRole maps roles to their taxonomy-v2 keys', () => {
     ['maid_of_honor', 'maid_of_honor'],
     ['matron_of_honor', 'maid_of_honor'], // MoH covers maid + matron
     ['best_man', 'best_man'],
+    ['best_woman', 'best_man'], // best man OR best woman — one colour slot (owner 2026-09-30)
     ['bridesmaid', 'bridesmaids'],
     ['groomsman', 'groomsmen'],
     ['bride_parents', 'parents_immediate_family'],

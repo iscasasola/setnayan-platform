@@ -1,6 +1,7 @@
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
-import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
+import { guestRoleLabel, type GuestRole } from '@/lib/guests';
+import type { RoleNames } from '@/lib/role-names';
 import { PALETTE_LIMITS, paletteKeyForRole, sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
 import { RoleFigure } from '@/app/_components/role-figure';
 import { resolveDisplayPalette } from '@/lib/room-palette';
@@ -89,6 +90,7 @@ export function DressCodeWidget({
   guestRole = null,
   march = null,
   rolePalette = null,
+  roleNames = null,
   hideWhenEmpty = false,
 }: {
   /**
@@ -109,6 +111,9 @@ export function DressCodeWidget({
   /** The couple's mood board (`events.role_palette`, raw — sanitised here) —
    *  "Our colours" and every colour a role wears come from here. */
   rolePalette?: unknown;
+  /** The couple's words for roles (`events.role_names`, owner 2026-09-30) —
+   *  "You are Bride's Crew", and every row this scene names. */
+  roleNames?: RoleNames | null;
   ceremonyType?: string | null;
   genderSeparation?: string | null;
 }) {
@@ -174,7 +179,7 @@ export function DressCodeWidget({
   );
   const groups = sanitizeGroupAttire((config as { groups?: unknown } | null)?.groups);
   // THE GENERAL VIEW — "our theme and the palettes of each role".
-  const everyone = dressCodeForEveryone({ stored, board, roles, groups, ceremonyType });
+  const everyone = dressCodeForEveryone({ stored, board, roles, groups, ceremonyType, names: roleNames });
   // "Our colours": the Mood Board's main colours lead (live); a colour the
   // couple typed in the dress-code editor lends a same-hex chip its name, or
   // follows after — see `ourColoursWith` for why this merges.
@@ -188,11 +193,12 @@ export function DressCodeWidget({
     roles,
     groups,
     palette: board,
+    names: roleNames,
   }), generalHasContent);
   const mine = resolved.panel;
   // Said only when the answer came from the group, so a reader knows the couple
   // dressed her whole group and did not overlook her.
-  const mineFromGroup = resolved.source === 'group' ? groupLabelOf(guestRole) : null;
+  const mineFromGroup = resolved.source === 'group' ? groupLabelOf(guestRole, roleNames) : null;
 
   const hasAnything =
     title.length > 0 ||
@@ -314,7 +320,7 @@ export function DressCodeWidget({
             {/* The entourage's own label first ("Ninang"); the couple are not
                 in the entourage list, so a bride or groom reads the guest
                 list's label ("Groom") instead of "in the entourage". */}
-            You are {mine?.roleLabel ?? (guestRole ? (roleLabel(guestRole) ?? ROLE_LABELS[guestRole]) : null) ?? 'in the entourage'}
+            You are {mine?.roleLabel ?? (guestRole ? (roleLabel(guestRole, roleNames) ?? guestRoleLabel(guestRole, roleNames)) : null) ?? 'in the entourage'}
           </p>
           {/* 🚶 WHERE YOU WALK (owner 2026-09-29) — under the same "You are" line,
               so a walker whose role has no outfit line still reads it. */}

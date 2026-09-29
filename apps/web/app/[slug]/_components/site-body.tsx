@@ -15,7 +15,9 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // The event hub's sanctioned column widths — a page-level column outside the
 // four is a defect, and `measures.test.ts` counts them.
 import { PLATE } from '../_lib/measures';
-import { ROLE_LABELS } from '@/lib/guests';
+import { guestRoleLabel } from '@/lib/guests';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { loadEventRoleNames } from '../_lib/loaders';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
@@ -494,6 +496,10 @@ export async function SiteBody({
   const magicTraveller = sanitizeMagicTraveller(
     (event as { site_magic_traveller?: unknown }).site_magic_traveller,
   );
+  // 🏷 THE COUPLE'S WORDS FOR ROLES (owner 2026-09-30 — Bridesmaid → "Bride's
+  // Crew"). Read once per request (cached loader), graceful: an unreadable
+  // value is the usual words. Handed to every widget that names a reader's role.
+  const roleNames = await loadEventRoleNames(createAdminClient(), event.event_id);
   // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25, Event Hub Maker
   // Details panel) — read once here for both mounts below (the reply card and
   // the song-request card). An absent key is ON, so an event that never opens
@@ -1102,6 +1108,7 @@ export async function SiteBody({
           (openBrowseContent as Partial<Record<string, boolean>>)[widget.widget_type] === false
         }
         event={event}
+        roleNames={roleNames}
         words={clientWords}
         scheduleBlocks={scheduleBlocks}
         isLive={dayOfPhase === 'live'}
@@ -1695,7 +1702,7 @@ export async function SiteBody({
             </>
           ) : null}
           . You&rsquo;re joining us as{' '}
-          <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span> ·{' '}
+          <span className="font-medium text-ink">{guestRoleLabel(guest.role, roleNames)}</span> ·{' '}
           <span className="text-ink/80">{sideLabel}</span>.
         </p>
       </section>
@@ -2276,6 +2283,7 @@ export async function SiteBody({
                   ownClipPlays={isMakerCanvas}
                   guestView={!isMakerCanvas}
                   event={event}
+                  roleNames={roleNames}
                   guest={guest}
                   sideLabel={sideLabel}
                   scheduleBlocks={scheduleBlocks}

@@ -3,7 +3,8 @@ import { RoleAttireField } from './role-attire-field';
 import { GroupAttireField } from './group-attire-field';
 import { sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { sanitizeGroupAttire, ROLE_GROUPS_IN_ORDER } from '@/lib/role-group-dress-code';
-import { roleGroupOf, ROLE_GROUP_LABELS, type RoleGroup } from '@/lib/role-groups';
+import { roleGroupLabel, roleGroupOf, type RoleGroup } from '@/lib/role-groups';
+import type { RoleNames } from '@/lib/role-names';
 import { roleLabel } from '@/lib/entourage';
 import type { GuestRole } from '@/lib/guests';
 import { ListField } from './list-field';
@@ -27,6 +28,7 @@ export function DressCodeFields({
   eventNoun,
   eventRoles = [],
   compact = false,
+  roleNames = {},
 }: {
   config: DressCodeConfig;
   /** e.g. "wedding" — used in the palette hint copy. */
@@ -35,6 +37,8 @@ export function DressCodeFields({
   eventRoles?: { role: GuestRole; label: string; count: number }[];
   /** Rail-panel density: tighter spacing + smaller labels. */
   compact?: boolean;
+  /** The couple's own words for roles (owner 2026-09-30) — group rows say them. */
+  roleNames?: RoleNames;
 }) {
   const gap = compact ? 'space-y-4' : 'space-y-6';
   const label = compact
@@ -68,7 +72,7 @@ export function DressCodeFields({
   }
   const eventGroups = ROLE_GROUPS_IN_ORDER.filter((g) => groupTally.has(g)).map((group) => ({
     group,
-    label: ROLE_GROUP_LABELS[group],
+    label: roleGroupLabel(group, roleNames),
     roleCount: groupTally.get(group)!.roleCount,
     people: groupTally.get(group)!.people,
   }));
@@ -129,6 +133,7 @@ export function DressCodeFields({
           groups={eventGroups}
           saved={config.groups}
           roles={config.roles}
+          roleNames={roleNames}
           compact={compact}
         />
       </div>

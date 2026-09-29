@@ -226,7 +226,8 @@ test('🔑 the arranging is reachable WITHOUT knowing to filter first', () => {
 test('the panel heads each group with its printed NAME, not a raw key', () => {
   // A first draft rendered `key.replace(/_/g, ' ')` — "principal sponsors",
   // lower case, which is a key with its underscores knocked out, not a heading.
-  assert.match(PANEL, /entourageGroupLabel\(key\)/, 'the panel is printing a raw group key');
+  // (Since 2026-09-30 through `headingOf`, which also hands over the couple's own role words.)
+  assert.match(PANEL, /entourageGroupLabel\(key(, roleNames, rows)?\)/, 'the panel is printing a raw group key');
 });
 
 test('⚖ drag is ADDITIONAL — the buttons remain the always-available path', () => {

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRoleNames } from './role-names-context';
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -57,7 +58,8 @@ import {
   guestFullName,
   guestInitials,
   plusOneSeats,
-  ROLE_LABELS,
+  guestRoleLabel,
+  guestRolePickLabel,
   RSVP_LABELS,
   SIDE_LABELS,
   SIDE_ORDER,
@@ -82,6 +84,7 @@ import {
 import {
   importanceGroupOf,
   ROLE_GROUP_LABELS,
+  sectionHeadingInTheirWords,
   isHonoreeRole,
   roleGroupOf,
   type RoleGroup,
@@ -708,6 +711,8 @@ export function GuestListMultiselect({
     photoDisplayUrls[g.photo_url ?? ''] ?? accountFaceByGuest[g.guest_id];
 
   const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
+  // The couple's words for roles (owner 2026-09-30) — headings are drawn in them.
+  const roleNames = useRoleNames();
   // Which visible rows are unlisted self-joiners → render the blush needs-you
   // variant instead of the normal editable row.
   const selfJoinSet = useMemo(() => new Set(selfJoinIds), [selfJoinIds]);
@@ -902,7 +907,9 @@ export function GuestListMultiselect({
     for (const sec of buildRosterSections(rest, groupKey, ctx, knownBucketOrder)) {
       out.push({
         key: sec.key,
-        label: sec.label,
+        // The bucket key stays the usual word (it is what the order ranks
+        // by); only the heading a host READS takes their word.
+        label: sec.label === null ? null : sectionHeadingInTheirWords(sec.label, roleNames),
         mobileCols: 'grid-cols-2',
         count: sec.count,
         guests: collapsed.has(sec.key) ? [] : sec.guests,
@@ -916,6 +923,7 @@ export function GuestListMultiselect({
     groupsById,
     seatByGuest,
     collapsed,
+    roleNames,
   ]);
 
   return (
@@ -1565,6 +1573,7 @@ function BulkApplyForm({
   count: number;
   bulkRoleSections: RoleSection[];
 }) {
+  const roleNames = useRoleNames();
   // Track the group select so we can intercept the sentinel and clear
   // it from the form before submit (preventing the server from seeing
   // a bogus group_id). Role select is fully form-managed; no state
@@ -1600,10 +1609,10 @@ function BulkApplyForm({
         >
           <option value="">Assign role…</option>
           {bulkRoleSections.map((section) => (
-            <optgroup key={section.label} label={section.label}>
+            <optgroup key={section.label} label={sectionHeadingInTheirWords(section.label, roleNames)}>
               {section.roles.map((r) => (
                 <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
+                  {guestRolePickLabel(r, roleNames)}
                 </option>
               ))}
             </optgroup>
@@ -2316,24 +2325,25 @@ function RsvpText({ status }: { status: RsvpStatus }) {
 const GuestAccessTagContext = createContext<Record<string, string>>({});
 
 function RoleTexts({ guest, palette }: { guest: GuestRow; palette: RolePalette }) {
+  const roleNames = useRoleNames();
   const primary = roleTextStyle(guest.role, palette);
   const extras = guest.extra_roles ?? [];
   const accessTag = useContext(GuestAccessTagContext)[guest.guest_id];
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
       <span className={`text-xs font-medium ${primary.textClass ?? ''}`} style={primary.style ?? undefined}>
-        {ROLE_LABELS[guest.role]}
+        {guestRoleLabel(guest.role, roleNames)}
       </span>
       {extras.map((r) => {
         const extra = roleTextStyle(r, palette);
         return (
           <span
             key={r}
-            title={`Also ${ROLE_LABELS[r]}`}
+            title={`Also ${guestRoleLabel(r, roleNames)}`}
             className={`text-[10px] ${extra.textClass ?? ''}`}
             style={extra.style ?? undefined}
           >
-            +{ROLE_LABELS[r]}
+            +{guestRoleLabel(r, roleNames)}
           </span>
         );
       })}

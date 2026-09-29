@@ -12,7 +12,8 @@ import {
   UserRound,
   Utensils,
 } from 'lucide-react';
-import { ROLE_LABELS, type GuestRole, type GuestSide } from '@/lib/guests';
+import { guestRoleLabel, type GuestRole, type GuestSide } from '@/lib/guests';
+import { useRoleNames } from '../../_components/role-names-context';
 import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
 import { guestTokenFromTag, nfcReadFailureCopy } from '@/lib/nfc-tag';
 import { useNfcEnabled } from '@/app/_components/use-nfc-enabled';
@@ -61,6 +62,8 @@ export function CheckinDesk({
   initialCheckins: DeskCheckin[];
   expected: number;
 }) {
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = useRoleNames();
   // guestId → checked-in ISO time (optimistically maintained client-side).
   const [checkins, setCheckins] = useState<Map<string, string>>(
     () => new Map(initialCheckins.map((c) => [c.guestId, c.checkedInAt])),
@@ -539,7 +542,7 @@ export function CheckinDesk({
               <h2 className="truncate text-lg font-semibold text-ink">{selected.name}</h2>
               <p className="mt-0.5 text-sm text-ink/60">
                 {SIDE_LABELS[selected.side]}
-                {selected.role !== 'guest' ? ` · ${ROLE_LABELS[selected.role]}` : ''}
+                {selected.role !== 'guest' ? ` · ${guestRoleLabel(selected.role, roleNames)}` : ''}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 font-medium text-ink/80">

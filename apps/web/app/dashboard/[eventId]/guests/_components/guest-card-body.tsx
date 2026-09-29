@@ -12,13 +12,15 @@ import {
   UserX,
 } from 'lucide-react';
 import { SIDE_CHIP_SOFT } from '@/lib/side-colors';
+import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   guestDisplayName,
   guestInitials,
   GROUP_CATEGORY_LABELS,
   MEAL_LABELS,
-  ROLE_LABELS,
+  guestRoleLabel,
+  guestRolePickLabel,
   RSVP_LABELS,
   SIDE_LABELS,
   type GuestGroupCategory,
@@ -214,6 +216,7 @@ export function GuestCardBody({
     canManageAccess,
     nameLinked,
     linkedAccount,
+    roleNames,
   } = data;
   const accessTagLabel = access ? accessTag(access) : null;
 
@@ -270,7 +273,7 @@ export function GuestCardBody({
             {[
               RSVP_LABELS[guest.rsvp_status],
               hasSides ? SIDE_LABELS[guest.side] : null,
-              ROLE_LABELS[guest.role],
+              guestRoleLabel(guest.role, roleNames),
               seatedAt,
             ]
               .filter(Boolean)
@@ -626,7 +629,7 @@ export function GuestCardBody({
                   {hasSides ? 'Role in wedding' : 'Role'}
                 </label>
                 <div className="flex h-10 items-center justify-between rounded-md border border-ink/15 bg-ink/[0.03] px-3 text-sm">
-                  <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span>
+                  <span className="font-medium text-ink">{guestRoleLabel(guest.role, roleNames)}</span>
                   <span className="text-xs text-ink/45">Foundation · locked</span>
                 </div>
                 <input type="hidden" name="role" value={guest.role} />
@@ -637,7 +640,14 @@ export function GuestCardBody({
                   id="role"
                   label={hasSides ? 'Role in wedding' : 'Role'}
                   defaultValue={guest.role}
-                  options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
+                  /* ⚖ Owner 2026-09-30: best man OR best woman, maid OR
+                     matron of honour — each pair sits under ONE heading so
+                     the two words read as the alternatives they are. */
+                  options={pickItems(availableRoles).flatMap((it) =>
+                    it.kind === 'pair'
+                      ? it.roles.map((v) => ({ value: v, label: guestRolePickLabel(v, roleNames), group: it.heading }))
+                      : [{ value: it.role, label: guestRolePickLabel(it.role, roleNames) }],
+                  )}
                 />
                 {isIncWedding ? (
                   <p className="text-xs text-ink/55">
@@ -748,7 +758,7 @@ export function GuestCardBody({
             />
             <TagChip
               icon={<Tag aria-hidden className="h-3 w-3" strokeWidth={2} />}
-              label={ROLE_LABELS[guest.role]}
+              label={guestRoleLabel(guest.role, roleNames)}
             />
             {seatedAt ? (
               <TagChip
@@ -1039,8 +1049,21 @@ function Select({
   label: string;
   required?: boolean;
   defaultValue: string;
-  options: { value: string; label: string }[];
+  /** `group` — consecutive options sharing one render under ONE `<optgroup>` heading. */
+  options: { value: string; label: string; group?: string }[];
 }) {
+  // Consecutive options with the same `group` fold into one <optgroup>.
+  const runs: Array<{ group?: string; items: { value: string; label: string }[] }> = [];
+  for (const o of options) {
+    const last = runs[runs.length - 1];
+    if (o.group && last && last.group === o.group) last.items.push(o);
+    else runs.push({ group: o.group, items: [o] });
+  }
+  const opt = (o: { value: string; label: string }) => (
+    <option key={o.value} value={o.value}>
+      {o.label}
+    </option>
+  );
   return (
     <div className="space-y-1.5">
       <label className="block text-sm font-medium text-ink" htmlFor={id}>
@@ -1053,11 +1076,15 @@ function Select({
         defaultValue={defaultValue}
         className="input-field"
       >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
+        {runs.map((r, i) =>
+          r.group ? (
+            <optgroup key={`g${i}`} label={r.group}>
+              {r.items.map(opt)}
+            </optgroup>
+          ) : (
+            r.items.map(opt)
+          ),
+        )}
       </select>
     </div>
   );

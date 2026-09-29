@@ -3,11 +3,13 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import { getCurrentUser } from '@/lib/auth';
 import {
   fetchGuestsByEvent,
   guestDisplayName,
-  ROLE_LABELS,
+  guestRoleLabel,
   type GuestRow,
 } from '@/lib/guests';
 import { roleImportanceRank } from '@/lib/role-groups';
@@ -53,6 +55,8 @@ export default async function TeaCeremonyPage({ params }: Props) {
   }
 
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = await loadRoleNames(supabase, eventId, 'TeaCeremonyPage.roleNames');
   const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
     .select('event_id, display_name, ceremony_type, secondary_ceremony_type')
@@ -117,6 +121,7 @@ export default async function TeaCeremonyPage({ params }: Props) {
         <ol className="list-none space-y-6 p-0">
           <SideBlock
             eventId={eventId}
+            roleNames={roleNames}
             heading="Groom’s side"
             order={1}
             guests={groomSide}
@@ -124,6 +129,7 @@ export default async function TeaCeremonyPage({ params }: Props) {
           />
           <SideBlock
             eventId={eventId}
+            roleNames={roleNames}
             heading="Bride’s side"
             order={2}
             guests={brideSide}
@@ -132,6 +138,7 @@ export default async function TeaCeremonyPage({ params }: Props) {
           {bothSides.length > 0 ? (
             <SideBlock
               eventId={eventId}
+              roleNames={roleNames}
               heading="Both sides"
               order={3}
               guests={bothSides}
@@ -192,6 +199,7 @@ function mostImportantRoleRank(g: GuestRow): number {
 
 function SideBlock({
   eventId,
+  roleNames,
   heading,
   order,
   guests,
@@ -199,6 +207,7 @@ function SideBlock({
   note,
 }: {
   eventId: string;
+  roleNames: RoleNames;
   heading: string;
   order: number;
   guests: GuestRow[];
@@ -225,6 +234,7 @@ function SideBlock({
             <ServeRow
               key={g.guest_id}
               eventId={eventId}
+              roleNames={roleNames}
               guest={g}
               number={startNumber + i}
             />
@@ -242,10 +252,12 @@ function SideBlock({
 
 function ServeRow({
   eventId,
+  roleNames,
   guest,
   number,
 }: {
   eventId: string;
+  roleNames: RoleNames;
   guest: GuestRow;
   number: number;
 }) {
@@ -260,7 +272,7 @@ function ServeRow({
           {guestDisplayName(guest)}
         </p>
         <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-          {[relation, ROLE_LABELS[guest.role]].filter(Boolean).join(' · ')}
+          {[relation, guestRoleLabel(guest.role, roleNames)].filter(Boolean).join(' · ')}
         </p>
       </div>
       <Link

@@ -12,7 +12,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
+import { guestRoleLabel, type GuestRole } from '@/lib/guests';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 
@@ -36,6 +37,8 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
   if (!user) redirect('/login');
 
   const admin = createAdminClient();
+  // The couple's own words for roles (owner 2026-09-30) — "You're in as Bride's Crew".
+  const roleNames = await loadRoleNames(admin, eventId, 'JoinSuccessPage.roleNames');
 
   const [{ data: event }, { data: membership }] = await Promise.all([
     admin
@@ -72,7 +75,7 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
       <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-5">
         <p className="text-sm text-ink/70">You joined as</p>
         <p className="mt-1 text-lg font-medium text-ink">
-          {ROLE_LABELS[(membership.role as GuestRole) ?? 'guest']}
+          {guestRoleLabel((membership.role as GuestRole) ?? 'guest', roleNames)}
         </p>
         <p className="mt-3 font-mono text-xs uppercase tracking-[0.15em] text-ink/45">
           Event {event.public_id}

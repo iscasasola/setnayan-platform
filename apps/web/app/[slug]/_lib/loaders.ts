@@ -27,6 +27,8 @@ import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import {
   buildEntourage,
   ENTOURAGE_COLUMNS,
@@ -1737,6 +1739,18 @@ export const loadEntourageSectionOrder = cache(
   },
 );
 
+/**
+ * The couple's own words for roles (`events.role_names`, owner 2026-09-30 —
+ * Bridesmaid → "Bride's Crew"). Same posture as the section order above: its
+ * own query, and an unreadable value prints the USUAL words, never a broken
+ * page. Cached per request, so the entourage, the dress code and the "You are"
+ * line all read it once.
+ */
+export const loadEventRoleNames = cache(
+  async (admin: AdminClient, eventId: string): Promise<RoleNames> =>
+    loadRoleNames(admin, eventId, 'loadEventRoleNames'),
+);
+
 export const loadEntourage = cache(
   async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
     const { data, error } = await admin
@@ -1783,6 +1797,7 @@ export const loadEntourage = cache(
     return buildEntourage(
       (data ?? []) as EntourageGuestRow[],
       await loadEntourageSectionOrder(admin, eventId),
+      await loadEventRoleNames(admin, eventId),
     );
   },
 );

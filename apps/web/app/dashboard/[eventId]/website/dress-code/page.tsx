@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { getCurrentUser } from '@/lib/auth';
 import { eventNoun } from '@/lib/event-noun';
 import { updateDressCode, type DressCodeConfig } from './actions';
@@ -50,6 +51,8 @@ export default async function DressCodeEditorPage({
     .maybeSingle();
 
   if (!event) redirect(`/dashboard/${eventId}`);
+  // The couple's own words for roles (owner 2026-09-30) — each row says them.
+  const roleNames = await loadRoleNames(supabase, eventId, 'DressCodePage.roleNames');
 
   // ── WHICH ROLES THIS WEDDING ACTUALLY HAS (owner 2026-09-20).
   // The vocabulary holds thirty-odd roles; this couple uses a handful. The
@@ -78,7 +81,7 @@ export default async function DressCodeEditorPage({
     roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
   }
   const eventRoles = [...roleCounts.entries()]
-    .map(([role, count]) => ({ role, label: roleLabel(role) as string, count }))
+    .map(([role, count]) => ({ role, label: roleLabel(role, roleNames) as string, count }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
   // Bind the server action to this event id — Next.js form actions can
@@ -142,7 +145,7 @@ export default async function DressCodeEditorPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
         {/* Editor */}
         <form action={updateAction} className="space-y-6">
-          <DressCodeFields config={config} eventNoun={eventNoun(event.event_type)} eventRoles={eventRoles} />
+          <DressCodeFields config={config} eventNoun={eventNoun(event.event_type)} eventRoles={eventRoles} roleNames={roleNames} />
 
           {/* Submit */}
           <div className="flex flex-wrap items-center gap-3 border-t border-ink/10 pt-4">

@@ -20,6 +20,7 @@
  * gate and is deliberately NOT folded in here.
  */
 import { redirect } from 'next/navigation';
+import { AUTH_READ_FAILED_MESSAGE, authReadFailed } from '@/lib/auth-read';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -34,8 +35,16 @@ export async function getHostUserId(eventId: string): Promise<string | null> {
   const supabase = await createClient();
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) {
+    /* 🔑 "No user" because the CHECK failed (Supabase unreachable, 5xx, 429)
+       is NOT "signed out" — the cookie is intact. Throw a retryable error the
+       caller shows in place; only a real absence of a session goes to sign-in
+       (`lib/auth-read.ts`, owner's live report 2026-09-29). */
+    if (authReadFailed(error)) throw new Error(AUTH_READ_FAILED_MESSAGE);
+    redirect('/login');
+  }
 
   // Source 1 — event_moderators (canonical going forward · iteration 0048 V1).
   const { data: moderator } = await supabase

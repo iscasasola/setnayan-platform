@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { stripComments } from './strip-comments';
+import { renderSettled } from './render-settled.test-helper';
 import {
   GUIDED_ROUNDS,
   GUIDED_STEPS,
@@ -285,7 +286,6 @@ test('(5) the Maker opens on What’s left only for an unfinished event with no 
 /* ── (6) the workspace, and the one Apply ──────────────────────────────── */
 
 async function paint(guide: Record<string, unknown>, initial: string) {
-  const { renderToStaticMarkup } = await import('react-dom/server');
   const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
   const navItems = ['names', 'date', 'theme', 'address'].map((k) => ({ key: k, group: 'g', label: k, icon: null, done: k === 'date' }));
   const plan = buildGuidedPlan(navItems as GuidedItem[], WORDS);
@@ -302,15 +302,10 @@ async function paint(guide: Record<string, unknown>, initial: string) {
       guide: { plan, open: true, ready: null, addressed: true, actions: { previewHref: null, shareUrl: null, sendHref: '/x' }, ...guide },
     });
   /* ⚡ A step's heading, its foot and the Ready screens load lazily with the
-     Details pieces (\`details-lazy.tsx\`): the first pass draws their loading
-     slot (\`data-lazy-slot\`) and asks for their code. Render again once it has
-     arrived — a bounded wait, the same one \`paid-mark.test.ts\` uses. */
-  let html = renderToStaticMarkup(el);
-  for (let i = 0; i < 50 && /data-lazy-slot=/.test(html); i++) {
-    await new Promise((r) => setTimeout(r, 10));
-    html = renderToStaticMarkup(el);
-  }
-  return html;
+     Details pieces (\`details-lazy.tsx\`). \`renderSettled\` waits on the loads
+     themselves — the 500ms retry loop that stood here lost to a slow CI runner
+     (PR #6159, run 36585597410: "no step heading"). */
+  return renderSettled(el);
 }
 
 test('(6) a step is its item, one at a time: the heading, the narrowed navigator, Back · Skip · Next', async () => {

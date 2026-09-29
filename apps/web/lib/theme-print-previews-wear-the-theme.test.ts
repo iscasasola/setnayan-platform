@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import { THEME_PRINT_PIECES, themePrintSrc } from './maker-theme-tiles';
 import { isPreviewVersion, previewCacheControl, PREVIEW_IMMUTABLE, samplePreviewCacheControl } from './print-preview-cache';
 import { stripComments } from './strip-comments';
+import { renderSettled } from './render-settled.test-helper';
 
 const V = '0123456789abcdef';
 
@@ -91,20 +92,10 @@ test('5 · a sample picture is public (one render for every couple); a couple’
   assert.match(previewCacheControl(V), /^private/);
 });
 
-/* ⚡ The print pieces load lazily (`launch/_components/details-lazy.tsx`): the
-   first pass of a render draws each one's loading slot (`data-lazy-slot`) and
-   asks for its code, as a browser's first paint does. Render again once the
-   pieces have arrived — a bounded wait, and whatever is still a slot then is
-   left in the markup for the assertions to catch. */
-async function renderSettled(el: import('react').ReactElement): Promise<string> {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  let html = renderToStaticMarkup(el);
-  for (let i = 0; i < 50 && /data-lazy-slot=/.test(html); i++) {
-    await new Promise((r) => setTimeout(r, 10));
-    html = renderToStaticMarkup(el);
-  }
-  return html;
-}
+/* ⚡ The print pieces load lazily (`launch/_components/details-lazy.tsx`).
+   `renderSettled` waits on the loads themselves, never a clock — see
+   `render-settled.test-helper.ts` for the CI failure that retired the old
+   500ms retry loop. */
 
 test('6 · Details draws the couple’s own prints in the theme being edited — named in every address, drafted or not', async () => {
   const React = (await import('react')).default;

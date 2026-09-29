@@ -193,6 +193,8 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       for (const effect of postEventEffects(item.item.field === 'sceneLooks' ? item.item.value : null, live)) push(effect);
       continue;
     }
+    // 🎨 A fixed part's Style pick is free — never refused, so never listed.
+    if (item.kind === 'fixed-style') continue;
     if (item.kind === 'event') {
       const named = eventEffect(item.column, item.value);
       push({

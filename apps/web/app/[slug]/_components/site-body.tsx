@@ -76,7 +76,6 @@ import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
 import type { PostEventDraft } from '@/lib/post-event-draft';
 import { POST_EVENT_STYLE_HOME } from '@/lib/post-event-styles';
-import { sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';

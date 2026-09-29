@@ -28,6 +28,8 @@ import React from 'react';
 import { stripComments } from './strip-comments';
 import {
   GUIDED_ROUNDS,
+  WAKE_ROUNDS,
+  guidedRoundsFor,
   GUIDED_STEPS,
   SEAT_PLAN_STEP_ITEMS,
   backScreen,
@@ -380,6 +382,7 @@ test('(7) no wedding word, and no "stage" or "scene", on the guided path', () =>
       s.shows({ solemn: true, parentsOffered: false }),
     ]),
     ...Object.values(GUIDED_ROUNDS).flatMap((r) => [r.title, r.ready]),
+    ...Object.values(WAKE_ROUNDS).flatMap((r) => [r.title, r.ready]),
   ];
   assert.ok(words.length > 40, 'anti-vacuity: the step words were not read');
   for (const w of words) {
@@ -394,5 +397,21 @@ test('(7) no wedding word, and no "stage" or "scene", on the guided path', () =>
   // …and the flow's pieces never pop up over the page (the Maker's in-flow rule).
   for (const f of [`${L}/details-guide.tsx`, `${L}/details-guide-top.tsx`]) {
     assert.doesNotMatch(read(f), /role=["']dialog["']|aria-modal|\bfixed inset-0\b/, `${f} pops up over the page`);
+  }
+});
+
+// 🕯 OWNER 2026-09-29, "OWNER ANSWERS — TEN OPEN QUESTIONS" (6): per-type round
+// names — a wake's rounds are "Share the news · Service details · The day", and
+// every surface that names a round reads the plan's own words.
+test('(8) a wake’s rounds are its own, read off EventWords; the celebration keeps its names', () => {
+  assert.deepEqual(Object.values(guidedRoundsFor({ solemn: true })).map((r) => r.title), ['Share the news', 'Service details', 'The day']);
+  assert.deepEqual(Object.values(guidedRoundsFor({ solemn: false })).map((r) => r.title), ['Save the Date', 'Invitations', 'The day']);
+  const wake = buildGuidedPlan(items(WEDDING_ITEMS, () => undefined), { ...WORDS, solemn: true });
+  assert.equal(wake.roundWords[1].title, 'Share the news');
+  assert.ok(wake.steps.every((s) => s.roundTitle === WAKE_ROUNDS[s.round].title), 'a step names a round the wake does not have');
+  assert.doesNotMatch(JSON.stringify(wake.roundWords), /Save the Date|Invitation/, 'a wake is asked to send a Save the Date');
+  for (const f of ['details-guide.tsx', 'details-guide-top.tsx']) {
+    const src = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'launch', '_components', f), 'utf8');
+    assert.doesNotMatch(src, /GUIDED_ROUNDS\[/, `${f} names a round from the fixed celebration list`);
   }
 });

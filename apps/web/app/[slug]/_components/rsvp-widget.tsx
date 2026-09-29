@@ -5,7 +5,7 @@ import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
 import { plusOneSeats } from '@/lib/guests';
-import { plusOneNameSlots } from '@/lib/extra-seats';
+import { RsvpPlusOnes } from './rsvp-plus-ones';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { SelfieCapture } from './selfie-capture';
 import {
@@ -217,6 +217,9 @@ export function RsvpWidget({
   // Meal + dietary share one reveal wrapper below — hide it outright when
   // BOTH are off, rather than rendering an empty grid with nothing inside it.
   const askMealOrDietary = askMeal || askDietary;
+  // With the plus-ones' own "Meal preference" just above, the guest's own box
+  // says whose it is (prototype rsvp_plus_ones_2026-09-29.html, frame A).
+  const bringsPlusOnes = askPlusOnes && guest.plus_one_allowed && !replyLocked;
   // The key gate found no number on record and the couple asks for one — the
   // page cannot be left without it (owner 2026-09-26: "filled first until they
   // are all answered").
@@ -481,40 +484,18 @@ export function RsvpWidget({
           touching who is allowed (a host action, done on the Guest list). */}
       {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
         <div id="plus-ones" data-rsvp-step className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
-          <span className={questionClass(oneAtATime)}>
-            Who are you bringing?
-          </span>
-          <p className="text-xs text-ink/55">
-            {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4), and
-                each seat gets its own optional name box below. */}
-            {words.theOrganizer.charAt(0).toUpperCase() + words.theOrganizer.slice(1)} saved
-            you {plusOneSeats(guest) > 1 ? `${plusOneSeats(guest)} more seats` : 'a seat for one more'}.
-            Give us {plusOneSeats(guest) > 1 ? 'their names and they each get' : 'their name and they get'} their own
-            invitation, their own QR and their own photos — you can add it later
-            if you are still asking.
-          </p>
-          {/* ⚖ Owner 2026-09-21 ("2. yes"): one name box per seat. Box i fills
-              seat i — its id rides along and the server re-checks it belongs
-              to this guest. Each is optional; a blank one leaves that seat TBA.
-              With no seats read (a failed read, or an older guest), this falls
-              back to the single box it always was. */}
-          {plusOneNameSlots(plusOneSeats(guest), guest.plus_one_seats, guest.plus_one_name).map((slot, i) => (
-            <div key={slot.seatId ?? i} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {slot.seatId ? <input type="hidden" name={`plus_one_seat_id_${i + 1}`} value={slot.seatId} /> : null}
-              <Field
-                id={`plus_one_first_name_${i + 1}`}
-                label={plusOneSeats(guest) > 1 ? `Guest ${i + 1} — first name` : 'Their first name'}
-                defaultValue={(slot.name ?? '').split(' ')[0] ?? ''}
-                placeholder="First name"
-              />
-              <Field
-                id={`plus_one_last_name_${i + 1}`}
-                label={plusOneSeats(guest) > 1 ? `Guest ${i + 1} — last name` : 'Their last name'}
-                defaultValue={(slot.name ?? '').split(' ').slice(1).join(' ')}
-                placeholder="Last name"
-              />
-            </div>
-          ))}
+          {/* One short set per seat + one "Filling in for ▾" switcher
+              (owner 2026-09-29) — its own file, so this card only mounts it. */}
+          <RsvpPlusOnes
+            count={plusOneSeats(guest)}
+            seats={guest.plus_one_seats}
+            legacyName={guest.plus_one_name}
+            theOrganizer={words.theOrganizer}
+            askMeal={askMeal}
+            askDietary={askDietary}
+            question={oneAtATime}
+            youName={oneAtATime ? null : guest.display_name || `${guest.first_name} ${guest.last_name}`.trim()}
+          />
         </div>
       ) : null}
 
@@ -552,7 +533,7 @@ export function RsvpWidget({
               <div data-rsvp-step>
               <Select
                 id="meal_preference"
-                label="Meal preference"
+                label={bringsPlusOnes ? 'Your meal preference' : 'Meal preference'}
                 question={oneAtATime}
                 defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
                 options={[
@@ -571,7 +552,7 @@ export function RsvpWidget({
               <div data-rsvp-step>
               <Field
                 id="dietary_restrictions"
-                label="Dietary notes"
+                label={bringsPlusOnes ? 'Your dietary notes' : 'Dietary notes'}
                 question={oneAtATime}
                 defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
                 placeholder="halal · nut allergy · …"

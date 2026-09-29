@@ -305,7 +305,8 @@ test('3 · "Your guests": Send their invite for a named plus-one, Add their name
   );
   assert.match(html, /Ben Reyes/);
   assert.match(html, /Send their invite/);
-  assert.match(html, /Seat 3/);
+  assert.match(html, /\+2 · TBA/, 'an unnamed seat is numbered by seat — "+2 · TBA"');
+  assert.doesNotMatch(html, /Guest \d|Seat \d/, 'a seat numbered by headcount');
   assert.match(html, /href="\/ana\/invite\/reply#plus-ones"[^>]*>Add their name/);
   const none = renderToStaticMarkup(
     React.createElement(YourGuests, { guests: [], eventName: 'x', addNamesHref: '#' }),

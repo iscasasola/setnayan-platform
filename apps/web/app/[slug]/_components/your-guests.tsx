@@ -50,9 +50,9 @@ export function YourGuests({
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate font-serif text-lg text-ink">
-                    {g.name ?? `Seat ${i + 2}`}
+                    {/* Numbered by SEAT (owner 2026-09-29): "+2 · TBA", never "Guest 3". */}
+                    {g.name ?? `+${i + 1} · TBA`}
                   </span>
-                  {g.name ? null : <span className="block text-xs text-ink/60">TBA</span>}
                 </span>
                 {g.name && g.inviteUrl ? (
                   <SendTheirInvite name={g.name} url={g.inviteUrl} eventName={eventName} label={sendLabel} />

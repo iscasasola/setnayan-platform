@@ -1691,11 +1691,12 @@ export async function SiteBody({
        same anchor, so "Show your pass" still lands somewhere that explains.
        Derived from the row at render time: change the reply and it is back. */
     const passWithheld = g.passCard === 'awaiting' || g.passCard === 'cannotCome' ? passCardLine(g.passCard) : null;
-    const passCard = plan.qrCardShouldRender && passWithheld ? (
+    const passWithheldCard = plan.qrCardShouldRender && passWithheld ? (
       <section id={PASS_ANCHOR} data-pass-card-withheld={g.passCard ?? ''} className="mx-auto max-w-md scroll-mt-6 text-center">
         <p className="text-sm text-ink/70">{passWithheld}</p>
       </section>
-    ) : plan.qrCardShouldRender ? (
+    ) : null;
+    const passCard = passWithheldCard ? passWithheldCard : plan.qrCardShouldRender ? (
       <section
         id={PASS_ANCHOR}
         data-motion="pass"

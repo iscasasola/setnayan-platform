@@ -115,9 +115,11 @@ test('4 · the first preview asks eagerly and high; the rest lazily and low; eac
   assert.equal((html.match(/data-print-preview="first"/g) ?? []).length, 1, 'exactly one piece goes first');
   const imgs = [...html.matchAll(/<img[^>]*src="\/api\/hub-print\/[a-z]+\?[^"]*mode=screen[^"]*"[^>]*>/g)].map((m) => m[0]);
   // Every preview is an <img> in the HTML — none waits for a script to be asked for.
-  assert.equal(imgs.length, 7, `${imgs.length} preview images in the HTML`);
+  // Seven pieces + the pass card's own look preview ("The pass guests save", 2026-09-29).
+  assert.equal(imgs.length, 8, `${imgs.length} preview images in the HTML`);
   assert.equal(imgs.filter((t) => /fetchpriority="high"/i.test(t) && /loading="eager"/.test(t)).length, 1);
-  assert.equal(imgs.filter((t) => /fetchpriority="low"/i.test(t) && /loading="lazy"/.test(t)).length, 6);
+  assert.equal(imgs.filter((t) => /fetchpriority="low"/i.test(t) && /loading="lazy"/.test(t)).length, 7);
+  assert.equal(imgs.filter((t) => /pass_design=/.test(t)).length, 1, 'the one pass-card preview, not first in line');
   // The pass warms its other sizes — and only its own family's.
   const pass = /data-print-piece="pass"[\s\S]*?data-print-prefetch="([^"]*)"/.exec(html)?.[1] ?? '';
   const warmed = pass.replace(/&amp;/g, '&').split(' ').filter(Boolean);

@@ -290,6 +290,11 @@ export function passCardsZipFileName(eventName: string | null | undefined, event
   return [couple, day, fileSafe(PASS_CARD_WORDS.plural)].filter(Boolean).join('-') + '.zip';
 }
 
+/** The same, read off an event row. */
+export function passCardsZipFileNameOf(ev: { display_name: string | null; event_date: string | null }): string {
+  return passCardsZipFileName(ev.display_name, ev.event_date);
+}
+
 /**
  * Two guests with the same name in one zip must not overwrite each other: the
  * second becomes `…-2.png`. Order-stable.

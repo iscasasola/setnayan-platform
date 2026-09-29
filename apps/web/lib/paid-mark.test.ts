@@ -121,9 +121,12 @@ test('the themed prints wear the mark their owner has earned — both directions
   console.log(`[paid-mark] prints owned{${marks(owned)}} free{${marks(free)}} shell-free{${marks(shellFree)}}`);
   // 💎 Owner 2026-09-28: "let us remove padlock and just show that these tools
   // are for pro with the diamond icon" — no padlock anywhere in the Maker.
-  assert.equal(count(owned, 'data-paid-mark="unlocked"'), 1);
+  // The themed prints' mark + the pass cards' "Download all passes (.zip)"
+  // (Event Hub Pro, 2026-09-29) — ◆ for both, never a padlock.
+  assert.equal(count(owned, 'data-paid-mark="unlocked"'), 2);
   assert.equal(count(owned, 'data-paid-mark="locked"'), 0);
-  assert.equal(count(free, 'data-paid-mark="try"'), 1, 'a free couple is not shown ◆ PRO on the themed prints');
+  assert.equal(count(free, 'data-paid-mark="try"'), 2, 'a free couple is not shown ◆ PRO on the themed prints and the zip');
+  assert.match(free, /data-pass-cards-zip-pro=""/, 'a free couple’s zip is a door to the Pro unlock');
   assert.equal(count(free, 'data-paid-mark="locked"'), 0, 'a padlock in the Maker');
   assert.equal(count(free, 'data-paid-mark="unlocked"'), 0);
   assert.equal(count(shellFree, 'data-paid-mark='), 0, 'no padlock and no purchase hint in the store shell');

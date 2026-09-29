@@ -833,12 +833,34 @@ export async function submitRsvp(
       const stamp = new Date().toISOString();
 
       for (const op of ops) {
+        // ⚖ Owner 2026-09-29: each plus-one is asked ONLY first name, last
+        // name, meal and dietary. The two answers ride on THEIR row, under the
+        // couple's same switches the bringer's own answers obey — and a meal
+        // outside the list is dropped, never stored.
+        const seatAnswers = {
+          ...(ask.meal && op.meal !== undefined && MEAL_VALUES.includes(op.meal as MealPreference)
+            ? { meal_preference: op.meal }
+            : {}),
+          ...(ask.dietary && op.dietary !== undefined ? { dietary_restrictions: op.dietary } : {}),
+        };
+        if (op.kind === 'details') {
+          if (Object.keys(seatAnswers).length > 0) {
+            await admin
+              .from('guests')
+              .update({ ...seatAnswers, updated_at: stamp })
+              .eq('guest_id', op.seatId)
+              .eq('event_id', eventId)
+              .eq('plus_one_of_guest_id', guestId);
+          }
+          continue;
+        }
         const first = op.first || 'TBA';
         const last = op.last || '+1';
         if (op.kind === 'name') {
           await admin
             .from('guests')
             .update({
+              ...seatAnswers,
               first_name: first,
               last_name: last,
               // Clearing this is what actually replaces "+ TBA · brought by …":
@@ -855,6 +877,7 @@ export async function submitRsvp(
           // Same shape the host's own "add a guest" form inserts, so the seat
           // gets a real row — and with it the qr_token the column mints by DEFAULT.
           await admin.from('guests').insert({
+            ...seatAnswers,
             event_id: eventId,
             first_name: first,
             last_name: last,
@@ -872,7 +895,8 @@ export async function submitRsvp(
 
       // Mirror onto the primary so the host's list chips stop reading "+ TBA":
       // the first name given, as the single-seat reply always did.
-      const firstNamed = ops[0] ? `${ops[0].first} ${ops[0].last}`.trim() : '';
+      const named = ops.find((o) => o.kind !== 'details');
+      const firstNamed = named && named.kind !== 'details' ? `${named.first} ${named.last}`.trim() : '';
       if (firstNamed) {
         await admin
           .from('guests')

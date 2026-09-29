@@ -102,6 +102,7 @@ import type {
   EventMedia,
   GuestContext,
   GuestPapicCamera,
+  GuestRow,
   LiveLayerData,
   LiveWallData,
   WatchLiveData,
@@ -1590,12 +1591,12 @@ export const loadGuestContext = cache(
       were given. A failed read degrades to the single-box reply (no seats
       listed), never to "your seats are empty".
     */
-    let plusOneSeatRows: { guest_id: string; name: string | null }[] | undefined;
+    let plusOneSeatRows: GuestRow['plus_one_seats'];
     if (plusOneSeats(guest) > 0) {
       const { data: seatRows, error: seatErr } = await admin
         .from('guests')
         // The shared guest-name columns, not a hand-picked few (lint:dup-rule).
-        .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at`)
+        .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, meal_preference, dietary_restrictions`)
         .eq('event_id', event.event_id)
         .eq('plus_one_of_guest_id', guest.guest_id)
         .is('deleted_at', null)
@@ -1612,6 +1613,10 @@ export const loadGuestContext = cache(
           return {
             guest_id: r.guest_id as string,
             name: placeholder ? null : `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || null,
+            first: placeholder ? null : ((r.first_name as string | null) ?? null),
+            last: placeholder ? null : ((r.last_name as string | null) ?? null),
+            meal: (r.meal_preference as string | null) ?? null,
+            dietary: (r.dietary_restrictions as string | null) ?? null,
           };
         });
       }

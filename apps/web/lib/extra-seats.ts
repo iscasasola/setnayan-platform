@@ -72,7 +72,19 @@ export function seatToName(rows: readonly ExtraSeatRow[]): string | null {
   return open[0]?.guest_id ?? null;
 }
 
-export type SeatNameInput = { seatId: string | null; first: string; last: string };
+/**
+ * One seat's answers from the reply. `meal` / `dietary` are PRESENT only when
+ * the reply drew that box for the seat (owner 2026-09-29: a plus-one is asked
+ * first name, last name, meal and dietary — nothing else); absent = not asked,
+ * so the seat's stored answer is left alone.
+ */
+export type SeatNameInput = {
+  seatId: string | null;
+  first: string;
+  last: string;
+  meal?: string;
+  dietary?: string | null;
+};
 
 /**
  * Read the reply's name boxes: `plus_one_first_name_1…4` / `_last_name_` /
@@ -86,7 +98,16 @@ export function readSeatNames(form: { get(name: string): FormDataEntryValue | nu
   for (let i = 1; i <= 4; i++) {
     const first = text(`plus_one_first_name_${i}`);
     const last = text(`plus_one_last_name_${i}`);
-    if (first || last) out.push({ seatId: text(`plus_one_seat_id_${i}`) || null, first, last });
+    const seatId = text(`plus_one_seat_id_${i}`) || null;
+    // The seat's meal + dietary ride with it — keys present only when drawn.
+    const details: Pick<SeatNameInput, 'meal' | 'dietary'> = {};
+    if (form.get(`plus_one_meal_${i}`) !== null) details.meal = text(`plus_one_meal_${i}`) || 'no_preference';
+    if (form.get(`plus_one_dietary_${i}`) !== null) details.dietary = text(`plus_one_dietary_${i}`).slice(0, 500) || null;
+    if (first || last) out.push({ seatId, first, last, ...details });
+    // ⚖ A blank name on a seat that already EXISTS still saves its meal and
+    // dietary (the caterer cooks for "+2 TBA" too) — and never touches its
+    // name: clearing a name is not a removal (removing a guest is the host's).
+    else if (seatId && Object.keys(details).length > 0) out.push({ seatId, first: '', last: '', ...details });
   }
   if (out.length === 0) {
     const first = text('plus_one_first_name');
@@ -96,9 +117,21 @@ export function readSeatNames(form: { get(name: string): FormDataEntryValue | nu
   return out;
 }
 
+type SeatDetails = Pick<SeatNameInput, 'meal' | 'dietary'>;
+
 export type SeatNameOp =
-  | { kind: 'name'; seatId: string; first: string; last: string }
-  | { kind: 'create'; first: string; last: string };
+  | ({ kind: 'name'; seatId: string; first: string; last: string } & SeatDetails)
+  | ({ kind: 'create'; first: string; last: string } & SeatDetails)
+  /** No name given: only the seat's meal / dietary move; its name is untouched. */
+  | ({ kind: 'details'; seatId: string } & SeatDetails);
+
+/** The seat's meal / dietary keys, only those the reply carried. */
+function detailsOf(n: SeatNameInput): SeatDetails {
+  const d: SeatDetails = {};
+  if (n.meal !== undefined) d.meal = n.meal;
+  if (n.dietary !== undefined) d.dietary = n.dietary;
+  return d;
+}
 
 /**
  * Which seat each typed name fills.
@@ -126,14 +159,22 @@ export function planSeatNames(
     .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
 
   for (const n of names) {
-    let target: string | null = n.seatId && mine.has(n.seatId) && !used.has(n.seatId) ? n.seatId : null;
-    if (!target) target = open.find((s) => !used.has(s.guest_id))?.guest_id ?? null;
+    const own = n.seatId && mine.has(n.seatId) && !used.has(n.seatId) ? n.seatId : null;
+    if (!n.first && !n.last) {
+      // Details only — honoured on this guest's OWN seat, never used to make one.
+      if (own) {
+        used.add(own);
+        ops.push({ kind: 'details', seatId: own, ...detailsOf(n) });
+      }
+      continue;
+    }
+    const target = own ?? open.find((s) => !used.has(s.guest_id))?.guest_id ?? null;
     if (target) {
       used.add(target);
-      ops.push({ kind: 'name', seatId: target, first: n.first, last: n.last });
+      ops.push({ kind: 'name', seatId: target, first: n.first, last: n.last, ...detailsOf(n) });
     } else if (seats.length + created < allowed) {
       created += 1;
-      ops.push({ kind: 'create', first: n.first, last: n.last });
+      ops.push({ kind: 'create', first: n.first, last: n.last, ...detailsOf(n) });
     }
     // else: every seat is spoken for and no more may be made — the name is not saved.
   }

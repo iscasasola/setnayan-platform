@@ -291,9 +291,16 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           words={words}
           guest={{
             ...(guest as unknown as GuestRow),
-            // One name box per seat (+1…+4). Names only — a seat's key is for
-            // the thank-you's "Send their invite", never for this form.
-            plus_one_seats: seats.map((s) => ({ guest_id: s.guest_id, name: s.name })),
+            // One set of boxes per seat (+1…+4): name, meal, dietary. Never the
+            // seat's key — that is for the thank-you's "Send their invite".
+            plus_one_seats: seats.map((s) => ({
+              guest_id: s.guest_id,
+              name: s.name,
+              first: s.first,
+              last: s.last,
+              meal: s.meal,
+              dietary: s.dietary,
+            })),
           }}
           eventId={event.event_id as string}
           eventPublicId={event.public_id as string}

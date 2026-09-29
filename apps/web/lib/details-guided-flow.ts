@@ -40,6 +40,7 @@
  * and no wedding word (the march's name comes from its item's label, which the
  * event type writes).
  */
+import { formatCount } from '@/lib/format-number';
 import type { DetailsItemContext, DetailsItemKey, WordsAndPlansInput } from '@/lib/maker-details-items';
 import {
   FREE_PRINT_KEYS,
@@ -306,7 +307,7 @@ export function progressLabel(plan: GuidedPlan, at: GuidedScreen): string {
   const step = stepOf(plan, at.step);
   if (!step) return '';
   const inRound = plan.steps.filter((s) => s.round === step.round);
-  return `Round ${step.round} · ${inRound.indexOf(step) + 1} of ${inRound.length}`;
+  return `Round ${step.round} · ${formatCount(inRound.indexOf(step) + 1)} of ${formatCount(inRound.length)}`;
 }
 
 /** How far along the bar is — this screen's place in its round, 0–1. */

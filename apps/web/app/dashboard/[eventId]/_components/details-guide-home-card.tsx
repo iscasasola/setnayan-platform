@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 import Link from 'next/link';
 import { ArrowRight, ListChecks } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -48,7 +49,7 @@ export async function DetailsGuideHomeCard({ eventId, memberType }: { eventId: s
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-ink">
-          Your Event Hub · Round {at.round} · {at.done} of {at.total}
+          Your Event Hub · Round {at.round} · {formatCount(at.done)} of {formatCount(at.total)}
         </span>
         <span className="mt-0.5 block text-xs text-ink/60">
           {at.title}

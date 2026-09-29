@@ -1,5 +1,6 @@
 'use client';
 
+import { formatCount } from '@/lib/format-number';
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Check, ChevronLeft, ChevronRight, Send } from 'lucide-react';
@@ -196,7 +197,7 @@ export function GuideReady({
           <p className="text-[14px] text-ink/75" data-details-guide-ready-line="">
             {left ? (
               <>
-                {left} {left === 1 ? 'thing is' : 'things are'} still to do — or Apply what is set now.
+                {formatCount(left)} {left === 1 ? 'thing is' : 'things are'} still to do — or Apply what is set now.
               </>
             ) : (
               <>

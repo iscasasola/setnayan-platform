@@ -122,10 +122,13 @@ export const resolveCommandItems = cache(
       } = await supabase.auth.getUser();
       if (!user) return [];
 
-      const [organiser, invited, communities, roles, chapters] =
+      const [organiser, invited, helping, communities, roles, chapters] =
         await Promise.all([
           fetchUserEvents(supabase, user.id, 'couple'),
           fetchUserEvents(supabase, user.id, 'guest'),
+          // A helper's seat — the SAME three reads the board makes, so search
+          // finds exactly the cards the board shows.
+          fetchUserEvents(supabase, user.id, 'coordinator'),
           fetchUserCommunities(supabase, user.id),
           fetchUserRoleSummary(supabase, user.id),
           supabase
@@ -135,7 +138,7 @@ export const resolveCommandItems = cache(
         ]);
 
       const { comingUp, finished } = splitEventBoard(
-        mergeBoardMemberships(organiser, invited),
+        mergeBoardMemberships(organiser, invited, helping),
         manilaTodayISO(),
       );
       // ⚠ A REJECTED QUERY IS NOT A THROWN ERROR. `error` is checked, not
@@ -166,7 +169,11 @@ export const resolveCommandItems = cache(
                 eventTypeBadge(e.event_type),
                 dateLabel ?? 'Date to be set',
                 place,
-                stance === 'invited' ? 'You’re invited' : null,
+                stance === 'invited'
+                  ? 'You’re invited'
+                  : stance === 'helper'
+                    ? 'You help with this'
+                    : null,
               ]
                 .filter(Boolean)
                 .join(' · '),

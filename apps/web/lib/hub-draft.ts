@@ -1635,7 +1635,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   our_photos: 'Your photos',
   style_preferences: 'Your QR code',
   special_message: 'Your special message',
-  what_to_bring: 'What to bring',
+  what_to_bring: 'Your reminders',
   love_story: 'Your Love Story',
   together_since: 'Together since',
   dress_code_config: 'Your dress code',

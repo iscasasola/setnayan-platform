@@ -938,10 +938,12 @@ export default async function WebsiteEditorPage({
         },
         {
           key: 'what-to-bring',
-          label: 'What to bring',
-          blurb: 'Gifts, registry, or a kind no-gift note.',
+          /* 🏠 "Reminders" to guests, on the Invitation's Welcome page (owner
+             2026-09-30 — `lib/invitation-welcome.ts`); the same store as ever. */
+          label: 'Reminders',
+          blurb: 'Arrive by, what to bring, what to wear on your feet.',
           href: `${w}/what-to-bring`,
-          anchor: 'details',
+          anchor: 'w:what_to_bring',
           status: drafted.what_to_bring ? done('Written') : todo('Not set'),
           panel: (
             <TextPanel
@@ -949,9 +951,9 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="what-to-bring"
               name="note"
-              label="What to bring"
+              label="Reminders"
               maxLength={600}
-              placeholder="Gifts, registry, or a kind no-gift note…"
+              placeholder="Arrive by 2:30 · Bring your ticket · Wear flat shoes for the garden…"
               defaultValue={(drafted.what_to_bring as string | null) ?? ''}
               /* ✍ Typed here, seen on the scene at once (`canvas-words.tsx`). */
               previewKey="w:what_to_bring"

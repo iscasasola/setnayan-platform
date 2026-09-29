@@ -23,6 +23,7 @@ import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, stageTakesOwnScenes, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
+import { keysLeavingWith } from '@/lib/invitation-welcome';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
@@ -1114,12 +1115,13 @@ export function MakerWork({
      render keeps the page. Putting one BACK cannot be drawn by the bridge (the
      page never drew it), so that write reloads, double-buffered, as before. */
   const hideOnCanvas = (scene: MakerScene) => {
-    const key = `w:${scene.type}`;
-    broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key, shown: false });
+    /* 🏠 The dress code takes the guest's look on Welcome with it (`keysLeavingWith`). */
+    const keys = keysLeavingWith(`w:${scene.type}`);
+    for (const key of keys) broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key, shown: false });
     canvasHold.current = holdChange(
       canvasHold.current,
       { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
-      { order: (o) => orderWithout(o, key) },
+      { order: (o) => keys.reduce(orderWithout, o) },
       Date.now(),
     );
     scheduleSnapshots(400);
@@ -1788,7 +1790,7 @@ export function MakerWork({
                       aria-label={
                         tile.kind === 'post-event'
                           ? postEventTileLabel(tile)
-                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ' (always here on this stage · comes from your guest list)' : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
+                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ` (always here on this stage · comes from ${MAKER_FIXED_SOURCE[tile.fixed]!.from})` : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
                       }
                       onClick={() => {
                         select?.(selectionForTile(tile));

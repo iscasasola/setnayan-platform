@@ -77,6 +77,12 @@ type HideableWidgetProps = {
   hostPitch?: boolean;
   /** 🚶 Where this keyed guest walks in the march (`lib/march-place.ts`), or null. */
   marchPlace?: MarchPlace | null;
+  /**
+   * 🏠 The dress code as EVERYONE's (owner 2026-09-30): this guest's own look is
+   * on the Invitation's Welcome page (`lib/invitation-welcome.ts`), so Details
+   * draws the general view — our colours and every role — for them too.
+   */
+  dressCodeGeneral?: boolean;
 };
 
 /**
@@ -101,6 +107,7 @@ function HideableWidgetBody({
   guestView = false,
   marchPlace = null,
   roleNames = {},
+  dressCodeGeneral = false,
 }: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
@@ -193,7 +200,7 @@ function HideableWidgetBody({
          editing the hub — answering for the groom's own row showed the couple
          "You are in the entourage · #FAF7F2" instead of the dress code their
          guests will read. So the role is withheld on the canvas, not passed. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView ? (guest?.role ?? null) : null} march={guestView ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;

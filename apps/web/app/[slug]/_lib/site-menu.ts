@@ -29,10 +29,12 @@ export type SiteMenuTab = {
   anchor: string;
 };
 
+/* 🏠 The Invitation's words (owner 2026-09-30: *"on Invitation, the menu is
+   Welcome - Details - Our Love Story - Me"*). Keys and anchors are unchanged. */
 const TAB_LABELS: Record<SiteMenuTabKey, string> = {
-  home: 'Home',
+  home: 'Welcome',
   details: 'Details',
-  story: 'Story',
+  story: 'Our Love Story',
   gallery: 'Gallery', // owner-renamed — never "Photos"
   me: 'Me',
 };

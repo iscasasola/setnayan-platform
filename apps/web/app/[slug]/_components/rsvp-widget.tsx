@@ -8,6 +8,7 @@ import { plusOneSeats } from '@/lib/guests';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { SelfieCapture } from './selfie-capture';
+import { SelfieNoThanksConfirm } from './selfie-no-thanks-confirm';
 import {
   FACE_TAGGING_FIELD,
   FACE_TAGGING_NO,
@@ -289,6 +290,9 @@ export function RsvpWidget({
             {option.label}
           </label>
         ))}
+        {/* 🗑 One confirm before a "No" deletes a selfie already given (owner
+            2026-09-29, OWNER ANSWERS (3)) — only for a guest who has one. */}
+        {guest.photo_source === 'selfie' ? <SelfieNoThanksConfirm /> : null}
       </fieldset>
       <div data-rsvp-step className="tag-yes-reveal">
         <SelfieCapture faceMode={faceMode} />

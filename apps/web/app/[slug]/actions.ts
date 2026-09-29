@@ -49,7 +49,7 @@ import { cookies, headers } from 'next/headers';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
-import { FACE_TAGGING_FIELD, parseFaceTaggingAnswer } from '@/lib/face-tagging-wish';
+import { FACE_TAGGING_FIELD, SELFIE_DELETE_FIELD, parseFaceTaggingAnswer } from '@/lib/face-tagging-wish';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_VALUES: MealPreference[] = [
@@ -542,7 +542,24 @@ export async function submitRsvp(
   // is hidden by CSS after a "No", and a hidden input still POSTS — a guest who
   // took a selfie, ticked both boxes and then tapped "No thanks" must not be
   // enrolled by the leftovers. This only ever NARROWS the consent gate.
-  const taggingWish = parseFaceTaggingAnswer(formData.get(FACE_TAGGING_FIELD));
+  let taggingWish = parseFaceTaggingAnswer(formData.get(FACE_TAGGING_FIELD));
+  // 🗑 "NO THANKS" AFTER A SELFIE (owner 2026-09-29, OWNER ANSWERS (3)): with a
+  // live enrollment, a "No" deletes the selfie and the automatic tags — but ONLY
+  // with the one confirm (`SELFIE_DELETE_FIELD`). An unconfirmed "No" changes
+  // nothing at all, so a stray tap can never erase a face on its own.
+  if (taggingWish === false) {
+    const { count: liveSelfies, error: liveErr } = await admin
+      .from('guest_face_enrollments')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .is('revoked_at', null);
+    if (liveErr) console.error('[supabase-error] app/[slug]/actions.ts · from:guest_face_enrollments.count', liveErr);
+    if ((liveSelfies ?? 0) > 0) {
+      if (clean(formData.get(SELFIE_DELETE_FIELD)) === '1') await eraseGuestFaceData(admin, eventId, guestId);
+      else taggingWish = undefined;
+    }
+  }
   if (taggingWish !== undefined) {
     const { error: wishErr } = await admin
       .from('guests')
@@ -1038,26 +1055,19 @@ async function nameTheSeats(
 }
 
 /**
- * Guest withdraws face-recognition consent (RA 10173 — the data subject's
- * right to withdraw / erasure). This is a real erasure, not just a revoke:
- * we (1) null the biometric `face_vector`, (2) delete the enrolled selfie
- * object from R2, and (3) tombstone the enrollment via `revoked_at`, so the
- * privacy policy's promise that withdrawal "permanently deletes your face
- * vector and enrolled selfie" is literally true. The selfie display photo is
- * also cleared (reverting to initials); a Gmail avatar, being display-only
- * and non-biometric, is left intact. Admin-client + guest-session authorized,
- * the same trust model as submitRsvp.
+ * THE ERASURE ITSELF — face vector nulled + enrollment tombstoned, the guest's
+ * own selfie objects deleted from R2, a linked account's face profile nulled,
+ * the selfie display photo cleared, and every live auto-face tag pulled. ONE
+ * body for both doors that remove a guest's face data: "Delete my face data"
+ * (`withdrawFaceConsent`) and the RSVP's "No thanks" after a selfie, confirmed
+ * (owner 2026-09-29, OWNER ANSWERS (3): *"Selfie: yes"* — "same path as the
+ * existing delete button"). Never two copies of an erasure.
  */
-export async function withdrawFaceConsent(
+async function eraseGuestFaceData(
+  admin: ReturnType<typeof createAdminClient>,
   eventId: string,
   guestId: string,
-  _formData: FormData,
 ): Promise<void> {
-  const session = await readGuestSession();
-  if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
-    return;
-  }
-  const admin = createAdminClient();
   const now = new Date().toISOString();
 
   // Grab the live enrollment rows FIRST so we can erase the R2 selfie objects
@@ -1156,6 +1166,35 @@ export async function withdrawFaceConsent(
     .eq('guest_id', guestId)
     .eq('source', 'auto_face')
     .is('removed_at', null);
+
+  // The tags pulled above are what the story's veto is built from — every copy
+  // of the story, recap, keepsake and share card is thrown away here, in the
+  // one erasure, whichever door called it.
+  await everyCopyIsNowStale(eventId);
+}
+
+/**
+ * Guest withdraws face-recognition consent (RA 10173 — the data subject's
+ * right to withdraw / erasure). This is a real erasure, not just a revoke:
+ * we (1) null the biometric `face_vector`, (2) delete the enrolled selfie
+ * object from R2, and (3) tombstone the enrollment via `revoked_at`, so the
+ * privacy policy's promise that withdrawal "permanently deletes your face
+ * vector and enrolled selfie" is literally true. The selfie display photo is
+ * also cleared (reverting to initials); a Gmail avatar, being display-only
+ * and non-biometric, is left intact. Admin-client + guest-session authorized,
+ * the same trust model as submitRsvp.
+ */
+export async function withdrawFaceConsent(
+  eventId: string,
+  guestId: string,
+  _formData: FormData,
+): Promise<void> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
+    return;
+  }
+  const admin = createAdminClient();
+  await eraseGuestFaceData(admin, eventId, guestId);
 
   const { data: ev } = await admin
     .from('events')

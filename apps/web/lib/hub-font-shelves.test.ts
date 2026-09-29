@@ -76,6 +76,7 @@ test('1 · shelves: Recently used · Most used · All fonts — in order, every 
 });
 
 test('2 · recent = the last five DISTINCT picks, newest first', () => {
+  assert.equal(HUB_FONT_RECENT_MAX, 5, 'the owner asked for 5 recently used');
   const r = rng(5);
   for (let run = 0; run < 300; run++) {
     const history = someKeys(r, 20);
@@ -83,7 +84,8 @@ test('2 · recent = the last five DISTINCT picks, newest first', () => {
     for (const k of history) recent = pushRecentHubFont(recent, k);
     // The model: walk the history backwards, keep first sightings, stop at five.
     const model: HubFontKey[] = [];
-    for (const k of [...history].reverse()) if (!model.includes(k) && model.length < HUB_FONT_RECENT_MAX) model.push(k);
+    // FIVE is the owner's number ("5 recently used") — written here, not read from the code under test.
+    for (const k of [...history].reverse()) if (!model.includes(k) && model.length < 5) model.push(k);
     assert.deepEqual(recent, model, `history ${JSON.stringify(history)}`);
     // What is kept on the device reads back the same.
     assert.deepEqual(sanitizeRecentHubFonts(JSON.parse(JSON.stringify(recent))), recent);

@@ -279,6 +279,36 @@ test('DECODES: the round code on every Digital ticket design (the saved PNG), on
   }
 });
 
+/**
+ * 1× — THE TICKET AS A DESKTOP SCREEN SHOWS IT. The guest's Me shows the Digital
+ * ticket 300 CSS px wide (`w-[min(300px,100%)]`); on a 1× screen that is 300 real
+ * pixels, and the controller measured the Photo-poster round code NOT decoding
+ * there (2×, 3× and the saved PNG did). The cause was MODULE SIZE, not the quiet
+ * zone: at the square code's box a round code's modules are ~1.4× smaller (its box
+ * also holds the filler ring), ~1.9 px each at 300 px. Measured, not guessed: the
+ * code's own light ring widened to 3 modules decoded WORSE; a bigger code decoded.
+ * So each design gives a round code `ROUND_CODE_ROOM`. Held here: every design ×
+ * every pattern × a short and a long invite url, shrunk to 300 px wide.
+ */
+test('DECODES AT 1×: every Digital ticket design with a round code, shown 300 px wide — every pattern, short and long url', async () => {
+  const failed: string[] = [];
+  for (const slug of ['ana', 'indalecio-and-claire-2026-wedding']) {
+    for (const pattern of ['classic', 'rounded', 'dots'] as const) {
+      const qr = await renderInvitationQrPng({ appUrl: 'https://setnayan.com', slug, qrToken: 'guest-pass-of-maria-santos-table-twelve', look: { ...ROUND, pattern, dark: '#111111', light: '#FFFFFF' }, width: 720, onMonogramError: (e) => assert.fail(String(e)) });
+      const url = `https://setnayan.com/${slug}?invite=guest-pass-of-maria-santos-table-twelve`;
+      for (const design of PASS_CARD_DESIGNS) {
+        for (const seat of [null, 'Table 12']) {
+          const doc = layoutPassCard({ look: printLookFor('house'), data: data('circle'), mode: 'screen', foil: false }, { ...PASS, seat }, design);
+          const png = await renderPassCardPng(doc, { 'qr-g-1': { bytes: new Uint8Array(qr), mime: 'image/png' } });
+          const oneX = await sharp(Buffer.from(png)).resize({ width: 300 }).png().toBuffer();
+          if ((await decodeQrPayloadFromImage(new Uint8Array(oneX))) !== url) failed.push(`${design} · ${pattern} · ${slug.length > 3 ? 'long' : 'short'} url${seat ? ' · with table' : ''}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(failed, [], 'a round code that does not scan off a 1× screen');
+});
+
 test('DECODES: the round Event Hub code in its round slot on printed cards — dark paper, at print resolution', async () => {
   const url = 'https://setnayan.com/cale-ice';
   const qr = await renderEventLandingQrPng({ appUrl: 'https://setnayan.com', slug: 'cale-ice', look: ROUND, width: 900, onMonogramError: (e) => assert.fail(String(e)) });

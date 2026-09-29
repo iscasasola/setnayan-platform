@@ -30,11 +30,29 @@ free QR sheet's cut line.
   size the code to the plate: the 256 px code used to spill past its 192 px
   plate.
 
+**The round code now scans at 1× on screen.** The controller found that a round
+code on the Photo-poster ticket did not decode at 1×, at the 300 px width the
+guest's Me shows. It did decode at 2×, 3× and in the saved PNG. The cause is
+module size, not the quiet zone. A round code's box also holds its filler ring,
+so in the square code's box its modules are about 1.4× smaller (about 1.9 px
+each at 300 px). Widening the code's own light ring to 3 modules decoded worse.
+A bigger code decoded. So on the Digital ticket a round code now gets
+`ROUND_CODE_ROOM` (`lib/print-layout.ts`):
+- Classic: a 200-unit code (was 176).
+- Ticket: a 210-unit ceiling, which the stub caps at about 200 (was 128). The
+  perforation is raised (206, was 228) and the white ring is thinner. Table and
+  Arrive sit beside the code.
+- Photo-poster: a 200-unit ceiling, which the room below the band caps at about
+  188 (was 150). Table and Arrive sit beside the code.
+Square codes are unchanged.
+
 Held by `apps/web/lib/a-round-code-sits-in-a-round-slot.test.ts`. It sweeps
 every piece, format and theme, and checks the drawn shapes and the rendered
 SVG: for a round code, no rectangle hugs it and a circle holds it; for a square
 code, the square plate is unchanged. It decodes the round code where it sits,
-in every Digital ticket design and on 300-dpi printed cards on dark paper. It
+in every Digital ticket design and on 300-dpi printed cards on dark paper.
+It also decodes every design at 1×: 300 px wide, every pattern, a short and a
+long url. Put back to the old sizes, the 1× test goes red on the Ticket design. It
 also requires every on-screen QR plate to carry `qr-slot`. The guard was
 sabotaged three ways, and each failed.
 

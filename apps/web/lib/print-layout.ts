@@ -1784,6 +1784,17 @@ function cardWhen(data: PrintSetData, withWord: boolean): string | null {
 }
 
 /**
+ * ⭕ HOW BIG A ROUND CODE IS DRAWN on each Digital ticket design, in the card's
+ * 360-unit width. A round code's box also holds its filler ring, so at the
+ * square code's size its modules are ~1.4× smaller; on a ticket shown 300 px
+ * wide at 1× (the guest's Me) the Photo-poster code measured ~1.9 px a module
+ * and did not decode, while 2× did (controller, 2026-09-30). These are the
+ * sizes each design has room for; `a-round-code-sits-in-a-round-slot.test.ts`
+ * decodes every design at 300 px wide.
+ */
+export const ROUND_CODE_ROOM = { classic: 200, ticket: 210, poster: 200 } as const;
+
+/**
  * The code on its white tile — ALWAYS black on white, whatever the theme (it
  * must scan). The rounded tile is two rects and four corner discs, not a
  * path: a filled PATH next to a code is what the fit guard reads as ink
@@ -1872,7 +1883,12 @@ function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Pri
   // the middle — name, party, the code, the facts — centred between the two
   const party = partyLine(pass.party);
   const facts = passCardFacts(pass);
-  const tile = X(176);
+  // ⭕ A round code spends a third of its box on the filler ring (lib/qr-style-svg.ts
+  // SHAPE = CIRCLE), so the same box gives it modules ~1.4× smaller — too small to
+  // scan off a 300-px ticket at 1× (owner's controller, 2026-09-30). It takes the room
+  // there is instead (`ROUND_CODE_ROOM`).
+  const round = data.qrShape === 'circle';
+  const tile = X(round ? ROUND_CODE_ROOM.classic : 176);
   const tilePad = X(10);
   const blockH = X(30) + (party ? X(20) : 0) + X(14) + tile + tilePad * 2 + (facts.length ? X(14) + X(35) : 0);
   const top = pad + X(82);
@@ -1913,7 +1929,8 @@ function layoutPassCardTicket(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   const { ops, w, h } = doc;
   const X = (v: number) => v * u;
   const pad = Math.max(X(22), SAFE_PT + 2);
-  const perfY = X(228);
+  // ⭕ A round code needs more of the stub (`ROUND_CODE_ROOM`), so its perforation sits higher.
+  const perfY = X(data.qrShape === 'circle' ? 206 : 228);
   // The notches are part of the CUT (the die), so they are transparent in the
   // picture and cut on paper — a ticket even in Photos.
   doc.diePath = ticketDie(w, h, X(18), perfY, X(12));
@@ -1944,13 +1961,16 @@ function layoutPassCardTicket(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   // the stub — the code, with Table and Arrive set like a gate and a time
   const footY = h - Math.max(X(16), SAFE_PT) - X(2);
   const facts = passCardFacts(pass);
-  const tilePad = X(10);
-  const size = X(128);
+  // ⭕ A round code takes the whole stub (`ROUND_CODE_ROOM`), its facts in a narrower column beside
+  // it, on a thinner white ring: the code's own light ring (CIRCLE_GAP) is its quiet zone.
+  const round = data.qrShape === 'circle';
+  const tilePad = X(round ? 5 : 10);
+  const size = round ? Math.min(X(ROUND_CODE_ROOM.ticket), footY - X(20) - perfY - X(18) - tilePad * 2) : X(128);
   const tileY = perfY + X(18) + Math.max(0, (footY - X(20) - perfY - X(18) - size - tilePad * 2) / 2);
   const tileX = facts.length ? pad : w / 2 - size / 2 - tilePad;
   codeTile(ops, pass, tileX, tileY, size, tilePad, X(16), 0, data.qrShape);
   if (facts.length) {
-    const cx0 = tileX + size + tilePad * 2 + X(16);
+    const cx0 = tileX + size + tilePad * 2 + X(round ? 10 : 16);
     const colW = w - pad - cx0;
     const stepH = X(62);
     const firstY = tileY + (size + tilePad * 2) / 2 - (facts.length * stepH) / 2 + X(12);
@@ -2005,18 +2025,35 @@ function layoutPassCardPoster(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   // below — the code in a white rounded tile, Table and Arrive inside it
   const footY = h - Math.max(X(16), SAFE_PT) - X(2);
   const facts = passCardFacts(pass);
-  const size = X(150);
   const tp = X(14);
-  const factsH = facts.length ? X(48) : 0;
-  const tileW = size + tp * 2;
-  const tileH = size + tp + X(12) + factsH;
-  const tileY = bandH + X(18) + Math.max(0, (footY - X(20) - bandH - X(18) - tileH) / 2);
-  codeTile(ops, pass, w / 2 - tileW / 2, tileY, size, tp, X(22), tileH - (size + tp * 2), data.qrShape);
-  if (facts.length) {
-    const gap = Math.min(X(96), tileW / facts.length);
-    // A round code has no tile to hold the facts: they sit on the card's paper, in its own ink, clear of the disc.
-    const round = data.qrShape === 'circle';
-    facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, tileY + tp + size + X(round ? 28 : 20), u, 18, gap - X(6), round ? look.ink : '#2b241c', round ? look.muted : '#7a7368'));
+  if (data.qrShape === 'circle') {
+    // ⭕ A round code has no tile to hold the facts, and needs more room than the tile
+    // gave (`ROUND_CODE_ROOM`): the disc takes the whole height below the band, and
+    // Table · Arrive stand beside it on the card's own paper, in its own ink.
+    const colW = facts.length ? X(96) : 0;
+    const room = footY - X(20) - bandH - X(18);
+    const size = Math.min(X(ROUND_CODE_ROOM.poster), room - tp * 2, w - pad * 2 - tp * 2 - colW);
+    const disc = size + tp * 2;
+    const x0 = facts.length ? pad : w / 2 - disc / 2;
+    const y0 = bandH + X(18) + Math.max(0, (room - disc) / 2);
+    codeTile(ops, pass, x0, y0, size, tp, X(22), 0, 'circle');
+    if (facts.length) {
+      const cx = w - pad - colW / 2;
+      const stepH = X(56);
+      const firstY = y0 + disc / 2 - (facts.length * stepH) / 2 + X(14);
+      facts.forEach((f, i) => cardFact(ops, look, f, cx, firstY + i * stepH, u, 18, colW - X(4)));
+    }
+  } else {
+    const size = X(150);
+    const factsH = facts.length ? X(48) : 0;
+    const tileW = size + tp * 2;
+    const tileH = size + tp + X(12) + factsH;
+    const tileY = bandH + X(18) + Math.max(0, (footY - X(20) - bandH - X(18) - tileH) / 2);
+    codeTile(ops, pass, w / 2 - tileW / 2, tileY, size, tp, X(22), tileH - (size + tp * 2), data.qrShape);
+    if (facts.length) {
+      const gap = Math.min(X(96), tileW / facts.length);
+      facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, tileY + tp + size + X(20), u, 18, gap - X(6), '#2b241c', '#7a7368'));
+    }
   }
   cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
   return doc;

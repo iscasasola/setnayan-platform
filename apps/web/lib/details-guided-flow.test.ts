@@ -154,6 +154,17 @@ test('(2) tripwire: every seat item Details gains is known to the Seat plan step
     SEAT_PLAN_STEP_ITEMS,
     'the Seat plan step no longer reads SEAT_PLAN_STEP_ITEMS',
   );
+  // …and the day the Seat plan item EXISTS (Details part 4 keys it `seating`, its
+  // done = the door is open), the pages that decide before Details draws — the
+  // Maker opening on the flow, Home's "Round N · x of y" — must read it too, or
+  // they would count Round 3 differently from the step list.
+  const early = read(`${L}/details-guided-progress.ts`) + read('lib/details-guided-flow.ts').slice(read('lib/details-guided-flow.ts').indexOf('export function guidedItemDone'));
+  for (const k of SEAT_PLAN_STEP_ITEMS.filter((k) => (DETAILS_ITEM_KEYS as readonly string[]).includes(k))) {
+    assert.ok(
+      new RegExp(`'${k}'`).test(early),
+      `the Seat plan item "${k}" is in Details but Home and the Maker's opening never read it — add it to guidedPresent and guidedItemDone`,
+    );
+  }
 });
 
 /* ── (3) Next · Skip · Back ─────────────────────────────────────────────── */

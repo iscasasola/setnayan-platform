@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
+  Armchair,
   Bookmark,
   CalendarClock,
   CalendarDays,
@@ -76,6 +77,8 @@ import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
 import { yourEventParts, type YourEventInput } from './details-your-event-parts';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { SeatPlanSlot } from '../../seating/_components/seat-plan-slots';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import { ParentCards } from './parent-cards';
 import {
@@ -223,6 +226,15 @@ export type MakerDetailsProps = {
   eventContext: DetailsItemContext;
   /** 🗓 Details part 2a — "Your event" (Names · Date · Venues · Parents & hosts · the march); null = not offered. */
   yourEvent?: YourEventInput | null;
+  /**
+   * 🪑 Details part 4 — the Seat plan: the shipped seating page, drawn in the
+   * Maker (`seating/page.tsx` with `maker=1`) — its plan is the middle, and
+   * the editor draws its place's elements and its guests into the two slots
+   * this page puts in the navigator and the right column. The counts are the
+   * launch page's reads; null = could not be read (never "0"). Null = not
+   * offered (a type with no seat plan, the lab).
+   */
+  seatPlan?: { page: ReactNode; tables: number | null; seated: number | null; open: boolean | null } | null;
 };
 
 const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
@@ -313,6 +325,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
   const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem, eventContext } = props;
   const { facts, loveStory = null, schedule = null, rsvp = null } = props;
+  const seatPlan = props.seatPlan ?? null;
   const switches = detailsSwitchesFor(eventContext);
   const look = props.look ?? null;
   const PRINT_WORDS_ENDPOINT = '/api/hub-print/words';
@@ -334,9 +347,10 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* Each item's model (`DetailsItemModel`): done and used-on are derived from
      data that already exists — part 1 fills them for its own items. */
   const menuDone = menu.saved.some((m) => m.dishes.length > 0) || menu.caterer.some((m) => m.dishes.length > 0);
-  const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } => {
+  const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode; panelLabel?: string } => {
     const yeRow = ye?.rows[k as EventItemKey];
     if (yeRow) return yeRow;
+    if (k === 'seating') return seatPlanRow(seatPlan);
     if (look && (LOOK_ITEM_KEYS as readonly string[]).includes(k)) return lookLabel(k as LookItemKey, look, hasPalette);
     if (k === 'theme') {
       return {
@@ -394,7 +408,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...(seatPlan ? (['seating'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,
@@ -506,6 +520,14 @@ export function MakerDetails(props: MakerDetailsProps) {
   );
   for (const f of free) bodies[f.key] = f.body;
   if (ye) Object.assign(bodies, ye.bodies);
+  /* 🪑 The seat plan — the shipped editor fills the middle part ('fill'). */
+  if (seatPlan) {
+    bodies.seating = (
+      <div key="seating" data-details-seat-plan-page="" className="flex min-h-0 flex-1 flex-col">
+        {seatPlan.page}
+      </div>
+    );
+  }
   /* 🎨 THE LOOK — each shipped page moved in whole, in the split it shipped
      with (`detailsItemLayout`): the Mood Board and the Logo studio carry their
      own tools; the Hero and the Reveal are a live page with their controls on
@@ -696,6 +718,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       );
   }
   if (ye) Object.assign(editors, ye.editors);
+  /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
+  if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
 
   return (
     <ThemePickProvider eventId={eventId} current={theme.current}>
@@ -722,6 +746,10 @@ export function MakerDetails(props: MakerDetailsProps) {
           ...(rsvp ? { rsvp: <ItemPieces item="rsvp" pieces={RSVP_PIECES} /> } : {}),
           /* Part 2a: the Wedding March's sections and lines, the parents and hosts. */
           ...(ye?.pieces ?? {}),
+          /* Part 4: the place's elements — the seating editor draws its rows here. */
+          ...(seatPlan
+            ? { seating: <SeatPlanSlot name="place" className="contents lg:flex lg:flex-col lg:gap-0.5" /> }
+            : {}),
         }}
         persistent={
           <>
@@ -941,4 +969,30 @@ function WordsCard({ text, note }: { text: string | null; note: string }) {
       <p className="text-xs text-ink/55">{note}</p>
     </section>
   );
+}
+
+/**
+ * 🪑 The Seat plan as the navigator draws it — how many tables, how many are
+ * seated, and whether guests see it (its "done": the door is open). Plain
+ * words for every kind of event; a count that could not be read is SAID.
+ */
+function seatPlanRow(
+  seatPlan: { tables: number | null; seated: number | null; open: boolean | null } | null,
+): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode; panelLabel: string } {
+  const t = seatPlan?.tables ?? null;
+  const n = seatPlan?.seated ?? null;
+  const sub =
+    t === null || n === null
+      ? 'Could not be read just now'
+      : t === 0
+        ? 'No tables yet'
+        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : ''}`;
+  return {
+    label: 'Seat plan',
+    sub,
+    done: seatPlan?.open ?? undefined,
+    usedOn: [PUBLIC_STAGE_LABELS.event, 'Table signs', 'Passes', 'Find your seat'],
+    icon: <Armchair aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+    panelLabel: 'Guests',
+  };
 }

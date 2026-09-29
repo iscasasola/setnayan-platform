@@ -66,7 +66,8 @@ test('the resolver really does answer differently — so the call site matters',
   const last = (s: typeof stranger) => s[s.length - 1]!.label;
   // Since 2026-09-27 a stranger's bar ends at Story — no Join tab; "Get inside"
   // is the page's own one button (owner: "Home · Details · Story").
-  assert.equal(last(stranger), 'Story', 'a stranger was given a tab after Story — this fixture is stale');
+  // (The Story tab reads "Our Love Story" since 2026-09-30.)
+  assert.equal(last(stranger), 'Our Love Story', 'a stranger was given a tab after Story — this fixture is stale');
   assert.equal(last(couple), 'Manage', 'the couple no longer gets Manage — this fixture is stale');
   assert.notEqual(last(stranger), last(couple));
 });

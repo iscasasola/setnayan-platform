@@ -60,8 +60,15 @@
  */
 import type { EventWithRole } from './events';
 
-/** The two states a board card can be in. There is no third. */
-export type EventStance = 'organiser' | 'invited';
+/**
+ * The three states a board card can be in.
+ *
+ * `helper` joined 2026-09-29: a person seated on the event as a Limited helper
+ * or a hired planner. Before it, their event was on NOBODY's board — theirs
+ * included — so the only way in was the notice that told them they had been
+ * added. Owner 2026-09-28 named the card: "You help with this".
+ */
+export type EventStance = 'organiser' | 'invited' | 'helper';
 
 /**
  * Which member types reach this board, and as what.
@@ -75,17 +82,25 @@ export type EventStance = 'organiser' | 'invited';
  * and by auto-surface (lib/account-autosurface.ts) — so invited memberships are
  * a real, reachable product state even though prod holds none today.
  *
- * `vendor` and `coordinator` are DELIBERATELY ABSENT. Both have their own
- * doorways, and a coordinator's access to the event shell comes from an
- * accepted `event_moderators` row rather than from the member_type — so putting
- * one on this board would be guessing which door works for them. Named, not
- * built.
+ * `coordinator` → `helper`. A Limited helper (seat kind `viewer`, read-only at
+ * the database) and a hired planner. Their door is the event dashboard, which
+ * admits an accepted, unremoved `event_moderators` seat — and that is no longer
+ * a guess: since 2026-09-28 `sync_delegate_membership` is the ONLY writer of a
+ * `coordinator` membership, minting it with the live seat and deleting it when
+ * the seat goes (grep `'coordinator'::public.member_type` in
+ * supabase/migrations — one function). So a coordinator row IS a live seat.
+ * This entry was absent until then, and the cost was that a helper's event
+ * appeared on no board at all.
+ *
+ * `vendor` stays DELIBERATELY ABSENT — a supplier has its own doorway (the
+ * shop console), and a booking is not a seat on the event.
  */
 const STANCE_BY_MEMBER_TYPE: Partial<
   Record<EventWithRole['member_type'], EventStance>
 > = {
   couple: 'organiser',
   guest: 'invited',
+  coordinator: 'helper',
 };
 
 export function eventStance(
@@ -99,13 +114,23 @@ export function eventStance(
  * person did — not the row's member_type, which means nothing to them.
  */
 export function stanceLabel(stance: EventStance): string {
-  return stance === 'organiser' ? 'You organise this' : 'You’re invited';
+  switch (stance) {
+    case 'organiser':
+      return 'You organise this';
+    case 'helper':
+      return 'You help with this';
+    case 'invited':
+      return 'You’re invited';
+  }
 }
 
 /**
  * Where the card GOES — the whole point of naming the stance.
  *
  * organiser → the event dashboard, which admits them.
+ * helper    → the event dashboard too: its layout admits an accepted seat, and
+ *             a Limited helper sees it read-only (the edit gates and the RLS
+ *             refuse their writes — see `is_limited_helper`).
  * invited   → the event's own public address: a PLAIN PAGE, safe to prefetch,
  *             which recognises them from their seat. NULL when the host has not
  *             opened a public address yet (a real prod state), so the caller
@@ -122,7 +147,9 @@ export function eventBoardHref(event: {
   member_type: EventWithRole['member_type'];
 }): string | null {
   const stance = eventStance(event.member_type);
-  if (stance === 'organiser') return `/dashboard/${event.event_id}`;
+  if (stance === 'organiser' || stance === 'helper') {
+    return `/dashboard/${event.event_id}`;
+  }
   if (stance !== 'invited') return null;
   const slug = event.slug?.trim();
   return slug ? `/${slug}` : null;
@@ -152,6 +179,9 @@ export function eventAlbumHref(event: {
 }): string | null {
   const stance = eventStance(event.member_type);
   if (stance === 'organiser') return `/dashboard/${event.event_id}/studio/papic`;
+  // ⚠ A HELPER GETS NO ALBUM LINK, deliberately — not an oversight. The Papic
+  // studio is the host's album tool and nobody has decided a Limited helper
+  // belongs in it; the card's own door (the dashboard) is where they go.
   if (stance !== 'invited') return null;
   const slug = event.slug?.trim();
   return slug ? `/${slug}` : null;
@@ -323,10 +353,14 @@ export function splitEventBoard(
 export function mergeBoardMemberships(
   organiser: readonly EventWithRole[],
   invited: readonly EventWithRole[],
+  /** Helper seats (member_type `coordinator`). They outrank an invitation —
+   *  the dashboard is the door that opens onto more — and yield to organiser. */
+  helping: readonly EventWithRole[] = [],
 ): EventWithRole[] {
   const byId = new Map<string, EventWithRole>();
   for (const e of invited) byId.set(e.event_id, e);
-  for (const e of organiser) byId.set(e.event_id, e); // organiser overwrites
+  for (const e of helping) byId.set(e.event_id, e); // helper overwrites invited
+  for (const e of organiser) byId.set(e.event_id, e); // organiser overwrites all
   return [...byId.values()];
 }
 
@@ -417,7 +451,8 @@ export function splitFinishedByStory(
  *
  * ⚠ A booked supplier MAY write a chapter about a day (owner 2026-08-15) and is
  * deliberately not offered here: a supplier's celebrations do not reach this
- * board at all (`STANCE_BY_MEMBER_TYPE` admits couple + guest only).
+ * board at all (`STANCE_BY_MEMBER_TYPE` has no `vendor` entry). A HELPER is
+ * not offered it either: the story page admits the event's hosts.
  */
 export function canWriteStoryFor(event: {
   member_type: EventWithRole['member_type'];

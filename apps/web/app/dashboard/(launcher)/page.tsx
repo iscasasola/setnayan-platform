@@ -235,7 +235,7 @@ export default async function LauncherPage({
   // JWT/trigger commit for ~1-2s right after a Google / Facebook OAuth callback.
   // Every query graceful-degrades with a safe default so the page renders the
   // launcher instead of flashing the global error boundary.
-  const [organiserEvents, invitedEvents, roles, communities] =
+  const [organiserEvents, invitedEvents, helpingEvents, roles, communities] =
     await Promise.all([
       fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
         logQueryError(
@@ -260,6 +260,19 @@ export default async function LauncherPage({
       fetchUserEvents(supabase, user.id, 'guest').catch((err: unknown) => {
         logQueryError(
           'Launcher (fetchUserEvents guest threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { user_id: user.id },
+          'graceful_degrade',
+        );
+        return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+      }),
+      // HELPER SEATS — a Limited helper or hired planner (member_type
+      // `coordinator`, minted only alongside a live seat). Until 2026-09-29 the
+      // board never asked for these, so a helper's event was on no board at all.
+      // Same no-count rule as the invited read above.
+      fetchUserEvents(supabase, user.id, 'coordinator').catch((err: unknown) => {
+        logQueryError(
+          'Launcher (fetchUserEvents coordinator threw)',
           err instanceof Error ? err : new Error(String(err)),
           { user_id: user.id },
           'graceful_degrade',
@@ -338,7 +351,7 @@ export default async function LauncherPage({
   // on. Ordering + the finished test + the stance/href derivation all live in
   // lib/event-board.ts.
   const dateKey = (e: EventWithRole) => e.event_date?.slice(0, 10) ?? '';
-  const boardEvents = mergeBoardMemberships(events, invitedEvents);
+  const boardEvents = mergeBoardMemberships(events, invitedEvents, helpingEvents);
   const { comingUp: comingUpAll, finished: finishedAll } = splitEventBoard(
     boardEvents,
     todayISO,
@@ -1733,6 +1746,9 @@ function SectionLabel({
  */
 function StanceChip({ stance }: { stance: EventStance }) {
   const invited = stance === 'invited';
+  // A helper's chip is the organiser's colour (both open the dashboard) with
+  // its own mark, so the two never read as the same sentence at a glance.
+  const Icon = invited ? Mail : stance === 'helper' ? Users : HeartHandshake;
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold uppercase tracking-[0.08em] shadow-[0_2px_8px_rgba(30,26,18,0.08)] ${
@@ -1741,15 +1757,7 @@ function StanceChip({ stance }: { stance: EventStance }) {
           : 'bg-white/85 text-[color:var(--sn-ink-500)]'
       }`}
     >
-      {invited ? (
-        <Mail aria-hidden className="h-[11px] w-[11px]" strokeWidth={2.25} />
-      ) : (
-        <HeartHandshake
-          aria-hidden
-          className="h-[11px] w-[11px]"
-          strokeWidth={2.25}
-        />
-      )}
+      <Icon aria-hidden className="h-[11px] w-[11px]" strokeWidth={2.25} />
       {stanceLabel(stance)}
     </span>
   );
@@ -1994,7 +2002,7 @@ function deriveEventView(
             : null;
   // WHICH SIDE OF THIS EVENT THE VIEWER IS ON — the thing that decides where the
   // card can send them. NULL for a member_type this board does not carry
-  // (vendor · coordinator), which `splitEventBoard` has already filtered out.
+  // (vendor), which `splitEventBoard` has already filtered out.
   const stance = eventStance(event.member_type);
   const invited = stance === 'invited';
   // WHERE THIS CARD GOES — derived HERE, once, so the destination, the status
@@ -2021,7 +2029,12 @@ function deriveEventView(
     ? 'Celebrated'
     : invited
       ? (countdown ?? 'You’re on the guest list')
-      : (countdown ?? (pct != null ? 'Planning underway' : 'Just getting started'));
+      : stance === 'helper'
+        ? // The plan's progress is read for the organiser's own events only, so
+          // a helper card has no measured basis for "underway" or "just
+          // getting started" — it says where they stand instead.
+          (countdown ?? 'You’re on the hosts’ team')
+        : (countdown ?? (pct != null ? 'Planning underway' : 'Just getting started'));
   // ⚠ `plannedLabel` ("N% planned") LIVED HERE AND IS GONE (2026-08-24). It
   // printed the same number the ring already shows an inch away — the exact
   // D-6 defect W1-A removed from the event dashboard, fixed there and not
@@ -2135,9 +2148,10 @@ function eventAttention(
  * button laid over a truncating line of text is the same bug one layer up.
  *
  * ─── WHO GETS ONE ──────────────────────────────────────────────────────────
- * `member_type === 'couple'` ONLY. This board carries exactly two kinds of card
- * (couple → organiser, guest → invited; `splitEventBoard` drops the rest), and
- * a guest must not be offered controls over somebody else's celebration. It
+ * `member_type === 'couple'` ONLY. This board carries three kinds of card
+ * (couple → organiser, coordinator → helper, guest → invited; `splitEventBoard`
+ * drops the rest), and neither a helper nor a guest may be offered controls
+ * over somebody else's celebration. It
  * matches the server gate exactly — `deleteOwnEvent` admits couple members and
  * nobody else — so the menu is never a door to a refusal.
  *

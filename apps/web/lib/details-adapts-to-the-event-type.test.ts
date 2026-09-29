@@ -32,7 +32,11 @@ test('a birthday and a wake get every part-1 item — the theme, the address, th
   // …and the part-2a rules land through the same one mechanism.
   const has = (p: typeof WEDDING_PROFILE, k: DetailsItemKey) => detailsNavigatorKeys(ctx(p), ALL).some((g) => g.keys.includes(k));
   assert.equal(has(WEDDING_PROFILE, 'names') && has(WEDDING_PROFILE, 'march'), true);
-  for (const p of [BIRTHDAY, WAKE_PROFILE]) assert.equal(has(p, 'names') || has(p, 'march'), false, `${p.eventType} got a two-name box or a march`);
+  for (const p of [BIRTHDAY, WAKE_PROFILE]) {
+    assert.equal(has(p, 'march'), false, `${p.eventType} got a march`);
+    // A one-person event gets ONE name (owner 2026-09-29, "yes to all 4").
+    assert.equal(has(p, 'names'), true, `${p.eventType} has no Name`);
+  }
   assert.equal(ctx(WAKE_PROFILE).solemn, true, 'the wake fixture is not the solemn register');
 });
 

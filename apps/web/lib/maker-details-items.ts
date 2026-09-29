@@ -241,9 +241,8 @@ export const DETAILS_ITEM_APPLIES: Partial<Record<DetailsItemKey, (c: DetailsIte
      story, so the item is not drawn — never re-worded. */
   'love-story': (c) => hasTwoNamedPeople(c.profile),
   // Part 2a · Your event — the rule is `yourEventItems` (lib/details-your-event.ts):
-  // Names where the type has two named people, the march where its role set
-  // prints an entourage. Date, venues and parents & hosts suit every type.
-  names: (c) => yourEventItems(yourEventKindOf(c)).includes('names'),
+  // the march where its role set prints an entourage. Names (two people) or
+  // Name (one), date, venues and parents & hosts suit every type.
   march: (c) => yourEventItems(yourEventKindOf(c)).includes('march'),
   // 🪑 Part 4 · the Seat plan — only where the type has a seat plan at all (its
   // profile's 'seating' surface: the same rule the seating page and the guest

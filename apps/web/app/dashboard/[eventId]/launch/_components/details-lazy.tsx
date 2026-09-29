@@ -79,6 +79,7 @@ export const PrintSaveButton = dynamic(() => import(/* webpackChunkName: "maker-
 
 /* ── Your event (names · date · venues · parents & hosts · the march) ─────── */
 export const NamesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.NamesEditor), { loading: SlotRows });
+export const OneNameEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.OneNameEditor), { loading: SlotRows });
 export const DateEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateEditor), { loading: SlotRows });
 export const DateBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateBody), { loading: SlotFill });
 export const VenuesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuesEditor), { loading: SlotRows });

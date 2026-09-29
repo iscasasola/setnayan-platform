@@ -153,6 +153,16 @@ export async function saveAllStdContent(
     filmVenueName?: string | null;
     filmVenueCity?: string | null;
     filmCeremonyName?: string | null;
+    /**
+     * 🏠 THE STREET ADDRESSES, typed once in Details › Your event › Venues
+     * (owner 2026-09-29, "yes to all 4"). The reception's is the event's own
+     * `venue_address` (reused — the Event Hub's reception fallback already
+     * reads it); the ceremony's is `ceremony_venue_address` (20271252997367).
+     * undefined = untouched; '' / null clears. Same 300-character bound as the
+     * column CHECK.
+     */
+    venueAddress?: string | null;
+    ceremonyAddress?: string | null;
     filmStory?: string | null;
     /** Film accent colour as a `#rrggbb` hex, or null to follow the Mood Board.
      *  Anything malformed degrades to null (never blocks a render). */
@@ -254,6 +264,16 @@ export async function saveAllStdContent(
   if (data.filmVenueName !== undefined) patch.std_film_venue_name = data.filmVenueName?.trim() || null;
   if (data.filmVenueCity !== undefined) patch.std_film_venue_city = data.filmVenueCity?.trim() || null;
   if (data.filmCeremonyName !== undefined) patch.std_film_ceremony_name = data.filmCeremonyName?.trim() || null;
+  if (data.venueAddress !== undefined) {
+    const v = data.venueAddress?.trim() || null;
+    if (v && v.length > 300) return { ok: false, error: 'address-too-long' };
+    patch.venue_address = v;
+  }
+  if (data.ceremonyAddress !== undefined) {
+    const v = data.ceremonyAddress?.trim() || null;
+    if (v && v.length > 300) return { ok: false, error: 'address-too-long' };
+    patch.ceremony_venue_address = v;
+  }
   if (data.filmStory !== undefined) patch.std_film_story = data.filmStory?.trim() || null;
   // Film accent override — a #rrggbb hex (from the colour picker) or null to
   // follow the Mood Board. The only client sources are <input type=color>

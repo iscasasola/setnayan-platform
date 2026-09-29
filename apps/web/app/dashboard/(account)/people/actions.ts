@@ -521,7 +521,10 @@ export async function setConnectionLabel(
         relation,
       ),
       body: 'Open your requests to confirm. Nothing changes until you say so.',
-      relatedUrl: '/dashboard/people?view=requests',
+      // The bare People page: every request (a label ask included) is pinned at
+      // its top, and `connection-notifications.test.ts` holds every connection
+      // notice to this one destination.
+      relatedUrl: '/dashboard/people',
     });
   }
 

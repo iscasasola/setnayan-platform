@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import { BufferedCanvasFrame } from '../../website/editor/_components/buffered-canvas-frame';
 import { MAKER_PAGE_TITLE, type MakerPageKey } from '@/lib/maker-made-once-pages';
 
 /**
@@ -89,6 +90,15 @@ export function MakerPage({
 /**
  * The guest page drawn as an item's page (Hero · Reveal · Love Story as guests
  * see it) — the same frame a stage's canvas uses, at the toolbar's device width.
+ *
+ * 🪞 DOUBLE-BUFFERED, LIKE THE CANVAS (owner 2026-09-29: *"make sure 100% that
+ * there is no slow response on the maker"*). `frameKey` moves on every Maker
+ * render (every save, anywhere), and this frame used to be KEYED on it: each
+ * save remounted it, and the page went white and loaded from the top while the
+ * couple waited — on the Hero page, after every design pick. Now the new render
+ * loads behind the page on screen and takes its place once ready
+ * (`BufferedCanvasFrame`, the stage canvas's own mechanism — not a second one).
+ * A different page (`src`) is a different group, so it still swaps at once.
  */
 export function MakerPageFrame({
   src,
@@ -96,21 +106,31 @@ export function MakerPageFrame({
   device,
   frameKey,
   frameRef,
+  onShown,
 }: {
   src: string;
   title: string;
   device: 'desktop' | 'phone';
   frameKey: string;
-  frameRef?: React.Ref<HTMLIFrameElement>;
+  frameRef?: MutableRefObject<HTMLIFrameElement | null>;
+  /** The frame now shown (the canvas guard re-attaches to it). */
+  onShown?: (key: string) => void;
 }) {
+  const ownRef = useRef<HTMLIFrameElement | null>(null);
+  const loadingRef = useRef<Window | null>(null);
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 py-2 lg:px-6 lg:pb-5 lg:pt-4">
-      <iframe
-        ref={frameRef}
-        key={frameKey}
+      <BufferedCanvasFrame
+        frameKey={frameKey}
+        group={src}
         src={src}
         title={title}
-        data-maker-page-frame=""
+        pageFrame
+        frameRef={frameRef ?? ownRef}
+        loadingRef={loadingRef}
+        anchorKey={() => null}
+        onShown={(key) => onShown?.(key)}
+        onSwapped={() => {}}
         className={`min-h-0 w-full flex-1 rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
           device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
         }`}

@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
@@ -198,7 +199,7 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
      row is this event's, an always-on section cannot be hidden); a `draft=1`
      form then stops here and guests see nothing until Apply. */
   if (isHubDraftWrite(formData)) {
-    await saveWidgetToDraft(formData, eventId, row.widget_type as WidgetType, { is_visible: nextVisible });
+    return saveWidgetToDraft(formData, eventId, row.widget_type as WidgetType, { is_visible: nextVisible });
   }
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
@@ -211,9 +212,7 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
   }
 
   await revalidateForWidgetChange(eventId);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
 }
 
 // The three legal open-browse section modes (matches the CHECK constraint on
@@ -334,7 +333,7 @@ export async function setSectionMode(formData: FormData): Promise<void> {
   }
 
   if (isHubDraftWrite(formData)) {
-    await saveWidgetToDraft(formData, eventId, widgetType, { mode: nextMode });
+    return saveWidgetToDraft(formData, eventId, widgetType, { mode: nextMode });
   }
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
@@ -353,9 +352,7 @@ export async function setSectionMode(formData: FormData): Promise<void> {
   }
 
   await revalidateForWidgetChange(eventId);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
 }
 
 /**
@@ -369,11 +366,11 @@ export async function setSectionMode(formData: FormData): Promise<void> {
  * Mirror of moveWidgetDown below; both share the same swap pattern.
  */
 export async function moveWidgetUp(formData: FormData): Promise<void> {
-  await moveWidget(formData, 'up');
+  return moveWidget(formData, 'up');
 }
 
 export async function moveWidgetDown(formData: FormData): Promise<void> {
-  await moveWidget(formData, 'down');
+  return moveWidget(formData, 'down');
 }
 
 /**
@@ -405,8 +402,7 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   // field — the navigator's form names the stage it is arranging.
   const stageRaw = formData.get('stage');
   if (typeof stageRaw === 'string' && (STAGE_KEYS as readonly string[]).includes(stageRaw)) {
-    await moveWithinStage(formData, supabase, eventId, widgetId, stageRaw as LifecyclePhase, direction);
-    return;
+    return moveWithinStage(formData, supabase, eventId, widgetId, stageRaw as LifecyclePhase, direction);
   }
 
   // Load the moving row + its neighbor in one round trip. We fetch all
@@ -467,7 +463,7 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
         [neighborRow.widget_type]: { display_order: movingRow.display_order },
       } as HubDraftPatch['widgets'],
     }, { formData, fallback: DRAFT_FALLBACK(eventId) });
-    finishDraftSave(formData, eventId);
+    return finishDraftSave(formData, eventId);
   }
 
   // Two parallel UPDATEs. No transaction needed — even if the second
@@ -494,9 +490,7 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   }
 
   await revalidateForWidgetChange(eventId);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
 }
 
 const STAGE_KEYS = ['save_the_date', 'rsvp', 'event', 'editorial'] as const;
@@ -544,7 +538,7 @@ async function moveWithinStage(
         places.map(({ row, place }) => [row.widget_type, { stage_order: { [stage]: place } }]),
       ) as HubDraftPatch['widgets'],
     }, { formData, fallback: DRAFT_FALLBACK(eventId) });
-    finishDraftSave(formData, eventId);
+    return finishDraftSave(formData, eventId);
   }
 
   // Live: each row's `config_json` keeps every sibling key (its canvas above all).
@@ -561,7 +555,7 @@ async function moveWithinStage(
   if (failed?.error) throw new Error(`Failed to reorder scenes: ${failed.error.message}`);
 
   await revalidateForWidgetChange(eventId);
-  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'));
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -638,7 +632,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   if (formData.get('reset') === '1') {
     if (!drafting) await requireLookPro(eventId, canvasHasMotion(canvas) ? 'remove' : 'none');
     for (const k of HUB_CANVAS_MOTION_KEYS) delete canvas[k];
-    if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
+    if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
     const { error: resetErr } = await supabase
       .from('invitation_widgets')
       .update({ config_json: { ...existing, canvas } })
@@ -715,7 +709,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
     if (step.autoSpeed) canvas.autoSpeed = step.autoSpeed;
   }
 
-  if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
+  if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
   const next = { ...existing, canvas };
 
   const { error: updateErr } = await supabase
@@ -727,9 +721,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   if (updateErr) throw new Error(`Failed to save how this section moves: ${updateErr.message}`);
 
   await revalidateForWidgetChange(eventId);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
 }
 
 /**
@@ -902,7 +894,7 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
     else delete canvas.kind;
   }
 
-  if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
+  if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
     .update({ config_json: { ...existing, canvas } })
@@ -912,9 +904,7 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
   if (updateErr) throw new Error(`Failed to save this section's background: ${updateErr.message}`);
 
   await revalidateForWidgetChange(eventId);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
 }
 
 /**
@@ -982,7 +972,7 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
   if ((HUB_FOCAL_POINTS as readonly number[]).includes(focalRaw)) canvas.focal = focalRaw;
   if ((HUB_ZOOMS as readonly number[]).includes(zoomRaw)) canvas.zoom = zoomRaw;
 
-  if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
+  if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
 
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
@@ -993,9 +983,7 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
   if (updateErr) throw new Error(`Failed to save the crop: ${updateErr.message}`);
 
   await revalidateForWidgetChange(eventId);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -1111,8 +1099,13 @@ export async function addCustomSection(formData: FormData): Promise<void> {
        verbatim), so the App Router keeps the Maker mounted and only the data
        changes; the work area selects the scene that appeared (`editor-shell.tsx`
        `scenesBeforeAdd`). A `?scene=<id>` here would be a NEW page key — the
-       whole Maker remounting for one tap, the very reload the owner named. */
-    redirect(resolveReturnTo(formData, `/dashboard/${eventId}/launch?drafted=1`, '?drafted=1'));
+       whole Maker remounting for one tap, the very reload the owner named.
+       ⚠ MEASURED 2026-09-29: even that same-address REDIRECT remounts the whole
+       Maker (twice) — the canvas and every warm stage load again from nothing.
+       So from the Maker it does not redirect at all: the Maker route is
+       revalidated and this response carries its fresh render, applied in place
+       like `router.refresh()`. Anywhere else, the redirect as before. */
+    return landAfterWrite(formData, `/dashboard/${eventId}/launch?drafted=1`, '?drafted=1');
   }
 
   const { error: insertErr } = await supabase.from('invitation_widgets').insert({
@@ -1126,7 +1119,7 @@ export async function addCustomSection(formData: FormData): Promise<void> {
   if (insertErr) throw new Error(`Failed to add a section: ${insertErr.message}`);
 
   await revalidateForWidgetChange(eventId);
-  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'));
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
 }
 
 /** The custom-section intents that write only the scene's CANVAS — drafted in the Maker. */
@@ -1236,7 +1229,7 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     if (delErr) throw new Error(`Failed to remove your section: ${delErr.message}`);
     if (!gone || gone.length !== 1) throw new Error('Your section could not be removed.');
     await revalidateForWidgetChange(eventId);
-    redirect(back('?saved=1'));
+    return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
   }
 
   /* 💾 In the Maker (`draft=1`) a scene's template, slots, clip playback and
@@ -1312,7 +1305,7 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
       }
       nextCanvas = v.canvas;
     }
-    if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, nextCanvas);
+    if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, nextCanvas);
     next = { ...existing, canvas: sanitizeHubCanvas({ canvas: nextCanvas }) };
   } else if (intent === 'arrange') {
     const arrangement = hubArrangement(formData.get('arrangement'));
@@ -1321,7 +1314,7 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
        merged onto what is already drafted, like every other canvas writer. */
     if (drafting) {
       const base = await canvasBase(true, eventId, row);
-      await saveCanvasToDraft(formData, eventId, row.widget_type, { ...sanitizeHubCanvas(base), arrangement });
+      return saveCanvasToDraft(formData, eventId, row.widget_type, { ...sanitizeHubCanvas(base), arrangement });
     }
     next = { ...existing, canvas: { ...sanitizeHubCanvas(existing), arrangement } };
   } else {
@@ -1330,7 +1323,7 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     /* ✍ Into the DRAFT on `draft=1` (owner 2026-09-29): an empty scene's first
        words, tried without Pro — Apply asks Pro to fill it (`classifyHubDraft`,
        "a scene of their own's words"). */
-    if (drafting) await saveWidgetToDraft(formData, eventId, row.widget_type, { custom: input.value });
+    if (drafting) return saveWidgetToDraft(formData, eventId, row.widget_type, { custom: input.value });
     next = { ...existing, custom: input.value };
   }
 
@@ -1342,7 +1335,7 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
   if (updateErr) throw new Error(`Failed to save your section: ${updateErr.message}`);
 
   await revalidateForWidgetChange(eventId);
-  redirect(back('?saved=1'));
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -1371,12 +1364,16 @@ async function canvasBase(
 /** Where a draft save lands with no `return_to` — and where a failed one does, with `draft_error=`. */
 const DRAFT_FALLBACK = (eventId: string) => `/dashboard/${eventId}/website/widgets?drafted=1`;
 
-/** Back to where the couple was, marked as a draft save. Never returns. */
-function finishDraftSave(formData: FormData, eventId: string): never {
-  /* ⚡ Draft only — nothing a guest sees changed, and the redirect carries the
-     fresh render back in this response. No `revalidatePath` (owner 2026-09-28,
+/**
+ * Back to where the couple was, marked as a draft save. From the Maker it
+ * RETURNS (`lib/maker-land.server.ts` — the Maker's render, in place); callers
+ * `return` it, so nothing after a draft save ever writes the live page.
+ */
+function finishDraftSave(formData: FormData, eventId: string): void {
+  /* ⚡ Draft only — nothing a guest sees changed. Only the page it lands on is
+     re-rendered, once, in this response (owner 2026-09-28,
      `a-maker-pick-never-reloads-what-it-drew.test.ts`). */
-  redirect(resolveReturnTo(formData, DRAFT_FALLBACK(eventId), '?drafted=1'));
+  return landAfterWrite(formData, DRAFT_FALLBACK(eventId), '?drafted=1');
 }
 
 async function saveWidgetToDraft(
@@ -1384,13 +1381,13 @@ async function saveWidgetToDraft(
   eventId: string,
   widgetType: string,
   patch: HubDraftWidget,
-): Promise<never> {
+): Promise<void> {
   await saveHubDraftPatch(
     eventId,
     { widgets: { [widgetType]: patch } as HubDraftPatch['widgets'] },
     { formData, fallback: DRAFT_FALLBACK(eventId) },
   );
-  finishDraftSave(formData, eventId);
+  return finishDraftSave(formData, eventId);
 }
 
 async function saveCanvasToDraft(
@@ -1398,6 +1395,6 @@ async function saveCanvasToDraft(
   eventId: string,
   widgetType: string,
   canvas: Record<string, unknown>,
-): Promise<never> {
+): Promise<void> {
   return saveWidgetToDraft(formData, eventId, widgetType, { canvas: sanitizeHubCanvas({ canvas }) });
 }

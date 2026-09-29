@@ -109,7 +109,7 @@ test('1 · every writer takes the draft door before any Pro question', () => {
   const chrome = code('app/dashboard/[eventId]/website/site-chrome/actions.ts');
   const door = chrome.indexOf('if (isHubDraftWrite(formData))');
   assert.ok(door > 0 && door < chrome.indexOf('lookProAllows('), 'the music · video draft door must come before the live Pro gate');
-  assert.match(chrome.slice(door, door + 900), /await draftEventsAndReturn\(eventId, events, formData,/);
+  assert.match(chrome.slice(door, door + 900), /return draftEventsAndReturn\(eventId, events, formData,/);
 
   const photos = code('app/dashboard/[eventId]/website/our-photos/actions.ts');
   assert.match(photos, /const drafting = isHubDraftWrite\(formData\);\s*if \(!drafting\) await requireLookPro\(eventId, galleryChange\(currentRefs, deduped\)\);/);
@@ -199,7 +199,7 @@ test('4 · an empty scene of their own takes its first words into the draft; fil
   assert.deepEqual(plan.remaining.widgets.custom_1?.custom, { title: 'Our song', body: 'The first dance.' }, 'the held words left the draft');
   // The writer drafts words on draft=1, and the Maker sends it for an empty scene without Pro.
   const actions = code('app/dashboard/[eventId]/website/widgets/actions.ts');
-  assert.match(actions, /if \(drafting\) await saveWidgetToDraft\(formData, eventId, row\.widget_type, \{ custom: input\.value \}\);/);
+  assert.match(actions, /if \(drafting\) return saveWidgetToDraft\(formData, eventId, row\.widget_type, \{ custom: input\.value \}\);/);
   assert.match(actions, /const triedInTheDraft = draftingHere && \(CANVAS_INTENTS_DRAFTED\.has\(intent\) \|\| intent === 'save'\);/);
   const panel = code('app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx');
   assert.match(panel, /const wordsDrafted = !ownsPro && proUsable && emptyLive\.includes\(row\.widget_id\);/);

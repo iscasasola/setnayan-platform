@@ -18,6 +18,8 @@ import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/l
 import { hubDoorSkin } from '../_components/hub-door-skin';
 import { resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
 import {
@@ -78,7 +80,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const { data: liveEvent, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
     )
     // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
     .ilike('slug', slug)
@@ -147,13 +149,18 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
 
-  const [words, faceMode, supabase, hub, seats] = await Promise.all([
+  const [words, faceMode, supabase, hub, seats, animationOwned] = await Promise.all([
     eventWordsFor(event.event_type as string),
     resolvePapicFaceMode(admin, event.event_id as string),
     createClient(),
     wearTheHub(slug, admin, hostDraft, canvas),
     canvas ? Promise.resolve([]) : plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string),
+    // The hero's own gate for a moving mark (`loadMedia` → `animatedMonogram`).
+    eventAnimatedMonogramActive(admin, event.event_id as string).catch(() => false),
   ]);
+  // ▶ The crest plays the couple's layered logo exactly when the Event Hub hero
+  // would: the animation is owned AND not switched to "Use Static Image".
+  const markPlays = animationOwned && !markAnimationSwitchedOff(event.monogram_studio_config);
   const {
     data: { user: signedIn },
   } = await supabase.auth.getUser();
@@ -273,7 +280,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           venue_name: event.venue_name as string | null,
         })}
         width="lg"
-        skin={hubDoorSkin(doorMarkFor(event))}
+        skin={hubDoorSkin({ ...doorMarkFor(event), animate: markPlays })}
         lead={oneAtATime ? <div data-rsvp-progress-slot="" /> : undefined}
       >
         {oneAtATime ? (

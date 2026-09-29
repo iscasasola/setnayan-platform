@@ -18,6 +18,9 @@
  *   3 · THE INVITATION'S FACTS ARE FIRST-SCREEN ONLY, folding to one line.
  *   4 · THE QUESTION IS THE HEADING; the primary action comes LAST.
  *   5 · SWITCH OFF IS UNTOUCHED.
+ *   6 · THE MARK PLAYS (owner, same thread: *"can we also animate this?"*) — a
+ *       layered logo plays through the ONE player, behind the hero's own gate,
+ *       from the crest OUTSIDE the form, so stepping never replays it.
  *
  * Rendered where it can be; the walker's DOM moves run only in a browser, so
  * the places it moves things to are read as source.
@@ -240,4 +243,51 @@ test('5 · with the switch OFF nothing of this renders — the scrolling page is
     assert.match(out, /<label for="meal_preference" class="block text-sm font-medium text-ink">/);
   }
   assert.match(REPLY, /return on \? <div data-rsvp-context="">\{children\}<\/div> : <>\{children\}<\/>;/);
+});
+
+// ═══ 6 · the couple's mark plays — once, through the one player ══════════
+
+/** A layered logo as the Maker's Logo page saves it: one layer, draw on then drift. */
+const LAYERED =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" data-logo="layers">' +
+  '<g data-logo-layer="ic" data-in="draw" data-during="drift" data-delay="0"><g data-logo-body="100 100">' +
+  '<path d="M10 10 L90 90" fill="#6b3e26"/></g></g></svg>';
+const STILL = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 10 L90 90"/></svg>';
+
+test('6 · a layered logo PLAYS in the RSVP crest — the shipped player, above the form, never inside it', async () => {
+  const { DoorShell } = await import('../../_components/door/door-shell');
+  const { hubDoorSkin } = await import('../invite/_components/hub-door-skin');
+  const door = (mark: string | null, animate: boolean) =>
+    html(
+      React.createElement(
+        DoorShell,
+        { title: 'Indalecio & Claire', width: 'lg', skin: hubDoorSkin({ mark, monogram: 'IC', animate }), lead: React.createElement('div', { 'data-rsvp-progress-slot': '' }) },
+        React.createElement('form', null, React.createElement('legend', null, 'Will you be there?')),
+      ),
+    );
+  const plays = await door(LAYERED, true);
+  const player = plays.indexOf('data-layered-logo=""');
+  assert.ok(player > -1, 'the RSVP crest does not mount the layered-logo player for a layered logo');
+  assert.match(plays, /data-door-mark="logo"><span class="inline-flex" style="width:72px;height:72px" data-door-mark-plays=""><div aria-hidden="true" data-layered-logo=""/);
+  assert.ok(player < plays.indexOf('data-rsvp-progress-slot') && player < plays.indexOf('<form'), 'the mark is inside the stepping area — every step would replay it');
+  assert.doesNotMatch(plays, /data:image\/svg\+xml/, 'a still copy is drawn beside the playing one');
+  // Not allowed, or nothing to play → today's still mark.
+  for (const [name, out] of [['not owned / switched to still', await door(LAYERED, false)], ['not layered', await door(STILL, true)]] as const) {
+    assert.doesNotMatch(out, /data-layered-logo/, `${name}: the player runs anyway`);
+    assert.match(out, /data-door-mark="logo"[\s\S]*?<img[^>]*data:image\/svg\+xml/, `${name}: the still logo is gone`);
+  }
+  // The ONE player, not a new mechanism; reduced motion is its own still fallback.
+  const SKIN = read('[slug]/invite/_components/hub-door-skin.tsx');
+  assert.match(SKIN, /import \{ LayeredLogoPlayer \} from '@\/app\/_components\/layered-logo-player';/);
+  assert.match(read('_components/layered-logo-player.tsx'), /prefers-reduced-motion: reduce/);
+});
+
+test('6 · the RSVP page plays the mark exactly when the Event Hub hero would', () => {
+  assert.match(REPLY, /eventAnimatedMonogramActive\(admin, event\.event_id as string\)/);
+  assert.match(REPLY, /const markPlays = animationOwned && !markAnimationSwitchedOff\(event\.monogram_studio_config\);/);
+  assert.match(REPLY, /skin=\{hubDoorSkin\(\{ \.\.\.doorMarkFor\(event\), animate: markPlays \}\)\}/);
+  assert.match(REPLY, /rsvp_ask_config, monogram_studio_config, /, 'the "Use Static Image" switch is not read — a still-chosen mark would play');
+  // The hero's gate, for comparison: the same two questions.
+  const LOADERS = read('[slug]/_lib/loaders.ts');
+  assert.match(LOADERS, /ownsAnimatedMonogram && !markAnimationSwitchedOff\(event\.monogram_studio_config\)/);
 });

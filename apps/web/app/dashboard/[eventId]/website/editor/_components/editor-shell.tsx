@@ -61,6 +61,8 @@ import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
+import { makerGuestPages, ME_NOT_ON_CANVAS, type GuestPageKey } from '@/lib/maker-guest-pages';
+import { MakerPagePick } from './page-pick';
 import {
   canvasKeyOfSelection,
   fixedOfKey,
@@ -1406,6 +1408,16 @@ export function MakerWork({
   useEffect(() => {
     if (selectedTabKey) setTabKey(selectedTabKey);
   }, [selectedTabKey]);
+  /* 📄 PAGE ▾ — before the day, the navigator's one dropdown is the guest's own
+     pages, Home · Details · Story · Me (owner 2026-09-30, `lib/maker-guest-pages.ts`).
+     Each page knows the scenes under it; none is hidden. */
+  const guestPages = makerGuestPages(stage, list.shown.map((t) => t.key));
+  const shownPage = guestPages ? (guestPages.find((p) => p.key === tabKey) ?? guestPages[0] ?? null) : null;
+  const selectedPageKey =
+    guestPages && selectedTile ? (guestPages.find((p) => p.tiles.includes(selectedTile.key))?.key ?? null) : null;
+  useEffect(() => {
+    if (selectedPageKey) setTabKey(selectedPageKey);
+  }, [selectedPageKey]);
 
   /* 🧰 THE SCENE INSPECTOR'S TABS — Format · Animate · Arrange · Content
      (Keynote rebuild, 2026-09-27; approved prototype frame A). Built here, where
@@ -1540,6 +1552,22 @@ export function MakerWork({
   /* 🧭 EVERY scene of the stage, in canvas order, the tabs as headers between
      the groups (`navigatorRows`) — never a tab that hides the rest. */
   const navRows = navigatorRows(tabs, list.shown.map((t) => t.key));
+  /* 📄 A page pick JUMPS — the navigator to that page's first scene, the canvas
+     to it — in the Maker alone: one message to the loaded canvas, no reload.
+     Me has no scenes here; the navigator's top says what Me is. */
+  const jumpToPage = (key: GuestPageKey) => {
+    setTabKey(key);
+    const first = guestPages?.find((p) => p.key === key)?.tiles[0];
+    if (!first) {
+      navList?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      return;
+    }
+    scrollPreviewTo(first);
+    (
+      navList?.querySelector(`[data-maker-group="${CSS.escape(key)}"]`) ??
+      navList?.querySelector(`[data-maker-tile="${CSS.escape(first)}"]`)
+    )?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
+  };
   /* …and the navigator keeps the selected tile in view, whichever side picked it. */
   const selectedTileKey = selectedTile?.key ?? null;
   useEffect(() => {
@@ -1614,7 +1642,9 @@ export function MakerWork({
               that group — never a filter, never a stage change. One line at the
               narrowest column, the palette beside it. */}
           <li className="flex min-w-0 shrink-0 items-center gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
-            {tabs ? (
+            {guestPages && shownPage ? (
+              <MakerPagePick pages={guestPages} value={shownPage.key} onPick={jumpToPage} />
+            ) : tabs ? (
               <PickMenu
                 label="This stage's menu"
                 dataAttr="data-maker-tab-pick"
@@ -1659,6 +1689,13 @@ export function MakerWork({
                   return elementEditing.draftAction(id, fd);
                 }}
               />
+            </li>
+          ) : null}
+          {shownPage?.key === 'me' ? (
+            <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:mb-2 lg:self-stretch" data-maker-page-me="">
+              <InfoTip className="min-w-0 max-w-full" label={ME_NOT_ON_CANVAS.label} align="start">
+                {ME_NOT_ON_CANVAS.body}
+              </InfoTip>
             </li>
           ) : null}
           {activeTab?.leaves ? (

@@ -50,7 +50,7 @@ export function YourGuests({
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate font-serif text-lg text-ink">
-                    {g.name ?? `Seat ${i + 2}`}
+                    {g.name ?? `Guest ${i + 2}`}
                   </span>
                   {g.name ? null : <span className="block text-xs text-ink/60">TBA</span>}
                 </span>

@@ -161,9 +161,9 @@ test('the switcher is the shared PickMenu — one dropdown, ✓ on a named seat,
   const { seatOptions } = await import('./rsvp-plus-ones');
   assert.deepEqual(seatOptions(['Maria Santos', '', ' Ben ', '']), [
     { key: '0', label: 'Maria Santos ✓' },
-    { key: '1', label: 'Guest 2' },
+    { key: '1', label: 'Guest 3 · not named yet' },
     { key: '2', label: 'Ben ✓' },
-    { key: '3', label: 'Guest 4' },
+    { key: '3', label: 'Guest 5 · not named yet' },
   ]);
   const src = stripComments(readFileSync(join(__dirname, 'rsvp-plus-ones.tsx'), 'utf8'));
   assert.match(src, /<PickMenu\b/, 'the switcher is not the shared PickMenu');

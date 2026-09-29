@@ -76,16 +76,20 @@ export function plusOneSlots(
   });
 }
 
-/** "Guest 2" for an unnamed seat — the seat's number among the plus-ones. */
+/**
+ * "Guest 2" for an unnamed seat — numbered with the bringer as Guest 1, the
+ * same count the thank-you's "Guest 3 · TBA" uses (prototype
+ * `rsvp_plus_ones_2026-09-29.html`, frames B–D).
+ */
 export function seatLabel(name: string, index: number): string {
-  return name.trim() || `Guest ${index + 1}`;
+  return name.trim() || `Guest ${index + 2}`;
 }
 
-/** The switcher's options: each seat's typed name (✓) or "Guest N". */
+/** The switcher's options: each seat's typed name with ✓, or "Guest N · not named yet". */
 export function seatOptions(names: readonly string[]): { key: string; label: string }[] {
   return names.map((n, i) => ({
     key: String(i),
-    label: n.trim() ? `${n.trim()} ✓` : seatLabel('', i),
+    label: n.trim() ? `${n.trim()} ✓` : `${seatLabel('', i)} · not named yet`,
   }));
 }
 
@@ -116,16 +120,15 @@ export function RsvpPlusOnes({
 
   const many = slots.length > 1;
   const Organizer = theOrganizer.charAt(0).toUpperCase() + theOrganizer.slice(1);
-  const named = names.filter((n) => n.trim()).length;
 
   return (
     <div className="space-y-3" data-rsvp-plus-ones>
       <span className="block text-sm font-medium text-ink">Who are you bringing?</span>
       <p className="text-xs text-ink/70">
         {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4). */}
-        {Organizer} saved you {many ? `${slots.length} more seats` : 'a seat for one more'}. Give us{' '}
-        {many ? 'their names and they each get' : 'their name and they get'} their own invitation and their own
-        QR — leave a name blank if you don&rsquo;t know yet.
+        {Organizer} saved you {many ? `${slots.length} seats` : 'a seat for one more'}.{' '}
+        {many ? 'Name them and each one gets' : 'Name them and they get'} their own invitation, QR and photos — or
+        add {many ? 'names' : 'a name'} later.
       </p>
 
       {many && arranged ? (
@@ -139,10 +142,15 @@ export function RsvpPlusOnes({
             dataAttr="data-plus-one-pick"
             className="border border-ink/15 text-sm"
           />
-          <span className="text-xs text-ink/70" aria-live="polite">
-            {named} of {slots.length} named
-          </span>
+
         </div>
+      ) : null}
+
+      {many && arranged ? (
+        /* Every seat at a glance — "Ben Reyes ✓ · Guest 3 · Guest 4" (frame C). */
+        <p className="text-xs text-ink/70" aria-live="polite" data-plus-one-summary>
+          {names.map((n, i) => (n.trim() ? `${n.trim()} ✓` : seatLabel('', i))).join(' · ')}
+        </p>
       ) : null}
 
       <PlusOneSeatPanels
@@ -216,7 +224,7 @@ export function PlusOneSeatPanels({
             {askMeal ? (
               <div className="space-y-1.5">
                 <label htmlFor={`plus_one_meal_${n}`} className="block text-sm font-medium text-ink">
-                  Their meal
+                  Meal preference
                 </label>
                 <select
                   id={`plus_one_meal_${n}`}
@@ -235,7 +243,7 @@ export function PlusOneSeatPanels({
             {askDietary ? (
               <SeatField
                 id={`plus_one_dietary_${n}`}
-                label="Their dietary notes"
+                label="Dietary notes"
                 defaultValue={slot.dietary}
                 placeholder="halal · nut allergy · …"
               />

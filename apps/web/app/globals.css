@@ -982,6 +982,23 @@ html.teamchip-docked [data-shell-main] {
   }
 }
 
+/*
+ * ⭕ .qr-slot — THE SLOT FOLLOWS THE CODE. Owner 2026-09-30, verbatim: "Custom
+ * QR when shape is changed the slot for the QR should also be round on the
+ * prints if the QR is round and not have a square frame with round QR".
+ * Every on-screen plate that holds a guest QR carries this class. The code's
+ * own root says what it is (lib/qr-style-svg.ts stamps `data-qr-shape`), so a
+ * round code makes its plate round — border, ring and shadow with it — and a
+ * square code keeps the plate's own corners. Nothing is threaded: the plate
+ * reads the code it holds. The prints do the same in lib/print-layout.ts
+ * (`qrPlate`); lib/a-round-code-sits-in-a-round-slot.test.ts holds both.
+ */
+@layer utilities {
+  .qr-slot:has(> svg[data-qr-shape='circle']) {
+    border-radius: 9999px;
+  }
+}
+
 @layer utilities {
   .aurora-blob-1 {
     animation: aurora-drift-1 24s ease-in-out infinite;

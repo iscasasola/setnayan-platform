@@ -67,7 +67,7 @@ export function InviteQrPanel({
       </p>
       <div
         aria-label={`Invitation QR code for ${guestName}`}
-        className="mx-auto mt-5 inline-block rounded-xl bg-white p-3 shadow-sm"
+        className="qr-slot mx-auto mt-5 inline-block rounded-xl bg-white p-3 shadow-sm"
         dangerouslySetInnerHTML={{ __html: qrSvg }}
       />
       <p className="mt-4 break-all font-mono text-xs tracking-[0.05em] text-ink/70">

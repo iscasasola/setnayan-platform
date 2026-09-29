@@ -124,7 +124,7 @@ export function DoorPass({
             <div
               aria-label={`QR code for ${pass.guestName}`}
               role="img"
-              className="mt-4 rounded-md bg-white p-2 [&_svg]:h-auto [&_svg]:w-[min(168px,40vw)]"
+              className="qr-slot mt-4 rounded-md bg-white p-2 [&_svg]:h-auto [&_svg]:w-[min(168px,40vw)]"
               dangerouslySetInnerHTML={{ __html: pass.qrSvg }}
             />
             <span className="mt-4 inline-flex items-center gap-2 rounded-[var(--hub-radius,0.375rem)] border border-ink/50 bg-cream px-3 py-2 text-[0.6875rem] uppercase tracking-[0.16em] text-terracotta-700">

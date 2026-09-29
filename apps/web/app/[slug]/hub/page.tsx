@@ -934,7 +934,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         </p>
         <div
           aria-hidden
-          className="mx-auto mt-5 inline-block rounded-2xl bg-white p-3 shadow-sm [&_svg]:h-auto [&_svg]:w-48"
+          className="qr-slot mx-auto mt-5 inline-block rounded-2xl bg-white p-3 shadow-sm [&_svg]:h-auto [&_svg]:w-48"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
         <p className="mx-auto mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/45">

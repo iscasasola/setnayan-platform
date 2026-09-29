@@ -320,7 +320,7 @@ export function GuestHubBar({
             </p>
             <div
               aria-hidden
-              className="mx-auto mt-5 inline-block rounded-2xl bg-white p-3 shadow-sm [&_svg]:h-auto [&_svg]:w-44"
+              className="qr-slot mx-auto mt-5 inline-block rounded-2xl bg-white p-3 shadow-sm [&_svg]:h-auto [&_svg]:w-44"
               dangerouslySetInnerHTML={{ __html: qrSvg }}
             />
             <p className="mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/50">

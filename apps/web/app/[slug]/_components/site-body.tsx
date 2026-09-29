@@ -1751,7 +1751,7 @@ export async function SiteBody({
         ) : null}
         <div
           aria-label={`QR code for ${displayNameOf(guest)}`}
-          className="mx-auto mt-5 inline-block rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-56"
+          className="qr-slot mx-auto mt-5 inline-block rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-56"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
         <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">

@@ -23,6 +23,7 @@ import type { FlatMark } from '@/lib/print-mark';
 import { roleLabel, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
 import { guestPassFacts } from '@/lib/guest-pass';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
+import type { QrShape } from '@/lib/qr-look';
 import {
   BLEED_MM,
   PRINT_FONT_FILES,
@@ -126,6 +127,12 @@ export type PrintSetData = {
   /** Is the theme's still (or the couple's hero) in `images.still`? */
   hasStill: boolean;
   hasEventQr: boolean;
+  /**
+   * The SHAPE of every code on this set (the event's `QrLook.shape`,
+   * lib/qr-look.ts) — the slot a code sits in follows it (`qrPlate`). Absent =
+   * square, so a caller that never resolved a look draws what it always drew.
+   */
+  qrShape?: QrShape;
   /** The event type's own word, capitalised ("Wedding", "Debut") — the pass card's when-line. */
   eventWord?: string;
   /**
@@ -619,10 +626,30 @@ export function cornerQrSlot(die: DieCut, w: number, h: number): QrSlot {
   return { x: w - base - q, y: h - base - q, size: q, at: 'bottom' };
 }
 
-function cornerQr(doc: PrintDoc) {
+function cornerQr(doc: PrintDoc, data: PrintSetData) {
   const slot = cornerQrSlot(doc.die, doc.w, doc.h);
-  doc.ops.push({ t: 'rect', x: slot.x - QR_PLATE, y: slot.y - QR_PLATE, w: slot.size + 2 * QR_PLATE, h: slot.size + 2 * QR_PLATE, fill: '#ffffff' });
+  qrPlate(doc.ops, data.qrShape, slot.x, slot.y, slot.size, QR_PLATE);
   doc.ops.push({ t: 'image', ref: 'eventqr', x: slot.x, y: slot.y, w: slot.size, h: slot.size });
+}
+
+/**
+ * ⭕ THE SLOT FOLLOWS THE CODE — owner 2026-09-30, verbatim: *"Custom QR when
+ * shape is changed the slot for the QR should also be round on the prints if
+ * the QR is round and not have a square frame with round QR"*.
+ *
+ * EVERY white plate a code sits on is drawn here, and nowhere else: a square
+ * code (`QrShape` 'square', and every free event) on the square plate it has
+ * always had; a round code (a Pro couple's Circle, lib/qr-look.ts) on a round
+ * plate, CONCENTRIC with the code, `pad` wider than the code's own disc on
+ * every side — the white ring a scanner needs round a round code, exactly as
+ * the square plate is the white margin round a square one. A circle plate
+ * sits inside the square plate's box, so every slot that fitted still fits.
+ * `lib/a-round-code-sits-in-a-round-slot.test.ts` holds it on every surface,
+ * and decodes the round code where it sits.
+ */
+function qrPlate(ops: PrintOp[], shape: QrShape | undefined, x: number, y: number, size: number, pad: number, fill = '#ffffff') {
+  if (shape === 'circle') ops.push({ t: 'circle', cx: x + size / 2, cy: y + size / 2, r: size / 2 + pad, fill });
+  else ops.push({ t: 'rect', x: x - pad, y: y - pad, w: size + 2 * pad, h: size + 2 * pad, fill });
 }
 
 /** The lowest baseline a card's words may use — clear of the safe line and of a bottom-corner QR. */
@@ -718,7 +745,7 @@ function drawInvitation(ctx: Ctx, k: number, band: number): { doc: PrintDoc; end
       y += 10.5 * k;
     }
   }
-  if (data.hasEventQr) cornerQr(doc);
+  if (data.hasEventQr) cornerQr(doc, data);
   safeGuide(doc, ctx);
   return { doc, end };
 }
@@ -960,7 +987,7 @@ function layoutEntourage(ctx: Ctx): PrintDoc[] {
       text(front.ops, line, cx, y + 20, { font: look.bodyFont, size: 8.4, color: look.muted, align: 'center' });
       y += 11;
     }
-    if (data.hasEventQr) cornerQr(front);
+    if (data.hasEventQr) cornerQr(front, data);
     safeGuide(front, ctx);
     return [front];
   }
@@ -995,7 +1022,7 @@ function layoutEntourage(ctx: Ctx): PrintDoc[] {
     }
     for (const hd of p.heads) sectionHead(doc.ops, look, hd.label, cx, hd.y, (w - 56) / 2);
     for (const t of p.texts) text(doc.ops, t.s, t.x, t.y, { font: look.bodyFont, size, color: look.ink, align: t.align, maxWidth: t.width });
-    if (i === 0 && data.hasEventQr) cornerQr(doc);
+    if (i === 0 && data.hasEventQr) cornerQr(doc, data);
     safeGuide(doc, ctx);
     docs.push(doc);
   });
@@ -1188,7 +1215,7 @@ function layoutDetails(ctx: Ctx): PrintDoc[] {
   {
     const ops = front.ops;
     const qx = withNfc ? cx - q / 2 - NFC_SPOT_CLEAR_R - 4 : cx;
-    ops.push({ t: 'rect', x: qx - q / 2 - 4, y: qy - 4, w: q + 8, h: q + 8, fill: '#ffffff' });
+    qrPlate(ops, data.qrShape, qx - q / 2, qy, q, 4);
     ops.push({ t: 'image', ref: 'eventqr', x: qx - q / 2, y: qy, w: q, h: q });
     if (withNfc) nfcSpot(ops, look, cx + q / 2 + 4, qy + q / 2);
     eyebrow(ops, look, withNfc ? 'Scan or tap for our Event Hub' : 'Scan for our Event Hub', cx, qy + q + 16, 6.6);
@@ -1300,7 +1327,7 @@ function layoutMenu(ctx: Ctx): PrintDoc[] {
       text(front.ops, line, cx, y, { font: look.bodyFont, size: 8.4, color: look.muted, align: 'center' });
       y += 11;
     }
-    if (data.hasEventQr) cornerQr(front);
+    if (data.hasEventQr) cornerQr(front, data);
     safeGuide(front, ctx);
     return [front];
   }
@@ -1331,7 +1358,7 @@ function layoutMenu(ctx: Ctx): PrintDoc[] {
       continuedHead(doc, ctx, 'The Menu');
     }
     for (const { row, y } of placed) row.draw(doc.ops, y);
-    if (i === 0 && data.hasEventQr) cornerQr(doc);
+    if (i === 0 && data.hasEventQr) cornerQr(doc, data);
     safeGuide(doc, ctx);
     return doc;
   });
@@ -1433,7 +1460,7 @@ function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
       text(ops, line, cx, py, { font: look.bodyFont, size: 14, color: look.muted, align: 'center' });
       py += 20;
     }
-    if (data.hasEventQr) cornerQr(front);
+    if (data.hasEventQr) cornerQr(front, data);
     safeGuide(front, ctx);
     return [front];
   }
@@ -1564,7 +1591,7 @@ function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
       doc.ops.push({ t: 'rect', x: left + pad + plan!.colW + gutter / 2 - 0.25, y: y0, w: 0.5, h: y1 - y0, fill: look.accent, opacity: 0.45 });
     });
   }
-  if (data.hasEventQr) cornerQr(front);
+  if (data.hasEventQr) cornerQr(front, data);
   for (const doc of docs) safeGuide(doc, ctx);
   return docs;
 }
@@ -1686,7 +1713,7 @@ function layoutPass(ctx: Ctx, pass: PrintPass, fmt: PrintFormat = PRINT_FORMATS[
   const footY = h - SAFE_PT - 1.5; // "Scan at the door", on the safe line
   const qy = footY - 8 * k - q - 3 * k;
   if (pass.qrRef) {
-    ops.push({ t: 'rect', x: sx - q / 2 - 3 * k, y: qy - 3 * k, w: q + 6 * k, h: q + 6 * k, fill: '#ffffff' });
+    qrPlate(ops, data.qrShape, sx - q / 2, qy, q, 3 * k);
     ops.push({ t: 'image', ref: pass.qrRef, x: sx - q / 2, y: qy, w: q, h: q });
   }
   eyebrow(ops, look, 'Scan at the door', sx, footY, 4.8 * k);
@@ -1761,8 +1788,17 @@ function cardWhen(data: PrintSetData, withWord: boolean): string | null {
  * must scan). The rounded tile is two rects and four corner discs, not a
  * path: a filled PATH next to a code is what the fit guard reads as ink
  * touching it (`every-print-fits.test.ts`); a plate is not ink.
+ *
+ * A ROUND code sits on a round plate instead (`qrPlate`) — never the rounded
+ * square — and the tile's `extraH` (the Poster's facts) is not drawn: the
+ * caller sets those facts on the card's own paper.
  */
-function codeTile(ops: PrintOp[], pass: PrintPass, x: number, y: number, size: number, pad: number, radius: number, extraH = 0) {
+function codeTile(ops: PrintOp[], pass: PrintPass, x: number, y: number, size: number, pad: number, radius: number, extraH = 0, shape?: QrShape) {
+  if (shape === 'circle') {
+    qrPlate(ops, shape, x + pad, y + pad, size, pad);
+    if (pass.qrRef) ops.push({ t: 'image', ref: pass.qrRef, x: x + pad, y: y + pad, w: size, h: size });
+    return;
+  }
   const w = size + pad * 2;
   const h = size + pad * 2 + extraH;
   const r = Math.min(radius, w / 2, h / 2);
@@ -1849,7 +1885,7 @@ function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Pri
   }
   y += X(14);
   const size = Math.min(tile, ruleY - X(8) - y - tilePad * 2 - (facts.length ? X(49) : 0));
-  codeTile(ops, pass, w / 2 - size / 2 - tilePad, y, size, tilePad, X(16));
+  codeTile(ops, pass, w / 2 - size / 2 - tilePad, y, size, tilePad, X(16), 0, data.qrShape);
   y += size + tilePad * 2 + X(14);
   if (facts.length) {
     const gap = X(100);
@@ -1912,7 +1948,7 @@ function layoutPassCardTicket(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   const size = X(128);
   const tileY = perfY + X(18) + Math.max(0, (footY - X(20) - perfY - X(18) - size - tilePad * 2) / 2);
   const tileX = facts.length ? pad : w / 2 - size / 2 - tilePad;
-  codeTile(ops, pass, tileX, tileY, size, tilePad, X(16));
+  codeTile(ops, pass, tileX, tileY, size, tilePad, X(16), 0, data.qrShape);
   if (facts.length) {
     const cx0 = tileX + size + tilePad * 2 + X(16);
     const colW = w - pad - cx0;
@@ -1975,10 +2011,12 @@ function layoutPassCardPoster(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   const tileW = size + tp * 2;
   const tileH = size + tp + X(12) + factsH;
   const tileY = bandH + X(18) + Math.max(0, (footY - X(20) - bandH - X(18) - tileH) / 2);
-  codeTile(ops, pass, w / 2 - tileW / 2, tileY, size, tp, X(22), tileH - (size + tp * 2));
+  codeTile(ops, pass, w / 2 - tileW / 2, tileY, size, tp, X(22), tileH - (size + tp * 2), data.qrShape);
   if (facts.length) {
     const gap = Math.min(X(96), tileW / facts.length);
-    facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, tileY + tp + size + X(20), u, 18, gap - X(6), '#2b241c', '#7a7368'));
+    // A round code has no tile to hold the facts: they sit on the card's paper, in its own ink, clear of the disc.
+    const round = data.qrShape === 'circle';
+    facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, tileY + tp + size + X(round ? 28 : 20), u, 18, gap - X(6), round ? look.ink : '#2b241c', round ? look.muted : '#7a7368'));
   }
   cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
   return doc;
@@ -2041,7 +2079,7 @@ function layoutPoster(ctx: Ctx): PrintDoc {
     // Reserved at the foot, always inside the sheet.
     const py = Math.min(Math.max(y + 24, h - q - 110), h - q - 36 - SAFE_MM * PT_PER_MM - 20);
     ops.push({ t: 'rect', x: gx - panelW / 2, y: py, w: panelW, h: q + 36, fill: look.paper, stroke: look.accent, sw: 1 });
-    ops.push({ t: 'rect', x: gx - panelW / 2 + 16, y: py + 16, w: q + 4, h: q + 4, fill: '#ffffff' });
+    qrPlate(ops, data.qrShape, gx - panelW / 2 + 18, py + 18, q, 2);
     ops.push({ t: 'image', ref: 'eventqr', x: gx - panelW / 2 + 18, y: py + 18, w: q, h: q });
     const tx = gx - panelW / 2 + q + 42;
     text(ops, 'Scan for our', tx, py + 70, { font: look.bodyFont, size: 16, color: look.ink, align: 'left', caps: true, tracking: 0.14, maxWidth: panelW - q - 60 });
@@ -2075,7 +2113,7 @@ function layoutCard(ctx: Ctx): PrintDoc {
     y += 12;
   }
   if (data.ceremonyVenue) text(ops, data.ceremonyVenue, cx, y, { font: look.bodyFont, size: 8.2, color: look.muted, align: 'center', maxWidth: inner });
-  if (data.hasEventQr) cornerQr(doc);
+  if (data.hasEventQr) cornerQr(doc, data);
   safeGuide(doc, ctx);
   return doc;
 }
@@ -2111,7 +2149,7 @@ function layoutCardLandscape(ctx: Ctx, fmt: PrintFormat): PrintDoc {
     y += 10 * k;
   }
   if (data.ceremonyVenue) text(ops, data.ceremonyVenue, cx, y, { font: look.bodyFont, size: 7 * k, color: look.muted, align: 'center', maxWidth: inner });
-  if (data.hasEventQr) cornerQr(doc);
+  if (data.hasEventQr) cornerQr(doc, data);
   safeGuide(doc, ctx);
   return doc;
 }
@@ -2139,7 +2177,7 @@ function fitDoc(doc: PrintDoc, w: number, h: number, ctx: Ctx): PrintDoc {
 }
 
 /** The free do-it-yourself sheet: every guest's QR with their name, A4, 3 × 4. */
-function layoutQrSheet(title: string, cells: Array<{ name: string; sub: string | null; qrRef: string }>): PrintDoc[] {
+function layoutQrSheet(title: string, cells: Array<{ name: string; sub: string | null; qrRef: string }>, shape?: QrShape): PrintDoc[] {
   const spec = PRINT_PIECES['qr-codes'];
   const perPage = 12;
   const pages: PrintDoc[] = [];
@@ -2155,6 +2193,21 @@ function layoutQrSheet(title: string, cells: Array<{ name: string; sub: string |
     cells.slice(p * perPage, (p + 1) * perPage).forEach((c, i) => {
       const x = margin + (i % cols) * cw;
       const y = margin + 8 + Math.floor(i / cols) * ch;
+      if (shape === 'circle') {
+        // ⭕ A round code is cut out ROUND (`qrPlate`'s rule, on a cut line):
+        // the dashed circle holds the code and the name beneath it.
+        const cx = x + cw / 2;
+        const cy = y + ch / 2;
+        const r = Math.min(cw, ch) / 2 - 4;
+        const q = r * 1.24;
+        const qy = cy - r * 0.24 - q / 2;
+        const chord = (yy: number) => Math.max(0, 2 * Math.sqrt(Math.max(0, r * r - (yy - cy) ** 2)) - 14);
+        doc.ops.push({ t: 'circle', cx, cy, r, stroke: '#1a1a1a', sw: 0.4, opacity: 0.3, dash: true });
+        doc.ops.push({ t: 'image', ref: c.qrRef, x: cx - q / 2, y: qy, w: q, h: q });
+        text(doc.ops, c.name, cx, qy + q + 16, { font: 'poppinsMedium', size: 10, color: '#1a1a1a', align: 'center', maxWidth: chord(qy + q + 19) });
+        if (c.sub) text(doc.ops, c.sub, cx, qy + q + 27, { font: 'poppins', size: 7.4, color: '#6b6b6b', align: 'center', maxWidth: chord(qy + q + 29) });
+        return;
+      }
       doc.ops.push({ t: 'rect', x: x + 4, y: y + 4, w: cw - 8, h: ch - 8, stroke: '#1a1a1a', sw: 0.4, opacity: 0.3, dash: true });
       const q = Math.min(cw - 40, ch - 60);
       doc.ops.push({ t: 'image', ref: c.qrRef, x: x + (cw - q) / 2, y: y + 14, w: q, h: q });
@@ -2280,8 +2333,8 @@ export function layoutPasses(input: LayoutInput, passes: PrintPass[]): PrintDoc[
   });
 }
 
-export function layoutQrCodes(title: string, cells: Array<{ name: string; sub: string | null; qrRef: string }>): PrintDoc[] {
-  return layoutQrSheet(title, cells);
+export function layoutQrCodes(title: string, cells: Array<{ name: string; sub: string | null; qrRef: string }>, shape?: QrShape): PrintDoc[] {
+  return layoutQrSheet(title, cells, shape);
 }
 
 /** How many ops of a layer a doc carries — for the tests and the route's log. */

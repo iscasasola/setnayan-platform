@@ -517,7 +517,9 @@ test('wiring: the vendor side shows no plan upsell, add-on price or pack in the 
   assert.match(gate, /export async function VendorTierGate/);
   assert.match(gate, /\{storeShell \? \(/);
   assert.match(gate, /export async function VendorTierTeaser[\s\S]*?if \(await isStoreShellRequest\(\)\) return null;/);
-  before('app/vendor-dashboard/shop/page.tsx', /\{storeShell \? null : isEnterprise \? \(/, '<BranchManager');
+  // Try-first (2026-09-30): the manager mounts for every plan on the web, and
+  // still never in the store shell.
+  before('app/vendor-dashboard/shop/page.tsx', /\{storeShell \? null : \(/, '<BranchManager');
   assert.match(src('app/vendor-dashboard/team/page.tsx'), /\{canBuySeats && !storeShell \? \(/);
   const recs = src('app/vendor-dashboard/recommendations/page.tsx');
   assert.equal((recs.match(/formatSkuPriceLabel\(/g) ?? []).length, 1, 'every price label goes through priceLabelFor');

@@ -2,7 +2,8 @@
 
 import { useActionState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Lock, Gift } from 'lucide-react';
+import { Search, ShieldCheck, Gift } from 'lucide-react';
+import { PaidMark } from '@/app/_components/paid-mark';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
@@ -16,7 +17,11 @@ import { DossierView } from './dossier-view';
 /**
  * Deep Search runner — the eligible-vendor run/buy surface (owner-locked
  * 2026-07-22). Honest states:
- *   • not eligible (free/verified tier OR unverified) → muted upsell, no CTA.
+ *   • not verified → the one step that opens it (get verified), no CTA.
+ *   • verified on any plan → the runner (try-first, 2026-09-30). Whether Run
+ *     asks for a paid plan is decided on the SERVER by vendorPaywallApplies()
+ *     and arrives as `planAsks` — a ◆ note here, the ask itself at Run. While
+ *     VENDOR_TIER_FEATURE_GATE is off it is false for everyone.
  *   • eligible + free this cycle (Pro+ with 0 uses) → "Run free Deep Search".
  *   • eligible + paid (Solo always · Pro+ after the free one) → BDO/GCash
  *     apply-then-pay, "Run Deep Search — ₱500".
@@ -34,10 +39,10 @@ export type DeepSearchRunnerProps = {
    *  paused: the paid path shows PaymentsPausedNote and its button is disabled
    *  (the server action refuses the same case). A free grant ignores it. */
   openRails: readonly PayChannel[];
-  /** Paid tier (Solo+) AND verified — the only shops that can run it. */
+  /** The shop is verified — the one requirement no switch lifts. */
   eligible: boolean;
-  /** True while the shop is on a paid tier but NOT yet verified. */
-  paidButUnverified: boolean;
+  /** Server-decided: Run asks for a paid plan (◆ note only; never a lock). */
+  planAsks: boolean;
   /** Resolved price is ₱0 (Pro+ with the free allowance unused this cycle). */
   isFreeNow: boolean;
   /** Does this tier get a free search per cycle at all (Pro/Ent/Custom)? */
@@ -47,8 +52,7 @@ export type DeepSearchRunnerProps = {
 };
 
 export function DeepSearchRunner(props: DeepSearchRunnerProps) {
-  const { eligible, paidButUnverified, isFreeNow, hasFreeAllowance, pricePhp, openRails } =
-    props;
+  const { eligible, planAsks, isFreeNow, hasFreeAllowance, pricePhp, openRails } = props;
 
   const toast = useToast();
   const router = useRouter();
@@ -71,20 +75,25 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
         className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
         style={{ borderColor: 'var(--m-line)' }}
       >
-        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-        {paidButUnverified ? (
-          <span>Get your shop verified to unlock Deep Search — it&rsquo;s a verified-only add-on.</span>
-        ) : (
-          <span>
-            Deep Search is available on the paid plans (Solo, Pro, Enterprise). Upgrade to run it.
-          </span>
-        )}
+        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+        <span>Get your shop verified to run Deep Search — it&rsquo;s for verified shops.</span>
       </div>
     );
   }
 
   return (
     <div className="mt-4">
+      {planAsks ? (
+        <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink/60">
+          <PaidMark
+            state="try"
+            label="Part of the paid plans — set it up here; Run asks for a plan"
+            text="SOLO"
+            size="xs"
+          />
+          <span>Deep Search is part of the paid plans. Set it up here — Run asks for the plan.</span>
+        </p>
+      ) : null}
       {/* Honest price line */}
       <div className="flex flex-wrap items-center gap-2">
         {isFreeNow ? (

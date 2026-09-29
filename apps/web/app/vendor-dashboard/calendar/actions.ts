@@ -28,9 +28,11 @@ import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   asVendorTier,
+  entryTierAllowance,
   tierCaps,
 } from '@/lib/vendor-tier-caps';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
+import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import {
   notifyWaitlistForFreedDate,
   notifyWaitlistForFreedRange,
@@ -338,9 +340,14 @@ export async function updateWaitlistSettings(formData: FormData): Promise<void> 
   // them"), and `vendorWaitlistAcceptances` answers from the tier alone. It
   // reads Infinity for such a shop, so every clamp below no-ops by arithmetic
   // rather than by a special case.
-  const tierCap = (
-    await fetchEffectiveCaps(supabase, profile.vendor_profile_id, currentRow?.tier_state)
-  ).waitlistAcceptances;
+  // A plan with NO waitlist is a paywall → the one flag-aware allowance
+  // (lib/vendor-feature-gate.ts): while VENDOR_TIER_FEATURE_GATE is off, the
+  // entry plan's places; a plan that has a waitlist keeps its own number.
+  const tierCap = vendorAllowance(
+    (await fetchEffectiveCaps(supabase, profile.vendor_profile_id, currentRow?.tier_state))
+      .waitlistAcceptances,
+    entryTierAllowance('waitlistAcceptances'),
+  );
   const stored = Number(currentRow?.max_waitlist_acceptances);
 
   const enabled = str(formData, 'waitlist_enabled') === 'on' && tierCap > 0;

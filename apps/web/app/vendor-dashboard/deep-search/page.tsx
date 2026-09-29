@@ -8,7 +8,9 @@ import { openChannels } from '@/lib/payment-channels';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { asVendorTier } from '@/lib/vendor-tier-caps';
+import { asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
 import {
   deepSearchEligibility,
@@ -90,9 +92,15 @@ export default async function VendorDeepSearchPage() {
   const verification =
     (tierRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
-  const eligibility = deepSearchEligibility({ tier, verification });
+  // TRY-FIRST (2026-09-30): the runner opens for every VERIFIED shop. The
+  // paid-plan requirement is asked through the one flag-aware question and only
+  // at Run (actions.ts) — `planAsks` just draws the ◆ note. While the switch
+  // is off it is false for everyone and nothing is asked.
+  // 🔒 No ◆ purchase hint in the App Store / Play Store shell (lib/store-shell.ts).
+  const planAsks =
+    vendorPaywallApplies(isTierAtLeast(tier, 'solo')) && !(await isStoreShellRequest());
+  const eligibility = deepSearchEligibility({ tier, verification, tierPaywall: false });
   const eligible = eligibility.ok;
-  const paidButUnverified = !eligible && eligibility.reason === 'unverified';
   const hasFreeAllowance = deepSearchHasFreeAllowance(tier);
 
   // Price + free-allowance state (admin-read for an authoritative use count).
@@ -168,7 +176,7 @@ export default async function VendorDeepSearchPage() {
 
         <DeepSearchRunner
           eligible={eligible}
-          paidButUnverified={paidButUnverified}
+          planAsks={planAsks}
           isFreeNow={isFreeNow}
           hasFreeAllowance={hasFreeAllowance}
           pricePhp={pricePhp > 0 ? pricePhp : cyclePricePhp}

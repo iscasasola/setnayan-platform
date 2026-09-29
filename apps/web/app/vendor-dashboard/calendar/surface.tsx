@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
+import { vendorAllowance } from '@/lib/vendor-feature-gate';
+import { entryTierAllowance } from '@/lib/vendor-tier-caps';
 import {
   fetchVendorBlocksDetailed,
   fetchVendorDayStates,
@@ -86,7 +88,7 @@ const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   waitlist_full: { tone: 'warn', text: 'Waitlist is full for that date — raise your cap to pick more.' },
   waitlist_not_in_plan: {
     tone: 'warn',
-    text: 'A waitlist on booked dates is not part of your current plan — upgrade to hold couples for a date you are full on.',
+    text: 'A waitlist on booked dates is part of the paid plans — pick one on the Plans page to hold couples for a date you are full on.',
   },
   waitlist_none: { tone: 'warn', text: 'No one is waiting on that date yet.' },
   day_state_saved: { tone: 'ok', text: 'Day updated. Couples see only “unavailable”.' },
@@ -305,9 +307,13 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
     // shop's own active composed plan through their own session — a vendor may
     // read their own vendor_custom_plans row, so no service-role client and no
     // new RPC is needed.
-    waitlistTierCap = (
-      await fetchEffectiveCaps(supabase, profile.vendor_profile_id, wsRow?.tier_state)
-    ).waitlistAcceptances;
+    // 💳 A 0 here is the paywall, so it is asked through the same flag-aware
+    // allowance updateWaitlistSettings enforces — off, the entry plan's places.
+    waitlistTierCap = vendorAllowance(
+      (await fetchEffectiveCaps(supabase, profile.vendor_profile_id, wsRow?.tier_state))
+        .waitlistAcceptances,
+      entryTierAllowance('waitlistAcceptances'),
+    );
     waitlistEnabled = Boolean(wsRow?.waitlist_enabled) && waitlistTierCap > 0;
     waitlistUnlimited = !Number.isFinite(waitlistTierCap);
     const storedWaitlistCap = Number(wsRow?.max_waitlist_acceptances) || 1;
@@ -525,9 +531,12 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
         // NO FAKE DOOR: a plan without a waitlist gets the sentence, not a
         // disabled switch that looks like a bug.
         <p className="mt-3 rounded-xl border border-ink/10 bg-white/60 p-3 text-sm text-ink/70">
-          Holding a waitlist on dates you&rsquo;re booked out on isn&rsquo;t part of your current
-          plan. Upgrade and couples who wanted a full date can queue up, so you hear about them
-          the moment a slot frees.
+          Holding a waitlist on dates you&rsquo;re booked out on is part of the paid plans. With
+          one, couples who wanted a full date can queue up, so you hear about them the moment a
+          slot frees.{' '}
+          <Link href="/vendor-dashboard/subscription" className="font-medium text-mulberry hover:underline">
+            See plans
+          </Link>
         </p>
       ) : (
         <form

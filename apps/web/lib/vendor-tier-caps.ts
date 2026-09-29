@@ -595,6 +595,22 @@ export function canBuyExtraSeats(tier: string | null | undefined): boolean {
   return isTierAtLeast(tier, 'enterprise');
 }
 
+/**
+ * The allowance the LOWEST plan that includes a counted feature gives — e.g.
+ * the first tier with any team seats, or any waitlist places. Read from the
+ * table above, never typed in, so it follows every owner edit to the ladder.
+ * Used by `vendorAllowance()` (lib/vendor-feature-gate.ts) while the plan
+ * paywall is switched off. 0 only if no plan includes the feature at all.
+ */
+export function entryTierAllowance(key: 'agentAccounts' | 'waitlistAcceptances'): number {
+  const ladder = [...VENDOR_TIERS].sort((a, b) => TIER_RANK[a] - TIER_RANK[b]);
+  for (const t of ladder) {
+    const v = TIER_CAPS[t][key];
+    if (v > 0) return v;
+  }
+  return 0;
+}
+
 /** Normalize an arbitrary string (or null) to a VendorTier, defaulting to 'free'. */
 export function asVendorTier(raw: string | null | undefined): VendorTier {
   return (VENDOR_TIERS as readonly string[]).includes(raw ?? '')

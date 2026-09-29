@@ -2,7 +2,8 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Check, Globe, Images, Lock, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Check, Globe, Images, Sparkles } from 'lucide-react';
+import { PaidMark } from '@/app/_components/paid-mark';
 
 import { CopyButton } from '@/app/_components/copy-button';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -36,9 +37,16 @@ export type MicrositeReviewOption = { id: string; label: string };
  * chips, the swatches are all live in place. Instant controls save optimistically
  * on change (revert + toast on error); the two text fields (About, address) save
  * with an inline button that appears when they're dirty. Flat + hairline-divided
- * (no boxed cards). PRO controls are real for Pro/Enterprise; Free sees a quiet
- * locked list + Upgrade — "paywall + free tastes". Curation is OPTIONAL: an
- * un-touched page still renders its auto-composed baseline.
+ * (no boxed cards). Curation is OPTIONAL: an un-touched page still renders its
+ * auto-composed baseline.
+ *
+ * 💳 TRY-FIRST (2026-09-30). Every control renders for every plan. Whether a
+ * plan is asked for is decided on the SERVER by `vendorPaywallApplies()` and
+ * arrives here as `personalizeAsks` / `proAsks` — never computed in this client
+ * file (the switch is a server env var). While VENDOR_TIER_FEATURE_GATE is off
+ * both are false: no ◆ mark, no "Upgrade", and the save goes through. While on,
+ * the supplier still uses the controls; the ◆ mark is information and the save
+ * itself is where the plan is asked for (the action's refusal toast).
  */
 import { CouldNotLoad } from './could-not-load';
 import { formatCount } from '@/lib/format-number';
@@ -48,7 +56,8 @@ export function WebsiteEditor({
   displayHost,
   websiteLive,
   isPro,
-  canPersonalize,
+  personalizeAsks,
+  proAsks,
   about,
   sections,
   featuredServiceIds,
@@ -79,8 +88,12 @@ export function WebsiteEditor({
   publicPath: string | null;
   displayHost: string;
   websiteLive: boolean;
+  /** The shop OWNS the Pro page controls (its plan includes them). */
   isPro: boolean;
-  canPersonalize: boolean;
+  /** Server-decided: saving a Personalize control asks for Solo. */
+  personalizeAsks: boolean;
+  /** Server-decided: saving a Pro customization asks for Pro. */
+  proAsks: boolean;
   about: string | null;
   sections: Record<string, boolean>;
   featuredServiceIds: string[];
@@ -339,9 +352,8 @@ export function WebsiteEditor({
         igFlash={igFlash}
       />
 
-      {/* ── Personalize (Solo+): About · Featured services · Sections ─────── */}
-      {canPersonalize ? (
-        <>
+      {/* ── Personalize: About · Featured services · Sections ─────────────── */}
+      {personalizeAsks ? <PlanNote plan="Solo" what="Personalizing your page" /> : null}
       {/* ── About ────────────────────────────────────────────────────────── */}
       <Row title="About">
         <textarea
@@ -456,10 +468,6 @@ export function WebsiteEditor({
           })}
         </div>
       </Row>
-        </>
-      ) : (
-        <SoloUpsell />
-      )}
 
       {/* ── Awards (read-only) ───────────────────────────────────────────── */}
       <Row title="Awards and badges">
@@ -503,30 +511,21 @@ export function WebsiteEditor({
             className="inline-flex items-center gap-1.5 text-sm font-medium"
             style={{ color: 'var(--m-plum, #6b4d8a)' }}
           >
-            {isPro ? (
-              <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            ) : (
-              <Lock className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            )}
-            Pro customization
+            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            Page extras
           </span>
           {isPro ? (
             <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
               Included with your plan
             </span>
-          ) : (
-            <Link
-              href="/vendor-dashboard/subscription"
-              className="inline-flex items-center gap-1 text-sm font-medium"
-              style={{ color: 'var(--m-plum, #6b4d8a)' }}
-            >
-              Upgrade
-              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            </Link>
-          )}
+          ) : null}
         </div>
+        {proAsks ? (
+          <div className="mt-2">
+            <PlanNote plan="Pro" what="These extras" />
+          </div>
+        ) : null}
 
-        {isPro ? (
           <div className="mt-3 space-y-5">
             {/* ⛔ "Change your address" was the first Row here until 2026-08-10.
                 The address is chosen once at /open-shop and is PERMANENT on every
@@ -638,24 +637,6 @@ export function WebsiteEditor({
               )}
             </Row>
           </div>
-        ) : (
-          <ul className="mt-3 space-y-2">
-            {/* The address is NOT in this list. Every plan already holds one,
-                permanently — it was never a thing to sell (2026-08-10). */}
-            {['Hero photo', 'Pinned review', 'Featured editorials'].map(
-              (t) => (
-                <li
-                  key={t}
-                  className="flex items-center gap-2 text-sm"
-                  style={{ color: 'var(--m-slate-3)' }}
-                >
-                  <Lock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                  {t}
-                </li>
-              ),
-            )}
-          </ul>
-        )}
       </section>
     </div>
   );
@@ -833,28 +814,32 @@ function GalleryForm({
   );
 }
 
-/* ─── Free-tier upsell: personalizing is a Solo+ benefit ────────────────── */
-function SoloUpsell() {
+/* ─── ◆ plan note — information, never a lock ───────────────────────────────
+ * Rendered ONLY when the server says the paywall applies (switch on AND the
+ * plan lacks it). The controls above/below it stay usable; Save is the ask. */
+function PlanNote({ plan, what }: { plan: 'Solo' | 'Pro'; what: string }) {
   return (
-    <div
-      className="rounded-xl border p-4"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-orange-4)' }}
+    <p
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-3 py-2 text-xs"
+      style={{ background: 'var(--m-orange-4)', color: 'var(--m-slate)' }}
     >
-      <p className="text-sm font-medium text-ink">Make this page yours</p>
-      <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
-        On a <span className="font-medium">Solo</span> plan you can add an About
-        intro, an accent colour, featured services, and choose which sections
-        show. Your page is live and findable on Free — personalizing it is a Solo
-        upgrade.
-      </p>
+      <PaidMark
+        state="try"
+        label={`Part of ${plan} — try it here; saving asks for ${plan}`}
+        text={plan.toUpperCase()}
+        size="xs"
+      />
+      <span>
+        {what} is part of {plan}. Try it here — saving asks for the plan.
+      </span>
       <Link
         href="/vendor-dashboard/subscription"
-        className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-mulberry hover:underline"
+        className="inline-flex items-center gap-1 font-medium text-mulberry hover:underline"
       >
         See plans
         <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
       </Link>
-    </div>
+    </p>
   );
 }
 

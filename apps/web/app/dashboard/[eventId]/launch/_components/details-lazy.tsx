@@ -1,0 +1,179 @@
+'use client';
+
+import dynamic from 'next/dynamic';
+import type { DetailsItemKey } from '@/lib/maker-details-items';
+import { SlotButton, SlotFill, SlotNone, SlotRows } from './lazy-slot';
+import { prefetchMoodBoard } from '../../studio/mood-board/_components/mood-board-lazy';
+import { prefetchSchedule } from '../../schedule/_components/schedule-lazy';
+import { prefetchEntourage } from '../../guests/_components/entourage-lazy';
+
+/**
+ * ⚡ DETAILS PIECES LOAD WHEN THEY ARE OPENED — NEVER WITH THE MAKER.
+ *
+ * Owner, 2026-09-29: *"the Maker must never be slow"*; the Maker's first-load
+ * JavaScript has a ceiling (`scripts/check-maker-js-budget.mjs`, CI "bundle
+ * size check"). Folding Details in (the theme gallery, the prints, Your event,
+ * Words, Love Story, Schedule, RSVP, the Mood Board, Logo, Hero, Reveal) put
+ * every one of their editors into the code a phone downloads before its first
+ * tap — 643KB against 505KB — although Details is closed on a cold open.
+ *
+ * 🔑 WHY A SERVER FILE IMPORTS FROM HERE AND NOT FROM THE PIECE. Next puts
+ * EVERY `'use client'` module a route's server files import into that route's
+ * first load, eagerly (`next-flight-client-entry-loader`: `webpackMode:
+ * "eager"`), whether or not the page ever draws it. The ONLY way a piece
+ * leaves the first load is to be reached through a client-side `import()` —
+ * which is what each `dynamic()` below is. So Details' server files
+ * (`maker-details.tsx`, `maker-prints.tsx`, `details-your-event-parts.tsx`,
+ * `maker-made-once.tsx`, the launch page) import these stand-ins, with the SAME
+ * names and props; each loads its real piece the first time it renders.
+ * 🛡 `details-pieces-are-lazy.test.ts` fails if a server file of the Maker
+ * imports a lazy piece's own module again.
+ *
+ * 📦 THE PIECES TRAVEL AS THREE NAMED CHUNKS — `maker-details` (everything
+ * here), `maker-mood-board`, `maker-schedule` (those two are also drawn by their
+ * own standalone routes). Every `import()` names its chunk: webpack's runtime —
+ * loaded on EVERY page, under the shared-bundle ceiling
+ * (`scripts/check-bundle-size.mjs`) — carries an entry per async chunk and per
+ * chunk an async group depends on. Unnamed, the first cut of this split grew
+ * that runtime 4.0KB → 4.9KB gz and put the shared bundle over its ceiling.
+ *
+ * What stays in the first load, on purpose:
+ *   · the Details navigator and its workspace (`details-workspace.tsx`);
+ *   · the theme pick's provider (`maker-theme-picker.tsx` — it wraps the
+ *     navigator, so a lazy provider would hold the whole of Details back);
+ *   · the print words form's own fields (`opening-line-field.tsx`,
+ *     `soft-post.tsx` — a field that has not arrived would be missing from a
+ *     words save);
+ *   · the small shared doors (`details-go.tsx`, `details-piece.tsx`);
+ *   · the Hero/Reveal/Logo frames (`details-look-pages.tsx`) and the Love
+ *     Story's moment sheet (`moment-sheet.tsx`) — MEASURED: each saves ~2–4KB
+ *     but depends on chunks the first screen already has (the element sheet, the
+ *     editor bridge), and making them lazy added more to the every-page runtime
+ *     (7 dependency entries for the moment sheet alone) than it took off the
+ *     Maker;
+ *   · the guest card of a parent (`GuestCardBody`'s pieces) and the Requests
+ *     rows (`guests/claims`) — the Guest list and the Requests page draw the
+ *     same modules as their MAIN content, and lazy there would flash a
+ *     placeholder where a card opens today.
+ *
+ * ⏳ A piece that has not arrived holds its slot (`lazy-slot.tsx`). It is almost
+ * never seen: `prefetchDetails()` fetches them all when the Maker is idle, and a
+ * navigator row fetches its own item on hover or focus (`prefetchDetailsItem`).
+ * Rendered on the server (a Maker opened at `?tool=details`), a piece arrives
+ * with the page — `next/dynamic` preloads its code there.
+ */
+
+/* ── Words · Your Event Hub ─────────────────────────────────────────────── */
+export const QrLookControls = dynamic(() => import(/* webpackChunkName: "maker-details" */ './qr-look-controls').then((m) => m.QrLookControls), { loading: SlotRows });
+export const SpecialMessageField = dynamic(() => import(/* webpackChunkName: "maker-details" */ './special-message-field').then((m) => m.SpecialMessageField), { loading: SlotRows });
+export const PabuyaMessageEditor = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ '../../pabuya/_components/pabuya-message-editor').then((m) => m.PabuyaMessageEditor),
+  { loading: SlotRows },
+);
+
+/* ── The prints (Invitation set · For the day · Download) ─────────────────── */
+export const PrintPreview = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-preview').then((m) => m.PrintPreview), { loading: SlotFill });
+export const PrintMenuEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-menu-editor').then((m) => m.PrintMenuEditor), { loading: SlotRows });
+export const PrintChoicePicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-choice-picker').then((m) => m.PrintChoicePicker), { loading: SlotRows });
+export const PrintSaveButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.PrintSaveButton), { loading: SlotButton });
+
+/* ── Your event (names · date · venues · parents & hosts · the march) ─────── */
+export const NamesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.NamesEditor), { loading: SlotRows });
+export const DateEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateEditor), { loading: SlotRows });
+export const DateBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateBody), { loading: SlotFill });
+export const VenuesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuesEditor), { loading: SlotRows });
+export const MarchPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchPieces), { loading: SlotNone });
+export const MarchAisleFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchAisleFocus), { loading: SlotFill });
+export const MarchControls = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchControls), { loading: SlotRows });
+export const PeoplePieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeoplePieces), { loading: SlotNone });
+export const PeopleBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleBody), { loading: SlotFill });
+export const PeopleControls = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleControls), { loading: SlotRows });
+export const ParentCards = dynamic(() => import(/* webpackChunkName: "maker-details" */ './parent-cards').then((m) => m.ParentCards), { loading: SlotRows });
+
+/* ── Story & plans (Love Story · Schedule · RSVP) ─────────────────────────── */
+export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.LoveStoryPieceFocus), { loading: SlotNone });
+export const ScheduleSlots = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.ScheduleSlots), { loading: SlotNone });
+export const MakerRsvpSettings = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask').then((m) => m.MakerRsvpSettings), { loading: SlotRows });
+
+/* ── The Look (Logo · Reveal — the pages the work area hands in) ─────────── */
+export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
+export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
+
+/* ── Prefetch: the same imports, asked early so opening is instant ─────────── */
+
+type Load = () => Promise<unknown>;
+
+/** Every piece above — one chunk (`maker-details`): Details mounts every editor at once. */
+const loadDetailsPieces: Load = () =>
+  Promise.all([
+    import(/* webpackChunkName: "maker-details" */ './qr-look-controls'),
+    import(/* webpackChunkName: "maker-details" */ './special-message-field'),
+    import(/* webpackChunkName: "maker-details" */ '../../pabuya/_components/pabuya-message-editor'),
+    import(/* webpackChunkName: "maker-details" */ './print-preview'),
+    import(/* webpackChunkName: "maker-details" */ './print-menu-editor'),
+    import(/* webpackChunkName: "maker-details" */ './print-choice-picker'),
+    import(/* webpackChunkName: "maker-details" */ './print-save-button'),
+    import(/* webpackChunkName: "maker-details" */ './details-your-event'),
+    import(/* webpackChunkName: "maker-details" */ './details-march'),
+    import(/* webpackChunkName: "maker-details" */ './details-people'),
+    import(/* webpackChunkName: "maker-details" */ './parent-cards'),
+    import(/* webpackChunkName: "maker-details" */ './details-tool-pieces'),
+    import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask'),
+    import(/* webpackChunkName: "maker-details" */ './maker-logo'),
+    import(/* webpackChunkName: "maker-details" */ './maker-reveal'),
+    prefetchEntourage(),
+  ]);
+
+/** The two pages that travel on their own — they are also drawn by their own standalone routes. */
+const ITEM_OWN_CHUNK: Partial<Record<DetailsItemKey, Load>> = {
+  'mood-board': prefetchMoodBoard,
+  schedule: prefetchSchedule,
+};
+
+const asked = new Set<Load>();
+function run(load: Load) {
+  if (asked.has(load)) return;
+  asked.add(load);
+  /* A prefetch that fails is only a prefetch: the piece asks again when it renders. */
+  load().catch(() => asked.delete(load));
+}
+
+/** One item — a navigator row on hover or focus. */
+export function prefetchDetailsItem(key: DetailsItemKey) {
+  run(loadDetailsPieces);
+  const own = ITEM_OWN_CHUNK[key];
+  if (own) run(own);
+}
+
+/** Every Details piece — the Maker, once it is idle. */
+export function prefetchDetails() {
+  run(loadDetailsPieces);
+  run(prefetchMoodBoard);
+  run(prefetchSchedule);
+}
+
+/**
+ * Fetch every Details piece once the Maker has loaded and the phone is idle —
+ * after the page's own load, never competing with it; not at all when the
+ * viewer asked to save data. Returns the cancel.
+ */
+export function prefetchDetailsWhenIdle(): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  if (conn?.saveData) return () => {};
+  let idle: number | null = null;
+  let timer: number | null = null;
+  const go = () => {
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (ric) idle = ric(prefetchDetails, { timeout: 5000 });
+    else timer = window.setTimeout(prefetchDetails, 1500);
+  };
+  if (document.readyState === 'complete') go();
+  else window.addEventListener('load', go, { once: true });
+  return () => {
+    window.removeEventListener('load', go);
+    const cic = (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback;
+    if (idle !== null) cic?.(idle);
+    if (timer !== null) window.clearTimeout(timer);
+  };
+}

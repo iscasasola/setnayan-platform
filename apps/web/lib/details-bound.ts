@@ -10,10 +10,18 @@
  *
  * So a scene that shows a fact Details owns does not COPY it — it is BOUND to
  * it. A Details edit reaches every bound scene. Editing the fact ON a scene asks
- * once: "Change it everywhere (updates Details)" writes the Details source;
+ * once: "Change it everywhere" writes the one source (the `events` column);
  * "Just this scene" stores a per-scene override, shown with a quiet
- * "Edited here · ↺ Use Details" chip that clears it. An override does NOT follow
+ * "Edited here · ↺ Use your message" chip that clears it. An override does NOT follow
  * later Details edits — that is what "just here" means.
+ *
+ * ⚠ 2026-09-28 — THE SOURCE IS THE COLUMN, NOT THE DETAILS PAGE (owner, DECISION_LOG
+ * "EVERY TEXT IS TYPED WHERE IT LIVES; THE DETAILS CHECKLIST ONLY SWITCHES IT
+ * ON"). Details no longer edits the message: it only switches it onto the prints
+ * and shows a read-only line pointing here. "Details" below means the one
+ * `events` column every scene and the Finer Details card read; the couple writes
+ * it in the Maker's words editor ("Your message") or with "Change it everywhere".
+ * The buttons stopped naming Details: "Change it everywhere" · "↺ Use your message".
  *
  * ── WHERE IT LIVES ─────────────────────────────────────────────────────────
  * The Details value: its own `events` column (the one Details already edits).
@@ -38,7 +46,7 @@
  * ⚠ Measured on origin/main 2026-09-27, NOT bound here, and why:
  *   · names — `display_name` is DERIVED from the couple's first names in event
  *     settings (`app/dashboard/[eventId]/actions.ts`); Details does not own it,
- *     so "Change it everywhere (updates Details)" would be a false sentence.
+ *     so "Change it everywhere" would write something Details does not hold.
  *   · date · venue — `event_date` / `venue_name` are the schedule's and the
  *     event settings' facts, and no scene offers them as editable text.
  *   · opening line · "Kindly reply" — print-only (`events.print_details`); no
@@ -165,7 +173,7 @@ export function withDetailsOverride(canvas: HubSectionCanvas, fact: DetailsFact,
   return next;
 }
 
-/** The canvas with this scene bound to Details again for `fact` ("↺ Use Details"). */
+/** The canvas with this scene bound to the source again for `fact` ("↺ Use your message"). */
 export function withoutDetailsOverride(canvas: HubSectionCanvas, fact: DetailsFact): HubSectionCanvas {
   const rest: HubDetailsOverrides = { ...(canvas.details ?? {}) };
   delete rest[fact];

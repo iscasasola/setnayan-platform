@@ -41,6 +41,20 @@ export function previewCacheControl(v: string | null | undefined): string {
   return isPreviewVersion(v) ? PREVIEW_IMMUTABLE : PREVIEW_UNVERSIONED;
 }
 
+/**
+ * 🖼 THE SAMPLE'S PICTURES ARE THE SAME FOR EVERY COUPLE (owner 2026-09-28,
+ * "THE THEME GALLERY SHOWS A CLEAN SAMPLE EVENT HUB"): the Details gallery
+ * shows the curated sample event's prints in each theme. They carry no
+ * couple's data, so they are `public` — one render serves every couple — and
+ * immutable when versioned, exactly like a couple's own.
+ */
+export const SAMPLE_PREVIEW_IMMUTABLE = 'public, max-age=31536000, immutable';
+export const SAMPLE_PREVIEW_UNVERSIONED = 'public, max-age=300, stale-while-revalidate=3600';
+
+export function samplePreviewCacheControl(v: string | null | undefined): string {
+  return isPreviewVersion(v) ? SAMPLE_PREVIEW_IMMUTABLE : SAMPLE_PREVIEW_UNVERSIONED;
+}
+
 /** Keys sorted at every level, so two reads of the same rows hash alike. */
 function stable(value: unknown): unknown {
   // A Set or a Map would JSON as `{}` — its contents would never reach the hash.

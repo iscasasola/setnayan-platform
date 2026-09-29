@@ -75,10 +75,11 @@ test('a page opened over the work area HIDES the canvas — never unmounts it', 
     WORK,
     /<div className=\{workHidden \? 'hidden' : 'contents'\} data-maker-work-area="">/,
   );
-  assert.match(WORK, /const workHidden = Boolean\(pageView\) \|\| \(selection\?\.kind === 'tool' && isShellPage\(selection\.key\)\);/);
+  // Since Details parts 2b and 3 the one page over the work area is Details
+  // (every made-once page is an item of it), drawn by the shell.
+  assert.match(WORK, /const workHidden = selection\?\.kind === 'tool' && isShellPage\(selection\.key\);/);
   assert.doesNotMatch(WORK, /\{pageView \?\? \(/, 'the page must not REPLACE the work area — that unmounts every loaded stage');
-  // …so a page frame has its own ref, and the canvas's own `ready` ignores it.
-  assert.match(WORK, /frameRef=\{pageFrameRef\}/);
+  // …and the canvas's own `ready` still ignores any other frame.
   assert.match(WORK, /if \(event\.source && event\.source !== frameRef\.current\?\.contentWindow\) return;/);
 });
 

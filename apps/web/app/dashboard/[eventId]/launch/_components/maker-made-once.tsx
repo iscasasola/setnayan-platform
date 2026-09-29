@@ -25,8 +25,9 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HubDraftField } from '../../website/_components/hub-draft-bar';
 import { removeHeroPhoto, uploadHeroPhoto } from '../../website/hero-photo/actions';
-import { MakerRevealPicker } from './maker-reveal';
-import { MakerLogoDoor } from './maker-logo';
+/* ⚡ The Logo studio and the Reveal picker load when Details opens them — never with
+   the Maker (`details-lazy.tsx`). The Hero's picker stays: a tap on the hero scene opens it. */
+import { MakerLogoDoor, MakerRevealPicker } from './details-lazy';
 import { MakerHeroDesignPicker } from './maker-hero-design';
 import { MiniTour } from '@/app/_components/mini-tour';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -278,10 +279,13 @@ export async function MakerRevealPanel({
   eventId,
   ownsPro,
   storeShell,
+  part = 'all',
 }: {
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /** Which part of the picker (Details: the openings in the navigator, the rest on the right). */
+  part?: 'all' | 'options' | 'settings';
 }) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="reveal" />;
@@ -328,6 +332,7 @@ export async function MakerRevealPanel({
       /* Where each fine-tune slider rests until the couple moves it — the
          Reveal Studio's house look, read once above. */
       tuneHouse={revealTuneHouse(config)}
+      part={part}
     />
   );
 }

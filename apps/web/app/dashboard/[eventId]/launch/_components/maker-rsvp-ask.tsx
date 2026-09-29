@@ -1,10 +1,11 @@
 'use client';
 
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import Link from 'next/link';
-import { useEffect, useId, useState, useTransition } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { useEffect, useId, useState, useTransition, type ReactNode } from 'react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
+import { updatePaxSettings } from '../../actions';
+import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
+import { DetailsPieceOnly } from './details-piece';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   GUEST_REMINDERS_TIP,
@@ -34,10 +35,16 @@ import { formatCount } from '@/lib/format-number';
  *                                   owner 2026-09-25: *"yes on and off"*)
  *   · Who can RSVP?                (`rsvp_ask_config.whoCanRsvp` — ONE stored
  *                                   value; Guest List → Invite reads the same)
- *   · Reply by                     (the couple's deadline, or 30 days before)
+ *   · Reply by                     (the couple's deadline, or 30 days before) —
+ *                                   a date field RIGHT HERE (Details part 2b; owner
+ *                                   rule "no link-outs"), the same column and the
+ *                                   same save as Details › pax settings
+ *                                   (`updatePaxSettings`): one column, two doors
  *   · Reminder emails              (`rsvp_ask_config.guestReminders` — the
  *                                   30 · 7 · 1 day guest emails; absent = On)
- *   · Requests waiting (n)         → Open Requests
+ *   · Requests waiting             — the shipped Requests rows (Keep · Remove ·
+ *                                   Link) drawn IN PLACE (`requests.list`, the
+ *                                   Requests page itself with `maker=1`)
  *
  * 💾 THE DRAFT, NEVER LIVE — and ONE object. All three settings live in the
  * same `events.rsvp_ask_config`, so they share ONE local copy here and every
@@ -54,7 +61,7 @@ export function MakerRsvpSettings({
   current,
   drafted,
   replyBy,
-  replyByHref,
+  replyByOwn,
   requests,
 }: {
   eventId: string;
@@ -64,10 +71,17 @@ export function MakerRsvpSettings({
   drafted: boolean;
   /** `resolveReplyBy` — the couple's deadline, or the 30-day default; null with no date. */
   replyBy: { date: string; isDefault: boolean } | null;
-  /** Where the reply-by date is set (the guest-list deadline). */
-  replyByHref: string;
-  /** Who is waiting in Guest List → Requests. `count: null` = could not be read. */
-  requests: { count: number | null; href: string };
+  /**
+   * The couple's OWN reply-by date (`events.guest_list_edit_deadline`, null =
+   * the default) and the pricing view `updatePaxSettings` writes beside it (it
+   * writes both, so the current one is posted back unchanged). Null = could not
+   * be read: the field is not offered, and says so.
+   */
+  replyByOwn: { deadline: string | null; pricingMode: 'realtime' | 'final_only' } | null;
+  /** Who is waiting in Guest List → Requests: the shipped rows, drawn here
+   *  (`list`, null when this viewer may not read the guest list). `count:
+   *  null` = could not be read. */
+  requests: { count: number | null; list: ReactNode | null };
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +127,7 @@ export function MakerRsvpSettings({
 
   return (
     <div className="flex flex-col gap-5 px-1" data-made-once="rsvp-page">
+      <DetailsPieceOnly item="rsvp" piece="questions">
       {/* ── Ask one question at a time ── */}
       <section className="flex flex-col gap-1" data-rsvp-setting="one-at-a-time">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
@@ -152,7 +167,9 @@ export function MakerRsvpSettings({
         </div>
         <p className="text-xs text-ink/60">Nobody&rsquo;s answer is deleted by turning a question off.</p>
       </section>
+      </DetailsPieceOnly>
 
+      <DetailsPieceOnly item="rsvp" piece="who">
       {/* ── Who can RSVP? — ONE stored value ── */}
       <section className="flex flex-col gap-2" data-rsvp-setting="who-can-rsvp">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
@@ -178,28 +195,33 @@ export function MakerRsvpSettings({
           ))}
         </div>
       </section>
+      </DetailsPieceOnly>
 
-      {/* ── Reply by ── */}
+      <DetailsPieceOnly item="rsvp" piece="reply-by">
+      {/* ── Reply by — typed right here (no link out) ── */}
       <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
         <p className="text-sm font-semibold text-ink">Reply by</p>
-        <Link
-          href={replyByHref}
-          className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/10 py-2 text-ink hover:text-ink/80"
-        >
-          {replyBy ? (
-            <span className="flex flex-wrap items-baseline gap-x-2">
-              <span className="text-base font-semibold" data-reply-by={replyBy.date}>
-                {formatDay(replyBy.date)}
-              </span>
-              <span className="text-sm text-ink/60">{replyBy.isDefault ? '· 30 days before' : '· your date'}</span>
+        {replyBy ? (
+          <p className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-base font-semibold text-ink" data-reply-by={replyBy.date}>
+              {formatDay(replyBy.date)}
             </span>
-          ) : (
-            <span className="text-sm text-ink/60">Set your event date first</span>
-          )}
-          <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={2} />
-        </Link>
+            <span className="text-sm text-ink/60">{replyBy.isDefault ? '· 30 days before' : '· your date'}</span>
+          </p>
+        ) : (
+          <p className="text-sm text-ink/60">Set your event date first.</p>
+        )}
+        {replyByOwn ? (
+          <ReplyByField eventId={eventId} own={replyByOwn.deadline} pricingMode={replyByOwn.pricingMode} />
+        ) : (
+          <p role="alert" className="text-[13px] text-terracotta-700">
+            We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
+          </p>
+        )}
       </section>
+      </DetailsPieceOnly>
 
+      <DetailsPieceOnly item="rsvp" piece="reminders">
       {/* ── Reminder emails — 30 · 7 · 1 days (owner 2026-09-26). ONE switch,
           `rsvp_ask_config.guestReminders`; absent = On. The sender
           (`lib/guest-reminder-emails.ts`) reads the LIVE value, so like every
@@ -224,11 +246,15 @@ export function MakerRsvpSettings({
           Only guests with an email. Each reminder lists what they have not ticked on their checklist and links to their own page.
         </p>
       </section>
+      </DetailsPieceOnly>
 
-      {/* ── Requests waiting ── */}
+      <DetailsPieceOnly item="rsvp" piece="requests">
+      {/* ── Requests waiting — the shipped rows, in place (Keep · Remove · Link) ── */}
       <section className="flex flex-col gap-2" data-rsvp-setting="requests">
         <p className="text-sm font-semibold text-ink">Requests waiting</p>
-        {requests.count === null ? (
+        {requests.list ? (
+          <div data-rsvp-requests-list="">{requests.list}</div>
+        ) : requests.count === null ? (
           <p role="alert" className="text-[13px] text-terracotta-700">
             We couldn&rsquo;t count your requests just now — this does not mean there are none.
           </p>
@@ -240,15 +266,10 @@ export function MakerRsvpSettings({
             <span className="min-w-0 flex-1 truncate text-sm text-ink/70">
               {requests.count === 0 ? 'Nobody is waiting' : requests.count === 1 ? 'person asked to join' : 'people asked to join'}
             </span>
-            <Link
-              href={requests.href}
-              className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream hover:bg-ink/90"
-            >
-              Open Requests <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </Link>
           </div>
         )}
       </section>
+      </DetailsPieceOnly>
 
       {drafted ? (
         <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
@@ -315,5 +336,81 @@ function Switch({
         className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors duration-sn-control ease-sn after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform after:duration-sn-control after:ease-sn peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-disabled:opacity-40"
       />
     </label>
+  );
+}
+
+/**
+ * THE REPLY-BY DATE, TYPED WHERE IT IS SHOWN. `events.guest_list_edit_deadline`
+ * — the column the Details page's "Guest list & pricing" card writes, through
+ * the SAME action (`updatePaxSettings`, which writes the pricing view beside it,
+ * so the current one is posted back unchanged). Empty = back to the default.
+ * It is not drafted — the deadline is the guest list's, not the Event Hub's
+ * look — so it says it saves immediately.
+ */
+function ReplyByField({
+  eventId,
+  own,
+  pricingMode,
+}: {
+  eventId: string;
+  own: string | null;
+  pricingMode: 'realtime' | 'final_only';
+}) {
+  const [value, setValue] = useState(own ?? '');
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => setValue(own ?? ''), [own]);
+  const dirty = value !== (own ?? '');
+  const save = () =>
+    start(async () => {
+      setNote(null);
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('guest_list_edit_deadline', value);
+      fd.set('adaptive_pricing_mode', pricingMode);
+      try {
+        const r = await makerSave(() => updatePaxSettings(fd), requestMakerRefresh);
+        setNote(r.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: r.message });
+      } catch {
+        setNote({ ok: false, text: 'That did not save. Please try again.' });
+      }
+    });
+  return (
+    <div className="flex flex-col gap-1.5" data-reply-by-field="">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          aria-label="Reply by — your own date"
+          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-sm text-ink"
+        />
+        <button
+          type="button"
+          onClick={save}
+          disabled={pending || !dirty}
+          className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-50"
+        >
+          {pending ? 'Saving…' : 'Save'}
+        </button>
+        {own ? (
+          <button
+            type="button"
+            onClick={() => setValue('')}
+            disabled={pending}
+            className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] font-semibold text-ink/70 underline underline-offset-2"
+          >
+            Use the default
+          </button>
+        ) : null}
+      </div>
+      <p className="text-xs text-ink/60">After this date your guests can no longer reply on your Event Hub.</p>
+      <HubSavesImmediately />
+      {note ? (
+        <p role={note.ok ? 'status' : 'alert'} className={`text-[13px] ${note.ok ? 'text-success-800' : 'text-terracotta-700'}`}>
+          {note.text}
+        </p>
+      ) : null}
+    </div>
   );
 }

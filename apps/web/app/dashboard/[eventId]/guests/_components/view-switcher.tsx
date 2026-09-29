@@ -18,9 +18,10 @@ export function GuestsViewSwitcher({
   search,
 }: {
   eventId: string;
-  /** The page's view. `walk` and `share` are their own tabs and light neither
-   *  List nor Mind map — they are not ways of looking at the roster. */
-  active: ViewKey | 'walk' | 'share';
+  /** The page's view. `share` is its own tab and lights neither List nor Mind
+   *  map — it is not a way of looking at the roster. (The Wedding March left
+   *  the Guest list for the Maker's Details, owner 2026-09-29.) */
+  active: ViewKey | 'share';
   search: Record<string, string | undefined>;
 }) {
   const hrefFor = (gview: ViewKey) => {

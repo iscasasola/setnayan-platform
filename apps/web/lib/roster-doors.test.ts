@@ -13,26 +13,35 @@ import { rosterDoors } from './roster-doors';
  */
 
 const doors = (o: Partial<Parameters<typeof rosterDoors>[0]> = {}) =>
-  rosterDoors({ eventId: 'E', view: 'list', finished: false, hasProcessional: true, hasJoinLink: true, ...o });
+  rosterDoors({ eventId: 'E', view: 'list', finished: false, hasJoinLink: true, ...o });
 const keys = (d: ReturnType<typeof doors>) => ({
   tabs: d.tabs.map((x) => x.key),
   trailing: d.trailing.map((x) => x.key),
 });
 
-test('before a wedding: Roster · Wedding March · Share the link, and Arrange the room', () => {
-  assert.deepEqual(keys(doors()), { tabs: ['roster', 'walk', 'share'], trailing: ['arrange', 'qr-pdf'] });
+test('before the event: Roster · Share the link, and Arrange the room', () => {
+  assert.deepEqual(keys(doors()), { tabs: ['roster', 'share'], trailing: ['arrange'] });
 });
 
-test('no processional, no Wedding March — a birthday walks down no aisle', () => {
-  assert.deepEqual(keys(doors({ hasProcessional: false })).tabs, ['roster', 'share']);
+test('the Wedding March is not a Guest list tab — its home is Details › Your event', () => {
+  // Owner 2026-09-29 (DECISION_LOG "THE GUEST LIST KEEPS PEOPLE…"): the march
+  // left the Guest list for the Maker; an old `?gview=walk` link lands there.
+  for (const d of [doors(), doors({ finished: true })]) {
+    assert.ok(![...d.tabs, ...d.trailing].some((x) => /walk|march/i.test(x.key)), 'the march came back to the Guest list');
+  }
+  const page = stripComments(
+    readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'), 'utf8'),
+  );
+  assert.match(page, /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(detailsItemHref\(eventId, 'march'\)\);/);
+  assert.doesNotMatch(page, /<EntourageOrderPanel/, 'the Guest list draws the march again');
 });
 
 test('after the event: inviting and arranging stop; Check-in and the quick Share remain', () => {
   // Inviting people to a celebration that already happened is "the one door
   // that stops making sense" (the page's own note). The quick copy survives,
   // because the link still lets guests into the event page afterwards.
-  assert.deepEqual(keys(doors({ finished: true })), { tabs: ['roster'], trailing: ['checkin', 'share-menu', 'qr-pdf'] });
-  assert.deepEqual(keys(doors({ finished: true, hasJoinLink: false })).trailing, ['checkin', 'qr-pdf']);
+  assert.deepEqual(keys(doors({ finished: true })), { tabs: ['roster'], trailing: ['checkin', 'share-menu'] });
+  assert.deepEqual(keys(doors({ finished: true, hasJoinLink: false })).trailing, ['checkin']);
 });
 
 test('before the event there is ONE share door, not two', () => {
@@ -47,7 +56,6 @@ test('each door goes where it always went', () => {
   const all = [...doors().tabs, ...doors().trailing, ...doors({ finished: true }).trailing];
   const href = (k: string) => (all.find((x) => x.key === k) as { href?: string } | undefined)?.href;
   assert.equal(href('roster'), '/dashboard/E/guests');
-  assert.equal(href('walk'), '/dashboard/E/guests?gview=walk');
   // ⚖ Deliberately NOT /guests/invite any more (owner 2026-09-21: "should not
   // clear the whole page. only the body"). That link removed the whole guest
   // list 185ms after the click, measured on the live page. It is a tab on this
@@ -60,8 +68,8 @@ test('each door goes where it always went', () => {
 });
 
 test('exactly one tab is current, and the mind map keeps Roster lit', () => {
-  const expected = { list: 'roster', map: 'roster', walk: 'walk', share: 'share' } as const;
-  for (const view of ['list', 'map', 'walk', 'share'] as const) {
+  const expected = { list: 'roster', map: 'roster', share: 'share' } as const;
+  for (const view of ['list', 'map', 'share'] as const) {
     const current = doors({ view }).tabs.filter((x) => x.kind === 'tab' && x.current).map((x) => x.key);
     assert.deepEqual(current, [expected[view]], `view=${view}`);
   }
@@ -85,7 +93,7 @@ test('the page MOUNTS the row, and feeds it the real conditions', () => {
   const mounts = page.match(/<RosterTabs[\s/>]/g) ?? [];
   assert.equal(mounts.length, 1, `found ${mounts.length} <RosterTabs> mounts`);
   const tag = page.slice(page.indexOf('<RosterTabs'), page.indexOf('/>', page.indexOf('<RosterTabs')));
-  for (const prop of ['finished={finished}', 'hasProcessional={hasProcessional}', 'view={gview}']) {
+  for (const prop of ['finished={finished}', 'view={gview}']) {
     assert.ok(tag.includes(prop), `<RosterTabs> is not given ${prop} — its doors would ignore the event's real state`);
   }
   // And the doors did not ALSO stay in the masthead, which would be every
@@ -94,38 +102,18 @@ test('the page MOUNTS the row, and feeds it the real conditions', () => {
   assert.ok(!/actions=\{/.test(masthead), 'the masthead still carries actions — the doors are now on screen twice');
 });
 
-test('the free QR PDF is on the Guest list before and after the day, and it is a file', () => {
-  // Owner 2026-09-25: "the free version is the PDF of QRs" → "found on Guestlist".
-  for (const d of [doors(), doors({ finished: true }), doors({ hasProcessional: false, hasJoinLink: false })]) {
-    const qr = d.trailing.find((x) => x.key === 'qr-pdf');
-    assert.ok(qr && qr.kind === 'download', 'the QR PDF door is missing');
-    assert.equal(qr.href, '/api/hub-print/qr-codes?event=E');
-    assert.equal(qr.label, 'Download QR codes (PDF)');
+test('the QR sheet is NOT on the Guest list — its home is Details › For the day', () => {
+  // Owner 2026-09-29 (DECISION_LOG "THE GUEST LIST KEEPS PEOPLE…"): the Guest list
+  // keeps people; every print lives in the Maker's Details. "Share the link" stays.
+  for (const d of [doors(), doors({ finished: true }), doors({ hasJoinLink: false })]) {
+    assert.ok(![...d.tabs, ...d.trailing].some((x) => /qr/i.test(x.key)), 'the QR sheet came back to the Guest list');
   }
-  // …and the tab row renders it as a DOWNLOAD, not a navigation — through
-  // SaveFileLink (2026-09-25), not a bare `<a download>` (which iOS Safari /
-  // the Capacitor shell can ignore and open as a page instead of saving —
-  // owner report, same date) and never a `<Link>` (which would try to ROUTE
-  // to a PDF, the original defect this guard existed to catch).
+  assert.ok(doors().tabs.some((x) => x.key === 'share'), '"Share the link" left the Guest list');
   const tabs = stripComments(
     readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'guests', '_components', 'roster-tabs.tsx'), 'utf8'),
   );
-  // The door mounts GuestQrPdfLink — the client wrapper that holds
-  // SaveFileLink's render-function child (a server component cannot pass a
-  // function across; that crashed the whole guest list, 2026-09-27).
-  assert.match(tabs, /d\.kind === 'download'[\s\S]{0,700}<GuestQrPdfLink\b/);
-  const links = stripComments(
-    readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-save-links.tsx'), 'utf8'),
-  );
-  assert.match(links, /export function GuestQrPdfLink[\s\S]{0,400}<SaveFileLink\b[\s\S]{0,200}\bfilename\b/);
-  // Bounded window, not an open-ended slice: the `Tab` helper further down
-  // this same file legitimately renders a `<Link>` for an unrelated door, and
-  // an unbounded scan from here to end-of-file would trip on that one.
-  const downloadAt = tabs.indexOf("d.kind === 'download'");
-  const downloadBlock = tabs.slice(downloadAt, downloadAt + 700);
-  assert.doesNotMatch(
-    downloadBlock,
-    /<Link\b/,
-    'the QR PDF door became a Next <Link> again — that tries to ROUTE to a PDF',
-  );
+  assert.doesNotMatch(tabs, /GuestQrPdfLink|hub-print\/qr-codes/);
+  // …and it is still reachable, free, from its one home.
+  const free = stripComments(readFileSync(join(__dirname, 'free-prints.ts'), 'utf8'));
+  assert.match(free, /key: 'qr-codes'/);
 });

@@ -24,26 +24,16 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchEventVendors, type VendorStatus } from '@/lib/vendors';
-import { buildScheduleMatrix, type SchedulePick } from '@/lib/schedule-matrix';
+import { fetchEventVendors } from '@/lib/vendors';
+import { buildScheduleMatrix, schedulePicksFromVendors } from '@/lib/schedule-matrix';
 import type { EventDatePrecision } from '@/lib/events';
 import { FindYourDate } from './_components/find-your-date';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { detailsItemHref } from '@/lib/maker-details-items';
 
 export const metadata = { title: 'Find your date' };
 
 type Props = { params: Promise<{ eventId: string }> };
-
-// Top pick within a category = most committed, then earliest added. The
-// commitment tier dominates (×1e13 ≫ any epoch-ms), so a paid vendor always
-// outranks a still-considering one regardless of when each was added.
-const LOCK_RANK: Record<VendorStatus, number> = {
-  complete: 0,
-  delivered: 0,
-  deposit_paid: 0,
-  contracted: 1,
-  shortlisted: 2,
-  considering: 2,
-};
 
 function coercePrecision(value: unknown): EventDatePrecision | null {
   return value === 'year' || value === 'month' || value === 'day' ? value : null;
@@ -55,6 +45,30 @@ export default async function FindDatePage({ params }: Props) {
   if (!user) redirect('/login');
 
   const supabase = await createClient();
+
+  /*
+    📅 THE DATE FINDER LIVES IN DETAILS NOW (owner 2026-09-29, DECISION_LOG "THE
+    DATE FINDER LIVES IN STEP 2 …": *"its route redirects to the Details
+    item"*). A couple whose event has an Event Hub — the same two facts the
+    Maker's own work area asks (`launch/page.tsx` `hasWork`) — lands on
+    Details › Date with "Help me choose" open. Everyone else (a coordinator, an
+    event type with no Event Hub) keeps this page, so nobody is sent to a
+    Maker they cannot use.
+  */
+  const [coupleRes, profile] = await Promise.all([
+    supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle(),
+    resolveProfileByEvent(eventId),
+  ]);
+  if (coupleRes.data && surfaceEnabled(profile, 'website')) {
+    redirect(detailsItemHref(eventId, 'date', '&date=help'));
+  }
+
   const admin = createAdminClient();
 
   const [vendors, eventRes] = await Promise.all([
@@ -87,13 +101,7 @@ export default async function FindDatePage({ params }: Props) {
     ? (coercePrecision(ev?.event_date_precision) ?? 'day')
     : null;
 
-  const picks: SchedulePick[] = vendors.map((v) => ({
-    key: v.vendor_id,
-    category: v.category,
-    name: v.vendor_name,
-    marketplaceVendorId: v.marketplace_vendor_id,
-    rank: (LOCK_RANK[v.status] ?? 2) * 1e13 + new Date(v.created_at).getTime(),
-  }));
+  const picks = schedulePicksFromVendors(vendors);
 
   const matrix = await buildScheduleMatrix({ admin, eventDate, precision, picks });
 

@@ -187,7 +187,11 @@ test('5 · Announce is mounted for the announcement policy’s people, through t
     'gated on the SAME resolver the coordinator_broadcasts INSERT policy mirrors',
   );
   assert.match(page, /resolveBroadcastAuthority\(supabase, eventId, user\.id\)/);
-  assert.match(page, /\{canAnnounce \? \(\s*<AnnounceButton/);
+  // Still ONLY behind `canAnnounce`. Since Details part 2b the button may be drawn
+  // into the Maker's right column (`InSlot`, the same element, no new channel) —
+  // the gate in front of it is unchanged.
+  assert.match(page, /\{canAnnounce \? \(\s*<InSlot id=\{inMaker \? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null\}>\s*<AnnounceButton/);
+  assert.equal((page.match(/<AnnounceButton\b/g) ?? []).length, 1, 'Announce is mounted somewhere else, outside the gate');
 
   const button = read('_components/announce-button.tsx');
   assert.match(button, /from '\.\.\/\.\.\/_actions\/day-of-broadcast'/, 'no second announcement channel');
@@ -212,7 +216,11 @@ test('5b · the rail writes only through the existing actions the page hands it'
   }
   // …and what the page hands it is the shipped action module, nothing new.
   const page = read('page.tsx');
-  const mount = /<ScheduleDay\s+actions=\{\{([\s\S]*?)\}\}/.exec(page);
+  // Anchored on the `actions` prop wherever it sits in the tag (Details part 2b
+  // added `inspectorSlot` before it — a slot id for the Maker's right column,
+  // never a write path).
+  const mount = /<ScheduleDay\b[^>]*?\bactions=\{\{([\s\S]*?)\}\}/.exec(page);
+  assert.match(page, /<ScheduleDay\s+inspectorSlot=\{inMaker \? DETAILS_SCHEDULE_INSPECTOR_SLOT : null\}\s+actions=\{\{/, 'the rail is handed something besides its slot and its actions');
   assert.ok(mount, 'the page hands the rail its actions');
   const names = mount![1]!.split(',').map((x) => x.trim()).filter(Boolean);
   console.log('actions handed to the rail:', names.join(' · '));

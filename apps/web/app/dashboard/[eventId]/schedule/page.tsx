@@ -39,13 +39,12 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 // CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be
 // edited on the time." Client component owns the view → edit form
 // toggle + calls the existing updateScheduleBlock server action.
-import { BlockTimeEditor } from './_components/block-time-editor';
+import { BlockTimeEditor } from './_components/schedule-lazy';
 // Preparation ⇄ Event Day toggle (chrome redesign delta #3, 2026-06-03).
 // The toggle is a URL-driven segmented control; the agenda is a read-only
 // aggregation of EXISTING dated data (payments / paperwork / meetings /
 // statutory milestones) — see lib/preparation.ts for the source map.
-import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
-import { EmceeScriptButton } from './_components/emcee-script-button';
+import { EmceeScriptButton, ScheduleModeToggle } from './_components/schedule-lazy';
 import { EmceePicks } from './_components/emcee-picks';
 import { HostQuestions } from './_components/host-questions';
 // "Tell the host" — the coordinator → emcee channel, on the EVENT side. The
@@ -60,7 +59,7 @@ import { PreparationAgendaView } from './_components/preparation-agenda';
 // editorial), a phase-grouped read-only view over the same agenda data plus
 // three lifecycle bookends. See lib/journey.ts.
 import { JourneyView } from './_components/journey-view';
-import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
+import { RunOfShowHeader } from './_components/schedule-lazy';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/event-moderators';
 // Coordinator P2 — filtered run-of-show. Gated by the Data Privacy board
@@ -101,14 +100,17 @@ import {
 } from './_components/vendor-meetings-section';
 import { venueNowMs } from '@/lib/schedule';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
+import { DETAILS_SCHEDULE_ANNOUNCE_SLOT, DETAILS_SCHEDULE_INSPECTOR_SLOT, detailsDoorHref } from '@/lib/maker-details-items';
+import { InSlot } from '../launch/_components/details-piece';
 import { formatCount } from '@/lib/format-number';
 // ── Schedule rebuild, slice 1 (2026-09-27) ─────────────────────────────────
 // The Event Day view becomes the approved prototype's time rail
 // (`prototypes/schedule_redesign_2026-09-25.html`); the header gains Announce.
 // Every write below still goes through `./actions` and `_actions/day-of-broadcast`.
-import { ScheduleDay } from './_components/day-rail';
-import { AnnounceButton } from './_components/announce-button';
-import { Tip } from './_components/day-ui';
+/* ⚡ The day rail, Announce and the tips load when the Schedule is opened — never
+   with the Maker that draws this page (`_components/schedule-lazy.tsx`). */
+import { AnnounceButton, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
@@ -130,7 +132,14 @@ type ScheduleView = 'journey' | 'preparation' | 'event-day';
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ view?: string; ros?: string; note?: string; host_answers?: string }>;
+  searchParams: Promise<{
+    view?: string;
+    ros?: string;
+    note?: string;
+    host_answers?: string;
+    /** `1` = drawn as Details › Schedule inside the Event Hub Maker (Details part 2b). */
+    maker?: string;
+  }>;
 };
 
 export default async function CoupleSchedulePage({ params, searchParams }: Props) {
@@ -140,7 +149,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     ros: rosParam,
     note: noteParam,
     host_answers: hostAnswersFlash,
+    maker: makerParam,
   } = await searchParams;
+  const inMaker = makerParam === '1';
   // Result of a "Tell the host" send. Anything we did not write ourselves is
   // treated as no flash at all, so a hand-edited URL cannot forge "Sent."
   const noteFlash = parseNoteFlash(noteParam);
@@ -149,6 +160,15 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  /* 📦 THE SCHEDULE MOVED INTO THE MAKER'S DETAILS, WHOLE (Details part 2b —
+     Story & plans › Schedule). This page is still the one component; for the
+     couple of an event with an Event Hub its address now lands there, carrying
+     its own query (a view, a lens, a save's flash). Everybody else — a
+     coordinator, an event type with no Event Hub — keeps this page as it was. */
+  if (!inMaker && (await detailsIsTheDoor(supabase, eventId, user.id))) {
+    redirect(detailsDoorHref(eventId, 'schedule', { view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash }));
+  }
 
   // Pull the event row (for event_date + ceremony_type that drive the
   // Preparation agenda's statutory-milestone + paperwork-deadline math),
@@ -319,7 +339,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const active: ScheduleView =
     viewParam === 'journey' || viewParam === 'preparation' || viewParam === 'event-day'
       ? viewParam
-      : agenda.items.length > 0
+      : /* In the Event Hub Maker (Details › Schedule) the page opens on the day
+           itself — the moments guests see, the ones a tap on a stage selects. */
+        inMaker
+        ? 'event-day'
+        : agenda.items.length > 0
         ? 'preparation'
         : 'event-day';
 
@@ -539,7 +563,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 
   return (
     <section className="sn-col space-y-5">
-      <PageMasthead title="Schedule" />
+      {/* Inside the Maker, Details' own header names it. */}
+      {inMaker ? null : <PageMasthead title="Schedule" />}
 
       {/* ONE LINE AND AN ⓘ — the paragraph that opened this page is gone
           ("SCHEDULE (event-day view) JOINS THE PAGE REDESIGN": intro paragraph
@@ -580,11 +605,15 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           <span className="ml-auto flex items-center gap-2">
             <Tip align="end">{viewNote}</Tip>
             {canAnnounce ? (
-              <AnnounceButton
-                eventId={eventId}
-                isEventDay={isEventDay}
-                recent={recentAnnouncements}
-              />
+              /* In the Maker's Details, Announce is a piece of the Schedule: its
+                 button (and its sheet) sit in the right column (`InSlot`). */
+              <InSlot id={inMaker ? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null}>
+                <AnnounceButton
+                  eventId={eventId}
+                  isEventDay={isEventDay}
+                  recent={recentAnnouncements}
+                />
+              </InSlot>
             ) : null}
           </span>
         </div>
@@ -773,6 +802,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             />
           ) : null}
           <ScheduleDay
+            inspectorSlot={inMaker ? DETAILS_SCHEDULE_INSPECTOR_SLOT : null}
             actions={{
               updateScheduleBlock,
               bulkRetimeScheduleBlocks,

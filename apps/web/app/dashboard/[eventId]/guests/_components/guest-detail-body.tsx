@@ -140,7 +140,7 @@ export function GuestQrCard({
       <Link
         // Shape · pattern · colour · your logo live beside the Event Hub address
         // on the Maker's Details page (Event Hub Pro).
-        href={`/dashboard/${eventId}/launch?tool=details`}
+        href={`/dashboard/${eventId}/launch?tool=details&item=qr`}
         className="inline-flex items-center gap-1 text-[13px] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
       >
         Customize guest QRs

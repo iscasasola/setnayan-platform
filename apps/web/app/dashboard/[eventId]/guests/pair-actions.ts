@@ -120,11 +120,25 @@ export async function pairSelectedGuests(
   redirect(backToList(eventId, { paired: '2' }));
 }
 
-/** Break a guest's pair — clearing BOTH halves, never just the row clicked. */
+/**
+ * Break a guest's pair — clearing BOTH halves, never just the row clicked.
+ *
+ * 🧩 IN PLACE, TOO (owner 2026-09-29 — no link-outs; DECISION_LOG "A TOOL MOVED
+ * INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). The Maker's Wedding March
+ * ("Leave the other side blank", `launch/_components/details-march.tsx`) calls
+ * this SAME action with `mode = 'in-place'`: the same RPC, the same RLS, and
+ * then no navigation — a refusal is THROWN for the caller to say in place,
+ * and success simply returns for the Maker to refresh. The Guest list's row
+ * form binds only the first two arguments, so its third is the form's
+ * FormData, never the literal — it keeps its redirect exactly as before.
+ * One writer, two doors; +0 exported actions.
+ */
 export async function unpairGuestAction(
   eventId: string,
   guestId: string,
+  mode?: unknown,
 ): Promise<void> {
+  const inPlace = mode === 'in-place';
   const supabase = await createClient();
   const { error } = await supabase.rpc('unpair_guest', {
     p_event_id: eventId,
@@ -132,9 +146,15 @@ export async function unpairGuestAction(
   });
 
   if (error) {
+    if (inPlace) throw new Error('That did not go through — nothing was changed.');
     redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
+  if (inPlace) {
+    // The invitation prints the pair as one line — it must redraw as two.
+    revalidatePath('/[slug]', 'layout');
+    return;
+  }
   redirect(backToList(eventId, { unpaired: '1' }));
 }

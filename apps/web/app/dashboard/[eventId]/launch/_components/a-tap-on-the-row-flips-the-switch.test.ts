@@ -49,7 +49,7 @@ import React from 'react';
 async function render(props: { name: string; label: string; on: boolean; tip?: string }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { Toggle } = await import('./maker-details');
-  return renderToStaticMarkup(React.createElement(Toggle, props));
+  return renderToStaticMarkup(React.createElement(Toggle, { form: 'print-words', ...props }));
 }
 
 type El = { tag: string; attrs: Record<string, string>; start: number; end: number };

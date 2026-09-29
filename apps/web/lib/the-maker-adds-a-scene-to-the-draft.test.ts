@@ -253,8 +253,9 @@ test('S · ＋ Add a scene shows ONLY on a stage — hidden on every page (owner
   for (const sel of [null, { kind: 'scene', id: 'W1' }, { kind: 'row', key: 'colors' }, { kind: 'main' }] as const) {
     assert.equal(makerAddShowsOn(sel as never), true, `＋ hidden on a stage (${JSON.stringify(sel)})`);
   }
-  // Every page: Logo · Hero · Reveal · Love Story · Post Event · Prints · Details · RSVP.
-  for (const key of ['logo', 'hero', 'reveal', 'love-story', 'post-event', 'prints', 'details', 'rsvp-page'] as const) {
+  // Every page: Logo · Hero · Reveal · Love Story · Post Event · Details · RSVP.
+  // (Prints & Tickets folded into Details, 2026-09-28 — it is no longer a tool key.)
+  for (const key of ['logo', 'hero', 'reveal', 'love-story', 'post-event', 'details', 'rsvp-page'] as const) {
     assert.equal(makerAddShowsOn({ kind: 'tool', key }), false, `＋ shows on the ${key} page`);
   }
   // Both doors ask it — the toolbar ＋ and the phone's More ▾ row read ONE value.

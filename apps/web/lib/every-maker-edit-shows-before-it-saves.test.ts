@@ -46,7 +46,7 @@ const DIRS = [
 ];
 
 /** State writes that report on a save rather than show the edit. */
-const STATUS_SETTER = /^set(Error|Note|Failed|Busy|Pending|Save|Saving|Status|State|Reading|Loading)$/;
+const STATUS_SETTER = /^set(Error|Note|Problem|Failed|Busy|Pending|Save|Saving|Status|State|Reading|Loading)$/;
 /** Canvas posts — the bridge draws the edit (`element-preview.ts`, `scene-bg-preview.ts`). */
 const CANVAS_POST = new Set(['onPreview', 'lay', 'broadcastToCanvas', 'postToCanvas', 'postMessage']);
 
@@ -67,6 +67,14 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'Not a tap — the Main background reads the hero photo’s colours by itself and saves them.',
   'website/editor/_components/main-background-panel.tsx › save':
     'OPEN — scene/main backgrounds belong to Builder H; reported 2026-09-29 (the choice waits on the save). Remove this line when it is drawn first.',
+  'launch/_components/maker-rsvp-ask.tsx › save':
+    'Reply-by date: the date the couple typed IS the visible change (the input\'s own state); Save stores it and says "Saved."',
+  'launch/_components/parent-cards.tsx › add':
+    'OPEN (Details, Builder K) — adding a parent creates a guest row and its card needs the server\'s new guest id; nothing shows until it lands. Reported 2026-09-29.',
+  'launch/_components/details-march.tsx › leaveBlank':
+    'OPEN (Details, Builder K) — "Leave the other side blank" unpairs LIVE and the line changes only when the server answers. Reported 2026-09-29.',
+  'launch/_components/details-march.tsx › run':
+    'OPEN (Details, Builder K) — a walking-order move writes LIVE ("Saves immediately") and the line moves only when the server answers. Reported 2026-09-29.',
 };
 
 /** `router.refresh()` outside `makerSave`, and why. */
@@ -219,7 +227,31 @@ test('B · no Maker control calls a server action outside makerSave', () => {
     if (actions.size === 0) continue;
     const saves: ts.CallExpression[] = [];
     walk(sf, (n) => void (isMakerSave(n) && saves.push(n)));
-    const inSave = (n: ts.Node) => saves.some((s) => s.arguments[0] && within(n, s.arguments[0]));
+    /* A same-file wrapper that FORWARDS its parameter to makerSave (`run(send)` →
+       `makerSave(send, …)`) counts: the action runs inside makerSave. */
+    const forwarders = new Set<string>();
+    for (const s of saves) {
+      const a = s.arguments[0];
+      if (!a || !ts.isIdentifier(a)) continue;
+      for (let p: ts.Node | undefined = s.parent; p; p = p.parent) {
+        if (!(ts.isArrowFunction(p) || ts.isFunctionExpression(p) || ts.isFunctionDeclaration(p))) continue;
+        if (p.parameters.some((prm) => ts.isIdentifier(prm.name) && prm.name.text === a.text)) {
+          const holder = ts.isFunctionDeclaration(p) ? p.name?.text : ts.isVariableDeclaration(p.parent) && ts.isIdentifier(p.parent.name) ? p.parent.name.text : undefined;
+          if (holder) forwarders.add(holder);
+          break;
+        }
+      }
+    }
+    const viaForwarder = (n: ts.Node): boolean => {
+      for (let p: ts.Node | undefined = n.parent; p; p = p.parent) {
+        if ((ts.isArrowFunction(p) || ts.isFunctionExpression(p)) && ts.isCallExpression(p.parent) && p.parent.arguments.includes(p as ts.Expression)) {
+          const callee = calleeName(p.parent);
+          if (callee && forwarders.has(callee)) return true;
+        }
+      }
+      return false;
+    };
+    const inSave = (n: ts.Node) => saves.some((s) => s.arguments[0] && within(n, s.arguments[0])) || viaForwarder(n);
     /** A same-file helper that wraps the action (`saveMain`) counts when it is only ever called inside makerSave. */
     const wrapperOnlySaved = (n: ts.Node): boolean => {
       let fn: ts.Node | undefined = n.parent;

@@ -175,6 +175,7 @@ import { inviteReplyPath } from '@/lib/invite-arrival';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows, replyOffersKeep } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
+import { marchPlaceOf } from '@/lib/march-place';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 
 /**
@@ -2392,6 +2393,10 @@ export async function SiteBody({
                   ourPhotoUrls={ourPhotoUrls}
                   words={clientWords}
                   hostPitch={account ? hostPitchShows(account) : false}
+                  /* 🚶 "You walk 5th, with …" under the dress code's "You are <role>" —
+                     from the SAME built entourage the section below prints (owner
+                     2026-09-29). Never on the Maker canvas (no guest reads it there). */
+                  marchPlace={isMakerCanvas ? null : marchPlaceOf(entourage, guest?.guest_id)}
                 />
               ))}
               </HubScenes>

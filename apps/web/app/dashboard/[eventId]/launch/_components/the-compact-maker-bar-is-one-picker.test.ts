@@ -3,17 +3,22 @@
  * compact Maker bar showing "● Invitation ▾" + "Logo ▾": *"combine them in 1
  * dropdown"* (DECISION_LOG: "THE COMPACT MAKER BAR IS ONE PICKER, NOT TWO").
  *
+ * 🗂 Re-pointed 2026-09-29 for OPTION B (owner 2026-09-28, verbatim: *"B.
+ * maximize this concept so it is easier to find everything to populate the
+ * event hub"*; DECISION_LOG "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS;
+ * THE TOP MENU IS THE FOUR STAGES + DETAILS"): the one picker is ONE FLAT LIST
+ * — Save the Date · Invitation · On the Day · Post Event · Details — "nothing
+ * else"; the Stages / Pages headings went with the pages (Logo, Hero, Reveal,
+ * Love Story and RSVP are items of Details now).
+ *
  * What the couple sees, held by EXECUTING the pure picker model:
- *   · the button names where they are — "Invitation" on a stage, "Logo" on a page;
- *   · the list is two labelled groups: Stages (Save the Date · Invitation · On
- *     the Day · Post Event, live-today dot kept) then Pages (Details · Logo ·
- *     Hero · Reveal · Love Story · RSVP, and Prints & Tickets, which the old
- *     Pages picker also listed — collapsing the bar must not hide a door);
+ *   · the button names where they are — "Invitation" on a stage, "Details" there;
+ *   · the list is the four stages (live-today dot kept), then Details;
  *   · a pick hands back the very `MAKER_BAR` item the full row's button presses.
  *
  * And, by source (no DOM in this runner): the compact nav mounts ONE PickMenu
- * fed by that model, and PickMenu draws a group as `role="group"` with its name,
- * the heading never a button — so arrow keys and first focus skip it.
+ * fed by that model, and PickMenu still draws a group (another picker may use
+ * one) as `role="group"` with its name, the heading never a button.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,7 +32,6 @@ import { pickRuns } from '../../website/editor/_components/pick-menu-place';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STAGES = PUBLIC_STAGE_ORDER.map((p) => PUBLIC_STAGE_LABELS[p]);
-const PAGES = ['Details', 'Logo', 'Hero', 'Reveal', 'Love Story', 'RSVP', 'Prints & Tickets'];
 
 const labelOf = (m: ReturnType<typeof makerPlacePick>) => m.options.find((o) => o.key === m.value)?.label;
 
@@ -39,43 +43,42 @@ test('on a stage, the one picker says the stage — with the live-today dot', ()
   assert.deepEqual(m.options.filter((o) => o.dot).map((o) => o.key), ['rsvp'], 'one dot, on the live stage');
 });
 
-test('on a page, the one picker says the page, not the stage behind it', () => {
-  const m = makerPlacePick({ stage: 'rsvp', liveStage: 'rsvp', openTool: 'logo', hasWork: true });
-  assert.equal(m.value, 'logo');
-  assert.equal(labelOf(m), 'Logo');
-  // The RSVP page is its own key — never mistaken for the Invitation stage (`rsvp`).
-  const r = makerPlacePick({ stage: 'rsvp', liveStage: null, openTool: 'rsvp-page', hasWork: true });
-  assert.equal(labelOf(r), 'RSVP');
-  // A selection that is not a bar page falls back to the stage.
+test('on Details, the one picker says Details, not the stage behind it', () => {
+  const m = makerPlacePick({ stage: 'rsvp', liveStage: 'rsvp', openTool: 'details', hasWork: true });
+  assert.equal(m.value, 'details');
+  assert.equal(labelOf(m), 'Details');
+  // A page that moved into Details is not a place of its own — the stage shows.
+  for (const gone of ['logo', 'hero', 'reveal', 'love-story', 'rsvp-page']) {
+    assert.equal(makerPlacePick({ stage: 'event', liveStage: null, openTool: gone, hasWork: true }).value, 'event', gone);
+  }
   assert.equal(makerPlacePick({ stage: 'event', liveStage: null, openTool: 'nope', hasWork: true }).value, 'event');
 });
 
-test('the list is two labelled groups — Stages, then Pages — in the bar’s own words', () => {
+test('the list is ONE FLAT LIST — the four stages, then Details, nothing else', () => {
   const m = makerPlacePick({ stage: 'save_the_date', liveStage: null, openTool: null, hasWork: true });
-  const runs = pickRuns(m.options);
-  assert.deepEqual(
-    runs.map((r) => r.group),
-    ['Stages', 'Pages'],
-  );
-  assert.deepEqual(runs[0]!.options.map((o) => o.label), STAGES);
+  assert.deepEqual(m.options.map((o) => o.label), [...STAGES, 'Details']);
   assert.deepEqual(STAGES, ['Save the Date', 'Invitation', 'On the Day', 'Post Event']);
-  assert.deepEqual(runs[1]!.options.map((o) => o.label), PAGES);
-  // Every door on the full row is in the one picker.
-  assert.deepEqual(new Set(m.options.map((o) => o.key)), new Set(MAKER_BAR.map((i) => i.key)));
+  // No headings: one run, no group name (as PickMenu reads them).
+  const runs = pickRuns(m.options.map((o) => ({ key: o.key, group: (o as Record<string, unknown>).group as string | undefined })));
+  assert.equal(runs.length, 1, 'the list is split into groups again');
+  assert.equal(runs[0]!.group, null, 'the list carries a heading again');
+  // Every door on the full row is in the one picker, and nothing else is.
+  assert.deepEqual(m.options.map((o) => o.key), MAKER_BAR.map((i) => i.key));
 });
 
-test('a pick hands back the SAME item the full row presses; pages stay shut to a non-couple', () => {
+test('a pick hands back the SAME item the full row presses; Details stays shut to a non-couple', () => {
   const m = makerPlacePick({ stage: 'rsvp', liveStage: null, openTool: null, hasWork: true });
   for (const o of m.options) {
     const item = makerPlaceItem(o.key, true);
     assert.equal(item, MAKER_BAR.find((i) => i.key === o.key), `${o.key} must be the bar's own item`);
   }
   assert.equal(makerPlaceItem('event', false)?.key, 'event', 'anyone can move between stages');
-  assert.equal(makerPlaceItem('logo', false), null, 'a page is the couple’s alone');
+  assert.equal(makerPlaceItem('details', false), null, 'Details is the couple’s alone');
+  assert.equal(makerPlaceItem('logo', true), null, 'Logo is not a place of its own any more');
   assert.equal(makerPlaceItem('nope', true), null);
   const shut = makerPlacePick({ stage: 'rsvp', liveStage: null, openTool: null, hasWork: false });
-  assert.ok(shut.options.filter((o) => o.group === 'Pages').every((o) => o.disabledNote));
-  assert.ok(shut.options.filter((o) => o.group === 'Stages').every((o) => !o.disabledNote));
+  assert.ok(shut.options.find((o) => o.key === 'details')?.disabledNote, 'Details says why it is shut');
+  assert.ok(shut.options.filter((o) => o.key !== 'details').every((o) => !o.disabledNote), 'a stage is never shut');
 });
 
 test('the compact nav mounts ONE picker fed by that model; the wide row is untouched', () => {

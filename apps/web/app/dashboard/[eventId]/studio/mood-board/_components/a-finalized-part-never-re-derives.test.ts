@@ -43,7 +43,8 @@ import { frozenNow, type PartFinalizationRecord } from '@/lib/moodboard-finaliza
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONTEXT = readFileSync(join(HERE, 'palette-board-context.tsx'), 'utf8');
-const PAGE = readFileSync(join(HERE, '..', 'page.tsx'), 'utf8');
+// The page's board is one component since Details part 3 (its page and the Maker draw it).
+const PAGE = readFileSync(join(HERE, 'mood-board-editor.tsx'), 'utf8');
 
 const MAJORS = ['#8C3B2E', '#C9A227', '#2F4858', '#EDE6DA', '#6B8F71'];
 const OTHER_MAJORS = ['#123456', '#654321', '#0A0A0A', '#FAFAFA', '#00FF88'];
@@ -166,11 +167,14 @@ test('a PENDING ask freezes nothing — asking is not agreeing', () => {
 test('page.tsx hands the finalization rows to the provider', () => {
   // Seam 1. Without this line every assertion above is about a set that is
   // always empty in production.
+  // Since Details part 3 the provider's props are built once and spread into
+  // every view of the board (its page and the Maker's middle column).
   assert.match(
     PAGE,
-    /<PaletteBoardProvider[\s\S]{0,400}?finalizations=\{finalizationRecords\}/,
+    /const provider = \{[\s\S]{0,200}?finalizations: finalizationRecords,/,
     'the provider is not given the rows — nothing is frozen on the couple’s screen',
   );
+  assert.ok((PAGE.match(/<PaletteBoardProvider \{\.\.\.provider\}>/g) ?? []).length >= 2, 'a view of the board draws the palette without the rows');
   assert.ok(
     PAGE.includes("from('moodboard_part_finalizations')"),
     'the rows are never read at all',

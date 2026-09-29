@@ -66,6 +66,8 @@ const MAKER_FILES = [
   'app/dashboard/[eventId]/launch/_components/maker-logo.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-prints.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-details.tsx',
+  // Details part 2b: the special message's one editor (Words, its print switch, and a tap on a stage).
+  'app/dashboard/[eventId]/launch/_components/special-message-field.tsx',
   // Prints & Tickets' Menu editor (owner 2026-09-28, "add to print out our meals for tonight").
   'app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx',
 ];
@@ -174,10 +176,12 @@ const COMPONENT_WRITERS: Record<string, { writers: string[]; caller: string; bin
     caller: `${S}page.tsx`,
     binds: /const action = (\w+)\.bind/g,
   },
-  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx#MakerDetails#specialMessageAction']: {
+  // Details › Words › Special message — its own component since part 2b (the
+  // stage's tap opens it too); the launch page binds its writer once.
+  ['app/dashboard/[eventId]/launch/_components/special-message-field.tsx#SpecialMessageField#action']: {
     writers: ['updateSpecialMessage'],
     caller: 'app/dashboard/[eventId]/launch/page.tsx',
-    binds: /specialMessageAction=\{(\w+)\.bind/g,
+    binds: /specialMessageAction: (\w+)\.bind/g,
   },
 };
 
@@ -389,6 +393,17 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<HubSavesImmediately\s*\/>[\s{}]*<PabuyaMessageEditor\b/, 'the thank-you message is the E-Gifts message, written live'],
   // (The Pro QR left this list on 2026-09-29: Shape · Pattern · Colour are
   // DRAFTED now — owner "yes to all 3" — held by the test below.)
+  // Details part 2a · Your event (2026-09-29): the event's facts, each through
+  // its own screen's writer, none with a draft door — names
+  // (updateEventMatchCriteria), the date (GovernedFields → updateEventDate),
+  // the typed venue names (saveAllStdContent) and the march's order (the Guest
+  // list's own island).
+  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-names=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the names write live and must say so'],
+  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /<\/Suspense>\s*\)\}[\s{}]*<HubSavesImmediately\b/, 'the date writes live and must say so'],
+  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-venues=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the venue names write live and must say so'],
+  ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-section-controls=\{key\}[^>]*>[\s{}]*<HubSavesImmediately \/>/, 'a march section writes live and must say so'],
+  ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-line-controls=[\s\S]*?<HubSavesImmediately \/>[\s{}]*<\/section>/, 'a march line writes live and must say so'],
+  ['app/dashboard/[eventId]/launch/_components/details-people.tsx', /data-people-controls="parent"[^>]*>[\s{}]*<HubSavesImmediately \/>/, "a parent's card writes live and must say so"],
 ];
 
 test('🔳 the QR look is a DRAFT door now — no live write, no "Saves immediately" beside it', () => {
@@ -397,7 +412,10 @@ test('🔳 the QR look is a DRAFT door now — no live write, no "Saves immediat
   assert.doesNotMatch(action, /\.update\(/, 'the QR look still writes the live row');
   assert.doesNotMatch(
     read('app/dashboard/[eventId]/launch/_components/maker-details.tsx'),
-    /<QrLookControls\b[\s\S]*?\/>[\s{}]*<HubSavesImmediately\b/,
+    // Bounded to the QrLookControls tag itself (`[^<]`): an open `[\s\S]*?` ran
+    // on to the address's own SlugField → "Saves immediately" further down the
+    // same file (Details, 2026-09-29) and convicted the wrong control.
+    /<QrLookControls\b[^<]*?\/>[\s{}]*<HubSavesImmediately\b/,
     'a drafted control says it saves immediately',
   );
 });

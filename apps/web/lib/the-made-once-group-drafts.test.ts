@@ -70,12 +70,14 @@ test('the logo autosaves: after a pause, on the way out, and when the tab is hid
   assert.match(src, /monogram_studio_config:/, 'the autosave must carry the re-editable design');
 });
 
-test('the Maker opens the made-once workspaces for Logo · Hero · Reveal (as pages) and the hero scene', () => {
+test('the Maker opens the made-once workspaces for Logo · Hero · Reveal (in Details) and the hero scene', () => {
   const shell = read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
-  // 2026-09-25: each opens as a PAGE in the body (`the-made-once-items-are-pages.test.ts`),
-  // its workspace the page's controls (the Logo's studio, the page itself).
-  assert.match(shell, /return madeOnce\?\.\[selection\.key\] \? selection\.key : null;/);
-  assert.match(shell, /madeOnce\?\.\[pageKey\]/);
+  // 2026-09-25 each opened as a PAGE in the body; since Details part 3 (DECISION_LOG
+  // "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS") each is an item of Details —
+  // the SAME workspaces, handed over (`the-look-moves-into-details.test.ts`).
+  assert.match(shell, /logo: madeOnce\?\.logo \?\? null/);
+  assert.match(shell, /\{madeOnce\.hero\}/);
+  assert.match(shell, /reveal: madeOnce\?\.reveal \?\? null/);
   assert.match(shell, /scene\?\.type === 'hero' && madeOnce\?\.hero/);
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
   for (const c of ['MakerHeroPanel', 'MakerRevealPanel', 'MakerLogoPanel']) {

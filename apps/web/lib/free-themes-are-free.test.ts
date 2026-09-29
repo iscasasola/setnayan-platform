@@ -118,24 +118,45 @@ test('4a · the route serves Modern and Cyber Neon print-ready to a free couple;
   assert.doesNotMatch(route, /Classic prints are free/, 'the refusal types the free list by hand');
 });
 
+/* ⚡ The print pieces load lazily (`launch/_components/details-lazy.tsx`): the
+   first pass of a render draws each one's loading slot (`data-lazy-slot`) and
+   asks for its code, as a browser's first paint does. Render again once the
+   pieces have arrived — a bounded wait, and whatever is still a slot then is
+   left in the markup for the assertions to catch. */
+async function renderSettled(el: React.ReactElement): Promise<string> {
+  let html = renderToStaticMarkup(el);
+  for (let i = 0; i < 50 && /data-lazy-slot=/.test(html); i++) {
+    await new Promise((r) => setTimeout(r, 10));
+    html = renderToStaticMarkup(el);
+  }
+  return html;
+}
+
 async function paintPrints(theme: InviteThemeId, ownsPro: boolean): Promise<string> {
-  const { MakerPrints } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
+  // Prints & Tickets folded into Details (2026-09-28, #6094): the whole-set
+  // downloads and each piece's own saves are Details' print items now.
+  const { PrintSetDownloads, PrintPieceEditor } = await import('../app/dashboard/[eventId]/launch/_components/maker-prints');
+  const { PRINT_SET_KEYS } = await import('./print-pieces');
   const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
-  return renderToStaticMarkup(
-    React.createElement(MakerPrints, {
-      eventId: 'E1',
-      slug: 'rosa-ben',
-      theme,
-      savedTheme: theme,
-      ownsPro,
-      storeShell: false,
-      flash: null,
-      formats: { pass: first('pass'), invitation: first('invitation'), card: first('card') } as never,
-    }),
+  const input = {
+    eventId: 'E1',
+    slug: 'rosa-ben',
+    theme,
+    ownsPro,
+    storeShell: false,
+    formats: { pass: first('pass'), invitation: first('invitation'), card: first('card') } as never,
+  };
+  return renderSettled(
+    React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(PrintSetDownloads, { key: 'set', input }),
+      ...PRINT_SET_KEYS.filter((k) => k !== 'menu').map((k) => React.createElement(PrintPieceEditor, { key: k, input, piece: k })),
+    ),
   );
 }
 
-test('4b · Prints & Tickets hands a free couple the Modern and Cyber Neon files — no sample, no Go Pro', async () => {
+test('4b · Details\' prints hand a free couple the Modern and Cyber Neon files — no sample, no Go Pro', async () => {
   for (const id of NEWLY_FREE) {
     const html = await paintPrints(id, false);
     const name = INVITE_THEMES[id].name;

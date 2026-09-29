@@ -46,7 +46,7 @@ test('🔒 the host’s guest card leaves a linked plus-one’s name out of the 
   assert.match(a, /\.\.\.\(nameLocked \? \{\} : \{ first_name, last_name, name_prefix, middle_name, name_suffix, display_name \}\)/);
   const fn = a.slice(a.indexOf('async function plusOneNameLocked('));
   assert.match(fn, /if \(error\) return true;/, 'an unread row unlocks the name');
-  assert.match(fn, /if \(mErr\) return true;/);
+  assert.match(fn, /if \(mErr\) \{[^}]*return true;/, "an unread membership still locks the name — and says why");
 });
 
 test('both screens show it read-only: "Linked to their account", no name boxes', () => {

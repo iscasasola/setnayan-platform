@@ -1,7 +1,8 @@
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
-import { sanitizeRolePalette } from '@/lib/mood-board';
+import { PALETTE_LIMITS, paletteKeyForRole, sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
+import { RoleFigure } from '@/app/_components/role-figure';
 import { resolveDisplayPalette } from '@/lib/room-palette';
 import {
   groupLabelOf,
@@ -23,6 +24,11 @@ import { roleLabel } from '@/lib/entourage';
 const SWATCH_EDGE = 'outline outline-1 outline-ink/20 [outline-offset:-1px]';
 /** The same chip at row size — ten roles of full-size chips is a wall on a phone. */
 const ROW_SWATCH = `pahina-swatch !h-7 !w-5 shrink-0 ${SWATCH_EDGE}`;
+
+/** What a role's colours MEAN (the Mood Board's rule): the guests pick ANY ONE,
+ *  everyone else wears one look — main colour + accent. A custom role is a look. */
+const meaningOf = (key: string): 'outfit' | 'options' =>
+  (PALETTE_LIMITS as Record<string, { meaning: string } | undefined>)[key]?.meaning === 'options' ? 'options' : 'outfit';
 
 /*
  * The INC and Muslim modest-dress guidance. Said on its own when the couple has
@@ -341,6 +347,17 @@ export function DressCodeWidget({
           {/* 🎨 THEIR PALETTE, ALL OF IT (owner 2026-09-28: "show their palette
               only"). It used to be `mine.hex` — the role's FIRST colour — so a
               bridesmaid whose board holds three was shown one. */}
+          {/* 👗 THE PERSON IN YOUR COLOURS (owner 2026-09-27, "an illustrated
+              person in the exact role colours"): a ninang sees a woman in her
+              colours, a groomsman a man — drawn from the same hexes as the chips. */}
+          {mine.hexes.length > 0 && guestRole ? (
+            <RoleFigure
+              roleKey={guestRole}
+              hexes={mine.hexes}
+              meaning={meaningOf(paletteKeyForRole(guestRole) as PaletteKey)}
+              className="h-20 w-auto"
+            />
+          ) : null}
           {mine.hexes.length > 0 ? (
             <ul className="flex flex-wrap gap-2" aria-label="Your colours">
               {mine.hexes.map((hex, i) => (
@@ -399,13 +416,18 @@ export function DressCodeWidget({
                 ))}
               </div>
               {row.hexes.length > 0 ? (
-                <ul className="flex flex-wrap gap-1.5" aria-label={`${row.label} colours`}>
-                  {row.hexes.map((hex, i) => (
-                    <li key={`${hex}-${i}`} title={hex}>
-                      <span aria-hidden className={ROW_SWATCH} style={{ backgroundColor: hex }} />
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex items-end gap-2">
+                  {/* 👗 The role, drawn in its colours — a gown and a suit for a
+                      role that holds both, one person per colour for the guests. */}
+                  <RoleFigure roleKey={row.key} hexes={row.hexes} meaning={meaningOf(row.key)} />
+                  <ul className="flex flex-wrap gap-1.5" aria-label={`${row.label} colours`}>
+                    {row.hexes.map((hex, i) => (
+                      <li key={`${hex}-${i}`} title={hex}>
+                        <span aria-hidden className={ROW_SWATCH} style={{ backgroundColor: hex }} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
             </li>
           ))}

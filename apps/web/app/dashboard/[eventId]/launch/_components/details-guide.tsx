@@ -310,8 +310,8 @@ export function GuideFoot({
   return (
     <div data-details-guide-foot="" className="shrink-0 border-t border-ink/10 bg-cream px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-4">
       {warning ? (
-        <div role="alert" data-details-guide-unsaved="" className="mb-2 flex flex-wrap items-center gap-2 rounded-md bg-terracotta-50 px-3 py-2 text-[13px] text-terracotta-800">
-          <span className="min-w-0 flex-1">You changed something here that isn’t saved yet.</span>
+        <div role="alert" data-details-guide-unsaved="" className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-terracotta-50 px-3 py-2 text-[13px] text-terracotta-800">
+          <span className="basis-full">You changed something here that isn’t saved yet.</span>
           <button type="button" onClick={onKeepEditing} className="sn-press min-h-10 rounded-full bg-white px-3 font-semibold text-ink">
             Keep editing
           </button>
@@ -384,7 +384,7 @@ export function WhatsLeftDoor({ label, onOpen }: { label: string; onOpen: () => 
         type="button"
         onClick={onOpen}
         data-details-guide-open=""
-        className="sn-press flex min-h-11 w-[84px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-terracotta-700/10 px-1.5 py-1.5 text-center text-terracotta-800 lg:w-full lg:flex-row lg:justify-start lg:gap-2 lg:px-2.5 lg:text-left"
+        className="sn-press flex min-h-11 w-[112px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-terracotta-700/10 px-1.5 py-1.5 text-center text-terracotta-800 lg:w-full lg:flex-row lg:justify-start lg:gap-2 lg:px-2.5 lg:text-left"
       >
         <span className="text-[11.5px] font-semibold leading-tight lg:text-[13.5px]">What’s left</span>
         <small className="text-[10.5px] leading-tight text-terracotta-800/80 lg:text-[12px]">{label}</small>

@@ -103,7 +103,7 @@ test('(1) three rounds in the approved order, each ending in its Ready screen', 
   // The march's name is its item's (the event type writes it) — never typed here.
   assert.equal(plan.steps.find((s) => s.key === 'march')!.title, 'Wedding March');
   assert.equal(progressLabel(plan, { kind: 'step', step: 'venues' }), 'Round 1 · 3 of 7');
-  assert.equal(progressLabel(plan, { kind: 'ready', round: 2 }), 'Round 2 · done');
+  assert.equal(progressLabel(plan, { kind: 'ready', round: 2 }), 'Round 2 · Apply', 'a Ready screen with steps left says "done"');
 });
 
 /* ── (2) a step IS an item ──────────────────────────────────────────────── */

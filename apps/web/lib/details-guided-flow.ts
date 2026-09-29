@@ -301,9 +301,9 @@ export function firstOpenScreen(plan: GuidedPlan): GuidedScreen | null {
   return last ? { kind: 'ready', round: last } : null;
 }
 
-/** "Round 1 · 3 of 7" — where this screen sits in its round; "Round 1 · done" on its Ready. */
+/** "Round 1 · 3 of 7" — where this screen sits in its round; "Round 1 · Apply" on its Ready (never "done" — it may not be). */
 export function progressLabel(plan: GuidedPlan, at: GuidedScreen): string {
-  if (at.kind === 'ready') return `Round ${at.round} · done`;
+  if (at.kind === 'ready') return `Round ${at.round} · Apply`;
   const step = stepOf(plan, at.step);
   if (!step) return '';
   const inRound = plan.steps.filter((s) => s.round === step.round);

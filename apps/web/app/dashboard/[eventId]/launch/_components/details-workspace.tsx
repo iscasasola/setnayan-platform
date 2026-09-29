@@ -3,6 +3,20 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
+import {
+  GUIDE_PARAM,
+  backScreen,
+  firstOpenScreen,
+  guideParamOf,
+  homeProgress,
+  nextScreen,
+  skipScreen,
+  stepOf,
+  stepOfItem,
+  type GuidedRound,
+  type GuidedScreen,
+} from '@/lib/details-guided-flow';
+import { GuideFoot, GuideHead, GuideReady, GuideTop, WhatsLeftDoor, hasUnsavedEdits, type DetailsGuide } from './details-guide';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
@@ -57,6 +71,19 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  * ✍ TAP IT, EDIT IT ON THE RIGHT: a tap on a card's print-only words
  * (`PrintPreview`, via `DetailsTapContext`) opens the editor and puts the caret
  * in that one field.
+ *
+ * 🪜 WHAT'S LEFT — THE GUIDED FLOW (Details part 5, `guide`; owner 2026-09-29
+ * "IT NEEDS TO BE VERY EASY…" and "THE GUIDED FLOW IS APPROVED — AND ANY STEP
+ * CAN BE PICKED ANY TIME"): the SAME items, one at a time. A step is its item's
+ * picture and editor exactly as drawn here — only the chrome changes: the
+ * progress line and its step list above (`details-guide.tsx`), the step's
+ * heading in plain words, the navigator narrowed to the step's own items and
+ * pieces (hidden when there is only the one), and ‹ Back · Skip for now ·
+ * Next › below. Each round ends on its Ready screen. "All items" returns to
+ * the grouped navigator; its "What's left" goes back in. The step showing is
+ * DERIVED from the item showing (`stepOfItem`), so a door elsewhere in the
+ * Maker that opens an item no step shows simply lands in All items. Every
+ * editor stays mounted in both modes — the flow hides, never unmounts.
  */
 export function DetailsWorkspace({
   groups,
@@ -65,7 +92,10 @@ export function DetailsWorkspace({
   initial,
   persistent = null,
   pieces = {},
+  guide = null,
 }: {
+  /** 🪜 The guided "What's left" (Details part 5); null = the navigator only (the lab without it). */
+  guide?: DetailsGuide | null;
   /**
    * 🧩 A tool's own pieces, listed in the navigator under its item while it is
    * picked (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE
@@ -90,7 +120,8 @@ export function DetailsWorkspace({
   const selected = asked ?? own;
   const [visited, setVisited] = useState<ReadonlySet<DetailsItemKey>>(() => new Set([first]));
   const tellMaker = maker?.setDetailsItem;
-  const [sheetOpen, setSheetOpen] = useState(false);
+  /* 🪜 In the flow the step's fields show at once — the editor opens on a phone. */
+  const [sheetOpen, setSheetOpen] = useState(Boolean(guide?.open && guide.plan.steps.length > 0));
   /* The piece picked under each item (the three columns meet here). */
   const [pieceMap, setPieceMap] = useState<Partial<Record<DetailsItemKey, string | null>>>({});
   const pieceCtx = useMemo<DetailsPieces>(
@@ -105,6 +136,7 @@ export function DetailsWorkspace({
   );
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const current = items.find((i) => i.key === selected) ?? items[0]!;
 
   const select = useCallback(
@@ -115,6 +147,104 @@ export function DetailsWorkspace({
     [tellMaker],
   );
 
+  /* ══ 🪜 THE GUIDED FLOW ══ */
+  const plan = guide && guide.plan.steps.length > 0 ? guide.plan : null;
+  const [mode, setMode] = useState<'guided' | 'all'>(plan && guide?.open ? 'guided' : 'all');
+  const [ready, setReady] = useState<GuidedRound | null>(
+    plan && guide?.open && guide.ready !== null && plan.rounds.includes(guide.ready) ? guide.ready : null,
+  );
+  /** Next (or any move) found unsaved typing here: where it was going. */
+  const [unsavedTo, setUnsavedTo] = useState<GuidedScreen | null>(null);
+  const stepHere = plan ? stepOfItem(plan, selected) : null;
+  const onReady = mode === 'guided' && plan !== null && ready !== null;
+  const guidedOn = mode === 'guided' && plan !== null && (onReady || stepHere !== null);
+  const at: GuidedScreen | null = !guidedOn ? null : onReady ? { kind: 'ready', round: ready! } : { kind: 'step', step: stepHere!.key };
+  const guideAddr = at ? guideParamOf(at) : null;
+  const modeKey = maker?.eventId ? `sn-details-mode:${maker.eventId}` : null;
+  const remember = (m: 'guided' | 'all') => {
+    try {
+      if (modeKey) window.sessionStorage.setItem(modeKey, m);
+    } catch {
+      /* private mode: the flow simply opens as the page says */
+    }
+  };
+  /* A couple who chose All items keeps it for the tab — unless the address itself named the flow. */
+  useEffect(() => {
+    if (!plan || guide?.addressed || !modeKey) return;
+    try {
+      if (window.sessionStorage.getItem(modeKey) === 'all') setMode('all');
+    } catch {
+      /* the page's own choice stands */
+    }
+    // Once, on the first paint.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  /* A door elsewhere in the Maker that opens another item leaves the Ready screen. */
+  const lastAsked = useRef(asked);
+  useEffect(() => {
+    if (asked && asked !== lastAsked.current && asked !== own) setReady(null);
+    lastAsked.current = asked;
+  }, [asked, own]);
+
+  const goTo = (to: GuidedScreen) => {
+    setUnsavedTo(null);
+    if (!plan) return;
+    if (to.kind === 'ready') {
+      setReady(to.round);
+      return;
+    }
+    const step = stepOf(plan, to.step);
+    if (!step) return;
+    setReady(null);
+    select(step.items.includes(selected) ? selected : (step.left[0] ?? step.items[0]!));
+    setSheetOpen(true);
+  };
+  /** Every move away from a step first asks: is there typing here that is not saved? */
+  const move = (to: GuidedScreen | null) => {
+    if (!to) return;
+    if (at?.kind === 'step' && stepHere) {
+      const root = rootRef.current;
+      const scopes = stepHere.items.flatMap((k) => [
+        root?.querySelector(`[data-details-editor="${k}"]`) ?? null,
+        root?.querySelector(`[data-details-body-item="${k}"]`) ?? null,
+      ]);
+      if (hasUnsavedEdits(scopes)) {
+        setUnsavedTo(to);
+        return;
+      }
+    }
+    goTo(to);
+  };
+  const openGuide = () => {
+    if (!plan) return;
+    setMode('guided');
+    remember('guided');
+    if (stepOfItem(plan, selected)) {
+      setReady(null);
+      setSheetOpen(true);
+    } else {
+      const first = firstOpenScreen(plan);
+      if (first) goTo(first);
+    }
+  };
+  const allItems = () => {
+    setMode('all');
+    setReady(null);
+    setUnsavedTo(null);
+    remember('all');
+  };
+  const whatsLeftLine = (() => {
+    if (!plan) return '';
+    const h = homeProgress(plan);
+    return h ? `Round ${h.round} · ${h.done} of ${h.total}` : 'All set';
+  })();
+  /* The navigator, narrowed in the flow to the step's own items (and their pieces). */
+  const navGroups: DetailsNavGroup[] =
+    guidedOn && stepHere
+      ? [{ key: 'step', label: stepHere.title, items: items.filter((i) => stepHere.items.includes(i.key)) }]
+      : groups;
+  const showNav = !guidedOn || (!onReady && (navGroups[0]!.items.length > 1 || Boolean(pieces[selected])));
+
   /* The item showing — whoever picked it — is mounted, told to the Maker, and
      kept in the address. */
   useEffect(() => {
@@ -122,15 +252,24 @@ export function DetailsWorkspace({
     if (maker && maker.detailsItem !== selected) tellMaker?.(selected);
     try {
       const url = new URL(window.location.href);
-      if (url.searchParams.get('item') === selected && url.searchParams.get('tool') === 'details') return;
+      if (
+        url.searchParams.get('item') === selected &&
+        url.searchParams.get('tool') === 'details' &&
+        url.searchParams.get(GUIDE_PARAM) === guideAddr
+      ) {
+        return;
+      }
       url.searchParams.set('tool', 'details');
       url.searchParams.set('item', selected);
+      // 🪜 The flow rides in the address too (`?guide=1` / `?guide=ready-2`), so a reload lands back in it.
+      if (guideAddr) url.searchParams.set(GUIDE_PARAM, guideAddr);
+      else url.searchParams.delete(GUIDE_PARAM);
       window.history.replaceState(window.history.state, '', url);
     } catch {
       /* the address is a convenience; the page works without it */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `maker` changes on every Maker render; only the item matters
-  }, [selected, tellMaker]);
+  }, [selected, tellMaker, guideAddr]);
   const layout = detailsItemLayout(selected);
 
   /* 🚪 One field, two doors: a fact drawn in two items is one value (part 2b). */
@@ -163,10 +302,22 @@ export function DetailsWorkspace({
       <DetailsSelectContext.Provider value={select}>
       <DetailsPieceContext.Provider value={pieceCtx}>
       <div
+        ref={rootRef}
         data-details-workspace=""
         data-details-item={selected}
         data-details-layout={layout}
-        className="flex h-full min-h-0 w-full flex-1 flex-col lg:flex-row"
+        data-details-mode={guidedOn ? 'guided' : 'all'}
+        className="flex h-full min-h-0 w-full flex-1 flex-col"
+      >
+      {plan && at ? (
+        <GuideTop plan={plan} at={at} onPick={(to) => move(to)} onAllItems={allItems} tour={guide?.tour ?? null} />
+      ) : null}
+      <div
+        data-details-row=""
+        /* On a round's Ready screen the items step aside — hidden, never
+           unmounted, so every editor's fields still post. */
+        hidden={onReady}
+        className={`${onReady ? 'hidden' : 'flex'} min-h-0 w-full flex-1 flex-col lg:flex-row`}
       >
         {/* ══ BODY — the picked item's picture (or, for a page that moved in, the page) ══ */}
         <section
@@ -189,7 +340,10 @@ export function DetailsWorkspace({
                     i.key !== selected ? 'hidden' : detailsItemLayout(i.key) === 'flow' ? 'flex flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'
                   }
                 >
-                  {detailsItemLayout(i.key) === 'flow' ? (
+                  {guidedOn && stepHere && i.key === selected ? (
+                    /* 🪜 In the flow: the step's round, its name, where it shows — plain words. */
+                    <GuideHead step={stepHere} itemLabel={i.label} compact={detailsItemLayout(i.key) !== 'flow'} />
+                  ) : detailsItemLayout(i.key) === 'flow' ? (
                     <header className="flex flex-col gap-0.5">
                       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
                         {groups.find((g) => g.items.some((x) => x.key === i.key))?.label}
@@ -222,12 +376,14 @@ export function DetailsWorkspace({
         </section>
 
         {/* ══ LEFT — the navigator (a sideways strip on a phone) ══ */}
+        {showNav ? (
         <nav aria-label="Details — what to edit" className="order-2 shrink-0 border-t border-ink/10 bg-cream/80 lg:order-1 lg:w-[236px] lg:border-r lg:border-t-0">
           <ol
             ref={navRef}
             className="flex gap-1.5 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0.5 lg:overflow-y-auto lg:overflow-x-hidden lg:py-4"
           >
-            {groups.map((g) => (
+            {plan && !guidedOn ? <WhatsLeftDoor label={whatsLeftLine} onOpen={openGuide} /> : null}
+            {navGroups.map((g) => (
               <li key={g.key} className="contents" data-details-nav-group={g.key}>
                 <p className="hidden px-2 pb-1 pt-3 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/50 lg:block">{g.label}</p>
                 <ul className="contents">
@@ -279,6 +435,7 @@ export function DetailsWorkspace({
             ))}
           </ol>
         </nav>
+        ) : null}
 
         {/* ══ RIGHT — the picked item's editor (a panel that opens, on a phone) ══ */}
         <aside
@@ -316,6 +473,25 @@ export function DetailsWorkspace({
             {persistent}
           </div>
         </aside>
+      </div>
+      {plan && at?.kind === 'ready' && guide ? (
+        <GuideReady plan={plan} round={at.round} actions={guide.actions} onGo={(to) => move(to)} />
+      ) : null}
+      {plan && at ? (
+        <GuideFoot
+          at={at}
+          plan={plan}
+          onBack={backScreen(plan, at) ? () => move(backScreen(plan, at)) : null}
+          onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at)) : null}
+          onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at)) : null}
+          warning={unsavedTo !== null}
+          onKeepEditing={() => {
+            setUnsavedTo(null);
+            setSheetOpen(true);
+          }}
+          onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
+        />
+      ) : null}
       </div>
       </DetailsPieceContext.Provider>
       </DetailsSelectContext.Provider>

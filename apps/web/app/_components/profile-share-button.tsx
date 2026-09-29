@@ -24,11 +24,14 @@ export function ProfileShareButton({
   title,
   label = 'Share profile',
   className = 'sn-chip sn-press w-fit',
+  ariaLabel = 'Share your public profile',
 }: {
   url: string;
   title: string;
   label?: string;
   className?: string;
+  /** What the button does, for a screen reader (the guided flow shares an Event Hub, not a profile). */
+  ariaLabel?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -56,7 +59,7 @@ export function ProfileShareButton({
       type="button"
       onClick={share}
       className={className}
-      aria-label="Share your public profile"
+      aria-label={ariaLabel}
     >
       {copied ? (
         <>

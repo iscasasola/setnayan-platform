@@ -2,7 +2,7 @@
 
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import Link from 'next/link';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useId, useState, useTransition } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -288,10 +288,20 @@ function Switch({
   disabled: boolean;
   onChange: (next: boolean) => void;
 }) {
+  // `label` is usually an <InfoTip>, which renders a <button>. A <label> with
+  // no `for` controls its FIRST labelable descendant — that ⓘ button — so a tap
+  // on the row opened the tip instead of flipping the switch. `htmlFor` pins the
+  // label to the checkbox; the ⓘ stays its own button
+  // (lib/a-label-controls-its-switch.test.ts).
+  const id = useId();
   return (
-    <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 border-b border-ink/5 py-2 last:border-0">
+    <label
+      htmlFor={id}
+      className="flex min-h-11 cursor-pointer items-center justify-between gap-3 border-b border-ink/5 py-2 last:border-0"
+    >
       <span className="flex items-center gap-1.5 text-sm text-ink">{label}</span>
       <input
+        id={id}
         type="checkbox"
         role="switch"
         checked={on}

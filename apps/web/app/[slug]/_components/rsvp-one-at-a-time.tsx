@@ -21,13 +21,46 @@ import { formatCount } from '@/lib/format-number';
  * IS the answer: a radio advances on its own. Enter never sends early — it
  * moves on, the way Next does, because a required box on a later screen would
  * otherwise block the send with nothing on screen to explain it.
+ *
+ * 📐 THE SCREEN'S ORDER (owner 2026-09-29, on the live RSVP page: *"ask one
+ * question per screen is not neatly arranged. there are rules for like this,
+ * where the progress bar should be, where the logo, and questions"*). The
+ * approved drawing is `prototypes/rsvp_variants_2026-09-27.html` § SWITCH ON —
+ * *"The heading and intro stay on the first screen; attending is answered by
+ * the tap itself (no button); typed steps get a single Next. Progress dots and
+ * Back at the top"* — and the house's one-question rule is the vendor
+ * onboarding's (DECISION_LOG 2026-08-10): *"with one question per screen the
+ * field label already IS the title"*. So, top to bottom:
+ *
+ *   1 · the couple's mark (the door's crest) — the header;
+ *   2 · PROGRESS, as ONE unit: Back on its left, the filling bar and "2 of 8"
+ *       together in the middle — directly under the mark, ABOVE everything the
+ *       guest reads. It was mid-card under the invitation's facts, with "1 of 8"
+ *       at one edge and the dots at the other: two halves of one fact a whole
+ *       row apart;
+ *   3 · the invitation's facts (names · date · who is replying · reply-by) —
+ *       on the FIRST screen only; later screens fold them to one line
+ *       (`data-rsvp-context` / `data-rsvp-context-line`);
+ *   4 · the question, as the screen's heading, then its answers;
+ *   5 · the one action, LAST — Next at the foot of a question area that keeps
+ *       one height, so it does not jump from screen to screen, and sticky
+ *       above the phone's home bar when a question runs longer than the screen.
+ *
+ * WHERE THE PROGRESS GOES: into `[data-rsvp-progress-slot]` when the page drew
+ * one inside this form's scope — the door that carries a `lead`
+ * (`[data-door-lead]`; the RSVP page puts the slot under the crest), or any
+ * `[data-rsvp-scope]` — otherwise right here, at the top of the form (the
+ * Event Hub's reply sheet, whose own heading is the header).
  */
 export function RsvpOneAtATime() {
   const anchorRef = useRef<HTMLSpanElement>(null);
+  const scopeRef = useRef<HTMLElement | null>(null);
   const [form, setForm] = useState<HTMLFormElement | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  const [lead, setLead] = useState<HTMLElement | null>(null);
   const [index, setIndex] = useState(0);
   const [total, setTotal] = useState(0);
+  const [awaitingTap, setAwaitingTap] = useState(false);
 
   const visibleSteps = useCallback((f: HTMLFormElement): HTMLElement[] => {
     // Outermost steps only. A step nested in another would be counted twice —
@@ -52,10 +85,19 @@ export function RsvpOneAtATime() {
       const clamped = Math.max(0, Math.min(at, steps.length - 1));
       steps.forEach((el, i) => {
         if (i !== clamped) el.setAttribute('data-rsvp-away', '');
+        el.toggleAttribute('data-rsvp-here', i === clamped);
       });
+      const here = steps[clamped];
+      // The answer tap IS the answer — no Next until one is chosen. A guest who
+      // comes Back to an answer already chosen gets Next, since re-tapping the
+      // chosen pill fires no change.
+      const radios = here ? Array.from(here.querySelectorAll<HTMLInputElement>('input[type="radio"]')) : [];
+      setAwaitingTap(radios.length > 0 && !radios.some((r) => r.checked));
       setTotal(steps.length);
       setIndex(clamped);
       f.setAttribute('data-one-at-a-time', '');
+      f.toggleAttribute('data-rsvp-last', clamped >= steps.length - 1);
+      scopeRef.current?.toggleAttribute('data-rsvp-past-first', clamped > 0);
       return steps;
     },
     [visibleSteps],
@@ -64,16 +106,25 @@ export function RsvpOneAtATime() {
   useEffect(() => {
     const f = anchorRef.current?.closest('form') ?? null;
     if (!f) return;
+    const scope = f.closest<HTMLElement>('[data-rsvp-scope],[data-door-lead]') ?? f;
+    scopeRef.current = scope;
     setForm(f);
+    setLead(scope.querySelector<HTMLElement>('[data-rsvp-progress-slot]'));
     const next = document.createElement('div');
     next.setAttribute('data-rsvp-next-slot', '');
+    // Sticky over the card's OWN paper — read, not assumed, so it is the
+    // theme's surface on the RSVP page and the sheet's paper on the Event Hub.
+    next.style.background = groundBehind(f);
     f.appendChild(next);
     setSlot(next);
     show(f, 0);
     return () => {
       next.remove();
       f.removeAttribute('data-one-at-a-time');
+      f.removeAttribute('data-rsvp-last');
+      scope.removeAttribute('data-rsvp-past-first');
       f.querySelectorAll('[data-rsvp-away]').forEach((el) => el.removeAttribute('data-rsvp-away'));
+      f.querySelectorAll('[data-rsvp-here]').forEach((el) => el.removeAttribute('data-rsvp-here'));
     };
   }, [show]);
 
@@ -92,9 +143,15 @@ export function RsvpOneAtATime() {
         }
       }
       show(form, index + delta);
-      anchorRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      // Bring the PROGRESS back into view (it sits under the couple's mark), and
+      // only when it has left the screen — a short question never scrolls.
+      const top = lead ?? anchorRef.current;
+      const rect = top?.getBoundingClientRect();
+      if (top && rect && (rect.top < 0 || rect.top > window.innerHeight)) {
+        top.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
     },
-    [form, index, show, visibleSteps],
+    [form, index, lead, show, visibleSteps],
   );
 
   // A radio tap is the answer — it advances. Enter moves on instead of sending.
@@ -121,41 +178,115 @@ export function RsvpOneAtATime() {
   }, [form, go, index, total]);
 
   const last = total > 0 && index >= total - 1;
+  // An empty foot takes no room: on the last screen the Send is in the step.
+  useEffect(() => {
+    if (slot) slot.hidden = !(total > 1) || last;
+  }, [slot, total, last]);
+  const progress = total > 1 ? <RsvpStepProgress index={index} total={total} onBack={() => go(-1)} /> : null;
   return (
     <>
-      <style>{`[data-one-at-a-time] [data-rsvp-away]{display:none!important}`}</style>
+      <style>{ONE_AT_A_TIME_CSS}</style>
       <span ref={anchorRef} aria-hidden className="block scroll-mt-6" />
-      {total > 1 ? (
-        <div className="flex items-center justify-between gap-3" data-rsvp-progress>
-          <button
-            type="button"
-            onClick={() => go(-1)}
-            disabled={index === 0}
-            className="min-h-[44px] min-w-[44px] text-sm font-medium text-ink/70 disabled:opacity-0"
-          >
-            ‹ Back
-          </button>
-          <p className="text-sm tabular-nums text-ink/70" aria-live="polite">
-            {formatCount(index + 1)} of {formatCount(total)}
-          </p>
-          <span aria-hidden className="flex gap-1.5">
-            {Array.from({ length: total }, (_, i) => (
-              <span
-                key={i}
-                className={`h-1.5 rounded-full ${i === index ? 'w-6 bg-ink' : i < index ? 'w-6 bg-gild' : 'w-1.5 bg-ink/20'}`}
-              />
-            ))}
-          </span>
-        </div>
-      ) : null}
+      {lead ? (progress ? createPortal(progress, lead) : null) : progress}
       {slot && !last && total > 1
-        ? createPortal(
-            <button type="button" onClick={() => go(1)} className="button-primary min-h-[48px] w-full">
-              Next
-            </button>,
-            slot,
-          )
+        ? createPortal(<RsvpStepNext awaitingTap={awaitingTap} onNext={() => go(1)} />, slot)
         : null}
     </>
   );
+}
+
+/**
+ * The rules the walker's attributes switch on. Every one is scoped to an
+ * attribute only the walker sets, so without script — or with the switch off —
+ * none of them matches and the card is the one scrolling form.
+ */
+export const ONE_AT_A_TIME_CSS = [
+  '[data-one-at-a-time] [data-rsvp-away]{display:none!important}',
+  // Screen 2 onward: the invitation's facts fold to one line.
+  '[data-rsvp-past-first] [data-rsvp-context],[data-rsvp-past-first] [data-door-header]{display:none!important}',
+  '[data-rsvp-past-first] [data-rsvp-context-line]{display:block!important}',
+  // One height for the question area, so Next sits in the same place on every
+  // screen. Not on the last one — there the Send is inside the step itself.
+  '[data-one-at-a-time]:not([data-rsvp-last]) [data-rsvp-here]{min-height:min(18rem,42dvh)}',
+  '[data-rsvp-next-slot]{position:sticky;bottom:0;z-index:1;padding-top:.75rem;padding-bottom:max(.75rem,env(safe-area-inset-bottom))}',
+].join('');
+
+/**
+ * PROGRESS, AS ONE UNIT. Back on the left (kept, invisible, on the first
+ * screen so nothing shifts), the filling bar and its "2 of 8" together in the
+ * middle, an equal spacer on the right so the unit stays centred under the
+ * couple's mark. The bar is the open-shop wizard's own shape (segments that
+ * fill, `role="progressbar"`); the count stays in words because this switch is
+ * for elders.
+ */
+export function RsvpStepProgress({
+  index,
+  total,
+  onBack,
+}: {
+  index: number;
+  total: number;
+  onBack: () => void;
+}) {
+  const label = `Question ${formatCount(index + 1)} of ${formatCount(total)}`;
+  return (
+    <div className="mb-5 grid grid-cols-[4rem_1fr_4rem] items-center" data-rsvp-progress="">
+      <button
+        type="button"
+        onClick={onBack}
+        disabled={index === 0}
+        aria-hidden={index === 0 || undefined}
+        tabIndex={index === 0 ? -1 : undefined}
+        className="-ml-2 min-h-[44px] justify-self-start px-2 text-sm font-medium text-ink/75 hover:text-ink disabled:invisible"
+      >
+        ‹ Back
+      </button>
+      <div className="flex flex-col items-center gap-1.5" data-rsvp-progress-unit="">
+        <div
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={total}
+          aria-valuenow={index + 1}
+          aria-label={label}
+          className="flex w-full max-w-[12rem] gap-1"
+        >
+          {Array.from({ length: total }, (_, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className={`h-1 flex-1 rounded-full ${i <= index ? 'bg-ink' : 'bg-ink/15'}`}
+            />
+          ))}
+        </div>
+        <p className="text-xs tabular-nums text-ink/70" aria-live="polite">
+          {formatCount(index + 1)} of {formatCount(total)}
+        </p>
+      </div>
+      <span aria-hidden />
+    </div>
+  );
+}
+
+/**
+ * The one action at the foot of a screen. On the answer screen there is none —
+ * the tap is the answer (the approved drawing's "Tap one to continue").
+ */
+export function RsvpStepNext({ awaitingTap, onNext }: { awaitingTap: boolean; onNext: () => void }) {
+  if (awaitingTap) {
+    return <p className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">Tap one to continue</p>;
+  }
+  return (
+    <button type="button" onClick={onNext} className="button-primary min-h-[48px] w-full">
+      Next
+    </button>
+  );
+}
+
+/** The first painted background behind `el` — what a sticky bar must wear to hide what scrolls under it. */
+function groundBehind(el: HTMLElement): string {
+  for (let n: HTMLElement | null = el; n; n = n.parentElement) {
+    const bg = getComputedStyle(n).backgroundColor;
+    if (bg && bg !== 'transparent' && !/^rgba\(.*,\s*0\)$/.test(bg)) return bg;
+  }
+  return 'transparent';
 }

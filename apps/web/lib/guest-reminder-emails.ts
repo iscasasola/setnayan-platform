@@ -103,6 +103,7 @@ type ReminderEventRow = {
   venue_latitude: number | string | null;
   venue_longitude: number | string | null;
   std_film_ceremony_name: string | null;
+  ceremony_venue_address?: string | null;
   std_film_venue_name: string | null;
   dress_code_config: unknown;
   role_palette: unknown;
@@ -136,7 +137,7 @@ export async function runGuestReminderEmails(now: Date = new Date()): Promise<Gu
   const { data: events, error: eventsErr } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, bride_name, groom_name, event_date, timezone, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config',
+      'event_id, slug, display_name, bride_name, groom_name, event_date, timezone, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, dress_code_config, role_palette, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config',
     )
     .in('event_date', dates)
     .not('slug', 'is', null)

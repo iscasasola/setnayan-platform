@@ -28,6 +28,12 @@ type Props = {
   initialEntrance: EntrancePos;
   guestOptions: GuestOption[];
   saveAction: (formData: FormData) => Promise<void>;
+  /**
+   * What to say when nobody is seated yet. Default: a link to the seating
+   * chart. Inside Details › Seat plan the chart is right beside it, so it says
+   * so instead of linking out of the Maker.
+   */
+  noSeatsNote?: React.ReactNode;
 };
 
 export function BlueprintStudio({
@@ -36,6 +42,7 @@ export function BlueprintStudio({
   initialEntrance,
   guestOptions,
   saveAction,
+  noSeatsNote,
 }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [entrance, setEntrance] = useState<EntrancePos>(initialEntrance);
@@ -153,6 +160,8 @@ export function BlueprintStudio({
             ))}
           </select>
         </div>
+      ) : noSeatsNote ? (
+        <p className="text-sm text-ink/55">{noSeatsNote}</p>
       ) : (
         <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-sm text-ink/55">
           Seat your guests on the{' '}

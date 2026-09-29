@@ -55,16 +55,19 @@ test('a wedding shows all five, in the navigator’s order, in the “Your event
   assert.equal(yourEventLabel('parents', WEDDING), 'Parents & hosts');
   assert.deepEqual(peopleLabels(WEDDING_PROFILE.terminology.personA, WEDDING_PROFILE.terminology.personB), ['Bride', 'Groom']);
   const group = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
-  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'parents', 'march']);
+  // …then the Seat plan (Details part 4 — the seating editor moved in; its own
+  // rule, `the-seat-plan-moves-into-details.test.ts`).
+  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'parents', 'march', 'seating']);
 });
 
 for (const [name, kind] of NON_WEDDINGS) {
   test(`a ${name} shows no wedding-only item and reads no wedding word`, () => {
     const items = yourEventItems(kind);
-    assert.ok(!items.includes('names'), `${name}: no two named people, so no two-name box`);
     assert.ok(!items.includes('march'), `${name}: its role set prints no entourage, so no march`);
     assert.ok(!parentsOffered(kind) && !marchOffered(kind));
-    assert.deepEqual(items, ['date', 'venues', 'parents']);
+    // ONE name (owner 2026-09-29, "yes to all 4") — never a two-name box.
+    assert.deepEqual(items, ['names', 'date', 'venues', 'parents']);
+    assert.equal(yourEventLabel('names', kind), 'Name');
     const said = [
       ...items.map((k) => yourEventLabel(k, kind)),
       ...items.flatMap((k) => yourEventUsedOn(k, kind)),
@@ -104,7 +107,8 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const L = 'app/dashboard/[eventId]/launch/_components/';
 const EDITORS = read(`${L}details-your-event.tsx`);
 const PARTS = read(`${L}details-your-event-parts.tsx`);
-const LOAD = read(`${L}details-your-event-load.tsx`);
+// The facts read lives apart from the JSX since train m (Home reads it too): one LOAD, both files.
+const LOAD = read(`${L}details-your-event-load.tsx`) + read(`${L}details-your-event-facts.ts`);
 
 test('every editor saves through the writer its own screen uses — +0 server actions', () => {
   assert.doesNotMatch(EDITORS, /['"]use server['"]/);
@@ -193,4 +197,65 @@ test('/find-date lands on Details › Date with "Help me choose" open — for a 
   const finder = read(`${L}details-date-finder.tsx`);
   assert.match(finder, /useDetailsPiece\('date'\)/);
   assert.match(finder, /if \(!piece\) return \{ mode: helpFirst \? 'help' : 'have', pick: null, pin: null \};/);
+});
+
+// ── owner 2026-09-29 "yes to all 4": (3) one name · (4) a street address per venue ──
+
+test('(3) a one-person event’s Name writes display_name ALONE — the column the hero, prints and passes read', () => {
+  const actions = read('app/dashboard/[eventId]/actions.ts');
+  const branch = actions.slice(actions.indexOf("if (formData.has('celebrant_name')) {"));
+  assert.ok(branch.length > 0, 'the celebrant-name door is gone');
+  const body = branch.slice(0, branch.indexOf('return { ok: true };'));
+  assert.match(body, /\.update\(\{ display_name: name \}\)/);
+  assert.doesNotMatch(body, /bride_name|groom_name|region|mood_feel_key|estimated_budget|partner_a_birth/, 'the one-name door writes another column');
+  // It sits AFTER the host check, BEFORE the full form's writes.
+  const fn = actions.slice(actions.indexOf('export async function updateEventMatchCriteria('));
+  assert.ok(fn.indexOf("formData.has('celebrant_name')") > fn.indexOf("return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };"));
+  assert.ok(fn.indexOf("formData.has('celebrant_name')") < fn.indexOf('const updatePatch'));
+  // The editor posts celebrant_name alone, through the same writer.
+  assert.match(EDITORS, /fd\.set\('celebrant_name', name\.trim\(\)\);\s*start\(/);
+  assert.match(EDITORS, /makerSave\(\(\) => updateEventMatchCriteria\(fd\), requestMakerRefresh\)/);
+  assert.match(LOAD, /oneName: people\s*\? null/);
+});
+
+test('(4) each venue takes a street address — reception reuses venue_address, the ceremony gets ONE column', () => {
+  const std = read('app/dashboard/[eventId]/studio/save-the-date/actions.ts');
+  assert.match(std, /patch\.venue_address = v;/);
+  assert.match(std, /patch\.ceremony_venue_address = v;/);
+  assert.match(EDITORS, /data\[s\.addressField\] = values\[s\.addressField\]\?\.trim\(\) \|\| null;/);
+  assert.match(LOAD, /addressField: 'ceremonyAddress',\s*address: row\.ceremony_venue_address \?\? ''/);
+  assert.match(LOAD, /addressField: 'venueAddress',\s*address: row\.venue_address \?\? ''/);
+});
+
+test('(4) the ceremony’s typed address reaches maps — and closes until the guest replies', async () => {
+  const { resolveEventVenues } = await import('./event-venues');
+  const { withheldVenue } = await import('./venue-disclosure');
+  const none = { ceremony: null, reception: null };
+  const [ceremony] = resolveEventVenues(none, {
+    std_film_ceremony_name: 'Santuario de San Vicente',
+    ceremony_venue_address: '1 Tandang Sora Ave, Quezon City',
+    venue_name: 'Seda Vertis North',
+    venue_address: 'North Ave cor. EDSA, Quezon City',
+  });
+  assert.equal(ceremony?.role, 'ceremony');
+  assert.equal(ceremony?.address, '1 Tandang Sora Ave, Quezon City');
+  const shut = withheldVenue({ ceremony_venue_address: 'x', venue_address: 'y', venues: [ceremony!] });
+  assert.equal(shut.ceremony_venue_address, null, 'the ceremony street address leaks before the reply');
+  assert.equal(shut.venue_address, null);
+  assert.equal(shut.venues?.[0]?.address, null);
+  assert.equal(shut.venues?.[0]?.name, 'Santuario de San Vicente', 'the name stays, as it always has');
+  // …and every guest-facing read that resolves venues asks for the column.
+  for (const f of ['app/[slug]/_lib/loaders.ts', 'app/[slug]/hub/page.tsx', 'lib/guest-reminder-emails.ts']) {
+    assert.match(read(f), /ceremony_venue_address/, `${f} does not read the ceremony address`);
+  }
+});
+
+test('(4) the migration grants the column, rebuilds events_host, and holds nothing for anon', () => {
+  const sql = readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', '20271252997367_ceremony_venue_address.sql'), 'utf8');
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS ceremony_venue_address TEXT;/);
+  assert.match(sql, /GRANT SELECT \(ceremony_venue_address\) ON public\.events TO authenticated;/);
+  assert.match(sql, /GRANT UPDATE \(ceremony_venue_address\) ON public\.events TO authenticated;/);
+  assert.match(sql, /CREATE VIEW public\.events_host/);
+  assert.match(sql, /IF has_column_privilege\('anon', 'public\.events', 'ceremony_venue_address', 'SELECT'\) THEN/);
+  assert.doesNotMatch(sql, /ADD COLUMN[^;]*venue_address TEXT[^;]*;[\s\S]*ADD COLUMN/, 'a second address column');
 });

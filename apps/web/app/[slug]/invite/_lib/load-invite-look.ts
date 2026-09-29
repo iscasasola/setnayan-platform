@@ -4,6 +4,7 @@ import type { DoorSkin } from '@/app/_components/door/door-shell';
 import { inviteDoorFor, type InviteThemeId } from '@/lib/invite-themes';
 import { resolveInviteButton } from '@/lib/invite-button-color';
 import { heroMarkSvg } from '@/lib/hero-monogram-data';
+import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveHubLook, HUB_LOOK_COLUMNS, type HubLookEvent } from '../../_lib/hub-look';
 import { resolveMonogram } from '@/lib/monogram';
 import { inviteSkin } from '../_components/themes/invite-skin';
@@ -79,13 +80,17 @@ export async function loadInviteLook(event: InviteLookEvent): Promise<{
     abaca — owner-approved card-on-a-ground designs). The theme names its door
     (`INVITE_THEMES[id].door`); the page behind the door wears the theme itself.
   */
+  const mark = doorMarkFor(event).mark;
   const skin = inviteSkin(inviteDoorFor(look.theme), {
     photo: look.photo,
     accent: look.accent,
     monogram: look.monogram,
     // Their LOGO in the seal, as the Event Hub hero draws it; initials only
     // when there is none (owner 2026-09-28).
-    mark: doorMarkFor(event).mark,
+    mark,
+    // …and it plays when it moves and the animation is on (owner 2026-09-29).
+    // No read at all for a logo that does not move.
+    markPlays: await logoPlaysFor(event.event_id, mark),
   });
   return {
     theme: look.theme,

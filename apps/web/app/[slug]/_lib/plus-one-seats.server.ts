@@ -30,6 +30,13 @@ export type PlusOneSeat = {
   name: string | null;
   /** The seat's own key — only for a named seat. */
   qrToken: string | null;
+  /** The name parts (null while TBA) and the seat's own answers, so the
+   *  reply's per-seat boxes open on what is stored and a Send never overwrites
+   *  a meal the plus-one gave on their own key (owner 2026-09-29). */
+  first: string | null;
+  last: string | null;
+  meal: string | null;
+  dietary: string | null;
 };
 
 /**
@@ -73,7 +80,7 @@ export async function plusOneSeatsFor(
 ): Promise<PlusOneSeat[]> {
   const { data, error } = await admin
     .from('guests')
-    .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, qr_token`)
+    .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, qr_token, meal_preference, dietary_restrictions`)
     .eq('event_id', eventId)
     .eq('plus_one_of_guest_id', bringerGuestId)
     .is('deleted_at', null)
@@ -93,6 +100,10 @@ export async function plusOneSeatsFor(
       guest_id: r.guest_id as string,
       name,
       qrToken: name ? ((r.qr_token as string | null) ?? null) : null,
+      first: placeholder ? null : ((r.first_name as string | null) ?? null),
+      last: placeholder ? null : ((r.last_name as string | null) ?? null),
+      meal: (r.meal_preference as string | null) ?? null,
+      dietary: (r.dietary_restrictions as string | null) ?? null,
     };
   });
 }

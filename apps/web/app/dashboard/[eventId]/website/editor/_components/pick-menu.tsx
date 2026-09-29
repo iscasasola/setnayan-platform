@@ -46,6 +46,11 @@ export type PickOption = {
   /** A labelled group heading ("Stages", "Pages"); consecutive options with the
    *  same group share one heading. Omitted = no heading (every other picker). */
   group?: string;
+  /** A short mark at the row's end — the guided flow's ✓ / ○ beside each step. */
+  trail?: { text: string; tone: 'ok' | 'left' | 'muted'; label?: string };
+  /** A small picture of the choice, drawn before its label (the pass card's
+   *  three looks — the couple sees each while picking). Decorative. */
+  thumb?: string;
 };
 
 export function PickMenu({
@@ -55,6 +60,7 @@ export function PickMenu({
   onPick,
   dataAttr,
   className = '',
+  buttonText,
 }: {
   /** What the control is, for a screen reader ("This stage's menu"). */
   label: string;
@@ -65,6 +71,8 @@ export function PickMenu({
   /** A data-attribute name stamped on the button, for tests and the tour. */
   dataAttr?: string;
   className?: string;
+  /** Words on the button instead of the current option's label ("Round 1 · 3 of 7"). */
+  buttonText?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PickListPlacement | null>(null);
@@ -154,7 +162,7 @@ export function PickMenu({
       <button
         ref={btnRef}
         type="button"
-        aria-label={`${label}: ${current?.label ?? 'choose'}`}
+        aria-label={`${label}: ${buttonText ?? current?.label ?? 'choose'}`}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
@@ -164,7 +172,7 @@ export function PickMenu({
       >
         {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
         <span className="min-w-0 truncate" style={current?.fontFamily ? { fontFamily: current.fontFamily } : undefined}>
-          {current?.label ?? label}
+          {buttonText ?? current?.label ?? label}
         </span>
         <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
       </button>
@@ -237,11 +245,26 @@ export function PickMenu({
           }`}
         >
           {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
+          {o.thumb ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a generated preview from our own route
+            <img src={o.thumb} alt="" aria-hidden width={27} height={36} loading="lazy" className="my-1 h-9 w-[27px] shrink-0 rounded-sm object-cover ring-1 ring-ink/10" />
+          ) : null}
           <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
             {o.label}
           </span>
           {o.dot ? <span className="text-[12px] font-medium opacity-70">· {o.dotNote ?? 'live today'}</span> : null}
           {o.disabledNote ? <span className="text-[12px] font-medium">· {o.disabledNote}</span> : null}
+          {o.trail ? (
+            <span
+              data-pick-trail={o.trail.tone}
+              className={`ml-auto shrink-0 pl-3 text-[13px] font-semibold ${
+                o.key === value ? 'opacity-80' : o.trail.tone === 'ok' ? 'text-success-700' : o.trail.tone === 'left' ? 'text-terracotta-700' : 'text-ink/50'
+              }`}
+            >
+              <span aria-hidden>{o.trail.text}</span>
+              {o.trail.label ? <span className="sr-only">{o.trail.label}</span> : null}
+            </span>
+          ) : null}
         </button>
       </li>
     );

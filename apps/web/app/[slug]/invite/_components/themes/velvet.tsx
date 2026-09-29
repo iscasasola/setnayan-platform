@@ -56,7 +56,7 @@ const jost = localFont({
   adjustFontFallback: 'Arial',
 });
 
-export function velvetSkin({ photo, accent, monogram, mark }: InviteSkinInput): DoorSkin {
+export function velvetSkin({ photo, accent, monogram, mark, markPlays }: InviteSkinInput): DoorSkin {
   return {
     themeId: 'velvet',
     className: [styles.velvet ?? '', bodoni.variable, jost.variable].join(' '),
@@ -97,7 +97,7 @@ export function velvetSkin({ photo, accent, monogram, mark }: InviteSkinInput): 
         <span className={styles.engraveOuter} />
         <span className={styles.engraveInner} />
         <span className={styles.seal}>
-          <SealMark mark={mark} monogram={monogram} px={36} />
+          <SealMark mark={mark} monogram={monogram} px={36} plays={markPlays} />
         </span>
       </div>
     ),

@@ -8,10 +8,13 @@ import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isUuid } from '@/lib/is-uuid';
 import { fetchInvitationBase, loadGuestCard } from '../_components/guest-card-data';
+import { loadInviteSetup } from '../_components/invite-message-setup';
 import {
   GuestCardBody,
   GUEST_CARD_ERROR_COPY,
 } from '../_components/guest-card-body';
+import { GuestSendInvite } from '../_components/send-invite';
+import { GuestPassCardLink } from '../_components/guest-pass-card-link';
 import { UndoToastHost } from '../_components/undo-toast';
 
 export const metadata = { title: 'Guest detail' };
@@ -53,7 +56,11 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const data = await loadGuestCard(supabase, eventId, guestId);
+  const [data, inviteSetup] = await Promise.all([
+    loadGuestCard(supabase, eventId, guestId),
+    // Send invite · Copy message — the event's words + the couple's wording.
+    loadInviteSetup(supabase, eventId),
+  ]);
   if (!data) notFound();
   const { guest } = data;
 
@@ -120,6 +127,9 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         invitationBase={invitationBase}
         photoDisplayUrl={photoDisplayUrl}
         variant="page"
+        inviteSetup={inviteSetup}
+        SendInvite={GuestSendInvite}
+        PassCardLink={GuestPassCardLink}
         returnTo={`/dashboard/${eventId}/guests/${guestId}`}
         errorMessage={errorMessage}
         inviteFlash={inviteFlash}

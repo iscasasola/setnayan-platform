@@ -7,7 +7,7 @@ import type { ScheduleMatrix } from '@/lib/schedule-matrix';
 import {
   parentsOffered,
   yourEventDone,
-  yourEventItems,
+  yourEventPresentKeys,
   yourEventLabel,
   yourEventUsedOn,
   type YourEventFacts,
@@ -24,6 +24,7 @@ import {
   MarchControls,
   MarchPieces,
   NamesEditor,
+  OneNameEditor,
   ParentCards,
   PeopleBody,
   PeopleControls,
@@ -60,6 +61,8 @@ export type YourEventInput = {
     /** Where the BaZi section is live, the shipped whole form instead (see the editor's docblock). */
     wholeForm: ReactNode | null;
   } | null;
+  /** A one-person event's name (`display_name`) — null / absent for a two-person event. */
+  oneName?: { initial: string; hint: string } | null;
   date: {
     confirmedVendorCount: number;
     dateDisplay: string | null;
@@ -105,9 +108,11 @@ export function yourEventParts({
   pieces: Partial<Record<EventItemKey, ReactNode>>;
 } {
   const { kind, facts } = input;
-  const keys = yourEventItems(kind).filter((k) => k !== 'names' || input.names !== null);
+  const keys = yourEventPresentKeys(kind, input.names !== null || input.oneName != null);
   const sub: Record<EventItemKey, string | undefined> = {
-    names: [facts.names[0], facts.names[1]].filter((n) => n.trim()).join(' · ') || 'Not set yet',
+    names: input.oneName
+      ? input.oneName.initial.trim() || 'Not set yet'
+      : [facts.names[0], facts.names[1]].filter((n) => n.trim()).join(' · ') || 'Not set yet',
     date: input.date.dateDisplay ?? 'Not set yet',
     venues: input.venues.resolved.map((v) => v.name).filter(Boolean).join(' · ') || 'Not set yet',
     parents: [
@@ -163,7 +168,9 @@ export function yourEventParts({
   };
 
   const editors: Partial<Record<EventItemKey, ReactNode>> = {
-    names: input.names ? (
+    names: input.oneName ? (
+      <OneNameEditor eventId={eventId} initial={input.oneName.initial} hint={input.oneName.hint} />
+    ) : input.names ? (
       input.names.wholeForm ?? (
         <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} keep={input.names.keep} />
       )

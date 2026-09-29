@@ -45,7 +45,8 @@ import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
-import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceMode, resolveFaceTagging, type PapicFaceMode } from '@/lib/papic-face-mode';
+import { dayOfFaceCatchShows, type FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSeatingPublished } from '@/lib/seat-pass';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
@@ -102,6 +103,7 @@ import type {
   EventMedia,
   GuestContext,
   GuestPapicCamera,
+  GuestRow,
   LiveLayerData,
   LiveWallData,
   WatchLiveData,
@@ -138,7 +140,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -734,6 +736,7 @@ export const loadMedia = cache(
       venue_longitude: event.venue_longitude,
       std_film_ceremony_name: event.std_film_ceremony_name as string | null,
       std_film_venue_name: event.std_film_venue_name as string | null,
+      ceremony_venue_address: (event as { ceremony_venue_address?: string | null }).ceremony_venue_address ?? null,
     });
 
     // Resolve the couple-curated "Our photos" gallery (Increment A.4) to display
@@ -1320,6 +1323,27 @@ export const loadGuestContext = cache(
     //
     // `faceMode` still decides the ASK's shape downstream (christening/debut are
     // forced mode_b), and RA 10173 consent is captured by the enroll UI itself.
+    //
+    // ⚖ AND IT DEPENDS ON THE GUEST'S OWN WISH (owner 2026-09-29: *"it should
+    // only depend if they want to be tagged"*). `guests.face_tagging_wanted`:
+    // a stored "No thanks" is never asked again; a guest who never answered is
+    // asked the one question first (DayOfFaceEnroll), never shown the selfie
+    // unasked. The couple's decline (`resolveFaceTagging().askable`) puts the
+    // question to nobody. Read on its own, not in the guest select above: that
+    // select THROWS on failure, and a failed wish read must degrade to silence,
+    // not to an error page.
+    const [faceTagging, { data: wishRow, error: wishError }] = await Promise.all([
+      resolveFaceTagging(admin, event.event_id),
+      admin
+        .from('guests')
+        .select('face_tagging_wanted')
+        .eq('guest_id', guest.guest_id)
+        .maybeSingle(),
+    ]);
+    if (wishError) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:guests.select(face_tagging_wanted)', wishError);
+    const faceTaggingWish: FaceTaggingWish = wishError
+      ? null
+      : ((wishRow as { face_tagging_wanted?: boolean | null } | null)?.face_tagging_wanted ?? null);
     let needsFaceEnroll = false;
     if (await isDataPrivacyControlActive('face_enrollment')) {
       if (guest.rsvp_status !== 'declined') {
@@ -1343,7 +1367,14 @@ export const loadGuestContext = cache(
         // So this fails toward SILENCE rather than toward asking. A guest who
         // genuinely has not enrolled and misses the prompt on one render sees
         // it on the next; nobody is asked twice for something they gave once.
-        needsFaceEnroll = enrollError ? false : !liveEnrollment;
+        needsFaceEnroll = enrollError
+          ? false
+          : dayOfFaceCatchShows({
+              // A failed wish read is silence too — never a re-ask of a "No".
+              askable: faceTagging.askable && !wishError,
+              enrolled: Boolean(liveEnrollment),
+              wish: faceTaggingWish,
+            });
       }
     }
 
@@ -1378,7 +1409,7 @@ export const loadGuestContext = cache(
           // to ORIG / mode_b instead of breaking.
           admin
             .from('events')
-            .select('papic_style, papic_face_mode')
+            .select('papic_style, papic_face_mode, face_tagging_declined_by_couple')
             .eq('event_id', event.event_id)
             .maybeSingle(),
         ]);
@@ -1401,6 +1432,10 @@ export const loadGuestContext = cache(
           faceMode: resolveFaceMode(
             (styleRow as { papic_face_mode?: string | null } | null)?.papic_face_mode,
             event.event_type,
+            // The couple's decline is the last word — without it this asked
+            // "what did the admin set", not "what runs on this event".
+            (styleRow as { face_tagging_declined_by_couple?: boolean | null } | null)
+              ?.face_tagging_declined_by_couple,
           ),
         };
       }
@@ -1581,7 +1616,9 @@ export const loadGuestContext = cache(
     // capture gates use — christening/debut forced to mode_b, fail-closed to
     // mode_b on a pre-migration DB. Threaded into SelfieCapture so a mode_b guest
     // never has a descriptor computed; the enroll actions null any vector anyway.
-    const rsvpFaceMode = await resolvePapicFaceMode(admin, event.event_id);
+    // Same one read as the day-of gate above (`resolveFaceTagging`), so the RSVP
+    // card and the catch can never disagree about the couple's decline.
+    const rsvpFaceMode = faceTagging.mode;
 
     /*
       ⚖ Owner 2026-09-21 ("2. yes"): one name box per extra seat on the reply.
@@ -1590,12 +1627,12 @@ export const loadGuestContext = cache(
       were given. A failed read degrades to the single-box reply (no seats
       listed), never to "your seats are empty".
     */
-    let plusOneSeatRows: { guest_id: string; name: string | null }[] | undefined;
+    let plusOneSeatRows: GuestRow['plus_one_seats'];
     if (plusOneSeats(guest) > 0) {
       const { data: seatRows, error: seatErr } = await admin
         .from('guests')
         // The shared guest-name columns, not a hand-picked few (lint:dup-rule).
-        .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at`)
+        .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, meal_preference, dietary_restrictions`)
         .eq('event_id', event.event_id)
         .eq('plus_one_of_guest_id', guest.guest_id)
         .is('deleted_at', null)
@@ -1612,6 +1649,10 @@ export const loadGuestContext = cache(
           return {
             guest_id: r.guest_id as string,
             name: placeholder ? null : `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || null,
+            first: placeholder ? null : ((r.first_name as string | null) ?? null),
+            last: placeholder ? null : ((r.last_name as string | null) ?? null),
+            meal: (r.meal_preference as string | null) ?? null,
+            dietary: (r.dietary_restrictions as string | null) ?? null,
           };
         });
       }
@@ -1619,7 +1660,11 @@ export const loadGuestContext = cache(
 
     return {
       kind: 'ready',
-      guest: plusOneSeatRows ? { ...guest, plus_one_seats: plusOneSeatRows } : guest,
+      guest: {
+        ...guest,
+        ...(plusOneSeatRows ? { plus_one_seats: plusOneSeatRows } : {}),
+        face_tagging_wanted: faceTaggingWish,
+      },
       qrSvg,
       invitationUrl,
       papicGuestActive,
@@ -1631,6 +1676,7 @@ export const loadGuestContext = cache(
       guestHubData,
       seatMap,
       rsvpFaceMode,
+      faceTaggingAskable: faceTagging.askable,
       eventVendorCredits,
     };
   },

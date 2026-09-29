@@ -40,6 +40,7 @@
  * Pure: no React, no DB. Type-only import from `hub-canvas`'s sanitizer chain.
  */
 import { hubMediaRef, sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
+import type { PrintStoryChapter } from '@/lib/print-pieces';
 
 /* ── LIMITS ─────────────────────────────────────────────────────────────── */
 
@@ -383,6 +384,28 @@ export function loveStoryScenes(loveStory: unknown): LoveStoryScene[] {
       canvas: m.canvas,
       template: suggestedMomentTemplate(m),
     }));
+}
+
+/**
+ * THE LOVE STORY, AS THE OUR STORY POSTER PRINTS IT (`lib/print-layout.ts`,
+ * `layoutStoryPoster`) — from the ONE source every reader of
+ * the story asks (`loveStoryScenes` above: the couple's moments, or the words they
+ * wrote at onboarding until they save one; hidden moments left out; reading
+ * order). Consecutive moments of a chapter are grouped under its name. Nothing
+ * is invented: a moment with no date prints no date, one with no place no place.
+ */
+export function printStoryChapters(loveStory: unknown): PrintStoryChapter[] {
+  const out: PrintStoryChapter[] = [];
+  for (const s of loveStoryScenes(loveStory)) {
+    const line = s.line.replace(/\s+/g, ' ').trim();
+    const place = s.place?.replace(/\s+/g, ' ').trim() || null;
+    if (!line && !place) continue;
+    const last = out[out.length - 1];
+    const moment = { when: s.when, line, place };
+    if (last && last.label === s.chapterLabel) last.moments.push(moment);
+    else out.push({ label: s.chapterLabel, moments: [moment] });
+  }
+  return out;
 }
 
 /** Every photo ref the guest page must sign for the Love Story — one pass, deduped. */

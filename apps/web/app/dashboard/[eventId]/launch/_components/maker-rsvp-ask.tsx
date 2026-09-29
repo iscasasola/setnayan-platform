@@ -1,7 +1,7 @@
 'use client';
 
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { useEffect, useId, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
@@ -83,43 +83,81 @@ export function MakerRsvpSettings({
    *  null` = could not be read. */
   requests: { count: number | null; list: ReactNode | null };
 }) {
-  const [pending, start] = useTransition();
+  const [, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [local, setLocal] = useState<RsvpAskConfig>(current);
+  /* ⚡ A SWITCH FLIPS ON THE TAP (owner 2026-09-29, this page: *"when a toggle
+     is pressed. everything loads for around 3 seconds"*). It used to set
+     `local` INSIDE `start(async () => …)` — and React 19 holds every update
+     made inside an async transition until the whole action settles. So the
+     controlled switch snapped back at once, every switch on the page went
+     grey (`disabled={pending}`), and nothing moved until the server answered —
+     which, for a second tap, meant waiting behind the first tap's whole-Maker
+     refresh too (Next runs server actions and refreshes one at a time). Now the
+     switch is drawn first, outside the transition; the draft save runs behind
+     it through `makerSave`; nothing is disabled while it runs; and a refused
+     save puts the switch back AND says which one, in words.
+     Held by `lib/every-maker-edit-shows-before-it-saves.test.ts` (A · a write
+     inside the transition does not count as drawn; D · no switch waits). */
+  /** What the switches show — every save posts ALL of it (one object, above). */
+  const latest = useRef<RsvpAskConfig>(current);
+  /** What the draft holds, as far as this panel knows — a refused save goes back here. */
+  const saved = useRef<RsvpAskConfig>(current);
+  /** Saves of mine still on their way, and which tap is the newest. */
+  const inFlight = useRef(0);
+  const newest = useRef(0);
   /* 🔁 ONE VALUE, NOT TWO (2026-09-27, "the switch reads Off but the input
      carries checked"). The switch's label, its knob and its input are all
      drawn from `local`; `local` is re-seeded from the server's draft whenever
      that changes (Apply, Discard, another tab), so the switch can never keep
      showing a value the draft no longer holds. (A `checked=""` ATTRIBUTE left
      from the first server render is not the state — React drives the
-     `checked` PROPERTY, which is what `:checked` and the form read.) */
+     `checked` PROPERTY, which is what `:checked` and the form read.)
+     While a tap of mine is still on its way, a render that left before it
+     cannot hold it — re-seeding then would flip the switch back for a moment.
+     The save's own refresh (`makerSave`, once it lands) brings the answer. */
   const currentKey = JSON.stringify(current);
   useEffect(() => {
+    saved.current = JSON.parse(currentKey) as RsvpAskConfig;
+    if (inFlight.current > 0) return;
+    latest.current = saved.current;
     setLocal(JSON.parse(currentKey) as RsvpAskConfig);
   }, [currentKey]);
 
-  const save = (patch: RsvpAskConfig) =>
+  const save = (patch: RsvpAskConfig) => {
+    const next: RsvpAskConfig = { ...latest.current, ...patch };
+    latest.current = next;
+    setLocal(next); // ⚡ on screen at the tap — never inside the transition below
+    setError(null);
+    const tap = ++newest.current;
+    inFlight.current += 1;
     start(async () => {
-      setError(null);
-      const next: RsvpAskConfig = { ...local, ...patch };
-      setLocal(next);
+      let refused: string | null = null;
       try {
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { rsvp_ask_config: next } }));
         /* The RSVP page beside it and the toolbar's count read the draft: ONE
            refresh after the last switch lands (`lib/maker-refresh.ts`) — the
-           action itself no longer re-renders the whole Maker. */
+           action itself no longer re-renders the whole Maker, and the RSVP
+           picture loads the new render BEHIND the one shown (`MakerPageFrame`). */
         const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
-        if (!r.ok) {
-          setError(r.error);
-          setLocal(current); // the save was refused — do not show a switch that did not take
-        }
+        if (r.ok) saved.current = next;
+        else refused = r.error;
       } catch {
-        setError('That did not save. Please try again.');
-        setLocal(current);
+        refused = 'Please try again.';
+      } finally {
+        inFlight.current -= 1;
+      }
+      /* A later tap is already on its way carrying the WHOLE object, so it
+         decides; only the newest tap's refusal puts the switches back. */
+      if (refused !== null && tap === newest.current) {
+        latest.current = saved.current;
+        setLocal(saved.current);
+        setError(`${rsvpSettingName(patch)} did not save, so it is back as it was. ${refused}`);
       }
     });
+  };
 
   const oneAtATime = readOneAtATime(local);
   const who = readWhoCanRsvp(local);
@@ -138,7 +176,6 @@ export function MakerRsvpSettings({
         <Switch
           label={oneAtATime ? 'On · one question per screen' : 'Off · one scrolling page'}
           on={oneAtATime}
-          disabled={pending}
           onChange={(v) => save({ oneAtATime: v })}
         />
       </section>
@@ -160,7 +197,6 @@ export function MakerRsvpSettings({
                 </InfoTip>
               }
               on={rsvpAsks(local, field)}
-              disabled={pending}
               onChange={(v) => save({ [field]: v })}
             />
           ))}
@@ -184,9 +220,8 @@ export function MakerRsvpSettings({
               type="button"
               role="radio"
               aria-checked={who === value}
-              disabled={pending}
               onClick={() => (who === value ? undefined : save({ whoCanRsvp: value }))}
-              className={`sn-press min-h-11 rounded-full px-3 text-[13px] font-semibold transition-colors duration-sn-control ease-sn disabled:opacity-60 ${
+              className={`sn-press min-h-11 rounded-full px-3 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
                 who === value ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
               }`}
             >
@@ -239,7 +274,6 @@ export function MakerRsvpSettings({
               : 'Off · no reminder emails'
           }
           on={guestReminders}
-          disabled={pending}
           onChange={(v) => save({ guestReminders: v })}
         />
         <p className="text-xs text-ink/60">
@@ -285,6 +319,15 @@ export function MakerRsvpSettings({
   );
 }
 
+/** The setting a refused save put back, as the couple reads it on this page. */
+function rsvpSettingName(patch: RsvpAskConfig): string {
+  if ('oneAtATime' in patch) return '“Ask one question at a time”';
+  if ('whoCanRsvp' in patch) return '“Who can RSVP?”';
+  if ('guestReminders' in patch) return '“Reminder emails”';
+  const field = RSVP_ASK_FIELDS.find((f) => f in patch);
+  return field ? `“${RSVP_ASK_LABEL[field]}”` : 'That change';
+}
+
 /** "18 November 2026" from `YYYY-MM-DD`, without a timezone shift. */
 function formatDay(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number);
@@ -301,12 +344,10 @@ function formatDay(ymd: string): string {
 function Switch({
   label,
   on,
-  disabled,
   onChange,
 }: {
   label: React.ReactNode;
   on: boolean;
-  disabled: boolean;
   onChange: (next: boolean) => void;
 }) {
   // `label` is usually an <InfoTip>, which renders a <button>. A <label> with
@@ -327,13 +368,12 @@ function Switch({
         role="switch"
         checked={on}
         aria-checked={on}
-        disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
         className="peer sr-only"
       />
       <span
         aria-hidden
-        className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors duration-sn-control ease-sn after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform after:duration-sn-control after:ease-sn peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-disabled:opacity-40"
+        className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors duration-sn-control ease-sn after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform after:duration-sn-control after:ease-sn peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5"
       />
     </label>
   );
@@ -361,7 +401,7 @@ function ReplyByField({
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => setValue(own ?? ''), [own]);
   const dirty = value !== (own ?? '');
-  const save = () =>
+  const saveReplyBy = () =>
     start(async () => {
       setNote(null);
       const fd = new FormData();
@@ -387,7 +427,7 @@ function ReplyByField({
         />
         <button
           type="button"
-          onClick={save}
+          onClick={saveReplyBy}
           disabled={pending || !dirty}
           className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-50"
         >

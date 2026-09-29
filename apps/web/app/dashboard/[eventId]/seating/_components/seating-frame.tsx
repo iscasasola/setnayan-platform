@@ -33,13 +33,13 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
  * page, no `layout.tsx` change. Uses `100dvh` (never `vh`) for iOS toolbar
  * collapse.
  */
-export function SeatingFrame({ children }: { children: ReactNode }) {
+export function SeatingFrame({ children, fill = false }: { children: ReactNode; fill?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [topPx, setTopPx] = useState<number | null>(null);
 
   useIsoLayoutEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || fill) return;
     const measure = () => {
       const top = el.getBoundingClientRect().top + window.scrollY;
       // With the page bled full-height and no document scroll, scrollY is 0 and
@@ -55,22 +55,32 @@ export function SeatingFrame({ children }: { children: ReactNode }) {
       window.removeEventListener('resize', measure);
       ro.disconnect();
     };
-  }, []);
+  }, [fill]);
 
   // Dev-only assertion (verdict §9): any future flow sibling that reintroduces
   // scroll by pushing the frame down fails loudly.
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production' && topPx !== null && topPx > 240) {
+    if (!fill && process.env.NODE_ENV !== 'production' && topPx !== null && topPx > 240) {
       // eslint-disable-next-line no-console
       console.warn(
         `[SeatingFrame] measured a top offset of ${topPx}px — the frame is being pushed down by a flow sibling; the scroll-less budget assumes it sits directly under the shell chrome.`,
       );
     }
-  }, [topPx]);
+  }, [topPx, fill]);
 
   const style: CSSProperties =
     topPx === null ? { height: '100dvh' } : { height: `calc(100dvh - ${topPx}px)` };
 
+  /* 🪑 `fill` — inside the Maker's Details the frame is its middle part: it
+     fills the part it is given (the Maker already owns the viewport), so it
+     measures nothing and takes no 100dvh of its own. */
+  if (fill) {
+    return (
+      <div ref={ref} data-seating-frame="fill" className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {children}
+      </div>
+    );
+  }
   return (
     <div ref={ref} data-seating-frame className="flex flex-col overflow-hidden" style={style}>
       {children}
@@ -112,11 +122,14 @@ export function BannerSlot({ children }: { children: ReactNode }) {
  * Row 3 — body. The left panel + canvas split; the canvas cell owns all
  * remaining height and positions its content `absolute inset-0`.
  */
-export function FrameBody({ children }: { children: ReactNode }) {
+export function FrameBody({ children, single = false }: { children: ReactNode; single?: boolean }) {
   // Desktop: [320px panel | canvas] grid. Mobile (<lg): a vertical flex split so
   // the canvas is never fully pushed below the fold (the polished bottom-drawer
   // is a later PR — verdict §7). Children add `flex-1 lg:flex-none` to share the
   // mobile height and hand back to the grid at lg.
+  // `single` (Details): no panel column — the panel's lists are the Maker's own
+  // left and right parts, so the canvas is the whole body.
+  if (single) return <div className="flex min-h-0 flex-1 flex-col">{children}</div>;
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[320px_minmax(0,1fr)]">
       {children}
@@ -198,7 +211,7 @@ export function BarMenu({
             }}
             className={`absolute ${
               align === 'right' ? 'right-0' : 'left-0'
-            } z-40 mt-1 ${width} overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg`}
+            } z-40 mt-1 ${width} max-h-[60dvh] overflow-y-auto overscroll-contain rounded-xl border border-ink/10 bg-cream p-1 shadow-lg`}
           >
             {children}
           </div>

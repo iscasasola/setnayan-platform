@@ -23,7 +23,13 @@ import type { ElementDraftAction, ElementPalette } from '../../website/editor/_c
  * selected, and whether the navigator is open.
  */
 
-export type MakerDevice = 'desktop' | 'phone';
+/**
+ * 'both' = the phone and the desktop render side by side (View ▾ Both, owner
+ * 2026-09-28). Offered only at 1024 px and wider (`makerViewOptions`); the
+ * `device` in `MakerState` is what the canvas SHOWS (`makerShownDevice`), so a
+ * window narrowed under 1024 px falls back to Desktop without losing the pick.
+ */
+export type MakerDevice = 'desktop' | 'phone' | 'both';
 
 /** What the inspector is showing. `null` = nothing selected, inspector closed. */
 export type MakerSelection =

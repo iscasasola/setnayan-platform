@@ -46,7 +46,11 @@ const TYPES = strip(read('app/[slug]/_lib/types.ts'));
 const WRITE = (() => {
   const at = ACTIONS.indexOf("plus_one_of_guest_id', guestId");
   assert.ok(at > -1, 'the plus-one write is gone');
-  return ACTIONS.slice(Math.max(0, at - 1800), at + 2600);
+  // +3600: the block grew each seat's meal/dietary + a details-only branch
+  // (2026-09-29); the end must still reach the primary's `plus_one_name` mirror.
+  const block = ACTIONS.slice(Math.max(0, at - 1800), at + 3600);
+  assert.ok(block.includes('firstNamed'), 'the window no longer reaches the end of the plus-one write');
+  return block;
 })();
 
 // ── The fact the card was missing ───────────────────────────────────────────

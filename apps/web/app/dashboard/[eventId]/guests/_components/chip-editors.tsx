@@ -54,6 +54,7 @@ import {
   setGuestPlusOneCount,
 } from '../inline-actions';
 import { PlusBadge } from './seat-chip';
+import { useBringerSeats } from './plus-one-seats-note';
 import { groupsForSide, teamSideForNewGroup } from '@/lib/groups-for-side';
 import { quickCreateGroup } from '../quick-add-actions';
 import { formatCount } from '@/lib/format-number';
@@ -322,6 +323,10 @@ export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: 
   const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const commit = useFieldEdit(guest.guest_id);
+  // How many of this guest's seats already hold a person (frame G, 2026-09-29):
+  // the menu says it beside each number, so lowering below it is a choice the
+  // host makes knowingly — it is allowed, and the row then warns.
+  const named = useBringerSeats(guest.guest_id).filter((s) => s.named).length;
   const finalized = useContext(GuestListFinalizedContext);
   const name = guestDisplayName(guest);
   const current = plusOneSeats(guest);
@@ -371,13 +376,20 @@ export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: 
         )}
       </ChipTrigger>
       {open ? (
-        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={170}>
+        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={named > 0 ? 220 : 170}>
           <p className="px-2.5 pb-1 pt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/40">
             Extra seats
           </p>
           {PLUS_ONE_CHOICES.map((n) => (
             <OptionRow key={n} onClick={() => pick(n)} active={current === n}>
               {n === 0 ? 'None' : `+${n}`}
+              {named > 0 ? (
+                <span className="ml-1.5 text-[11px] font-normal text-ink/50">
+                  {n >= named
+                    ? `${named} named${n > named ? ` · ${n - named} TBA` : ''}`
+                    : `${named} named · ${n} allowed`}
+                </span>
+              ) : null}
             </OptionRow>
           ))}
         </Popover>

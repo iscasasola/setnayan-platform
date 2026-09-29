@@ -254,3 +254,33 @@ export async function enrollGuestFace(
     return { ok: false };
   }
 }
+
+/**
+ * The day-of catch's one question — "Want to be tagged in the photos?" — for a
+ * guest who never answered it on the RSVP (owner 2026-09-29, lib/face-tagging-wish.ts).
+ *
+ * Cookie-authenticated exactly like `enrollGuestFace`: the session names the
+ * guest, so nobody can answer for somebody else. "No thanks" is stored so the
+ * catch never asks again; "Yes, tag me" is stored so the selfie that follows
+ * is theirs by choice, and so a guest who stops half-way is not asked the
+ * question twice.
+ *
+ * ⚠ NOT CONSENT. Storing "yes" enrols nothing — the selfie's own two ticks
+ * (biometric consent + 18+) still gate `enrollGuestFace`.
+ */
+export async function recordFaceTaggingWish(wantsTagging: boolean): Promise<{ ok: boolean }> {
+  try {
+    if (typeof wantsTagging !== 'boolean') return { ok: false };
+    const session = await readGuestSession();
+    if (!session) return { ok: false };
+    const { error } = await createAdminClient()
+      .from('guests')
+      .update({ face_tagging_wanted: wantsTagging })
+      .eq('guest_id', session.guest_id)
+      .eq('event_id', session.event_id);
+    if (error) console.error('[supabase-error] app/papic/face-enroll-actions.ts · from:guests.update(face_tagging_wanted)', error);
+    return { ok: !error };
+  } catch {
+    return { ok: false };
+  }
+}

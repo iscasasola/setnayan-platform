@@ -35,6 +35,12 @@ export function guestChecklistItems(input: {
   venueLatitude: number | null;
   venueLongitude: number | null;
   tableLabel: string | null;
+  /**
+   * Where "Save to Photos" saves this guest's pass. Omitted: the bare QR
+   * (`/api/guest/qr`). Null: this guest has no pass yet (pending, or can't
+   * come — lib/pass-card.ts), so the checklist draws no pass item at all.
+   */
+  passHref?: string | null;
 }): ChecklistItem[] {
   const config = (input.dressCodeConfig ?? null) as {
     title?: unknown;
@@ -70,6 +76,6 @@ export function guestChecklistItems(input: {
     venueName: input.venueName,
     mapsHref,
     tableLabel: input.tableLabel,
-    passHref: '/api/guest/qr',
+    passHref: input.passHref === undefined ? '/api/guest/qr' : input.passHref,
   });
 }

@@ -31,6 +31,14 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
 import { GuestQrCard } from './guest-detail-body';
+/* ⚡ TYPE ONLY. The Send invite block is handed in by the page that draws it
+   (\`SendInvite\` below): the Guest list passes the real one, and the Maker —
+   whose parent cards never show it — passes nothing, so its code stays out of
+   the Maker's first load (\`check-maker-js-budget.mjs\`). */
+import type { GuestSendInvite } from './send-invite';
+import type { GuestPassCardLink } from './guest-pass-card-link';
+import type { ComponentType } from 'react';
+import type { InviteSetup } from './invite-message-setup';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
@@ -143,6 +151,9 @@ export function GuestCardBody({
   returnTo,
   errorMessage,
   inviteFlash,
+  inviteSetup,
+  SendInvite,
+  PassCardLink,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -168,6 +179,16 @@ export function GuestCardBody({
   returnTo: string;
   errorMessage: string | null;
   inviteFlash: { ok: boolean; msg: string } | null;
+  /**
+   * Send invite · Copy message (owner 2026-09-29) — the event's facts and the
+   * couple's wording, read once by the page (`loadInviteSetup`). Absent → the
+   * QR card draws without the send block, exactly as before.
+   */
+  inviteSetup?: InviteSetup | null;
+  /** The Send invite block itself — given with \`inviteSetup\` by the pages that draw it. */
+  SendInvite?: typeof GuestSendInvite;
+  /** The guest's pass-card save (#6150) — handed in the same way: the Guest list the real one, the Maker its lazy stand-in. */
+  PassCardLink?: ComponentType<Parameters<typeof GuestPassCardLink>[0]>;
 }) {
   const {
     guest,
@@ -261,6 +282,25 @@ export function GuestCardBody({
           guest={guest}
           eventId={eventId}
           invitationBase={invitationBase}
+          PassCardLink={PassCardLink}
+          sendSlot={
+            /* 🕯 Nothing is offered for a guest marked Passed away, and the
+               couple do not invite themselves. */
+            inviteSetup && SendInvite && invitationBase && !guest.passed_away && !isCouple ? (
+              <SendInvite
+                eventId={eventId}
+                guest={{
+                  guestId: guest.guest_id,
+                  firstName: guest.first_name,
+                  fullName: guestDisplayName(guest),
+                  inviteUrl: guest.qr_token ? `${invitationBase}?invite=${guest.qr_token}` : null,
+                  sentAt: guest.invitation_sent_at,
+                }}
+                facts={inviteSetup.facts}
+                template={inviteSetup.template}
+              />
+            ) : null
+          }
         />
         <div className="overflow-hidden rounded-lg border border-ink/10">
           {guest.passed_away ? (

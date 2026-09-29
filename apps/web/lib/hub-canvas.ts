@@ -1060,7 +1060,7 @@ export function hubCanvasMediaRefs(
     // (`heroVideoRefForGuests`), and a URL nobody may play is not minted. The
     // hero it follows by default is signed by `loadMedia`, like every hero.
     const main = hubMainGround(row.config_json);
-    if (main && !isHubMainFollow(main)) {
+    if (isHubMainOwn(main)) {
       if (main.kind === 'photo') out.add(main.media);
       if (main.poster) out.add(main.poster);
     }
@@ -1135,12 +1135,39 @@ export type HubMainOwn = {
   poster?: string;
   /** The adaptive theme: "Match my video's colours" and the frame it follows. */
   tint?: HubTint;
+  /**
+   * 🌄 Still (absent) or Parallax — a PHOTO only, on the shipped hero parallax
+   * (`PahinaCoverParallax`, page-scroll mode for this fixed layer). Pro, like
+   * the photo it moves.
+   */
+  motion?: 'parallax';
 };
 
-export type HubMainGround = HubMainFollow | HubMainOwn;
+/**
+ * 🖼 THE COUPLE CHOSE WHAT IS BEHIND EVERY SCENE, AND IT IS NOT MEDIA (owner
+ * 2026-09-29, DECISION_LOG "THE MAIN BACKGROUND OFFERS EVERY CHOICE…",
+ * verbatim *"the background animated video cannot be unpicked"*):
+ *   · `theme` — the theme's own background (its loop / still), even with a
+ *     hero photo up — "Same as my hero" is no longer forced over it;
+ *   · `none`  — NO picture and NO loop: just the Background colour.
+ * Both are free (taking media down never costs anything).
+ */
+export type HubMainChoice = { ground: 'theme' | 'none' };
+
+export type HubMainGround = HubMainFollow | HubMainOwn | HubMainChoice;
 
 export function isHubMainFollow(m: HubMainGround | null | undefined): m is HubMainFollow {
   return Boolean(m && 'follow' in m);
+}
+
+/** The couple's own clip or photo (not the hero, not a choice). */
+export function isHubMainOwn(m: HubMainGround | null | undefined): m is HubMainOwn {
+  return Boolean(m && 'media' in m && 'kind' in m);
+}
+
+/** "The theme's background" or "None — just the colour". */
+export function isHubMainChoice(m: HubMainGround | null | undefined): m is HubMainChoice {
+  return Boolean(m && 'ground' in m);
 }
 
 /** Anything → a Main background, or null. Drops rather than repairs. */
@@ -1152,6 +1179,7 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
     const tint = sanitizeHubTint(src.tint);
     return of && tint ? { follow: 'hero', of, tint } : null;
   }
+  if (src.ground === 'theme' || src.ground === 'none') return { ground: src.ground };
   const media = hubMediaRef(src.media);
   if (!media || (src.kind !== 'photo' && src.kind !== 'snippet')) return null;
   const out: HubMainOwn = { kind: src.kind, media };
@@ -1159,6 +1187,7 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   if (poster) out.poster = poster;
   const tint = sanitizeHubTint(src.tint);
   if (tint) out.tint = tint;
+  if (src.motion === 'parallax' && out.kind === 'photo') out.motion = 'parallax';
   return out;
 }
 
@@ -1166,6 +1195,14 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
 export function hubMainGround(config: unknown): HubMainGround | null {
   if (!config || typeof config !== 'object' || Array.isArray(config)) return null;
   return sanitizeHubMainGround((config as Record<string, unknown>)[HUB_MAIN_GROUND_KEY]);
+}
+
+/**
+ * Does the couple want NOTHING behind their scenes — no theme loop, no picture,
+ * just the Background colour? (`{ ground: 'none' }`.)
+ */
+export function mainGroundIsNone(main: HubMainGround | null | undefined): boolean {
+  return isHubMainChoice(main) && main.ground === 'none';
 }
 
 /** What the page draws behind every scene — refs only; the caller signs them. */
@@ -1179,6 +1216,8 @@ export type ResolvedMainGround = {
   /** The same clip for a GUEST — null while unscreened clips may not reach one. */
   guestClipRef: string | null;
   tint: HubTint | null;
+  /** 🌄 Parallax on the couple's own photo. */
+  parallax?: boolean;
 };
 
 /**
@@ -1196,13 +1235,16 @@ export function resolveMainGround(
   hero: { photoRef: string | null; videoRef: string | null; guestVideoRef: string | null },
   guestClipGate: (ref: string) => string | null,
 ): ResolvedMainGround | null {
-  if (main && !isHubMainFollow(main)) {
+  /* 🖼 The theme's own background, or none at all — no picture of the couple's. */
+  if (isHubMainChoice(main)) return null;
+  if (isHubMainOwn(main)) {
     return {
       source: 'own',
       stillRef: main.kind === 'photo' ? main.media : (main.poster ?? null),
       clipRef: main.kind === 'snippet' ? main.media : null,
       guestClipRef: main.kind === 'snippet' ? guestClipGate(main.media) : null,
       tint: main.tint ?? null,
+      ...(main.motion === 'parallax' ? { parallax: true } : {}),
     };
   }
   if (!hero.photoRef || !main || main.of !== hero.photoRef) return null;

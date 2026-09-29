@@ -27,7 +27,7 @@ import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { WEDDING_PROFILE } from '@/lib/event-type-profile';
 import { sanitizeHubElements } from '@/lib/element-style';
 import { HERO_DESIGNS, heroDesignLabel } from '@/lib/hero-design';
-import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { HUB_THEMES, INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { LAB_MARK_SVG } from './mark';
 
 const LONG = 'Maria Clara Concepcion & Juan Miguel de los Santos';
@@ -67,7 +67,7 @@ export default async function HeroLabPage({ searchParams }: { searchParams: Prom
     <div className="min-h-dvh text-ink">
       <nav className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-ink/10 bg-cream/95 px-4 py-2 text-xs backdrop-blur" data-app-chrome="">
         <span className="font-semibold">Hero lab</span>
-        {Object.values(INVITE_THEMES).map((t) => (
+        {HUB_THEMES.map((t) => (
           <a key={t.id} href={qs({ theme: t.id })} className={t.id === theme ? 'font-semibold underline' : 'text-ink/70'}>
             {t.name}
           </a>

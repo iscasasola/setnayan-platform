@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendEmail } from '@/lib/email';
 import { findSlugConflict } from '@/lib/slug-availability';
 
@@ -293,21 +294,75 @@ export async function markGuestInvitationSent(
      wants to end up at, so the button label and the outcome cannot disagree. */
   const markSent = formData.get('sent') === '1';
 
-  const { data, error } = await supabase
-    .from('guests')
-    .update({ invitation_sent_at: markSent ? new Date().toISOString() : null })
-    .eq('guest_id', guestId)
-    .eq('event_id', eventId)
-    .select('guest_id');
-
-  if (error || !data || data.length === 0) {
+  const written = await writeGuestInvitationSent(supabase, eventId, guestId, markSent);
+  if (!written.ok) {
     /* No silent success. The page re-reads on revalidate, so a refused write
        simply leaves the chip as it was rather than claiming a state change. */
     redirect(`/dashboard/${eventId}/invitation?invite=failed`);
   }
+}
+
+/**
+ * THE ONE STATEMENT BOTH PER-GUEST DOORS RUN — the Invitation page's form above
+ * and the guest list's Send invite / Copy message / Send invites one by one
+ * (`setGuestInvitationSent` below). One statement, so "who has theirs" can only
+ * mean one thing (`the-invite-step-counts-what-is-true.test.ts` pins this file
+ * as the column's only writer).
+ *
+ * ⚠ It counts rows: a zero-row UPDATE (RLS refused, wrong event) is not a
+ * success, and the caller is told so.
+ */
+async function writeGuestInvitationSent(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  guestId: string,
+  markSent: boolean,
+): Promise<{ ok: true; sentAt: string | null } | { ok: false }> {
+  const sentAt = markSent ? new Date().toISOString() : null;
+  const { data, error } = await supabase
+    .from('guests')
+    .update({ invitation_sent_at: sentAt })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .select('guest_id');
+
+  if (error) {
+    // Said, never swallowed: the caller shows the couple it did not save; the
+    // reason goes to the log so a refused write leaves a trace.
+    logQueryError('writeGuestInvitationSent', error, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+    return { ok: false };
+  }
+  // A zero-row UPDATE (RLS refused, wrong event) is not a success either.
+  if (!data || data.length === 0) return { ok: false };
 
   revalidatePath(`/dashboard/${eventId}/invitation`);
   revalidatePath(`/dashboard/${eventId}/guests`);
+  return { ok: true, sentAt };
+}
+
+/**
+ * SENT ✓ FROM THE GUEST LIST (owner 2026-09-29, "create a copy text").
+ *
+ * The guest card's "Send invite" calls this once the phone's share sheet has
+ * handed the message to an app; "Copy message" never calls it by itself — a
+ * copy is not a send — and offers "Mark as sent" instead, which does. Same
+ * toggle as the Invitation page (Undo sends `false`).
+ *
+ * It RETURNS rather than redirects: the card and the one-by-one run are
+ * client surfaces that must say "couldn't save" in place, not be thrown to
+ * another page.
+ */
+export async function setGuestInvitationSent(
+  eventId: string,
+  guestId: string,
+  sent: boolean,
+): Promise<{ ok: true; sentAt: string | null } | { ok: false }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+  return writeGuestInvitationSent(supabase, eventId, guestId, sent === true);
 }
 
 /**

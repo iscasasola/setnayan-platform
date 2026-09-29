@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LIVE_SCREEN_POLL_MS, VENUE_SCREEN_LOCKED_TV_MESSAGE } from '@/lib/live-screens';
 import type { LoadedScreen } from '../_lib/load-screen';
+import { CoupleLogo } from '@/app/_components/couple-logo';
 
 type Ready = Extract<LoadedScreen, { state: 'ready' }>;
 
@@ -104,8 +105,18 @@ function LiveBackground({ brand }: { brand: Ready['brand'] }) {
       style={{ backgroundImage: `radial-gradient(ellipse at center, ${accent}22 0%, transparent 65%)` }}
     >
       {brand.markDataUri ? (
-        // eslint-disable-next-line @next/next/no-img-element -- an inert data: URI of an already-sanitized SVG, same technique as the broadcast overlay
-        <img src={brand.markDataUri} alt="" className="h-[38vh] w-auto max-w-[70vw] animate-[pulse_8s_ease-in-out_infinite]" />
+        /* ▶ Plays when it moves and the animation is on — once, then its
+           Drift; the 5-second poll re-renders it without replaying it. */
+        <CoupleLogo
+          svg={brand.markSvg}
+          plays={brand.markPlays}
+          place="venue-screen"
+          className="flex h-[38vh] w-[38vh] max-w-[70vw]"
+          still={
+            // eslint-disable-next-line @next/next/no-img-element -- an inert data: URI of an already-sanitized SVG, same technique as the broadcast overlay
+            <img src={brand.markDataUri} alt="" className="h-[38vh] w-auto max-w-[70vw] animate-[pulse_8s_ease-in-out_infinite]" />
+          }
+        />
       ) : (
         <p
           className="font-serif text-[22vh] leading-none tracking-tight animate-[pulse_8s_ease-in-out_infinite]"

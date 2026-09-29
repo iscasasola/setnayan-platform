@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { hubMainGround, resolveMainGround } from '@/lib/hub-canvas';
+import { hubMainGround, mainGroundIsNone, resolveMainGround } from '@/lib/hub-canvas';
 import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
 import { websiteProActiveFor } from './hub-look';
 import { resolveHero, type HeroEventInput } from '@/lib/event-hero';
@@ -10,7 +10,7 @@ import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { MainGround } from '../_components/main-ground';
+import { MainGround, MainGroundNone } from '../_components/main-ground';
 
 /**
  * 🎞 THE MAIN BACKGROUND (Maker Phase 10) — the couple's hero photo/video, or
@@ -64,6 +64,13 @@ export async function mainGroundLayerFor({
   /** Refs the caller already signed, so a ref is never signed twice. */
   signed?: Record<string, string>;
 }): Promise<ReactNode> {
+  /* 🖼 "NONE — JUST THE COLOUR" (owner 2026-09-29, *"the background animated
+     video cannot be unpicked"*): the theme's loop is switched off and nothing
+     is laid over the Background colour. Free — no ownership read, any theme
+     with a loop. */
+  if (mainGroundIsNone(hubMainGround(heroConfig))) {
+    return INVITE_THEMES[theme]?.media ? <MainGroundNone /> : null;
+  }
   // The ownership read only where it can change the answer (a free theme with
   // a loop); cached per request, shared with the theme gate and the watermark.
   const ownsPro = heroGroundNeedsOwnership(theme)
@@ -84,6 +91,7 @@ export async function mainGroundLayerFor({
       <MainGround
         still={still}
         clip={clip}
+        parallax={mainGround.parallax === true}
         adaptive={adaptive}
         vars={adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) })}
       />

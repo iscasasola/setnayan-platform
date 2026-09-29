@@ -42,6 +42,8 @@ export type DetailsPieces = {
   piece: (item: DetailsItemKey) => string | null;
   /** `openEditor`: on a phone, also open the editor panel (the piece's controls). */
   setPiece: (item: DetailsItemKey, piece: string | null, opts?: { openEditor?: boolean }) => void;
+  /** Open the right part on a phone (a tool's own button that shows its controls there — the seat plan's "N to seat"). */
+  openEditor?: () => void;
 };
 export const DetailsPieceContext = createContext<DetailsPieces | null>(null);
 
@@ -51,6 +53,12 @@ export function useDetailsPiece(
 ): [string | null, (piece: string | null, opts?: { openEditor?: boolean }) => void] {
   const ctx = useContext(DetailsPieceContext);
   return [ctx?.piece(item) ?? null, (p, opts) => ctx?.setPiece(item, p, opts)];
+}
+
+/** Open Details' right part (a phone's editor panel). Outside Details: a no-op. */
+export function useDetailsEditorOpener(): () => void {
+  const ctx = useContext(DetailsPieceContext);
+  return () => ctx?.openEditor?.();
 }
 
 /**

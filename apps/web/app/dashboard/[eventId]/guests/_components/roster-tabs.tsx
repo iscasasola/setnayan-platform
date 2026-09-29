@@ -11,12 +11,12 @@
  * move changes WHERE they sit, never WHEN they show:
  *
  *   Roster            always
- *   Wedding March     before the event, and only with a processional
  *   Share the link    before the event            (was "Invite guests")
- *   Arrange the room  before the event
  *   Check-in          after the event
  *   Share ▾           after the event, with a join link
- *   (QR codes (PDF) moved to Details › For the day on 2026-09-29.)
+ *   (QR codes (PDF) moved to Details › For the day, the Wedding March to
+ *   Details › Your event, and Arrange the room to Details › Your event › Seat
+ *   plan — all 2026-09-29, DECISION_LOG "THE GUEST LIST KEEPS PEOPLE…".)
  *
  * 🔑 THE ONE THING REMOVED IS A DUPLICATE. Before the event the masthead held
  * BOTH "Invite guests" and a Share dropdown, and both handed out the same join
@@ -36,14 +36,13 @@
  */
 
 import Link from 'next/link';
-import { ClipboardCheck, LayoutGrid, Send } from 'lucide-react';
+import { ClipboardCheck, Send } from 'lucide-react';
 import { rosterDoors } from '@/lib/roster-doors';
 
 export type RosterView = 'list' | 'map' | 'share';
 
-const ICON: Record<'share' | 'arrange' | 'checkin', React.ReactNode> = {
+const ICON: Record<'share' | 'checkin', React.ReactNode> = {
   share: <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />,
-  arrange: <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   checkin: <ClipboardCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
 };
 

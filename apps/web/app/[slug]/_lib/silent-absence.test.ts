@@ -83,7 +83,10 @@ test('the face-enrolment prompt fails toward silence, never toward asking again'
   );
   assert.match(
     src,
-    /needsFaceEnroll = enrollError \? false : !liveEnrollment/,
+    // 2026-09-29: the non-error arm now also honours the guest's own "Want to
+    // be tagged?" answer (lib/face-tagging-wish.ts) — the error arm is what
+    // this pins, and it is unchanged: a failed read is silence.
+    /needsFaceEnroll = enrollError\s*\?\s*false\s*:\s*dayOfFaceCatchShows\(\{[\s\S]*?enrolled: Boolean\(liveEnrollment\)/,
     'A failed read must NOT produce a prompt. Re-asking for a face scan someone ' +
       'already gave is a fresh biometric collection aimed at a person who has ' +
       'already decided — worse than missing the prompt on one render.',

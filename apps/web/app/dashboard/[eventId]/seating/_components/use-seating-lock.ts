@@ -92,7 +92,11 @@ export function useSeatingLock(
    * Optional / nullable: null when no peer is broadcasting a lock yet.
    */
   liveHolderHeartbeatAt?: string | null,
+  /** `releaseOnUnmount: false` — a second surface of the same person's lock (see the release effect). */
+  opts?: { releaseOnUnmount?: boolean },
 ): SeatingLock {
+  const releaseOnUnmountRef = useRef(opts?.releaseOnUnmount ?? true);
+  releaseOnUnmountRef.current = opts?.releaseOnUnmount ?? true;
   const [status, setStatus] = useState<SeatingLockStatus>('idle');
   const [lockId, setLockId] = useState<string | null>(null);
   const [holderLabel, setHolderLabel] = useState<string | null>(null);
@@ -214,7 +218,12 @@ export function useSeatingLock(
     window.addEventListener('pagehide', onPageHide);
     return () => {
       window.removeEventListener('pagehide', onPageHide);
-      releaseNow();
+      // 🪑 A second surface of the SAME person's lock (the 3D lab drawn beside
+      // the 2D editor in the Maker's Details) does not release on unmount: the
+      // lock row is per person, so releasing it here would drop the editor
+      // still open beside it to view-only. That editor releases it itself.
+      if (releaseOnUnmountRef.current) releaseNow();
+      else lockIdRef.current = null;
     };
   }, []);
 

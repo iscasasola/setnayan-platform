@@ -31,6 +31,8 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
 import { GuestQrCard } from './guest-detail-body';
+import { GuestSendInvite } from './send-invite';
+import type { InviteSetup } from './invite-message-setup';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
@@ -143,6 +145,7 @@ export function GuestCardBody({
   returnTo,
   errorMessage,
   inviteFlash,
+  inviteSetup,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -168,6 +171,12 @@ export function GuestCardBody({
   returnTo: string;
   errorMessage: string | null;
   inviteFlash: { ok: boolean; msg: string } | null;
+  /**
+   * Send invite · Copy message (owner 2026-09-29) — the event's facts and the
+   * couple's wording, read once by the page (`loadInviteSetup`). Absent → the
+   * QR card draws without the send block, exactly as before.
+   */
+  inviteSetup?: InviteSetup | null;
 }) {
   const {
     guest,
@@ -261,6 +270,24 @@ export function GuestCardBody({
           guest={guest}
           eventId={eventId}
           invitationBase={invitationBase}
+          sendSlot={
+            /* 🕯 Nothing is offered for a guest marked Passed away, and the
+               couple do not invite themselves. */
+            inviteSetup && invitationBase && !guest.passed_away && !isCouple ? (
+              <GuestSendInvite
+                eventId={eventId}
+                guest={{
+                  guestId: guest.guest_id,
+                  firstName: guest.first_name,
+                  fullName: guestDisplayName(guest),
+                  inviteUrl: guest.qr_token ? `${invitationBase}?invite=${guest.qr_token}` : null,
+                  sentAt: guest.invitation_sent_at,
+                }}
+                facts={inviteSetup.facts}
+                template={inviteSetup.template}
+              />
+            ) : null
+          }
         />
         <div className="overflow-hidden rounded-lg border border-ink/10">
           {guest.passed_away ? (

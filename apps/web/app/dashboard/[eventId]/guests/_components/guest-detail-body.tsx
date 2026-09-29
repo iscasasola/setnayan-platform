@@ -57,10 +57,14 @@ export function GuestQrCard({
   guest,
   eventId,
   invitationBase,
+  sendSlot,
 }: {
   guest: GuestRow;
   eventId: string;
   invitationBase?: string | null;
+  /** Send invite · Copy message (owner 2026-09-29), drawn under the strip —
+   *  "the thing you send them" and the way to send it, in one place. */
+  sendSlot?: React.ReactNode;
 }) {
   const name = guestDisplayName(guest);
   const qrFileName = `qr-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`;
@@ -121,6 +125,7 @@ export function GuestQrCard({
         }}
       />
     ) : null}
+    {sendSlot}
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink/[0.06] pt-3">
       {/* One-click download of the REAL PNG — the same route the Invitation
           surface uses, and the same one the preview above is an <img> of. Goes

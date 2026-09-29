@@ -27,6 +27,7 @@
  */
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 
 /** 72 PDF points to the inch. */
 export const PT_PER_IN = 72;
@@ -613,7 +614,24 @@ export function parseInclude(raw: unknown): PrintInclude {
 }
 
 /** `events.print_details` as stored: only what has no other home, plus the include choices. */
-export type StoredPrintDetails = { openingLine: string | null; rsvp: RsvpChoice | null; include: PrintInclude; menu: MenuMoment[] };
+export type StoredPrintDetails = {
+  openingLine: string | null;
+  rsvp: RsvpChoice | null;
+  include: PrintInclude;
+  menu: MenuMoment[];
+  /**
+   * The couple's own wording for the per-guest invite MESSAGE (owner
+   * 2026-09-29: "create a copy text" → Send invite · Copy message · Send
+   * invites one by one). Placeholders {name} {event} {date} {link}; NULL = our
+   * wording (`defaultInviteTemplate`). It lives in this jsonb because it is the
+   * Maker's Details › Words home — event-level words with no other home, read
+   * by no guest page (only copied/shared from the couple's own phone). Every
+   * writer of this column read-modify-writes through parse/serialize, so each
+   * one CARRIES this key: a Details or Menu save never erases the message, and
+   * a message save never touches the prints.
+   */
+  inviteMessage: string | null;
+};
 
 // ─── The Menu ───────────────────────────────────────────────────────────────
 
@@ -714,7 +732,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * absent or broken value is nothing — never an invented opening line.
  */
 export function parsePrintDetails(raw: unknown): StoredPrintDetails {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [] };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [], inviteMessage: null };
   const r = raw as Record<string, unknown>;
   let rsvp: RsvpChoice | null = null;
   const c = r.rsvp && typeof r.rsvp === 'object' ? (r.rsvp as Record<string, unknown>) : null;
@@ -724,7 +742,13 @@ export function parsePrintDetails(raw: unknown): StoredPrintDetails {
     const text = clean(c.text);
     if (text) rsvp = { kind: 'manual', text };
   }
-  return { openingLine: clean(r.opening_line, 240), rsvp, include: parseInclude(r.include), menu: parseMenu(r.menu) };
+  return {
+    openingLine: clean(r.opening_line, 240),
+    rsvp,
+    include: parseInclude(r.include),
+    menu: parseMenu(r.menu),
+    inviteMessage: sanitizeInviteTemplate(r.invite_message),
+  };
 }
 
 /** The stored shape — what the form writes (snake_case, like every column). */
@@ -734,6 +758,7 @@ export function serializePrintDetails(d: StoredPrintDetails): Record<string, unk
     rsvp: d.rsvp ? (d.rsvp.kind === 'host' ? { kind: 'host', moderator_id: d.rsvp.moderatorId } : { kind: 'manual', text: d.rsvp.text }) : null,
     include: d.include,
     menu: d.menu,
+    invite_message: d.inviteMessage,
   };
 }
 

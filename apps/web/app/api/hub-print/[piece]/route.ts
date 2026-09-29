@@ -434,7 +434,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
     : undefined;
   // Round-trip through the parser: what is stored is exactly what prints. The
   // menu is carried over untouched — it is the Menu editor's, not this form's.
-  const details = { ...parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include }), menu: stored.menu };
+  // …and so is the invite message (`invite_message`, the guest list's Send
+  // invite wording) — it is not this form's either.
+  const details = { ...parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include }), inviteMessage: stored.inviteMessage, menu: stored.menu };
 
   const { error } = await admin
     .from('events')

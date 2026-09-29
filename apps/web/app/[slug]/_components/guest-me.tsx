@@ -4,6 +4,7 @@ import { EventCelebrants, type CelebrantActions } from './event-celebrants';
 import { NotYouSwitch } from './not-you-switch';
 import { SaveToAccount } from './save-to-account';
 import { YourGuests } from './your-guests';
+import type { InviteEventFacts } from '@/lib/guest-invite-message';
 
 /**
  * ME — the guest's own tab (owner 2026-09-26/27: Invitation bar Home · Details ·
@@ -38,6 +39,7 @@ export function GuestMe({
   hasEmail,
   userAgent,
   termsCarried,
+  inviteFacts,
   celebrants = [],
   canAddCelebrants = false,
   celebrantActions = null,
@@ -59,6 +61,8 @@ export function GuestMe({
   hasEmail: boolean;
   userAgent: string | null;
   termsCarried: boolean;
+  /** The event's words for "Send their invite". */
+  inviteFacts?: InviteEventFacts;
   /** This event's celebrants who hold accounts — empty unless the viewer's
    *  own account holds this seat (page.tsx decides). */
   celebrants?: CelebrantRow[];
@@ -78,6 +82,7 @@ export function GuestMe({
         addNamesHref={`/${slug}/invite/reply#plus-ones`}
         addName={askPlusOnes ? { eventId, guestId, askMeal, askDietary } : undefined}
         passes={passes}
+        inviteFacts={inviteFacts}
       />
       <EventCelebrants
         eventId={eventId}

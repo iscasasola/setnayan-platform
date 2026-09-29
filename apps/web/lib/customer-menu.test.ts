@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildCustomerMenuTree } from './customer-menu';
+import { SUITE_NAV_ON } from './studio-hub';
 
 const EVENT_ID = 'evt-test';
 const BASE = `/dashboard/${EVENT_ID}`;
@@ -23,9 +24,10 @@ test('the bar is the owner’s five, in the owner’s order, in every phase', ()
   for (const phase of ['plan', 'dayof', 'after'] as const) {
     const tree = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO });
     assert.deepEqual(tree.map((m) => m.key), FIVE, `${phase}: the bar rearranged itself`);
+    // The phone bar's short words (owner 2026-09-29: "Maker and Services").
     assert.deepEqual(
       tree.map((m) => m.label),
-      ['Home', 'Guest list', 'Your Team', 'Event Hub Maker', tree[4]!.label],
+      ['Home', 'Guest list', 'Your Team', 'Maker', SUITE_NAV_ON ? 'Services' : 'Studio'],
     );
   }
 });

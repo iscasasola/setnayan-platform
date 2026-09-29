@@ -52,6 +52,9 @@ const HUB_HREF = `${BASE}/launch`;
    the dashboard screen is NOT called by the guest site's bare name — is
    unchanged; only the qualified name moved. */
 const CONTROLLER = 'Event Hub Maker';
+/* ✏️ 2026-09-29: the PHONE bar's short word for the same row (owner: "Maker
+   and Services"). Still never the bare guest word — that is what this file holds. */
+const PHONE_CONTROLLER = 'Maker';
 const GUEST_WORD = 'Event Hub';
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
@@ -119,7 +122,7 @@ test('every dashboard row that opens the maker is called "Event Hub Maker"', () 
       );
       assert.equal(
         hits[0]!.label,
-        CONTROLLER,
+        surface === 'phone' ? PHONE_CONTROLLER : CONTROLLER,
         `${surface}/${phase} calls the controller "${hits[0]!.label}". ` +
           `The dashboard row is the CONTROLLER; "${GUEST_WORD}" is what a guest opens.`,
       );
@@ -155,12 +158,15 @@ test('no dashboard row anywhere is labelled with the bare guest word', () => {
 
 test('both live registry slots default to the controller name', () => {
   const bySlot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s]));
-  for (const key of ['customer.sidebar.launch', 'customer.bottom-nav.launch']) {
+  for (const [key, word] of [
+    ['customer.sidebar.launch', CONTROLLER],
+    ['customer.bottom-nav.launch', PHONE_CONTROLLER],
+  ] as const) {
     const slot = bySlot.get(key);
     assert.ok(slot, `${key} is missing from NAV_SLOT_DEFAULTS`);
     assert.equal(
       slot!.label,
-      CONTROLLER,
+      word,
       `${key} defaults to "${slot!.label}" — /admin/menus would offer the couple's ` +
         'controller under the guest site\'s name.',
     );

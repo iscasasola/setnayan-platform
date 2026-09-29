@@ -32,6 +32,7 @@ import {
   buildEventMenuSections,
   eventMenuRows,
   eventMenuRowClaims,
+  PHONE_BAR_SHORT,
   STUDIO_ABSORBED,
   type EventStudioRow,
 } from './customer-menu';
@@ -128,11 +129,17 @@ test('the rows that left are gone from every phase — their homes hold them', (
 
 /* ══ 2 · ONE TREE — THE PHONE PICKS FROM IT ═══════════════════════════════ */
 
+/** The rail's (and ☰'s) words — the full names. */
 const FIVE = [
   ['home', 'Home'], ['guests', 'Guest list'], ['explore', 'Your Team'],
   ['launch', 'Event Hub Maker'], ['studio', OUR_SERVICES],
 ] as const;
-const BARS = { plan: FIVE, dayof: FIVE, after: FIVE } as const;
+/** The phone bar's words — two short forms (owner 2026-09-29: "Maker and Services"). */
+const BAR_FIVE = [
+  ['home', 'Home'], ['guests', 'Guest list'], ['explore', 'Your Team'],
+  ['launch', 'Maker'], ['studio', SUITE_NAV_ON ? 'Services' : 'Studio'],
+] as const;
+const BARS = { plan: BAR_FIVE, dayof: BAR_FIVE, after: BAR_FIVE } as const;
 
 for (const phase of ['plan', 'dayof', 'after'] as const) {
   test(`the ${phase} phone bar is the owner's five, in the tree's own words`, () => {
@@ -149,7 +156,10 @@ for (const phase of ['plan', 'dayof', 'after'] as const) {
       const path = tab.href.split('?')[0];
       const row = rows.find((r) => r.href === path);
       assert.ok(row, `${phase}: the ${tab.key} tab opens ${path}, which no ☰ row opens`);
-      assert.equal(row!.label, tab.label, `${phase}: one page, two words (${row!.label} / ${tab.label})`);
+      // One page, one word — save the owner's two short bar words, which live
+      // in ONE map (`PHONE_BAR_SHORT`) and nowhere else.
+      const expected = PHONE_BAR_SHORT[tab.key] ?? row!.label;
+      assert.equal(tab.label, expected, `${phase}: one page, two words (${row!.label} / ${tab.label})`);
     }
   });
 }

@@ -46,6 +46,16 @@ want it to be simple and easy to manage"*.
   `lib/customer-menu.ts` left the Explore-replan flag chokepoint list (the dock
   it gated is retired for every flag value).
 
+- **Owner answers (2026-09-29, "1. let the old page go. 2. keep it 3. remove it
+  4. accept it. Maker and Services"):** `/monogram` → Details › Logo stays (the
+  old buy page goes); the Your Team summary chip stays; the day-of "Planning"
+  pill (→ `/more`, itself a redirect to Home) is removed from the top bar; on the
+  PHONE bar only the two long tabs read **Maker** and **Services**
+  (`PHONE_BAR_SHORT` in `lib/customer-menu.ts`, registry defaults
+  `customer.bottom-nav.launch` / `.studio`) — the rail, ☰ and tour keep "Event
+  Hub Maker" / "Our Services". Pinned by `the-phone-has-one-bottom-bar.test.ts`
+  §4–5; the Hub-word guards now expect the short word on the phone only.
+
 SPEC IMPACT: DECISION_LOG.md — "AS BUILT — STAGE D: THE EVENT MENU IS FIVE ROWS;
 THE PHONE HAS ONE BOTTOM BAR" row (implements "WHAT AN EVENT NEEDS" and "ON
 PHONES, NO SUB BOTTOM NAV").

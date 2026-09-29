@@ -408,7 +408,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
-    label: SUITE_NAV_ON ? "Our Services" : "Studio",
+    // The phone bar's short word (owner 2026-09-29: "Maker and Services") —
+    // the rail slot `customer.sidebar.studio` keeps "Our Services".
+    label: SUITE_NAV_ON ? "Services" : "Studio",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",
@@ -553,7 +555,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/launch",
-    label: "Event Hub Maker",
+    // The phone bar's short word (owner 2026-09-29: "Maker and Services") —
+    // the rail slot `customer.sidebar.launch` keeps "Event Hub Maker".
+    label: "Maker",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Globe",

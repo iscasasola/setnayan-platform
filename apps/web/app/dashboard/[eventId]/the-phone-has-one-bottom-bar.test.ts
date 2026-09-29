@@ -28,7 +28,9 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { buildCustomerMenuTree } from '@/lib/customer-menu';
+import { buildCustomerMenuTree, PHONE_BAR_SHORT, type CustomerMenuKey } from '@/lib/customer-menu';
+import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';
+import { SUITE_NAV_ON } from '@/lib/studio-hub';
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerNavGroups } from './_components/customer-nav-config';
 
@@ -91,8 +93,41 @@ test('3 · the same five tabs in every phase, and the same five rows on the rail
   assert.equal(bars[0]!.length, 5, `the bar has ${bars[0]!.length} tabs: ${bars[0]!.join(' · ')}`);
   assert.deepEqual(bars[1], bars[0], 'the day-of bar rearranged itself');
   assert.deepEqual(bars[2], bars[0], 'the after bar rearranged itself');
+  // Same rows, same order — and the same word, except the owner's two short
+  // bar words, which come from the one map and nowhere else.
   const rail = buildCustomerNavGroups(EVENT_ID, ctx)
     .find((g) => g.key === 'pillars')!
-    .items.map((i) => `${i.key}:${i.label}`);
+    .items.map((i) => `${i.key}:${PHONE_BAR_SHORT[i.key as CustomerMenuKey] ?? i.label}`);
   assert.deepEqual(bars[0], rail, 'the phone and the laptop disagree about the menu');
+});
+
+test('4 · the phone says "Maker" and "Services"; the rail and ☰ keep the full names', () => {
+  /*
+    Owner, 2026-09-29: "accept it. Maker and Services" — on the PHONE bottom
+    bar only. Asserted on BOTH sides, because each half fails silently: a
+    short word leaking onto the rail renders fine, and so does a full name
+    wrapping to two lines on a 375px bar.
+  */
+  const ctx = { websiteEnabled: true, seatingEnabled: true } as const;
+  const services = SUITE_NAV_ON;
+  const bar = buildCustomerMenuTree(EVENT_ID, ctx).map((m) => m.label);
+  assert.deepEqual(bar, ['Home', 'Guest list', 'Your Team', 'Maker', services ? 'Services' : 'Studio']);
+  const rail = buildCustomerNavGroups(EVENT_ID, ctx)
+    .find((g) => g.key === 'pillars')!
+    .items.map((i) => i.label);
+  assert.deepEqual(rail, ['Home', 'Guest list', 'Your Team', 'Event Hub Maker', services ? 'Our Services' : 'Studio']);
+  // The registry defaults are what the bar and the rail actually overlay first.
+  const slot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s.label]));
+  assert.equal(slot.get('customer.bottom-nav.launch'), 'Maker');
+  assert.equal(slot.get('customer.sidebar.launch'), 'Event Hub Maker');
+  if (services) {
+    assert.equal(slot.get('customer.bottom-nav.studio'), 'Services');
+    assert.equal(slot.get('customer.sidebar.studio'), 'Our Services');
+  }
+});
+
+test('5 · the day-of "Planning" pill is gone from the top bar (owner: "remove it")', () => {
+  const src = stripComments(readFileSync(LAYOUT, 'utf8'));
+  assert.ok(!src.includes('/more`'), 'the event top bar links /more again');
+  assert.ok(!/>\s*Planning\s*</.test(src), 'the event top bar says "Planning" again');
 });

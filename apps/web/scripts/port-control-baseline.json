@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "351d98288",
+  "generatedFromRef": "31386d9e1",
   "routeCount": 436,
-  "destinations": 939,
+  "destinations": 938,
   "actions": 673,
   "blocks": 5097,
   "routes": {
@@ -5007,7 +5007,6 @@
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/live",
         "/dashboard/[seg]/messages",
-        "/dashboard/[seg]/more",
         "/dashboard/[seg]/orders/[seg]",
         "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/seating",

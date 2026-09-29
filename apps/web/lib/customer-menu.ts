@@ -362,6 +362,21 @@ export function eventMenuRows(sections: EventMenuSection[]): EventMenuRow[] {
 }
 
 /**
+ * ─── THE PHONE BAR'S SHORT WORDS (owner 2026-09-29) ─────────────────────
+ * Owner, on the one bar: *"accept it. Maker and Services"*. On the PHONE
+ * bottom bar only, two tabs wear a short form of their row's name — five
+ * full names do not fit a 375px bar on one line. The desktop rail and the ☰
+ * drawer keep the full names ("Event Hub Maker", "Our Services"), and so does
+ * the tour. This map is the ONE place a phone word may differ from its row;
+ * `the-phone-has-one-bottom-bar.test.ts` fails on any other difference.
+ * (Where the Suite flag is off the row says "Studio", and so does the tab.)
+ */
+export const PHONE_BAR_SHORT: Readonly<Partial<Record<CustomerMenuKey, string>>> = {
+  launch: 'Maker',
+  ...(SUITE_NAV_ON ? { studio: 'Services' } : {}),
+};
+
+/**
  * The rail rows that have no tab of their own, and the tab that lights for
  * their pages on a phone. Seat plan is a people room, so its pages light
  * Guest list (as they always did on the old Guests tab).
@@ -375,7 +390,8 @@ const BAR_HOST: Readonly<Record<string, CustomerMenuKey>> = { seat: 'guests' };
  *     Home · Guest list · Your Team · Event Hub Maker · Our Services
  *
  * Every label and href comes from `buildEventMenuSections`, so a tab and its ☰
- * row can never say two words for one page. A tab lights across every page its
+ * row can never say two words for one page — except the two short words in
+ * `PHONE_BAR_SHORT` (Maker · Services), which the owner chose for the bar. A tab lights across every page its
  * row claims, plus the claims of a rail row with no tab (`BAR_HOST`).
  *
  * 🔑 NOTHING DOCKS ABOVE IT. There is no section sub-nav and no moment strip
@@ -398,11 +414,12 @@ export function buildCustomerMenuTree(
   return PILLAR_ROWS.flatMap((key): CustomerMenu[] => {
     const r = byKey.get(key);
     if (!r) return [];
+    const label = PHONE_BAR_SHORT[key] ?? r.label;
     if (key === 'home') {
       return [
         {
           key,
-          label: r.label,
+          label,
           icon: EVENT_MENU_ICONS[r.icon],
           href: r.href,
           // The checklist is the Home page's own "View your full checklist".
@@ -414,7 +431,7 @@ export function buildCustomerMenuTree(
     return [
       {
         key,
-        label: r.label,
+        label,
         icon: EVENT_MENU_ICONS[r.icon],
         // After the day, Your Team opens on the suppliers who worked it, each
         // with its review chip — the SHIPPED deep link (2026-06-12).

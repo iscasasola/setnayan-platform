@@ -1,5 +1,3 @@
-import Link from 'next/link';
-import { ClipboardList } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -454,17 +452,9 @@ export default async function EventLayout({ children, params }: Props) {
   */
   const topBar = (
     <div className="flex items-center gap-3">
-      {/* Planning escape (Event Lifecycle Menu) — day-of only, mobile only.
-          Desktop uses the sidebar; bottom nav is the day-of command center. */}
-      {phase === 'dayof' ? (
-        <Link
-          href={`/dashboard/${eventId}/more`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white/60 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-white/80 hover:text-ink lg:hidden"
-        >
-          <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Planning
-        </Link>
-      ) : null}
+      {/* ⛔ The day-of "Planning" pill (→ /more) is REMOVED (owner 2026-09-29,
+          "remove it"): the phone bar no longer changes on the day, so the five
+          pillars are already there — there is no planning to escape back to. */}
       <UnreadMessagesBadge
         userId={user.id}
         initialUnread={unreadMessages}

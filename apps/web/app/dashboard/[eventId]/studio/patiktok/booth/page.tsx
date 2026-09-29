@@ -208,7 +208,7 @@ export default async function PatiktokBoothDashboard({
       {saved ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
+          className="inline-flex items-center gap-2 rounded-2xl bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Saved — {primaryTemplate.name} is your primary, {backupTemplate.name} your backup.

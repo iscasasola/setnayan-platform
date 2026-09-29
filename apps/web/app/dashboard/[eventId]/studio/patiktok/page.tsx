@@ -397,7 +397,7 @@ export default async function PatiktokGallery({
       {boothRole ? (
         <p
           role="status"
-          className="rounded-2xl border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80"
+          className="rounded-2xl bg-terracotta/10 px-4 py-3 text-sm text-ink/80"
         >
           Pick your booth&rsquo;s {boothRole} template — it saves the moment you
           tap &ldquo;Use as {boothRole}&rdquo;.
@@ -716,7 +716,7 @@ function SaveShareCard({
       {pending ? (
         <p
           role="status"
-          className="rounded-xl border border-ink/10 bg-cream px-3 py-2 text-sm text-ink/70"
+          className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70"
         >
           Your Patiktok payment is being confirmed. Once it is, open any reel in
           &ldquo;Your renders&rdquo; and it saves without the mark.

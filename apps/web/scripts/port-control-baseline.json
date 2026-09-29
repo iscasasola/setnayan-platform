@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d70f4c6b4",
+  "generatedFromRef": "d2bc70fc5",
   "routeCount": 437,
-  "destinations": 947,
-  "actions": 673,
-  "blocks": 5170,
+  "destinations": 949,
+  "actions": 675,
+  "blocks": 5173,
   "routes": {
     "/": {
       "files": [
@@ -7938,19 +7938,21 @@
       "destinations": [
         "/api/tiktok/auth/start?event_id=[seg]",
         "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/studio/patiktok${query ?",
         "/dashboard/[seg]/studio/patiktok/[seg]",
         "/dashboard/[seg]/studio/patiktok/booth",
+        "/dashboard/[seg]/studio/patiktok?queued=[seg]",
         "/help"
       ],
       "actions": [
         "disconnectPatiktokTiktok",
+        "savePatiktokBoothTemplates",
         "submitPatiktokRender"
       ],
       "blocks": [
         "Blob",
         "BoothLaunchPanel",
         "BoothTag",
-        "BuyCard",
         "CategoryChips",
         "GridPageSkeleton",
         "HTMLDivElement",
@@ -7962,11 +7964,14 @@
         "MediaRecorder",
         "MediaStream",
         "MusicTrackOption",
+        "PaidMark",
         "Phase",
         "Preview",
+        "PreviewPanel",
         "ReelRenderer",
         "RenderJobRow",
         "RenderStatusPill",
+        "SaveShareCard",
         "StudioBuyHero",
         "SubmitButton",
         "TagSheet",
@@ -8000,7 +8005,9 @@
         "/dashboard/[seg]/studio/patiktok",
         "/dashboard/[seg]/studio/patiktok/[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "savePatiktokBoothTemplates"
+      ],
       "blocks": [
         "BoothCapture",
         "CapacityStrip",
@@ -8009,6 +8016,7 @@
         "OperatorTips",
         "PageMasthead",
         "RecordCTA",
+        "SubmitButton",
         "TemplateSlot",
         "TemplatesGrid"
       ]

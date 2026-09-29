@@ -307,7 +307,11 @@ test('audit: the booth template pick SAVES (gallery honours role, booth reads th
   assert.match(gallery, /role:\s*roleParam/, 'the gallery must read ?role=');
   assert.match(gallery, /action=\{savePatiktokBoothTemplates\}/, 'picking for a slot must post to the save action');
   const booth = code(BOOTH);
-  assert.match(booth, /resolveBoothTemplates\(\{[\s\S]{0,200}saved:/, 'the booth must read the saved pick');
+  assert.match(
+    booth,
+    /resolveBoothTemplates\(\{[\s\S]{0,200}saved:\s*jar\.get\(patiktokBoothCookieName\(eventId\)\)/,
+    'the booth must read the saved pick from its cookie',
+  );
   assert.match(booth, /action=\{savePatiktokBoothTemplates\}/, 'swap must save, not only change the URL');
 });
 

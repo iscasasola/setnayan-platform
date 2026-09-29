@@ -357,7 +357,7 @@ function PreviewPanel({
         checkout.pending ? (
           <p
             role="status"
-            className="rounded-xl border border-ink/10 bg-cream px-3 py-2 text-sm text-ink/70"
+            className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70"
           >
             Your Patiktok payment is being confirmed. Once it is, open this reel
             from &ldquo;Your renders&rdquo; and it saves without the mark.

@@ -90,7 +90,8 @@ test('3 · a preset is a custom_N scene: one of the SIX shared across stages, an
   assert.equal(nextFreeCustomSlot([...CUSTOM_SECTION_TYPES]), null);
   const actions = read('app/dashboard/[eventId]/website/widgets/actions.ts');
   assert.match(actions, /const slot = nextFreeCustomSlot\(used\);\s*if \(!slot\) \{[\s\S]{0,300}no_free_section/, 'the add door refuses a seventh');
-  const picker = read('app/dashboard/[eventId]/website/editor/_components/scene-template-picker.tsx');
+  // The tiles load with the sheet (`post-event-preset-tiles.tsx`, lazy — the Maker JS budget).
+  const picker = read('app/dashboard/[eventId]/website/editor/_components/post-event-preset-tiles.tsx');
   assert.match(picker, /You have all six of your own scenes\. Remove one you are not using to add another\./, 'the sheet says "six used"');
   assert.match(picker, /disabled=\{full\}/, 'a full sheet posts nothing');
 
@@ -149,7 +150,7 @@ test('4 · Pro at Apply: a free couple tries a preset in the draft — Apply hol
   assert.match(page, /postEventPresets=\{\s*!makerProUsable\(\{ owns: ownsPro, storeShell \}\)\s*\?\s*null/, 'the presets reach a store-shell couple without Pro');
   assert.equal(makerProUsable({ owns: false, storeShell: true }), false);
   assert.equal(makerProUsable({ owns: true, storeShell: true }), true, 'a couple who owns Pro keeps them in the shell');
-  const picker = read('app/dashboard/[eventId]/website/editor/_components/scene-template-picker.tsx');
+  const picker = read('app/dashboard/[eventId]/website/editor/_components/post-event-preset-tiles.tsx');
   assert.match(picker, /makerProMark\(\{ owns: presets\.ownsPro, storeShell: presets\.storeShell \}\)/, 'the tile wears #6091’s Maker mark');
 
   // 💎 The Apply sheet (#6091) names a held preset by its preset, and Go to lands on Post Event.

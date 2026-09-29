@@ -48,6 +48,8 @@ const MAKER_FILES = [
   `${C}text-panel.tsx`,
   `${C}scene-slots-panel.tsx`,
   `${C}scene-template-picker.tsx`,
+  // Post Event's preset tiles, split out of the picker to load with its sheet.
+  `${C}post-event-preset-tiles.tsx`,
   // Our Love Story's scrapbook (Maker Phase 7) — opened from the Maker's Love
   // Story tool; a separate page, but the host edits the same public hub there.
   `${S}page.tsx`,
@@ -461,11 +463,13 @@ test("the canvas preview loads the host's draft (?editor=1)", () => {
 test('the scene template picker: "Change template" and "+ Add a scene" both draft', () => {
   const picker = read(`${C}scene-template-picker.tsx`);
   assert.match(picker, /\{!draft \? <HubSavesImmediately \/> : null\}/, 'a picker that writes live must say it saves immediately');
+  // `PostEventAddScene` (lazy, the Maker JS budget) IS the picker: every prop handed straight through.
+  assert.match(read(`${C}post-event-add-scene.tsx`), /<SceneTemplatePicker \{\.\.\.picker\}/);
   let drafted = 0;
   let live = 0;
   for (const file of MAKER_FILES) {
     const src = read(file);
-    for (const m of src.matchAll(/<SceneTemplatePicker\b[\s\S]*?\/>/g)) {
+    for (const m of src.matchAll(/<(?:SceneTemplatePicker|PostEventAddScene)\b[\s\S]*?\/>/g)) {
       const use = m[0];
       const action = /\baction=\{([\w.]+)\}/.exec(use)?.[1];
       const isDraft = /^\s*draft\s*$/m.test(use) || /\sdraft(?:=\{true\})?[\s/]/.test(use);

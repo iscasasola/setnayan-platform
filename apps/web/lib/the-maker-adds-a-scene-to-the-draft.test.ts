@@ -231,7 +231,7 @@ test('T · the toolbar ＋ is not "coming next" any more — it opens the same d
   // Every "+ Add a scene" sheet in the Maker posts draft=1.
   let adds = 0;
   for (const file of [`${C}editor-shell.tsx`, `${C}sections-panel.tsx`]) {
-    for (const m of read(file).matchAll(/<SceneTemplatePicker\b[\s\S]*?\/>/g)) {
+    for (const m of read(file).matchAll(/<(?:SceneTemplatePicker|PostEventAddScene)\b[\s\S]*?\/>/g)) {
       if (!/triggerLabel="\+ Add a scene"/.test(m[0])) continue;
       adds += 1;
       assert.match(m[0], /\sdraft\s/, `${file}: an "+ Add a scene" sheet that writes live`);

@@ -27,6 +27,7 @@
 
 import { receptionVenuePhrase, isVenueSetting, type VenueSetting } from './venue-settings';
 import type { WeddingTile } from './taxonomy';
+import { SKIN, gownFig, shade, suitFig } from './role-figure';
 
 export type PartId =
   | 'ceiling'
@@ -897,8 +898,6 @@ const LEAF = '#7F9A6E';
 const GOLD = '#CBA85C';
 const SILVER = '#C7CBD1';
 const GLASS = '#DCE6E6';
-const SKIN = '#E7C8A2';
-const HAIR = '#352720';
 
 /** Resolved single colors for the people layer (no palette array). */
 type RC = { bride: string; groom: string; party: string; guest: string };
@@ -916,27 +915,6 @@ function paletteFn(palette: string[]) {
   const p = palette.filter((c) => /^#[0-9a-fA-F]{6}$/.test(c));
   return (i: number) => clampHex(p[i] ?? p[p.length - 1] ?? DEFAULTS[i] ?? DEFAULTS[0]!);
 }
-function shade(hex: string, amt: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  let r = (n >> 16) & 255,
-    g = (n >> 8) & 255,
-    b = n & 255;
-  r = Math.max(0, Math.min(255, Math.round(r + amt)));
-  g = Math.max(0, Math.min(255, Math.round(g + amt)));
-  b = Math.max(0, Math.min(255, Math.round(b + amt)));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
-function lum(hex: string): number {
-  const n = parseInt(hex.slice(1), 16);
-  return 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
-}
-/** A contrast edge for a figure: darker if the fill is light, lighter if dark —
- *  so figures separate from a same-toned background (white gown on a pale wall,
- *  dark suit on a dark backdrop). */
-function outlineOf(hex: string): string {
-  return lum(hex) > 150 ? shade(hex, -82) : shade(hex, 92);
-}
-
 // ---- shape helpers ----
 const flower = (cx: number, cy: number, r: number, fill: string, center = WARM_LIGHT) =>
   [0, 1, 2, 3, 4]
@@ -2233,34 +2211,8 @@ function welcomeSignageItem(
   );
 }
 
-// ---- people ----
-// Figures carry a contrast outline so they never blend into a same-toned
-// backdrop (white gown on a pale wall, dark suit on a dark backdrop) — issue
-// caught by the legibility-verification workflow 2026-06-09.
-function figHead(cx: number, cy: number, r: number): string {
-  return (
-    `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="${SKIN}" stroke="${shade(SKIN, -55)}" stroke-width="0.7"/>` +
-    `<path d="M ${(cx - r).toFixed(1)} ${cy.toFixed(1)} a ${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${(2 * r).toFixed(1)} 0 Z" fill="${HAIR}"/>`
-  );
-}
-function gownFig(cx: number, baseY: number, h: number, color: string): string {
-  const w = h * 0.5;
-  const ol = outlineOf(color);
-  return (
-    `<polygon points="${(cx - w / 2).toFixed(1)},${baseY.toFixed(1)} ${(cx + w / 2).toFixed(1)},${baseY.toFixed(1)} ${(cx + w * 0.18).toFixed(1)},${(baseY - h * 0.58).toFixed(1)} ${(cx - w * 0.18).toFixed(1)},${(baseY - h * 0.58).toFixed(1)}" fill="${color}" stroke="${ol}" stroke-width="1.3" stroke-linejoin="round"/>` +
-    `<rect x="${(cx - w * 0.18).toFixed(1)}" y="${(baseY - h * 0.78).toFixed(1)}" width="${(w * 0.36).toFixed(1)}" height="${(h * 0.26).toFixed(1)}" rx="3" fill="${color}" stroke="${ol}" stroke-width="1.1"/>` +
-    figHead(cx, baseY - h * 0.86, h * 0.13)
-  );
-}
-function suitFig(cx: number, baseY: number, h: number, color: string): string {
-  const w = h * 0.34;
-  const ol = outlineOf(color);
-  return (
-    `<rect x="${(cx - w / 2).toFixed(1)}" y="${(baseY - h * 0.72).toFixed(1)}" width="${w.toFixed(1)}" height="${(h * 0.72).toFixed(1)}" rx="2" fill="${color}" stroke="${ol}" stroke-width="1.2"/>` +
-    `<rect x="${(cx - 1.6).toFixed(1)}" y="${(baseY - h * 0.72).toFixed(1)}" width="3.2" height="${(h * 0.5).toFixed(1)}" fill="${shade(color, 40)}" opacity="0.5"/>` +
-    figHead(cx, baseY - h * 0.8, h * 0.13)
-  );
-}
+// ---- people ---- (the figures live in lib/role-figure.ts — the dress-code
+// scene and the Mood Board draw the same people in a role's colours)
 function people(who: string, rc: RC, guestPalette: string[]): string {
   if (who === 'none') return '';
   let s = '';

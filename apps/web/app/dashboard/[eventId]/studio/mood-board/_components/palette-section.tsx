@@ -49,6 +49,7 @@ import { boardReduced, DERIVABLE_ROLES_IN_RANK_ORDER } from '@/lib/mood-board-de
 import type { PaletteStyle } from '@/lib/palette-styles';
 import { usePaletteBoard } from './palette-board-context';
 import { SwatchPopover } from './swatch-popover';
+import { RoleFigure } from '@/app/_components/role-figure';
 
 const PALETTE_STYLES: ReadonlyArray<{ key: PaletteStyle; label: string; gloss: string }> = [
   { key: 'simple', label: 'Our colours only', gloss: 'Everyone wears the colours you picked.' },
@@ -295,6 +296,12 @@ function RoleCard({ paletteKey, label }: { paletteKey: PaletteKey; label: string
             <p className="text-xs text-ink/55">{limits.hint}</p>
           )}
         </div>
+        {/* 👗 THE PERSON IN THESE COLOURS (owner 2026-09-27): the role drawn in
+            exactly the colours below, redrawn as they change. A venue palette
+            dresses nobody. */}
+        {limits.meaning === 'scene' ? null : (
+          <RoleFigure roleKey={paletteKey} hexes={colors} meaning={limits.meaning} />
+        )}
       </header>
 
       {colors.length === 0 ? (
@@ -397,6 +404,7 @@ function CustomRolesEditor() {
                 </button>
               </header>
 
+              <RoleFigure roleKey={`custom:${slugifyCustomRoleKey(role.label)}`} hexes={role.colors} />
               <ul className="flex flex-wrap items-end gap-2">
                 {role.colors.map((c, ci) => (
                   <li key={ci} className="flex flex-col items-stretch gap-1">

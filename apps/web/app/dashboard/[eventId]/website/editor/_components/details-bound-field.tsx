@@ -28,10 +28,12 @@ import { useSceneWordsBox } from './canvas-words';
  *
  * The scene's Content tab shows what the scene shows — its own version, or the
  * Details value — and, when the couple changes it, asks once:
- *   · "Change it everywhere (updates Details)" — primary; Details' value in the
+ *   · "Change it everywhere" — primary; Details' value in the
  *     draft, and every bound scene follows;
  *   · "Just this scene" — this scene's own version (`canvas.details`), shown
- *     with a quiet "Edited here · ↺ Use Details" chip that takes it off.
+ *     with a quiet "Edited here · ↺ Use your message" chip that takes it off.
+ *     (Named "Details" until 2026-09-28 — owner: "EVERY TEXT IS TYPED WHERE IT
+ *     LIVES"; Details no longer shows the message, so the words stopped naming it.)
  *
  * 💾 THE DRAFT, NEVER LIVE. Every answer is ONE `hubDraftAction` intent=save
  * (the patch from `detailsEditPatch`, `lib/details-bound.ts`). Guests see none
@@ -159,13 +161,13 @@ export function DetailsBoundField({
           >
             <span className="font-normal text-ink/55">Edited here ·</span>
             <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Use Details
+            Use {DETAILS_FACT[fact].boxLabel.toLowerCase()}
           </button>
         ) : (
           <span className="ml-auto text-[12px] font-medium text-ink/55" data-details-from="">
-            <InfoTip label="From Details" align="end">
-              Your {label.toLowerCase()} is written once, in Details, and every scene that shows it follows. Change it
-              here and we ask whether it changes everywhere or only in this scene.
+            <InfoTip label="Everywhere" align="end">
+              Your {label.toLowerCase()} is written once, and every scene that shows it follows. Change it here and we
+              ask whether it changes everywhere or only in this scene.
             </InfoTip>
           </span>
         )}
@@ -197,7 +199,7 @@ export function DetailsBoundField({
             disabled={pending}
             className="sn-press flex min-h-11 w-full items-center justify-center rounded-full bg-ink px-4 text-sm font-semibold text-cream transition-colors duration-300 ease-in-out hover:bg-ink/90 disabled:opacity-50"
           >
-            Change it everywhere (updates Details)
+            Change it everywhere
           </button>
           <button
             type="button"

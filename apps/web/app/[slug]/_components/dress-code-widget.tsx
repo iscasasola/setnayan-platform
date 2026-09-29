@@ -11,6 +11,7 @@ import {
 import { dressCodeForEveryone, ourColoursWith, speaksToThisReader } from '@/lib/dress-code-for-everyone';
 import { STYLE_UNSET_LINE, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { roleLabel } from '@/lib/entourage';
+import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
 
 /*
  * 🧵 THE SILK CHIP, VISIBLE ON ANY GROUND. `.pahina-swatch` shades a chip with
@@ -80,9 +81,17 @@ export function DressCodeWidget({
   genderSeparation,
   words,
   guestRole = null,
+  march = null,
   rolePalette = null,
   hideWhenEmpty = false,
 }: {
+  /**
+   * 🚶 WHERE THIS READER WALKS (owner 2026-09-29, DECISION_LOG "THE WEDDING
+   * MARCH ON THE INVITATION TELLS EACH ENTOURAGE MEMBER THEIR ROLE…"): their
+   * place, their partner and who walks before them — said UNDER the "You are
+   * <role>" line below, which stays the one place the role is named.
+   */
+  march?: MarchPlace | null;
   words: EventWords;
   /** A GUEST's view (owner 2026-09-26): with nothing authored, the section is
    *  left out instead of the "not shared yet" note. The INC / Muslim
@@ -190,7 +199,9 @@ export function DressCodeWidget({
     generalHasContent ||
     // A line for THIS reader's role is a dress code, even when the couple
     // filled in nothing else.
-    mine !== null;
+    mine !== null ||
+    // …and so is their place in the march: "you walk 5th" is what to be ready for.
+    march !== null;
 
   // Empty state — section stays visible (so guests know to expect it) but
   // reads as an intentional note in the host's brand voice.
@@ -287,7 +298,7 @@ export function DressCodeWidget({
       {shownDescription ? (
         <p className="max-w-prose text-base leading-relaxed text-ink/70">{shownDescription}</p>
       ) : null}
-      {mine ? (
+      {mine || march ? (
         /* 🎀 NO FILL BEHIND "YOU". The box used to sit on `bg-veil/50`, which
            a palette-tinted page turns pink, and a near-white first colour
            (#FAF7F2) vanished into it. The gild rule alone marks the panel; the
@@ -297,8 +308,17 @@ export function DressCodeWidget({
             {/* The entourage's own label first ("Ninang"); the couple are not
                 in the entourage list, so a bride or groom reads the guest
                 list's label ("Groom") instead of "in the entourage". */}
-            You are {mine.roleLabel ?? (guestRole ? ROLE_LABELS[guestRole] : null) ?? 'in the entourage'}
+            You are {mine?.roleLabel ?? (guestRole ? (roleLabel(guestRole) ?? ROLE_LABELS[guestRole]) : null) ?? 'in the entourage'}
           </p>
+          {/* 🚶 WHERE YOU WALK (owner 2026-09-29) — under the same "You are" line,
+              so a walker whose role has no outfit line still reads it. */}
+          {march ? (
+            <p className="text-base leading-snug text-ink" data-dress-code="march">
+              {marchPlaceLine(march)}
+            </p>
+          ) : null}
+          {mine ? (
+          <>
           {/* WHERE THE ANSWER CAME FROM — said only when it came from the group.
               A ninang who reads her group's line needs to know the couple
               dressed her whole group on purpose, not that they wrote something
@@ -352,6 +372,8 @@ export function DressCodeWidget({
                 </li>
               ))}
             </ul>
+          ) : null}
+          </>
           ) : null}
         </div>
       ) : null}

@@ -192,7 +192,9 @@ export async function EntourageOrderPanel({
 
       <div className="mt-3 space-y-4">
         {lists.map(({ key, lines }, sectionIndex) => (
-          <div key={key}>
+          /* `data-march-section` — Details › the march shows ONE section of this
+             panel at a time (`details-march.tsx`). */
+          <div key={key} data-march-section={key}>
             <div className="flex items-baseline justify-between gap-2">
               <div className="flex items-center gap-1">
                 {canArrangeSections && lists.length > 1 ? (

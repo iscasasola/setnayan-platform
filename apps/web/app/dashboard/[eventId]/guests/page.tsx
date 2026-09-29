@@ -47,7 +47,7 @@ import {
   type ArrangeKey,
 } from '@/lib/roster-arrangement';
 import { resolveRoleSet } from '@/lib/role-sets';
-import { ENTOURAGE_ROLES } from '@/lib/entourage';
+import { detailsItemHref } from '@/lib/maker-details-items';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
@@ -74,7 +74,6 @@ import {
 } from './_components/add-from-people-sheet';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { GuestsSearch } from './_components/guests-search';
-import { EntourageOrderPanel } from './_components/entourage-order-panel';
 import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
 import {
   OpenQuickAddButton,
@@ -326,19 +325,15 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const viewFilters = viewFiltersFor(guestRoleSetKey);
 
   /*
-    ⚖ DOES THIS CELEBRATION EVEN HAVE A PROCESSIONAL? A generic event's roles
-    are guest · host · vip · family · helper — not one of them walks down an
-    aisle. Offering "Wedding March" on a birthday guest list would be wrong
-    twice over: wrong word, and a view with nothing in it.
-
-    🔑 DERIVED, NOT A LIST OF EVENT TYPES. Asking whether this event's own role
-    set offers any role the invitation prints means a new event type answers
-    correctly the day it is added, and a wedding that loses a role still says
-    yes. A hard-coded `=== 'wedding'` would be right until the next profile.
+    🚶 THE WEDDING MARCH LIVES IN THE MAKER NOW (owner 2026-09-29, DECISION_LOG
+    "THE GUEST LIST KEEPS PEOPLE…"): Details › Your event › the march, in the
+    three parts. An old link to the Guest list's march view lands there; the
+    order itself (`guests.entourage_order`, `events.entourage_section_order`)
+    is untouched and the invitation prints it exactly as before.
   */
-  const hasProcessional = resolveRoleSet(guestRoleSetKey).offeredRoles.some((r) =>
-    (ENTOURAGE_ROLES as readonly string[]).includes(r),
-  );
+  if (search.gview === 'walk' || search.view === 'march') {
+    redirect(detailsItemHref(eventId, 'march'));
+  }
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -584,14 +579,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     ? rawView.slice('group:'.length)
     : null;
   const view = legacyGroup ? 'all' : rawView;
-  const gview: 'list' | 'map' | 'walk' | 'share' =
-    search.gview === 'map'
-      ? 'map'
-      : search.gview === 'walk'
-        ? 'walk'
-        : search.gview === 'share'
-          ? 'share'
-          : 'list';
+  const gview: 'list' | 'map' | 'share' =
+    search.gview === 'map' ? 'map' : search.gview === 'share' ? 'share' : 'list';
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     teamRaw === 'bride' || teamRaw === 'groom' ? teamRaw : 'all';
@@ -1035,7 +1024,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           eventId={eventId}
           view={gview}
           finished={finished}
-          hasProcessional={hasProcessional}
           hasJoinLink={Boolean(joinUrl)}
           shareMenu={joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
           viewSwitch={<GuestsViewSwitcher eventId={eventId} active={gview} search={search} />}
@@ -1280,8 +1268,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         // "should not clear the whole page. only the body."). The panel checks
         // for the couple itself; see its note.
         <InvitePanel eventId={eventId} />
-      ) : gview === 'walk' ? (
-        <EntourageOrderPanel eventId={eventId} view={view} />
       ) : gview === 'map' ? (
         <GuestMindMap
           eventId={eventId}

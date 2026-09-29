@@ -293,11 +293,17 @@ function excerpt(story: string | null): string | null {
   return stop > 60 ? cut.slice(0, stop + 1) : `${cut.slice(0, cut.lastIndexOf(' '))}…`;
 }
 
-/** The parents on this event's guest list — for the Details panel's read-only list. */
-export async function parentsFromEntourageForEvent(eventId: string): Promise<PrintParent[]> {
+
+/**
+ * The same parents, each with their GUEST ROW's id — the Maker's Details opens
+ * a parent's own guest card from the invitation (a card, never a names-only
+ * box: `updateGuest` writes every column). One read, the same groups the print
+ * draws from, so the list and the card cannot disagree about who the parents are.
+ */
+export async function parentGuestsForEvent(eventId: string): Promise<Array<PrintParent & { guestId: string | null }>> {
   const admin = createAdminClient();
   const { groups, passedAway } = await readEntourage(admin, eventId);
-  return parentsFromEntourage(groups, passedAway);
+  return parentsWithIds(groups, passedAway);
 }
 
 /** Does this event have a Mood Board palette to print? */
@@ -314,13 +320,21 @@ export function parentsFromEntourage(
   groups: ReturnType<typeof buildEntourage>,
   passedAway: ReadonlySet<string> = new Set(),
 ): PrintParent[] {
+  return parentsWithIds(groups, passedAway).map(({ guestId: _id, ...p }) => p);
+}
+
+function parentsWithIds(
+  groups: ReturnType<typeof buildEntourage>,
+  passedAway: ReadonlySet<string>,
+): Array<PrintParent & { guestId: string | null }> {
   const g = groups.find((x) => x.key === 'parents');
   if (!g) return [];
-  const out: PrintParent[] = [];
+  const out: Array<PrintParent & { guestId: string | null }> = [];
   for (const row of g.rows) {
     for (const p of row) {
       if (!p) continue;
       out.push({
+        guestId: p.id,
         name: p.name,
         deceased: p.id !== null && passedAway.has(p.id),
         side: p.role === 'bride_parents' ? 'bride' : 'groom',

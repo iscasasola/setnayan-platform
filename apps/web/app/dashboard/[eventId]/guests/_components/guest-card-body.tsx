@@ -293,7 +293,7 @@ export function GuestCardBody({
             // The QR's look lives with the Event Hub address, on the Maker's
             // Details page (owner 2026-09-27: shape · pattern · colour · your
             // logo, with Event Hub Pro). The old Custom QR studio page is gone.
-            href={`/dashboard/${eventId}/launch?tool=details`}
+            href={`/dashboard/${eventId}/launch?tool=details&item=qr`}
             className="flex items-center gap-3 px-3.5 py-3 text-sm text-ink transition-colors hover:bg-ink/[0.03]"
           >
             <span>Customize guest QRs</span>

@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * THE single trust boundary for the public, no-login Maria & Jose tour.
@@ -24,7 +25,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
  */
 const SAMPLE_SLUG = 'maria-and-jose';
 
-export const getSampleEvent = cache(async () => {
+/**
+ * THE ONE READ — pinned to `is_sample = TRUE` + the hardcoded slug + wedding,
+ * and checked again on the row. Null for anything that is not EXACTLY the
+ * sample; every door below decides what null means (a 404, or "no sample").
+ */
+const readSample = cache(async () => {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('events')
@@ -36,13 +42,31 @@ export const getSampleEvent = cache(async () => {
     .eq('event_type', 'wedding')
     .limit(1)
     .maybeSingle();
-
-  // Fail safe: anything that isn't EXACTLY the sample → 404, never a real event.
-  if (error || !data || data.is_sample !== true || data.slug !== SAMPLE_SLUG) {
-    notFound();
+  // A refused read is SAID (Sentry + console), never only a null — the tour's
+  // 404 and Details' "no sample" would otherwise look like no sample exists.
+  if (error) {
+    logQueryError('tour.readSample', error, { slug: SAMPLE_SLUG }, 'graceful_degrade');
+    return null;
   }
+  if (!data || data.is_sample !== true || data.slug !== SAMPLE_SLUG) return null;
   return data;
 });
+
+export const getSampleEvent = cache(async () => {
+  const data = await readSample();
+  // Fail safe: anything that isn't EXACTLY the sample → 404, never a real event.
+  if (!data) notFound();
+  return data;
+});
+
+/**
+ * The sample's id, or null — for a route handler (the Details theme gallery's
+ * sample prints, `/api/hub-print/<piece>?sample=1`), where `notFound()` is not
+ * an answer. The same pinned read; never an id from the request.
+ */
+export async function findSampleEventId(): Promise<string | null> {
+  return (await readSample())?.event_id ?? null;
+}
 
 /** The sample event_id — pass this to every fetcher; never read an id from the URL. */
 export async function getSampleEventId(): Promise<string> {

@@ -1,5 +1,6 @@
 import type { EventTypeProfile, ProfileSurface } from './event-type-profile';
 import { surfaceEnabled } from './event-type-profile';
+import { hasTwoNamedPeople } from './two-named-people';
 
 /**
  * WHICH PARTS OF THE EVENT HUB BELONG TO A WEDDING, AND ONLY A WEDDING.
@@ -87,9 +88,7 @@ export type WeddingOnlyParts = Record<WeddingOnlyPart, boolean>;
  * never content the couple wrote. There is no third state to invent.
  */
 export function resolveWeddingOnlyParts(profile: EventTypeProfile): WeddingOnlyParts {
-  const twoNamedPeople = Boolean(
-    profile.terminology.personA?.trim() && profile.terminology.personB?.trim(),
-  );
+  const twoNamedPeople = hasTwoNamedPeople(profile);
   const out = {} as WeddingOnlyParts;
   for (const part of Object.keys(PART_RULE) as WeddingOnlyPart[]) {
     const rule = PART_RULE[part];

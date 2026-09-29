@@ -121,7 +121,8 @@ test('the Maker panels post the draft field (and the scrapbook, and the Details 
     [`${C}authoring-panels.tsx`, /<PhotoMomentsEditor eventId=\{eventId\} initial=\{initial\} draft \/>/],
     [`${C}media-panels.tsx`, /export function HeroPhotoPanel[\s\S]*?<HubDraftField \/>[\s\S]*?export function GalleryPanel/],
     [`${W}photo-moments/_components/photo-moments-editor.tsx`, /if \(draft\) formData\.set\(HUB_DRAFT_FIELD, '1'\)/],
-    ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /data-details-special=""[^>]*>\s*<HubDraftField \/>/],
+    // Details › Words › Special message — its own component since part 2b (the stage opens it too).
+    ['app/dashboard/[eventId]/launch/_components/special-message-field.tsx', /data-details-special=""[^>]*>\s*<HubDraftField \/>/],
   ];
   for (const [file, re] of cases) assert.match(read(file), re, `${file}: ${re}`);
   for (const f of ['page.tsx', '_components/love-story-book.tsx', '_components/moment-sheet.tsx', '_components/pick-from-our-events.tsx']) {

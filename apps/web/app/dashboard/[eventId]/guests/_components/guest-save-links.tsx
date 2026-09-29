@@ -1,10 +1,10 @@
 'use client';
 
-import { Download, QrCode } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 
 /**
- * guest-save-links.tsx — the guest list's two "save this file" buttons, as
+ * guest-save-links.tsx — the guest list's "save this file" button, as
  * CLIENT components.
  *
  * 🔑 WHY THIS FILE EXISTS. `SaveFileLink` takes its children as a FUNCTION of
@@ -21,21 +21,6 @@ import { SaveFileLink } from '@/app/_components/save-file-link';
 
 const DOOR =
   'inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink';
-
-/** The free guest-QR PDF sheet — the roster's "QR codes" door. */
-export function GuestQrPdfLink({ href, label }: { href: string; label: string }) {
-  return (
-    <SaveFileLink href={href} filename="guest-qr-codes.pdf" data-guest-qr-pdf="" title={label} className={DOOR}>
-      {() => (
-        <>
-          <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          <span className="hidden sm:inline">{label}</span>
-          <span className="sr-only sm:hidden">{label}</span>
-        </>
-      )}
-    </SaveFileLink>
-  );
-}
 
 /** One guest's branded QR PNG — the drawer's "Download QR". */
 export function GuestQrDownloadLink({ href, filename }: { href: string; filename: string }) {

@@ -284,9 +284,12 @@ test('the scene’s Content tab is the field, and every answer is ONE draft save
   assert.match(shell, /<DetailsBoundField[\s\S]{0,400}detailsValue=\{detailsBound\.values\[fact\]\}/);
 
   const field = read('app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx');
-  assert.match(field, /Change it everywhere \(updates Details\)/);
+  assert.match(field, /Change it everywhere\n/);
+  // Details no longer shows the message (owner 2026-09-28, "EVERY TEXT IS TYPED WHERE IT LIVES"),
+  // so no button may send the couple to it.
+  assert.doesNotMatch(field, /updates Details|Use Details|From Details/);
   assert.match(field, /Just this scene/);
-  assert.match(field, /Use Details/);
+  assert.match(field, /Use \{DETAILS_FACT\[fact\]\.boxLabel\.toLowerCase\(\)\}/);
   assert.match(field, /fd\.set\('intent', 'save'\)/, 'a draft save, never a live write');
   assert.match(field, /detailsEditPatch\(\{ choice, fact, text, widgetType, canvas: latest\.current \}\)/);
   assert.doesNotMatch(field, /intent', 'apply'/);

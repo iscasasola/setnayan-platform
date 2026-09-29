@@ -637,8 +637,15 @@ async function InvitationBody({
   // 🎨 A THEME TILE (`canvasTriedTheme`): only for a VERIFIED host, asked only
   // when the tile's param is present — React.cache'd, so it shares the
   // membership lookup `isEditorCanvas` makes below.
+  // 🖼 …and THE SAMPLE, for anyone (owner 2026-09-28, "THE THEME GALLERY SHOWS
+  // A CLEAN SAMPLE EVENT HUB"): the Details gallery shows the curated sample
+  // event (`is_sample`, the one public showcase row) in each theme. Only that
+  // row — a real couple's page still answers `theme=` to its own hosts alone.
+  const sampleTile = liveEvent.is_sample === true;
   let triedTheme: InviteThemeId | null = null;
-  if (search.theme && asksForHostCanvas(search)) {
+  if (search.theme && sampleTile) {
+    triedTheme = canvasTriedTheme(search, sampleTile);
+  } else if (search.theme && asksForHostCanvas(search)) {
     const previewer = await getCurrentUser();
     if (previewer) {
       triedTheme = canvasTriedTheme(search, await loadHostMembership(admin, liveEvent.event_id, previewer.id));

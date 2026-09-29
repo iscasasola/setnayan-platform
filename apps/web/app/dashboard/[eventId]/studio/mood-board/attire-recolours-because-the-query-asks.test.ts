@@ -35,7 +35,9 @@ import {
 } from '@/lib/moodboard-board-picks';
 import { CEREMONY_VENUE_SETTINGS } from '@/lib/venue-settings';
 
-const PAGE = new URL('./page.tsx', import.meta.url);
+// The page's board moved, whole, into one component on 2026-09-29 (Details part 3 —
+// its page and the Maker's Details both draw it): the same code, re-anchored here.
+const PAGE = new URL('./_components/mood-board-editor.tsx', import.meta.url);
 const source = readFileSync(PAGE, 'utf8');
 
 /** The slice from `open` up to (not including) the next occurrence of `close`. */
@@ -188,7 +190,7 @@ test('the false "no-CORS host" claim may only appear where it is refuted', () =>
   const REFUTED = /\bFALSE\b|\bthey are not\b|⛔/i;
 
   for (const [name, text] of [
-    ['page.tsx', source],
+    ['mood-board-editor.tsx', source],
     ['moodboard-board.tsx', board],
   ] as const) {
     const blocks = commentBlocks(text);

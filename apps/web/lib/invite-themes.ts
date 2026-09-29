@@ -633,6 +633,23 @@ export function suggestedInviteTheme(
 }
 
 /**
+ * 💡 "SUGGESTED FOR YOU" (owner 2026-09-28, verbatim: *"4 keep it"* — DECISION_LOG
+ * "DETAILS IS THE ONE FILL-IN AREA…" answer 4): the ONE theme whose feels hold
+ * the couple's onboarding feel (`events.mood_feel_key`), among the themes this
+ * celebration may wear. A LABEL in the Details gallery — it applies nothing, and
+ * unlike `suggestedInviteTheme` it never falls back: no feel, or no theme that
+ * matches it, is no label. Pro does not hide it: a free couple may try a Pro
+ * theme in the draft (Apply asks for Pro).
+ */
+export function themeMatchingFeel(feel: unknown, fence: WeddingFence): InviteThemeId | null {
+  if (typeof feel !== 'string' || !feel) return null;
+  const match = HUB_THEMES.find(
+    (t) => t.ready && t.feels.includes(feel) && (t.tier === 'free' || fence.mayShowStdFilm),
+  );
+  return match?.id ?? null;
+}
+
+/**
  * The themes a couple can pick right now, in the order the owner named them.
  *
  * Pro themes are LISTED-BUT-DISABLED for a couple who simply has not bought the

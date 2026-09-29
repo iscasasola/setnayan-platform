@@ -278,10 +278,13 @@ export async function MakerRevealPanel({
   eventId,
   ownsPro,
   storeShell,
+  part = 'all',
 }: {
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /** Which part of the picker (Details: the openings in the navigator, the rest on the right). */
+  part?: 'all' | 'options' | 'settings';
 }) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="reveal" />;
@@ -328,6 +331,7 @@ export async function MakerRevealPanel({
       /* Where each fine-tune slider rests until the couple moves it — the
          Reveal Studio's house look, read once above. */
       tuneHouse={revealTuneHouse(config)}
+      part={part}
     />
   );
 }

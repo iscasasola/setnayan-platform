@@ -12,11 +12,21 @@ import { OPENING_LINE_TEMPLATES } from '@/lib/print-pieces';
  * one writes its words into the field, where they can be edited, and what the
  * form posts is always the text.
  */
-export function OpeningLineField({ initial }: { initial: string | null }) {
+export function OpeningLineField({
+  initial,
+  form,
+  titled = true,
+}: {
+  initial: string | null;
+  /** The form it posts with, when drawn outside it (Details' items). */
+  form?: string;
+  /** False where its switch already names it (Details). */
+  titled?: boolean;
+}) {
   const [text, setText] = useState(initial ?? '');
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm text-ink/80">Opening line</span>
+      {titled ? <span className="text-sm text-ink/80">Opening line</span> : null}
       <div className="flex flex-wrap gap-2" role="group" aria-label="Opening line templates">
         {OPENING_LINE_TEMPLATES.map((t) => (
           <button
@@ -30,7 +40,10 @@ export function OpeningLineField({ initial }: { initial: string | null }) {
         ))}
       </div>
       <input
+        form={form}
         name="opening_line"
+        /* One field, two doors (Details › Words and The Invitation's switch) — `same-field.ts`. */
+        data-same-field="opening_line"
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, 240))}
         maxLength={240}

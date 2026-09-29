@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import { rosterDoors } from './roster-doors';
+import { DETAILS_ITEM_GROUPS, detailsItemHref } from './maker-details-items';
+import { yourEventItems, yourEventLabel } from './details-your-event';
 import { stripComments } from './strip-comments';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -284,7 +286,9 @@ test('⛔ the drag path posts NAMES, and touches no chair', () => {
   }
 });
 
-// ── ⚖ "so how to launch it on the guestlist?" (owner 2026-09-20) ────────────
+// ── ⚖ "so how to launch it on the guestlist?" (owner 2026-09-20) → and then
+//    "THE GUEST LIST KEEPS PEOPLE…" (owner 2026-09-29): the march's one home is
+//    the Maker's Details › Your event, in the three parts. ────────────────────
 
 const SWITCHER = readFileSync(
   join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'view-switcher.tsx'),
@@ -294,56 +298,51 @@ const PAGE = readFileSync(
   join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'),
   'utf8',
 );
-const ROSTER_DOORS_SRC = readFileSync(join(process.cwd(), 'lib', 'roster-doors.ts'), 'utf8');
+const LAUNCH = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components');
+const LOAD = stripComments(readFileSync(join(LAUNCH, 'details-your-event-load.tsx'), 'utf8'));
+const MARCH_UI = stripComments(readFileSync(join(LAUNCH, 'details-march.tsx'), 'utf8'));
+const WEDDING_KIND = {
+  words: { twoPeople: true, solemn: false, eventWord: 'wedding' },
+  offeredRoles: ['guest', 'principal_sponsor', 'bridesmaid'],
+};
+const BIRTHDAY_KIND = {
+  words: { twoPeople: false, solemn: false, eventWord: 'birthday' },
+  offeredRoles: ['guest', 'host', 'vip', 'family', 'helper'],
+};
 
-test('🔑 there is a LABELLED way in — a tab in the guest list’s tab row', () => {
+test('🔑 there is a LABELLED way in — the march is an item of Details › Your event', () => {
   /*
-    The panel had no entry point at all: it rendered under a role filter only,
-    so arranging the processional was reachable solely by somebody who already
-    knew to filter first. A control nobody can find is not a control.
-
-    🪤 The door MOVED (2026-09-21): from the List · Mind map switcher to the tab
-    row beside Roster (lib/roster-doors.ts), and the switcher's copy was deleted
-    as a duplicate ("wedding march is repeated?"). Executed, not grepped.
+    The panel once had no entry point at all (a role filter only), then a tab
+    on the Guest list. Owner 2026-09-29: its home is the Maker — the navigator
+    item, in the owner's word. Executed, not grepped.
   */
-  const walk = rosterDoors({ eventId: 'E', view: 'list', finished: false, hasProcessional: true, hasJoinLink: true })
-    .tabs.find((d) => d.key === 'walk');
-  assert.ok(walk && walk.kind === 'tab', 'the Wedding March has no way in');
-  assert.equal(walk.label, 'Wedding March', 'the tab has no readable label');
-  assert.equal(walk.href, '/dashboard/E/guests?gview=walk', 'the tab goes nowhere');
+  const group = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event');
+  assert.ok(group?.keys.includes('march'), 'Details › Your event has no march');
+  assert.equal(yourEventLabel('march', WEDDING_KIND), 'Wedding March', 'the item has no readable label');
+  assert.equal(detailsItemHref('E', 'march'), '/dashboard/E/launch?tool=details&item=march');
+  // An old Guest list link lands on it.
+  assert.match(stripComments(PAGE), /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(detailsItemHref\(eventId, 'march'\)\);/);
+  assert.ok(!rosterDoors({ eventId: 'E', view: 'list', finished: false, hasJoinLink: true }).tabs.some((d) => /walk|march/i.test(d.key)));
 });
 
-test('the walking order is a VIEW, not a banner bolted over the roster', () => {
-  // The whole processional above the guest list would push the list down the
-  // page on every visit, for a job done a handful of times.
-  assert.match(PAGE, /gview === 'walk' \? \(\s*<EntourageOrderPanel/, 'the walk view does not render the panel');
-  assert.match(PAGE, /'list' \| 'map' \| 'walk'/, 'the page cannot parse the walk view');
-  /* 🪤 Slice from the roster's JSX, not from the first mention of its key —
-     `rosterLensKey` is DECLARED far above the markup, so slicing at the
-     identifier swallowed the walk branch and failed on correct code. A window
-     has to face the thing it is judging. */
-  const rosterAt = PAGE.indexOf('<div key={rosterLensKey}');
-  assert.notEqual(rosterAt, -1, 'the roster block is gone — this guard is blind');
-  assert.ok(
-    !/<EntourageOrderPanel/.test(PAGE.slice(rosterAt)),
-    'the panel is still mounted over the roster as well as being a view',
-  );
-  // And exactly one mount overall, so it cannot be in two places at once.
-  assert.equal((PAGE.match(/<EntourageOrderPanel/g) ?? []).length, 1);
+test('the walking order is laid out in the three parts, never a whole page dropped in', () => {
+  // LEFT the sections and lines · MIDDLE the aisle · RIGHT the picked line's controls
+  // (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS").
+  for (const part of ['MarchPieces', 'MarchAisleFocus', 'MarchControls']) {
+    assert.match(MARCH_UI, new RegExp(`export function ${part}\\(`), `${part} is gone`);
+  }
+  // The Guest list no longer draws it, and the Maker draws the shipped panel once
+  // (a picked SECTION shows its own slice of it).
+  assert.doesNotMatch(stripComments(PAGE), /<EntourageOrderPanel/, 'the Guest list draws the march again');
+  assert.equal((LOAD.match(/<EntourageOrderPanel/g) ?? []).length, 1);
+  assert.match(MARCH_UI, /\[data-march-section\]:not\(\[data-march-section="\$\{key\}"\]\)\{display:none\}/);
 });
 
-test('⚖ a move keeps you in the view you made it from', () => {
+test('⚖ a move keeps you where you made it', () => {
   /*
-    This used to pin `new URLSearchParams({ gview: 'walk', … })` in every
-    action's redirect: dropping `gview` on the way back would bounce the couple
-    out to the roster after every single move, so the control would work and
-    still feel broken.
-
-    ⚖ 2026-09-23 — THE PREMISE WENT AWAY, AND THE PROPERTY GOT STRONGER. There
-    is no way back to preserve, because there is no longer a way OUT: the
-    actions return a verdict and the island reconciles in place. A view you
-    never leave cannot be the wrong one — and the scroll position the owner kept
-    losing ("we need to always scroll back down") is kept for the same reason.
+    The actions return a verdict and the Maker refreshes in place
+    (`makerSave` → one refresh) — there is no navigation, so no way out and no
+    scroll lost ("we need to always scroll back down").
   */
   for (const file of ['entourage-order-actions.ts', 'march-actions.ts']) {
     const code = stripComments(
@@ -351,61 +350,33 @@ test('⚖ a move keeps you in the view you made it from', () => {
     );
     assert.doesNotMatch(code, /\bredirect\s*\(/, `${file} navigates away from the view the move was made in`);
   }
+  assert.match(MARCH_UI, /makerSave\(send, requestMakerRefresh\)/);
 });
 
 test("⚖ the owner's word is the ONLY word the couple sees", () => {
   /*
-    Owner 2026-09-20 named it: "[Wedding March]". A button called one thing that
-    opens a view called another is two names for one idea, and the second one
-    always reads as a different feature. So the header button, the view tab and
-    the panel's own heading all say it. `entourage_order` stays — a schema name
-    is not a word anybody reads.
+    Owner 2026-09-20 named it: "[Wedding March]". The Details item and the
+    panel's own heading both say it; "Walking order" is never the name.
   */
-  /* 🪤 Comments are not copy. A first draft failed on a docblock that explains
-     the walking order in prose, which is exactly the kind of false positive
-     that teaches somebody to delete the guard. Strip comments; judge the
-     strings a couple can actually read. */
-  const copyOf = (src: string) =>
-    stripComments(src);
-  for (const [what, src] of [
-    ['the header button', PAGE],
-    ['the view tab', ROSTER_DOORS_SRC],
-    ['the panel heading', PANEL],
-  ] as const) {
-    const copy = copyOf(src);
-    assert.match(copy, /Wedding March/, `${what} does not use the owner's word`);
-    assert.ok(!/Walking order/.test(copy), `${what} still says "Walking order" to the couple`);
+  assert.equal(yourEventLabel('march', WEDDING_KIND), 'Wedding March');
+  const copy = stripComments(PANEL);
+  assert.match(copy, /Wedding March/, "the panel heading does not use the owner's word");
+  for (const [what, src] of [['the panel', copy], ['the Details march', MARCH_UI]] as const) {
+    assert.ok(!/>\s*Walking order/.test(src), `${what} still titles it "Walking order"`);
   }
 });
 
 test('🔑 a celebration with no processional is not offered one', () => {
   /*
-    A generic event's roles are guest · host · vip · family · helper — not one
-    of them walks down an aisle. "Wedding March" on a birthday guest list would
-    be the wrong word over an empty view.
-
     DERIVED from the event's own role set, never from a list of event types, so
     a new profile answers correctly the day it is added.
   */
-  assert.match(
-    PAGE,
-    /const hasProcessional = resolveRoleSet\(guestRoleSetKey\)\.offeredRoles\.some/,
-    'the button is no longer derived from the event\'s own roles',
-  );
-  // 🪤 The gate moved when the masthead's doors became one row of tabs
-  // (2026-09-21): it lives in lib/roster-doors.ts now, and is EXECUTED here
-  // rather than matched as a string in a file it no longer lives in.
-  const noAisle = rosterDoors({ eventId: 'E', view: 'list', finished: false, hasProcessional: false, hasJoinLink: true });
-  assert.ok(!noAisle.tabs.some((d) => d.key === 'walk'), 'the button shows on every event type');
-  const aisle = rosterDoors({ eventId: 'E', view: 'list', finished: false, hasProcessional: true, hasJoinLink: true });
-  assert.ok(aisle.tabs.some((d) => d.key === 'walk'), 'a wedding lost its Wedding March');
-  // …and the page still hands the row the DERIVED answer, not a constant.
-  assert.match(PAGE, /hasProcessional=\{hasProcessional\}/, 'the tab row is not given the derived answer');
-  // ⚖ And ONLY there (owner 2026-09-21: "wedding march is repeated?"). The
-  // List · Mind map switcher carried a second, UNGATED copy — birthdays saw it.
+  assert.ok(yourEventItems(WEDDING_KIND).includes('march'), 'a wedding lost its Wedding March');
+  assert.ok(!yourEventItems(BIRTHDAY_KIND).includes('march'), 'the march shows on every event type');
+  // ⚖ And never back in the List · Mind map switcher (owner 2026-09-21: "wedding march is repeated?").
   const switcherCode = stripComments(SWITCHER);
   assert.ok(
     !/Wedding March/.test(switcherCode) && !/key: 'walk'/.test(switcherCode),
-    'Wedding March is back in the List · Mind map switcher — two doors, one ungated',
+    'Wedding March is back in the List · Mind map switcher',
   );
 });

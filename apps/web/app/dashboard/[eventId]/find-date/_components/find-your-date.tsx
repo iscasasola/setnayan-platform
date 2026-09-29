@@ -51,6 +51,11 @@ function Shell({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The helpers below are shared with Details › Date › "Help me choose"
+ * (`find-date-in-parts.tsx`), which lays this same finder out in the Maker's
+ * three parts — one ranking, one set of words.
+ */
 /** Does the pinned vendor stay available on this date? (open or off-platform). */
 function dateKeepsPinned(date: MatrixDate, pinnedKey: string | null): boolean {
   if (!pinnedKey) return true;
@@ -63,7 +68,7 @@ function dateKeepsPinned(date: MatrixDate, pinnedKey: string | null): boolean {
   return true;
 }
 
-function rankWithPin(dates: MatrixDate[], pinnedKey: string | null): MatrixDate[] {
+export function rankWithPin(dates: MatrixDate[], pinnedKey: string | null): MatrixDate[] {
   const ranked = [...dates].sort((a, b) => {
     const ap = dateKeepsPinned(a, pinnedKey) ? 1 : 0;
     const bp = dateKeepsPinned(b, pinnedKey) ? 1 : 0;
@@ -77,7 +82,9 @@ function rankWithPin(dates: MatrixDate[], pinnedKey: string | null): MatrixDate[
   return ranked.map((d, i) => ({ ...d, isBest: i === 0 && d.totalCategories > 0 }));
 }
 
-function coverageHeadline(date: MatrixDate): string {
+export function coverageHeadline(date: MatrixDate): string {
+  // Only reachable in Details (`find-date-in-parts.tsx`): with no suppliers picked there is nothing to count.
+  if (date.totalCategories === 0) return 'No suppliers to check yet';
   const swaps = date.coveredCount - date.topPicksKept;
   if (date.coveredCount === date.totalCategories) {
     if (date.topPicksKept === date.totalCategories) {
@@ -88,7 +95,7 @@ function coverageHeadline(date: MatrixDate): string {
   return `${formatCount(date.coveredCount)} of ${formatCount(date.totalCategories)} categories covered`;
 }
 
-function comboSummary(date: MatrixDate): string {
+export function comboSummary(date: MatrixDate): string {
   const swaps = date.coveredCount - date.topPicksKept;
   const missing = date.totalCategories - date.coveredCount;
   if (missing > 0) {
@@ -98,7 +105,7 @@ function comboSummary(date: MatrixDate): string {
   return `This date works — ${swaps} swap${swaps === 1 ? '' : 's'} to assemble your full team.`;
 }
 
-function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] }) {
+export function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] }) {
   const top = cat.vendors[0];
   if (!cat.covered) {
     return (

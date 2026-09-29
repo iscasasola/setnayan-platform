@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Check, Lock, Pencil, AlertTriangle, X } from 'lucide-react';
@@ -118,6 +118,24 @@ type Props = {
   pax: number | null;
   dateDisplay: string | null;
   dateValue: string | null;
+  /**
+   * 🧩 DETAILS (Maker) — draw only these rows. Details › Date shows the date
+   * row alone (owner 2026-09-29, "THE DATE FINDER LIVES IN STEP 2…"), through
+   * this SAME governed save: the conflict preview, then `updateEventDate`.
+   * Omitted = every row, exactly as the Personalization page draws them.
+   */
+  only?: readonly EditableField[];
+  /** A row's label in the event's own words (Details passes "Birthday date"). */
+  labels?: Partial<Record<EditableField, string>>;
+  /**
+   * A value chosen somewhere else on the same screen ("Use this date" in Find
+   * your date) — opens its row with the value in it, ready to check and save.
+   * `n` changes on every pick, so picking the same date twice re-opens it.
+   */
+  proposal?: { field: EditableField; value: string; n: number } | null;
+  /** Inside Details: the date finder sits beside this row, so the row does not
+   *  send the couple to another page for "more date options". */
+  embedded?: boolean;
 };
 
 /**
@@ -163,8 +181,14 @@ export function GovernedFields({
   pax,
   dateDisplay,
   dateValue,
+  only,
+  labels,
+  proposal = null,
+  embedded = false,
 }: Props) {
   const router = useRouter();
+  const shows = (f: EditableField) => !only || only.includes(f);
+  const labelOf = (f: EditableField) => labels?.[f] ?? FIELD_LABEL[f];
   const [open, setOpen] = useState<EditableField | null>(null);
   const [proposed, setProposed] = useState('');
   const [phase, setPhase] = useState<'edit' | 'confirm'>('edit');
@@ -232,6 +256,18 @@ export function GovernedFields({
     setConflicts([]);
     setError(null);
   }
+
+  /* A pick made elsewhere on the screen opens its row with that value in it —
+     the couple still taps "Check & save", so the conflict preview runs. */
+  useEffect(() => {
+    if (!proposal) return;
+    setOpen(proposal.field);
+    setProposed(proposal.value);
+    setPhase('edit');
+    setConflicts([]);
+    setError(null);
+    setSavedField(null);
+  }, [proposal]);
 
   async function applyField(field: EditableField, value: string): Promise<string | null> {
     // returns an error message, or null on success
@@ -368,6 +404,41 @@ export function GovernedFields({
   }
 
   // ---- Locked state -------------------------------------------------------
+  /* Details draws only its own rows, locked, in the event's own words — the
+     note says what is locked and why, with no padlock (owner: no padlocks). */
+  if (locked && only) {
+    const names = only.map((f) => labelOf(f).toLowerCase());
+    return (
+      <div className="space-y-2.5" data-governed-only={only.join(' ')}>
+        {only.map((f) => (
+          <LockedRow
+            key={f}
+            label={labelOf(f)}
+            value={
+              f === 'date'
+                ? dateDisplay
+                : f === 'ceremony'
+                  ? ceremonyDisplay(ceremony)
+                  : f === 'ceremony_venue'
+                    ? ceremonyVenueDisplay(ceremonyVenue)
+                    : f === 'venue'
+                      ? venueDisplay(venue)
+                      : pax != null && pax > 0
+                        ? `${pax} guests`
+                        : null
+            }
+          />
+        ))}
+        <p className="text-xs text-ink/60">
+          Your {names.join(' and ')} {names.length === 1 ? 'is' : 'are'} set, because a supplier is booked on it.{' '}
+          <Link href="/help" className="font-medium text-terracotta underline-offset-2 hover:underline">
+            Contact support
+          </Link>{' '}
+          to change it — we’ll work it out with your booked suppliers.
+        </p>
+      </div>
+    );
+  }
   if (locked) {
     return (
       <div className="space-y-2.5">
@@ -398,9 +469,11 @@ export function GovernedFields({
   // ---- Editable state -----------------------------------------------------
   return (
     <div className="space-y-2.5">
+      {shows('ceremony') ? (
+        <>
       <EditableRow
         field="ceremony"
-        label={FIELD_LABEL.ceremony}
+        label={labelOf('ceremony')}
         value={ceremonyDisplay(ceremony)}
         open={open === 'ceremony'}
         saved={savedField === 'ceremony'}
@@ -463,13 +536,17 @@ export function GovernedFields({
         </div>
       ) : null}
 
+        </>
+      ) : null}
+
       {/* CEREMONY venue — where they marry. Sits directly above the reception
           venue, in the order the day happens, so the two are read as a pair.
           Until 2026-09-03 there was only one venue row and nothing said which
           of the two it meant. */}
+      {shows('ceremony_venue') ? (
       <EditableRow
         field="ceremony_venue"
-        label={FIELD_LABEL.ceremony_venue}
+        label={labelOf('ceremony_venue')}
         value={ceremonyVenueDisplay(ceremonyVenue)}
         open={open === 'ceremony_venue'}
         saved={savedField === 'ceremony_venue'}
@@ -493,10 +570,12 @@ export function GovernedFields({
           Where you’ll marry. Your reception venue is set separately below.
         </p>
       </EditableRow>
+      ) : null}
 
+      {shows('venue') ? (
       <EditableRow
         field="venue"
-        label={FIELD_LABEL.venue}
+        label={labelOf('venue')}
         value={venueDisplay(venue)}
         open={open === 'venue'}
         saved={savedField === 'venue'}
@@ -518,10 +597,12 @@ export function GovernedFields({
           Where your guests will eat and celebrate.
         </p>
       </EditableRow>
+      ) : null}
 
+      {shows('pax') ? (
       <EditableRow
         field="pax"
-        label={FIELD_LABEL.pax}
+        label={labelOf('pax')}
         value={pax != null && pax > 0 ? `${pax} guests` : null}
         open={open === 'pax'}
         saved={savedField === 'pax'}
@@ -538,10 +619,12 @@ export function GovernedFields({
           className={SELECT_CLASS}
         />
       </EditableRow>
+      ) : null}
 
+      {shows('date') ? (
       <EditableRow
         field="date"
-        label={FIELD_LABEL.date}
+        label={labelOf('date')}
         value={dateDisplay}
         open={open === 'date'}
         saved={savedField === 'date'}
@@ -554,6 +637,7 @@ export function GovernedFields({
           onChange={(e) => setProposed(e.target.value)}
           className={SELECT_CLASS}
         />
+        {embedded ? null : (
         <p className="text-[11px] text-ink/50">
           Need a flexible window or year/month only?{' '}
           <Link
@@ -564,7 +648,9 @@ export function GovernedFields({
           </Link>
           .
         </p>
+        )}
       </EditableRow>
+      ) : null}
 
       {/* Shared editor footer — appears under whichever row is open. */}
       {open ? (
@@ -582,7 +668,7 @@ export function GovernedFields({
                     <>All clear — no services conflict anymore. You can apply your change.</>
                   ) : (
                     <>
-                      Changing your {FIELD_LABEL[open].toLowerCase()} affects{' '}
+                      Changing your {labelOf(open).toLowerCase()} affects{' '}
                       <strong className="font-semibold">
                         {conflicts.length} service{conflicts.length === 1 ? '' : 's'}
                       </strong>{' '}

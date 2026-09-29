@@ -202,7 +202,7 @@ const UNEXPLAINED_EMPTY_BILL: Readonly<Record<string, string>> = {
     'an experimental seating sandbox behind its own flag',
   'app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx':
     'a retired SKU whose orders are hard-rejected',
-  'app/dashboard/[eventId]/studio/mood-board/page.tsx':
+  'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx':
     'reads guests only for a count on a palette screen',
   'app/dashboard/[eventId]/studio/patiktok/booth/page.tsx':
     'a booth screen; the guest read feeds a picker, empty renders as no picks',
@@ -215,6 +215,14 @@ const UNEXPLAINED_EMPTY_BILL: Readonly<Record<string, string>> = {
   'app/dashboard/[eventId]/page.tsx':
     'the dashboard overview; its counts are couple-facing and a delegate sees the same tiles',
 };
+
+/**
+ * A screen whose body moved out of its `page.tsx` into a component drawn in
+ * more than one place — the sweep above only greps `page.tsx`, so a move would
+ * otherwise walk the read out of the guard. The Mood Board's board is one
+ * component since Details part 3 (its page and the Maker's Details both draw it).
+ */
+const PAGE_BODIES_OUTSIDE_PAGE_TSX = ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx'];
 
 test('THE GUARD: every screen that reads a guest asks whether this viewer may see one', () => {
   // 🔑 DERIVED FROM THE TREE, NOT FROM A LIST I TYPED — and the first version of
@@ -229,6 +237,7 @@ test('THE GUARD: every screen that reads a guest asks whether this viewer may se
   )
     .split('\n')
     .filter(Boolean)
+    .concat(PAGE_BODIES_OUTSIDE_PAGE_TSX)
     .sort();
 
   // A floor, so a broken path or a renamed directory cannot make this pass by

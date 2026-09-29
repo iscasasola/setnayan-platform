@@ -290,7 +290,7 @@ export async function InvitePanel({
         <b className="font-semibold text-ink">{INVITE_THEMES[liveTheme].name}</b>
         <span aria-hidden>·</span>
         <Link
-          href={`/dashboard/${eventId}/launch?tool=details`}
+          href={`/dashboard/${eventId}/launch?tool=details&item=theme`}
           className="font-medium text-link underline-offset-2 hover:underline"
         >
           Change in Event Hub Maker ↗

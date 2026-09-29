@@ -9,15 +9,16 @@ import {
   PencilLine,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
-import { pickableInviteThemes, resolveInviteTheme } from '@/lib/invite-themes';
+import { GENERIC_PROFILE, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { INVITE_THEMES, pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
@@ -43,8 +44,16 @@ import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
+import { readMakerRevealStages } from './_components/maker-made-once';
+import { MoodBoardMakerBody, MoodBoardMakerControls } from '../studio/mood-board/_components/mood-board-editor';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 import { MakerRsvpSettings } from './_components/maker-rsvp-ask';
+import OurStoryEditorPage from '../website/our-story/page';
+import CoupleSchedulePage from '../schedule/page';
+import RequestsPage from '../guests/claims/page';
+import type { LoveStoryBlob } from '../website/our-story/_components/story-fields';
+import { resolveMoments } from '@/lib/love-story-moments';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
@@ -53,11 +62,18 @@ import { completeTour } from '@/lib/tour-actions';
 import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
-import { MakerPrints } from './_components/maker-prints';
-import { MakerDetails, MakerDetailsPage } from './_components/maker-details';
+import { MakerDetails, detailsFactEditors } from './_components/maker-details';
+import { loadYourEvent } from './_components/details-your-event-load';
+import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
+import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
+import { formatBlockTime } from '@/lib/schedule';
+import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
+import { findSampleEventId } from '@/app/tour/_lib/sample-event';
+import { GuestCardBody } from '../guests/_components/guest-card-body';
+import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
-import { hasPalette, parentsFromEntourageForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { hasPalette, parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
@@ -125,10 +141,14 @@ type Props = {
     scene?: string | string[];
     chain?: string | string[];
     /** Phase 6: `?tool=hero|reveal|logo` opens that made-once workspace.
-     *  Phase 9: `?tool=prints` opens Prints & Tickets, `?tool=details` the
-     *  Details panel (its saves land back on it); `print_theme` previews the set
-     *  in another theme — never saved. */
+     *  `?tool=details&item=<key>` opens Details on one item; an old
+     *  `?tool=prints` (Prints & Tickets, folded into Details 2026-09-28) opens
+     *  Details at the same piece, and an old `print_theme` on its Theme item
+     *  (`lib/maker-details-items.ts`). */
     tool?: string | string[];
+    item?: string | string[];
+    /** `?date=help` — Details › Date opens on "Help me choose" (where /find-date lands). */
+    date?: string | string[];
     print_theme?: string | string[];
     print_saved?: string | string[];
     print_error?: string | string[];
@@ -141,6 +161,17 @@ type Props = {
     /** The Menu editor's save result (`/api/hub-print/menu`). */
     menu_saved?: string | string[];
     menu_error?: string | string[];
+    /** 📦 Details › Schedule (the Schedule page, moved whole): its own query. */
+    view?: string | string[];
+    ros?: string | string[];
+    note?: string | string[];
+    host_answers?: string | string[];
+    /** 📦 Details › Love Story (the scrapbook, moved whole): a save's flash. */
+    saved?: string | string[];
+    drafted?: string | string[];
+    error?: string | string[];
+    pro?: string | string[];
+    slotted?: string | string[];
   }>;
 };
 
@@ -723,7 +754,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     couple-only, and it still is (its own gate redirects anybody else).
   */
   const memberType = (membership as { member_type?: string | null } | null)?.member_type;
-  const hasWork = memberType === 'couple' && websiteOn;
+  const hasWork = makerHasWork(memberType, websiteOn);
 
   /* First visit = the tour (owner 2026-09-25). The same read `MiniTour` makes.
      ⚠ A refused read shows NO tour: an unread row must not replay a welcome on
@@ -955,20 +986,47 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      read (the theme and the card words) and the Pro question — the pieces
      themselves are drawn by /api/hub-print, which asks the Pro question again
      and refuses on its own. */
-  let prints: ReactNode = null;
   let details: { page: ReactNode; controls: ReactNode } | null = null;
-  let rsvp: { page: ReactNode; controls: ReactNode } | null = null;
+  /* ✍ The Details items' own editors — ONE set, drawn by Details and by the
+     stage's inspector when a fact is tapped there (`detailsFactEditors`). */
+  let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
-      parentsFromEntourageForEvent(eventId),
+      parentGuestsForEvent(eventId),
       fetchEgiftMethods(printAdmin, eventId, { enabledOnly: true }),
       // ⚡ What the print previews are drawn from, hashed — their cache key.
       printInputsVersion(eventId).catch(() => null),
+      // 🖼 The SAMPLE's print inputs, hashed — the theme gallery's prints are the
+      // sample's (the same for every couple), cached once by this key.
+      findSampleEventId()
+        .then((id) => (id ? printInputsVersion(id) : null))
+        .catch(() => null),
+      // 💡 The onboarding feel — the gallery's "Suggested for you" label only.
+      printAdmin.from('events').select('mood_feel_key').eq('event_id', eventId).maybeSingle(),
+      // 💌 The live Love Story (the draft, read below, wins) — Details › Love Story.
+      supabase.from('events').select('love_story').eq('event_id', eventId).maybeSingle(),
+      // 🗓 The schedule's moments — Details › Schedule's ✓ and its pieces (a refused read says so, never "0").
+      supabase
+        .from('event_schedule_blocks')
+        .select('block_id, label, start_at, parent_block_id')
+        .eq('event_id', eventId)
+        .order('start_at', { ascending: true })
+        .order('sort_order', { ascending: true }),
+      // Announce is a piece of the Schedule where it is on (the schedule page's own flag).
+      isCoordinatorP3Enabled().catch(() => false),
     ]);
+    if (storyLiveRes.error) logQueryError('LaunchPage.loveStory', storyLiveRes.error, { event_id: eventId }, 'graceful_degrade');
+    if (scheduleRes.error) logQueryError('LaunchPage.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
+    const scheduleMoments = scheduleRes.error
+      ? null
+      : ((scheduleRes.data ?? []) as Array<{ block_id: string; label: string | null; start_at: string; parent_block_id: string | null }>).filter(
+          (b) => b.parent_block_id === null,
+        );
+    if (feelRes.error) logQueryError('LaunchPage.moodFeel', feelRes.error, { event_id: eventId }, 'graceful_degrade');
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
       // The Menu card's other sources (a booked caterer's lines, the schedule's food moments).
@@ -984,11 +1042,17 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let rsvpAskDrafted = false;
       // 🎨 The theme being edited — drafted over live (picked on Details).
       let themeSaved: unknown = printEvent.invite_theme;
+      // 💌 The Love Story's words — drafted over live, like the scrapbook shows them.
+      let storyRaw: unknown = storyLiveRes.error ? null : (storyLiveRes.data as { love_story?: unknown } | null)?.love_story;
+      // 🎨 The Look's "done" marks read the draft over live too (Details part 3).
+      let draftedEvents: Record<string, unknown> = {};
       // 🔳 The QR look being edited — drafted over live (owner 2026-09-29, "yes to all 3").
       let qrPrefs: unknown = printEvent.style_preferences;
       try {
         const d = await readHubDraft(supabase, eventId);
+        if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
+        if (d && 'love_story' in d.events) storyRaw = d.events.love_story;
         if (d && 'style_preferences' in d.events) qrPrefs = d.events.style_preferences;
         if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
         if (d && 'rsvp_ask_config' in d.events) {
@@ -998,6 +1062,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       } catch (e) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
+      /** One events column as the couple is editing it — the draft's, else live. */
+      const drafted = (
+        col: 'monogram_custom_svg' | 'monogram_uploaded_svg' | 'landing_page_hero_image_url' | 'landing_page_hero_video_r2_key',
+      ): unknown => (col in draftedEvents ? draftedEvents[col] : printEvent[col]);
       /* ══ DETAILS (made-once) ══ what the stages and prints include, and every
          line of wording — each read from its one home. A PAGE in the Maker's
          body (owner 2026-09-25): what the details feed is the page, these
@@ -1009,44 +1077,72 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       const mayShowStdFilm = await resolveProfile(printEvent.event_type ?? '')
         .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
         .catch(() => false);
-      const theme = {
-        home: printEvent.slug ? `/${printEvent.slug}` : null,
-        themes: pickableInviteThemes({ mayShowStdFilm }).map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
-        // 💎 On the web a drafted Pro theme is the one being edited even without
-        // Pro — it is tried here and held at Apply (owner 2026-09-28). The shell
-        // keeps the ownership half of the gate.
-        current: resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell, mayShowStdFilm }),
+      // 💎 On the web a drafted Pro theme is the one being edited even without
+      // Pro — it is tried here and held at Apply (owner 2026-09-28, #6091). The
+      // shell keeps the ownership half of the gate.
+      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell, mayShowStdFilm });
+      /* 🎂 The celebration's type decides Details' items and switches (DECISION_LOG
+         "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
+         unreadable profile is the generic one — never a wedding. */
+      const detailsProfile = await resolveProfile(printEvent.event_type ?? '').catch(() => GENERIC_PROFILE);
+      const themes = pickableInviteThemes({ mayShowStdFilm });
+      /* 🖨 THE COUPLE'S OWN PRINTS, folded in from Prints & Tickets (owner
+         2026-09-28: "1 fold prints and tickets into details") — drawn in the
+         theme being edited; the access is part of each picture's cache key. */
+      const prints = {
+        eventId,
+        slug: printEvent.slug,
+        theme: printThemeFor(printEvent, themeCurrent),
         ownsPro: printPro,
         storeShell,
-        // Never on the Maker's very first visit — its own welcome is showing.
-        tour: !firstVisit,
+        previewVersion: printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null,
+        formats: {
+          pass: formatFor('pass', one(search.pass_format))!,
+          invitation: formatFor('invitation', one(search.invitation_format))!,
+          card: formatFor('card', one(search.card_format))!,
+        },
       };
-      details = {
-        page: <MakerDetailsPage eventId={eventId} slug={printEvent.slug} stamp={String(Date.now())} />,
-        controls: (
-        <MakerDetails
-          eventId={eventId}
-          stored={stored}
-          hosts={rsvpHosts}
-          parents={printParents}
-          pabuyaMessage={printEvent.pabuya_message}
-          specialMessage={specialMessage}
-          specialMessageAction={updateSpecialMessage.bind(null, eventId)}
-          hasPalette={hasPalette(printEvent.role_palette)}
-          hasGifts={egifts.length > 0}
-          flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
-          slug={printEvent.slug}
-          slugAction={updateEventSlug.bind(null, eventId, 'launch')}
-          // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
-          // it, the saved choices, and the contrast-passing Mood Board colours.
-          qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, printPro), storeShell }}
-          qrStyleAction={updateQrStyle.bind(null, eventId)}
-          theme={theme}
-        />
-        ),
-      };
-      /* ══ RSVP (made-once, guest pathway — owner 2026-09-27) ══ The guest's
-         RSVP as they meet it is the page (the Invitation on the SAMPLE
+      /* 👪 Each parent's OWN guest card (Details → The Invitation, option (a)):
+         the one loader the Guest list uses, so the card posts every column. */
+      const invitationBase = await fetchInvitationBase(eventId, printEvent.slug).catch(() => null);
+      const parentCards = await Promise.all(
+        printParents.map(async (p) => {
+          const data = p.guestId ? await loadGuestCard(supabase, eventId, p.guestId).catch(() => null) : null;
+          return {
+            guestId: data ? p.guestId : null,
+            name: p.name,
+            card: data ? (
+              <GuestCardBody
+                eventId={eventId}
+                data={data}
+                invitationBase={invitationBase}
+                photoDisplayUrl={null}
+                variant="panel"
+                returnTo={`/dashboard/${eventId}/launch?tool=details&item=invitation`}
+                errorMessage={null}
+                inviteFlash={null}
+              />
+            ) : null,
+          };
+        }),
+      );
+      /* 🗓 Details part 2a — "Your event": names, date, venues, parents &
+         hosts, the march — each read from the column its own screen reads. */
+      const yourEvent = await loadYourEvent({
+        supabase,
+        admin: printAdmin,
+        eventId,
+        mayShowStdFilm,
+        parentCount: printParents.length,
+        hostCount: rsvpHosts.length,
+        helpFirst: one(search.date) === 'help',
+      }).catch((e: unknown) => {
+        console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
+        return null;
+      });
+      /* ══ RSVP (guest pathway — owner 2026-09-27; moved WHOLE into Details ›
+         Story & plans › RSVP, Details part 2b) ══ The guest's RSVP as they
+         meet it is the item's picture (the Invitation on the SAMPLE
          seat-holder, reply open — `makerPageCanvasSrc`), and its settings sit
          beside it: one question at a time, what you ask, who can RSVP, reply
          by, and who is waiting in Requests. Every setting is ONE key of
@@ -1063,7 +1159,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             .is('deleted_at', null)
         : null;
       const [deadlineRes, requestsRes] = await Promise.all([
-        printAdmin.from('events').select('guest_list_edit_deadline').eq('event_id', eventId).maybeSingle(),
+        printAdmin.from('events').select('guest_list_edit_deadline, adaptive_pricing_mode').eq('event_id', eventId).maybeSingle(),
         requestsCountRead,
       ]);
       if (deadlineRes.error) logQueryError('LaunchPage.rsvpDeadline', deadlineRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -1072,22 +1168,24 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       const rsvpSrc = makerPageCanvasSrc(rsvpHome, 'rsvp-page', 'rsvp');
       const rsvpRepliedSrc = makerPageCanvasSrc(rsvpHome, 'rsvp-page', 'rsvp', { rsvpView: 'replied' });
       const rsvpStamp = String(Date.now());
-      rsvp = {
+      const rsvpItem = {
         page: rsvpSrc && rsvpRepliedSrc ? (
-          <MakerRsvpCanvas questionsSrc={rsvpSrc} repliedSrc={rsvpRepliedSrc} stamp={rsvpStamp} />
+          <>
+            {/* 📮 The reminder-emails hint (owner 2026-09-25 — every feature
+                gets a first-visit tour), on the item's PICTURE: Details mounts
+                a picture only when its item is first opened (every editor is
+                mounted at once), so it shows on the first open of RSVP and
+                never stacks on another item's tour — nor on the Maker's very
+                first visit. */}
+            {!firstVisit ? <MiniTour tourKey="customer_guest_reminders_v1" storeShell={storeShell} /> : null}
+            <MakerRsvpCanvas questionsSrc={rsvpSrc} repliedSrc={rsvpRepliedSrc} stamp={rsvpStamp} />
+          </>
         ) : (
           <p className="m-auto max-w-sm px-4 text-center text-sm text-ink/70" data-maker-page-no-address="">
             Set your Event Hub address in Details to see your RSVP here.
           </p>
         ),
-        controls: (
-          <>
-          {/* 📮 First open of the RSVP page after the Maker welcome: the
-              reminder-emails hint (owner 2026-09-25 rule — every feature gets a
-              first-visit tour). Rendered only while this page is open (the
-              shell mounts `controls` for the open page alone), and never on
-              the Maker's very first visit, so two tours cannot stack. */}
-          {!firstVisit ? <MiniTour tourKey="customer_guest_reminders_v1" storeShell={storeShell} /> : null}
+        settings: (
           <MakerRsvpSettings
             eventId={eventId}
             current={rsvpAsk}
@@ -1102,44 +1200,170 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                     eventDate: printEvent.event_date,
                   })
             }
-            replyByHref={`/dashboard/${eventId}/details`}
+            /* ✍ Typed right here (no link out): the couple's own date and the
+               pricing view its one writer (`updatePaxSettings`) posts beside it. */
+            replyByOwn={
+              deadlineRes.error
+                ? null
+                : {
+                    deadline: (deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null,
+                    pricingMode:
+                      (deadlineRes.data as { adaptive_pricing_mode?: string | null } | null)?.adaptive_pricing_mode === 'final_only'
+                        ? 'final_only'
+                        : 'realtime',
+                  }
+            }
             requests={{
               /* A refused (or unasked) read is SAID (null), never a "0" that reads as nobody. */
               count: !requestsRes || requestsRes.error ? null : (requestsRes.count ?? 0),
-              href: `/dashboard/${eventId}/guests/claims`,
+              /* The shipped Requests rows (Keep · Remove · Link), in place — only
+                 for a viewer who may read the guest list (the page checks the
+                 couple itself). */
+              list: mayReadGuestList ? (
+                <Suspense fallback={<p className="text-sm text-ink/60">Opening your requests…</p>}>
+                  <RequestsPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: '1' })} />
+                </Suspense>
+              ) : null,
             }}
           />
-          </>
         ),
       };
-      prints = (
-        <>
-        {/* First visit to Prints & Tickets since the Menu arrived: what it is and where its dishes come from. */}
-        <MiniTour tourKey="customer_print_menu_v1" storeShell={storeShell} />
-        <MakerPrints
-          eventId={eventId}
-          slug={printEvent.slug}
-          theme={printThemeFor(printEvent, one(search.print_theme))}
-          savedTheme={printThemeFor(printEvent)}
-          ownsPro={printPro}
-          storeShell={storeShell}
-          flash={null}
-          /* ⚡ The access is part of the picture (a sample or the real piece). */
-          previewVersion={printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null}
-          seatPlan={stored.include.seatPlan}
-          menu={{
-            saved: stored.menu,
-            ...menuSources,
-            flash: one(search.menu_saved) ? 'saved' : one(search.menu_error) ? 'error' : null,
-          }}
-          formats={{
-            pass: formatFor('pass', one(search.pass_format))!,
-            invitation: formatFor('invitation', one(search.invitation_format))!,
-            card: formatFor('card', one(search.card_format))!,
-          }}
-        />
-        </>
+      /* 💌 LOVE STORY, moved whole (Details part 2b): only where this event type
+         has two named people (`detailsItemApplies`). Its WORDS editor only when
+         the story was read — a form built on an unread story would save it
+         empty; Details then says it could not be read. */
+      const eventContext = { profile: detailsProfile, solemn: eventWordsFromProfile(detailsProfile).solemn };
+      const story: LoveStoryBlob | null =
+        storyLiveRes.error && storyRaw == null
+          ? null
+          : storyRaw && typeof storyRaw === 'object' && !Array.isArray(storyRaw)
+            ? (storyRaw as LoveStoryBlob)
+            : {};
+      const storyApplies = detailsItemApplies('love-story', eventContext);
+      const withStory = story !== null && storyApplies;
+      factEditors = detailsFactEditors({
+        eventId,
+        specialMessage,
+        specialMessageAction: updateSpecialMessage.bind(null, eventId),
+        pabuyaMessage: printEvent.pabuya_message,
+        // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
+        loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
+      });
+      /* 🗓 THE SCHEDULE, moved whole — the shipped page, streamed so the Maker
+         never waits on it, with its own query when Details › Schedule is the item. */
+      const schedulePage = (
+        <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening your schedule…</p>}>
+          <CoupleSchedulePage
+            params={Promise.resolve({ eventId })}
+            searchParams={Promise.resolve({
+              maker: '1',
+              view: one(search.view),
+              ros: one(search.ros),
+              note: one(search.note),
+              host_answers: one(search.host_answers),
+            })}
+          />
+        </Suspense>
       );
+      const loveStoryBook = storyApplies ? (
+        <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening your Love Story…</p>}>
+          <OurStoryEditorPage
+            params={Promise.resolve({ eventId })}
+            searchParams={Promise.resolve({
+              maker: '1',
+              saved: one(search.saved),
+              drafted: one(search.drafted),
+              error: one(search.error),
+              pro: one(search.pro),
+              slotted: one(search.slotted),
+            })}
+          />
+        </Suspense>
+      ) : null;
+      details = {
+        page: (
+          <MakerDetails
+            yourEvent={yourEvent}
+            eventId={eventId}
+            slug={printEvent.slug}
+            slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+            // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
+            // it, the saved choices, and the contrast-passing Mood Board colours.
+            qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, printPro), storeShell }}
+            qrStyleAction={updateQrStyle.bind(null, eventId)}
+            theme={{
+              themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
+              current: themeCurrent,
+              ownsPro: printPro,
+              storeShell,
+              suggested: themeMatchingFeel(feelRes.data?.mood_feel_key, { mayShowStdFilm }),
+              sampleVersion,
+              blurbs: Object.fromEntries(themes.map((t) => [t.id, INVITE_THEMES[t.id].blurb])),
+              // Each theme's SAVED poster (already on R2) — the gallery's picture until a page is there.
+              posters: Object.fromEntries(themes.map((t) => [t.id, t.media ? publicUrlForStoredAsset(t.media.poster) : null])),
+              // Never on the Maker's very first visit — its own welcome is showing.
+              tour: !firstVisit,
+              chosen: themeSaved !== null && themeSaved !== undefined,
+            }}
+            prints={prints}
+            menu={{
+              saved: stored.menu,
+              ...menuSources,
+              flash: one(search.menu_saved) ? 'saved' : one(search.menu_error) ? 'error' : null,
+            }}
+            stored={stored}
+            hosts={rsvpHosts}
+            parents={parentCards}
+            pabuyaMessage={printEvent.pabuya_message}
+            specialMessage={specialMessage}
+            facts={factEditors}
+            loveStory={loveStoryBook ? { book: loveStoryBook, moments: story ? resolveMoments(story).length : null } : null}
+            schedule={{
+              page: schedulePage,
+              moments: scheduleMoments ? scheduleMoments.length : null,
+              pieces: schedulePieces(
+                (scheduleMoments ?? []).map((b) => ({ id: b.block_id, label: b.label ?? '', time: formatBlockTime(b.start_at) })),
+                announceOn,
+              ),
+            }}
+            rsvp={rsvpItem}
+            hasPalette={hasPalette(printEvent.role_palette)}
+            hasGifts={egifts.length > 0}
+            flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
+            stamp={String(Date.now())}
+            eventContext={eventContext}
+            initialItem={detailsItemFor({
+              tool: one(search.tool),
+              item: one(search.item),
+              printTheme: one(search.print_theme),
+              menuFlash: Boolean(one(search.menu_saved) || one(search.menu_error)),
+            })}
+            /* 🎨 THE LOOK (Details part 3, DECISION_LOG "OPTION B …" + "SCHEDULE,
+               MOOD BOARD AND SEAT PLAN MOVE INSIDE…"): the Mood Board studio,
+               streamed so the Maker never waits on it; Logo, Hero and Reveal
+               come from the work area. "Done" is read from the columns they
+               already write, drafted over live. */
+            look={{
+              moodBoard: (
+                <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your Mood Board…</p>}>
+                  <MoodBoardMakerBody eventId={eventId} />
+                </Suspense>
+              ),
+              moodBoardControls: (
+                <Suspense fallback={<p className="text-sm text-ink/60">Opening your Mood Board…</p>}>
+                  <MoodBoardMakerControls eventId={eventId} />
+                </Suspense>
+              ),
+              logoDone: Boolean(drafted('monogram_custom_svg') || drafted('monogram_uploaded_svg')),
+              heroDone: Boolean(drafted('landing_page_hero_image_url') || drafted('landing_page_hero_video_r2_key')),
+              // The hero panel's own claim: made once, shown on these three and the poster.
+              heroOn: [PUBLIC_STAGE_LABELS.save_the_date, PUBLIC_STAGE_LABELS.rsvp, PUBLIC_STAGE_LABELS.event, 'The poster'],
+              revealOn: (await readMakerRevealStages(eventId)).map((s) => PUBLIC_STAGE_LABELS[s]),
+            }}
+          />
+        ),
+        controls: null,
+      };
     }
   }
 
@@ -1153,21 +1377,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          `?tool=details|prints` the Phase 9 panels — a save lands back on the
          panel the couple was using. */
       initialSelection={(() => {
-        const tool = one(search.tool);
+        // An old `?tool=prints` (Prints & Tickets) is Details now.
+        const tool = makerToolFor(one(search.tool));
         return hasWork &&
           (tool === 'hero' ||
             tool === 'reveal' ||
             tool === 'logo' ||
-            tool === 'love-story' ||
-            tool === 'details' ||
-            tool === 'rsvp-page' ||
-            tool === 'prints')
+            tool === 'details')
           ? ({ kind: 'tool', key: tool } as const)
           : null;
       })()}
-      prints={prints}
       details={details}
-      rsvp={rsvp}
+      factEditors={factEditors}
       storeShell={storeShell}
       /* ⛔ The tour's Pro slide: no figure in the store shell (it drops the
          slide), and only the catalogue's figure anywhere else. */
@@ -1192,6 +1413,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
+      /* Who Details is for, in the event type's own words (a coordinator is told
+         why it is shut) — `EventWords`, never a typed "couple". */
+      theHost={eventWordsFromProfile(await resolveProfileByEvent(eventId)).theHost}
     >
       {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, once the day
           has happened. Never on the Maker's very first visit: the Maker's own

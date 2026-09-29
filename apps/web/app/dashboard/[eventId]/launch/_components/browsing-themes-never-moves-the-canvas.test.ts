@@ -8,16 +8,23 @@
  * re-mounted. Only a deliberate pick changes the theme, and it lands through
  * the draft like every other Details edit.
  *
- * The way this could break is not obvious, so it is spelled out: each theme
- * tile is its own small frame of the guest page. If a tile mounted the
+ * 🖼 Since 2026-09-28 the gallery shows the curated SAMPLE Event Hub in each
+ * theme (owner: *"a clean preview of each website … with the sample event
+ * hub"*) — a still, or the live sample page in a small frame until a still is
+ * captured — and the couple's prints on Details wear their pick. The rules
+ * below hold for the sample frame exactly as they held for the old own-page tile.
+ *
+ * The way this could break is not obvious, so it is spelled out: each live
+ * entry is its own small frame of a guest page. If a tile mounted the
  * click-to-edit bridge, it would post `ready` / `edit` to ITS parent — the Maker
  * — and the Maker's listeners check the message's ORIGIN, not which frame sent
  * it. A tile's `ready` could then promote the canvas's loading frame
  * (`buffered-canvas-frame.tsx`), and a tap inside a tile could open a panel. So:
  *
- *   1 · a tile's address is the host canvas door + `theme=`, with no stamp;
- *   2 · the guest page honours `theme=` for a verified host only, and a tile
- *       NEVER mounts the bridge;
+ *   1 · an entry's address is the SAMPLE page + `theme=` — never a couple's
+ *       canvas door — with no stamp;
+ *   2 · the guest page honours `theme=` for a verified host or on the sample
+ *       row only, and a tile NEVER mounts the bridge;
  *   3 · the picker has no path to the canvas: no postMessage, no navigation of
  *       anything but its own tiles, no `scrollIntoView`, sandboxed frames, and
  *       nothing happens on hover or scroll — only a pick writes, to the draft;
@@ -35,8 +42,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
-import { makerThemeTileSrc } from '@/lib/maker-made-once-pages';
 import { nextTileToLoad, tilesShown, type ThemeTile } from '@/lib/maker-theme-tiles';
+import { sampleHubTileSrc } from '@/lib/theme-sample-stills';
 import { canvasTriedTheme } from '../../../../[slug]/_lib/editor-canvas';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -55,6 +62,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(APP, rel), 'utf8'));
 const PICKER = 'dashboard/[eventId]/launch/_components/maker-theme-picker.tsx';
+const OVERLAY = 'dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx';
 
 const TILES: ThemeTile[] = [
   { id: 'house', name: 'Classic', tier: 'free' },
@@ -64,12 +72,16 @@ const TILES: ThemeTile[] = [
 
 // ═══ 1 · the tile's address ═══════════════════════════════════════════════
 
-test('1 · a tile is the host canvas door + theme= — and carries no render stamp', () => {
-  const src = makerThemeTileSrc('/cale-ice', 'rsvp', 'vintage');
-  assert.equal(src, '/cale-ice?phase=rsvp&editor=1&theme=vintage');
-  // No stamp: a Maker re-render after a save elsewhere must not reload a tile.
-  assert.doesNotMatch(src ?? '', /[?&](v|t|stamp)=/);
-  assert.equal(makerThemeTileSrc(null, 'rsvp', 'vintage'), null, 'no address, no tile — never a guessed one');
+test('1 · an entry is the SAMPLE page + theme= — never a couple’s canvas door, never a stamp', () => {
+  const src = sampleHubTileSrc('vintage');
+  assert.equal(src, '/maria-and-jose?theme=vintage');
+  assert.doesNotMatch(src, /editor=1|phase=/, 'the sample entry asked for the host canvas door');
+  // No stamp: a Maker re-render after a save elsewhere must not reload an entry.
+  assert.doesNotMatch(src, /[?&](v|t|stamp)=/);
+  // The picker never builds a couple's address at all.
+  const picker = read(PICKER);
+  assert.doesNotMatch(picker, /makerThemeTileSrc|editor=1|home\b/, 'the gallery reaches for the couple’s own page again');
+  assert.match(picker, /sampleHubTileSrc\(t\.id\)/);
 });
 
 // ═══ 2 · the guest page's side ═══════════════════════════════════════════
@@ -97,7 +109,11 @@ test('2b · a tile NEVER mounts the click-to-edit bridge', () => {
     /triedTheme = canvasTriedTheme\(search, await loadHostMembership\(admin, liveEvent\.event_id, previewer\.id\)\)/,
     'the tile theme is taken without the host check',
   );
-  assert.equal([...page.matchAll(/triedTheme = /g)].length, 1, 'a second writer of the tile theme appeared');
+  // …and the curated SAMPLE answers `theme=` to anyone — keyed on the row's own
+  // `is_sample`, never on a param, so a real couple's page cannot be asked.
+  assert.match(page, /const sampleTile = liveEvent\.is_sample === true;/, 'the sample tile is keyed on something other than the row');
+  assert.match(page, /if \(search\.theme && sampleTile\) \{\s*triedTheme = canvasTriedTheme\(search, sampleTile\);/);
+  assert.equal([...page.matchAll(/triedTheme = /g)].length, 2, 'a third writer of the tile theme appeared');
 });
 
 test('2c · the tile wears the theme through the ONE gate — the fence still answers', () => {
@@ -111,18 +127,18 @@ test('2c · the tile wears the theme through the ONE gate — the fence still an
 
 // ═══ 3 · the picker has no path to the canvas ═════════════════════════════
 
-test('3a · the picker never touches another frame, never scrolls an ancestor, never navigates', () => {
-  const src = read(PICKER);
-  assert.doesNotMatch(src, /postMessage|contentWindow|window\.parent|window\.top/, 'the picker talks to a frame');
-  assert.doesNotMatch(src, /scrollIntoView/, 'scrollIntoView scrolls every ancestor — the Maker included');
-  assert.doesNotMatch(src, /useRouter|router\.|location\.(href|assign|replace)|\.reload\(/, 'the picker navigates');
-  assert.doesNotMatch(
-    src,
-    /data-maker-page-frame|data-maker-canvas|buffered-canvas|querySelector\([^)]*iframe/,
-    'the picker reaches for the canvas frame',
-  );
-  // Only the rail is scrolled, by scrollLeft.
-  assert.match(src, /rail\.scrollLeft = /);
+test('3a · the picker and its full-screen preview never touch another frame, never scroll an ancestor, never navigate', () => {
+  for (const file of [PICKER, OVERLAY]) {
+    const src = read(file);
+    assert.doesNotMatch(src, /postMessage|contentWindow|window\.parent|window\.top/, `${file} talks to a frame`);
+    assert.doesNotMatch(src, /scrollIntoView/, `${file}: scrollIntoView scrolls every ancestor — the Maker included`);
+    assert.doesNotMatch(src, /useRouter|router\.|location\.(href|assign|replace)|\.reload\(/, `${file} navigates`);
+    assert.doesNotMatch(
+      src,
+      /data-maker-page-frame|data-maker-canvas|buffered-canvas|querySelector\([^)]*iframe/,
+      `${file} reaches for the canvas frame`,
+    );
+  }
 });
 
 test('3b · a tile frame is sandboxed without top navigation and takes no pointer', () => {
@@ -144,10 +160,13 @@ test('3c · nothing happens on hover or scroll — only a pick writes, and it wr
   assert.match(pickFn, /fd\.set\('intent', 'save'\)/, 'a pick is not a draft save');
   assert.match(pickFn, /JSON\.stringify\(\{ events: \{ invite_theme: id \} \}\)/);
   assert.match(pickFn, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'a pick does not land the Details way');
-  // The only click handler that writes is the pick — for EVERY tile, Pro ones
-  // included (2026-09-28: tried free, paid at Apply — no tile is a link away).
-  assert.equal([...src.matchAll(/onClick=/g)].length, 1);
-  assert.doesNotMatch(src, /data-theme-tile-locked|<Link\b/, 'a Pro tile still leads away from the Maker');
+  // Two click handlers: the pick, and the ⤢ that only LOOKS (it opens the preview, never a pick).
+  const clicks = [...src.matchAll(/onClick=\{([^}]*\})?[^}]*\}/g)].map((m) => m[0]);
+  assert.equal(clicks.length, 2, clicks.join(' | '));
+  assert.ok(clicks.some((c) => /pick\(t\.id\)/.test(c)), 'the entry is not a pick');
+  assert.ok(clicks.some((c) => /setPreview\(t\.id\)/.test(c)), 'the ⤢ does something other than open the preview');
+  // 💎 No padlock door: a Pro theme is a pick like any other (Apply is the gate).
+  assert.doesNotMatch(src, /proHref|data-theme-tile-locked|<Link\b/, 'a Pro theme is a door to the Pro page again');
 });
 
 // ═══ 4 · load weight ══════════════════════════════════════════════════════
@@ -162,30 +181,30 @@ test('4a · one frame at a time, and only in view', () => {
   assert.equal(nextTileToLoad(order, { inView: new Set(), mounted: [], loading: null }), null, 'an unseen tile loads');
 });
 
-test('4b · rendered on the server, the picker loads NO frame — and a Pro tile is a pick marked ◆ PRO', async () => {
+test('4b · rendered on the server, the gallery loads NO page and NO print — and a Pro theme is a pick with ◆ PRO', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { MakerThemePicker } = await import('./maker-theme-picker');
+  const { MakerThemeGallery, ThemePickProvider } = await import('./maker-theme-picker');
   const html = renderToStaticMarkup(
-    React.createElement(MakerThemePicker, {
-      eventId: 'e-1',
-      home: '/sample',
-      themes: TILES,
-      current: 'house',
-      ownsPro: false,
-      storeShell: false,
-    }),
+    React.createElement(
+      ThemePickProvider as unknown as React.FC<{ eventId: string; current: string; children?: React.ReactNode }>,
+      { eventId: 'e-1', current: 'house' },
+      React.createElement(MakerThemeGallery, { themes: TILES, ownsPro: false, storeShell: false, suggested: 'vintage', sampleVersion: null }),
+    ),
   );
   assert.match(html, /data-maker-theme-picker/);
-  assert.doesNotMatch(html, /<iframe/, 'a frame was written before its tile was seen — ten pages would load at once');
+  assert.doesNotMatch(html, /<iframe/, 'a frame was written before its entry was seen — ten pages would load at once');
+  assert.doesNotMatch(html, /\/api\/hub-print\//, 'a sample print was asked for before its entry was seen');
   assert.equal([...html.matchAll(/data-theme-tile="/g)].length, 3);
-  // 💎 Every tile is a pick (owner 2026-09-28: "they can edit it with pro
-  // features. but need to upgrade to pro when clicked on apply") — the Pro
-  // tiles wear ◆ PRO, never a padlock, never dimmed, never a link away.
+  // Classic is the pick; every Pro theme is a pick too — no padlock, never dimmed.
   assert.match(html, /data-theme-tile="house"[\s\S]*?<button[^>]*aria-pressed="true"/);
-  assert.equal([...html.matchAll(/data-theme-tile-pick=""/g)].length, 3, 'a tile is not a pick');
-  assert.equal([...html.matchAll(/data-paid-mark="try"/g)].length, 2, 'the two Pro tiles wear ◆ PRO');
-  assert.doesNotMatch(html, /data-paid-mark="locked"|data-theme-tile-locked|studio\/website-pro/);
-  assert.doesNotMatch(html, /opacity-|grayscale/, 'a Pro tile is dimmed');
+  assert.equal([...html.matchAll(/data-theme-tile-pick=""/g)].length, 3, 'a Pro theme is not a pick');
+  assert.equal([...html.matchAll(/data-paid-mark="try"/g)].length, 2, 'a Pro theme lost its ◆ PRO');
+  assert.doesNotMatch(html, /data-paid-mark="locked"|lucide-lock/, 'a padlock on a theme a free couple may try');
+  assert.doesNotMatch(html, /opacity-|grayscale/, 'a Pro theme is dimmed');
+  // 💡 The suggestion is a label on ONE entry, and picks nothing.
+  assert.equal([...html.matchAll(/data-theme-suggested=""/g)].length, 1);
+  assert.match(html, /data-theme-tile="vintage"[\s\S]*?Suggested for you/);
+  assert.match(html, /data-theme-tile="house"[\s\S]*?aria-pressed="true"/, 'the suggestion moved the pick');
 });
 
 test('4c · the app-store shell shows no locked door', () => {
@@ -195,4 +214,58 @@ test('4c · the app-store shell shows no locked door', () => {
   // A couple already wearing a Pro theme keeps seeing it (saving can never quietly reset it).
   assert.deepEqual(shown(true, 'vintage'), ['house', 'vintage']);
   assert.deepEqual(tilesShown(TILES, { ownsPro: false, storeShell: false, current: 'house' }).length, 3);
+});
+
+// ═══ 5 · looking closer never picks, and always comes back ═══════════════════
+
+test('5 · the full-screen preview is an overlay with a way back — Exit preview, Escape, the phone’s back', () => {
+  const src = read(OVERLAY);
+  assert.match(src, /role="dialog"/);
+  assert.match(src, /useModalA11y\(\{ open: true, onClose: exit, containerRef: ref/, 'Escape and focus are not the shared hook’s');
+  // One history entry of its own, so the phone's back gesture closes it — and every way out takes it back off.
+  assert.match(src, /window\.history\.pushState\(\{ themePreview: theme\.id \}, ''\)/);
+  assert.match(src, /window\.addEventListener\('popstate', onPop\)/);
+  assert.match(src, /if \(pushed\.current\) window\.history\.back\(\);/);
+  // "Exit preview", labelled, a thumb tall, clear of the notch.
+  const exitBtn = /<button[\s\S]*?data-theme-preview-exit=""[\s\S]*?<\/button>/.exec(src)?.[0] ?? '';
+  assert.match(exitBtn, /onClick=\{exit\}/);
+  assert.match(exitBtn, /min-h-11/);
+  assert.match(exitBtn, /Exit preview/);
+  assert.match(src, /env\(safe-area-inset-top\)/);
+  // "Use this theme" is the gallery's own pick — the preview itself sets nothing.
+  assert.match(src, /onClick=\{\(\) => \{\s*onUse\(\);\s*exit\(\);\s*\}\}/);
+  assert.doesNotMatch(src, /hubDraftAction|makerSave|invite_theme/, 'the preview writes on its own');
+  // It shows the SAMPLE, sandboxed.
+  assert.match(src, /src=\{sampleHubTileSrc\(theme\.id\)\}/);
+  assert.match(src, /sandbox="allow-scripts allow-same-origin"/);
+  // …and it is an overlay: the gallery (and its scroll) stays mounted underneath.
+  const picker = read(PICKER);
+  assert.match(picker, /\{previewTheme \? \(\s*<ThemePreviewOverlay/);
+});
+
+// ═══ 6 · ONE theme picker in the Maker ════════════════════════════════════
+
+test('6 · exactly one theme picker in the Maker — one module writes the theme, each face mounted once', async () => {
+  const { readdirSync, statSync } = await import('node:fs');
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const n of readdirSync(dir)) {
+      const f = join(dir, n);
+      if (statSync(f).isDirectory()) walk(f);
+      else if (/\.tsx?$/.test(n) && !/\.test\./.test(n)) files.push(f);
+    }
+  };
+  walk(join(APP, 'dashboard'));
+  // A theme write is a draft patch naming invite_theme — one file makes it.
+  const writers = files.filter((f) => /invite_theme: id/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(writers.map((f) => f.slice(APP.length + 1)), [PICKER], 'a second theme picker writes the theme');
+  // Its two faces, each mounted exactly once — on Details.
+  const mounts = (re: RegExp) => files.filter((f) => re.test(readFileSync(f, 'utf8'))).map((f) => f.slice(APP.length + 1));
+  const DETAILS = 'dashboard/[eventId]/launch/_components/maker-details.tsx';
+  assert.deepEqual(mounts(/<MakerThemeGallery\b/), [DETAILS]);
+  assert.deepEqual(mounts(/<MakerThemeMenu\b/), [DETAILS]);
+  assert.equal([...read(DETAILS).matchAll(/<MakerThemeGallery\b/g)].length, 1);
+  assert.equal([...read(DETAILS).matchAll(/<MakerThemeMenu\b/g)].length, 1);
+  // The old side-panel rail is gone, not merely unmounted.
+  assert.equal(mounts(/MakerThemePicker\b/).length, 0, 'the retired side-panel picker is still in the tree');
 });

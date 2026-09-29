@@ -20,9 +20,11 @@ import {
   MAKER_MORE_ROWS_ID,
   type MakerAddScene,
   type MakerDevice,
+  type MakerLookPages,
   type MakerSelection,
   type MakerState,
 } from './maker-context';
+import { movedPageItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import { MakerTour } from './maker-tour';
 import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
@@ -72,6 +74,9 @@ import { ViewAsFreeKeeper, ViewAsFreeStrip, useViewAsFreeToggle } from './view-a
  * `md` it sits at the row's right end. One mount — so one draft bar listens
  * for More ▾'s "Reset this stage…" (`maker-open-reset.ts`).
  */
+/** One stable empty set, so the context keeps its identity when none is handed in. */
+const NO_FACT_EDITORS: Partial<Record<DetailsItemKey, ReactNode>> = {};
+
 export function MakerShell({
   eventId,
   slug,
@@ -85,14 +90,16 @@ export function MakerShell({
   renderStamp,
   more,
   applySlot = null,
-  prints = null,
   details = null,
-  rsvp = null,
+  factEditors = NO_FACT_EDITORS,
   hasWork,
   viewAs = {},
   viewAsFree = null,
+  theHost = 'the host',
   children,
 }: {
+  /** Who the Maker's work is for, in the event type's words (`EventWords.theHost`). */
+  theHost?: string;
   /** 👁 "View as a free couple" — internal (§10a) viewers only; null draws
    *  nothing. `on` is the server's reading of this request (`asViewed`). */
   viewAsFree?: { on: boolean } | null;
@@ -115,16 +122,14 @@ export function MakerShell({
   more: ReactNode;
   /** Phase 2's Apply · Restore · Reset bar. */
   applySlot?: ReactNode;
-  /** Phase 9: the Prints & Tickets workspace, shown over the work area while
-   *  the bar's "Prints & Tickets" is selected. */
-  prints?: ReactNode;
   /** Details as a PAGE (Maker bar's Details): `page` is what the details feed —
    *  the address and its QR, and the printed cards they fill — and `controls`
    *  the fields (what the prints include, and every line of wording). */
   details?: { page: ReactNode; controls: ReactNode } | null;
-  /** RSVP as a PAGE (guest pathway, owner 2026-09-27): `page` is the guest's
-   *  RSVP as they meet it, `controls` the RSVP settings beside it. */
-  rsvp?: { page: ReactNode; controls: ReactNode } | null;
+  /** ✍ The Details items' own editors a fact tapped on a stage opens
+   *  (`detailsFactEditors`) — the SAME nodes Details draws. RSVP and Love Story
+   *  moved into Details whole (part 2b); their pages are Details items now. */
+  factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
   /** False when the work area is not the editor (a coordinator, or an event
    *  type with no Event Hub): the tool items then have nothing to open. */
   hasWork: boolean;
@@ -133,7 +138,12 @@ export function MakerShell({
   const [stage, setStage] = useState<LifecyclePhase>(initialStage);
   const [device, setDevice] = useState<MakerDevice>('desktop');
   const [navOpen, setNavOpen] = useState(true);
-  const [selection, setSelection] = useState<MakerSelection>(initialSelection);
+  /* 🧭 A page that moved into Details (Logo · Hero · Reveal, part 3) opens
+     Details on its item — from the address, from memory, or from a door in
+     the Maker (`movedSelection`). */
+  const [detailsItem, setDetailsItem] = useState<DetailsItemKey | null>(() => movedSelection(initialSelection).item);
+  const [selection, setSelection] = useState<MakerSelection>(() => movedSelection(initialSelection).selection);
+  const [lookPages, setLookPages] = useState<MakerLookPages | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [tour, setTour] = useState<'first' | 'again' | null>(firstVisit ? 'first' : null);
   const [viewAsRole, setViewAsRole] = useState<string | null>(null);
@@ -154,6 +164,8 @@ export function MakerShell({
   */
   const memoryKey = `sn-maker:${eventId}`;
   const restored = useRef(false);
+  /** The address named what to open — memory then never moves Details' item. */
+  const addressNamed = useRef(initialSelection !== null);
   useEffect(() => {
     let saved: { stage?: string; device?: string; navOpen?: boolean; selection?: MakerSelection } | null = null;
     try {
@@ -166,7 +178,11 @@ export function MakerShell({
     else if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
     // An address that names what to open (a save's `?scene=`) wins over memory.
-    if (saved?.selection) setSelection((cur) => cur ?? saved!.selection ?? null);
+    if (saved?.selection) {
+      const moved = movedSelection(saved.selection);
+      setSelection((cur) => cur ?? moved.selection);
+      if (moved.item && !addressNamed.current) setDetailsItem((d) => d ?? moved.item);
+    }
     restored.current = true;
   }, [memoryKey]);
   useEffect(() => {
@@ -253,7 +269,11 @@ export function MakerShell({
     return () => el.removeEventListener('submit', onSubmit, true);
   }, [eventId]);
 
-  const select = useCallback((next: MakerSelection) => setSelection(next), []);
+  const select = useCallback((next: MakerSelection) => {
+    const moved = movedSelection(next);
+    if (moved.item) setDetailsItem(moved.item);
+    setSelection(moved.selection);
+  }, []);
   /* ＋ ADD A SCENE — registered by the work area (`MakerAddScene`); the toolbar's
      ＋ and the phone's More ▾ row are drawn from it below. */
   const [addScene, setAddScene] = useState<MakerAddScene | null>(null);
@@ -273,8 +293,13 @@ export function MakerShell({
       viewAsHref,
       addScene,
       setAddScene,
+      detailsItem,
+      setDetailsItem,
+      lookPages,
+      setLookPages,
+      factEditors,
     }),
-    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene],
+    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, lookPages, factEditors],
   );
 
   /* ONE HIGHLIGHT (owner 2026-09-25: "there should also be only one highlighted
@@ -354,7 +379,9 @@ export function MakerShell({
                 stageLabel={PUBLIC_STAGE_LABELS[stage]}
                 sceneSelected={
                   selection?.kind === 'scene' ||
-                  (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event', 'love-story'].includes(selection.key))
+                  (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event'].includes(selection.key)) ||
+                  /* The Hero and the Reveal play in their frame inside Details (`details-look-pages.tsx`). */
+                  (selection?.kind === 'tool' && selection.key === 'details' && (detailsItem === 'hero' || detailsItem === 'reveal'))
                 }
               />
             ) : null}
@@ -376,6 +403,7 @@ export function MakerShell({
               liveStage={liveStage}
               selection={selection}
               hasWork={hasWork}
+              theHost={theHost}
               onPress={pressBar}
             />
           </div>
@@ -494,13 +522,6 @@ export function MakerShell({
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
         <div className="relative min-h-0 flex-1">
           {children}
-          {/* Prints & Tickets covers the work area rather than replacing it, so
-              the editor keeps its state (and its draft) underneath. */}
-          {prints && selection?.kind === 'tool' && selection.key === 'prints' ? (
-            <div className="absolute inset-0 z-30" data-maker-prints-layer="">
-              {prints}
-            </div>
-          ) : null}
           {/* 🖼 DETAILS IS A PAGE (owner 2026-09-25: *"we do not want a pop up for
               details, logo, hero, reveal and love story"*): what the details
               feed is the body, the fields sit where a stage's controls sit. It
@@ -519,25 +540,6 @@ export function MakerShell({
                   )
                 }
                 controls={details?.controls ?? null}
-              />
-            </div>
-          ) : null}
-          {/* 🗳 RSVP IS A PAGE TOO (owner 2026-09-27) — the guest's RSVP is the
-              body, its settings sit where a stage's controls sit. Same layer
-              and the same `MakerPage` as Details, never a dialog. */}
-          {hasWork && selection?.kind === 'tool' && selection.key === 'rsvp-page' ? (
-            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-rsvp-layer="">
-              <MakerPage
-                pageKey="rsvp-page"
-                page={
-                  rsvp?.page ?? (
-                    <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
-                      Your RSVP settings could not be loaded just now. Nothing was changed — please reopen this in a
-                      moment.
-                    </p>
-                  )
-                }
-                controls={rsvp?.controls ?? null}
               />
             </div>
           ) : null}
@@ -569,7 +571,7 @@ export function MakerShell({
 }
 
 /**
- * The bar itself — three groups, two dividers, exported so a test can render
+ * The bar itself — the four stages, a divider, then Details; exported so a test can render
  * it and count what a couple sees.
  */
 export function MakerBar({
@@ -577,12 +579,15 @@ export function MakerBar({
   liveStage,
   selection,
   hasWork,
+  theHost = 'the host',
   onPress,
 }: {
   stage: LifecyclePhase;
   liveStage: LifecyclePhase | null;
   selection: MakerSelection;
   hasWork: boolean;
+  /** Who Details is for, in the event type's words — "the couple", "the host". */
+  theHost?: string;
   onPress: (item: MakerBarItem) => void;
 }) {
   const groups: MakerBarItem[][] = [];
@@ -639,8 +644,8 @@ export function MakerBar({
     screens?"* — and then, on the two pickers that shipped: *"combine them in 1
     dropdown"*). Decided by MEASURED overflow, never a breakpoint: the full row
     is drawn, its natural width is read, and only when it is wider than the
-    room the bar has does it collapse to "● Invitation ▾" (or "Logo ▾" while a
-    page is open), listing Stages and Pages. The room is watched
+    room the bar has does it collapse to "● Invitation ▾" (or "Details ▾" while
+    it is open), listing the four stages and Details. The room is watched
     (ResizeObserver) and the row comes back the moment it fits. The picker runs
     the SAME `onPress` the buttons do.
   */
@@ -691,6 +696,7 @@ export function MakerBar({
     liveStage,
     openTool: selection?.kind === 'tool' ? selection.key : null,
     hasWork,
+    theHost,
   });
 
   if (compact) {
@@ -706,8 +712,9 @@ export function MakerBar({
       >
         {/* ▾ ONE PICKER, NOT TWO (owner 2026-09-27, on "● Invitation ▾" +
             "Logo ▾": *"combine them in 1 dropdown"*). The button names where
-            the couple IS — the open page, else the stage — and the list holds
-            both, under "Stages" and "Pages" (`makerPlacePick`, maker-bar.ts). */}
+            the couple IS — Details, else the stage — and the list is one flat
+            list: the four stages, then Details (`makerPlacePick`, maker-bar.ts;
+            DECISION_LOG "OPTION B …"). */}
         <PickMenu
           label="Stage or page"
           dataAttr="data-maker-place-pick"
@@ -745,7 +752,7 @@ export function MakerBar({
                   key={item.key}
                   label={item.label}
                   itemKey={item.key}
-                  note="Only the couple can open this part of the Event Hub Maker."
+                  note={`Only ${theHost} can open this part of the Event Hub Maker.`}
                   align={gi === 0 ? 'start' : 'end'}
                   chip
                 >
@@ -1130,4 +1137,16 @@ function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => 
       </aside>
     </div>
   );
+}
+
+/**
+ * 🧭 A selection of a page that moved into Details (DECISION_LOG 2026-09-28
+ * "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS") is Details, open on that
+ * page's item — so every door that still says `{ kind: 'tool', key: 'hero' }`
+ * (a scene's "Open the hero", an old address, the tab's memory) lands there.
+ * A page whose item has not landed yet (`movedPageItem` → null) opens as before.
+ */
+function movedSelection(next: MakerSelection): { selection: MakerSelection; item: DetailsItemKey | null } {
+  const item = next?.kind === 'tool' ? movedPageItem(next.key) : null;
+  return item ? { selection: { kind: 'tool', key: 'details' }, item } : { selection: next, item: null };
 }

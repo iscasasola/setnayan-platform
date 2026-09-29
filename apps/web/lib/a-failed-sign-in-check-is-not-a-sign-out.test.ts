@@ -40,7 +40,7 @@ async function getUserWhenAuthAnswers(answer: Answer) {
   const supabase = createServerClient(`http://127.0.0.1:${port}`, 'anon', {
     cookies: {
       getAll: () => [{ name: 'sb-127-auth-token', value: `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}` }],
-      setAll: (c) => c.forEach((x) => (!x.value ? cleared.push(x.name) : undefined)),
+      setAll: (c: { name: string; value: string }[]) => c.forEach((x) => (!x.value ? cleared.push(x.name) : undefined)),
     },
   });
   try {

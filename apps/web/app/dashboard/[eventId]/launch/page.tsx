@@ -1120,6 +1120,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         storyEmpty: !storyHasMoments(printStoryChapters(printEvent.love_story)),
         /* 🎫 The pass guests save — its saved look and the couple's zip's name. */
         passDesign: stored.passDesign,
+        /* 🖼 The Our Story poster's own photo (owner 2026-09-29). */
+        posterPhoto: stored.posterPhoto ?? null,
         passCardsZip: passCardsZipFileNameOf(printEvent),
         formats: {
           pass: formatFor('pass', one(search.pass_format))!,

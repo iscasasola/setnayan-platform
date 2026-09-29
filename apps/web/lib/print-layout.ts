@@ -125,6 +125,8 @@ export type PrintSetData = {
   story?: PrintStoryChapter[];
   /** Is the theme's still (or the couple's hero) in `images.still`? */
   hasStill: boolean;
+  /** 🖼 The couple chose their own photo for the Our Story poster (`images.posterBg`). */
+  hasPosterBg?: boolean;
   hasEventQr: boolean;
   /** The event type's own word, capitalised ("Wedding", "Debut") — the pass card's when-line. */
   eventWord?: string;
@@ -480,6 +482,13 @@ function still(ops: PrintOp[], look: PrintLook, data: PrintSetData, w: number, h
     ops.push({ t: 'rect', x: -b, y: y0, w: w + 2 * b, h: (bh - fadeFrom) / steps + 0.5, fill: look.paper, opacity: Math.min(1, (i + 1) / steps) });
   }
   return { top: bh, left: 0 };
+}
+
+/** The couple's own poster photo, full bleed, under a paper veil so the story reads over it. */
+function posterGround(ops: PrintOp[], look: PrintLook, w: number, h: number, b: number): { top: number; left: number } {
+  ops.push({ t: 'image', ref: 'posterBg', x: -b, y: -b, w: w + 2 * b, h: h + 2 * b });
+  ops.push({ t: 'rect', x: -b, y: -b, w: w + 2 * b, h: h + 2 * b, fill: look.paper, opacity: 0.8 });
+  return { top: 0, left: 0 };
 }
 
 /** The two names, stacked: first · and · second. `layer` = foil where the theme foils. */
@@ -1414,7 +1423,10 @@ function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
   const { look, data } = ctx;
   const front = sheet('story-poster', ctx);
   const { w, h, bleed } = front;
-  const placed = still(front.ops, look, data, w, h, bleed, 0.3);
+  // 🖼 The couple's own photo behind the whole poster (owner 2026-09-29, OWNER
+  // ANSWERS (1)), veiled in the paper colour so every line reads; else the
+  // theme's picture, as before.
+  const placed = data.hasPosterBg ? posterGround(front.ops, look, w, h, bleed) : still(front.ops, look, data, w, h, bleed, 0.3);
   const left = placed.left;
   const cx = left + (w - left) / 2;
   const inner = w - left - 140;

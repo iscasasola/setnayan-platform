@@ -644,7 +644,44 @@ export type StoredPrintDetails = {
   inviteMessage: string | null;
   /** The pass card's look (owner 2026-09-29) — absent reads as the default, Classic. */
   passDesign?: PassCardDesign;
+  /**
+   * 🖼 THE A3 OUR STORY POSTER'S OWN PHOTO (owner 2026-09-29, DECISION_LOG
+   * "OWNER ANSWERS — TEN OPEN QUESTIONS" (1): *"Poster: can add media
+   * background"*). Optional: absent, the theme's picture stays the default.
+   * `w`/`h` are the photo's pixels, measured by the server when it was chosen —
+   * the panel warns when they are too few for A3 paper (`posterPhotoTooSmall`).
+   */
+  posterPhoto?: PosterPhoto | null;
 };
+
+export type PosterPhoto = { ref: string; w: number | null; h: number | null };
+
+/**
+ * The fewest pixels an A3 poster photo may have before the panel warns: A3 at
+ * 150 dpi (297 × 420 mm → 1754 × 2480). Below it the print looks soft; 300 dpi
+ * (3508 × 4961) is ideal. Either orientation counts — the photo is cropped to fill.
+ */
+export const POSTER_PHOTO_MIN_PX = { short: 1754, long: 2480 } as const;
+
+export function posterPhotoTooSmall(p: PosterPhoto | null | undefined): boolean {
+  if (!p || !p.w || !p.h) return false;
+  const short = Math.min(p.w, p.h);
+  const long = Math.max(p.w, p.h);
+  return short < POSTER_PHOTO_MIN_PX.short || long < POSTER_PHOTO_MIN_PX.long;
+}
+
+/** Only the couple's own uploads for THIS event may sit behind the poster. */
+export function posterPhotoRefAllowed(ref: string, eventId: string): boolean {
+  return /^r2:\/\/[a-z0-9-]+\/events\//.test(ref) && ref.includes(`/events/${eventId}/`) && ref.length <= 600 && !ref.includes('..');
+}
+
+function parsePosterPhoto(raw: unknown): PosterPhoto | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.ref !== 'string' || !r.ref.startsWith('r2://') || r.ref.length > 600) return null;
+  const px = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 && v < 100_000 ? Math.round(v) : null);
+  return { ref: r.ref, w: px(r.w), h: px(r.h) };
+}
 
 // ─── The Menu ───────────────────────────────────────────────────────────────
 
@@ -762,6 +799,7 @@ export function parsePrintDetails(raw: unknown): StoredPrintDetails {
     menu: parseMenu(r.menu),
     inviteMessage: sanitizeInviteTemplate(r.invite_message),
     passDesign: passCardDesignFrom(r.pass_design),
+    posterPhoto: parsePosterPhoto(r.poster_photo),
   };
 }
 
@@ -774,6 +812,7 @@ export function serializePrintDetails(d: StoredPrintDetails): Record<string, unk
     menu: d.menu,
     invite_message: d.inviteMessage,
     pass_design: d.passDesign ?? DEFAULT_PASS_CARD_DESIGN,
+    poster_photo: d.posterPhoto ? { ref: d.posterPhoto.ref, w: d.posterPhoto.w, h: d.posterPhoto.h } : null,
   };
 }
 

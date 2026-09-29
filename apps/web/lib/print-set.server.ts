@@ -486,6 +486,25 @@ async function heroStill(event: PrintEventRow, mode: PrintMode): Promise<Uint8Ar
   }
 }
 
+/** The couple's chosen poster photo, as the print needs it (screen: small; print: the full picture). */
+async function posterPhotoBytes(ref: string, mode: PrintMode): Promise<Uint8Array | null> {
+  try {
+    const url = await displayUrlForStoredAsset(ref);
+    if (!url) return null;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const sharp = (await import('sharp')).default;
+    const src = new Uint8Array(await res.arrayBuffer());
+    const out = mode === 'print'
+      ? await sharp(src).rotate().jpeg({ quality: 92 }).toBuffer()
+      : await sharp(src).rotate().resize({ width: 420, withoutEnlargement: true }).jpeg({ quality: 52 }).toBuffer();
+    return new Uint8Array(out);
+  } catch (err) {
+    console.error('[print-set] poster photo unavailable', String(err));
+    return null;
+  }
+}
+
 async function sepia(bytes: Uint8Array): Promise<Uint8Array> {
   const sharp = (await import('sharp')).default;
   return new Uint8Array(
@@ -585,6 +604,10 @@ export async function loadPrintSet(
   const isWedding = (event.event_type ?? 'wedding') === 'wedding';
 
   const images: PrintImages = {};
+  // 🖼 The Our Story poster's own photo (owner 2026-09-29, OWNER ANSWERS (1)) —
+  // only when the couple chose one; the theme's picture stays the default.
+  const posterBg = stored.posterPhoto ? await posterPhotoBytes(stored.posterPhoto.ref, opts.mode) : null;
+  if (posterBg) images.posterBg = { bytes: posterBg, mime: 'image/jpeg' };
   let still = stillRaw;
   if (still && look.sepia) still = await sepia(still);
   if (still) images.still = { bytes: still, mime: 'image/jpeg' };
@@ -652,6 +675,7 @@ export async function loadPrintSet(
     // The Our Story poster — the Love Story's one source, read from the same row.
     story: printStoryChapters(event.love_story),
     hasStill: Boolean(images.still),
+    hasPosterBg: Boolean(images.posterBg),
     hasEventQr,
     // Paper says which day its facts are from (the pass card's "As of …").
     asOf: opts.mode === 'print' ? `As of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}` : null,

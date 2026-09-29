@@ -79,6 +79,8 @@ export const PrintMenuEditor = dynamic(() => import(/* webpackChunkName: "maker-
 export const PrintChoicePicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-choice-picker').then((m) => m.PrintChoicePicker), { loading: SlotRows });
 export const PassCardDesignPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './pass-card-design-picker').then((m) => m.PassCardDesignPicker), { loading: SlotRows });
 export const PrintSaveButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.PrintSaveButton), { loading: SlotButton });
+// 🖼 The A3 poster's own photo (owner 2026-09-29) — the Details chunk, like every print control.
+export const PosterPhotoPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './poster-photo-picker').then((m) => m.PosterPhotoPicker), { loading: SlotRows });
 // 🖨 "Changed since you printed" (owner 2026-09-29) — the same file, the same chunk, nothing drawn while it loads.
 export const ChangedSincePrinted = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.ChangedSincePrinted));
 

@@ -18,6 +18,7 @@ import {
   type MenuMoment,
   type PrintFormat,
   type PrintFormatId,
+  type PosterPhoto,
   type PrintSetKey,
 } from '@/lib/print-pieces';
 import { freePrints, type FreePrint } from '@/lib/free-prints';
@@ -33,7 +34,7 @@ import {
   type PassCardDesign,
 } from '@/lib/pass-card';
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
-import { ChangedSincePrinted, PassCardDesignPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
+import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
 
 /**
@@ -93,6 +94,8 @@ export type PrintsInput = {
    * story comes from and a button opens Details › Love Story in place.
    */
   storyEmpty?: boolean;
+  /** 🖼 The Our Story poster's own photo, when the couple chose one (`print_details.poster_photo`). */
+  posterPhoto?: PosterPhoto | null;
   /** The couple's saved pass card look (`print_details.pass_design`). */
   passDesign?: PassCardDesign;
   /** The zip's file name — `<Couple>-<date>-passes.zip` (`passCardsZipFileName`). */
@@ -264,6 +267,10 @@ export function PrintPieceEditor({
         </div>
       ) : null}
       {children}
+      {/* 🖼 The A3 poster's background — the theme's picture or the couple's own
+          photo (owner 2026-09-29, OWNER ANSWERS (1)). Offered only where there
+          is a Love Story to print. */}
+      {k === 'story-poster' && !storyMissing ? <PosterPhotoPicker eventId={input.eventId} saved={input.posterPhoto ?? null} /> : null}
       {/* ══ THE MENU — its moments and dishes (owner 2026-09-28). ══ */}
       {k === 'menu' && menu ? (
         <PrintMenuEditor

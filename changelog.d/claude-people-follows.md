@@ -1,4 +1,4 @@
-## 2026-09-28 · feat(people): one page, one picker — Requests · Connected · Following · Followers · Alaga · Samahan
+## 2026-09-28 · feat(people): one page, one picker — Requests · Connected · Following · Followers · Loved ones · Groups
 
 Owner, approving `people-redesign.html`: *"build it"*. Rulings built: followers vs connected people ·
 connected people follow each other · accepted guests auto-follow co-hosts · *"People is same as Alaga and
@@ -8,12 +8,13 @@ visible only to its owner · you can unfollow a connected person and stay connec
 the top of Connected and first in the picker (with a dot) while any wait.
 
 - **Views by URL** — `/dashboard/people?view=` requests · connected (default = the bare page) · following ·
-  followers · alaga · samahan, resolved by one module (`lib/people-views.ts`) that the page, the picker and
+  followers · alaga (reads "Loved ones") · samahan (reads "Groups") — the keys stay, the words follow the
+  2026-09-29 plain-English rename — resolved by one module (`lib/people-views.ts`) that the page, the picker and
   the rail all share. The header holds only the picker: the shipped `PickMenu` (value = option KEY), counts
   in the labels, a count that could not be read left off rather than printed as 0. `PickMenu` gained an
   optional `dotNote` (default "live today") so Requests reads "· waiting on you".
 - **Rail** — People's rows are the same `?view=` links and they light (Requests with its count while any
-  wait · People · Following · Followers · Alaga · Samahan). The dead `#connection-tree` and `#alaga`
+  wait · People · Following · Followers · Loved ones · Groups). The dead `#connection-tree` and `#alaga`
   anchors are gone (`id="alaga"` existed nowhere).
 - **Connected** — the facet pill row is deleted; requests are pinned at the top in the owner's words
   (*"{name} is trying to add you from your {event name} {event type} event"* · **Accept** / Decline; the
@@ -38,8 +39,11 @@ the top of Connected and first in the picker (with a dot) while any wait.
   event's celebrants (`isHonoreeRole`) who hold accounts, with Follow and Add. Add (`addCelebrantFromEvent`)
   re-checks the sender is on the event and the target is its celebrant, then sends the ordinary request
   tagged `created_by_event_id`.
-- Samahan's second-degree chip: `Connect` → `Add`. First-visit tour `customer_people_v1` on the shipped
-  MiniTour. Alaga/samahan server-action redirects now land on their own views.
+- The doors: "Add a loved one" heads the Loved ones view, "New group" heads the Groups view — once each.
+  The groups second-degree chip: `Connect` → `Add`. First-visit tour `customer_people_v1` on the shipped
+  MiniTour. Loved-ones / groups server-action redirects now land on their own views.
+- The celebrants list keys on the MAIN role only (`guests.role` ∈ celebrant/bride/groom) — the same rule as
+  `is_event_celebrant` — and reads a deliberately narrow `guests` select (dup-rule baseline regenerated).
 - **Migration `20271253740454_followers_are_yours_and_requests_say_where_from`** — `user_follows` SELECT
   policy `followed_user_id = auth.uid()` (you read only edges pointing at you); `follow_people_names(uuid[])`
   SECURITY DEFINER, answers only for ids with a live edge to/from the caller (anon revoked); a BEFORE

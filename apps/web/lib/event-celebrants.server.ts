@@ -53,6 +53,7 @@ export type CelebrantAccount = { userId: string; guestName: string };
 export async function celebrantAccountsFor(admin: Admin, eventId: string): Promise<CelebrantAccount[]> {
   const { data: guestRows, error: guestErr } = await admin
     .from('guests')
+    // Deliberately NARROW, not ENTOURAGE_COLUMNS: this list may expose only a name, so it reads only what names and matches a celebrant.
     .select('guest_id, first_name, last_name, display_name, email, role')
     .eq('event_id', eventId)
     .is('deleted_at', null)

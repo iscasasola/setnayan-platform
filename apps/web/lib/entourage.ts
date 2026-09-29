@@ -1,4 +1,5 @@
 import { guestFullName, type GuestRole } from '@/lib/guests';
+import { roleNameMany, roleNameOne, type RoleNames } from '@/lib/role-names';
 
 /**
  * THE ENTOURAGE, AS AN INVITATION PRINTS IT.
@@ -75,6 +76,12 @@ export type EntourageGroup = {
   label: string;
   /** The printed lines, in order. */
   rows: EntourageRow[];
+  /**
+   * The role words this group was built with (`events.role_names`, owner
+   * 2026-09-30). Carried so every renderer labels a person with the SAME words
+   * the heading used: `roleLabel(person.role, group.names)`. `{}` = usual words.
+   */
+  names: RoleNames;
 };
 
 /** Everyone in a group, in printed order — the flat view, for counting and tests. */
@@ -111,6 +118,22 @@ type GroupSpec = {
   roles: readonly GuestRole[];
   /** `[left, right]` — roles that belong in each column. Omit when the group has one side. */
   sides?: readonly [readonly GuestRole[], readonly GuestRole[]];
+  /**
+   * ⚖ THE HEADING FOLLOWS THE COUPLE'S WORDS (owner 2026-09-30). A sided group
+   * whose heading NAMES its roles ("Maid of Honour & Best Man") gives each
+   * column's usual word here; `groupHeading` swaps a column's word for the
+   * couple's own when they renamed a role in it, or when a role in it is one of
+   * `unusual` (a best woman must not stand under "Best Man"). Groups whose
+   * heading is a CATEGORY ("Principal Sponsors", "Bearers") have none, and keep
+   * their heading whatever the roles inside are called.
+   */
+  sideWords?: readonly [string, string];
+  /** Roles whose presence alone changes their column's word — see `sideWords`. */
+  unusual?: readonly GuestRole[];
+  /** In the heading, a renamed role reads as its word for SEVERAL (`many`) or for ONE. */
+  headingForm?: 'one' | 'many';
+  /** A one-role group whose heading IS that role's plural ("Flower Girls"): the couple's `many` replaces it. */
+  headingIsRole?: boolean;
 };
 
 const GROUPS: ReadonlyArray<GroupSpec> = [
@@ -155,8 +178,15 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
   {
     key: 'honour',
     label: 'Maid of Honour & Best Man',
-    roles: ['maid_of_honor', 'matron_of_honor', 'best_man'],
-    sides: [['maid_of_honor', 'matron_of_honor'], ['best_man']],
+    /* ⚖ Owner 2026-09-30: "We can pick either best man or best woman and maid
+       or matron of honor." `best_woman` stands where the best man stands — the
+       groom's column — so she pairs across from the maid/matron exactly as he
+       does. Nothing makes the pairs exclusive: a couple may have both. */
+    roles: ['maid_of_honor', 'matron_of_honor', 'best_man', 'best_woman'],
+    sides: [['maid_of_honor', 'matron_of_honor'], ['best_man', 'best_woman']],
+    sideWords: ['Maid of Honour', 'Best Man'],
+    unusual: ['best_woman'],
+    headingForm: 'one',
   },
   {
     key: 'principal_sponsors',
@@ -208,6 +238,10 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     label: "Bride's Crew & Groom's Crew",
     roles: ['bridesmaid', 'groomsman'],
     sides: [['bridesmaid'], ['groomsman']],
+    // ⚖ Owner 2026-09-30: a couple who renames Bridesmaid prints THEIR word
+    // here; an untouched column keeps "Bride's Crew" / "Groom's Crew".
+    sideWords: ["Bride's Crew", "Groom's Crew"],
+    headingForm: 'many',
   },
   /* ⚖ Owner 2026-09-20 split these into two headings ("5. Bearers ... 6. Flower
      Girls"). They shared one group until today, which printed a flower girl
@@ -221,6 +255,7 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     key: 'flower_girls',
     label: 'Flower Girls',
     roles: ['flower_girl'],
+    headingIsRole: true,
   },
   {
     key: 'ceremony',
@@ -265,6 +300,7 @@ const ROLE_LABEL: Partial<Record<GuestRole, string>> = {
   maid_of_honor: 'Maid of Honour',
   matron_of_honor: 'Matron of Honour',
   best_man: 'Best Man',
+  best_woman: 'Best Woman',
   bridesmaid: 'Bridesmaid',
   groomsman: 'Groomsman',
   ring_bearer: 'Ring Bearer',
@@ -280,9 +316,49 @@ const ROLE_LABEL: Partial<Record<GuestRole, string>> = {
   wakil: 'Wakil',
 };
 
-/** The label beside one name, or null when this role is not published. */
-export function roleLabel(role: GuestRole): string | null {
-  return ROLE_LABEL[role] ?? null;
+/**
+ * The label beside one name, or null when this role is not published.
+ *
+ * `names` is the event's `events.role_names` (owner 2026-09-30 — a couple may
+ * call their bridesmaids "Bride's Crew"). The couple's word wins; the usual one
+ * is the fallback. 🔑 The PUBLISHED check comes first and is not the couple's
+ * to override: renaming a role never makes an unpublished role print.
+ */
+export function roleLabel(role: GuestRole, names?: RoleNames | null): string | null {
+  const usual = ROLE_LABEL[role];
+  if (!usual) return null;
+  return roleNameOne(role, names) ?? usual;
+}
+
+/**
+ * The heading over one printed group, in THIS couple's words.
+ *
+ * `present` is the set of roles actually printed in the group (so a column's
+ * word describes who is standing in it). With no renames and no `unusual` role
+ * present, the heading is byte-identical to the built-in `label` — a couple who
+ * changed nothing sees nothing change.
+ */
+function groupHeading(
+  spec: GroupSpec,
+  names: RoleNames | null | undefined,
+  present: ReadonlySet<string>,
+): string {
+  if (spec.headingIsRole && spec.roles.length === 1) {
+    return roleNameMany(spec.roles[0], names) ?? spec.label;
+  }
+  if (!spec.sides || !spec.sideWords) return spec.label;
+  const unusual = new Set<string>(spec.unusual ?? []);
+  const words = spec.sides.map((sideRoles, i) => {
+    const here = sideRoles.filter((r) => present.has(r));
+    const custom = here.some((r) => roleNameOne(r, names) !== null || unusual.has(r));
+    if (!custom) return spec.sideWords![i]!;
+    const shown = here.map((r) =>
+      (spec.headingForm === 'many' ? roleNameMany(r, names) : roleNameOne(r, names)) ??
+      (ROLE_LABEL[r] as string),
+    );
+    return [...new Set(shown)].join(' / ');
+  });
+  return words.join(' & ');
 }
 
 /**
@@ -519,9 +595,23 @@ export const ENTOURAGE_GROUP_KEYS: readonly string[] = GROUPS.map((g) => g.key);
 export const ENTOURAGE_GROUP_LIST: ReadonlyArray<{ key: string; label: string }> =
   GROUPS.map((g) => ({ key: g.key, label: g.label }));
 
-/** The heading the invitation prints above a group — never a raw key. */
-export function entourageGroupLabel(key: string): string | null {
-  return GROUPS.find((g) => g.key === key)?.label ?? null;
+/**
+ * The heading the invitation prints above a group — never a raw key.
+ *
+ * Pass the event's `names` and the group's `rows` and the heading is the
+ * couple's (see `groupHeading`); omit them and it is the built-in heading.
+ */
+export function entourageGroupLabel(
+  key: string,
+  names?: RoleNames | null,
+  rows?: readonly EntourageGuestRow[] | null,
+): string | null {
+  const spec = GROUPS.find((g) => g.key === key);
+  if (!spec) return null;
+  if (!rows) return groupHeading(spec, names, new Set(spec.roles));
+  const present = new Set<string>();
+  for (const line of entourageLines(rows, key)) for (const p of line) if (p) present.add(p.role);
+  return groupHeading(spec, names, present);
 }
 
 /** Which printed group a role belongs to, or null when it never prints. */
@@ -614,6 +704,8 @@ export function buildEntourage(
   rows: readonly EntourageGuestRow[],
   /** `events.entourage_section_order` — omitted or NULL prints the built-in order. */
   sectionOrder?: readonly string[] | null,
+  /** `events.role_names` — the couple's words for roles (owner 2026-09-30). Omitted → the usual words. */
+  names?: RoleNames | null,
 ): EntourageGroup[] {
   const groups: EntourageGroup[] = [];
   const byKey = new Map(GROUPS.map((g) => [g.key, g]));
@@ -621,7 +713,10 @@ export function buildEntourage(
     const spec = byKey.get(key)!;
     // The SAME function the dashboard reorders with — see `entourageLines`.
     const built = entourageLines(rows, spec.key);
-    if (built.length > 0) groups.push({ key: spec.key, label: spec.label, rows: built });
+    if (built.length === 0) continue;
+    const present = new Set<string>();
+    for (const line of built) for (const p of line) if (p) present.add(p.role);
+    groups.push({ key: spec.key, label: groupHeading(spec, names, present), rows: built, names: names ?? {} });
   }
   return groups;
 }

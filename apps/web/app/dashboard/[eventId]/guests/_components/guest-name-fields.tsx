@@ -1,10 +1,11 @@
 'use client';
 
+import { useRoleNames } from './role-names-context';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import {
-  ROLE_LABELS,
+  guestRoleLabel,
   SIDE_LABELS,
   type GuestRole,
   type GuestSide,
@@ -53,6 +54,8 @@ export function GuestNameFields({
   eventId: string;
   pool: NamePoolGuest[];
 }) {
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = useRoleNames();
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
   const [prefix, setPrefix] = useState('');
@@ -203,7 +206,7 @@ export function GuestNameFields({
                   {g.first_name} {g.last_name}
                 </span>
                 <span className="block truncate text-[11px] text-ink/55">
-                  {[g.role, ...g.extra_roles].map((r) => ROLE_LABELS[r]).join(' · ')}
+                  {[g.role, ...g.extra_roles].map((r) => guestRoleLabel(r, roleNames)).join(' · ')}
                   {' · '}
                   {SIDE_LABELS[g.side]}
                 </span>

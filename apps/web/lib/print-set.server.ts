@@ -18,7 +18,7 @@ import { eventSeatingPublished } from '@/lib/seat-pass';
 import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
 import { sanitizeRoleAttire, ATTIRE_STYLE_LABEL, type RoleAttireRule } from '@/lib/role-dress-code';
 import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
-import { ROLE_GROUP_LABELS } from '@/lib/role-groups';
+import { ROLE_GROUP_LABELS, roleGroupLabel } from '@/lib/role-groups';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } from '@/lib/qr';
 import type { QrLook } from '@/lib/qr-look';
@@ -27,6 +27,8 @@ import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { GuestRole } from '@/lib/guests';
+import type { RoleNames } from '@/lib/role-names';
+import { readRoleNames } from '@/lib/role-names.server';
 import type { PrintImages, PrintMonogram, PrintPass, PrintSetData } from '@/lib/print-layout';
 import {
   blockTime,
@@ -66,7 +68,7 @@ import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -102,6 +104,8 @@ export type PrintEventRow = {
   rsvp_ask_config: unknown;
   /** The couple's saved QR choices live under `.qr` (lib/qr-look.ts); the rest is onboarding's. */
   style_preferences: unknown;
+  /** The couple's own words for roles (owner 2026-09-30 — "Bride's Crew"); read through `readRoleNames`. */
+  role_names?: unknown;
 };
 
 export async function readPrintEvent(admin: SupabaseClient, eventId: string): Promise<PrintEventRow | null> {
@@ -173,6 +177,8 @@ async function readBlocks(admin: SupabaseClient, eventId: string): Promise<Block
 async function readEntourage(
   admin: SupabaseClient,
   eventId: string,
+  /** The couple's role words — the print says "Bride's Crew" where they do. */
+  names?: RoleNames,
 ): Promise<{ groups: ReturnType<typeof buildEntourage>; passedAway: ReadonlySet<string> }> {
   const { data, error } = await admin
     .from('guests')
@@ -190,19 +196,19 @@ async function readEntourage(
   const passedAway = new Set(rows.filter((r) => r.passed_away === true && r.guest_id).map((r) => r.guest_id as string));
   // The couple's own section order, read on ITS OWN (the loader's rule: an
   // unreadable preference prints the built-in order, never breaks the card).
-  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId)), passedAway };
+  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names), passedAway };
 }
 
-function attireLines(raw: unknown): Array<{ label: string; line: string }> {
+function attireLines(raw: unknown, names?: RoleNames): Array<{ label: string; line: string }> {
   const cfg = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const say = (r: RoleAttireRule) => (r.note ? `${ATTIRE_STYLE_LABEL[r.style]}, ${r.note}` : ATTIRE_STYLE_LABEL[r.style]);
   const out: Array<{ label: string; line: string }> = [];
   for (const [group, rule] of Object.entries(sanitizeGroupAttire(cfg.groups))) {
-    if (rule) out.push({ label: ROLE_GROUP_LABELS[group as keyof typeof ROLE_GROUP_LABELS], line: say(rule) });
+    if (rule) out.push({ label: roleGroupLabel(group as keyof typeof ROLE_GROUP_LABELS, names), line: say(rule) });
   }
   const roles = sanitizeRoleAttire(cfg.roles, (v) => roleLabel(v as GuestRole) !== null || v === 'bride' || v === 'groom');
   for (const [role, rule] of Object.entries(roles)) {
-    const label = roleLabel(role as GuestRole) ?? (role === 'bride' ? 'Bride' : role === 'groom' ? 'Groom' : null);
+    const label = roleLabel(role as GuestRole, names) ?? (role === 'bride' ? 'Bride' : role === 'groom' ? 'Groom' : null);
     if (rule && label) out.push({ label, line: say(rule) });
   }
   return out;
@@ -522,7 +528,7 @@ async function readPrintSetInputs(admin: SupabaseClient, eventId: string, event:
   const stored = parsePrintDetails(event.print_details);
   const [blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu] = await Promise.all([
     readBlocks(admin, eventId),
-    readEntourage(admin, eventId),
+    readEntourage(admin, eventId, readRoleNames(event.role_names)),
     resolveStdFinalizedVenues(admin, eventId),
     event.slug ? resolveEventOwnerSlug(admin, eventId).catch(() => null) : Promise.resolve(null),
     readGiftLines(admin, eventId),
@@ -643,7 +649,7 @@ export async function loadPrintSet(
     },
     // The parents print on the Invitation card (the owner's sample), not twice.
     entourage: entourage.groups.filter((g) => g.key !== 'parents'),
-    attire: attireLines(event.dress_code_config),
+    attire: attireLines(event.dress_code_config, readRoleNames(event.role_names)),
     swatches: inc.moodBoard ? swatchesFrom(event.role_palette) : [],
     hubAddress,
     menu: menuHasDishes(stored.menu) ? stored.menu : catererMenu,

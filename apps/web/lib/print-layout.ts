@@ -796,7 +796,7 @@ export function printedEntourageLines(g: EntourageGroup, flow: boolean): Entoura
   const left: string[] = [];
   const right: string[] = [];
   const withRole = (p: EntouragePerson) => {
-    const label = roleLabel(p.role);
+    const label = roleLabel(p.role, g.names);
     return g.key === 'secondary_sponsors' && label ? `${p.name} · ${label}` : p.name;
   };
   for (const [l, r] of g.rows) {

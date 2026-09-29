@@ -146,7 +146,7 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSectionDa
             kind: 'name',
             id: half.id ?? '',
             name: half.name,
-            role: roleLabel(half.role),
+            role: roleLabel(half.role, g.names),
             swapWith: half.id ? swapsFor(g.rows, g.key, half.id) : [],
           };
         }

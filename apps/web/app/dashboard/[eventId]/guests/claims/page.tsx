@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { loadRoleNames } from '@/lib/role-names.server';
+import { RoleNamesProvider } from '../_components/role-names-context';
 import { getCurrentUser } from '@/lib/auth';
 import { RSVP_LABELS, type GuestRole, type RsvpStatus } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -79,6 +81,8 @@ export default async function RequestsPage({ params, searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30) — the Keep line says them.
+  const roleNames = await loadRoleNames(supabase, eventId, 'RequestsPage.roleNames');
 
   // Couple-only surface.
   const { data: membership } = await supabase
@@ -263,11 +267,13 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                       <form action={keepGuestAction.bind(null, eventId)} className={`mt-3 space-y-3 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`}>
                         <input type="hidden" name="guest_id" value={g.guest_id} />
                         {inMaker ? null : <input type="hidden" name="from" value="requests" />}
-                        <KeepQuickAdd
-                          defaultLine={keepLineFor(name, g.notes)}
-                          offeredRoles={offeredRoles}
-                          existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
-                        />
+                        <RoleNamesProvider names={roleNames}>
+                          <KeepQuickAdd
+                            defaultLine={keepLineFor(name, g.notes)}
+                            offeredRoles={offeredRoles}
+                            existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
+                          />
+                        </RoleNamesProvider>
                         <SubmitButton className="button-primary" pendingLabel="Adding…">
                           Add to my list
                         </SubmitButton>

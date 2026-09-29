@@ -5,7 +5,8 @@ import { ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
+import { fetchGuestsByEvent, guestDisplayName, guestRoleLabel, RSVP_LABELS } from '@/lib/guests';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -64,6 +65,8 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = await loadRoleNames(supabase, eventId, 'InvitationAdminPage.roleNames');
 
   const { data: event, error: eventError } = await supabase
     .from('events')
@@ -449,7 +452,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                     </Link>
                     <p className="text-xs text-ink/55">{guest.email ?? guest.mobile ?? '—'}</p>
                   </td>
-                  <td className="px-3 py-3 text-ink/70">{ROLE_LABELS[guest.role]}</td>
+                  <td className="px-3 py-3 text-ink/70">{guestRoleLabel(guest.role, roleNames)}</td>
                   <td className="px-3 py-3 text-ink/70">{RSVP_LABELS[guest.rsvp_status]}</td>
                   <td className="px-3 py-3">
                     <code className="block break-all font-mono text-[10px] leading-relaxed text-ink/60">
@@ -529,7 +532,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   >
                     {guestDisplayName(guest)}
                   </Link>
-                  <p className="text-xs text-ink/55">{ROLE_LABELS[guest.role]}</p>
+                  <p className="text-xs text-ink/55">{guestRoleLabel(guest.role, roleNames)}</p>
                   <p className="text-xs text-ink/55">RSVP: {RSVP_LABELS[guest.rsvp_status]}</p>
                 </div>
               </div>

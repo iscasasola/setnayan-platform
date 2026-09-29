@@ -27,6 +27,8 @@
  * order the public page is printing.
  */
 
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import type { MarchSlot } from './walking-order-lines';
 /* ⚡ Loaded when the march is opened — never with the Maker that draws this panel (`entourage-lazy.tsx`). */
@@ -146,6 +148,10 @@ export async function EntourageOrderPanel({
   }
 
   const rows = (data ?? []) as EntourageGuestRow[];
+  // The couple's own words for roles (owner 2026-09-30) — headings and each
+  // line's role word say them, as the invitation does.
+  const roleNames = await loadRoleNames(supabase, eventId, 'EntourageOrderPanel.roleNames');
+  const headingOf = (key: string) => entourageGroupLabel(key, roleNames, rows) ?? key;
 
   /*
     ⚖ OWNER 2026-09-20: "the pair collapses to ONE line only in the walking-order
@@ -203,21 +209,21 @@ export async function EntourageOrderPanel({
                     <SectionMoveButton
                       eventId={eventId}
                       groupKey={key}
-                      label={entourageGroupLabel(key) ?? key}
+                      label={headingOf(key)}
                       direction="up"
                       disabled={sectionIndex === 0}
                     />
                     <SectionMoveButton
                       eventId={eventId}
                       groupKey={key}
-                      label={entourageGroupLabel(key) ?? key}
+                      label={headingOf(key)}
                       direction="down"
                       disabled={sectionIndex === lists.length - 1}
                     />
                   </span>
                 ) : null}
                 <h3 className="text-xs font-medium text-ink/70">
-                  {entourageGroupLabel(key) ?? key}
+                  {headingOf(key)}
                 </h3>
               </div>
               {lines.some((ln) => ln.some((h) => typeof h?.order === 'number')) ? (
@@ -243,10 +249,10 @@ export async function EntourageOrderPanel({
             <WalkingOrderLines
               eventId={eventId}
               groupKey={key}
-              groupLabel={entourageGroupLabel(key) ?? key}
+              groupLabel={headingOf(key)}
               lines={lines.map((line, i) => ({
                 leadId: line[0]?.id ?? line[1]?.id ?? `${key}-${i}`,
-                cells: [<LineCell key="l" half={line[0]} />, <LineCell key="r" half={line[1]} />],
+                cells: [<LineCell key="l" half={line[0]} names={roleNames} />, <LineCell key="r" half={line[1]} names={roleNames} />],
                 label: [line[0]?.name, line[1]?.name].filter(Boolean).join(' and ') || 'Blank line',
                   slots: [slotFor(lines, key, line, 0), slotFor(lines, key, line, 1)],
               }))}
@@ -295,7 +301,7 @@ function slotFor(
  * and leaves the other side empty, rather than being tidied up against somebody
  * it does not walk with.
  */
-function LineCell({ half }: { half: EntourageRow[number] }) {
+function LineCell({ half, names }: { half: EntourageRow[number]; names: RoleNames }) {
   if (!half) {
     return <span aria-label="left blank" className="min-w-0 truncate text-ink/25">—</span>;
   }
@@ -303,7 +309,7 @@ function LineCell({ half }: { half: EntourageRow[number] }) {
     <span className="min-w-0 truncate">
       <span className="text-ink">{half.name}</span>{' '}
       <span className="text-[11px] text-ink/45">
-        {roleLabel(half.role) ?? half.role}
+        {roleLabel(half.role, names) ?? half.role}
         {half.ceremonyOnly ? ' · ceremony only' : ''}
       </span>
     </span>

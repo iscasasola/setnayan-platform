@@ -1,5 +1,6 @@
 'use client';
 
+import { useRoleNames } from './role-names-context';
 import {
   useCallback,
   useEffect,
@@ -11,7 +12,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, X } from 'lucide-react';
 import {
-  ROLE_LABELS,
+  guestRoleLabel,
+  guestRolePickLabel,
   SIDE_LABELS,
   type GuestRole,
   type GuestSide,
@@ -113,6 +115,8 @@ export function QuickAddSheet({
      (lib/guest-side-question.ts); one helper, so the two cannot drift. */
   const hasSides = eventHasSides(roleSet);
   const [open, setOpen] = useState(false);
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = useRoleNames();
   const [side, setSide] = useState<GuestSide>(hasSides ? 'bride' : SIDELESS_SIDE);
   const [role, setRole] = useState<GuestRole>('guest');
   const [groupId, setGroupId] = useState<string>('');
@@ -308,7 +312,7 @@ export function QuickAddSheet({
         }));
         clearNames();
         router.refresh();
-        showToast(`${g.first_name} is now also ${ROLE_LABELS[role]}`);
+        showToast(`${g.first_name} is now also ${guestRoleLabel(role, roleNames)}`);
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
@@ -329,7 +333,7 @@ export function QuickAddSheet({
         }));
         clearNames();
         router.refresh();
-        showToast(`${g.first_name} → ${ROLE_LABELS[role]}`);
+        showToast(`${g.first_name} → ${guestRoleLabel(role, roleNames)}`);
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
@@ -450,7 +454,7 @@ export function QuickAddSheet({
                   >
                     {offeredRoles.map((r) => (
                       <option key={r} value={r}>
-                        {ROLE_LABELS[r]}
+                        {guestRolePickLabel(r, roleNames)}
                       </option>
                     ))}
                   </select>
@@ -598,7 +602,7 @@ export function QuickAddSheet({
                             {g.first_name} {g.last_name}
                           </span>
                           <span className="block truncate text-[11px] text-ink/55">
-                            {[g.role, ...g.extra_roles].map((r) => ROLE_LABELS[r]).join(' · ')}
+                            {[g.role, ...g.extra_roles].map((r) => guestRoleLabel(r, roleNames)).join(' · ')}
                             {' · '}
                             {SIDE_LABELS[g.side]}
                           </span>
@@ -627,7 +631,7 @@ export function QuickAddSheet({
                             disabled={isPending}
                             className="w-full rounded-lg bg-mulberry py-2 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-60"
                           >
-                            ＋ Add {ROLE_LABELS[role]} too — keep both roles
+                            ＋ Add {guestRoleLabel(role, roleNames)} too — keep both roles
                           </button>
                         ) : null}
                         <button
@@ -636,7 +640,7 @@ export function QuickAddSheet({
                           disabled={isPending}
                           className="w-full rounded-lg border border-ink/20 bg-cream py-2 text-sm font-medium text-ink hover:border-ink/40 disabled:opacity-60"
                         >
-                          Change {target.first_name} to {ROLE_LABELS[role]}
+                          Change {target.first_name} to {guestRoleLabel(role, roleNames)}
                         </button>
                         <div className="flex gap-2">
                           <button

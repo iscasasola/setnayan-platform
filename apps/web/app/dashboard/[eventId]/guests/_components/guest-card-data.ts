@@ -13,6 +13,8 @@ import {
   type InvitedToBlock,
 } from '@/lib/guests';
 import { formatRecordedAt } from '@/lib/recorded-at';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
 import type { GuestAccessState } from '@/lib/guest-access';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -81,6 +83,8 @@ export type GuestCardData = {
   access: GuestAccessState | null;
   /** The viewer is a co-host, so the Access dropdown is theirs to change. */
   canManageAccess: boolean;
+  /** The couple's own words for roles (`events.role_names`, owner 2026-09-30). `{}` = the usual words. */
+  roleNames: RoleNames;
 };
 
 export async function loadGuestCard(
@@ -215,7 +219,11 @@ export async function loadGuestCard(
     })(),
   ]);
 
+  // The couple's words for roles — its own read, graceful (usual words on a refusal).
+  const roleNames = await loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames');
+
   return {
+    roleNames,
     guest,
     isCouple,
     hasSides,

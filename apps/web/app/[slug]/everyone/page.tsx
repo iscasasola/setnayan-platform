@@ -8,7 +8,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { isHostMemberType } from '../_lib/host-scope';
-import { loadEntourageSectionOrder } from '../_lib/loaders';
+import { loadEntourageSectionOrder, loadEventRoleNames } from '../_lib/loaders';
 import {
   buildEntourage,
   plainGuestNames,
@@ -134,6 +134,8 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
   const groups = buildEntourage(
     (castRows ?? []) as EntourageGuestRow[],
     await loadEntourageSectionOrder(admin, event.event_id),
+    // The couple's own words for roles (owner 2026-09-30) — the same ones the invitation prints.
+    await loadEventRoleNames(admin, event.event_id),
   );
 
   /*

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import {
@@ -523,7 +524,7 @@ export async function generateEmceeScript(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [eventRes, blocks, guests] = await Promise.all([
+  const [eventRes, blocks, guests, roleNames] = await Promise.all([
     supabase
       .from('events')
       .select('display_name, event_date')
@@ -531,6 +532,8 @@ export async function generateEmceeScript(
       .maybeSingle(),
     fetchScheduleBlocks(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
+    // The couple's own words for roles (owner 2026-09-30) — the roster says them.
+    loadRoleNames(supabase, eventId, 'generateEmceeScript.roleNames'),
   ]);
 
   const event = eventRes.data ?? { display_name: null, event_date: null };
@@ -542,6 +545,7 @@ export async function generateEmceeScript(
     blocks,
     guests,
     options: { includePrivateBlocks: includePrivate },
+    roleNames,
   });
 }
 

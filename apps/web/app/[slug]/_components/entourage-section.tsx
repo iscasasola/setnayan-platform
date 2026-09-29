@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { EntourageGroup, EntouragePerson } from '@/lib/entourage';
 import { roleLabel, peopleOf } from '@/lib/entourage';
+import type { RoleNames } from '@/lib/role-names';
 
 /**
  * THE ENTOURAGE — the people standing up with the couple, on the invitation.
@@ -101,11 +102,11 @@ export function EntourageSection({
                   >
                     {paired ? (
                       <>
-                        <Cell person={row[0]} showRole={showRole} />
-                        <Cell person={row[1]} showRole={showRole} />
+                        <Cell person={row[0]} showRole={showRole} names={group.names} />
+                        <Cell person={row[1]} showRole={showRole} names={group.names} />
                       </>
                     ) : (
-                      <Cell person={row[0] ?? row[1]} showRole={showRole} />
+                      <Cell person={row[0] ?? row[1]} showRole={showRole} names={group.names} />
                     )}
                   </li>
                 ))}
@@ -138,12 +139,21 @@ export function EntourageSection({
  * would collapse the grid column and slide the next name up into the gap, which
  * is precisely the re-flow the two-column layout exists to prevent.
  */
-function Cell({ person, showRole }: { person: EntouragePerson | null; showRole: boolean }) {
+function Cell({
+  person,
+  showRole,
+  names,
+}: {
+  person: EntouragePerson | null;
+  showRole: boolean;
+  /** The couple's role words — the group's own (`group.names`), so the name and the heading agree. */
+  names: RoleNames;
+}) {
   if (!person) return <span aria-hidden className="hidden sm:block" />;
   return (
     <span>
       <span className="text-base text-ink">{person.name}</span>
-      {showRole ? <span className="ml-2 text-sm text-ink/55">{roleLabel(person.role)}</span> : null}
+      {showRole ? <span className="ml-2 text-sm text-ink/55">{roleLabel(person.role, names)}</span> : null}
     </span>
   );
 }

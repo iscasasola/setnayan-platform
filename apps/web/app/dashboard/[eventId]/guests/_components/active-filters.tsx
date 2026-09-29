@@ -6,7 +6,8 @@ import {
   type GuestGroupWithCount,
   type RsvpStatus,
 } from '@/lib/guests';
-import { ROLE_GROUP_LABELS, type RoleGroup } from '@/lib/role-groups';
+import { ROLE_GROUP_LABELS, roleGroupLabel, type RoleGroup } from '@/lib/role-groups';
+import type { RoleNames } from '@/lib/role-names';
 import { SIDE_DOT } from '@/lib/side-colors';
 
 // -----------------------------------------------------------------------
@@ -46,11 +47,14 @@ export function ActiveFilters({
   search,
   groups,
   className = '',
+  roleNames = {},
 }: {
   eventId: string;
   search: Search;
   groups: GuestGroupWithCount[];
   className?: string;
+  /** The couple's own words for roles (owner 2026-09-30) — the View chip says them. */
+  roleNames?: RoleNames;
 }) {
   const base = `/dashboard/${eventId}/guests`;
   const hrefWithout = (key: keyof Search) => {
@@ -92,7 +96,7 @@ export function ActiveFilters({
     });
   if (rsvp && RSVP_LABELS[rsvp]) chips.push({ key: 'rsvp', label: RSVP_LABELS[rsvp] });
   if (view && view !== ('all' as RoleGroup) && ROLE_GROUP_LABELS[view])
-    chips.push({ key: 'view', label: ROLE_GROUP_LABELS[view] });
+    chips.push({ key: 'view', label: roleGroupLabel(view, roleNames) });
   if (groupLabel) chips.push({ key: 'group', label: groupLabel });
   if (tag) chips.push({ key: 'tag', label: tag });
 

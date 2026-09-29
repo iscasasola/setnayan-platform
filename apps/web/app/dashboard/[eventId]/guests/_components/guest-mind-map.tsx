@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import {
   SIDE_LABELS,
-  ROLE_LABELS,
+  guestRoleLabel,
   guestDisplayName,
   type GuestGroupWithCount,
   type GuestRole,
@@ -23,10 +23,12 @@ import {
 import {
   importanceGroupOf,
   roleImportanceRank,
-  ROLE_GROUP_LABELS,
+  roleGroupLabel,
   type RoleGroup,
 } from '@/lib/role-groups';
 import { SIDE_ACCENT } from '@/lib/side-colors';
+import type { RoleNames } from '@/lib/role-names';
+import { useRoleNames } from './role-names-context';
 import { quickAddGuest } from '../quick-add-actions';
 import { mapAddGroup, mapAddPlusOne } from '../map-actions';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -144,6 +146,8 @@ function buildTree(
   groups: GuestGroupWithCount[],
   memberships: Record<string, string[]>,
   eventWord: 'wedding' | 'event' = 'wedding',
+  /** The couple's own words for roles (owner 2026-09-30). */
+  roleNames: RoleNames = {},
 ): MapNode[] {
   const nodes: MapNode[] = [];
   const bride = guests.find((g) => g.role === 'bride');
@@ -214,7 +218,7 @@ function buildTree(
         id: `p-${g.guest_id}`,
         parent,
         label: guestDisplayName(g),
-        sub: g.role !== 'guest' ? ROLE_LABELS[g.role] : undefined,
+        sub: g.role !== 'guest' ? guestRoleLabel(g.role, roleNames) : undefined,
         kind: 'guest',
         side: g.side,
         add: g.plus_one_name ? undefined : { type: 'plus', guestId: g.guest_id },
@@ -234,7 +238,7 @@ function buildTree(
       nodes.push({
         id: `rg-${br.key}`,
         parent: 'root',
-        label: ROLE_GROUP_LABELS[br.key],
+        label: roleGroupLabel(br.key, roleNames),
         kind: 'rolegroup',
         side: null,
         add: { type: 'guest', side: 'both', groupId: null, role: br.defaultRole },
@@ -255,7 +259,7 @@ function buildTree(
         id: `p-${g.guest_id}`,
         parent: `rg-${grp}`,
         label: guestDisplayName(g),
-        sub: ROLE_LABELS[binRole],
+        sub: guestRoleLabel(binRole, roleNames),
         kind: 'guest',
         side: g.side,
       });
@@ -309,10 +313,11 @@ export function GuestMindMap({
   const [pending, startTransition] = useTransition();
   const [collapsedMobile, setCollapsedMobile] = useState<Set<string>>(new Set());
   const save = useSaveLoader();
+  const roleNames = useRoleNames();
 
   const nodes = useMemo(
-    () => buildTree(lens, guests, groups, groupMemberships, eventWord),
-    [lens, guests, groups, groupMemberships, eventWord],
+    () => buildTree(lens, guests, groups, groupMemberships, eventWord, roleNames),
+    [lens, guests, groups, groupMemberships, eventWord, roleNames],
   );
 
   // Guards the Enter→commit + unmount-blur→commit double-fire (the input blurs

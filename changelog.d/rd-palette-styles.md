@@ -24,8 +24,8 @@ Owner, on `prototypes/palette_styles_2026-09-29.html`: *"palette. yes · Style o
   with a thumbnail in the couple's own first three colours. Saved through the Style row's own `useSceneCanvas`
   (the same draft door, so the two picks never overwrite each other); picking Tags clears the key. Shown only
   where "Our colours" is drawn in the look (Colours and roles, or a stage with no layouts) and the couple has
-  colours. Loaded with the Style row in the existing lazy `maker-details` chunk — nothing added to the Maker's
-  first load but one prop.
+  colours. Loaded with the Style row in the existing lazy `maker-details` chunk. **Budgets held, none raised:**
+  Maker first load 504.8KB / 505KB (was 504.7KB — the canvas key and one prop); shared bundle 201.9KB / 202KB.
 - **Guards:** `lib/palette-looks.test.ts` (resolver, sanitiser, free, contrast ink, every entrance gated on
   `.pahina-js` + `.pahina-in`, the reduced-motion stop, the slowest entrance < 1.2 s, the picker is ONE PickMenu of
   five with thumbnails, the picker loads only through `maker-details`) and

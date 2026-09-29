@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
 import { renderBrandedEmail } from '@/lib/email-template';
@@ -276,7 +277,11 @@ async function myRowsForPartnerRule(
     )
     .or(`from_person_id.eq.${myPerson},to_person_id.eq.${myPerson}`)
     .is('deleted_at', null);
-  if (error) return null;
+  if (error) {
+    // Unread is not "no partner": the caller refuses rather than guessing.
+    logQueryError('myRowsForPartnerRule', error, {}, 'graceful_degrade');
+    return null;
+  }
   return (data ?? []) as PartnerRow[];
 }
 

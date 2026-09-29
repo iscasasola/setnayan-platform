@@ -168,9 +168,9 @@ BEGIN
      OR NEW.proposed_status IS DISTINCT FROM OLD.proposed_status THEN
     IF NEW.proposed_relation IS NULL THEN
       IF NEW.relation IS DISTINCT FROM OLD.relation
-         AND NOT (is_to
-                  AND OLD.proposed_status = 'pending'
-                  AND NEW.relation IS NOT DISTINCT FROM OLD.proposed_relation) THEN
+         AND NOT COALESCE(is_to
+                  AND OLD.proposed_status IS NOT DISTINCT FROM 'pending'
+                  AND NEW.relation IS NOT DISTINCT FROM OLD.proposed_relation, FALSE) THEN
         RAISE EXCEPTION
           'person_connections: only the person asked may accept a label';
       END IF;
@@ -196,11 +196,17 @@ BEGIN
   --     declarer may re-word it (this was the action's filter alone before).
   IF NEW.relation IS DISTINCT FROM OLD.relation THEN
     IF OLD.status = 'confirmed' THEN
+      -- ⚠ Every comparison here is NULL-safe. `OLD.proposed_status = 'pending'`
+      -- on a row with NO ask is NULL, NOT (… AND NULL) is NULL, and an IF on
+      -- NULL does not raise — so the person asked could have written any label
+      -- straight onto a connection nobody asked them about. Measured: that
+      -- exact hole shipped in the first draft of this block and a db test
+      -- ("the person asked cannot set it for them either") caught it.
       IF NEW.relation IS NOT NULL
-         AND NOT (is_to
-                  AND OLD.proposed_status = 'pending'
-                  AND NEW.relation = OLD.proposed_relation
-                  AND NEW.proposed_relation IS NULL) THEN
+         AND NOT COALESCE(is_to
+                  AND OLD.proposed_status IS NOT DISTINCT FROM 'pending'
+                  AND NEW.relation IS NOT DISTINCT FROM OLD.proposed_relation
+                  AND NEW.proposed_relation IS NULL, FALSE) THEN
         RAISE EXCEPTION
           'person_connections: a label on a connection is asked, not set — the other person confirms it';
       END IF;

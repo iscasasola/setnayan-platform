@@ -136,7 +136,11 @@ export function eventSearchTerms(
     eventTypeBadge(eventType).toLowerCase(),
     ...dateTerms(eventDate),
     place ?? '',
-    stance === 'invited' ? 'invited guest' : 'organiser organizer mine',
+    stance === 'invited'
+      ? 'invited guest'
+      : stance === 'helper'
+        ? 'helper helping team'
+        : 'organiser organizer mine',
   ]
     .filter(Boolean)
     .join(' ');

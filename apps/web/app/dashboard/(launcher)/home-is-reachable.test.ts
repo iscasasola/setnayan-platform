@@ -86,10 +86,16 @@ test('exactly one upcoming card of your own still jumps straight in', () => {
     landingJumpTarget([ev('A', 'couple', '2026-12-12'), ev('B', 'couple', '2027-01-01', true)], TODAY),
     'A',
   );
-  // A membership with no board stance (coordinator) is not a card either.
+  // A membership with no board stance (vendor) is not a card either.
+  assert.equal(
+    landingJumpTarget([ev('A', 'couple', '2026-12-12'), ev('V', 'vendor', '2027-01-01')], TODAY),
+    'A',
+  );
+  // A HELPER seat IS a card since 2026-09-29 ("You help with this") — so your
+  // own event plus one you help with is two cards, and two cards is a choice.
   assert.equal(
     landingJumpTarget([ev('A', 'couple', '2026-12-12'), ev('C', 'coordinator', '2027-01-01')], TODAY),
-    'A',
+    null,
   );
 });
 

@@ -193,18 +193,34 @@ test('the organiser still reaches the shell — the fix must not close a real do
   );
 });
 
-test('vendor + coordinator get NO href from either helper (named, not guessed)', () => {
-  for (const member_type of ['vendor', 'coordinator'] as const) {
-    assert.equal(eventBoardHref({ event_id: 'E1', slug: 's', member_type }), null);
-    assert.equal(eventAlbumHref({ event_id: 'E1', slug: 's', member_type }), null);
-  }
+test('a vendor gets NO href from either helper (named, not guessed)', () => {
+  assert.equal(eventBoardHref({ event_id: 'E1', slug: 's', member_type: 'vendor' }), null);
+  assert.equal(eventAlbumHref({ event_id: 'E1', slug: 's', member_type: 'vendor' }), null);
+});
+
+test('a helper (coordinator seat) opens the dashboard, never the public page', () => {
+  // A `coordinator` membership is minted ONLY with a live seat, and the
+  // dashboard layout admits a live seat — so this door opens. Sending a helper
+  // to the public page would hide the plan they were seated to follow.
+  assert.equal(
+    eventBoardHref({ event_id: 'E1', slug: 's', member_type: 'coordinator' }),
+    '/dashboard/E1',
+  );
+  // No album door: the Papic studio is the host's tool (named, not guessed).
+  assert.equal(
+    eventAlbumHref({ event_id: 'E1', slug: 's', member_type: 'coordinator' }),
+    null,
+  );
 });
 
 test('every member_type is answered — no silent ELSE branch', () => {
   for (const member_type of MEMBER_TYPES) {
     const stance = eventStance(member_type);
     assert.ok(
-      stance === 'organiser' || stance === 'invited' || stance === null,
+      stance === 'organiser' ||
+        stance === 'invited' ||
+        stance === 'helper' ||
+        stance === null,
       `unhandled stance for ${member_type}`,
     );
     assert.ok(stanceClosedReason(member_type).length > 0);

@@ -43,6 +43,7 @@ import {
   eventBoardHref,
   eventStance,
   isFinishedEvent,
+  landingJumpTarget,
   splitFinishedByStory,
   mergeBoardMemberships,
   splitEventBoard,
@@ -215,7 +216,7 @@ test('Finished runs most-recent-past first', () => {
   assert.deepEqual(finished.map((e) => e.event_id), ['recent', 'older']);
 });
 
-test('the board carries organiser + invited rows and nothing else', () => {
+test('the board carries organiser + helper + invited rows and nothing else', () => {
   const { comingUp } = splitEventBoard(
     [
       ev({ event_id: 'mine', member_type: 'couple', event_date: '2026-12-18' }),
@@ -227,10 +228,10 @@ test('the board carries organiser + invited rows and nothing else', () => {
   );
   assert.deepEqual(
     comingUp.map((e) => e.event_id).sort(),
-    ['mine', 'theirs'],
-    'A vendor booking and a coordinator assignment are not this board — both have ' +
-      'their own doorways, and a coordinator reaches the event shell through an ' +
-      'accepted moderator row, not through member_type.',
+    ['coord', 'mine', 'theirs'],
+    'A vendor booking is not this board (the shop console is its door). A ' +
+      'coordinator row IS a live helper seat (minted only by sync_delegate_membership) ' +
+      '— before 2026-09-29 it was dropped here and the helper’s event was on no board.',
   );
 });
 
@@ -281,12 +282,40 @@ test('an invited event with no public page yet gets NO link, not a broken one', 
   }
 });
 
-test('the two stances read as two different sentences', () => {
+test('the three stances read as three different sentences', () => {
   const organiser = stanceLabel('organiser');
   const invited = stanceLabel('invited');
-  assert.ok(organiser.length > 0 && invited.length > 0);
-  assert.notEqual(organiser, invited);
+  const helper = stanceLabel('helper');
+  assert.ok(organiser.length > 0 && invited.length > 0 && helper.length > 0);
+  assert.equal(new Set([organiser, invited, helper]).size, 3);
+  // Owner 2026-09-28, verbatim wording for a Limited helper's card.
+  assert.equal(helper, 'You help with this');
+  assert.equal(eventStance('coordinator'), 'helper');
   assert.equal(eventStance('vendor'), null);
+});
+
+test('a helper seat outranks an invitation and yields to the organiser', () => {
+  const helperOverGuest = mergeBoardMemberships(
+    [],
+    [ev({ event_id: 'e1', member_type: 'guest' })],
+    [ev({ event_id: 'e1', member_type: 'coordinator' })],
+  );
+  assert.deepEqual(helperOverGuest.map((e) => e.member_type), ['coordinator']);
+  const organiserOverHelper = mergeBoardMemberships(
+    [ev({ event_id: 'e1', member_type: 'couple' })],
+    [],
+    [ev({ event_id: 'e1', member_type: 'coordinator' })],
+  );
+  assert.deepEqual(organiserOverHelper.map((e) => e.member_type), ['couple']);
+});
+
+test('a lone helper card never auto-jumps into the dashboard', () => {
+  // The landing jump is for a person with ONE event of their OWN. A helper
+  // lands on the board and presses the card — the chip says what it is first.
+  assert.equal(
+    landingJumpTarget([ev({ event_id: 'h', member_type: 'coordinator', event_date: '2026-12-12' })], TODAY),
+    null,
+  );
 });
 
 test('holding both memberships on one event resolves to the organiser', () => {
@@ -716,9 +745,9 @@ test('the invited memberships are actually PUT ON the board', () => {
   const src = launcher();
   assert.match(
     src,
-    /const boardEvents = mergeBoardMemberships\(events, invitedEvents\);/,
-    'The invited rows are read and then discarded — the board is organiser-only ' +
-      'again, which is exactly how it shipped before this change.',
+    /const boardEvents = mergeBoardMemberships\(events, invitedEvents, helpingEvents\);/,
+    'The invited or helper rows are read and then discarded — the board is ' +
+      'organiser-only again, which is exactly how it shipped before this change.',
   );
   assert.match(
     src,

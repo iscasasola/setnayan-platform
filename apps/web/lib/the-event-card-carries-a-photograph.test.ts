@@ -16,6 +16,10 @@ import { fileURLToPath } from 'node:url';
  * gradient). It is reused, so the two cards cannot disagree about which picture
  * an event has.
  *
+ * ⤴ Since 2026-09-29 the band's FIRST source is the Event Hub's own cover
+ * (`cover`, from `resolveEventPoster`) and the precedence above is its fallback
+ * — held by `the-overview-band-wears-the-hub-cover.test.ts`.
+ *
  * 🛡 Mutation-checked by occurrence count.
  */
 

@@ -157,6 +157,131 @@ export default async function EventLayout({ children, params }: Props) {
     eventsMeasured: false,
     context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
   };
+
+  // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
+  // 🔑 THIS LAYOUT WRAPS EVERY EVENT PAGE, so each serial trip here is paid on
+  // every tap inside a wedding. The chrome fetchers already shared one
+  // `Promise.all`, but the event-type profile, the referral toggle, the nav
+  // registry and the store-shell check were each awaited on their own AFTER
+  // it — four more trips in a row, none of which needed another's answer
+  // except the profile, which needs the event row's type (found in the prod
+  // perf sweep of 2026-09-29). Each read below is STARTED here, as a promise,
+  // with its own graceful-degrade exactly as it was, and they are all awaited
+  // together in the one `Promise.all` under the one wait below. The profile is
+  // chained off the event read, so it starts the moment that row lands.
+  // 🔒 THE MEMBERSHIP GATE ABOVE STAYS FIRST. Nothing in this block starts
+  // until a non-member has already been refused.
+  // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
+  // RUN — one stray `await` puts a full database trip back in front of every
+  // event page.
+  const shellRead = getDashboardShell(user.id);
+  const eventRead = (async () => {
+    try {
+      const fullSelect =
+        'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date';
+      const fullRes = await supabase
+        .from('events')
+        .select(fullSelect)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (
+        fullRes.error &&
+        /column .* does not exist|undefined_column|42703/i.test(
+          (fullRes.error as { message?: string; code?: string }).message ??
+            (fullRes.error as { code?: string }).code ??
+            '',
+        )
+      ) {
+        // Column missing on prod → migration drift. Fall back to *.
+        return await supabase
+          .from('events')
+          .select('*')
+          .eq('event_id', eventId)
+          .maybeSingle();
+      }
+      return fullRes;
+    } catch (caught) {
+      logQueryError(
+        'EventLayout (events SELECT threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+      return { data: null, error: null };
+    }
+  })();
+  // Unread-message count for the Messages-icon badge. countUnreadMessages
+  // already graceful-degrades to 0 internally (incl. when the read-marker
+  // migration isn't pushed yet); the .catch here is the same belt-and-braces
+  // wrapper every other chrome fetcher in this Promise.all carries.
+  const unreadMessagesRead = countUnreadMessages(supabase, user.id).catch((err: unknown) => {
+    logQueryError(
+      'EventLayout (countUnreadMessages threw)',
+      err instanceof Error ? err : new Error(String(err)),
+      { event_id: eventId, user_id: user.id },
+      'graceful_degrade',
+    );
+    return 0;
+  });
+  const localeRead = Promise.resolve(getLocale()).catch(() => 'en' as const);
+  // AccountSwitcher panel data. getSwitcherData never returns null after the
+  // 2026-06-17 always-on fix; the .catch here guards against any outer throw.
+  const switcherDataRead = getSwitcherData(user.id).catch((err: unknown) => {
+    console.error('[AccountSwitcher] data fetch failed:', err);
+    return minimalSwitcherFallback;
+  });
+  // Guest head-count → the sidebar Guests badge. Lean HEAD count, fully
+  // fail-soft (returns null on any error → the badge is simply omitted, never
+  // fabricated). Same belt-and-braces .catch as every other chrome fetcher.
+  const guestCountRead = countGuestsByEvent(supabase, eventId).catch(() => null);
+
+  // Per-event-type nav gating (iteration 0053 — Simple Event, owner 2026-06-27).
+  // A vendor-free type drops the Explore (vendor marketplace) tab when its
+  // profile sets marketplace_enabled=FALSE, and the Budget tab when 'budget' is
+  // not an enabled surface. For wedding + every existing type the profile keeps
+  // both (marketplace_enabled DEFAULTs TRUE; their surfaces include budget), so
+  // navHideKeys is [] → byte-identical. resolveProfile is React-cached + degrades
+  // to a hard-coded profile on any DB hiccup.
+  // ⛓ CHAINED OFF THE EVENT READ, because it needs the row's type — and asked
+  // ONLY when there is a row, exactly as before: a missing event is a 404
+  // below, and it never paid for a profile read.
+  const profileRead = eventRead.then((res) =>
+    res.data ? resolveProfile((res.data.event_type as string | null) ?? 'wedding') : null,
+  );
+  /*
+    Couple referral program — hidden from every nav surface (sidebar, bottom
+    nav, sub-nav) unless an admin has turned the program on (master toggle).
+
+    ⚠ THIS GATE HID NOTHING FOR A MONTH AND STILL COST A QUERY EVERY RENDER.
+    It filters by item KEY, and the 'refer' row had been deleted from both nav
+    SSOTs on 2026-07-10 — so from then until 2026-08-18 this read ran on every
+    event page load to hide a row that did not exist, while the page it governs
+    was reachable only by typing the address.
+
+    🔑 A GATE WHOSE TARGET IS GONE LOOKS EXACTLY LIKE A GATE THAT IS WORKING.
+    Nothing errors; the list simply never contains the thing it excludes. It is
+    the mirror of the gate-with-no-handle: a handle with no gate.
+
+    It is live again because the row is back and keyed 'refer'. Keeping the
+    existing key-based gate is deliberate — a second, parallel gate is how the
+    two halves drift apart.
+  */
+  const referralEnabledRead = isReferralProgramEnabled();
+  // Nav registry: resolve the admin-managed name+icon overrides server-side and
+  // hand the slot map to the (client) bottom nav. Cached via NAV_REGISTRY_TAG.
+  const navSlotsRead = getNavSlotMap();
+  /*
+    🍎 THE APP STORE / PLAY STORE SHELL, ASKED ONCE, HERE (2026-09-25).
+    Every event menu — the rail, the ☰ drawer, the moment strip and the bottom
+    bar — is built from `eventRailInputs` or from the props below, and the one
+    tree drops each row whose door `lib/store-shell.ts` refuses
+    (`storeShellRefusesMenuRow`). Server-side, so the FIRST paint is already
+    right: before this the Papic tab was built, painted, and then hidden by
+    `StoreShellLinkGuard` after load, leaving a blank slot in the bar.
+  */
+  const storeShellRead = isStoreShellRequest();
+
+  // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
     { unreadCount },
     eventRes,
@@ -164,67 +289,21 @@ export default async function EventLayout({ children, params }: Props) {
     locale,
     switcherData,
     guestCount,
+    profileIfEvent,
+    referralEnabled,
+    navSlots,
+    storeShell,
   ] = await Promise.all([
-    getDashboardShell(user.id),
-    (async () => {
-      try {
-        const fullSelect =
-          'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date';
-        const fullRes = await supabase
-          .from('events')
-          .select(fullSelect)
-          .eq('event_id', eventId)
-          .maybeSingle();
-        if (
-          fullRes.error &&
-          /column .* does not exist|undefined_column|42703/i.test(
-            (fullRes.error as { message?: string; code?: string }).message ??
-              (fullRes.error as { code?: string }).code ??
-              '',
-          )
-        ) {
-          // Column missing on prod → migration drift. Fall back to *.
-          return await supabase
-            .from('events')
-            .select('*')
-            .eq('event_id', eventId)
-            .maybeSingle();
-        }
-        return fullRes;
-      } catch (caught) {
-        logQueryError(
-          'EventLayout (events SELECT threw)',
-          caught instanceof Error ? caught : new Error(String(caught)),
-          { event_id: eventId, user_id: user.id },
-          'graceful_degrade',
-        );
-        return { data: null, error: null };
-      }
-    })(),
-    // Unread-message count for the Messages-icon badge. countUnreadMessages
-    // already graceful-degrades to 0 internally (incl. when the read-marker
-    // migration isn't pushed yet); the .catch here is the same belt-and-braces
-    // wrapper every other chrome fetcher in this Promise.all carries.
-    countUnreadMessages(supabase, user.id).catch((err: unknown) => {
-      logQueryError(
-        'EventLayout (countUnreadMessages threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return 0;
-    }),
-    Promise.resolve(getLocale()).catch(() => 'en' as const),
-    // AccountSwitcher panel data. getSwitcherData never returns null after the
-    // 2026-06-17 always-on fix; the .catch here guards against any outer throw.
-    getSwitcherData(user.id).catch((err: unknown) => {
-      console.error('[AccountSwitcher] data fetch failed:', err);
-      return minimalSwitcherFallback;
-    }),
-    // Guest head-count → the sidebar Guests badge. Lean HEAD count, fully
-    // fail-soft (returns null on any error → the badge is simply omitted, never
-    // fabricated). Same belt-and-braces .catch as every other chrome fetcher.
-    countGuestsByEvent(supabase, eventId).catch(() => null),
+    shellRead,
+    eventRead,
+    unreadMessagesRead,
+    localeRead,
+    switcherDataRead,
+    guestCountRead,
+    profileRead,
+    referralEnabledRead,
+    navSlotsRead,
+    storeShellRead,
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -285,33 +364,12 @@ export default async function EventLayout({ children, params }: Props) {
     (event as { event_end_date?: string | null }).event_end_date ?? null,
   );
 
-  // Per-event-type nav gating (iteration 0053 — Simple Event, owner 2026-06-27).
-  // A vendor-free type drops the Explore (vendor marketplace) tab when its
-  // profile sets marketplace_enabled=FALSE, and the Budget tab when 'budget' is
-  // not an enabled surface. For wedding + every existing type the profile keeps
-  // both (marketplace_enabled DEFAULTs TRUE; their surfaces include budget), so
-  // navHideKeys is [] → byte-identical. resolveProfile is React-cached + degrades
-  // to a hard-coded profile on any DB hiccup.
-  const profile = await resolveProfile((event.event_type as string | null) ?? 'wedding');
-  /*
-    Couple referral program — hidden from every nav surface (sidebar, bottom
-    nav, sub-nav) unless an admin has turned the program on (master toggle).
-
-    ⚠ THIS GATE HID NOTHING FOR A MONTH AND STILL COST A QUERY EVERY RENDER.
-    It filters by item KEY, and the 'refer' row had been deleted from both nav
-    SSOTs on 2026-07-10 — so from then until 2026-08-18 this read ran on every
-    event page load to hide a row that did not exist, while the page it governs
-    was reachable only by typing the address.
-
-    🔑 A GATE WHOSE TARGET IS GONE LOOKS EXACTLY LIKE A GATE THAT IS WORKING.
-    Nothing errors; the list simply never contains the thing it excludes. It is
-    the mirror of the gate-with-no-handle: a handle with no gate.
-
-    It is live again because the row is back and keyed 'refer'. Keeping the
-    existing key-based gate is deliberate — a second, parallel gate is how the
-    two halves drift apart.
-  */
-  const referralEnabled = await isReferralProgramEnabled();
+  // The event type's profile — read in the one wait above, chained off the
+  // event row. It is null only when there is no row, and `notFound()` has
+  // already ended that render, so the fallback here never runs; it exists so
+  // the type is honest without a cast, and resolveProfile is React-cached.
+  const profile =
+    profileIfEvent ?? (await resolveProfile((event.event_type as string | null) ?? 'wedding'));
   const navHideKeys = [
     ...(profile.marketplaceEnabled ? [] : ['explore']),
     ...(surfaceEnabled(profile, 'budget') ? [] : ['budget']),
@@ -454,21 +512,6 @@ export default async function EventLayout({ children, params }: Props) {
   // SidebarShell owns the desktop offset entirely via --shell-main-offset.
   // This is the structural half of removing the old-cream-flash on
   // event-route navigations.
-
-  // Nav registry: resolve the admin-managed name+icon overrides server-side and
-  // hand the slot map to the (client) bottom nav. Cached via NAV_REGISTRY_TAG.
-  const navSlots = await getNavSlotMap();
-
-  /*
-    🍎 THE APP STORE / PLAY STORE SHELL, ASKED ONCE, HERE (2026-09-25).
-    Every event menu — the rail, the ☰ drawer, the moment strip and the bottom
-    bar — is built from `eventRailInputs` or from the props below, and the one
-    tree drops each row whose door `lib/store-shell.ts` refuses
-    (`storeShellRefusesMenuRow`). Server-side, so the FIRST paint is already
-    right: before this the Papic tab was built, painted, and then hidden by
-    `StoreShellLinkGuard` after load, leaving a blank slot in the bar.
-  */
-  const storeShell = await isStoreShellRequest();
 
   /*
     Everything the event menu is built from, in ONE place. See the

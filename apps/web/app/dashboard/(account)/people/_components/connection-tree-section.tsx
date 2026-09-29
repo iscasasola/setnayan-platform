@@ -1,4 +1,4 @@
-import { AlertTriangle, Sparkles } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getKinFor, namesForKin } from '@/lib/kinship-read-core';
@@ -80,12 +80,14 @@ export async function ConnectionTreeSection({ userId }: { userId: string }) {
 function Frame({ children }: { children: React.ReactNode }) {
   return (
     <section id="connection-tree" className="mt-10 scroll-mt-24" aria-labelledby="connection-tree-heading">
-      <div className="mb-3 flex items-center gap-2">
-        <Sparkles aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.75} />
-        <h2 id="connection-tree-heading" className="text-lg font-semibold text-ink">
-          Your connection tree
-        </h2>
-      </div>
+      {/* The People page's ONE heading style (owner 2026-09-28 redesign,
+          problem 5: four heading styles lived on one page). */}
+      <h2
+        id="connection-tree-heading"
+        className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55"
+      >
+        Your connection tree
+      </h2>
       <p className="mb-4 text-sm text-ink/60">
         Worked out from the people you’ve both confirmed — never from a request still waiting on an
         answer.

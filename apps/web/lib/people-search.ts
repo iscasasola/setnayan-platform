@@ -104,7 +104,7 @@ export async function searchPeopleByName(
   let query = admin
     .from('users')
     .select(
-      'user_id, public_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, slug, profile_photo_url, email, discoverable_by_name',
+      'user_id, public_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, slug, profile_photo_url, email, discoverable_by_name, public_profile_enabled',
     );
   for (const term of terms) {
     query = query.ilike('name_search', `%${escapeLikeQuery(term)}%`);
@@ -131,6 +131,7 @@ export async function searchPeopleByName(
     slug: string | null;
     profile_photo_url: string | null;
     email: string | null;
+    public_profile_enabled: boolean | null;
   }>;
 
   // Their person rows, to drop anybody already on my list.
@@ -161,6 +162,23 @@ export async function searchPeopleByName(
     keep.map((r) => r.user_id),
   );
 
+  // Who among the hits I ALREADY follow — my own rows, under my own session
+  // (RLS Pattern A), scoped to me explicitly: the policy also admits is_admin().
+  const alreadyFollowing = new Set<string>();
+  if (keep.length > 0) {
+    const { data: mine, error: mineError } = await supabase
+      .from('user_follows')
+      .select('followed_user_id')
+      .eq('follower_user_id', viewerUserId)
+      .in(
+        'followed_user_id',
+        keep.map((r) => r.user_id),
+      );
+    // Refused → every hit offers Follow, and a repeat follow is a no-op.
+    if (mineError) logQueryError('searchPeopleByName.follows', mineError, {}, 'graceful_degrade');
+    for (const f of (mine ?? []) as Array<{ followed_user_id: string }>) alreadyFollowing.add(f.followed_user_id);
+  }
+
   return keep.slice(0, MAX_RESULTS).map((r) => {
     const name = (r.display_name ?? '').trim();
     const formal = composeFormalName(r);
@@ -172,6 +190,8 @@ export async function searchPeopleByName(
       fullName: formal && formal.toLowerCase() !== name.toLowerCase() ? formal : null,
       handle: atTag(r.slug),
       hint: hints.get(r.user_id) ?? null,
+      followable: r.public_profile_enabled === true,
+      following: alreadyFollowing.has(r.user_id),
     };
   });
 }

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import Image from 'next/image';
+import type { SceneCover } from '@/lib/event-poster';
 import { eventTypePlaceholderGradient } from '../../(account)/create-event/_components/event-types';
 import { eventCardTreatment } from '@/lib/event-card-art';
 
@@ -13,6 +14,16 @@ import { eventCardTreatment } from '@/lib/event-card-art';
  *
  * PRECEDENCE, top of the list wins:
  *
+ *   0. THE EVENT HUB'S OWN COVER (`cover`, owner 2026-09-29: *"this needs to
+ *      adapt to the background of the event hub"*). `sceneCoverFor` of the ONE
+ *      poster resolver (`resolveEventPoster`) — hero photo → Save-the-Date
+ *      background (when the hub would show it) → the theme's still — under the
+ *      Event Hub's own legibility veil (`--hub-scrim`), with no per-event
+ *      colour grade. A solemn event's cover is `quiet`: a still, colourless
+ *      band, never a photo or a hue. When the event has chosen nothing the
+ *      caller passes `null` and the order below runs, so the stock type photo
+ *      is only ever the last fallback. A cover image that fails to load falls
+ *      through to 1–3 as well.
  *   1. THE EVENT'S OWN HERO (`ownPhotoSrc`) — `events.landing_page_hero_image_url`,
  *      the couple's own guest-site photo, presigned on the server. When they
  *      have one it IS the card, untouched: no tint, no crop shift, no mirror.
@@ -47,6 +58,7 @@ export function EventScene({
   eventType,
   photoSrc,
   ownPhotoSrc = null,
+  cover = null,
   /** Dim the whole band for a finished event, matching the card's opacity. */
   muted = false,
 }: {
@@ -60,14 +72,77 @@ export function EventScene({
    * it replaces the type photo outright and suppresses the treatment.
    */
   ownPhotoSrc?: string | null;
+  /**
+   * The Event Hub's cover for this event (`sceneCoverFor(resolveEventPoster…)`).
+   * Outranks everything below it; `null` = the event has chosen nothing.
+   */
+  cover?: SceneCover | null;
   muted?: boolean;
 }) {
   const [ownFailed, setOwnFailed] = useState(false);
   const [typeFailed, setTypeFailed] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
+  const dim = muted ? 'grayscale-[0.35]' : '';
+
+  if (cover?.kind === 'quiet') {
+    return (
+      <span aria-hidden data-scene-cover="quiet" className="absolute inset-0 block overflow-hidden bg-ink">
+        {/* The quiet masthead's hairline, in the dark: still, and no colour. */}
+        <span
+          className="absolute inset-0 block"
+          style={{
+            background:
+              'repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 1px, transparent 1px 7px)',
+          }}
+        />
+        <span className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/45 to-ink/10" />
+      </span>
+    );
+  }
+
+  if (cover && !coverFailed) {
+    return (
+      <span
+        aria-hidden
+        data-scene-cover={cover.ground}
+        className="absolute inset-0 block overflow-hidden"
+        style={{
+          ...(cover.legibility as CSSProperties | null),
+          background: eventTypePlaceholderGradient(eventType),
+        }}
+      >
+        {/* A presigned R2 URL or the theme's public still — a plain <img>, as
+            below: the signing host is not in the next/image allowlist. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={cover.src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] ${dim}`}
+          onError={() => setCoverFailed(true)}
+        />
+        {/* The Event Hub's own veil for this ground (`hubLegibility`): over a
+            theme's still it is the theme's measured scrim in the theme's own
+            colour, laid over the whole still exactly as the hub lays it; over a
+            photo it rises from the foot, as the poster lays it. */}
+        <span
+          className="absolute inset-0 block"
+          style={{
+            background:
+              cover.kind === 'theme'
+                ? 'var(--hub-scrim, transparent)'
+                : 'linear-gradient(to top, var(--hub-scrim, transparent), transparent 75%)',
+          }}
+        />
+        {/* ⚠ ALWAYS LAST, as below: the card's white title sits on this. */}
+        <span className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/45 to-ink/10" />
+      </span>
+    );
+  }
 
   const showOwn = !!ownPhotoSrc && !ownFailed;
   const art = eventCardTreatment(eventId);
-  const dim = muted ? 'grayscale-[0.35]' : '';
 
   return (
     <span

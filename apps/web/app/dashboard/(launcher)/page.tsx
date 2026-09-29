@@ -75,7 +75,7 @@ import {
 } from '@/app/_components/collection-card';
 import { paginateCollection, parseCollectionPage } from '@/lib/collection-pagination';
 import { EventPoster } from '@/app/_components/event-poster';
-import type { EventPosterFacts } from '@/lib/event-poster';
+import { sceneCoverFor, type EventPosterFacts } from '@/lib/event-poster';
 import { resolveEventPoster } from '@/lib/event-poster.server';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveMonogram } from '@/lib/monogram';
@@ -804,9 +804,28 @@ export default async function LauncherPage({
   })();
 
   // THE POSTERS (the collection template, owner-approved 2026-09-24) — for the
-  // Planning page on screen only, never the whole shelf. Each follows the hero
-  // the couple built; see `planningPosters` and `lib/event-poster.ts`.
-  const posterByIdRead = planningPosters(supabase, upcomingOnPage, ownHeroByIdRead, user.id);
+  // Planning page on screen only, never the whole Planning shelf. Each follows
+  // the hero the couple built; see `planningPosters` and `lib/event-poster.ts`.
+  //
+  // 🖼 AND EVERY OTHER CARD ON THE BOARD WEARS THE SAME COVER (owner
+  // 2026-09-29, on the Overview's band: *"this needs to adapt to the background
+  // of the event hub"*). Today's, the put-away, the untold and the told cards
+  // stay glass cards, but their scene band reads its picture from the same
+  // resolver (`sceneCoverFor`) instead of the stock event-type photo — which
+  // is now only the last fallback, for an event that has chosen nothing.
+  // `finished` is Untold ∪ Told (`splitFinishedByStory` partitions it, after
+  // the wait below), so both finished shelves are covered here.
+  const posterByIdRead = planningPosters(
+    supabase,
+    uniqueEvents([
+      ...upcomingOnPage,
+      ...happeningNow,
+      ...(showPutAway ? putAway : []),
+      ...finished,
+    ]),
+    ownHeroByIdRead,
+    user.id,
+  );
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -1207,6 +1226,7 @@ export default async function LauncherPage({
                 pct={progressByEvent.get(event.event_id) ?? null}
                 heroSrc={heroFor(event.event_type)}
                 ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                scenePoster={posterById.get(event.event_id)}
                 index={i}
                 todayISO={todayISO}
                 summary={decisionByEvent.get(event.event_id)}
@@ -1310,6 +1330,7 @@ export default async function LauncherPage({
                     pct={progressByEvent.get(event.event_id) ?? null}
                     heroSrc={heroFor(event.event_type)}
                     ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                    scenePoster={posterById.get(event.event_id)}
                     finished
                     index={upcomingOnPage.length + i}
                     todayISO={todayISO}
@@ -1425,6 +1446,7 @@ export default async function LauncherPage({
                     pct={progressByEvent.get(event.event_id) ?? null}
                     heroSrc={heroFor(event.event_type)}
                     ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                    scenePoster={posterById.get(event.event_id)}
                     finished
                     index={upcoming.length + i}
                     todayISO={todayISO}
@@ -1483,6 +1505,7 @@ export default async function LauncherPage({
                 pct={progressByEvent.get(event.event_id) ?? null}
                 heroSrc={heroFor(event.event_type)}
                 ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
+                scenePoster={posterById.get(event.event_id)}
                 finished
                 index={upcoming.length + unwritten.length + i}
                 todayISO={todayISO}
@@ -1760,6 +1783,7 @@ async function GlassEventCard({
   hasMenu = false,
   storyHref,
   poster,
+  scenePoster,
 }: {
   event: EventWithRole;
   pct: number | null;
@@ -1804,6 +1828,12 @@ async function GlassEventCard({
    * Planning card whose words could not be resolved) → the glass card as before.
    */
   poster?: EventPosterFacts;
+  /**
+   * THE SAME RESOLVER'S ANSWER, for a card that stays a glass card (every shelf
+   * but Planning). Its GROUND becomes the scene band's picture
+   * (`sceneCoverFor`) — the Event Hub's cover, not the stock type photo.
+   */
+  scenePoster?: EventPosterFacts;
 }) {
   const { badge, dateLabel, place, status, keptNote, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
@@ -1864,6 +1894,7 @@ async function GlassEventCard({
             eventType={event.event_type}
             photoSrc={heroSrc}
             ownPhotoSrc={ownHeroSrc}
+            cover={sceneCoverFor(scenePoster)}
             muted={finished}
           />
         )
@@ -2176,7 +2207,8 @@ function NewEventCard({ delay = 0, poster = false }: { delay?: number; poster?: 
 }
 
 /**
- * The Planning page's posters — each from `resolveEventPoster`
+ * The board's posters — the Planning page's covers, and the scene band of every
+ * other shelf's glass card (`sceneCoverFor`) — each from `resolveEventPoster`
  * (lib/event-poster.server.ts), the ONE resolver that reads an event's hero
  * the way the Event Hub does (owner: "hero widget applies to save the date,
  * invitation, on the day and the thumbnail poster").
@@ -2193,6 +2225,12 @@ function NewEventCard({ delay = 0, poster = false }: { delay?: number; poster?: 
  * saved theme runs BESIDE it instead of after it; only the resolve waits for
  * both.
  */
+/** Each event once, first occurrence kept — one resolver call per event. */
+function uniqueEvents(events: readonly EventWithRole[]): EventWithRole[] {
+  const seen = new Set<string>();
+  return events.filter((e) => (seen.has(e.event_id) ? false : (seen.add(e.event_id), true)));
+}
+
 async function planningPosters(
   supabase: Awaited<ReturnType<typeof createClient>>,
   events: readonly EventWithRole[],

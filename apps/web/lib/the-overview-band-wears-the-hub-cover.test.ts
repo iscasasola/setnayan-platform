@@ -49,27 +49,33 @@ const STOCK = '/event-types/wedding.webp';
 
 /* ── THE ORDER — the resolver's answer, read for a band ─────────────────── */
 
+// Read through a widened parameter: `assert.equal(c?.kind, …)` narrows `c`,
+// and a second `kind` test on the narrowed value no longer compiles.
+const srcOf = (c: SceneCover | null) => (c && c.kind !== 'quiet' ? c.src : null);
+const groundOf = (c: SceneCover | null) => (c && c.kind !== 'quiet' ? c.ground : null);
+const scrimOf = (c: SceneCover | null) => (c && c.kind !== 'quiet' ? c.legibility?.['--hub-scrim'] : null);
+
 test('the couple’s hero photo is the band, over their background and their theme', () => {
   const c = sceneCoverFor(
     posterFor({ ...base, theme: 'velvet', heroSrc: HERO, backgroundSrc: STD_BG, themeStillSrc: STILL }),
   );
   assert.equal(c?.kind, 'photo');
-  assert.equal(c && c.kind !== 'quiet' ? c.src : null, HERO);
-  assert.equal(c && c.kind !== 'quiet' ? c.ground : null, 'hero');
+  assert.equal(srcOf(c), HERO);
+  assert.equal(groundOf(c), 'hero');
 });
 
 test('no hero: the Save-the-Date background the hub shows is the band', () => {
   const c = sceneCoverFor(posterFor({ ...base, theme: 'velvet', backgroundSrc: STD_BG, themeStillSrc: STILL }));
-  assert.equal(c && c.kind !== 'quiet' ? c.src : null, STD_BG);
-  assert.equal(c && c.kind !== 'quiet' ? c.ground : null, 'background');
+  assert.equal(srcOf(c), STD_BG);
+  assert.equal(groundOf(c), 'background');
 });
 
 test('no photo at all: the theme’s still, in the theme’s own measured veil', () => {
   const c = sceneCoverFor(posterFor({ ...base, theme: 'velvet', themeStillSrc: STILL }));
   assert.equal(c?.kind, 'theme');
-  assert.equal(c && c.kind !== 'quiet' ? c.src : null, STILL);
+  assert.equal(srcOf(c), STILL);
   assert.match(
-    (c && c.kind !== 'quiet' ? c.legibility?.['--hub-scrim'] : '') ?? '',
+    scrimOf(c) ?? '',
     /^rgba\(\d+, \d+, \d+, [01]\.\d\d\)$/,
     'the tint is the Event Hub legibility veil, parsed values only',
   );

@@ -54,7 +54,7 @@ const REORDER_FAILED = 'That move could not be saved. Your scenes are back where
 const GATE_FAILED = 'That could not be saved. The scene is back as it was — please try again.';
 import { preloadMakerFonts, preloadMakerImages, whenIdle } from '@/lib/maker-preload';
 import { BufferedCanvasFrame, warmCanvasBudget, type CanvasFrame } from './buffered-canvas-frame';
-import { BOTH_PHONE_WIDTH, bothDesktopFit, usePaneSize } from './both-view';
+import { bothLayout, scaledFrame, usePaneSize } from './both-view';
 import { PickMenu } from './pick-menu';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -1364,16 +1364,20 @@ export function MakerWork({
 
   const navOpen = maker?.navOpen ?? true;
   const view = maker?.device ?? 'desktop';
-  /** 🖥📱 Both (`both-view.ts`): the canvas is the desktop, the phone pane beside it. */
-  const both = view === 'both';
+  /* 🖥📱 Both (`both-view.ts`): the canvas is the desktop, the phone pane
+     beside it. The ROW is measured while Both is picked, and the PAIR is
+     scaled to fit it (`bothLayout`) — the room left by the scenes list and the
+     inspector, whichever are open, re-measured as they open, close or are
+     dragged. Too little room to read either frame draws Desktop instead (the
+     pick kept), and says so under the canvas. */
+  const bothRowRef = useRef<HTMLDivElement>(null);
+  const bothRow = usePaneSize(bothRowRef, view === 'both');
+  const bothFit = view === 'both' && bothRow ? bothLayout(bothRow.width, bothRow.height) : null;
+  const both = bothFit !== null;
+  const bothTooNarrow = view === 'both' && bothRow !== null && bothFit === null;
   /** The CANVAS's own device — the tiles, the made-once pages and the canvas
    *  follow it. In Both that is the desktop (the tiles are pictures of it). */
   const device: 'desktop' | 'phone' = view === 'phone' ? 'phone' : 'desktop';
-  /* The desktop pane is measured while Both is on; the canvas is drawn at
-     1280 px and scaled to it (`bothDesktopFit`). */
-  const deskPaneRef = useRef<HTMLDivElement>(null);
-  const deskPane = usePaneSize(deskPaneRef, both);
-  const deskFit = both && deskPane ? bothDesktopFit(deskPane.width, deskPane.height) : null;
   const selectedScene = selection?.kind === 'scene' ? scenes.find((s) => s.id === selection.id) ?? null : null;
 
   /* 🧭 THE STAGE'S LIST — the canvas's own order (`lib/maker-scene-list.ts`). */
@@ -2036,7 +2040,7 @@ export function MakerWork({
       <section
         aria-label="Preview"
         data-maker-stage={stage}
-        className="relative order-1 flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
+        className="relative order-1 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
       >
         {canvasSrc ? (
           /* 🖥📱 One row: the canvas, and — in Both — the phone pane beside it.
@@ -2044,14 +2048,17 @@ export function MakerWork({
              iframe in the document reloads it (and its warm stages), so Both
              only re-sizes the canvas's own box and appends the phone after it. */
           <div
+            ref={bothRowRef}
             data-maker-both={both ? '' : undefined}
-            className="flex min-h-0 w-full flex-1 items-stretch justify-center gap-4"
+            className={`flex min-h-0 min-w-0 w-full flex-1 justify-center ${both ? 'items-center' : 'items-stretch'}`}
+            style={bothFit ? { gap: bothFit.gap } : undefined}
           >
           <div
-            ref={deskPaneRef}
+            data-maker-both-desktop={both ? '' : undefined}
+            style={bothFit ? { width: bothFit.desktop.boxWidth, height: bothFit.desktop.boxHeight } : undefined}
             className={
               both
-                ? 'relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]'
+                ? 'relative shrink-0 overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]'
                 : 'flex min-h-0 min-w-0 flex-1 justify-center'
             }
           >
@@ -2073,14 +2080,10 @@ export function MakerWork({
             anchorKey={() => selectedKeyRef.current}
             onShown={setShownFrameKey}
             onSwapped={onCanvasSwapped}
-            style={
-              deskFit
-                ? { width: deskFit.width, height: deskFit.height, transform: `scale(${deskFit.scale})` }
-                : undefined
-            }
+            style={bothFit ? scaledFrame(bothFit.desktop) : undefined}
             className={
               both
-                ? `absolute left-0 top-0 origin-top-left bg-white${deskFit ? '' : ' h-full w-full'}`
+                ? 'bg-white'
                 : `min-h-0 w-full flex-1 rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
                     device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
                   }`
@@ -2091,7 +2094,11 @@ export function MakerWork({
             /* 📱 THE PHONE PANE — the same address, keyed on the same held
                stamp as the canvas (so a held pick never reloads it either),
                reached by the same broadcast. No warm stages of its own. */
-            <div data-maker-both-phone="" className="relative min-h-0 shrink-0" style={{ width: BOTH_PHONE_WIDTH }}>
+            <div
+              data-maker-both-phone=""
+              className="relative shrink-0 overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]"
+              style={bothFit ? { width: bothFit.phone.boxWidth, height: bothFit.phone.boxHeight } : undefined}
+            >
               <BufferedCanvasFrame
                 frameKey={`${stage}:${canvasStamp}:${maker.viewAsHref ?? ''}`}
                 group={`${stage}:${maker.viewAsHref ?? ''}`}
@@ -2104,7 +2111,8 @@ export function MakerWork({
                 anchorKey={() => selectedKeyRef.current}
                 onShown={setShownBothKey}
                 onSwapped={() => reMarkBoth(false)}
-                className="h-full w-full rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]"
+                style={bothFit ? scaledFrame(bothFit.phone) : undefined}
+                className="bg-white"
               />
               {publicLandingUrl ? (
                 <CanvasStaysOnThePage
@@ -2127,6 +2135,13 @@ export function MakerWork({
             Set your Event Hub address (⋯ in the toolbar) to see your page here.
           </p>
         )}
+        {/* 🖥📱 Both was picked but the room cannot hold two readable frames —
+            Desktop is drawn, and the couple is told why the phone is gone. */}
+        {bothTooNarrow ? (
+          <p data-maker-both-too-narrow="" className="w-full shrink-0 pt-1.5 text-center text-[11px] text-ink/60">
+            Not enough room for Both — showing Desktop. Close the scenes list or the inspector, or widen the window.
+          </p>
+        ) : null}
         {/* 🖼 "Event Bar" (owner 2026-09-26: *"rename it to Event Bar"*) — the
             stage's OWN guest header and tab bar over the slide in view. The lower
             right of the canvas, BELOW the page and

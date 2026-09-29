@@ -20,7 +20,7 @@
  */
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import type { FlatMark } from '@/lib/print-mark';
-import { roleBlocks, type EntourageGroup } from '@/lib/entourage';
+import { roleBlocks, lineNames, pairsShareALine, type EntourageGroup } from '@/lib/entourage';
 import { guestPassFacts } from '@/lib/guest-pass';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import {
@@ -777,7 +777,14 @@ function sectionHead(ops: PrintOp[], look: PrintLook, s: string, cx: number, y: 
  * or `sub`, a small role sub-heading (Secondary Sponsors' "Candle"), which is
  * not a name and carries none.
  */
-export type EntourageLine = { l?: string; r?: string; c?: string; sub?: string };
+export type EntourageLine = {
+  l?: string;
+  r?: string;
+  c?: string;
+  sub?: string;
+  /** `c` holds a data-paired couple on one line ("Hon. Ricardo & Mrs. Jessica Villahermosa") — TWO people. */
+  pair?: true;
+};
 
 /**
  * A group as printed lines.
@@ -810,8 +817,12 @@ export function printedEntourageLines(g: EntourageGroup, flow: boolean): Entoura
   const pairs: EntourageLine[] = [];
   const left: string[] = [];
   const right: string[] = [];
+  /* ⚖ Owner 2026-09-30, option 1: in the Principal Sponsors and the crews a
+     real pair is ONE centred line, as on the page — `lineNames` writes it.
+     Unpaired halves still stack in their columns below (2026-09-28 fit). */
+  const oneLine = pairsShareALine(g);
   for (const [l, r] of g.rows) {
-    if (l && r) pairs.push({ l: l.name, r: r.name });
+    if (l && r) pairs.push(oneLine ? { c: lineNames([l, r]), pair: true } : { l: l.name, r: r.name });
     else if (l) left.push(l.name);
     else if (r) right.push(r.name);
   }

@@ -57,6 +57,14 @@ export type EntouragePerson = {
   /** True when they are invited to the ceremony and nothing else. They still
    *  walk, and print normally; they simply have no chair. */
   ceremonyOnly: boolean;
+  /**
+   * The name split for a SHARED-SURNAME pair line — `given` is everything
+   * before the surname ("Hon. Ricardo"), `surname` the last name exactly as
+   * entered. Null when the name cannot be split honestly: a hand-typed
+   * `display_name`, no last name, or a suffix ("Jr." would be lost or misplaced
+   * by "Ricardo & Jessica Villahermosa Jr."). See `lineNames`.
+   */
+  split?: { given: string; surname: string } | null;
 };
 
 /**
@@ -120,6 +128,8 @@ type GroupSpec = {
   headingNames?: readonly GuestRole[];
   /** Print the group as one small sub-heading per role, names under it. See `roleBlocks`. */
   byRole?: true;
+  /** A pair the data pairs prints as ONE line on every screen and on the card. See `pairsShareALine`. */
+  pairsOnOneLine?: true;
 };
 
 const GROUPS: ReadonlyArray<GroupSpec> = [
@@ -202,6 +212,12 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
        every name said it again. All three roles are principal sponsors, so the
        heading names every one of them. */
     headingNames: ['principal_sponsor', 'principal_sponsor_ninong', 'principal_sponsor_ninang'],
+    /* ⚖ OWNER 2026-09-30, asked how a pair should read once the role word was
+       gone: option **1** — each Ninong with his paired Ninang on ONE line, on
+       every screen size and on the printed card: "Hon. Ricardo & Mrs. Jessica
+       Villahermosa". Supersedes the 2026-09-14 two-column pairing for this
+       group; unpaired sponsors still list alone. */
+    pairsOnOneLine: true,
   },
   {
     key: 'secondary_sponsors',
@@ -232,6 +248,8 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     /* The Bride's crew ARE the bridesmaids, the Groom's crew the groomsmen —
        owner 2026-09-30 brief: no "Bridesmaid" repeated under each name. */
     headingNames: ['bridesmaid', 'groomsman'],
+    // Owner 2026-09-30 option 1: a walking pair shares one line, as the sponsors do.
+    pairsOnOneLine: true,
   },
   /* ⚖ Owner 2026-09-20 split these into two headings ("5. Bearers ... 6. Flower
      Girls"). They shared one group until today, which printed a flower girl
@@ -393,9 +411,30 @@ export function roleBlocks(group: EntourageGroup): EntourageRoleBlock[] | null {
   return blocks;
 }
 
-/** The names of one printed line, a pair kept together: "Ana Cruz & Ben Cruz". */
+/**
+ * The names of one printed line, a pair kept together, in the line's own order
+ * (left then right — Ninong then Ninang, bridesmaid then groomsman).
+ *
+ * ⚖ OWNER 2026-09-30 (option 1): *"Hon. Ricardo & Mrs. Jessica Villahermosa"*.
+ *   · the pair comes from the DATA (`pair_with_guest_id`, via `pairUp`) —
+ *     never guessed from a shared surname;
+ *   · the surname is said once ONLY when both surnames match EXACTLY and both
+ *     names split cleanly (`split`); otherwise both full names, joined by " & ";
+ *   · titles stay exactly as entered;
+ *   · an unpaired person is just their name.
+ */
 export function lineNames(row: EntourageRow): string {
-  return row.filter((p): p is EntouragePerson => p !== null).map((p) => p.name).join(' & ');
+  const [l, r] = row;
+  if (l && r) {
+    if (l.split && r.split && l.split.surname === r.split.surname) return `${l.split.given} & ${r.name}`;
+    return `${l.name} & ${r.name}`;
+  }
+  return (l ?? r)?.name ?? '';
+}
+
+/** Does this group print a data-paired couple on ONE line? (Principal Sponsors, the crews.) */
+export function pairsShareALine(group: EntourageGroup): boolean {
+  return GROUPS.find((g) => g.key === group.key)?.pairsOnOneLine === true;
 }
 
 /**
@@ -674,10 +713,24 @@ function peopleForSpec(
         pairId: row.pair_with_guest_id ?? null,
         order: typeof row.entourage_order === 'number' ? row.entourage_order : null,
         ceremonyOnly: isCeremonyOnly(row),
+        split: splitForPairLine(row),
       });
     }
   }
   return people;
+}
+
+/** See `EntouragePerson.split`. */
+function splitForPairLine(row: EntourageGuestRow): { given: string; surname: string } | null {
+  if (row.display_name?.trim()) return null;
+  if (row.name_suffix?.trim()) return null;
+  const surname = row.last_name?.trim();
+  if (!surname) return null;
+  const given = [row.name_prefix, row.first_name, row.middle_name]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
+  return given ? { given, surname } : null;
 }
 
 /**

@@ -30,7 +30,14 @@ import { printedEntourageLines } from '@/lib/print-layout';
 (globalThis as unknown as { React: unknown }).React = React;
 
 let n = 0;
-function p(role: string, first: string, last: string, id?: string, pair?: string): EntourageGuestRow {
+function p(
+  role: string,
+  first: string,
+  last: string,
+  id?: string,
+  pair?: string,
+  more: Partial<EntourageGuestRow> = {},
+): EntourageGuestRow {
   n += 1;
   return {
     guest_id: id ?? `g${n}`,
@@ -44,6 +51,7 @@ function p(role: string, first: string, last: string, id?: string, pair?: string
     role,
     extra_roles: null,
     entourage_order: null,
+    ...more,
   } as EntourageGuestRow;
 }
 
@@ -53,9 +61,18 @@ const ROWS: EntourageGuestRow[] = [
   p('maid_of_honor', 'Mia', 'Uy'),
   p('matron_of_honor', 'Tess', 'Ong'),
   p('best_man', 'Ben', 'Sy'),
-  p('principal_sponsor_ninong', 'Ramon', 'Abad', 'n1', 'a1'),
-  p('principal_sponsor_ninang', 'Lourdes', 'Abad', 'a1', 'n1'),
-  p('principal_sponsor_ninong', 'Jose', 'Villa'),
+  // Shared surname, data-paired → the surname said once, titles kept.
+  p('principal_sponsor_ninong', 'Ricardo', 'Villahermosa', 'n1', 'a1', { name_prefix: 'Hon.' }),
+  p('principal_sponsor_ninang', 'Jessica', 'Villahermosa', 'a1', 'n1', { name_prefix: 'Mrs.' }),
+  // Different surnames, data-paired → both full names.
+  p('principal_sponsor_ninong', 'Eduardo', 'Bautista', 'n2', 'a2', { name_prefix: 'Dr.' }),
+  p('principal_sponsor_ninang', 'Carmen', 'Reyes', 'a2', 'n2'),
+  // Same surname but NOT paired in the data → two lines, never guessed into a pair.
+  p('principal_sponsor_ninong', 'Jose', 'Abad'),
+  p('principal_sponsor_ninang', 'Teresita', 'Abad'),
+  // A suffix cannot be compressed honestly → both full names.
+  p('principal_sponsor_ninong', 'Mario', 'Lopez', 'n3', 'a3', { name_suffix: 'Jr.' }),
+  p('principal_sponsor_ninang', 'Nora', 'Lopez', 'a3', 'n3'),
   p('principal_sponsor', 'Legacy', 'Sponsor'),
   p('candle_sponsor', 'Paolo', 'Cruz', 'c1', 'c2'),
   p('candle_sponsor', 'Bea', 'Cruz', 'c2', 'c1'),
@@ -101,12 +118,49 @@ function visible(html: string): string {
 test('Principal Sponsors: names, and no Ninong / Ninang / Principal Sponsor beside them', async () => {
   const s = section(await render(), 'Principal Sponsors');
   const seen = visible(s);
-  for (const name of ['Ramon Abad', 'Lourdes Abad', 'Jose Villa', 'Legacy Sponsor']) assert.ok(seen.includes(name), `${name} prints`);
+  for (const name of ['Jose Abad', 'Teresita Abad', 'Legacy Sponsor', 'Villahermosa', 'Bautista']) {
+    assert.ok(seen.includes(name), `${name} prints`);
+  }
   assert.doesNotMatch(seen, /Ninong|Ninang/, `no role repeats under the heading — saw: ${seen}`);
   assert.doesNotMatch(seen.replace('Principal Sponsors', ''), /Principal Sponsor\b/, 'the legacy role does not repeat either');
   // The word is not lost to a screen reader.
+  assert.match(s, /<span class="sr-only">, Ninong &amp; Ninang<\/span>/);
   assert.match(s, /<span class="sr-only">, Ninong<\/span>/);
-  assert.match(s, /<span class="sr-only">, Ninang<\/span>/);
+});
+
+/** Every `<li>` of a section, as visible text. */
+function items(html: string): string[] {
+  return [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => visible(m[1]!).trim());
+}
+
+test('option 1 — a DATA-paired Ninong & Ninang share ONE line: surname once only when both match exactly', async () => {
+  const lines = items(section(await render(), 'Principal Sponsors'));
+  // Shared surname → "Hon. Ricardo & Mrs. Jessica Villahermosa", titles as entered.
+  assert.ok(lines.includes('Hon. Ricardo & Mrs. Jessica Villahermosa'), lines.join(' | '));
+  // Different surnames → both full names joined by " & ".
+  assert.ok(lines.includes('Dr. Eduardo Bautista & Carmen Reyes'), lines.join(' | '));
+  // A suffix is never compressed away.
+  assert.ok(lines.includes('Mario Lopez Jr. & Nora Lopez'), lines.join(' | '));
+  // Same surname but unpaired in the data: two lines of their own, never merged.
+  assert.ok(lines.includes('Jose Abad') && lines.includes('Teresita Abad'), lines.join(' | '));
+  assert.ok(!lines.some((l) => /Jose & .*Teresita|Teresita & .*Jose/.test(l)), 'a shared surname is not a pairing');
+  // One line per pair, one per single: 3 pairs + 2 unpaired + 1 legacy.
+  assert.equal(lines.length, 6, lines.join(' | '));
+});
+
+test('option 1 keeps the couple’s march order — a hand-placed pair leads', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { EntourageSection } = await import('./entourage-section');
+  const placed = ROWS.map((r) =>
+    r.guest_id === 'n3' || r.guest_id === 'a3' ? { ...r, entourage_order: 1 } : r,
+  );
+  const html = renderToStaticMarkup(React.createElement(EntourageSection as never, { groups: buildEntourage(placed) }));
+  assert.equal(items(section(html, 'Principal Sponsors'))[0], 'Mario Lopez Jr. & Nora Lopez');
+});
+
+test('option 1 — a walking pair in the crews shares one line too', async () => {
+  const lines = items(section(await render(), 'Bride&#x27;s Crew &amp; Groom&#x27;s Crew'));
+  assert.deepEqual(lines, ['Carla Mendoza & Dan Lim']);
 });
 
 test("Bride's Crew & Groom's Crew and Flower Girls: no Bridesmaid / Groomsman / Flower Girl per name", async () => {
@@ -141,8 +195,8 @@ test('Secondary Sponsors, stacked by default: one sub-heading per role, the pair
     assert.equal(seen.split(` ${role} `).length - 1, 1, `"${role}" is said exactly once`);
   }
   // Each pair is one <li>, both names in it.
-  assert.match(s, /<li[^>]*>(Paolo Cruz &amp; Bea Cruz|Bea Cruz &amp; Paolo Cruz)<\/li>/);
-  assert.match(s, /<li[^>]*>(Miguel Reyes &amp; Anna Reyes|Anna Reyes &amp; Miguel Reyes)<\/li>/);
+  assert.match(s, /<li[^>]*>(Paolo &amp; Bea Cruz|Bea &amp; Paolo Cruz)<\/li>/);
+  assert.match(s, /<li[^>]*>(Miguel &amp; Anna Reyes|Anna &amp; Miguel Reyes)<\/li>/);
   // Order: the sub-heading, then its names.
   assert.ok(seen.indexOf('Candle') < seen.indexOf('Cruz') && seen.indexOf('Cruz') < seen.indexOf('Veil'));
   assert.ok(seen.indexOf('Veil') < seen.indexOf('Reyes') && seen.indexOf('Reyes') < seen.indexOf('Cord'));
@@ -152,8 +206,8 @@ test('Secondary Sponsors, inline (A): "Role: names" on one line', async () => {
   const s = section(await render('inline'), 'Secondary Sponsors');
   assert.match(s, /data-role-layout="inline"/);
   const seen = visible(s);
-  assert.match(seen, /Candle: (Paolo Cruz & Bea Cruz|Bea Cruz & Paolo Cruz)/);
-  assert.match(seen, /Veil: (Miguel Reyes & Anna Reyes|Anna Reyes & Miguel Reyes)/);
+  assert.match(seen, /Candle: (Paolo & Bea Cruz|Bea & Paolo Cruz)/);
+  assert.match(seen, /Veil: (Miguel & Anna Reyes|Anna & Miguel Reyes)/);
   assert.match(seen, /Cord: Luis Santos/);
   assert.doesNotMatch(seen, /Sponsor\b(?!s)/);
 });
@@ -174,6 +228,23 @@ test('the printed Entourage card groups the Secondary Sponsors the same way, and
   const ps = groups.find((g) => g.key === 'principal_sponsors')!;
   const printed = printedEntourageLines(ps, false).flatMap((l) => [l.l, l.r, l.c]).join(' ');
   assert.doesNotMatch(printed, /Ninong|Ninang/);
+});
+
+test('option 1 on the printed card: a data pair is ONE centred line, in the page’s own order', async () => {
+  const ps = buildEntourage(ROWS).find((g) => g.key === 'principal_sponsors')!;
+  const lines = printedEntourageLines(ps, false);
+  const pairs = lines.filter((l) => l.pair).map((l) => l.c);
+  // The couple's march order is the builder's; the card and the page both follow it.
+  const onPage = items(section(await render(), 'Principal Sponsors')).filter((l) => l.includes(' & '));
+  assert.deepEqual(pairs, onPage);
+  assert.deepEqual([...pairs].sort(), [
+    'Dr. Eduardo Bautista & Carmen Reyes',
+    'Hon. Ricardo & Mrs. Jessica Villahermosa',
+    'Mario Lopez Jr. & Nora Lopez',
+  ]);
+  // Unpaired sponsors print alone — nobody merged by surname.
+  const singles = lines.filter((l) => !l.pair).flatMap((l) => [l.l, l.r, l.c]).filter(Boolean);
+  assert.deepEqual([...singles].sort(), ['Jose Abad', 'Legacy Sponsor', 'Teresita Abad']);
 });
 
 test('the guest’s own "You are …" line keeps its word — only the list stopped repeating it', () => {

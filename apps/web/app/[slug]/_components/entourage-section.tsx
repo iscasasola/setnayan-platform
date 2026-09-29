@@ -6,6 +6,7 @@ import {
   roleBesideName,
   roleBlocks,
   lineNames,
+  pairsShareALine,
   DEFAULT_ENTOURAGE_ROLE_LAYOUT,
 } from '@/lib/entourage';
 
@@ -92,6 +93,7 @@ export function EntourageSection({
         {shown.map((group) => {
           const blocks = roleBlocks(group);
           if (blocks) return <ByRoleGroup key={group.key} group={group} blocks={blocks} layout={roleLayout} />;
+          if (pairsShareALine(group)) return <OneLinePairs key={group.key} group={group} />;
           /* Does ANY line in this group hold two people? A group nobody paired
              prints as one column — two columns of names with every right-hand
              cell empty is a table pretending to be a pairing. */
@@ -161,6 +163,40 @@ function Cell({ person, group }: { person: EntouragePerson | null; group: Entour
       {/* Not drawn, still read: the heading says it to the eye, this says it to a screen reader. */}
       {spoken ? <span className="sr-only">, {spoken}</span> : null}
     </span>
+  );
+}
+
+/**
+ * A group whose data-paired couples share ONE line — Principal Sponsors and
+ * the crews. ⚖ Owner 2026-09-30, option 1: "Hon. Ricardo & Mrs. Jessica
+ * Villahermosa" on every screen size (`lineNames` decides the words). An
+ * unpaired sponsor is a line of their own; the order is the march order the
+ * rows already carry.
+ */
+function OneLinePairs({ group }: { group: EntourageGroup }) {
+  return (
+    <div className="space-y-3">
+      <h4 className="pahina-eyebrow">
+        <span>{group.label}</span>
+      </h4>
+      <ul className="space-y-2">
+        {group.rows.map((row, i) => {
+          const people = row.filter((p): p is EntouragePerson => p !== null);
+          const beside = people.map((p) => roleBesideName(group, p)).filter(Boolean);
+          const spoken = people
+            .filter((p) => !roleBesideName(group, p))
+            .map((p) => roleLabel(p.role))
+            .filter(Boolean);
+          return (
+            <li key={`${group.key}-${i}`} className="leading-snug" data-pair-line={people.length > 1 ? '' : undefined}>
+              <span className="text-base text-ink">{lineNames(row)}</span>
+              {beside.length ? <span className="ml-2 text-sm text-ink/55">{beside.join(' & ')}</span> : null}
+              {spoken.length ? <span className="sr-only">, {spoken.join(' & ')}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

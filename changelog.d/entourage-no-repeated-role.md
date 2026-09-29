@@ -18,5 +18,14 @@ groups them the same way (muted sub-heading line) and no longer appends
 "· Candle Sponsor". Guarded by
 `apps/web/app/[slug]/_components/the-heading-says-the-role.test.ts`.
 
+**Pairs on one line (owner's answer "1", same day).** In Principal Sponsors and
+Bride's Crew & Groom's Crew, a couple the data pairs (`pair_with_guest_id`, via
+the entourage builder) prints as ONE line on every screen size and on the card
+(`lineNames` / `pairsShareALine`): "Hon. Ricardo & Mrs. Jessica Villahermosa"
+when both surnames match exactly, otherwise both full names joined by " & "
+(also when a hand-typed display name or a suffix means the name cannot be split
+honestly). Titles stay as entered; unpaired people list alone; the march order
+is unchanged. `every-print-fits.test.ts` now counts a pair line as two people.
+
 SPEC IMPACT: DECISION_LOG.md row (2026-09-30, entourage role repetition +
 Secondary Sponsors by role) — applied directly in the corpus.

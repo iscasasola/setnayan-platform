@@ -321,17 +321,22 @@ test('the Entourage prints EVERY name — cale-ice-sized, on the fewest sides, n
     const data = heavy(paired);
     const people = data.entourage.flatMap(peopleOf);
     assert.ok(people.length >= 85, `the fixture is cale-ice sized (${people.length})`);
-    // Every person is on a printed line, once — straight or flowed.
+    // Every person is on a printed line, once — straight or flowed. A `pair`
+    // line (owner 2026-09-30, option 1: a paired Ninong & Ninang share ONE
+    // line) carries two people in its one `c`.
+    let lineCount = 0;
     for (const flow of [false, true]) {
-      const printed = data.entourage.flatMap((g) => printedEntourageLines(g, flow).flatMap((l) => [l.l, l.r, l.c])).filter(Boolean);
-      assert.equal(printed.length, people.length, `flow=${flow}: ${printed.length} lines for ${people.length} people`);
+      const lines = data.entourage.flatMap((g) => printedEntourageLines(g, flow));
+      const printed = lines.reduce((n, l) => n + [l.l, l.r, l.c].filter(Boolean).length + (l.pair ? 1 : 0), 0);
+      assert.equal(printed, people.length, `flow=${flow}: ${printed} names for ${people.length} people`);
+      if (!flow) lineCount = lines.reduce((n, l) => n + [l.l, l.r, l.c].filter(Boolean).length, 0);
     }
     const look = printLookFor('abaca'); // the owner's card: 5 × 7, deckle cut
     const docs = layoutPieceDocs('entourage', { look, data, mode: 'print', foil: false, format: 'inv-5x7' });
     assert.ok(docs.length >= 1 && docs.length <= 2, `${docs.length} sides for one wedding`);
     // One ink path per printed line, at least one per person (a long name may wrap to two).
     const inked = docs.reduce((a, d) => a + d.ops.filter((o) => o.t === 'path' && o.fill === look.ink).length, 0);
-    assert.ok(inked >= people.length, `${inked} name lines drawn for ${people.length} people — somebody was dropped`);
+    assert.ok(inked >= lineCount, `${inked} name lines drawn for ${lineCount} printed names — somebody was dropped`);
   }
   assert.equal(PRINT_MIN_BODY_PT, 6);
 });

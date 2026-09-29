@@ -193,15 +193,23 @@ export function ElementSheet({
   const [style, setStyle] = useState(canvas.elements?.[target.el] ?? {});
   const canvasJson = JSON.stringify(canvas);
 
-  /* A fresh canvas from the server (after the refresh) is the truth again —
-     unless a save is still on its way, whose canvas is newer than it. */
+  /* A fresh canvas from the server (after a render) is the truth again —
+     unless a save is still on its way, whose canvas is newer than it. ANOTHER
+     PART (or scene) is always adopted at once: its canvas comes through the
+     Maker's own copy, which already holds every pick still on its way — and
+     with the picks batched a save can be on its way for most of a second, so
+     waiting here showed the previous part's style on the new one. */
+  const targetKey = `${target.widgetType}:${target.el}`;
+  const seenTarget = useRef(targetKey);
   useEffect(() => {
-    if (inflight.current > 0) return;
+    const moved = seenTarget.current !== targetKey;
+    seenTarget.current = targetKey;
+    if (!moved && inflight.current > 0) return;
     latest.current = canvas;
     saved.current = canvas;
     setStyle(canvas.elements?.[target.el] ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasJson, target.el, target.widgetType]);
+  }, [canvasJson, targetKey]);
 
   /* 🧰 Text · Animate · Arrange (Pages' inspector + Keynote's Animate). */
   const [tab, setTab] = useState<PartTab>('text');

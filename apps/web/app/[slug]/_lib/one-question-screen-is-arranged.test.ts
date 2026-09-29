@@ -100,7 +100,7 @@ test('1 · the bar and its "2 of 8" are ONE unit, Back beside it — never split
   const row = await html(React.createElement(RsvpStepProgress, { index: 1, total: 8, onBack: () => {} }));
   const unit = element(row, 'data-rsvp-progress-unit');
   assert.match(unit, /role="progressbar"/, 'the bar left the unit');
-  assert.match(unit, /2<!-- --> of <!-- -->8|2 of 8/, 'the "2 of 8" left the unit — the owner saw it at one edge and the dots at the other');
+  assert.match(unit, />2(?:<!-- -->)? of (?:<!-- -->)?8<\/p>/, 'the "2 of 8" left the unit — the owner saw it at one edge and the dots at the other');
   assert.equal((unit.match(/h-1 flex-1 rounded-full/g) ?? []).length, 8, 'one segment per question');
   assert.equal((unit.match(/rounded-full bg-ink"/g) ?? []).length, 2, 'the bar fills to the screen the guest is on');
   assert.doesNotMatch(unit, /Back/, 'Back is a control beside the progress, not part of it');

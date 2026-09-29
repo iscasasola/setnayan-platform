@@ -5630,7 +5630,8 @@ export function SeatingEditor({
         .map((g) => ({ tableId: g.seated_table_id!, guestName: g.name, tableLabel: tableLabelById.get(g.seated_table_id!) ?? 'Table' }))
         .sort((a, b) => a.guestName.localeCompare(b.guestName))
     : [];
-  const guestsPart = details ? (
+  /* The Seat plan's right part (Details) — a NODE, not a count. */
+  const guestsNode = details ? (
     <div data-seat-plan-guests="" className="flex flex-col gap-3">
       {/* The table's (or element's) own controls, on a phone — in the flow. */}
       {dockInline ? dockNode : null}
@@ -7591,7 +7592,7 @@ export function SeatingEditor({
             {placeList}
           </SeatPlanPortal>
           <SeatPlanPortal name="guests" on>
-            {guestsPart}
+            {guestsNode}
           </SeatPlanPortal>
         </>
       ) : null}

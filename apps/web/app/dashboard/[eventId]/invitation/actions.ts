@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendEmail } from '@/lib/email';
 import { findSlugConflict } from '@/lib/slug-availability';
 
@@ -325,7 +326,14 @@ async function writeGuestInvitationSent(
     .eq('event_id', eventId)
     .select('guest_id');
 
-  if (error || !data || data.length === 0) return { ok: false };
+  if (error) {
+    // Said, never swallowed: the caller shows the couple it did not save; the
+    // reason goes to the log so a refused write leaves a trace.
+    logQueryError('writeGuestInvitationSent', error, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+    return { ok: false };
+  }
+  // A zero-row UPDATE (RLS refused, wrong event) is not a success either.
+  if (!data || data.length === 0) return { ok: false };
 
   revalidatePath(`/dashboard/${eventId}/invitation`);
   revalidatePath(`/dashboard/${eventId}/guests`);

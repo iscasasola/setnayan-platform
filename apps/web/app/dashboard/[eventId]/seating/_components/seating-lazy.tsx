@@ -18,10 +18,15 @@ import { SlotFill } from '../../launch/_components/lazy-slot';
  * explains the mechanism; `details-pieces-are-lazy.test.ts` holds it). The
  * standalone `/seating` page loads the same way; rendered on the server there,
  * `next/dynamic` preloads the editor's code with the page.
+ *
+ * 📦 It travels in the `maker-details` chunk group, not one of its own: every
+ * NEW chunk name is one more entry in webpack's runtime, which every page loads
+ * under the shared-bundle ceiling (`check-bundle-size.mjs`) — a `maker-seating`
+ * name put that ceiling 0.1KB over. Details' first open is a little bigger.
  */
-export const SeatingEditor = dynamic(() => import(/* webpackChunkName: "maker-seating" */ './seating-editor').then((m) => m.SeatingEditor), { loading: SlotFill });
+export const SeatingEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './seating-editor').then((m) => m.SeatingEditor), { loading: SlotFill });
 
 /** The same import, asked early (the Maker when idle; the Seat plan row on hover or focus). */
 export function prefetchSeating(): Promise<unknown> {
-  return import(/* webpackChunkName: "maker-seating" */ './seating-editor');
+  return import(/* webpackChunkName: "maker-details" */ './seating-editor');
 }

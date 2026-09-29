@@ -30,9 +30,9 @@ import { prefetchSeating } from '../../seating/_components/seating-lazy';
  * 🛡 `details-pieces-are-lazy.test.ts` fails if a server file of the Maker
  * imports a lazy piece's own module again.
  *
- * 📦 THE PIECES TRAVEL AS NAMED CHUNKS — `maker-details` (everything here),
- * `maker-mood-board`, `maker-schedule`, `maker-seating` (those three are also
- * drawn by their own standalone routes). Every `import()` names its chunk: webpack's runtime —
+ * 📦 THE PIECES TRAVEL AS THREE NAMED CHUNKS — `maker-details` (everything here,
+ * and the Seat plan's editor, `seating-lazy.tsx`), `maker-mood-board`,
+ * `maker-schedule` (those two are also drawn by their own standalone routes). Every `import()` names its chunk: webpack's runtime —
  * loaded on EVERY page, under the shared-bundle ceiling
  * (`scripts/check-bundle-size.mjs`) — carries an entry per async chunk and per
  * chunk an async group depends on. Unnamed, the first cut of this split grew

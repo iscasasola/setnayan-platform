@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { formatCount } from '@/lib/format-number';
 import { ArrowRight, Check, SkipForward } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
@@ -94,14 +95,14 @@ export function SendRun({
           onPick={(k) => begin(k === 'everyone' ? 'everyone' : 'unsent')}
         />
         <p className="text-sm tabular-nums text-ink/60" data-send-run-count="">
-          {sentCount} sent{skipped.length ? ` · ${skipped.length} skipped` : ''}
+          {formatCount(sentCount)} sent{skipped.length ? ` · ${formatCount(skipped.length)} skipped` : ''}
         </p>
       </div>
 
       {current ? (
         <section className="space-y-4 rounded-2xl bg-white p-4 shadow-[0_10px_30px_-14px_rgba(30,34,41,0.35)]" aria-live="polite">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50" data-send-run-position="">
-            {at + 1} of {queue.length}
+            {formatCount(at + 1)} of {formatCount(queue.length)}
           </p>
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element -- our own gated QR route, the same bytes as Download */}
@@ -159,7 +160,7 @@ export function SendRun({
               ? who === 'unsent'
                 ? 'Everyone has their invite.'
                 : 'Nobody to send to yet.'
-              : `Done — ${sentCount} sent${skipped.length ? `, ${skipped.length} skipped` : ''}.`}
+              : `Done — ${formatCount(sentCount)} sent${skipped.length ? `, ${formatCount(skipped.length)} skipped` : ''}.`}
           </p>
           <div className="flex flex-col items-center gap-2">
             {skipped.length ? (

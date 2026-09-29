@@ -35,8 +35,15 @@ import {
  * different facts.
  */
 
-/** Everything a guest row must carry to be judged and drawn. */
-export const PASS_CARD_GUEST_COLUMNS =
+/**
+ * Everything a guest row must carry to be judged and drawn — the pass card's
+ * OWN read, used only in this file. FILE-LOCAL on purpose: an exported
+ * `*_COLUMNS` is a SHARED canonical guest list to the dup-rule guard
+ * (\`lib/security/select-column-scan.ts\` §2), and every narrower guest read in
+ * the app would then read as a copy with a hole. It is not the guests' one
+ * list — it is what a pass needs. (The phantom-column check still reads it.)
+ */
+const PASS_CARD_GUEST_COLUMNS =
   'guest_id, event_id, deleted_at, entry_source, passed_away, rsvp_status, plus_one_of_guest_id, qr_token, ' +
   'name_prefix, first_name, last_name, name_suffix, display_name, plus_one_allowed, plus_one_name, plus_one_name_confirmed_at';
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { plusOneNameSlots } from '@/lib/extra-seats';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * WHO ARE YOU BRINGING — one short set per plus-one seat, and one switcher.
@@ -165,7 +166,7 @@ export function RsvpPlusOnes({
       </span>
       <p className="text-xs text-ink/70">
         {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4). */}
-        {Organizer} saved you {many ? `${slots.length} seats` : 'a seat for one more'}.{' '}
+        {Organizer} saved you {many ? `${formatCount(slots.length)} seats` : 'a seat for one more'}.{' '}
         {many ? 'Name them and each one gets' : 'Name them and they get'} their own invitation, QR and photos — or
         add {many ? 'names' : 'a name'} later.
       </p>

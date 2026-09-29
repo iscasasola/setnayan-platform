@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache';
 
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import { planFaceSelfieDelete } from '@/lib/face-data-retention-core';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -995,7 +996,10 @@ async function nameTheSeats(
               .eq('guest_id', op.seatId)
               .eq('event_id', eventId)
               .eq('plus_one_of_guest_id', guestId);
-            if (error) failed = true;
+            if (error) {
+              logQueryError('submitRsvp.seatAnswers', error, { event_id: eventId, guest_id: op.seatId }, 'graceful_degrade');
+              failed = true;
+            }
           }
           continue;
         }
@@ -1018,8 +1022,10 @@ async function nameTheSeats(
             .eq('guest_id', op.seatId)
             .eq('event_id', eventId)
             .eq('plus_one_of_guest_id', guestId);
-          if (error) failed = true;
-          else namedCount += 1;
+          if (error) {
+            logQueryError('submitRsvp.nameSeat', error, { event_id: eventId, guest_id: op.seatId }, 'graceful_degrade');
+            failed = true;
+          } else namedCount += 1;
         } else {
           // Same shape the host's own "add a guest" form inserts, so the seat
           // gets a real row — and with it the qr_token the column mints by DEFAULT.
@@ -1037,8 +1043,10 @@ async function nameTheSeats(
             plus_one_mode: primary.plus_one_mode,
             plus_one_name_confirmed_at: stamp,
           });
-          if (error) failed = true;
-          else namedCount += 1;
+          if (error) {
+            logQueryError('submitRsvp.mintSeat', error, { event_id: eventId, bringer_guest_id: guestId }, 'graceful_degrade');
+            failed = true;
+          } else namedCount += 1;
         }
       }
 
@@ -1052,7 +1060,10 @@ async function nameTheSeats(
           .update({ plus_one_name: firstNamed, updated_at: stamp })
           .eq('guest_id', guestId)
           .eq('event_id', eventId);
-        if (error) failed = true;
+        if (error) {
+          logQueryError('submitRsvp.mirrorPlusOneName', error, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+          failed = true;
+        }
       }
       return failed ? { ok: false, error: 'Their name did not save — try again.' } : { ok: true, named: namedCount };
     }

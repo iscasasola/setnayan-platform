@@ -17,7 +17,14 @@ import {
 } from '@/lib/people-connections';
 import { getSpouseContext } from '@/lib/people-spouse-context';
 import { searchPeopleByName, type PersonHit } from '@/lib/people-search';
-import { firstNameOf, normalizeEmail, spouseIsOfferable } from '@/lib/people-add';
+import {
+  connectionRequestSentence,
+  firstNameOf,
+  normalizeEmail,
+  spouseIsOfferable,
+} from '@/lib/people-add';
+import { followUser, unfollowUser } from '@/app/u/_actions/audience-actions';
+import { celebrantAccountsFor } from '@/lib/event-celebrants.server';
 
 /**
  * Person-spine · Phase 2 · connection flow server actions (STAGED).
@@ -159,7 +166,8 @@ export async function addPersonConnection(input: {
     .select('display_name')
     .eq('person_id', fromPerson)
     .maybeSingle();
-  const myFirstName = firstNameOf((me.data as { display_name: string | null } | null)?.display_name);
+  const myDisplayName = ((me.data as { display_name: string | null } | null)?.display_name ?? '').trim();
+  const myFirstName = firstNameOf(myDisplayName);
 
   // LOOK UP, NEVER CREATE. An address with no account leaves no trace here —
   // that is the pilot boundary honoured rather than tripped over. The admin
@@ -222,8 +230,9 @@ export async function addPersonConnection(input: {
     await emitNotification({
       userId: theirUserId,
       type: 'connection_request',
-      title: `${myFirstName ?? 'Someone'} added you to their people`,
-      body: 'Open your people to see who it is and decide. Nothing connects until you confirm.',
+      // The owner's sentence (2026-09-28) — the same one their People row says.
+      title: connectionRequestSentence(myDisplayName || 'Someone', null),
+      body: 'Open your people to accept or decline. Nothing connects until you say so.',
       relatedUrl: '/dashboard/people',
     });
   }
@@ -517,9 +526,9 @@ export async function generateEventConnections(
  *      relation 'friend', pending, mutual-confirm.
  */
 export async function proposeSamahanConnection(formData: FormData): Promise<void> {
-  if (!peopleConnectionsEnabled()) redirect('/dashboard/people');
+  if (!peopleConnectionsEnabled()) redirect('/dashboard/people?view=samahan');
   const memberRowId = Number(formData.get('member_row_id'));
-  if (!Number.isInteger(memberRowId) || memberRowId <= 0) redirect('/dashboard/people');
+  if (!Number.isInteger(memberRowId) || memberRowId <= 0) redirect('/dashboard/people?view=samahan');
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -532,10 +541,10 @@ export async function proposeSamahanConnection(formData: FormData): Promise<void
     .eq('id', memberRowId)
     .maybeSingle();
   const targetUserId = (member as { user_id: string } | null)?.user_id;
-  if (!targetUserId || targetUserId === user.id) redirect('/dashboard/people');
+  if (!targetUserId || targetUserId === user.id) redirect('/dashboard/people?view=samahan');
 
   const fromPerson = await myPersonId(supabase, user.id);
-  if (!fromPerson) redirect('/dashboard/people?error=profile_not_ready');
+  if (!fromPerson) redirect('/dashboard/people?view=samahan&error=profile_not_ready');
 
   // Resolve the co-member's person spine row server-side (their person is not
   // visible under our RLS pre-connection — that's by design).
@@ -552,14 +561,14 @@ export async function proposeSamahanConnection(formData: FormData): Promise<void
     // is read and consumed server-side only.
     const { data: u } = await admin.from('users').select('email').eq('user_id', targetUserId).maybeSingle();
     const email = ((u as { email: string | null } | null)?.email ?? '').trim().toLowerCase();
-    if (!email) redirect('/dashboard/people?error=connect_failed');
+    if (!email) redirect('/dashboard/people?view=samahan&error=connect_failed');
     const { data: resolved } = await supabase.rpc('resolve_or_claim_person', {
       p_email: email,
       p_creator: user.id,
     });
     toPerson = (resolved as string | null) ?? null;
   }
-  if (!toPerson || toPerson === fromPerson) redirect('/dashboard/people?error=connect_failed');
+  if (!toPerson || toPerson === fromPerson) redirect('/dashboard/people?view=samahan&error=connect_failed');
 
   const { error } = await supabase.from('person_connections').insert({
     from_person_id: fromPerson,
@@ -569,10 +578,10 @@ export async function proposeSamahanConnection(formData: FormData): Promise<void
     status: 'pending',
     created_by_user_id: user.id,
   });
-  if (error && error.code !== '23505') redirect('/dashboard/people?error=connect_failed');
+  if (error && error.code !== '23505') redirect('/dashboard/people?view=samahan&error=connect_failed');
 
   revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?saved=1');
+  redirect('/dashboard/people?view=samahan&saved=1');
 }
 
 /**
@@ -776,10 +785,44 @@ export async function addPersonByPublicId(input: {
   }
   if (them.user_id === user.id) return { ok: false, error: 'That’s you.' };
 
+  return requestConnection({
+    supabase,
+    userId: user.id,
+    fromPerson,
+    toUserId: them.user_id,
+    theirName: them.display_name,
+    theirEmail: them.email,
+    relation,
+    fromEvent: null,
+  });
+}
+
+/**
+ * THE ASK ITSELF — shared by the search's Add and the event's Add, so the two
+ * can never drift: one PENDING claim (unlabelled unless the caller says),
+ * their bell gets the owner's sentence, their inbox the invitation. Only they
+ * can accept it.
+ *
+ * `fromEvent` stamps `created_by_event_id` — the database refuses it unless the
+ * sender belongs to that event (migration 20271253740454), and the recipient's
+ * row only names it when they host it.
+ */
+async function requestConnection(input: {
+  supabase: SupabaseServer;
+  userId: string;
+  fromPerson: string;
+  toUserId: string;
+  theirName: string | null;
+  theirEmail: string | null;
+  relation: ConnectionRelation | null;
+  fromEvent: { eventId: string; name: string; type: string } | null;
+}): Promise<ActionResult> {
+  const { supabase, fromPerson, relation, fromEvent } = input;
+  const admin = createAdminClient();
   const { data: theirPerson } = await admin
     .from('people')
     .select('person_id')
-    .eq('claimed_by_user_id', them.user_id)
+    .eq('claimed_by_user_id', input.toUserId)
     .is('deleted_at', null)
     .maybeSingle();
   const toPerson = (theirPerson as { person_id: string } | null)?.person_id ?? null;
@@ -796,7 +839,7 @@ export async function addPersonByPublicId(input: {
     return { ok: false, error: 'They’re already on your list.' };
   }
 
-  const theirName = (them.display_name ?? '').trim().slice(0, 120) || 'Someone';
+  const theirName = (input.theirName ?? '').trim().slice(0, 120) || 'Someone';
   const { error } = await supabase.from('person_connections').insert({
     from_person_id: fromPerson,
     to_person_id: toPerson,
@@ -804,7 +847,8 @@ export async function addPersonByPublicId(input: {
     layer: relation ? layerForRelation(relation) : null,
     declared_name: theirName,
     status: 'pending',
-    created_by_user_id: user.id,
+    created_by_user_id: input.userId,
+    created_by_event_id: fromEvent?.eventId ?? null,
   });
   if (error && error.code !== '23505') {
     return { ok: false, error: 'Couldn’t send the request.' };
@@ -815,18 +859,143 @@ export async function addPersonByPublicId(input: {
     .select('display_name')
     .eq('person_id', fromPerson)
     .maybeSingle();
-  const myFirstName = firstNameOf((me.data as { display_name: string | null } | null)?.display_name);
+  const myDisplayName = ((me.data as { display_name: string | null } | null)?.display_name ?? '').trim();
+  const myFirstName = firstNameOf(myDisplayName);
 
   await emitNotification({
-    userId: them.user_id,
+    userId: input.toUserId,
     type: 'connection_request',
-    title: `${myFirstName ?? 'Someone'} added you to their people`,
-    body: 'Open your people to see who it is and decide. Nothing connects until you confirm.',
+    // The owner's sentence (2026-09-28): "{name} is trying to add you from your
+    // {event name} {event type} event" — the same words their People row says.
+    title: connectionRequestSentence(
+      myDisplayName || 'Someone',
+      fromEvent ? { name: fromEvent.name, type: fromEvent.type } : null,
+    ),
+    body: 'Open your people to accept or decline. Nothing connects until you say so.',
     relatedUrl: '/dashboard/people',
   });
-  const email = normalizeEmail(them.email);
+  const email = normalizeEmail(input.theirEmail);
   if (email) await sendPeopleInvitation(email, myFirstName);
 
   revalidatePath('/dashboard/people');
   return { ok: true };
+}
+
+/**
+ * ADD A CELEBRANT FROM THEIR EVENT — the guest's side (owner 2026-09-28: *"They
+ * have an option to add the celebrants from the event … The host/celebrants
+ * will have a request list (X person is trying to add you from your X event.
+ * [Accept]/[Decline]"*).
+ *
+ * 🔒 EVERYTHING IS RE-DECIDED HERE, NOTHING IS TRUSTED FROM THE PAGE:
+ *   · the caller's account must already be ON this event (a member row) — the
+ *     list is drawn only for a guest whose seat is linked to their account;
+ *   · the person must be one of THIS event's celebrants, recomputed now
+ *     (`celebrantAccountsFor`), so a public id copied from anywhere else is
+ *     refused rather than asked;
+ *   · the handle is a public id, never a user_id.
+ * Then it is the ordinary ask, carrying `created_by_event_id`.
+ */
+export async function addCelebrantFromEvent(input: {
+  eventId: string;
+  publicId: string;
+}): Promise<ActionResult> {
+  if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const eventId = (input.eventId ?? '').trim();
+  const publicId = (input.publicId ?? '').trim();
+  if (!eventId || !publicId) return { ok: false, error: 'Pick somebody first.' };
+
+  const admin = createAdminClient();
+  const [{ data: seat }, { data: event }, { data: target }] = await Promise.all([
+    admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    admin.from('events').select('display_name, event_type').eq('event_id', eventId).maybeSingle(),
+    admin
+      .from('users')
+      .select('user_id, display_name, email')
+      .eq('public_id', publicId)
+      .maybeSingle(),
+  ]);
+  if (!seat || !event) return { ok: false, error: 'Open your invitation from your account first.' };
+  const them = target as { user_id: string; display_name: string | null; email: string | null } | null;
+  if (!them) return { ok: false, error: 'We couldn’t find that person any more.' };
+  if (them.user_id === user.id) return { ok: false, error: 'That’s you.' };
+
+  const celebrants = await celebrantAccountsFor(admin, eventId);
+  if (!celebrants.some((c) => c.userId === them.user_id)) {
+    return { ok: false, error: 'You can add this event’s celebrants from here.' };
+  }
+
+  const supabase = await createClient();
+  const fromPerson = await myPersonId(supabase, user.id);
+  if (!fromPerson) return { ok: false, error: 'Your profile isn’t ready yet — try again in a moment.' };
+
+  const ev = event as { display_name: string | null; event_type: string | null };
+  return requestConnection({
+    supabase,
+    userId: user.id,
+    fromPerson,
+    toUserId: them.user_id,
+    theirName: them.display_name,
+    theirEmail: them.email,
+    relation: null,
+    fromEvent: {
+      eventId,
+      name: (ev.display_name ?? '').trim(),
+      type: (ev.event_type ?? '').replace(/_/g, ' '),
+    },
+  });
+}
+
+/**
+ * FOLLOW / UNFOLLOW SOMEBODY BY THEIR PUBLIC HANDLE — Follow in the name
+ * search, Follow back on Followers, Unfollow on Following, and Follow beside a
+ * celebrant on their event (owner 2026-09-28).
+ *
+ * ⚠ A PUBLIC ID, NEVER A user_id. The browser holds `users.public_id`; the
+ * account is resolved here. The write itself is the shipped `followUser` /
+ * `unfollowUser` — RLS confines it to the caller's own rows, a follow is only
+ * accepted toward a public profile, and an unfollow leaves the `user_unfollows`
+ * tombstone (PR #6077) so an automatic follow never re-follows them.
+ *
+ * Unfollowing a CONNECTED person is allowed and leaves them connected (owner
+ * 2026-09-28: the Facebook model).
+ */
+export async function setFollowByPublicId(input: {
+  publicId: string;
+  follow: boolean;
+}): Promise<{ ok: true; following: boolean } | { ok: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const publicId = (input.publicId ?? '').trim();
+  if (!publicId) return { ok: false, error: 'Pick somebody first.' };
+
+  const admin = createAdminClient();
+  const { data: target, error: targetError } = await admin
+    .from('users')
+    .select('user_id')
+    .eq('public_id', publicId)
+    .maybeSingle();
+  if (targetError) return { ok: false, error: 'Couldn’t reach them just now — try again.' };
+  const theirId = (target as { user_id: string } | null)?.user_id;
+  if (!theirId) return { ok: false, error: 'We couldn’t find that person any more.' };
+  if (theirId === user.id) return { ok: false, error: 'That’s you.' };
+
+  const res = input.follow ? await followUser(theirId) : await unfollowUser(theirId);
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: input.follow
+        ? 'Their profile isn’t public, so they can’t be followed.'
+        : 'Couldn’t unfollow just now — try again.',
+    };
+  }
+  revalidatePath('/dashboard/people');
+  return { ok: true, following: res.following };
 }

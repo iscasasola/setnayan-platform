@@ -158,3 +158,24 @@ export function firstNameOf(displayName: string | null | undefined): string | nu
   if (!v) return null;
   return v.split(/\s+/)[0] ?? null;
 }
+
+/**
+ * THE REQUEST, IN THE OWNER'S WORDS (2026-09-28): *"{name} is trying to add you
+ * from your {event name} {event type} event"* · Accept / Decline. Without an
+ * event it is the plain half — *"{name} is trying to add you."* ONE function,
+ * because the same sentence is the People row AND the bell's title, and two
+ * copies of a sentence drift.
+ *
+ * `eventType` arrives as stored (`debut`, `baptism`, `wedding`, a
+ * `snake_case` kind); underscores become spaces here so no caller has to.
+ */
+export function connectionRequestSentence(
+  name: string,
+  fromEvent: { name: string; type: string } | null,
+): string {
+  const who = name.trim() || 'Someone';
+  const eventName = fromEvent?.name.trim() ?? '';
+  if (!eventName) return `${who} is trying to add you.`;
+  const kind = (fromEvent?.type ?? '').replace(/_/g, ' ').trim();
+  return `${who} is trying to add you from your ${eventName}${kind ? ` ${kind}` : ''} event.`;
+}

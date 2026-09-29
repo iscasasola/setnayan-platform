@@ -4,20 +4,16 @@ import { formatCount } from '@/lib/format-number';
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Check, ChevronLeft, ChevronRight, Send } from 'lucide-react';
-import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import { pressMakerApply, type MakerApplyOutcome } from '../../website/_components/maker-press-apply';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { PreviewStageLink } from './maker-play-menu';
 import { useMaker } from './maker-context';
 import {
   GUIDED_ROUNDS,
-  progressLabel,
-  progressShare,
   type GuidedPlan,
   type GuidedRound,
   type GuidedScreen,
   type GuidedStep,
-  type GuidedStepState,
 } from '@/lib/details-guided-flow';
 
 /**
@@ -26,7 +22,8 @@ import {
  * around the SAME item it always draws — the item's picture and its editor —
  * so a step is never a copy of a Details item, it IS the item, one at a time.
  *
- *   · the top line — the progress bar and "Round 1 · 3 of 7 ▾" (ONE dropdown,
+ *   · the top line (in \`details-guide-top.tsx\`, drawn before a step is) — the
+ *     progress bar and "Round 1 · 3 of 7 ▾" (ONE dropdown,
  *     the shared `PickMenu`: every step of all three rounds with ✓ / ○, any one
  *     picked any time — owner: *"they can still pick a step anytime?"*), and
  *     "All items", the grouped navigator one tap away;
@@ -60,77 +57,6 @@ export type DetailsGuide = {
   /** The flow's first-visit tour — drawn once, beside the progress line. */
   tour?: ReactNode;
 };
-
-const MARK: Record<GuidedStepState, NonNullable<PickOption['trail']>> = {
-  done: { text: '✓', tone: 'ok', label: 'done' },
-  left: { text: '○', tone: 'left', label: 'still to do' },
-  check: { text: 'Look over', tone: 'muted' },
-};
-
-export function screenKey(at: GuidedScreen): string {
-  return at.kind === 'step' ? `step:${at.step}` : `ready:${at.round}`;
-}
-
-export function screenFromKey(key: string): GuidedScreen | null {
-  const [kind, v] = key.split(':');
-  if (kind === 'step' && v) return { kind: 'step', step: v as GuidedStep['key'] };
-  if (kind === 'ready' && (v === '1' || v === '2' || v === '3')) return { kind: 'ready', round: Number(v) as GuidedRound };
-  return null;
-}
-
-/** The top line: progress, the step list (one dropdown), All items. */
-export function GuideTop({
-  plan,
-  at,
-  onPick,
-  onAllItems,
-  tour = null,
-}: {
-  plan: GuidedPlan;
-  at: GuidedScreen;
-  onPick: (at: GuidedScreen) => void;
-  onAllItems: () => void;
-  tour?: ReactNode;
-}) {
-  const options: PickOption[] = plan.rounds.flatMap((r) => {
-    const group = `Round ${r} · ${GUIDED_ROUNDS[r].title}`;
-    return [
-      ...plan.steps
-        .filter((s) => s.round === r)
-        .map((s): PickOption => ({ key: `step:${s.key}`, label: s.optional ? `${s.title} · optional` : s.title, group, trail: MARK[s.state] })),
-      { key: `ready:${r}`, label: `Apply · ${GUIDED_ROUNDS[r].ready}`, group },
-    ];
-  });
-  return (
-    <div data-details-guide-top="" className="flex shrink-0 items-center gap-2.5 border-b border-ink/10 bg-cream/80 px-3 py-1.5 sm:px-4">
-      <span aria-hidden className="block h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-ink/10 sm:w-24">
-        <span className="block h-full rounded-full bg-terracotta-700" style={{ width: `${Math.round(progressShare(plan, at) * 100)}%` }} />
-      </span>
-      <PickMenu
-        label="Pick a step — any time"
-        value={screenKey(at)}
-        options={options}
-        onPick={(k) => {
-          const next = screenFromKey(k);
-          if (next) onPick(next);
-        }}
-        buttonText={progressLabel(plan, at)}
-        dataAttr="data-details-guide-steps"
-        className="font-mono !text-[12px] tracking-[0.04em]"
-      />
-      <span className="flex-1" />
-      <button
-        type="button"
-        onClick={onAllItems}
-        data-details-guide-all=""
-        className="sn-press inline-flex min-h-10 shrink-0 items-center rounded-full bg-ink/[0.07] px-3.5 text-[13px] font-semibold text-ink hover:bg-ink/10"
-      >
-        All items
-      </button>
-      {tour}
-    </div>
-  );
-}
 
 /** A step's heading: its round, its name, where it shows. */
 export function GuideHead({ step, itemLabel, compact }: { step: GuidedStep; itemLabel: string | null; compact: boolean }) {
@@ -371,52 +297,4 @@ export function GuideFoot({
       </div>
     </div>
   );
-}
-
-/**
- * "What's left" — the way back into the flow from the grouped navigator: the
- * first chip of its strip on a phone, the first row of its column on a desk.
- */
-export function WhatsLeftDoor({ label, onOpen }: { label: string; onOpen: () => void }) {
-  return (
-    <li className="shrink-0 lg:mb-1">
-      <button
-        type="button"
-        onClick={onOpen}
-        data-details-guide-open=""
-        className="sn-press flex min-h-11 w-[112px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-terracotta-700/10 px-1.5 py-1.5 text-center text-terracotta-800 lg:w-full lg:flex-row lg:justify-start lg:gap-2 lg:px-2.5 lg:text-left"
-      >
-        <span className="text-[11.5px] font-semibold leading-tight lg:text-[13.5px]">What’s left</span>
-        <small className="text-[10.5px] leading-tight text-terracotta-800/80 lg:text-[12px]">{label}</small>
-      </button>
-    </li>
-  );
-}
-
-/**
- * Typing in this step that is not saved yet? Read from the fields themselves —
- * a field whose value differs from the one it was drawn with. A field React
- * controls keeps the two in step, so it never reads as unsaved (a miss, never
- * a false alarm); a <select> whose drawn choice is unknown is skipped for the
- * same reason. It only ever ASKS — "Go on without saving" is always there.
- */
-export function hasUnsavedEdits(scopes: ReadonlyArray<Element | null>): boolean {
-  for (const scope of scopes) {
-    if (!scope) continue;
-    for (const el of scope.querySelectorAll('input, textarea, select')) {
-      if (el instanceof HTMLInputElement) {
-        if (el.disabled || ['hidden', 'submit', 'button', 'reset', 'file', 'image'].includes(el.type)) continue;
-        if (el.type === 'checkbox' || el.type === 'radio') {
-          if (el.checked !== el.defaultChecked) return true;
-        } else if (el.value !== el.defaultValue) return true;
-      } else if (el instanceof HTMLTextAreaElement) {
-        if (!el.disabled && el.value !== el.defaultValue) return true;
-      } else if (el instanceof HTMLSelectElement) {
-        if (el.disabled) continue;
-        const drawn = [...el.options].filter((o) => o.defaultSelected);
-        if (drawn.length > 0 && drawn.some((o) => !o.selected)) return true;
-      }
-    }
-  }
-  return false;
 }

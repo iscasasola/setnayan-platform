@@ -98,10 +98,21 @@ export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "ma
 export const ScheduleSlots = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.ScheduleSlots), { loading: SlotNone });
 export const MakerRsvpSettings = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask').then((m) => m.MakerRsvpSettings), { loading: SlotRows });
 
+/* ── A parent's guest card (Details › The invitation): the pass card's save (#6150) ── */
+export const GuestPassCardLink = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../guests/_components/guest-pass-card-link').then((m) => m.GuestPassCardLink), { loading: SlotButton });
+
+/* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
+export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });
+export const HeroFrameSync = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.HeroFrameSync), { loading: SlotNone });
+export const SceneBackgroundRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row').then((m) => m.SceneBackgroundRow), { loading: SlotRows });
+
+/* ── What's left (Details part 5): a step's heading, its foot, the Ready screens ── */
+export const GuideHead = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideHead), { loading: SlotNone });
+export const GuideReady = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideReady), { loading: SlotFill });
+export const GuideFoot = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideFoot), { loading: SlotButton });
+
 /* ── The Look (Logo · Reveal — the pages the work area hands in) ─────────── */
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
-/* The Hero's poster preview — it plays the couple's logo (\`CoupleLogo\` → the layered player), ~7KB gz. */
-export const EventPoster = dynamic(() => import(/* webpackChunkName: "maker-details" */ '@/app/_components/event-poster').then((m) => m.EventPoster), { loading: SlotFill });
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
 
 /* ── Prefetch: the same imports, asked early so opening is instant ─────────── */
@@ -127,7 +138,10 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask'),
     import(/* webpackChunkName: "maker-details" */ './maker-logo'),
     import(/* webpackChunkName: "maker-details" */ './maker-reveal'),
-    import(/* webpackChunkName: "maker-details" */ '@/app/_components/event-poster'),
+    import(/* webpackChunkName: "maker-details" */ './details-guide'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row'),
+    import(/* webpackChunkName: "maker-details" */ '../../guests/_components/guest-pass-card-link'),
     prefetchEntourage(),
   ]);
 

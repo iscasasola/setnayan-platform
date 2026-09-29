@@ -14,6 +14,7 @@ import {
   GUEST_CARD_ERROR_COPY,
 } from '../_components/guest-card-body';
 import { GuestSendInvite } from '../_components/send-invite';
+import { GuestPassCardLink } from '../_components/guest-pass-card-link';
 import { UndoToastHost } from '../_components/undo-toast';
 
 export const metadata = { title: 'Guest detail' };
@@ -128,6 +129,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         variant="page"
         inviteSetup={inviteSetup}
         SendInvite={GuestSendInvite}
+        PassCardLink={GuestPassCardLink}
         returnTo={`/dashboard/${eventId}/guests/${guestId}`}
         errorMessage={errorMessage}
         inviteFlash={inviteFlash}

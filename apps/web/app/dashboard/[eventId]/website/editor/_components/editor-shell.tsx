@@ -82,7 +82,9 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { SceneBackgroundRow, type SceneUpload } from './scene-background-row';
+import type { SceneUpload } from './scene-background-row';
+/* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
+import { SceneBackgroundRow } from '../../../launch/_components/details-lazy';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,

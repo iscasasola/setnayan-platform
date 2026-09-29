@@ -27,7 +27,8 @@ import { hubMainGround, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from 
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { HeroFrameSync, MainBackgroundPanel } from './_components/main-background-panel';
+/* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
+import { HeroFrameSync, MainBackgroundPanel } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is

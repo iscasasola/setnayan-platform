@@ -289,8 +289,7 @@ async function paint(guide: Record<string, unknown>, initial: string) {
   const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
   const navItems = ['names', 'date', 'theme', 'address'].map((k) => ({ key: k, group: 'g', label: k, icon: null, done: k === 'date' }));
   const plan = buildGuidedPlan(navItems as GuidedItem[], WORDS);
-  return renderToStaticMarkup(
-    React.createElement(DetailsWorkspace, {
+  const el = React.createElement(DetailsWorkspace, {
       groups: [{ key: 'g', label: 'G', items: navItems }],
       bodies: { names: 'NAMES-BODY', date: 'DATE-BODY', theme: 'THEME-BODY', address: 'ADDRESS-BODY' },
       editors: {
@@ -301,8 +300,17 @@ async function paint(guide: Record<string, unknown>, initial: string) {
       },
       initial,
       guide: { plan, open: true, ready: null, addressed: true, actions: { previewHref: null, shareUrl: null, sendHref: '/x' }, ...guide },
-    }),
-  );
+    });
+  /* ⚡ A step's heading, its foot and the Ready screens load lazily with the
+     Details pieces (\`details-lazy.tsx\`): the first pass draws their loading
+     slot (\`data-lazy-slot\`) and asks for their code. Render again once it has
+     arrived — a bounded wait, the same one \`paid-mark.test.ts\` uses. */
+  let html = renderToStaticMarkup(el);
+  for (let i = 0; i < 50 && /data-lazy-slot=/.test(html); i++) {
+    await new Promise((r) => setTimeout(r, 10));
+    html = renderToStaticMarkup(el);
+  }
+  return html;
 }
 
 test('(6) a step is its item, one at a time: the heading, the narrowed navigator, Back · Skip · Next', async () => {
@@ -380,10 +388,11 @@ test('(7) no wedding word, and no "stage" or "scene", on the guided path', () =>
   }
   // A solemn event is never promised a countdown.
   assert.doesNotMatch(GUIDED_STEPS.find((s) => s.key === 'date')!.shows({ solemn: true, parentsOffered: false }), /countdown/);
-  for (const f of [`${L}/details-guide.tsx`, 'lib/details-guided-flow.ts']) {
+  for (const f of [`${L}/details-guide.tsx`, `${L}/details-guide-top.tsx`, 'lib/details-guided-flow.ts']) {
     assert.doesNotMatch(read(f), /\b(wedding|couple|bride|groom)\b/i, `${f} types a wedding word`);
   }
   // …and the flow's pieces never pop up over the page (the Maker's in-flow rule).
-  const guide = read(`${L}/details-guide.tsx`);
-  assert.doesNotMatch(guide, /role=["']dialog["']|aria-modal|\bfixed inset-0\b/);
+  for (const f of [`${L}/details-guide.tsx`, `${L}/details-guide-top.tsx`]) {
+    assert.doesNotMatch(read(f), /role=["']dialog["']|aria-modal|\bfixed inset-0\b/, `${f} pops up over the page`);
+  }
 });

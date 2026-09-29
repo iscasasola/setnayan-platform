@@ -17,13 +17,16 @@ import {
   type GuidedRound,
   type GuidedScreen,
 } from '@/lib/details-guided-flow';
-import { GuideFoot, GuideHead, GuideReady, GuideTop, WhatsLeftDoor, hasUnsavedEdits, type DetailsGuide } from './details-guide';
+import type { DetailsGuide } from './details-guide';
+/* The flow's top line and its door are drawn before any step; a step's own
+   heading, foot and the Ready screens load with the Details pieces (\`details-lazy.tsx\`). */
+import { GuideTop, WhatsLeftDoor, hasUnsavedEdits } from './details-guide-top';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
-import { prefetchDetailsItem } from './details-lazy';
+import { GuideFoot, GuideHead, GuideReady, prefetchDetailsItem } from './details-lazy';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
 export type DetailsNavItem = DetailsItemModel & {

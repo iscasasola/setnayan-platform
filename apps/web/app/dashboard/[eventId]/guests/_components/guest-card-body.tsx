@@ -36,6 +36,8 @@ import { GuestQrCard } from './guest-detail-body';
    whose parent cards never show it — passes nothing, so its code stays out of
    the Maker's first load (\`check-maker-js-budget.mjs\`). */
 import type { GuestSendInvite } from './send-invite';
+import type { GuestPassCardLink } from './guest-pass-card-link';
+import type { ComponentType } from 'react';
 import type { InviteSetup } from './invite-message-setup';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
@@ -151,6 +153,7 @@ export function GuestCardBody({
   inviteFlash,
   inviteSetup,
   SendInvite,
+  PassCardLink,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -184,6 +187,8 @@ export function GuestCardBody({
   inviteSetup?: InviteSetup | null;
   /** The Send invite block itself — given with \`inviteSetup\` by the pages that draw it. */
   SendInvite?: typeof GuestSendInvite;
+  /** The guest's pass-card save (#6150) — handed in the same way: the Guest list the real one, the Maker its lazy stand-in. */
+  PassCardLink?: ComponentType<Parameters<typeof GuestPassCardLink>[0]>;
 }) {
   const {
     guest,
@@ -277,6 +282,7 @@ export function GuestCardBody({
           guest={guest}
           eventId={eventId}
           invitationBase={invitationBase}
+          PassCardLink={PassCardLink}
           sendSlot={
             /* 🕯 Nothing is offered for a guest marked Passed away, and the
                couple do not invite themselves. */

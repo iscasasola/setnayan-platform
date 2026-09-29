@@ -20,6 +20,7 @@ import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
 import { resolveRevealStages, type RevealStage } from '@/lib/reveal-stages';
 import { resolveRevealEffects, revealTuneHouse } from '@/lib/std-reveal-effects';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
+import { EventPoster } from '@/app/_components/event-poster';
 import { FileUpload } from '@/app/_components/file-upload';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
@@ -27,8 +28,7 @@ import { HubDraftField } from '../../website/_components/hub-draft-bar';
 import { removeHeroPhoto, uploadHeroPhoto } from '../../website/hero-photo/actions';
 /* ⚡ The Logo studio and the Reveal picker load when Details opens them — never with
    the Maker (`details-lazy.tsx`). The Hero's picker stays: a tap on the hero scene opens it. */
-/* ⚡ …and the Hero's poster (with the logo player it plays) — loaded when the Hero is opened. */
-import { EventPoster, MakerLogoDoor, MakerRevealPicker } from './details-lazy';
+import { MakerLogoDoor, MakerRevealPicker } from './details-lazy';
 import { MakerHeroDesignPicker } from './maker-hero-design';
 import { MiniTour } from '@/app/_components/mini-tour';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';

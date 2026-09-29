@@ -27,7 +27,12 @@ import {
   REQUEST_ENTRY_SOURCE,
 } from '@/lib/guests';
 import { QrActions } from '@/app/_components/qr-actions';
-import { GuestPassCardLink, GuestQrDownloadLink } from './guest-save-links';
+import { GuestQrDownloadLink } from './guest-save-links';
+/* ⚡ TYPE ONLY — the pass card's save is handed in by the page that draws the
+   card (\`PassCardLink\`): the Guest list passes the real one, the Maker its
+   lazy stand-in, so the pass card's code stays out of the Maker's first load. */
+import type { GuestPassCardLink } from './guest-pass-card-link';
+import type { ComponentType } from 'react';
 
 // ── chips ─────────────────────────────────────────────────────────────────
 
@@ -59,10 +64,13 @@ export function GuestQrCard({
   eventId,
   invitationBase,
   sendSlot,
+  PassCardLink,
 }: {
   guest: GuestRow;
   eventId: string;
   invitationBase?: string | null;
+  /** The guest's pass-card save — handed in by the page (see the import above). Absent → not drawn. */
+  PassCardLink?: ComponentType<Parameters<typeof GuestPassCardLink>[0]>;
   /** Send invite · Copy message (owner 2026-09-29), drawn under the strip —
    *  "the thing you send them" and the way to send it, in one place. */
   sendSlot?: React.ReactNode;
@@ -138,8 +146,8 @@ export function GuestQrCard({
       <GuestQrDownloadLink href={qrImageSrc} filename={qrFileName} />
       {/* The guest's pass CARD, free — only for a guest who has one (accepted,
           coming; the route decides for a plus-one by who brought them). */}
-      {guest.qr_token && guest.entry_source !== REQUEST_ENTRY_SOURCE && guest.rsvp_status !== 'declined' && guest.passed_away !== true ? (
-        <GuestPassCardLink guestId={guest.guest_id} />
+      {PassCardLink && guest.qr_token && guest.entry_source !== REQUEST_ENTRY_SOURCE && guest.rsvp_status !== 'declined' && guest.passed_away !== true ? (
+        <PassCardLink guestId={guest.guest_id} />
       ) : null}
       <Link
         href={`/dashboard/${eventId}/invitation`}

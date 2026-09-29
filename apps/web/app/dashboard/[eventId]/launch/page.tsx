@@ -49,7 +49,7 @@ import { MoodBoardMakerBody, MoodBoardMakerControls } from '../studio/mood-board
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 /* ⚡ Loads when Details › RSVP is opened — never with the Maker (`details-lazy.tsx`). */
-import { MakerRsvpSettings } from './_components/details-lazy';
+import { GuestPassCardLink as GuestPassCardLinkLazy, MakerRsvpSettings } from './_components/details-lazy';
 import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
 import CoupleSeatingPage from '../seating/page';
@@ -1145,6 +1145,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                 returnTo={`/dashboard/${eventId}/launch?tool=details&item=invitation`}
                 errorMessage={null}
                 inviteFlash={null}
+                PassCardLink={GuestPassCardLinkLazy}
               />
             ) : null,
           };

@@ -23,6 +23,14 @@ the day."*
   the three guest seat functions at it — `public_venue_scene` (3D walk),
   `public_seat_lookup` (name search), `coordinator_seat_by_guest_qr` — each
   re-stated from its latest definition with only the gate changed.
+- **One-time reset of upcoming events** (owner: *"reset all upcoming events to
+  'seats only on the day part of the website' they do not need to know their
+  seat yet"*). Migration
+  `20271254512668_seats_early_stamp_reset_for_upcoming_events.sql` clears
+  `event_floor_plan.published_at` for every event whose Manila day has not
+  arrived (no date / month-or-year-only counts as upcoming). Past and today
+  events, the signs' `qr_published_at`, tables and seat assignments untouched.
+  Guarded by `tests/db/seats-early-stamp-reset.db.test.ts`.
 - **Printing the table signs no longer opens seats early.** New
   `stampTableSigns` stamps `event_tables.qr_published_at` only; "Publish & print"
   uses it instead of `publishSeating`.
@@ -40,4 +48,4 @@ the day."*
 SPEC IMPACT: `DECISION_LOG.md` row "SEATS SHOW ON THE EVENT DAY" (supersedes the
 2026-09-29 "GUESTS SEE THIS NOW" door as the default; the switch becomes "Show
 guests their seats early"; printing signs no longer opens it; tickets carry no
-table for now).
+table for now; reset of upcoming events approved 2026-09-30).

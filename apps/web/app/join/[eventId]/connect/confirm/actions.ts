@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { connectEventForUser } from '@/lib/event-account-link';
 import { connectQuery } from '@/lib/invite-arrival';
+import { captureEvent } from '@/lib/analytics';
 
 /**
  * THE YES on "This invitation is for <name>. Save it to <email>?" — the ONLY
@@ -36,5 +37,14 @@ export async function confirmSeatLinkAction(
     again.set('failed', '1');
     redirect(`/join/${eventId}/connect/confirm?${again.toString()}`);
   }
+  // The growth-loop metric login/signup used to fire when they auto-bound a
+  // seat — now fired where the person actually said yes.
+  void captureEvent({
+    distinctId: user.id,
+    event: 'guest_account_linked',
+    properties: { ref: 'guest' },
+  }).catch(() => {
+    // Telemetry failure never blocks. Silent.
+  });
   redirect(`/join/${eventId}/connect${carry}`);
 }

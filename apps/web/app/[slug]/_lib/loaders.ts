@@ -39,7 +39,7 @@ import { buildSitePaletteVars } from '@/lib/site-palette';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
-import { proSiteVarsFor } from './pro-site-vars';
+import { pinPlateInk, proSiteVarsFor } from './pro-site-vars';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -273,7 +273,10 @@ export function guestLookFrom(
     theme: hub.theme === 'house' ? null : hub.theme,
     art: event.site_art_direction === 'candlelight' ? 'candlelight' : null,
     accent: hub.accent,
-    vars: vars && Object.keys(vars).length > 0 ? vars : null,
+    // 🔒 LAST: the plate keeps an ink that reads on the plate paper every layer
+    // above left it with (owner 2026-09-30, "I cannot see the venues properly" —
+    // a dark theme's light plate ink met a mood-board palette's light plate).
+    vars: vars && Object.keys(vars).length > 0 ? pinPlateInk(vars, hub.theme) : null,
     ombre,
   };
 }
@@ -729,7 +732,7 @@ export const loadMedia = cache(
         venue_address: event.venue_address,
       }),
     };
-    const eventVenues = resolveEventVenues(venueBookings, {
+    const resolvedVenues = resolveEventVenues(venueBookings, {
       venue_name: event.venue_name,
       venue_address: event.venue_address,
       venue_latitude: event.venue_latitude,
@@ -738,6 +741,19 @@ export const loadMedia = cache(
       std_film_venue_name: event.std_film_venue_name as string | null,
       ceremony_venue_address: (event as { ceremony_venue_address?: string | null }).ceremony_venue_address ?? null,
     });
+    // 🏛📷 Each venue card's picture (owner 2026-09-30), signed here beside the
+    // other site media. The ref was already checked against the supplier's
+    // CURRENT public photos or this event's own upload folder
+    // (`applyVenueChoices`), and the signer refuses anything outside the public
+    // media bucket. A picture is not the address: a public shop photo (or the
+    // couple's own) names no more than the venue NAME a guest already reads
+    // before replying, so `withheldVenue` leaves it on the card.
+    const eventVenues = await Promise.all(
+      resolvedVenues.map(async (v) => ({
+        ...v,
+        photoUrl: v.photo ? await displayUrlForStoredAsset(siteMediaServeRef(v.photo)).catch(() => null) : null,
+      })),
+    );
 
     // Resolve the couple-curated "Our photos" gallery (Increment A.4) to display
     // URLs up-front so both render paths share the result. events.our_photos is a

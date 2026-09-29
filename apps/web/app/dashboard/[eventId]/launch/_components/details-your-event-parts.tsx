@@ -189,7 +189,7 @@ export function yourEventParts({
         helpFirst={input.date.helpFirst}
       />
     ),
-    venues: <VenuesEditor eventId={eventId} slots={input.venues.slots} city={input.venues.city} launchDate={input.venues.launchDate} />,
+    venues: venuesEditorFor(eventId, input),
     parents: (
       <PeopleControls
         parents={people}
@@ -235,5 +235,16 @@ function VenuesSeen({ venues, single }: { venues: readonly EventVenue[]; single:
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * 🏛 Details › Venues' editor — ONE node, drawn in Details AND when a venue card
+ * is tapped on a stage (`STAGE_FACT_TAPS` → `venues`), so the two can never be
+ * two different forms (owner 2026-09-30: "so click on it").
+ */
+export function venuesEditorFor(eventId: string, input: Pick<YourEventInput, 'venues'>): ReactNode {
+  return (
+    <VenuesEditor eventId={eventId} slots={input.venues.slots} city={input.venues.city} launchDate={input.venues.launchDate} />
   );
 }

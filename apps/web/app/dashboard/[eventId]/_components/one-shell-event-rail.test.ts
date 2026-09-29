@@ -239,8 +239,8 @@ test('the rail reproduces the five rows, from the shipped SSOT', () => {
     🔄 2026-09-29 — Stage D (owner: *"this is what an event needs. Guestlist ·
     Your Team · Event Hub Maker · Our Services"*). The "by moment" headings
     (Book · Look · Invite · The day, 2026-09-24) are gone: the rail is the
-    event's name row, then five plain rows, then the interim Seat plan — none
-    with a heading. The rail still renders whatever the SSOT gives it, so a
+    event's name row, then five plain rows — none with a heading (the interim
+    Seat plan row left in train n; its Details home is on main). The rail still renders whatever the SSOT gives it, so a
     change here is a change to the couple IA on the rail, ☰ and phone at once.
   */
   const studioRows = [
@@ -248,7 +248,8 @@ test('the rail reproduces the five rows, from the shipped SSOT', () => {
     { key: 'mood-board', href: `/dashboard/${EVENT_ID}/studio/mood-board`, name: 'Mood Board' },
   ];
   const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true, studioRows });
-  assert.deepEqual(groups.map((g) => g.label), ['', '', ''], 'the five rows carry no headings');
+  assert.deepEqual(groups.map((g) => g.key), ['event', 'pillars'], 'a section beyond the name row and the five');
+  assert.deepEqual(groups.map((g) => g.label), ['', ''], 'the five rows carry no headings');
   assert.deepEqual(
     groups.find((g) => g.key === 'pillars')?.items.map((i) => i.key),
     ['home', 'guests', 'explore', 'launch', 'studio'],

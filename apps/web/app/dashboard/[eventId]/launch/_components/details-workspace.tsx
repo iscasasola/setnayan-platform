@@ -29,6 +29,8 @@ import { prefetchDetailsItem } from './details-lazy';
 export type DetailsNavItem = DetailsItemModel & {
   /** A small picture or glyph — never a live render (the list is not a gallery). */
   icon: ReactNode;
+  /** What the right part IS, when it is not "the editor" — the seat plan's right part is its guests. */
+  panelLabel?: string;
 };
 
 export type DetailsNavGroup = { key: string; label: string; items: DetailsNavItem[] };
@@ -133,6 +135,7 @@ export function DetailsWorkspace({
         setPieceMap((m) => (m[item] === piece ? m : { ...m, [item]: piece }));
         if (piece && opts?.openEditor) setSheetOpen(true);
       },
+      openEditor: () => setSheetOpen(true),
     }),
     [pieceMap],
   );
@@ -463,10 +466,10 @@ export function DetailsWorkspace({
             data-details-editor-handle=""
             className="flex min-h-14 shrink-0 items-center gap-2 px-4 text-left lg:hidden"
           >
-            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">Edit · {current.label}</span>
+            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{current.panelLabel ?? `Edit · ${current.label}`}</span>
             {sheetOpen ? <ChevronDown aria-hidden className="h-4 w-4 text-ink/55" /> : <ChevronUp aria-hidden className="h-4 w-4 text-ink/55" />}
           </button>
-          <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{current.label}</p>
+          <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{current.panelLabel ?? current.label}</p>
           <div
             ref={editorRef}
             className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2 ${sheetOpen ? '' : 'hidden lg:block'}`}

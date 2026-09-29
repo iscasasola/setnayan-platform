@@ -52,6 +52,7 @@ import { MakerRsvpCanvas } from './_components/maker-page';
 import { MakerRsvpSettings } from './_components/details-lazy';
 import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
+import CoupleSeatingPage from '../seating/page';
 import RequestsPage from '../guests/claims/page';
 import type { LoveStoryBlob } from '../website/our-story/_components/story-fields';
 import { resolveMoments } from '@/lib/love-story-moments';
@@ -168,6 +169,8 @@ type Props = {
     /** The Menu editor's save result (`/api/hub-print/menu`). */
     menu_saved?: string | string[];
     menu_error?: string | string[];
+    /** 🪑 Details › Seat plan: the plan's view — `3d` streams the 3D lab in, `list` opens on the List. */
+    seat?: string | string[];
     /** 📦 Details › Schedule (the Schedule page, moved whole): its own query. */
     view?: string | string[];
     ros?: string | string[];
@@ -1289,6 +1292,34 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
         loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
       });
+      /* 🪑 THE SEAT PLAN (Details part 4) — the shipped seating page, streamed
+         so the Maker never waits on it; only where this type has a seat plan
+         (`detailsItemApplies`). Its navigator row reads three COUNTS (never a
+         name — this page reads no guest by name); a refused read is said. */
+      let seatPlan: { page: ReactNode; tables: number | null; seated: number | null; open: boolean | null } | null = null;
+      if (detailsItemApplies('seating', eventContext)) {
+        const [seatTablesRes, seatSeatedRes, seatDoorRes] = await Promise.all([
+          supabase.from('event_tables').select('table_id', { count: 'exact', head: true }).eq('event_id', eventId),
+          supabase.from('event_seat_assignments').select('guest_id', { count: 'exact', head: true }).eq('event_id', eventId),
+          supabase.from('event_floor_plan').select('published_at').eq('event_id', eventId).maybeSingle(),
+        ]);
+        if (seatTablesRes.error) logQueryError('LaunchPage.seatTables', seatTablesRes.error, { event_id: eventId }, 'graceful_degrade');
+        if (seatSeatedRes.error) logQueryError('LaunchPage.seatSeated', seatSeatedRes.error, { event_id: eventId }, 'graceful_degrade');
+        if (seatDoorRes.error) logQueryError('LaunchPage.seatDoor', seatDoorRes.error, { event_id: eventId }, 'graceful_degrade');
+        seatPlan = {
+          page: (
+            <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening your seat plan…</p>}>
+              <CoupleSeatingPage
+                params={Promise.resolve({ eventId })}
+                searchParams={Promise.resolve({ maker: '1', seat: one(search.seat) })}
+              />
+            </Suspense>
+          ),
+          tables: seatTablesRes.error ? null : (seatTablesRes.count ?? 0),
+          seated: seatSeatedRes.error ? null : (seatSeatedRes.count ?? 0),
+          open: seatDoorRes.error ? null : Boolean((seatDoorRes.data as { published_at?: string | null } | null)?.published_at),
+        };
+      }
       /* 🗓 THE SCHEDULE, moved whole — the shipped page, streamed so the Maker
          never waits on it, with its own query when Details › Schedule is the item. */
       const schedulePage = (
@@ -1324,6 +1355,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         page: (
           <MakerDetails
             yourEvent={yourEvent}
+            seatPlan={seatPlan}
             /* 🪜 Details part 5 — the guided "What's left" over these very items. */
             guide={{
               open: guideAddress !== null || (detailsUnfinished && detailsLandsPlain),

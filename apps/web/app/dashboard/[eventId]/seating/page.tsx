@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-room-size';
 import { createClient } from '@/lib/supabase/server';
@@ -27,19 +28,31 @@ import { fetchBookedVendorsForBooths } from '@/lib/vendors';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
+import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
+import { detailsDoorHref } from '@/lib/maker-details-items';
+import { SIDE_ORDER } from '@/lib/guests';
+import { peopleLabels } from '@/lib/details-your-event';
+import { SeatingEditor, type SeatingDetailsShell, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
+import SeatingLabPage from './lab/page';
 
 export const metadata = { title: 'Seating chart' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ view?: string }>;
+  /**
+   * `maker=1` — drawn inside the Maker, as Details › Your event › Seat plan
+   * (the launch page renders this page there, like the Schedule). `seat` —
+   * Details' view of the plan: `3d` streams the 3D lab into the middle part,
+   * `list` opens on the List, `map` opens the Guests' map (the Indoor Blueprint).
+   */
+  searchParams: Promise<{ view?: string; maker?: string; seat?: string }>;
 };
 
 export default async function SeatingPage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const { view: viewParam } = await searchParams;
+  const { view: viewParam, maker: makerParam, seat: seatParam } = await searchParams;
+  const inMaker = makerParam === '1';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   // 🪑 THE WRITER HALF OF THE SEAT-ROOM GATE (owner 2026-08-28, "only its own
@@ -50,8 +63,22 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   // repaired for. Narrowing a read rule makes every writer of it a cliff, so
   // both halves ship together. Mirrors the budget guard exactly.
   const seatingProfile = await resolveProfileByEvent(eventId);
-  if (!surfaceEnabled(seatingProfile, 'seating')) redirect(`/dashboard/${eventId}`);
+  if (!surfaceEnabled(seatingProfile, 'seating')) {
+    // Inside the Maker the item is not drawn for such a type at all
+    // (`DETAILS_ITEM_APPLIES.seating`); never a redirect out of the Maker.
+    if (inMaker) return null;
+    redirect(`/dashboard/${eventId}`);
+  }
   const supabase = await createClient();
+  // 📦 THE SEAT PLAN MOVED INTO DETAILS (owner 2026-09-28, DECISION_LOG "THE
+  // SEAT PLAN MOVES INTO DETAILS AND WEARS THE THREE COLUMNS"): for the couple
+  // of an event with an Event Hub this address lands on Details › Your event ›
+  // Seat plan (carrying the List view). A coordinator — or a type with no Event
+  // Hub — keeps this page exactly as it was (`detailsIsTheDoor`, the launch
+  // page's own rule).
+  if (!inMaker && (await detailsIsTheDoor(supabase, eventId, user.id))) {
+    redirect(detailsDoorHref(eventId, 'seating', { seat: viewParam === 'list' ? 'list' : undefined }));
+  }
 
   // A delegate the host never shared the guest list with reads ZERO guest rows
   // — an RLS refusal and an empty event are the same value — so without this
@@ -169,6 +196,80 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   );
   const seatShortfall = Math.max(0, nonDeclinedCount - totalSeats);
 
+  // ONE editor element, drawn by the standalone page and by Details alike —
+  // the props are never listed twice.
+  const editorFor = (
+    initialView: 'plan' | 'list',
+    details: SeatingDetailsShell | null = null,
+  ) => (
+    <SeatingEditor
+      eventId={eventId}
+      roleSetKey={roleSet.key}
+      chineseTradition={chineseTradition}
+      tables={tables}
+      guests={seatingGuests}
+      groups={groups}
+      floorPlan={floorPlan}
+      booths={booths}
+      signs={signs}
+      bookedVendors={bookedVendors}
+      // The venue's own size, offered ONLY when the couple has not set
+      // their room. Their number always wins, and a room they sized once
+      // and have been placing tables into ever since counts as set.
+      suggestedRoomSize={
+        venueRoomSize &&
+        shouldSuggestVenueSize(floorPlan?.venue_width_m, floorPlan?.venue_length_m)
+          ? venueRoomSize
+          : null
+      }
+      constraints={constraints}
+      eventDate={eventDate}
+      genderSeparationNote={genderSeparationNote}
+      seatShortfall={seatShortfall}
+      nonDeclinedCount={nonDeclinedCount}
+      totalSeats={totalSeats}
+      autoplaceEnabled={autoplaceEnabled}
+      adjacencyEnabled={adjacencyEnabled}
+      reservedCount={reservedCount}
+      toSeatReserved={toSeatCount}
+      setSeatingAutoplace={setSeatingAutoplace}
+      setSeatingGroupAdjacency={setSeatingGroupAdjacency}
+      initialView={initialView}
+      details={details}
+      me={{
+        id: user.id,
+        name:
+          (user.user_metadata?.display_name as string | undefined) ||
+          (user.user_metadata?.full_name as string | undefined) ||
+          user.email?.split('@')[0] ||
+          'Someone',
+      }}
+    />
+  );
+
+  // 🪑 Details › Seat plan: the SAME editor, its shell re-split into the Maker's
+  // three parts. The sides are the event type's own words (only where it has
+  // two named people — else the seated are listed by group); 3D is the lab
+  // page, streamed in only while it is the view.
+  if (inMaker) {
+    const people = peopleLabels(seatingProfile.terminology.personA, seatingProfile.terminology.personB);
+    const sideWord = (side: 'bride' | 'groom' | 'both') =>
+      side === 'both' ? 'Both sides' : `${people![side === 'bride' ? 0 : 1]}'s side`;
+    const sides = people ? SIDE_ORDER.map((side) => ({ side, label: sideWord(side) })) : null;
+    const lab =
+      seatParam === '3d' && process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? (
+        <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening the 3D room…</p>}>
+          <SeatingLabPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: '1' })} />
+        </Suspense>
+      ) : null;
+    return (
+      <div data-seat-plan-details="" className="flex min-h-0 flex-1 flex-col">
+        {editorFor(seatParam === 'list' ? 'list' : 'plan', { lab, sides, part: seatParam === 'map' ? 'map' : null })}
+        <MiniTour tourKey="customer_seat_plan_v1" />
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Heading kept screen-reader-only for a11y/SEO. The whole editor is now a
@@ -179,48 +280,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
           padding so the frame fills the viewport with no document scroll. */}
       <h1 className="sr-only">Seating chart</h1>
       <div className="-mx-4 -my-6 sm:-mx-6 lg:-mx-8">
-        <SeatingEditor
-          eventId={eventId}
-          roleSetKey={roleSet.key}
-          chineseTradition={chineseTradition}
-          tables={tables}
-          guests={seatingGuests}
-          groups={groups}
-          floorPlan={floorPlan}
-          booths={booths}
-          signs={signs}
-          bookedVendors={bookedVendors}
-          // The venue's own size, offered ONLY when the couple has not set
-          // their room. Their number always wins, and a room they sized once
-          // and have been placing tables into ever since counts as set.
-          suggestedRoomSize={
-            venueRoomSize &&
-            shouldSuggestVenueSize(floorPlan?.venue_width_m, floorPlan?.venue_length_m)
-              ? venueRoomSize
-              : null
-          }
-          constraints={constraints}
-          eventDate={eventDate}
-          genderSeparationNote={genderSeparationNote}
-          seatShortfall={seatShortfall}
-          nonDeclinedCount={nonDeclinedCount}
-          totalSeats={totalSeats}
-          autoplaceEnabled={autoplaceEnabled}
-          adjacencyEnabled={adjacencyEnabled}
-          reservedCount={reservedCount}
-          toSeatReserved={toSeatCount}
-          setSeatingAutoplace={setSeatingAutoplace}
-          setSeatingGroupAdjacency={setSeatingGroupAdjacency}
-          initialView={viewParam === 'list' ? 'list' : 'plan'}
-          me={{
-            id: user.id,
-            name:
-              (user.user_metadata?.display_name as string | undefined) ||
-              (user.user_metadata?.full_name as string | undefined) ||
-              user.email?.split('@')[0] ||
-              'Someone',
-          }}
-        />
+        {editorFor(viewParam === 'list' ? 'list' : 'plan')}
       </div>
 
       <MiniTour tourKey="customer_seat_plan_v1" />

@@ -271,7 +271,6 @@ export function buildOurServices(input: OurServicesInput): OurService[] {
   STILL HERE, NO HOME YET (report, not a decision):
     · Find your date   → Details › Date (Details part 2a, not merged yet)
     · Playlist         → no page links /studio/playlist except this one
-    · Indoor Blueprint → no event page links /studio/indoor-blueprint
     · Thank-You Video  → Papic names it but does not link /studio/thank-you
 */
 export type ToolHome = { home: string; needsWebsite?: true };
@@ -297,6 +296,10 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   // is the gate, so a couple who has used no Pro effect has nothing to buy.
   'website-pro': { home: 'the Event Hub Maker — Apply ("Unlock Pro and Apply")', needsWebsite: true },
   'animated-monogram': { home: 'the Event Hub Maker — Logo', needsWebsite: true },
+  // 🗺 Owner-approved 2026-09-29: "it's the same room" — the Indoor Blueprint is
+  // a piece of Details › Seat plan (the shipped studio, drawn in its right part);
+  // its old address lands there for the couple of an Event Hub event.
+  'indoor-blueprint': { home: "the Event Hub Maker — Details › Seat plan › Guests' map", needsWebsite: true },
 };
 
 /** Has this tool (a catalogue key or a free-tool key) gone home for this event? */

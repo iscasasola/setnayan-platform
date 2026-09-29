@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
 
 // useLayoutEffect on the server is a no-op + warns; fall back to useEffect there.
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -53,6 +53,7 @@ import {
   Wand2,
   Video,
   AlertTriangle,
+  ListOrdered,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ContextDock, ShapeGlyph, ShapePicker, type DockEdge } from './seating-context-dock';
@@ -145,6 +146,7 @@ import {
   removeSeatingConstraint,
   toggleSeatLock,
   publishSeating,
+  unpublishSeating,
   saveBooths,
   saveFloorPlan,
   savePriorityOrder,
@@ -167,6 +169,24 @@ import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { formatCount } from '@/lib/format-number';
+import { detailsItemHref } from '@/lib/maker-details-items';
+import {
+  nextUnseatedGuest,
+  parseSeatPlanPiece,
+  seatAtChoices,
+  seatPlanGuestSections,
+  seatPlanPieceKey,
+  seatPlanPlaceRows,
+  SEAT_PLAN_MAP_PIECE,
+  type SeatPlanGuestOptions,
+} from '@/lib/seat-plan-details';
+import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
+import { saveEntrance } from '../../studio/indoor-blueprint/actions';
+import { InfoTip } from '@/app/_components/info-tip';
+import { DetailsPieceButton, useDetailsEditorOpener, useDetailsPiece } from '../../launch/_components/details-go';
+import { useMaker } from '../../launch/_components/maker-context';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { SeatPlanPortal } from './seat-plan-slots';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -274,6 +294,24 @@ type Props = {
   setSeatingGroupAdjacency: (formData: FormData) => void | Promise<void>;
   /** Initial view — 'list' when the lab's mirrored segment links here (?view=list). */
   initialView?: 'plan' | 'list';
+  /**
+   * 🪑 DETAILS › YOUR EVENT › SEAT PLAN (owner 2026-09-28, DECISION_LOG "THE
+   * SEAT PLAN MOVES INTO DETAILS AND WEARS THE THREE COLUMNS"). Present only
+   * when the Maker draws this editor: the SAME component, the same state and
+   * the same saves — only its shell is re-split into the Maker's three parts
+   * (the place's elements left, the plan middle, the guests right). Absent,
+   * the standalone page is exactly as it was.
+   */
+  details?: SeatingDetailsShell | null;
+};
+
+export type SeatingDetailsShell = {
+  /** The 3D lab page, streamed in — present only while 3D is the view (`?seat=3d`). */
+  lab: React.ReactNode | null;
+  /** The sides in the event type's own words and order; null → the seated are listed by group. */
+  sides: SeatPlanGuestOptions['sides'];
+  /** Open on the Guests' map (the Indoor Blueprint's old address lands here, `?seat=map`). */
+  part?: 'map' | null;
 };
 
 const NEUTRAL = '#B7B1A6';
@@ -334,6 +372,7 @@ export function SeatingEditor({
   setSeatingAutoplace,
   setSeatingGroupAdjacency,
   initialView = 'plan',
+  details = null,
 }: Props) {
   // Iteration 0053 P4 Unit 6: the event's role set drives seating tiers + labels.
   // Pure client-safe lookup; wedding → WEDDING_ROLE_SET (byte-identical). Declared
@@ -588,6 +627,43 @@ export function SeatingEditor({
   const [selMarker, setSelMarker] = useState<{ kind: MarkerKind; id: string | null } | null>(null);
   const [canvasW, setCanvasW] = useState(0);
   const [floorDirty, setFloorDirty] = useState(false);
+  // 🪑 Details: the plan can change in the 3D lab beside this editor (Details ›
+  // Seat plan › 3D). Coming back re-reads the page, and the floor's own pieces
+  // follow the new props — only while nothing here is unsaved, the rule the
+  // booths and signs above already follow. The standalone page never needs it
+  // (its 3D is another page, and coming back mounts this editor afresh).
+  const floorDirtyRef = useRef(false);
+  floorDirtyRef.current = floorDirty;
+  const floorSeen = useRef(floorPlan);
+  useEffect(() => {
+    if (!details || floorSeen.current === floorPlan) return;
+    floorSeen.current = floorPlan;
+    if (floorDirtyRef.current) return;
+    setStage({ x: floorPlan.stage_x, y: floorPlan.stage_y, w: floorPlan.stage_w, h: floorPlan.stage_h });
+    setEntrance({
+      enabled: floorPlan.entrance_enabled,
+      x: floorPlan.entrance_x,
+      y: floorPlan.entrance_y,
+      kind: floorPlan.entrance_kind,
+      depthM: floorPlan.entrance_depth_m,
+    });
+    setServiceDoor({ enabled: floorPlan.service_entrance_enabled, x: floorPlan.service_entrance_x, y: floorPlan.service_entrance_y });
+    setDance({ enabled: floorPlan.dance_enabled, x: floorPlan.dance_x, y: floorPlan.dance_y, w: floorPlan.dance_w, h: floorPlan.dance_h });
+    setCocktail({
+      enabled: floorPlan.cocktail_enabled,
+      x: floorPlan.cocktail_x,
+      y: floorPlan.cocktail_y,
+      w: floorPlan.cocktail_w,
+      h: floorPlan.cocktail_h,
+      label: floorPlan.cocktail_label,
+      vendorEdit: floorPlan.cocktail_vendor_edit,
+      linked: floorPlan.cocktail_linked,
+    });
+    if (floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null) {
+      setVenue({ enabled: true, width: floorPlan.venue_width_m, length: floorPlan.venue_length_m });
+    }
+    setPhotoVis(floorPlan.venue_photo_visibility);
+  }, [details, floorPlan]);
 
   const venueScaled = venue.enabled && venue.width > 0 && venue.length > 0;
   // The COORDINATE room box (contract v2 · § 2 · GUN B): the venue metres when
@@ -792,7 +868,9 @@ export function SeatingEditor({
   useEffect(() => {
     // Mobile default is List (verdict §7) — unless the URL explicitly asked for
     // the List view (the lab's mirrored segment links here with ?view=list).
-    if (initialView !== 'list' && typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+    // 🪑 Not inside Details: there the plan is the middle part at every width
+    // (the owner-approved phone frames draw the floor, the guests a panel under it).
+    if (!details && initialView !== 'list' && typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
       setView('list');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1416,8 +1494,12 @@ export function SeatingEditor({
     // Await inside the transition so the callback returns Promise<void>
     // (startTransition rejects a value-returning promise); the {published}
     // result is intentionally ignored — the print route reads live data.
+    // 🪑 In Details, printing the table signs opens the door too (DECISION_LOG
+    // "THE SEAT PLAN IS LIVE BEHIND ONE DOOR"): the switch says so at once.
+    if (details) setDoorOpen(true);
     startTransition(async () => {
       await publishSeating(fd);
+      if (details) router.refresh();
     });
     window.open(`/dashboard/${eventId}/seating/print`, '_blank');
   };
@@ -1477,12 +1559,14 @@ export function SeatingEditor({
 
   // Seat one guest at a table's next free chair (the picker's Guest tab —
   // also moves an already-seated guest, since assignGuest upserts per guest).
-  const seatGuestHere = (t: EventTableRow, guestId: string) => {
+  // `seat` (Details' "tap an empty seat"): that chair, when it is still free.
+  const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number) => {
     if (!canEdit) return;
     const occ = occupantsFor(t);
     const removed = removedSeatSet(t.removed_seats, t.capacity);
     let free: number | null = null;
-    for (let i = 0; i < occ.length; i++) {
+    if (seat !== undefined && occ[seat] === null && !removed.has(seat)) free = seat;
+    for (let i = 0; free === null && i < occ.length; i++) {
       if (occ[i] === null && !removed.has(i)) {
         free = i;
         break;
@@ -3348,11 +3432,32 @@ export function SeatingEditor({
     setSelMarker(null);
   };
 
+  // 🪑 IS THE PLAN ON SCREEN? Details keeps an item's body mounted once opened
+  // (hidden while another item — or a stage — shows), so this editor can be
+  // alive and unseen. Unseen, it holds no selection and hears no key: a
+  // Backspace typed on another item must never delete a table left selected
+  // here. Under the 3D lab, the 2D selection is not showing either.
+  const maker = useMaker();
+  const seatPlanShowing =
+    !details ||
+    (maker?.selection?.kind === 'tool' && maker.selection.key === 'details' && maker.detailsItem === 'seating' && !details.lab);
+  // Leaving the plan for another Details item saves a dirty layout first — the
+  // cross-projection rule's "auto-save on switch" (the 3D switch already does).
+  const saveOnHideRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (seatPlanShowing) return;
+    setHighlightId(null);
+    setSelMarker(null);
+    setPickedId(null);
+    setPickedGroupId(null);
+    saveOnHideRef.current();
+  }, [seatPlanShowing]);
+
   // Canvas keyboard parity (verdict §1.2): Delete/Backspace deletes the selected
   // object (same confirms); Esc exits edit-chairs, else deselects. Ignored while
   // typing in a field so the name / degree inputs keep their own key handling.
   useEffect(() => {
-    if (view !== 'plan') return;
+    if (view !== 'plan' || !seatPlanShowing) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       const typing =
@@ -3390,7 +3495,7 @@ export function SeatingEditor({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, editChairs, highlightId, selMarker, canEdit, tables]);
+  }, [view, editChairs, highlightId, selMarker, canEdit, tables, seatPlanShowing]);
 
   // SE resize grip for the stage / dance-floor rects. NW-corner anchored: the
   // grip drags the bottom-right corner; the centre shifts by half the delta so
@@ -3740,6 +3845,10 @@ export function SeatingEditor({
   cmdSaveRef.current = () => {
     if (layoutDirty && canEdit) saveLayout();
   };
+  // 🪑 The same save, when Details hides the plan (see `seatPlanShowing`).
+  saveOnHideRef.current = () => {
+    if (details && layoutDirty && canEdit) saveLayout();
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
@@ -3804,12 +3913,20 @@ export function SeatingEditor({
   // layout stays dirty, so the effect never fires — we stay put and the error is
   // surfaced (saveLayout's own notice). A switch never loses work, never blocks.
   const switchAfterSaveRef = useRef(false);
+  // 🪑 In Details the 3D lab is drawn IN the middle part, never a page away:
+  // the same address with `seat=3d` streams the lab in beside this editor
+  // (which stays mounted — its lock, its guests, its lists), and leaving 3D
+  // drops it and re-reads the plan the lab may have changed. `scroll: false`
+  // keeps the Maker where it is.
+  const seatViewHref = (seat: '3d' | 'list' | null) =>
+    detailsItemHref(eventId, 'seating', seat ? `&seat=${seat}` : '');
   useEffect(() => {
     if (switchAfterSaveRef.current && !isPending && !layoutDirty) {
       switchAfterSaveRef.current = false;
-      router.push(labUrl);
+      router.push(details ? seatViewHref('3d') : labUrl, details ? { scroll: false } : undefined);
     }
-  }, [isPending, layoutDirty, router, labUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `seatViewHref` is rebuilt every render; the address it makes is fixed per event
+  }, [isPending, layoutDirty, router, labUrl, details]);
   const onSelectView = (target: '2d' | '3d' | 'list') => {
     if (target === '3d') {
       if (layoutDirty && canEdit) {
@@ -3819,10 +3936,12 @@ export function SeatingEditor({
         saveLayout();
         return;
       }
-      router.push(labUrl);
+      if (details) router.push(seatViewHref('3d'), { scroll: false });
+      else router.push(labUrl);
       return;
     }
     setView(target === 'list' ? 'list' : 'plan');
+    if (details?.lab) router.push(seatViewHref(target === 'list' ? 'list' : null), { scroll: false });
   };
 
   // Banner slot (verdict §1, row 2): ONE single-line strip max. Priority
@@ -3955,6 +4074,52 @@ export function SeatingEditor({
     </div>
   );
 
+  // A group's two verbs — seat the whole group at a table (pick, then tap a
+  // table), and hide its colour on the canvas. ONE definition, drawn by the
+  // People pane here and by Details' guests part.
+  const groupVerbs = (grp: SeatingGroup) => {
+    const hidden = hiddenGroups.has(grp.group_id);
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            setPickedId(null);
+            setNotice(null);
+            setPickedGroupId((id) => (id === grp.group_id ? null : grp.group_id));
+          }}
+          aria-label={
+            pickedGroupId === grp.group_id
+              ? `Cancel seating ${grp.label}`
+              : `Seat ${grp.label} at a table`
+          }
+          title="Seat this whole group at a table"
+          className={`rounded p-1 ${
+            pickedGroupId === grp.group_id
+              ? 'bg-mulberry/10 text-mulberry'
+              : 'text-ink/40 hover:bg-ink/5'
+          }`}
+        >
+          <Armchair className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            setHiddenGroups((s) => {
+              const n = new Set(s);
+              n.has(grp.group_id) ? n.delete(grp.group_id) : n.add(grp.group_id);
+              return n;
+            })
+          }
+          aria-label={hidden ? 'Show colour on canvas' : 'Hide colour on canvas'}
+          className="rounded p-1 text-ink/40 hover:bg-ink/5"
+        >
+          {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </button>
+      </>
+    );
+  };
+
   const peoplePane = (
     <div className="flex flex-col gap-3">
       {/* "Only show unseated" filter — pinned at the top of the People pane. */}
@@ -3997,7 +4162,6 @@ export function SeatingEditor({
             {groups.map((grp) => {
               const members = guests.filter((g) => g.group_id === grp.group_id && memberVisible(g));
               const isOpen = openGroups.has(grp.group_id);
-              const hidden = hiddenGroups.has(grp.group_id);
               return (
                 <li key={grp.group_id} className="rounded-lg border border-ink/10">
                   <div className="flex items-center gap-2 px-2 py-1.5">
@@ -4017,41 +4181,7 @@ export function SeatingEditor({
                       <span className="text-[11px] text-ink/50">{formatCount(grp.member_count)}</span>
                       <ChevronDown className={`h-3.5 w-3.5 text-ink/40 transition ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPickedId(null);
-                        setNotice(null);
-                        setPickedGroupId((id) => (id === grp.group_id ? null : grp.group_id));
-                      }}
-                      aria-label={
-                        pickedGroupId === grp.group_id
-                          ? `Cancel seating ${grp.label}`
-                          : `Seat ${grp.label} at a table`
-                      }
-                      title="Seat this whole group at a table"
-                      className={`rounded p-1 ${
-                        pickedGroupId === grp.group_id
-                          ? 'bg-mulberry/10 text-mulberry'
-                          : 'text-ink/40 hover:bg-ink/5'
-                      }`}
-                    >
-                      <Armchair className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setHiddenGroups((s) => {
-                          const n = new Set(s);
-                          n.has(grp.group_id) ? n.delete(grp.group_id) : n.add(grp.group_id);
-                          return n;
-                        })
-                      }
-                      aria-label={hidden ? 'Show colour on canvas' : 'Hide colour on canvas'}
-                      className="rounded p-1 text-ink/40 hover:bg-ink/5"
-                    >
-                      {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                    </button>
+                    {groupVerbs(grp)}
                   </div>
                   {isOpen ? (
                     <ul className="space-y-0.5 border-t border-ink/10 p-1">
@@ -4084,6 +4214,22 @@ export function SeatingEditor({
     </div>
   );
 
+  // The new-table panel — ONE mount: the Tables pane draws it, or (the pane
+  // is not drawn there) Details' right part.
+  const addTablePanel =
+    showAddTable && canEdit ? (
+      <AddTablePanel
+        eventId={eventId}
+        lockId={lock.lockId}
+        chineseTradition={chineseTradition}
+        defaultLabel={nextTableName(tables.map((t) => t.table_label))}
+        computeSpawn={computeSpawnFor}
+        onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
+        onDone={() => setShowAddTable(false)}
+        onLockLost={handleLockLost}
+      />
+    ) : null;
+
   const tablesPane = (
     <div className="flex flex-col gap-3">
       <button
@@ -4096,18 +4242,7 @@ export function SeatingEditor({
         <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Table
       </button>
 
-      {showAddTable && canEdit ? (
-        <AddTablePanel
-          eventId={eventId}
-          lockId={lock.lockId}
-          chineseTradition={chineseTradition}
-          defaultLabel={nextTableName(tables.map((t) => t.table_label))}
-          computeSpawn={computeSpawnFor}
-          onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
-          onDone={() => setShowAddTable(false)}
-          onLockLost={handleLockLost}
-        />
-      ) : null}
+      {addTablePanel}
 
       <Section label={`Tables · ${displayUnits.length}`}>
         {displayUnits.length === 0 ? (
@@ -4364,7 +4499,7 @@ export function SeatingEditor({
   const addMenuBody = (
     <>
       <MenuCaption>Place on the floor</MenuCaption>
-      <MenuRow icon={Plus} label="New table…" hint="Pick from the 13-type catalog" onClick={() => { selectPanelTab('tables'); setShowAddTable(true); }} disabled={!canEdit} />
+      <MenuRow icon={Plus} label="New table…" hint="Pick from the 13-type catalog" onClick={() => { selectPanelTab('tables'); setShowAddTable(true); if (details) { setGuestsMode('guests'); openDetailsEditor(); } }} disabled={!canEdit} />
       <MenuRow icon={DoorOpen} label="Entrance" onClick={addEntrance} disabled={!canEdit || view !== 'plan' || entrance.enabled} />
       <MenuRow icon={Truck} label="Service door" hint="Optional load-in / caterer door" onClick={addServiceDoor} disabled={!canEdit || view !== 'plan' || serviceDoor.enabled} />
       <MenuRow icon={Footprints} label="Dance floor" onClick={addDanceFloor} disabled={!canEdit || view !== 'plan' || dance.enabled} />
@@ -4505,6 +4640,24 @@ export function SeatingEditor({
         onClick={() => setShowRoomPanel((v) => !v)}
         disabled={!canEdit || view !== 'plan'}
       />
+      {details ? (
+        <>
+          <MenuDivider />
+          {/* 🪑 Details: the Rules pane (Seating Priority · Seating Guide) is not a
+              tab of a panel any more — it opens in the right part, beside the plan. */}
+          <MenuRow
+            icon={ListOrdered}
+            label="Seating Priority & Guide"
+            hint="Who sits nearest the stage · who sits apart"
+            badge={violatedRules.length > 0 ? `${formatCount(violatedRules.length)} broken` : undefined}
+            onClick={() => {
+              setShowAddTable(false);
+              setGuestsMode('rules');
+              openDetailsEditor();
+            }}
+          />
+        </>
+      ) : null}
     </>
   );
   const shareMenuBody = (
@@ -4731,15 +4884,878 @@ export function SeatingEditor({
     </div>
   );
 
+  // ═══════════ THE CONTEXT DOCK (verdict §1) — one contextual surface ═══════════
+  // Replaces the four competing chromes (popover · floating pills · marker
+  // scatter · seat × chips). Precedence resolved above; bottom↔top flip is
+  // deterministic; the phone sheet is the dock's sibling density.
+  // 🪑 Built ONCE, placed by the shell: over the canvas (a dock) — or, in
+  // Details on a phone, IN THE FLOW at the top of the guests part (`inline`),
+  // never a sheet fixed over the Maker.
+  const sheetVariant: 'sheet' | 'inline' = details ? 'inline' : 'sheet';
+  const dockNode: React.ReactNode = (() => {
+    if (dockPrimary === null) return null;
+    const edge = computeDockEdge();
+
+    // §1.5 view-only honesty — when a table/marker is selected but a peer
+    // holds the editor lock, the dock is a READ-ONLY summary + exactly one
+    // Take-over button. Disabled looks disabled; the old silent no-op dies.
+    if (!canEdit && (dockPrimary === 'table' || dockPrimary === 'marker')) {
+      let glyph: React.ReactNode = null;
+      let name = '';
+      let summary: string | null = null;
+      if (selTable) {
+        glyph = <ShapeGlyph shape={shapeHintFor(selTable.table_type)} className="h-3.5 w-3.5" />;
+        name = selTable.table_label;
+        summary = `${seatedAt(selTable.table_id)}/${effectiveCapacity(selTable.capacity, selTable.removed_seats)}`;
+      } else if (selM) {
+        name = selM.kind === 'booth'
+          ? (booths.find((x) => x.booth_id === selM.id)?.label ?? 'Booth')
+          : selM.kind === 'sign'
+            ? (signs.find((x) => x.sign_id === selM.id)?.label ?? 'Sign')
+            : selM.kind.charAt(0).toUpperCase() + selM.kind.slice(1);
+      }
+      return (
+        <ContextDock variant={isPhone ? sheetVariant : 'dock'} edge={isPhone ? 'bottom' : edge} tone="neutral" glyph={glyph} name={name} boundsRef={regionRef} onDismiss={isPhone ? clearSelection : undefined}>
+          {summary ? <span className="px-1 font-mono text-[11px] tabular-nums text-ink/60">{summary} seated</span> : null}
+          <button
+            type="button"
+            onClick={lock.acquire}
+            disabled={lock.status === 'acquiring'}
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-ink/80 px-3 font-semibold text-cream hover:bg-ink disabled:opacity-50 ${isPhone ? 'h-11 text-sm' : 'h-8 text-xs'}`}
+          >
+            <Eye className="h-3.5 w-3.5" />
+            {lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
+          </button>
+          {!isPhone ? (
+            <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </ContextDock>
+      );
+    }
+
+    // ── Pill states (bottom, no flip; shown in both plan + list views) ──
+    if (dockPrimary === 'picked-guest' && pickedGuest) {
+      return (
+        <ContextDock variant="dock" edge="bottom" tone="picked-guest" boundsRef={regionRef}>
+          <ChairAvatar guest={pickedGuest} color={colorFor(pickedGuest)} size={24} />
+          <span className="min-w-0 flex-1 truncate px-1 text-sm">
+            Seating <span className="font-semibold text-ink">{pickedGuest.name}</span> — tap a chair or a table.
+          </span>
+          {pickedGuest.seated_table_id ? (
+            <button
+              type="button"
+              onClick={() => unseat(pickedGuest.guest_id)}
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-ink/15 px-2 text-xs text-ink hover:border-danger-400 hover:text-danger-600"
+            >
+              <UserMinus className="h-3.5 w-3.5" /> Unseat
+            </button>
+          ) : null}
+          <button type="button" onClick={() => setPickedId(null)} aria-label="Cancel" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
+            <X className="h-4 w-4" />
+          </button>
+        </ContextDock>
+      );
+    }
+    if (dockPrimary === 'picked-group' && pickedGroup) {
+      return (
+        <ContextDock variant="dock" edge="bottom" tone="picked-group" boundsRef={regionRef}>
+          <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: pickedGroup.color }} />
+          <span className="min-w-0 flex-1 truncate px-1 text-sm">
+            Seating <span className="font-semibold text-ink">{pickedGroup.label}</span> ({pickedGroupMemberIds.length}{' '}
+            {pickedGroupMemberIds.length === 1 ? 'member' : 'members'}) — tap a table.
+          </span>
+          <button type="button" onClick={() => setPickedGroupId(null)} aria-label="Cancel" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
+            <X className="h-4 w-4" />
+          </button>
+        </ContextDock>
+      );
+    }
+
+    // ── Selected TABLE (edit-chairs is a variant of this state) ──
+    if (dockPrimary === 'table' && selTable) {
+      const st = selTable;
+      const variant = isPhone ? sheetVariant : 'dock';
+      const seated = seatedAt(st.table_id);
+      const panel = shapePickerOpen ? (
+        <ShapePicker
+          value={st.table_type}
+          seatedCount={seated}
+          onApply={(tt) => { changeStyle(st, tt); setShapePickerOpen(false); }}
+          onPreview={setPreviewType}
+          onCancel={() => { setShapePickerOpen(false); setPreviewType(null); }}
+        />
+      ) : pickerOpen ? (
+        <SeatPeoplePanel
+          table={st}
+          occ={occupantsFor(st)}
+          guests={guests}
+          groups={groups}
+          tab={pickerTab}
+          onTab={setPickerTab}
+          q={pickerQ}
+          onQ={setPickerQ}
+          colorFor={colorFor}
+          tableLabelById={tableLabelById}
+          onSeatGuest={(gid) => seatGuestHere(st, gid)}
+          onSeatGroup={(grpId) => seatGroupMembers(grpId, st.table_id)}
+          onSeatTier={(tier) => seatTierHere(st, tier)}
+          onUnseat={unseat}
+          roleSet={roleSet}
+        />
+      ) : null;
+
+      const nameField = (big: boolean) => (
+        <input
+          key={st.table_id}
+          defaultValue={st.table_label}
+          aria-label="Table name"
+          maxLength={64}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            if (e.key === 'Escape') { e.currentTarget.value = st.table_label; e.currentTarget.blur(); }
+          }}
+          onBlur={(e) => renameTable(st.table_id, e.currentTarget.value)}
+          className={
+            big
+              ? 'h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-cream px-3 text-base font-medium text-ink outline-none focus:border-terracotta'
+              : 'w-24 rounded-lg border border-transparent bg-ink/[0.04] px-2 py-1 text-sm font-medium text-ink outline-none focus:border-terracotta focus:bg-cream'
+          }
+        />
+      );
+      const seatPeopleBtn = (big: boolean) => (
+        <button
+          type="button"
+          onClick={() => { setPickerOpen((v) => !v); setShapePickerOpen(false); }}
+          aria-pressed={pickerOpen}
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 font-medium ${big ? 'h-11 text-sm' : 'h-8 text-xs'} ${
+            pickerOpen ? 'border-terracotta bg-terracotta/10 text-terracotta-700' : 'border-ink/15 text-ink/75 hover:bg-ink/5'
+          }`}
+        >
+          <UserPlus className={big ? 'h-5 w-5' : 'h-4 w-4'} /> Seat people
+        </button>
+      );
+
+      // Edit-chairs banner variant (§3).
+      if (editChairs) {
+        const banner = (
+          <>
+            <span className="min-w-0 flex-1 px-1 text-[13px] text-ink/80">
+              Editing chairs — tap a chair to remove, a ghost to restore.
+              {seatNotice && seatNotice.tableId === st.table_id ? (
+                <>
+                  {' · '}
+                  <button type="button" onClick={undoSeatRemoval} className="font-semibold text-terracotta-700 underline">
+                    Undo seat {seatNotice.seat + 1}
+                  </button>
+                </>
+              ) : null}
+            </span>
+            <button
+              type="button"
+              onClick={() => setEditChairs(false)}
+              className={`inline-flex shrink-0 items-center rounded-lg bg-mulberry px-3 font-semibold text-cream hover:bg-mulberry-600 ${isPhone ? 'h-11 text-sm' : 'h-8 text-xs'}`}
+            >
+              Done
+            </button>
+          </>
+        );
+        return (
+          <ContextDock variant={variant} edge={variant === 'dock' ? edge : 'bottom'} tone="edit-chairs" glyph={<ShapeGlyph shape={shapeHintFor(st.table_type)} className="h-3.5 w-3.5" />} name={variant !== 'dock' ? st.table_label : undefined} boundsRef={regionRef}>
+            {banner}
+          </ContextDock>
+        );
+      }
+
+      const undoStrip =
+        seatNotice && seatNotice.tableId === st.table_id ? (
+          <button
+            type="button"
+            onClick={undoSeatRemoval}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2 font-mono text-[10px] text-ink/70 hover:border-terracotta"
+          >
+            Seat {seatNotice.seat + 1} removed · Undo
+          </button>
+        ) : null;
+
+      const body = isPhone ? (
+        // §1.3 — phone sheet, reordered to dock parity, ≥44px rows.
+        <div className="flex w-full flex-col gap-2.5">
+          <div className="flex items-center gap-2">
+            {nameField(true)}
+            {seatPeopleBtn(true)}
+            <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-ink/50 hover:bg-ink/5">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            {dockSeatsStepper(st)}
+            {undoStrip}
+          </div>
+          <div className="flex items-center gap-2">
+            {dockRotateCluster(st, 15)}
+            <button type="button" onClick={() => rotateTable(st, 180)} className="inline-flex h-11 items-center rounded-xl border border-ink/15 px-3 text-sm font-medium text-ink/70 hover:bg-ink/5">
+              180°
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => { setShapePickerOpen(true); setPickerOpen(false); }} className="inline-flex h-11 items-center rounded-xl border border-ink/15 px-3 text-sm text-ink/75 hover:bg-ink/5">Change shape…</button>
+            <button type="button" onClick={() => { setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }} className="inline-flex h-11 items-center rounded-xl border border-ink/15 px-3 text-sm text-ink/75 hover:bg-ink/5">Edit chairs…</button>
+            {st.link_group_id ? (
+              <button type="button" onClick={() => doUnlink(st.table_id)} className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-ink/15 px-3 text-sm text-mulberry hover:bg-mulberry/10">
+                <Ungroup className="h-4 w-4" /> Break apart
+              </button>
+            ) : null}
+          </div>
+          <div className="h-2" />
+          <button type="button" onClick={() => requestRemoveTable(st)} className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-danger-300 px-3 text-sm font-medium text-danger-600 hover:bg-danger-50">
+            <Trash2 className="h-5 w-5" /> Delete table
+          </button>
+        </div>
+      ) : (
+        // §1.2 — desktop dock, one row, exact order.
+        <>
+          <ShapeGlyph shape={shapeHintFor(st.table_type)} className="ml-1 h-3.5 w-3.5 shrink-0 text-ink/45" />
+          {nameField(false)}
+          {seatPeopleBtn(false)}
+          {dockSeatsStepper(st)}
+          {undoStrip}
+          {dockRotateCluster(st, 15)}
+          {dockOverflowMenu(st)}
+          <span className="mx-0.5 h-6 w-px shrink-0 bg-ink/15" />
+          <button type="button" onClick={() => requestRemoveTable(st)} aria-label="Delete table" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/50 hover:bg-danger-50 hover:text-danger-600">
+            <Trash2 className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
+            <X className="h-4 w-4" />
+          </button>
+        </>
+      );
+      return (
+        <ContextDock
+          variant={variant}
+          edge={variant === 'dock' ? edge : 'bottom'}
+          tone="neutral"
+          glyph={undefined}
+          boundsRef={regionRef}
+          panel={panel}
+        >
+          {body}
+        </ContextDock>
+      );
+    }
+
+    // ── Selected MARKER (§1.4) ──
+    if (dockPrimary === 'marker' && selM) {
+      const big = isPhone;
+      const actBtn = `inline-flex shrink-0 items-center gap-1 rounded-lg border font-medium ${big ? 'h-11 px-3 text-sm' : 'h-8 px-2.5 text-xs'}`;
+      const removeBtn = (
+        <button type="button" onClick={removeSelectedMarker} className={`${actBtn} border-danger-300 text-danger-600 hover:bg-danger-50`}>
+          <Trash2 className={big ? 'h-5 w-5' : 'h-4 w-4'} /> Remove
+        </button>
+      );
+      const doneBtn = (
+        <button type="button" onClick={clearSelection} aria-label="Done" className={`${actBtn} border-ink/15 text-ink/60 hover:bg-ink/5`}>
+          Done
+        </button>
+      );
+      const seg = (opts: { key: string; label: string; active: boolean; onClick: () => void }[], label: string) => (
+        <div role="group" aria-label={label} className="flex shrink-0 overflow-hidden rounded-lg border border-ink/15 text-[11px] font-semibold">
+          {opts.map((o) => (
+            <button key={o.key} type="button" onClick={o.onClick} aria-pressed={o.active} className={`${big ? 'h-11' : 'h-8'} px-2.5 ${o.active ? 'bg-terracotta text-cream' : 'text-ink/60 hover:bg-ink/[0.04]'}`}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      );
+
+      let glyph: React.ReactNode = null;
+      let name: string | undefined;
+      let panel: React.ReactNode = null;
+      let mBody: React.ReactNode = null;
+
+      if (selM.kind === 'booth') {
+        const b = booths.find((x) => x.booth_id === selM.id);
+        if (!b) return null;
+        glyph = <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />;
+        name = b.booth_type === 'unassigned' ? 'Pick type' : boothPresenceLabel(b);
+        panel = (
+          <BoothPickerPanel
+            booth={b}
+            booths={booths}
+            bookedVendors={bookedVendors}
+            eventId={eventId}
+            onSetVendor={(v) => setBoothVendor(b.booth_id, v)}
+            onSetType={(t) => setBoothType(b.booth_id, t)}
+            onSetOfferings={(v) => setBoothOfferings(b.booth_id, v)}
+          />
+        );
+        mBody = (<>{removeBtn}{doneBtn}</>);
+      } else if (selM.kind === 'entrance') {
+        glyph = <DoorOpen className="h-3.5 w-3.5 text-terracotta-700" />;
+        name = entrance.kind === 'tunnel' ? 'Walk-through' : 'Entrance';
+        mBody = (
+          <>
+            {seg(
+              [
+                { key: 'door', label: 'Door', active: entrance.kind === 'door', onClick: () => { setEntrance((en) => ({ ...en, kind: 'door' })); setFloorDirty(true); } },
+                { key: 'tunnel', label: 'Walk-through', active: entrance.kind === 'tunnel', onClick: () => { setEntrance((en) => ({ ...en, kind: 'tunnel' })); setFloorDirty(true); } },
+              ],
+              'Entrance style',
+            )}
+            {entrance.kind === 'tunnel' ? (
+              <div className="flex shrink-0 items-center rounded-lg border border-ink/15">
+                <button type="button" aria-label="Decrease depth" onClick={() => { setEntrance((en) => ({ ...en, depthM: Math.max(1.5, Math.round((en.depthM - 0.5) * 2) / 2) })); setFloorDirty(true); }} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-l-lg text-ink/60 hover:bg-ink/5`}>
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="px-1 font-mono text-[11px] tabular-nums text-ink/70">{entrance.depthM.toFixed(1)}m</span>
+                <button type="button" aria-label="Increase depth" onClick={() => { setEntrance((en) => ({ ...en, depthM: Math.min(8, Math.round((en.depthM + 0.5) * 2) / 2) })); setFloorDirty(true); }} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-r-lg text-ink/60 hover:bg-ink/5`}>
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
+            {removeBtn}
+            {doneBtn}
+          </>
+        );
+      } else if (selM.kind === 'cocktail') {
+        glyph = <Martini className="h-3.5 w-3.5 text-terracotta-700" />;
+        name = cocktail.label;
+        mBody = (
+          <>
+            {seg(
+              [
+                { key: 'linked', label: 'With entrance', active: cocktail.linked, onClick: () => { if (!cocktail.linked) toggleCocktailLink(); } },
+                { key: 'separate', label: 'Separate', active: !cocktail.linked, onClick: () => { if (cocktail.linked) toggleCocktailLink(); } },
+              ],
+              'Cocktail room placement',
+            )}
+            {removeBtn}
+            {doneBtn}
+          </>
+        );
+      } else if (selM.kind === 'dance') {
+        glyph = <Footprints className="h-3.5 w-3.5 text-mulberry/70" />;
+        name = 'Dance floor';
+        mBody = (<>{removeBtn}{doneBtn}</>);
+      } else if (selM.kind === 'service') {
+        glyph = <Truck className="h-3.5 w-3.5 text-ink/50" />;
+        name = 'Service door';
+        mBody = (<>{removeBtn}{doneBtn}</>);
+      } else if (selM.kind === 'sign') {
+        const s = signs.find((x) => x.sign_id === selM.id);
+        if (!s) return null;
+        glyph = <Navigation className="h-3.5 w-3.5 text-mulberry/70" />;
+        name = undefined;
+        mBody = (
+          <>
+            <input
+              key={s.sign_id}
+              defaultValue={s.label}
+              aria-label="Sign label"
+              maxLength={24}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { e.currentTarget.value = s.label; e.currentTarget.blur(); } }}
+              onBlur={(e) => relabelSign(s.sign_id, e.currentTarget.value)}
+              className={big ? 'h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-cream px-3 text-base font-medium text-ink outline-none focus:border-terracotta' : 'w-28 rounded-lg border border-transparent bg-ink/[0.04] px-2 py-1 text-sm font-medium text-ink outline-none focus:border-terracotta focus:bg-cream'}
+            />
+            <div className="flex shrink-0 items-center rounded-lg border border-ink/15">
+              <button type="button" aria-label="Rotate 45° left" onClick={() => rotateSignBy(s.sign_id, -45)} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-l-lg text-ink/60 hover:bg-ink/5`}>
+                <RotateCcw className="h-4 w-4" />
+              </button>
+              <span className="w-9 text-center font-mono text-[11px] tabular-nums text-ink/60">{s.rotation_deg}°</span>
+              <button type="button" aria-label="Rotate 45° right" onClick={() => rotateSignBy(s.sign_id, 45)} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-r-lg text-ink/60 hover:bg-ink/5`}>
+                <RotateCw className="h-4 w-4" />
+              </button>
+            </div>
+            {removeBtn}
+            {doneBtn}
+          </>
+        );
+      } else {
+        // stage — honest permanence: no remove.
+        glyph = <span className="font-mono text-[9px] font-semibold uppercase tracking-wide text-ink/50">Stage</span>;
+        name = 'Stage';
+        mBody = (
+          <>
+            <span className="px-1 text-[11px] text-ink/45">· permanent</span>
+            {doneBtn}
+          </>
+        );
+      }
+
+      return (
+        <ContextDock
+          variant={isPhone ? sheetVariant : 'dock'}
+          edge={isPhone ? 'bottom' : edge}
+          tone="neutral"
+          glyph={glyph}
+          name={name}
+          boundsRef={regionRef}
+          panel={panel}
+          onDismiss={isPhone ? clearSelection : undefined}
+        >
+          {mBody}
+        </ContextDock>
+      );
+    }
+
+    // ── Notice (lowest precedence) ──
+    if (dockPrimary === 'notice' && notice) {
+      return (
+        <ContextDock variant="dock" edge="bottom" tone="notice" boundsRef={regionRef}>
+          <span className="min-w-0 flex-1 px-1 text-sm text-warn-900">{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="flex h-8 w-8 items-center justify-center rounded-lg text-warn-700 hover:bg-warn-100">
+            <X className="h-4 w-4" />
+          </button>
+        </ContextDock>
+      );
+    }
+    return null;
+  })();
+  const dockInline = details !== null && isPhone && (dockPrimary === 'table' || dockPrimary === 'marker');
+
+  // ══════════════ 🪑 DETAILS › YOUR EVENT › SEAT PLAN — THE SHELL, RE-SPLIT ══════════════
+  // Owner 2026-09-28, DECISION_LOG "THE SEAT PLAN MOVES INTO DETAILS AND WEARS
+  // THE THREE COLUMNS" (+ 2026-09-29 "THE SEAT PLAN IS LIVE BEHIND ONE DOOR").
+  // Everything below READS this editor's state and CALLS its handlers — no
+  // second copy of a rule or a save ("extract the shell, don't fork the logic").
+  //   LEFT   the place's elements (`seatPlanPlaceRows`) — the navigator's pieces;
+  //          a row selects that object on the plan, a tap on the plan picks the row.
+  //   MIDDLE this frame — the plan (2D · 3D · List), the command bar, the dock.
+  //   RIGHT  the guests (`seatPlanGuestSections`): Unseated first, "Seat at… ▾",
+  //          a picked table's own guests and empty seats, "+ Seat next unseated".
+  const [, setSeatPiece] = useDetailsPiece('seating');
+  const openDetailsEditor = useDetailsEditorOpener();
+  const seatPieceKey = seatPlanPieceKey({ table: highlightId, marker: selMarker });
+  useEffect(() => {
+    if (!details) return;
+    // The picked object is the navigator's picked piece; on a phone its part opens.
+    setSeatPiece(seatPieceKey, seatPieceKey ? { openEditor: true } : undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the setter is rebuilt every render; only the pick matters
+  }, [seatPieceKey]);
+  // The right part shows the guests, the rules, the Guests' map (the Indoor
+  // Blueprint), or the new-table panel.
+  const [guestsMode, setGuestsMode] = useState<'guests' | 'rules' | 'map'>(details?.part === 'map' ? 'map' : 'guests');
+
+  // 🚪 "GUESTS SEE THIS NOW" — the ONE door guests' seat reads open on
+  // (`event_floor_plan.published_at`: Find your seat, the seat pass roster, the
+  // 3D walk). On = `publishSeating` (the Publish & print action, which also
+  // stamps the table signs); off = `unpublishSeating` — shipped for the 3D
+  // Plan's own switch, it clears that one gate and leaves the printed signs'
+  // stamps alone (its docblock says why). Saves immediately; never drafted.
+  const [doorOpen, setDoorOpen] = useState(Boolean(floorPlan.published_at));
+  useEffect(() => {
+    setDoorOpen(Boolean(floorPlan.published_at));
+  }, [floorPlan.published_at]);
+  const [doorNote, setDoorNote] = useState<string | null>(null);
+  const flipDoor = (open: boolean) => {
+    const was = doorOpen;
+    setDoorOpen(open);
+    setDoorNote(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    startTransition(async () => {
+      try {
+        if (open) await publishSeating(fd);
+        else await unpublishSeating(fd);
+        router.refresh();
+      } catch {
+        setDoorOpen(was);
+        setDoorNote('That did not save — nothing changed. Please try again.');
+      }
+    });
+  };
+  const doorStrip = details ? (
+    <div
+      data-seat-plan-door={doorOpen ? 'open' : 'closed'}
+      className={`flex shrink-0 items-center gap-3 border-b border-ink/10 px-3 py-2 ${doorOpen ? 'bg-success-50/70' : 'bg-cream'}`}
+    >
+      <span className="flex min-w-0 flex-1 flex-col">
+        <InfoTip
+          label={doorOpen ? 'Guests see this now' : 'Guests don’t see this yet'}
+          labelClassName="text-sm font-semibold text-ink"
+          align="start"
+        >
+          Your seat plan saves as you work — one editor at a time. Guests see nothing until you switch this on; then
+          Find your seat, the seat passes and the 3D walk of your room follow every change at once. Printing the table
+          signs switches it on too. Apply in the Maker does not cover the seat plan.
+        </InfoTip>
+        <span className="truncate text-[11.5px] text-ink/60">
+          {doorOpen ? 'Live — every change shows at once. Saves immediately.' : 'Arrange freely, then switch it on. Saves immediately.'}
+        </span>
+        {doorNote ? (
+          <span role="alert" className="text-[11.5px] text-danger-700">
+            {doorNote}
+          </span>
+        ) : null}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={doorOpen}
+        aria-label="Guests see this now"
+        data-seat-plan-door-switch=""
+        onClick={() => flipDoor(!doorOpen)}
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-sn-control ease-sn ${doorOpen ? 'bg-success-700' : 'bg-ink/25'}`}
+      >
+        <span
+          aria-hidden
+          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-sn-control ease-sn ${doorOpen ? 'translate-x-6' : 'translate-x-1'}`}
+        />
+      </button>
+    </div>
+  ) : null;
+
+  // LEFT — the place. Tapping a row picks it on the plan (the 2D plan: leaving
+  // 3D or the list for it). A guest or group picked on the right is SEATED by
+  // tapping a table row, exactly as tapping the table on the plan does.
+  const placeRows = details
+    ? seatPlanPlaceRows({
+        tables: tables.map((t) => ({
+          id: t.table_id,
+          label: t.table_label,
+          shape: TABLE_TYPE_LABEL[t.table_type],
+          seated: seatedAt(t.table_id),
+          seats: effectiveCapacity(t.capacity, t.removed_seats),
+        })),
+        dance: dance.enabled,
+        entrance: { enabled: entrance.enabled, walkThrough: entrance.kind === 'tunnel' },
+        service: serviceDoor.enabled,
+        cocktail: { enabled: cocktail.enabled, label: cocktail.label },
+        booths: booths.map((b) => ({ id: b.booth_id, label: b.booth_type === 'unassigned' ? 'Booth' : boothPresenceLabel(b) })),
+        signs: signs.map((x) => ({ id: x.sign_id, label: x.label })),
+      })
+    : [];
+  const pickPlace = (key: string) => {
+    if (key === SEAT_PLAN_MAP_PIECE) {
+      clearSelection();
+      setShowAddTable(false);
+      setGuestsMode((m) => (m === 'map' ? 'guests' : 'map'));
+      openDetailsEditor();
+      return;
+    }
+    const sel = parseSeatPlanPiece(key);
+    if (details?.lab) router.push(seatViewHref(null), { scroll: false });
+    if (view !== 'plan') setView('plan');
+    if (sel.table) {
+      const t = tables.find((x) => x.table_id === sel.table);
+      if (t && pickedId) {
+        seatGuestHere(t, pickedId);
+        setPickedId(null);
+        return;
+      }
+      if (t && pickedGroupId) {
+        seatGroupAt(t.table_id);
+        return;
+      }
+      selectTable(sel.table);
+    } else if (sel.marker) {
+      selectMarker(sel.marker.kind, sel.marker.id);
+    }
+  };
+  const placeList = (
+    <>
+      {(['tables', 'place'] as const).map((grp) => {
+        const rows = placeRows.filter((r) => r.group === grp);
+        return (
+          <Fragment key={grp}>
+            <p className="hidden px-2.5 pb-0.5 pt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45 lg:block">
+              {grp === 'tables' ? `Tables · ${formatCount(rows.length)}` : 'The place'}
+            </p>
+            {grp === 'tables' && rows.length === 0 ? (
+              <p className="hidden px-2.5 text-[11.5px] text-ink/55 lg:block">No tables yet — Add, or Auto Arrange.</p>
+            ) : null}
+            {rows.map((r) => (
+              <DetailsPieceButton key={r.key} on={r.key === seatPieceKey} onPick={() => pickPlace(r.key)} data={r.key}>
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate">{r.label}</span>
+                  {r.sub ? <small className="truncate text-[11px] opacity-70">{r.sub}</small> : null}
+                </span>
+              </DetailsPieceButton>
+            ))}
+          </Fragment>
+        );
+      })}
+      <p className="hidden px-2.5 pb-0.5 pt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45 lg:block">For your guests</p>
+      <DetailsPieceButton
+        on={guestsMode === 'map' && seatPieceKey === null && !showAddTable}
+        onPick={() => pickPlace(SEAT_PLAN_MAP_PIECE)}
+        data={SEAT_PLAN_MAP_PIECE}
+      >
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate">Guests&rsquo; map</span>
+          <small className="truncate text-[11px] opacity-70">Find my table · the way in</small>
+        </span>
+      </DetailsPieceButton>
+    </>
+  );
+
+  // RIGHT — the guests.
+  const freeSeatsAt = (t: EventTableRow) => {
+    const removed = removedSeatSet(t.removed_seats, t.capacity);
+    return occupantsFor(t).filter((g, i) => g === null && !removed.has(i)).length;
+  };
+  const seatAtOptions = details
+    ? seatAtChoices(tables.map((t) => ({ id: t.table_id, label: t.table_label, free: freeSeatsAt(t) }))).map((o) => ({
+        key: o.id,
+        label: o.label,
+      }))
+    : [];
+  const guestSections = details
+    ? seatPlanGuestSections(guests, { query: search, onlyUnseated, sides: details.sides, groups })
+    : null;
+  const nextUp = nextUnseatedGuest(guests, pickedId);
+  const unseatedComing = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').length;
+  const detailsTable = details && highlightId ? tables.find((t) => t.table_id === highlightId) ?? null : null;
+  const togglePick = (g: SeatingGuest) => setPickedId((id) => (id === g.guest_id ? null : g.guest_id));
+  const seatAtMenu = (g: SeatingGuest) =>
+    seatAtOptions.length === 0 ? (
+      <span className="shrink-0 text-[10.5px] text-ink/45">No free seats</span>
+    ) : (
+      <PickMenu
+        label="Seat at…"
+        value={null}
+        options={seatAtOptions}
+        onPick={(id) => {
+          const t = tables.find((x) => x.table_id === id);
+          if (t) seatGuestHere(t, g.guest_id);
+        }}
+        dataAttr="data-seat-at"
+        className="min-h-8 shrink-0 border border-ink/15 px-2.5 text-[12px]"
+      />
+    );
+  const back = (label: string, onBack: () => void) => (
+    <button
+      type="button"
+      onClick={onBack}
+      className="sn-press inline-flex min-h-10 items-center self-start text-[13px] font-medium text-ink/70 underline-offset-2 hover:underline"
+    >
+      ‹ {label}
+    </button>
+  );
+  const tableGuests = (t: EventTableRow) => {
+    const occ = occupantsFor(t);
+    const removed = removedSeatSet(t.removed_seats, t.capacity);
+    const seatedHere = occ.filter(Boolean).length;
+    const cap = effectiveCapacity(t.capacity, t.removed_seats);
+    const nextForSeat = pickedGuest ?? nextUp;
+    return (
+      <section data-seat-plan-table={t.table_id} className="flex flex-col gap-1.5">
+        <p className="flex items-baseline justify-between gap-2 font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink/55">
+          <span className="min-w-0 truncate">{t.table_label}</span>
+          <span className="shrink-0 tabular-nums">
+            {formatCount(seatedHere)}/{formatCount(cap)}
+          </span>
+        </p>
+        <ul className="space-y-0.5">
+          {occ.map((g, i) =>
+            removed.has(i) ? null : g ? (
+              <MemberRow
+                key={g.guest_id}
+                guest={g}
+                color={colorFor(g)}
+                picked={pickedId === g.guest_id}
+                tableLabel={null}
+                onPick={() => togglePick(g)}
+                onCyclePriority={() => cyclePriority(g)}
+                roleSet={roleSet}
+                trailing={
+                  canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => unseat(g.guest_id)}
+                      aria-label={`Unseat ${g.name}`}
+                      className="shrink-0 rounded-md px-1.5 py-1 text-[11px] text-ink/55 hover:bg-danger-50 hover:text-danger-600"
+                    >
+                      Unseat
+                    </button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <li key={`empty-${i}`}>
+                <button
+                  type="button"
+                  className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-dashed border-ink/20 px-2 text-left text-[13px] text-ink/60 hover:bg-ink/[0.03] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!canEdit || !nextForSeat}
+                  data-seat-plan-empty-seat={i}
+                  onClick={() => {
+                    if (!nextForSeat) return;
+                    seatGuestHere(t, nextForSeat.guest_id, i);
+                    if (pickedGuest) setPickedId(null);
+                  }}
+                >
+                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-ink/30 font-mono text-[10px] text-ink/50">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">Empty seat</span>
+                  <span className="min-w-0 truncate text-[11px] text-ink/50">
+                    {pickedGuest
+                      ? `Seat ${pickedGuest.name} here`
+                      : nextUp
+                        ? `Tap · ${nextUp.name}`
+                        : 'Everyone is seated'}
+                  </span>
+                </button>
+              </li>
+            ),
+          )}
+        </ul>
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          <button
+            type="button"
+            className="sn-press inline-flex min-h-10 items-center rounded-lg border border-ink/15 px-3 text-[13px] font-medium text-ink hover:bg-ink/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+            data-seat-plan-next=""
+            disabled={!canEdit || !nextUp || seatedHere >= cap}
+            onClick={() => nextUp && seatGuestHere(t, nextUp.guest_id)}
+          >
+            + Seat next unseated
+          </button>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="sn-press inline-flex min-h-10 items-center rounded-lg px-3 text-[13px] text-ink/70 hover:bg-ink/[0.04]"
+          >
+            All guests
+          </button>
+        </div>
+      </section>
+    );
+  };
+  // The Indoor Blueprint's preview list — one row per seated guest, by name.
+  const blueprintGuests = details
+    ? guests
+        .filter((g) => g.seated_table_id)
+        .map((g) => ({ tableId: g.seated_table_id!, guestName: g.name, tableLabel: tableLabelById.get(g.seated_table_id!) ?? 'Table' }))
+        .sort((a, b) => a.guestName.localeCompare(b.guestName))
+    : [];
+  const guestsPart = details ? (
+    <div data-seat-plan-guests="" className="flex flex-col gap-3">
+      {/* The table's (or element's) own controls, on a phone — in the flow. */}
+      {dockInline ? dockNode : null}
+      {showAddTable && canEdit ? (
+        <>
+          {back('Guests', () => setShowAddTable(false))}
+          {addTablePanel}
+        </>
+      ) : guestsMode === 'rules' ? (
+        <>
+          {back('Guests', () => setGuestsMode('guests'))}
+          {rulesPane}
+        </>
+      ) : guestsMode === 'map' && !detailsTable ? (
+        /* 🗺 The Indoor Blueprint, its shipped studio whole — drawn from this
+           plan's own tables and seats; its entrance is the plan's entrance
+           (`saveEntrance` writes `event_floor_plan`, the column this editor's
+           Entrance marker reads), so the plan re-reads it after a save. */
+        <>
+          {back('Guests', () => setGuestsMode('guests'))}
+          <p className="text-xs text-ink/60">
+            Each guest taps Find my table and sees this map — their table, and the way from the entrance.
+          </p>
+          <BlueprintStudio
+            key={`${entrance.x}:${entrance.y}`}
+            eventId={eventId}
+            tables={tables}
+            initialEntrance={{ x: entrance.x, y: entrance.y }}
+            guestOptions={blueprintGuests}
+            saveAction={async (fd) => {
+              await saveEntrance(fd);
+              router.refresh();
+            }}
+            noSeatsNote="Seat a guest on the plan and you can preview their map here."
+          />
+        </>
+      ) : detailsTable ? (
+        tableGuests(detailsTable)
+      ) : (
+        <>
+          <p className="text-xs text-ink/60" data-seat-plan-counts="">
+            {formatCount(guests.length)} {guests.length === 1 ? 'guest' : 'guests'} ·{' '}
+            <span className={unseatedComing > 0 ? 'font-semibold text-terracotta-700' : ''}>
+              {formatCount(unseatedComing)} unseated
+            </span>
+          </p>
+          {searchRow}
+          <label className="flex min-h-10 items-center gap-2 text-[13px] text-ink/75">
+            <input
+              type="checkbox"
+              checked={onlyUnseated}
+              onChange={(e) => setOnlyUnseated(e.target.checked)}
+              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            />
+            Only unseated
+          </label>
+          {guestSections?.sections.map((sec) => (
+            <section key={sec.key} data-seat-plan-section={sec.key} className="flex flex-col gap-1">
+              <p
+                className={`font-mono text-[10.5px] uppercase tracking-[0.16em] ${sec.unseated ? 'text-terracotta-700' : 'text-ink/55'}`}
+              >
+                {sec.label} · {formatCount(sec.guestIds.length)}
+              </p>
+              {sec.unseated && sec.guestIds.length === 0 ? (
+                <p className="text-xs text-ink/55">{search.trim() ? 'No one unseated matches.' : 'Everyone who is coming has a seat.'}</p>
+              ) : null}
+              <ul className="space-y-0.5">
+                {sec.guestIds.map((id) => {
+                  const g = guestsById.get(id);
+                  if (!g) return null;
+                  return (
+                    <MemberRow
+                      key={id}
+                      guest={g}
+                      color={colorFor(g)}
+                      picked={pickedId === id}
+                      tableLabel={g.seated_table_id ? tableLabelById.get(g.seated_table_id) ?? null : null}
+                      onPick={() => togglePick(g)}
+                      onCyclePriority={() => cyclePriority(g)}
+                      roleSet={roleSet}
+                      trailing={!g.seated_table_id && canEdit ? seatAtMenu(g) : undefined}
+                    />
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+          {guestSections && guestSections.notComing > 0 ? (
+            <p className="text-[11px] text-ink/50">
+              {formatCount(guestSections.notComing)} not coming — not listed.
+            </p>
+          ) : null}
+          {groups.length > 0 ? (
+            <section data-seat-plan-section="groups" className="flex flex-col gap-1">
+              <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink/55">Groups · {formatCount(groups.length)}</p>
+              <ul className="space-y-0.5">
+                {groups.map((grp) => (
+                  <li key={grp.group_id} className="flex min-h-10 items-center gap-2 rounded-lg px-1.5">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: grp.color }} />
+                    <span className="min-w-0 flex-1 truncate text-sm text-ink">{grp.label}</span>
+                    <span className="text-[11px] text-ink/50">{formatCount(grp.member_count)}</span>
+                    {groupVerbs(grp)}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </>
+      )}
+    </div>
+  ) : null;
+
   return (
-    <SeatingFrame>
+    <SeatingFrame fill={details !== null}>
+      {/* 🪑 Details: the door guests' seats open on, above the plan. */}
+      {doorStrip}
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
       <CommandBar>
         {/* View axis — [2D · 3D · List] (verdict §4). Prefetch the lab on hover. */}
         <SeatingViewSegment
-          active={view === 'list' ? 'list' : '2d'}
+          active={details?.lab ? '3d' : view === 'list' ? 'list' : '2d'}
           onSelect={onSelectView}
-          on3DHover={() => router.prefetch(labUrl)}
+          /* In Details, 3D is this same address re-read with the lab in it — no
+             page to prefetch (a prefetch would render the whole Maker). */
+          on3DHover={details ? undefined : () => router.prefetch(labUrl)}
         />
 
         {/* §5.5 — stats chip becomes a DOORWAY: one actionable number ("N to
@@ -4748,9 +5764,18 @@ export function SeatingEditor({
             drawer peek handle instead.) */}
         <button
           type="button"
-          onClick={() => { selectPanelTab('people'); setOnlyUnseated(true); if (isNarrow) setDrawerSnap('half'); }}
-          title={`${seatedCount}/${totalCapacity} seated · ${tables.length} tables · ${formatCount(unseatedCount)} unseated — tap to show who's left`}
           className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-ink/12 bg-cream px-3 py-1.5 font-mono text-[11px] text-ink/70 hover:border-terracotta sm:inline-flex"
+          title={`${seatedCount}/${totalCapacity} seated · ${tables.length} tables · ${formatCount(unseatedCount)} unseated — tap to show who's left`}
+          onClick={() => {
+            selectPanelTab('people');
+            setOnlyUnseated(true);
+            if (details) {
+              clearSelection();
+              setShowAddTable(false);
+              setGuestsMode('guests');
+              openDetailsEditor();
+            } else if (isNarrow) setDrawerSnap('half');
+          }}
         >
           <span className={toSeatReserved > 0 ? 'font-semibold text-terracotta' : ''}>
             {toSeatReserved} to seat
@@ -4926,18 +5951,19 @@ export function SeatingEditor({
       </BannerSlot>
 
       {/* ═══════════ ROW 3 — BODY: [320px panel | canvas] ═══════════ */}
-      <FrameBody>
+      <FrameBody single={details !== null}>
         {/* ---------------- Left panel — 3 tabs, full height (verdict §3) ---------------- */}
         {/* Desktop: the 320px grid column. Mobile (<lg): a bottom drawer renders
-            the SAME `panelBody` instead — see after </FrameBody>. */}
-        {isNarrow ? null : (
+            the SAME `panelBody` instead — see after </FrameBody>. In Details the
+            panel's lists are the Maker's own left and right parts (below). */}
+        {isNarrow || details ? null : (
           <aside className="flex min-h-0 flex-col overflow-hidden bg-cream lg:h-full lg:border-r lg:border-ink/10">
             {panelBody}
           </aside>
         )}
 
       {/* ---------------- Canvas cell — fills all remaining height (verdict §1) ---------------- */}
-      <div ref={regionRef} className="relative min-h-0 flex-1 overflow-hidden lg:flex-none">
+      <div ref={regionRef} className={`relative min-h-0 flex-1 overflow-hidden ${details ? '' : 'lg:flex-none'}`}>
 
         {/* Room size & scale — right-anchored popover over the canvas (verdict
             §2 row 2). Floats (absolute) so it never pushes the canvas down. */}
@@ -5122,431 +6148,8 @@ export function SeatingEditor({
           </div>
         ) : null}
 
-        {/* ═══════════ THE CONTEXT DOCK (verdict §1) — one contextual surface ═══════════
-            Replaces the four competing chromes (popover · floating pills · marker
-            scatter · seat × chips). Precedence resolved above; bottom↔top flip is
-            deterministic; the phone sheet is the dock's sibling density. */}
-        {(() => {
-          if (dockPrimary === null) return null;
-          const edge = computeDockEdge();
-
-          // §1.5 view-only honesty — when a table/marker is selected but a peer
-          // holds the editor lock, the dock is a READ-ONLY summary + exactly one
-          // Take-over button. Disabled looks disabled; the old silent no-op dies.
-          if (!canEdit && (dockPrimary === 'table' || dockPrimary === 'marker')) {
-            let glyph: React.ReactNode = null;
-            let name = '';
-            let summary: string | null = null;
-            if (selTable) {
-              glyph = <ShapeGlyph shape={shapeHintFor(selTable.table_type)} className="h-3.5 w-3.5" />;
-              name = selTable.table_label;
-              summary = `${seatedAt(selTable.table_id)}/${effectiveCapacity(selTable.capacity, selTable.removed_seats)}`;
-            } else if (selM) {
-              name = selM.kind === 'booth'
-                ? (booths.find((x) => x.booth_id === selM.id)?.label ?? 'Booth')
-                : selM.kind === 'sign'
-                  ? (signs.find((x) => x.sign_id === selM.id)?.label ?? 'Sign')
-                  : selM.kind.charAt(0).toUpperCase() + selM.kind.slice(1);
-            }
-            return (
-              <ContextDock variant={isPhone ? 'sheet' : 'dock'} edge={isPhone ? 'bottom' : edge} tone="neutral" glyph={glyph} name={name} boundsRef={regionRef} onDismiss={isPhone ? clearSelection : undefined}>
-                {summary ? <span className="px-1 font-mono text-[11px] tabular-nums text-ink/60">{summary} seated</span> : null}
-                <button
-                  type="button"
-                  onClick={lock.acquire}
-                  disabled={lock.status === 'acquiring'}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-ink/80 px-3 font-semibold text-cream hover:bg-ink disabled:opacity-50 ${isPhone ? 'h-11 text-sm' : 'h-8 text-xs'}`}
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  {lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-                </button>
-                {!isPhone ? (
-                  <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
-                    <X className="h-4 w-4" />
-                  </button>
-                ) : null}
-              </ContextDock>
-            );
-          }
-
-          // ── Pill states (bottom, no flip; shown in both plan + list views) ──
-          if (dockPrimary === 'picked-guest' && pickedGuest) {
-            return (
-              <ContextDock variant="dock" edge="bottom" tone="picked-guest" boundsRef={regionRef}>
-                <ChairAvatar guest={pickedGuest} color={colorFor(pickedGuest)} size={24} />
-                <span className="min-w-0 flex-1 truncate px-1 text-sm">
-                  Seating <span className="font-semibold text-ink">{pickedGuest.name}</span> — tap a chair or a table.
-                </span>
-                {pickedGuest.seated_table_id ? (
-                  <button
-                    type="button"
-                    onClick={() => unseat(pickedGuest.guest_id)}
-                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-ink/15 px-2 text-xs text-ink hover:border-danger-400 hover:text-danger-600"
-                  >
-                    <UserMinus className="h-3.5 w-3.5" /> Unseat
-                  </button>
-                ) : null}
-                <button type="button" onClick={() => setPickedId(null)} aria-label="Cancel" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
-                  <X className="h-4 w-4" />
-                </button>
-              </ContextDock>
-            );
-          }
-          if (dockPrimary === 'picked-group' && pickedGroup) {
-            return (
-              <ContextDock variant="dock" edge="bottom" tone="picked-group" boundsRef={regionRef}>
-                <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: pickedGroup.color }} />
-                <span className="min-w-0 flex-1 truncate px-1 text-sm">
-                  Seating <span className="font-semibold text-ink">{pickedGroup.label}</span> ({pickedGroupMemberIds.length}{' '}
-                  {pickedGroupMemberIds.length === 1 ? 'member' : 'members'}) — tap a table.
-                </span>
-                <button type="button" onClick={() => setPickedGroupId(null)} aria-label="Cancel" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
-                  <X className="h-4 w-4" />
-                </button>
-              </ContextDock>
-            );
-          }
-
-          // ── Selected TABLE (edit-chairs is a variant of this state) ──
-          if (dockPrimary === 'table' && selTable) {
-            const st = selTable;
-            const variant = isPhone ? 'sheet' : 'dock';
-            const seated = seatedAt(st.table_id);
-            const panel = shapePickerOpen ? (
-              <ShapePicker
-                value={st.table_type}
-                seatedCount={seated}
-                onApply={(tt) => { changeStyle(st, tt); setShapePickerOpen(false); }}
-                onPreview={setPreviewType}
-                onCancel={() => { setShapePickerOpen(false); setPreviewType(null); }}
-              />
-            ) : pickerOpen ? (
-              <SeatPeoplePanel
-                table={st}
-                occ={occupantsFor(st)}
-                guests={guests}
-                groups={groups}
-                tab={pickerTab}
-                onTab={setPickerTab}
-                q={pickerQ}
-                onQ={setPickerQ}
-                colorFor={colorFor}
-                tableLabelById={tableLabelById}
-                onSeatGuest={(gid) => seatGuestHere(st, gid)}
-                onSeatGroup={(grpId) => seatGroupMembers(grpId, st.table_id)}
-                onSeatTier={(tier) => seatTierHere(st, tier)}
-                onUnseat={unseat}
-                roleSet={roleSet}
-              />
-            ) : null;
-
-            const nameField = (big: boolean) => (
-              <input
-                key={st.table_id}
-                defaultValue={st.table_label}
-                aria-label="Table name"
-                maxLength={64}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur();
-                  if (e.key === 'Escape') { e.currentTarget.value = st.table_label; e.currentTarget.blur(); }
-                }}
-                onBlur={(e) => renameTable(st.table_id, e.currentTarget.value)}
-                className={
-                  big
-                    ? 'h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-cream px-3 text-base font-medium text-ink outline-none focus:border-terracotta'
-                    : 'w-24 rounded-lg border border-transparent bg-ink/[0.04] px-2 py-1 text-sm font-medium text-ink outline-none focus:border-terracotta focus:bg-cream'
-                }
-              />
-            );
-            const seatPeopleBtn = (big: boolean) => (
-              <button
-                type="button"
-                onClick={() => { setPickerOpen((v) => !v); setShapePickerOpen(false); }}
-                aria-pressed={pickerOpen}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 font-medium ${big ? 'h-11 text-sm' : 'h-8 text-xs'} ${
-                  pickerOpen ? 'border-terracotta bg-terracotta/10 text-terracotta-700' : 'border-ink/15 text-ink/75 hover:bg-ink/5'
-                }`}
-              >
-                <UserPlus className={big ? 'h-5 w-5' : 'h-4 w-4'} /> Seat people
-              </button>
-            );
-
-            // Edit-chairs banner variant (§3).
-            if (editChairs) {
-              const banner = (
-                <>
-                  <span className="min-w-0 flex-1 px-1 text-[13px] text-ink/80">
-                    Editing chairs — tap a chair to remove, a ghost to restore.
-                    {seatNotice && seatNotice.tableId === st.table_id ? (
-                      <>
-                        {' · '}
-                        <button type="button" onClick={undoSeatRemoval} className="font-semibold text-terracotta-700 underline">
-                          Undo seat {seatNotice.seat + 1}
-                        </button>
-                      </>
-                    ) : null}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setEditChairs(false)}
-                    className={`inline-flex shrink-0 items-center rounded-lg bg-mulberry px-3 font-semibold text-cream hover:bg-mulberry-600 ${isPhone ? 'h-11 text-sm' : 'h-8 text-xs'}`}
-                  >
-                    Done
-                  </button>
-                </>
-              );
-              return (
-                <ContextDock variant={variant} edge={variant === 'dock' ? edge : 'bottom'} tone="edit-chairs" glyph={<ShapeGlyph shape={shapeHintFor(st.table_type)} className="h-3.5 w-3.5" />} name={variant === 'sheet' ? st.table_label : undefined} boundsRef={regionRef}>
-                  {banner}
-                </ContextDock>
-              );
-            }
-
-            const undoStrip =
-              seatNotice && seatNotice.tableId === st.table_id ? (
-                <button
-                  type="button"
-                  onClick={undoSeatRemoval}
-                  className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2 font-mono text-[10px] text-ink/70 hover:border-terracotta"
-                >
-                  Seat {seatNotice.seat + 1} removed · Undo
-                </button>
-              ) : null;
-
-            const body = isPhone ? (
-              // §1.3 — phone sheet, reordered to dock parity, ≥44px rows.
-              <div className="flex w-full flex-col gap-2.5">
-                <div className="flex items-center gap-2">
-                  {nameField(true)}
-                  {seatPeopleBtn(true)}
-                  <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-ink/50 hover:bg-ink/5">
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  {dockSeatsStepper(st)}
-                  {undoStrip}
-                </div>
-                <div className="flex items-center gap-2">
-                  {dockRotateCluster(st, 15)}
-                  <button type="button" onClick={() => rotateTable(st, 180)} className="inline-flex h-11 items-center rounded-xl border border-ink/15 px-3 text-sm font-medium text-ink/70 hover:bg-ink/5">
-                    180°
-                  </button>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" onClick={() => { setShapePickerOpen(true); setPickerOpen(false); }} className="inline-flex h-11 items-center rounded-xl border border-ink/15 px-3 text-sm text-ink/75 hover:bg-ink/5">Change shape…</button>
-                  <button type="button" onClick={() => { setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }} className="inline-flex h-11 items-center rounded-xl border border-ink/15 px-3 text-sm text-ink/75 hover:bg-ink/5">Edit chairs…</button>
-                  {st.link_group_id ? (
-                    <button type="button" onClick={() => doUnlink(st.table_id)} className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-ink/15 px-3 text-sm text-mulberry hover:bg-mulberry/10">
-                      <Ungroup className="h-4 w-4" /> Break apart
-                    </button>
-                  ) : null}
-                </div>
-                <div className="h-2" />
-                <button type="button" onClick={() => requestRemoveTable(st)} className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-danger-300 px-3 text-sm font-medium text-danger-600 hover:bg-danger-50">
-                  <Trash2 className="h-5 w-5" /> Delete table
-                </button>
-              </div>
-            ) : (
-              // §1.2 — desktop dock, one row, exact order.
-              <>
-                <ShapeGlyph shape={shapeHintFor(st.table_type)} className="ml-1 h-3.5 w-3.5 shrink-0 text-ink/45" />
-                {nameField(false)}
-                {seatPeopleBtn(false)}
-                {dockSeatsStepper(st)}
-                {undoStrip}
-                {dockRotateCluster(st, 15)}
-                {dockOverflowMenu(st)}
-                <span className="mx-0.5 h-6 w-px shrink-0 bg-ink/15" />
-                <button type="button" onClick={() => requestRemoveTable(st)} aria-label="Delete table" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/50 hover:bg-danger-50 hover:text-danger-600">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-                <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
-                  <X className="h-4 w-4" />
-                </button>
-              </>
-            );
-            return (
-              <ContextDock
-                variant={variant}
-                edge={variant === 'dock' ? edge : 'bottom'}
-                tone="neutral"
-                glyph={variant === 'sheet' ? undefined : undefined}
-                boundsRef={regionRef}
-                panel={panel}
-              >
-                {body}
-              </ContextDock>
-            );
-          }
-
-          // ── Selected MARKER (§1.4) ──
-          if (dockPrimary === 'marker' && selM) {
-            const big = isPhone;
-            const actBtn = `inline-flex shrink-0 items-center gap-1 rounded-lg border font-medium ${big ? 'h-11 px-3 text-sm' : 'h-8 px-2.5 text-xs'}`;
-            const removeBtn = (
-              <button type="button" onClick={removeSelectedMarker} className={`${actBtn} border-danger-300 text-danger-600 hover:bg-danger-50`}>
-                <Trash2 className={big ? 'h-5 w-5' : 'h-4 w-4'} /> Remove
-              </button>
-            );
-            const doneBtn = (
-              <button type="button" onClick={clearSelection} aria-label="Done" className={`${actBtn} border-ink/15 text-ink/60 hover:bg-ink/5`}>
-                Done
-              </button>
-            );
-            const seg = (opts: { key: string; label: string; active: boolean; onClick: () => void }[], label: string) => (
-              <div role="group" aria-label={label} className="flex shrink-0 overflow-hidden rounded-lg border border-ink/15 text-[11px] font-semibold">
-                {opts.map((o) => (
-                  <button key={o.key} type="button" onClick={o.onClick} aria-pressed={o.active} className={`${big ? 'h-11' : 'h-8'} px-2.5 ${o.active ? 'bg-terracotta text-cream' : 'text-ink/60 hover:bg-ink/[0.04]'}`}>
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            );
-
-            let glyph: React.ReactNode = null;
-            let name: string | undefined;
-            let panel: React.ReactNode = null;
-            let mBody: React.ReactNode = null;
-
-            if (selM.kind === 'booth') {
-              const b = booths.find((x) => x.booth_id === selM.id);
-              if (!b) return null;
-              glyph = <BoothIcon type={b.booth_type} className="h-3.5 w-3.5 text-terracotta-700" />;
-              name = b.booth_type === 'unassigned' ? 'Pick type' : boothPresenceLabel(b);
-              panel = (
-                <BoothPickerPanel
-                  booth={b}
-                  booths={booths}
-                  bookedVendors={bookedVendors}
-                  eventId={eventId}
-                  onSetVendor={(v) => setBoothVendor(b.booth_id, v)}
-                  onSetType={(t) => setBoothType(b.booth_id, t)}
-                  onSetOfferings={(v) => setBoothOfferings(b.booth_id, v)}
-                />
-              );
-              mBody = (<>{removeBtn}{doneBtn}</>);
-            } else if (selM.kind === 'entrance') {
-              glyph = <DoorOpen className="h-3.5 w-3.5 text-terracotta-700" />;
-              name = entrance.kind === 'tunnel' ? 'Walk-through' : 'Entrance';
-              mBody = (
-                <>
-                  {seg(
-                    [
-                      { key: 'door', label: 'Door', active: entrance.kind === 'door', onClick: () => { setEntrance((en) => ({ ...en, kind: 'door' })); setFloorDirty(true); } },
-                      { key: 'tunnel', label: 'Walk-through', active: entrance.kind === 'tunnel', onClick: () => { setEntrance((en) => ({ ...en, kind: 'tunnel' })); setFloorDirty(true); } },
-                    ],
-                    'Entrance style',
-                  )}
-                  {entrance.kind === 'tunnel' ? (
-                    <div className="flex shrink-0 items-center rounded-lg border border-ink/15">
-                      <button type="button" aria-label="Decrease depth" onClick={() => { setEntrance((en) => ({ ...en, depthM: Math.max(1.5, Math.round((en.depthM - 0.5) * 2) / 2) })); setFloorDirty(true); }} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-l-lg text-ink/60 hover:bg-ink/5`}>
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <span className="px-1 font-mono text-[11px] tabular-nums text-ink/70">{entrance.depthM.toFixed(1)}m</span>
-                      <button type="button" aria-label="Increase depth" onClick={() => { setEntrance((en) => ({ ...en, depthM: Math.min(8, Math.round((en.depthM + 0.5) * 2) / 2) })); setFloorDirty(true); }} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-r-lg text-ink/60 hover:bg-ink/5`}>
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : null}
-                  {removeBtn}
-                  {doneBtn}
-                </>
-              );
-            } else if (selM.kind === 'cocktail') {
-              glyph = <Martini className="h-3.5 w-3.5 text-terracotta-700" />;
-              name = cocktail.label;
-              mBody = (
-                <>
-                  {seg(
-                    [
-                      { key: 'linked', label: 'With entrance', active: cocktail.linked, onClick: () => { if (!cocktail.linked) toggleCocktailLink(); } },
-                      { key: 'separate', label: 'Separate', active: !cocktail.linked, onClick: () => { if (cocktail.linked) toggleCocktailLink(); } },
-                    ],
-                    'Cocktail room placement',
-                  )}
-                  {removeBtn}
-                  {doneBtn}
-                </>
-              );
-            } else if (selM.kind === 'dance') {
-              glyph = <Footprints className="h-3.5 w-3.5 text-mulberry/70" />;
-              name = 'Dance floor';
-              mBody = (<>{removeBtn}{doneBtn}</>);
-            } else if (selM.kind === 'service') {
-              glyph = <Truck className="h-3.5 w-3.5 text-ink/50" />;
-              name = 'Service door';
-              mBody = (<>{removeBtn}{doneBtn}</>);
-            } else if (selM.kind === 'sign') {
-              const s = signs.find((x) => x.sign_id === selM.id);
-              if (!s) return null;
-              glyph = <Navigation className="h-3.5 w-3.5 text-mulberry/70" />;
-              name = undefined;
-              mBody = (
-                <>
-                  <input
-                    key={s.sign_id}
-                    defaultValue={s.label}
-                    aria-label="Sign label"
-                    maxLength={24}
-                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { e.currentTarget.value = s.label; e.currentTarget.blur(); } }}
-                    onBlur={(e) => relabelSign(s.sign_id, e.currentTarget.value)}
-                    className={big ? 'h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-cream px-3 text-base font-medium text-ink outline-none focus:border-terracotta' : 'w-28 rounded-lg border border-transparent bg-ink/[0.04] px-2 py-1 text-sm font-medium text-ink outline-none focus:border-terracotta focus:bg-cream'}
-                  />
-                  <div className="flex shrink-0 items-center rounded-lg border border-ink/15">
-                    <button type="button" aria-label="Rotate 45° left" onClick={() => rotateSignBy(s.sign_id, -45)} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-l-lg text-ink/60 hover:bg-ink/5`}>
-                      <RotateCcw className="h-4 w-4" />
-                    </button>
-                    <span className="w-9 text-center font-mono text-[11px] tabular-nums text-ink/60">{s.rotation_deg}°</span>
-                    <button type="button" aria-label="Rotate 45° right" onClick={() => rotateSignBy(s.sign_id, 45)} className={`flex ${big ? 'h-11 w-11' : 'h-8 w-8'} items-center justify-center rounded-r-lg text-ink/60 hover:bg-ink/5`}>
-                      <RotateCw className="h-4 w-4" />
-                    </button>
-                  </div>
-                  {removeBtn}
-                  {doneBtn}
-                </>
-              );
-            } else {
-              // stage — honest permanence: no remove.
-              glyph = <span className="font-mono text-[9px] font-semibold uppercase tracking-wide text-ink/50">Stage</span>;
-              name = 'Stage';
-              mBody = (
-                <>
-                  <span className="px-1 text-[11px] text-ink/45">· permanent</span>
-                  {doneBtn}
-                </>
-              );
-            }
-
-            return (
-              <ContextDock
-                variant={isPhone ? 'sheet' : 'dock'}
-                edge={isPhone ? 'bottom' : edge}
-                tone="neutral"
-                glyph={glyph}
-                name={name}
-                boundsRef={regionRef}
-                panel={panel}
-                onDismiss={isPhone ? clearSelection : undefined}
-              >
-                {mBody}
-              </ContextDock>
-            );
-          }
-
-          // ── Notice (lowest precedence) ──
-          if (dockPrimary === 'notice' && notice) {
-            return (
-              <ContextDock variant="dock" edge="bottom" tone="notice" boundsRef={regionRef}>
-                <span className="min-w-0 flex-1 px-1 text-sm text-warn-900">{notice}</span>
-                <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="flex h-8 w-8 items-center justify-center rounded-lg text-warn-700 hover:bg-warn-100">
-                  <X className="h-4 w-4" />
-                </button>
-              </ContextDock>
-            );
-          }
-          return null;
-        })()}
+        {/* The Context Dock (built above as `dockNode`). */}
+        {dockInline ? null : dockNode}
 
         {view === 'plan' ? (
         <>
@@ -6800,13 +7403,21 @@ export function SeatingEditor({
             </p>
           </div>
         )}
+        {/* 🪑 Details · 3D — the lab, drawn over the plan in this same part (free,
+            always on — DECISION_LOG "3D SEAT PLANNING STAYS FREE"). The 2D plan
+            stays mounted beneath it, so its lock, guests and lists stay put. */}
+        {details?.lab ? (
+          <div data-seat-plan-3d="" className="absolute inset-0 z-[45] overflow-hidden bg-cream">
+            {details.lab}
+          </div>
+        ) : null}
       </div>
       </FrameBody>
 
       {/* ═══════════ Mobile bottom drawer (verdict §7) — replaces the stacked
           panel on <lg screens; 3 snap points over a full-height canvas. Yields
           to the <768px per-table sheet (drawer never stacks with it). ═══════════ */}
-      {isNarrow ? (
+      {isNarrow && !details ? (
         <div
           ref={drawerRef}
           className="fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border-t border-ink/15 bg-cream shadow-[0_-8px_30px_rgba(0,0,0,0.14)] motion-safe:transition-[height] motion-safe:duration-200"
@@ -6972,6 +7583,18 @@ export function SeatingEditor({
         </div>
       ) : null}
 
+      {/* 🪑 Details: the place's elements into the navigator, the guests into the
+          right part — drawn by this editor, so they are its state, live. */}
+      {details ? (
+        <>
+          <SeatPlanPortal name="place" on>
+            {placeList}
+          </SeatPlanPortal>
+          <SeatPlanPortal name="guests" on>
+            {guestsPart}
+          </SeatPlanPortal>
+        </>
+      ) : null}
     </SeatingFrame>
   );
 }
@@ -7158,6 +7781,7 @@ function MemberRow({
   onPick,
   onCyclePriority,
   roleSet,
+  trailing,
 }: {
   guest: SeatingGuest;
   color: string;
@@ -7166,6 +7790,8 @@ function MemberRow({
   onPick: () => void;
   onCyclePriority: () => void;
   roleSet: RoleSet;
+  /** Details' quick verb beside the name — "Seat at… ▾" for an unseated guest, "Unseat" at a table. */
+  trailing?: React.ReactNode;
 }) {
   const tier = guestTier(guest.role, guest.group_category, guest.seating_priority, roleSet);
   const overridden = guest.seating_priority !== null;
@@ -7185,10 +7811,11 @@ function MemberRow({
         <span className="min-w-0 flex-1 truncate text-sm text-ink">{guest.name}</span>
         {tableLabel ? (
           <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink/55">{tableLabel}</span>
-        ) : (
+        ) : trailing ? null : (
           <span className="shrink-0 text-[10px] text-ink/30">unseated</span>
         )}
       </button>
+      {trailing}
       {/* Priority tier chip — P1 seats nearest the stage. Tap cycles an explicit
           override 1→2→3→4→back to the role-derived tier (hollow = derived). */}
       <button

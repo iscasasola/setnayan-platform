@@ -43,7 +43,7 @@ test('1 · the thank-you draws their Digital ticket only when they have one, and
   const at = ENTER.indexOf('{passCards ? (');
   assert.ok(at > -1, 'the ticket section moved — re-point this guard');
   const block = ENTER.slice(at, ENTER.indexOf('<YourGuests', at));
-  assert.match(block, /<TicketRow href=\{PASS_CARD_ROUTE\} name=\{guestName\}/);
+  assert.match(block, /<TicketRow\s+href=\{PASS_CARD_ROUTE\}\s+name=\{guestName\}/);
   assert.match(block, /Your \{PASS_CARD_WORDS\.digitalTicket\}/);
   assert.match(block, /<InviteQrPanel\b/, 'a guest with no ticket lost their QR');
   // Order: ticket → guests → link → save (frame A).

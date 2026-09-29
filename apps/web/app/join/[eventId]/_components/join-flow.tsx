@@ -267,7 +267,7 @@ function AskToJoinIntro({ organizer }: { organizer: string }) {
       <p className="font-serif text-2xl text-ink">You&rsquo;re not on the guest list for this event yet</p>
       <p className="text-sm text-ink/70">
         Ask to join. If {organizer} has you down under another name or on a family member&rsquo;s invite, they
-        will link you. You&rsquo;ll hear by email the moment you&rsquo;re in.
+        will link you. You get your own Digital ticket right away — it unlocks the moment they confirm you.
       </p>
     </div>
   );
@@ -294,7 +294,7 @@ export function RequestSentScreen({
       <div className="space-y-3" data-request-sent="">
         <p className="font-serif text-3xl text-ink">Request sent</p>
         <p className="text-base text-ink/75">
-          {organizer} will check their list. You&rsquo;ll get an email the moment you&rsquo;re in.
+          {organizer} will check their list. Open this invitation again once they confirm you — nothing is emailed.
         </p>
       </div>
       {slug ? (

@@ -41,7 +41,6 @@ export const REQUEST_ANSWERS: readonly { value: Extract<RsvpStatus, 'attending' 
 export const REQUEST_MAX_SEATS = 5;
 
 const MEALS = Object.keys(MEAL_LABELS) as MealPreference[];
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export type RequestAnswers = {
   name: string;
@@ -61,9 +60,9 @@ const text = (fd: Getter, key: string, max: number): string =>
 
 /**
  * Read the ask-to-join form. Only the questions the couple still asks are
- * read (`ask`), exactly as the RSVP enforces them. Contact is required — an
- * email or a mobile — because Keep/Link has to reach the person with their
- * key; a signed-in asker's account email counts (`accountEmail`).
+ * read (`ask`), exactly as the RSVP enforces them. 📵 No contact is required
+ * any more — the key is handed over on Send (owner 2026-09-29); a signed-in
+ * asker's account email is kept as who they are (`accountEmail`).
  */
 export function readRequestAnswers(
   fd: Getter,
@@ -89,11 +88,12 @@ export function readRequestAnswers(
   const dietary_restrictions = rsvpAsks(ask, 'dietary') ? text(fd, 'dietary_restrictions', 500) || null : null;
   const guest_note = rsvpAsks(ask, 'note') ? text(fd, 'guest_note', 1000) || null : null;
 
-  const typedEmail = text(fd, 'contact_email', 254).toLowerCase();
-  if (typedEmail && !EMAIL_RE.test(typedEmail)) return { ok: false, error: 'bad_email' };
-  const email = typedEmail || (accountEmail ? accountEmail.trim().toLowerCase() : '') || null;
+  // 📵 NO TYPED EMAIL, AND NO CONTACT REQUIRED (owner 2026-09-29, "NO EMAIL TO
+  // GUESTS"): the requester holds their own key from Send (the pending Digital
+  // ticket + their link), so Accept reaches them without an address. A
+  // signed-in asker's account email is still kept — it is who they signed in as.
+  const email = accountEmail ? accountEmail.trim().toLowerCase() : null;
   const mobile = rsvpAsks(ask, 'mobile') ? text(fd, 'contact_mobile', 32) || null : null;
-  if (!email && !mobile) return { ok: false, error: 'missing_contact' };
   // The Terms tick on the request (prototype 7b) — unticked is refused here,
   // not only by the browser's `required`.
   if (String(fd.get('terms') ?? '') !== 'on') return { ok: false, error: 'missing_terms' };

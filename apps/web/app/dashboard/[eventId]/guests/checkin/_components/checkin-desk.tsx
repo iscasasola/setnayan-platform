@@ -17,7 +17,9 @@ import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
 import { guestTokenFromTag, nfcReadFailureCopy } from '@/lib/nfc-tag';
 import { useNfcEnabled } from '@/app/_components/use-nfc-enabled';
 import { useNfcTagReader } from '@/app/_components/use-nfc-tag-reader';
-import { checkInGuest, undoCheckIn, type CheckinMethod } from '../actions';
+import { checkInGuest, checkTicketLive, undoCheckIn, type CheckinMethod, type TicketCheck } from '../actions';
+import { DOOR_WORDS } from '@/lib/request-key';
+import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 
 export type DeskGuest = {
@@ -70,6 +72,12 @@ export function CheckinDesk({
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // 🎟 The door's LIVE answer for the last scanned code (frames H1–H3) — asked
+  // of the server at the moment of scanning, never of the list loaded earlier.
+  const [live, setLive] = useState<TicketCheck | null>(null);
+  // A guest accepted AFTER this desk loaded still admits — held here once the
+  // live check has named them.
+  const [lateGuests, setLateGuests] = useState<Map<string, DeskGuest>>(() => new Map());
 
   // ---- scanner ------------------------------------------------------------
   const [scanning, setScanning] = useState(false);
@@ -87,10 +95,10 @@ export function CheckinDesk({
     return m;
   }, [guests]);
   const guestById = useMemo(() => {
-    const m = new Map<string, DeskGuest>();
+    const m = new Map<string, DeskGuest>(lateGuests);
     for (const g of guests) m.set(g.guestId, g);
     return m;
-  }, [guests]);
+  }, [guests, lateGuests]);
 
   const stopScanner = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -100,9 +108,22 @@ export function CheckinDesk({
   }, []);
 
   const onToken = useCallback(
-    (token: string, via: 'qr_scan' | 'nfc_tap' = 'qr_scan') => {
-      const guest = guestByToken.get(token);
-      if (!guest) {
+    async (token: string, via: 'qr_scan' | 'nfc_tap' = 'qr_scan') => {
+      // Debounce repeat frames of the same code held under the camera.
+      if (lastHitRef.current === token) return;
+      lastHitRef.current = token;
+      // 🎟 LIVE, EVERY SCAN (owner 2026-09-29): a saved "Request pending"
+      // picture, a screenshot, or a code the couple has since declined — the
+      // row decides, now. The desk's own list is only the fast path's names.
+      const check = await checkTicketLive(eventId, token);
+      setLive(check);
+      if (check.verdict === 'pending' || check.verdict === 'declined') {
+        setSelectedId(null);
+        setNotice(null);
+        if (typeof navigator !== 'undefined') navigator.vibrate?.([60, 60, 60]);
+        return;
+      }
+      if (check.verdict !== 'valid') {
         setNotice(
           via === 'nfc_tap'
             ? 'That tag isn’t a guest on this event’s list.'
@@ -110,16 +131,29 @@ export function CheckinDesk({
         );
         return;
       }
-      // Debounce repeat frames of the same code held under the camera.
-      if (lastHitRef.current === guest.guestId) return;
-      lastHitRef.current = guest.guestId;
+      const known = guestByToken.get(token) ?? guestById.get(check.guestId);
+      if (!known) {
+        setLateGuests((prev) =>
+          new Map(prev).set(check.guestId, {
+            guestId: check.guestId,
+            name: check.name,
+            side: 'both',
+            role: 'guest',
+            rsvpStatus: 'attending',
+            photoUrl: null,
+            plusOneName: null,
+            qrToken: token,
+            tableLabel: null,
+          }),
+        );
+      }
       if (typeof navigator !== 'undefined') navigator.vibrate?.(80);
       setNotice(null);
       setQuery('');
       setSelectedVia(via);
-      setSelectedId(guest.guestId);
+      setSelectedId(check.guestId);
     },
-    [guestByToken],
+    [eventId, guestByToken, guestById],
   );
 
   // ---- NFC tag reader (the guest's tag holds the same link as their QR) ----
@@ -130,7 +164,7 @@ export function CheckinDesk({
         const hit = guestTokenFromTag(urls, parseGuestQrPayload);
         if (hit.token !== null) {
           lastHitRef.current = null; // a deliberate tap is never a repeat frame
-          onToken(hit.token, 'nfc_tap');
+          void onToken(hit.token, 'nfc_tap');
         } else {
           setNotice(
             hit.reason === 'empty'
@@ -198,7 +232,7 @@ export function CheckinDesk({
         });
         if (code?.data) {
           const token = parseGuestQrPayload(code.data);
-          if (token) onToken(token);
+          if (token) void onToken(token);
           else setNotice('That QR isn’t a Setnayan guest code.');
         }
       }
@@ -402,6 +436,7 @@ export function CheckinDesk({
                     onClick={() => {
                       setSelectedVia('manual_search');
                       setSelectedId(g.guestId);
+                      setLive(null);
                       setQuery('');
                       lastHitRef.current = null;
                     }}
@@ -433,6 +468,60 @@ export function CheckinDesk({
         </p>
       ) : null}
 
+      {/* 🎟 THE LIVE VERDICT for a code that must NOT admit (frames H2 · H3) —
+          amber "Not confirmed yet", red "Not approved". Nothing here lets them in. */}
+      {live && (live.verdict === 'pending' || live.verdict === 'declined') ? (
+        <section
+          aria-label="Scanned code"
+          data-door-verdict={live.verdict}
+          className={`rounded-2xl p-4 ${live.verdict === 'pending' ? 'bg-warn-50' : 'bg-danger-50'}`}
+        >
+          <p className={`text-sm font-semibold ${live.verdict === 'pending' ? 'text-warn-800' : 'text-danger-800'}`}>
+            {live.verdict === 'pending' ? DOOR_WORDS.pending : DOOR_WORDS.declined}
+          </p>
+          <h2 className="mt-1 truncate text-lg font-semibold text-ink">{live.name}</h2>
+          <p className="mt-1 text-sm text-ink/75">
+            {live.verdict === 'pending' ? DOOR_WORDS.pendingWhy : DOOR_WORDS.declinedWhy}
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            {live.verdict === 'pending' ? (
+              <>
+                <Link
+                  href={`/dashboard/${eventId}/guests/claims`}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-terracotta-700 px-4 text-base font-semibold text-cream hover:bg-terracotta-800"
+                >
+                  {DOOR_WORDS.pendingOpen}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLive(null);
+                    lastHitRef.current = null;
+                  }}
+                  className="min-h-[44px] text-sm font-medium text-ink/70"
+                >
+                  Not now
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setLive(null);
+                  lastHitRef.current = null;
+                }}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white px-4 text-base font-semibold text-ink shadow-sm"
+              >
+                {DOOR_WORDS.next}
+              </button>
+            )}
+          </div>
+          <p className="mt-3 text-xs text-ink/60" data-checked-live="">
+            {DOOR_WORDS.checkedLive(timeLabel(live.checkedAt), checkedCount, expected)}
+          </p>
+        </section>
+      ) : null}
+
       {/* selected guest card */}
       {selected ? (
         <section
@@ -442,6 +531,11 @@ export function CheckinDesk({
           <div className="flex items-start gap-4">
             <GuestAvatar guest={selected} size="lg" />
             <div className="min-w-0 flex-1">
+              {live?.verdict === 'valid' && live.guestId === selected.guestId ? (
+                <p className="inline-flex items-center gap-1 text-sm font-semibold text-success-700" data-door-verdict="valid">
+                  <CircleCheck className="h-4 w-4" /> {DOOR_WORDS.valid}
+                </p>
+              ) : null}
               <h2 className="truncate text-lg font-semibold text-ink">{selected.name}</h2>
               <p className="mt-0.5 text-sm text-ink/60">
                 {SIDE_LABELS[selected.side]}
@@ -488,10 +582,15 @@ export function CheckinDesk({
                 onClick={() => doCheckIn(selected.guestId, selectedVia)}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-700 px-4 py-3 text-base font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
               >
-                <Check className="h-5 w-5" /> Check in
+                <Check className="h-5 w-5" /> Mark arrived
               </button>
             )}
           </div>
+          {live?.verdict === 'valid' && live.guestId === selected.guestId ? (
+            <p className="mt-3 text-xs text-ink/60" data-checked-live="">
+              {DOOR_WORDS.checkedLive(timeLabel(live.checkedAt), checkedCount, expected)}
+            </p>
+          ) : null}
         </section>
       ) : null}
 

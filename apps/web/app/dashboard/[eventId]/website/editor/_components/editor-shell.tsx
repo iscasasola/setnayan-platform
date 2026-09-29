@@ -55,13 +55,12 @@ const GATE_FAILED = 'That could not be saved. The scene is back as it was — pl
 import { preloadMakerFonts, preloadMakerImages, whenIdle } from '@/lib/maker-preload';
 import { BufferedCanvasFrame, warmCanvasBudget, type CanvasFrame } from './buffered-canvas-frame';
 import { BOTH_PHONE_WIDTH, bothDesktopFit, usePaneSize } from './both-view';
-import { PickMenu } from './pick-menu';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
-import { makerGuestPages, ME_NOT_ON_CANVAS, type GuestPageKey } from '@/lib/maker-guest-pages';
+import { makerGuestPages, ME_NOT_ON_CANVAS, type MakerGuestPage } from '@/lib/maker-guest-pages';
 import { MakerPagePick } from './page-pick';
 import {
   canvasKeyOfSelection,
@@ -1402,19 +1401,17 @@ export function MakerWork({
   const selectedTile = list.shown.find((t) => tileIsSelected(t, selection));
   selectedKeyRef.current = selectedTile ? markerOf(selectedTile) : null;
   const tabs = canvasBar ? navigatorTabs(canvasBar, list.shown.map((t) => t.key)) : null;
-  const activeTab = tabs ? (tabs.find((t) => t.key === tabKey) ?? tabs.find((t) => !t.leaves) ?? null) : null;
   const selectedTabKey = tabs && selectedTile ? (tabOfTile(tabs, selectedTile.key)?.key ?? null) : null;
   /* A scene picked on the canvas may sit under another tab — follow it there. */
   useEffect(() => {
     if (selectedTabKey) setTabKey(selectedTabKey);
   }, [selectedTabKey]);
-  /* 📄 PAGE ▾ — before the day, the navigator's one dropdown is the guest's own
-     pages, Home · Details · Story · Me (owner 2026-09-30, `lib/maker-guest-pages.ts`).
+  /* 📄 PAGE ▾ — the navigator's one dropdown is the guest's own pages on this
+     stage, in the guest bar's own words (owner 2026-09-30, `lib/maker-guest-pages.ts`).
      Each page knows the scenes under it; none is hidden. */
   const guestPages = makerGuestPages(stage, list.shown.map((t) => t.key));
-  const shownPage = guestPages ? (guestPages.find((p) => p.key === tabKey) ?? guestPages[0] ?? null) : null;
-  const selectedPageKey =
-    guestPages && selectedTile ? (guestPages.find((p) => p.tiles.includes(selectedTile.key))?.key ?? null) : null;
+  const shownPage = guestPages.find((p) => p.key === tabKey) ?? guestPages.find((p) => !p.leaves) ?? null;
+  const selectedPageKey = selectedTile ? (guestPages.find((p) => p.tiles.includes(selectedTile.key))?.key ?? null) : null;
   useEffect(() => {
     if (selectedPageKey) setTabKey(selectedPageKey);
   }, [selectedPageKey]);
@@ -1554,10 +1551,11 @@ export function MakerWork({
   const navRows = navigatorRows(tabs, list.shown.map((t) => t.key));
   /* 📄 A page pick JUMPS — the navigator to that page's first scene, the canvas
      to it — in the Maker alone: one message to the loaded canvas, no reload.
-     Me has no scenes here; the navigator's top says what Me is. */
-  const jumpToPage = (key: GuestPageKey) => {
+     Me and a page that leaves have no scenes here; the navigator's top says so. */
+  const jumpToPage = (page: MakerGuestPage) => {
+    const key = page.key;
     setTabKey(key);
-    const first = guestPages?.find((p) => p.key === key)?.tiles[0];
+    const first = page.tiles[0];
     if (!first) {
       navList?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
       return;
@@ -1641,31 +1639,13 @@ export function MakerWork({
               view ("Home ▾"); picking a tab JUMPS the navigator and the canvas to
               that group — never a filter, never a stage change. One line at the
               narrowest column, the palette beside it. */}
+          {/* 📄 …AND IT IS THE GUEST'S PAGES (owner 2026-09-30, pointing at the
+              guest bar: *"there should be Home, Details, Story, Me on top
+              dropdown"*). "Page ▾" offers exactly the pages the guest's bar
+              offers on this stage, in its words (`lib/maker-guest-pages.ts`
+              asks `resolveSiteNav`, the bar's own function) and with its icons. */}
           <li className="flex min-w-0 shrink-0 items-center gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
-            {guestPages && shownPage ? (
-              <MakerPagePick pages={guestPages} value={shownPage.key} onPick={jumpToPage} />
-            ) : tabs ? (
-              <PickMenu
-                label="This stage's menu"
-                dataAttr="data-maker-tab-pick"
-                value={activeTab?.key ?? null}
-                options={tabs.map((t) => ({
-                  key: t.key,
-                  label: t.label,
-                  ...(t.leaves ? { disabledNote: 'opens its own page' } : {}),
-                }))}
-                onPick={(key) => {
-                  const t = tabs.find((x) => x.key === key);
-                  if (!t || t.leaves) return;
-                  setTabKey(t.key);
-                  scrollPreviewTo(t.key);
-                  navList
-                    ?.querySelector(`[data-maker-group="${CSS.escape(t.key)}"]`)
-                    ?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
-                }}
-                className="flex-1"
-              />
-            ) : null}
+            {shownPage ? <MakerPagePick pages={guestPages} value={shownPage.key} onPick={jumpToPage} /> : null}
             <button
               type="button"
               onClick={() => select?.({ kind: 'main' })}
@@ -1698,11 +1678,11 @@ export function MakerWork({
               </InfoTip>
             </li>
           ) : null}
-          {activeTab?.leaves ? (
+          {shownPage?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
-              <InfoTip className="min-w-0 max-w-full" label={`${activeTab.label} opens its own page`} align="start">
-                On this stage, “{activeTab.label}” takes a guest to a page of its own, so there are no scenes to arrange
-                here. Pick another tab to see its scenes.
+              <InfoTip className="min-w-0 max-w-full" label={`${shownPage.label} opens its own page`} align="start">
+                On this stage, “{shownPage.label}” takes a guest to a page of its own, so there are no scenes to arrange
+                here, and it can’t be shown on this canvas yet. Pick another page to see its scenes.
               </InfoTip>
             </li>
           ) : null}

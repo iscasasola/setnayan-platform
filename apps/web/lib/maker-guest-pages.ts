@@ -2,23 +2,30 @@
  * 📄 THE GUEST'S PAGES, AS THE MAKER'S "PAGE ▾" (owner 2026-09-30, pointing at
  * the guest Event Hub's bottom bar, verbatim: *"on the navigator, there should
  * be Home, Details, Story, Me on top dropdown so we can fix and improve the
- * event hub itself for invitation. This is considering we will make invitation
- * with Home, Details Story and Me"*).
+ * event hub itself for invitation"* — and, the same day, naming each stage's
+ * menu: *"on Invitation, the menu is Welcome - Details - Our Love Story - Me"*,
+ * *"Live - Welcome - Camera - Gallery - Me"* for The Day).
  *
- * Before the day a guest moves through four pages of the Event Hub —
- * **Home · Details · Story · Me** — from the bar at the bottom of their phone.
- * The Maker's navigator opens with ONE dropdown offering exactly those pages,
- * with the bar's own words, so the couple picks which page they are looking at
- * and fixing. The words are not typed twice: they are the guest bar's labels,
- * held equal to `resolveSiteNav` by `the-page-dropdown-is-the-guest-bar.test.ts`,
- * and a page is offered only on a stage whose bar carries it (`STAGE_BAR`) —
- * the Save the Date has no Details, so it offers Home · Story · Me.
+ * A guest moves through the Event Hub from the bar at the bottom of their
+ * phone. The Maker's navigator opens with ONE dropdown offering exactly the
+ * pages that bar offers on the stage being edited, in its order and in its
+ * words, so the couple picks which page they are looking at and fixing.
+ *
+ * 🔑 ONE SOURCE FOR THE WORDS. Nothing here names a page. The pages ARE
+ * `resolveSiteNav` — the same function that draws the guest's bar — asked for a
+ * guest holding their key who has answered (so Me stands where RSVP stood), on
+ * this stage's allow-list (`STAGE_BAR`). Rename a tab there and the Maker
+ * follows; the two cannot disagree. `the-page-dropdown-is-the-guest-bar.test.ts`
+ * holds it.
  *
  * 🧭 A PICK JUMPS, IT NEVER FILTERS (owner 2026-09-27,
  * `every-scene-is-in-the-navigator.test.ts`). Every scene of the stage stays
  * listed; each page only knows which scenes sit under it (`tiles`, the same
  * grouping the navigator's headers are drawn from — `navigatorTabs`), so a
- * pick can scroll the navigator to that group and the canvas to that page.
+ * pick scrolls the navigator to that group and the canvas to that page.
+ *
+ * 🚪 A PAGE THAT LEAVES (the Camera — a page of its own, not a part of this
+ * one) lists no scenes; picking it says so rather than pretending.
  *
  * 👤 ME IS EACH GUEST'S OWN. It carries no scenes the couple arranges — it is
  * drawn from the guest list, and the canvas (the host's own render) never
@@ -31,29 +38,25 @@
  *
  * Pure: no DOM, no React.
  */
+import { navPhaseFor, resolveSiteNav, type NavPhase, type NavSlotKey } from '../app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '../app/[slug]/_lib/stage-bar';
 import type { LifecyclePhase } from './invitation-widgets';
-import { navigatorTabs, type NavigatorBarItem } from './maker-navigator-tabs';
+import { navigatorTabs } from './maker-navigator-tabs';
 
-/** The guest's pages before the day, in the order their bar draws them. */
-export const GUEST_PAGE_KEYS = ['home', 'details', 'story', 'me'] as const;
-export type GuestPageKey = (typeof GUEST_PAGE_KEYS)[number];
-
-/** The bar's own words for them (a guest holding their key, before the day). */
-export const GUEST_PAGE_LABEL: Readonly<Record<GuestPageKey, string>> = {
-  home: 'Home',
-  details: 'Details',
-  story: 'Story',
-  me: 'Me',
+/** The moment each stage is previewed at — how `?phase=` forces the clock (page.tsx). */
+const STAGE_NAV_PHASE: Readonly<Record<LifecyclePhase, NavPhase>> = {
+  save_the_date: navPhaseFor({ dayOfPhase: 'inactive', isRecapBody: false }),
+  rsvp: navPhaseFor({ dayOfPhase: 'inactive', isRecapBody: false }),
+  event: navPhaseFor({ dayOfPhase: 'live', isRecapBody: false }),
+  editorial: navPhaseFor({ dayOfPhase: 'post', isRecapBody: true }),
 };
 
-/** The stages whose guest bar is these pages — before the day. On the day the
- *  bar is Now · Schedule · Camera…, after it Recap…; those keep the stage menu. */
-export const GUEST_PAGE_STAGES: readonly LifecyclePhase[] = ['save_the_date', 'rsvp'];
-
 export type MakerGuestPage = {
-  key: GuestPageKey;
+  key: NavSlotKey;
+  /** The guest bar's own word for it. */
   label: string;
+  /** It opens a page of its own (the Camera) — no scenes here. */
+  leaves: boolean;
   /** The navigator tiles under this page, in page order — never a filter. */
   tiles: string[];
 };
@@ -65,19 +68,31 @@ export const ME_NOT_ON_CANVAS = {
     'Each guest’s Me holds their name, their own QR and the guests they bring — made from your guest list, so every guest sees their own. It can’t be shown on this canvas yet; the canvas stays where it was.',
 } as const;
 
-/**
- * The pages this stage's guest bar offers, each with the scenes under it, or
- * null when the stage's bar is not the guest's four pages (On the Day, Post
- * Event) — the navigator then keeps the stage's own menu.
- */
-export function makerGuestPages(stage: LifecyclePhase, tileKeysInPageOrder: readonly string[]): MakerGuestPage[] | null {
-  if (!GUEST_PAGE_STAGES.includes(stage)) return null;
-  const slots = STAGE_BAR[stage].slots as readonly string[];
-  const keys = GUEST_PAGE_KEYS.filter((k) => slots.includes(k));
-  if (keys.length === 0) return null;
-  // The pages as in-page anchors, so `navigatorTabs` groups the scenes under
-  // them exactly as the navigator's headers are grouped.
-  const bar: NavigatorBarItem[] = keys.map((k) => ({ key: k, label: GUEST_PAGE_LABEL[k], href: `#${k}`, state: 'live' }));
-  const tabs = navigatorTabs(bar, tileKeysInPageOrder);
-  return keys.map((k) => ({ key: k, label: GUEST_PAGE_LABEL[k], tiles: tabs.find((t) => t.key === k)?.tiles ?? [] }));
+/** The bar a guest holding their key sees on this stage once they have answered. */
+export function guestBarForStage(stage: LifecyclePhase) {
+  return resolveSiteNav({
+    viewer: { kind: 'guest' },
+    phase: STAGE_NAV_PHASE[stage],
+    hostAllowsCamera: true,
+    anyChapterPublic: true,
+    hasStory: true,
+    hasDetails: true,
+    hasSchedule: true,
+    replied: true,
+    liveBroadcast: false,
+    // Present so no page is drawn LOCKED for want of an address; where each
+    // one goes is the guest page's business, never the Maker's.
+    destinations: { camera: '/camera', watch: '/watch', join: '/join', rsvp: '/reply' },
+    stageSlots: STAGE_BAR[stage].slots,
+  });
+}
+
+/** The pages this stage's guest bar offers, each with the scenes under it. */
+export function makerGuestPages(stage: LifecyclePhase, tileKeysInPageOrder: readonly string[]): MakerGuestPage[] {
+  const bar = guestBarForStage(stage);
+  const tabs = navigatorTabs(
+    bar.map(({ key, label, href, state }) => ({ key, label, href, state })),
+    tileKeysInPageOrder,
+  );
+  return tabs.map((t) => ({ key: t.key as NavSlotKey, label: t.label, leaves: t.leaves, tiles: t.tiles }));
 }

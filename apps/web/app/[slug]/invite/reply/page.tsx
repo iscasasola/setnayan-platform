@@ -18,6 +18,8 @@ import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/l
 import { hubDoorSkin } from '../_components/hub-door-skin';
 import { resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
 import {
@@ -78,7 +80,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const { data: liveEvent, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
     )
     // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
     .ilike('slug', slug)
@@ -147,13 +149,18 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
 
-  const [words, faceMode, supabase, hub, seats] = await Promise.all([
+  const [words, faceMode, supabase, hub, seats, animationOwned] = await Promise.all([
     eventWordsFor(event.event_type as string),
     resolvePapicFaceMode(admin, event.event_id as string),
     createClient(),
     wearTheHub(slug, admin, hostDraft, canvas),
     canvas ? Promise.resolve([]) : plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string),
+    // The hero's own gate for a moving mark (`loadMedia` → `animatedMonogram`).
+    eventAnimatedMonogramActive(admin, event.event_id as string).catch(() => false),
   ]);
+  // ▶ The crest plays the couple's layered logo exactly when the Event Hub hero
+  // would: the animation is owned AND not switched to "Use Static Image".
+  const markPlays = animationOwned && !markAnimationSwitchedOff(event.monogram_studio_config);
   const {
     data: { user: signedIn },
   } = await supabase.auth.getUser();
@@ -244,6 +251,17 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() ||
     'Your reply';
 
+  /* 📐 ONE QUESTION PER SCREEN (owner 2026-09-29: "ask one question per screen
+     is not neatly arranged. there are rules for like this, where the progress
+     bar should be, where the logo, and questions"). With the switch on, the
+     progress goes UNDER THE COUPLE'S MARK (DoorShell `lead`), and the facts
+     below it — the invitation's heading, whose reply this is, the reply-by
+     line — show on the first screen only, folding to one line after it. The
+     walker (`RsvpOneAtATime`) finds both through the door that carries the
+     `lead`. With the switch off, none of this renders and the page is exactly
+     as before. */
+  const oneAtATime = askOneAtATime(event.rsvp_ask_config);
+
   return (
     /* 🎨 THE EVENT HUB'S LOOK AND GROUND (owner 2026-09-28: "background should
        follow the background of the event hub"). The guest-tree layout leaves
@@ -262,29 +280,41 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           venue_name: event.venue_name as string | null,
         })}
         width="lg"
-        skin={hubDoorSkin(doorMarkFor(event))}
+        skin={hubDoorSkin({ ...doorMarkFor(event), animate: markPlays })}
+        lead={oneAtATime ? <div data-rsvp-progress-slot="" /> : undefined}
       >
-        {/* Whose reply this is — and, on a phone a family shares, the way out. */}
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <p className="font-serif text-lg text-ink" data-reply-for="">
-            {guestName}
+        {oneAtATime ? (
+          <p hidden data-rsvp-context-line="" className="truncate text-sm text-ink/70">
+            {[event.display_name as string | null, `for ${guestName}`].filter(Boolean).join(' · ')}
           </p>
-          {canvas ? null : <NotYouSwitch slug={home} />}
-        </div>
+        ) : null}
+        {/* Whose reply this is — and, on a phone a family shares, the way out. */}
+        <FirstScreenOnly on={oneAtATime}>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <p className="font-serif text-lg text-ink" data-reply-for="">
+              {guestName}
+            </p>
+            {canvas ? null : <NotYouSwitch slug={home} />}
+          </div>
+        </FirstScreenOnly>
 
         {hasAnswered ? (
-          <DoorNotice>
-            Your reply is saved.{' '}
-            <Link
-              className="font-medium text-link underline-offset-2 hover:underline"
-              href={inviteEnterPath(home)}
-            >
-              Go to your QR and open the {words.eventWord}
-            </Link>
-            {replyLocked ? null : <> &mdash; or change your answer below.</>}
-          </DoorNotice>
+          <FirstScreenOnly on={oneAtATime}>
+            <DoorNotice>
+              Your reply is saved.{' '}
+              <Link
+                className="font-medium text-link underline-offset-2 hover:underline"
+                href={inviteEnterPath(home)}
+              >
+                Go to your QR and open the {words.eventWord}
+              </Link>
+              {replyLocked ? null : <> &mdash; or change your answer below.</>}
+            </DoorNotice>
+          </FirstScreenOnly>
         ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
-          <p className="text-sm text-ink/70">Please reply by {closesLabel}.</p>
+          <FirstScreenOnly on={oneAtATime}>
+            <p className="text-sm text-ink/70">Please reply by {closesLabel}.</p>
+          </FirstScreenOnly>
         ) : null}
 
         <RsvpWidget
@@ -366,4 +396,13 @@ async function wearTheHub(
   } catch {
     return { look: null, ground: null };
   }
+}
+
+/**
+ * What only the FIRST one-question screen shows (`data-rsvp-context`) — the
+ * walker folds it to one line from screen 2. Off, a bare fragment: the page is
+ * exactly as before.
+ */
+function FirstScreenOnly({ on, children }: { on: boolean; children: React.ReactNode }) {
+  return on ? <div data-rsvp-context="">{children}</div> : <>{children}</>;
 }

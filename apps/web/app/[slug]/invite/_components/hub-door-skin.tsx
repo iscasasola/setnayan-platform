@@ -1,4 +1,6 @@
 import type { DoorSkin } from '@/app/_components/door/door-shell';
+import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
+import { isLayeredLogo } from '@/lib/logo-layers';
 import { SealMark } from './themes/seal-mark';
 
 /**
@@ -30,14 +32,39 @@ import { SealMark } from './themes/seal-mark';
  *     button colour — `proSiteVarsFor`). A door `action` would paint the door's
  *     colour over the hub's, which is the terracotta Next the owner saw.
  */
-export function hubDoorSkin({ mark, monogram }: { mark: string | null; monogram: string }): DoorSkin {
+export function hubDoorSkin({
+  mark,
+  monogram,
+  animate = false,
+}: {
+  mark: string | null;
+  monogram: string;
+  /**
+   * ▶ THE LOGO PLAYS (owner 2026-09-29, pointing at the mark on the RSVP card:
+   * *"can we also animate this?"*). A LAYERED logo (the Maker's Logo page) plays
+   * its saved motion — draw on, then drift — through the ONE player the Event
+   * Hub hero and the Maker's ▶ Play use (`LayeredLogoPlayer`), so the guest sees
+   * what the couple saw. Behind the SAME gate as the hero (`loadMedia`'s
+   * `animatedMonogram`: the animation is owned and not switched to "Use Static
+   * Image") — the caller decides it. Not layered, or not allowed → the still
+   * mark, as before. It plays ONCE: the crest sits outside the reply form, so
+   * stepping through the questions never remounts it; `prefers-reduced-motion`
+   * is the player's own still fallback.
+   */
+  animate?: boolean;
+}): DoorSkin {
+  const plays = Boolean(mark && animate && isLayeredLogo(mark));
   return {
     themeId: 'hub',
     className: '',
     style: { ['--surface' as string]: 'rgb(var(--color-cream))' } as React.CSSProperties,
     crest: (
       <div className="-mt-1 mb-3 flex justify-center" data-door-mark={mark ? 'logo' : 'initials'}>
-        {mark ? (
+        {plays ? (
+          <span className="inline-flex" style={{ width: 72, height: 72 }} data-door-mark-plays="">
+            <LayeredLogoPlayer svg={mark!} />
+          </span>
+        ) : mark ? (
           <SealMark mark={mark} monogram={monogram} px={72} />
         ) : (
           <span className="grid h-14 w-14 place-items-center whitespace-nowrap rounded-full border border-ink/15 font-serif text-lg text-ink">

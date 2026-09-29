@@ -79,6 +79,8 @@ export const PrintMenuEditor = dynamic(() => import(/* webpackChunkName: "maker-
 export const PrintChoicePicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-choice-picker').then((m) => m.PrintChoicePicker), { loading: SlotRows });
 export const PassCardDesignPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './pass-card-design-picker').then((m) => m.PassCardDesignPicker), { loading: SlotRows });
 export const PrintSaveButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.PrintSaveButton), { loading: SlotButton });
+// 🖨 "Changed since you printed" (owner 2026-09-29) — the same file, the same chunk, nothing drawn while it loads.
+export const ChangedSincePrinted = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.ChangedSincePrinted));
 
 /* ── Your event (names · date · venues · parents & hosts · the march) ─────── */
 export const NamesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.NamesEditor), { loading: SlotRows });

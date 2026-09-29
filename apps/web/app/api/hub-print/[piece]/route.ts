@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { loadGuestPasses, loadPrintSet, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
+import { loadGuestPasses, loadPrintSet, printInputsVersion, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
+import { PRINT_VERSION_HEADER } from '@/lib/printed-stamp';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages, type PrintSetData } from '@/lib/print-layout';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
@@ -135,13 +136,18 @@ function withPassDesign(data: PrintSetData, url: URL): PrintSetData {
   return { ...data, details: { ...data.details, passDesign: passCardDesignFrom(asked) } };
 }
 
-function pdfResponse(bytes: Uint8Array, name: string, inline: boolean): NextResponse {
+function pdfResponse(bytes: Uint8Array, name: string, inline: boolean, version: string | null = null): NextResponse {
   return new NextResponse(Buffer.from(bytes), {
     status: 200,
     headers: {
       'content-type': 'application/pdf',
       'content-disposition': `${inline ? 'inline' : 'attachment'}; filename="${name}"`,
       'cache-control': 'private, no-store',
+      // 🖨 "CHANGED SINCE YOU PRINTED" (owner 2026-09-29, OWNER ANSWERS (5)):
+      // the hash of every input this paper was drawn from (`printInputsVersion`,
+      // the same one the Maker's previews carry as `v`). The Save button keeps
+      // it (lib/printed-stamp.ts); the piece says so once the inputs move on.
+      ...(version ? { [PRINT_VERSION_HEADER]: version } : {}),
     },
   });
 }
@@ -283,7 +289,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         title: `${set.event.display_name ?? 'Event'} — guest passes`,
         subject: `${docs.length} passes · ${fmt.label} ${fmt.wMm} × ${fmt.hMm} mm · ${fmt.sheet!.cols * fmt.sheet!.rows} per A4`,
       });
-      return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false);
+      return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false, await printInputsVersion(eventId).catch(() => null));
     }
     if (mode === 'screen') {
       const view = layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) });
@@ -322,7 +328,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       title: `${set.event.display_name ?? 'Event'} — ${label}`,
       subject: 'Print-ready · 3 mm bleed · crop marks · layers: Foil, White ink, Die cut',
     });
-    return pdfResponse(bytes, fileName(set.event.slug, wantsSet ? 'set' : piece, set.theme), false);
+    return pdfResponse(bytes, fileName(set.event.slug, wantsSet ? 'set' : piece, set.theme), false, await printInputsVersion(eventId).catch(() => null));
   }
 
   // ══ THE SAMPLE PATH — everyone (owner 2026-09-25: "we can show them a sample.

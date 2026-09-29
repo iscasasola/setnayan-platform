@@ -33,7 +33,7 @@ import {
   type PassCardDesign,
 } from '@/lib/pass-card';
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
-import { PassCardDesignPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
+import { ChangedSincePrinted, PassCardDesignPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
 
 /**
@@ -277,6 +277,7 @@ export function PrintPieceEditor({
       {menuEmpty || storyMissing ? null : (
         <div className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-print-piece-saves={k}>
           <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">This piece</p>
+          <ChangedSincePrinted eventId={input.eventId} piece={k} version={input.previewVersion} />
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="link">
               {themed ? 'Save · Classic (PDF)' : 'Save PDF'}
@@ -315,6 +316,7 @@ export function PassCardsPanel({ input }: { input: PrintsInput }) {
   return (
     <div data-pass-cards="" className="flex flex-col gap-3 border-t border-ink/10 pt-3">
       <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{PASS_CARD_WORDS.section}</p>
+      <ChangedSincePrinted eventId={eventId} piece="passes" version={input.previewVersion} />
       <PassCardDesignPicker
         eventId={eventId}
         saved={passDesign}
@@ -431,6 +433,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
       data-prints-access={!themed ? 'classic' : freeTheme ? 'free-theme' : access.printReady ? 'print-ready' : 'sample'}
       className="flex flex-col gap-3"
     >
+      <ChangedSincePrinted eventId={input.eventId} piece="set" version={input.previewVersion} />
       <p className="text-sm text-ink/75">
         <span data-prints-free-themes="" className="font-semibold text-ink">
           {themeNames(FREE_THEMES)} prints are free and print-ready
@@ -463,7 +466,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
           Whole set · Classic (PDF)
         </PrintSaveButton>
         <PrintSaveButton href={classic('passes')} file={file.classic('passes')}>
-          Every guest&rsquo;s pass · Classic
+          Every guest&rsquo;s {PASS_CARD_WORDS.noun} · Classic
         </PrintSaveButton>
         {themedReady ? (
           <>
@@ -471,7 +474,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
               <span data-prints-print-ready="">Whole set · {t.name} (PDF)</span>
             </PrintSaveButton>
             <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')}>
-              <span data-prints-passes="">Every guest&rsquo;s pass · {t.name}</span>
+              <span data-prints-passes="">Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {t.name}</span>
             </PrintSaveButton>
           </>
         ) : themed ? (

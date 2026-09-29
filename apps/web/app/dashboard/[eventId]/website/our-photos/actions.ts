@@ -134,7 +134,7 @@ export async function updateOurPhotos(
 
   if (drafting) {
     // A photo the screen blocked is left out of the draft, as it is left out live.
-    await draftEventsAndReturn(eventId, { our_photos: cleared }, formData, `/dashboard/${eventId}/website/editor?open=gallery`);
+    return draftEventsAndReturn(eventId, { our_photos: cleared }, formData, `/dashboard/${eventId}/website/editor?open=gallery`);
   }
 
   const { data: event, error } = await supabase

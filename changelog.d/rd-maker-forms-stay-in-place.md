@@ -28,3 +28,11 @@ not returned. It caught three that were only safe by position. Five older guards
 `await …; // never` shape; each now pins the returned door instead.
 
 SPEC IMPACT: None.
+
+**Rebased onto #6116 + main (2026-09-29).** The new guard caught three draft doors that main had
+added since, each `await`ed and so able to run on into the live write:
+- site-chrome's music and hero-video draft;
+- our-photos' gallery draft;
+- an own scene's first words.
+
+All three are now `return`ed.

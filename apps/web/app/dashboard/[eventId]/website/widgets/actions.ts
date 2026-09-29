@@ -1323,7 +1323,7 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     /* ✍ Into the DRAFT on `draft=1` (owner 2026-09-29): an empty scene's first
        words, tried without Pro — Apply asks Pro to fill it (`classifyHubDraft`,
        "a scene of their own's words"). */
-    if (drafting) await saveWidgetToDraft(formData, eventId, row.widget_type, { custom: input.value });
+    if (drafting) return saveWidgetToDraft(formData, eventId, row.widget_type, { custom: input.value });
     next = { ...existing, custom: input.value };
   }
 

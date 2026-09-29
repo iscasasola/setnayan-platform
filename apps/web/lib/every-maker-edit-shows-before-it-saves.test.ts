@@ -22,6 +22,12 @@
  *   C · `router.refresh()` runs only as `makerSave`'s refresh (or as the one
  *       listener for `requestMakerRefresh`): a bare refresh after a save is the
  *       second whole-Maker render this path exists to remove.
+ *   D · no switch, radio or checkbox is `disabled` by a save in flight (a
+ *       `useTransition` / `useFormStatus` pending, directly or through a prop):
+ *       a locked switch is the wait A removed, back by another door.
+ *
+ * A write made INSIDE `start(async () => …)` does not count for A: React 19
+ * holds it until the whole action settles (the RSVP switches, 2026-09-29).
  *
  * Each exception is listed with its reason, and the test fails if a listed
  * exception no longer exists — the list cannot rot into a blanket pass.
@@ -67,7 +73,7 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'Not a tap — the Main background reads the hero photo’s colours by itself and saves them.',
   'website/editor/_components/main-background-panel.tsx › save':
     'OPEN — scene/main backgrounds belong to Builder H; reported 2026-09-29 (the choice waits on the save). Remove this line when it is drawn first.',
-  'launch/_components/maker-rsvp-ask.tsx › save':
+  'launch/_components/maker-rsvp-ask.tsx › saveReplyBy':
     'Reply-by date: the date the couple typed IS the visible change (the input\'s own state); Save stores it and says "Saved."',
   'launch/_components/parent-cards.tsx › add':
     'OPEN (Details, Builder K) — adding a parent creates a guest row and its card needs the server\'s new guest id; nothing shows until it lands. Reported 2026-09-29.',
@@ -134,8 +140,43 @@ function handlerOf(node: ts.Node): { fn: ts.Node; name: string } | null {
   return null;
 }
 
-/** Does anything run before `call`, inside `handler`, write what the screen reads? */
-function drawsFirst(call: ts.Node, handler: ts.Node): boolean {
+/**
+ * The names that start a transition in this file: `startTransition`, and the
+ * second element of every `const [pending, start] = useTransition()`.
+ */
+function transitionStarters(sf: ts.SourceFile): Set<string> {
+  const names = new Set(['startTransition']);
+  walk(sf, (n) => {
+    if (!ts.isVariableDeclaration(n) || !n.initializer || !ts.isCallExpression(n.initializer)) return;
+    if (calleeName(n.initializer) !== 'useTransition' || !ts.isArrayBindingPattern(n.name)) return;
+    const second = n.name.elements[1];
+    if (second && ts.isBindingElement(second) && ts.isIdentifier(second.name)) names.add(second.name.text);
+  });
+  return names;
+}
+
+/** The function passed to `start(…)` / `startTransition(…)` — its state writes are held. */
+function isTransitionCallback(fn: ts.Node, starters: Set<string>): boolean {
+  if (!(ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) return false;
+  const parent = fn.parent;
+  if (!parent || !ts.isCallExpression(parent) || !parent.arguments.includes(fn as ts.Expression)) return false;
+  const name = calleeName(parent);
+  return name !== null && starters.has(name);
+}
+
+/**
+ * Does anything run before `call`, inside `handler`, write what the screen reads?
+ *
+ * ⏳ A WRITE INSIDE THE TRANSITION THAT HOLDS THE SAVE DOES NOT COUNT (owner,
+ * 2026-09-29, the RSVP switches: *"when a toggle is pressed. everything loads for
+ * around 3 seconds"*). React 19 keeps every state update made inside an async
+ * `startTransition(async () => …)` until the whole action settles — so
+ * `start(async () => { setLocal(next); await makerSave(…) })` LOOKS drawn-first
+ * and is not: the controlled switch snaps back at once and moves only when the
+ * server answers. Only a write made before the transition starts is on screen
+ * at the tap.
+ */
+function drawsFirst(call: ts.Node, handler: ts.Node, starters: Set<string>): boolean {
   let drew = false;
   const looks = (n: ts.Node) =>
     walk(n, (x) => {
@@ -145,13 +186,17 @@ function drawsFirst(call: ts.Node, handler: ts.Node): boolean {
       if (/^set[A-Z]/.test(name) && !STATUS_SETTER.test(name)) drew = true;
       if (CANVAS_POST.has(name)) drew = true;
     });
+  let held = false;
+  for (let p: ts.Node | undefined = call.parent; p && p !== handler; p = p.parent) if (isTransitionCallback(p, starters)) held = true;
   for (let child: ts.Node = call, p = call.parent; p && child !== handler; child = p, p = p.parent) {
-    if (ts.isBlock(p) || ts.isSourceFile(p)) {
+    if ((ts.isBlock(p) || ts.isSourceFile(p)) && !held) {
       for (const st of p.statements) {
         if (st === child) break;
         looks(st);
       }
     }
+    // Leaving the transition's callback: what runs before `start(…)` is on screen at the tap.
+    if (isTransitionCallback(p, starters)) held = false;
   }
   return drew;
 }
@@ -192,18 +237,24 @@ test('the scan reads the Maker — its three folders, and the saves inside them'
 test('A · every Maker save is drawn on screen before the server is asked', () => {
   const late: Hit[] = [];
   const used = new Set<string>();
+  const shared: string[] = [];
   for (const full of FILES) {
     const sf = parse(full);
+    const starters = transitionStarters(sf);
     walk(sf, (n) => {
       if (!isMakerSave(n)) return;
       const h = handlerOf(n);
       const handler = h?.name ?? '<top>';
       const key = `${rel(full)} › ${handler}`;
       if (key in WAITS_ON_PURPOSE) {
+        /* One reason excuses ONE handler. Two handlers sharing a name in one file
+           shared the excuse: the RSVP switches' `save` rode the reply-by date's
+           `save` line and waited on the server unseen (2026-09-29). */
+        if (used.has(key)) shared.push(key);
         used.add(key);
         return;
       }
-      if (!h || !drawsFirst(n, h.fn)) {
+      if (!h || !drawsFirst(n, h.fn, starters)) {
         late.push({ file: rel(full), handler, line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
       }
     });
@@ -214,6 +265,11 @@ test('A · every Maker save is drawn on screen before the server is asked', () =
     `These Maker saves make the couple wait for the server before anything changes on screen. Draw the change first ` +
       `(set the state the control reads, or post it to the canvas), then save behind it:\n` +
       late.map((l) => `  ${l.file}:${l.line} (${l.handler})`).join('\n'),
+  );
+  assert.deepEqual(
+    shared,
+    [],
+    `A WAITS_ON_PURPOSE reason covers more than one save — give each handler its own name so each is judged:\n  ${shared.join('\n  ')}`,
   );
   const stale = Object.keys(WAITS_ON_PURPOSE).filter((k) => !used.has(k));
   assert.deepEqual(stale, [], `WAITS_ON_PURPOSE lists handlers that no longer save — remove them:\n  ${stale.join('\n  ')}`);
@@ -303,6 +359,116 @@ test('C · router.refresh() runs only as makerSave’s one refresh', () => {
   );
   const stale = Object.keys(BARE_REFRESH_OK).filter((k) => !used.has(k));
   assert.deepEqual(stale, [], `BARE_REFRESH_OK lists files with no bare refresh any more — remove them:\n  ${stale.join('\n  ')}`);
+});
+
+/* ── D · A SWITCH NEVER WAITS ─────────────────────────────────────────────── */
+
+/** Names that are true while a save is on its way: `useTransition()`'s first, `useFormStatus()`'s `pending`. */
+function inFlightNames(sf: ts.SourceFile): Set<string> {
+  const names = new Set<string>();
+  walk(sf, (n) => {
+    if (!ts.isVariableDeclaration(n) || !n.initializer || !ts.isCallExpression(n.initializer)) return;
+    const hook = calleeName(n.initializer);
+    if (hook === 'useTransition' && ts.isArrayBindingPattern(n.name)) {
+      const first = n.name.elements[0];
+      if (first && ts.isBindingElement(first) && ts.isIdentifier(first.name)) names.add(first.name.text);
+    }
+    if (hook === 'useFormStatus' && ts.isObjectBindingPattern(n.name)) {
+      for (const el of n.name.elements) if (ts.isIdentifier(el.name)) names.add(el.name.text);
+    }
+  });
+  return names;
+}
+
+const mentions = (expr: ts.Node, names: Set<string>) => {
+  let hit = false;
+  walk(expr, (x) => void (ts.isIdentifier(x) && names.has(x.text) && (hit = true)));
+  return hit;
+};
+
+type JsxEl = ts.JsxOpeningElement | ts.JsxSelfClosingElement;
+const attrOf = (el: JsxEl, name: string): ts.JsxAttribute | undefined =>
+  el.attributes.properties.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && a.name.getText() === name);
+const literalAttr = (el: JsxEl, name: string) => {
+  const a = attrOf(el, name);
+  return a?.initializer && ts.isStringLiteral(a.initializer) ? a.initializer.text : null;
+};
+
+/** An on/off control: `role="switch"`, `role="radio"`, or a checkbox. */
+const isSwitchEl = (el: JsxEl) =>
+  literalAttr(el, 'role') === 'switch' || literalAttr(el, 'role') === 'radio' || literalAttr(el, 'type') === 'checkbox';
+
+/** The nearest function around `node` that destructures `prop` from its props, and its name. */
+function componentTaking(node: ts.Node, prop: string): string | null {
+  for (let p: ts.Node | undefined = node.parent; p; p = p.parent) {
+    if (!(ts.isArrowFunction(p) || ts.isFunctionExpression(p) || ts.isFunctionDeclaration(p))) continue;
+    const first = p.parameters[0];
+    if (!first || !ts.isObjectBindingPattern(first.name)) continue;
+    if (!first.name.elements.some((e) => ts.isIdentifier(e.name) && e.name.text === prop)) continue;
+    if (ts.isFunctionDeclaration(p)) return p.name?.text ?? null;
+    return ts.isVariableDeclaration(p.parent) && ts.isIdentifier(p.parent.name) ? p.parent.name.text : null;
+  }
+  return null;
+}
+
+/**
+ * ⏳ The RSVP page's switches, 2026-09-29 — owner: *"when a toggle is pressed.
+ * everything loads for around 3 seconds"*. Every switch on the page carried
+ * `disabled={pending}` (a `useTransition` flag), so one tap greyed them ALL
+ * until the server answered. A Maker switch is drawn at the tap and saved
+ * behind it (A); being locked while that save runs is the wait A removed, put
+ * back by another door. This holds every switch, radio and checkbox in the
+ * Maker — directly, or through a same-file component's prop
+ * (`<Switch disabled={pending}>` → the switch's `disabled={disabled}`).
+ */
+test('D · no Maker switch is locked while a save is on its way', () => {
+  const locked: Hit[] = [];
+  let switches = 0;
+  for (const full of FILES) {
+    const sf = parse(full);
+    const inFlight = inFlightNames(sf);
+    const els: JsxEl[] = [];
+    walk(sf, (n) => void ((ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) && els.push(n)));
+    for (const el of els) {
+      if (!isSwitchEl(el)) continue;
+      switches += 1;
+      const at = sf.getLineAndCharacterOfPosition(el.getStart()).line + 1;
+      const d = attrOf(el, 'disabled');
+      const expr = d?.initializer && ts.isJsxExpression(d.initializer) ? d.initializer.expression : undefined;
+      if (!expr) continue;
+      if (mentions(expr, inFlight)) {
+        locked.push({ file: rel(full), handler: expr.getText(sf), line: at });
+        continue;
+      }
+      /* Through a prop: every same-file use of the component that hands it a save-in-flight flag. */
+      const props = new Set<string>();
+      walk(expr, (x) => void (ts.isIdentifier(x) && props.add(x.text)));
+      for (const prop of props) {
+        const comp = componentTaking(el, prop);
+        if (!comp) continue;
+        for (const use of els) {
+          if (use.tagName.getText(sf) !== comp) continue;
+          const a = attrOf(use, prop);
+          const v = a?.initializer && ts.isJsxExpression(a.initializer) ? a.initializer.expression : undefined;
+          if (v && mentions(v, inFlight)) {
+            locked.push({
+              file: rel(full),
+              handler: `<${comp} ${prop}={${v.getText(sf)}}>`,
+              line: sf.getLineAndCharacterOfPosition(use.getStart()).line + 1,
+            });
+          }
+        }
+      }
+    }
+  }
+  assert.ok(switches >= 8, `only ${switches} switches found — the scan is not reading the Maker's switches`);
+  assert.deepEqual(
+    locked,
+    [],
+    `These Maker switches are locked while a save runs — one tap greys them until the server answers. ` +
+      `Draw the flip at the tap and let it save behind (a refused save puts it back and says so):\n` +
+      locked.map((l) => `  ${l.file}:${l.line} ${l.handler}`).join('\n'),
+  );
 });
 
 test('a made-once page frame is double-buffered, never an iframe keyed on the render', () => {

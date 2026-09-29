@@ -8,6 +8,12 @@
  * A tile that says "Setnayan" is our app on their phone; a tile that shows the
  * couple's mark is their wedding on their phone, which is the whole point.
  *
+ * ⚠ 2026-09-30: the on-page TEACHING card is gone (owner, on the Event Hub:
+ * "remove this part on the website"), and with it `installPlatform` /
+ * `INSTALL_STEPS`, which had no other reader. The manifest and the icon below
+ * are untouched — installing from the browser's own menu still gets the
+ * couple's tile, not ours.
+ *
  * WHAT THE ICON IS. The couple's monogram on a ground taken from their own mood
  * board, drawn as one square SVG. Two consumers, both served from it:
  *   • Android / Chrome reads the SVG straight out of the per-event manifest —
@@ -175,43 +181,3 @@ export function buildEventManifest(input: {
     ],
   };
 }
-
-/** The platforms the teaching card can be looking at. */
-export type InstallPlatform = 'ios-safari' | 'ios-other' | 'android' | 'desktop' | 'installed';
-
-/**
- * Which instructions to show. Deliberately a pure function of the two strings a
- * browser gives us, so it is testable — and so the iOS case, which has NO
- * install prompt and therefore needs words, is decided in one place.
- */
-export function installPlatform(input: { userAgent: string; standalone: boolean }): InstallPlatform {
-  if (input.standalone) return 'installed';
-  const ua = (input.userAgent ?? '').toLowerCase();
-  const isIOS = /iphone|ipad|ipod/.test(ua) || (/macintosh/.test(ua) && /mobile/.test(ua));
-  if (isIOS) {
-    // Every iOS browser renders in WebKit, but only Safari's share sheet
-    // carries "Add to Home Screen". Chrome and Firefox on iOS cannot install.
-    const isRealSafari = /safari/.test(ua) && !/crios|fxios|edgios|opios/.test(ua);
-    return isRealSafari ? 'ios-safari' : 'ios-other';
-  }
-  if (/android/.test(ua)) return 'android';
-  return 'desktop';
-}
-
-export const INSTALL_STEPS: Record<InstallPlatform, string[]> = {
-  'ios-safari': [
-    'Tap the Share button at the bottom of Safari.',
-    'Scroll down and tap Add to Home Screen.',
-    'Tap Add. The invitation appears as an icon.',
-  ],
-  'ios-other': [
-    'Open this page in Safari — only Safari can add an icon on iPhone.',
-    'Tap Share, then Add to Home Screen.',
-  ],
-  android: [
-    'Tap Install below, or open the browser menu and tap Add to Home screen.',
-    'Confirm, and the invitation appears as an icon.',
-  ],
-  desktop: ['Open this page on your phone to keep it on your home screen.'],
-  installed: [],
-};

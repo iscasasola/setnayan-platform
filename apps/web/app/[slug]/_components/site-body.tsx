@@ -169,7 +169,6 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene } f
 import { PreviewWayBack } from './preview-way-back';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
-import { KeepOnHomeScreen } from './keep-on-home-screen';
 import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
 import { inviteReplyPath } from '@/lib/invite-arrival';
@@ -1974,12 +1973,13 @@ export async function SiteBody({
             detailsCardOnPage={plan.rsvpShouldRender}
           />
 
-          {/* ── KEEP IT ON YOUR HOME SCREEN (owner 2026-09-20). Sits directly
-              above the account card because they answer the same question —
-              "how do I find this again?" — and this is the answer that needs
-              no account. It renders nothing on a desktop, and nothing at all
-              for a guest already reading inside the installed app. */}
-          <KeepOnHomeScreen coupleName={event.display_name ?? 'this celebration'} />
+          {/* ⛔ NO "ADD TO HOME SCREEN" CARD ON THE EVENT HUB — owner, 2026-09-30,
+              pointing at the "Keep it with you · Put … on your home screen" card
+              that sat here: "remove this part on the website". The per-event
+              manifest and the couple's icon still ship (app/[slug]/manifest.
+              webmanifest · icon/[spec]), so a guest can still install from the
+              browser's own menu — the page just no longer teaches it. Pinned by
+              `lib/the-event-hub-has-no-home-screen-card.test.ts`. */}
           {/* ── THE ONE ACCOUNT PROMPT (owner 2026-09-25). One card, one place,
               until the invitation is linked — then one quiet "Linked to …" line.
               It replaced the email box that asked for the address a second time,
@@ -2112,6 +2112,10 @@ export async function SiteBody({
                   an unblocked guest, resolved on the page. */}
               {papicGuest ? (
                 <PapicGuestCapture
+                  /* Inside the hub: the terms / blocked / no-camera states are
+                     ONLY the small card — no full-page frame (owner 2026-09-30,
+                     "space is too big also should only be the small frame"). */
+                  embedded
                   guestName={guest.first_name}
                   eventName={event.display_name}
                   eventId={event.event_id}

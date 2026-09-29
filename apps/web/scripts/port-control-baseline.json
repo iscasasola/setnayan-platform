@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d70f4c6b4",
+  "generatedFromRef": "1e6b6fec6",
   "routeCount": 437,
   "destinations": 947,
   "actions": 673,
-  "blocks": 5170,
+  "blocks": 5168,
   "routes": {
     "/": {
       "files": [
@@ -802,7 +802,6 @@
         "[slug]/_components/hub/hub-shell.tsx",
         "[slug]/_components/invitation-shell.tsx",
         "[slug]/_components/invitation-skeleton.tsx",
-        "[slug]/_components/keep-on-home-screen.tsx",
         "[slug]/_components/live-wall-block.tsx",
         "[slug]/_components/magic-move.tsx",
         "[slug]/_components/main-ground.tsx",
@@ -997,7 +996,6 @@
         "ChallengeCountdown",
         "Chapter",
         "ChapterWriteUp",
-        "Choice",
         "ClientEventWords",
         "ClipFrame",
         "CollagePreview",
@@ -1098,12 +1096,10 @@
         "HubSceneRuns",
         "HubScenes",
         "Icon",
-        "InstallPlatform",
         "InvitationBody",
         "InvitationFacts",
         "InvitationShell",
         "InvitationSkeleton",
-        "KeepOnHomeScreen",
         "KwentoClip",
         "KwentoWall",
         "Layer",
@@ -9976,6 +9972,7 @@
       "blocks": [
         "ArmedChallenge",
         "Blob",
+        "CardFrame",
         "ChallengePanelInner",
         "DayOfFaceEnroll",
         "DoorShell",

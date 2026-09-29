@@ -70,7 +70,9 @@ test('every HubElementStyle field is placed on exactly one side — Pro or free'
   const fields = [...block[1]!.matchAll(/^\s+(\w+)\?:/gm)].map((m) => m[1]!);
   assert.ok(fields.length >= 12, `HubElementStyle scanned short (${fields.length})`);
   // `runs` is compared by its fonts only and `of` is the runs' text hash — both structure.
-  const placed = new Set<string>([...HUB_ELEMENT_PRO_FIELDS, ...HUB_ELEMENT_FREE_FIELDS, 'runs', 'of']);
+  // `was` is the text `of` fingerprints (so runs ADAPT when the words change) — structure
+  // too: it draws nothing, and it cannot change without `of`, which `runFonts` compares.
+  const placed = new Set<string>([...HUB_ELEMENT_PRO_FIELDS, ...HUB_ELEMENT_FREE_FIELDS, 'runs', 'of', 'was']);
   const unplaced = fields.filter((f) => !placed.has(f));
   assert.deepEqual(unplaced, [], 'a part field is on neither side — decide it on purpose');
   for (const f of HUB_ELEMENT_PRO_FIELDS) {

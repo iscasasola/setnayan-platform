@@ -41,10 +41,17 @@ export function RemoveGuestConfirm({
   eventId,
   guestId,
   guestName,
+  compact = false,
 }: {
   eventId: string;
   guestId: string;
   guestName: string;
+  /**
+   * An inline "Remove" beside a name — the Guest List's "3 named · 1 allowed"
+   * (owner 2026-09-29, frame G). The SAME action and the SAME two taps; only
+   * smaller, since it sits in a row rather than at the foot of a panel.
+   */
+  compact?: boolean;
 }) {
   const [armed, setArmed] = useState(false);
 
@@ -59,9 +66,38 @@ export function RemoveGuestConfirm({
   return (
     <form
       action={softDeleteGuest.bind(null, eventId, guestId)}
-      className="mt-4 border-t border-ink/10 pt-3"
+      className={compact ? 'inline-flex items-center gap-1' : 'mt-4 border-t border-ink/10 pt-3'}
     >
-      {armed ? (
+      {compact ? (
+        armed ? (
+          <>
+            <SubmitButton
+              overlay={false}
+              pendingLabel="Removing…"
+              aria-label={`Confirm removing ${guestName}`}
+              className="inline-flex min-h-[44px] items-center rounded-md bg-danger-600 px-3 text-xs font-semibold text-cream hover:bg-danger-700"
+            >
+              Tap again to remove
+            </SubmitButton>
+            <button
+              type="button"
+              onClick={() => setArmed(false)}
+              className="inline-flex min-h-[44px] items-center px-2 text-xs font-medium text-ink/60 hover:text-ink"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setArmed(true)}
+            aria-label={`Remove ${guestName}`}
+            className="inline-flex min-h-[44px] items-center px-2 text-xs font-medium text-danger-700 underline underline-offset-2 hover:text-danger-800"
+          >
+            Remove
+          </button>
+        )
+      ) : armed ? (
         <>
           <SubmitButton
             overlay={false}

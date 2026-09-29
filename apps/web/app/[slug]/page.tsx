@@ -39,6 +39,7 @@ import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { SeatDoorLine } from './_components/seat-door-line';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
@@ -1473,19 +1474,45 @@ async function InvitationBody({
   // reply door also asks. 🔒 A SERVER redirect, so nothing inside renders first.
   // Never in the Maker's canvas and never for the event's own host (a host
   // holding a guest cookie for their own event is previewing, not arriving).
+  const gateLocked = guestListIsClosed({
+    lockedAt: event.guest_count_locked_at ?? null,
+    editDeadline: event.guest_list_edit_deadline ?? null,
+    eventDate: event.event_date ?? null,
+  });
+  // 👋 A PLUS-ONE IS ASKED THE MINIMUM (owner 2026-09-29: *"plus guests are
+  // only minimum questions"*) — their name and, when the couple asks it, their
+  // meal; never attendance (theirs follows their own reply IF they give one),
+  // never a mobile. Missing → THEIR OWN door (`/welcome`, frame F), never the
+  // full reply. The unnamed case already left above (`unconfirmed_tba`), so the
+  // name counts as given here. lib/plus-one-welcome.ts.
+  const isPlusOne = guestContext.guest.plus_one_of_guest_id !== null;
+  if (
+    isPlusOne &&
+    !isEditorCanvas &&
+    !ownerCapability &&
+    plusOneGate(
+      {
+        first_name: guestContext.guest.first_name,
+        last_name: guestContext.guest.last_name,
+        plus_one_name_confirmed_at: 'past-the-tba-door',
+        meal_preference: guestContext.guest.meal_preference,
+        dietary_restrictions: guestContext.guest.dietary_restrictions,
+      },
+      resolveRsvpAsk(event.rsvp_ask_config),
+      gateLocked,
+    ) === 'welcome'
+  ) {
+    redirect(`/${event.slug ?? slug}/welcome`);
+  }
   const keyGate = rsvpGate({
     rsvpStatus: guestContext.guest.rsvp_status,
     mealPreference: guestContext.guest.meal_preference,
     mobile: guestContext.guest.mobile,
     askMeal: resolveRsvpAsk(event.rsvp_ask_config).meal,
     askMobile: resolveRsvpAsk(event.rsvp_ask_config).mobile,
-    locked: guestListIsClosed({
-      lockedAt: event.guest_count_locked_at ?? null,
-      editDeadline: event.guest_list_edit_deadline ?? null,
-      eventDate: event.event_date ?? null,
-    }),
+    locked: gateLocked,
   });
-  if (keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability) {
+  if (!isPlusOne && keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability) {
     redirect(inviteReplyPath(event.slug ?? slug));
   }
 
@@ -1679,6 +1706,10 @@ async function InvitationBody({
       }
       slug={event.slug ?? slug}
       eventId={event.event_id}
+      guestId={guest.guest_id}
+      askMeal={resolveRsvpAsk(event.rsvp_ask_config).meal}
+      askDietary={resolveRsvpAsk(event.rsvp_ask_config).dietary}
+      askPlusOnes={resolveRsvpAsk(event.rsvp_ask_config).plus_ones}
       eventName={event.display_name ?? 'the celebration'}
       guests={myGuests.guests}
       passes={myGuests.passes}

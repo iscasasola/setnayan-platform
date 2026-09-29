@@ -215,6 +215,7 @@ export function PlusOneSeatPanels({
   askMeal,
   askDietary,
   onName,
+  idPrefix = '',
 }: {
   slots: readonly PlusOneSlot[];
   active: number;
@@ -222,6 +223,13 @@ export function PlusOneSeatPanels({
   askMeal: boolean;
   askDietary: boolean;
   onName?: (index: number, fullName: string) => void;
+  /**
+   * Prefixes the element ids ONLY — never the field names, which the one seat
+   * rule reads (`readSeatNames`). Me's in-place "Add name" (frame E) draws these
+   * same boxes on a page that may also hold the reply's, so its labels must not
+   * point at the reply's inputs.
+   */
+  idPrefix?: string;
 }) {
   const many = slots.length > 1;
   return (
@@ -246,7 +254,8 @@ export function PlusOneSeatPanels({
             {slot.seatId ? <input type="hidden" name={`plus_one_seat_id_${n}`} value={slot.seatId} /> : null}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <SeatField
-                id={`plus_one_first_name_${n}`}
+                id={`${idPrefix}plus_one_first_name_${n}`}
+                name={`plus_one_first_name_${n}`}
                 label="First name"
                 defaultValue={slot.first}
                 placeholder="First name"
@@ -254,7 +263,8 @@ export function PlusOneSeatPanels({
                 onInput={(e) => readName(e.currentTarget)}
               />
               <SeatField
-                id={`plus_one_last_name_${n}`}
+                id={`${idPrefix}plus_one_last_name_${n}`}
+                name={`plus_one_last_name_${n}`}
                 label="Last name"
                 defaultValue={slot.last}
                 placeholder="Last name"
@@ -264,11 +274,11 @@ export function PlusOneSeatPanels({
             </div>
             {askMeal ? (
               <div className="space-y-1.5">
-                <label htmlFor={`plus_one_meal_${n}`} className="block text-sm font-medium text-ink">
+                <label htmlFor={`${idPrefix}plus_one_meal_${n}`} className="block text-sm font-medium text-ink">
                   Meal preference
                 </label>
                 <select
-                  id={`plus_one_meal_${n}`}
+                  id={`${idPrefix}plus_one_meal_${n}`}
                   name={`plus_one_meal_${n}`}
                   defaultValue={slot.meal}
                   className="input-field appearance-none bg-cream pr-8"
@@ -283,7 +293,8 @@ export function PlusOneSeatPanels({
             ) : null}
             {askDietary ? (
               <SeatField
-                id={`plus_one_dietary_${n}`}
+                id={`${idPrefix}plus_one_dietary_${n}`}
+                name={`plus_one_dietary_${n}`}
                 label="Dietary notes"
                 defaultValue={slot.dietary}
                 placeholder="halal · nut allergy · …"
@@ -298,6 +309,7 @@ export function PlusOneSeatPanels({
 
 function SeatField({
   id,
+  name,
   label,
   defaultValue,
   placeholder,
@@ -305,6 +317,8 @@ function SeatField({
   onInput,
 }: {
   id: string;
+  /** The field the seat rule reads — the id may carry a prefix, this never does. */
+  name: string;
   label: string;
   defaultValue: string;
   placeholder: string;
@@ -318,7 +332,7 @@ function SeatField({
       </label>
       <input
         id={id}
-        name={id}
+        name={name}
         type="text"
         defaultValue={defaultValue}
         placeholder={placeholder}

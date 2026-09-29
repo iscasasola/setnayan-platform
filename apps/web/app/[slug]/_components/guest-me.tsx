@@ -11,7 +11,9 @@ import { YourGuests } from './your-guests';
  *
  *   · their name, with "Not you? Switch" under it (a phone a family shares);
  *   · their guests — "Send their invite" each, "Show <name>'s pass" for a
- *     plus-one with no phone, "Add their name" for a TBA seat;
+ *     plus-one with no phone, and "Add name" for a TBA seat, which opens the
+ *     four boxes IN PLACE (owner 2026-09-29, frame E — never a link back to
+ *     the reply form);
  *   · "The celebrants" — Follow or Add the people this event is for (owner
  *     2026-09-28), only when this seat is linked to the viewer's own account;
  *   · "Save to my account" — reachable any time, before or after replying, and
@@ -25,6 +27,10 @@ export function GuestMe({
   name,
   slug,
   eventId,
+  guestId,
+  askMeal,
+  askDietary,
+  askPlusOnes,
   eventName,
   guests,
   passes,
@@ -39,6 +45,13 @@ export function GuestMe({
   name: string;
   slug: string;
   eventId: string;
+  /** Whose key this page holds — the bringer, for "Add name" in place. */
+  guestId: string;
+  /** The couple's "ask" switches — a plus-one is asked only what they ask. */
+  askMeal: boolean;
+  askDietary: boolean;
+  /** The couple's plus-ones switch — off, the seat rule refuses a name, so no box is offered. */
+  askPlusOnes: boolean;
   eventName: string;
   guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
   passes: Readonly<Record<string, string>>;
@@ -63,6 +76,7 @@ export function GuestMe({
         guests={guests}
         eventName={eventName}
         addNamesHref={`/${slug}/invite/reply#plus-ones`}
+        addName={askPlusOnes ? { eventId, guestId, askMeal, askDietary } : undefined}
         passes={passes}
       />
       <EventCelebrants

@@ -12,9 +12,15 @@
  *
  * 🔒 ONLY A PLACEHOLDER IS EVER REMOVED. A placeholder is an unnamed "TBA" seat
  * nobody confirmed. A seat someone NAMED is a person — with their own QR, their
- * own invitation — and lowering a number must never delete them. If the named
- * seats alone exceed the new number, the change is refused with the reason, and
- * the couple removes that person themselves.
+ * own invitation — and lowering a number must never delete them.
+ *
+ * ⚖ Owner 2026-09-29 (prototype `rsvp_plus_ones_2026-09-29.html`, frame G):
+ * *"adding +1-4 should be a host decision"* — so lowering the number below the
+ * named seats is NO LONGER REFUSED. The number is saved, every placeholder goes,
+ * the named people stay, and `over` says how many more names there are than
+ * seats. The Guest List then shows the quiet "3 named · 1 allowed" with a Remove
+ * beside each name (the host's own remove-a-guest, with its own confirm). The
+ * 2026-09-21 refusal ("remove them from the guest list first") is retired.
  *
  * Pure: no database. The server applies what this returns.
  */
@@ -34,34 +40,73 @@ export function isPlaceholderSeat(row: ExtraSeatRow): boolean {
   return !row.confirmed_at && (row.first_name ?? '').trim().toUpperCase() === PLACEHOLDER_FIRST_NAME;
 }
 
-export type ExtraSeatPlan =
-  | { ok: true; create: number; remove: string[] }
-  | { ok: false; named: number; reason: string };
+/**
+ * What a new "+N" does to the seat rows. Always applicable — the number is the
+ * host's (see the docblock). `over` = named people beyond the number, 0 when
+ * everyone fits: the Guest List's "3 named · 1 allowed".
+ */
+export type ExtraSeatPlan = { ok: true; create: number; remove: string[]; over: number };
 
-export function planExtraSeats(
-  want: number,
-  rows: readonly ExtraSeatRow[],
-  guestName = 'This guest',
-): ExtraSeatPlan {
+export function planExtraSeats(want: number, rows: readonly ExtraSeatRow[]): ExtraSeatPlan {
   const target = Math.max(0, Math.min(4, Math.trunc(want)));
   const placeholders = rows.filter(isPlaceholderSeat);
   const named = rows.length - placeholders.length;
+  const over = Math.max(0, named - target);
 
-  if (named > target) {
-    return {
-      ok: false,
-      named,
-      reason:
-        named === 1
-          ? `${guestName}’s plus-one is already named — remove them from the guest list first to go below +1.`
-          : `${named} of ${guestName}’s plus-ones are already named — remove one from the guest list first to go lower.`,
-    };
-  }
-  if (rows.length < target) return { ok: true, create: target - rows.length, remove: [] };
-  // Too many: drop placeholders only, the newest first.
+  if (rows.length < target) return { ok: true, create: target - rows.length, remove: [], over };
+  // Too many: drop placeholders only, the newest first. With more names than
+  // seats every placeholder goes and the named people stay — never a person.
   const surplus = rows.length - target;
   const newestFirst = [...placeholders].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
-  return { ok: true, create: 0, remove: newestFirst.slice(0, surplus).map((r) => r.guest_id) };
+  return { ok: true, create: 0, remove: newestFirst.slice(0, surplus).map((r) => r.guest_id), over };
+}
+
+/**
+ * An unnamed seat's label, numbered by SEAT (owner 2026-09-29: *"you showed 3
+ * seats but you named it guest 3 and guest 4"*) — "+2 · TBA", never
+ * "+ TBA · brought by …" and never a headcount. `index` is 0-based.
+ */
+export function seatPlaceholderLabel(index: number): string {
+  return `+${index + 1} · TBA`;
+}
+
+/** One of a guest's extra seats, as the host's Guest List draws it. */
+export type BringerSeat = {
+  guest_id: string;
+  /** The person's name, or the seat's own label ("+2 · TBA") while unnamed. */
+  label: string;
+  named: boolean;
+};
+
+/**
+ * Every guest's extra seats, keyed by the guest who brings them — oldest first,
+ * so "+2" is the second seat everywhere (the reply, "Your guests", the list).
+ * Built from the FULL roster (never a filtered view: a search for "Maria" must
+ * still know two of her seats are named). A placeholder's label is computed —
+ * "+2 · TBA" — so rows stored before 2026-09-29 as "+ TBA · brought by …" read
+ * the same as new ones.
+ */
+export function bringerSeatsFrom(
+  guests: readonly {
+    guest_id: string;
+    plus_one_of_guest_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    display_name: string | null;
+    created_at?: string | null;
+  }[],
+): Record<string, BringerSeat[]> {
+  const out: Record<string, BringerSeat[]> = {};
+  const seats = guests
+    .filter((g) => g.plus_one_of_guest_id)
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+  for (const g of seats) {
+    const list = (out[g.plus_one_of_guest_id as string] ??= []);
+    const named = !isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: null });
+    const whole = g.display_name?.trim() || `${g.first_name ?? ''} ${g.last_name ?? ''}`.trim();
+    list.push({ guest_id: g.guest_id, named, label: named ? whole : seatPlaceholderLabel(list.length) });
+  }
+  return out;
 }
 
 /** Which seat a guest's RSVP name fills: the oldest placeholder, else none. */

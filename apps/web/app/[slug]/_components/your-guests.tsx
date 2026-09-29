@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AddNameInPlace } from './add-name-in-place';
 import { SendTheirInvite } from './send-their-invite';
 
 /**
@@ -9,8 +10,11 @@ import { SendTheirInvite } from './send-their-invite';
  *   · a NAMED seat → one button, "Send their invite" (the phone's share sheet,
  *     their own link) — and, in Me, "Show <name>'s pass" for a plus-one with no
  *     phone of their own (a child, an elder), scannable at the door;
- *   · a TBA seat → "Add their name", back to the RSVP page's name boxes, where
- *     naming them mints their key.
+ *   · a TBA seat → "Add name". Given `addName` (Me), the four boxes open IN
+ *     PLACE under the row (owner 2026-09-29, frame E — no link-outs), and
+ *     saving names the seat, whose own link and QR then show here. Without it
+ *     (the reply's thank-you), the link back to the reply's name boxes, which
+ *     are one screen behind.
  *
  * Draws nothing for a guest bringing nobody.
  */
@@ -20,11 +24,17 @@ export function YourGuests({
   addNamesHref,
   sendLabel,
   passes,
+  addName,
 }: {
   guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
   eventName: string;
   addNamesHref: string;
   sendLabel?: string;
+  /**
+   * Me's in-place naming (frame E): whose key this page holds and which of the
+   * four boxes the couple asks. Absent → the TBA row links to `addNamesHref`.
+   */
+  addName?: { eventId: string; guestId: string; askMeal: boolean; askDietary: boolean };
   /**
    * Each named plus-one's pass, pre-rendered (`renderInvitationQrSvg`), keyed by
    * their guest id. Given only on the bringer's own Me tab, whose page already
@@ -45,6 +55,20 @@ export function YourGuests({
       <ul className="divide-y divide-ink/10">
         {guests.map((g, i) => {
           const pass = g.name ? passes?.[g.guestId] : undefined;
+          if (!g.name && addName) {
+            return (
+              <li key={g.guestId} className="py-3">
+                <AddNameInPlace
+                  eventId={addName.eventId}
+                  guestId={addName.guestId}
+                  seatId={g.guestId}
+                  seatLabel={`+${i + 1}`}
+                  askMeal={addName.askMeal}
+                  askDietary={addName.askDietary}
+                />
+              </li>
+            );
+          }
           return (
             <li key={g.guestId} className="py-3">
               <div className="flex items-center justify-between gap-3">

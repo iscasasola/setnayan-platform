@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestSession } from '@/lib/guest-session';
 import { resolveRenamedEventSlug } from '@/lib/slug-forwarding';
 import { recordScan } from '@/lib/scan-trail';
+import { readSeatHolder } from '@/lib/guest-one-path.server';
+import { PLUS_ONE_WELCOMED_COOKIE, plusOneWelcomeDue } from '@/lib/plus-one-welcome';
 
 // Resolves an `?invite=<token>` link by validating the token, signing the
 // guest-session cookie, recording a scan_events row, and redirecting to
@@ -128,6 +130,24 @@ export async function GET(request: NextRequest) {
 
   if (isTbaPlusOne && !guest.plus_one_name_confirmed_at) {
     // event.slug, not the query value — the database's own spelling.
+    return NextResponse.redirect(new URL(`/${event.slug}/welcome`, url.origin));
+  }
+
+  // 👋 A NAMED plus-one opening THEIR OWN link (owner 2026-09-29, prototype
+  // frame F): the short welcome first — "Welcome, Ben", what Maria already
+  // filled marked "from Maria", only what is missing asked, one "Save to my
+  // account", and "Not now — just show my pass". Once per browser
+  // (`PLUS_ONE_WELCOMED_COOKIE`, set by either button), and never for a seat
+  // already kept in an account. Never the full reply — a plus-one is asked the
+  // minimum (lib/plus-one-welcome.ts).
+  if (
+    guest.plus_one_of_guest_id !== null &&
+    plusOneWelcomeDue({
+      guestId: guest.guest_id,
+      welcomedCookie: request.cookies.get(PLUS_ONE_WELCOMED_COOKIE)?.value,
+      seatHeld: (await readSeatHolder(guest.event_id, guest.guest_id)) !== null,
+    })
+  ) {
     return NextResponse.redirect(new URL(`/${event.slug}/welcome`, url.origin));
   }
 

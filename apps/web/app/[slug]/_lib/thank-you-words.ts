@@ -5,6 +5,7 @@
  * Pure. The DATE is the event's own `YYYY-MM-DD`, read as text — never through
  * `new Date()`, which is midnight UTC and the previous day in Manila.
  */
+import type { RsvpWords } from '@/lib/rsvp-ask';
 
 function ordinal(n: number): string {
   const tens = n % 100;
@@ -51,9 +52,13 @@ export function replySummary(input: {
   seats: number;
   meal: string | null | undefined;
   solemn: boolean;
+  /** 📝 The couple's own YES / NO words (`rsvpAnswerWord`) — display only; null = today's. */
+  answerWord?: string | null;
 }): string | undefined {
   const answer =
-    input.status === 'attending'
+    (input.status === 'attending' || input.status === 'declined') && input.answerWord
+      ? input.answerWord
+      : input.status === 'attending'
       ? input.solemn
         ? 'Will be there'
         : 'Joyfully accepts'
@@ -72,4 +77,45 @@ export function replySummary(input: {
     if (meal) parts.push(meal);
   }
   return parts.join(' · ');
+}
+
+/**
+ * 📝 THE COUPLE'S OWN WORDS ON THE SCREEN AFTER A REPLY (the RSVP stage, owner
+ * 2026-09-30: *"the RSVP, after they Submit, or when they declined"*). An
+ * attending guest reads "After they submit" (`thanksHeading` · `thanksMessage`);
+ * a declining guest reads "When they decline" — its OWN words
+ * (`declineHeading` · `declineMessage`), never the thank-you's. Unset, the
+ * heading is today's (`ownHeadline`, from `thankYouHeadline`) and there is no
+ * extra message. `keys` names which pair this screen reads (null for a reply
+ * that is neither — nothing of the couple's is shown).
+ */
+export function thankYouWords(input: {
+  status: string;
+  words: RsvpWords | null | undefined;
+  ownHeadline: string;
+  /** Who `{name}` becomes in the couple's line (the prototype: *"{name} fills each guest's name"*). */
+  name?: string | null;
+}): {
+  heading: string;
+  message: string | null;
+  keys: { heading: 'thanksHeading' | 'declineHeading'; message: 'thanksMessage' | 'declineMessage' } | null;
+} {
+  const keys =
+    input.status === 'declined'
+      ? ({ heading: 'declineHeading', message: 'declineMessage' } as const)
+      : input.status === 'attending'
+        ? ({ heading: 'thanksHeading', message: 'thanksMessage' } as const)
+        : null;
+  if (!keys) return { heading: input.ownHeadline, message: null, keys: null };
+  const fill = (text: string) => fillRsvpName(text, input.name);
+  const heading = input.words?.[keys.heading];
+  const message = input.words?.[keys.message];
+  return { heading: heading ? fill(heading) : input.ownHeadline, message: message ? fill(message) : null, keys };
+}
+
+/** `{name}` in a couple's line → the guest's name (nothing when there is none). */
+export function fillRsvpName(text: string, name: string | null | undefined): string {
+  const who = (name ?? '').trim();
+  const filled = who ? text.replace(/\{name\}/g, who) : text.replace(/[,\s]*\{name\}/g, '');
+  return filled.replace(/\s+([,.!?])/g, '$1').replace(/\s{2,}/g, ' ').trim();
 }

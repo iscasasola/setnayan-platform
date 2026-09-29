@@ -14,8 +14,8 @@ import { canvasFingerprint, createDraftedCanvases } from './maker-draft-store';
 import type { HubSectionCanvas } from './hub-canvas';
 
 const S0: HubSectionCanvas = {};
-const big: HubSectionCanvas = { elements: { mark: { size: 130 } } };
-const bigBlue: HubSectionCanvas = { elements: { mark: { size: 130 }, names: { color: '#1d4ed8' } } };
+const big: HubSectionCanvas = { elements: { mark: { size: 132 } } };
+const bigBlue: HubSectionCanvas = { elements: { mark: { size: 132 }, names: { color: '#1d4ed8' } } };
 const undone: HubSectionCanvas = { elements: { names: { color: '#b91c1c' } } };
 
 function store() {
@@ -37,7 +37,7 @@ test('the render caught up (it shows exactly ours): ours is dropped, the render 
   const { d } = store();
   d.note('hero', big, S0);
   // Key order differs — the same canvas.
-  assert.deepEqual(d.read('hero', { elements: { mark: { size: 130 } } }), big);
+  assert.deepEqual(d.read('hero', { elements: { mark: { size: 132 } } }), big);
   assert.equal(d.size(), 0);
 });
 

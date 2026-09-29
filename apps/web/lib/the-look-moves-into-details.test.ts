@@ -332,7 +332,8 @@ test('(6) a birthday and a wake get the whole Look — and the place menu is the
   // The place menu names the stages in their ONE vocabulary (`PUBLIC_STAGE_LABELS`
   // — no per-type stage names ship) and Details; nothing about it is a wedding's.
   const m = makerPlacePick({ stage: 'rsvp', liveStage: null, openTool: null, hasWork: true }) as { options: Array<{ label: string }> };
-  assert.deepEqual(m.options.map((o) => o.label), ['Save the Date', 'Invitation', 'On the Day', 'Post Event', 'Details']);
+  // 🗳 2026-09-30 re-plan: RSVP is a stage of its own, between Save the Date and the Invitation.
+  assert.deepEqual(m.options.map((o) => o.label), ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event', 'Details']);
   // A viewer Details is not for is told who it IS for — in the type's own word.
   for (const p of [BIRTHDAY, WAKE_PROFILE, WEDDING_PROFILE]) {
     const theHost = eventWordsFromProfile(p).theHost;

@@ -257,11 +257,19 @@ test('only saves the bridge drew are marked held; the shell announces every form
     'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
     'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx',
-    'app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx',
   ]) {
     const src = read(f);
     assert.match(src, /makerSave\(/, `${f}: every Maker draft save goes through makerSave`);
     assert.doesNotMatch(src, /held: true/, `${f}: nothing here is drawn by the bridge — it must release the hold`);
+  }
+  /* 🗳 The RSVP settings: Details' item draws nothing (its save stays unheld and
+     brings its one render); the RSVP STAGE's saves are drawn by its own bridge
+     (`rsvp-canvas-bridge.tsx`) and held — `the-rsvp-stage-is-realtime.test.ts` E. */
+  {
+    const rsvp = read('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
+    const details = rsvp.slice(rsvp.indexOf('start(async () => {'), rsvp.indexOf('const saveWord = '));
+    assert.match(details, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'Details’ RSVP save must stay unheld');
+    assert.equal((rsvp.match(/held: true/g) ?? []).length, 2, 'only the stage’s two saves (the config, the reply-by date) are held');
   }
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
   assert.match(shell, /form\.dataset\.makerHeld !== '1'\) \{\s*announceUnheldWrite\(\);/);

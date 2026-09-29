@@ -74,6 +74,106 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
    * key here.
    */
   guestReminders?: boolean;
+  /**
+   * 📝 THE RSVP STAGE'S WORDS (owner 2026-09-30, DECISION_LOG "RSVP ANSWERS:
+   * THE COUPLE RENAMES…" and "RE-PLAN REVISIONS — RSVP STAGE PARTS"). DISPLAY
+   * WORDS ONLY — the stored answer stays `attending` / `declined`, so counts,
+   * tickets, reminders and the seat plan never read these. Absent = today's
+   * wording (`RSVP_WORD_DEFAULT`, or the thank-you's own headline). See
+   * `RSVP_WORD_KEYS`.
+   */
+  words?: RsvpWords;
+};
+
+/**
+ * The words a couple may type on the RSVP stage — one per thing a guest reads:
+ *   · `attending` / `declined` — the YES and NO answers on the form;
+ *   · `thanksHeading` / `thanksMessage` — "After they submit" (attending);
+ *   · `declineHeading` / `declineMessage` — "When they decline".
+ * The middle answer is not here: it is off for now (owner 2026-09-30,
+ * "for now OFF"; builder `rd/rsvp-no-maybe`).
+ */
+export const RSVP_WORD_KEYS = [
+  'attending',
+  'declined',
+  'thanksHeading',
+  'thanksMessage',
+  'declineHeading',
+  'declineMessage',
+] as const;
+export type RsvpWordKey = (typeof RSVP_WORD_KEYS)[number];
+export type RsvpWords = Partial<Record<RsvpWordKey, string>>;
+
+/** The longest each may be — an answer is a pill, a heading a title, a message two lines. */
+export const RSVP_WORD_MAX: Record<RsvpWordKey, number> = {
+  attending: 40,
+  declined: 40,
+  thanksHeading: 80,
+  thanksMessage: 240,
+  declineHeading: 80,
+  declineMessage: 240,
+};
+
+/** One typed line, made safe to store: a string, control characters out, spaces folded, capped. */
+export function cleanRsvpWord(key: RsvpWordKey, raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  // eslint-disable-next-line no-control-regex
+  const text = raw.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  return text.slice(0, RSVP_WORD_MAX[key]);
+}
+
+/** Only known keys with a non-empty line survive — typed months ago, read as data. */
+export function sanitizeRsvpWords(raw: unknown): RsvpWords {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: RsvpWords = {};
+  for (const key of RSVP_WORD_KEYS) {
+    const text = cleanRsvpWord(key, (raw as Record<string, unknown>)[key]);
+    if (text) out[key] = text;
+  }
+  return out;
+}
+
+/** The couple's words over the RAW stored blob — never re-parsed by a caller. */
+export function readRsvpWords(raw: unknown): RsvpWords {
+  return sanitizeRsvpAskConfig(raw).words ?? {};
+}
+
+/**
+ * TODAY'S WORDING — what a guest reads when the couple typed nothing. The
+ * celebratory pair is the spec's reply-card wording; a solemn event (a wake)
+ * cannot ask anyone to "joyfully accept". Byte-identical to what
+ * `rsvp-widget.tsx` and `thank-you-words.ts` printed before this key existed.
+ */
+export const RSVP_WORD_DEFAULT: Record<'attending' | 'declined', { celebrate: string; solemn: string }> = {
+  attending: { celebrate: 'Joyfully accepts', solemn: 'Will be there' },
+  declined: { celebrate: 'Regretfully declines', solemn: 'Unable to come' },
+};
+
+/** The YES or NO answer's words: the couple's own, else today's. */
+export function rsvpAnswerWord(words: RsvpWords | null | undefined, key: 'attending' | 'declined', solemn: boolean): string {
+  return words?.[key] ?? RSVP_WORD_DEFAULT[key][solemn ? 'solemn' : 'celebrate'];
+}
+
+/**
+ * PREMADE LINES — "type your own, or pick one". ONLY words that already exist
+ * (owner 2026-09-30, "✂ THE MAKER RE-PLAN IS CUT TO ITS CORE": no invented
+ * presets): the answers are the lines the owner's own ruling lists ("RSVP
+ * ANSWERS: THE COUPLE RENAMES…": "Joyfully accepts" · "Wouldn't miss it" ·
+ * "Count me in" / "Regretfully declines" · "Sadly can't make it"), and the
+ * screens after a reply offer only the words those screens and the reply card
+ * already print. A key with no shipped line offers none — type your own.
+ */
+export const RSVP_WORD_LINES: Record<RsvpWordKey, { celebrate: readonly string[]; solemn: readonly string[] }> = {
+  attending: { celebrate: ['Joyfully accepts', 'Wouldn’t miss it', 'Count me in'], solemn: ['Will be there'] },
+  declined: { celebrate: ['Regretfully declines', 'Sadly can’t make it'], solemn: ['Unable to come'] },
+  thanksHeading: { celebrate: ['See you there!'], solemn: ['Thank you'] },
+  thanksMessage: {
+    celebrate: ['Your place is reserved — we can’t wait to celebrate with you.'],
+    solemn: ['Your place is noted — thank you for being with the family.'],
+  },
+  declineHeading: { celebrate: ['Thank you — you’ll be missed'], solemn: ['Thank you'] },
+  declineMessage: { celebrate: [], solemn: [] },
 };
 
 export function isRsvpAskField(v: unknown): v is RsvpAskField {
@@ -83,7 +183,8 @@ export function isRsvpAskField(v: unknown): v is RsvpAskField {
 const CONFIG_MAX_BYTES = 2048;
 
 /**
- * Drop anything that is not a known field with a boolean value. Stored config
+ * Drop anything that is not a known field with a boolean value (the `words`
+ * object keeps only its known, non-empty lines — `sanitizeRsvpWords`). Stored config
  * is data a human saved months ago, not a promise about shape — the same rule
  * `sanitizeRoleAttire` follows for `dress_code_config`.
  */
@@ -103,6 +204,11 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
     }
     if (key === 'guestReminders') {
       if (typeof value === 'boolean') out.guestReminders = value;
+      continue;
+    }
+    if (key === 'words') {
+      const words = sanitizeRsvpWords(value);
+      if (Object.keys(words).length > 0) out.words = words;
       continue;
     }
     if (!isRsvpAskField(key)) continue;

@@ -59,7 +59,9 @@ const DIRS = [
 /** State writes that report on a save rather than show the edit. */
 const STATUS_SETTER = /^set(Error|Note|Problem|Failed|Busy|Pending|Save|Saving|Status|State|Reading|Loading)$/;
 /** Canvas posts — the bridge draws the edit (`element-preview.ts`, `scene-bg-preview.ts`). */
-const CANVAS_POST = new Set(['onPreview', 'lay', 'broadcastToCanvas', 'postToCanvas', 'postMessage']);
+/* 🗳 `announceRsvpPreview` / `announceReplyByLine` — the RSVP stage's panel: the stage
+   posts each into its kept frames at once (`maker-rsvp-stage.tsx` → `rsvp-canvas-bridge.tsx`). */
+const CANVAS_POST = new Set(['onPreview', 'lay', 'broadcastToCanvas', 'postToCanvas', 'postMessage', 'announceRsvpPreview', 'announceReplyByLine']);
 
 /**
  * Handlers that save without drawing first, and why that is right. Keyed

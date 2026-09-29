@@ -49,7 +49,7 @@ import { MoodBoardMakerBody, MoodBoardMakerControls } from '../studio/mood-board
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 /* ⚡ Loads when Details › RSVP is opened — never with the Maker (`details-lazy.tsx`). */
-import { MakerRsvpSettings } from './_components/details-lazy';
+import { MakerRsvpSettings, MakerRsvpStage } from './_components/details-lazy';
 import { GuestPassCardLink } from '../guests/_components/guest-pass-card-link';
 import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
@@ -1000,6 +1000,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      themselves are drawn by /api/hub-print, which asks the Pro question again
      and refuses on its own. */
   let details: { page: ReactNode; controls: ReactNode } | null = null;
+  /* 🗳 The RSVP stage (owner 2026-09-30 re-plan) — built beside Details' RSVP
+     item from the SAME reads, so the two can never show different settings. */
+  let rsvpStage: ReactNode = null;
   /* 🪜 Is anything still left in the guided flow? (Details part 5) — decided
      from the same facts Details' rows are drawn from (`guidedFactsFrom`). An
      unfinished event's Maker opens on What's left unless the address names a
@@ -1254,6 +1257,34 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           />
         ),
       };
+      /* 🗳 THE RSVP STAGE — its three scenes on the REAL guest pages (a SAMPLE
+         guest, host-verified), its controls the same `MakerRsvpSettings` with a
+         `scene`. Lazy: it rides the `maker-details` chunk, never the first load. */
+      {
+        const ownDeadline = deadlineRes.error ? null : ((deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null);
+        rsvpStage = (
+          <MakerRsvpStage
+            eventId={eventId}
+            publicLandingUrl={rsvpHome}
+            solemn={eventWordsFromProfile(detailsProfile).solemn}
+            current={rsvpAsk}
+            drafted={rsvpAskDrafted}
+            replyBy={deadlineRes.error ? null : resolveReplyBy({ deadline: ownDeadline, eventDate: printEvent.event_date })}
+            replyByOwn={
+              deadlineRes.error
+                ? null
+                : {
+                    deadline: ownDeadline,
+                    pricingMode:
+                      (deadlineRes.data as { adaptive_pricing_mode?: string | null } | null)?.adaptive_pricing_mode === 'final_only'
+                        ? 'final_only'
+                        : 'realtime',
+                  }
+            }
+            replyByFallback={resolveReplyBy({ deadline: null, eventDate: printEvent.event_date })?.date ?? null}
+          />
+        );
+      }
       /* 💌 LOVE STORY, moved whole (Details part 2b): only where this event type
          has two named people (`detailsItemApplies`). Its WORDS editor only when
          the story was read — a form built on an unread story would save it
@@ -1493,6 +1524,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       })()}
       opensOnGuide={opensOnGuide && guideAddress === null}
       details={details}
+      rsvpStage={rsvpStage}
       factEditors={factEditors}
       storeShell={storeShell}
       /* ⛔ The tour's Pro slide: no figure in the store shell (it drops the

@@ -16,7 +16,9 @@ import { rsvpGate } from '@/lib/guest-one-path';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
 import { hubDoorSkin } from '../_components/hub-door-skin';
-import { resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { readRsvpWords, resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
+import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
@@ -261,6 +263,10 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
      `lead`. With the switch off, none of this renders and the page is exactly
      as before. */
   const oneAtATime = askOneAtATime(event.rsvp_ask_config);
+  /* 🗳 On the Maker's RSVP stage the switch is flipped LIVE (rsvp-canvas-bridge.tsx),
+     so the canvas always draws the one-question scaffolding — inert while the
+     walker is off. A guest's page draws it only when the switch is on. */
+  const oneQuestionFrame = oneAtATime || canvas;
 
   return (
     /* 🎨 THE EVENT HUB'S LOOK AND GROUND (owner 2026-09-28: "background should
@@ -281,15 +287,16 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         })}
         width="lg"
         skin={hubDoorSkin({ ...doorMarkFor(event), animate: markPlays })}
-        lead={oneAtATime ? <div data-rsvp-progress-slot="" /> : undefined}
+        lead={oneQuestionFrame ? <div data-rsvp-progress-slot="" /> : undefined}
       >
-        {oneAtATime ? (
+        {canvas ? <RsvpCanvasBridge /> : null}
+        {oneQuestionFrame ? (
           <p hidden data-rsvp-context-line="" className="truncate text-sm text-ink/70">
             {[event.display_name as string | null, `for ${guestName}`].filter(Boolean).join(' · ')}
           </p>
         ) : null}
         {/* Whose reply this is — and, on a phone a family shares, the way out. */}
-        <FirstScreenOnly on={oneAtATime}>
+        <FirstScreenOnly on={oneQuestionFrame}>
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
             <p className="font-serif text-lg text-ink" data-reply-for="">
               {guestName}
@@ -299,7 +306,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         </FirstScreenOnly>
 
         {hasAnswered ? (
-          <FirstScreenOnly on={oneAtATime}>
+          <FirstScreenOnly on={oneQuestionFrame}>
             <DoorNotice>
               Your reply is saved.{' '}
               <Link
@@ -312,8 +319,10 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
             </DoorNotice>
           </FirstScreenOnly>
         ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
-          <FirstScreenOnly on={oneAtATime}>
-            <p className="text-sm text-ink/70">Please reply by {closesLabel}.</p>
+          <FirstScreenOnly on={oneQuestionFrame}>
+            <p className="text-sm text-ink/70" data-rsvp-word={canvas ? rsvpWordBridgeKey('reply-by') : undefined}>
+              Please reply by {closesLabel}.
+            </p>
           </FirstScreenOnly>
         ) : null}
 
@@ -354,6 +363,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           termsOnSend
           oneAtATime={askOneAtATime(event.rsvp_ask_config)}
           previewEveryQuestion={canvas}
+          answerWords={readRsvpWords(event.rsvp_ask_config)}
         />
       </DoorShell>
     </GuestLookScope>

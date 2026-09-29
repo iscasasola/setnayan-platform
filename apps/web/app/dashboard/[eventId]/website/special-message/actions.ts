@@ -9,11 +9,11 @@
  * RLS enforce that only event members (couple / host moderators) can write —
  * runs with the host's JWT, not the admin client. Mirrors updateDressCode.
  */
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { resolveReturnTo } from '@/lib/editor-return';
 import { requireHostMembership } from '@/lib/host-gate';
 import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
@@ -33,7 +33,7 @@ export async function updateSpecialMessage(
      words go into the couple's draft; guests keep the live page until Apply. */
   if (isHubDraftWrite(formData)) {
     await requireHostMembership(eventId);
-    await draftEventsAndReturn(eventId, { special_message: message || null }, formData, `/dashboard/${eventId}/website/editor?open=special-message`);
+    return draftEventsAndReturn(eventId, { special_message: message || null }, formData, `/dashboard/${eventId}/website/editor?open=special-message`);
   }
 
   const supabase = await createClient();
@@ -54,7 +54,5 @@ export async function updateSpecialMessage(
 
   revalidatePath(`/dashboard/${eventId}/website`);
   if (event?.slug) revalidatePath(`/${event.slug}`);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/special-message?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/special-message?saved=1`, '?saved=1');
 }

@@ -619,6 +619,23 @@ export function EditorBridge() {
         mark(part);
         return;
       }
+      if (data.t === 'scenePlaceholder') {
+        /* ＋ A SCENE ON ITS WAY (owner 2026-09-29: *"make sure 100% that there
+           is no slow response on the maker"*). The couple tapped a template:
+           a quiet placeholder takes the new scene's place — after the stage's
+           last scene — until the render that draws it replaces this page
+           (the canvas reloads double-buffered). Nothing here is kept. */
+        document.querySelector('[data-maker-scene-placeholder]')?.remove();
+        const box = document.createElement('div');
+        box.setAttribute('data-maker-scene-placeholder', '');
+        box.setAttribute('role', 'status');
+        box.textContent = 'Adding your scene…';
+        box.style.cssText =
+          'margin:16px auto;max-width:560px;min-height:180px;display:flex;align-items:center;justify-content:center;border:1.5px dashed rgba(27,26,23,.25);border-radius:var(--m-r-md);font:500 13px/1.4 system-ui,sans-serif;color:rgba(27,26,23,.6);animation:pulse 1.4s ease-in-out infinite';
+        el.insertAdjacentElement('afterend', box);
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
       if (data.t === 'words') {
         // ✍ The Content box's words, on the scene now (`previewSceneWords`).
         const text = (data as { text?: unknown }).text;

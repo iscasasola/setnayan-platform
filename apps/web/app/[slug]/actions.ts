@@ -896,7 +896,7 @@ export async function submitRsvp(
       // Mirror onto the primary so the host's list chips stop reading "+ TBA":
       // the first name given, as the single-seat reply always did.
       const named = ops.find((o) => o.kind !== 'details');
-      const firstNamed = named && named.kind !== 'details' ? `${named.first} ${named.last}`.trim() : '';
+      const firstNamed = named ? `${named.first} ${named.last}`.trim() : '';
       if (firstNamed) {
         await admin
           .from('guests')

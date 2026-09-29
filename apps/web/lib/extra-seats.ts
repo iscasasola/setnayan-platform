@@ -193,8 +193,29 @@ export function plusOneNameSlots(
   legacyName: string | null | undefined,
 ): { seatId: string | null; name: string | null }[] {
   if (!seats) return [{ seatId: null, name: legacyName ?? null }];
-  return Array.from({ length: Math.max(1, Math.min(4, count)) }, (_, i) => ({
-    seatId: seats[i]?.guest_id ?? null,
-    name: seats[i]?.name ?? null,
-  }));
+  /*
+    ⚖ Owner 2026-09-29: *"adding +1-4 should be a host decision. and their QR
+    auto adapts to it?"* — `count` is the host's, read at render, so the same
+    link shows the new number of boxes the moment the host changes it.
+    🔒 A NAMED SEAT IS NEVER DROPPED FROM THE REPLY, even when the host's number
+    is now below it (a guest-side screen must not make a named person — their
+    row, their QR — vanish; removing is the host's). The number caps only the
+    EMPTY boxes: named seats + open ones up to `count`, never more than four.
+  */
+  const want = Math.max(1, Math.min(4, count));
+  const namedCount = seats.filter((s) => s.name).length;
+  let open = Math.max(0, want - namedCount);
+  const out: { seatId: string | null; name: string | null }[] = [];
+  for (const s of seats) {
+    if (s.name) out.push({ seatId: s.guest_id, name: s.name });
+    else if (open > 0) {
+      open -= 1;
+      out.push({ seatId: s.guest_id, name: null });
+    }
+  }
+  while (open > 0 && out.length < 4) {
+    open -= 1;
+    out.push({ seatId: null, name: null });
+  }
+  return out.slice(0, 4);
 }

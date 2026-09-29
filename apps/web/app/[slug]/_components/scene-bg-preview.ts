@@ -96,5 +96,14 @@ export function applySceneBgPreview(scene: HTMLElement, preview: SceneBgPreviewS
   } else if (!wantsPhoto && layer) {
     layer.remove();
   }
+  /* 🌄 Parallax — the frame says so with `hub-bg-parallax`; the photo layer
+     then wears the SHIPPED hero parallax's own mark, which its script reads on
+     every frame (`PahinaCoverParallax`), exactly as `hub-canvas-frame.tsx`
+     draws it. */
+  const photo = Array.from(frame.children).find((c) => c.classList.contains('hub-canvas-media') && c.tagName === 'DIV');
+  if (photo) {
+    if (frame.classList.contains('hub-bg-parallax')) photo.setAttribute('data-pahina-parallax', '');
+    else photo.removeAttribute('data-pahina-parallax');
+  }
   return frame;
 }

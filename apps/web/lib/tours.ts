@@ -9,6 +9,8 @@
 // (telling someone the lay of the land) and avoids brittle DOM-coupling.
 // Mini-tours follow the same pattern.
 
+import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
+
 import {
   Apple,
   BookOpen,
@@ -433,7 +435,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'What Event Hub Pro adds',
-        body: 'Themes beyond Classic, scenes of your own from the templates (tap + at the top &mdash; each one waits in your draft until you Apply), the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.',
+        // The free themes are named from the registry (owner 2026-09-29: Modern
+        // and Cyber Neon joined Classic), never typed here.
+        body: `Themes beyond ${themeNames(FREE_THEMES)}, scenes of your own from the templates (tap + at the top &mdash; each one waits in your draft until you Apply), the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.`,
         sells: true,
       },
     ],
@@ -495,7 +499,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Free — and yours to change',
-        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A theme and your own photos come with Event Hub Pro.',
+        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A Pro theme and your own photos come with Event Hub Pro.',
         sells: true,
       },
     ],
@@ -600,10 +604,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Sparkles,
-        title: 'Try any theme',
+        // The free themes from the registry (owner 2026-09-29), never typed.
+        title: `${themeNames(FREE_THEMES)} are free`,
         // A pitch: dropped in the app-store shell, price never written here.
         sells: true,
-        body: 'The themes marked &#9670; come with <strong>Event Hub Pro</strong>. Pick one anyway — it waits in your draft, and Apply asks for Pro.',
+        // Tried free, paid at Apply (owner 2026-09-28, PR #6091): a Pro theme is
+        // picked like any other and waits in the draft — no padlock, no detour.
+        body: 'The others are marked <strong>&#9670; PRO</strong>. Try one on your page for free &mdash; it waits in your draft, and <strong>Event Hub Pro</strong> puts it live when you press Apply.',
       },
     ],
   },

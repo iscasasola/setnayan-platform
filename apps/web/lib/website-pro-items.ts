@@ -43,6 +43,18 @@
  * `couple-website-pro.ts` docblock records why: three different figures for one
  * product once lived in a single file.
  */
+import { PRO_THEMES } from '@/lib/invite-themes';
+import { formatCount } from '@/lib/format-number';
+
+/**
+ * 🎨 THE PRO THEMES, COUNTED — never typed. Owner 2026-09-29, *"Okay use modern
+ * and cyber FREE"*: Modern and Cyber Neon joined Classic as free themes, and
+ * this item — which said "9" as a typed digit — would have gone on selling two
+ * themes every couple already has. The number is the registry's count of
+ * shipped Pro themes (`PRO_THEMES` in `lib/invite-themes.ts`), so a tier flip
+ * rewrites the sentence instead of leaving it to rot.
+ */
+export const PRO_THEMES_ITEM = `${formatCount(PRO_THEMES.length)} Event Hub themes, invite link included` as const;
 
 /** The nine Pro items, named the way the couple sees them. */
 export const WEBSITE_PRO_ITEMS = [
@@ -54,12 +66,12 @@ export const WEBSITE_PRO_ITEMS = [
   // Media behind a scene or behind the whole page (owner 2026-09-28: "adding
   // media for background"). The COLOURS that stood here are free now.
   'Photo and video backgrounds',
-  // The NINE Pro themes (owner 2026-09-24/25: "themes are part of pro except
-  // classic"; build plan Phase 3: "Invite link theme" → "9 themes"). Still names
+  // The Pro themes (owner 2026-09-24/25: "themes are part of pro except
+  // classic"; 2026-09-29: except Classic, Modern and Cyber Neon). Still names
   // the invite link, because the theme dresses the invite door too — and the
-  // number is the registry's count of Pro themes, held by
-  // `says-what-it-includes.test.ts` so the copy cannot outlive it.
-  '9 Event Hub themes, invite link included',
+  // number is COMPUTED from the registry (`PRO_THEMES_ITEM` above), held by
+  // `says-what-it-includes.test.ts` and `free-themes-are-free.test.ts`.
+  PRO_THEMES_ITEM,
   // The logo animation (owner 2026-09-24, "A then"). Granted by the
   // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO alias; the couple meets it on the
   // Logo Maker, where the owned state reads "Included with Event Hub Pro".

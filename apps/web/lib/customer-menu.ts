@@ -484,7 +484,9 @@ export function buildEventMenuSections(
   if (ctx.seatingEnabled !== false) {
     put({ key: 'seat', label: 'Seat plan', href: `${base}/seating`, icon: 'seat' });
   }
-  put({ key: 'studio', label: SUITE_NAV_ON ? 'Suite' : 'Studio', href: studioHubHref(eventId), icon: 'suite' });
+  // ✏️ 2026-09-29: "Suite" → "Our Services" (DECISION_LOG "WHAT AN EVENT
+  // NEEDS"). A label change only — the key stays `studio`, the route /suite.
+  put({ key: 'studio', label: SUITE_NAV_ON ? 'Our Services' : 'Studio', href: studioHubHref(eventId), icon: 'suite' });
   put({ key: 'refer', label: 'Refer a couple', href: `${base}/refer`, icon: 'refer' });
 
   const unknown: EventMenuRow[] = [];

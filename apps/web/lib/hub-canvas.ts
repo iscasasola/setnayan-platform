@@ -46,6 +46,7 @@ import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style'
 import { ombreCss } from '@/lib/ombre';
 import { sanitizeDetailsOverrides, type HubDetailsOverrides } from '@/lib/details-bound';
 import { sanitizeHeroDesign, type HeroDesignId } from '@/lib/hero-design';
+import { isStdLibrarySrc } from '@/lib/std-backgrounds';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -253,6 +254,25 @@ export type HubSectionCanvas = {
    * background" has no box to shape.
    */
   shape?: HubSceneShape;
+  /**
+   * 🌄 HOW A PHOTO BACKGROUND MOVES — Still (absent) or Parallax (owner
+   * 2026-09-28: *"where is the upload media/: photo parallax effect or snippet
+   * that would run like the background?"*). Parallax is the SHIPPED hero
+   * parallax (`PahinaCoverParallax` + the `.pahina-js` rule in globals.css),
+   * never a second mechanism: the photo layer wears `data-pahina-parallax` and
+   * the frame `hub-bg-parallax`. Kept only beside a PHOTO — a snippet already
+   * moves, a colour has nothing to drift. Media is Pro, so this is too.
+   */
+  mediaMotion?: HubMediaMotion;
+  /**
+   * 🎞 A SNIPPET'S STILL — a frame of the clip grabbed in the browser
+   * (`extractPosterFrame`, the Main background's own rule), or the hero photo
+   * for the hero clip. While an unscreened clip may not reach a guest
+   * (`GUEST_HERO_VIDEO_PLAYBACK`), guests see THIS behind the scene instead of
+   * nothing (`sceneGround`). Same `hubMediaRef` fence as `media`; kept only
+   * beside a snippet.
+   */
+  poster?: string;
   preset?: HubMotionPreset;
   /** Fine-tune. Each absent when the couple left it on Auto. */
   in?: HubIn;
@@ -424,6 +444,9 @@ const inSet = <T,>(list: readonly T[], v: unknown): v is T => (list as readonly 
  * absolute `https://` URL. Anything else is not a photo and is dropped.
  */
 export function hubMediaRef(value: unknown): string | null {
+  /* 🖼 …or one of Setnayan's own ready-made Save the Date scenes, by its exact
+     public path (`isStdLibrarySrc`, a closed list — owner 2026-09-29). */
+  if (isStdLibrarySrc(value)) return value;
   const ref = siteMediaServeRef(value);
   if (!ref) return null;
   if (ref.startsWith('r2://')) return ref;          // already held to the public bucket
@@ -505,6 +528,14 @@ export type HubSceneShape = (typeof HUB_SCENE_SHAPES)[number];
 export const HUB_DEFAULT_SCENE_SHAPE: HubSceneShape = 'framed';
 export const HUB_SCENE_SHAPE_LABEL: Record<HubSceneShape, string> = { framed: 'Framed', full: 'Full width' };
 
+/** How a photo background moves: Still (the absence) or Parallax. */
+export const HUB_MEDIA_MOTIONS = ['still', 'parallax'] as const;
+export type HubMediaMotion = Exclude<(typeof HUB_MEDIA_MOTIONS)[number], 'still'>;
+export const HUB_MEDIA_MOTION_LABEL: Record<(typeof HUB_MEDIA_MOTIONS)[number], string> = {
+  still: 'Still',
+  parallax: 'Parallax',
+};
+
 /** `#rrggbb`, lowercased. The only shape a colour may take. */
 const HUB_COLOR = /^#[0-9a-f]{6}$/;
 
@@ -571,6 +602,12 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
     if (painted && painted.kind !== 'none') out.shape = 'full';
   }
   if (canvas.own === true && resolveHubBackground(out)) out.own = true;
+  /* 🌄 Parallax only beside a photo; 🎞 a still only beside a snippet — the
+     direction rule: a key that could move no pixels is not stored. */
+  const ground = resolveHubBackground(out);
+  if (canvas.mediaMotion === 'parallax' && ground?.kind === 'photo') out.mediaMotion = 'parallax';
+  const poster = hubMediaRef(canvas.poster);
+  if (poster && ground?.kind === 'snippet') out.poster = poster;
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;
   if (inSet(HUB_IN, canvas.in)) out.in = canvas.in;
   if (inSet(HUB_OUT, canvas.out)) out.out = canvas.out;
@@ -948,6 +985,9 @@ export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): stri
     ...(bg && placement !== 'none' ? [`hub-bg-${bg.kind}`] : []),
     /* 🖼 "No background" is a choice too, and says so — no box, no padding. */
     ...(bg?.kind === 'none' ? ['hub-bg-none'] : []),
+    /* 🌄 PARALLAX — the photo layer drifts on the SHIPPED hero parallax
+       (`PahinaCoverParallax`); only a photo painted behind the words. */
+    ...(bg?.kind === 'photo' && placement === 'behind' && canvas.mediaMotion === 'parallax' ? ['hub-bg-parallax'] : []),
     /* 🖼 FRAMED or FULL WIDTH — only on a background that is actually painted
        behind the scene; a photo BESIDE the words is a picture, not a box. */
     ...(bg && bg.kind !== 'none' && placement === 'behind'
@@ -1011,6 +1051,8 @@ export function hubCanvasMediaRefs(
   for (const row of rows) {
     const canvas = sanitizeHubCanvas(row.config_json);
     if (canvas.media) out.add(canvas.media);
+    // 🎞 A snippet's still — what a guest sees while its clip may not play.
+    if (canvas.poster) out.add(canvas.poster);
     // A template scene's own pictures sign in the same one pass.
     for (const slot of canvas.slots ?? []) if (slot.media) out.add(slot.media);
     // …and a Main background OVERRIDE's photo or still (Maker Phase 10). Its
@@ -1024,6 +1066,21 @@ export function hubCanvasMediaRefs(
     }
   }
   return [...out];
+}
+
+/**
+ * 🎞 THE STILL A GUEST SEES FOR A TEMPLATE SLOT'S CLIP — `stillRef` (the hero
+ * photo, the hero clip's documented stand-in) when any scene has a clip in a
+ * slot, so it signs in the page's ONE pass; `[]` otherwise (nothing extra to
+ * sign). The render decides whether the clip may play (`renderScene`).
+ */
+export function hubSlotClipStillRefs(
+  rows: readonly { config_json: unknown }[],
+  stillRef: string | null,
+): string[] {
+  if (!stillRef) return [];
+  const any = rows.some((row) => (sanitizeHubCanvas(row.config_json).slots ?? []).some((s) => s.kind === 'snippet'));
+  return any ? [stillRef] : [];
 }
 
 /* ══ THE MAIN BACKGROUND — behind every scene ════════════════════════════════

@@ -130,7 +130,10 @@ test('the fence is not optional — ownership alone can never open a Pro theme',
 
 test('the picker offers no Pro theme where no purchase could ever turn one on', () => {
   const offered = pickableInviteThemes({ mayShowStdFilm: false }).map((t) => t.id);
-  assert.deepEqual(offered, ['house'], 'a birthday was offered a wedding-only theme');
+  // The fence guards the PRO themes; the free ones pass it the way Classic
+  // always has (owner 2026-09-29: Modern and Cyber Neon are free for everyone).
+  assert.deepEqual(offered, ['house', 'galeriya', 'cyber'], 'a birthday was offered a wedding-only theme');
+  assert.ok(offered.every((id) => INVITE_THEMES[id].tier === 'free'), 'a Pro theme crossed the wedding fence');
   assert.ok(
     pickableInviteThemes({ mayShowStdFilm: true }).some((t) => t.id === 'vintage'),
     'and a wedding still gets the Pro themes — the fence is a fence, not a wall',
@@ -154,17 +157,19 @@ test('the pre-selection follows the fence too, saved value included', () => {
   );
 });
 
-test('exactly one theme is free, and it is the house one', () => {
+test('the free themes are Classic, Modern and Cyber Neon — every other one is Pro', () => {
   /*
     🪤 THIS PINNED `length === 5` AND WENT RED WHEN THE SET GREW to nine
     (owner, 2026-09-22: Minimalist · Fairytale · Vintage · Custom). The count
     was never the rule — a number in a test rots exactly the way a number in a
-    document does. The RULE is the owner's, 2026-09-10: "Generic is the Free.
-    The other 4 will be the Event Hub Pro service" — i.e. ONE free theme, and
-    every other one is Pro, however many there are.
+    document does. The RULE was the owner's, 2026-09-10: "Generic is the Free.
+    The other 4 will be the Event Hub Pro service" — ONE free theme. On
+    2026-09-29 he redrew it, verbatim: *"Okay use modern and cyber FREE"* — so
+    the free set is Classic, Modern and Cyber Neon, and every other one is Pro,
+    however many there are.
   */
   const free = INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].tier === 'free');
-  assert.deepEqual(free, ['house'], 'the free theme is not house, or there is more than one');
+  assert.deepEqual(free, ['house', 'galeriya', 'cyber'], 'the free themes are not Classic, Modern and Cyber Neon');
   const pro = INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].tier === 'pro');
   assert.equal(
     free.length + pro.length,
@@ -195,9 +200,10 @@ test('the picker pre-selects from the feel, but only a theme the couple can actu
     'house',
   );
   assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ...WEDDING }), 'galeriya');
+  // Modern is FREE (owner 2026-09-29): a couple without Pro is suggested it too.
   assert.equal(
     suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ownsPro: false, mayShowStdFilm: true }),
-    'house',
+    'galeriya',
   );
   // 'rustic' is Abaca's feel, and Abaca shipped its skin on 2026-09-14 — the
   // last of the four. This line read `'house'` for as long as it had none.
@@ -276,13 +282,13 @@ test('every theme a couple can actually SAVE exists in the database', () => {
 
 const HEX = /^#[0-9a-f]{6}$/;
 
-test('the registry is exactly the ten the owner named, in his order, and only Classic is free', () => {
+test('the registry is exactly the ten the owner named, in his order, and Classic, Modern and Cyber Neon are free', () => {
   assert.deepEqual(
     HUB_THEMES.map((t) => t.name),
     ['Classic', 'Rustic', 'Modern', 'Cinderella', 'Luxe', 'Vintage', 'Whimsical', 'Regency', 'Great Gatsby', 'Cyber Neon'],
   );
   assert.equal(new Set(INVITE_THEME_IDS).size, 10, 'a theme id is listed twice');
-  assert.deepEqual(HUB_THEMES.filter((t) => t.tier === 'free').map((t) => t.id), ['house']);
+  assert.deepEqual(HUB_THEMES.filter((t) => t.tier === 'free').map((t) => t.id), ['house', 'galeriya', 'cyber']);
   // "Bridgerton" is a Netflix trademark — the public name is Regency (D3).
   assert.ok(!HUB_THEMES.some((t) => /bridgerton/i.test(t.name + t.blurb)), 'a trademarked name reached the picker');
 });
@@ -309,14 +315,16 @@ test('every theme carries every field the Maker reads — a whole look, not a co
   }
 });
 
-test('Classic is plain colour: no loop, no still, no scrim, no reveal — and every Pro theme has all of them', () => {
+test('Classic is plain colour: no loop, no still, no scrim, no reveal — and every other theme has all of them', () => {
   const classic = INVITE_THEMES.house;
   assert.equal(classic.media, null, 'owner: "classic has no photo or video"');
   assert.equal(classic.scrim, null);
   assert.equal(classic.opening, 'none', 'every reveal is Pro; Classic opens on nothing');
   assert.equal(classic.door, 'house');
-  for (const t of HUB_THEMES.filter((x) => x.tier === 'pro')) {
-    assert.ok(t.media, `${t.id} is Pro with no loop — owner: "all event hub themes use video"`);
+  // Every theme but Classic — free or Pro (Modern and Cyber Neon are free since
+  // 2026-09-29 and keep their loops; the owner chose them FOR their light loops).
+  for (const t of HUB_THEMES.filter((x) => x.id !== 'house')) {
+    assert.ok(t.media, `${t.id} has no loop — owner: "all event hub themes use video"`);
     assert.match(t.media!.loop, /^r2:\/\/setnayan-media\/theme-backgrounds\/.+-loop\.mp4$/, `${t.id} loop is not on the public bucket`);
     assert.match(t.media!.poster, /^r2:\/\/setnayan-media\/theme-backgrounds\/.+-poster\.jpg$/, `${t.id} still is not on the public bucket`);
     assert.ok(t.scrim && t.scrim.opacity > 0 && t.scrim.opacity < 1, `${t.id} has no scrim over its loop`);

@@ -3,7 +3,8 @@ import 'server-only';
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { hubMainGround, resolveMainGround } from '@/lib/hub-canvas';
-import { heroMayBePageGround } from '@/lib/page-ground';
+import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
+import { websiteProActiveFor } from './hub-look';
 import { resolveHero, type HeroEventInput } from '@/lib/event-hero';
 import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
@@ -32,10 +33,12 @@ import { MainGround } from '../_components/main-ground';
  * automatic tint.
  *
  * 🧱 THE ONE PAGE-GROUND RULE (`lib/page-ground.ts`, owner 2026-09-26 "YES TO
- * ALL" (a)): the colour + effect is always the base; the hero sits on top ONLY
- * on a Pro theme. `heroMayBePageGround` keys on the theme's tier, so Classic —
- * and any future free theme — never gets the hero as its ground ("classic has
- * no photo or video").
+ * ALL" (a)): the colour + effect is always the base; the hero sits on top as
+ * Pro media — on a Pro theme, and (owner 2026-09-29, "yes") on a free theme
+ * with a loop when the event OWNS Event Hub Pro (`websiteProActiveFor`, the
+ * entitlement resolver as viewed). Classic never gets it ("classic has no
+ * photo or video"); a free or lapsed couple on Modern / Cyber Neon gets the
+ * theme's own loop.
  *
  * ⛔ An unscreened clip plays for the HOST only; a guest gets the still — the
  * same closed switch every hero-video read goes through.
@@ -56,12 +59,17 @@ export async function mainGroundLayerFor({
   theme: InviteThemeId;
   /** The hero row's `config_json` (draft-overlaid for the host's canvas). */
   heroConfig: unknown;
-  event: HeroEventInput & { site_button_color?: unknown };
+  event: HeroEventInput & { event_id: string; site_button_color?: unknown };
   viewerIsHost: boolean;
   /** Refs the caller already signed, so a ref is never signed twice. */
   signed?: Record<string, string>;
 }): Promise<ReactNode> {
-  const mainGround = heroMayBePageGround(theme)
+  // The ownership read only where it can change the answer (a free theme with
+  // a loop); cached per request, shared with the theme gate and the watermark.
+  const ownsPro = heroGroundNeedsOwnership(theme)
+    ? await websiteProActiveFor(event.event_id).catch(() => false)
+    : false;
+  const mainGround = heroMayBePageGround(theme, ownsPro)
     ? resolveMainGround(hubMainGround(heroConfig), resolveHero(event), heroVideoRefForGuests)
     : null;
   if (mainGround) {

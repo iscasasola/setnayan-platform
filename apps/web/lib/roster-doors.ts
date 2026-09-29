@@ -77,7 +77,10 @@ export function rosterDoors({
   // Seat plan. The Guest list keeps people; arranging the room is not one of
   // its doors any more (the seat plan still reaches every guest's name).
   const trailing: RosterDoor[] = finished
-    ? [{ kind: 'link', key: 'checkin', label: 'Check-in', href: `${base}/checkin` }]
+    ? // ⚖ Check-in is a PART of the guest list now (owner 2026-09-29,
+      // `lib/pillar-parts.ts`): the desk renders in this page's body, so the
+      // door keeps the page instead of leaving it — the Share the link rule.
+      [{ kind: 'link', key: 'checkin', label: 'Check-in', href: `${base}?gview=checkin` }]
     : [];
   if (finished && hasJoinLink) trailing.push({ kind: 'shareMenu', key: 'share-menu' });
   // The free do-it-yourself QR sheet is NOT here any more (owner 2026-09-29,

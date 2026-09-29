@@ -100,6 +100,7 @@ export function ServicesTakeover({
   budgetSlot,
   compareSlot,
   premium = false,
+  partPicker,
 }: {
   eventId: string;
   shortlistSlot?: ReactNode;
@@ -111,6 +112,9 @@ export function ServicesTakeover({
    *  gold-accented crest strip signalling smart matching / watch guard are on
    *  (PR-4 · S5). Purely presentational; gated on the AI subscription upstream. */
   premium?: boolean;
+  /** Your Team's part picker — Your team · Budget (`lib/pillar-parts.ts`,
+   *  owner 2026-09-29). Rendered by the page; the takeover only places it. */
+  partPicker?: ReactNode;
 }) {
   // Read once so the whole surface agrees within a render (same contract as
   // `build-compare.tsx` / `build-locked.tsx`).
@@ -201,6 +205,11 @@ export function ServicesTakeover({
           title="Your Team"
         />
       ) : null}
+
+      {/* Your Team's parts — Your team · Budget (owner 2026-09-29: Budget
+          moved into this pillar). One dropdown, first on the page, so the
+          couple's money is one tap from the bench at every width. */}
+      {partPicker ? <div className="mb-4">{partPicker}</div> : null}
 
       {/* Premium tier crest (S5) — shows only when Setnayan AI is active, marking
           the Marketplace as the couple's premium planning surface.

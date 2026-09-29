@@ -9,7 +9,7 @@ import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type Pri
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
-import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { FREE_THEMES, INVITE_THEMES, themeNames, type InviteThemeId } from '@/lib/invite-themes';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { renderImposedPdf, renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderSampleJpeg, renderSampleSheetJpeg } from '@/lib/print-sample-raster';
@@ -20,6 +20,7 @@ import {
   formatFor,
   isPrintPieceKey,
   isPrintSetKey,
+  isProPrint,
   isThemedPrint,
   mayServe,
   menuHasDishes,
@@ -45,22 +46,23 @@ import { sampleView } from '@/lib/print-sample-door.server';
  *
  * GET  ?event=<uuid>&mode=screen|sample|print[&theme=<preview>]
  * ⚖ Owner 2026-09-25, "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE THEMED
- * VERSION IS PRO": `theme=house` (Classic) is print-ready for EVERY event; any
- * other theme is print-ready only with Event Hub Pro.
+ * VERSION IS PRO": `theme=house` (Classic) is print-ready for EVERY event; a
+ * Pro theme is print-ready only with Event Hub Pro. Since 2026-09-29 the free
+ * themes (Classic, Modern, Cyber Neon — `isProPrint` false) all print free.
  *
  *   · a set piece (`invitation` · `entourage` · `details` · `pass` · `poster` ·
  *     `card`):
  *       `sample` — ONE flattened JPEG, ≤ 800 px, quality 60, the tiled
  *                  "SAMPLE · SETNAYAN" watermark burned into the pixels,
  *                  placeholder QRs. Never a PDF, never a vector.
- *       `screen` — what the Maker shows: the unmarked SVG in Classic or with
- *                  Pro, the same watermarked JPEG as `sample` for a theme
- *                  without Pro;
+ *       `screen` — what the Maker shows: the unmarked SVG in a free theme or
+ *                  with Pro, the same watermarked JPEG as `sample` for a Pro
+ *                  theme without Pro;
  *       `print`  — the print-ready PDF (bleed, crop marks, Foil / White ink /
- *                  Die cut layers), no watermark. Classic: everyone. A theme: Pro.
+ *                  Die cut layers), no watermark. A free theme: everyone. A Pro theme: Pro.
  *   · `set` — the themed pieces (the Menu only once it has a dish): one print-ready PDF, or one sample sheet JPEG.
  *   · `passes` — every guest's pass, ganged on A4, each QR the guest's own
- *     invitation code. Classic: everyone. A theme: Pro.
+ *     invitation code. A free theme: everyone. A Pro theme: Pro.
  *   · the FREE GROUP (`kind: 'free'`, no themed version, store shell included):
  *       `qr-codes` — every guest's QR with their name (owner 2026-09-25: "the
  *                    free version is the PDF of QRs … found on Guestlist");
@@ -71,7 +73,7 @@ import { sampleView } from '@/lib/print-sample-door.server';
  *   Maker's Words panel posts it and says "Saves immediately". Parents come from
  *   the Guest list and gifts from E-Gifts — never typed here.
  *
- * 🔒 THE GATE IS HERE, NOT A HIDDEN BUTTON. A free event asking for a THEMED
+ * 🔒 THE GATE IS HERE, NOT A HIDDEN BUTTON. A free event asking for a PRO-THEMED
  * `print` or `passes` gets 403, whatever the page did or did not render.
  */
 
@@ -227,17 +229,22 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   // The theme this request would draw — decided ONCE, here, and handed to the
   // loader below, so the gate and the drawing cannot disagree about it.
   const theme = printThemeFor(printEvent, url.searchParams.get('theme'));
-  const classic = !isThemedPrint(theme);
+  // A FREE theme (Classic, Modern, Cyber Neon — the registry's `tier`, never a
+  // typed list) prints like Classic: unmarked on screen, print-ready for all.
+  const freeTheme = !isProPrint(theme);
 
   // ══ THE PRINT-READY PATH — checked HERE, on the server, before anything is
   // drawn (owner 2026-09-25: "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE
-  // THEMED VERSION IS PRO"). Classic is print-ready for everyone; a theme is
-  // print-ready only with Event Hub Pro. Nothing below this block can produce
-  // a PDF or a vector of a THEMED piece for a couple without Pro.
-  if (mode === 'print' || piece === 'passes' || (mode === 'screen' && (access.printReady || classic))) {
+  // THEMED VERSION IS PRO"; 2026-09-29: Modern and Cyber Neon free too). A free
+  // theme is print-ready for everyone; a Pro theme only with Event Hub Pro.
+  // Nothing below this block can produce a PDF or a vector of a PRO-THEMED
+  // piece for a couple without Pro.
+  if (mode === 'print' || piece === 'passes' || (mode === 'screen' && (access.printReady || freeTheme))) {
     if (!mayServe(piece, 'print', access, theme)) {
       return new NextResponse(
-        storeShell ? 'Not available here.' : 'The print-ready file in your theme comes with Event Hub Pro. Classic prints are free.',
+        storeShell
+          ? 'Not available here.'
+          : `The print-ready file in ${INVITE_THEMES[theme].name} comes with Event Hub Pro. ${themeNames(FREE_THEMES)} prints are free.`,
         { status: 403 },
       );
     }

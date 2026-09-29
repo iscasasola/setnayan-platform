@@ -942,7 +942,8 @@ export function eventItemIsPro(
   // going back to the plain code is a removal, which is free.
   if (column === 'style_preferences') return true;
   if (column === 'invite_theme') {
-    // 🎨 Classic is free; every other theme is Event Hub Pro (owner 2026-09-28,
+    // 🎨 The free themes (Classic, Modern, Cyber Neon — `tier: 'free'`, owner
+    // 2026-09-29) are free; every other theme is Event Hub Pro (owner 2026-09-28,
     // "WHAT IS FREE VS PRO … REDRAWN": "only when you start adding themes will
     // it be pro"). Going back to Classic is always free.
     const id = normalizeThemeId(value);
@@ -1105,7 +1106,7 @@ export function canvasFacetGrows(f: CanvasLookFacet): boolean {
 }
 
 /** The background's own keys — they travel together, so a media ground is put back whole. */
-const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape'] as const;
+const CANVAS_GROUND_KEYS = ['media', 'kind', 'color', 'opacity', 'own', 'shape', 'mediaMotion', 'poster'] as const;
 
 /**
  * `next` with ONE facet put back to what is live — every other key, and every

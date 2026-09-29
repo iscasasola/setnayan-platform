@@ -203,5 +203,15 @@ export function resolveGuestDressCode(input: {
   };
 }
 
-/** Said where the style is unset, so the gap is a state and not a blank. */
-export const STYLE_UNSET_LINE = 'The couple hasn’t said what to wear for this role yet.';
+/**
+ * Said where the style is unset, so the gap is a state and not a blank.
+ *
+ * 🔑 IT BLAMES NOBODY (owner 2026-09-30, reading his own page as the groom:
+ * *"both host of the event can input it and the supplier"*). The outfit is set
+ * by either host, or by the supplier helping them — so the line never says
+ * "the couple hasn't said", and a HOST reading their own page is told it is
+ * theirs to add (`STYLE_UNSET_LINE_FOR_HOST`), never that someone else forgot.
+ */
+export const STYLE_UNSET_LINE = 'Not set yet — your hosts or their stylist will add it here.';
+/** The same gap, to a host of the event reading their own page. */
+export const STYLE_UNSET_LINE_FOR_HOST = 'Not set yet — add it in your Event Hub Maker, under Dress code.';

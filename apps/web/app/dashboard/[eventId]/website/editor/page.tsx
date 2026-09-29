@@ -84,7 +84,7 @@ import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
-import { normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { foldEventRoles, normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
 import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
 import { eventNoun } from '@/lib/event-noun';
@@ -530,6 +530,20 @@ export default async function WebsiteEditorPage({
   const dressCodeConfig = normalizeDressCodeConfig(
     (drafted as { dress_code_config?: unknown }).dress_code_config,
   );
+  /* 👗 THE ROLES ON THIS GUEST LIST, for the Dress code scene's "What each role
+     wears" (owner 2026-09-30: a host sets each role's outfit right here). The
+     panel was handed none, so it said the guest list had no ninongs to a couple
+     who had them. An unread list offers no rows — and the saved outfits still
+     ride along unchanged (`CarriedAttire`), so a Save cannot wipe them. */
+  const { data: roleRows, error: roleRowsError } = await supabase
+    .from('guests')
+    .select('role')
+    .eq('event_id', eventId)
+    .is('deleted_at', null);
+  if (roleRowsError) {
+    logQueryError('WebsiteEditorPage.dressCodeRoles', roleRowsError, { eventId }, 'graceful_degrade');
+  }
+  const dressCodeRoles = foldEventRoles((roleRows ?? []) as { role: string | null }[]);
   // Dress code starts from the Mood Board (owner 2026-07-25): when the couple
   // hasn't set a palette yet, seed the panel's swatches from role_palette so
   // "edit" begins from their own colours, not a blank. Saving persists the
@@ -873,6 +887,7 @@ export default async function WebsiteEditorPage({
               action={updateDressCode.bind(null, eventId)}
               eventId={eventId}
               config={dressCodeConfig}
+              eventRoles={dressCodeRoles}
               eventNoun={eventNoun((event.event_type as string | null) ?? 'wedding')}
             />
           ),

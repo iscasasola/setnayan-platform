@@ -101,6 +101,7 @@ export type TourKey =
   | 'customer_pro_qr_v1'
   | 'customer_theme_picker_v1'
   | 'customer_print_menu_v1'
+  | 'customer_details_guided_v1'
   | 'customer_guest_reminders_v1'
   | 'customer_schedule_v1'
   | 'customer_add_scene_v1'
@@ -126,6 +127,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_pro_qr_v1',
   'customer_theme_picker_v1',
   'customer_print_menu_v1',
+  'customer_details_guided_v1',
   'customer_guest_reminders_v1',
   'customer_schedule_v1',
   'customer_add_scene_v1',
@@ -640,6 +642,35 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: CheckCircle2,
         title: 'Offered once it has a dish',
         body: 'An empty menu is never printed. Until you add a dish, its card shows where your menu will go.',
+      },
+    ],
+  },
+  /*
+    🪜 WHAT'S LEFT — THE GUIDED FLOW (owner 2026-09-29: *"it needs to be very
+    easy"* · *"they can still pick a step anytime?"*; Details part 5). Mounted
+    on the flow's progress line (`details-guide.tsx`, via `maker-details.tsx`),
+    never on the Maker's very first visit — its own welcome goes first. Sells
+    nothing.
+  */
+  customer_details_guided_v1: {
+    key: 'customer_details_guided_v1',
+    label: 'What’s left',
+    blurb: 'Your Event Hub one thing at a time, in three rounds — and any step whenever you like.',
+    slides: [
+      {
+        Icon: CheckCircle2,
+        title: 'One thing at a time',
+        body: 'Each screen is one thing to fill in &mdash; your names, your date, your look. Press <strong>Next</strong> for the next thing still to do, or <strong>Skip for now</strong> to leave it on your list.',
+      },
+      {
+        Icon: Send,
+        title: 'Three rounds, each ready to send',
+        body: 'Round 1 gets your <strong>Save the Date</strong> ready, Round 2 your <strong>invitations</strong>, Round 3 <strong>the day</strong>. Each ends with <strong>Apply</strong>, which puts it live for your guests.',
+      },
+      {
+        Icon: ClipboardList,
+        title: 'Any step, any time',
+        body: 'Tap the <strong>Round</strong> line at the top to see every step, each marked &#10003; or &#9675;, and jump to any of them. <strong>All items</strong> shows everything at once.',
       },
     ],
   },

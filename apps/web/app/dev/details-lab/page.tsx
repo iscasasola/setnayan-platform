@@ -17,6 +17,8 @@
  *   ?look=1               the Look (part 3): Mood Board, Logo, Hero, Reveal — stand-ins
  *                         for the work area's pages, so the layout can be checked
  *   ?type=birthday|wake   another celebration (default: wedding) — no Love Story item
+ *   ?guide=1|ready-N      the guided "What's left" (Details part 5) — with Your event on
+ *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
  */
 import { notFound } from 'next/navigation';
 import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
@@ -24,6 +26,11 @@ import { LookLab } from './look-lab';
 import { INVITE_THEMES, pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
 import { detailsItemFor } from '@/lib/maker-details-items';
+import { parseGuideParam } from '@/lib/details-guided-flow';
+import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
+import { resolveRoleSet } from '@/lib/role-sets';
+import { hasTwoNamedPeople } from '@/lib/two-named-people';
+import type { YourEventInput } from '@/app/dashboard/[eventId]/launch/_components/details-your-event-parts';
 import { GENERIC_PROFILE, WAKE_PROFILE, WEDDING_PROFILE } from '@/lib/event-type-profile';
 import { updateEventSlug } from '@/app/dashboard/[eventId]/invitation/actions';
 import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions';
@@ -53,6 +60,46 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
     pabuyaMessage,
     loveStory: { story: {}, ownsPro: pro },
   });
+  /* 🪜 The guided flow (part 5): Your event on fixtures, so its first steps are real items. */
+  const guideAddr = parseGuideParam(one('guide'));
+  const fresh = one('fresh') === '1';
+  const words = eventWordsFromProfile(profile);
+  const yourEvent: YourEventInput | null = guideAddr
+    ? {
+        kind: {
+          words: { twoPeople: hasTwoNamedPeople(profile), solemn: words.solemn, eventWord: words.eventWord },
+          offeredRoles: resolveRoleSet(profile.roleSetKey).offeredRoles,
+        },
+        facts: {
+          names: fresh ? ['', ''] : ['Claire', 'Indalecio'],
+          date: { value: fresh ? null : '2026-12-18', dayPrecise: !fresh },
+          venueCount: fresh ? 0 : 1,
+          parentCount: fresh ? 0 : 2,
+          hostCount: 1,
+          marchLines: 0,
+        },
+        names: hasTwoNamedPeople(profile)
+          ? {
+              people: ['Bride', 'Groom'],
+              initial: fresh
+                ? [{ first: '', last: '' }, { first: '', last: '' }]
+                : [{ first: 'Claire', last: 'Buanhog' }, { first: 'Indalecio', last: 'Casasola' }],
+              keep: { region: '', feel: '' },
+              wholeForm: null,
+            }
+          : null,
+        date: {
+          confirmedVendorCount: 0,
+          dateDisplay: fresh ? null : 'December 18, 2026',
+          dateValue: fresh ? null : '2026-12-18',
+          label: 'Date',
+          matrix: Promise.resolve(null),
+          nudge: null,
+        },
+        venues: { resolved: [], slots: [], city: null, launchDate: null },
+        march: { sections: [], panel: null },
+      }
+    : null;
   const needsDb = (what: string) => <p className="p-6 text-sm text-ink/60">{what} is read from the database — open it in the Maker.</p>;
   return (
     <div className="h-dvh bg-cream text-ink">
@@ -73,7 +120,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
           blurbs: Object.fromEntries(themes.map((t) => [t.id, INVITE_THEMES[t.id].blurb])),
           posters: {},
           tour: false,
-          chosen: true,
+          chosen: !fresh,
         }}
         prints={{
           eventId: EVENT,
@@ -97,12 +144,18 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
         loveStory={{ book: needsDb('The Love Story'), moments: 0 }}
         schedule={{ page: needsDb('The schedule'), moments: null, pieces: [] }}
         rsvp={{ page: needsDb('The guest’s RSVP'), settings: needsDb('The RSVP settings') }}
-        hasPalette
+        hasPalette={!fresh}
         hasGifts={false}
         flash={null}
         stamp="lab"
         initialItem={detailsItemFor({ tool: 'details', item: one('item') })}
         eventContext={eventContext}
+        yourEvent={yourEvent}
+        guide={
+          guideAddr
+            ? { open: true, ready: guideAddr.ready, itemNamed: Boolean(one('item')), guideNamed: true, tour: null }
+            : null
+        }
         look={
           withLook
             ? {
@@ -116,7 +169,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
                     Mood Board — the part’s controls (supplier sign-off, share, downloads)
                   </div>
                 ),
-                logoDone: true,
+                logoDone: !fresh,
                 heroDone: false,
                 heroOn: ['Save the Date', 'Invitation', 'On the Day', 'The poster'],
                 revealOn: ['Save the Date', 'Invitation'],

@@ -67,6 +67,9 @@ import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { loadYourEvent } from './_components/details-your-event-load';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
+import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/details-guided-flow';
+import { parentsOffered } from '@/lib/details-your-event';
+import { guidedFactsFrom, guidedPresent } from './_components/details-guided-progress';
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
@@ -74,7 +77,7 @@ import { GuestCardBody } from '../guests/_components/guest-card-body';
 import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
-import { hasPalette, parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
@@ -148,6 +151,9 @@ type Props = {
      *  (`lib/maker-details-items.ts`). */
     tool?: string | string[];
     item?: string | string[];
+    /** 🪜 `?guide=1` opens Details on its guided "What's left" (Details part 5);
+     *  `?guide=ready-2` on Round 2's Ready screen (`lib/details-guided-flow.ts`). */
+    guide?: string | string[];
     /** `?date=help` — Details › Date opens on "Help me choose" (where /find-date lands). */
     date?: string | string[];
     print_theme?: string | string[];
@@ -990,6 +996,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      themselves are drawn by /api/hub-print, which asks the Pro question again
      and refuses on its own. */
   let details: { page: ReactNode; controls: ReactNode } | null = null;
+  /* 🪜 Is anything still left in the guided flow? (Details part 5) — decided
+     from the same facts Details' rows are drawn from (`guidedFactsFrom`). An
+     unfinished event's Maker opens on What's left unless the address names a
+     place; the stages are never blocked. */
+  let detailsUnfinished = false;
+  const guideAddress = parseGuideParam(one(search.guide));
+  const rawTool = one(search.tool);
+  const itemNamed = Boolean(one(search.item));
   /* ✍ The Details items' own editors — ONE set, drawn by Details and by the
      stage's inspector when a fact is tapped there (`detailsFactEditors`). */
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
@@ -1065,10 +1079,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       } catch (e) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
-      /** One events column as the couple is editing it — the draft's, else live. */
-      const drafted = (
-        col: 'monogram_custom_svg' | 'monogram_uploaded_svg' | 'landing_page_hero_image_url' | 'landing_page_hero_video_r2_key',
-      ): unknown => (col in draftedEvents ? draftedEvents[col] : printEvent[col]);
+      /* Each column "as the couple is editing it" (the draft's, else live) for the
+         Look's ✓ is `guidedFactsFrom` below — one derivation, shared with the
+         guided flow's decision to open (Details part 5). */
       /* ══ DETAILS (made-once) ══ what the stages and prints include, and every
          line of wording — each read from its one home. A PAGE in the Maker's
          body (owner 2026-09-25): what the details feed is the page, these
@@ -1236,6 +1249,32 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          the story was read — a form built on an unread story would save it
          empty; Details then says it could not be read. */
       const eventContext = { profile: detailsProfile, solemn: eventWordsFromProfile(detailsProfile).solemn };
+      /* 🪜 THE ONE DERIVATION of what each guided step's "done" reads — handed to
+         Details' rows below (theme, Mood Board, logo, hero) AND to the decision
+         to open on What's left, so the two can never disagree. */
+      const guided = guidedFactsFrom({
+        event: printEvent,
+        drafted: draftedEvents,
+        liveLoveStory: storyLiveRes.error ? undefined : ((storyLiveRes.data as { love_story?: unknown } | null)?.love_story ?? null),
+        yourEvent: yourEvent ? { facts: yourEvent.facts, kind: yourEvent.kind } : null,
+        storyApplies: detailsItemApplies('love-story', eventContext),
+        scheduleMoments: scheduleMoments ? scheduleMoments.length : null,
+      });
+      detailsUnfinished = isUnfinished(
+        guidedPlanFromFacts({
+          ctx: eventContext,
+          present: guidedPresent({
+            yourEvent: yourEvent ? { kind: yourEvent.kind, namesWritable: yourEvent.names !== null } : null,
+            storyApplies: detailsItemApplies('love-story', eventContext),
+            hasSlug: Boolean(printEvent.slug),
+          }),
+          facts: guided,
+          parentsOffered: yourEvent ? parentsOffered(yourEvent.kind) : false,
+        }),
+      );
+      /* A plain landing on Details — nothing else named — is where the flow opens. */
+      const detailsLandsPlain =
+        !itemNamed && !one(search.print_theme) && !one(search.menu_saved) && !one(search.menu_error) && (rawTool === undefined || rawTool === 'details');
       const story: LoveStoryBlob | null =
         storyLiveRes.error && storyRaw == null
           ? null
@@ -1316,6 +1355,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           <MakerDetails
             yourEvent={yourEvent}
             seatPlan={seatPlan}
+            /* 🪜 Details part 5 — the guided "What's left" over these very items. */
+            guide={{
+              open: guideAddress !== null || (detailsUnfinished && detailsLandsPlain),
+              ready: guideAddress?.ready ?? null,
+              itemNamed,
+              guideNamed: guideAddress !== null,
+              // Never on the Maker's very first visit — its own welcome is showing.
+              tour: !firstVisit ? <MiniTour tourKey="customer_details_guided_v1" storeShell={storeShell} /> : null,
+            }}
             eventId={eventId}
             slug={printEvent.slug}
             slugAction={updateEventSlug.bind(null, eventId, 'launch')}
@@ -1335,7 +1383,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               posters: Object.fromEntries(themes.map((t) => [t.id, t.media ? publicUrlForStoredAsset(t.media.poster) : null])),
               // Never on the Maker's very first visit — its own welcome is showing.
               tour: !firstVisit,
-              chosen: themeSaved !== null && themeSaved !== undefined,
+              chosen: guided.themeChosen,
             }}
             prints={prints}
             menu={{
@@ -1359,7 +1407,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               ),
             }}
             rsvp={rsvpItem}
-            hasPalette={hasPalette(printEvent.role_palette)}
+            hasPalette={guided.palette}
             hasGifts={egifts.length > 0}
             flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
             stamp={String(Date.now())}
@@ -1386,8 +1434,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                   <MoodBoardMakerControls eventId={eventId} />
                 </Suspense>
               ),
-              logoDone: Boolean(drafted('monogram_custom_svg') || drafted('monogram_uploaded_svg')),
-              heroDone: Boolean(drafted('landing_page_hero_image_url') || drafted('landing_page_hero_video_r2_key')),
+              logoDone: guided.logo,
+              heroDone: guided.hero,
               // The hero panel's own claim: made once, shown on these three and the poster.
               heroOn: [PUBLIC_STAGE_LABELS.save_the_date, PUBLIC_STAGE_LABELS.rsvp, PUBLIC_STAGE_LABELS.event, 'The poster'],
               revealOn: (await readMakerRevealStages(eventId)).map((s) => PUBLIC_STAGE_LABELS[s]),
@@ -1398,6 +1446,19 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       };
     }
   }
+
+  /* 🪜 A new couple's Maker opens on What's left (DECISION_LOG 2026-09-29 "THE
+     GUIDED FLOW IS APPROVED…"): an unfinished event, and the address names no
+     place — no tool, scene, stage or pin. */
+  const opensOnGuide =
+    hasWork &&
+    detailsUnfinished &&
+    !rawTool &&
+    !one(search.scene) &&
+    !one(search.open) &&
+    !one(search.stage) &&
+    !one(search.pin) &&
+    !one(search.chain);
 
   return (
     <MakerShell
@@ -1411,14 +1472,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       initialSelection={(() => {
         // An old `?tool=prints` (Prints & Tickets) is Details now.
         const tool = makerToolFor(one(search.tool));
-        return hasWork &&
-          (tool === 'hero' ||
-            tool === 'reveal' ||
-            tool === 'logo' ||
-            tool === 'details')
-          ? ({ kind: 'tool', key: tool } as const)
-          : null;
+        if (hasWork && (tool === 'hero' || tool === 'reveal' || tool === 'logo' || tool === 'details')) {
+          return { kind: 'tool', key: tool } as const;
+        }
+        // 🪜 `?guide=`, or an unfinished event with no place named: Details, on What's left.
+        return hasWork && (guideAddress !== null || opensOnGuide) ? ({ kind: 'tool', key: 'details' } as const) : null;
       })()}
+      opensOnGuide={opensOnGuide && guideAddress === null}
       details={details}
       factEditors={factEditors}
       storeShell={storeShell}

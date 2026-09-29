@@ -1,5 +1,7 @@
 /**
- * front-door-feed.tsx — Shops, New uploads, Trending.
+ * front-door-feed.tsx — Shops, New uploads, Trending — and, since 2026-09-29,
+ * the two SLOTS Discover's new shelves render into (see `DiscoverSlots`
+ * below): the event layers ABOVE the shops, People to follow right AFTER them.
  *
  * 2026-09-03 REWRITE — the chip-filtered "one shelf" (All / Your people /
  * Stories / Articles) is retired along with the group-chat hero
@@ -28,6 +30,7 @@
  * "Your people" (a signed-in narrowing to stories from people you know) is
  * retired with the chip bar — there is no filter left to attach it to.
  */
+import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -148,7 +151,7 @@ function ArticleCard({ a }: { a: FrontDoorData['articles'][number] }) {
  * delta from the binding drawing "is a defect in the PORT, not a fresh design
  * decision"; moving the byline would be such a delta.
  */
-function ChannelLink({
+export function ChannelLink({
   slug,
   name,
   className,
@@ -295,7 +298,23 @@ function ShopCard({ s }: { s: FrontDoorData['shops'][number] }) {
   );
 }
 
-export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
+/**
+ * ─── DISCOVER'S LAYERS (owner 2026-09-29, "DISCOVER — UNPARKED" (e)) ──────
+ * "your people → events → suppliers → public profiles ('People to follow') →
+ * stories". Shops, New uploads and Trending stay exactly as they were; the two
+ * new layers arrive as SLOTS so this file never imports the Discover shelves
+ * (they import `ChannelLink` from here — one byline door, never two copies).
+ *
+ *   beforeShops — "Upcoming from people you follow" + "Upcoming on Setnayan"
+ *   afterShops  — "People to follow"
+ */
+type DiscoverSlots = { beforeShops?: ReactNode; afterShops?: ReactNode };
+
+export function FrontDoorFeed({
+  data,
+  beforeShops,
+  afterShops,
+}: { data: FrontDoorData } & DiscoverSlots) {
   const {
     articles,
     articleTotal,
@@ -344,6 +363,9 @@ export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
 
   return (
     <>
+      {/* ═ DISCOVER · your people's upcoming public events, then the world ═ */}
+      {beforeShops}
+
       {/* ═ SHOPS — the claim's proof, one scroll-line below the anchor ═ */}
       <h2 className="fd-sechead">
         <span>{shopsHeading}</span>
@@ -397,6 +419,9 @@ export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
           </Link>
         </div>
       </div>
+
+      {/* ═ DISCOVER · People to follow — public profiles, after the shops ═ */}
+      {afterShops}
 
       {/* ═ NEW UPLOADS — the old one shelf, never filtered now ═ */}
       <div className="fd-grid">

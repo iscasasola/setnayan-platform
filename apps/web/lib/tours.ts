@@ -109,6 +109,7 @@ export type TourKey =
   | 'customer_hero_designs_v1'
   | 'customer_people_v1'
   | 'customer_apply_pro_v1'
+  | 'discover_upcoming_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -137,6 +138,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_hero_designs_v1',
   'customer_people_v1',
   'customer_apply_pro_v1',
+  'discover_upcoming_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -867,6 +869,29 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         title: 'Keep it, change it, or take it off',
         body: 'Tap Go to to see an effect in the Maker, or &times; to take it off your draft. Unlock Event Hub Pro to put them all live &mdash; or apply the rest now; the Pro ones stay in your draft.',
         sells: true,
+      },
+    ],
+  },
+  /* 🌍 DISCOVER (owner 2026-09-29, DECISION_LOG "DISCOVER IS THE DOOR TO THE
+     WHOLE SETNAYAN UNIVERSE"; prototype `discover_upcoming_2026-09-29.html`
+     frame 1C). Mounted on `/` for a signed-in visitor by the shipped
+     `<MiniTour>` in `front-door.tsx`. Two slides, the prototype's own words —
+     minus its "you'll hear by email", which the same day's NO EMAIL TO GUESTS
+     ruling retired: an approved requester learns it by reopening their link. */
+  discover_upcoming_v1: {
+    key: 'discover_upcoming_v1',
+    label: 'Discover',
+    blurb: 'Your people’s public events first, then everything public on Setnayan.',
+    slides: [
+      {
+        Icon: Calendar,
+        title: 'Your people’s public events',
+        body: 'When someone you follow or are connected to announces a public event, it shows here &mdash; soonest first. Tap <b>Ask to join</b>; the host approves who gets in.',
+      },
+      {
+        Icon: Users,
+        title: 'Then the rest of Setnayan',
+        body: 'Below them: every other upcoming public event, nearest region first, then shops and people to follow. Tickets, when an event has them, are sold by its organizer &mdash; never by Setnayan.',
       },
     ],
   },

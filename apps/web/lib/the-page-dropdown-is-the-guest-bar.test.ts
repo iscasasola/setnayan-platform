@@ -54,7 +54,7 @@ const PAGE: Omit<MakerStageInput, 'stage'> = {
   hasEntourage: true,
   storyRenders: true,
 };
-const tilesOf = (stage: MakerStageInput['stage']) => makerStageList({ ...PAGE, stage }).shown.map((t) => t.key);
+const tilesOf = (stage: MakerStageInput['stage']) => makerStageList({ ...PAGE, stage }).shown.map((t): string => t.key);
 
 test('1 · for every stage, Page ▾ offers exactly the guest bar’s pages — keys, words, order — ending in Me', () => {
   for (const stage of PUBLIC_STAGE_ORDER) {

@@ -73,12 +73,15 @@ import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { GuestHubBar } from './_components/guest-hub-bar';
+import { GuestTicket } from './_components/guest-ticket';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import {
   type LifecyclePhase,
   isWebsitePhasesEnabled,
   getLifecyclePhase,
   manualLaunchPhase,
+  widgetByType,
+  widgetShouldRender,
 } from '@/lib/invitation-widgets';
 import { eventNounOf } from './_lib/event-noun';
 import {
@@ -1706,6 +1709,19 @@ async function InvitationBody({
       : [];
   const meSlot = isEditorCanvas ? null : (
     <>
+    {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
+        Follows the couple's own "QR card" switch, as the pass on Home did; with
+        it off, Me offers "My QR" instead (GuestHubBar asks the page for the
+        anchor this carries). */}
+    {passCard && widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
+      <div className="mb-8">
+        <GuestTicket
+          state={passCard}
+          name={guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'}
+          invitationUrl={invitationUrl}
+        />
+      </div>
+    ) : null}
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
     {seatPassActive ? (

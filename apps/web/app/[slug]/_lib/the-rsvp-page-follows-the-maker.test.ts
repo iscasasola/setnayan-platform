@@ -134,9 +134,11 @@ test('1 · every question on the card is its own step — nothing answerable sit
 test('2 · no card around the reply, the ticket, the pass, the change link or the notices', () => {
   assert.doesNotMatch(WIDGET, /pahina-deckle/, 'the reply card is a card again');
   assert.doesNotMatch(read('[slug]/_components/pahina-keepsake.tsx'), /pahina-deckle/, 'the ticket is a card again');
-  const pass = BODY.slice(BODY.indexOf('const passCard = '), BODY.indexOf('<GuestCodeKeepers', BODY.indexOf('const passCard = ')));
-  assert.doesNotMatch(pass, /shadow-lg|rounded-2xl border|bg-mulberry px-5/, 'the pass sits in a card again');
-  assert.match(pass, /rounded-xl bg-white p-3/, 'the QR itself (the object) must stay');
+  // The pass is the Digital ticket on Me since 2026-09-30 (guest-ticket.tsx):
+  // the ticket picture IS the object, with nothing boxed around it.
+  const pass = read('[slug]/_components/guest-ticket.tsx');
+  assert.doesNotMatch(pass, /shadow-lg|rounded-2xl border|bg-mulberry px-5/, 'the ticket sits in a card again');
+  assert.match(pass, /<TicketPicture\b/, 'the ticket itself (the object) must stay');
   assert.doesNotMatch(read('[slug]/_components/scan-trail-notice.tsx'), /rounded-xl border/);
   assert.doesNotMatch(read('[slug]/_components/face-data-notice.tsx'), /rounded-xl border/);
   const change = BODY.slice(BODY.indexOf('href="#your-details"'), BODY.indexOf('</a>', BODY.indexOf('href="#your-details"')));

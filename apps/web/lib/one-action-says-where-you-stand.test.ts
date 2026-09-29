@@ -97,9 +97,11 @@ test('it renders under the mark, and is not a second fixed bar', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8');
   const hero = src.lastIndexOf("plan.body === 'normal' && plan.heroShouldRender", src.indexOf('<ArrivalActionRow'));
   const row = src.indexOf('<ArrivalActionRow');
-  const card = src.indexOf('<GuestHubCard');
+  // (It sat above the "Hi again" status card until the owner removed that
+  // card on 2026-09-30; the first personal card below it is now this one.)
+  const card = src.indexOf('<KeepOnHomeScreen');
   assert.ok(hero > 0 && row > hero, 'the action sits below the hero');
-  assert.ok(row < card, 'and above the status card');
+  assert.ok(card > 0 && row < card, 'and above the guest’s personal cards');
 
   const component = readFileSync(
     join(__dirname, '..', 'app', '[slug]', '_components', 'arrival-action.tsx'),
@@ -139,6 +141,12 @@ test('EVERY href the action can produce resolves to an id the page renders', () 
     }
   }
 
-  // And the one this slice adds is actually rendered.
-  assert.match(body, /id=\{PASS_ANCHOR\}/, 'the pass anchor exists on the page');
+  // And the one this slice adds is actually rendered — since 2026-09-30 by the
+  // Digital ticket on Me (the pass left Home), which page.tsx mounts into the
+  // same page's Me section.
+  const ticket = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'guest-ticket.tsx'), 'utf8');
+  const page = readFileSync(join(__dirname, '..', 'app', '[slug]', 'page.tsx'), 'utf8');
+  assert.match(ticket, /id=\{PASS_ANCHOR\}/, 'the pass anchor exists on the ticket');
+  assert.match(page, /<GuestTicket\b/, 'and the ticket is mounted on the guest page');
+  assert.doesNotMatch(body, /id=\{PASS_ANCHOR\}/, 'a second #site-pass on Home');
 });

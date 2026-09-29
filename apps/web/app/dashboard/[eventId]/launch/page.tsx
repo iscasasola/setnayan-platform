@@ -68,6 +68,7 @@ import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { loadYourEvent } from './_components/details-your-event-load';
+import { venuesEditorFor } from './_components/details-your-event-parts';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/details-guided-flow';
@@ -1333,6 +1334,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
         loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
       });
+      // 🏛 A venue card tapped on a stage opens the SAME Venues editor Details draws.
+      if (yourEvent) factEditors = { ...factEditors, venues: venuesEditorFor(eventId, yourEvent) };
       /* 🗓 THE SCHEDULE, moved whole — the shipped page, streamed so the Maker
          never waits on it, with its own query when Details › Schedule is the item. */
       const schedulePage = (

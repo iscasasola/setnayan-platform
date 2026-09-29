@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { dateDisplayOf, marchOffered, yourEventDateLabel } from '@/lib/details-your-event';
-import { VENUE_ROLE_LABEL } from '@/lib/event-venues';
+import { VENUE_ROLE_LABEL, type VenueSlotKey } from '@/lib/event-venues';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { getConfirmedVendorCount } from '@/lib/events';
 import { buildScheduleMatrix, schedulePicksFromVendors, type ScheduleMatrix } from '@/lib/schedule-matrix';
 import { fetchEventVendors } from '@/lib/vendors';
@@ -59,34 +61,62 @@ export async function loadYourEvent({
       return null;
     });
 
+  // 🏛📷 Each card's source and photo (owner 2026-09-30): the supplier AS
+  // OFFERED (before an "Enter your own" choice), the couple's choice, and every
+  // photo it can show, signed once here for the panel's thumbnails.
+  const offered = bookings.offered ?? { ceremony: bookings.ceremony, reception: bookings.reception };
+  const choices = bookings.choices ?? {};
+  const sign = async (refs: readonly (string | null | undefined)[]) =>
+    Object.fromEntries(
+      (
+        await Promise.all(
+          [...new Set(refs.filter((r): r is string => Boolean(r)))].map(async (r) => [
+            r,
+            await displayUrlForStoredAsset(siteMediaServeRef(r)).catch(() => null),
+          ]),
+        )
+      ).filter((e): e is [string, string] => Boolean(e[1])),
+    );
+  const slotFor = async (
+    slot: VenueSlotKey,
+    base: Omit<VenueSlot, 'slot' | 'booked' | 'choice' | 'photoUrls'>,
+  ): Promise<VenueSlot> => {
+    const b = offered[slot];
+    const choice = choices[slot] ?? {};
+    const photoUrls = await sign([...(b?.photos ?? []), choice.supplierPhoto, choice.ownPhoto]);
+    return {
+      ...base,
+      slot,
+      booked: b ? { name: b.name, address: b.address, photos: (b.photos ?? []).filter((r) => photoUrls[r]) } : null,
+      choice,
+      photoUrls,
+    };
+  };
   const slots: VenueSlot[] = words.twoPeople
-    ? [
-        {
+    ? await Promise.all([
+        slotFor('ceremony', {
           field: 'filmCeremonyName',
           label: VENUE_ROLE_LABEL.ceremony,
-          booked: bookings.ceremony,
           typed: row.std_film_ceremony_name ?? '',
           addressField: 'ceremonyAddress',
           address: row.ceremony_venue_address ?? '',
-        },
-        {
+        }),
+        slotFor('reception', {
           field: 'filmVenueName',
           label: VENUE_ROLE_LABEL.reception,
-          booked: bookings.reception,
           typed: row.std_film_venue_name ?? '',
           addressField: 'venueAddress',
           address: row.venue_address ?? '',
-        },
-      ]
+        }),
+      ])
     : [
-        {
+        await slotFor('reception', {
           field: 'filmVenueName',
           label: 'Venue',
-          booked: bookings.reception,
           typed: row.std_film_venue_name ?? '',
           addressField: 'venueAddress',
           address: row.venue_address ?? '',
-        },
+        }),
       ];
 
   return {

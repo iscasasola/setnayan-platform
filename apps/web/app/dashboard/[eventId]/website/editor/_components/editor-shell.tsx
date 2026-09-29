@@ -1059,13 +1059,11 @@ export function MakerWork({
     const onPlay = () => {
       /* The stage's canvas. (The Hero and the Reveal play in their frame inside
          Details — `details-look-pages.tsx`.) */
-      const target = frameRef.current;
       const key = canvasKeyOfSelection(selection, scenes);
       if (!key) return;
       const play = { source: 'setnayan-editor', t: 'play', key };
-      // 🖥📱 On a stage it plays in the canvas AND, in Both, the phone pane.
-      if (pageOpenRef.current) target?.contentWindow?.postMessage(play, window.location.origin);
-      else postToShownCanvases(play);
+      // 🖥📱 It plays in the canvas AND, in Both, the phone pane.
+      postToShownCanvases(play);
     };
     window.addEventListener(MAKER_PLAY_SCENE_EVENT, onPlay);
     return () => window.removeEventListener(MAKER_PLAY_SCENE_EVENT, onPlay);

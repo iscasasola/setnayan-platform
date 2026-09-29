@@ -495,7 +495,9 @@ export default async function EventHomePage({
       event.event_date && canViewPapicCounts
         ? await papicNudgeShouldShow(adminClient, eventId, canViewPapicCounts)
         : false;
-    return { canViewPapicCounts, papicNudgeVisible };
+    // The viewer's role also decides Home's guided card (Details part 5) — the same read, never a second.
+    const viewerMemberType = (papicViewerMembership as { member_type?: string | null } | null)?.member_type ?? null;
+    return { canViewPapicCounts, papicNudgeVisible, viewerMemberType };
   })();
 
   // Setnayan AI comeback offer (owner-locked 2026-08-30): one 24h window per
@@ -553,7 +555,7 @@ export default async function EventHomePage({
       dayOfBroadcast,
     },
     { nikahImamBooked, nikahImamNote },
-    { canViewPapicCounts, papicNudgeVisible },
+    { canViewPapicCounts, papicNudgeVisible, viewerMemberType },
     { aiOffer, aiOfferSettings },
     storeShell,
   ] = await Promise.all([
@@ -571,7 +573,7 @@ export default async function EventHomePage({
   // between the At-a-glance bento and the journey rail.
   /* 🪜 "Round N · x of y · Continue" — the Event Hub's guided flow (Details
      part 5), for whom Details is. Streamed: its reads never hold Home. */
-  const guideMemberType = (papicViewerMembership as { member_type?: string | null } | null)?.member_type ?? null;
+  const guideMemberType = viewerMemberType;
   const overlays = (
     <>
       {guideMemberType === 'couple' ? (

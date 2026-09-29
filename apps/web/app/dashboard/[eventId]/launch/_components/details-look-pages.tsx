@@ -245,7 +245,8 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
           options={REVEAL_STAGE_CHOICES.filter((s) => stages.includes(s)).map((s) => [s, PUBLIC_STAGE_LABELS[s]] as const)}
         />
       ) : null}
-      <MakerPageFrame src={src} title={title} device={maker.device} frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
+      {/* 🖥📱 A page frame is ONE frame: View ▾ Both (the stage's side-by-side) draws it as Desktop. */}
+      <MakerPageFrame src={src} title={title} device={maker.device === 'both' ? 'desktop' : maker.device} frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
       <CanvasStaysOnThePage
         frameRef={frameRef}
         pagePath={look.publicLandingUrl}

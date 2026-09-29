@@ -40,6 +40,7 @@
  * and no wedding word (the march's name comes from its item's label, which the
  * event type writes).
  */
+import { formatCount } from '@/lib/format-number';
 import type { DetailsItemContext, DetailsItemKey, WordsAndPlansInput } from '@/lib/maker-details-items';
 import {
   FREE_PRINT_KEYS,
@@ -300,13 +301,13 @@ export function firstOpenScreen(plan: GuidedPlan): GuidedScreen | null {
   return last ? { kind: 'ready', round: last } : null;
 }
 
-/** "Round 1 · 3 of 7" — where this screen sits in its round; "Round 1 · done" on its Ready. */
+/** "Round 1 · 3 of 7" — where this screen sits in its round; "Round 1 · Apply" on its Ready (never "done" — it may not be). */
 export function progressLabel(plan: GuidedPlan, at: GuidedScreen): string {
-  if (at.kind === 'ready') return `Round ${at.round} · done`;
+  if (at.kind === 'ready') return `Round ${at.round} · Apply`;
   const step = stepOf(plan, at.step);
   if (!step) return '';
   const inRound = plan.steps.filter((s) => s.round === step.round);
-  return `Round ${step.round} · ${inRound.indexOf(step) + 1} of ${inRound.length}`;
+  return `Round ${step.round} · ${formatCount(inRound.indexOf(step) + 1)} of ${formatCount(inRound.length)}`;
 }
 
 /** How far along the bar is — this screen's place in its round, 0–1. */

@@ -103,7 +103,7 @@ test('(1) three rounds in the approved order, each ending in its Ready screen', 
   // The march's name is its item's (the event type writes it) — never typed here.
   assert.equal(plan.steps.find((s) => s.key === 'march')!.title, 'Wedding March');
   assert.equal(progressLabel(plan, { kind: 'step', step: 'venues' }), 'Round 1 · 3 of 7');
-  assert.equal(progressLabel(plan, { kind: 'ready', round: 2 }), 'Round 2 · done');
+  assert.equal(progressLabel(plan, { kind: 'ready', round: 2 }), 'Round 2 · Apply', 'a Ready screen with steps left says "done"');
 });
 
 /* ── (2) a step IS an item ──────────────────────────────────────────────── */
@@ -154,6 +154,17 @@ test('(2) tripwire: every seat item Details gains is known to the Seat plan step
     SEAT_PLAN_STEP_ITEMS,
     'the Seat plan step no longer reads SEAT_PLAN_STEP_ITEMS',
   );
+  // …and the day the Seat plan item EXISTS (Details part 4 keys it `seating`, its
+  // done = the door is open), the pages that decide before Details draws — the
+  // Maker opening on the flow, Home's "Round N · x of y" — must read it too, or
+  // they would count Round 3 differently from the step list.
+  const early = read(`${L}/details-guided-progress.ts`) + read('lib/details-guided-flow.ts').slice(read('lib/details-guided-flow.ts').indexOf('export function guidedItemDone'));
+  for (const k of SEAT_PLAN_STEP_ITEMS.filter((k) => (DETAILS_ITEM_KEYS as readonly string[]).includes(k))) {
+    assert.ok(
+      new RegExp(`'${k}'`).test(early),
+      `the Seat plan item "${k}" is in Details but Home and the Maker's opening never read it — add it to guidedPresent and guidedItemDone`,
+    );
+  }
 });
 
 /* ── (3) Next · Skip · Back ─────────────────────────────────────────────── */

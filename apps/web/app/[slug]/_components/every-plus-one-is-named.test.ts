@@ -157,14 +157,17 @@ test('every seat’s boxes are in the form at EVERY active seat — only the act
   }
 });
 
-test('the switcher is the shared PickMenu — one dropdown, ✓ on a named seat, "Guest N" on an unnamed one', async () => {
+test('the switcher is the shared PickMenu — "You" first, then +1 · name ✓ / +2 · not named yet', async () => {
   const { seatOptions } = await import('./rsvp-plus-ones');
-  assert.deepEqual(seatOptions(['Maria Santos', '', ' Ben ', '']), [
-    { key: '0', label: 'Maria Santos ✓' },
-    { key: '1', label: 'Guest 3 · not named yet' },
-    { key: '2', label: 'Ben ✓' },
-    { key: '3', label: 'Guest 5 · not named yet' },
+  assert.deepEqual(seatOptions(['Ben Reyes', '', ' Carmen ', ''], 'Maria Santos'), [
+    { key: 'you', label: 'You — Maria Santos' },
+    { key: '0', label: '+1 · Ben Reyes ✓' },
+    { key: '1', label: '+2 · not named yet' },
+    { key: '2', label: '+3 · Carmen ✓' },
+    { key: '3', label: '+4 · not named yet' },
   ]);
+  // One question per screen: no "You" row (their answers are the next steps).
+  assert.equal(seatOptions(['', ''], null)[0]!.key, '0');
   const src = stripComments(readFileSync(join(__dirname, 'rsvp-plus-ones.tsx'), 'utf8'));
   assert.match(src, /<PickMenu\b/, 'the switcher is not the shared PickMenu');
   assert.match(src, /Filling in for:/);
@@ -342,4 +345,22 @@ test('a host count lowered below the named seats never drops a named person from
   const at = src.indexOf('const seatNames = readSeatNames(formData);');
   const write = src.slice(at, src.indexOf('firstNamed', at));
   assert.doesNotMatch(write, /\.delete\(|deleted_at:/, 'the guest-side write can remove a seat');
+});
+
+// ── Numbered by SEAT, never by headcount (owner 2026-09-29: "you showed 3
+// seats but you named it guest 3 and guest 4") ────────────────────────────
+
+test('the labels run +1…+N for N = plus_one_count — never "Guest 3"', async () => {
+  const { seatOptions } = await import('./rsvp-plus-ones');
+  for (const n of [1, 2, 3, 4]) {
+    // Before hydration every seat is drawn under its own heading.
+    const block = plusOneBlock(await renderWidget(n));
+    const heads = [...block.matchAll(/<p class="font-serif text-base text-ink">([^<]*)<\/p>/g)].map((m) => m[1]);
+    const want = Array.from({ length: n }, (_, i) => `+${i + 1}`);
+    assert.deepEqual(heads, n > 1 ? want : [], `+${n}: headings ${heads.join(',')}`);
+    assert.doesNotMatch(block, /Guest \d|Seat \d/, `+${n}: a seat numbered by headcount`);
+    if (n > 1) assert.match(block, new RegExp(`saved you ${n} seats`));
+    const labels = seatOptions(Array(n).fill('')).map((o) => o.label);
+    assert.deepEqual(labels, want.map((w) => `${w} · not named yet`));
+  }
 });

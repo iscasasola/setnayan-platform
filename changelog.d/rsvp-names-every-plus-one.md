@@ -11,10 +11,13 @@ their QR auto adapts to it?"*
   (`app/[slug]/_components/rsvp-plus-ones.tsx`); `rsvp-widget.tsx` only mounts it.
   One set per seat the host gave (1–4): first name, last name, meal, dietary —
   no song, no note, no selfie. Meal/dietary obey the couple's same ask switches.
-- One switcher, the shared `PickMenu`: "Filling in for: Ben Reyes ✓ ▾", unnamed
-  seats read "Guest 3 · not named yet". Switching hides, never unmounts, so
-  nothing typed is lost and every seat posts. One-question-per-screen keeps the
-  block as ONE step. Opens on the first unnamed seat.
+- One switcher, the shared `PickMenu`: "You — Maria Santos" (takes the guest to
+  their own answers), "+1 · Ben Reyes ✓", "+2 · not named yet". Seats are
+  numbered by SEAT, never by headcount (owner: *"you showed 3 seats but you
+  named it guest 3 and guest 4"*). Switching hides, never unmounts, so nothing
+  typed is lost and every seat posts. One-question-per-screen keeps the block as
+  ONE step (no "You" row there). Opens on the first unnamed seat. With plus-ones
+  showing, the guest's own boxes read "Your meal preference" / "Your dietary notes".
 - `submitRsvp` writes each seat's meal/dietary on THAT seat's row; a blank name
   on an existing seat saves its meal/dietary and leaves its name alone (new
   `details` op in `planSeatNames`); a re-send names the same rows; nothing is
@@ -24,10 +27,10 @@ their QR auto adapts to it?"*
   (`plusOneNameSlots`): named seats + empty boxes only up to the count.
 - The seat reads (site loader, reply door) carry each seat's first/last/meal/
   dietary so a Send never overwrites a meal the plus-one gave on their own key.
-- "Your guests" labels an unnamed seat "Guest N" (was "Seat N"), matching the
-  prototype `prototypes/rsvp_plus_ones_2026-09-29.html`.
+- "Your guests" (thank-you + Me) labels an unnamed seat "+2 · TBA" (was
+  "Seat 3" / "TBA"), matching the prototype `prototypes/rsvp_plus_ones_2026-09-29.html`.
 
-Guarded by `app/[slug]/_components/every-plus-one-is-named.test.ts` (15 tests,
+Guarded by `app/[slug]/_components/every-plus-one-is-named.test.ts` (16 tests,
 each property sabotaged and seen to fail). `a-guest-can-name-who-they-bring`'s
 window widened to still reach the end of the grown write.
 

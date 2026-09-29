@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { plusOneNameSlots } from '@/lib/extra-seats';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
@@ -77,20 +77,32 @@ export function plusOneSlots(
 }
 
 /**
- * "Guest 2" for an unnamed seat — numbered with the bringer as Guest 1, the
- * same count the thank-you's "Guest 3 · TBA" uses (prototype
- * `rsvp_plus_ones_2026-09-29.html`, frames B–D).
+ * A seat is numbered by SEAT, never by headcount (owner 2026-09-29, on the
+ * prototype: *"you showed 3 seats but you named it guest 3 and guest 4"*):
+ * "The couple saved you 3 seats" lists exactly +1, +2, +3.
  */
-export function seatLabel(name: string, index: number): string {
-  return name.trim() || `Guest ${index + 2}`;
+export function seatNumber(index: number): string {
+  return `+${index + 1}`;
 }
 
-/** The switcher's options: each seat's typed name with ✓, or "Guest N · not named yet". */
-export function seatOptions(names: readonly string[]): { key: string; label: string }[] {
-  return names.map((n, i) => ({
+/** The at-a-glance word for a seat: its name, else "+2". */
+export function seatLabel(name: string, index: number): string {
+  return name.trim() || seatNumber(index);
+}
+
+/** Option key for "You — <name>", ahead of the seats (prototype frame B). */
+export const YOU_KEY = 'you';
+
+/**
+ * The switcher's options: "You — Maria Santos" (when given), then one per
+ * seat — "+1 · Ben Reyes ✓" once named, "+2 · not named yet" until then.
+ */
+export function seatOptions(names: readonly string[], youName?: string | null): { key: string; label: string }[] {
+  const seats = names.map((n, i) => ({
     key: String(i),
-    label: n.trim() ? `${n.trim()} ✓` : `${seatLabel('', i)} · not named yet`,
+    label: n.trim() ? `${seatNumber(i)} · ${n.trim()} ✓` : `${seatNumber(i)} · not named yet`,
   }));
+  return youName?.trim() ? [{ key: YOU_KEY, label: `You — ${youName.trim()}` }, ...seats] : seats;
 }
 
 export function RsvpPlusOnes({
@@ -100,7 +112,15 @@ export function RsvpPlusOnes({
   theOrganizer,
   askMeal,
   askDietary,
+  youName = null,
 }: {
+  /**
+   * The bringer's own name — the switcher's first row, "You — Maria Santos"
+   * (prototype frame B), which takes them to their OWN answers on this card.
+   * Null = no such row (one-question-per-screen: their answers are the next
+   * steps, reached with Next).
+   */
+  youName?: string | null;
   /** Seats the couple gave this guest, 1–4 (`plusOneSeats`). */
   count: number;
   seats: readonly PlusOneSeatInput[] | undefined;
@@ -117,12 +137,23 @@ export function RsvpPlusOnes({
   const [active, setActive] = useState(() => Math.max(0, names.findIndex((n) => !n)));
   const [arranged, setArranged] = useState(false);
   useEffect(() => setArranged(true), []);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  /** "You — …": to the guest's own first answer on this card (meal, else contact). */
+  const goToYou = () => {
+    const form = rootRef.current?.closest('form');
+    const own = ['meal_preference', 'dietary_restrictions', 'contact_email']
+      .map((id) => form?.querySelector<HTMLElement>(`#${id}`))
+      .find((el) => el && el.getClientRects().length > 0);
+    own?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    own?.focus({ preventScroll: true });
+  };
 
   const many = slots.length > 1;
   const Organizer = theOrganizer.charAt(0).toUpperCase() + theOrganizer.slice(1);
 
   return (
-    <div className="space-y-3" data-rsvp-plus-ones>
+    <div ref={rootRef} className="space-y-3" data-rsvp-plus-ones>
       <span className="block text-sm font-medium text-ink">Who are you bringing?</span>
       <p className="text-xs text-ink/70">
         {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4). */}
@@ -137,12 +168,11 @@ export function RsvpPlusOnes({
           <PickMenu
             label="Filling in for"
             value={String(active)}
-            options={seatOptions(names)}
-            onPick={(k) => setActive(Number(k))}
+            options={seatOptions(names, youName)}
+            onPick={(k) => (k === YOU_KEY ? goToYou() : setActive(Number(k)))}
             dataAttr="data-plus-one-pick"
             className="border border-ink/15 text-sm"
           />
-
         </div>
       ) : null}
 
@@ -200,7 +230,10 @@ export function PlusOneSeatPanels({
         return (
           <div key={i} data-plus-one-seat={n} className={away ? 'hidden' : 'space-y-4'}>
             {many && !arranged ? (
-              <p className="font-serif text-base text-ink">{seatLabel(`${slot.first} ${slot.last}`, i)}</p>
+              <p className="font-serif text-base text-ink">
+                {seatNumber(i)}
+                {`${slot.first} ${slot.last}`.trim() ? ` · ${`${slot.first} ${slot.last}`.trim()}` : ''}
+              </p>
             ) : null}
             {slot.seatId ? <input type="hidden" name={`plus_one_seat_id_${n}`} value={slot.seatId} /> : null}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

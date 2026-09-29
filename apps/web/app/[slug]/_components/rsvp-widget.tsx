@@ -201,6 +201,9 @@ export function RsvpWidget({
   // Meal + dietary share one reveal wrapper below — hide it outright when
   // BOTH are off, rather than rendering an empty grid with nothing inside it.
   const askMealOrDietary = askMeal || askDietary;
+  // With the plus-ones' own "Meal preference" just above, the guest's own box
+  // says whose it is (prototype rsvp_plus_ones_2026-09-29.html, frame A).
+  const bringsPlusOnes = askPlusOnes && guest.plus_one_allowed && !replyLocked;
   // The key gate found no number on record and the couple asks for one — the
   // page cannot be left without it (owner 2026-09-26: "filled first until they
   // are all answered").
@@ -429,6 +432,7 @@ export function RsvpWidget({
             theOrganizer={words.theOrganizer}
             askMeal={askMeal}
             askDietary={askDietary}
+            youName={oneAtATime ? null : guest.display_name || `${guest.first_name} ${guest.last_name}`.trim()}
           />
         </div>
       ) : null}
@@ -467,7 +471,7 @@ export function RsvpWidget({
               <div data-rsvp-step>
               <Select
                 id="meal_preference"
-                label="Meal preference"
+                label={bringsPlusOnes ? 'Your meal preference' : 'Meal preference'}
                 defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
                 options={[
                   ['no_preference', 'No preference'],
@@ -485,7 +489,7 @@ export function RsvpWidget({
               <div data-rsvp-step>
               <Field
                 id="dietary_restrictions"
-                label="Dietary notes"
+                label={bringsPlusOnes ? 'Your dietary notes' : 'Dietary notes'}
                 defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
                 placeholder="halal · nut allergy · …"
               />

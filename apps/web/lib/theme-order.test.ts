@@ -69,10 +69,14 @@ test('2a · the Details picker and the store shell read the one order — filter
 });
 
 test('2b · Prints & Tickets’ theme choice is fed from the one order', () => {
-  // A closed dropdown renders no options, so the FEED is what is held: the
-  // choice's options are HUB_THEMES, filtered and mapped — never re-ordered.
-  const src = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
-  assert.match(src, /label="Preview the set in a theme"[\s\S]{0,200}options=\{HUB_THEMES\.filter\(\(x\) => x\.ready\)\.map\(/);
+  // Prints & Tickets folded into Details (2026-09-28): the prints are drawn in
+  // the theme picked in Details' gallery, whose tiles are \`pickableInviteThemes\`
+  // — HUB_THEMES, filtered, never re-ordered. A closed dropdown renders no
+  // options, so the FEED is what is held.
+  const launch = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/page.tsx'), 'utf8'));
+  assert.match(launch, /const themes = pickableInviteThemes\(/);
+  const lib = stripComments(readFileSync(join(WEB, 'lib/invite-themes.ts'), 'utf8'));
+  assert.match(lib, /export function pickableInviteThemes\([^)]*\)[^{]*\{\s*return HUB_THEMES\.filter\(/);
   // And the Maker's theme panel (the editor page) the same.
   const editor = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/page.tsx'), 'utf8'));
   assert.match(editor, /const themes = HUB_THEMES\.map\(/);

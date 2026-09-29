@@ -207,7 +207,9 @@ test('3 · the invitation folds after the first screen, to one line — on the p
 
 test('4 · each screen\'s question is its heading', async () => {
   const out = await card({ oneAtATime: true, previewEveryQuestion: true, doorAction: async () => {}, termsOnSend: true, ask: {} });
-  for (const q of ['Who are you bringing?', 'Meal preference', 'Dietary notes', 'A song to get you dancing (optional)', 'A note to the couple (optional)', 'How the couple can reach you']) {
+  // A guest bringing plus-ones is asked for THEIR OWN meal and notes (each seat's
+  // are small labels inside "Who are you bringing?", one screen — #6145).
+  for (const q of ['Who are you bringing?', 'Your meal preference', 'Your dietary notes', 'A song to get you dancing (optional)', 'A note to the couple (optional)', 'How the couple can reach you']) {
     const at = out.indexOf(q);
     assert.ok(at > -1, `${q} is not drawn`);
     const tag = out.slice(out.lastIndexOf('<', at), at);

@@ -150,7 +150,7 @@ export const GUIDED_STEPS: readonly StepDef[] = [
   },
   { key: 'prints', round: 2, items: ['download'], title: 'Check your prints', shows: () => 'Your whole set, in your look — save what you need.' },
 
-  { key: 'seat-plan', round: 3, items: SEAT_PLAN_STEP_ITEMS, title: 'Seat plan', shows: () => 'Guests find their table on the day — once you switch it on.' },
+  { key: 'seat-plan', round: 3, items: SEAT_PLAN_STEP_ITEMS, title: 'Seat plan', shows: () => 'Guests find their table on the day.' },
   {
     key: 'day-prints',
     round: 3,

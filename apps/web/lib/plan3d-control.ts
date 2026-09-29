@@ -148,7 +148,7 @@ export function resolvePlan3dFacts(
     value: !standing.measured
       ? null
       : standing.state === 'draft'
-        ? 'Draft'
+        ? 'Opens on the day'
         : `Live${plan.publishedAt ? ` · since ${shortDate(plan.publishedAt)}` : ''}`,
   };
   const seated: HubFact = !guests.shared
@@ -223,7 +223,7 @@ export function resolvePlan3dNextStep(
   if (standing.state === 'after') {
     return {
       headline: 'Nothing to do',
-      blurb: 'It stays up until you take it down.',
+      blurb: 'Your guests can still walk it.',
       href: null,
       cta: null,
       tone: 'quiet',
@@ -248,10 +248,10 @@ export function resolvePlan3dNextStep(
   }
   if (standing.state === 'draft') {
     return {
-      headline: 'Publish — your guests can walk the room',
+      headline: 'Your guests walk the room on the day',
       blurb: plan.autoplace
-        ? 'Seats can change right up to and during the day — a guest added late still gets one, and your guests always open the latest version.'
-        : 'Seats can change right up to and during the day; your guests always open the latest version.',
+        ? 'Want them in sooner? Turn on Show early. Seats can change right up to and during the day — a guest added late still gets one, and your guests always open the latest version.'
+        : 'Want them in sooner? Turn on Show early. Seats can change right up to and during the day; your guests always open the latest version.',
       href: null,
       cta: null,
       tone: 'act',

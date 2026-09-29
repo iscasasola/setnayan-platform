@@ -14,7 +14,7 @@ import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { HERO_EVENT_COLUMNS, resolveHero } from '@/lib/event-hero';
 import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { eventSeatingPublished } from '@/lib/seat-pass';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
 import { sanitizeRoleAttire, ATTIRE_STYLE_LABEL, type RoleAttireRule } from '@/lib/role-dress-code';
 import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
@@ -688,8 +688,10 @@ export async function loadGuestPasses(
 
   const seatOf = new Map<string, string>();
   const seatNumberOf = new Map<string, string>();
-  // Tables print only once the couple has published seating (the same gate the guest pages use).
-  if (await eventSeatingPublished(admin, eventId)) {
+  // Tables print only once guests may see their seats — the same one rule the
+  // guest pages ask (`guestsMaySeeSeatsFor`). The ticket itself drops them
+  // anyway while `TICKET_SHOWS_TABLE` is off (lib/print-layout.ts).
+  if (await guestsMaySeeSeatsFor(admin, eventId)) {
     const [{ data: seats }, { data: tables }] = await Promise.all([
       admin.from('event_seat_assignments').select('guest_id, table_id, seat_number').eq('event_id', eventId),
       admin.from('event_tables').select('table_id, table_label').eq('event_id', eventId),

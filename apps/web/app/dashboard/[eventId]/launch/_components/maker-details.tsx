@@ -1061,7 +1061,7 @@ function seatPlanRow(
       ? 'Could not be read just now'
       : t === 0
         ? 'No tables yet'
-        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : ''}`;
+        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : seatPlan?.open === false ? ' · guests see it on the day' : ''}`;
   return {
     label: 'Seat plan',
     sub,

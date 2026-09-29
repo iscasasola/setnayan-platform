@@ -34,7 +34,7 @@ import {
   uniqueFileNames,
   type PassCardRow,
 } from './pass-card';
-import { layoutPassCard, layoutPieceDocs, passCardFacts, safeContainsBox, type PrintOp, type PrintPass, type PrintSetData } from './print-layout';
+import { layoutPassCard, layoutPieceDocs, passCardFacts, safeContainsBox, TICKET_SHOWS_TABLE, type PrintOp, type PrintPass, type PrintSetData } from './print-layout';
 import { INVITE_THEME_IDS } from './invite-themes';
 import { PRINT_FORMATS, printLookFor } from './print-pieces';
 import { renderPassCardPng } from './pass-card-render';
@@ -171,10 +171,37 @@ function data(over: Partial<PrintSetData> = {}): PrintSetData {
 }
 const PASS: PrintPass = { name: 'Maria Santos', seat: 'Table 7', qrRef: 'qr-g-1', serial: null, arrive: '3:30 PM', party: 1 };
 
-test('an unknown table is OMITTED — never "Table TBA"', () => {
-  assert.deepEqual(passCardFacts(PASS).map((f) => [f.label, f.value]), [['Table', '7'], ['Arrive', '3:30 PM']]);
-  assert.deepEqual(passCardFacts({ ...PASS, seat: null }).map((f) => f.label), ['Arrive']);
+test('🎟 NO TABLE ON ANY TICKET for now — owner 2026-09-30: "so on their digital ticket, no seat plan for the moment."', () => {
+  // The owner's switch. Bringing the table back is flipping TICKET_SHOWS_TABLE
+  // in lib/print-layout.ts — and this line, which records that he decided it.
+  assert.equal(TICKET_SHOWS_TABLE, false, 'the ticket shows no table until the owner says otherwise');
+  // The facts: a seated guest's card says Arrive, never Table.
+  assert.deepEqual(passCardFacts(PASS).map((f) => [f.label, f.value]), [['Arrive', '3:30 PM']]);
   assert.deepEqual(passCardFacts({ ...PASS, seat: null, arrive: null }), []);
+  // Every ticket, drawn with a table and without one, is the SAME drawing: the
+  // Digital ticket in every look, and every printed pass format (the PDF, and
+  // the Pro zip, which draws the same function).
+  const look = printLookFor('house');
+  const noSeat: PrintPass = { ...PASS, seat: null, seatNumber: null };
+  const seated: PrintPass = { ...PASS, seat: 'Table 7', seatNumber: '3' };
+  for (const design of PASS_CARD_DESIGNS) {
+    const a = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, seated, design);
+    const b = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, noSeat, design);
+    assert.deepEqual(a.ops, b.ops, `Digital ticket · ${design}: a table must draw no ink`);
+  }
+  const passFormats = Object.values(PRINT_FORMATS).filter((f) => f.for === 'pass');
+  assert.ok(passFormats.some((f) => f.style === 'boarding') && passFormats.some((f) => f.style === 'phone'), 'the sweep reaches the boarding pass and the phone card');
+  for (const f of passFormats) {
+    const a = layoutPieceDocs('pass', { look, data: data(), mode: 'print', foil: false, format: f.id, pass: seated })[0]!;
+    const b = layoutPieceDocs('pass', { look, data: data(), mode: 'print', foil: false, format: f.id, pass: noSeat })[0]!;
+    assert.deepEqual(a.ops, b.ops, `Printed ticket · ${f.id}: a table or seat number must draw no ink`);
+  }
+});
+
+test('an unknown table is OMITTED — never "Table TBA" (holds whenever the ticket shows tables again)', () => {
+  assert.deepEqual(passCardFacts({ ...PASS, seat: null }).map((f) => f.label), ['Arrive']);
+  if (!TICKET_SHOWS_TABLE) return;
+  assert.deepEqual(passCardFacts(PASS).map((f) => [f.label, f.value]), [['Table', '7'], ['Arrive', '3:30 PM']]);
   for (const design of PASS_CARD_DESIGNS) {
     const look = printLookFor('house');
     const withTable = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, PASS, design);
@@ -315,14 +342,14 @@ test('the zip holds exactly the guests who HAVE a card — named plus-ones in, p
   assert.match(s, /filterPassCardRows\(rows, asPassCardRow\)/);
 });
 
-test('the TABLE prints only once the seat plan is PUBLISHED — the one flag Find your seat reads', () => {
+test('the TABLE is read only once guests may see their seats — the one rule Find your seat asks', () => {
   const seats = [{ guest_id: 'maria', table_id: 't7' }, { guest_id: 'ben', table_id: 'vip' }];
   const tables = [{ table_id: 't7', table_label: '7' }, { table_id: 'vip', table_label: '1', link_group_label: 'VIP Section' }];
   assert.equal(seatLabelsFrom(false, seats, tables).size, 0, 'unpublished → no table on any card');
   assert.deepEqual([...seatLabelsFrom(true, seats, tables)], [['maria', 'Table 7'], ['ben', 'VIP Section']], 'published → the table appears');
   const s = src('lib/pass-card.server.ts');
   const fn = s.slice(s.indexOf('async function readSeatLabels'), s.indexOf('// ─── One card'));
-  assert.match(fn, /const published = await eventSeatingPublished\(admin, eventId\);/, 'the published flag is the seat plan’s own');
+  assert.match(fn, /const published = await guestsMaySeeSeatsFor\(admin, eventId\);/, 'the one seat rule (lib/guests-may-see-seats.ts)');
   assert.match(fn, /return seatLabelsFrom\(\s*published,/, 'and it decides');
   const layout = layoutPassCard({ look: printLookFor('house'), data: data(), mode: 'screen', foil: false }, { ...PASS, seat: seatLabelsFrom(false, seats, tables).get('maria') ?? null });
   const facts = passCardFacts({ ...PASS, seat: seatLabelsFrom(false, seats, tables).get('maria') ?? null });

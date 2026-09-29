@@ -4,6 +4,7 @@ import { loadRoomLinks } from '../_lib/room-links.server';
 import { loadEventShell, loadGuestLook } from '../_lib/loaders';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
@@ -104,17 +105,11 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   const admin = createAdminClient();
   const names = event.display_name?.trim() || words.theHost;
 
-  // Publication gate — only a published plan is searchable or shown. Degrade to
-  // "not posted yet" on a missing/legacy floor-plan table rather than crashing.
-  const { data: plan, error: planError } = await admin
-    .from('event_floor_plan')
-    .select('published_at')
-    .eq('event_id', event.event_id)
-    .maybeSingle();
-  if (planError && planError.code !== '42P01' && planError.code !== '42703') {
-    throw new Error(`Failed to resolve seating publication: ${planError.message}`);
-  }
-  const published = Boolean(plan?.published_at);
+  // 🪑 The seat gate — ONE rule (`guestsMaySeeSeatsFor`, owner 2026-09-30:
+  // "seatplan will show on the date of the event"): open from 00:00 Manila on
+  // the event's day, or earlier only if the couple turned on "Show guests their
+  // seats early". A failed read goes to the error boundary, never "not yet".
+  const published = await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true });
 
   const [viewer, look] = await Promise.all([
     readGuestViewerForEvent(event.event_id),
@@ -342,12 +337,12 @@ function NotPostedYet({
       <section className="px-6 pt-3 text-center">
         <p className="m-0 text-[0.72rem] uppercase tracking-[0.22em] text-terracotta-700">Find your seat</p>
         <p className="m-0 mt-1 font-serif text-[2.4rem] italic leading-none text-terracotta-700">soon</p>
-        <h1 className="m-0 mt-0.5 font-serif text-[2rem] font-medium leading-[1.12] text-ink">Seating isn&rsquo;t posted yet</h1>
+        <h1 className="m-0 mt-0.5 font-serif text-[2rem] font-medium leading-[1.12] text-ink">Your seat shows on the day</h1>
         <p className="mt-2.5 text-[0.84rem] leading-relaxed text-ink/75">
           {plural
-            ? `${names} haven’t published the seating plan. Once they do, you’ll find your table here.`
-            : `The seating plan for this ${occasion} isn’t published yet. Once it is, you’ll find your table here.`}{' '}
-          Your invitation link will show it the moment it&rsquo;s set.
+            ? `${names}’s seating plan opens here on the day.`
+            : `The seating plan for this ${occasion} opens here on the day.`}{' '}
+          Come back to this link then and you&rsquo;ll find your table.
         </p>
       </section>
       <Lace className="my-4" />

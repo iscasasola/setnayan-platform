@@ -11,7 +11,7 @@ import { layoutPassCard, type PrintPass } from '@/lib/print-layout';
 import { loadPrintSet, printOwnsPro, type LoadedPrintSet } from '@/lib/print-set.server';
 import { renderPassCardPng } from '@/lib/pass-card-render';
 import { renderInvitationQrPng } from '@/lib/qr';
-import { eventSeatingPublished } from '@/lib/seat-pass';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -237,7 +237,7 @@ async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerId
 
 async function readSeatLabels(admin: SupabaseClient, eventId: string, guestIds?: string[]): Promise<Map<string, string>> {
   // Unpublished → no table on any card (`seatLabelsFrom`); the reads below are skipped.
-  const published = await eventSeatingPublished(admin, eventId);
+  const published = await guestsMaySeeSeatsFor(admin, eventId);
   if (!published) return seatLabelsFrom(false, [], []);
   let q = admin.from('event_seat_assignments').select('guest_id, table_id').eq('event_id', eventId);
   if (guestIds && guestIds.length > 0 && guestIds.length <= 50) q = q.in('guest_id', guestIds);

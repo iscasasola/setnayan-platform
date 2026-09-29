@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
 import { PASSED_AWAY, type GuestRole } from '@/lib/guests';
 import { readGuestReminders, resolveReplyBy } from '@/lib/rsvp-ask';
@@ -201,12 +202,15 @@ async function remindOneEvent(
   if (guests.length === 0) return { scanned: 0, sent: 0 };
 
   // ── The facts every guest's checklist shares, gathered ONCE per event ──
-  const [blocks, bookings, ownerSlug, ticksRes, seatsRes] = await Promise.all([
+  const [blocks, bookings, ownerSlug, ticksRes, seatsRes, seatsOpen] = await Promise.all([
     fetchPublicScheduleBlocks(admin, ev.event_id, true),
     loadVenueBookings(admin, ev.event_id),
     resolveEventOwnerSlug(admin, ev.event_id),
     admin.from('guest_checklist_ticks').select('guest_id, ticks').eq('event_id', ev.event_id),
     admin.from('event_seat_assignments').select('guest_id, table_id').eq('event_id', ev.event_id),
+    // 🪑 The one seat rule — a reminder names the table only when guests may
+    // see their seats (on the day, or early by the couple's switch).
+    guestsMaySeeSeatsFor(admin, ev.event_id),
   ]);
   if (ticksRes.error) logQueryError('guest-reminder-emails: guest_checklist_ticks.select', ticksRes.error, { event_id: ev.event_id });
   if (seatsRes.error) logQueryError('guest-reminder-emails: event_seat_assignments.select', seatsRes.error, { event_id: ev.event_id });
@@ -267,7 +271,7 @@ async function remindOneEvent(
         venueAddress: replied ? venueAddress : null,
         venueLatitude: replied ? venueLat : null,
         venueLongitude: replied ? venueLng : null,
-        tableLabel: tableLabelById.get(tableIdByGuest.get(g.guest_id) ?? '') ?? null,
+        tableLabel: seatsOpen ? (tableLabelById.get(tableIdByGuest.get(g.guest_id) ?? '') ?? null) : null,
       });
       const pending = untickedItems(items, ticksByGuest.get(g.guest_id) ?? []);
       const replyLine = replyByLine({ rsvpStatus: g.rsvp_status, replyBy, today, listClosed });

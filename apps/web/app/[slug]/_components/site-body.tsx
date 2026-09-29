@@ -1303,13 +1303,14 @@ export async function SiteBody({
             )}
 
             {/* Find your seat — the FREE guest finder (seat-finding PR 1). Pure
-                navigation on this always-rendered public landing: the /find-seat
-                route resolves the published plan itself and shows a friendly
-                "not posted yet" state when there's nothing to search, so this link
-                is safe to always render (mirrors the find-my-table CTA pattern). A
-                guest who scanned the shared venue QR taps this, types their name,
-                and sees their table — no app, no login, no paid SKU. */}
-            {insideAllowed ? (
+                navigation on the public landing. A guest who scanned the shared
+                venue QR taps this, types their name, and sees their table — no
+                app, no login, no paid SKU. */}
+            {/* 🪑 2026-09-30 (owner: "seat plan is only on the day"): shown only
+                once guests may see their seats — the one rule
+                (lib/guests-may-see-seats.ts, via `doorwayFacts.seatingPublished`),
+                never a door to a "not yet" page. */}
+            {insideAllowed && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished ? (
             <div className="mt-8 text-center">
               <Link
                 href={`/${event.slug}/find-seat`}

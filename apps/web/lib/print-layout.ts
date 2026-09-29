@@ -1575,7 +1575,9 @@ function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
  * TABLE · SEAT · TIME where a gate and a seat would be). One composition, sized
  * from the sheet's own height — so a format is laid out, never stretched.
  */
-function layoutPass(ctx: Ctx, pass: PrintPass, fmt: PrintFormat = PRINT_FORMATS['calling-card']): PrintDoc {
+function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMATS['calling-card']): PrintDoc {
+  // 🎟 No table / seat on any ticket while TICKET_SHOWS_TABLE is off.
+  const pass = ticketPass(rawPass);
   // The phone card is its own composition (portrait, the QR the hero) — the
   // same one the 1080 × 1440 picture a guest saves is drawn from.
   if (fmt.style === 'phone') return PASS_CARD_LAYOUTS[ctx.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](ctx, pass, fmt);
@@ -1649,11 +1651,15 @@ function layoutPass(ctx: Ctx, pass: PrintPass, fmt: PrintFormat = PRINT_FORMATS[
   y += 10 * k;
   if (style === 'boarding') {
     // Gate · Seat · Boarding → Table · Seat · Time, each a small labelled field.
-    const fields: Array<[string, string | null]> = [
-      ['Table', pass.seat ? pass.seat.replace(/^Table\s+/i, '') : null],
-      ['Seat', pass.seatNumber ?? null],
-      ['Time', data.ceremonyTime],
-    ];
+    // 🎟 While TICKET_SHOWS_TABLE is off the Table and Seat fields go, not
+    // print "—": an empty field reads as a table the guest was never given.
+    const fields: Array<[string, string | null]> = (
+      [
+        ['Table', pass.seat ? pass.seat.replace(/^Table\s+/i, '') : null],
+        ['Seat', pass.seatNumber ?? null],
+        ['Time', data.ceremonyTime],
+      ] as Array<[string, string | null]>
+    ).filter(([label]) => TICKET_SHOWS_TABLE || (label !== 'Table' && label !== 'Seat'));
     const colW = (mainW - pad * 2) / 3;
     fields.forEach(([label, value], i) => {
       const fx = pad + i * colW;
@@ -1732,8 +1738,30 @@ function fitLine(ops: PrintOp[], raw: string, x: number, y: number, o: TextOpts)
 
 type CardFacts = { label: string; value: string }[];
 
-/** The facts a pass card prints, in order — Table and Arrive, each only when it exists. */
-export function passCardFacts(pass: PrintPass): CardFacts {
+/**
+ * 🎟 THE TABLE ON A TICKET — OFF FOR NOW. Owner, 2026-09-30, verbatim: "so on
+ * their digital ticket, no seat plan for the moment."
+ *
+ * Every ticket draws its pass through `ticketPass`: the Digital ticket (the
+ * PNG a guest saves), the Printed ticket (the PDF), in every style, and the Pro
+ * zip — so no table and no seat number appear on any of them, whatever the
+ * date or the couple's switch. Name, event, date, arrive time, "and 1 guest"
+ * and the QR are untouched. The live pages (Find your seat, the seat pass, the
+ * 3D walk) still show seats on the day — `lib/guests-may-see-seats.ts`.
+ *
+ * To bring the table back: set this to `true`. Nothing else changes — what
+ * `seat` holds is still decided by the one seat rule upstream.
+ */
+export const TICKET_SHOWS_TABLE: boolean = false;
+
+/** The pass as a ticket may draw it — no table or seat while `TICKET_SHOWS_TABLE` is off. */
+export function ticketPass(pass: PrintPass): PrintPass {
+  return TICKET_SHOWS_TABLE ? pass : { ...pass, seat: null, seatNumber: null };
+}
+
+/** The facts a pass card prints, in order — Table and Arrive, each only when it exists (Table: only while `TICKET_SHOWS_TABLE`). */
+export function passCardFacts(rawPass: PrintPass): CardFacts {
+  const pass = ticketPass(rawPass);
   return guestPassFacts({
     displayName: pass.name,
     // Under a "TABLE" label the value is the table's own name ("7", "VIP").
@@ -1995,8 +2023,9 @@ const PASS_CARD_LAYOUTS: Record<PassCardDesign, (ctx: Ctx, pass: PrintPass, fmt:
  * The pass card for ONE guest, in a given look — the picture a guest saves.
  * The print format (`phone-card` in `layoutPasses`) draws the SAME function.
  */
-export function layoutPassCard(input: LayoutInput, pass: PrintPass, design?: PassCardDesign): PrintDoc {
+export function layoutPassCard(input: LayoutInput, rawPass: PrintPass, design?: PassCardDesign): PrintDoc {
   const ctx: Ctx = { look: input.look, data: input.data, mode: input.mode, foil: input.foil };
+  const pass = ticketPass(rawPass); // 🎟 TICKET_SHOWS_TABLE
   const doc = PASS_CARD_LAYOUTS[design ?? input.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](ctx, pass, PRINT_FORMATS[PASS_CARD_FORMAT_ID]);
   return input.mode === 'print' && input.whiteInk ? underprintWhite(doc) : doc;
 }

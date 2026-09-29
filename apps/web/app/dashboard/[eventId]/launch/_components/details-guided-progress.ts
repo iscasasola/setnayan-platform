@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { GENERIC_PROFILE, resolveProfile } from '@/lib/event-type-profile';
@@ -162,12 +163,15 @@ export async function readGuidedPlan({
       .select('block_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('parent_block_id', null),
-    // 🪑 The Seat plan's door — the same read the Maker's Seat plan row makes.
-    supabase.from('event_floor_plan').select('published_at').eq('event_id', eventId).maybeSingle(),
+    // 🪑 Do guests see their seats? The one rule (lib/guests-may-see-seats.ts) —
+    // the same read the Maker's Seat plan row makes. A failed read is null (unread).
+    guestsMaySeeSeatsFor(supabase, eventId, { throwOnReadError: true }).catch((e: unknown) => {
+      logQueryError('HomeGuide.seatDoor', { message: e instanceof Error ? e.message : String(e) }, { event_id: eventId }, 'graceful_degrade');
+      return null;
+    }),
   ]);
   if (!event) return null;
   if (scheduleRes.error) logQueryError('HomeGuide.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
-  if (seatDoorRes.error) logQueryError('HomeGuide.seatDoor', seatDoorRes.error, { event_id: eventId }, 'graceful_degrade');
   const [profile, ye] = await Promise.all([
     resolveProfile(event.event_type ?? '').catch(() => GENERIC_PROFILE),
     readYourEventFacts({ admin, eventId, parentCount: parents.length, hostCount: hosts.length }),
@@ -181,7 +185,7 @@ export async function readGuidedPlan({
     yourEvent: ye ? { facts: ye.facts, kind: ye.kind } : null,
     storyApplies,
     scheduleMoments: scheduleRes.error ? null : (scheduleRes.count ?? 0),
-    seatPlanOpen: seatDoorRes.error ? null : Boolean((seatDoorRes.data as { published_at?: string | null } | null)?.published_at),
+    seatPlanOpen: seatDoorRes,
   });
   return guidedPlanFromFacts({
     ctx,

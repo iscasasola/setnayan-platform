@@ -54,6 +54,10 @@ export type GuestHubData = {
   rsvpStatus: RsvpStatus;
   /** Table label (e.g. "Table 5") when the guest has a seat assignment. */
   tableLabel: string | null;
+  /** 🪑 May guests see their seats yet? The one rule (lib/guests-may-see-seats.ts):
+   *  on the event's day, or earlier by the couple's switch. False → the tile says
+   *  "on the day" and no seat link shows. Absent = closed (the honest default). */
+  seatsOpen?: boolean;
   mealPreference: string | null;
   dietaryRestrictions: string | null;
   /** Next upcoming public schedule block (may be null when none are set). */
@@ -229,7 +233,7 @@ export function GuestHubCard({
    *  absent is a smaller failure than one that scrolls to nothing. */
   detailsCardOnPage?: boolean;
 }) {
-  const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne, arrived, firstVisit = false } = data;
+  const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne, arrived, firstVisit = false, seatsOpen = false } = data;
   // Day-of arrival: once the guest has checked in at the door AND has a seat,
   // the seat tile greets them by name with a gentle bloom instead of the
   // neutral "Your seat" copy. Needs both — a checked-in guest with no assigned
@@ -371,7 +375,7 @@ export function GuestHubCard({
                 {tableLabel ? (
                   <span className="font-serif text-lg italic leading-tight">{tableLabel}</span>
                 ) : (
-                  <span className="text-sm font-medium text-ink/50">Not yet assigned</span>
+                  <span className="text-sm font-medium text-ink/50">{seatsOpen ? 'Not yet assigned' : 'On the day'}</span>
                 )}
               </span>
               {showArrival ? (
@@ -388,7 +392,7 @@ export function GuestHubCard({
                 </Link>
               ) : (
                 <span className="mt-0.5 text-xs text-ink/45">
-                  {`${words.TheHost} will assign seats closer to the date.`}
+                  {seatsOpen ? `${words.TheHost} will assign seats closer to the date.` : 'Your table shows here on the day.'}
                 </span>
               )}
             </div>
@@ -440,13 +444,16 @@ export function GuestHubCard({
             <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/40">
               Quick links
             </span>
-            <Link
-              href={`/${slug}/find-my-table`}
-              className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs text-ink/70 hover:border-terracotta hover:text-terracotta-700"
-            >
-              <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-              Find my table
-            </Link>
+            {/* 🪑 Only once guests may see their seats — never a door to "not yet". */}
+            {seatsOpen ? (
+              <Link
+                href={`/${slug}/find-my-table`}
+                className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-3 py-1 text-xs text-ink/70 hover:border-terracotta hover:text-terracotta-700"
+              >
+                <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                Find my table
+              </Link>
+            ) : null}
             {detailsCardOnPage ? (
               <a
                 href="#your-details"

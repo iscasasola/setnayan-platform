@@ -46,13 +46,13 @@
  * Only NEW refs are screened — re-ordering or removing within an existing gallery
  * re-screens nothing, so the cost tracks what the host actually just uploaded.
  */
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
 import { galleryChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
-import { resolveReturnTo } from '@/lib/editor-return';
 import { formatCount } from '@/lib/format-number';
 import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
@@ -134,7 +134,7 @@ export async function updateOurPhotos(
 
   if (drafting) {
     // A photo the screen blocked is left out of the draft, as it is left out live.
-    await draftEventsAndReturn(eventId, { our_photos: cleared }, formData, `/dashboard/${eventId}/website/editor?open=gallery`);
+    return draftEventsAndReturn(eventId, { our_photos: cleared }, formData, `/dashboard/${eventId}/website/editor?open=gallery`);
   }
 
   const { data: event, error } = await supabase
@@ -167,7 +167,5 @@ export async function updateOurPhotos(
     );
   }
 
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/our-photos?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/our-photos?saved=1`, '?saved=1');
 }

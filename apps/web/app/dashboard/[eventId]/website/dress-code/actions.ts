@@ -14,6 +14,7 @@
  * or a 100-item dos[] would otherwise blow the JSONB column up. Limits match
  * the migration comment in 20260605030000_events_dress_code_config.sql.
  */
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -28,7 +29,6 @@ import { sanitizeGroupAttire, type GroupAttireMap } from '@/lib/role-group-dress
 import { roleLabel } from '@/lib/entourage';
 import type { GuestRole } from '@/lib/guests';
 import { getCurrentUser } from '@/lib/auth';
-import { resolveReturnTo } from '@/lib/editor-return';
 import { requireHostMembership } from '@/lib/host-gate';
 import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
@@ -196,7 +196,7 @@ export async function updateDressCode(
   // dress code until Apply.
   if (isHubDraftWrite(formData)) {
     await requireHostMembership(eventId);
-    await draftEventsAndReturn(
+    return draftEventsAndReturn(
       eventId,
       { dress_code_config: config },
       formData,
@@ -235,7 +235,5 @@ export async function updateDressCode(
     revalidatePath(`/${event.slug}`);
   }
 
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/dress-code?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/dress-code?saved=1`, '?saved=1');
 }

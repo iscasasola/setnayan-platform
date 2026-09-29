@@ -168,7 +168,9 @@ test('every glass card on the home board wears the same cover', () => {
       `a board card wears the stock photo instead of the hub cover:\n${card.slice(0, 200)}`,
     );
   }
-  for (const shelf of ['happeningNow', 'unwritten', 'written', 'putAway']) {
+  // `finished` is Untold ∪ Told — `splitFinishedByStory` partitions it after
+  // the board's one wait, so the posters read resolves the whole of it.
+  for (const shelf of ['upcomingOnPage', 'happeningNow', 'putAway', 'finished']) {
     assert.match(
       board,
       new RegExp(`planningPosters\\([\\s\\S]{0,400}\\.\\.\\.(?:\\(showPutAway \\? )?${shelf}\\b`),

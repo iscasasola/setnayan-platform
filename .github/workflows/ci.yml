@@ -675,6 +675,13 @@ jobs:
       - name: Check shared bundle size
         run: pnpm --filter @setnayan/web bundle-size-check
 
+      # ⚡ The Event Hub Maker's first-load JS has its own ceiling (DECISION_LOG
+      # 2026-09-29 "THE MAKER MUST NEVER FEEL SLOW"): the shared check above
+      # never looks at a route's own chunks, which is where a heavy Maker import
+      # would land. apps/web/scripts/check-maker-js-budget.mjs.
+      - name: Check the Maker's first-load JS budget
+        run: node apps/web/scripts/check-maker-js-budget.mjs
+
   gitleaks:
     name: secret scan
     runs-on: ubuntu-latest

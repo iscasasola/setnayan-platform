@@ -26,7 +26,9 @@ image. The select now reads it, plus `invite_theme`, `std_background`,
 
 **The home board.** Today's, Put away, Untold and Told cards stay glass cards,
 but their band now reads the same cover (`scenePoster` on `GlassEventCard`;
-`planningPosters` resolves each board event once). Planning's posters are
+`planningPosters` resolves each board event once — Planning's page, Now
+happening, Put away when shown, and `finished`, which is Untold ∪ Told — inside
+the board's one wait from #6124). Planning's posters are
 unchanged.
 
 Held by `apps/web/lib/the-overview-band-wears-the-hub-cover.test.ts` (the order,

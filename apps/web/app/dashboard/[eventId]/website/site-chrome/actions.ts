@@ -15,6 +15,7 @@
  * "enabled with no track" is coerced off so the player never mounts with no
  * source. Music never autoplays (the player is tap-to-start), per §6.2.
  */
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { parseClientRef, eventMediaPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
@@ -22,7 +23,6 @@ import { requireHostMembership } from '@/lib/host-gate';
 import { refChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
-import { resolveReturnTo } from '@/lib/editor-return';
 import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 import type { HubDraftEvents } from '@/lib/hub-draft';
 
@@ -100,7 +100,7 @@ export async function updateSiteChrome(
     if (formData.has('hero_video_url')) {
       events.landing_page_hero_video_r2_key = r2RefOrNull(formData.get('hero_video_url'), eventId);
     }
-    await draftEventsAndReturn(eventId, events, formData, `/dashboard/${eventId}/website/editor?open=music`);
+    return draftEventsAndReturn(eventId, events, formData, `/dashboard/${eventId}/website/editor?open=music`);
   }
 
   if (formData.has('bg_music_url')) {
@@ -158,7 +158,5 @@ export async function updateSiteChrome(
   revalidateGuestSite(event?.slug);
   // Anything a free couple may keep was saved above; what needed Pro was not.
   if (refused) redirect(`/dashboard/${eventId}/studio/website-pro`);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/site-chrome?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/site-chrome?saved=1`, '?saved=1');
 }

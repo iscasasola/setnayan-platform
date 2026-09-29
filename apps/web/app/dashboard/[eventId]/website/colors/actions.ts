@@ -32,6 +32,7 @@
  * brand default for that role). Anything malformed bounces with an error and
  * writes nothing.
  */
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { redirect } from 'next/navigation';
@@ -41,7 +42,6 @@ import { combineChanges, siteLookChange } from '@/lib/hub-look-pro';
 import { encodeSiteBackground, ombreLookChange, parseSiteBackground } from '@/lib/ombre';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
-import { resolveReturnTo } from '@/lib/editor-return';
 import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -128,7 +128,7 @@ export async function updateSiteColors(
      guests keep the live page until Apply, and Apply is where Pro is asked —
      a free couple may TRY a face and pays at Apply. Same
      absent-means-unchanged rule as the live write below. */
-  if (isHubDraftWrite(formData)) await draftEventsAndReturn(
+  if (isHubDraftWrite(formData)) return draftEventsAndReturn(
       eventId,
       {
         ...(bg !== undefined ? { site_bg_color: bg } : {}),
@@ -195,7 +195,5 @@ export async function updateSiteColors(
 
   revalidateWebsiteEditor(eventId, 'colors');
   revalidateGuestSite(event?.slug);
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/colors?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/colors?saved=1`, '?saved=1');
 }

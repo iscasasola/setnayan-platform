@@ -410,13 +410,27 @@ export default async function LauncherPage({
   if (active.length === 0 && hasConsole && !wantsHub && boardEvents.length === 0) {
     redirect('/dashboard/create-event');
   }
+
+  // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
+  // 🔑 NONE OF THESE READS NEEDS ANOTHER ONE'S ANSWER, so none of them waits for
+  // one. They used to run one after another — about fifteen trips to the
+  // database, each one waiting for the last — and the home took 1.5-3 s to
+  // finish on every visit (measured on prod, 2026-09-29, the owner asking "why
+  // did it load so long"). Each block below is STARTED here, as a promise, with
+  // its own graceful-degrade exactly as it was, and they are all awaited
+  // together in the one `Promise.all` after the last of them. Only the posters
+  // wait on something — the event heroes — and `planningPosters` starts its own
+  // read before it waits for them.
+  // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
+  // RUN — one stray `await` puts a full database trip back in front of the page.
+
   // "% planned" per event — real done/total from the event checklist, fetched in
   // parallel (event count is small). Null when an event has no checklist rows yet
   // → the card shows the countdown without a fabricated percentage. Only the
   // non-archived set is scored; archived cards read null (caption only).
   // Per-event checklist pass — one fetch each (event count is small), reused for
   // BOTH the "% planned" ring AND the overdue-task decision signal below.
-  const checklistEntries = await Promise.all(
+  const checklistRead = Promise.all(
     active.map(
       async (
         e,
@@ -458,15 +472,6 @@ export default async function LauncherPage({
       },
     ),
   );
-  const checklistByEvent = new Map(checklistEntries);
-  const progressByEvent = new Map<string, number | null>(
-    checklistEntries.map(([id, v]) => [id, v.pct]),
-  );
-  // Which cards' progress could not be READ — distinct from "no checklist yet"
-  // (`pct: null` with `failed: false`), which shows no ring and claims nothing.
-  const progressFailed = new Set(
-    checklistEntries.filter(([, v]) => v.failed).map(([id]) => id),
-  );
 
   // "Needs a decision now" per event — the pay + approve signals (batched into
   // two queries) merged with the overdue-task count from the checklist pass. A
@@ -477,41 +482,13 @@ export default async function LauncherPage({
   // swallowed a refused query as zeros before that — so a read that never
   // completed printed as "nothing needs you". `null` here reaches the card as
   // `summary: null`, which renders "Couldn't load what needs you".
-  const [decisionCounts, unreadByEvent] = await Promise.all([
+  const decisionRead = Promise.all([
     readEventDecisionCounts(
       supabase,
       active.map((e) => e.event_id),
     ).catch(() => null),
     readEventUnreadCounts(supabase).catch(() => null),
   ]);
-  const decisionByEvent = new Map<string, EventDecisionSummary | null>();
-  for (const e of active) {
-    // Overdue tasks are meaningless once the date has passed (below), so a
-    // failed checklist read only makes the summary unknown for a live event.
-    const overdueUnknown = !isPast(e) && checklistByEvent.get(e.event_id)?.overdue === null;
-    if (decisionCounts === null || unreadByEvent === null || overdueUnknown) {
-      decisionByEvent.set(e.event_id, null);
-      continue;
-    }
-    const c = decisionCounts.get(e.event_id) ?? { pay: 0, approve: 0 };
-    // Overdue tasks are meaningless once the date has passed, so a finished
-    // event still surfaces pay / approve / message decisions but not a
-    // "50 tasks overdue" line for a wedding that already happened.
-    const overdue = isPast(e)
-      ? 0
-      : (checklistByEvent.get(e.event_id)?.overdue ?? 0);
-    const message = unreadByEvent.get(e.event_id) ?? 0;
-    decisionByEvent.set(
-      e.event_id,
-      summarizeEventDecisions({
-        pay: c.pay,
-        approve: c.approve,
-        message,
-        overdue,
-      }),
-    );
-  }
-
 
   // SPACES — doorways into surfaces with their own dashboards. Marketplace
   // is intentionally excluded (it's an in-event vendor-discovery surface).
@@ -522,13 +499,14 @@ export default async function LauncherPage({
   // (chat_threads.inquiry_status = 'pending' = a couple messaged and the vendor
   // hasn't accepted yet). One batched query across all the user's shops.
   const shopIds = roles.vendorProfiles.map((v) => v.vendor_profile_id);
-  const inquiryByShop = new Map<string, number>();
   // Unread REPLIES per shop (accepted conversations with a waiting reply) — the
   // vendor-side twin of the couple event-card message signal.
-  const unreadByShop = shopIds.length > 0
-    ? await fetchVendorUnreadCounts(supabase).catch(() => new Map<string, number>())
-    : new Map<string, number>();
-  if (shopIds.length > 0) {
+  const unreadByShopRead = shopIds.length > 0
+    ? fetchVendorUnreadCounts(supabase).catch(() => new Map<string, number>())
+    : Promise.resolve(new Map<string, number>());
+  const inquiryByShopRead = (async () => {
+    const inquiryByShop = new Map<string, number>();
+    if (shopIds.length === 0) return inquiryByShop;
     try {
       const { data, error: dataError } = await supabase
         .from('chat_threads')
@@ -557,7 +535,8 @@ export default async function LauncherPage({
     } catch {
       // graceful-degrade: no attention line rather than a broken launcher.
     }
-  }
+    return inquiryByShop;
+  })();
 
   // Admin HQ "awaiting review" signal — open items across the ACTIONABLE work
   // queues. Deliberately excludes the `support` lane (help desk, review appeals)
@@ -572,8 +551,9 @@ export default async function LauncherPage({
     unmeasured queue under "nothing needs you" puts it in the one place a
     person has been told they need not look.
   */
-  let adminOpenTotal: number | null = 0;
-  if (roles.hasAdminAccess) {
+  const adminOpenTotalRead = (async (): Promise<number | null> => {
+    let adminOpenTotal: number | null = 0;
+    if (!roles.hasAdminAccess) return adminOpenTotal;
     try {
       const digest = await getAdminQueueDigest();
       for (const [key, meta] of Object.entries(ADMIN_QUEUE_META)) {
@@ -597,7 +577,8 @@ export default async function LauncherPage({
       // The read failed. Say so — do not report a clear desk.
       adminOpenTotal = null;
     }
-  }
+    return adminOpenTotal;
+  })();
 
   /* The cross-event rollup (`needsTotal`) and the busiest-first `watchRows`
      list are GONE, not moved. Both existed to feed The Watch tile and the
@@ -612,34 +593,34 @@ export default async function LauncherPage({
   // readiness verdict 2026-07-16 B4 + the owner's home-promo requirement —
   // exactly ONE entry either way). Graceful-degrade to 0 (promo renders)
   // rather than the error boundary.
-  let chapterCount = 0;
-  // Which FINISHED celebrations this account has already turned into a posted
-  // story — the Unpublished / Published split below (owner 2026-08-20).
-  // `null` = NOT MEASURED, which is a different thing from "none", and the
-  // split degrades to a single shelf rather than inviting somebody to write a
-  // story they have already written.
-  try {
-    const { data, error } = await supabase
-      .from('creator_chapters')
-      .select('event_id, status')
-      .eq('user_id', user.id);
-    if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:creator_chapters.select', error);
-    if (!error) {
-      chapterCount = ((data ?? []) as unknown[]).length;
-    } else {
-      logQueryError('Launcher (creator_chapters count)', error, { user_id: user.id }, 'graceful_degrade');
+  // (Which FINISHED celebrations have their story written is the next read,
+  // `storyEventIdsRead`, below.)
+  const chapterCountRead = (async (): Promise<number> => {
+    let chapterCount = 0;
+    try {
+      const { data, error } = await supabase
+        .from('creator_chapters')
+        .select('event_id, status')
+        .eq('user_id', user.id);
+      if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:creator_chapters.select', error);
+      if (!error) {
+        chapterCount = ((data ?? []) as unknown[]).length;
+      } else {
+        logQueryError('Launcher (creator_chapters count)', error, { user_id: user.id }, 'graceful_degrade');
+      }
+    } catch {
+      // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.
+      // adminOpenTotal / alagaCount / connectionCount all degrade to null so the
+      // surface says "we do not know" rather than reporting a clear desk. This one
+      // degrades to 0 because the doorway is exactly one entry either way: 0 renders
+      // the "Become a Storyteller" promo instead of an error boundary.
+      // ⚖ THE COST, STATED: an author who HAS chapters is shown a promo telling them
+      // to start, and loses the link to their own page. Accepted — but do NOT copy
+      // this pattern to a count that feeds a number or a list.
+      chapterCount = 0;
     }
-  } catch {
-    // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.
-    // adminOpenTotal / alagaCount / connectionCount all degrade to null so the
-    // surface says "we do not know" rather than reporting a clear desk. This one
-    // degrades to 0 because the doorway is exactly one entry either way: 0 renders
-    // the "Become a Storyteller" promo instead of an error boundary.
-    // ⚖ THE COST, STATED: an author who HAS chapters is shown a promo telling them
-    // to start, and loses the link to their own page. Accepted — but do NOT copy
-    // this pattern to a count that feeds a number or a list.
-    chapterCount = 0;
-  }
+    return chapterCount;
+  })();
 
   /*
     WHICH FINISHED CELEBRATIONS HAVE THEIR STORY WRITTEN.
@@ -666,36 +647,29 @@ export default async function LauncherPage({
     split degrades to a single shelf rather than inviting somebody to write a
     story they have already written.
   */
-  let storyEventIds: Set<string> | null = null;
-  try {
-    const { data, error } = await supabase
-      .from('event_editorial')
-      .select('event_id, status')
-      .eq('status', 'published');
-    if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:event_editorial.select', error);
-    if (!error) {
-      storyEventIds = new Set(
-        ((data ?? []) as Array<{ event_id: string | null }>)
-          .filter((r) => r.event_id)
-          .map((r) => r.event_id as string),
-      );
+  const storyEventIdsRead = (async (): Promise<Set<string> | null> => {
+    let storyEventIds: Set<string> | null = null;
+    try {
+      const { data, error } = await supabase
+        .from('event_editorial')
+        .select('event_id, status')
+        .eq('status', 'published');
+      if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:event_editorial.select', error);
+      if (!error) {
+        storyEventIds = new Set(
+          ((data ?? []) as Array<{ event_id: string | null }>)
+            .filter((r) => r.event_id)
+            .map((r) => r.event_id as string),
+        );
+      }
+      // A REFUSED read leaves it null on purpose — see above. Supabase resolves
+      // with { error } rather than throwing, so the `if (!error)` is the guard
+      // that matters here; the catch below only covers a transport failure.
+    } catch {
+      storyEventIds = null;
     }
-    // A REFUSED read leaves it null on purpose — see above. Supabase resolves
-    // with { error } rather than throwing, so the `if (!error)` is the guard
-    // that matters here; the catch below only covers a transport failure.
-  } catch {
-    storyEventIds = null;
-  }
-
-  // FINISHED SPLITS IN TWO (owner 2026-08-20: *"change it to unpublished and
-  // published. They get to choose on the unpublish which they will make a story
-  // of."*). Same shelf, same order, same cards — the question added is whether
-  // the day has been written up yet.
-  const {
-    unpublished: unwritten,
-    published: written,
-    measured: storiesMeasured,
-  } = splitFinishedByStory(finished, storyEventIds);
+    return storyEventIds;
+  })();
 
   // PEOPLE · Alaga — the dependants this account holds. Both gates are checked
   // BEFORE the query, so while NEXT_PUBLIC_DEPENDENT_PEOPLE is off (production
@@ -703,60 +677,63 @@ export default async function LauncherPage({
   // A denied/failed read leaves the count null, and a null count renders NO row
   // — an RLS denial and an empty table are the same value, so "0" is never
   // asserted from a read we could not prove was permitted.
-  let alagaCount: number | null = null;
-  if (
-    dependentPeopleEnabled() &&
-    (await isDataPrivacyControlActive('dependent_minor_profiles'))
-  ) {
-    try {
-      const { count, error } = await supabase
-        .from('dependents')
-        .select('dependent_id', { count: 'exact', head: true });
-      if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:dependents.select', error);
-      if (!error) alagaCount = count ?? 0;
-    } catch {
-      alagaCount = null;
+  const alagaCountRead = (async (): Promise<number | null> => {
+    let alagaCount: number | null = null;
+    if (
+      dependentPeopleEnabled() &&
+      (await isDataPrivacyControlActive('dependent_minor_profiles'))
+    ) {
+      try {
+        const { count, error } = await supabase
+          .from('dependents')
+          .select('dependent_id', { count: 'exact', head: true });
+        if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:dependents.select', error);
+        if (!error) alagaCount = count ?? 0;
+      } catch {
+        alagaCount = null;
+      }
     }
-  }
+    return alagaCount;
+  })();
 
   // PEOPLE · Connections — confirmed first-degree edges. Counsel-gated flag, so
   // again: flag off (production today) = no query at all. RLS on
   // `person_connections` already scopes the read to edges this user is in.
-  let connectionCount: number | null = null;
-  if (peopleConnectionsEnabled()) {
-    try {
-      const { count, error } = await supabase
-        .from('person_connections')
-        .select('connection_id', { count: 'exact', head: true })
-        .eq('status', 'confirmed')
-        .is('deleted_at', null);
-      if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:person_connections.select', error);
-      if (!error) connectionCount = count ?? 0;
-    } catch {
-      connectionCount = null;
+  const connectionCountRead = (async (): Promise<number | null> => {
+    let connectionCount: number | null = null;
+    if (peopleConnectionsEnabled()) {
+      try {
+        const { count, error } = await supabase
+          .from('person_connections')
+          .select('connection_id', { count: 'exact', head: true })
+          .eq('status', 'confirmed')
+          .is('deleted_at', null);
+        if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:person_connections.select', error);
+        if (!error) connectionCount = count ?? 0;
+      } catch {
+        connectionCount = null;
+      }
     }
-  }
-  // TRUE when /dashboard/people renders something interactive. With both flags
-  // off that route short-circuits to its "coming soon" PeoplePreview, so the
-  // home must not advertise it as a destination.
-  const peoplePageIsLive = alagaCount != null || connectionCount != null;
+    return connectionCount;
+  })();
 
   // EVENT CARD SCENES — the per-type hero the create-event picker already uses,
   // same precedence (admin `hero_photo_url` → repo `/event-types/<key>.webp`).
   // ONE cached vocab read for the whole render tree; falls back to the constant
   // roster on error, and a type with no asset at all lands on the deterministic
   // branded gradient inside <EventScene> rather than a wrong stand-in photo.
-  const eventTypeHero = new Map<string, string>();
-  try {
-    for (const t of await getEventTypeVocab()) {
-      eventTypeHero.set(t.key, eventTypePhotoSrc(t));
+  const eventTypeHeroRead = (async (): Promise<Map<string, string>> => {
+    const eventTypeHero = new Map<string, string>();
+    try {
+      for (const t of await getEventTypeVocab()) {
+        eventTypeHero.set(t.key, eventTypePhotoSrc(t));
+      }
+    } catch {
+      // Graceful-degrade: EventScene falls back to `/event-types/<key>.webp` and
+      // then to the gradient, so the band always renders.
     }
-  } catch {
-    // Graceful-degrade: EventScene falls back to `/event-types/<key>.webp` and
-    // then to the gradient, so the band always renders.
-  }
-  const heroFor = (type: string) =>
-    eventTypeHero.get(type) ?? `/event-types/${type}.webp`;
+    return eventTypeHero;
+  })();
 
   // THE EVENT'S OWN HERO — the card's correct picture whenever it exists.
   // `events.landing_page_hero_image_url` is the couple's guest-site hero,
@@ -771,56 +748,59 @@ export default async function LauncherPage({
   // records that one bad column there empties the event switcher app-wide.
   // This read is isolated and failure-tolerant — an empty map just means every
   // card falls back to the type scene, which is the state of the world today.
-  const ownHeroById = new Map<string, string>();
   const cardEventIds = [
     ...new Set([...upcoming, ...finished].map((e) => e.event_id)),
   ];
-  if (cardEventIds.length > 0) {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select('event_id, landing_page_hero_image_url')
-        .in('event_id', cardEventIds)
-        .not('landing_page_hero_image_url', 'is', null);
-      if (error) {
+  const ownHeroByIdRead = (async (): Promise<Map<string, string>> => {
+    const ownHeroById = new Map<string, string>();
+    if (cardEventIds.length > 0) {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('event_id, landing_page_hero_image_url')
+          .in('event_id', cardEventIds)
+          .not('landing_page_hero_image_url', 'is', null);
+        if (error) {
+          logQueryError(
+            'Launcher (events.landing_page_hero_image_url SELECT)',
+            error,
+            { user_id: user.id },
+            'graceful_degrade',
+          );
+        } else {
+          const rows = (data ?? []) as Array<{
+            event_id: string;
+            landing_page_hero_image_url: string | null;
+          }>;
+          // Presign in parallel — each is a local signing operation, but they
+          // are still N of them and a card row can hold a handful of events.
+          const signed = await Promise.all(
+            rows.map((r) =>
+              displayUrlForStoredAsset(resolveHero(r).photoRef).catch(
+                () => null,
+              ),
+            ),
+          );
+          rows.forEach((r, i) => {
+            // The column is host-writable straight through PostgREST and any
+            // non-`r2://` value passes through displayUrlForStoredAsset
+            // unchanged, so what lands in an <img src> gets narrowed to an
+            // actual image URL first.
+            const src = renderableImageSrc(signed[i]);
+            if (src) ownHeroById.set(r.event_id, src);
+          });
+        }
+      } catch (caught) {
         logQueryError(
-          'Launcher (events.landing_page_hero_image_url SELECT)',
-          error,
+          'Launcher (own hero resolve threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
           { user_id: user.id },
           'graceful_degrade',
         );
-      } else {
-        const rows = (data ?? []) as Array<{
-          event_id: string;
-          landing_page_hero_image_url: string | null;
-        }>;
-        // Presign in parallel — each is a local signing operation, but they
-        // are still N of them and a card row can hold a handful of events.
-        const signed = await Promise.all(
-          rows.map((r) =>
-            displayUrlForStoredAsset(resolveHero(r).photoRef).catch(
-              () => null,
-            ),
-          ),
-        );
-        rows.forEach((r, i) => {
-          // The column is host-writable straight through PostgREST and any
-          // non-`r2://` value passes through displayUrlForStoredAsset
-          // unchanged, so what lands in an <img src> gets narrowed to an
-          // actual image URL first.
-          const src = renderableImageSrc(signed[i]);
-          if (src) ownHeroById.set(r.event_id, src);
-        });
       }
-    } catch (caught) {
-      logQueryError(
-        'Launcher (own hero resolve threw)',
-        caught instanceof Error ? caught : new Error(String(caught)),
-        { user_id: user.id },
-        'graceful_degrade',
-      );
     }
-  }
+    return ownHeroById;
+  })();
 
   // THE POSTERS (the collection template, owner-approved 2026-09-24) — for the
   // Planning page on screen only, never the whole Planning shelf. Each follows
@@ -832,18 +812,104 @@ export default async function LauncherPage({
   // stay glass cards, but their scene band reads its picture from the same
   // resolver (`sceneCoverFor`) instead of the stock event-type photo — which
   // is now only the last fallback, for an event that has chosen nothing.
-  const posterById = await planningPosters(
+  // `finished` is Untold ∪ Told (`splitFinishedByStory` partitions it, after
+  // the wait below), so both finished shelves are covered here.
+  const posterByIdRead = planningPosters(
     supabase,
     uniqueEvents([
       ...upcomingOnPage,
       ...happeningNow,
       ...(showPutAway ? putAway : []),
-      ...unwritten,
-      ...written,
+      ...finished,
     ]),
-    ownHeroById,
+    ownHeroByIdRead,
     user.id,
   );
+
+  // ─── THE ONE WAIT ────────────────────────────────────────────────────────
+  const [
+    checklistEntries,
+    [decisionCounts, unreadByEvent],
+    unreadByShop,
+    inquiryByShop,
+    adminOpenTotal,
+    chapterCount,
+    storyEventIds,
+    alagaCount,
+    connectionCount,
+    eventTypeHero,
+    ownHeroById,
+    posterById,
+  ] = await Promise.all([
+    checklistRead,
+    decisionRead,
+    unreadByShopRead,
+    inquiryByShopRead,
+    adminOpenTotalRead,
+    chapterCountRead,
+    storyEventIdsRead,
+    alagaCountRead,
+    connectionCountRead,
+    eventTypeHeroRead,
+    ownHeroByIdRead,
+    posterByIdRead,
+  ]);
+
+  const checklistByEvent = new Map(checklistEntries);
+  const progressByEvent = new Map<string, number | null>(
+    checklistEntries.map(([id, v]) => [id, v.pct]),
+  );
+  // Which cards' progress could not be READ — distinct from "no checklist yet"
+  // (`pct: null` with `failed: false`), which shows no ring and claims nothing.
+  const progressFailed = new Set(
+    checklistEntries.filter(([, v]) => v.failed).map(([id]) => id),
+  );
+
+  const decisionByEvent = new Map<string, EventDecisionSummary | null>();
+  for (const e of active) {
+    // Overdue tasks are meaningless once the date has passed (below), so a
+    // failed checklist read only makes the summary unknown for a live event.
+    const overdueUnknown = !isPast(e) && checklistByEvent.get(e.event_id)?.overdue === null;
+    if (decisionCounts === null || unreadByEvent === null || overdueUnknown) {
+      decisionByEvent.set(e.event_id, null);
+      continue;
+    }
+    const c = decisionCounts.get(e.event_id) ?? { pay: 0, approve: 0 };
+    // Overdue tasks are meaningless once the date has passed, so a finished
+    // event still surfaces pay / approve / message decisions but not a
+    // "50 tasks overdue" line for a wedding that already happened.
+    const overdue = isPast(e)
+      ? 0
+      : (checklistByEvent.get(e.event_id)?.overdue ?? 0);
+    const message = unreadByEvent.get(e.event_id) ?? 0;
+    decisionByEvent.set(
+      e.event_id,
+      summarizeEventDecisions({
+        pay: c.pay,
+        approve: c.approve,
+        message,
+        overdue,
+      }),
+    );
+  }
+
+  // FINISHED SPLITS IN TWO (owner 2026-08-20: *"change it to unpublished and
+  // published. They get to choose on the unpublish which they will make a story
+  // of."*). Same shelf, same order, same cards — the question added is whether
+  // the day has been written up yet.
+  const {
+    unpublished: unwritten,
+    published: written,
+    measured: storiesMeasured,
+  } = splitFinishedByStory(finished, storyEventIds);
+
+  // TRUE when /dashboard/people renders something interactive. With both flags
+  // off that route short-circuits to its "coming soon" PeoplePreview, so the
+  // home must not advertise it as a destination.
+  const peoplePageIsLive = alagaCount != null || connectionCount != null;
+
+  const heroFor = (type: string) =>
+    eventTypeHero.get(type) ?? `/event-types/${type}.webp`;
 
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the
@@ -2144,6 +2210,10 @@ function NewEventCard({ delay = 0, poster = false }: { delay?: number; poster?: 
  * "did not adjust to the event cover"). A refused read costs only the cover —
  * decoration, never a word — so it falls to House, logged. A card whose words
  * cannot be resolved gets no poster and keeps the glass cover.
+ *
+ * `ownHeroById` arrives as the still-running hero read, so this read of the
+ * saved theme runs BESIDE it instead of after it; only the resolve waits for
+ * both.
  */
 /** Each event once, first occurrence kept — one resolver call per event. */
 function uniqueEvents(events: readonly EventWithRole[]): EventWithRole[] {
@@ -2154,35 +2224,38 @@ function uniqueEvents(events: readonly EventWithRole[]): EventWithRole[] {
 async function planningPosters(
   supabase: Awaited<ReturnType<typeof createClient>>,
   events: readonly EventWithRole[],
-  ownHeroById: ReadonlyMap<string, string>,
+  ownHeroByIdRead: Promise<ReadonlyMap<string, string>>,
   userId: string,
 ): Promise<Map<string, EventPosterFacts>> {
   const out = new Map<string, EventPosterFacts>();
   if (events.length === 0) return out;
   const saved = new Map<string, { invite_theme: string | null; std_background: unknown }>();
-  try {
-    const { data, error } = await supabase
-      .from('events')
-      .select('event_id, invite_theme, std_background')
-      .in(
-        'event_id',
-        events.map((e) => e.event_id),
-      );
-    if (error) {
-      logQueryError('Launcher (events.invite_theme SELECT)', error, { user_id: userId }, 'graceful_degrade');
-    } else {
-      for (const r of (data ?? []) as Array<{ event_id: string; invite_theme: string | null; std_background: unknown }>) {
-        saved.set(r.event_id, { invite_theme: r.invite_theme, std_background: r.std_background });
+  const savedRead = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('event_id, invite_theme, std_background')
+        .in(
+          'event_id',
+          events.map((e) => e.event_id),
+        );
+      if (error) {
+        logQueryError('Launcher (events.invite_theme SELECT)', error, { user_id: userId }, 'graceful_degrade');
+      } else {
+        for (const r of (data ?? []) as Array<{ event_id: string; invite_theme: string | null; std_background: unknown }>) {
+          saved.set(r.event_id, { invite_theme: r.invite_theme, std_background: r.std_background });
+        }
       }
+    } catch (caught) {
+      logQueryError(
+        'Launcher (invite theme read threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { user_id: userId },
+        'graceful_degrade',
+      );
     }
-  } catch (caught) {
-    logQueryError(
-      'Launcher (invite theme read threw)',
-      caught instanceof Error ? caught : new Error(String(caught)),
-      { user_id: userId },
-      'graceful_degrade',
-    );
-  }
+  })();
+  const [, ownHeroById] = await Promise.all([savedRead, ownHeroByIdRead]);
   await Promise.all(
     events.map(async (e) => {
       const poster = await resolveEventPoster(

@@ -151,6 +151,16 @@ export type DoorShellProps = {
   width?: 'md' | 'lg';
   /** A theme skin (the invite link only). Omit and the door is the bare door. */
   skin?: DoorSkin;
+  /**
+   * A LIVE line directly under the crest, ABOVE the header — the one place a
+   * one-question-per-screen door shows where the guest is ("2 of 8"), so the
+   * progress sits under the couple's mark and above the question, never
+   * mid-card under the invitation's facts (owner 2026-09-29 on the RSVP page:
+   * "there are rules for like this, where the progress bar should be, where the
+   * logo, and questions"). Unlike `crest` it is NOT aria-hidden: what it holds
+   * is read aloud. Omit and the door renders exactly as before.
+   */
+  lead?: React.ReactNode;
   children?: React.ReactNode;
 };
 
@@ -168,6 +178,7 @@ export function DoorShell({
   steps,
   width = 'md',
   skin,
+  lead,
   children,
 }: DoorShellProps) {
   const threshold = tone === 'threshold';
@@ -285,8 +296,9 @@ export function DoorShell({
         >
           {skin?.crest ? <div aria-hidden>{skin.crest}</div> : null}
           {skin?.hinge ? null : rail}
+          {lead}
 
-          <header className="space-y-2">
+          <header className="space-y-2" data-door-header="">
             {eyebrow ? (
               <p
                 className={[

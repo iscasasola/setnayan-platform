@@ -266,6 +266,9 @@ export function RsvpWidget({
 
   return (
     <form action={action} className="rsvp-form space-y-6">
+      {/* FIRST in the form: the one-question progress sits above everything
+          the guest reads (rsvp-one-at-a-time.tsx, "THE SCREEN'S ORDER"). */}
+      {oneAtATime ? <RsvpOneAtATime /> : null}
       {flash ? (
         <p
           role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -274,7 +277,6 @@ export function RsvpWidget({
           {flash.text}
         </p>
       ) : null}
-      {oneAtATime ? <RsvpOneAtATime /> : null}
       {/* The selfie step reveals once the guest picks "attending" — pure
           CSS :has(), the same pattern as the has-[:checked] ring on the radios
           below, so this stays a server component with no client state.
@@ -293,7 +295,7 @@ export function RsvpWidget({
               is a card in real life, so it is the only thing still shaped like one:
               heavier paper-deep stock, letterpress "RSVP", a gild ticket stub, and
               the perforation rule. Everything else on the site is a plate. */}
-          <header className="space-y-3">
+          <header className="space-y-3" data-rsvp-context={oneAtATime ? '' : undefined}>
             <div className="flex items-start justify-between gap-4">
               <p className="pahina-eyebrow">
                 <span>Reply</span>
@@ -317,7 +319,7 @@ export function RsvpWidget({
           couple seats them later). Show the reassurance whenever they're
           attending — this is the "your place is reserved" confirmation. */}
       {guest.rsvp_status === 'attending' ? (
-        <>
+        <InvitationFacts fold={oneAtATime}>
           <p className="flex items-center gap-2.5 text-sm text-ink/80">
             <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gild" />
             {words.solemn
@@ -335,7 +337,7 @@ export function RsvpWidget({
               sub="Start free on Setnayan — no card needed."
             />
           )}
-        </>
+        </InvitationFacts>
       ) : null}
 
       {/* Three quiet outlined options; the chosen one takes the palette's DEEP
@@ -420,7 +422,7 @@ export function RsvpWidget({
           touching who is allowed (a host action, done on the Guest list). */}
       {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
         <div id="plus-ones" data-rsvp-step className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
-          <span className="block text-sm font-medium text-ink">
+          <span className={questionClass(oneAtATime)}>
             Who are you bringing?
           </span>
           <p className="text-xs text-ink/55">
@@ -492,6 +494,7 @@ export function RsvpWidget({
               <Select
                 id="meal_preference"
                 label="Meal preference"
+                question={oneAtATime}
                 defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
                 options={[
                   ['no_preference', 'No preference'],
@@ -510,6 +513,7 @@ export function RsvpWidget({
               <Field
                 id="dietary_restrictions"
                 label="Dietary notes"
+                question={oneAtATime}
                 defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
                 placeholder="halal · nut allergy · …"
               />
@@ -527,7 +531,7 @@ export function RsvpWidget({
       {askSong && !replyLocked ? (
         <div data-rsvp-step className={revealAll ? undefined : 'attending-reveal'}>
           <div className="space-y-4">
-            <Field id="song_title" label="A song to get you dancing (optional)" placeholder="Song" />
+            <Field id="song_title" label="A song to get you dancing (optional)" question={oneAtATime} placeholder="Song" />
             <Field id="song_artist" label="Who sings it?" placeholder="Artist" />
           </div>
         </div>
@@ -536,7 +540,7 @@ export function RsvpWidget({
       {/* ⚙ ASK TOGGLE (owner 2026-09-25): "Note to you" off. */}
       {askNote ? (
         <div data-rsvp-step className="space-y-1.5">
-          <label htmlFor="guest_note" className="block text-sm font-medium text-ink">
+          <label htmlFor="guest_note" className={questionClass(oneAtATime)}>
             A note to {words.theOrganizer} (optional)
           </label>
           {/* ⚠ `guest_note`, NOT `notes`. Until 2026-08-06 this box was bound to
@@ -602,7 +606,7 @@ export function RsvpWidget({
         </details>
       ) : (
         <div data-rsvp-step className="space-y-1.5">
-          <span className="block text-sm font-medium text-ink">
+          <span className={questionClass(oneAtATime)}>
             How {words.theOrganizer} can reach you
           </span>
           {contactFields}
@@ -780,6 +784,7 @@ function RsvpFocusForm({
   return (
     <>
       <form action={action} className="rsvp-form space-y-6" data-rsvp-focus>
+        {oneAtATime ? <RsvpOneAtATime /> : null}
         {flash ? (
           <p
             role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -790,9 +795,11 @@ function RsvpFocusForm({
             {flash.text}
           </p>
         ) : null}
-        {oneAtATime ? <RsvpOneAtATime /> : null}
         {guest.rsvp_status === 'attending' ? (
-          <div className="flex items-center gap-4 border-y border-gild/60 py-4">
+          <div
+            className="flex items-center gap-4 border-y border-gild/60 py-4"
+            data-rsvp-context={oneAtATime ? '' : undefined}
+          >
             <span
               aria-hidden
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-lg text-cream"
@@ -807,7 +814,7 @@ function RsvpFocusForm({
             </p>
           </div>
         ) : null}
-        <p className="font-serif text-xl text-ink">
+        <p className="font-serif text-xl text-ink" data-rsvp-context={oneAtATime ? '' : undefined}>
           {count === 1 ? 'One more thing' : count === 2 ? 'Two more things' : `${formatCount(count)} more things`}
         </p>
         {carried(false)}
@@ -816,6 +823,7 @@ function RsvpFocusForm({
             <Select
               id="meal_preference"
               label="Meal preference"
+              question={oneAtATime}
               defaultValue={profileDetails?.mealPreference ?? 'no_preference'}
               options={[
                 ['no_preference', 'No preference'],
@@ -834,6 +842,7 @@ function RsvpFocusForm({
             <Field
               id="contact_mobile"
               label="Mobile"
+              question={oneAtATime}
               type="tel"
               autoComplete="tel"
               required
@@ -936,7 +945,10 @@ function Field({
   type = 'text',
   autoComplete,
   required = false,
+  question = false,
 }: {
+  /** One question per screen: this label IS the screen's question (its heading). */
+  question?: boolean;
   id: string;
   label: string;
   defaultValue?: string;
@@ -952,7 +964,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-ink">
+      <label htmlFor={id} className={questionClass(question)}>
         {label}
       </label>
       <input
@@ -974,7 +986,9 @@ function Select({
   label,
   options,
   defaultValue,
+  question = false,
 }: {
+  question?: boolean;
   id: string;
   label: string;
   options: [string, string][];
@@ -982,7 +996,7 @@ function Select({
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-ink">
+      <label htmlFor={id} className={questionClass(question)}>
         {label}
       </label>
       <select
@@ -1001,3 +1015,29 @@ function Select({
   );
 }
 
+
+/**
+ * A question's label. With "Ask one question at a time" on, the label IS the
+ * screen's heading — the house's one-question rule (vendor onboarding,
+ * DECISION_LOG 2026-08-10: "with one question per screen the field label
+ * already IS the title"), set like the answer screen's own "Will you be
+ * there?". Off, it is the scrolling form's small label, unchanged.
+ */
+function questionClass(question: boolean): string {
+  return question ? 'block font-serif text-xl leading-snug text-ink' : 'block text-sm font-medium text-ink';
+}
+
+/**
+ * The invitation's facts on the reply card — shown on the first screen only
+ * when the form asks one question at a time (`data-rsvp-context`), and exactly
+ * as before (a bare fragment, no wrapper) when it does not.
+ */
+function InvitationFacts({ fold, children }: { fold: boolean; children: React.ReactNode }) {
+  return fold ? (
+    <div className="space-y-6" data-rsvp-context="">
+      {children}
+    </div>
+  ) : (
+    <>{children}</>
+  );
+}

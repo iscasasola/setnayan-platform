@@ -53,17 +53,7 @@ export function LookLab({ children }: { children: ReactNode }) {
           </div>
         </div>
       ),
-      hero: (
-        <>
-          {/* 🔤 The REAL font dropdown (`FontPick`), so its shelves, sticky
-              headings and "In use" can be checked at 375 / 390 — "In use" here
-              is the fixture below, not a page. */}
-          <div className="px-4 py-3" data-lab-font-pick="">
-            <LabFontPick />
-          </div>
-          <Stand name="Hero — Designs 1–4, parts, photo, Main background" tall />
-        </>
-      ),
+      hero: <Stand name="Hero — Designs 1–4, parts, photo, Main background" tall />,
       reveal: <Stand name="Reveal — play it, fine-tune, where it plays" />,
       revealOptions: (
         <>
@@ -105,5 +95,15 @@ export function LookLab({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `noop` is a fresh arrow each render; it does nothing
     [detailsItem, lookPages],
   );
-  return <MakerContext.Provider value={value}>{children}</MakerContext.Provider>;
+  return (
+    <MakerContext.Provider value={value}>
+      {/* 🔤 The REAL font dropdown (`FontPick`) above the page, visible at 375 /
+          390 and on a desk, so its shelves, sticky headings and "In use" can be
+          checked — "In use" here is the fixture above, not a page. */}
+      <div className="px-4 py-3" data-lab-font-pick="">
+        <LabFontPick />
+      </div>
+      {children}
+    </MakerContext.Provider>
+  );
 }

@@ -613,7 +613,7 @@ export async function invitePersonToSamahan(input: {
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
-  if (!input.connectionId || !input.communityId) return { ok: false, error: 'Pick a samahan.' };
+  if (!input.connectionId || !input.communityId) return { ok: false, error: 'Pick a group.' };
 
   const supabase = await createClient();
   const myPerson = await myPersonId(supabase, user.id);
@@ -648,7 +648,7 @@ export async function invitePersonToSamahan(input: {
   if (!usable) {
     return {
       ok: false,
-      error: 'That samahan has no live invite link — open it and make one first.',
+      error: 'That group has no live invite link — open it and make one first.',
     };
   }
 
@@ -657,7 +657,7 @@ export async function invitePersonToSamahan(input: {
     .select('name')
     .eq('community_id', input.communityId)
     .maybeSingle();
-  const samahanName = ((community as { name: string } | null)?.name ?? 'your samahan').trim();
+  const samahanName = ((community as { name: string } | null)?.name ?? 'your group').trim();
 
   // Their address + whether they are already in it. Server-side only; neither
   // value is returned to the caller.

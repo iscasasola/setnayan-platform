@@ -466,7 +466,7 @@ export default async function PricingPage() {
     // it from the estimator (filter below); fb 0 guards a lingering
     // null-priced row from showing a stale paid figure. Pabati sat beside it
     // until 2026-08-21, when it was retired out of the product entirely.
-    { key: 'kwento', code: 'KWENTO', label: 'Kwento', fb: 0 },
+    { key: 'kwento', code: 'KWENTO', label: 'Photo Notes', fb: 0 },
     // Pakanta (custom wedding song, 0036) is NOT a Papic add-on — deliberately
     // excluded from the per-camera Papic estimator (owner 2026-07-10).
   ];
@@ -514,7 +514,7 @@ export default async function PricingPage() {
         { n: 'Browse suppliers + match preview' },
         { n: 'Single-camera livestream', note: 'to YouTube, auto-archived' },
         { n: 'Custom QR for every guest', note: 'free per-guest QR' },
-        { n: 'Ala Ala memory hub' },
+        { n: 'Memories hub' },
         { n: '0% commission on supplier bookings' },
       ],
     },

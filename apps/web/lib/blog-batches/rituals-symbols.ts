@@ -686,7 +686,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Use this as a skeleton, then make it unmistakably yours — add a same-day-edit video, a surprise dance number, a quiet tribute to someone who could not be there, or a Pakanta song written just for you; trim anything that does not fit your day or your faith. Write the running order down clearly, share it with your host, coordinator, and photo-and-video team, and give every segment a rough time so the call sheet lines up. The couples whose weddings feel effortless are simply the ones who planned the flow carefully in advance. Then, on the day itself, you get to forget the timeline entirely and just be present — which is, after all, the whole point of planning it so well.',
+        text: 'Use this as a skeleton, then make it unmistakably yours — add a same-day-edit video, a surprise dance number, a quiet tribute to someone who could not be there, or a Music Maker song written just for you; trim anything that does not fit your day or your faith. Write the running order down clearly, share it with your host, coordinator, and photo-and-video team, and give every segment a rough time so the call sheet lines up. The couples whose weddings feel effortless are simply the ones who planned the flow carefully in advance. Then, on the day itself, you get to forget the timeline entirely and just be present — which is, after all, the whole point of planning it so well.',
       },
       {
         type: 'cta',

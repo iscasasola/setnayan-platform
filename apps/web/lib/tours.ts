@@ -9,6 +9,8 @@
 // (telling someone the lay of the land) and avoids brittle DOM-coupling.
 // Mini-tours follow the same pattern.
 
+import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
+
 import {
   Apple,
   BookOpen,
@@ -104,6 +106,7 @@ export type TourKey =
   | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
   | 'customer_people_v1'
+  | 'customer_apply_pro_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -129,6 +132,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_add_scene_v1',
   'customer_hero_designs_v1',
   'customer_people_v1',
+  'customer_apply_pro_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -433,7 +437,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'What Event Hub Pro adds',
-        body: 'Themes beyond Classic, scenes of your own from the templates (tap + at the top &mdash; each one waits in your draft until you Apply), the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.',
+        // The free themes are named from the registry (owner 2026-09-29: Modern
+        // and Cyber Neon joined Classic), never typed here.
+        body: `Themes beyond ${themeNames(FREE_THEMES)}, scenes of your own from the templates (tap + at the top &mdash; each one waits in your draft until you Apply), the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.`,
         sells: true,
       },
     ],
@@ -495,7 +501,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Free — and yours to change',
-        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A theme and your own photos come with Event Hub Pro.',
+        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A Pro theme and your own photos come with Event Hub Pro.',
         sells: true,
       },
     ],
@@ -600,10 +606,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Sparkles,
-        title: 'Classic is free',
+        // The free themes from the registry (owner 2026-09-29), never typed.
+        title: `${themeNames(FREE_THEMES)} are free`,
         // A pitch: dropped in the app-store shell, price never written here.
         sells: true,
-        body: 'The other themes come with <strong>Event Hub Pro</strong>. They carry a padlock until then — a tap on one opens Event Hub Pro.',
+        // Tried free, paid at Apply (owner 2026-09-28, PR #6091): a Pro theme is
+        // picked like any other and waits in the draft — no padlock, no detour.
+        body: 'The others are marked <strong>&#9670; PRO</strong>. Try one on your page for free &mdash; it waits in your draft, and <strong>Event Hub Pro</strong> puts it live when you press Apply.',
       },
     ],
   },
@@ -759,7 +768,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'One place for your people',
-        body: 'The picker at the top switches between Connected, Following, Followers, Alaga and Samahan. When somebody asks to add you, Requests shows up first &mdash; with a dot.',
+        body: 'The picker at the top switches between Connected, Following, Followers, Loved ones and Groups. When somebody asks to add you, Requests shows up first &mdash; with a dot.',
       },
       {
         Icon: CheckCircle2,
@@ -770,6 +779,32 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Heart,
         title: 'Following needs no request',
         body: 'Follow anyone with a public profile. Say yes to an event and you follow its hosts on your own. Only you can see who follows you, and you can unfollow any time &mdash; even someone you’re connected with.',
+      },
+    ],
+  },
+  /* 💎 THE APPLY SHEET (owner 2026-09-28: *"they can edit it with pro features.
+     but need to upgrade to pro when clicked on apply and point out the effect
+     chosen that caused them to upgrade to pro"*; 2026-09-25: every feature gets
+     a first-visit tour). Mounted inside the sheet (`apply-pro-sheet.tsx`, via
+     `HubDraftDock`), so it opens the first time Apply names a Pro effect. The
+     sheet is never drawn in the app-store shell, and these slides name no
+     price — `sells` keeps them out of the shell all the same. */
+  customer_apply_pro_v1: {
+    key: 'customer_apply_pro_v1',
+    label: 'Apply with Pro effects',
+    blurb: 'What the list at Apply is, and your three ways on from it.',
+    slides: [
+      {
+        Icon: Sparkles,
+        title: 'You tried Event Hub Pro',
+        body: 'Everything marked &#9670; PRO in the Maker works before you pay &mdash; it waits in your draft. This list names each Pro effect you chose, and where it is.',
+        sells: true,
+      },
+      {
+        Icon: MousePointerClick,
+        title: 'Keep it, change it, or take it off',
+        body: 'Tap Go to to see an effect in the Maker, or &times; to take it off your draft. Unlock Event Hub Pro to put them all live &mdash; or apply the rest now; the Pro ones stay in your draft.',
+        sells: true,
       },
     ],
   },

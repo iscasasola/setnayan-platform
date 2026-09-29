@@ -283,7 +283,7 @@ export function formatConceptFindings(findings: readonly CoverageFinding[]): str
     '                         apps/web/tests/db/ugat-concept.baseline.txt as',
     '                         "<table> | <why it stays off the map>".',
     '',
-    'Do NOT delete or weaken this check to go green. Samahan shipped invisible for',
+    'Do NOT delete or weaken this check to go green. The groups subsystem shipped invisible for',
     'three weeks because no signal like this existed. If it is firing too often,',
     'raise hubMinInbound / familyMin — the thresholds are parameters for exactly',
     'that reason.',

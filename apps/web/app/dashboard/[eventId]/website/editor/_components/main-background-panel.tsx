@@ -14,6 +14,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { isHubMainFollow, type HubMainGround, type HubMainOwn } from '@/lib/hub-canvas';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
+import { uploadStill } from '@/lib/upload-still';
 
 /**
  * BEHIND EVERY SCENE — your hero, and the theme follows its colours
@@ -68,29 +69,6 @@ async function readFrame(blob: Blob): Promise<string[]> {
     return measureFrame(ctx.getImageData(0, 0, w, h).data, w, h);
   } finally {
     bitmap.close();
-  }
-}
-
-/** Upload a clip's still through the same presign route `<FileUpload>` uses. */
-async function uploadStill(blob: Blob, eventId: string): Promise<string | null> {
-  try {
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        bucket: 'media',
-        pathPrefix: `events/${eventId}/main-background`,
-        filename: 'still.jpg',
-        contentType: 'image/jpeg',
-        sizeBytes: blob.size,
-      }),
-    });
-    const data = (await res.json()) as { uploadUrl: string; r2Ref: string } | { error: string };
-    if (!res.ok || 'error' in data) return null;
-    const put = await fetch(data.uploadUrl, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
-    return put.ok ? data.r2Ref : null;
-  } catch {
-    return null;
   }
 }
 
@@ -345,10 +323,12 @@ export function MainBackgroundPanel({
       <div>
         <p className="text-[14px] font-semibold text-ink">
           Behind every scene
+          {/* Never in the store shell (the row is not built there), so ◆ PRO
+              while a couple without Pro tries it; the diamond once owned. */}
           <PaidMark
-            state={ownsPro ? 'unlocked' : 'locked'}
-            text="Pro"
-            label={paidMarkLabel(ownsPro ? 'unlocked' : 'locked', 'Event Hub Pro')}
+            state={ownsPro ? 'unlocked' : 'try'}
+            text={ownsPro ? 'Pro' : undefined}
+            label={paidMarkLabel(ownsPro ? 'unlocked' : 'try', 'Event Hub Pro')}
             className="ml-2 align-middle"
           />
         </p>

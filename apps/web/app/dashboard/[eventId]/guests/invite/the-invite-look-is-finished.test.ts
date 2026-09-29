@@ -25,7 +25,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+import { PRO_THEMES_ITEM, WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+import { hubProPitchFor } from '@/lib/event-hub-pro';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..', '..', '..');
@@ -71,7 +72,9 @@ test('the Guest list points at the one place the theme is chosen', () => {
    2 · THE EIGHTH PRO ITEM (Q3 = A)
    ══════════════════════════════════════════════════════════════════════════ */
 
-const INVITE_ITEM = '9 Event Hub themes, invite link included';
+// The count is the registry's (owner 2026-09-29: Modern and Cyber Neon went
+// free), so the item is read, never typed here.
+const INVITE_ITEM = PRO_THEMES_ITEM;
 
 test('the invite theme is one of the Pro items, and the list is the only copy of it', () => {
   assert.ok(WEBSITE_PRO_ITEMS.length >= 8, 'the Pro item list scanned short — the import may be resolving empty');
@@ -89,11 +92,12 @@ test('the invite theme is one of the Pro items, and the list is the only copy of
 });
 
 test('the eighth item has copy of its own, grounded in what ships', () => {
-  const resolver = read('lib/event-hub-pro.ts');
-  const pitch = new RegExp(`'${INVITE_ITEM}': \\{\\s*headline: '([^']*)',\\s*blurb:\\s*'([^']*)'`);
-  const m = pitch.exec(resolver);
-  assert.ok(m, `${INVITE_ITEM} has no headline/blurb — PITCH is a total Record, so this is a compile error too, ` +
+  // Read EXECUTED, not by regex over the source: the blurb names the Pro themes
+  // from the registry (a template string), so the source no longer holds it.
+  const pitch = hubProPitchFor(INVITE_ITEM);
+  assert.ok(pitch, `${INVITE_ITEM} has no headline/blurb — PITCH is a total Record, so this is a compile error too, ` +
     'but the SHAPE of the copy is what a couple reads');
+  const m = [null, pitch.headline, pitch.blurb] as const;
   assert.ok(m[1]!.length > 10 && m[1]!.endsWith('.'), 'the headline is one short sentence, ending in a full stop');
   assert.ok(m[2]!.length > 60, 'the blurb is too short to say anything');
   // ⛔ NO PRICE, EVER, IN THE RENDER PATH — the figure is read live from

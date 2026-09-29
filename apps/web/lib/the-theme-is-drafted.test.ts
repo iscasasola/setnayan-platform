@@ -55,7 +55,14 @@ test('a pick is seen on the host canvas, and Undo takes it back', () => {
   assert.equal(overlayHubDraftEvent({ invite_theme: 'house' }, undone).invite_theme, 'house');
 });
 
-test('Classic is free, every other theme is Pro — and going back to Classic is always free', () => {
+test('a Pro theme is held without Pro; a free one (Classic, Modern, Cyber Neon) applies — and going back is always free', () => {
+  // Owner 2026-09-29, "Okay use modern and cyber FREE": they apply like Classic.
+  for (const free of ['galeriya', 'cyber']) {
+    const plan = planHubDraftApply(pickTheme(free), live('house'), false);
+    assert.equal(plan.apply.length, 1, `${free} was held for Pro at Apply`);
+    assert.equal(plan.refused.length, 0);
+  }
+
   const toPro = planHubDraftApply(pickTheme('vintage'), live('house'), false);
   assert.equal(toPro.apply.length, 0);
   assert.equal(toPro.refused.length, 1, 'a Pro theme went live without Event Hub Pro');

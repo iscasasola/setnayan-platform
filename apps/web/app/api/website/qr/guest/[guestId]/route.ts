@@ -1,3 +1,4 @@
+import { isUuid } from '@/lib/is-uuid';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -36,7 +37,9 @@ export async function GET(
 ) {
   const { guestId } = await ctx.params;
 
-  if (!guestId || typeof guestId !== 'string') {
+  // A non-UUID would reach `.eq('guest_id', …)` and be rejected by Postgres
+  // (22P02) — a logged fault anybody can mint by typing a URL. Refuse it here.
+  if (!isUuid(guestId)) {
     return new NextResponse('Invalid guest.', { status: 400 });
   }
 

@@ -4,7 +4,7 @@ import OurStoryEditorPage from '../our-story/page';
 import { resolveMonogram } from '@/lib/monogram';
 import { countdownTargetMs } from '@/lib/countdown-target';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
-import { isCustomSectionType, nextFreeCustomSlot, sanitizeCustomSection } from '@/lib/custom-sections';
+import { customSectionHasContent, isCustomSectionType, nextFreeCustomSlot, sanitizeCustomSection } from '@/lib/custom-sections';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
@@ -12,6 +12,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
+import { makerProMark } from '@/lib/paid-mark';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
@@ -109,6 +110,7 @@ import {
 } from '@/lib/invitation-widgets';
 import { updateSpecialMessage } from '../special-message/actions';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { sceneUploadRefs, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { hubDraftAction } from '../hub-draft-actions';
 import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
 import { HubSavesImmediately } from '../_components/hub-draft-field';
@@ -180,7 +182,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -266,6 +268,15 @@ export default async function WebsiteEditorPage({
   // Locked = no Pro AND no existing content (the grandfather rule shipped in
   // PR #3664 — a couple who already has content keeps editing it).
   const lockedIf = (hasContent: boolean) => !ownsPro && !hasContent;
+  /* 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28, verbatim: *"they can edit it
+     with pro features. but need to upgrade to pro when clicked on apply and
+     point out the effect chosen that caused them to upgrade to pro"*). A row
+     whose panel saves to the DRAFT is never locked on the web — Apply holds each
+     Pro pick and the Apply sheet names it. It stays locked (so HIDDEN) only in
+     the app-store shell. Rows whose writer is still LIVE (music, the gallery)
+     keep `lockedIf`: unlocking them would be a save the server refuses. */
+  const draftedRowLockedIf = (hasContent: boolean) => storeShell && lockedIf(hasContent);
+  const proMark = makerProMark({ owns: ownsPro, storeShell });
   const proUnlockHref = `${base}/studio/website-pro`;
   /** A locked Pro row's inline panel: one honest line + the ONE umbrella CTA.
    *  Nothing at all in the store shell — no pitch, no price (App Review 3.1.1). */
@@ -281,9 +292,30 @@ export default async function WebsiteEditorPage({
   // Presigned display URLs so the inline uploaders show what's already set
   // (same helper the sub-pages use).
   const heroRef = (event.landing_page_hero_image_url as string | null) ?? null;
+  // Read here — before the media below — so the panels can show what is drafted.
+  let hubDraft: HubDraft | null = null;
+  try {
+    hubDraft = await readHubDraft(supabase, eventId);
+  } catch (e) {
+    console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
+  }
   const musicRef = (event.site_bg_music_r2_key as string | null) ?? null;
   const videoRef = (event.landing_page_hero_video_r2_key as string | null) ?? null;
   const galleryRefs = ourPhotos.filter((r): r is string => typeof r === 'string');
+  /* 💎 THE LAST THREE PRO TOOLS ARE DRAFTED (owner 2026-09-29, "yes to all 3"):
+     the music · video and gallery PANELS show what is drafted over live. The
+     scene backgrounds keep choosing from the LIVE gallery — a photo is offered
+     behind a scene once it is on the page (Apply re-checks exactly that). */
+  const mediaDrafted = overlayHubDraftEvent(event as Record<string, unknown>, hubDraft);
+  const panelMusicRef = (mediaDrafted.site_bg_music_r2_key as string | null) ?? null;
+  const panelMusicOn = mediaDrafted.site_bg_music_enabled === true;
+  const panelVideoRef = (mediaDrafted.landing_page_hero_video_r2_key as string | null) ?? null;
+  const panelGalleryRefs = (Array.isArray(mediaDrafted.our_photos) ? mediaDrafted.our_photos : []).filter(
+    (r): r is string => typeof r === 'string',
+  );
+  /* 🖼 The Save the Date's own uploaded background — one of the couple's
+     pictures a scene's Upload media offers (`lib/scene-media-choices.ts`). */
+  const stdBgRef = stdBackgroundUploadRef((event as { std_background?: unknown }).std_background);
   const displayFor = async (refs: Array<string | null>) => {
     const out: Record<string, string> = {};
     await Promise.all(
@@ -298,19 +330,20 @@ export default async function WebsiteEditorPage({
     );
     return out;
   };
-  const [heroDisplay, galleryDisplay, chromeDisplay] = await Promise.all([
+  const [heroDisplay, galleryDisplay, chromeDisplay, stdBgDisplay] = await Promise.all([
     displayFor([heroRef]),
-    displayFor(galleryRefs),
-    displayFor([musicRef, videoRef]),
+    displayFor([...new Set([...galleryRefs, ...panelGalleryRefs])]),
+    displayFor([musicRef, videoRef, panelMusicRef, panelVideoRef]),
+    displayFor([stdBgRef]),
   ]);
 
   /* 🎨 The photos a couple may use as a section background — their own hero
      first, then their gallery, each with the display URL this page ALREADY
      signed for the inline uploaders. No second signing pass, and no photo from
      anywhere but this event. */
-  const photoChoices = [heroRef, ...galleryRefs]
+  const photoChoices = [...new Set([heroRef, ...galleryRefs, stdBgRef])]
     .filter((ref): ref is string => Boolean(ref))
-    .map((ref) => ({ ref, url: heroDisplay[ref] ?? galleryDisplay[ref] ?? '' }))
+    .map((ref) => ({ ref, url: heroDisplay[ref] ?? galleryDisplay[ref] ?? stdBgDisplay[ref] ?? '' }))
     .filter((p) => p.url.length > 0);
 
   /* 🎬 The ONE video an event owns. `displayFor([musicRef, videoRef])` above
@@ -319,7 +352,15 @@ export default async function WebsiteEditorPage({
      does not offer a snippet, rather than offering a control that cannot work. */
   const videoDisplay = chromeDisplay[videoRef ?? ''] ?? '';
   const videoChoice =
-    videoRef && videoDisplay ? { ref: videoRef, url: videoDisplay } : null;
+    videoRef && videoDisplay
+      ? {
+          ref: videoRef,
+          url: videoDisplay,
+          /* 🎞 Its still is the hero photo — the documented stand-in guests
+             already see for this clip (`lib/guest-hero-video.ts`). */
+          poster: heroRef && heroDisplay[heroRef] ? heroRef : null,
+        }
+      : null;
 
   /* 🎨 A flat ground is chosen FROM the wedding. `paletteSwatches` is the same
      reader the dress-code panel seeds from, so the colours a couple sees here
@@ -359,13 +400,38 @@ export default async function WebsiteEditorPage({
      ⚠ A draft that cannot be read is logged and the live rows are shown; the
      toolbar's own read (`loadHubDraftBarData`) renders that failure as
      "could not read your draft", never as "no changes". */
-  let hubDraft: HubDraft | null = null;
-  try {
-    hubDraft = await readHubDraft(supabase, eventId);
-  } catch (e) {
-    console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
-  }
   const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
+  /* 💎 The couple's own scenes with NOTHING in them live — hidden (just added)
+     or already visible. Without Pro their words go into the DRAFT (owner
+     2026-09-29, "yes to all 3"), where Apply asks for Pro to fill them
+     (`SectionsPanel` `emptyLive`). From the LIVE rows: the draft laid over them
+     would already say they have words. */
+  const emptyLive = liveWidgets
+    .filter((w) => isCustomSectionType(w.widget_type) && !customSectionHasContent(w.config_json))
+    .map((w) => w.widget_id);
+
+  /* 🖼 A SCENE'S OWN UPLOADS ("Upload media", in place) — the photos and clips
+     the scenes already wear from their own folder (draft over live), signed in
+     ONE call, only when there are any, so the panel shows them as thumbnails
+     after the save's refresh. */
+  const sceneUploadList = sceneUploadRefs(eventId, allWidgets.map((w) => w.config_json));
+  const sceneUploadDisplay =
+    sceneUploadList.length > 0
+      ? await displayFor(sceneUploadList.flatMap((u) => [u.ref, u.poster]))
+      : {};
+  const sceneUploads = sceneUploadList.flatMap((u) =>
+    sceneUploadDisplay[u.ref]
+      ? [
+          {
+            ref: u.ref,
+            url: sceneUploadDisplay[u.ref]!,
+            kind: u.kind,
+            poster: u.poster,
+            posterUrl: u.poster ? (sceneUploadDisplay[u.poster] ?? null) : null,
+          },
+        ]
+      : [],
+  );
 
   /* 🎞 THE MAIN BACKGROUND (Maker Phase 10) — BY DEFAULT THE HERO (owner,
      2026-09-25 item 6: "whatever they make on the hero scene will be their
@@ -501,7 +567,7 @@ export default async function WebsiteEditorPage({
      a whole. Only its Pro half — face, art direction, magic move — locks, and
      with the same grandfather: a couple who already chose any of them keeps
      that half. */
-  const colorsProLocked = lockedIf(
+  const colorsProLocked = draftedRowLockedIf(
     Boolean(
       (event as { site_font_key?: string | null }).site_font_key ||
         (event as { site_magic_traveller?: string | null }).site_magic_traveller ||
@@ -509,14 +575,15 @@ export default async function WebsiteEditorPage({
     ),
   );
   // The song and the hero video share one panel, so either one keeps it open.
-  const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key || videoRef));
-  const galleryLocked = lockedIf(ourPhotos.length > 0);
+  // 💎 Drafted since 2026-09-29 — locked (so hidden) only in the app-store shell.
+  const musicLocked = draftedRowLockedIf(Boolean(event.site_bg_music_r2_key || videoRef));
+  const galleryLocked = draftedRowLockedIf(ourPhotos.length > 0);
   /* 📷 THE LOOK IS PRO (owner 2026-09-24, "A" — "Free is the page we write. Pro
      is changing how it looks."). Their own hero photo and the invitation
      backdrop join the rows above. Same grandfather: a couple who already has
      one keeps its panel, and the server lets them take it off. */
-  const heroLocked = lockedIf(Boolean(heroRef));
-  const backdropLocked = lockedIf(Boolean(rsvpBackdrop));
+  const heroLocked = draftedRowLockedIf(Boolean(heroRef));
+  const backdropLocked = draftedRowLockedIf(Boolean(rsvpBackdrop));
 
   const groups: RailGroup[] = [
     {
@@ -658,6 +725,7 @@ export default async function WebsiteEditorPage({
               rowKey="colors"
               proLocked={colorsProLocked}
               proLock={lockPanel('Typeface and motion')}
+              proMark={proMark}
               themeId={currentThemeId}
               /* 🎨 Blank = the Mood Board's colours — shown AS those colours
                  (owner 2026-09-27: "mood board palettes did not update"). */
@@ -690,10 +758,10 @@ export default async function WebsiteEditorPage({
             <SiteChromePanel
               action={updateSiteChrome.bind(null, eventId)}
               eventId={eventId}
-              musicRef={musicRef}
-              musicEnabled={event.site_bg_music_enabled === true}
+              musicRef={panelMusicRef}
+              musicEnabled={panelMusicOn}
               musicDisplay={chromeDisplay}
-              videoRef={videoRef}
+              videoRef={panelVideoRef}
               videoDisplay={chromeDisplay}
             />
           ),
@@ -771,8 +839,8 @@ export default async function WebsiteEditorPage({
           locked: galleryLocked,
           status: galleryLocked
             ? undefined
-            : galleryRefs.length > 0
-              ? done(`${galleryRefs.length} photo${galleryRefs.length === 1 ? '' : 's'}`)
+            : panelGalleryRefs.length > 0
+              ? done(`${panelGalleryRefs.length} photo${panelGalleryRefs.length === 1 ? '' : 's'}`)
               : todo('0 photos'),
           panel: galleryLocked ? (
             lockPanel('Photos you add')
@@ -780,7 +848,7 @@ export default async function WebsiteEditorPage({
             <GalleryPanel
               action={updateOurPhotos.bind(null, eventId)}
               eventId={eventId}
-              currentRefs={galleryRefs}
+              currentRefs={panelGalleryRefs}
               displayUrls={galleryDisplay}
               maxFiles={24}
             />
@@ -892,13 +960,13 @@ export default async function WebsiteEditorPage({
               saveCustomAction={saveCustomSection}
               addCustomAction={addCustomSection}
               photoChoices={photoChoices}
-              /* Two Pro locks, both the SAME panel every other Pro row uses,
-                 passed as ELEMENTS: a section of their own (owner 2026-09-22)
-                 and how each section looks and moves (owner 2026-09-24). The
-                 actions refuse a free couple independently. */
+              /* 💎 Every form in this panel drafts, so on the web a couple
+                 without Pro USES each look control (◆ PRO) and Apply asks for
+                 Pro (owner 2026-09-28). `customLock` is only ever drawn in
+                 the app-store shell, where `lockPanel` draws nothing. */
               ownsPro={ownsPro}
               customLock={lockPanel('A section of your own')}
-              lookLock={lockPanel('How each section looks and moves')}
+              emptyLive={emptyLive}
               videoChoice={videoChoice}
               colorChoices={colorChoices}
               sceneStage={
@@ -1119,6 +1187,7 @@ export default async function WebsiteEditorPage({
       photoChoices={photoChoices}
       ownsPro={ownsPro}
       customLock={lockPanel('A section of your own')}
+      emptyLive={emptyLive}
       videoChoice={videoChoice}
       colorChoices={colorChoices}
       openBrowse={openBrowse}
@@ -1220,17 +1289,25 @@ export default async function WebsiteEditorPage({
       scenePanels={scenePanels}
       sceneRemovers={sceneRemovers}
       /* 🧰 The scene inspector's Format tab (background, one-or-all, uploads)
-         and Animate's lock — the same choices the old server panel was given. */
+         — the same choices the old server panel was given. Animate has no lock
+         any more: a couple without Pro tries it, and Apply asks (2026-09-28). */
       sceneFormat={{
         colorChoices,
         photoChoices,
         videoChoice,
+        sceneUploads,
         mediaHref: `${w}/our-photos`,
         hubTheme: currentThemeId,
         openBrowse,
         hideLocked: storeShell,
-        lookLock: lockPanel('How each section looks and moves'),
         twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
+        /* The hero is the invitation card unless there is a hero photo/video or
+           the page is solemn — the same two facts the navigator's hero tile
+           reads (`hasHeroMedia`, `solemn` above), and the ones the guest page
+           picks its masthead by (`site-body.tsx`). */
+        heroCard:
+          !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
+        heroPhoto: Boolean(heroRef || videoRef),
       }}
       rows={rows}
       themes={themes}
@@ -1270,13 +1347,14 @@ export default async function WebsiteEditorPage({
       addScene={
         storeShell
           ? null
-          : !ownsPro
-            ? { note: 'Scenes of your own, from 25 templates, come with Event Hub Pro.', locked: true }
-            : !nextFreeCustomSlot(allWidgets.map((w) => w.widget_type))
+          : /* 💎 Open to every couple on the web (owner 2026-09-28): the scene is
+               added HIDDEN and shown in the draft; Apply asks for Pro to show it. */
+            !nextFreeCustomSlot(allWidgets.map((w) => w.widget_type))
               ? { note: 'You have all six of your own scenes. Remove one you are not using to add another.' }
               : {
                   action: addCustomSection,
                   returnTo: `/dashboard/${eventId}/launch`,
+                  tried: !ownsPro,
                   tour: <MiniTour tourKey="customer_add_scene_v1" storeShell={storeShell} />,
                 }
       }

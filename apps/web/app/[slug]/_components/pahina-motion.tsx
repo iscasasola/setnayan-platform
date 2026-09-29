@@ -115,6 +115,15 @@ setTimeout(function(){if(!window.__pahinaArmed){r.classList.remove('pahina-js')}
  * MAX below and the scale in globals.css must move together. Full derivation
  * lives with the CSS rule.
  */
+/*
+ * 🌄 IT ALSO DRIFTS A SCENE'S PHOTO BACKGROUND (owner 2026-09-28, "photo
+ * parallax effect"): a scene frame's photo layer wears `data-pahina-parallax`
+ * when the couple chose Parallax (`hub-canvas-frame.tsx`). ONE mechanism, so
+ * the list is read on each frame rather than once: scenes stream in AFTER this
+ * script (the defect `PahinaMotionObserver` documents below), and the Maker's
+ * canvas turns Parallax on in place without a reload. A page with none still
+ * pays nothing but one passive, rAF-throttled listener.
+ */
 export function PahinaCoverParallax() {
   return (
     <script
@@ -124,10 +133,9 @@ export function PahinaCoverParallax() {
 var r=document.documentElement;
 if(!r.classList.contains('pahina-js'))return;
 if(!window.requestAnimationFrame)return;
-var ls=document.querySelectorAll('.sn-editorial [data-pahina-parallax]');
-if(!ls.length)return;
 var MAX=6,pending=false;
 var tick=function(){pending=false;var vh=window.innerHeight||0;if(!vh)return;
+var ls=document.querySelectorAll('.sn-editorial [data-pahina-parallax]');
 for(var i=0;i<ls.length;i++){var el=ls[i],b=el.parentNode.getBoundingClientRect();
 if(b.bottom<0||b.top>vh)continue;
 var p=(vh-b.top)/(vh+b.height);p=p<0?0:p>1?1:p;
@@ -211,6 +219,23 @@ q();
  * 🔑 It is independent of the chapters: a page whose chapters stood down still
  * gets its scenes, and a scene streamed in late is picked up on
  * `DOMContentLoaded` and the 1.5s timer, the same two ways the chapters are.
+ *
+ * ── 📜 …AND THE ROWS OF A SCENE'S LIST, ONE BY ONE (2026-09-28) ───────────
+ * Owner, on the run of show: *"how can the load as we scroll up one by one?"*
+ * The same observer, the same mark: every row of a list a widget marked
+ * `data-hub-rows` (inside a `.hub-canvas`) is marked `.pahina-in` as IT nears
+ * the screen, so a "One part after another · Plays once" scene's rows arrive
+ * as the guest scrolls to each one (the rules are in globals.css, "THE ROWS OF
+ * A LIST"). Rows that reach the screen in the SAME callback are numbered
+ * `--hub-row-at` 1, 2, 3 … (capped at 8, `HUB_SEQUENCE_DEPTH`) so they still
+ * arrive in turn, one stagger apart. A row already marked is never observed
+ * again — re-numbering a finished row would move its delay and replay it.
+ * Each row is also told its place in its list, `--hub-row-i` of `--hub-row-n`
+ * (written as it is observed, not as it is reached): a PINNED run gives row i
+ * the i-th slice of its hold and an AUTO run the i-th stagger of its clock,
+ * and neither can count siblings in CSS.
+ * Fail-visible like everything else here: no mark, nothing bound, the row sits
+ * where the layout put it.
  */
 export function PahinaMotionObserver() {
   return (
@@ -235,14 +260,18 @@ for(var i=0;i<es.length;i++){if(es[i].isIntersecting){es[i].target.classList.add
 for(var i=0;i<n.length;i++){io.observe(n[i])}
 return true};
 var hsel='.hub-canvas, style[data-hub-els]';
+var rsel='.hub-canvas [data-hub-rows] > *';
 var hio=null;
 var hub=function(){try{
 var h=document.querySelectorAll(hsel);
 if(!h.length)return;
+var rw=document.querySelectorAll(rsel);
 if(!hio)hio=new IntersectionObserver(function(es){
-for(var i=0;i<es.length;i++){if(es[i].isIntersecting){es[i].target.classList.add('pahina-in');hio.unobserve(es[i].target)}}
+var k=0;
+for(var i=0;i<es.length;i++){if(es[i].isIntersecting){var t=es[i].target,p=t.parentElement;if(p&&p.hasAttribute&&p.hasAttribute('data-hub-rows')){k=k<8?k+1:8;t.style.setProperty('--hub-row-at',String(k))}t.classList.add('pahina-in');hio.unobserve(t)}}
 },{rootMargin:'0px 0px 32px 0px',threshold:0});
 for(var i=0;i<h.length;i++){var t=h[i].tagName==='STYLE'?h[i].previousElementSibling:h[i];if(t)hio.observe(t)}
+var lp=null,li=0;for(var j=0;j<rw.length;j++){var q=rw[j],qp=q.parentElement;if(qp!==lp){lp=qp;li=0}li++;if(qp&&qp.children){q.style.setProperty('--hub-row-i',String(li));q.style.setProperty('--hub-row-n',String(qp.children.length))}if(!q.classList.contains('pahina-in'))hio.observe(q)}
 }catch(e){}};
 hub();
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',hub,{once:true})}

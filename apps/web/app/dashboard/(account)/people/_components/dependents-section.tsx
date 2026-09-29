@@ -146,7 +146,7 @@ export async function DependentsSection() {
     // The ALAGA VIEW (owner 2026-09-28, People redesign): the page's picker
     // already names it and the page draws "Add an alaga" at its head, so this
     // section carries neither a second heading nor a second door.
-    <section aria-label="Alaga">
+    <section aria-label="Loved ones">
 
       {dependents.length > 0 ? (
         <ul className="mb-6 space-y-2.5">
@@ -196,7 +196,7 @@ export async function DependentsSection() {
                           ? DEPENDENT_KIND_LABELS[d.dependent_kind]
                           : d.relationship
                             ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS]
-                            : 'My alaga'}
+                            : 'My loved one'}
                       {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
                       {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
                     </p>
@@ -421,7 +421,7 @@ export async function DependentsSection() {
            answered its own empty state with a sentence and a way in; the two
            sections disagreed about what an empty list looks like. */
         <p className="mb-4 rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
-          No alaga yet. Add a child, an elder, a pet, or anything else you look
+          No loved ones yet. Add a child, an elder, a pet, or anything else you look
           after — their profile lives inside yours until they take it over.
         </p>
       )}

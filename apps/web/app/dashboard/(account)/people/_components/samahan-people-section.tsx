@@ -42,12 +42,12 @@ export async function SamahanPeopleSection({
   const active = communities.filter((c) => !c.archived);
 
   return (
-    <section aria-label="Samahan" className={heading ? 'mt-10' : undefined}>
+    <section aria-label="Groups" className={heading ? 'mt-10' : undefined}>
       {heading ? (
         <header className="mb-3">
           {/* The People page's one heading style (the roster's rule). */}
           <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">
-            Samahan
+            Groups
           </h2>
         </header>
       ) : null}
@@ -74,7 +74,7 @@ export async function SamahanPeopleSection({
         </ul>
       ) : (
         <p className="mb-4 rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
-          No samahan yet.{' '}
+          No group yet.{' '}
           <Link href="/dashboard/samahan/new" className="font-medium underline underline-offset-2 hover:text-ink">
             Create one
           </Link>{' '}
@@ -85,7 +85,7 @@ export async function SamahanPeopleSection({
       {secondDegree.length > 0 ? (
         <div>
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">
-            Through your samahan — second degree
+            Through your groups — second degree
           </p>
           <ul className="mt-2 flex flex-wrap gap-2">
             {secondDegree.map((p) => (

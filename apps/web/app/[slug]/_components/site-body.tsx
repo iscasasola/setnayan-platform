@@ -132,7 +132,7 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
-import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
+import { hubCanvasMediaRefs, hubSlotClipStillRefs } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
 import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
@@ -163,6 +163,7 @@ import {
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene } from '../_lib/editor-canvas';
+import { PreviewWayBack } from './preview-way-back';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { KeepOnHomeScreen } from './keep-on-home-screen';
@@ -377,6 +378,10 @@ type SiteBodyProps = {
    *  parent is the Maker, which would hear its `ready` / `edit` as the canvas's
    *  (`browsing-themes-never-moves-the-canvas.test.ts`). */
   themeTile?: boolean;
+  /** ↩ "Back to the Maker" — the Maker's address, or null. Non-null ONLY for a
+   *  verified host's "Preview the whole stage" tab (`previewWayBackHref`,
+   *  `_lib/editor-canvas.ts`); null for every guest, the canvas and its tiles. */
+  makerWayBack?: string | null;
   /** OWNER LAYER · FOUNDATION (2026-07-26). Non-null ONLY when the page
    *  server-verified this viewer's host membership of THIS event via
    *  `loadHostMembership` (see the owner-layer block in page.tsx). It travels
@@ -446,6 +451,7 @@ export async function SiteBody({
   canvasGuestBars = false,
   canvasOnly = null,
   themeTile = false,
+  makerWayBack = null,
   ownerCapability = null,
   vendorCapability = null,
   supplierDesk = null,
@@ -502,7 +508,12 @@ export async function SiteBody({
   // The Love Story's photos (Event Hub Pro) ride the SAME one signing pass as
   // the section backgrounds — one Promise.all per page, one allow-list.
   const canvasMediaRefs = [
-    ...new Set([...hubCanvasMediaRefs(widgets), ...loveStoryMediaRefs(event.love_story)]),
+    ...new Set([
+      ...hubCanvasMediaRefs(widgets),
+      ...loveStoryMediaRefs(event.love_story),
+      // 🎞 A template slot's clip that may not play shows the hero photo instead.
+      ...hubSlotClipStillRefs(widgets, siteMediaServeRef(event.landing_page_hero_image_url)),
+    ]),
   ];
   const canvasMediaUrls: Record<string, string> = {};
   if (canvasMediaRefs.length > 0) {
@@ -741,6 +752,15 @@ export async function SiteBody({
        placeholder (`makerEmpty` below). Guests: unchanged. */
     content: isMakerCanvas ? {} : openBrowseContent,
   });
+
+  // 🎬 THE STAGE'S AUTO — the Save the Date walks itself (film → names →
+  // every scene, `lib/stage-autoplay.ts`) for guests and the preview tab, and
+  // NEVER in the Maker's canvas, where the couple is editing and a page that
+  // scrolled itself away would take the scene out from under them. It stamps
+  // the scenes the runner walks (`HubScenes stageMarks`); the runner itself is
+  // mounted by `StdFilmHandoff autoplay={!isMakerCanvas}` inside this same
+  // `save_the_date` branch — the same condition, so the two cannot disagree.
+  const stageAutoplayOn = plan.body === 'save_the_date' && !isMakerCanvas;
 
   // ── THE GALLERY, AFTER THE WEDDING ────────────────────────────────────────
   //
@@ -1063,7 +1083,7 @@ export async function SiteBody({
     // 🎬 Scroll · Scrub per section — the same scenes as the guest tree, so a
     // stranger following the link sees the page the couple arranged.
     const publicWidgetNodes = (
-      <HubScenes widgets={plan.publicSafeWidgets} scrubAllowed={proWatermarkHidden}>
+      <HubScenes widgets={plan.publicSafeWidgets} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
       {plan.publicSafeWidgets.map((widget) => (
       /* One node per widget still (HubScenes pairs by position): the marker
          and the section travel together in one fragment. */
@@ -1073,6 +1093,7 @@ export async function SiteBody({
         widget={widget}
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
+        ownClipPlays={isMakerCanvas}
         guestView={!isMakerCanvas}
         makerEmpty={
           isMakerCanvas && makerDrawsEmpty(widget.widget_type) &&
@@ -2339,13 +2360,14 @@ export async function SiteBody({
                   children unless a section scrubs AND the event owns Event Hub
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               <div className="sn-hub-cards space-y-4">
-              <HubScenes widgets={plan.hideableInOrder} scrubAllowed={proWatermarkHidden}>
+              <HubScenes widgets={plan.hideableInOrder} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
               {plan.hideableInOrder.map((widget) => (
                 <HideableWidgetRender
                   key={widget.widget_id}
                   widget={widget}
                   canvasMediaUrls={canvasMediaUrls}
                   hubTheme={sceneTheme}
+                  ownClipPlays={isMakerCanvas}
                   guestView={!isMakerCanvas}
                   event={event}
                   guest={guest}
@@ -2604,6 +2626,10 @@ export async function SiteBody({
       {/* 🖼 Never in the Maker's canvas: its "Edit this site" link, tapped
           inside the canvas, loaded the Maker into itself. */}
       <OwnerRibbon model={isEditorCanvas ? null : ownerRibbon} />
+      {/* ↩ THE WAY BACK TO THE MAKER — the preview tab only (DECISION_LOG
+          2026-09-28). A sibling of both trees, like the ribbon: never inside the
+          chapters article, where a transform breaks `position: fixed`. */}
+      {isStagePreview && makerWayBack ? <PreviewWayBack href={makerWayBack} /> : null}
       {/* THE SUPPLIER'S RIBBON — mounted here for reason (2) above, and for one
           of its own: in the Save-the-Date phase the film covers the viewport at
           z-50 with the veil at z-60, and the supplier's strip renders in

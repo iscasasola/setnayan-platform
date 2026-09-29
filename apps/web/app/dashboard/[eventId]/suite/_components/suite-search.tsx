@@ -2,6 +2,10 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { Search, X } from 'lucide-react';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+
+/** The "no tag picked" option of the filter menu. */
+const ALL_TAGS = '__all__';
 
 /**
  * SuiteSearch — the Suite's find-a-service box. A client shell around the
@@ -71,8 +75,8 @@ export function SuiteSearch({
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search services — try “photos”, “website”, “free”…"
-            aria-label="Search Suite services"
+            placeholder="Search — try “photos”, “video”, “free”…"
+            aria-label="Search more services"
             className="w-full rounded-full border border-ink/12 bg-cream/70 py-2.5 pl-10 pr-10 text-sm text-ink shadow-sm placeholder:text-ink/40 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
           />
           {q ? (
@@ -87,27 +91,20 @@ export function SuiteSearch({
           ) : null}
         </div>
 
+        {/* ONE dropdown, never a pill row (owner rule 2026-09-28: any set of
+            choices is one dropdown). Picking a tag runs the same search the
+            pills did; "All services" clears it. */}
         {filterTags.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {filterTags.map((t) => {
-              const active = query === t.toLowerCase();
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setQ(active ? '' : t)}
-                  aria-pressed={active}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    active
-                      ? 'bg-mulberry text-cream'
-                      : 'bg-ink/[0.05] text-ink/60 hover:bg-ink/10'
-                  }`}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
+          <PickMenu
+            label="Show"
+            dataAttr="data-suite-tag-menu"
+            value={filterTags.find((t) => t.toLowerCase() === query) ?? (query ? null : ALL_TAGS)}
+            options={[
+              { key: ALL_TAGS, label: 'All services' },
+              ...filterTags.map((t) => ({ key: t, label: t })),
+            ]}
+            onPick={(key) => setQ(key === ALL_TAGS ? '' : key)}
+          />
         ) : null}
       </div>
 

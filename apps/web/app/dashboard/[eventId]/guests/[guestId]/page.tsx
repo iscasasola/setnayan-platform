@@ -6,6 +6,7 @@ import { eventSkuActive } from '@/lib/entitlements';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isUuid } from '@/lib/is-uuid';
 import { fetchInvitationBase, loadGuestCard } from '../_components/guest-card-data';
 import {
   GuestCardBody,
@@ -38,6 +39,13 @@ type Props = {
 
 export default async function GuestDetailPage({ params, searchParams }: Props) {
   const { eventId, guestId } = await params;
+  // 🔑 A MALFORMED ADDRESS IS "NOT FOUND", NEVER A CRASH. A non-UUID segment
+  // makes Postgres reject the query (22P02), and `fetchGuestById` deliberately
+  // RE-THROWS every error except a missing relation — so `/guests/{guest}`
+  // rendered the global error boundary ("Something on our end didn't work")
+  // instead of a 404 (measured on prod 2026-09-29). Checked once, here, before
+  // any query sees the segment. See lib/is-uuid.ts.
+  if (!isUuid(guestId) || !isUuid(eventId)) notFound();
   const search = await searchParams;
   const supabase = await createClient();
   const {

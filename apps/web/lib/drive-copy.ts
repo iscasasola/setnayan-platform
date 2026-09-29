@@ -62,7 +62,7 @@ export type DriveCopyArtifactType = (typeof DRIVE_COPY_ARTIFACT_TYPES)[number];
 export const ARTIFACT_SUBFOLDER_NAME: Record<DriveCopyArtifactType, string> = {
   papic: 'Papic',
   patiktok: 'Patiktok',
-  pakanta: 'Pakanta',
+  pakanta: 'Music Maker',
   monogram: 'Monogram',
   qr_codes: 'QR Codes',
 };

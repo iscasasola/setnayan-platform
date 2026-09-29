@@ -407,7 +407,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     area: "customer-sidebar",
     // Flag-gated Suite doorway (see SUITE_NAV_ON above) — key stays stable.
     route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
-    label: SUITE_NAV_ON ? "Suite" : "Studio",
+    // "Suite" → "Our Services" 2026-09-29 (label only; key + route unchanged).
+    label: SUITE_NAV_ON ? "Our Services" : "Studio",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",
@@ -2038,7 +2039,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "admin",
     area: "admin-sidebar",
     route: "/admin/pakanta",
-    label: "Pakanta queue",
+    label: "Music Maker queue",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Music",

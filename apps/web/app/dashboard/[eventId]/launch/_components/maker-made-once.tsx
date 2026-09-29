@@ -22,7 +22,7 @@ import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates
 import { EventPoster } from '@/app/_components/event-poster';
 import { FileUpload } from '@/app/_components/file-upload';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HubDraftField } from '../../website/_components/hub-draft-bar';
 import { removeHeroPhoto, uploadHeroPhoto } from '../../website/hero-photo/actions';
 import { MakerRevealPicker } from './maker-reveal';
@@ -58,7 +58,7 @@ import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
  */
 
 const EVENT_SELECT =
-  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_reveal_template, reveal_stages, std_reveal_effects, monogram_custom_svg, monogram_studio_config, monogram_uploaded_svg';
+  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_reveal_template, reveal_stages, std_reveal_effects, monogram_custom_svg, monogram_studio_config, monogram_uploaded_svg';
 
 type MadeOnceRow = {
   event_id: string;
@@ -69,6 +69,7 @@ type MadeOnceRow = {
   monogram_text: string | null;
   monogram_color: string | null;
   invite_theme: string | null;
+  std_background: unknown;
   landing_page_hero_image_url: string | null;
   landing_page_hero_video_r2_key: string | null;
   std_reveal_template: string | null;
@@ -165,13 +166,14 @@ export async function MakerHeroPanel({
       monogram_text: drafted.monogram_text,
       monogram_color: drafted.monogram_color,
       invite_theme: drafted.invite_theme,
+      std_background: drafted.std_background,
     },
     heroSrc,
   ).catch(() => null);
   const markSvg = resolveEventMonogramSvg(drafted);
   const returnTo = `/dashboard/${eventId}/launch?tool=hero`;
   const canUpload = ownsPro || !storeShell;
-  const photoMark = paidMarkState({ owns: ownsPro, storeShell });
+  const photoMark = makerProMark({ owns: ownsPro, storeShell });
 
   return (
     <section className="flex flex-col gap-3 px-1" data-made-once="hero">
@@ -359,7 +361,7 @@ export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId:
     <MakerLogoDoor
       eventId={eventId}
       opening={opening}
-      motionMark={paidMarkState({ owns: ownsMotion, storeShell })}
+      motionMark={makerProMark({ owns: ownsMotion, storeShell })}
     />
   );
 }

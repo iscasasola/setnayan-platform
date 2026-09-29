@@ -95,7 +95,7 @@ export function samahanNoticeCopy(
   communityName: string,
 ): { title: string; body: string } {
   const who = actorName.trim() || 'Someone';
-  const where = communityName.trim() || 'your samahan';
+  const where = communityName.trim() || 'your group';
   if (kind === 'story') {
     return {
       title: `${who} added to ${where}`,
@@ -119,7 +119,7 @@ export function samahanNoticeCopy(
      */
     return {
       title: `${who} joined ${where}`,
-      body: 'See everyone in the samahan.',
+      body: 'See everyone in the group.',
     };
   }
   return {

@@ -421,7 +421,7 @@ const TABLE_COLUMNS: Record<UgatTableKey, string[]> = {
   threads: ['Event × Vendor', 'Status', 'Last activity'],
   billing: ['Vendor', 'Kind', 'Detail'],
   // "Members" is a TALLY column, never a roster — see the communities case.
-  communities: ['Samahan', 'Kind', 'Members'],
+  communities: ['Group', 'Kind', 'Members'],
 };
 
 function fmtDate(v: string | null | undefined): string {
@@ -815,7 +815,7 @@ async function loadUgatTableInner(
         base.rows = (data ?? []).map((c: any) => ({
           id: c.community_id,
           type: 'community' as const,
-          name: c.name || c.public_id || 'Samahan',
+          name: c.name || c.public_id || 'Group',
           // No href: there is no /admin communities surface yet. The first one
           // to ship should wire it here rather than inventing a second link.
           status: [c.archived ? 'archived' : 'live', c.archived ? 'neutral' : 'ok'] as [
@@ -823,7 +823,7 @@ async function loadUgatTableInner(
             'ok' | 'wait' | 'neutral' | 'report',
           ],
           cells: [
-            c.name || c.public_id || 'Samahan',
+            c.name || c.public_id || 'Group',
             c.kind ?? '—',
             `${memberTally.get(c.community_id) ?? 0} members`,
           ],

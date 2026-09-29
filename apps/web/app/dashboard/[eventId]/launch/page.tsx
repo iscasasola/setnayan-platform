@@ -984,9 +984,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let rsvpAskDrafted = false;
       // 🎨 The theme being edited — drafted over live (picked on Details).
       let themeSaved: unknown = printEvent.invite_theme;
+      // 🔳 The QR look being edited — drafted over live (owner 2026-09-29, "yes to all 3").
+      let qrPrefs: unknown = printEvent.style_preferences;
       try {
         const d = await readHubDraft(supabase, eventId);
         if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
+        if (d && 'style_preferences' in d.events) qrPrefs = d.events.style_preferences;
         if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
         if (d && 'rsvp_ask_config' in d.events) {
           rsvpAsk = sanitizeRsvpAskConfig(d.events.rsvp_ask_config);
@@ -1009,10 +1012,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       const theme = {
         home: printEvent.slug ? `/${printEvent.slug}` : null,
         themes: pickableInviteThemes({ mayShowStdFilm }).map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
-        current: resolveInviteTheme({ saved: themeSaved, ownsPro: printPro, mayShowStdFilm }),
+        // 💎 On the web a drafted Pro theme is the one being edited even without
+        // Pro — it is tried here and held at Apply (owner 2026-09-28). The shell
+        // keeps the ownership half of the gate.
+        current: resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell, mayShowStdFilm }),
         ownsPro: printPro,
         storeShell,
-        proHref: `/dashboard/${eventId}/studio/website-pro`,
         // Never on the Maker's very first visit — its own welcome is showing.
         tour: !firstVisit,
       };
@@ -1034,7 +1039,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           slugAction={updateEventSlug.bind(null, eventId, 'launch')}
           // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
           // it, the saved choices, and the contrast-passing Mood Board colours.
-          qr={{ ...qrLookChoicesFromRow(printEvent, printPro), storeShell }}
+          qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, printPro), storeShell }}
           qrStyleAction={updateQrStyle.bind(null, eventId)}
           theme={theme}
         />

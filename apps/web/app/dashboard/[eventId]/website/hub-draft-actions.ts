@@ -26,6 +26,8 @@
  *             schedule, galleries, orders or the Post Event story
  *             (`hub-draft.test.ts` asserts that on the plan, not on prose).
  *   undo    — step the draft back one save.
+ *   drop    — take ONE named Pro effect (`effect` = its id) off the draft —
+ *             the Apply sheet's ×. Recomputed here from the stored draft.
  *
  * Address, who can view, what guests get and open browsing are NOT drafted —
  * they stay live (the build plan's rule), in `editor/actions.ts`.
@@ -49,7 +51,7 @@ import { lookProAllows } from '@/lib/hub-look-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
-import { PUBLIC_R2_BUCKET } from '@/lib/r2-client-ref';
+import { PUBLIC_R2_BUCKET, eventMediaPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { WIDGET_CATALOG_BY_TYPE, hasContent, type WidgetType } from '@/lib/invitation-widgets';
 import {
   SECTION_CONTENT_EVENT_COLUMNS,
@@ -75,11 +77,15 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainFollow, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
+import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
+import { isStdLibrarySrc } from '@/lib/std-backgrounds';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
+import type { CustomSectionContent } from '@/lib/custom-sections';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -144,6 +150,20 @@ export async function hubDraftAction(
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
       return done();
     }
+    /* 💎 DROP ONE PRO EFFECT (the Apply sheet's ×, owner 2026-09-28). The list
+       is recomputed HERE from the stored draft — the same one decision the
+       sheet was drawn from (`hubDraftProEffects` over `planHubDraftApply`) —
+       and only its id crosses from the client, so a sheet drawn before a later
+       edit can never write its old canvas over the newer one. Draft only;
+       Undo takes it back. */
+    if (intent === 'drop') {
+      const id = formData.get('effect');
+      const live = await readHubLiveState(supabase, eventId);
+      const effect = hubDraftProEffects(current, live, false).find((e) => e.id === id);
+      if (!effect?.remove) return { ok: false, intent, error: 'That effect is no longer in your draft.' };
+      await writeHubDraft(supabase, eventId, mergeHubDraft(current, effect.remove));
+      return done();
+    }
 
     /* ── APPLY ───────────────────────────────────────────────────────────── */
     const live = await readHubLiveState(supabase, eventId);
@@ -166,7 +186,7 @@ export async function hubDraftAction(
     const { data: own, error: ownErr } = await supabase
       .from('events')
       // `our_photos` rides in SECTION_CONTENT_EVENT_COLUMNS — not named twice.
-      .select(`slug, event_type, landing_page_hero_image_url, landing_page_hero_video_r2_key, ${SECTION_CONTENT_EVENT_COLUMNS}`)
+      .select(`slug, event_type, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_background, ${SECTION_CONTENT_EVENT_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle();
     if (ownErr) return { ok: false, intent, error: 'Could not read your Event Hub. Nothing was applied.' };
@@ -176,6 +196,9 @@ export async function hubDraftAction(
         siteMediaServeRef(ownRow.landing_page_hero_image_url),
         ...siteMediaServeRefs(ownRow.our_photos),
         siteMediaServeRef(ownRow.landing_page_hero_video_r2_key),
+        // 🖼 The Save the Date's own uploaded background — one of the couple's
+        // pictures the scene's Upload media offers (never a library scene).
+        siteMediaServeRef(stdBackgroundUploadRef(ownRow.std_background)),
       ].filter((r): r is string => Boolean(r)),
     );
     const needsContent = plan.apply.some((i) => i.kind === 'widget' && i.field === 'mode' && i.value === 'shown');
@@ -196,6 +219,13 @@ export async function hubDraftAction(
     const mainIsOwn = (ref: unknown) =>
       typeof ref === 'string' && (ownRefs.has(ref) || ref.startsWith(ownMainPrefix));
 
+    /* 🖼 A SCENE'S OWN UPLOAD ("Upload media", in place) — into THIS event's
+       own scene-background folder, like the Main background's. */
+    const ownScenePrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/${SCENE_BACKGROUND_FOLDER}/`;
+    /* 🖼 …or one of the ready-made Save the Date scenes (Setnayan's own public
+       pictures, a closed list — owner 2026-09-29, answer 3). */
+    const sceneIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix) || isStdLibrarySrc(ref);
+
     /* 🎨 A DRAFTED PRO THEME ASKS THE WEDDING FENCE (owner Q7 = A) — the
        reveal's own answer, `resolveWeddingOnlyParts(p).save_the_date_film`,
        asked only when a Pro theme is about to be written. The picker never
@@ -210,8 +240,29 @@ export async function hubDraftAction(
             .catch(() => false)
         : true;
 
+    /* 💎 THE LAST THREE PRO TOOLS (owner 2026-09-29, "yes to all 3"). A drafted
+       song, hero video or gallery photo is a public POST like any other, so
+       each NEW ref must be an upload into THIS event's own folder — the rule
+       `updateSiteChrome` asks live (`eventMediaPolicy`). A ref the page already
+       shows is kept as it is. */
+    const newMediaIsOwn = (column: 'site_bg_music_r2_key' | 'landing_page_hero_video_r2_key' | 'our_photos', value: unknown) => {
+      const liveRefs = new Set(
+        column === 'our_photos' ? siteMediaServeRefs(live.events.our_photos) : [siteMediaServeRef(live.events[column])].filter(Boolean),
+      );
+      const refs = column === 'our_photos' ? siteMediaServeRefs(value) : [siteMediaServeRef(value)].filter((r): r is string => Boolean(r));
+      return refs.every((r) => liveRefs.has(r) || parseClientRef(r, eventMediaPolicy(eventId)) !== null);
+    };
+
     const toWrite: HubDraftItem[] = [];
     for (const item of plan.apply) {
+      if (
+        item.kind === 'event' &&
+        (item.column === 'site_bg_music_r2_key' || item.column === 'landing_page_hero_video_r2_key' || item.column === 'our_photos') &&
+        !newMediaIsOwn(item.column, item.value)
+      ) {
+        held.push({ item, reason: 'not_your_photo' });
+        continue;
+      }
       if (item.kind === 'event' && item.column === 'invite_theme' && !themeFenceOpen) {
         held.push({ item, reason: 'not_for_this_celebration' });
         continue;
@@ -234,11 +285,11 @@ export async function hubDraftAction(
       }
       if (item.kind === 'widget' && item.field === 'canvas') {
         const drafted = item.value as HubSectionCanvas | null;
-        // The background AND every picture in a template scene's slots (Phase 5).
-        const refs = [drafted?.media, ...(drafted?.slots ?? []).map((s) => s.media)].filter(
-          (r): r is string => Boolean(r),
-        );
-        if (refs.some((r) => !ownRefs.has(r))) {
+        // The background (and a clip's still) — the couple's pictures or their
+        // own scene upload — and every picture in a template scene's slots.
+        const ground = [drafted?.media, drafted?.poster].filter((r): r is string => Boolean(r));
+        const slotRefs = (drafted?.slots ?? []).map((s) => s.media).filter((r): r is string => Boolean(r));
+        if (ground.some((r) => !sceneIsOwn(r)) || slotRefs.some((r) => !ownRefs.has(r))) {
           // A held scene's free part (`canvasFreePart`) is already reported,
           // and kept whole in the draft, by its refused twin — skip it quietly.
           if (!item.freePart) held.push({ item, reason: 'not_your_photo' });
@@ -272,6 +323,30 @@ export async function hubDraftAction(
        the wedding fence above — the same order `setInviteTheme` kept. */
     const themeWrite = 'invite_theme' in eventsPatch ? eventsPatch.invite_theme : undefined;
     delete eventsPatch.invite_theme;
+    /* 🔳 THE QR LOOK LEAVES THE SESSION UPDATE TOO. The draft holds `{ qr }`
+       only; `style_preferences` also carries the couple's onboarding answers,
+       so it is MERGED into the blob as it stands at write time — through the
+       admin client, exactly as its live writer (`updateQrStyle`) always wrote
+       it — after the host check (top) and the Pro gate (`planHubDraftApply`). */
+    const qrWrite = 'style_preferences' in eventsPatch ? (eventsPatch.style_preferences as Record<string, unknown>) : undefined;
+    delete eventsPatch.style_preferences;
+    /* 🎵 The song's companions, as `updateSiteChrome` stamps them: where it came
+       from, and off when there is no song to play. */
+    if ('site_bg_music_r2_key' in eventsPatch) {
+      eventsPatch.site_bg_music_source = eventsPatch.site_bg_music_r2_key ? 'upload' : null;
+      if (!eventsPatch.site_bg_music_r2_key) eventsPatch.site_bg_music_enabled = false;
+    }
+    /* 🖼 NEW GALLERY PHOTOS ARE SCREENED BEFORE THEY GO LIVE — `updateOurPhotos`'
+       own rule, fail-closed: `our_photos` has no moderation state, so a ref in
+       it IS on the public page. A blocked photo is simply left out. */
+    if (Array.isArray(eventsPatch.our_photos)) {
+      const held = new Set(siteMediaServeRefs(live.events.our_photos));
+      const fresh = (eventsPatch.our_photos as string[]).filter((r) => !held.has(r));
+      if (fresh.length > 0) {
+        const blocked = await screenNewPhotoRefs(fresh);
+        if (blocked.length > 0) eventsPatch.our_photos = (eventsPatch.our_photos as string[]).filter((r) => !blocked.includes(r));
+      }
+    }
     // The companions each live writer stamps beside its column, so an applied
     // draft leaves the row exactly as the writer would have.
     if ('landing_page_hero_image_url' in eventsPatch) {
@@ -322,6 +397,29 @@ export async function hubDraftAction(
         .select('event_id');
       if (evErr || !Array.isArray(evRows) || evRows.length === 0) {
         return { ok: false, intent, error: 'Could not apply your changes. Nothing was changed.' };
+      }
+    }
+    if (qrWrite !== undefined) {
+      const admin = createAdminClient();
+      const { data: prefRow, error: prefErr } = await admin
+        .from('events')
+        .select('style_preferences')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const prefs =
+        !prefErr && prefRow?.style_preferences && typeof prefRow.style_preferences === 'object'
+          ? { ...(prefRow.style_preferences as Record<string, unknown>) }
+          : null;
+      if (!prefs && prefErr) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      const { data: qrRows, error: qrErr } = await admin
+        .from('events')
+        .update({ style_preferences: { ...(prefs ?? {}), ...qrWrite } })
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (qrErr || !Array.isArray(qrRows) || qrRows.length === 0) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }
     if (themeWrite !== undefined) {
@@ -381,7 +479,9 @@ export async function hubDraftAction(
                 ? STAGE_ORDER_KEY
                 : item.field === 'std_lead'
                   ? STD_LEAD_KEY
-                  : 'canvas';
+                  : item.field === 'custom'
+                    ? 'custom'
+                    : 'canvas';
           before[key] = base[key] ?? null;
           if (item.value === null) delete base[key];
           else base[key] = item.value;
@@ -411,6 +511,12 @@ export async function hubDraftAction(
         (remaining.widgets[item.widgetType] ??= {}).main = item.value as HubMainGround | null;
       } else if (item.field === 'mode') {
         (remaining.widgets[item.widgetType] ??= {}).mode = item.value as 'auto' | 'shown' | 'hidden';
+      } else if (item.field === 'is_visible') {
+        // 🎬 A scene of their own, held for Pro, stays SHOWN in the draft.
+        (remaining.widgets[item.widgetType] ??= {}).is_visible = item.value as boolean;
+      } else if (item.field === 'custom') {
+        // ✍ Its words, held for Pro, stay in the draft too.
+        (remaining.widgets[item.widgetType] ??= {}).custom = item.value as CustomSectionContent | null;
       }
     }
     await writeHubDraft(supabase, eventId, { v: 1, ...remaining, history: [] }, snapshot);

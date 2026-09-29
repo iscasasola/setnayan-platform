@@ -56,7 +56,9 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['▶ Play menu (this scene · the whole stage)', 'play', ['data-maker-tool="play"', 'Play this scene', 'Preview the whole']],
   // 2026-09-28 — the ＋ WORKS (DECISION_LOG 2026-09-27 "+ ADD A SCENE"): the shell
   // draws it from the work area's registration; "coming next" is gone.
-  ['＋ Add a scene', 'topBar', ['tool="Add"', '<AddSceneTool addScene={addScene} />']],
+  // 2026-09-28 (owner, on the Logo page: *"cannot see the scenes. and it should
+  // only show on stages."*) — drawn from the registration ON A STAGE only.
+  ['＋ Add a scene', 'topBar', ['tool="Add"', '<AddSceneTool addScene={stageAdd} />', 'makerAddShowsOn(selection) ? addScene : null']],
   ['"● Invitation ▾" — Stages + Pages in one picker', 'topBar', ['<MakerBar']],
   // "Both" was never a view — only a disabled row promising "the next build".
   // It came out 2026-09-28 (App Review rejects "coming soon"); nothing it did is lost.

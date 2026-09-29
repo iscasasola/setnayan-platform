@@ -12,7 +12,7 @@ import { siteOrigin } from '@/lib/site-origin';
 import { publicEventPath } from '@/lib/public-event-url';
 import { PRINT_PIECES } from '@/lib/print-pieces';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { paidMarkLabel, makerProMark } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { QrLookControls } from './qr-look-controls';
@@ -84,7 +84,6 @@ export function MakerDetails({
     current: string;
     ownsPro: boolean;
     storeShell: boolean;
-    proHref: string;
     /** Mount the picker's first-visit tour (off on the Maker's own first visit). */
     tour: boolean;
   } | null;
@@ -135,7 +134,6 @@ export function MakerDetails({
               current={theme.current}
               ownsPro={theme.ownsPro}
               storeShell={theme.storeShell}
-              proHref={theme.proHref}
             />
             {theme.tour ? <MiniTour tourKey="customer_theme_picker_v1" storeShell={theme.storeShell} /> : null}
           </>
@@ -154,16 +152,17 @@ export function MakerDetails({
         {/* ── Your QR (owner 2026-09-27) — the code every print and pass carries.
             Free: the Setnayan mark in the centre, square, classic. Event Hub Pro:
             YOUR logo in the centre, and Shape · Pattern · Colour — each ONE
-            dropdown (owner 2026-09-28), wearing the padlock until Pro. Saves
-            live (the QR is a picture on prints, not a drafted guest page) and
-            says so. Drawn beside these fields on the page. ── */}
+            dropdown (owner 2026-09-28), wearing ◆ PRO until Pro (owner 2026-09-28: "remove padlock … the diamond icon").
+            DRAFTED since 2026-09-29 (owner: "yes to all 3"): tried by every
+            couple, drawn in the preview (`?draft=1`), put live by Apply — only
+            with Pro. Drawn beside these fields on the page. ── */}
         <section data-details-qr="" className="flex flex-col gap-2 border-b border-ink/10 pb-5">
           <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             Your QR code
-            {paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell }) ? (
+            {makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell }) ? (
               <PaidMark
-                state={paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell })!}
-                label={paidMarkLabel(paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell })!, 'Event Hub Pro')}
+                state={makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell })!}
+                label={paidMarkLabel(makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell })!, 'Event Hub Pro')}
                 text="Event Hub Pro"
                 size="xs"
               />
@@ -172,7 +171,7 @@ export function MakerDetails({
           <p className="text-xs text-ink/60">
             {qr.ownsPro
               ? 'Your logo sits in the centre of every guest QR. Pick its shape, pattern and colour — every print and pass follows.'
-              : 'Every guest QR carries the Setnayan mark in the centre. With Event Hub Pro it carries your own logo, and you choose the shape, pattern and colour.'}
+              : 'Every guest QR carries the Setnayan mark in the centre. Try your logo, shape, pattern and colour here — they go live when you Apply with Event Hub Pro.'}
           </p>
           <QrLookControls
             eventId={eventId}
@@ -182,7 +181,6 @@ export function MakerDetails({
             inks={qr.inks}
             action={qrStyleAction}
           />
-          <HubSavesImmediately className="mt-1" />
           {/* Waits for the theme's tour, so two never stack on one first visit. */}
           <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} after={theme ? 'customer_theme_picker_v1' : undefined} />
         </section>
@@ -406,7 +404,8 @@ export function MakerDetailsPage({
             <img
               // `v=` is the render stamp: the route's PNG is shared-cached, and
               // a couple who just changed the shape must see it here at once.
-              src={`/api/website/qr/${encodeURIComponent(slug)}?v=${encodeURIComponent(stamp)}`}
+              // `draft=1`: the QR look the couple is trying (host-only, never cached).
+              src={`/api/website/qr/${encodeURIComponent(slug)}?draft=1&v=${encodeURIComponent(stamp)}`}
               alt="QR code for your Event Hub address"
               width={176}
               height={176}

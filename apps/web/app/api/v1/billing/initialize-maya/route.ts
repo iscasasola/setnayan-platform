@@ -92,7 +92,7 @@ const TITLE_BOOK: Record<string, string> = {
   PANOOD_SYSTEM:       'Live Studio Multi-Cam Live Broadcast Engine',
   CAMERA_BRIDGE:       'DSLR Mirrorless Camera Bridge Sync',
   LIVE_WALL:           'Live Venue Photo Wall Projection Socket',
-  PAKANTA:             'Pakanta Custom Wedding Song Service',
+  PAKANTA:             'Music Maker Custom Wedding Song Service',
   GUIDED_PACK:         'Setnayan Guided Planner Suite',
   MEDIA_PACK:          'Setnayan Comprehensive Media Pack Bundle',
 };

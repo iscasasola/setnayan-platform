@@ -269,7 +269,8 @@ test('🔒 the background layer is CHILDLESS — a lingering transform must stra
   );
   assert.match(
     src,
-    /<div aria-hidden className="hub-canvas-media" \/>/,
+    // Self-closing, with or without the parallax mark (`data-pahina-parallax`).
+    /<div\s+aria-hidden\s+className="hub-canvas-media"(?:\s+\{[^<>]*\})?\s*\/>/,
     'the media layer must stay self-closing — anything inside it could be position:fixed',
   );
 

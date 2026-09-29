@@ -4,7 +4,8 @@ import type { InviteSkinInput } from './invite-skin';
 import styles from './galeriya.module.css';
 
 /**
- * GALERIYA — the Modern invite theme (Event Hub Pro). See
+ * GALERIYA — the Modern invite theme (free since 2026-09-29; the tier lives in
+ * lib/invite-themes.ts, never here). See
  * galeriya.module.css for the port and its two measured corrections.
  *
  * The photo is painted as a CSS background whose URL goes through
@@ -69,7 +70,7 @@ export function galeriyaSkin({ photo, accent }: InviteSkinInput): DoorSkin {
      * fallback — it is a picture hook with the picture missing, on the one
      * screen a stranger reads first.
      *
-     * 🔒 THE MONOGRAM IS DELIBERATELY UNUSED. Every other Pro theme presses the
+     * 🔒 THE MONOGRAM IS DELIBERATELY UNUSED. Every other door presses the
      * couple's mark as a seal; this one does not ("this theme sets no seal" —
      * the design's own note). Their name IS the label, at 40px, and a seal
      * above it would be the same two people said twice.

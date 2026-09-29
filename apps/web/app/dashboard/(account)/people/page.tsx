@@ -209,7 +209,7 @@ export default async function PeoplePage({
         <div data-people-view="samahan">
           <div className="mb-5" data-view-door="samahan">
             <Link href="/dashboard/samahan/new" className="button-secondary inline-flex min-h-11 items-center text-sm">
-              New samahan
+              New group
             </Link>
           </div>
           <SamahanPeopleSection heading={false} />
@@ -260,7 +260,7 @@ function PeoplePreview() {
             {/* ⚠ WAS "There's nothing to do on this page yet." That sentence was FALSE for
                 anyone with a samahan, and it is the sentence the owner read. Scope the
                 claim to connections — never to the page. */}
-            Your samahan above are ready now.
+            Your groups above are ready now.
           </p>
         </div>
       </div>

@@ -31,8 +31,8 @@ export const PEOPLE_VIEW_LABEL: Record<PeopleView, string> = {
   connected: 'Connected',
   following: 'Following',
   followers: 'Followers',
-  alaga: 'Alaga',
-  samahan: 'Samahan',
+  alaga: 'Loved ones',
+  samahan: 'Groups',
 };
 
 export type PeopleViewGates = {

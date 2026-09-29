@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { QR_PATTERNS, QR_SHAPES, type QrPattern, type QrShape, type StoredQrStyle } from '@/lib/qr-look';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
@@ -16,10 +16,11 @@ import type { UpdateQrStyleResult } from '../qr-look-actions';
  *   · ONE dropdown per set of choices, on the shared PickMenu (owner
  *     2026-09-28: "if there are choices, again. us drop down menu") — never a
  *     pill row.
- *   · Paid-to-unlock wears a PADLOCK; unlocked wears the diamond (owner
- *     2026-09-25). A free couple sees the three dropdowns with the padlock
- *     beside each and, on a tap, is taken to the Event Hub Pro page instead of
- *     a save that would be refused — the server refuses too (qr-look-actions).
+ *   · ◆ PRO, never a padlock (owner 2026-09-28: *"let us remove padlock and
+ *     just show that these tools are for pro with the diamond icon"*); the
+ *     diamond once owned. Every pick is DRAFTED (owner 2026-09-29, "yes to
+ *     all 3"): the preview draws it for the host, the Apply sheet names it, and
+ *     Apply writes it only with Event Hub Pro (qr-look-actions).
  *   · In the app-store shell a locked door is ABSENT, not locked (the same rule
  *     maker-made-once follows): nothing here renders for a free couple there.
  *   · Colour offers only the couple's Mood Board colours that clear the
@@ -27,9 +28,10 @@ import type { UpdateQrStyleResult } from '../qr-look-actions';
  *     never listed, because a QR that photographs well and scans to nothing is
  *     worse than a plain one.
  *
- * The preview beside these is the real `/api/website/qr/<slug>` PNG with a
- * version query; `router.refresh()` after a save re-renders the page with a
- * new stamp, so the couple sees their choice on the actual code.
+ * The preview beside these is the real `/api/website/qr/<slug>` PNG — with
+ * `draft=1`, drawn from the host's draft — and a version query;
+ * `router.refresh()` after a save re-renders the page with a new stamp, so the
+ * couple sees their choice on the actual code.
  */
 export function QrLookControls({
   eventId,
@@ -53,27 +55,23 @@ export function QrLookControls({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
-  const mark = paidMarkState({ owns: ownsPro, storeShell });
+  const mark = makerProMark({ owns: ownsPro, storeShell });
 
   // The store shell shows no paid door to a free couple (App Review 3.1.1).
   if (!ownsPro && storeShell) return null;
 
-  const proPage = `/dashboard/${eventId}/studio/website-pro`;
+  /* 💾 Every pick goes into the DRAFT (owner 2026-09-29, "yes to all 3") —
+     a couple without Pro tries it too; the Apply sheet names it, and Apply
+     puts it on the live code only with Event Hub Pro. */
   const save = (patch: StoredQrStyle) => {
-    if (!ownsPro) {
-      router.push(proPage);
-      return;
-    }
     setNote(null);
     startTransition(async () => {
       const r = await action(patch);
       if (!r.ok) {
         setNote(
-          r.reason === 'not_pro'
-            ? 'This is part of Event Hub Pro.'
-            : r.reason === 'signed_out'
-              ? 'Sign in again to change your QR.'
-              : 'That did not save. Nothing changed — please try again.',
+          r.reason === 'signed_out'
+            ? 'Sign in again to change your QR.'
+            : 'That did not save. Nothing changed — please try again.',
         );
         return;
       }
@@ -137,7 +135,7 @@ export function QrLookControls({
           />
         </span>
       </Row>
-      {inks.length === 0 && ownsPro ? (
+      {inks.length === 0 ? (
         <p className="text-xs text-ink/55">Build your Mood Board to pick a colour — only colours dark enough to scan are offered.</p>
       ) : null}
       {note ? (

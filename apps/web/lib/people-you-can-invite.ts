@@ -241,7 +241,7 @@ export async function getPeopleYouCanInvite(
           lastName: last,
           name: m.display_name,
           source: 'samahan',
-          from: m.via[0] ?? 'Your samahan',
+          from: m.via[0] ?? 'Your group',
           email: null,
           // The `from` line shows one; the FILTER needs all of them — a person
           // in two of your samahans belongs to both chips, and the alphabetical

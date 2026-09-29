@@ -21,6 +21,7 @@ import {
   type ThemeTile,
 } from '@/lib/maker-theme-tiles';
 import { sampleHubTileSrc, themeStillSrc } from '@/lib/theme-sample-stills';
+import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { ThemePreviewOverlay } from './theme-preview-overlay';
@@ -363,8 +364,9 @@ export function MakerThemeMenu({
     <div data-maker-theme-menu="" className="flex flex-col gap-2">
       <div className="flex min-h-11 items-center justify-between gap-3">
         <InfoTip label="Theme" align="start">
-          Your whole Event Hub wears it — colours, lettering and motion — and so does every print. The themes marked ◆
-          come with Event Hub Pro — pick one anyway; Apply names it and asks.
+          Your whole Event Hub wears it — colours, lettering and motion — and so does every print.{' '}
+          {themeNames(FREE_THEMES)} are free; the others come with Event Hub Pro. Pick one anyway — Apply names it and
+          asks.
         </InfoTip>
         <PickMenu
           label="Theme"

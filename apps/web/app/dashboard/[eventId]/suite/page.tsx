@@ -18,9 +18,12 @@ import { type RowPill } from '../studio/_components/studio-app-row';
 import { SuiteServiceCard } from './_components/suite-service-card';
 import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
+import { OurServicesGrid } from './_components/our-services-grid';
+import { buildOurServices, OUR_SERVICE_ADD_ON_KEYS, toolHasGoneHome } from '@/lib/our-services';
+import { PAPIC_INCLUSIVE_SKUS } from '@/lib/papic-seats';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { STORE_SHELL_HIDDEN_ADDON_KEYS } from '@/lib/store-shell';
+import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -44,10 +47,25 @@ import {
 import { envFlagEnabled } from '@/lib/env-flag';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Suite' };
+export const metadata = { title: 'Our Services' };
 export const dynamic = 'force-dynamic';
 
 /**
+ * ⭐ OUR SERVICES (owner 2026-09-29 — DECISION_LOG "WHAT AN EVENT NEEDS — THE
+ * EVENT MENU BECOMES FOUR PILLARS (+ HOME)": *"Suite → becomes the Our
+ * Services page itself (each service card shows added / add)"*). The page
+ * now OPENS on the six services — Papic · Live Studio · Gallery (with
+ * Editorial) · Patiktok · Music Maker · Setnayan AI (SAI) — each one
+ * `CollectionCard` built by `lib/our-services.ts` from the SAME reads this
+ * page already made (ownership, live catalogue prices, the offered/closed
+ * gates). Same route, so every old /suite link still lands here; the menu's
+ * `studio` row keeps its key and now reads "Our Services".
+ *
+ * Everything else the Suite carried — recommendations, the other add-ons,
+ * the free planning tools and their search — stays below under "More for
+ * your event", minus the six, so no doorway is lost and nothing shows twice.
+ *
+ * ── HISTORY ─────────────────────────────────────────────────────────────────
  * Suite — the guided in-app services surface (owner 2026-07-18: "build the full
  * surface"; owner 2026-07-19: name locked = "Suite", supersedes the shipped
  * "Silid" naming). A single flagged home that leads with the AI secretary's
@@ -67,8 +85,9 @@ export const dynamic = 'force-dynamic';
  * customer-nav-config.ts / lib/customer-menu.ts / lib/nav-registry-defaults.ts.
  */
 
-/** The surface name — single source of truth so a rename is one edit. */
-const SUITE_NAME = 'Suite';
+/** The surface name — single source of truth so a rename is one edit.
+ *  "Suite" until 2026-09-29; now "Our Services" (the route stays /suite). */
+const SUITE_NAME = 'Our Services';
 
 /** Outcome-framed section headers for the "Add to your event" cards (owner:
  *  group by what you get, not by internal category). Maps the locked
@@ -356,7 +375,12 @@ export default async function SuitePage({ params }: Props) {
     if (t.requiresMarketplace && profile.marketplaceEnabled !== true) return false;
     return true;
   };
-  const freeTools = FREE_TOOLS.filter(freeToolOk);
+  // A tool whose home already carries it has moved there (lib/our-services.ts
+  // `TOOL_HOMES`); only the ones with no home yet stay on this page.
+  const websiteOn = surfaceEnabled(profile, 'website');
+  const freeTools = FREE_TOOLS.filter(
+    (t) => freeToolOk(t) && !toolHasGoneHome(t.key, websiteOn),
+  );
 
   // The two earliest saved marketplace vendors → a real side-by-side comparison;
   // fewer than two means there is nothing to compare, so the doorway falls back
@@ -467,6 +491,26 @@ export default async function SuitePage({ params }: Props) {
     return appStoreDetailHref(entry.key, eventId);
   }
 
+  // ── OUR SERVICES — the six cards the page opens on (lib/our-services.ts).
+  // Every input is a read or a gate this page already had; nothing is re-read.
+  // A failed price read leaves `priceMap` without the row, and the card then
+  // says "See the price" — never a guessed figure (UNKNOWN IS NOT FREE).
+  const ourServices = buildOurServices({
+    eventId,
+    catalogue: ADD_ONS,
+    owned: { active: ownedActive, pending: ownedPending },
+    prices: priceMap,
+    offered: surfaceOk,
+    sellableNow: (e) => addOnSellableNow(e, lifecyclePhase),
+    aiSellable: aiDisplayPhp > 0,
+    papicOwnedBy: PAPIC_INCLUSIVE_SKUS,
+    refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p),
+  });
+  /** Not one of the six (never on this page twice), and not a tool that has
+   *  moved to its home (`TOOL_HOMES`) — what is left has no home yet. */
+  const notOurs = (a: AddOnEntry) =>
+    !OUR_SERVICE_ADD_ON_KEYS.has(a.key) && !toolHasGoneHome(a.key, websiteOn);
+
   // ── The secretary's lead: the phase-aware "what to set up next" picks. ─────
   const monthsToDate = roadmapState?.months ?? null;
   // ⚠ The recommender is a "what to set up next" engine. After the event it must
@@ -482,7 +526,10 @@ export default async function SuitePage({ params }: Props) {
       // thing to "set up next", and recommending it would lead straight to a
       // card whose buy path is closed.
       return e
-        ? e.status !== 'coming_soon' && surfaceOk(e) && addOnSellableNow(e, lifecyclePhase)
+        ? e.status !== 'coming_soon' &&
+            notOurs(e) &&
+            surfaceOk(e) &&
+            addOnSellableNow(e, lifecyclePhase)
         : false;
     },
     isOwned: (key) => {
@@ -513,6 +560,7 @@ export default async function SuitePage({ params }: Props) {
   const aiSellable = aiDisplayPhp > 0;
   const eligible = ADD_ONS.filter(
     (a) =>
+      notOurs(a) &&
       surfaceOk(a) &&
       a.studioGroup !== 'utility' &&
       (a.serviceKey !== 'SETNAYAN_AI' || aiSellable || ownedActive.has('SETNAYAN_AI')),
@@ -593,6 +641,8 @@ export default async function SuitePage({ params }: Props) {
   // non-utility). SuiteSearch dedups by key.
   const hay = (label: string, blurb: string, tags: readonly string[] = []) =>
     `${label} ${blurb} ${tags.join(' ')}`.toLowerCase();
+  const moreCount =
+    recommended.length + active.length + addable.length + freeSkus.length + freeTools.length;
   const searchItems: SuiteSearchItem[] = [
     ...[...active, ...addable, ...freeSkus].map((a) => ({
       key: a.key,
@@ -617,6 +667,17 @@ export default async function SuitePage({ params }: Props) {
           </>
         }
       />
+
+      {/* The six services — the page's reason for being (owner 2026-09-29). */}
+      <OurServicesGrid services={ourServices} />
+
+      {/* What is left has no home yet. Once every tool has gone home this is
+          empty, and the whole section — heading, search and lists — goes. */}
+      {moreCount > 0 ? (
+      <>
+      <div className="border-t border-ink/10 pt-6">
+        <h2 className="sn-sec text-xl">More for your event</h2>
+      </div>
 
       {/* Search filters the whole browse view below to matching services; empty
           query → the normal Recommended / Yours / Add / Free sections. */}
@@ -692,6 +753,7 @@ export default async function SuitePage({ params }: Props) {
       ) : null}
 
       {/* Free to use — the complete free layer, every tool a real doorway. */}
+      {freeTools.length + freeSkus.length > 0 ? (
       <section aria-label="Free to use" className="space-y-4">
         <div className="border-t border-ink/10 pt-6">
           <h2 className="sn-sec text-xl">Free to use</h2>
@@ -708,8 +770,11 @@ export default async function SuitePage({ params }: Props) {
           {freeSkus.map(cardFor)}
         </RevealList>
         </section>
+      ) : null}
         </div>
       </SuiteSearch>
+      </>
+      ) : null}
     </section>
   );
 }

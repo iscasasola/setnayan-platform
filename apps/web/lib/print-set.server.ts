@@ -12,6 +12,7 @@ import { resolveMonogram, splitInitials } from '@/lib/monogram';
 import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { HERO_EVENT_COLUMNS, resolveHero } from '@/lib/event-hero';
+import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventSeatingPublished } from '@/lib/seat-pass';
 import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
@@ -455,7 +456,12 @@ async function themeStill(theme: InviteThemeId, mode: PrintMode): Promise<Uint8A
  * THE ONE HERO ON PAPER (Phase 6's resolver — never a hero read of our own).
  * A couple with their own hero photo prints IT where the theme puts its still;
  * `kind: 'card'` (no photo) keeps the theme's first frame. Classic stays paper
- * whatever the hero is (owner: "classic has no photo or video").
+ * whatever the hero is (owner: "classic has no photo or video"). The couple's
+ * own photo is Pro media — the page's one rule, `heroMayBePageGround`: it
+ * prints in a Pro theme (the sample a free couple sees included, as before),
+ * and in a free theme (Modern, Cyber Neon) only while the event OWNS Event Hub
+ * Pro (`printOwnsPro`, as viewed). A free or lapsed couple's free-theme print
+ * carries the theme's own still, the same as its page shows.
  */
 async function heroStill(event: PrintEventRow, mode: PrintMode): Promise<Uint8Array | null> {
   const hero = resolveHero(event);
@@ -561,7 +567,9 @@ export async function loadPrintSet(
   const [{ stored, blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu }, stillRaw, printMark] = await Promise.all([
     readPrintSetInputs(admin, eventId, event),
     look.still !== 'none'
-      ? heroStill(event, opts.mode).then((h) => h ?? themeStill(theme, opts.mode))
+      ? heroMayBePageGround(theme, heroGroundNeedsOwnership(theme) ? await printOwnsPro(eventId) : false)
+        ? heroStill(event, opts.mode).then((h) => h ?? themeStill(theme, opts.mode))
+        : themeStill(theme, opts.mode)
       : Promise.resolve(null),
     printMarkFor(event),
   ]);

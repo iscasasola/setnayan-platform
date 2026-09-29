@@ -57,6 +57,83 @@ const coercePrecision = (v: unknown): EventDatePrecision | null =>
   v === 'year' || v === 'month' || v === 'day' ? v : null;
 
 /**
+ * The FACTS "Your event" is drawn from — the event row, its type, the booked
+ * venues and the walking order — and whether each item is filled in. The
+ * navigator reads them through `loadYourEvent`; the pages that decide before
+ * Details draws (the Maker opening on the guided "What's left", Home's "Round N
+ * · x of y") read them HERE, the same read, so "done" can never differ between
+ * the two (Details part 5). Null when the event row cannot be read.
+ *
+ * Nothing slow: the date finder's matrix is `loadYourEvent`'s alone.
+ */
+export async function readYourEventFacts({
+  admin,
+  eventId,
+  parentCount,
+  hostCount,
+}: {
+  admin: SupabaseClient;
+  eventId: string;
+  parentCount: number;
+  hostCount: number;
+}) {
+  const rowRes = await admin.from('events').select(YOUR_EVENT_COLUMNS).eq('event_id', eventId).maybeSingle();
+  if (rowRes.error || !rowRes.data) {
+    if (rowRes.error) logQueryError('LaunchPage.yourEvent', rowRes.error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  const row = rowRes.data as unknown as Row;
+
+  const [profile, roleSet, bookings, groups] = await Promise.all([
+    resolveProfile(row.event_type ?? 'wedding'),
+    resolveRoleSetForEvent(eventId),
+    loadVenueBookings(admin, eventId),
+    loadEntourage(admin, eventId),
+  ]);
+  const words = eventWordsFromProfile(profile);
+  const kind = { words, offeredRoles: roleSet.offeredRoles };
+
+  const precision = row.event_date ? (coercePrecision(row.event_date_precision) ?? 'day') : null;
+  const a = splitStoredName(row.bride_name);
+  const b = splitStoredName(row.groom_name);
+  const people = peopleLabels(profile.terminology.personA, profile.terminology.personB);
+  const chinese = isChineseWedding(row);
+  /* ⚠ Where the BaZi birth-data section is live, `updateEventMatchCriteria`
+     purges birth data unless its consent box is posted — a names-only save
+     would erase it. There the Names item is not offered (flag off in prod). */
+  const namesWritable = people !== null && !(baziBirthDataEnabled() && chinese);
+  /* A one-person event's Name is `display_name`, written alone through the
+     same writer's `celebrant_name` door — no birth data near it — so it is
+     always offered (owner 2026-09-29, "yes to all 4", item 3). */
+  const nameWritable = people === null || namesWritable;
+  const venues = resolveEventVenues(bookings, row);
+  const marchLines = groups.reduce((n, g) => n + g.rows.length, 0);
+
+  return {
+    row,
+    words,
+    kind,
+    precision,
+    bookings,
+    groups,
+    venues,
+    people,
+    chinese,
+    namesWritable: nameWritable,
+    names: [a, b] as const,
+    facts: {
+      names: [a.first, b.first] as const,
+      oneName: people ? null : (row.display_name ?? ''),
+      date: { value: row.event_date, dayPrecise: precision === 'day' },
+      venueCount: venues.length,
+      parentCount,
+      hostCount,
+      marchLines,
+    },
+  };
+}
+
+/**
  * Everything Details › Your event reads, for the couple's own Maker (Details
  * part 2a). Null — and the group is simply not drawn — when the event row
  * cannot be read: an item must never show an empty box over a name it failed
@@ -84,24 +161,14 @@ export async function loadYourEvent({
   /** Open Date on "Help me choose" (`?date=help` — where /find-date lands). */
   helpFirst?: boolean;
 }): Promise<YourEventInput | null> {
-  const rowRes = await admin.from('events').select(YOUR_EVENT_COLUMNS).eq('event_id', eventId).maybeSingle();
-  if (rowRes.error || !rowRes.data) {
-    if (rowRes.error) logQueryError('LaunchPage.yourEvent', rowRes.error, { event_id: eventId }, 'graceful_degrade');
-    return null;
-  }
-  const row = rowRes.data as unknown as Row;
-
-  const [profile, roleSet, confirmedVendorCount, bookings, groups] = await Promise.all([
-    resolveProfile(row.event_type ?? 'wedding'),
-    resolveRoleSetForEvent(eventId),
+  const [base, confirmedVendorCount] = await Promise.all([
+    readYourEventFacts({ admin, eventId, parentCount, hostCount }),
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
-    loadVenueBookings(admin, eventId),
-    loadEntourage(admin, eventId),
   ]);
-  const words = eventWordsFromProfile(profile);
-  const kind = { words, offeredRoles: roleSet.offeredRoles };
+  if (!base) return null;
+  const { row, words, kind, precision, bookings, groups, venues, people, chinese, namesWritable } = base;
+  const [a, b] = base.names;
 
-  const precision = row.event_date ? (coercePrecision(row.event_date_precision) ?? 'day') : null;
   // The shipped Find your date's own read — the couple's suppliers against the days considered.
   const matrix: Promise<ScheduleMatrix | null> = fetchEventVendors(supabase, eventId)
     .then((vendors) =>
@@ -112,16 +179,6 @@ export async function loadYourEvent({
       return null;
     });
 
-  const a = splitStoredName(row.bride_name);
-  const b = splitStoredName(row.groom_name);
-  const people = peopleLabels(profile.terminology.personA, profile.terminology.personB);
-  const chinese = isChineseWedding(row);
-  /* ⚠ Where the BaZi birth-data section is live, `updateEventMatchCriteria`
-     purges birth data unless its consent box is posted — a names-only save
-     would erase it. There the Names item is not offered (flag off in prod). */
-  const namesWritable = people !== null && !(baziBirthDataEnabled() && chinese);
-
-  const venues = resolveEventVenues(bookings, row);
   const slots: VenueSlot[] = words.twoPeople
     ? [
         {
@@ -152,19 +209,9 @@ export async function loadYourEvent({
         },
       ];
 
-  const marchLines = groups.reduce((n, g) => n + g.rows.length, 0);
-
   return {
     kind,
-    facts: {
-      names: [a.first, b.first],
-      oneName: people ? null : (row.display_name ?? ''),
-      date: { value: row.event_date, dayPrecise: precision === 'day' },
-      venueCount: venues.length,
-      parentCount,
-      hostCount,
-      marchLines,
-    },
+    facts: base.facts,
     oneName: people
       ? null
       : {

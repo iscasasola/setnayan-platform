@@ -4,9 +4,19 @@
  * Owner, 2026-09-24/25 (DECISION_LOG): *"Classic · Rustic · Modern · Cinderella ·
  * Luxe · Vintage · Whimsical · Bridgerton · Great Gatsby · Cyber (Neon)"* — each a
  * WHOLE look, not a colour swap (*"we want the overall look"*), chosen ONCE in the
- * Event Hub Maker and read by every other surface. Classic is free and has no
- * photo or video (*"classic has no photo or video"*); the other nine are Event Hub
- * Pro (*"themes are part of pro except classic"*).
+ * Event Hub Maker and read by every other surface. Classic has no photo or
+ * video (*"classic has no photo or video"*).
+ *
+ * ── WHICH ARE FREE ──────────────────────────────────────────────────────────
+ * THREE are free — Classic, Modern and Cyber Neon — and the rest are Event Hub
+ * Pro. Owner, 2026-09-29 (DECISION_LOG "MODERN AND CYBER NEON BECOME FREE
+ * THEMES (WITH CLASSIC)"), verbatim, after the measured loop weights: *"Okay use
+ * modern and cyber FREE"*. It amends *"themes are part of pro except classic"*.
+ * `tier` below is the ONLY place that decision is written: every gate (the
+ * guest page, Apply, the picker's marks, print-ready files) and every sentence
+ * that counts or names the Pro themes reads `FREE_THEMES` / `PRO_THEMES` /
+ * `themeNames`, never a typed number or a typed list
+ * (`lib/free-themes-are-free.test.ts`).
  *
  * Values are COPIED from `assets/theme-backgrounds-2026-09-24/THEMES-2026-09-24.md`
  * (palettes measured off each loop, contrast re-measured over the text zone) —
@@ -274,7 +284,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     id: 'galeriya',
     name: 'Modern',
     word: 'Modern',
-    tier: 'pro',
+    tier: 'free',
     feels: ['modern'],
     opening: 'veil-sheer',
     signatureReveal: 'acrylic-slide',
@@ -498,7 +508,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     id: 'cyber',
     name: 'Cyber Neon',
     word: 'Cyber Neon',
-    tier: 'pro',
+    tier: 'free',
     feels: [],
     opening: 'two-flap-horizontal',
     signatureReveal: 'neon-flicker',
@@ -530,6 +540,24 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
 
 /** The ten, as a list in the owner's order — what the Maker's Theme panel mounts. */
 export const HUB_THEMES: readonly InviteTheme[] = INVITE_THEME_IDS.map((id) => INVITE_THEMES[id]);
+
+/** The themes every couple may wear, in the owner's order — shipped ones only. */
+export const FREE_THEMES: readonly InviteTheme[] = HUB_THEMES.filter((t) => t.ready && t.tier === 'free');
+
+/** The themes Event Hub Pro opens, in the owner's order — shipped ones only. */
+export const PRO_THEMES: readonly InviteTheme[] = HUB_THEMES.filter((t) => t.ready && t.tier === 'pro');
+
+/**
+ * Theme names as one phrase a couple reads — "Classic, Modern and Cyber Neon",
+ * or with `or` for a choice. Copy that names or counts themes calls this (and
+ * `.length`) on `FREE_THEMES` / `PRO_THEMES`, so a tier flip rewrites the
+ * sentence instead of leaving it to rot.
+ */
+export function themeNames(themes: readonly Pick<InviteTheme, 'name'>[], joiner: 'and' | 'or' = 'and'): string {
+  const names = themes.map((t) => t.name);
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} ${joiner} ${names[names.length - 1]}`;
+}
 
 export function isInviteThemeId(value: unknown): value is InviteThemeId {
   return typeof value === 'string' && (INVITE_THEME_IDS as readonly string[]).includes(value);
@@ -567,6 +595,10 @@ export function themeMediaKey(ref: string): string | null {
  * invite-theme questions"): *"the event types that carry the Save-the-Date film,
  * the same fence the reveal uses. Every other celebration gets House."*
  *
+ * The fence guards the PRO themes only. A free theme passes it the way Classic
+ * always has — so since 2026-09-29 a birthday may wear Modern or Cyber Neon too
+ * (they are free for everyone; the fence was never asked of a free theme).
+ *
  * The caller measures it — `resolveWeddingOnlyParts(profile).save_the_date_film`
  * — and hands the answer in, for the same reason `ownsPro` is a boolean and not
  * an event id: a gate that can only ever answer one way is indistinguishable, in
@@ -586,7 +618,10 @@ type WeddingFence = {
   mayShowStdFilm: boolean;
 };
 
-/** Free themes are for everyone; a Pro theme needs the unlock AND the fence. */
+/**
+ * Free themes are for everyone — every celebration, with or without the unlock,
+ * exactly as Classic always was; a Pro theme needs the unlock AND the fence.
+ */
 function themeIsAvailable(
   theme: InviteTheme,
   input: { ownsPro: boolean } & WeddingFence,
@@ -652,7 +687,8 @@ export function themeMatchingFeel(feel: unknown, fence: WeddingFence): InviteThe
 /**
  * The themes a couple can pick right now, in the order the owner named them.
  *
- * Pro themes are LISTED-BUT-DISABLED for a couple who simply has not bought the
+ * The free themes (`FREE_THEMES`) are pickable for every celebration, the way
+ * Classic always was. Pro themes are LISTED-BUT-DISABLED for a couple who simply has not bought the
  * unlock — *"never hidden, so a couple knows what they would get"*. They are
  * absent entirely where the event TYPE cannot have them (Q7 = A), and — the
  * caller's job — inside the store shell, where Pro is hidden, not locked.

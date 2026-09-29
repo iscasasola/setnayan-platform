@@ -56,6 +56,15 @@ export function yourEventItems(kind: YourEventKind): EventItemKey[] {
   return out;
 }
 
+/**
+ * The items Details actually draws — Names only where it can be written
+ * (`namesWritable`: two named people, and no birth data a names-only save would
+ * purge). ONE rule, read by the navigator and by the guided flow's pages.
+ */
+export function yourEventPresentKeys(kind: YourEventKind, namesWritable: boolean): EventItemKey[] {
+  return yourEventItems(kind).filter((k) => k !== 'names' || namesWritable);
+}
+
 /** "wedding" → "Wedding". */
 function capital(s: string): string {
   const t = s.trim();

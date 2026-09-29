@@ -7,7 +7,7 @@ import type { ScheduleMatrix } from '@/lib/schedule-matrix';
 import {
   parentsOffered,
   yourEventDone,
-  yourEventItems,
+  yourEventPresentKeys,
   yourEventLabel,
   yourEventUsedOn,
   type YourEventFacts,
@@ -94,7 +94,7 @@ export function yourEventParts({
   pieces: Partial<Record<EventItemKey, ReactNode>>;
 } {
   const { kind, facts } = input;
-  const keys = yourEventItems(kind).filter((k) => k !== 'names' || input.names !== null || input.oneName !== null);
+  const keys = yourEventPresentKeys(kind, input.names !== null || input.oneName !== null);
   const sub: Record<EventItemKey, string | undefined> = {
     names: input.oneName
       ? input.oneName.initial.trim() || 'Not set yet'

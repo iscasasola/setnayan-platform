@@ -3,6 +3,7 @@ import type { HubSectionCanvas, HubSceneSlot } from '@/lib/hub-canvas';
 import { SCENE_TEMPLATES, sceneTemplateClass, type SceneTemplate } from '@/lib/scene-templates';
 import { SceneClip } from './scene-clip';
 import { sceneBoundText } from '@/lib/details-bound';
+import { heroVideoRefForGuests, sceneClipRefForGuests } from '@/lib/guest-hero-video';
 
 /**
  * A TEMPLATE SCENE ON THE GUEST PAGE — one of the 25 (`lib/scene-templates.ts`),
@@ -57,6 +58,20 @@ export type SceneRenderInput = {
   /** ref → signed URL, resolved once for the whole page. */
   mediaUrls?: Readonly<Record<string, string>>;
   facts?: SceneFacts;
+  /**
+   * 🎞 The couple's own Maker canvas (a verified host) — a slot's clip plays.
+   * Absent = a guest: the SEC-6 switch (`heroVideoRefForGuests`) decides, the
+   * same switch a scene BACKGROUND's clip meets (`lib/scene-ground.ts`).
+   */
+  ownClipPlays?: boolean;
+  /**
+   * The still a guest sees in place of a clip that may not play — the hero
+   * photo, the documented stand-in for the hero clip (a slot's only clip
+   * source, `applySceneSlot`). Absent or unsigned: the slot shows nothing.
+   */
+  clipStillRef?: string | null;
+  /** The scene-clip switch (`GUEST_SCENE_CLIP_PLAYBACK`); tests pass `false`. */
+  sceneClipsOpen?: boolean;
 };
 
 type Pic = { url: string; snippet: boolean; index: number };
@@ -75,6 +90,19 @@ export function renderScene(input: SceneRenderInput): ReactElement | null {
   for (let i = 0; i < t.media; i += 1) {
     const s = slots[i];
     const url = s?.media ? input.mediaUrls?.[s.media] : undefined;
+    /* 🔒 A SLOT'S CLIP MEETS THE SAME SWITCH AS A BACKGROUND'S — the scene-clip
+       switch, OPEN since the owner's *"make it move"* (2026-09-29). Closed, a
+       guest sees its still instead (or nothing), exactly as `sceneGround`
+       treats a scene background's clip. */
+    if (
+      s?.kind === 'snippet' &&
+      s.media &&
+      !(heroVideoRefForGuests(s.media) || sceneClipRefForGuests(s.media, input.sceneClipsOpen) || input.ownClipPlays === true)
+    ) {
+      const still = input.clipStillRef ? input.mediaUrls?.[input.clipStillRef] : undefined;
+      if (still) pics.push({ url: still, snippet: false, index: i });
+      continue;
+    }
     if (url) pics.push({ url, snippet: s?.kind === 'snippet', index: i });
   }
   const blocks = t.blocks > 0 ? readBlocks(slots, t, facts) : [];

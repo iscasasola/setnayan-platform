@@ -8,10 +8,11 @@
  * reason to unlock").
  *
  * The screen render is the sheet as it will be CUT: clipped to the theme's die
- * shape, no bleed, no spot layers. ⚠ A THEMED vector is only ever served to a
- * couple who holds Event Hub Pro; Classic is free for everyone (owner
- * 2026-09-25, "EVERY PRINT IS FREE IN THE CLASSIC LOOK"), and so is the free
- * group's page-1 thumbnail. A free couple's screen copy of a THEMED piece is
+ * shape, no bleed, no spot layers. ⚠ A PRO-THEMED vector is only ever served
+ * to a couple who holds Event Hub Pro; the free themes — Classic (owner
+ * 2026-09-25, "EVERY PRINT IS FREE IN THE CLASSIC LOOK"), Modern and Cyber Neon
+ * (2026-09-29) — are free for everyone, and so is the free group's page-1
+ * thumbnail. A free couple's screen copy of a PRO-THEMED piece is
  * the flattened, watermarked JPEG `lib/print-sample-raster.ts` rasterises FROM
  * this SVG — that SVG never leaves the server for them (the watermark would be
  * an element anyone could delete).

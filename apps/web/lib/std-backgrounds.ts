@@ -70,6 +70,18 @@ export const STD_PAPER_BACKGROUNDS: readonly StdPaperBg[] = [
 export const STD_REALISTIC_IDS = STD_REALISTIC_BACKGROUNDS.map((b) => b.id);
 export const STD_PAPER_IDS = STD_PAPER_BACKGROUNDS.map((b) => b.id);
 
+/**
+ * 🖼 IS THIS ONE OF THE READY-MADE SCENES' OWN `src`? (owner 2026-09-29, answer
+ * 3 — *"yes"*: the Save the Date's ready-made backgrounds are offered as scene
+ * backgrounds.) An EXACT member of the closed list, never a pattern — so a
+ * scene background may name `/std/backgrounds/golden-hour.webp` and nothing
+ * else relative (`hubMediaRef`'s docblock: a stray relative ref is a request
+ * against the guest's own page).
+ */
+export function isStdLibrarySrc(value: unknown): value is string {
+  return typeof value === 'string' && STD_REALISTIC_BACKGROUNDS.some((b) => b.src === value);
+}
+
 export function realisticBgSrc(id: string): string | null {
   return STD_REALISTIC_BACKGROUNDS.find((b) => b.id === id)?.src ?? null;
 }

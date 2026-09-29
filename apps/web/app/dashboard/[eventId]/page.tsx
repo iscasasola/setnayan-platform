@@ -188,13 +188,29 @@ export default async function EventHomePage({
       (event as { secondary_ceremony_type?: string | null }).secondary_ceremony_type ?? null,
   });
 
+  // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
+  // 🔑 NONE OF THESE READS NEEDS ANOTHER ONE'S ANSWER, so none of them waits for
+  // one. They used to run one after another — the Nikah guests, the finished-
+  // event summary, the day-of grid, the Nikah officiant, the Papic viewer and
+  // nudge, the Setnayan AI offer and the store-shell check, each waiting for the
+  // last — and the event overview took ~1.4 s (measured on prod, 2026-09-29).
+  // Each block below is STARTED here, as a promise, with its own graceful-
+  // degrade exactly as it was, and they are all awaited together in the one
+  // `Promise.all` under the one wait below. A read that needs an earlier answer
+  // (the Papic nudge needs the viewer's membership; the AI offer needs the
+  // paywall flag) chains INSIDE its own started promise, as it always did.
+  // 🔒 THE EVENT ROW ABOVE STAYS FIRST. Every service-role read below is still
+  // started only after `notFound()` has refused a caller who cannot read it.
+  // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
+  // RUN — one stray `await` puts a full database trip back in front of the page.
+
   // Guests — read ONLY by the Muslim-track NikahEssentialsCard (wali / witness /
   // imam role tallies), which itself renders only when isNikahEvent. So the
   // fetch is gated on isNikahEvent — every non-Muslim event skips the query
   // entirely. Fail-soft to [] so a guest-query hiccup never blocks Home.
   // (EventDashboard re-fetches its own guests for the at-a-glance stats.)
-  const guests = isNikahEvent
-    ? await fetchGuestsByEvent(supabase, eventId).catch((err: unknown) => {
+  const guestsRead = isNikahEvent
+    ? fetchGuestsByEvent(supabase, eventId).catch((err: unknown) => {
         logQueryError(
           'EventHome (fetchGuestsByEvent threw)',
           err instanceof Error ? err : new Error(String(err)),
@@ -203,7 +219,7 @@ export default async function EventHomePage({
         );
         return [] as Awaited<ReturnType<typeof fetchGuestsByEvent>>;
       })
-    : ([] as Awaited<ReturnType<typeof fetchGuestsByEvent>>);
+    : Promise.resolve([] as Awaited<ReturnType<typeof fetchGuestsByEvent>>);
 
   // Day-of mode (iteration 0031): inside the day-of window, load the schedule
   // + seating + same-day data for the live grid that takes over above
@@ -258,91 +274,116 @@ export default async function EventHomePage({
     card its figure and nothing else.
   */
   const afterActive = lifecyclePhase === 'after';
-  let afterSummary: AfterSummary | null = null;
-  if (afterActive) {
-    afterSummary = await loadAfterSummary(adminClient, eventId).catch(() => null);
-  }
-  let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
-  let dayOfHeadTable: EventTableRow | null = null;
-  let dayOfNearbyTables: EventTableRow[] = [];
-  let dayOfSameDayVendors: SameDayVendor[] = [];
-  // LIVE_WALL ownership for the day-of grid's photo-wall card. Same predicate
-  // /wall/[eventId] gates on, so the card and the destination can never disagree.
-  // Fails closed: any read error leaves this false and the card simply hides.
-  let dayOfLiveWallActive = false;
-  let dayOfBroadcast: BroadcastCardData | undefined;
-  if (dayOfActive) {
-    const [blocksRes, tablesRes, sameDayRes] = await Promise.all([
-      fetchScheduleBlocks(supabase, eventId).catch(() => []),
-      fetchTables(supabase, eventId).catch(() => [] as EventTableRow[]),
-      // Day-of "Get help" shortlist (Event Lifecycle Menu §4 / PR5) — verified
-      // + paid vendors who opted into same-day work, nearest the venue first.
-      // Best-effort: a query error just leaves the escalation-only floor.
-      findSameDayVendors(supabase, {
-        lat: (event as { venue_latitude?: number | null }).venue_latitude ?? null,
-        lng: (event as { venue_longitude?: number | null }).venue_longitude ?? null,
-        region: (event as { region?: string | null }).region ?? null,
-      }).catch(() => [] as SameDayVendor[]),
-    ]);
-    dayOfBlocks = blocksRes;
-    dayOfSameDayVendors = sameDayRes;
-    const tables = tablesRes;
-    // The canonical 2026-05-09 catalog replaces the variable-capacity 'head_table'
-    // with three fixed family_head_12/14/16 variants. Day-of UI keeps surfacing
-    // a single "head table" by picking the first family_head_* row found.
-    dayOfHeadTable = tables.find((t) => t.table_type.startsWith('family_head_')) ?? null;
-    dayOfNearbyTables = tables.filter((t) => t.table_id !== dayOfHeadTable?.table_id).slice(0, 6);
+  const afterSummaryRead: Promise<AfterSummary | null> = afterActive
+    ? loadAfterSummary(adminClient, eventId).catch(() => null)
+    : Promise.resolve(null);
+  const dayOfRead = (async () => {
+    let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
+    let dayOfHeadTable: EventTableRow | null = null;
+    let dayOfNearbyTables: EventTableRow[] = [];
+    let dayOfSameDayVendors: SameDayVendor[] = [];
+    // LIVE_WALL ownership for the day-of grid's photo-wall card. Same predicate
+    // /wall/[eventId] gates on, so the card and the destination can never disagree.
+    // Fails closed: any read error leaves this false and the card simply hides.
+    let dayOfLiveWallActive = false;
+    let dayOfBroadcast: BroadcastCardData | undefined;
+    if (dayOfActive) {
+      // The schedule is read ONCE and shared: the grid shows it, and the P3
+      // call-time count below derives from it, so that count waits on this
+      // promise rather than on the whole day-of batch.
+      const blocksRead = fetchScheduleBlocks(supabase, eventId).catch(() => []);
 
-    // LIVE_WALL — resolve ownership server-side so the client grid can hide the
-    // card. Best-effort; a throw leaves it false.
-    try {
-      dayOfLiveWallActive = await eventSkuActive(adminClient, eventId, 'LIVE_WALL');
-    } catch {
-      dayOfLiveWallActive = false;
-    }
-
-    // Coordinator P3 (flag-gated, default OFF): the broadcast card's data —
-    // latest broadcasts (RLS-scoped; [] pre-migration), whether THIS viewer
-    // may compose (couple / schedule-'edit' delegate), and — for composers
-    // only — the derivable vendor call-time count + email availability that
-    // drive the "Email call-times" button. Flag off → `dayOfBroadcast` stays
-    // undefined and the card renders its pre-P3 stub exactly as today.
-    if (await isCoordinatorP3Enabled()) {
-      try {
-        const [broadcastRead, authority] = await Promise.all([
-          fetchLatestBroadcasts(supabase, eventId, 3),
-          resolveBroadcastAuthority(supabase, eventId, user.id),
-        ]);
-        const broadcastsMeasured = broadcastRead !== BROADCASTS_UNREADABLE;
-        const broadcastItems = broadcastsMeasured ? broadcastRead : [];
-        let callTimeCount = 0;
-        let emailConfigured = false;
-        if (authority.canSend) {
-          const [rosMeta, vendorsRes, emailCfg] = await Promise.all([
-            fetchBlockRosMeta(supabase, eventId),
-            supabase
-              .from('event_vendors')
-              .select('vendor_id, vendor_name, contact_email')
-              .eq('event_id', eventId)
-              .is('archived_at', null),
-            isEmailConfigured(),
-          ]);
-          const vendors = (vendorsRes.data ?? []) as CallTimeVendor[];
-          callTimeCount = deriveVendorCallTimes(dayOfBlocks, rosMeta, vendors).length;
-          emailConfigured = emailCfg;
+      // LIVE_WALL — resolve ownership server-side so the client grid can hide the
+      // card. Best-effort; a throw leaves it false. Started beside the three
+      // reads below, never after them — it needs none of their answers.
+      const liveWallRead = (async () => {
+        try {
+          return await eventSkuActive(adminClient, eventId, 'LIVE_WALL');
+        } catch {
+          return false;
         }
-        dayOfBroadcast = {
-          items: broadcastItems,
-          senderRole: authority.role,
-          callTimeCount,
-          emailConfigured,
-          broadcastsMeasured,
-        };
-      } catch {
-        dayOfBroadcast = undefined;
-      }
+      })();
+
+      // Coordinator P3 (flag-gated, default OFF): the broadcast card's data —
+      // latest broadcasts (RLS-scoped; [] pre-migration), whether THIS viewer
+      // may compose (couple / schedule-'edit' delegate), and — for composers
+      // only — the derivable vendor call-time count + email availability that
+      // drive the "Email call-times" button. Flag off → `dayOfBroadcast` stays
+      // undefined and the card renders its pre-P3 stub exactly as today.
+      const broadcastCardRead = (async (): Promise<BroadcastCardData | undefined> => {
+        if (await isCoordinatorP3Enabled()) {
+          try {
+            const [broadcastRead, authority] = await Promise.all([
+              fetchLatestBroadcasts(supabase, eventId, 3),
+              resolveBroadcastAuthority(supabase, eventId, user.id),
+            ]);
+            const broadcastsMeasured = broadcastRead !== BROADCASTS_UNREADABLE;
+            const broadcastItems = broadcastsMeasured ? broadcastRead : [];
+            let callTimeCount = 0;
+            let emailConfigured = false;
+            if (authority.canSend) {
+              const [rosMeta, vendorsRes, emailCfg, blocks] = await Promise.all([
+                fetchBlockRosMeta(supabase, eventId),
+                supabase
+                  .from('event_vendors')
+                  .select('vendor_id, vendor_name, contact_email')
+                  .eq('event_id', eventId)
+                  .is('archived_at', null),
+                isEmailConfigured(),
+                blocksRead,
+              ]);
+              const vendors = (vendorsRes.data ?? []) as CallTimeVendor[];
+              callTimeCount = deriveVendorCallTimes(blocks, rosMeta, vendors).length;
+              emailConfigured = emailCfg;
+            }
+            return {
+              items: broadcastItems,
+              senderRole: authority.role,
+              callTimeCount,
+              emailConfigured,
+              broadcastsMeasured,
+            };
+          } catch {
+            return undefined;
+          }
+        }
+        return undefined;
+      })();
+
+      const [blocksRes, tablesRes, sameDayRes, liveWallRes, broadcastRes] = await Promise.all([
+        blocksRead,
+        fetchTables(supabase, eventId).catch(() => [] as EventTableRow[]),
+        // Day-of "Get help" shortlist (Event Lifecycle Menu §4 / PR5) — verified
+        // + paid vendors who opted into same-day work, nearest the venue first.
+        // Best-effort: a query error just leaves the escalation-only floor.
+        findSameDayVendors(supabase, {
+          lat: (event as { venue_latitude?: number | null }).venue_latitude ?? null,
+          lng: (event as { venue_longitude?: number | null }).venue_longitude ?? null,
+          region: (event as { region?: string | null }).region ?? null,
+        }).catch(() => [] as SameDayVendor[]),
+        liveWallRead,
+        broadcastCardRead,
+      ]);
+      dayOfBlocks = blocksRes;
+      dayOfSameDayVendors = sameDayRes;
+      const tables = tablesRes;
+      // The canonical 2026-05-09 catalog replaces the variable-capacity 'head_table'
+      // with three fixed family_head_12/14/16 variants. Day-of UI keeps surfacing
+      // a single "head table" by picking the first family_head_* row found.
+      dayOfHeadTable = tables.find((t) => t.table_type.startsWith('family_head_')) ?? null;
+      dayOfNearbyTables = tables.filter((t) => t.table_id !== dayOfHeadTable?.table_id).slice(0, 6);
+      dayOfLiveWallActive = liveWallRes;
+      dayOfBroadcast = broadcastRes;
     }
-  }
+    return {
+      dayOfBlocks,
+      dayOfHeadTable,
+      dayOfNearbyTables,
+      dayOfSameDayVendors,
+      dayOfLiveWallActive,
+      dayOfBroadcast,
+    };
+  })();
 
   // Nikah imam designation (Muslim track). The Five-essentials card ticks the
   // "Imam / qadi" essential when a guest has role 'imam' (computed in the card
@@ -351,47 +392,50 @@ export default async function EventHomePage({
   // venue auto-resolves the imam (computeOfficiantAutoResolution → muslim_mosque,
   // which also surfaces the PD 1083 hint). Only runs for muslim events, and the
   // auto-resolve query only fires when no officiant vendor is already booked.
-  let nikahImamBooked = false;
-  let nikahImamNote: string | null = null;
-  if (isNikahEvent) {
-    const officiantRowsRes = await (async () => {
-      try {
-        return await supabase
-          .from('event_vendors')
-          .select('marketplace_vendor_id, source_venue_directory_id, category, status')
-          .eq('event_id', eventId)
-          .is('archived_at', null);
-      } catch (caught) {
-        logQueryError(
-          'EventHome (nikah officiant event_vendors SELECT threw)',
-          caught instanceof Error ? caught : new Error(String(caught)),
-          { event_id: eventId, user_id: user.id },
-          'graceful_degrade',
-        );
-        return { data: [], error: null } as never;
-      }
-    })();
-    const officiantRows = (officiantRowsRes.data ?? []) as Array<{
-      marketplace_vendor_id: string | null;
-      source_venue_directory_id: string | null;
-      category: string | null;
-      status: string | null;
-    }>;
-    nikahImamBooked = officiantRows.some(
-      (v) => v.category === 'officiant' && OFFICIANT_LOCKED_STATUSES.has(v.status ?? ''),
-    );
-    if (!nikahImamBooked) {
-      const resolved = await computeOfficiantAutoResolution(supabase, {
-        eventId,
-        ceremonyType: 'muslim',
-        vendorRows: officiantRows,
-      }).catch(() => null);
-      if (resolved?.framing === 'muslim_mosque') {
-        nikahImamBooked = true;
-        nikahImamNote = getOfficiantAutoResolvedHint('muslim_mosque');
+  const nikahImamRead = (async () => {
+    let nikahImamBooked = false;
+    let nikahImamNote: string | null = null;
+    if (isNikahEvent) {
+      const officiantRowsRes = await (async () => {
+        try {
+          return await supabase
+            .from('event_vendors')
+            .select('marketplace_vendor_id, source_venue_directory_id, category, status')
+            .eq('event_id', eventId)
+            .is('archived_at', null);
+        } catch (caught) {
+          logQueryError(
+            'EventHome (nikah officiant event_vendors SELECT threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: [], error: null } as never;
+        }
+      })();
+      const officiantRows = (officiantRowsRes.data ?? []) as Array<{
+        marketplace_vendor_id: string | null;
+        source_venue_directory_id: string | null;
+        category: string | null;
+        status: string | null;
+      }>;
+      nikahImamBooked = officiantRows.some(
+        (v) => v.category === 'officiant' && OFFICIANT_LOCKED_STATUSES.has(v.status ?? ''),
+      );
+      if (!nikahImamBooked) {
+        const resolved = await computeOfficiantAutoResolution(supabase, {
+          eventId,
+          ceremonyType: 'muslim',
+          vendorRows: officiantRows,
+        }).catch(() => null);
+        if (resolved?.framing === 'muslim_mosque') {
+          nikahImamBooked = true;
+          nikahImamNote = getOfficiantAutoResolvedHint('muslim_mosque');
+        }
       }
     }
-  }
+    return { nikahImamBooked, nikahImamNote };
+  })();
 
   // Recurrence (owner 2026-07-12): recurring types (birthday · anniversary ·
   // reunion · corporate) get a "plan next year" card that clones this event's
@@ -420,30 +464,37 @@ export default async function EventHomePage({
   // ⚖ Fails closed: an unread membership hides the photo counts rather than
   // ⚖ showing a coordinator numbers they may not be entitled to. Logged, so a
   // ⚖ couple who cannot see their own photo tile leaves a trace.
-  const { data: papicViewerMembership, error: papicViewerMembershipError } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .in('member_type', ['couple', 'coordinator'])
-    .maybeSingle();
-  if (papicViewerMembershipError) {
-    logQueryError(
-      'EventHomePage.papicViewerMembership',
-      papicViewerMembershipError,
-      { event_id: eventId },
-      'graceful_degrade',
-    );
-  }
-  const canViewPapicCounts = Boolean(papicViewerMembership);
+  //
+  // ⛓ ONE STARTED PROMISE, because the nudge below is authorised BY this
+  // membership read — it is a service-role count, so it must never start before
+  // the answer is in. The pair is returned together and unpacked after the wait.
+  const papicViewerRead = (async () => {
+    const { data: papicViewerMembership, error: papicViewerMembershipError } = await supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .in('member_type', ['couple', 'coordinator'])
+      .maybeSingle();
+    if (papicViewerMembershipError) {
+      logQueryError(
+        'EventHomePage.papicViewerMembership',
+        papicViewerMembershipError,
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    const canViewPapicCounts = Boolean(papicViewerMembership);
 
-  // Papic nudge gate (PR-G option B). Asked ONLY when the nudge could actually
-  // render — a date-less event is showing the set-date nudge instead, and a
-  // non-couple viewer never sees it — so neither pays a query.
-  const papicNudgeVisible =
-    event.event_date && canViewPapicCounts
-      ? await papicNudgeShouldShow(adminClient, eventId, canViewPapicCounts)
-      : false;
+    // Papic nudge gate (PR-G option B). Asked ONLY when the nudge could actually
+    // render — a date-less event is showing the set-date nudge instead, and a
+    // non-couple viewer never sees it — so neither pays a query.
+    const papicNudgeVisible =
+      event.event_date && canViewPapicCounts
+        ? await papicNudgeShouldShow(adminClient, eventId, canViewPapicCounts)
+        : false;
+    return { canViewPapicCounts, papicNudgeVisible };
+  })();
 
   // Setnayan AI comeback offer (owner-locked 2026-08-30): one 24h window per
   // HOST, inside which every event they own that never bought AI is offered at
@@ -461,17 +512,23 @@ export default async function EventHomePage({
   // it — and `null` only when there is genuinely nothing to sell (the event
   // already owns AI, or no usable price). The DISCOUNT expires here, not the
   // product.
-  const paywallOn = await resolveSetnayanAiPaywallEnabled();
-  const aiOffer = paywallOn
-    ? await resolveSetnayanAiOfferForEvent(
-        supabase,
-        eventId,
-        (event.event_type as string | null) ?? null,
-      ).catch(() => null)
-    : null;
-  // Only the BUY-card branch needs the BDO/GCash settings — fetch lazily,
-  // same pattern as the studio buy page.
-  const aiOfferSettings = aiOffer ? await fetchPlatformSettings(supabase) : null;
+  //
+  // ⛓ The flag, the offer and its settings chain INSIDE one started promise —
+  // each still asked only when the one before it says so.
+  const aiOfferRead = (async () => {
+    const paywallOn = await resolveSetnayanAiPaywallEnabled();
+    const aiOffer = paywallOn
+      ? await resolveSetnayanAiOfferForEvent(
+          supabase,
+          eventId,
+          (event.event_type as string | null) ?? null,
+        ).catch(() => null)
+      : null;
+    // Only the BUY-card branch needs the BDO/GCash settings — fetch lazily,
+    // same pattern as the studio buy page.
+    const aiOfferSettings = aiOffer ? await fetchPlatformSettings(supabase) : null;
+    return { aiOffer, aiOfferSettings };
+  })();
 
   // 🔒 NO PRICE ON THE FIRST SCREEN IN THE STORE SHELL. This offer carries a
   // peso figure (and a struck-through "regular" one) for a digital SKU, on the
@@ -479,7 +536,33 @@ export default async function EventHomePage({
   // place for an App Review 3.1.1 finding. The route stays open because the
   // dashboard is the planning surface the store shell exists for; only the
   // purchase pitch is withheld. See lib/store-shell.ts.
-  const storeShell = await isStoreShellRequest();
+  const storeShellRead = isStoreShellRequest();
+
+  // ─── THE ONE WAIT ────────────────────────────────────────────────────────
+  const [
+    guests,
+    afterSummary,
+    {
+      dayOfBlocks,
+      dayOfHeadTable,
+      dayOfNearbyTables,
+      dayOfSameDayVendors,
+      dayOfLiveWallActive,
+      dayOfBroadcast,
+    },
+    { nikahImamBooked, nikahImamNote },
+    { canViewPapicCounts, papicNudgeVisible },
+    { aiOffer, aiOfferSettings },
+    storeShell,
+  ] = await Promise.all([
+    guestsRead,
+    afterSummaryRead,
+    dayOfRead,
+    nikahImamRead,
+    papicViewerRead,
+    aiOfferRead,
+    storeShellRead,
+  ]);
 
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land

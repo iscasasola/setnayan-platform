@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6539
+# facts: 6542
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     565
 #   col       4774
-#   policy    939
+#   policy    940
 #   view      8
-#   func      249
+#   func      251
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6033,6 +6033,7 @@ policy	public.user_face_profiles|user_owns_face_profile_select	mode=PERMISSIVE c
 policy	public.user_face_profiles|user_owns_face_profile_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(auth.uid() = user_id) check=(auth.uid() = user_id)
 policy	public.user_follows|admin_full_access_user_follows	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.user_follows|follower_owns_follow	mode=PERMISSIVE cmd=ALL roles=authenticated using=(follower_user_id = auth.uid()) check=(follower_user_id = auth.uid())
+policy	public.user_follows|user_follows_followed_reads_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(followed_user_id = auth.uid()) check=NULL
 policy	public.user_reports|user_reports_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.user_reports|user_reports_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=is_admin() check=is_admin()
 policy	public.user_reports|user_reports_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
@@ -6352,6 +6353,7 @@ func	public.colour_domains_for_category(p_category text)	secdef=no exec=authenti
 func	public.compute_attribute_completeness(payload jsonb, schema jsonb)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.confirm_service_slot_reservation(p_reservation_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.confirm_vendor_payment(p_payment_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.connection_request_events()	secdef=yes exec=authenticated search_path=public
 func	public.coordinator_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=yes exec=authenticated search_path=public
 func	public.count_saves_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.count_unread_message_threads()	secdef=yes exec=anon,authenticated search_path=public
@@ -6385,6 +6387,7 @@ func	public.event_host_holds_founder_seat(p_event_id uuid)	secdef=yes exec=anon,
 func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.finalize_guest_claim(p_claim_id uuid, p_guest_id uuid, p_reviewer uuid)	secdef=yes exec=anon search_path=public
+func	public.follow_people_names(p_user_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.funnel_benchmark_for_vendor(p_vendor_profile_id uuid, p_category text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.generate_event_connections(p_event_id uuid, p_creator uuid)	secdef=yes exec=authenticated search_path=public, extensions
 func	public.generate_event_join_token()	secdef=no exec=anon,authenticated search_path=UNPINNED

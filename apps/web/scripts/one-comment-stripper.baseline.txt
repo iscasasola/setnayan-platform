@@ -83,7 +83,6 @@ apps/web/app/api/guest/qr/guest-can-keep-their-code.test.ts
 apps/web/app/blog/[slug]/_components/journal-partner-credit.test.ts
 apps/web/app/dashboard/(account)/creator/your-story-is-a-chronicle.test.ts
 apps/web/app/dashboard/(account)/library/_components/album-shelf.test.ts
-apps/web/app/dashboard/(account)/people/the-buttons-live-together.test.ts
 apps/web/app/dashboard/(account)/samahan/[communityId]/_components/identity-is-edited-in-place.test.ts
 apps/web/app/dashboard/(account)/samahan/[communityId]/_components/samahan-stories-recorder.test.ts
 apps/web/app/dashboard/(launcher)/a-celebrated-card-is-not-scored.test.ts

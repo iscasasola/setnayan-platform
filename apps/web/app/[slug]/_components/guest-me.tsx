@@ -1,4 +1,6 @@
 import type { GuestAccountState } from '@/lib/guest-one-path';
+import type { CelebrantRow } from '@/lib/event-celebrants.server';
+import { EventCelebrants, type CelebrantActions } from './event-celebrants';
 import { NotYouSwitch } from './not-you-switch';
 import { SaveToAccount } from './save-to-account';
 import { YourGuests } from './your-guests';
@@ -11,6 +13,8 @@ import type { InviteEventFacts } from '@/lib/guest-invite-message';
  *   · their name, with "Not you? Switch" under it (a phone a family shares);
  *   · their guests — "Send their invite" each, "Show <name>'s pass" for a
  *     plus-one with no phone, "Add their name" for a TBA seat;
+ *   · "The celebrants" — Follow or Add the people this event is for (owner
+ *     2026-09-28), only when this seat is linked to the viewer's own account;
  *   · "Save to my account" — reachable any time, before or after replying, and
  *     on the day (owner 2026-09-27: *"and on the day"*), the SAME one button the
  *     thank-you carries, method chosen by the device.
@@ -30,6 +34,9 @@ export function GuestMe({
   userAgent,
   termsCarried,
   inviteFacts,
+  celebrants = [],
+  canAddCelebrants = false,
+  celebrantActions = null,
 }: {
   name: string;
   slug: string;
@@ -43,6 +50,12 @@ export function GuestMe({
   termsCarried: boolean;
   /** The event's words for "Send their invite". */
   inviteFacts?: InviteEventFacts;
+  /** This event's celebrants who hold accounts — empty unless the viewer's
+   *  own account holds this seat (page.tsx decides). */
+  celebrants?: CelebrantRow[];
+  canAddCelebrants?: boolean;
+  /** Follow + Add, handed in by the page (server actions). */
+  celebrantActions?: CelebrantActions | null;
 }) {
   return (
     <div className="space-y-6" data-guest-me>
@@ -56,6 +69,12 @@ export function GuestMe({
         addNamesHref={`/${slug}/invite/reply#plus-ones`}
         passes={passes}
         inviteFacts={inviteFacts}
+      />
+      <EventCelebrants
+        eventId={eventId}
+        celebrants={celebrants}
+        canAdd={canAddCelebrants}
+        actions={celebrantActions}
       />
       {account ? (
         <SaveToAccount

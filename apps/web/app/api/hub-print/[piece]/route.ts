@@ -27,6 +27,7 @@ import {
   parseMenu,
   parsePrintDetails,
   printAccess,
+  storyHasMoments,
   printFileName,
   serializePrintDetails,
   spotLayersFor,
@@ -49,8 +50,8 @@ import { previewCacheControl } from '@/lib/print-preview-cache';
  * Pro theme is print-ready only with Event Hub Pro. Since 2026-09-29 the free
  * themes (Classic, Modern, Cyber Neon — `isProPrint` false) all print free.
  *
- *   · a set piece (`invitation` · `entourage` · `details` · `pass` · `poster` ·
- *     `card`):
+ *   · a set piece (`invitation` · `entourage` · `details` · `menu` · `pass` ·
+ *     `poster` · `story-poster` · `card`):
  *       `sample` — ONE flattened JPEG, ≤ 800 px, quality 60, the tiled
  *                  "SAMPLE · SETNAYAN" watermark burned into the pixels,
  *                  placeholder QRs. Never a PDF, never a vector.
@@ -59,7 +60,8 @@ import { previewCacheControl } from '@/lib/print-preview-cache';
  *                  theme without Pro;
  *       `print`  — the print-ready PDF (bleed, crop marks, Foil / White ink /
  *                  Die cut layers), no watermark. A free theme: everyone. A Pro theme: Pro.
- *   · `set` — the themed pieces (the Menu only once it has a dish): one print-ready PDF, or one sample sheet JPEG.
+ *   · `set` — the themed pieces (the Menu only once it has a dish, the Our Story
+ *     poster only once there is a Love Story): one print-ready PDF, or one sample sheet JPEG.
  *   · `passes` — every guest's pass, ganged on A4, each QR the guest's own
  *     invitation code. A free theme: everyone. A Pro theme: Pro.
  *   · the FREE GROUP (`kind: 'free'`, no themed version, store shell included):
@@ -274,7 +276,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     if (!wantsSet && piece === 'menu' && !hasMenu) {
       return new NextResponse('Add your menu first — the moments of your night and their dishes — in Prints & Tickets.', { status: 409 });
     }
-    const keys = wantsSet ? PRINT_SET_KEYS.filter((k) => k !== 'menu' || hasMenu) : [piece as PrintSetKey];
+    // …and neither is the Our Story poster: with no Love Story it is refused
+    // on its own and left out of the whole set.
+    const hasStory = storyHasMoments(set.data.story);
+    if (!wantsSet && piece === 'story-poster' && !hasStory) {
+      return new NextResponse('Add your Love Story first — its moments are what the poster prints — in the Maker’s Love Story.', { status: 409 });
+    }
+    const keys = wantsSet
+      ? PRINT_SET_KEYS.filter((k) => k !== 'menu' || hasMenu).filter((k) => k !== 'story-poster' || hasStory)
+      : [piece as PrintSetKey];
     // EVERY SIDE prints — a piece with a back (a large Entourage) is two pages.
     const docs: PrintDoc[] = keys.flatMap((k) => layoutPieceDocs(k, { ...input, format: formatParam(k) }));
     const label = wantsSet ? 'The print set' : PRINT_PIECES[piece].label;
@@ -298,7 +308,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   const input = { look: set.look, data: set.data, mode: 'sample' as const, foil: spot.foil };
   const jpeg = wantsSet
     ? await renderSampleSheetJpeg(
-        PRINT_SET_KEYS.filter((k) => k !== 'menu' || menuHasDishes(set.data.menu)).map((k) => layoutPieceView(k, { ...input, format: formatParam(k) })),
+        PRINT_SET_KEYS.filter((k) => k !== 'menu' || menuHasDishes(set.data.menu))
+          .filter((k) => k !== 'story-poster' || storyHasMoments(set.data.story))
+          .map((k) => layoutPieceView(k, { ...input, format: formatParam(k) })),
         set.images,
       )
     : await renderSampleJpeg(layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);

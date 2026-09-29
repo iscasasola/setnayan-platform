@@ -69,8 +69,15 @@ export function MakerPrints({
   formats,
   seatPlan = 'none',
   menu = { saved: [], caterer: [], suggestions: [], flash: null },
+  storyEmpty = false,
   previewVersion = null,
 }: {
+  /**
+   * No Love Story to print yet — the Our Story poster is then never offered
+   * for download (the route refuses it too); its picture says where the
+   * story comes from and a link opens the Maker's Love Story.
+   */
+  storyEmpty?: boolean;
   /**
    * ⚡ The hash of everything the pieces are drawn from (`printInputsVersion`),
    * put in each on-screen preview's address as `v` — a versioned preview is
@@ -222,7 +229,7 @@ export function MakerPrints({
               Your invitation set
             </h2>
             <p className="max-w-2xl text-sm text-ink/65">
-              Invitation cards, passes, a welcome poster and an event card, drawn in{' '}
+              Invitation cards, passes, a welcome poster, your Our Story poster and an event card, drawn in{' '}
               <span className="font-semibold text-ink">{t.name}</span>. Print uses your{' '}
               <span className="font-semibold text-ink">ceremony</span> time from your schedule.
             </p>
@@ -309,6 +316,8 @@ export function MakerPrints({
               // The Menu is NEVER offered blank: with no dishes its card shows the
               // "add your menu" prompt and its buttons open the editor instead.
               const menuEmpty = k === 'menu' && !menuHasDishes(menuPrints);
+              // The Our Story poster likewise, until there is a Love Story to print.
+              const storyMissing = k === 'story-poster' && storyEmpty;
               return (
                 <li key={k} data-print-piece={k} className="flex flex-col items-center gap-2">
                   {/* The server render takes real seconds — PrintPreview shows
@@ -359,8 +368,16 @@ export function MakerPrints({
                     <Link href="#print-menu" className="inline-flex min-h-10 items-center text-sm font-medium text-link underline-offset-2 hover:underline">
                       Edit your menu
                     </Link>
+                  ) : k === 'story-poster' ? (
+                    <Link
+                      href={`/dashboard/${eventId}/launch?tool=love-story`}
+                      data-print-story-link=""
+                      className="inline-flex min-h-11 items-center text-sm font-medium text-link underline-offset-2 hover:underline"
+                    >
+                      {storyMissing ? 'Add your Love Story' : 'Edit your Love Story'}
+                    </Link>
                   ) : null}
-                  {menuEmpty ? null : (
+                  {menuEmpty || storyMissing ? null : (
                   <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
                     <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="link">
                       {themed ? 'Save · Classic (PDF)' : 'Save PDF'}

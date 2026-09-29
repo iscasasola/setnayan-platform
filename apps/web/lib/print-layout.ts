@@ -36,6 +36,7 @@ import {
   menuHasDishes,
   parentLine,
   printableText,
+  storyHasMoments,
   type DieCut,
   type MenuMoment,
   type PrintDetails,
@@ -45,6 +46,7 @@ import {
   type PrintMode,
   type PrintPieceKey,
   type PrintSetKey,
+  type PrintStoryChapter,
 } from '@/lib/print-pieces';
 
 // ─── The drawing vocabulary ─────────────────────────────────────────────────
@@ -105,6 +107,8 @@ export type PrintSetData = {
   hubAddress: string | null;
   /** The Menu card's moments, in order (the couple's own, else their caterer's package lines). */
   menu?: MenuMoment[];
+  /** The Our Story poster's chapters — the Love Story, in reading order (`printStoryChapters`, lib/love-story-moments.ts). */
+  story?: PrintStoryChapter[];
   /** Is the theme's still (or the couple's hero) in `images.still`? */
   hasStill: boolean;
   hasEventQr: boolean;
@@ -131,29 +135,57 @@ function hasGlyph(font: OtFont, ch: string): boolean {
 
 type Run = { font: OtFont; ch: string; adv: number };
 
+/**
+ * ⚡ ONE LOOKUP PER CHARACTER, NOT PER DRAW. Which face draws a character, and
+ * its advance at 1 pt, are asked of opentype once per (face, character) and
+ * kept: an advance scales linearly with the size (opentype multiplies the
+ * glyph's advance by size / unitsPerEm), so any size is a multiplication.
+ * Measured 2026-09-29: the Our Story poster re-wraps a long Love Story at every
+ * type size it tries, and asking opentype per character per try took 26 s for
+ * 28 moments.
+ */
+const glyphCache = new Map<PrintFontKey, Map<string, { font: OtFont; unit: number } | null>>();
+function glyphFor(key: PrintFontKey, ch: string): { font: OtFont; unit: number } | null {
+  let m = glyphCache.get(key);
+  if (!m) {
+    m = new Map();
+    glyphCache.set(key, m);
+  }
+  let hit = m.get(ch);
+  if (hit === undefined) {
+    const primary = printFont(key);
+    const fallback = printFont('cardo');
+    const font = ch === ' ' || hasGlyph(primary, ch) ? primary : hasGlyph(fallback, ch) ? fallback : null;
+    hit = font ? { font, unit: font.getAdvanceWidth(ch, 1) } : null;
+    m.set(ch, hit);
+  }
+  return hit;
+}
+
 /** Characters → glyph runs, falling back to Cardo, then dropping a character
  *  no bundled face can draw (a `.notdef` box on a wedding invitation is worse
  *  than a missing ornament). */
 function runsFor(text: string, key: PrintFontKey, size: number, tracking: number): Run[] {
-  const primary = printFont(key);
-  const fallback = printFont('cardo');
   const out: Run[] = [];
   for (const ch of [...text]) {
-    if (ch === ' ') {
-      out.push({ font: primary, ch, adv: primary.getAdvanceWidth(' ', size) + tracking });
-      continue;
-    }
-    const font = hasGlyph(primary, ch) ? primary : hasGlyph(fallback, ch) ? fallback : null;
-    if (!font) continue;
-    out.push({ font, ch, adv: font.getAdvanceWidth(ch, size) + tracking });
+    const g = glyphFor(key, ch);
+    if (!g) continue;
+    out.push({ font: g.font, ch, adv: g.unit * size + tracking });
   }
   return out;
 }
 
 export function measure(text: string, key: PrintFontKey, size: number, tracking = 0): number {
-  const runs = runsFor(text, key, size, tracking);
-  const total = runs.reduce((a, r) => a + r.adv, 0);
-  return runs.length ? total - tracking : 0;
+  // The runs' advances summed without building them (`runsFor`'s arithmetic).
+  let total = 0;
+  let n = 0;
+  for (const ch of text) {
+    const g = glyphFor(key, ch);
+    if (!g) continue;
+    total += g.unit * size + tracking;
+    n += 1;
+  }
+  return n ? total - tracking : 0;
 }
 
 type TextOpts = {
@@ -1246,6 +1278,238 @@ function layoutMenu(ctx: Ctx): PrintDoc[] {
   });
 }
 
+// ─── The Our Story poster ────────────────────────────────────────────────────
+
+type ColumnPlacement = { i: number; y: number; sheet: number; col: number };
+
+/**
+ * Rows down COLUMNS, then onto a further sheet — the poster's own flow (the
+ * cards flow one column, `flowPages`). The poster is cut straight (`rect`), so
+ * only the floor bounds a row, never the die. `colFloor` caps the first sheet's
+ * columns lower than the sheet allows, to balance two columns.
+ */
+function flowColumns(
+  rows: readonly FlowRow[],
+  cols: number,
+  top: (sheet: number) => number,
+  floor: (sheet: number) => number,
+  colFloor = Infinity,
+): { placed: ColumnPlacement[]; sheets: number; fits: boolean; bottom: number } {
+  const placed: ColumnPlacement[] = [];
+  let sheet = 0;
+  let col = 0;
+  let y = top(0);
+  let inCol = 0;
+  let fits = true;
+  let bottom = y;
+  const fl = () => Math.min(floor(sheet), sheet === 0 ? colFloor : Infinity);
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i]!;
+    const next = rows[i + 1];
+    const need = (base: number) => base + r.below <= fl() && (!r.keepWithNext || !next || base + r.after + next.adv + next.below <= fl());
+    let base = y + r.adv;
+    if (!need(base) && inCol > 0) {
+      col += 1;
+      if (col === cols) {
+        col = 0;
+        sheet += 1;
+      }
+      y = top(sheet);
+      inCol = 0;
+      base = y + r.adv;
+    }
+    if (base + r.below > fl() + 0.01) fits = false;
+    placed.push({ i, y: base, sheet, col });
+    bottom = Math.max(bottom, sheet === 0 ? base + r.below : bottom);
+    y = base + r.after;
+    inCol += 1;
+  }
+  return { placed, sheets: sheet + 1, fits, bottom };
+}
+
+/**
+ * THE OUR STORY POSTER — owner 2026-09-26, verbatim: *"is it possible to
+ * generate a A3 printable of their stories? so they can print it and frame
+ * it?"* The couple's Love Story on an A3 sheet, in their theme: the theme's
+ * still where it puts one, their logo, "Our story", their names and date, then
+ * every chapter — its name, and each moment's date, words and place.
+ *
+ * MEASURED, LIKE EVERY PRINT. A short story sits in one column; a longer one in
+ * two balanced columns; the type comes down toward `PRINT_MIN_BODY_PT` before a
+ * story continues on a second sheet — no moment is shortened or dropped, and
+ * nothing passes the safe line (`every-print-fits.test.ts`). The Event Hub QR
+ * rides its corner, as on every card.
+ *
+ * With no story the poster is NEVER printed (the route refuses it and leaves it
+ * out of the set); the Maker's picture of it says where the story comes from.
+ */
+function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
+  const { look, data } = ctx;
+  const front = sheet('story-poster', ctx);
+  const { w, h, bleed } = front;
+  const placed = still(front.ops, look, data, w, h, bleed, 0.3);
+  const left = placed.left;
+  const cx = left + (w - left) / 2;
+  const inner = w - left - 140;
+  const ops = front.ops;
+  let y = placed.top > 0 ? placed.top + 6 : 150;
+  medallion(ops, look, data, cx, y, 40, placed.top > 0);
+  y += 82;
+  eyebrow(ops, look, 'Our story', cx, y, 14);
+  y += 58;
+  y = lockup(ops, look, data, cx, y, 46, ctx.foil, inner);
+  y += 22;
+  rule(ops, cx, y, 90, look.accent);
+  y += 30;
+  if (data.dateLabel) {
+    text(ops, data.dateLabel, cx, y, { font: look.bodyFont, size: 13, color: look.ink, align: 'center', caps: true, tracking: 0.14, maxWidth: inner });
+    y += 20;
+  }
+  const bodyTop = y + 34;
+
+  const chapters = (data.story ?? []).filter((c) => c.moments.length > 0);
+  if (!storyHasMoments(chapters)) {
+    let py = bodyTop + 40;
+    for (const line of wrap('Your Love Story prints here — every chapter, with each moment’s date, words and place. Add it in the Maker’s Love Story.', look.bodyFont, 14, Math.min(520, inner))) {
+      text(ops, line, cx, py, { font: look.bodyFont, size: 14, color: look.muted, align: 'center' });
+      py += 20;
+    }
+    if (data.hasEventQr) cornerQr(front);
+    safeGuide(front, ctx);
+    return [front];
+  }
+
+  // Rows of one column, centred on `ccx` — flowed at 0 (a row's height does
+  // not depend on where it stands), drawn at their column's centre.
+  const build = (f: number, colW: number, ccx = 0): FlowRow[] => {
+    const rows: FlowRow[] = [];
+    const head = Math.max(PRINT_MIN_BODY_PT, 11 * f);
+    const when = Math.max(PRINT_MIN_BODY_PT, 9.5 * f);
+    const body = 13 * f;
+    const where = Math.max(PRINT_MIN_BODY_PT, 10.5 * f);
+    chapters.forEach((c, ci) => {
+      rows.push(headRow(look, c.label, ccx, colW, (ci === 0 ? 10 : 34) * f, 6 * f, head));
+      c.moments.forEach((m, mi) => {
+        const gap = (mi === 0 ? 8 : 20) * f;
+        if (m.when) {
+          rows.push({
+            adv: gap + when,
+            after: 0,
+            top: when * ASC_EM,
+            below: when * DESC_EM,
+            x0: ccx - colW / 2,
+            x1: ccx + colW / 2,
+            keepWithNext: true,
+            draw: (o, yy) => {
+              text(o, m.when, ccx, yy, { font: look.bodyFont, size: when, color: look.accent, align: 'center', caps: true, tracking: 0.2, maxWidth: colW });
+            },
+          });
+        }
+        if (m.line) {
+          const lines = paraRows(look, m.line, body, look.ink, ccx, colW, body * 1.45, m.when ? 3 * f : gap);
+          // A place never starts a column on its own — it moves with the words it belongs to.
+          if (m.place && lines.length) lines[lines.length - 1] = { ...lines[lines.length - 1]!, keepWithNext: true };
+          rows.push(...lines);
+        }
+        if (m.place) rows.push(...paraRows(look, m.place, where, look.muted, ccx, colW, where * 1.5, m.line ? 2 * f : m.when ? 3 * f : gap));
+      });
+    });
+    return rows;
+  };
+
+  const pad = SAFE_PT + 42;
+  const avail = w - left - 2 * pad;
+  const gutter = 44;
+  const floor = (s: number) => h - SAFE_PT - (s === 0 ? 34 : 24);
+  // Where a further sheet's words start — asked once (it draws the head to find out).
+  const backTop = continuedHead(sheet('story-poster', ctx), ctx, 'Our Story') + 10;
+  const top = (s: number) => (s === 0 ? bodyTop : backTop);
+  const fMin = PRINT_MIN_BODY_PT / 9.5;
+
+  // One narrow column while the story is short and the type stays large; then
+  // two (where the sheet is wide enough — beside a left-hand still it is not);
+  // then, at the smallest type, as many sheets as the story needs.
+  type Plan = { cols: number; colW: number; f: number; flow: ReturnType<typeof flowColumns> };
+  const twoCols = avail >= 600;
+  const tries: Array<{ cols: number; colW: number; fLow: number }> = [
+    { cols: 1, colW: Math.min(560, avail), fLow: twoCols ? 0.84 : fMin },
+    ...(twoCols ? [{ cols: 2, colW: (avail - gutter) / 2, fLow: fMin }] : []),
+  ];
+  // The largest type (to 1 %) at which the story takes `sheets` sheets or
+  // fewer — found by halving, not by stepping: a long story is re-wrapped at
+  // every size tried, and stepping 2 % at a time tried twenty sizes per column.
+  const largest = (t: (typeof tries)[number], sheets: number): Plan | null => {
+    const at = (f: number) => ({ cols: t.cols, colW: t.colW, f, flow: flowColumns(build(f, t.colW), t.cols, top, floor) });
+    const ok = (p: Plan) => p.flow.fits && p.flow.sheets <= sheets;
+    const hiPlan = at(1);
+    if (ok(hiPlan)) return hiPlan;
+    let lo = at(t.fLow);
+    if (!ok(lo)) return null;
+    let hi = 1;
+    while (hi - lo.f > 0.01) {
+      const mid = at(Math.round(((lo.f + hi) / 2) * 1000) / 1000);
+      if (ok(mid)) lo = mid;
+      else hi = mid.f;
+    }
+    return lo;
+  };
+  let plan: Plan | null = null;
+  for (const t of tries) {
+    plan = largest(t, 1);
+    if (plan) break;
+  }
+  if (!plan) {
+    // Too long for one sheet even at the smallest type: the fewest sheets it
+    // takes there, at the largest type that still takes no more.
+    const t = tries[tries.length - 1]!;
+    const floorFlow = flowColumns(build(fMin, t.colW), t.cols, top, floor);
+    plan = largest(t, floorFlow.sheets) ?? { cols: t.cols, colW: t.colW, f: fMin, flow: floorFlow };
+  }
+  // Two columns on one sheet end TOGETHER: the lowest column floor that still fits.
+  if (plan.cols === 2 && plan.flow.sheets === 1) {
+    const rows = build(plan.f, plan.colW);
+    let lo = bodyTop;
+    let hi = floor(0);
+    for (let k = 0; k < 14; k += 1) {
+      const mid = (lo + hi) / 2;
+      const flow = flowColumns(rows, 2, top, floor, mid);
+      if (flow.fits && flow.sheets === 1) hi = mid;
+      else lo = mid;
+    }
+    plan = { ...plan, flow: flowColumns(rows, 2, top, floor, hi) };
+  }
+
+  const centres =
+    plan.cols === 1 ? [cx] : [left + pad + plan.colW / 2, left + pad + plan.colW + gutter + plan.colW / 2];
+  const rows = build(plan.f, plan.colW);
+  const colRows = centres.map((c) => build(plan!.f, plan!.colW, c));
+  // A further sheet carries no left-hand still, so one column sits in ITS middle.
+  const backRows = plan.cols === 1 && left > 0 ? [build(plan.f, plan.colW, w / 2)] : colRows;
+  // A short story in one column sits in the middle of the room it has, not under the header.
+  const lift = plan.cols === 1 && plan.flow.sheets === 1 ? Math.min(120, Math.max(0, (floor(0) - plan.flow.bottom) / 2)) : 0;
+  const docs: PrintDoc[] = [front];
+  for (let s = 1; s < plan.flow.sheets; s += 1) {
+    const doc = sheet('story-poster', ctx);
+    if (look.still === 'full' && data.hasStill) still(doc.ops, look, data, doc.w, doc.h, doc.bleed);
+    continuedHead(doc, ctx, 'Our Story');
+    docs.push(doc);
+  }
+  for (const p of plan.flow.placed) (p.sheet === 0 ? colRows : backRows)[p.col]![p.i]!.draw(docs[p.sheet]!.ops, p.y + (p.sheet === 0 ? lift : 0));
+  // Two columns: a hairline down the gutter, from the first line to the longer column's foot.
+  if (plan.cols === 2) {
+    docs.forEach((doc, s) => {
+      const mine = plan!.flow.placed.filter((p) => p.sheet === s);
+      if (!mine.some((p) => p.col === 1)) return;
+      const y0 = Math.min(...mine.map((p) => p.y - rows[p.i]!.top));
+      const y1 = Math.max(...mine.map((p) => p.y + rows[p.i]!.below));
+      doc.ops.push({ t: 'rect', x: left + pad + plan!.colW + gutter / 2 - 0.25, y: y0, w: 0.5, h: y1 - y0, fill: look.accent, opacity: 0.45 });
+    });
+  }
+  if (data.hasEventQr) cornerQr(front);
+  for (const doc of docs) safeGuide(doc, ctx);
+  return docs;
+}
+
 /**
  * THE PASS, in any of its formats (`PRINT_FORMATS`): a calling card, a CR80 ID
  * card, a train ticket (landscape, tear line) or a boarding pass (a stub, and
@@ -1590,6 +1854,8 @@ export function layoutPieceDocs(piece: PrintSetKey, input: LayoutInput & { pass?
         ];
       case 'poster':
         return [layoutPoster(ctx)];
+      case 'story-poster':
+        return layoutStoryPoster(ctx);
       case 'card':
         return [fmt && fmt.wMm > fmt.hMm ? layoutCardLandscape(ctx, fmt) : fitDoc(layoutCard(ctx), w, h, ctx)];
     }

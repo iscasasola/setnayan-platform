@@ -61,7 +61,8 @@ import { hasPalette, parentsFromEntourageForEvent, printInputsVersion, printOwns
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
-import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
+import { formatFor, parsePrintDetails, storyHasMoments } from '@/lib/print-pieces';
+import { printStoryChapters } from '@/lib/love-story-moments';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -1116,6 +1117,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         <>
         {/* First visit to Prints & Tickets since the Menu arrived: what it is and where its dishes come from. */}
         <MiniTour tourKey="customer_print_menu_v1" storeShell={storeShell} />
+        {/* …then, once that one is seen, the Our Story poster's — never two at once. */}
+        <MiniTour tourKey="customer_print_story_poster_v1" after="customer_print_menu_v1" storeShell={storeShell} />
         <MakerPrints
           eventId={eventId}
           slug={printEvent.slug}
@@ -1127,6 +1130,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           /* ⚡ The access is part of the picture (a sample or the real piece). */
           previewVersion={printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null}
           seatPlan={stored.include.seatPlan}
+          /* The Our Story poster prints the Love Story — the same read the print uses. */
+          storyEmpty={!storyHasMoments(printStoryChapters(printEvent.love_story))}
           menu={{
             saved: stored.menu,
             ...menuSources,

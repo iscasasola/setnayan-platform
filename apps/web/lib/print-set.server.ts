@@ -45,6 +45,7 @@ import {
   type RsvpChoice,
 } from '@/lib/print-pieces';
 import { fetchEgiftMethods } from '@/lib/egift';
+import { printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
@@ -629,6 +630,8 @@ export async function loadPrintSet(
     swatches: inc.moodBoard ? swatchesFrom(event.role_palette) : [],
     hubAddress,
     menu: menuHasDishes(stored.menu) ? stored.menu : catererMenu,
+    // The Our Story poster — the Love Story's one source, read from the same row.
+    story: printStoryChapters(event.love_story),
     hasStill: Boolean(images.still),
     hasEventQr,
   };

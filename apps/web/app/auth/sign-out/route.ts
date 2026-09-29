@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { GUEST_SESSION_COOKIE_NAME } from '@/lib/guest-session';
+import { RSVP_TERMS_COOKIE } from '@/lib/terms-agreement';
+import { INVITE_LINK_SENT_COOKIE } from '@/lib/invite-arrival';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -24,6 +27,24 @@ export async function POST(request: NextRequest) {
         sameSite: 'lax',
       });
     }
+  }
+
+  // 🔒 THE GUEST PASS GOES WITH THE ACCOUNT (2026-09-30 — the owner's own
+  // wedding). `setnayan_guest_session` is a 60-day pass naming one seat, and it
+  // is not an `sb-*` cookie — so signing out used to leave it behind, and the
+  // next person to use this phone inherited that invitation (a test account
+  // became the owner's GROOM this way). Signing out now leaves the browser
+  // holding nothing of the last person's. Held by
+  // seat-links-only-on-purpose.test.ts. The Terms tick a guest carried from the
+  // RSVP page goes too — it was that person's agreement, not the next one's.
+  for (const name of [GUEST_SESSION_COOKIE_NAME, RSVP_TERMS_COOKIE, INVITE_LINK_SENT_COOKIE]) {
+    response.cookies.set(name, '', {
+      maxAge: 0,
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
   }
 
   return response;

@@ -23,6 +23,7 @@ import {
   requestedSeatsNote,
   type RequestAnswers,
 } from '@/lib/guest-requests';
+import { isCoupleSeat } from '@/lib/seat-binding';
 
 // Sanity ceiling on requests per event. Nobody is admitted by a request any
 // more, but every request is still a row the couple has to read — this bounds
@@ -439,7 +440,7 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   if (accountEmail) {
     const { data: emailSeed } = await admin
       .from('guests')
-      .select('guest_id, role, entry_source')
+      .select('guest_id, role, extra_roles, entry_source')
       .eq('event_id', eventId)
       .eq('entry_source', 'host_seeded')
       .ilike('email', accountEmail)
@@ -449,6 +450,10 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     if (
       emailSeed &&
       emailMayBindRow(emailSeed.entry_source as string) &&
+      // 🔒 A COUPLE SEAT IS NEVER BOUND BY A GUEST DOOR (lib/seat-binding.ts).
+      // The address on it can be one a key-holder typed into the reply form;
+      // a couple member never reaches this line (they returned above).
+      !isCoupleSeat(emailSeed.role as string | null, emailSeed.extra_roles as string[] | null) &&
       !(await seedClaimedByOther(admin, eventId, emailSeed.guest_id, user.id))
     ) {
       if (avatarUrl) await applyAvatar(admin, emailSeed.guest_id as string, avatarUrl, user.id);

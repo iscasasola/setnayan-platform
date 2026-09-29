@@ -10,7 +10,6 @@ import { isEmailBlacklisted } from '@/lib/blacklist';
 import { captureEvent } from '@/lib/analytics';
 import { safeNext } from '@/lib/auth';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
-import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { applyReferralAtSignup } from '@/lib/referral-actions';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { isPasswordLeaked } from '@/lib/leaked-password';
@@ -211,21 +210,8 @@ export async function signUp(formData: FormData) {
         /* welcome email is best-effort */
       });
 
-      // Persistent guest accounts (PR-E): if this browser also carries a signed
-      // guest session (the new couple attended someone else's wedding as a
-      // guest), link it so their tagged photos surface in their Account hub.
-      // Best-effort — the helper never throws. Awaited so the DB write lands
-      // before the redirect aborts the request.
-      const guestLink = await linkGuestSessionToUser(userId);
-      if (guestLink.linked) {
-        void captureEvent({
-          distinctId: userId,
-          event: 'guest_account_linked',
-          properties: { ref: 'guest' },
-        }).catch(() => {
-          /* telemetry never blocks */
-        });
-      }
+      // 🔒 SIGNING UP BINDS NO SEAT — see the note in the auto-confirmed branch
+      // below. A seat is kept only from its own page.
 
       // Couple referral rewards — record the OPEN redemption if this couple
       // arrived via a shared ?refc= link. Best-effort (never throws); ANONYMOUS
@@ -473,22 +459,12 @@ export async function signUp(formData: FormData) {
         });
       }
 
-      // Persistent guest accounts (PR-E): link a signed guest session (if any)
-      // to this brand-new account so the guest's tagged photos from the event
-      // they attended surface in their Account hub. Best-effort — the helper
-      // never throws. AWAITED (unlike the telemetry above) because it does a DB
-      // write that must land before the redirect tears down the request; only
-      // the no-PII PostHog event is fire-and-forget.
-      const guestLink = await linkGuestSessionToUser(data.user.id);
-      if (guestLink.linked) {
-        void captureEvent({
-          distinctId: data.user.id,
-          event: 'guest_account_linked',
-          properties: { ref: 'guest' },
-        }).catch(() => {
-          // Telemetry failure never blocks. Silent.
-        });
-      }
+      // 🔒 SIGNING UP BINDS NO SEAT (2026-09-30 — the owner's own wedding). This
+      // used to run `linkGuestSessionToUser`, binding whatever guest pass this
+      // browser held to the brand-new account — on a shared phone, somebody
+      // else's invitation. A sign-up FROM an invitation still ends up holding
+      // it: its `next` is `/join/{id}/connect`, which asks "This invitation is
+      // for <name>. Save it to <email>?" and binds only on Yes.
 
       // Couple referral rewards — record the OPEN redemption for a couple who
       // signed up via a shared ?refc= link. Couples only (referrals reward

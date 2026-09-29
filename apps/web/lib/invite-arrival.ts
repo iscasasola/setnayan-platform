@@ -61,6 +61,19 @@ export function isInviteReturn(value: unknown): boolean {
 /** The keyword `/join/[eventId]/connect` accepts to come back to the Reply door. */
 export const CONNECT_THEN_REPLY = 'reply' as const;
 
+/**
+ * The query a `/join/{id}/connect` hop carries forward (to /login, to the
+ * confirm page, back to connect): the `then` KEYWORD — never a path — and the
+ * couple's signed approval, opaque here and verified only server-side.
+ */
+export function connectQuery(input: { thenReply: boolean; approved?: string | null }): string {
+  const q = new URLSearchParams();
+  if (input.thenReply) q.set('then', CONNECT_THEN_REPLY);
+  if (input.approved) q.set('approved', input.approved);
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
 /** Door 02. `slug` must come from the database, never from input. */
 export function inviteReplyPath(slug: string): string {
   return `/${slug}/invite/reply`;

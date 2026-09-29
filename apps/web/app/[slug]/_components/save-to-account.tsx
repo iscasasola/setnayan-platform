@@ -11,6 +11,7 @@ import {
 } from '@/lib/guest-one-path';
 import { INVITE_RETURN } from '@/lib/invite-arrival';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
+import { COUPLE_SEAT_REFUSED, seatConfirmLine } from '@/lib/seat-binding';
 import { startAccountSaveAction, linkThisSeatAction } from '../actions';
 import { CopyMyLink, OpenInBrowser } from './copy-my-link';
 
@@ -107,10 +108,19 @@ export function SaveToAccount({
     );
   }
   if (state.kind === 'link_this_seat') {
+    // 🔒 A couple seat is kept only by the couple's own accounts — no press.
+    if (state.coupleSeat) {
+      return <p className="text-sm text-ink/70">{COUPLE_SEAT_REFUSED}</p>;
+    }
+    // 🔒 ASKED, NOT ASSUMED (2026-09-30): whose invitation, and which account.
+    const line = seatConfirmLine({ seatName: state.seatName, accountEmail: state.accountEmail });
     return (
-      <form action={linkThisSeatAction.bind(null, eventId)}>
+      <form action={linkThisSeatAction.bind(null, eventId)} className="space-y-2" data-seat-confirm="">
+        <p className="text-sm text-ink/80">
+          {line.whose} {line.where}
+        </p>
         <SubmitButton className="button-primary min-h-[56px] w-full" pendingLabel="Saving…">
-          Save to my account
+          Yes, save to my account
         </SubmitButton>
       </form>
     );

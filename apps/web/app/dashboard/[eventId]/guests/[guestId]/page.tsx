@@ -37,7 +37,7 @@ export const metadata = { title: 'Guest detail' };
 
 type Props = {
   params: Promise<{ eventId: string; guestId: string }>;
-  searchParams: Promise<{ error?: string; saved?: string; invite?: string; swapped?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; invite?: string; swapped?: string; unlinked?: string }>;
 };
 
 export default async function GuestDetailPage({ params, searchParams }: Props) {
@@ -103,6 +103,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   const inviteFlash =
     search.swapped === '1'
       ? { ok: true, msg: 'Done — the spot is theirs, with a new key. The old link and QR no longer work. Share their invitation from the guest list.' }
+      : search.unlinked === '1'
+        ? { ok: true, msg: 'Unlinked — that account no longer holds this invitation, and it has a new key. The old link and QR no longer work.' }
       :
     search.invite === 'sent'
       ? { ok: true, msg: `Sign-in link sent to ${guest.email}.` }

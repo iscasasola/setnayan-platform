@@ -12,6 +12,7 @@ import { quickCreateGroup } from '../quick-add-actions';
 import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
 import { closeRequestClaim, issueRequestKey, type IssuedKey } from '@/lib/guest-request-key';
 import { LINKED_INTO_PREFIX, linkedIntoFrom, linkedIntoTag, undoStillOpen } from '@/lib/request-key';
+import { isCoupleSeat } from '@/lib/seat-binding';
 
 /** Back to the page with a sentence the couple can act on. */
 function back(eventId: string, message: string): never {
@@ -381,13 +382,20 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
   // Target must be a real, non-deleted guest in this event.
   const { data: target } = await admin
     .from('guests')
-    .select('guest_id, email, role, deleted_at')
+    .select('guest_id, email, role, extra_roles, deleted_at')
     .eq('guest_id', targetId)
     .eq('event_id', eventId)
     .maybeSingle();
   if (!target || target.deleted_at) {
     revalidatePath(backTo);
     return;
+  }
+  // 🔒 NEVER ONTO A COUPLE SEAT (2026-09-30, lib/seat-binding.ts). A request is a
+  // stranger's typed name; the bride / groom / celebrant row is kept only by the
+  // couple's own accounts. The picker no longer offers one — this is the lock
+  // behind it, because a server action can be posted directly.
+  if (isCoupleSeat(target.role as string | null, target.extra_roles as string[] | null)) {
+    back(eventId, 'That is one of the couple’s own rows — a request cannot be linked to it. Keep this person as new instead.');
   }
 
   const [{ data: targetBinding }, { data: sourceMember }, { data: source }] = await Promise.all([

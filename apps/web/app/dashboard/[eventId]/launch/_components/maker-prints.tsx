@@ -25,6 +25,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import { PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
+import { DetailsGoTo } from './details-go';
 
 /**
  * THE PRINTS, AS PARTS OF THE DETAILS PAGE. Until 2026-09-28 this file drew
@@ -77,6 +78,12 @@ export type PrintsInput = {
   storeShell: boolean;
   /** The size chosen per family (owner: calling card / train / plane ticket; index card / A5). */
   formats: Record<PrintFormat['for'], PrintFormat>;
+  /**
+   * No Love Story to print yet — the Our Story poster is then never offered
+   * for download (the route refuses it too); its picture says where the
+   * story comes from and a button opens Details › Love Story in place.
+   */
+  storyEmpty?: boolean;
   /**
    * ⚡ The hash of everything the pieces are drawn from (`printInputsVersion`),
    * put in each on-screen preview's address as `v` — a versioned preview is
@@ -167,6 +174,8 @@ export function PrintPieceBody({
   // The Menu is NEVER offered blank: with no dishes its card shows the "add
   // your menu" prompt and its downloads are not offered.
   const menuEmpty = k === 'menu' && !menuHasDishes(menuPrints(menu ?? { saved: [], caterer: [] }));
+  // The Our Story poster likewise, until there is a Love Story to print.
+  const storyMissing = k === 'story-poster' && Boolean(input.storyEmpty);
   const cut = dieCutFor(theme, k, fam ? formats[fam] : null);
   return (
     <div data-print-piece={k} className="flex flex-col items-center gap-2">
@@ -195,6 +204,13 @@ export function PrintPieceBody({
           Add your menu
         </Link>
       ) : null}
+      {/* The poster reads the Love Story — which lives in Details, so its door
+          opens that item IN PLACE (never a link out of the Maker). */}
+      {k === 'story-poster' ? (
+        <DetailsGoTo item="love-story" className="font-medium text-link underline-offset-2 hover:underline">
+          <span data-print-story-link="">{storyMissing ? 'Add your Love Story' : 'Edit your Love Story'}</span>
+        </DetailsGoTo>
+      ) : null}
     </div>
   );
 }
@@ -219,6 +235,8 @@ export function PrintPieceEditor({
   const spec = PRINT_PIECES[k];
   const fam = formatFamilyOf(k);
   const menuEmpty = k === 'menu' && !menuHasDishes(menuPrints(menu ?? { saved: [], caterer: [], suggestions: [], flash: null }));
+  // Never offered blank: no Love Story, no poster to save (the route refuses it too).
+  const storyMissing = k === 'story-poster' && Boolean(input.storyEmpty);
   return (
     <div data-print-editor={k} className="flex flex-col gap-3">
       {fam && HAS_SIZES(k) ? (
@@ -243,7 +261,7 @@ export function PrintPieceEditor({
           flash={menu.flash}
         />
       ) : null}
-      {menuEmpty ? null : (
+      {menuEmpty || storyMissing ? null : (
         <div className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-print-piece-saves={k}>
           <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">This piece</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1">

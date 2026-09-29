@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
   Armchair,
+  BookOpen,
   Bookmark,
   CalendarClock,
   CalendarDays,
@@ -271,6 +272,7 @@ const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
   menu: <UtensilsCrossed aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   pass: <Ticket aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   poster: <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'story-poster': <BookOpen aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   card: <Bookmark aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
 };
 const FREE_ICON: Record<string, ReactNode> = {
@@ -419,7 +421,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     if ((PRINT_SET_KEYS as readonly string[]).includes(k)) {
       const p = k as PrintSetKey;
       // A piece is "done" once it would print — the Menu only with a dish (it is never printed blank).
-      return { label: PRINT_PIECES[p].label, sub: PRINT_PIECES[p].size, done: p === 'menu' ? menuDone : undefined, icon: PIECE_ICON[p] };
+      return { label: PRINT_PIECES[p].label, sub: PRINT_PIECES[p].size, done: p === 'menu' ? menuDone : p === 'story-poster' ? !prints.storyEmpty : undefined, icon: PIECE_ICON[p] };
     }
     const fp = free.find((f) => f.key === k);
     return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
@@ -570,6 +572,13 @@ export function MakerDetails(props: MakerDetailsProps) {
       {theme.tour ? <MiniTour tourKey="customer_print_menu_v1" storeShell={theme.storeShell} /> : null}
     </>
   );
+  // …and the Our Story poster's, once the Menu's is seen — never two at once.
+  bodies['story-poster'] = (
+    <>
+      {bodies['story-poster']}
+      {theme.tour ? <MiniTour tourKey="customer_print_story_poster_v1" after="customer_print_menu_v1" storeShell={theme.storeShell} /> : null}
+    </>
+  );
   for (const f of free) bodies[f.key] = f.body;
   if (ye) Object.assign(bodies, ye.bodies);
   /* 🪑 The seat plan — the shipped editor fills the middle part ('fill'). */
@@ -713,6 +722,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     entourage: <PrintPieceEditor input={prints} piece="entourage" />,
     menu: <PrintPieceEditor input={prints} piece="menu" menu={menu} />,
     poster: <PrintPieceEditor input={prints} piece="poster" />,
+    'story-poster': <PrintPieceEditor input={prints} piece="story-poster" />,
     card: <PrintPieceEditor input={prints} piece="card" />,
     download: <PrintSetDownloads input={prints} />,
     /* ── Words ── */

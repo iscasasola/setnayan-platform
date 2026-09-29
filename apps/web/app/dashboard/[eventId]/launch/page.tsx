@@ -82,7 +82,8 @@ import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, 
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
-import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
+import { formatFor, parsePrintDetails, storyHasMoments } from '@/lib/print-pieces';
+import { printStoryChapters } from '@/lib/love-story-moments';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -1113,6 +1114,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         ownsPro: printPro,
         storeShell,
         previewVersion: printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null,
+        /* The Our Story poster prints the Love Story — the same read the print uses. */
+        storyEmpty: !storyHasMoments(printStoryChapters(printEvent.love_story)),
         formats: {
           pass: formatFor('pass', one(search.pass_format))!,
           invitation: formatFor('invitation', one(search.invitation_format))!,

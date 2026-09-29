@@ -240,6 +240,9 @@ export const DETAILS_ITEM_APPLIES: Partial<Record<DetailsItemKey, (c: DetailsIte
      `hasTwoNamedPeople`). A seven-year-old's birthday and a wake have no love
      story, so the item is not drawn — never re-worded. */
   'love-story': (c) => hasTwoNamedPeople(c.profile),
+  // The Our Story poster prints that Love Story — so it is offered only where
+  // the Love Story is (a birthday's set has no poster it could never fill).
+  'story-poster': (c) => hasTwoNamedPeople(c.profile),
   // Part 2a · Your event — the rule is `yourEventItems` (lib/details-your-event.ts):
   // the march where its role set prints an entourage. Names (two people) or
   // Name (one), date, venues and parents & hosts suit every type.

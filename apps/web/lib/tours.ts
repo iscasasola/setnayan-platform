@@ -102,6 +102,7 @@ export type TourKey =
   | 'customer_theme_picker_v1'
   | 'customer_print_menu_v1'
   | 'customer_details_guided_v1'
+  | 'customer_print_story_poster_v1'
   | 'customer_guest_reminders_v1'
   | 'customer_schedule_v1'
   | 'customer_add_scene_v1'
@@ -129,6 +130,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_theme_picker_v1',
   'customer_print_menu_v1',
   'customer_details_guided_v1',
+  'customer_print_story_poster_v1',
   'customer_guest_reminders_v1',
   'customer_schedule_v1',
   'customer_add_scene_v1',
@@ -673,6 +675,34 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: ClipboardList,
         title: 'Any step, any time',
         body: 'Tap the <strong>Round</strong> line at the top to see every step, each marked &#10003; or &#9675;, and jump to any of them. <strong>All items</strong> shows everything at once.',
+      },
+    ],
+  },
+  /*
+    THE OUR STORY POSTER (owner 2026-09-26: *"is it possible to generate a A3
+    printable of their stories? so they can print it and frame it?"*). Mounted
+    on Details › Our Story poster after the Menu's tour (`after`), so the two
+    never stack on one first visit. Sells nothing — it prints free in the free themes.
+  */
+  customer_print_story_poster_v1: {
+    key: 'customer_print_story_poster_v1',
+    label: 'Your Our Story poster',
+    blurb: 'Your Love Story on an A3 poster in your theme, ready to frame.',
+    slides: [
+      {
+        Icon: BookOpen,
+        title: 'Your story, ready to frame',
+        body: 'Your <strong>Love Story</strong> prints as an A3 poster in your theme &mdash; every chapter, with each moment&rsquo;s date, words and place.',
+      },
+      {
+        Icon: Heart,
+        title: 'Written once, in Love Story',
+        body: 'The poster reads the moments you wrote in the Maker&rsquo;s Love Story. Change a moment there and the poster follows; a moment you hid stays off it.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Offered once there is a story',
+        body: 'An empty poster is never printed. Until you add a moment, its card shows where your story will go.',
       },
     ],
   },

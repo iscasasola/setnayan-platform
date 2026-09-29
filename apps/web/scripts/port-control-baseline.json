@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8c9f41795",
+  "generatedFromRef": "351d98288",
   "routeCount": 436,
   "destinations": 939,
   "actions": 673,
-  "blocks": 5098,
+  "blocks": 5097,
   "routes": {
     "/": {
       "files": [
@@ -4947,7 +4947,6 @@
         "dashboard/[eventId]/_components/customer-nav-config.ts",
         "dashboard/[eventId]/_components/customer-nav-fab.tsx",
         "dashboard/[eventId]/_components/customer-nav-slot-keys.ts",
-        "dashboard/[eventId]/_components/customer-section-subnav.tsx",
         "dashboard/[eventId]/_components/customer-sidebar.tsx",
         "dashboard/[eventId]/_components/day-of-mode/banner.tsx",
         "dashboard/[eventId]/_components/day-of-mode/coordinator-broadcast-card.tsx",
@@ -5070,7 +5069,6 @@
         "CountUp",
         "CustomerBottomNav",
         "CustomerNavFab",
-        "CustomerSectionSubnav",
         "DayOfModeBanner",
         "DayOfModeGrid",
         "DeleteResult",
@@ -5126,6 +5124,7 @@
         "Metadata",
         "MethodCard",
         "MethodIcon",
+        "MiniTour",
         "ModalMode",
         "ModalShell",
         "Money",
@@ -5177,7 +5176,6 @@
         "Spinner",
         "StatusIcon",
         "StepKey",
-        "SubNav",
         "SubmitButton",
         "SubmitOrderResult",
         "SubmitSuccess",

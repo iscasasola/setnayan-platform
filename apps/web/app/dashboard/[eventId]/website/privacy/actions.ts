@@ -1,11 +1,11 @@
 'use server';
 
+import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { EVENT_VISIBILITIES, type EventVisibility } from '@/lib/event-visibility';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveReturnTo } from '@/lib/editor-return';
 import { editorialAllowsEventType } from '@/lib/editorial-event-types';
 
 /**
@@ -133,9 +133,7 @@ export async function updateLandingPageVisibility(formData: FormData) {
     revalidatePath(`/${event.slug}`);
   }
 
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/privacy?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/privacy?saved=1`, '?saved=1');
 }
 
 /**
@@ -290,7 +288,5 @@ export async function setLiveMediaAudience(formData: FormData) {
     revalidatePath(`/${event.slug}/hub`);
   }
 
-  redirect(
-    resolveReturnTo(formData, `/dashboard/${eventId}/website/privacy?saved=1`, '?saved=1'),
-  );
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/privacy?saved=1`, '?saved=1');
 }

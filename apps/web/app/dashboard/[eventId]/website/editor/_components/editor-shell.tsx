@@ -44,7 +44,12 @@ import {
   sceneDrawEffect,
   type CanvasHold,
 } from './element-preview';
-import { makerSave, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { makerSave, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { announceMakerSave } from '@/lib/maker-save-status';
+import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
+
+const REORDER_FAILED = 'That move could not be saved. Your scenes are back where they were — please try again.';
+const GATE_FAILED = 'That could not be saved. The scene is back as it was — please try again.';
 import { preloadMakerFonts, preloadMakerImages, whenIdle } from '@/lib/maker-preload';
 import { BufferedCanvasFrame, warmCanvasBudget, type CanvasFrame } from './buffered-canvas-frame';
 import { PickMenu } from './pick-menu';
@@ -210,7 +215,7 @@ const MORE_ROWS = ['go-live', 'visibility', 'launch-phase', 'open-browse'];
 export function MakerWork({
   eventId,
   publicLandingUrl,
-  scenes,
+  scenes: scenesProp,
   navigator,
   scenePanels,
   rows,
@@ -339,6 +344,30 @@ export function MakerWork({
   moveDownAction: FormAction;
 }) {
   const maker = useMaker();
+  /* 👁 A SCENE SHOWN OR TAKEN OFF IS SHOWN AS SUCH AT ONCE (owner 2026-09-29:
+     *"make sure 100% that there is no slow response on the maker"*). The eye and
+     Auto · Hidden are drawn here the moment they are pressed; the server's
+     render takes over as soon as it agrees (or the pick is put back if the save
+     is refused). `gateWrite` below. */
+  const [gates, setGates] = useState<Record<string, Pick<MakerScene, 'mode' | 'isVisible'>>>({});
+  const scenes = useMemo(
+    () => (Object.keys(gates).length === 0 ? scenesProp : scenesProp.map((sc) => (gates[sc.id] ? { ...sc, ...gates[sc.id] } : sc))),
+    [scenesProp, gates],
+  );
+  useEffect(() => {
+    setGates((g) => {
+      let changed = false;
+      const next = { ...g };
+      for (const sc of scenesProp) {
+        const o = g[sc.id];
+        if (o && o.mode === sc.mode && o.isVisible === sc.isVisible) {
+          delete next[sc.id];
+          changed = true;
+        }
+      }
+      return changed ? next : g;
+    });
+  }, [scenesProp]);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   /** A made-once page's own frame (Hero · Reveal · Love Story) — the stage canvas stays mounted beside it. */
   const pageFrameRef = useRef<HTMLIFrameElement | null>(null);
@@ -348,10 +377,14 @@ export function MakerWork({
      so switching stage after a pick shows the pick, not the page from before
      it. A warm frame that could not take it is reloaded by the buffer. */
   const canvasBroadcast = useRef<((message: unknown) => void) | null>(null);
+  /** The stage's last scene on the canvas (set each render) — where an added scene lands. */
+  const lastSceneKeyRef = useRef<string | null>(null);
+  const broadcastToCanvasRef = useRef<(message: unknown) => void>(() => {});
   const broadcastToCanvas = (message: unknown) => {
     if (canvasBroadcast.current) canvasBroadcast.current(message);
     else frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
   };
+  broadcastToCanvasRef.current = broadcastToCanvas;
   const [navWidth, setNavWidth] = useState(168);
   /* The tools column's width, beside the navigator's (owner 2026-09-27:
      "navigation is resizable, so does the editing tool on the right"). */
@@ -493,12 +526,31 @@ export function MakerWork({
     const added = scenes.find((s) => !before.has(s.type));
     if (!added) return;
     scenesBeforeAdd.current = null;
+    setAdding(false);
     select({ kind: 'scene', id: added.id });
   }, [scenes, select]);
-  const onPickTemplate = useCallback(() => {
-    scenesBeforeAdd.current = new Set(scenes.map((s) => s.type));
-    setAddOpen(false);
-  }, [scenes]);
+  /* ⚡ THE TAP IS ANSWERED AT ONCE (owner 2026-09-29, "no slow response on the
+     maker"): the navigator says the scene is on its way the moment a tile is
+     tapped, and lets go when the render the add brings lands (with the scene,
+     which is then selected — or without it, when the add was refused). */
+  const [adding, setAdding] = useState(false);
+  const addingSince = useRef<string | null>(null);
+  const stampForAdd = maker?.renderStamp ?? '';
+  useEffect(() => {
+    if (adding && addingSince.current !== stampForAdd) setAdding(false);
+  }, [stampForAdd, adding]);
+  const onPickTemplate = useCallback(
+    () => {
+      scenesBeforeAdd.current = new Set(scenes.map((s) => s.type));
+      addingSince.current = stampForAdd;
+      setAdding(true);
+      setAddOpen(false);
+      /* …and on the canvas, where it will land: after the stage's last scene. */
+      const after = lastSceneKeyRef.current;
+      if (after) broadcastToCanvasRef.current({ source: 'setnayan-editor', t: 'scenePlaceholder', key: after });
+    },
+    [scenes, stampForAdd],
+  );
 
   /* ── the preview ─────────────────────────────────────────────────────── */
   /* 🖼 The canvas is ONLY the page (`isEditorCanvas` on the guest page). The
@@ -793,6 +845,8 @@ export function MakerWork({
   /** Every canvas frame NOT shown — loading or warm (`buffered-canvas-frame.tsx`). */
   const backgroundCanvases = useRef<Set<Window>>(new Set());
   const [shownFrameKey, setShownFrameKey] = useState('');
+  /** The made-once page frame now shown — its canvas guard re-attaches to it. */
+  const [shownPageFrameKey, setShownPageFrameKey] = useState('');
   /** A buffered swap: the page kept its place, so only re-read and re-mark. */
   const onCanvasSwapped = (ready: unknown) => {
     scheduleSnapshots(700);
@@ -893,6 +947,25 @@ export function MakerWork({
   /** The guard, as a ref — a chain step fired from the render effect must not
       read the `pending` of the render before it. */
   const pendingRef = useRef(false);
+  /* ↕ A move's optimistic order, until the render its save brings lands. */
+  const [orderOverride, setOrderOverride] = useState<{ stage: LifecyclePhase; order: string[] } | null>(null);
+  const reorderInFlight = useRef(0);
+  const reorderQueue = useRef<Promise<unknown>>(Promise.resolve());
+  /** The render stamp when the last move's save landed — any LATER render is the truth. */
+  const reorderLandedAt = useRef<string | null>(null);
+  const renderStampNow = maker?.renderStamp ?? '';
+  const renderStampRef = useRef(renderStampNow);
+  renderStampRef.current = renderStampNow;
+  useEffect(() => {
+    if (!orderOverride) return;
+    const server = navigator.fullOrders[orderOverride.stage];
+    const landed = reorderLandedAt.current;
+    /* The server has drawn it — or a render arrived after the last move landed. */
+    if (sameOrder(server, orderOverride.order) || (reorderInFlight.current === 0 && landed !== null && landed !== renderStampNow)) {
+      reorderLandedAt.current = null;
+      setOrderOverride(null);
+    }
+  }, [navigator.fullOrders, orderOverride, renderStampNow]);
   const back = (sceneId: string, rest?: string) => {
     const q = new URLSearchParams({ stage, scene: sceneId });
     if (rest) q.set('chain', rest);
@@ -965,17 +1038,71 @@ export function MakerWork({
     (form.querySelector(`button[data-op="${which}"]`) as HTMLButtonElement | null)?.click();
   };
 
+  /* 👁 ONE SAVE THROUGH `makerSave`, NEVER THE FORM (measured 2026-09-29: the
+     form's post redirects back to the Maker, and that redirect REMOUNTED the
+     whole Maker — twice — so the canvas and every warm stage loaded again from
+     nothing, blank, after a hide that was already instant). The eye and Auto ·
+     Hidden write the draft directly: the navigator shows the new state now, a
+     scene taken off is hidden on the canvas by the bridge and held, and one put
+     back reloads the canvas double-buffered. "Shown" still posts the form — the
+     server refuses Shown for a scene with nothing in it, and only it can say so. */
+  const gateWrite = (scene: MakerScene, after: Partial<Pick<MakerScene, 'mode' | 'isVisible'>>): boolean => {
+    if (!elementEditing) return false;
+    const next = { mode: after.mode ?? scene.mode, isVisible: after.isVisible ?? scene.isVisible };
+    if (next.mode === 'shown' && scene.mode !== 'shown') return false;
+    const widget: { mode?: MakerScene['mode']; is_visible?: boolean } = {};
+    if (next.mode !== scene.mode) widget.mode = next.mode;
+    if (next.isVisible !== scene.isVisible) widget.is_visible = next.isVisible;
+    if (Object.keys(widget).length === 0) return true;
+    const how = drawHow(scene, next);
+    if (how.hide) hideOnCanvas(how.hide);
+    else if (how.still) {
+      canvasHold.current = holdChange(
+        canvasHold.current,
+        { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+        {},
+        Date.now(),
+      );
+    } else releaseCanvas();
+    const held = Boolean(how.hide || how.still);
+    setGates((g) => ({ ...g, [scene.id]: next }));
+    const draftAction = elementEditing.draftAction;
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ widgets: { [scene.type]: widget } }));
+    /* Serialised with the moves: each carries its own scene's whole gate. */
+    reorderQueue.current = reorderQueue.current
+      .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held }))
+      .catch(() => ({ ok: false as const, intent: 'save' as const, error: GATE_FAILED }))
+      .then((res) => {
+        if (res.ok) return;
+        /* ↩ Refused: the scene is put back as it was — on the canvas too. */
+        setGates((g) => {
+          const rest = { ...g };
+          delete rest[scene.id];
+          return rest;
+        });
+        if (how.hide) broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key: `w:${scene.type}`, shown: true });
+        releaseCanvas();
+        announceMakerSave({ state: 'error', text: res.error || GATE_FAILED });
+      });
+    return true;
+  };
+
   /* Each write is drawn as the PAGE reads it (`drawHow`): a scene taken off is
      hidden now and held; one put back reloads. */
   const eyeWrite = (scene: MakerScene) => {
     const showing = sceneShowing(scene);
     if (showing && scene.mode === 'shown') {
+      if (gateWrite(scene, { mode: 'hidden', isVisible: false })) return;
       const rest = `vis.${scene.id}.0`;
       post('mode', { widget_id: scene.id, next_mode: 'hidden', return_to: back(scene.id, rest) }, { rest, ...drawHow(scene, { mode: 'hidden' }) });
     } else if (!showing && scene.mode === 'hidden') {
+      if (gateWrite(scene, { mode: 'auto', isVisible: true })) return;
       const rest = `vis.${scene.id}.1`;
       post('mode', { widget_id: scene.id, next_mode: 'auto', return_to: back(scene.id, rest) }, { rest, ...drawHow(scene, { mode: 'auto' }) });
     } else {
+      if (gateWrite(scene, { isVisible: !scene.isVisible })) return;
       post(
         'toggle',
         {
@@ -989,11 +1116,45 @@ export function MakerWork({
     }
   };
   /** Auto · Shown · Hidden. */
-  const modeWrite = (scene: MakerScene, next: MakerScene['mode']) =>
+  const modeWrite = (scene: MakerScene, next: MakerScene['mode']) => {
+    if (gateWrite(scene, { mode: next })) return;
     post('mode', { widget_id: scene.id, next_mode: next, return_to: back(scene.id) }, drawHow(scene, { mode: next }));
+  };
 
   const move = (id: string, delta: number) => {
     if (delta === 0) return;
+    /* ↕ ONE SAVE, AND THE LIST MOVES NOW (`lib/maker-reorder.ts`). The whole
+       stage's order goes to the draft in one `makerSave`; the navigator shows it
+       at once and nothing locks. Only without the draft action (or a row whose
+       type is unknown here) does it fall back to the chain of moves below. */
+    const order = movedOrder(fullOrder, id, delta);
+    const patch = order && elementEditing ? stageOrderPatch(order, (x) => sceneById.get(x)?.type, stage) : null;
+    if (order && patch && elementEditing) {
+      releaseCanvas();
+      setOrderOverride({ stage, order });
+      reorderInFlight.current += 1;
+      announceMakerSave({ state: 'saving' });
+      const draftAction = elementEditing.draftAction;
+      const fd = new FormData();
+      fd.set('intent', 'save');
+      fd.set('patch', JSON.stringify(patch));
+      /* Serialised: each save carries the WHOLE order, so the last one decides. */
+      reorderQueue.current = reorderQueue.current
+        .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh))
+        .catch(() => ({ ok: false as const, intent: 'save' as const, error: REORDER_FAILED }))
+        .then((res) => {
+          reorderInFlight.current -= 1;
+          if (res.ok) {
+            if (reorderInFlight.current === 0) reorderLandedAt.current = renderStampRef.current;
+            announceMakerSave({ state: 'saved' });
+            return;
+          }
+          /* ↩ Refused: the list goes back to what is saved, and the toolbar says so. */
+          setOrderOverride(null);
+          announceMakerSave({ state: 'error', text: res.error || REORDER_FAILED });
+        });
+      return;
+    }
     const dir = delta < 0 ? 'up' : 'down';
     const n = Math.abs(delta);
     const rest = n > 1 ? `${dir}.${id}.${n - 1}` : undefined;
@@ -1077,14 +1238,18 @@ export function MakerWork({
 
   /* 🧭 THE STAGE'S LIST — the canvas's own order (`lib/maker-scene-list.ts`). */
   const { stageLists, fullOrders, minis, tint } = navigator;
-  const list = stageLists[stage];
+  /* ↕ A drop the server has not drawn yet is shown AS DROPPED (`lib/maker-reorder.ts`). */
+  const override = orderOverride && orderOverride.stage === stage ? orderOverride.order : null;
+  const list = optimisticStageList(stageLists[stage], override);
   /* ↕ The STAGE's whole list — what a move on this stage swaps in. */
-  const fullOrder = fullOrders[stage];
+  const fullOrder = override ?? fullOrders[stage];
   const sceneById = new Map(scenes.map((s) => [s.id, s]));
   const shownSceneIds = list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
   /* "After the last scene on this stage" in the FULL order — the row that
      follows it (a hidden or off-stage one), or the end. */
   const lastShown = shownSceneIds[shownSceneIds.length - 1];
+  const lastShownType = lastShown ? sceneById.get(lastShown)?.type : undefined;
+  lastSceneKeyRef.current = lastShownType ? `w:${lastShownType}` : null;
   const afterLastShown = lastShown ? (fullOrder[fullOrder.indexOf(lastShown) + 1] ?? null) : null;
   /* Each tile's canvas marker: its own key, or a Post Event scene's anchor. */
   const markerOf = (t: (typeof list.shown)[number]): string | null => (t.kind === 'post-event' ? t.anchor : t.key);
@@ -1271,15 +1436,24 @@ export function MakerWork({
   const pageSrc = pageKey
     ? makerPageCanvasSrc(publicLandingUrl, pageKey, stage, { guestView: storyGuestView, revealStage })
     : null;
+  /* 🪞 A new render loads BEHIND the page on screen (`MakerPageFrame` is
+     double-buffered), so the stamp moving on every save no longer blanks it. */
   const pageFrameKey = `${pageKey}:${pageSrc}:${maker.renderStamp}`;
   const pageFrame = (title: string) =>
     pageSrc && publicLandingUrl ? (
       <>
-        <MakerPageFrame src={pageSrc} title={title} device={device} frameKey={pageFrameKey} frameRef={pageFrameRef} />
+        <MakerPageFrame
+          src={pageSrc}
+          title={title}
+          device={device}
+          frameKey={pageFrameKey}
+          frameRef={pageFrameRef}
+          onShown={setShownPageFrameKey}
+        />
         <CanvasStaysOnThePage
           frameRef={pageFrameRef}
           pagePath={publicLandingUrl}
-          resetKey={pageFrameKey}
+          resetKey={shownPageFrameKey}
           stageLabel={title}
           onBack={() => {
             const f = pageFrameRef.current;
@@ -1768,6 +1942,11 @@ export function MakerWork({
               move(from, swapsForDrop(fullOrder, from, afterLastShown));
             }}
           >
+            {adding ? (
+              <p role="status" data-maker-adding-scene="" className="animate-pulse pl-4 text-[11px] font-medium text-ink/70">
+                Adding your scene…
+              </p>
+            ) : null}
             {!stageTakesOwnScenes(stage) ? null : addScene && 'action' in addScene ? (
               /* 🎬 "+" opens the 25 templates, headed with the stage being
                  edited and drawn in the view being edited (owner 2026-09-24).
@@ -2688,18 +2867,25 @@ function StdLeadSwitch({
   draftAction: ElementDraftAction;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  /* ⚡ The pick is shown at once (owner 2026-09-29, "no slow response on the
+     maker"); the server's `lead` takes over when its render lands, and a
+     refused save puts it back. Never locked while a save is on its way. */
+  const [picked, setPicked] = useState<'film' | 'photos' | null>(null);
+  useEffect(() => setPicked(null), [lead]);
+  const shown = picked ?? lead;
   const pick = async (next: 'film' | 'photos') => {
-    if (busy || next === lead) return;
-    setBusy(true);
+    if (next === shown) return;
+    setPicked(next);
     setFailed(false);
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { our_photos: { std_lead: next } } }));
     const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => null);
-    setBusy(false);
-    if (!res?.ok) setFailed(true);
+    if (!res?.ok) {
+      setPicked((p) => (p === next ? null : p));
+      setFailed(true);
+    }
   };
   return (
     <>
@@ -2709,11 +2895,10 @@ function StdLeadSwitch({
             key={option}
             type="button"
             role="radio"
-            aria-checked={lead === option}
-            disabled={busy}
+            aria-checked={shown === option}
             onClick={() => void pick(option)}
             className={`sn-press inline-flex h-10 items-center rounded-full px-4 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
-              lead === option ? 'bg-ink text-cream' : 'text-ink/75 hover:text-ink'
+              shown === option ? 'bg-ink text-cream' : 'text-ink/75 hover:text-ink'
             }`}
           >
             {option === 'film' ? 'Film' : 'Photos'}

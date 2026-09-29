@@ -193,6 +193,7 @@ export function BufferedCanvasFrame({
   anchorKey,
   onShown,
   onSwapped,
+  pageFrame = false,
 }: {
   /** Changes with every render that must reach the canvas. */
   frameKey: string;
@@ -222,6 +223,8 @@ export function BufferedCanvasFrame({
   onShown: (key: string) => void;
   /** A buffered swap happened; `ready` is the new frame's own `ready` message. */
   onSwapped: (ready: unknown) => void;
+  /** A made-once PAGE's frame (`MakerPageFrame`): the shown one is marked `data-maker-page-frame`. */
+  pageFrame?: boolean;
 }) {
   const next: CanvasFrame = { key: frameKey, group, src };
   const [frames, setFrames] = useState<CanvasFrames>({ shown: next, loading: null });
@@ -412,7 +415,10 @@ export function BufferedCanvasFrame({
   mountOrder.current = order;
   const list = order.map((id) => byId.get(id)!);
   return (
-    <div className={`relative ${className}`} data-maker-canvas-frames={frames.loading ? 'loading' : 'shown'}>
+    <div
+      className={`relative ${className}`}
+      {...{ [pageFrame ? 'data-maker-page-frames' : 'data-maker-canvas-frames']: frames.loading ? 'loading' : 'shown' }}
+    >
       {list.map((f) => {
         const role = f === frames.shown ? 'shown' : f === frames.loading ? 'loading' : 'warm';
         const loading = role === 'loading';
@@ -428,7 +434,8 @@ export function BufferedCanvasFrame({
             title={role === 'shown' ? title : `${title} (loading behind)`}
             aria-hidden={role !== 'shown' || undefined}
             tabIndex={role !== 'shown' ? -1 : undefined}
-            data-maker-canvas-frame={role}
+            data-maker-canvas-frame={pageFrame ? undefined : role}
+            data-maker-page-frame={pageFrame && role === 'shown' ? '' : undefined}
             onLoad={
               loading
                 ? () =>

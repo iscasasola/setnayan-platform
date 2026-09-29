@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { FREE_THEMES, INVITE_THEMES, themeNames, type InviteThemeId } from '@/lib/invite-themes';
 import {
   CLASSIC_PRINT_THEME,
   PRINT_PIECES,
   PRINT_SET_KEYS,
+  isProPrint,
   isThemedPrint,
   printAccess,
   printFileName,
@@ -45,10 +46,12 @@ import { PrintMenuEditor } from './print-menu-editor';
  *   2. THE INVITATION SET — every piece saves PRINT-READY in CLASSIC for
  *      everyone, and in the couple's theme with Event Hub Pro (owner: *"let's
  *      allow free for all? but if they want to print with theme is pro?"*).
- *      Without Pro a themed piece is a SAMPLE — flattened, watermarked, low
+ *      Without Pro a PRO-themed piece is a SAMPLE — flattened, watermarked, low
  *      resolution — and the web says "Go Pro to print in <theme>". In the store
- *      shell the themed print-ready buttons are ABSENT and no pitch or price is
- *      printed (App Review 3.1.1).
+ *      shell the Pro-themed print-ready buttons are ABSENT and no pitch or price
+ *      is printed (App Review 3.1.1). A FREE theme (owner 2026-09-29: Modern and
+ *      Cyber Neon beside Classic — `isProPrint`, the registry's tier) prints
+ *      print-ready for everyone, like Classic, store shell included.
  *
  * 🎨 THE THEME IS THE ONE BEING EDITED — the couple's drafted pick, named in
  * every address (a drafted pick is not the live column the route would fall
@@ -88,7 +91,13 @@ export type PrintsInput = {
 export function printPlan({ eventId, slug, theme, ownsPro, storeShell, formats, previewVersion = null }: PrintsInput) {
   const access = printAccess({ ownsPro, storeShell });
   const t = INVITE_THEMES[theme];
+  // "Themed" = not Classic (a file that names its theme, a "· Classic" twin
+  // beside it). "Free" = the registry says every couple may print it — Classic,
+  // Modern, Cyber Neon (owner 2026-09-29). Only a PRO theme without Pro is a
+  // sample; a free theme prints print-ready, unwatermarked, for everyone.
   const themed = isThemedPrint(theme);
+  const freeTheme = !isProPrint(theme);
+  const themedReady = themed && (freeTheme || access.printReady);
   const spot = spotLayersFor(theme);
   /**
    * ⚡ A PIECE'S ADDRESS CARRIES ITS OWN SIZE ONLY (owner 2026-09-28: the
@@ -123,7 +132,7 @@ export function printPlan({ eventId, slug, theme, ownsPro, storeShell, formats, 
     f[next.family] = next.format;
     return detailsItemHref(eventId, item, `&pass_format=${f.pass}&invitation_format=${f.invitation}&card_format=${f.card}`);
   };
-  return { access, t, themed, spot, sizesFor, q, classic, file, hrefWith, formats };
+  return { access, t, themed, freeTheme, themedReady, spot, sizesFor, q, classic, file, hrefWith, formats };
 }
 
 /** The pieces whose size is the couple's to choose — each warms its other sizes. */
@@ -208,7 +217,7 @@ export function PrintPieceEditor({
   menu?: { saved: MenuMoment[]; caterer: MenuMoment[]; suggestions: string[]; flash: 'saved' | 'error' | null };
   children?: React.ReactNode;
 }) {
-  const { access, t, themed, q, classic, file, hrefWith, formats } = printPlan(input);
+  const { t, themed, themedReady, q, classic, file, hrefWith, formats } = printPlan(input);
   const spec = PRINT_PIECES[k];
   const fam = formatFamilyOf(k);
   const menuEmpty = k === 'menu' && !menuHasDishes(menuPrints(menu ?? { saved: [], caterer: [], suggestions: [], flash: null }));
@@ -243,7 +252,7 @@ export function PrintPieceEditor({
             <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="link">
               {themed ? 'Save · Classic (PDF)' : 'Save PDF'}
             </PrintSaveButton>
-            {themed && access.printReady ? (
+            {themedReady ? (
               <PrintSaveButton href={q(k, 'print')} file={file.themed(k)} variant="link">
                 Save · {t.name} (PDF)
               </PrintSaveButton>
@@ -326,16 +335,18 @@ export function PrintSetBody({ input }: { input: PrintsInput }) {
 }
 
 export function PrintSetDownloads({ input }: { input: PrintsInput }) {
-  const { access, t, themed, spot, q, classic, file, formats } = printPlan(input);
+  const { access, t, themed, freeTheme, themedReady, spot, q, classic, file, formats } = printPlan(input);
   return (
     <div
-      data-prints-access={!themed ? 'classic' : access.printReady ? 'print-ready' : 'sample'}
+      data-prints-access={!themed ? 'classic' : freeTheme ? 'free-theme' : access.printReady ? 'print-ready' : 'sample'}
       className="flex flex-col gap-3"
     >
       <p className="text-sm text-ink/75">
-        <span className="font-semibold text-ink">Classic prints are free and print-ready</span> — 3 mm bleed and crop
-        marks, no watermark.{' '}
-        {!themed ? null : access.printReady ? (
+        <span data-prints-free-themes="" className="font-semibold text-ink">
+          {themeNames(FREE_THEMES)} prints are free and print-ready
+        </span>{' '}
+        — 3 mm bleed and crop marks, no watermark.{' '}
+        {!themed || freeTheme ? null : access.printReady ? (
           <>
             <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />
             With Event Hub Pro they print in <span className="font-semibold text-ink">{t.name}</span> too
@@ -351,20 +362,20 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
           </>
         )}
       </p>
-      {themed && access.offerPro ? (
+      {!freeTheme && access.offerPro ? (
         <p data-prints-go-pro="" className="text-sm font-medium text-mulberry">
           <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} className="mr-1 align-middle" />
           Go Pro to print in {t.name}.
         </p>
       ) : null}
       <div className="flex flex-col gap-2">
-        <PrintSaveButton href={classic('set')} file={file.classic('set')} variant={themed && access.printReady ? 'secondary' : 'primary'}>
+        <PrintSaveButton href={classic('set')} file={file.classic('set')} variant={themedReady ? 'secondary' : 'primary'}>
           Whole set · Classic (PDF)
         </PrintSaveButton>
         <PrintSaveButton href={classic('passes')} file={file.classic('passes')}>
           Every guest&rsquo;s pass · Classic
         </PrintSaveButton>
-        {themed && access.printReady ? (
+        {themedReady ? (
           <>
             <PrintSaveButton href={q('set', 'print')} file={file.themed('set')} variant="primary">
               <span data-prints-print-ready="">Whole set · {t.name} (PDF)</span>

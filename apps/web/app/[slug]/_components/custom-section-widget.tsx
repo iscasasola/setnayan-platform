@@ -55,6 +55,10 @@ export function renderCustomSection(input: {
   config: unknown;
   mediaUrls?: Readonly<Record<string, string>>;
   facts: SceneFacts;
+  /** 🎞 The couple's own Maker canvas — a slot's clip plays (`renderScene`). */
+  ownClipPlays?: boolean;
+  /** The still a guest sees for a slot clip that may not play (the hero photo). */
+  clipStillRef?: string | null;
 }): ReactElement | null {
   const canvas = sanitizeHubCanvas(input.config);
   if (canvas.template) {
@@ -63,6 +67,8 @@ export function renderCustomSection(input: {
       words: sanitizeCustomSection(input.config),
       mediaUrls: input.mediaUrls,
       facts: input.facts,
+      ownClipPlays: input.ownClipPlays,
+      clipStillRef: input.clipStillRef,
     });
   }
   if (!sanitizeCustomSection(input.config).body) return null;

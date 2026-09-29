@@ -273,7 +273,10 @@ test('GUARD: no free path reaches the THEMED print-ready renderer — Classic pr
   const route = read('app/api/hub-print/[piece]/route.ts');
   // The theme is decided once, before the gate, and the gate is asked with it.
   const themeAt = route.indexOf("const theme = printThemeFor(printEvent, url.searchParams.get('theme'))");
-  const proBlock = route.indexOf("if (mode === 'print' || piece === 'passes' || (mode === 'screen' && (access.printReady || classic)))");
+  // A FREE theme (Classic, Modern, Cyber Neon — owner 2026-09-29) takes the
+  // unmarked branch, decided by the registry's tier (`isProPrint`).
+  assert.match(route, /const freeTheme = !isProPrint\(theme\);/);
+  const proBlock = route.indexOf("if (mode === 'print' || piece === 'passes' || (mode === 'screen' && (access.printReady || freeTheme)))");
   const refuse = route.indexOf('if (!mayServe(piece, \'print\', access, theme))', proBlock);
   assert.ok(themeAt > 0 && proBlock > themeAt, 'the theme is resolved before the print-ready block');
   assert.ok(refuse > proBlock && refuse - proBlock < 200, 'the print-ready block must OPEN with the mayServe refusal');
@@ -328,17 +331,23 @@ test('entourage groups print in lib/entourage.ts order', () => {
 test('the Maker workspace prints no price and hides the Pro path in the store shell', () => {
   const ws = read('app/dashboard/[eventId]/launch/_components/maker-prints.tsx');
   assert.doesNotMatch(ws, /₱|PHP\s?\d/, 'no price on the prints workspace');
-  // Every THEMED print-ready control (`q(…, 'print')`) sits behind `themed && access.printReady`.
+  // Every THEMED print-ready control (`q(…, 'print')`) sits behind `themedReady` —
+  // a theme that is FREE (owner 2026-09-29: Modern, Cyber Neon) or held with Pro;
+  // `printAccess` keeps `printReady` false in the store shell.
   const themedPrint = [...ws.matchAll(/q\((?:'set'|'passes'|k), 'print'\)/g)];
   assert.ok(themedPrint.length >= 3, 'the themed print-ready controls exist for Pro');
+  assert.match(ws, /const themedReady = themed && \(freeTheme \|\| access\.printReady\);/, 'the one condition every themed print-ready control sits behind');
+  assert.match(ws, /const freeTheme = !isProPrint\(theme\);/, 'a free theme is the registry\'s tier, never "is it Classic"');
   for (const m of themedPrint) {
     const before = ws.slice(Math.max(0, m.index! - 420), m.index!);
-    assert.match(before, /themed && access\.printReady \? \(/, 'a themed print-ready control renders only with Pro, never in the store shell');
+    assert.match(before, /themedReady \? \(/, 'a themed print-ready control renders only for a free theme or with Pro');
   }
   // The Classic controls render for EVERYONE — no condition, and they ask for theme=house.
   assert.match(ws, /const classic = \(piece: string\) => `\/api\/hub-print\/\$\{piece\}\?event=\$\{eventId\}&mode=print&theme=\$\{CLASSIC_PRINT_THEME\}/);
   assert.match(ws, /Go Pro to print in \{t\.name\}/, 'a free couple on the web is told how to print in their theme');
-  assert.match(ws, /themed && access\.offerPro \? \(/, '…and only where a pitch is allowed (never the store shell)');
+  // …only for a PRO theme (a free one is never pitched), and only where a pitch
+  // is allowed (never the store shell).
+  assert.match(ws, /!freeTheme && access\.offerPro \? \(/, '…and only where a pitch is allowed (never the store shell)');
 });
 
 test('THE QR IS ALWAYS PRINTED — every piece, every format, every include combination', () => {

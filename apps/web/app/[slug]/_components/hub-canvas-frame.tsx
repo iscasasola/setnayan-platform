@@ -1,5 +1,6 @@
 import { hasHubCanvas, sanitizeHubCanvas } from '@/lib/hub-canvas';
-import { sceneGround } from '@/lib/scene-ground';
+import { sceneClipStillUrl, sceneGround } from '@/lib/scene-ground';
+import { SceneClip } from './scene-clip';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { sceneFrameLook } from '@/lib/scene-frame-look';
@@ -38,9 +39,15 @@ export function HubCanvasFrame({
   widget,
   mediaUrls,
   hubTheme,
+  ownClipPlays = false,
   children,
 }: {
   widget: InvitationWidgetRow;
+  /**
+   * 🎞 The couple's own Maker canvas (a verified host) — their clip plays.
+   * Absent for every guest: the SEC-6 gate in `sceneGround` then decides.
+   */
+  ownClipPlays?: boolean;
   /**
    * ref → presigned URL, resolved ONCE for the whole page by `SiteBody`.
    *
@@ -86,7 +93,8 @@ export function HubCanvasFrame({
   /* The ground — which kind, its signed URL, whether it paints — read once by
      `sceneGround` above, the same reader the dispatchers use to decide whether
      the widget draws its own card. */
-  const { bg, mediaUrl, painted } = sceneGround(widget, mediaUrls);
+  const ground = sceneGround(widget, mediaUrls, { ownClipPlays });
+  const { bg, mediaUrl, painted } = ground;
   /* WHERE the picture goes (`hubPhotoPlacement`), the frame's classes and its
      variables, and — 🔤 THE WORDS FOLLOW THE SCENE'S OWN GROUND, for every
      couple, never Pro (owner 2026-09-25) — the legibility tokens: a flat
@@ -94,7 +102,8 @@ export function HubCanvasFrame({
      couple's own opacity (`sceneTintGround`), a photo or clip under its light
      scrim. ONE answer (`lib/scene-frame-look.ts`), read by this frame and by
      the Maker's instant background preview, so the two cannot differ. */
-  const look = sceneFrameLook(canvas, { bg, mediaUrl, painted }, INVITE_THEMES[hubTheme ?? 'house']);
+  /* The GROUND's canvas: a clip that may not play here is drawn as its still. */
+  const look = sceneFrameLook(ground.canvas, { bg, mediaUrl, painted }, INVITE_THEMES[hubTheme ?? 'house']);
   const placement = look.placement;
   return (
     <>
@@ -120,19 +129,26 @@ export function HubCanvasFrame({
            player in the middle of the couple's words is noise.
            ⚠ The ref reached here through the SAME `hubMediaRef` allow-list a
            photo passes — one field, one fence. */
-        <video
-          aria-hidden
-          className="hub-canvas-media"
+        /* The shipped scene clip (`scene-clip.tsx`): muted, looping, inline,
+           no controls — and played ONLY while on screen, never under reduced
+           motion. */
+        <SceneClip
           src={mediaUrl}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          tabIndex={-1}
+          poster={sceneClipStillUrl(ground.canvas, mediaUrls)}
+          play="loop"
+          open="inplace"
+          label=""
+          className="hub-canvas-media"
         />
       ) : placement === 'behind' && mediaUrl && bg?.kind === 'photo' ? (
-        <div aria-hidden className="hub-canvas-media" />
+        /* 🌄 Parallax rides the SHIPPED hero parallax: `PahinaCoverParallax`
+           finds `[data-pahina-parallax]` and writes one custom property; the
+           `.pahina-js` rule in globals.css moves the layer. */
+        <div
+          aria-hidden
+          className="hub-canvas-media"
+          {...(ground.canvas.mediaMotion === 'parallax' ? { 'data-pahina-parallax': '' } : {})}
+        />
       ) : null}
       {/* The words sit above the picture, in their own layer, so the section's
           own spacing is untouched by the background existing. */}

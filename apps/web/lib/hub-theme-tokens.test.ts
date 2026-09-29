@@ -19,7 +19,10 @@ test('the House targets are real — House itself sits under AA on its lightest 
 
 test('every theme: every muted step at least as readable as House, eyebrow / gild / button label at AA', () => {
   let checked = 0;
-  for (const theme of HUB_THEMES.filter((t) => t.tier === 'pro')) {
+  // Every theme that paints its own page — all but Classic, which IS House.
+  // (Keyed on "has its own block", not on `tier`: Modern and Cyber Neon went
+  // free on 2026-09-29 and must stay under this guard.)
+  for (const theme of HUB_THEMES.filter((t) => t.id !== 'house')) {
     const k = hubThemePageTokens(theme);
     for (const a of MUTED_STEPS) {
       const ratio = contrastRatio(compositeOver(k.ink, a, k.canvas), k.canvas);
@@ -31,13 +34,13 @@ test('every theme: every muted step at least as readable as House, eyebrow / gil
     assert.ok(contrastRatio(k.canvas, k.cta) >= AA_BODY, `${theme.id}: the button's label`);
     checked += 1;
   }
-  assert.equal(checked, 9);
+  assert.equal(checked, HUB_THEMES.length - 1, 'a themed page escaped the check');
 });
 
 test('the ink moves only as far as it must — a theme whose spec ink already holds keeps it', () => {
   const luxe = HUB_THEMES.find((t) => t.name === 'Luxe')!;
   assert.equal(pageInk(luxe.palette.ink, luxe.palette.canvas), luxe.palette.ink);
-  for (const t of HUB_THEMES.filter((x) => x.tier === 'pro')) {
+  for (const t of HUB_THEMES.filter((x) => x.id !== 'house')) {
     const k = hubThemePageTokens(t);
     // Same hue family: the pushed ink stays within a small step of the spec's.
     assert.ok(contrastRatio(k.ink, t.palette.ink) < 2, `${t.id}: the page ink drifted far from the spec ink`);

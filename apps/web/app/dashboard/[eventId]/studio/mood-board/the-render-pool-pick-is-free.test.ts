@@ -143,7 +143,8 @@ test('the pool picker is MOUNTED exactly once, gated, and wired to the free acti
   const doors = board.match(/setOpenPoolSlot\(/g) ?? [];
   assert.ok(doors.length >= 2, 'the open/close control for the pool picker is gone');
 
-  const page = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+  // The board moved, whole, into one component (Details part 3) — its page and the Maker draw it.
+  const page = readFileSync(new URL('./_components/mood-board-editor.tsx', import.meta.url), 'utf8');
   assert.ok(page.includes('fetchRenderPoolAction={fetchRenderPool}'));
   assert.ok(page.includes('applyRenderPickAction={applyRenderPick}'));
 });

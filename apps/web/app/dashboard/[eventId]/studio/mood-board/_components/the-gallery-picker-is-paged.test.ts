@@ -41,7 +41,9 @@ import path from 'node:path';
 
 const HERE = __dirname;
 const ACTIONS = path.join(HERE, '..', 'actions.ts');
-const PAGE = path.join(HERE, '..', 'page.tsx');
+// The page's board moved, whole, into one component on 2026-09-29 (Details part 3 —
+// its page and the Maker's Details both draw it): the same code, re-anchored here.
+const PAGE = path.join(HERE, 'mood-board-editor.tsx');
 const PICKER = path.join(HERE, 'gallery-picker.tsx');
 const BOARD = path.join(HERE, 'inspiration-board.tsx');
 

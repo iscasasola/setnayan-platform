@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -13,6 +14,15 @@ import { presignDisplayUrl, displayUrlForStoredAsset } from '@/lib/uploads';
 import { parseClientRef, patiktokClipPolicy } from '@/lib/r2-client-ref';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { sendPatiktokReelReadyEmail } from '@/lib/patiktok-reel-emails';
+import { patiktokActionAllowed, PATIKTOK_SAVE_REFUSAL } from '@/lib/patiktok-access';
+import { patiktokSaveUnlocked } from '@/lib/patiktok-save-gate';
+import {
+  PATIKTOK_BOOTH_COOKIE_MAX_AGE,
+  patiktokBoothCookieName,
+  patiktokBoothCookiePath,
+  resolveBoothTemplates,
+  serializeBoothTemplates,
+} from '@/lib/patiktok-booth-templates';
 
 // Iteration 0017 Phase 2 — Patiktok render-job submission.
 //
@@ -348,6 +358,12 @@ export async function claimPatiktokRenderJob(jobId: string): Promise<{
   durationSec: number;
   musicUrl: string | null;
   clips: Array<{ clipId: string; url: string; durationSec: number | null }>;
+  /**
+   * 💎 The server's measured answer to "may this reel be saved?" (paid
+   * PATIKTOK_COMPILER). false ⇒ the browser renders a watermarked PREVIEW and
+   * never uploads it; the upload + finalize refuse it server-side anyway.
+   */
+  saveUnlocked: boolean;
 }> {
   if (typeof jobId !== 'string' || jobId.length === 0) {
     throw new Error('jobId required');
@@ -449,13 +465,25 @@ export async function claimPatiktokRenderJob(jobId: string): Promise<{
     musicUrl = (track?.source_url as string | null) ?? null;
   }
 
+  // 💎 Previewing is FREE (owner 2026-09-29: "yes use for free. but pay to
+  // save and share") — this action never refuses on payment. It only reports
+  // whether the reel may be SAVED, so the browser knows to watermark it.
+  const saveUnlocked = patiktokActionAllowed('save_reel', {
+    saveUnlocked: await patiktokSaveUnlocked(job.event_id as string),
+  });
+
   // Flip to processing (service role — the couple never writes the queue).
-  const admin = createAdminClient();
-  await admin
-    .from('patiktok_render_jobs')
-    .update({ status: 'processing', started_at: new Date().toISOString() })
-    .eq('job_id', jobId)
-    .neq('status', 'completed');
+  // Only for a render that will be SAVED: an unpaid preview is never uploaded
+  // or finalized, so flipping it would strand the job on "Rendering" forever.
+  // It stays `queued` — the reel waiting for the couple to add Patiktok.
+  if (saveUnlocked) {
+    const admin = createAdminClient();
+    await admin
+      .from('patiktok_render_jobs')
+      .update({ status: 'processing', started_at: new Date().toISOString() })
+      .eq('job_id', jobId)
+      .neq('status', 'completed');
+  }
 
   return {
     eventId: job.event_id as string,
@@ -463,6 +491,7 @@ export async function claimPatiktokRenderJob(jobId: string): Promise<{
     durationSec: (job.duration_sec as number) ?? 10,
     musicUrl,
     clips,
+    saveUnlocked,
   };
 }
 
@@ -482,7 +511,10 @@ export async function finalizePatiktokRenderJob(input: {
   durationSec: number;
   renderMode: 'client_webcodecs' | 'client_mediarecorder';
   clipIds: string[];
-}): Promise<{ downloadUrl: string }> {
+}): Promise<
+  | { ok: true; downloadUrl: string }
+  | { ok: false; needsPurchase: true; error: string }
+> {
   if (typeof input.jobId !== 'string' || input.jobId.length === 0) {
     throw new Error('jobId required');
   }
@@ -503,6 +535,18 @@ export async function finalizePatiktokRenderJob(input: {
     .eq('job_id', input.jobId)
     .maybeSingle();
   if (!job) throw new Error('Render job not found.');
+
+  // 💎 PAY TO SAVE (owner 2026-09-29). Finalizing is what makes a reel a KEPT
+  // reel — a stored copy, a download link, the "reel ready" email, a row the
+  // recap shows. Refused, before any of it, for an event without an
+  // admin-approved PATIKTOK_COMPILER. The job is left untouched (still waiting).
+  if (
+    !patiktokActionAllowed('save_reel', {
+      saveUnlocked: await patiktokSaveUnlocked(job.event_id as string),
+    })
+  ) {
+    return { ok: false, needsPurchase: true, error: PATIKTOK_SAVE_REFUSAL };
+  }
 
   // SEC-1: `input.key` used to be signed verbatim — membership was checked on
   // `input.jobId` and then a completely unrelated, caller-chosen key was signed
@@ -564,7 +608,7 @@ export async function finalizePatiktokRenderJob(input: {
   });
 
   revalidatePath(`/dashboard/${eventId}/studio/patiktok`);
-  return { downloadUrl };
+  return { ok: true, downloadUrl };
 }
 
 /**
@@ -667,4 +711,53 @@ export async function disconnectPatiktokTiktok(formData: FormData) {
   redirect(
     `/dashboard/${eventId}/studio/patiktok?tiktok_disconnected=1`,
   );
+}
+
+/**
+ * SAVE the booth's primary + backup template pick (audit 2026-09-29: the choice
+ * "never saved" — the gallery ignored `?role=&other=`). Called by the gallery's
+ * "Use as primary / backup" button and the booth's swap button. Kept in a
+ * per-event cookie on this device — see lib/patiktok-booth-templates.ts for why
+ * not a column. Membership-checked so the booth pages stay event-scoped.
+ */
+export async function savePatiktokBoothTemplates(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('event_id required');
+  }
+  const primaryRaw = formData.get('primary');
+  const backupRaw = formData.get('backup');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: member } = await supabase
+    .from('event_members')
+    .select('user_id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!member) throw new Error('Only people on this event can set up its booth.');
+
+  // Resolve through the catalogue — an unknown slug can never be stored. A slot
+  // the form left empty keeps what this device had saved for it.
+  const jar = await cookies();
+  const { primary, backup } = resolveBoothTemplates({
+    primaryParam: typeof primaryRaw === 'string' ? primaryRaw : null,
+    backupParam: typeof backupRaw === 'string' ? backupRaw : null,
+    saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? null,
+  });
+
+  jar.set(patiktokBoothCookieName(eventId), serializeBoothTemplates(primary.slug, backup.slug), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: patiktokBoothCookiePath(eventId),
+    maxAge: PATIKTOK_BOOTH_COOKIE_MAX_AGE,
+  });
+
+  redirect(`/dashboard/${eventId}/studio/patiktok/booth?saved=1`);
 }

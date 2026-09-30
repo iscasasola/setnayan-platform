@@ -192,7 +192,7 @@ test('2 · 🏷 THE INVITATION ASKS, THE DAY TAKES THE SELFIE (owner 2026-09-30,
   // …and the invite's save strips any face field a crafted post carries.
   const { stripInviteFaceFields } = await import('@/lib/face-tagging-wish');
   const fd = new FormData();
-  for (const [k, v] of [['face_tagging', 'yes'], ['delete_selfie', '1'], ['selfie_ref', 'r2://x'], ['selfie_refs', 'a,b'], ['selfie_vector', '[1]'], ['selfie_anything', 'x'], ['biometric_consent', '1'], ['age_affirmation', '1'], ['rsvp_status', 'attending']]) fd.set(k, v);
+  for (const [k, v] of [['face_tagging', 'yes'], ['delete_selfie', '1'], ['selfie_ref', 'r2://x'], ['selfie_refs', 'a,b'], ['selfie_vector', '[1]'], ['selfie_anything', 'x'], ['biometric_consent', '1'], ['age_affirmation', '1'], ['rsvp_status', 'attending']] as [string, string][]) fd.set(k, v);
   stripInviteFaceFields(fd);
   assert.deepEqual([...fd.keys()].sort(), ['delete_selfie', 'face_tagging', 'rsvp_status'], 'a face field survives the invitation’s save');
   const door = read('app/[slug]/invite/actions.ts');

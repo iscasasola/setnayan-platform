@@ -207,11 +207,14 @@ test('D · every Love Story save is held, batched and asks for the Apply count �
   assert.match(live, /noteDraftedCanvas\(LOVE_STORY_DRAFT_TYPE, back as HubSectionCanvas[\s\S]*postPreview\(back\)/);
   // The Maker draws the live pieces — lazily, never in its first load.
   const lazy = readFileSync(join(ROOT, 'app/dashboard/[eventId]/launch/_components/details-lazy.tsx'), 'utf8');
-  const book = readFileSync(join(ROOT, `${OS}/_components/live-book-lazy.tsx`), 'utf8');
-  assert.match(book, /LiveLoveStoryBook = dynamic\(\s*\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/love-story-live'\)/);
-  assert.match(read(`${OS}/page.tsx`), /import \{ LiveLoveStoryBook \} from '\.\/_components\/live-book-lazy';/, 'the page must reach the scrapbook lazily');
+  assert.match(lazy, /LiveLoveStoryBook = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\.\/\.\.\/website\/our-story\/_components\/love-story-live'\)/);
+  // The Love Story PAGE never imports it — the Maker hands it down (a route that
+  // can load Details' chunk grows the runtime every page downloads).
+  const page = read(`${OS}/page.tsx`);
+  assert.doesNotMatch(page, /details-lazy|love-story-live/, 'the standalone Love Story page reaches Details’ lazy chunk');
+  assert.match(page, /<InMakerLiveBook book=\{\{ \.\.\.bookProps, story \}\}>/);
+  assert.match(read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), /liveLoveStoryBook: LiveLoveStoryBook as ComponentType/);
   assert.match(lazy, /LiveStoryPanel = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\//);
-  assert.match(read(`${OS}/page.tsx`), /\{inMaker \? \(\s*<LiveLoveStoryBook\s+story=\{story\}/, 'the Maker still draws the scrapbook from the server render');
   assert.match(read('app/dashboard/[eventId]/launch/_components/maker-details.tsx'), /<LiveStoryPanel eventId=\{eventId\}/);
 });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import type { HubElementKey } from '@/lib/element-style';
@@ -86,6 +86,13 @@ export type MakerState = {
    * component its Details item shows, never a copy. Empty outside the Maker.
    */
   factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
+  /**
+   * ⚡ The instant scrapbook (`love-story-live.tsx`, loaded with Details). Handed
+   * down HERE rather than imported by the Love Story page, so the standalone
+   * Love Story page never reaches Details' lazy chunk (a route that can load it
+   * adds its dependencies to the webpack runtime every page downloads).
+   */
+  liveLoveStoryBook?: ComponentType<Record<string, unknown>>;
 };
 
 /**

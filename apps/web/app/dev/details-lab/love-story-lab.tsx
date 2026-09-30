@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LiveLoveStoryBook } from '@/app/dashboard/[eventId]/website/our-story/_components/live-book-lazy';
+import { LiveLoveStoryBook } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import type { LoveStoryBlob } from '@/app/dashboard/[eventId]/website/our-story/_components/story-fields';
 
 /**
@@ -17,6 +17,11 @@ import type { LoveStoryBlob } from '@/app/dashboard/[eventId]/website/our-story/
 declare global {
   interface Window {
     __labSaves?: Array<{ at: number; patch: string }>;
+    /** Read by `love-story-live.tsx` outside production only. */
+    __loveStoryLabSaver?: (
+      eventId: string,
+      fd: FormData,
+    ) => Promise<{ ok: true; intent: 'save'; applied: number; held: [] } | { ok: false; intent: 'save'; error: string }>;
   }
 }
 
@@ -24,22 +29,17 @@ export function LoveStoryLab({ ms, refuse, story }: { ms: number; refuse: boolea
   const [ready, setReady] = useState(false);
   useEffect(() => {
     window.__labSaves = [];
-    let off = () => {};
-    /* The SAME module the Maker loads (its `maker-details` chunk) — never a copy of its own. */
-    void import(
-      /* webpackChunkName: "maker-details" */ '@/app/dashboard/[eventId]/website/our-story/_components/love-story-live'
-    ).then(({ setLoveStoryLabSaver }) => {
-      off = () => setLoveStoryLabSaver(null);
-      setLoveStoryLabSaver(async (_eventId: string, fd: FormData) => {
-        window.__labSaves!.push({ at: performance.now(), patch: String(fd.get('patch')) });
-        await new Promise((r) => setTimeout(r, ms));
-        return refuse
-          ? { ok: false as const, intent: 'save' as const, error: 'The lab refused it.' }
-          : { ok: true as const, intent: 'save' as const, applied: 0, held: [] };
-      });
-      setReady(true);
-    });
-    return () => off();
+    window.__loveStoryLabSaver = async (_eventId: string, fd: FormData) => {
+      window.__labSaves!.push({ at: performance.now(), patch: String(fd.get('patch')) });
+      await new Promise((r) => setTimeout(r, ms));
+      return refuse
+        ? { ok: false as const, intent: 'save' as const, error: 'The lab refused it.' }
+        : { ok: true as const, intent: 'save' as const, applied: 0, held: [] };
+    };
+    setReady(true);
+    return () => {
+      delete window.__loveStoryLabSaver;
+    };
   }, [ms, refuse]);
   if (!ready) return null;
   return (

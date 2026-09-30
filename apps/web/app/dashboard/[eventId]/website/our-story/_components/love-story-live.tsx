@@ -79,11 +79,13 @@ let refusal: { seq: number; text: string } | null = null;
 /**
  * 🧪 THE DEV LAB'S SAVE (`/dev/details-lab?item=love-story`, a 404 in
  * production): the same path, a stand-in for the database, so the timings can
- * be measured without signing in. Never set anywhere else.
+ * be measured without signing in. The lab sets it on `window` (importing this
+ * module would give the lab route a way into Details' lazy chunk — see
+ * `maker-context.tsx` `liveLoveStoryBook`). Never read in production.
  */
-let labSaver: DraftAction | null = null;
-export function setLoveStoryLabSaver(fn: DraftAction | null): void {
-  if (process.env.NODE_ENV !== 'production') labSaver = fn;
+function labSaver(): DraftAction | null {
+  if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') return null;
+  return (window as unknown as { __loveStoryLabSaver?: DraftAction }).__loveStoryLabSaver ?? null;
 }
 
 /** The story to show and to build on: the Maker's own copy while it is newer than the server's. */
@@ -147,7 +149,7 @@ export async function editLoveStory(input: {
      story's own answer — only when the story carries one, so a moment edit
      never clears a date the couple gave at onboarding. */
   if (typeof next.together_since === 'string') events.together_since = storyStr(next.together_since, STORY_SHORT_MAX) || null;
-  const send = input.draftAction ?? labSaver ?? hubDraftAction;
+  const send = input.draftAction ?? labSaver() ?? hubDraftAction;
   let res: HubDraftActionResult | typeof SUPERSEDED;
   try {
     res = await makerSave(

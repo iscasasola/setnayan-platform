@@ -2,7 +2,7 @@
 
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Check, Monitor, MonitorSmartphone, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -33,7 +33,7 @@ import { MakerTour } from './maker-tour';
 import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
-import { prefetchDetailsWhenIdle } from './details-lazy';
+import { LiveLoveStoryBook, prefetchDetailsWhenIdle } from './details-lazy';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { makerAddShowsOn } from '@/lib/maker-selection';
@@ -330,6 +330,7 @@ export function MakerShell({
       lookPages,
       setLookPages,
       factEditors,
+      liveLoveStoryBook: LiveLoveStoryBook as ComponentType<Record<string, unknown>>,
     }),
     [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, lookPages, factEditors],
   );

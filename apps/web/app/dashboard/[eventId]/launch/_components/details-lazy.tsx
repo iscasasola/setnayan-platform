@@ -101,8 +101,9 @@ export const ParentCards = dynamic(() => import(/* webpackChunkName: "maker-deta
 /* ── Story & plans (Love Story · Schedule · RSVP) ─────────────────────────── */
 /* ⚡ Love Story, instant (owner 2026-09-30: "so hard to edit … the delay of
    response is terrible"): its words drawn from the Maker's own copy of the
-   story, saved behind the page (`love-story-live.tsx`; the scrapbook's own
-   stand-in is `our-story/_components/live-book-lazy.tsx`). */
+   story, saved behind the page (`love-story-live.tsx`). The scrapbook reaches
+   its page through the Maker's context (`liveLoveStoryBook`), never an import. */
+export const LiveLoveStoryBook = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/our-story/_components/love-story-live').then((m) => m.LiveLoveStoryBook), { loading: SlotFill });
 export const LiveStoryPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/our-story/_components/love-story-live').then((m) => m.LiveStoryPanel), { loading: SlotRows });
 export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.LoveStoryPieceFocus), { loading: SlotNone });
 export const ScheduleSlots = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.ScheduleSlots), { loading: SlotNone });

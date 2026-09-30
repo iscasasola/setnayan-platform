@@ -7,7 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { updateOurStory, loveStoryMomentAction } from './actions';
 import { StoryFields, type LoveStoryBlob } from './_components/story-fields';
 import { LoveStoryBook } from './_components/love-story-book';
-import { LiveLoveStoryBook } from './_components/live-book-lazy';
+import { InMakerLiveBook } from './_components/in-maker-return-to';
 import { HubDraftField } from '../_components/hub-draft-field';
 import { PickFromOurEvents, type OtherEvent } from './_components/pick-from-our-events';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -205,6 +205,31 @@ export default async function OurStoryEditorPage({
       action={action}
     />
   );
+  /* The scrapbook's props — the server-drawn book's and, in the Maker, the
+     instant one's (`InMakerLiveBook`, which also takes the story itself). */
+  const since = years.length ? Math.min(...years) : null;
+  const bookProps = {
+    inMaker,
+    eventId,
+    names: event.display_name ?? '',
+    partners,
+    eyebrow: event.event_date ? formatEventDate(event.event_date) : 'Our Event Hub',
+    daysToTheDay: daysToTheDay(event.event_date, event.timezone),
+    themeName: theme.name,
+    motionLabel: HUB_MOTION_PRESET_LABEL[theme.motion],
+    makerHref: `${base}/launch`,
+    guestHref: event.slug ? `/${event.slug}?phase=rsvp` : null,
+    ownsPro: proUsable,
+    tryingPro: proUsable && !proActive,
+    storeShell,
+    proHref: proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`,
+    proPrice,
+    refused,
+    sectionHidden: !widgetError && widget?.mode === 'hidden',
+    mediaUrls,
+    action,
+    pickSlot,
+  };
 
   return (
     <section
@@ -267,54 +292,11 @@ export default async function OurStoryEditorPage({
           story and every change is on it at the tap, saved behind it
           (`love-story-live.tsx`, loaded with Details — never the Maker's first load). */}
       {inMaker ? (
-        <LiveLoveStoryBook
-          story={story}
-          inMaker={inMaker}
-          eventId={eventId}
-          names={event.display_name ?? ''}
-          partners={partners}
-          eyebrow={event.event_date ? formatEventDate(event.event_date) : 'Our Event Hub'}
-          daysToTheDay={daysToTheDay(event.event_date, event.timezone)}
-          themeName={theme.name}
-          motionLabel={HUB_MOTION_PRESET_LABEL[theme.motion]}
-          makerHref={`${base}/launch`}
-          guestHref={event.slug ? `/${event.slug}?phase=rsvp` : null}
-          ownsPro={proUsable}
-          tryingPro={proUsable && !proActive}
-          storeShell={storeShell}
-          proHref={proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`}
-          proPrice={proPrice}
-          refused={refused}
-          sectionHidden={!widgetError && widget?.mode === 'hidden'}
-          mediaUrls={mediaUrls}
-          action={action}
-          pickSlot={pickSlot}
-        />
+        <InMakerLiveBook book={{ ...bookProps, story }}>
+          <LoveStoryBook {...bookProps} moments={moments} since={since} />
+        </InMakerLiveBook>
       ) : (
-        <LoveStoryBook
-          moments={moments}
-          since={years.length ? Math.min(...years) : null}
-          inMaker={inMaker}
-          eventId={eventId}
-          names={event.display_name ?? ''}
-          partners={partners}
-          eyebrow={event.event_date ? formatEventDate(event.event_date) : 'Our Event Hub'}
-          daysToTheDay={daysToTheDay(event.event_date, event.timezone)}
-          themeName={theme.name}
-          motionLabel={HUB_MOTION_PRESET_LABEL[theme.motion]}
-          makerHref={`${base}/launch`}
-          guestHref={event.slug ? `/${event.slug}?phase=rsvp` : null}
-          ownsPro={proUsable}
-          tryingPro={proUsable && !proActive}
-          storeShell={storeShell}
-          proHref={proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`}
-          proPrice={proPrice}
-          refused={refused}
-          sectionHidden={!widgetError && widget?.mode === 'hidden'}
-          mediaUrls={mediaUrls}
-          action={action}
-          pickSlot={pickSlot}
-        />
+        <LoveStoryBook {...bookProps} moments={moments} since={since} />
       )}
 
       {/* In the Maker these words sit BESIDE the page (the editor's Story row). */}

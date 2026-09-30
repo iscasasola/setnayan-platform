@@ -151,9 +151,10 @@ export function EventRailContext({
     hidden, which is the sidebar's shipped behaviour for these keys.
 
     ⚠ `dayOfOpen` is deliberately not passed. It gates the Guests JOURNEY
-    CHILDREN, and this rail renders no children (see the plain-leaf lock in the
-    header). Passing a client-effect value would buy nothing and would open a
-    hydration split for a row that cannot render.
+    CHILDREN, and this rail renders children for More Services only (see the
+    plain-leaf lock and its one exception in the header). Passing a
+    client-effect value would buy nothing and would open a hydration split for
+    a row that cannot render.
   */
   const groupsWithHub = applyRegistry(
     buildCustomerNavGroups(eventId, {

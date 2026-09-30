@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { LANDING_WORDS, ticketPopupDue, ticketSeenKey } from '@/lib/guest-landing';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /**
  * A NEW OR CHANGED TICKET POPS UP FIRST, WITH SAVE (owner 2026-09-30, verbatim:
@@ -40,6 +41,7 @@ export function TicketPopup({
   safariHref?: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const remember = () => {
     try {
@@ -61,14 +63,17 @@ export function TicketPopup({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per version, on arrival
   }, [guestId, fingerprint, fresh]);
 
-  if (!open) return null;
   const close = () => {
     remember();
     setOpen(false);
   };
+  // Focus in, Escape closes, focus handed back — the repo's one modal hook.
+  useModalA11y({ open, onClose: close, containerRef: dialogRef });
+
+  if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 pb-6 pt-16" data-ticket-popup="">
-      <div role="dialog" aria-modal="true" aria-labelledby="ticket-popup-title" className="relative w-full max-w-sm rounded-3xl bg-cream p-5 text-center shadow-xl">
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="ticket-popup-title" className="relative w-full max-w-sm rounded-3xl bg-cream p-5 text-center shadow-xl">
         <button type="button" onClick={close} aria-label="Close" className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:text-ink">
           <X aria-hidden className="h-5 w-5" />
         </button>

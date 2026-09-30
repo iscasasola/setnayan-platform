@@ -96,19 +96,15 @@ export function HomeFirstScreen({
         </Link>
       </div>
 
-      {/* ② ALWAYS THERE — the Maker's front door (it left the bar, owner 2026-10-01). */}
-      <div className="relative">
-        <span className="absolute -top-2 right-4 rounded-full bg-cream px-2 font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta-700 ring-1 ring-terracotta/30">
-          Recommended
-        </span>
-        <Link
-          href={`/dashboard/${eventId}/launch`}
-          data-home-edit-hub
-          className="sn-press flex w-full items-center justify-center rounded-full border border-ink/80 bg-transparent px-5 py-3.5 font-display text-[17px] text-ink transition hover:bg-ink/5"
-        >
-          Edit your Event Hub
-        </Link>
-      </div>
+      {/* ② ALWAYS THERE — the Maker's front door (it left the bar, owner 2026-10-01).
+          No "Recommended" badge: owner, 2026-10-01 — the button is always there. */}
+      <Link
+        href={`/dashboard/${eventId}/launch`}
+        data-home-edit-hub
+        className="sn-press flex w-full items-center justify-center rounded-full border border-ink/80 bg-transparent px-5 py-3.5 font-display text-[17px] text-ink transition hover:bg-ink/5"
+      >
+        Edit your Event Hub
+      </Link>
 
       {/* ③ THREE NUMBERS — "—" when unread, never 0. */}
       <div className="grid grid-cols-3 gap-2" data-home-numbers>

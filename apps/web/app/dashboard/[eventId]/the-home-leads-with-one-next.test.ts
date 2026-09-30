@@ -95,7 +95,7 @@ test('a · exactly ONE Next card with ONE button, in every state', () => {
     const html = draw({}, state);
     const kind = pickHomeNext(state).kind;
     assert.equal(count(html, 'data-home-next='), 1, `${kind}: the first screen must carry exactly one Next card`);
-    const card = html.slice(html.indexOf('data-home-next='), html.indexOf('>Recommended<'));
+    const card = html.slice(html.indexOf('data-home-next='), html.lastIndexOf('<a', html.indexOf('data-home-edit-hub')));
     assert.equal(count(card, '<a '), 1, `${kind}: the Next card must hold exactly one button`);
   }
 });
@@ -120,6 +120,7 @@ test('b · Edit your Event Hub is drawn in every state — no data can hide it',
   for (const [label, html] of states) {
     assert.equal(count(html, 'data-home-edit-hub'), 1, `${label}: the Edit your Event Hub button is missing`);
     assert.match(html, /href="\/dashboard\/e1\/launch"[^>]*>Edit your Event Hub</, `${label}: it must open the Maker`);
+    assert.doesNotMatch(html, /Recommended/i, `${label}: the owner dropped the Recommended badge (2026-10-01)`);
   }
 });
 

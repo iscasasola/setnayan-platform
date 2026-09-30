@@ -12,7 +12,10 @@
 - **"More for your event":** Find your date goes home to Details › Date (`TOOL_HOMES['find-date']`, proven by
   `details-date-finder.tsx`); "Recommended for you now" no longer surfaces retired `utility` cards (Event,
   Photo Delivery — already delivered through Papic since 2026-07-22).
+- **Add from your people shows connected people only (owner 2026-09-30):** the picker no longer offers
+  guests of the host's OTHER events (the 2026-08-21 `event` source) — only connections, the host's beloved
+  (alaga) and Samahan co-members. Guard: `add-from-people-is-scoped.test.ts` (first test replaced).
 
 SPEC IMPACT: DECISION_LOG row for the 2026-09-30 Our Services trim (order · Gallery in Papic · Editorial in
-Post Event · Event Hub Pro at Apply · Find your date in Details). Not applied from this cloud session — the
+Post Event · Event Hub Pro at Apply · Find your date in Details) and for the picker's connected-people-only rule. Not applied from this cloud session — the
 corpus is not reachable here.

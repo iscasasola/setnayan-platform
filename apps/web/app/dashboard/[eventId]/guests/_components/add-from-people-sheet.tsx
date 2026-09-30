@@ -8,8 +8,9 @@
  * list as well and not just names."*
  *
  * ── ONE LIST, NOT THREE TABS ──────────────────────────────────────────────
- * The candidates come from three places — another event you organise, your
- * People page, a samahan you are in — and they arrive already merged, sorted
+ * The candidates come from two places — your People page (connections and your
+ * beloved) and a samahan you are in; never a guest of another event (owner
+ * 2026-09-30) — and they arrive already merged, sorted
  * and de-duplicated. Tabbing them would make the host answer "where do I know
  * Ana from?" before they can look for Ana, which is the wrong question in the
  * wrong order. The `from` line under each name answers it after the fact.
@@ -288,8 +289,8 @@ export function AddFromPeopleSheet({
             Add from your people
           </h2>
           <p className="mt-1 text-sm text-ink/60">
-            Everyone Setnayan already knows for you — your other events, your
-            People page, and your groups.
+            The people you are connected to — your people, your beloved, and
+            your samahan.
           </p>
         </div>
         <button

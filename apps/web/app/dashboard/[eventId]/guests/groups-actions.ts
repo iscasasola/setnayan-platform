@@ -8,6 +8,7 @@ import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import {
   GUEST_GROUP_TEAM_SIDES,
+  REQUEST_ENTRY_SOURCE,
   SINGLETON_GUEST_ROLES,
   singletonRoleDuplicateMessage,
   singletonRoleFromIndexError,
@@ -87,6 +88,66 @@ function backToList(eventId: string, params: Record<string, string>): string {
 // per which selects were touched.
 // -----------------------------------------------------------------------
 
+/**
+ * SET TABLE ▾ for the ticked rows (owner 2026-09-30, the Fable rows' bulk bar:
+ * "Invite selected · Set group ▾ · Set table ▾ · ⋯"). One table for every
+ * ticked guest, or `null` for "No table".
+ *
+ * Only guests who can sit are moved: a guest who is not coming, passed away,
+ * or is a request is left alone (and counted as skipped, never as seated). A
+ * guest already at that table keeps their chair; a move keeps none (the seat
+ * plan places them at the new table). The table must be THIS event's — RLS on
+ * the seat row scopes the event, not the table (`restoreGuestRsvpAndSeat`).
+ */
+async function setTableForGuests(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  guestIds: string[],
+  tableId: string | null,
+): Promise<{ ok: true; moved: number; skipped: number } | { ok: false; error: string }> {
+  const ids = [...new Set(guestIds)].slice(0, 1000);
+  if (tableId) {
+    const { data: table } = await supabase.from('event_tables').select('event_id').eq('table_id', tableId).maybeSingle();
+    if (!table || table.event_id !== eventId) return { ok: false, error: 'That table isn’t part of this event.' };
+  }
+  const { data: rows, error: readErr } = await supabase
+    .from('guests')
+    .select('guest_id, rsvp_status, passed_away, entry_source')
+    .eq('event_id', eventId)
+    .in('guest_id', ids)
+    .is('deleted_at', null);
+  if (readErr) return { ok: false, error: 'Couldn’t read those guests — nothing was moved.' };
+  const canSit = (rows ?? [])
+    .filter((r) => r.rsvp_status !== 'declined' && r.passed_away !== true && r.entry_source !== REQUEST_ENTRY_SOURCE)
+    .map((r) => r.guest_id as string);
+  const skipped = ids.length - canSit.length;
+  if (canSit.length === 0) return { ok: true, moved: 0, skipped };
+
+  if (!tableId) {
+    const { error } = await supabase.from('event_seat_assignments').delete().eq('event_id', eventId).in('guest_id', canSit);
+    if (error) return { ok: false, error: 'The tables could not be cleared just now. Please try again.' };
+    return { ok: true, moved: canSit.length, skipped };
+  }
+  const { data: already } = await supabase
+    .from('event_seat_assignments')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .eq('table_id', tableId)
+    .in('guest_id', canSit);
+  const there = new Set((already ?? []).map((r) => r.guest_id as string));
+  const move = canSit.filter((id) => !there.has(id));
+  if (move.length > 0) {
+    const { error } = await supabase
+      .from('event_seat_assignments')
+      .upsert(
+        move.map((guest_id) => ({ event_id: eventId, guest_id, table_id: tableId, seat_number: null })),
+        { onConflict: 'event_id,guest_id' },
+      );
+    if (error) return { ok: false, error: 'The table could not be set just now. Please try again.' };
+  }
+  return { ok: true, moved: canSit.length, skipped };
+}
+
 export async function bulkApplyRoleAndGroup(
   eventId: string,
   formData: FormData,
@@ -94,10 +155,21 @@ export async function bulkApplyRoleAndGroup(
   const rawRole = clean(formData.get('role'));
   const rawGroupId = clean(formData.get('group_id'));
   const rawSide = clean(formData.get('side'));
+  // Set table ▾ (owner 2026-09-30, the Fable rows' bulk bar): a table id, or
+  // `none` for "No table". Rides this one action (+0 server actions).
+  const rawTable = clean(formData.get('table'));
   const guestIds = parseGuestIds(formData);
 
   if (guestIds.length === 0) {
     redirect(backToList(eventId, { error: 'no_selection' }));
+  }
+  if (rawTable) {
+    const supabase = await createClient();
+    const res = await setTableForGuests(supabase, eventId, guestIds, rawTable === 'none' ? null : rawTable);
+    if (!res.ok) redirect(backToList(eventId, { error: encodeURIComponent(res.error) }));
+    revalidatePath(`/dashboard/${eventId}/guests`);
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    redirect(backToList(eventId, { bulk_seated: String(res.moved), ...(res.skipped > 0 ? { bulk_unseatable: String(res.skipped) } : {}) }));
   }
   if (!rawRole && !rawGroupId && !rawSide) {
     // Nothing to do — Apply was clicked with all three selects on

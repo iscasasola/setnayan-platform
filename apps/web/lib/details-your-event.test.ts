@@ -179,9 +179,10 @@ test('"Leave the other side blank" happens IN PLACE — the Guest list’s own u
   assert.match(march, /import \{ unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
   assert.match(march, /await unpairGuestAction\(eventId, pairIds\[0\]!, 'in-place'\);/);
   assert.match(march, /Leave the other side blank/);
-  // …and the Guest list's row form still binds two arguments, so it keeps its redirect.
+  // ⤷ 2026-09-30 ("WALKING TOGETHER IS NOT BEING A COUPLE"): the Guest list no
+  // longer shows or undoes a walking pair — the Maker's Wedding March is the one place.
   const roster = read('app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx');
-  assert.match(roster, /unpairGuestAction\.bind\(null, eventId, guest\.guest_id\)\}/);
+  assert.doesNotMatch(roster, /unpairGuestAction/);
 });
 
 test('/find-date lands on Details › Date with "Help me choose" open — for a couple whose event has an Event Hub', () => {

@@ -92,9 +92,7 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   // card, and the THREE privacy checkboxes that carried this became one
   // <Toggle> component — so three billed uses became one, in a new file.
   // Still a checkbox ACCENT (Tailwind's form colour), never text.
-  ['guests/_components/guest-card-body.tsx', 1],
   ['guests/_components/guest-list-multiselect.tsx', 3],
-  ['guests/_components/mobile-guest-carousel.tsx', 1],
   ['guests/checkin/page.tsx', 1],
   ['guests/claims/page.tsx', 1],
   ['guests/invite/_components/invite-panel.tsx', 1], // the theme-link chevron — moved from invite/page.tsx with the panel

@@ -179,11 +179,11 @@ test('every claim on the page is gated on that measurement', () => {
     /<RosterMeters[^>]*\bmeasured=\{measured\}/,
     'the page renders the meter without telling it whether the read happened',
   );
-  // 5 · the facet pills sit in the SAME panel as that hedge. Seven confident
-  //     zeros beside one small "not loaded" line reads as "we could not
-  //     measure it, and it is zero" — the hedge loses.
-  const pills = src.match(/count=\{measured \? \w+\.count : undefined\}/g) ?? [];
-  assert.equal(pills.length, 2, 'both facet rows — Side and RSVP — must drop their counts');
+  // 5 · ⤷ 2026-09-30: the count-bearing facet pills became four dropdowns with
+  //     NO counts on them (owner, the Fable rows); the figures moved to ONE
+  //     counts line, which is drawn only when the read was measured.
+  assert.match(src, /const countsLine = guestsMeasured \? \(\s*<RosterCountsLine/, 'the counts line is drawn on a refused read');
+  assert.doesNotMatch(src, /count=\{\w+\.count\}/, 'an ungated count is back on a facet');
 });
 
 test('the phone summary states no figure it did not measure', () => {
@@ -194,7 +194,9 @@ test('the phone summary states no figure it did not measure', () => {
       'utf8',
     ),
   );
-  assert.match(src, /measured \? \(\s*<>\s*\{formatCount\(total\)\}/, 'the headline count must be gated');
-  const pills = src.match(/\{measured \? \w+ : '—'\}/g) ?? [];
-  assert.equal(pills.length, 3, 'all three RSVP pills — attending, pending, declined');
+  // ⤷ 2026-09-30 (the Fable rows): the phone head says "Guest list" and the
+  // figures moved to the page's ONE counts line (gated above). The only number
+  // left here is the screen reader's headcount — gated like the rest.
+  assert.match(src, /\{measured \? \(\s*<span className="sr-only">\s*\{' '\}\s*· \{formatCount\(total\)\}/, 'the headline count must be gated');
+  assert.doesNotMatch(src, /\{(attending|pending|declined)\}/, 'an ungated RSVP figure is back on the phone head');
 });

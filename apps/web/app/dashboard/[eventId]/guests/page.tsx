@@ -55,7 +55,6 @@ import {
 import { resolveRoleSet } from '@/lib/role-sets';
 import { detailsItemHref } from '@/lib/maker-details-items';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
-import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { ensureFinalized } from '@/lib/pax';
@@ -70,7 +69,6 @@ import {
 } from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
 import { bringerSeatsFrom } from '@/lib/extra-seats';
-import { FilterPopover } from './_components/filter-popover';
 import { FindAddRow } from './_components/find-add-row';
 import { RosterMeters } from './_components/roster-meters';
 import { RosterTabs } from './_components/roster-tabs';
@@ -82,18 +80,17 @@ import {
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { GuestsSearch } from './_components/guests-search';
 import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
+import { RosterFilters, RosterSort } from './_components/roster-controls';
+import { eventHasSides } from '@/lib/guest-side-question';
 import {
   OpenQuickAddButton,
   QuickAddSheet,
 } from './_components/quick-add-sheet';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
-import { ActiveFilters } from './_components/active-filters';
-import { LensPill } from './_components/lens-pill';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestCardBody, GUEST_CARD_ERROR_COPY } from './_components/guest-card-body';
-import { GuestSendInvite } from './_components/send-invite';
-import { GuestPassCardLink } from './_components/guest-pass-card-link';
+import { GuestInviteCell } from './_components/guest-invite-cell';
 import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -240,6 +237,7 @@ type Props = {
     // The card's own invite flash, now that it opens here rather than on its
     // own route (`error` is already declared below).
     invite?: string;
+    new_qr?: string;
     added?: string;
     saved?: string;
     removed?: string;
@@ -250,6 +248,8 @@ type Props = {
     bulk_assigned?: string;
     bulk_grouped?: string;
     bulk_sided?: string;
+    bulk_seated?: string;
+    bulk_unseatable?: string;
     bulk_deleted?: string;
     // pair-actions.ts. These arrived with the pairing feature and were not
     // registered here, so a finished pair produced no confirmation AND left
@@ -885,8 +885,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         }
         variant="panel"
         inviteSetup={inspectedInviteSetup}
-        SendInvite={GuestSendInvite}
-        PassCardLink={GuestPassCardLink}
+        SendInvite={GuestInviteCell}
         returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
         errorMessage={
           typeof search.error === 'string'
@@ -894,13 +893,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             : null
         }
         inviteFlash={
-          search.invite === 'sent'
-            ? { ok: true, msg: `Sign-in link sent to ${inspectedGuest.email}.` }
-            : search.invite === 'failed'
-              ? { ok: false, msg: 'We couldn’t send the link just now — please try again.' }
-              : search.invite === 'no_email'
-                ? { ok: false, msg: 'Add an email below and save it first, then send the invite.' }
-                : null
+          search.new_qr === '1'
+            ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }
+            : null
         }
       />
     </InspectorColumn>
@@ -930,6 +925,33 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       tagFilter ||
       teamFilter !== 'all',
   );
+  // ── The counts line (owner 2026-09-30, the Fable rows): guests · attending ·
+  // not coming · no reply · to invite · requests. "To invite" = a living guest
+  // (never the couple, never a request) whose invitation is not sent yet and
+  // who has not said they can't come.
+  const hasSides = eventHasSides(resolveRoleSet(guestRoleSetKey));
+  const toInvite = guests.filter(
+    (g) =>
+      g.role !== 'bride' &&
+      g.role !== 'groom' &&
+      countsTowardEvent(g) &&
+      !g.invitation_sent_at &&
+      g.rsvp_status !== 'declined',
+  ).length;
+  const shownCount = visible.filter((g) => countsTowardEvent(g)).length;
+  const countsLine = guestsMeasured ? (
+    <RosterCountsLine
+      filtered={hasAnyFilter}
+      shown={shownCount}
+      stats={stats}
+      toInvite={toInvite}
+      requests={pendingClaimsCount}
+    />
+  ) : null;
+  // The Account column — which guests an account holds. Refused → null, and the
+  // column says "—" rather than "Not linked" for everybody.
+  const linkedGuestIds = await readLinkedGuestIds(supabase, eventId);
+
   // Roster lens-swap key (Glass PR-3) — a stable digest of the active filter
   // dimensions. When any facet changes the key changes, remounting the roster
   // wrapper so `.sn-lens-swap` cross-fades the new result set (§2d "tab/lens/
@@ -1114,26 +1136,36 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
+      {/* ── REQUESTS TO JOIN (owner 2026-09-30, the Fable rows, frame D) ────
+          Someone who opened the event link and typed their name is a REQUEST,
+          not a guest yet — in no count until kept. One strip, right under the
+          title, is the only place they interrupt the list; they never sit as
+          rows between real guests. No requests → no strip. */}
       {pendingClaimsCount > 0 ? (
         <Link
           href={`/dashboard/${eventId}/guests/claims`}
-          className="group flex items-center justify-between gap-3 rounded-xl border border-terracotta/30 bg-terracotta/5 px-4 py-3 transition-colors hover:border-terracotta/50 hover:bg-terracotta/10"
+          data-requests-strip=""
+          className="group flex items-center gap-3 rounded-2xl border border-mulberry/25 bg-mulberry/[0.05] px-4 py-3 transition-colors hover:bg-mulberry/[0.09]"
         >
-          <span className="text-sm text-ink">
-            <span className="font-semibold text-terracotta-700">
-              {formatCount(pendingClaimsCount)} guest {pendingClaimsCount === 1 ? 'request' : 'requests'}
-            </span>{' '}
-            waiting for you to confirm
+          <span className="inline-flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full bg-mulberry px-2 text-sm font-semibold text-cream">
+            {formatCount(pendingClaimsCount)}
           </span>
-          <ArrowRight
-            aria-hidden
-            /* terracotta-700, not terracotta/60: gold at 60% over this row's own
-               gold/5 tint measures 1.94:1 — under even the 3:1 non-text bar the
-               bill invoked to sanction it. The arrow is the only thing marking
-               this "N guests waiting for you" row as somewhere to go. */
-            className="h-4 w-4 shrink-0 text-terracotta-700 transition-transform group-hover:translate-x-0.5"
-            strokeWidth={1.75}
-          />
+          <span className="min-w-0 flex-1 text-sm text-ink">
+            <span className="block font-semibold">
+              {formatCount(pendingClaimsCount)} {pendingClaimsCount === 1 ? 'request' : 'requests'} to join
+            </span>
+            <span className="block text-xs text-ink/60">
+              From your event link — keep them, or link them to a name you already have.
+            </span>
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-mulberry">
+            Review
+            <ArrowRight
+              aria-hidden
+              className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+              strokeWidth={1.75}
+            />
+          </span>
         </Link>
       ) : null}
 
@@ -1216,34 +1248,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           currentGroupId={currentGroupId}
           tagFilter={tagFilter}
           tags={allTags}
+          hasSides={hasSides}
+          sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+          sort={sort}
         />
       </div>
-
-      {/* Active filters — mobile sticky strip (lg:hidden). The always-visible
-          twin of the desktop chip row + the carousel's filter dot, so a couple
-          can SEE and drop individual filters without opening the filter sheet
-          (2026-06-13). Gated on hasAnyFilter so it never shows as an empty bar.
-          (pl-11 left-pad dropped 2026-06-15 — the fixed back-X it cleared is
-          gone, so the strip uses symmetric padding.) */}
-      {hasAnyFilter ? (
-        /* ⚠ THE OFFSET CLEARS THE SHARED TOP BAR, WHICH THIS PAGE USED TO
-            HIDE. It was `env(safe-area-inset-top)+0.5rem` — correct only while
-            the injected `.shell-topbar{display:none}` meant nothing was above
-            it. With the bar restored (owner 2026-08-21) that offset parks this
-            strip UNDERNEATH it on a phone. `--fd-bar` is the shell's own
-            measured bar height (61px in the app variant), read from the
-            ancestor it is declared on, so the two can never drift; the `0px`
-            fallback is what any surface outside that shell gets. */
-        <div className="sticky top-[calc(var(--fd-bar,0px)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/15 bg-white/55 px-3 py-2 backdrop-blur-xl lg:hidden">
-          <ActiveFilters
-            eventId={eventId}
-            search={search}
-            groups={groups}
-            roleNames={roleNames}
-            className="flex-nowrap whitespace-nowrap"
-          />
-        </div>
-      ) : null}
 
       {/* mobile/tablet only — TOP-OF-PAGE 5-tab control surface (FIX B
           2026-06-15): Summary · Search · Add · Customize · Journey as `.sn-seg`
@@ -1262,25 +1271,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
           currentSort={sort}
           views={viewFiltersNamed}
-          activeView={view}
           groups={groups}
-          currentGroupId={currentGroupId}
           tags={allTags}
-          activeTag={tagFilter}
-          allVisibleIds={visible.map((g) => g.guest_id)}
           measured={guestsMeasured}
           total={stats.total}
-          attending={stats.attending}
-          pending={stats.pending}
-          declined={stats.declined}
           paxProgress={paxProgress}
-          teamFilter={teamFilter}
-          pendingClaims={pendingClaimsCount}
-          inviteLinkReady={Boolean(joinUrl)}
-          unseated={Math.max(0, stats.attending - seatedCount)}
-          arrived={arrivedCount}
-          roleSetKey={guestRoleSetKey}
           joinUrl={joinUrl}
+          hasSides={hasSides}
+          maybeCount={stats.maybe}
         />
       </Suspense>
 
@@ -1324,12 +1322,22 @@ export default async function GuestsPage({ params, searchParams }: Props) {
          column beside it. `gl-settle-delayed` eases the roster in a beat after
          the bar on first load (frozen under prefers-reduced-motion). */
       <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
+          {countsLine}
           {visible.length === 0 ? (
             <EmptyState
               finished={finished}
               hasGuests={stats.total > 0}
               eventId={eventId}
               measured={guestsMeasured}
+              total={stats.total}
+              filterSentence={filterSentence({
+                rsvp: rsvpFilter,
+                team: teamFilter,
+                viewLabel: view !== 'all' ? (viewFiltersNamed.find((v) => v.key === view)?.label ?? null) : null,
+                groupLabel: currentGroupId ? (groups.find((g) => g.group_id === currentGroupId)?.label ?? null) : null,
+                tag: tagFilter,
+                q,
+              })}
             />
           ) : (
             <GuestListMultiselect
@@ -1345,6 +1353,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               accessTagByGuest={accessTagByGuest}
               // From the FULL roster, before any filter (frame G, 2026-09-29).
               seatsByBringer={bringerSeatsFrom(guests)}
+              // The Account column and the bulk bar's Set table ▾.
+              linkedGuestIds={linkedGuestIds}
+              tables={tables.map((t) => ({ tableId: t.table_id, label: t.table_label }))}
               // The Invite column (owner 2026-09-30): every guest's own link +
               // the event's words, read once. No base → no link → "—".
               invite={
@@ -1362,6 +1373,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
                 search.bulk_assigned ||
                   search.bulk_grouped ||
                   search.bulk_sided ||
+                  search.bulk_seated ||
                   // Pairing acts on the SELECTED two and finishes the task, so
                   // it retracts the bar exactly like an Apply. `unpaired` is
                   // deliberately absent: it comes from a single row's own
@@ -1656,6 +1668,8 @@ function pickFlash(search: {
   bulk_assigned?: string;
   bulk_grouped?: string;
   bulk_sided?: string;
+  bulk_seated?: string;
+  bulk_unseatable?: string;
   bulk_deleted?: string;
   paired?: string;
   unpaired?: string;
@@ -1691,6 +1705,13 @@ function pickFlash(search: {
   if (search.bulk_grouped) {
     const n = Number(search.bulk_grouped);
     return `Added ${formatCount(n)} guest${n === 1 ? '' : 's'} to the group.`;
+  }
+  if (search.bulk_seated) {
+    const n = Number(search.bulk_seated);
+    const left = Number(search.bulk_unseatable ?? 0);
+    return `Table set for ${formatCount(n)} ${n === 1 ? 'guest' : 'guests'}.${
+      left > 0 ? ` ${formatCount(left)} not coming or not placed were left as they were.` : ''
+    }`;
   }
   if (search.bulk_sided) {
     const n = Number(search.bulk_sided);
@@ -1734,16 +1755,6 @@ function pickFlash(search: {
 // this is presentation only. Group management (create / rename / delete)
 // keeps its full behaviour via the same GroupsSidebar client component,
 // now laid out inline (`layout="inline"`).
-const SUMMARY_FILTER_KEYS = [
-  'q',
-  'rsvp',
-  'view',
-  'group',
-  'team',
-  'tag',
-  'sort',
-  'gview',
-] as const;
 
 function SummaryFacetBar({
   roleNames,
@@ -1764,7 +1775,15 @@ function SummaryFacetBar({
   currentGroupId,
   tagFilter,
   tags,
+  hasSides,
+  sorts,
+  sort,
 }: {
+  /** A birthday has no sides — no Side dropdown. */
+  hasSides: boolean;
+  /** Sort ▾'s list and the live sort. */
+  sorts: { key: string; label: string }[];
+  sort: string;
   /** The couple's own words for roles (owner 2026-09-30). */
   roleNames: RoleNames;
   stats: GuestStats;
@@ -1788,84 +1807,6 @@ function SummaryFacetBar({
   tagFilter: string;
   tags: string[];
 }) {
-  // One href builder for every pill: seed from the current filter params,
-  // then override the single dimension this pill owns (null = drop it). This
-  // is the SAME "preserve everything, toggle one" contract the old
-  // SummaryStrip + FacetsSidebar each implemented — unified so every facet
-  // stacks cleanly.
-  const buildHref = (overrides: Record<string, string | null>) => {
-    const p = new URLSearchParams();
-    for (const k of SUMMARY_FILTER_KEYS) {
-      const v = search[k];
-      if (v) p.set(k, v);
-    }
-    // Normalize the legacy `?view=group:<id>` encoding (pre-2026-06-13 bookmarks)
-    // to the clean `group` param before applying overrides. Seeding view/group
-    // from the server-NORMALIZED props (not raw search) is what keeps a View-pill
-    // click — which overrides `view` — from silently dropping the group filter;
-    // this mirrors the old FacetsSidebar baseQuery.
-    if (view && view !== 'all') p.set('view', view);
-    else p.delete('view');
-    if (currentGroupId) p.set('group', currentGroupId);
-    else p.delete('group');
-    for (const [k, val] of Object.entries(overrides)) {
-      if (val === null) p.delete(k);
-      else p.set(k, val);
-    }
-    const qs = p.toString();
-    return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
-  };
-
-  // Group chips for the side the host is standing in (owner 2026-09-14:
-  // "when i press team groom, it will only show groups of the groom"). A
-  // 'both'-sided group belongs to either lens; the ACTIVE group is always kept
-  // so switching side can never hide a chip whose filter is still applied.
-  const groupsForSide =
-    teamActive === 'all'
-      ? groups
-      : groups.filter(
-          (g) =>
-            g.team_side === teamActive ||
-            g.team_side === 'both' ||
-            g.group_id === currentGroupId,
-        );
-
-
-  // Side facet — same `team` param + "both counts to both sides" rule as the
-  // old rail (Everyone clears; Bride / Groom set). Dot cue matches the roster.
-  const sideOptions: {
-    key: 'all' | 'bride' | 'groom';
-    label: string;
-    count: number;
-    dot?: string;
-  }[] = [
-    { key: 'all', label: 'Everyone', count: teamCounts.all },
-    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: SIDE_DOT.bride },
-    { key: 'groom', label: 'Groom', count: teamCounts.groom, dot: SIDE_DOT.groom },
-  ];
-
-  // RSVP facet — toggle pills (tap an active one to clear), preserved from the
-  // old SummaryStrip. The four states carry the live counts.
-  const rsvpOptions: { key: RsvpStatus; label: string; count: number }[] = [
-    { key: 'attending', label: 'Attending', count: stats.attending },
-    { key: 'pending', label: 'Pending', count: stats.pending },
-    { key: 'declined', label: 'Declined', count: stats.declined },
-    { key: 'maybe', label: 'Maybe', count: stats.maybe },
-  ];
-
-  // ⚖ Owner 2026-09-20 — the prototype shell. Three blocks became one row
-  // plus a meter strip: RosterMeters (two meters, one row) · FindAddRow
-  // (search ↔ add sharing one row) · the five facet rows folded into a
-  // FilterPopover. The rows below are MOVED, NOT REWRITTEN: their links,
-  // counts and honesty rules (a count it could not measure is hidden, never a
-  // confident zero) are the same text they were.
-  const activeFilters =
-    (teamActive !== 'all' ? 1 : 0) +
-    (rsvpActive ? 1 : 0) +
-    (view && view !== 'all' ? 1 : 0) +
-    (currentGroupId ? 1 : 0) +
-    (tagFilter ? 1 : 0);
-
   return (
     <div className="gl-settle">
       <RosterMeters paxProgress={paxProgress} stats={stats} measured={measured} />
@@ -1886,121 +1827,33 @@ function SummaryFacetBar({
           </Suspense>
         }
         filter={
-          <FilterPopover activeCount={activeFilters}>
-            {/* ⚖ No Sort row — owner 2026-09-21: "remove the filter on search since
-                we already have a sort on the table itself", then, asked what
-                the popup ALSO held: keep it, drop only its Sort. The table
-                header sorts (the label) and groups (the box). Two orders had
-                no column to click — First name, Newest first — and left the
-                desktop with this row, by that choice. */}
-
-          <FacetRow label="Side">
-            {sideOptions.map((s) => (
-              <LensPill
-                key={s.key}
-                href={buildHref({ team: s.key === 'all' ? null : s.key })}
-                active={teamActive === s.key}
-                // Seven confident zeros beside one small "not loaded" line reads
-                // as "we could not measure it, and it is zero" — the hedge loses.
-                // LensPill hides the badge entirely when the count is undefined,
-                // so the filter still works and only the invented number goes.
-                count={measured ? s.count : undefined}
-                dot={s.dot}
-              >
-                {s.label}
-              </LensPill>
-            ))}
-          </FacetRow>
-
-          <FacetRow label="RSVP">
-            {rsvpOptions.map((r) => {
-              const isActive = rsvpActive === r.key;
-              return (
-                <LensPill
-                  key={r.key}
-                  href={buildHref({ rsvp: isActive ? null : r.key })}
-                  active={isActive}
-                  count={measured ? r.count : undefined}
-                  title={isActive ? `Clear ${r.label} filter` : `Show only ${r.label}`}
-                >
-                  {r.label}
-                </LensPill>
-              );
-            })}
-          </FacetRow>
-
-          <FacetRow label="View">
-            {views.map((v) => (
-              <LensPill
-                key={v.key}
-                href={buildHref({ view: v.key === 'all' ? null : v.key })}
-                active={view === v.key}
-              >
-                {v.label}
-              </LensPill>
-            ))}
-          </FacetRow>
-
-          {/* Owner 2026-09-14: "groups will be filtered depending on what side as
-              well. so when i press team groom, it will only show groups of the
-              groom". Groups already carry `team_side`, and a roster with a
-              "Family" on each side showed BOTH chips under every lens — two
-              identical-looking pills the host had to tell apart by a dot.
-
-              'both'-sided groups always show: they belong to whichever side you
-              are standing in. And the ACTIVE group always shows even when it does
-              not match the lens — otherwise switching side would hide the chip
-              while its filter stayed applied, leaving a roster narrowed by
-              something invisible. */}
-          <FacetRow label="Group">
-            <GroupsSidebar
-              eventId={eventId}
-              groups={groupsForSide}
-              currentGroupId={currentGroupId}
-              layout="inline"
-              hrefByGroupId={Object.fromEntries(
-                groupsForSide.map((g) => [g.group_id, buildHref({ group: g.group_id })]),
-              )}
+          /* ⚖ Owner 2026-09-30 (the Fable rows, frame F): the five facet rows
+             became FOUR dropdowns — RSVP · Side · Role · Group (tags sit at the
+             bottom of Group) — plus Sort ▾, each ONE list. An active one says
+             its value in gild; there is no separate chip strip. */
+          <div className="flex flex-wrap items-center gap-1.5">
+            <RosterFilters
+              hasSides={hasSides}
+              views={views}
+              groups={groups}
+              tags={tags}
+              maybeCount={stats.maybe}
+              manageGroups={
+                <GroupsSidebar
+                  eventId={eventId}
+                  groups={groups}
+                  currentGroupId={currentGroupId}
+                  layout="inline"
+                  hrefByGroupId={{}}
+                />
+              }
             />
-          </FacetRow>
-
-          {tags.length > 0 ? (
-            <FacetRow label="Tags">
-              {tags.map((t) => {
-                const isActive = tagFilter === t;
-                return (
-                  <LensPill
-                    key={t}
-                    href={buildHref({ tag: isActive ? null : t })}
-                    active={isActive}
-                  >
-                    {t}
-                  </LensPill>
-                );
-              })}
-            </FacetRow>
-          ) : null}
-          </FilterPopover>
+            <RosterSort sorts={sorts} current={sort} />
+          </div>
         }
         add={addBar}
       />
 
-      {/* What is applied stays on screen with the rows folded away — the only
-          place an active filter is visible besides the number on the button. */}
-      <ActiveFilters eventId={eventId} search={search} groups={groups} roleNames={roleNames} />
-    </div>
-  );
-}
-
-// A labelled row of facet pills: a mono uppercase lens label + its pills,
-// wrapping together.
-function FacetRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-      <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
-        {label}
-      </span>
-      {children}
     </div>
   );
 }
@@ -2022,12 +1875,12 @@ function ShareDropdown({ joinUrl, eventId }: { joinUrl: string; eventId: string 
     <details className="group relative">
       <summary className="button-secondary inline-flex cursor-pointer list-none select-none items-center gap-2">
         <Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Share
+        Share the link
       </summary>
       <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-ink/15 bg-cream p-4 shadow-[0_12px_32px_-12px_rgba(30,34,41,0.4)]">
         <p className="mb-2 text-xs text-ink/60">
-          Send this to guests via text or email. They&rsquo;ll sign in, pick a role, and
-          land on the guest list.
+          The one link for your whole event. Anyone who opens it can ask to join — you keep
+          them, or link them to a name you already have.
         </p>
         <code className="block break-all rounded bg-ink/5 p-3 font-mono text-[11px] leading-relaxed text-ink/80">
           {joinUrl}
@@ -2045,12 +1898,112 @@ function ShareDropdown({ joinUrl, eventId }: { joinUrl: string; eventId: string 
   );
 }
 
+/**
+ * THE COUNTS LINE (owner 2026-09-30, the Fable rows): guests · attending · not
+ * coming · no reply · to invite · requests — the last two in wine, because they
+ * are the ones that need you. Requests show only above zero. With a filter on,
+ * it leads with "N of M shown". Rendered only when the read was MEASURED — a
+ * refused read never prints a count (the caller passes nothing).
+ */
+function RosterCountsLine({
+  filtered,
+  shown,
+  stats,
+  toInvite,
+  requests,
+}: {
+  filtered: boolean;
+  shown: number;
+  stats: GuestStats;
+  toInvite: number;
+  requests: number;
+}) {
+  const parts: { n: number; word: string; wine?: boolean }[] = [
+    ...(filtered ? [] : [{ n: stats.total, word: stats.total === 1 ? 'guest' : 'guests' }]),
+    { n: stats.attending, word: 'attending' },
+    { n: stats.declined, word: 'not coming' },
+    { n: stats.pending, word: 'no reply' },
+    { n: toInvite, word: 'to invite', wine: true },
+    ...(requests > 0 ? [{ n: requests, word: requests === 1 ? 'request' : 'requests', wine: true }] : []),
+  ];
+  return (
+    <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-ink/60" data-roster-counts="">
+      {filtered ? (
+        <span className="font-medium text-ink">
+          {formatCount(shown)} of {formatCount(stats.total)} shown
+        </span>
+      ) : null}
+      {parts.map((p) => (
+        <span key={p.word} className={p.wine ? 'text-mulberry' : undefined}>
+          <span className={`font-display text-base ${p.wine ? '' : 'text-ink'}`}>{formatCount(p.n)}</span> {p.word}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/**
+ * Which guests an account holds (`event_members.guest_id`) — the Account column.
+ * Read AS THE CALLER: RLS decides whether they may see this event's members.
+ * A refusal returns null, and the column then says "—" for everybody rather than
+ * a confident "Not linked" nobody measured.
+ */
+async function readLinkedGuestIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+): Promise<string[] | null> {
+  const { data, error } = await supabase
+    .from('event_members')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .not('guest_id', 'is', null);
+  if (error) {
+    logQueryError('GuestsPage.linkedGuestIds', error, { eventId }, 'graceful_degrade');
+    return null;
+  }
+  return [...new Set(((data ?? []) as { guest_id: string | null }[]).map((r) => r.guest_id).filter((id): id is string => Boolean(id)))];
+}
+
+/**
+ * "Nobody matches" — the sentence built from the filters in use, so the empty
+ * box explains itself (owner 2026-09-30, frame E). Null when there is nothing
+ * to build from; the box then keeps the shipped line.
+ */
+function filterSentence(f: {
+  rsvp: RsvpStatus | '';
+  team: 'all' | 'bride' | 'groom';
+  viewLabel: string | null;
+  groupLabel: string | null;
+  tag: string;
+  q: string;
+}): string | null {
+  const who = [
+    f.team === 'bride' ? "on the bride's side" : f.team === 'groom' ? "on the groom's side" : null,
+    f.viewLabel ? `in ${f.viewLabel}` : null,
+    f.groupLabel ? `in ${f.groupLabel}` : null,
+    f.tag ? `tagged ${f.tag}` : null,
+    f.q ? `matching “${f.q}”` : null,
+  ].filter(Boolean);
+  const where = who.length > 0 ? ` ${who.join(', ')}` : '';
+  if (f.rsvp === 'declined') return `No one${where} has said they're not coming. Good news, really.`;
+  if (f.rsvp === 'attending') return `No one${where} has said yes yet.`;
+  if (f.rsvp === 'pending') return `Everyone${where} has replied.`;
+  if (f.rsvp === 'maybe') return `No one${where} has said maybe.`;
+  return who.length > 0 ? `No one${where}.` : null;
+}
+
 function EmptyState({
   hasGuests,
   eventId,
   measured,
   finished = false,
+  total = 0,
+  filterSentence: sentence = null,
 }: {
+  /** Everyone on the list, for "Show all N". */
+  total?: number;
+  /** The filters, said as a sentence (`filterSentence`); null → the shipped line. */
+  filterSentence?: string | null;
   hasGuests: boolean;
   eventId: string;
   /** False when the guest read was refused — see fetchGuestsByEventMeasured. */
@@ -2094,11 +2047,15 @@ function EmptyState({
     return (
       /* Unframed (owner 2026-08-21) — a dashed rectangle around one sentence
          reads as a drop zone, which this has never been. */
-      <div className="p-6 text-center text-ink/60">
-        No guests match your filters.
-        <div className="mt-3">
+      <div className="p-6 text-center" data-roster-nobody-matches="">
+        <p className="font-display text-xl text-ink">Nobody matches</p>
+        <p className="mt-1 text-sm text-ink/60">{sentence ?? 'No guests match your filters.'}</p>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
           <Link href={`/dashboard/${eventId}/guests`} className="button-secondary">
             Clear filters
+          </Link>
+          <Link href={`/dashboard/${eventId}/guests`} className="text-sm font-medium text-ink/70 underline underline-offset-4">
+            Show all {formatCount(total)}
           </Link>
         </div>
       </div>
@@ -2110,33 +2067,30 @@ function EmptyState({
        doors carry it; the error state above KEEPS its edge, deliberately —
        that one is a refusal and has to stop the eye. */
     <div className="p-8 text-center">
-      <p className="text-base text-ink/70">
-        {finished
-          ? 'No guests were added to this one. You can still add anybody who came.'
-          : 'No guests yet. Start by adding the couple’s first invite.'}
-      </p>
+      {finished ? (
+        <p className="text-base text-ink/70">No guests were added to this one. You can still add anybody who came.</p>
+      ) : (
+        <>
+          <p className="font-display text-xl text-ink">No guests yet</p>
+          <p className="mt-1 text-sm text-ink/65">
+            Start with the two of you — then add the people you can&rsquo;t get married without.
+          </p>
+        </>
+      )}
       {/* Lead with the one-tap quick-add sheet (name + side, done) — the heavy
           detailed form stays one click away for power users. Inviting is THE
           zero-state action, so the Invite doorway (2026-07-15) sits right here
           beside adding names — share one link and let guests self-add. */}
       <div className="mt-4 flex flex-col items-center gap-2">
-        <OpenQuickAddButton label={finished ? '+ Add someone who came' : '+ Add your first guest'} />
-        {/* THE EMPTY STATE IS EXACTLY WHERE THIS DOOR EARNS ITS PLACE. A first
-            guest list is the moment somebody is most likely to be retyping
-            people they have already given us — and the sheet says so honestly
-            when it has nobody to offer yet. */}
+        <OpenQuickAddButton label={finished ? '+ Add someone who came' : '+ Add a guest'} />
+        {/* "Paste a list" — the shipped import page, where a pasted list or a
+            file of names becomes guests. */}
+        <Link href={`/dashboard/${eventId}/guests/import`} className="button-secondary inline-flex items-center gap-2">
+          Paste a list
+        </Link>
+        {/* THE EMPTY STATE IS EXACTLY WHERE THIS DOOR EARNS ITS PLACE — a first
+            list is when somebody is likeliest to retype people we already hold. */}
         <OpenAddFromPeopleButton />
-        {/* Inviting people to a celebration that already happened is the one
-            door that stops making sense. Everything else here stays. */}
-        {finished ? null : (
-          <Link
-            href={`/dashboard/${eventId}/guests/invite`}
-            className="button-secondary inline-flex items-center gap-2"
-          >
-            <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Invite guests
-          </Link>
-        )}
         <Link
           href={`/dashboard/${eventId}/guests/new`}
           className="text-xs text-ink/55 underline underline-offset-2 hover:text-ink"

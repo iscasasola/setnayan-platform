@@ -160,12 +160,12 @@ test('⚖ the roster never collapses a pair, and removes no column', () => {
     !/pair_with_guest_id[^\n]*\?[^\n]*null\s*:\s*<DesktopRow/.test(ROSTER),
     'a roster row is now conditional on pairing',
   );
-  /* The partner is SHOWN, as a line under the name, with a way to undo it.
-     🪤 Matched with a tag boundary: a bare `includes('<PartnerLine')` also
-     matches `<PartnerLineX`, so renaming the mount passed a first draft of
-     this. A substring is not a mount. */
-  assert.match(ROSTER, /<PartnerLine[\s/>]/, 'the roster stopped showing "walks with"');
-  assert.match(ROSTER, /\bunpairGuestAction\b/, 'the roster lost its unpair control');
+  /* ⤷ 2026-09-30 (DECISION_LOG "WALKING TOGETHER IS NOT BEING A COUPLE"):
+     "walks with" is set ONLY in the Maker's Wedding March and never appears on
+     the Guest list, the guest card or the rows. Pinned the other way round now —
+     the pair must NOT come back to the list, where it read as "a couple". */
+  assert.doesNotMatch(ROSTER, /<PartnerLine[\s/>]|walks with/, 'the roster shows "walks with" again');
+  assert.doesNotMatch(ROSTER, /\b(pairSelectedGuests|unpairGuestAction)\b/, 'the roster pairs or unpairs again');
 });
 
 // ── the two orderings stay two orderings ───────────────────────────────────

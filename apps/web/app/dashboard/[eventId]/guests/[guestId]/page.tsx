@@ -13,8 +13,7 @@ import {
   GuestCardBody,
   GUEST_CARD_ERROR_COPY,
 } from '../_components/guest-card-body';
-import { GuestSendInvite } from '../_components/send-invite';
-import { GuestPassCardLink } from '../_components/guest-pass-card-link';
+import { GuestInviteCell } from '../_components/guest-invite-cell';
 import { UndoToastHost } from '../_components/undo-toast';
 
 export const metadata = { title: 'Guest detail' };
@@ -37,7 +36,7 @@ export const metadata = { title: 'Guest detail' };
 
 type Props = {
   params: Promise<{ eventId: string; guestId: string }>;
-  searchParams: Promise<{ error?: string; saved?: string; invite?: string; swapped?: string; unlinked?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; invite?: string; swapped?: string; unlinked?: string; new_qr?: string }>;
 };
 
 export default async function GuestDetailPage({ params, searchParams }: Props) {
@@ -99,20 +98,20 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     ? (GUEST_CARD_ERROR_COPY[rawError] ?? rawError)
     : null;
 
-  // Host-initiated email-invite feedback (Invite/Join v2).
+  // What the careful actions did — said on the card they were pressed on.
   const inviteFlash =
     search.swapped === '1'
       ? { ok: true, msg: 'Done — the spot is theirs, with a new key. The old link and QR no longer work. Share their invitation from the guest list.' }
       : search.unlinked === '1'
         ? { ok: true, msg: 'Unlinked — that account no longer holds this invitation, and it has a new key. The old link and QR no longer work.' }
-      :
-    search.invite === 'sent'
-      ? { ok: true, msg: `Sign-in link sent to ${guest.email}.` }
-      : search.invite === 'failed'
-        ? { ok: false, msg: 'We couldn’t send the link just now — please try again.' }
-        : search.invite === 'no_email'
-          ? { ok: false, msg: 'Add an email below and save it first, then send the invite.' }
-          : null;
+        : search.new_qr === '1'
+          ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }
+          : // The couple row's sign-in link (the one email left — see the card's Access).
+            search.invite === 'sent'
+            ? { ok: true, msg: `Sign-in link sent to ${guest.email}.` }
+            : search.invite === 'failed'
+              ? { ok: false, msg: 'We couldn’t send the link just now — please try again.' }
+              : null;
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 pb-16">
@@ -130,8 +129,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         photoDisplayUrl={photoDisplayUrl}
         variant="page"
         inviteSetup={inviteSetup}
-        SendInvite={GuestSendInvite}
-        PassCardLink={GuestPassCardLink}
+        SendInvite={GuestInviteCell}
         returnTo={`/dashboard/${eventId}/guests/${guestId}`}
         errorMessage={errorMessage}
         inviteFlash={inviteFlash}

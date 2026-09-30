@@ -30,7 +30,7 @@ function desktopRow(): string {
   const start = ROW.indexOf('function DesktopRow(');
   assert.notEqual(start, -1, 'DesktopRow is gone — this guard is blind');
   const after = ROW.slice(start);
-  const end = after.indexOf('\nfunction SelfJoinDesktopRow(');
+  const end = after.indexOf('\ntype Props = {');
   assert.notEqual(end, -1, 'could not find the end of DesktopRow');
   return after.slice(0, end);
 }
@@ -77,7 +77,7 @@ test('🔑 the phone roster drops its pills too — one vocabulary, every width'
   */
   const mobileRow = ROW.slice(
     ROW.indexOf('function MobileListRow('),
-    ROW.indexOf('function MobileSelfJoinCard('),
+    ROW.indexOf('function SwipeToDelete('),
   );
   assert.ok(mobileRow.includes('<RoleTexts'), 'the phone row lost its role text');
   assert.ok(mobileRow.includes('<RsvpText'), 'the phone row lost its RSVP text');
@@ -126,15 +126,11 @@ test('exactly one element in the row carries a filled tint', () => {
   );
 });
 
-test('the side is carried by an EDGE and still by a WORD', () => {
+test('the side is carried by a WORD — the colour edge left (2026-09-30)', () => {
   const body = desktopRow();
-  // The edge — for scanning a column of bride's people at a glance.
-  assert.match(
-    body,
-    /border-l-2[^`"']*SIDE_CONTROL_BORDER\[guest\.side\]/,
-    'the row lost its side edge',
-  );
-  // And the word — colour alone is not a label. A colour-blind reader and a
-  // screen reader get nothing from a 2px rule.
-  assert.ok(body.includes('<SideText'), 'the side is now colour-only, with no readable label');
+  // ⤷ The Fable rows' ledger: "2px side-coloured edge on every row — moved:
+  // Side is now a word … Plain English beats a colour code."
+  assert.doesNotMatch(body, /SIDE_CONTROL_BORDER/, 'the colour-coded side edge is back');
+  // The word — colour alone is never the label.
+  assert.ok(body.includes('<SideText'), 'the side is no longer said in words');
 });

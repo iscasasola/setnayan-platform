@@ -7011,3 +7011,42 @@ html:has(.hub-shape-full) { overflow-x: clip; }
     --fd-rail: env(viewport-segment-left 1 0);
   }
 }
+
+/* ── .sn-switch — a yes/no answer drawn as a switch (owner 2026-09-30, the
+   Fable guest card: "Yes/No = toggles"). A real checkbox underneath, so it posts
+   `on` like any box, works with the keyboard and a screen reader, and the
+   autosave's undo can click it back. */
+.sn-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.625rem;
+  border-radius: 9999px;
+  background: rgb(26 26 26 / 0.18);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.sn-switch::after {
+  content: '';
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: #fffdf8;
+  box-shadow: 0 1px 3px rgb(26 26 26 / 0.3);
+  transition: transform 0.2s ease;
+}
+.sn-switch:checked {
+  background: #4f6b4a;
+}
+.sn-switch:checked::after {
+  transform: translateX(1.125rem);
+}
+.sn-switch:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}

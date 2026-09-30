@@ -333,10 +333,11 @@ test('the card route decides access BEFORE it draws, and needs the guest’s key
 test('one guest’s card is FREE for the couple — no Pro question on the single route or its button', () => {
   const r = src('app/api/guest/pass-card/route.ts');
   assert.doesNotMatch(r, /printOwnsPro|ownsPro|EventHubPro|makerProMark/, 'the single card never asks about Pro');
-  // Its own file since train m (the Maker loads it lazily — guest-pass-card-link.tsx).
-  const links = src('app/dashboard/[eventId]/guests/_components/guest-pass-card-link.tsx');
-  const at = links.indexOf('export function GuestPassCardLink');
-  assert.ok(at > -1, 'the per-guest pass-card link moved — follow it');
+  // ⤷ 2026-09-30: the card's per-guest save is Save ticket, in the full ticket
+  // view (the Fable guest card, frame F — guest-ticket-parts.tsx).
+  const links = src('app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx');
+  const at = links.indexOf('export function GuestTicketThumb');
+  assert.ok(at > -1, 'the per-guest ticket save moved — follow it');
   const fn = links.slice(at);
   assert.doesNotMatch(fn, /PaidMark|makerProMark|ownsPro/, 'no ◆ on the per-guest download');
 });
@@ -401,7 +402,7 @@ test('the Event Hub shows the ticket on Me — pending shows the pending ticket,
 });
 
 test('every user-facing word for the card comes from ONE constant (a rename is one line)', () => {
-  for (const f of ['app/[slug]/_components/your-guests.tsx', 'app/[slug]/_components/guest-code-keepers.tsx', 'app/dashboard/[eventId]/guests/_components/guest-pass-card-link.tsx']) {
+  for (const f of ['app/[slug]/_components/your-guests.tsx', 'app/[slug]/_components/guest-code-keepers.tsx', 'app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx']) {
     const s = src(f);
     assert.doesNotMatch(s, /'Save all (passes|tickets)'|"Save all (passes|tickets)"|>Save all (passes|tickets)<|label="Save (to Photos|my ticket)"/, `${f} spells the words itself`);
   }

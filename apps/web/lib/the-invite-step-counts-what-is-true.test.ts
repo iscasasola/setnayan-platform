@@ -183,34 +183,25 @@ test('the column has EXACTLY ONE writer — zero froze the number, two would fak
   );
 });
 
-test('the Invite step reports the link, not a phantom count', () => {
-  const rel = 'app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx';
-  const code = strip(readFileSync(join(WEB, rel), 'utf8'));
+// ⤷ 2026-09-30 (the Fable rows): the phone's Build → Invite → … ribbon left the
+// list. Its two honesty rules carry over to what replaced it:
 
-  const step = code.match(/\{\s*key:\s*'invite'[\s\S]*?\},/);
-  assert.ok(step, `${rel} no longer defines an 'invite' step in the ribbon.`);
-
-  assert.ok(
-    /inviteLinkReady/.test(step![0]),
-    `The Invite step no longer reports whether the link works: ${step![0]}`,
-  );
-  assert.ok(
-    !/\bunsent\b/.test(step![0]),
-    `The Invite step is badging "unsent" again — the count that could never ` +
-      `fall: ${step![0]}`,
+test('"to invite" counts a column that has a writer — so it can fall', () => {
+  const page = strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/page.tsx'), 'utf8'));
+  const at = page.indexOf('const toInvite = guests.filter(');
+  assert.ok(at > 0, 'the counts line lost its "to invite"');
+  assert.match(page.slice(at, at + 400), /!g\.invitation_sent_at/, '"to invite" no longer reads the sent stamp');
+  // …and that stamp HAS its one writer (the per-guest Invite), pinned above.
+  assert.match(
+    strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/invitation/actions.ts'), 'utf8')),
+    /\.update\(\{ invitation_sent_at: sentAt \}\)/,
   );
 });
 
-test('an unmeasured link never paints a warning', () => {
+test('the event link is offered only when it works — never a dead "Share the link"', () => {
   const rel = 'app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx';
   const code = strip(readFileSync(join(WEB, rel), 'utf8'));
-  assert.match(
-    code,
-    /inviteLinkReady\s*=\s*true\s*,/,
-    'inviteLinkReady must default TRUE. A caller that has not measured must ' +
-      'not paint "link not working" over a link that is probably fine — ' +
-      'absence of a measurement is not a fault. (The opposite direction is ' +
-      'chosen elsewhere on purpose, e.g. canOpenShop fails closed, because ' +
-      'there being wrong is permanent.)',
-  );
+  // `joinUrl` is null when the link cannot be handed out (no address, private,
+  // revoked token) — `fetchJoinUrl` asks `sharedJoinLinkState`. No link, no button.
+  assert.match(code, /\{joinUrl \? <ShareTheLinkButton joinUrl=\{joinUrl\} \/> : null\}/);
 });

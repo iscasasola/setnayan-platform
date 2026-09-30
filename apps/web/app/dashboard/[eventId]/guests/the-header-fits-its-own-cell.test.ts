@@ -106,7 +106,12 @@ test('a fixed-pixel column has a budget too, so it cannot eat Name by another un
   const rem = [...cellClasses.matchAll(/\bw-(\d+)\b/g)].map((m) => Number(m[1]) * 4);
   assert.ok(px.length + rem.length >= 2, `found ${px.length + rem.length} fixed widths — this guard is blind`);
   const total = [...px, ...rem].reduce((a, b) => a + b, 0);
-  assert.ok(total <= 144, `fixed-pixel columns claim ${total}px (${[...px, ...rem].join(' + ')}) — Name keeps the leftover`);
+  // ⤷ 2026-09-30, RAISED 144 → 208 WITH ITS REASON (the Fable rows): the Invite
+  // column holds a PAIR now — Invite and its ⋯ (Write to NFC · New QR · Unlink)
+  // — and the ⋯ is a 44px tap target. 208 = the 40px checkbox + 168px for the
+  // pair and its padding. The percentage columns gave the difference back to
+  // Name at the same time (55% → 50%).
+  assert.ok(total <= 208, `fixed-pixel columns claim ${total}px (${[...px, ...rem].join(' + ')}) — Name keeps the leftover`);
 });
 
 test('the header and every body cell share ONE horizontal padding', () => {

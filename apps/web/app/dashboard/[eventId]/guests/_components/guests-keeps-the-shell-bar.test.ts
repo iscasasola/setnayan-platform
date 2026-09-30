@@ -143,10 +143,13 @@ test('EVERY phone sticky on this route clears the bar by reading its height', ()
       );
     }
   }
+  // ⤷ 2026-09-30 (the Fable rows): the active-filter chip strip in page.tsx
+  // left — an active filter now shows its value in its own dropdown — so the
+  // phone head (search · Sort ▾ · the four dropdowns) is the one phone sticky.
   assert.ok(
-    files.every(([, src]) => /sticky top-\[calc\(var\(--fd-bar,0px\)/.test(src)),
-    'One of the two phone stickies stopped existing — if it was deliberately ' +
-      'removed, delete its half of this guard in the same commit.',
+    /sticky top-\[calc\(var\(--fd-bar,0px\)/.test(files[1]![1]),
+    'The phone head stopped being a sticky that clears the bar — if it was ' +
+      'deliberately removed, delete this half of the guard in the same commit.',
   );
 });
 

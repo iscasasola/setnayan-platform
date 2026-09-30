@@ -111,7 +111,7 @@ test('the column hands over the Digital ticket, not the QR — and says so', () 
   // Owner 2026-09-30: "we do not copy the QR Code, we copy the Digital Ticket".
   const cell = bodyOf(CELL, 'GuestInviteCell');
   assert.match(cell, /Copy ticket/);
-  assert.match(cell, /Paste the message, then paste the ticket\./);
+  assert.match(cell, /Paste the message, then paste the ticket in the chat\./);
   assert.doesNotMatch(cell, /Copy QR|paste the QR/);
   const tour = TOURS.customer_guest_invite_v1.slides.map((s) => `${s.title} ${s.body}`).join(' ');
   assert.match(tour, /ticket/);

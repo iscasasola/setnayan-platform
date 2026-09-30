@@ -64,6 +64,7 @@ export function PickMenu({
   dataAttr,
   className = '',
   buttonText,
+  picked,
 }: {
   /** What the control is, for a screen reader ("This stage's menu"). */
   label: string;
@@ -76,6 +77,13 @@ export function PickMenu({
   className?: string;
   /** Words on the button instead of the current option's label ("Round 1 · 3 of 7"). */
   buttonText?: string;
+  /**
+   * ✓ A DROPDOWN WITH CHECKMARKS (owner 2026-09-30, the guest card's "Also
+   * serves as" and Groups): the SAME list, a ✓ beside each option that is on.
+   * A tap ticks or unticks it (`onPick` with that key) and the list stays open
+   * until "Done ✓". Omitted = the ordinary one-choice list.
+   */
+  picked?: readonly string[];
 }) {
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PickListPlacement | null>(null);
@@ -83,6 +91,7 @@ export function PickMenu({
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
   const current = options.find((o) => o.key === value) ?? null;
+  const isOn = (key: string) => (picked ? picked.includes(key) : key === value);
 
   const place = () => {
     const r = btnRef.current?.getBoundingClientRect();
@@ -187,6 +196,7 @@ export function PickMenu({
               id={listId}
               role="listbox"
               aria-label={label}
+              aria-multiselectable={picked ? true : undefined}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
@@ -224,6 +234,22 @@ export function PickMenu({
                   </li>
                 ),
               )}
+              {picked ? (
+                <li role="none" className="mt-1 border-t border-ink/10 pt-1">
+                  <button
+                    type="button"
+                    data-pick-done=""
+                    onClick={() => {
+                      setOpen(false);
+                      btnRef.current?.focus();
+                    }}
+                    className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/60 hover:bg-ink/5"
+                  >
+                    <span>Tick as many as apply.</span>
+                    <span className="font-semibold text-ink">Done ✓</span>
+                  </button>
+                </li>
+              ) : null}
             </ul>,
             document.body,
           )
@@ -237,15 +263,15 @@ export function PickMenu({
         <button
           type="button"
           role="option"
-          aria-selected={o.key === value}
+          aria-selected={isOn(o.key)}
           disabled={Boolean(o.disabledNote)}
           data-pick-option={o.key}
           onClick={() => {
-            setOpen(false);
+            if (!picked) setOpen(false);
             onPick(o.key);
           }}
           className={`flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-300 ease-in-out disabled:cursor-default disabled:text-ink/40 ${
-            o.key === value ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'
+            !picked && o.key === value ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'
           }`}
         >
           {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
@@ -268,6 +294,11 @@ export function PickMenu({
             >
               <span aria-hidden>{o.trail.text}</span>
               {o.trail.label ? <span className="sr-only">{o.trail.label}</span> : null}
+            </span>
+          ) : null}
+          {picked && picked.includes(o.key) ? (
+            <span aria-hidden className="ml-auto shrink-0 pl-3 text-[14px] font-semibold text-success-700">
+              ✓
             </span>
           ) : null}
         </button>

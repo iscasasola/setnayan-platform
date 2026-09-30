@@ -237,13 +237,20 @@ test('6 · unlink rotates the key FIRST and deletes only its one guest membershi
 });
 
 test('6 · the guest card offers Unlink on every bound row, couple rows included', () => {
+  // ⤷ 2026-09-30 (the Fable card, frame D): Unlink moved into the ⋯ menu at the
+  // top of the card — ONE place. The ⋯ is built once, BEFORE the couple branch,
+  // and drawn on the couple rows too, so the groom row can still be taken back.
   const card = code('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
-  const at = card.indexOf('{linkedAccount ? (');
-  assert.ok(at > 0, 'the guest card no longer shows who holds the invitation');
+  const at = card.indexOf('const more = (');
+  assert.ok(at > 0, 'the guest card no longer builds its ⋯');
+  assert.match(card.slice(at, at + 400), /<GuestMoreMenu[\s\S]*linked=\{Boolean\(linkedAccount\)\}/, 'the ⋯ is not told who holds the invitation');
   const foundation = card.indexOf('Foundation of the event');
   assert.ok(foundation > 0, 'the couple-row branch moved — re-anchor this guard');
-  assert.ok(at < foundation, 'Unlink moved inside the couple / non-couple branch — the groom row could not be taken back');
-  assert.match(card.slice(at, at + 400), /name="unlink_account" value="1"/);
+  assert.ok(at < foundation, 'the ⋯ moved inside the couple / non-couple branch — the groom row could not be taken back');
+  assert.match(card, /isCouple \? 'A host — nothing to send\.'[\s\S]*\{more\}/, 'a host row no longer draws the ⋯');
+  const menu = code('app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx');
+  assert.match(menu, /\{linked \? \([\s\S]{0,600}Unlink account/, 'Unlink is not offered on a bound row');
+  assert.match(menu, /name="unlink_account" value="1"/);
   assert.match(
     code('app/dashboard/[eventId]/guests/[guestId]/actions.ts'),
     /if \(formData\.get\('unlink_account'\) === '1'\) return unlinkSeatAccount\(eventId, guestId\);/,

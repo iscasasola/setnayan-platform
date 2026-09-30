@@ -113,6 +113,9 @@ test('no invitation or Save the Date is emailed to a guest who passed away', () 
   const invite = card.slice(card.indexOf('export async function inviteGuestByEmailAction'), card.indexOf('export async function updateGuest'));
   assert.match(invite, /\.select\('[^']*\bpassed_away\b[^']*'\)/, 'the sign-in-link email does not read the flag');
   assert.match(invite, /if \(guest\?\.passed_away === true\) \{\s*return redirect\(/, 'the sign-in-link email is sent to them');
+  // …and the card's Invite (message + ticket) is never offered for them either.
+  const body = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
+  assert.match(body, /!guest\.passed_away && !isCouple \? \(\s*<SendInvite/, 'Invite is offered for a guest who passed away');
 });
 
 test('the guest card is where the couple sets it — never for the couple themselves', () => {

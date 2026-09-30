@@ -483,42 +483,9 @@ export function InviteMessageEditor({
   );
 }
 
-/**
- * The guest card's block: Send invite · Copy message, and — in place, never a
- * link elsewhere (owner 2026-09-28) — the message's wording, folded.
+/*
+ * The guest card's own Send invite · Copy message block (`GuestSendInvite`) is
+ * gone (owner 2026-09-30, the Fable guest card): the card now draws the SAME
+ * Invite · ⋯ pair as a Guest list row (`GuestInviteCell`, guest-invite-cell.tsx),
+ * and the message's wording is changed once, on the one-by-one page.
  */
-export function GuestSendInvite({
-  eventId,
-  guest,
-  facts,
-  template: initialTemplate,
-}: {
-  eventId: string;
-  guest: SendInviteGuest;
-  facts: InviteEventFacts;
-  template: string | null;
-}) {
-  const [template, setTemplate] = useState(initialTemplate);
-  useEffect(() => setTemplate(initialTemplate), [initialTemplate]);
-  return (
-    <div className="mt-3 space-y-3 border-t border-ink/[0.06] pt-3" data-guest-send-invite="">
-      <SendInviteActions eventId={eventId} guest={guest} facts={facts} template={template} />
-      {guest.inviteUrl ? (
-        <details className="group">
-          <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center text-[13px] font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline">
-            Change the message
-          </summary>
-          <div className="pt-2">
-            <InviteMessageEditor
-              eventId={eventId}
-              facts={facts}
-              template={template}
-              sample={guest}
-              onSaved={setTemplate}
-            />
-          </div>
-        </details>
-      ) : null}
-    </div>
-  );
-}

@@ -46,8 +46,13 @@ test('the card grid hands over at the SAME breakpoint the table takes over', () 
   );
 });
 
-test('the bulk bar agrees with them', () => {
-  assert.match(SRC, /sticky top-20 z-30 hidden lg:block/, 'the bulk bar is the third half of this decision');
+test('the bulk bar agrees with them — ONE bar on every width', () => {
+  // ⤷ 2026-09-30 (the Fable rows, frames C and G): the same four — Invite
+  // selected · Set group ▾ · Set table ▾ · ⋯ — on the phone and the computer, so
+  // the bar is no longer split by the breakpoint at all. One mount, no `lg:` gate.
+  assert.equal((SRC.match(/<RosterBulkBar\b/g) ?? []).length, 1, 'the bulk bar is mounted more than once');
+  const bar = SRC.slice(SRC.indexOf('data-roster-bulk-bar=""') - 300, SRC.indexOf('data-roster-bulk-bar=""') + 300);
+  assert.doesNotMatch(bar, /hidden lg:block|lg:hidden/, 'the bulk bar is split by the breakpoint again');
 });
 
 test('the table SCROLLS rather than clipping its own columns', () => {
@@ -59,35 +64,11 @@ test('the table SCROLLS rather than clipping its own columns', () => {
   );
 });
 
-test('the contact column is icons, not a raw number', () => {
-  // Owner: "contact number should just show icon to call." The raw string was
-  // also the widest value in the row, in the column squeezing the name.
-  assert.match(SRC, /<Phone aria-hidden/, 'the mobile must render as an icon');
-  assert.match(SRC, /<Mail aria-hidden/, 'the email must render as an icon');
-  assert.ok(
-    !/\{guest\.email \?\? guest\.mobile \?\? '—'\}/.test(SRC),
-    'the raw contact string must not come back',
-  );
-});
-
-test('the contact icons DIAL, and only because the owner scoped Rule 1', () => {
-  // 🪤 THIS ASSERTION HAS BEEN INVERTED TWICE IN ONE DAY, and the history is
-  // the point rather than an embarrassment:
-  //   1. the icons shipped as real tel:/mailto: links;
-  //   2. `no-door-out-of-the-app` Rule 1 caught them — a couple-facing surface
-  //      may not COMPUTE a contact scheme — and this test was written to keep
-  //      them un-clickable;
-  //   3. asked, the owner SCOPED the rule: "only for the couple and if
-  //      coordinator is given access" (2026-09-14).
-  //
-  // So the links are back, and the thing that makes them legitimate is not this
-  // test — it is the one exact line in GUEST_CONTACT_BILL, which counts them.
-  // This test only asserts the feature the owner asked for still exists; Rule 1
-  // itself is what stops a third link or a public-page copy.
-  const cell = SRC.slice(
-    SRC.indexOf('<Phone aria-hidden') - 1400,
-    SRC.indexOf('<Mail aria-hidden') + 400,
-  );
-  assert.match(cell, /href=\{`tel:/, 'the phone icon must dial (owner-scoped Rule 1)');
-  assert.match(cell, /href=\{`mailto:/, 'the mail icon must compose (owner-scoped Rule 1)');
+test('the contact column left the row — the mobile stays on the card', () => {
+  // ⤷ 2026-09-30 (the Fable rows' ledger): "Contact (call / email icons) is
+  // dropped from the row — no email to guests; the mobile stays on the card."
+  // (The owner-scoped Rule 1 exemption for these links is retired with them —
+  // `no-door-out-of-the-app`'s GUEST_CONTACT_BILL is empty.)
+  assert.doesNotMatch(SRC, /<Phone aria-hidden|<Mail aria-hidden|href=\{`tel:|href=\{`mailto:/, 'a contact control is back on the row');
+  assert.ok(!/\{guest\.email \?\? guest\.mobile \?\? '—'\}/.test(SRC), 'the raw contact string must not come back');
 });

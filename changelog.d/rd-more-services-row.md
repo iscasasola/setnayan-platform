@@ -14,21 +14,19 @@
   is lazy-loaded on the first tap (shared bundle has no room) and portalled to `<body>` — inside the bottom dock
   a fixed sheet is clipped to the bar. The tab is still a real link to the page for a
   middle-click / no-JS tap (`BottomNavItem.onSelect`, flat bar only).
-- **The phone bar is the four — Home · Guests · Your Team · More** (owner 2026-09-30: *"the menu changes also on
-  the mobile view"*; DECISION_LOG "THE PHONE MENU IS THE SAME FOUR"). Picked from the one tree
-  (`PHONE_BAR_ROWS` — the rail's rows minus the Event Hub Maker), so no second list. The Maker's pages light
-  **Home** on the phone; the rail and ☰ keep the "Event Hub Maker" row. "Guest list" → **"Guests"** on the one
-  row (rail, ☰ and bar alike). `customer.bottom-nav.launch` registry slot retired (no tab reads it). The round
-  add button (Add guest) renders on the **Guests page only**; elsewhere the four tabs spread across the bar.
-- **Copy:** page title/masthead, the finished-event card, the event-menu tour and the registry defaults
-  (`customer.sidebar.studio` "More Services", `customer.bottom-nav.studio` "More", both `guests` slots "Guests")
-  follow the new names.
+- **The bar is Home · Guests · Suppliers · Hub · More** (owner 2026-10-01, DECISION_LOG "THE BOTTOM BAR IS
+  HOME · GUESTS · SUPPLIERS · HUB · MORE"). Same words on the rail and ☰ (the one phone-only word is "More" for
+  the rail's "More Services"). "Your Team" → **Suppliers** (menu, registry, the vendors page masthead/title, the
+  finished-event card); "Event Hub Maker" → **Hub** as the menu word (the Maker page keeps its title). The
+  couple's floating round "Add guest" button is deleted — nothing floats over the bar; port-control baseline
+  regenerated for that deliberate removal.
+- **Copy:** the More Services page title, the event-menu tour and the registry defaults follow the new names.
 - **Guard:** `app/dashboard/[eventId]/more-services-is-the-one-row-that-opens.test.ts` — exactly one row opens
   (`studio`), its children equal `buildOurServices` order, the layout builds them with that builder, the rail's
   row is an `aria-expanded` button, the phone bar has no sub-rows and its More opens the lazily-loaded chooser.
   Sabotaged once (a second row with children) → test 1 red.
-- **Measured:** shared bundle 202.0 KB / 202 KB (within), Maker 2.3 KB headroom, server actions 1225 / 1225
-  (unchanged — none added).
+- **Measured (before the rebase onto #6211):** shared 202.0 / 202 KB, Maker 2.2 KB headroom. ⚠ NOT yet
+  re-measured on the rebased head — see the PR.
 - Stacked on #6202 (`claude/serene-planck-shg2bn`, the five-card order).
 
 SPEC IMPACT: DECISION_LOG — the 2026-09-30 "MORE SERVICES EXPANDS TO THE FIVE" row already records items 1–4;

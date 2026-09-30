@@ -71,7 +71,7 @@ export function HomeFirstScreen({
       </div>
 
       {/* ① THE ONE NEXT CARD — exactly one, with exactly one button. */}
-      <div data-home-next={next.kind} className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.05] p-4">
+      <div data-home-next={next.kind} className="sn-glass-bare rounded-2xl p-4">
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">Next</p>
         <h2 className="mt-1 font-display text-[24px] leading-tight text-ink">{next.title}</h2>
         <p className="mt-1 text-sm text-ink/65">{next.body}</p>
@@ -99,15 +99,15 @@ export function HomeFirstScreen({
 
       {/* ③ THREE NUMBERS — "—" when unread, never 0. */}
       <div className="grid grid-cols-3 gap-2" data-home-numbers>
-        <div className="rounded-xl border border-ink/10 bg-white/60 px-2 py-3 text-center">
+        <div className="sn-glass-bare rounded-xl px-2 py-3 text-center">
           <p className="font-display text-[26px] leading-none text-ink">{days.value}</p>
           <p className="mt-1 text-[11.5px] text-ink/55">{days.label}</p>
         </div>
-        <div className="rounded-xl border border-ink/10 bg-white/60 px-2 py-3 text-center">
+        <div className="sn-glass-bare rounded-xl px-2 py-3 text-center">
           <p className="font-display text-[26px] leading-none text-ink">{coming}</p>
           <p className="mt-1 text-[11.5px] text-ink/55">coming</p>
         </div>
-        <div className="rounded-xl border border-ink/10 bg-white/60 px-2 py-3 text-center">
+        <div className="sn-glass-bare rounded-xl px-2 py-3 text-center">
           <p className={`font-display text-[26px] leading-none ${noReplyWaiting ? 'text-terracotta-700' : 'text-ink'}`}>{noReply}</p>
           <p className="mt-1 text-[11.5px] text-ink/55">no reply</p>
         </div>
@@ -117,7 +117,7 @@ export function HomeFirstScreen({
         <Link
           href={`/dashboard/${eventId}/budget`}
           data-home-money
-          className="flex items-end justify-between rounded-xl border border-ink/10 bg-white/60 px-4 py-3"
+          className="sn-glass-bare flex items-end justify-between rounded-xl px-4 py-3"
         >
           <span className="text-[12.5px] text-ink/60">
             Paid

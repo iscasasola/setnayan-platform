@@ -15,7 +15,7 @@ Design: `Setnayan/prototypes/phone_app_simple_2026-10-01_fable.html` frame 1 · 
 2. ✅ typecheck green; port baseline regenerated (only DetailsGuideHomeCard + Suspense removed — deliberate; Next hrefs are `href:` literals in home-first-screen.tsx so the scan sees them).
 3. ✅ Guard `app/dashboard/[eventId]/the-home-leads-with-one-next.test.ts` (6 tests, render harness). Sabotaged 5 ways (2nd Next card · something above it · Edit hidden · glanceCount ignores measured · page passes true) — each went red. Run it with `npx tsx "<path>"` (node --test treats [eventId] as a glob).
 4. ✅ Dev lab `/dev/home-lab` (?next=guide|date|papic|ai|plan, ?unread=1, ?hidden=1). Screenshots at 390×844 via Playwright (the Browser pane fails to load the 930 KB dev CSS — ERR_FAILED): scratchpad `home-390-{guide,date,unread}.png`. Lab has no top bar/dock, so the dashboard placeholder shows at 712 px there; in the event layout the first screen ends ~100 px above the bottom edge, under the dock.
-5. Lint + every CI guard + unit tests from apps/web (bracketed paths one file at a time); `changelog.d/rd-phone-home-simple.md` (SPEC IMPACT: None).
+5. ✅ pnpm lint, every `node …mjs` CI guard, every `lint:*` script — green (no-card: boxes are `.sn-glass-bare`, no borders). Not run locally: check-maker-js-budget + bundle-size-check (need a production build; no Maker or client code touched). ⏳ unit tests, changelog.
 6. PR is a DRAFT with do-not-auto-merge; mark ready only after the above is green. Never merge.
 
 ## Gotchas

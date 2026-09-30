@@ -49,7 +49,8 @@ test('a suffix is kept in every style', () => {
   const ii = { ...MANUEL, name_suffix: 'II' };
   assert.equal(styledName(ii, 'full'), 'Mr. Manuel Cortez Casasola II');
   assert.equal(styledName(ii, 'middle-initial'), 'Mr. Manuel C. Casasola II');
-  assert.equal(styledName(ii, 'surname-first'), 'Mr. Casasola, Manuel C., II');
+  // Owner "ok" 2026-09-30: the suffix stays with the surname.
+  assert.equal(styledName(ii, 'surname-first'), 'Mr. Casasola II, Manuel C.');
 });
 
 test('a missing part is skipped cleanly — never a dangling comma or a double space', () => {
@@ -72,7 +73,10 @@ test('a missing part is skipped cleanly — never a dangling comma or a double s
   assert.equal(styledName({ ...MANUEL, first_name: null, middle_name: null }, 'surname-first'), 'Mr. Casasola');
   assert.equal(styledName({ ...MANUEL, last_name: null }, 'surname-first'), 'Mr. Manuel C.');
   assert.equal(styledName({}, 'surname-first'), null, 'nothing left → null, so the caller drops the line');
-  assert.equal(middleInitials('de la Cruz'), 'D. L. C.', 'the place card’s initials rule');
+  // Owner "ok" 2026-09-30: ONE letter, the first of the middle name, whatever its words.
+  assert.equal(middleInitials('de la Cruz'), 'D.');
+  assert.equal(styledName({ ...MANUEL, middle_name: 'de la Cruz' }, 'middle-initial'), 'Mr. Manuel D. Casasola');
+  assert.equal(styledName({ ...MANUEL, middle_name: 'de la Cruz' }, 'surname-first'), 'Mr. Casasola, Manuel D.');
 });
 
 test('Full is byte-identical to the name every formal surface printed before the style', () => {
@@ -88,8 +92,11 @@ test('Full is byte-identical to the name every formal surface printed before the
   }
 });
 
-test('a ticket keeps its own Full line and prints the other two styles', () => {
-  assert.equal(ticketName(MANUEL), 'Mr. Manuel Casasola', 'Full on a ticket = today: no middle name');
+test('a ticket prints the style — Full means full, tickets included', () => {
+  // Owner "ok" 2026-09-30: Full is the whole name on the Digital and Printed ticket too.
+  assert.equal(ticketName(MANUEL), 'Mr. Manuel Cortez Casasola');
+  assert.equal(ticketName(MANUEL, 'full'), 'Mr. Manuel Cortez Casasola');
+  assert.equal(ticketName({ ...MANUEL, name_suffix: 'II' }, 'surname-first'), 'Mr. Casasola II, Manuel C.');
   assert.equal(ticketName(MANUEL, 'middle-initial'), 'Mr. Manuel C. Casasola');
   assert.equal(ticketName(MANUEL, 'surname-first'), 'Mr. Casasola, Manuel C.');
   assert.equal(ticketName({ display_name: 'Tita Baby' }, 'surname-first'), 'Tita Baby');

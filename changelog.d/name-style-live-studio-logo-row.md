@@ -7,8 +7,10 @@ OPEN QUESTIONS ANSWERED").
 **Name style ▾** — one event-wide PickMenu under Maker › Details › Names:
 Full "Mr. Manuel Cortez Casasola" (default, byte-identical to before) · Middle
 initial "Mr. Manuel C. Casasola" · Surname first "Mr. Casasola, Manuel C.".
-Suffix kept ("… Casasola II"; Surname first puts it after its own comma,
-"Mr. Casasola, Manuel C., II"); a missing part is skipped cleanly. A Display
+Suffix kept ("… Casasola II"; under Surname first it stays with the surname,
+"Mr. Casasola II, Manuel C."); Middle initial is ONE letter, the first of the
+middle name ("de la Cruz" → "Mr. Manuel D. Casasola"); a missing part is
+skipped cleanly. (Owner "ok" 2026-09-30 to the controller's three picks.) A Display
 name the couple typed is printed as given in every style.
 
 - Stored in the event's existing settings: `events.print_details.name_style`
@@ -22,8 +24,8 @@ name the couple typed is printed as given in every style.
   the printed Entourage + Invitation cards; the name list on /everyone; the
   printed per-guest cards; the Digital ticket and the Printed ticket batch; the
   couple's invite message `{name}` (every couple-side caller).
-- A ticket's Full keeps the ticket's own line (no middle name) — "default =
-  today"; the other two styles print their style.
+- Full means full everywhere, tickets included: the Digital and Printed ticket
+  now print "Mr. Manuel Cortez Casasola" (they used to drop the middle name).
 - Pair lines: Middle initial shares the surname ("Mr. Manuel C. & Mrs. Rosa L.
   Casasola"); Surname first never shares one and prints both names whole.
 - Not applied (not formal surfaces): the Guest list's own working rows, the

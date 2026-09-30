@@ -12,7 +12,8 @@
  *   · Middle initial  "Mr. Manuel C. Casasola"
  *   · Surname first   "Mr. Casasola, Manuel C."
  *
- * A suffix is always kept ("… Casasola II"). A missing part is SKIPPED
+ * A suffix is always kept ("… Casasola II"; under Surname first it stays with
+ * the surname, "Mr. Casasola II, Manuel C."). A missing part is SKIPPED
  * CLEANLY: no middle name → "Mr. Manuel Casasola"; no first name under Surname
  * first → "Mr. Casasola", never "Mr. Casasola, " and never "Mr. , Manuel".
  *
@@ -69,15 +70,14 @@ export type NameParts = {
 const part = (s: string | null | undefined): string => (s ?? '').trim();
 
 /**
- * "Cortez" → "C." — each word of the middle name as its initial, the same rule
- * the place card uses. Blank → ''.
+ * "Cortez" → "C." — ONE letter, the first of the middle name, whatever its
+ * words: "de la Cruz" → "D." (owner "ok" 2026-09-30, DECISION_LOG "THE COUPLE
+ * PICKS A NAME STYLE" addendum). The place card follows the same rule when it
+ * adopts the style. Blank → ''.
  */
 export function middleInitials(middle: string | null | undefined): string {
-  return part(middle)
-    .split(/[\s.]+/)
-    .filter(Boolean)
-    .map((w) => `${w[0]!.toUpperCase()}.`)
-    .join(' ');
+  const first = part(middle).replace(/^[^\p{L}]+/u, '')[0];
+  return first ? `${first.toUpperCase()}.` : '';
 }
 
 const join = (xs: readonly string[]): string => xs.filter(Boolean).join(' ');
@@ -99,11 +99,9 @@ export function styledName(parts: NameParts, style: NameStyle = DEFAULT_NAME_STY
   }
   const mi = middleInitials(parts.middle_name);
   if (style === 'surname-first' && last && (first || mi)) {
-    /* "Mr. Casasola, Manuel C." — and a suffix after a comma of its own
-       ("Mr. Casasola, Manuel C., II"), the reference-list convention, so a
-       "II" never reads as part of the given name. */
-    const given = join([first, mi]);
-    return `${join([prefix, last])}, ${given}${suffix ? `, ${suffix}` : ''}`;
+    /* "Mr. Casasola, Manuel C." — and a suffix stays with the surname it
+       belongs to: "Mr. Casasola II, Manuel C." (owner "ok" 2026-09-30). */
+    return `${join([prefix, last, suffix])}, ${join([first, mi])}`;
   }
   /* Middle initial — and Surname first when there is no surname or nothing
      before it to put after a comma: the parts in their usual order, so a
@@ -115,19 +113,15 @@ export function styledName(parts: NameParts, style: NameStyle = DEFAULT_NAME_STY
  * 🎟 THE NAME A TICKET PRINTS — the Digital ticket (`passCardGuestName`) and the
  * Printed ticket batch (`loadGuestPasses`) share this one rule.
  *
- * ⚖ FULL KEEPS THE TICKET'S OWN LINE: a ticket has always printed prefix ·
- * first · last · suffix with NO middle name (a small card, one line), and Full
- * is "today". Middle initial and Surname first print their style. The parts
- * lead and the Display name is the fallback — the ticket's order since it
- * shipped — and a row with neither is "Guest", never a blank card.
+ * ⚖ FULL MEANS FULL, TICKETS INCLUDED (owner "ok" 2026-09-30): "Mr. Manuel
+ * Cortez Casasola" — the ticket used to drop the middle name; it now prints the
+ * event's style like every other formal surface. The parts lead and the Display
+ * name is the fallback — the ticket's order since it shipped — and a row with
+ * neither is "Guest", never a blank card.
  */
 export function ticketName(
   g: NameParts & { display_name?: string | null },
   style: NameStyle = DEFAULT_NAME_STYLE,
 ): string {
-  const line =
-    style === 'full'
-      ? join([part(g.name_prefix), part(g.first_name), part(g.last_name), part(g.name_suffix)])
-      : styledName(g, style);
-  return line || part(g.display_name) || 'Guest';
+  return styledName(g, style) || part(g.display_name) || 'Guest';
 }

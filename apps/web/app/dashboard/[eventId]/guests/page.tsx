@@ -1846,9 +1846,11 @@ function SummaryFacetBar({
                 />
               }
             />
-            <RosterSort sorts={sorts} current={sort} />
           </div>
         }
+        // Sort ▾ rides beside search on a phone and after the four
+        // dropdowns on a computer — one control, placed by `FindAddRow`.
+        sort={<RosterSort sorts={sorts} current={sort} />}
         add={addBar}
       />
 

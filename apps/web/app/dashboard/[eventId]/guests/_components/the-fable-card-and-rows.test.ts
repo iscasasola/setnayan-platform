@@ -252,6 +252,11 @@ test('list head: Sort ▾ and four dropdowns — RSVP · Side · Role · Group �
   assert.match(PAGE, /<RosterFilters\b/);
   assert.match(PAGE, /<RosterSort\b/);
   assert.equal((PAGE.match(/<RosterFilters\b/g) ?? []).length, 1, 'a second set of filters is back on the page');
+  // On a phone the four dropdowns take their own line under search · Sort ▾ ·
+  // + (frame A); on a computer they sit in the one row (frame F).
+  const ROW = read('find-add-row.tsx');
+  assert.match(ROW, /className="order-last w-full min-w-0 lg:order-none lg:w-auto" data-find-add-filter=""/, 'the phone filter line is gone — five controls squeeze one 390px row');
+  assert.match(PAGE, /sort=\{<RosterSort sorts=\{sorts\} current=\{sort\} \/>\}/, 'Sort ▾ no longer rides beside search');
   // "Share the link" — Invite means one guest's ticket everywhere.
   assert.match(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'roster-doors.ts'), 'utf8'), /'Share the link'/);
 });

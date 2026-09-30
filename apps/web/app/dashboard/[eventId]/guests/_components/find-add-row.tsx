@@ -49,14 +49,18 @@ type Mode = 'find' | 'add';
 export function FindAddRow({
   search,
   filter,
+  sort,
   add,
   startAdding,
   addLabel = 'Add a guest',
 }: {
   /** The always-live search box (URL-driven). */
   search: React.ReactNode;
-  /** The filter-and-sort popover button. Shown in Find only. */
+  /** The filter dropdowns. Shown in Find only. */
   filter: React.ReactNode;
+  /** Sort ▾. Shown in Find only — beside search on a phone (the Fable rows,
+   *  frame A: "Search a guest · Sort ▾"), after the filters on a computer. */
+  sort?: React.ReactNode;
   /** The quick-add bar with its four doors. */
   add: React.ReactNode;
   /** Open on Add — true for an empty list, where there is nobody to find. */
@@ -137,6 +141,7 @@ export function FindAddRow({
           {filter}
         </div>
       ) : null}
+      {mode === 'find' && sort ? <div className="shrink-0">{sort}</div> : null}
 
       <div
         ref={addRef}

@@ -145,7 +145,8 @@ test('the prints: "the late <name>" in the parents’ lines, and "In loving memo
 
   const set = read('lib/print-set.server.ts');
   assert.match(set, /deceased: p\.id !== null && passedAway\.has\(p\.id\)/, 'the parents’ lines never read the flag');
-  assert.match(set, /\.select\(`\$\{ENTOURAGE_COLUMNS\}, \$\{PASSED_AWAY\}`\)/, 'the entourage read for the prints does not select the flag');
+  // (+ `${ENTOURAGE_COUPLE_FIELDS}` after it since 2026-09-30 — who is a real couple.)
+  assert.match(set, /\.select\(`\$\{ENTOURAGE_COLUMNS\}, \$\{PASSED_AWAY\}[^`]*`\)/, 'the entourage read for the prints does not select the flag');
 
   const g = (id: string, first: string, passed: boolean): RegistryGuest => ({
     guest_id: id,

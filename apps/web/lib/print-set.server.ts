@@ -9,7 +9,7 @@ import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { heroMarkSvg } from '@/lib/hero-monogram-data';
 import { flattenSvgMark, rasterMarkPayload } from '@/lib/print-mark';
 import { resolveMonogram, splitInitials } from '@/lib/monogram';
-import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
+import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_COUPLE_FIELDS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { HERO_EVENT_COLUMNS, resolveHero } from '@/lib/event-hero';
 import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
@@ -186,7 +186,8 @@ async function readEntourage(
     .from('guests')
     // + `passed_away` for THIS reader only (ENTOURAGE_COLUMNS' own rule: never
     // widen the shared list for one reader) — the parents' "the late …".
-    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}`)
+    // + who is a real couple — the card prints a pair line exactly as the page does.
+    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}, ${ENTOURAGE_COUPLE_FIELDS}`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`);

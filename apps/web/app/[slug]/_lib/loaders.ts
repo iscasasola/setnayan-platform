@@ -32,6 +32,7 @@ import type { RoleNames } from '@/lib/role-names';
 import {
   buildEntourage,
   ENTOURAGE_COLUMNS,
+  ENTOURAGE_COUPLE_FIELDS,
   ENTOURAGE_ROLES,
   type EntourageGroup,
   type EntourageGuestRow,
@@ -1780,7 +1781,8 @@ export const loadEntourage = cache(
         column the query never names cannot be printed, and the section looked
         correct while dropping "Atty." from a ninong's name.
       */
-      .select(ENTOURAGE_COLUMNS)
+      // + who is a real COUPLE (owner 2026-09-30): walking together alone prints both full names.
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
       .eq('event_id', eventId)
       /*
         🔴 A GUEST THE COUPLE REMOVED IS NOT ON THE INVITATION.

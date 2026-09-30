@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bffcac8c",
+  "generatedFromRef": "6b3e0b9f",
   "routeCount": 439,
-  "destinations": 949,
-  "actions": 672,
-  "blocks": 5230,
+  "destinations": 948,
+  "actions": 673,
+  "blocks": 5237,
   "routes": {
     "/": {
       "files": [
@@ -5686,6 +5686,7 @@
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-detail-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-drawer.tsx",
+        "dashboard/[eventId]/guests/_components/guest-invite-cell.tsx",
         "dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx",
         "dashboard/[eventId]/guests/_components/guest-mind-map.tsx",
         "dashboard/[eventId]/guests/_components/guest-name-fields.tsx",
@@ -5725,7 +5726,6 @@
         "dashboard/[eventId]/guests/role-name-actions.ts"
       ],
       "destinations": [
-        "/api/website/qr/guest/[seg]",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/[seg]",
         "/dashboard/[seg]/guests/checkin",
@@ -5791,6 +5791,7 @@
         "GuestAccessTagContext.Provider",
         "GuestCardBody",
         "GuestCardData",
+        "GuestInviteCell",
         "GuestListFinalizedContext.Provider",
         "GuestListMultiselect",
         "GuestMindMap",
@@ -5834,6 +5835,7 @@
         "MarchCell",
         "MarchResult",
         "Meter",
+        "MiniTour",
         "MobileGuestCarousel",
         "MobileListRow",
         "MobileSelfJoinCard",
@@ -5877,6 +5879,7 @@
         "RosterMeters",
         "RosterTabs",
         "RowAvatar",
+        "RowInvite",
         "RsvpChipEditor",
         "RsvpText",
         "Said",
@@ -9468,6 +9471,7 @@
         "join/[eventId]/_components/join-shell.tsx",
         "join/[eventId]/_components/request-form.tsx",
         "join/[eventId]/actions.ts",
+        "join/[eventId]/find-me-actions.ts",
         "join/[eventId]/loading.tsx",
         "join/[eventId]/page.tsx"
       ],
@@ -9479,11 +9483,15 @@
       ],
       "actions": [
         "action",
+        "findMe",
         "selfAction"
       ],
       "blocks": [
         "AskToJoinIntro",
+        "DoorOpen",
         "DoorShell",
+        "FindMeDigitsStep",
+        "FindMeNameStep",
         "FormFlash",
         "FormPageSkeleton",
         "FormalName",
@@ -9494,6 +9502,7 @@
         "Link",
         "RequestForm",
         "RequestSentScreen",
+        "StartOver",
         "SubmitButton"
       ]
     },

@@ -156,5 +156,8 @@ export type RsvpSheetHeadingInput = RsvpSheetTriggerInput & {
 export function rsvpSheetHeading(input: RsvpSheetHeadingInput): string {
   if (input.guestListClosed) return 'Your details';
   if (input.status === 'attending' || input.status === 'declined') return 'Change your reply';
-  return input.solemn ? 'Will you be able to come?' : 'Will you be with us?';
+  // "Your reply", not a question: the form's first line already asks "Will you
+  // be there?", and the sheet asked it a second time above it (guest text
+  // audit 2026-09-30). One question, asked once — by the form.
+  return 'Your reply';
 }

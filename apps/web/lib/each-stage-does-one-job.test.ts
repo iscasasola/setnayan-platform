@@ -133,19 +133,19 @@ const bar = (stage: LifecyclePhase, over: Partial<Parameters<typeof resolveSiteN
     hasDetails: true,
     hasSchedule: true,
     liveBroadcast: false,
-    destinations: { camera: '/papic/guest?from=x', watch: '/x/hub', join: '/x/invite', rsvp: '/x/invite/reply' },
+    destinations: { camera: '/papic/guest?from=x', watch: '/x/hub', join: '/x/invite' },
     stageSlots: STAGE_BAR[stage].slots,
     ...over,
   }).map((s) => s.label);
 
-test('3 · the Invitation bar: Welcome · Details · Our Love Story · RSVP — and RSVP becomes Me once they answer', () => {
-  // Owner 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love Story - Me"*.
-  assert.deepEqual(bar('rsvp', { replied: false }), ['Welcome', 'Details', 'Our Love Story', 'RSVP']);
-  assert.deepEqual(bar('rsvp', { replied: true }), ['Welcome', 'Details', 'Our Love Story', 'Me']);
-  // A stranger: Welcome · Details · Our Love Story, no RSVP and no Me.
+test('3 · the Invitation bar: Welcome · Details · Our Love Story · Me — always the four, no RSVP tab', () => {
+  // Owner 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love
+  // Story - Me"* and *"RSVP does not have 4 tabs under"* — replied or not.
+  assert.deepEqual(bar('rsvp'), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  // A stranger: Welcome · Details · Our Love Story, no Me.
   assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Welcome', 'Details', 'Our Love Story']);
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
-  assert.match(BODY, /replied: Boolean\(guest\.rsvp_status\) && guest\.rsvp_status !== 'pending',/, 'the guest bar is told whether they answered');
+  assert.doesNotMatch(BODY, /\breplied: Boolean\(guest\.rsvp_status\)/, 'the bar is told whether they answered again — an RSVP tab is back');
 });
 
 test('4 · the On the Day bar: Now · Schedule · Camera · Gallery · Me', () => {

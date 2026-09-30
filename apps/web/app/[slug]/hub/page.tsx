@@ -550,7 +550,6 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const hubVenues = venueOpen ? resolveEventVenues(await loadVenueBookings(admin, event.event_id), event) : [];
   const hasDirections = venueOpen && (hubVenues.some((v) => venueSearchQuery(v) || (v.latitude != null && v.longitude != null)));
 
-  const firstName = guest?.first_name ?? null;
   // Only the LIVE window with an active/upcoming block should read "happening
   // now" — WhatsHappeningCard is built for the live dashboard and its idle copy
   // is host-voiced, so we render it ONLY live-with-blocks and show a guest-voiced
@@ -656,7 +655,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           </h3>
           {arrived && seatLabel ? (
             <p className="text-sm text-ink/70">
-              Welcome, {firstName} — you’re checked in.
+              You’re checked in.
             </p>
           ) : seatLabel ? (
             <Link
@@ -727,7 +726,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           <span className="min-w-0">
             <span className="flex items-center gap-2 text-sm font-medium text-ink">
               <Gift aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
-              Send a blessing
+              E-Gifts
             </span>
             <span className="mt-0.5 block text-xs text-ink/55">
               {/* Owner 2026-08-17: a wake MAY accept money — abuloy is normal —

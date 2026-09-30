@@ -35,7 +35,7 @@ export const revalidate = 300;
 
 // noindex — payment handles should not be search-indexed.
 export const metadata = {
-  title: 'A blessing',
+  title: 'E-Gifts',
   robots: { index: false, follow: false },
 };
 
@@ -176,6 +176,14 @@ export default async function PabuyaPublicPage({
     Now: withheld if EITHER identifier was present on the row and is absent
     from the card.
   */
+  /* 🎁 SAY ONLY WHAT IS THERE (guest text audit 2026-09-30). The line used to
+     promise "Scan a QR or copy a handle" whatever the couple had set up — a
+     bank-only page offered a QR that did not exist, and "handle" is nobody's
+     word for an account number. It names the ways this couple actually has. */
+  const howToSend = howToSendLine({
+    qr: methods.some((m) => Boolean(m.qrDisplayUrl)),
+    number: methods.some((m) => Boolean(m.handle)),
+  });
   const identifiersWithheld = cards.some(
     (c, i) =>
       (c.handle === null && methods[i]?.handle != null) ||
@@ -221,20 +229,18 @@ export default async function PabuyaPublicPage({
             {words.solemn ? 'A gift of sympathy' : 'The pabuya · digital money dance'}
           </p>
           <h1 className="mt-2 font-display text-3xl font-medium italic sm:text-4xl">
-            A blessing for {hostName}
+            E-Gifts for {hostName}
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink/65">
             {words.solemn ? (
               <>
                 A quiet way to help {words.theOrganizer} — wherever you are in
-                the world. Scan a QR or copy a handle and send it straight to
-                their own account.
+                the world.{howToSend ? ` ${howToSend}` : ''}
               </>
             ) : (
               <>
                 Pin your cash on {words.theOrganizer} — wherever you are in the
-                world. Scan a QR or copy a handle and send it straight to their
-                own account.
+                world.{howToSend ? ` ${howToSend}` : ''}
               </>
             )}
           </p>
@@ -296,4 +302,12 @@ export default async function PabuyaPublicPage({
       <RoomFooter links={roomLinks} />
     </main>
   );
+}
+
+/** The one sentence on how to send — only the ways this couple set up. */
+function howToSendLine(has: { qr: boolean; number: boolean }): string | null {
+  if (has.qr && has.number) return 'Scan a QR code or copy an account number, and send it straight to their own account.';
+  if (has.qr) return 'Scan a QR code and send it straight to their own account.';
+  if (has.number) return 'Copy an account number and send it straight to their own account.';
+  return null;
 }

@@ -8,7 +8,9 @@ import { UploadYourQr } from './upload-your-qr';
  *
  * Two states, one button each:
  *
- *   · not signed in → **"Get inside"** · "Scan your QR · Tap NFC · Sign in".
+ *   · not signed in → **"Get inside"** · "Upload your QR · Sign in" — the two
+ *     things it actually opens (it once said "Scan your QR · Tap NFC", which
+ *     nothing behind it does).
  *     Pressing it opens exactly two things (owner 2026-09-27, the poster QR:
  *     "sign in to enter or upload your qr to login"): Upload your QR (a photo
  *     or screenshot, decoded on the phone) and Sign in. A `<details>`, so it
@@ -68,7 +70,9 @@ export function GetInside({
     <details className="group mx-auto max-w-md" data-get-inside="door">
       <summary className="button-primary flex min-h-[56px] w-full cursor-pointer list-none flex-col items-center justify-center gap-0.5 [&::-webkit-details-marker]:hidden">
         <span className="text-base">Get inside</span>
-        <span className="text-xs font-normal opacity-80">Scan your QR · Tap NFC · Sign in</span>
+        {/* Names only what opens underneath (guest text audit 2026-09-30): the
+            button promised "Scan · Tap NFC", and neither is behind it. */}
+        <span className="text-xs font-normal opacity-80">{slug ? 'Upload your QR · Sign in' : 'Sign in'}</span>
       </summary>
       {/* The poster's door (owner 2026-09-27: "sign in to enter or upload your
           qr to login") — exactly two things: the guest's own QR, read on the

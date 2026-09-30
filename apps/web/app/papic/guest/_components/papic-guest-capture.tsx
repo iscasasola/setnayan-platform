@@ -139,6 +139,7 @@ function guestWindowRejectMessage(
 // guest records AND consents to their own clip).
 
 type Props = {
+  /** Carried, never printed: no casual greetings on a guest's screen (owner, DECISION_LOG 2026-09-30). */
   guestName: string;
   eventName: string;
   /** The event this guest camera belongs to — tags offline-queued captures so a
@@ -268,7 +269,6 @@ function announceOutOfShots(): void {
 }
 
 export function PapicGuestCapture({
-  guestName,
   eventName,
   eventId,
   initialRemaining,
@@ -588,7 +588,7 @@ export function PapicGuestCapture({
         🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
         and the branch below reads EVERY 409 as "you are out of shots": it calls
         `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
-        rest of the session, then paints "That's all {total} photos, {guestName}!
+        rest of the session, then paints "That's all {total} photos!
         … They'll treasure these." over a photo that was refused before it was ever
         stored. A guest with credits left is congratulated for a shot that was
         thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
@@ -872,7 +872,7 @@ export function PapicGuestCapture({
           🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
           and the branch below reads EVERY 409 as "you are out of shots": it calls
           `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
-          rest of the session, then paints "That's all {total} photos, {guestName}!
+          rest of the session, then paints "That's all {total} photos!
           … They'll treasure these." over a photo that was refused before it was ever
           stored. A guest with credits left is congratulated for a shot that was
           thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
@@ -1382,7 +1382,7 @@ export function PapicGuestCapture({
         <div className="sn-rise mx-auto w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-ink shadow-sm">
           <ShieldCheck aria-hidden className="h-7 w-7 text-mulberry" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">
-            Before you start shooting, {guestName}
+            Before you start shooting
           </h1>
           <p className="mt-2 text-sm text-ink/70">
             Your photos go straight into {eventName}&rsquo;s gallery and may be
@@ -1638,7 +1638,7 @@ export function PapicGuestCapture({
             ) : (
               <>
                 <Check aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
-                <p className="text-base font-semibold">That&rsquo;s all {formatCount(total)} photos, {guestName}!</p>
+                <p className="text-base font-semibold">That&rsquo;s all {formatCount(total)} photos!</p>
                 <p className="text-sm text-cream/70">
                   Thank you for helping capture {eventName}. They’ll treasure these.
                 </p>

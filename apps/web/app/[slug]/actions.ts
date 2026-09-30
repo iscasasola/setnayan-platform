@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, type ExtraSeatRow } from '@/lib/extra-seats';
 import { plusOneSeats } from '@/lib/guests';
+import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING } from '@/lib/seat-name-words';
 import { after } from 'next/server';
 import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
 import { revalidatePath } from 'next/cache';
@@ -284,7 +285,10 @@ export async function submitRsvp(
     read or written: no answer, none of the guest's own meal or contact details.
     The seat rule is the reply's own (`nameTheSeats`: the entitlement re-read,
     the couple's switches, only THIS guest's seats). THROWN on failure, so the
-    boxes stay open and say so — never a closed form that looks saved.
+    boxes stay open and say so — never a closed form that looks saved. (It
+    cannot RETURN a reason: this is the reply form's own action, typed
+    `Promise<void>` for `<form action>`. `add-name-in-place.tsx` names the real
+    reason from what reaches it — guest text audit 2026-09-30.)
   */
   if (clean(formData.get('seat_names_only')) === '1') {
     const seatAdmin = createAdminClient();
@@ -293,10 +297,10 @@ export async function submitRsvp(
       .select('slug, rsvp_ask_config')
       .eq('event_id', eventId)
       .maybeSingle();
-    if (evAskErr || !evAsk) throw new Error('Their name did not save — try again.');
+    if (evAskErr || !evAsk) throw new Error(SEAT_NAME_DID_NOT_SAVE);
     const saved = await nameTheSeats(seatAdmin, eventId, guestId, formData, resolveRsvpAsk(evAsk.rsvp_ask_config));
     if (!saved.ok) throw new Error(saved.error);
-    if (saved.named === 0) throw new Error('Type their first or last name, then Save name.');
+    if (saved.named === 0) throw new Error(SEAT_NAME_MISSING);
     revalidatePath(`/dashboard/${eventId}/guests`);
     // Me re-renders with the seat NAMED — "Send their invite · Show pass".
     if (evAsk.slug) revalidatePath(`/${evAsk.slug}`);

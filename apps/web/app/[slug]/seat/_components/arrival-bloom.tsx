@@ -105,14 +105,13 @@ export function ArrivalBloom({
 
       <div className="space-y-1">
         <p className="font-serif text-xl italic text-terracotta sm:text-2xl">
-          {arrived
-            ? `Welcome, ${firstName} — so glad you made it!`
-            : `Welcome, ${firstName}`}
+          {/* 🎩 No "Welcome, <first name>" (owner, DECISION_LOG 2026-09-30). */}
+          {arrived ? 'So glad you made it!' : 'Your seat'}
         </p>
         <p className="text-sm text-ink/65">
           {arrived
-            ? `You're checked in. Your seat is at ${tableLabel} — find it below.`
-            : `You're at ${tableLabel}. Find your seat below.`}
+            ? `You’re checked in. Your seat is at ${tableLabel} — find it below.`
+            : `You’re at ${tableLabel}. Find your seat below.`}
         </p>
       </div>
 

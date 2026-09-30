@@ -10,8 +10,6 @@ type Props = {
   tables: EventTableRow[];
   entrance: EntrancePos;
   targetTableId: string;
-  /** Guest's first name — drives the personal arrival greeting on check-in. */
-  firstName: string;
   /** True once this guest has scanned in at the door (a guest_checkins row).
    *  Flips the neutral "here's your table" header to a warm arrival bloom. */
   arrived: boolean;
@@ -32,7 +30,6 @@ export function YourSeatBlock({
   tables,
   entrance,
   targetTableId,
-  firstName,
   arrived,
 }: Props) {
   // Pahina (design 2026-07-25 §11a): the guest-personal layer is STARRED, not
@@ -52,7 +49,7 @@ export function YourSeatBlock({
           Before check-in it's the normal seat pass. */}
       {arrived ? (
         <header className="text-center">
-          <ArrivalGreeting firstName={firstName} tableLabel={tableLabel} />
+          <ArrivalGreeting tableLabel={tableLabel} />
           {venueName ? (
             <p className="mt-1.5 inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

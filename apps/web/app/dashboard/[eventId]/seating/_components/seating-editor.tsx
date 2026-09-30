@@ -129,6 +129,13 @@ import {
   type DropHit,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
+import {
+  roleSeatingChoice,
+  roleSeatingSetOf,
+  roleSeatingSetsFor,
+  type RoleSeating,
+  type RoleSeatingKey,
+} from '@/lib/role-seating';
 import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
 // Feature C (2D booth footprint + facing): reuse the 3D booth dims + facing
 // derivation so the 2D editor and the 3D venue walk agree (no magic numbers,
@@ -151,6 +158,7 @@ import {
   saveBooths,
   saveFloorPlan,
   savePriorityOrder,
+  saveRoleSeating,
   commitWeld,
   saveSigns,
   saveVenuePhotoVisibility,
@@ -251,6 +259,10 @@ type Props = {
   // Iteration 0053 P4 Unit 6: the event's role-set key (string, RSC-serializable).
   // The editor re-resolves it client-side to tier/label by the event type.
   roleSetKey: string;
+  /** The Auto Arrange "sit together" switch labels, already in the couple's own
+   *  role words (built on the server by lib/role-seating-labels.ts, so this lazy
+   *  chunk never imports the role-word modules). Absent = the set's key. */
+  roleSeatingLabels?: Partial<Record<RoleSeatingKey, string>> | null;
   // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). ADVISORY ONLY:
   // when true, a manual "Table 4" (ones-digit-4) shows a gentle notice but the
   // save still proceeds. Derived from isChineseWedding() in the page (primary OR
@@ -353,6 +365,7 @@ const defaultGrid = defaultTablePosition;
 export function SeatingEditor({
   eventId,
   roleSetKey,
+  roleSeatingLabels = null,
   chineseTradition = false,
   tables: tablesProp,
   guests: guestsProp,
@@ -1357,6 +1370,38 @@ export function SeatingEditor({
     persistPriority(next);
   };
   const movePriorityTier = (index: number, dir: -1 | 1) => reorderPriorityTo(index, index + dir);
+
+  // 🪑 Owner 2026-09-30 — per role set, "Sit together" (default: one table, the
+  // fewest neighbouring tables if they outnumber it) or "Sit with their group".
+  // One toggle per set that has anybody in it, named in the couple's own role
+  // words. Optimistic; persists via saveRoleSeating beside the priority order.
+  const [roleSeating, setRoleSeating] = useState<RoleSeating>(() => floorPlan.role_seating ?? {});
+  const roleSeatingRows = useMemo(() => {
+    const counts = new Map<RoleSeatingKey, number>();
+    for (const g of guests) {
+      if (g.rsvp_status === 'declined') continue;
+      const k = roleSeatingSetOf(g.role);
+      if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    return roleSeatingSetsFor(roleSet.offeredRoles)
+      .filter((key) => (counts.get(key) ?? 0) > 0)
+      .map((key) => ({ key, label: roleSeatingLabels?.[key] ?? key, count: counts.get(key) ?? 0 }));
+  }, [guests, roleSet, roleSeatingLabels]);
+  const toggleRoleSeating = (key: RoleSeatingKey) => {
+    if (!canEdit) return;
+    const next: RoleSeating = {
+      ...roleSeating,
+      [key]: roleSeatingChoice(roleSeating, key) === 'together' ? 'group' : 'together',
+    };
+    setRoleSeating(next); // optimistic — the switch flips instantly
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('role_seating', JSON.stringify(next));
+    startTransition(async () => {
+      await runGated(() => saveRoleSeating(fd));
+    });
+  };
 
   // Keep-apart rules (smart seat-plan Phase 3) — couple-private guest pairs the
   // solver separates onto different tables (group-aware). Optimistic local list
@@ -7456,7 +7501,7 @@ export function SeatingEditor({
       {/* auto-arrange confirm */}
       {confirmAuto ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmAuto(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-mulberry" />
               <h3 className="text-lg font-semibold text-ink">Auto Arrange</h3>
@@ -7477,11 +7522,60 @@ export function SeatingEditor({
               </li>
               <li>
                 <span className="font-semibold text-ink/85">3 · Guests</span> — every unseated guest who
-                hasn&rsquo;t declined is seated by priority tier, highest priority nearest the stage;
-                pending replies get a <span className="font-semibold">held</span> seat you can confirm
-                later. No one you&rsquo;ve placed is moved; sweetheart tables are skipped.
+                hasn&rsquo;t declined is seated by priority tier, highest priority nearest the stage.
+                Each group shares a table where it fits, and plus-ones sit beside whoever brought
+                them. Pending replies get a <span className="font-semibold">held</span> seat you can
+                confirm later. No one you&rsquo;ve placed is moved; sweetheart tables are skipped.
               </li>
             </ol>
+            {roleSeatingRows.length > 0 ? (
+              <div className="mt-3 border-t border-ink/10 pt-3">
+                <p className="text-sm font-semibold text-ink/85">Who sits together</p>
+                <p className="mt-0.5 text-xs text-ink/55">
+                  On: one table (the fewest side-by-side tables if they don&rsquo;t fit). Off: each
+                  sits with their own group.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {roleSeatingRows.map((r) => {
+                    const together = roleSeatingChoice(roleSeating, r.key) === 'together';
+                    return (
+                      <li key={r.key}>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={together}
+                          disabled={!canEdit}
+                          onClick={() => toggleRoleSeating(r.key)}
+                          data-role-seating={r.key}
+                          className="flex min-h-[44px] w-full items-center gap-3 rounded-lg px-1 py-1.5 text-left hover:bg-ink/5 disabled:opacity-50"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm text-ink">
+                              {r.label} <span className="font-mono text-[11px] text-ink/45">{formatCount(r.count)}</span>
+                            </span>
+                            <span className="block text-xs text-ink/55">
+                              {together ? 'Sit together' : 'Sit with their group'}
+                            </span>
+                          </span>
+                          <span
+                            aria-hidden
+                            className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${
+                              together ? 'bg-mulberry' : 'bg-ink/20'
+                            }`}
+                          >
+                            <span
+                              className={`absolute top-0.5 h-5 w-5 rounded-full bg-cream shadow transition-all ${
+                                together ? 'left-[18px]' : 'left-0.5'
+                              }`}
+                            />
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
             <p className="mt-2 text-xs text-ink/50">
               Table positions change and are saved. You can drag anything afterwards.
             </p>

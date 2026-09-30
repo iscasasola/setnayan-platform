@@ -36,6 +36,8 @@ import { peopleLabels } from '@/lib/details-your-event';
 import type { SeatingDetailsShell, SeatingGuest, SeatingGroup } from './_components/seating-editor';
 /* ⚡ The editor loads when the Seat plan is opened — never with the Maker (`seating-lazy.tsx`). */
 import { SeatingEditor } from './_components/seating-lazy';
+import { loadRoleNames } from '@/lib/role-names.server';
+import { roleSeatingLabels } from '@/lib/role-seating-labels';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
 import SeatingLabPage from './lab/page';
 
@@ -92,7 +94,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     return <NotSharedWithYou title="Seating chart" thing="guest list" />;
   }
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize] =
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
@@ -115,6 +117,9 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       // The booked venue's own stated room size — a SUGGESTION only, used
       // below when the couple has not sized their room yet.
       fetchBookedVenueRoomSize(supabase, eventId),
+      // The couple's own role words — the Auto Arrange "sit together" toggles
+      // name each role set the way they do ("Bride's Crew & Groom's Crew").
+      loadRoleNames(supabase, eventId, 'SeatingPage.roleNames'),
     ]);
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
   // 🪑 From the event's day guests always see their seats (lib/guests-may-see-seats.ts);
@@ -211,6 +216,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     <SeatingEditor
       eventId={eventId}
       roleSetKey={roleSet.key}
+      roleSeatingLabels={roleSeatingLabels(roleNames)}
       chineseTradition={chineseTradition}
       tables={tables}
       guests={seatingGuests}

@@ -17,3 +17,5 @@
 - ⚠ `ps` RSS / `/usr/bin/time -l` UNDER-REPORT on this Mac: pages in the compressor are not RSS. Mid-build the main `next build` showed RSS 1.8 GB while `top` MEM (phys footprint) was 8.66 GB (6.6 GB compressed). Sampler now sums `top -l 1 -stats pid,mem` over the build's process tree — the Linux-RSS equivalent.
 - Baseline, maps ON (dummy SENTRY_AUTH_TOKEN, = Vercel): rc 0, 16.5 min wall, compile 14.7 min, time -l max RSS 5.23 GB (under-reported), footprint >= 9.64 GB sampled only AFTER compile (sampler started late — compile peak unmeasured). 2101 .map files, .next = 8.5 GB.
 - Fix commit in progress: sourcemaps.disable gated on TOKEN && SENTRY_PROJECT.
+- Maps OFF (fix, same dummy token): rc 0, **8.3 min wall (was 16.5)**, **compile 6.8 min (was 14.7)**, `.next` 4.7 GB (was 8.5), .map files 3 (was 2101). Footprint peak 12.35 GB — the main process heap climbs toward the 12288 MB V8 ceiling during compile regardless (V8 grows lazily up to its limit; the limit, not the live set, sets the plateau).
+- Next: maps off + `webpackBuildWorker: true` (each compiler in its own child that exits).

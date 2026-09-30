@@ -622,8 +622,8 @@
  * the strip, the labels and the device cannot be one number. The fallback is
  * the bar's design height, for the first paint before the dock is measured.
  *
- * A pill that still floats ABOVE the dock — <TeamSummaryChip> on the Your Team
- * root, which flags `teamchip-docked` — adds its own room on top. The strip no
+ * (The floating team chip that flagged `teamchip-docked` was retired 2026-10-01:
+ * nothing floats at the bottom of the phone any more.) The strip no
  * longer needs a class of its own (`subnav-docked` used to add 8.5rem): it is
  * inside the dock, so the dock's height already counts it. Mobile-only — the
  * dock is lg:hidden, so desktop cancels all of it below.
@@ -631,8 +631,7 @@
 [data-shell-main] {
   padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 1.5rem);
 }
-html.guests-subnav-docked [data-shell-main],
-html.teamchip-docked [data-shell-main] {
+html.guests-subnav-docked [data-shell-main] {
   padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 5.5rem);
 }
 
@@ -669,8 +668,7 @@ html.teamchip-docked [data-shell-main] {
 }
 @media (min-width: 1024px) {
   [data-shell-main],
-  html.guests-subnav-docked [data-shell-main],
-  html.teamchip-docked [data-shell-main] {
+  html.guests-subnav-docked [data-shell-main] {
     padding-bottom: 0;
   }
 }

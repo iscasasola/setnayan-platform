@@ -80,12 +80,17 @@ test('/hosts lands on the Guest list for anybody who can see it, and keeps a hel
   assert.doesNotMatch(page, /<form|action=\{/, '/hosts grew a control again — its controls moved (the Hosts fold)');
 });
 
-test('Your Team MOUNTS the shipped Budget page as its part, and the picker on the team', () => {
+test('Your Team MOUNTS the shipped Budget page as its part, and offers it from the team', () => {
   const page = read('vendors', 'page.tsx');
   assert.match(page, /import BudgetPage from '\.\.\/budget\/page'/, 'Budget is no longer the shipped page');
   assert.match(page, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\)[\s\S]*?<BudgetPage[\s\S]*?part: YOUR_TEAM_BUDGET_PART/, 'the Budget part is not rendered, or does not tell the page it is embedded');
-  assert.match(page, /partPicker=\{teamPartPicker\}/, 'the takeover lost the part picker');
-  assert.match(read('vendors', '_components', 'services-takeover.tsx'), /\{partPicker \?/, 'the takeover no longer places the picker');
+  // ⚖ Approved phone design (owner 2026-10-01): on the team, Budget is a row
+  // behind ⋯ rather than a dropdown above the team. Still every part from
+  // `yourTeamParts`, still a link to its own URL — only its place moved.
+  assert.match(page, /teamParts=\{teamParts\}/, 'the takeover lost the Your Team parts');
+  const takeover = read('vendors', '_components', 'services-takeover.tsx');
+  assert.match(takeover, /<TeamMoreMenu parts=\{teamParts\}/, 'the takeover no longer offers the parts');
+  assert.match(takeover, /\(parts \?\? \[\]\)\.filter\(\(p\) => p\.key !== 'team'\)[\s\S]*?href=\{p\.href\}/, 'the ⋯ menu no longer links each part');
 });
 
 test('/budget lands in Your Team only where Your Team exists', () => {

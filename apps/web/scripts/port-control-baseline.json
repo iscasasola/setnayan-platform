@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "95cff00cd",
+  "generatedFromRef": "e6bdfb29c",
   "routeCount": 440,
   "destinations": 944,
   "actions": 675,
-  "blocks": 5308,
+  "blocks": 5311,
   "routes": {
     "/": {
       "files": [
@@ -8453,7 +8453,7 @@
         "dashboard/[eventId]/vendors/_components/services-takeover.tsx",
         "dashboard/[eventId]/vendors/_components/shortlist-categories.tsx",
         "dashboard/[eventId]/vendors/_components/team-controls.tsx",
-        "dashboard/[eventId]/vendors/_components/team-summary-chip.tsx",
+        "dashboard/[eventId]/vendors/_components/team-rows.tsx",
         "dashboard/[eventId]/vendors/_components/trusted-circle-badge.tsx",
         "dashboard/[eventId]/vendors/_components/vendor-quickview-inspector.tsx",
         "dashboard/[eventId]/vendors/_components/waiting-for-quotes.tsx",
@@ -8540,6 +8540,7 @@
         "FolderSection",
         "HTMLAnchorElement",
         "HTMLButtonElement",
+        "HTMLDetailsElement",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -8582,6 +8583,7 @@
         "ReuseBookingsPanel",
         "RevertVendorResult",
         "Row",
+        "RowAction",
         "RowPrice",
         "RunBuildResult",
         "SaveCategoryRequirementsResult",
@@ -8602,9 +8604,10 @@
         "SupplierInviteView",
         "TeamClearCandidates",
         "TeamDecisionDoorway",
+        "TeamMoreMenu",
         "TeamRemoveCandidate",
+        "TeamRows",
         "TeamSavePlan",
-        "TeamSummaryChip",
         "ToastState",
         "UnlockCategoryResult",
         "UnreadBadge",

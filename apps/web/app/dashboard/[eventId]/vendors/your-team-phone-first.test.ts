@@ -137,9 +137,9 @@ test('(c) the page reads the team MEASURED and stops on a refusal with "Couldn�
 
 test('(c) TeamRows says "Couldn’t load your team" for unreadable, and "empty" only for a measured zero', () => {
   const unreadable = ROWS.slice(ROWS.indexOf("state.kind === 'unreadable'"), ROWS.indexOf('const { rows } = state;'));
-  assert.match(unreadable, /Couldn’t load your team/);
+  assert.match(unreadable, /Couldn’t load your suppliers/);
   assert.match(unreadable, /retryHref/);
-  assert.doesNotMatch(unreadable, /No one on your team/);
+  assert.doesNotMatch(unreadable, /No suppliers yet/);
   const empty = ROWS.slice(ROWS.indexOf('const { rows } = state;'));
-  assert.match(empty, /rows\.length === 0[\s\S]{0,200}No one on your team yet\./);
+  assert.match(empty, /rows\.length === 0[\s\S]{0,200}No suppliers yet\./);
 });

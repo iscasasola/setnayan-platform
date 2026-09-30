@@ -141,7 +141,7 @@ import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
 import BudgetPage from '../budget/page';
 
 // The browser tab says what the screen says ("supplier", never "vendor", in UI).
-export const metadata = { title: 'Your Team' };
+export const metadata = { title: 'Suppliers' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -231,8 +231,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   if (sp.part === YOUR_TEAM_BUDGET_PART) {
     return (
       <section className="sn-col space-y-6">
-        <PageMasthead title="Your Team" />
-        <PillarPartPicker label="Your Team part" parts={teamParts} current="budget" />
+        <PageMasthead title="Suppliers" />
+        <PillarPartPicker label="Suppliers part" parts={teamParts} current="budget" />
         <BudgetPage
           params={Promise.resolve({ eventId })}
           searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART })}
@@ -241,7 +241,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
   }
   const teamPartPicker = (
-    <PillarPartPicker label="Your Team part" parts={teamParts} current="team" />
+    <PillarPartPicker label="Suppliers part" parts={teamParts} current="team" />
   );
   const supabase = await createClient();
 
@@ -291,9 +291,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   if (!vendorsRead.measured) {
     return (
       <section className="sn-col space-y-4">
-        <PageMasthead title="Your Team" />
+        <PageMasthead title="Suppliers" />
         <p aria-hidden className="font-display text-[28px] leading-none text-ink">
-          Your Team
+          Suppliers
         </p>
         <TeamRows
           eventId={eventId}

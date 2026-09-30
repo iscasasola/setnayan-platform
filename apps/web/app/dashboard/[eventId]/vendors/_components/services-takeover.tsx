@@ -234,16 +234,18 @@ export function ServicesTakeover({
           dashboard pages already use it); it is NOT re-drawn here. Its back
           chevron is the "crumb" the plan asks for — this product has no
           breadcrumb component and the masthead's own docblock says so. */}
-      <PageMasthead title="Your Team" />
+      <PageMasthead title="Suppliers" />
 
       {/* ── THE APPROVED PHONE SCREEN (owner 2026-10-01, prototype frame 4) ──
+          The tab is named "Suppliers" (owner 2026-10-01: the bar is Home ·
+          Guests · Suppliers · Hub · More; "Your Team" was renamed).
           Title + ⋯ · the team, booked first, one next step each · ONE "Find a
           supplier". Budget and the section jumps live behind ⋯; the category
           walls live inside Find a supplier. The visible title is aria-hidden:
           the masthead's h1 above already names the page for a screen reader. */}
       <div className="mb-2 flex items-center justify-between gap-3">
         <p aria-hidden className="font-display text-[28px] leading-none text-ink">
-          Your Team
+          Suppliers
         </p>
         <TeamMoreMenu parts={teamParts} replan={replan} />
       </div>
@@ -260,13 +262,6 @@ export function ServicesTakeover({
       >
         Find a supplier
       </button>
-
-      {/* While the find area is closed on a phone, the floating team chip
-          (build-locked.tsx) would repeat what the rows above already say, as a
-          second bar over the bottom nav. It comes back with the find area. */}
-      {findOpen ? null : (
-        <style>{`@media (max-width:1023px){[data-team-summary-chip]{display:none}}`}</style>
-      )}
 
       <div id="team-find-area" data-find-area={findOpen ? 'open' : 'closed'} className={findOpen ? undefined : 'hidden lg:block'}>
 
@@ -686,7 +681,7 @@ function TeamMoreMenu({ parts, replan }: { parts?: readonly PillarPart[]; replan
   return (
     <details ref={ref} className="relative shrink-0" data-team-more="">
       <summary
-        aria-label="More for Your Team"
+        aria-label="More for Suppliers"
         className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full border border-ink/15 bg-cream text-base font-semibold tracking-[0.04em] text-ink/70 transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry [&::-webkit-details-marker]:hidden"
       >
         ⋯

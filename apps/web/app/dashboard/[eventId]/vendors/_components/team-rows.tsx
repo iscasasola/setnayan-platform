@@ -11,8 +11,8 @@
  *
  * Every word a row says comes from `lib/your-team-rows.ts`; this file only
  * draws it. Three states, never confused for each other:
- *   · `unreadable` — the read was refused → "Couldn't load your team", Try again.
- *   · rows empty   — a real, measured empty team → "No one on your team yet."
+ *   · `unreadable` — the read was refused → "Couldn't load your suppliers", Try again.
+ *   · rows empty   — a real, measured empty team → "No suppliers yet."
  *   · rows         — booked first, one next step each.
  */
 import Link from 'next/link';
@@ -43,9 +43,9 @@ export function TeamRows({ eventId, state }: { eventId: string; state: TeamRowsS
   if (state.kind === 'unreadable') {
     return (
       <div data-team-rows="unreadable" role="alert" className="py-2">
-        <p className="text-sm font-semibold text-ink">Couldn’t load your team</p>
+        <p className="text-sm font-semibold text-ink">Couldn’t load your suppliers</p>
         <p className="mt-1 text-[12.5px] text-ink/60">
-          This is a loading problem, not an empty team.
+          This is a loading problem — not an empty list.
         </p>
         <Link href={state.retryHref} className={`${GO_CLASS} mt-3 -ml-1.5`}>
           Try again ›
@@ -58,7 +58,7 @@ export function TeamRows({ eventId, state }: { eventId: string; state: TeamRowsS
   if (rows.length === 0) {
     return (
       <p data-team-rows="empty" className="text-[12.5px] text-ink/60">
-        No one on your team yet.
+        No suppliers yet.
       </p>
     );
   }

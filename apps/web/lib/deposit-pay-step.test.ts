@@ -210,16 +210,9 @@ test('the tile says what it measures — build picks NOT yet locked', () => {
   assert.doesNotMatch(locked, /k="In build"/, '"In build ₱0" beside a locked supplier is back');
 });
 
-test('the mobile team chip says the same thing as the tile — "to lock", never "in build"', () => {
-  // AREA-COUPLE 2026-09-19: the tile was renamed, the chip under the thumb still
-  // read "1 locked · 0 in build" right after a lock. Both the visible text and
-  // the screen-reader summary are counted.
-  const chip = read('../app/dashboard/[eventId]/vendors/_components/team-summary-chip.tsx');
-  const toLock = chip.match(/\{formatCount\(inBuildCount\)\} to lock/g) ?? [];
-  console.log(`chip "to lock" occurrences: ${toLock.length}`);
-  assert.equal(toLock.length, 2, 'visible text + aria summary');
-  assert.doesNotMatch(chip, /in build/i, 'the chip says "in build" again');
-});
+// (The mobile team chip that repeated the tile's "to lock" count was retired
+// 2026-10-01 — nothing floats at the bottom of the phone; see
+// lib/team-summary-chip.test.ts for the retirement guard.)
 
 test('the supplier is asked at the moment it matters — on the ask, and on a booked client', () => {
   const client = read(CLIENT_PAGE);

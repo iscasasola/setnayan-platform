@@ -172,8 +172,6 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
 
   const replyLocked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at as string | null,
-    editDeadline: event.guest_list_edit_deadline as string | null,
-    eventDate: event.event_date as string | null,
   });
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const gate = canvas ? ({ kind: 'inside', didntReply: false } as const) : rsvpGate({

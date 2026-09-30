@@ -361,8 +361,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     unreplied &&
     !guestListIsClosed({
       lockedAt: (event as { guest_count_locked_at?: string | null }).guest_count_locked_at ?? null,
-      editDeadline: (event as { guest_list_edit_deadline?: string | null }).guest_list_edit_deadline ?? null,
-      eventDate: event.event_date as string | null,
     })
       ? resolveReplyBy({
           deadline: (event as { guest_list_edit_deadline?: string | null }).guest_list_edit_deadline ?? null,

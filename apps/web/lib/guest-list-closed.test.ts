@@ -1,130 +1,67 @@
 /**
- * The invitation closes when the guest list is final (owner 2026-08-20).
+ * The guest list is closed ONLY when the host pressed Finalize.
  *
- * Every case pins an INSTANT explicitly — `nowMs` is injectable precisely so
- * these never depend on the wall clock. The suite also runs under a non-UTC
- * TZ in CI (see the repo's TZ matrix), and this module's whole reason for
- * parsing with a trailing 'Z' is that the door must shut at the same instant
- * everywhere; the timezone case below asserts that rather than trusting it.
+ * ⚖ Owner, 2026-09-30: *"i must click a finalize to finalize it."* Until that
+ * date the list closed itself at the reply-by date, or at `event_date − 14 days`
+ * when none was set, and a birthday created ON its own day was therefore closed
+ * the moment it existed ("Birthday Salubong ni Ate": 0 guests, every add
+ * refused, on the night of the party).
+ *
+ * These cases pin the rule and are also the sabotage for it: put any date leg
+ * back into `guestListIsClosed` and the same-day and past-deadline cases fail.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  FINALIZE_LEAD_DAYS,
-  guestListDeadlineEndMs,
-  guestListIsClosed,
-} from './guest-list-closed';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { guestListIsClosed } from './guest-list-closed';
 
-const DAY = 24 * 60 * 60 * 1000;
+const HERE = dirname(fileURLToPath(import.meta.url));
+const read = (rel: string) => readFileSync(join(HERE, rel), 'utf8');
 
-test('an explicit deadline closes the list at the END of that day, UTC', () => {
-  const end = guestListDeadlineEndMs('2026-09-01', '2026-12-12');
-  assert.equal(end, Date.parse('2026-09-01T23:59:59Z'));
-  // One second before the end of the deadline day the list is still open —
-  // "your deadline is the 1st" must mean the whole of the 1st.
-  assert.equal(
-    guestListIsClosed({
-      lockedAt: null,
-      editDeadline: '2026-09-01',
-      eventDate: '2026-12-12',
-      nowMs: Date.parse('2026-09-01T23:59:58Z'),
-    }),
-    false,
-  );
-  assert.equal(
-    guestListIsClosed({
-      lockedAt: null,
-      editDeadline: '2026-09-01',
-      eventDate: '2026-12-12',
-      nowMs: Date.parse('2026-09-02T00:00:01Z'),
-    }),
-    true,
-  );
+test('stamped (the host pressed Finalize) → closed', () => {
+  assert.equal(guestListIsClosed({ lockedAt: '2026-09-30T10:00:00Z' }), true);
 });
 
-test('no explicit deadline falls back to FINALIZE_LEAD_DAYS before the event', () => {
-  const end = guestListDeadlineEndMs(null, '2026-12-12');
-  assert.equal(
-    end,
-    Date.parse('2026-12-12T23:59:59Z') - FINALIZE_LEAD_DAYS * DAY,
-  );
-  assert.equal(end, Date.parse('2026-11-28T23:59:59Z'));
+test('not stamped → open, whatever the calendar says', () => {
+  assert.equal(guestListIsClosed({ lockedAt: null }), false);
+  assert.equal(guestListIsClosed({ lockedAt: undefined }), false);
+  assert.equal(guestListIsClosed({ lockedAt: '' }), false);
 });
 
-test('the explicit deadline WINS over the event-date fallback', () => {
-  // A couple who set a far-out deadline must not be closed early by the
-  // 14-day default, and vice versa. Both directions.
-  assert.equal(
-    guestListIsClosed({
-      lockedAt: null,
-      editDeadline: '2026-12-10',
-      eventDate: '2026-12-12',
-      nowMs: Date.parse('2026-12-01T00:00:00Z'), // past the 14-day default
-    }),
-    false,
+test('the input has no date in it — a date cannot close the list', () => {
+  // A date field on the input is how the date rule would come back. Pinned by
+  // the type's source, so re-adding `editDeadline` / `eventDate` fails here.
+  const src = read('guest-list-closed.ts');
+  const sig = src.slice(src.indexOf('export function guestListIsClosed'));
+  assert.doesNotMatch(
+    sig.slice(0, sig.indexOf('{\n')),
+    /editDeadline|eventDate|nowMs|Date/,
+    'guestListIsClosed takes a date again: only the Finalize stamp may close the list',
   );
-  assert.equal(
-    guestListIsClosed({
-      lockedAt: null,
-      editDeadline: '2026-06-01',
-      eventDate: '2026-12-12',
-      nowMs: Date.parse('2026-07-01T00:00:00Z'), // long before the default
-    }),
-    true,
-  );
+  assert.doesNotMatch(src, /FINALIZE_LEAD_DAYS|guestListDeadlineEndMs/, 'the retired date helpers are back');
 });
 
-test('the finalize STAMP closes the list on its own, whatever the dates say', () => {
-  // The stamp is written once and never un-written. A couple who later moves
-  // their deadline out does not reopen a list the binding count was frozen on.
-  assert.equal(
-    guestListIsClosed({
-      lockedAt: '2026-07-01T00:00:00Z',
-      editDeadline: '2027-01-01',
-      eventDate: '2027-06-06',
-      nowMs: Date.parse('2026-08-20T00:00:00Z'),
-    }),
-    true,
+test('the finalize state is a READ — nothing on a page load may write the stamp', () => {
+  const pax = read('pax.ts');
+  const body = pax.slice(
+    pax.indexOf('export async function readFinalizeState'),
+    pax.indexOf('export type FinalizeResult'),
   );
+  assert.ok(body.length > 0, 'readFinalizeState moved; re-anchor this guard');
+  assert.doesNotMatch(body, /\.update\(|createAdminClient\(/, 'readFinalizeState writes again: a page load would finalize the list');
+  assert.doesNotMatch(pax, /export async function ensureFinalized/, 'the lazy auto-finalize is back');
 });
 
-test('no deadline and no event date = a list that never closes on its own', () => {
-  // Very early planning. Closing an invitation for an event with no date would
-  // be a door shut on a schedule nobody set.
-  assert.equal(guestListDeadlineEndMs(null, null), null);
-  assert.equal(
-    guestListIsClosed({ lockedAt: null, editDeadline: null, eventDate: null }),
-    false,
-  );
-});
-
-test('an unparseable date closes nothing — it must never fail SHUT', () => {
-  // Garbage in a date column is not a reason to delete a wedding's RSVP form.
-  assert.equal(guestListDeadlineEndMs('not-a-date', null), null);
-  assert.equal(guestListDeadlineEndMs(null, 'not-a-date'), null);
-  assert.equal(
-    guestListIsClosed({
-      lockedAt: null,
-      editDeadline: 'not-a-date',
-      eventDate: 'also-not-a-date',
-    }),
-    false,
-  );
-});
-
-test('the door shuts at ONE instant regardless of the running timezone', () => {
-  // The bug this guards: a bare "T23:59:59" parses as server-LOCAL time, so
-  // the same event would close 8 hours apart in Manila and in UTC.
-  const before = process.env.TZ;
-  const ends: number[] = [];
-  for (const tz of ['UTC', 'Asia/Manila', 'America/New_York', 'Pacific/Kiritimati']) {
-    process.env.TZ = tz;
-    ends.push(guestListDeadlineEndMs('2026-09-01', null)!);
-    ends.push(guestListDeadlineEndMs(null, '2026-12-12')!);
+test('the stamp is written only behind the host fence', () => {
+  const pax = read('pax.ts');
+  for (const fn of ['finalizeGuestList', 'reopenGuestList']) {
+    const at = pax.indexOf(`export async function ${fn}`);
+    assert.ok(at >= 0, `${fn} is gone`);
+    const body = pax.slice(at, pax.indexOf('\n}\n', at));
+    const fence = body.indexOf('callerHostsEvent(');
+    const write = body.indexOf('.update(');
+    assert.ok(fence >= 0 && write > fence, `${fn} writes the stamp before (or without) checking the caller hosts the event`);
   }
-  process.env.TZ = before;
-  const explicit = ends.filter((_, i) => i % 2 === 0);
-  const fallback = ends.filter((_, i) => i % 2 === 1);
-  assert.equal(new Set(explicit).size, 1, 'explicit deadline moved with TZ');
-  assert.equal(new Set(fallback).size, 1, 'fallback deadline moved with TZ');
 });

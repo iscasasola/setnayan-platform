@@ -98,17 +98,19 @@ test('a delegate without the guest list is told so — a third state, not a zero
   assert.notEqual(step.href, `${BASE}/seating`);
 });
 
-test('guest-list finalize: closed / dated / undated / unread', () => {
+test('guest-list finalize: only the host Finalize closes it — never a date (owner 2026-09-30)', () => {
   assert.equal(resolveGuestListFinalize(ev({ guestListLockedAt: '2026-09-01T00:00:00Z' }), NOW).label, 'finalized');
-  assert.match(resolveGuestListFinalize(ev(), NOW).label, /^finalizes 28 Nov$/);
-  assert.equal(resolveGuestListFinalize(ev({ eventDate: null }), NOW).label, 'no finalize date');
+  assert.equal(resolveGuestListFinalize(ev(), NOW).label, 'open');
+  assert.equal(resolveGuestListFinalize(ev({ eventDate: null }), NOW).label, 'open');
+  // A reply-by date long past still does not close it.
+  assert.equal(resolveGuestListFinalize(ev({ guestListEditDeadline: '2020-01-01' }), NOW).label, 'open');
   assert.equal(resolveGuestListFinalize(ev({ measured: false }), NOW).label, 'Couldn’t read it just now');
 });
 
 test('sources: three doors, each carrying its state, unread rows say so', () => {
   const s = resolvePlan3dSources(ev(), plan(), guests(), BASE, NOW);
   assert.deepEqual(s.map((r) => r.key), ['guests', 'seatplan', 'moodboard']);
-  assert.equal(s[0]!.value, '178 guests · finalizes 28 Nov');
+  assert.equal(s[0]!.value, '178 guests · open');
   assert.equal(s[1]!.value, '22 tables · 4 with no seat · 3 supplier booths (1 branded) · auto-seating on');
   assert.match(resolvePlan3dSources(ev(), plan({ autoplace: false }), guests(), BASE, NOW)[1]!.value!, /auto-seating off$/);
   assert.deepEqual(s.map((r) => r.href), [`${BASE}/guests`, `${BASE}/seating`, `${BASE}/studio/mood-board`]);

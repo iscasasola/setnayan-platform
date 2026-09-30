@@ -354,8 +354,6 @@ export async function submitRsvp(
     .maybeSingle();
   const replyLocked = guestListIsClosed({
     lockedAt: evRsvp?.guest_count_locked_at,
-    editDeadline: evRsvp?.guest_list_edit_deadline,
-    eventDate: evRsvp?.event_date,
   });
   // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25) — re-read here,
   // never trusted from the form: the widget only decides what RENDERS, this

@@ -258,9 +258,6 @@ async function remindOneEvent(
   const coupleName = resolveCoupleName(ev);
   const listClosed = guestListIsClosed({
     lockedAt: ev.guest_count_locked_at,
-    editDeadline: ev.guest_list_edit_deadline,
-    eventDate: ev.event_date,
-    nowMs: now.getTime(),
   });
   const replyBy = resolveReplyBy({ deadline: ev.guest_list_edit_deadline, eventDate: ev.event_date });
 

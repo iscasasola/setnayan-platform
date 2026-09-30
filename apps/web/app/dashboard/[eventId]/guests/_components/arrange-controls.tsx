@@ -33,7 +33,8 @@
  * re-arranging a list does not throw the host back to the top of it.
  */
 
-import { useState, useTransition } from 'react';
+import { useContext, useState, useTransition } from 'react';
+import { GuestListHasSidesContext } from './chip-editors';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, SlidersHorizontal } from 'lucide-react';
 import {
@@ -189,6 +190,9 @@ export function ArrangeSheet({
   grouping: readonly ArrangeKey[];
   sort: string;
 }) {
+  // No sides on this event → no Side row to group or sort by.
+  const hasSides = useContext(GuestListHasSidesContext);
+  const columns = hasSides ? ARRANGE_COLUMNS : ARRANGE_COLUMNS.filter((c) => c.key !== 'side');
   const [open, setOpen] = useState(false);
   const { setSort, toggleGroup } = useArrange(grouping);
 
@@ -230,7 +234,7 @@ export function ArrangeSheet({
             <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/50">
               Group it by how?
             </p>
-            {ARRANGE_COLUMNS.map((c) => {
+            {columns.map((c) => {
               const level = grouping.indexOf(c.key) + 1;
               const groups = level === 1;
               return (
@@ -274,7 +278,7 @@ export function ArrangeSheet({
               Sort inside each
             </p>
             <div className="flex flex-wrap gap-1">
-              {ARRANGE_COLUMNS.map((c) => (
+              {columns.map((c) => (
                 <button
                   key={c.key}
                   type="button"

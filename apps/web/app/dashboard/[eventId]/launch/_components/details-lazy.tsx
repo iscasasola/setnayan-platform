@@ -222,4 +222,3 @@ export function prefetchDetailsWhenIdle(): () => void {
     if (timer !== null) window.clearTimeout(timer);
   };
 }
-

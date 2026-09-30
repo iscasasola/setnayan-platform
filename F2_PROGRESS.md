@@ -51,7 +51,7 @@ guest inside the top third at 390×844. Desktop keeps its header row but the SAM
 ## Checks as of e692506fb+ (2026-10-01)
 - Local: full typecheck clean; full unit suite 20,995 pass / 1 fail → the one failure (numbers-carry-commas flagged the name `guestsMenu`) fixed by renaming to `moreMenu`; CI guard scripts all pass; port-controls OK.
 - CI (on 9dda59e84): production build ✅, bundle-size ✅ (shared 202.0 KB within the 202 KB cap), Maker 501.6 KB ≤ 505 KB.
-- Screenshots (89f4a1f9c, Playwright over the local harness): scratchpad `f2/lab-390.png`, `lab-390-add-sheet.png`, `lab-desktop.png`, `lab-desktop-add-sheet.png`. Measured: phone first row 279 px, Show ▾ visible on phone / hidden on desktop, round + visible at both widths, 8/8 desktop rows carry the dashed +, no header capture bar, no sideways scroll.
+- Screenshots (f658cd034 — header +, Playwright over the local harness; earlier ones at 89f4a1f9c): scratchpad `f2/lab-390.png`, `lab-390-add-sheet.png`, `lab-desktop.png`, `lab-desktop-add-sheet.png`. Measured: phone first row 279 px, Show ▾ visible on phone / hidden on desktop, header + beside ⋯ at both widths (0 fixed-position add buttons), 8/8 desktop rows carry the dashed +, no header capture bar, no sideways scroll.
 
 ## Left / verify (HANDOFF 2026-10-01 — next account starts here)
 - PR #6215 (DRAFT, base rd/guest-card-and-rows-redesign, label do-not-auto-merge, auto-merge NOT armed). Never merge.

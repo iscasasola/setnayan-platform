@@ -291,10 +291,50 @@ export const ONE_AT_A_TIME_TIP =
 export const WHO_CAN_RSVP_TIP =
   '“Anyone, I approve” lets people without a key ask to join. They wait in Requests until you Keep, Link or Remove them — nobody gets inside on a name alone.';
 
+/**
+ * THE REPLY-BY LINE A GUEST SEES — the invitation, the reply page and the
+ * reminder email all ask HERE, never `resolveReplyBy`.
+ *
+ * ⚖ Controller decision 2026-09-30, from the owner's same-day birthday: the
+ * invitation printed "Please reply by <a date 30 days before the party>" on an
+ * event created that morning. A guest may only ever be told a date the HOST
+ * SET, and only while it is still ahead of them. So:
+ *   · no host-set date (`guest_list_edit_deadline` NULL)  → no line at all
+ *     (the 30-day default is a SUGGESTION in the Maker, never a printed fact);
+ *   · a host-set date that has passed                       → no line at all;
+ *   · a host-set date today or later                        → that date.
+ * `today` is the event-local `YYYY-MM-DD`; pass `todayYmd()` unless a caller
+ * already has the event's zone.
+ */
+export function guestReplyBy(input: {
+  deadline: string | null | undefined;
+  today: string;
+}): { date: string } | null {
+  const set = (input.deadline ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}/.test(set)) return null;
+  const date = set.slice(0, 10);
+  if (date < input.today) return null;
+  return { date };
+}
+
+/** Today as `YYYY-MM-DD` in `timeZone` (default Asia/Manila — V1 is PH-first). */
+export function todayYmd(timeZone?: string | null, now: Date = new Date()): string {
+  const fmt = (tz: string) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  try {
+    return fmt((timeZone ?? '').trim() || 'Asia/Manila');
+  } catch {
+    return fmt('Asia/Manila');
+  }
+}
+
 /** How far before the day the reply-by date falls when the couple never set one. */
 export const DEFAULT_REPLY_BY_DAYS = 30;
 
 /**
+ * ⚠ HOST-SIDE ONLY (the Maker's editor). A guest-facing surface uses
+ * `guestReplyBy` above, which never prints the default or a passed date.
+ *
  * THE REPLY-BY DATE (brief item 4). The couple's own `guest_list_edit_deadline`
  * always wins and is never overwritten; only when it is unset does the default
  * — 30 days before the event — stand in, marked `isDefault` so the screen can

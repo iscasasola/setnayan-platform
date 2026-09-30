@@ -124,8 +124,6 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const filled = plusOneFilled(row, ask);
   const locked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at as string | null,
-    editDeadline: event.guest_list_edit_deadline as string | null,
-    eventDate: event.event_date as string | null,
   });
   const inside = plusOneGate(row, ask, locked) === 'inside';
 

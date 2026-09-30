@@ -148,6 +148,9 @@ function buildTree(
   eventWord: 'wedding' | 'event' = 'wedding',
   /** The couple's own words for roles (owner 2026-09-30). */
   roleNames: RoleNames = {},
+  /** False on an event with no sides (owner 2026-09-30): groups hang straight
+   *  off the root, with no Bride's side / Groom's side / Both sides branch. */
+  hasSides = true,
 ): MapNode[] {
   const nodes: MapNode[] = [];
   const bride = guests.find((g) => g.role === 'bride');
@@ -171,7 +174,7 @@ function buildTree(
   };
 
   if (lens === 'sg') {
-    for (const side of BRANCH_SIDE_LAYOUT) {
+    for (const side of hasSides ? BRANCH_SIDE_LAYOUT : []) {
       nodes.push({
         id: `s-${side}`,
         parent: 'root',
@@ -185,7 +188,7 @@ function buildTree(
     for (const grp of sortedGroups) {
       nodes.push({
         id: `g-${grp.group_id}`,
-        parent: `s-${grp.team_side}`,
+        parent: hasSides ? `s-${grp.team_side}` : 'root',
         label: grp.label,
         kind: 'group',
         side: grp.team_side,
@@ -201,18 +204,20 @@ function buildTree(
       if (anchor) {
         parent = `g-${anchor.group_id}`;
       } else {
-        if (!ungroupedBySide.has(g.side)) {
-          ungroupedBySide.set(g.side, 0);
+        // One "No group yet" branch on a sideless event, whatever side a row stores.
+        const ngSide: GuestSide = hasSides ? g.side : 'both';
+        if (!ungroupedBySide.has(ngSide)) {
+          ungroupedBySide.set(ngSide, 0);
           nodes.push({
-            id: `ng-${g.side}`,
-            parent: `s-${g.side}`,
+            id: `ng-${ngSide}`,
+            parent: hasSides ? `s-${ngSide}` : 'root',
             label: 'No group yet',
             kind: 'nogroup',
-            side: g.side,
-            add: { type: 'guest', side: g.side, groupId: null, role: 'guest' },
+            side: ngSide,
+            add: { type: 'guest', side: ngSide, groupId: null, role: 'guest' },
           });
         }
-        parent = `ng-${g.side}`;
+        parent = `ng-${ngSide}`;
       }
       nodes.push({
         id: `p-${g.guest_id}`,
@@ -298,6 +303,7 @@ export function GuestMindMap({
   groups,
   groupMemberships,
   eventWord = 'wedding',
+  hasSides = true,
 }: {
   eventId: string;
   guests: GuestMapRow[];
@@ -305,6 +311,8 @@ export function GuestMindMap({
   groupMemberships: Record<string, string[]>;
   /** eventNoun(event_type) — a debut's map is rooted at "Your event", not "Your wedding". */
   eventWord?: 'wedding' | 'event';
+  /** False on an event with no sides: no side branches (owner 2026-09-30). */
+  hasSides?: boolean;
 }) {
   const [lens, setLens] = useState<Lens>('sg');
   const [editing, setEditing] = useState<{ parentId: string; spec: AddSpec } | null>(null);
@@ -316,8 +324,8 @@ export function GuestMindMap({
   const roleNames = useRoleNames();
 
   const nodes = useMemo(
-    () => buildTree(lens, guests, groups, groupMemberships, eventWord, roleNames),
-    [lens, guests, groups, groupMemberships, eventWord, roleNames],
+    () => buildTree(lens, guests, groups, groupMemberships, eventWord, roleNames, hasSides),
+    [lens, guests, groups, groupMemberships, eventWord, roleNames, hasSides],
   );
 
   // Guards the Enter→commit + unmount-blur→commit double-fire (the input blurs
@@ -405,7 +413,7 @@ export function GuestMindMap({
         <div role="tablist" aria-label="Mind map lens" className="inline-flex rounded-lg border border-ink/15 bg-cream p-0.5">
           {(
             [
-              { key: 'sg', label: 'Side + group', Icon: Users },
+              { key: 'sg', label: hasSides ? 'Side + group' : 'Groups', Icon: Users },
               { key: 'entourage', label: 'Entourage', Icon: Award },
             ] as const
           ).map(({ key, label, Icon }) => (

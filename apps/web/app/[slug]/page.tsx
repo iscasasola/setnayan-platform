@@ -1490,8 +1490,6 @@ async function InvitationBody({
   // holding a guest cookie for their own event is previewing, not arriving).
   const gateLocked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at ?? null,
-    editDeadline: event.guest_list_edit_deadline ?? null,
-    eventDate: event.event_date ?? null,
   });
   // 👋 A PLUS-ONE IS ASKED THE MINIMUM (owner 2026-09-29: *"plus guests are
   // only minimum questions"*) — their name and, when the couple asks it, their

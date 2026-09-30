@@ -777,8 +777,6 @@ export async function SiteBody({
     // lazy finalize write on the couple's own roster.
     guestListClosed: guestListIsClosed({
       lockedAt: event.guest_count_locked_at,
-      editDeadline: event.guest_list_edit_deadline,
-      eventDate: event.event_date,
     }),
     /* 🧩 In the Maker an EMPTY scene keeps its place (owner 2026-09-27): the
        plan fails open on content there, and the dispatcher draws the scene's

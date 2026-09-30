@@ -82,6 +82,7 @@ export function MobileGuestCarousel({
   arrived = 0,
   roleSetKey,
   joinUrl = null,
+  hasSides = true,
 }: {
   eventId: string;
   q: string;
@@ -137,6 +138,9 @@ export function MobileGuestCarousel({
   // Living Roster P4: the share-invite link for the masthead Invite button
   // (fetched server-side in page.tsx); null when RLS/read failed → button hides.
   joinUrl?: string | null;
+  /** False on an event with no sides (owner 2026-09-30): no Side filter, no
+   *  "Set side" in the Assign sheet. */
+  hasSides?: boolean;
 }) {
   // Per-event-type bulk-assign sections (shared with the desktop SelectionBar).
   const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
@@ -494,6 +498,7 @@ export function MobileGuestCarousel({
         eventId={eventId}
         groups={groups}
         bulkRoleSections={bulkRoleSections}
+        hasSides={hasSides}
       />
 
       {/* Filter bottom sheet — opened from the compose-bar filter icon. Reuses
@@ -537,17 +542,19 @@ export function MobileGuestCarousel({
               )}
             </div>
 
-            <SegRow label="Side">
-              <Seg href={buildHref({ team: null })} active={teamFilter === 'all'}>
-                All
-              </Seg>
-              <Seg href={buildHref({ team: 'bride' })} active={teamFilter === 'bride'}>
-                Bride
-              </Seg>
-              <Seg href={buildHref({ team: 'groom' })} active={teamFilter === 'groom'}>
-                Groom
-              </Seg>
-            </SegRow>
+            {hasSides ? (
+              <SegRow label="Side">
+                <Seg href={buildHref({ team: null })} active={teamFilter === 'all'}>
+                  All
+                </Seg>
+                <Seg href={buildHref({ team: 'bride' })} active={teamFilter === 'bride'}>
+                  Bride
+                </Seg>
+                <Seg href={buildHref({ team: 'groom' })} active={teamFilter === 'groom'}>
+                  Groom
+                </Seg>
+              </SegRow>
+            ) : null}
 
             <SegRow label="RSVP">
               <Seg href={buildHref({ rsvp: null })} active={!currentRsvp}>
@@ -1056,12 +1063,14 @@ function AssignSheet({
   eventId,
   groups,
   bulkRoleSections,
+  hasSides = true,
 }: {
   open: boolean;
   onClose: () => void;
   eventId: string;
   groups: Group[];
   bulkRoleSections: RoleSection[];
+  hasSides?: boolean;
 }) {
   const { ids: selectedIds } = useGuestSelection();
   const count = selectedIds.length;
@@ -1169,14 +1178,16 @@ function AssignSheet({
 
         {step === 'menu' ? (
           <div className="grid gap-2">
-            <SheetChoice
-              label="Side"
-              hint="Bride · Groom · Both"
-              onClick={() => setStep('side')}
-            />
+            {hasSides ? (
+              <SheetChoice
+                label="Side"
+                hint="Bride · Groom · Both"
+                onClick={() => setStep('side')}
+              />
+            ) : null}
             <SheetChoice
               label="Role"
-              hint="Wedding party, sponsors, family…"
+              hint={hasSides ? 'Wedding party, sponsors, family…' : 'Family, friends, special roles…'}
               onClick={() => setStep('role')}
             />
             <SheetChoice

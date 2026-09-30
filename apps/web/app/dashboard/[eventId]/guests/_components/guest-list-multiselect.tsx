@@ -38,6 +38,7 @@ import type { BringerSeat } from '@/lib/extra-seats';
 import {
   AddToGroupControl,
   GuestListFinalizedContext,
+  GuestListHasSidesContext,
   PlusOneChipEditor,
   RoleChipEditor,
   RsvpChipEditor,
@@ -317,6 +318,7 @@ function DesktopRow({
   // server-built map (defensively degrades to the suggested/dash path).
   seat?: { placed: string | null; suggested: string | null };
 }) {
+  const hasSides = useContext(GuestListHasSidesContext);
   // Group labels for the quick-view drawer (Contact + groups live there now).
   const groupLabels = groupIds
     .map((id) => groupsById[id]?.label)
@@ -415,13 +417,15 @@ function DesktopRow({
           seats={extraSeats}
         />
       </td>
-      <td className="px-3 py-2.5">
-        {/* Inline editors (P2): the chip opens an anchored popover that applies
-            through the optimistic overlay + drops an undo toast. */}
-        <SideChipEditor eventId={eventId} guest={guest}>
-          <SideText side={guest.side} />
-        </SideChipEditor>
-      </td>
+      {hasSides ? (
+        <td className="px-3 py-2.5">
+          {/* Inline editors (P2): the chip opens an anchored popover that applies
+              through the optimistic overlay + drops an undo toast. */}
+          <SideChipEditor eventId={eventId} guest={guest}>
+            <SideText side={guest.side} />
+          </SideChipEditor>
+        </td>
+      ) : null}
       <td className="px-3 py-2.5">
         <RoleChipEditor eventId={eventId} guest={guest} roleSections={bulkRoleSections}>
           <RoleTexts guest={guest} palette={palette} />
@@ -539,6 +543,7 @@ function SelfJoinDesktopRow({
   eventId: string;
   displayUrl?: string;
 }) {
+  const hasSides = useContext(GuestListHasSidesContext);
   const name = guestDisplayName(guest);
   // `align-middle` centres the cells against the 36px avatar instead of letting
   // them sit on its baseline; the 2px edge and px-3 keep this row's columns on
@@ -572,7 +577,7 @@ function SelfJoinDesktopRow({
           </div>
         </div>
       </td>
-      <td colSpan={7} className="px-3 py-3">
+      <td colSpan={hasSides ? 7 : 6} className="px-3 py-3">
         <div className="flex flex-wrap items-center justify-end gap-2">
           <form action={keepGuestAction.bind(null, eventId)} className="inline-flex">
             <input type="hidden" name="guest_id" value={guest.guest_id} />
@@ -654,6 +659,9 @@ type Props = {
   recentlyApplied?: boolean;
   /** The guest list is finalized — extra seats stop being editable (owner 2026-09-21). */
   listFinalized?: boolean;
+  /** False on an event with no sides (birthday, Simple Event): no Side column,
+   *  no side bulk-assign, no side grouping (owner 2026-09-30). Default true. */
+  hasSides?: boolean;
   /** guest_id → "Co-host" / "Limited helper" (· waiting…) from the live seats. */
   accessTagByGuest?: Record<string, string>;
   /**
@@ -736,6 +744,7 @@ export function GuestListMultiselect({
   recentlyDeleted,
   recentlyApplied,
   listFinalized = false,
+  hasSides = true,
   accessTagByGuest = {},
   seatsByBringer = NO_SEATS,
   invite = null,
@@ -975,6 +984,7 @@ export function GuestListMultiselect({
 
   return (
     <GuestListFinalizedContext.Provider value={listFinalized}>
+    <GuestListHasSidesContext.Provider value={hasSides}>
     <GuestAccessTagContext.Provider value={accessTagByGuest}>
     <BringerSeatsProvider seats={seatsByBringer}>
     <div className="space-y-4">
@@ -1142,7 +1152,9 @@ export function GuestListMultiselect({
                   these widths make truncating RARE, they do not prevent it,
                   and nothing here may depend on a label fitting. */}
               <ArrangeTh column="name" grouping={grouping} sort={sort} className="px-3 py-2.5 font-semibold" />
-              <ArrangeTh column="side" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
+              {hasSides ? (
+                <ArrangeTh column="side" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
+              ) : null}
               <ArrangeTh column="role" grouping={grouping} sort={sort} className="w-[12%] px-3 py-2.5 font-semibold" />
               <ArrangeTh column="group" grouping={grouping} sort={sort} className="w-[10%] px-3 py-2.5 font-semibold" />
               <ArrangeTh column="rsvp" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
@@ -1170,7 +1182,7 @@ export function GuestListMultiselect({
                 {sec.label ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={hasSides ? 9 : 8}
                       className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
                     >
                       <TierHeader
@@ -1296,6 +1308,7 @@ export function GuestListMultiselect({
     </div>
     </BringerSeatsProvider>
     </GuestAccessTagContext.Provider>
+    </GuestListHasSidesContext.Provider>
     </GuestListFinalizedContext.Provider>
   );
 }
@@ -1556,6 +1569,7 @@ function BulkApplyForm({
   count: number;
   bulkRoleSections: RoleSection[];
 }) {
+  const hasSides = useContext(GuestListHasSidesContext);
   const roleNames = useRoleNames();
   // Track the group select so we can intercept the sentinel and clear
   // it from the form before submit (preventing the server from seeing
@@ -1614,29 +1628,33 @@ function BulkApplyForm({
           optional `side` field on the same bulkApplyRoleAndGroup
           payload — applying alone, alongside Role, alongside Group, or
           all three together is supported. */}
-      <label className="sr-only" htmlFor="bulk-side">
-        Assign side to selected guests
-      </label>
-      <div className="relative">
-        <select
-          id="bulk-side"
-          name="side"
-          defaultValue=""
-          className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-        >
-          <option value="">Assign side…</option>
-          {(['bride', 'groom', 'both'] as GuestSide[]).map((side) => (
-            <option key={side} value={side}>
-              {SIDE_LABELS[side]}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          aria-hidden
-          className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
-          strokeWidth={1.75}
-        />
-      </div>
+      {hasSides ? (
+      <>
+        <label className="sr-only" htmlFor="bulk-side">
+          Assign side to selected guests
+        </label>
+        <div className="relative">
+          <select
+            id="bulk-side"
+            name="side"
+            defaultValue=""
+            className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+          >
+            <option value="">Assign side…</option>
+            {(['bride', 'groom', 'both'] as GuestSide[]).map((side) => (
+              <option key={side} value={side}>
+                {SIDE_LABELS[side]}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            aria-hidden
+            className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+            strokeWidth={1.75}
+          />
+        </div>
+      </>
+      ) : null}
 
       {/* The bulk "Part of the host" picker is RETIRED (owner 2026-09-28:
           "+Co-host" must be TRUE, so it is derived from a real seat, set one
@@ -1816,6 +1834,7 @@ function MobileListRow({
   bulkRoleSections: RoleSection[];
   seat?: { placed: string | null; suggested: string | null };
 }) {
+  const hasSides = useContext(GuestListHasSidesContext);
   // Select mode owns the row for checkbox bulk ops, and the couple can never
   // be removed (the server refuses them, so don't
   // dangle a Delete that can only fail).
@@ -1858,9 +1877,13 @@ function MobileListRow({
         // no pixels to a row whose whole point is density — it turns an existing
         // signal into the control for the thing it signals.
         <span className="pointer-events-auto relative z-20">
-          <SideChipEditor eventId={eventId} guest={guest}>
+          {hasSides ? (
+            <SideChipEditor eventId={eventId} guest={guest}>
+              <RowAvatar guest={guest} displayUrl={displayUrl} />
+            </SideChipEditor>
+          ) : (
             <RowAvatar guest={guest} displayUrl={displayUrl} />
-          </SideChipEditor>
+          )}
         </span>
       )}
       <div className="relative z-10 min-w-0 flex-1">

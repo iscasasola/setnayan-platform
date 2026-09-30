@@ -26,7 +26,7 @@ import { passCardEligibilityFor, plusOnePassCardIds, readTicketSeats } from '@/l
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
-import { readRsvpWords, resolveReplyBy } from '@/lib/rsvp-ask';
+import { guestReplyBy, readRsvpWords, todayYmd } from '@/lib/rsvp-ask';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
@@ -355,18 +355,16 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   );
 
   const unreplied = reply === 'unreplied' && !canvas;
-  // "Please reply by …" (frame 1) — the SAME date the reply page and the Maker's
-  // RSVP page show (`resolveReplyBy`), never once the list is final.
+  // "Please reply by …" (frame 1) — only a date the HOST set that is still
+  // ahead (`guestReplyBy`), never a default, never once the list is final.
   const replyBy =
     unreplied &&
     !guestListIsClosed({
       lockedAt: (event as { guest_count_locked_at?: string | null }).guest_count_locked_at ?? null,
-      editDeadline: (event as { guest_list_edit_deadline?: string | null }).guest_list_edit_deadline ?? null,
-      eventDate: event.event_date as string | null,
     })
-      ? resolveReplyBy({
+      ? guestReplyBy({
           deadline: (event as { guest_list_edit_deadline?: string | null }).guest_list_edit_deadline ?? null,
-          eventDate: event.event_date as string | null,
+          today: todayYmd(),
         })
       : null;
   const replyByLabel = replyBy ? landingDayLabel(replyBy.date, 'day', { year: true }) : null;

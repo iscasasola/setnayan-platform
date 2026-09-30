@@ -8,6 +8,7 @@ import { fetchSamahanSecondDegree } from '@/lib/communities';
 import { splitPersonName } from '@/lib/person-name-split';
 import {
   assembleInvitable,
+  isInvitableRosterEntry,
   nameKey,
   type InvitableCandidate,
   type InvitablePerson,
@@ -208,6 +209,10 @@ export async function getPeopleYouCanInvite(
     const roster = await getPeopleRoster(userId);
     if (roster.samahanUnavailable) partial = true;
     for (const p of roster.people) {
+      // ⚖ Owner 2026-09-30: "business and pets and gadgets are not people. so
+      // not allowed to be invited". A loved one is offered only when it IS a
+      // person; `dependent_kind` NOT NULL DEFAULT 'person'.
+      if (!isInvitableRosterEntry(p)) continue;
       const { first, last } = splitPersonName(p.name);
       if (!first) continue;
       push({

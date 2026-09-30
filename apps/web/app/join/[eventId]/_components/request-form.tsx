@@ -3,7 +3,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { REQUEST_ANSWERS, REQUEST_MAX_SEATS } from '@/lib/guest-requests';
-import type { FormalName } from '@/lib/formal-name';
+import { FORMAL_NAME_FIELDS, type FormalName } from '@/lib/formal-name';
 import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
 
 /**
@@ -28,6 +28,7 @@ export function RequestForm({
   ask,
   organizer,
   defaultParts = {},
+  fixedParts = null,
   accountEmail = null,
 }: {
   action: (formData: FormData) => Promise<void>;
@@ -36,16 +37,25 @@ export function RequestForm({
   organizer: string;
   /** A signed-in asker's name, already split — they do not retype it. */
   defaultParts?: Partial<FormalName>;
+  /**
+   * The name the generic-QR door already found on the list (lib/find-me.ts) —
+   * posted as it was typed, not asked twice. Nothing about that guest is shown.
+   */
+  fixedParts?: FormalName | null;
   /** Signed in with a real address — it is the contact; no box is shown. */
   accountEmail?: string | null;
 }) {
   const meals = Object.keys(MEAL_LABELS) as MealPreference[];
   return (
     <form action={action} className="space-y-6" data-join-request="">
-      <fieldset className="space-y-2">
-        <legend className="mb-1 text-sm font-medium text-ink">Your name</legend>
-        <FormalNameInputs defaults={defaultParts} required forSelf idPrefix="request-" />
-      </fieldset>
+      {fixedParts ? (
+        FORMAL_NAME_FIELDS.map((f) => <input key={f} type="hidden" name={f} value={fixedParts[f] ?? ''} />)
+      ) : (
+        <fieldset className="space-y-2">
+          <legend className="mb-1 text-sm font-medium text-ink">Your name</legend>
+          <FormalNameInputs defaults={defaultParts} required forSelf idPrefix="request-" />
+        </fieldset>
+      )}
 
       <fieldset className="space-y-2">
         <legend className="mb-1 text-sm font-medium text-ink">Will you be there?</legend>

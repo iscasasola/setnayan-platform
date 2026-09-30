@@ -190,7 +190,8 @@ test('4 · Me holds name + Switch, the plus-ones, and Save — mounted INTO the 
   assert.ok(!html.includes('/invite/reply'), 'Me links a TBA seat back to the reply');
   assert.match(html, /Saved to your account/);
   // One #site-me: Me is a SLOT in GuestHubBar's section, never a second one.
-  assert.match(HUBBAR, /<section id="site-me" className="mt-12 scroll-mt-6">\s*\{meSlot \?/);
+  // (📱 `asTab` — the same section is the Me TAB on a tabbed page, owner 2026-09-30.)
+  assert.match(HUBBAR, /<section id="site-me" className=\{asTab \? 'scroll-mt-6' : 'mt-12 scroll-mt-6'\}>\s*\{meSlot \?/);
   assert.match(PAGE, /meSlot=\{meSlot\}/);
   assert.match(PAGE, /yourGuestsFor\(admin, \{ event_id: event\.event_id, slug: event\.slug \}, guest\.guest_id,/);
 });

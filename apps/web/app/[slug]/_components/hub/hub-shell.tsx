@@ -39,9 +39,34 @@
  * not route navigation — so it deliberately does not mount the canonical
  * `BottomNav` (which is usePathname/<Link>-driven) and is not named
  * `*-bottom-nav.tsx` (the delegation lint guard keys on that name).
+ *
+ * ── 📱 AND IT IS NOW THE GUEST'S WHOLE EVENT HUB (owner 2026-09-30) ──────────
+ * *"so this is not a 1 page scroll jumping to different marks. this is each
+ * menu gets their own full page scroll"* — DECISION_LOG "EACH MENU TAB IS ITS
+ * OWN FULL PAGE", which names THIS file as the pattern to reuse: *"do not build
+ * a second shell"*. So there is one shell with two frames over ONE mechanism
+ * (which tab is showing, and its address):
+ *
+ *   · `frame="stage"` (default) — this route's fixed, no-scroll frame, as above.
+ *   · `frame="page"` — the event page itself (`/[slug]`) on the Invitation
+ *     (Welcome · Details · Our Love Story · Me) and The Day (Live · Welcome ·
+ *     Camera · Gallery · Me). The server renders every tab's content ONCE, each
+ *     group marked `data-hub-tab` and all but the shown one `hidden`
+ *     (`site-body.tsx` · `_lib/hub-tabs.ts`); this frame shows one tab at a
+ *     time, from its top, under the guest's own bar (`SiteMenuBar` — the
+ *     designed bar, never a second one). The page keeps the window as its
+ *     scroller, so the couple's theme, the sticky header and every sheet stay
+ *     exactly as they were: only which tab is on the page changes.
+ *
+ * 🔑 EVERY TAB HAS ITS OWN ADDRESS, in both frames: `?tab=<key>`. A link opened
+ * from a chat lands on its tab (the server reads it, so there is no flash of
+ * another tab first); Back walks the tabs the guest opened. An old `#mark` link
+ * (`#site-details`, the ticket's `#pass`) still lands: the frame opens the tab
+ * that holds the mark, then scrolls to it.
  */
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -49,7 +74,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Activity,
   CalendarClock,
@@ -64,6 +89,15 @@ import {
 } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
+import type { NavSlot } from '../../_lib/site-nav';
+import {
+  HUB_TAB_ATTR,
+  HUB_TAB_PARAM,
+  activeHubTab,
+  hubTabOfHref,
+  inPageTabs,
+} from '../../_lib/hub-tabs';
+import { hashOpensSheet } from '../rsvp-sheet-state';
 
 export type HubPanelKey =
   | 'now'
@@ -80,10 +114,13 @@ export type HubPanelKey =
 // rides high so a live broadcast is one tap away; Schedule/Directions are
 // reference panels that comfortably live under More when the bar is full.
 const MENU: { key: HubPanelKey; label: string; icon: LucideIcon }[] = [
-  { key: 'now', label: 'Now', icon: Activity },
+  // 📱 The guest's words (owner 2026-09-30): the first tab is "Live", and the
+  // photo tab is "Gallery" — the owner's name, never "Photos" (site-nav.ts
+  // NAMING LOCK). Keys are unchanged, so every `?tab=` address still works.
+  { key: 'now', label: 'Live', icon: Activity },
   { key: 'watch', label: 'Watch', icon: Radio },
   { key: 'camera', label: 'Camera', icon: Camera },
-  { key: 'photos', label: 'Photos', icon: Images },
+  { key: 'photos', label: 'Gallery', icon: Images },
   { key: 'me', label: 'Me', icon: User },
   { key: 'schedule', label: 'Schedule', icon: CalendarClock },
   { key: 'directions', label: 'Directions', icon: MapPin },
@@ -91,17 +128,8 @@ const MENU: { key: HubPanelKey; label: string; icon: LucideIcon }[] = [
 
 const MAX_PRIMARY = 5;
 
-export function HubShell({
-  eventDate,
-  header,
-  now,
-  watch,
-  camera,
-  photos,
-  me,
-  schedule,
-  directions,
-}: {
+type HubStageProps = {
+  frame?: 'stage';
   /** Event date (drives the realtime tick; inert outside the wedding day). */
   eventDate: string | null;
   /** Slim signature header (monogram / names + live badge), server-rendered. */
@@ -113,7 +141,60 @@ export function HubShell({
   me: ReactNode | null;
   schedule: ReactNode | null;
   directions: ReactNode | null;
-}) {
+};
+
+type HubPageProps = {
+  frame: 'page';
+  /** The guest's bar, resolved by `resolveSiteNav` with `tabbed` — its in-page
+   *  tabs carry their `?tab=` address; the Camera and the like still leave.
+   *  The bar itself is the page's own `SiteMenuBar`, which reads the same
+   *  address to mark the tab you are on. */
+  slots: readonly NavSlot[];
+};
+
+/** THE ONE SHELL. `frame="page"` → the event page's tabs; otherwise the stage. */
+export function HubShell(props: HubStageProps | HubPageProps) {
+  return props.frame === 'page' ? <HubPageFrame {...props} /> : <HubStageFrame {...props} />;
+}
+
+/**
+ * THE ONE MECHANISM — which tab is showing IS its address. Both frames use it.
+ * The tab is read from `?tab=` (`activeHubTab`: the address's tab when this
+ * reader has it, else the first), so the server — which reads the same
+ * address — drew exactly this tab, and the page's bar marks it from the same
+ * read (`site-menu-bar.tsx`). `go` writes the address (push: a tap the guest
+ * may want to go Back from; replace: a correction nobody chose).
+ * `window.history` is Next's own sanctioned path here: it keeps the router's
+ * search params in step — so every reader of the address moves together, Back
+ * and Forward included, and a later refresh re-renders the SAME tab.
+ */
+function useTabAddress(keys: readonly string[]) {
+  const params = useSearchParams();
+  const active = activeHubTab(params?.get(HUB_TAB_PARAM) ?? null, keys);
+  const go = useCallback((key: string, mode: 'push' | 'replace', hash?: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set(HUB_TAB_PARAM, key);
+    url.hash = hash ? `#${hash}` : '';
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (next === here) return;
+    if (mode === 'push') window.history.pushState(null, '', next);
+    else window.history.replaceState(null, '', next);
+  }, []);
+  return [active, go] as const;
+}
+
+function HubStageFrame({
+  eventDate,
+  header,
+  now,
+  watch,
+  camera,
+  photos,
+  me,
+  schedule,
+  directions,
+}: HubStageProps) {
   const router = useRouter();
   // Pull-only realtime: re-read current truth on a quiet cadence while the
   // wedding day is active + the tab is visible (no push/socket). The active
@@ -134,17 +215,13 @@ export function HubShell({
   const primary = available.slice(0, MAX_PRIMARY);
   const overflow = available.slice(MAX_PRIMARY);
 
-  const [active, setActive] = useState<HubPanelKey>('now');
-  const [moreOpen, setMoreOpen] = useState(false);
-
+  const availableKeys = available.map((m) => m.key);
   // If a realtime refresh removes the active panel (e.g. the live window
-  // closed → Watch disappears), fall back to the first still-available panel
-  // so we never render a blank stage.
-  useEffect(() => {
-    if (!available.some((m) => m.key === active)) {
-      setActive(available[0]?.key ?? 'now');
-    }
-  }, [available, active]);
+  // closed → Watch disappears), `activeHubTab` falls back to the first
+  // still-available panel, so we never render a blank stage.
+  const [activeKey, go] = useTabAddress(availableKeys);
+  const active = (activeKey || 'now') as HubPanelKey;
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const moreSheetRef = useRef<HTMLDivElement>(null);
   useModalA11y({
@@ -156,7 +233,7 @@ export function HubShell({
   const overflowActive = overflow.some((m) => m.key === active);
 
   function select(key: HubPanelKey) {
-    setActive(key);
+    go(key, 'push');
     setMoreOpen(false);
   }
 
@@ -193,7 +270,7 @@ export function HubShell({
     e.preventDefault();
     target.focus();
     const key = target.getAttribute('data-tabkey');
-    if (key) setActive(key as HubPanelKey);
+    if (key) go(key, 'replace');
   }
 
   return (
@@ -327,6 +404,105 @@ export function HubShell({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Show exactly one tab's content. Every group the server drew carries
+ * `data-hub-tab`; all but the shown tab's are `hidden` — the attribute, not a
+ * class, because the page's `space-y-*` rhythm skips `[hidden]` siblings, so the
+ * first thing on a tab sits at the top of it with no borrowed gap.
+ */
+function showTab(key: string) {
+  document.querySelectorAll<HTMLElement>(`[${HUB_TAB_ATTR}]`).forEach((el) => {
+    el.hidden = el.getAttribute(HUB_TAB_ATTR) !== key;
+  });
+}
+
+/** The tab holding an element, when that element is on one. */
+function tabHolding(id: string): string | null {
+  if (!id) return null;
+  const el = document.getElementById(id);
+  return el?.closest(`[${HUB_TAB_ATTR}]`)?.getAttribute(HUB_TAB_ATTR) ?? null;
+}
+
+/**
+ * 📱 THE PAGE FRAME — the event page's tabs, each its own page (see the file's
+ * docblock). Renders the guest's bar and nothing else: the tabs' content is the
+ * page's own, already on it.
+ */
+function HubPageFrame({ slots }: HubPageProps) {
+  const keys = inPageTabs(slots);
+  const [active, go] = useTabAddress(keys);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const keysRef = useRef(keys);
+  keysRef.current = keys;
+
+  // Whatever set the tab — a tap, Back, a mark — the page shows that tab.
+  useEffect(() => {
+    showTab(active);
+  }, [active]);
+
+  useEffect(() => {
+    /** Open the tab holding `id` and bring `id` into view. */
+    const openMark = (id: string, mode: 'push' | 'replace'): boolean => {
+      const k = tabHolding(id);
+      if (!k || !keysRef.current.includes(k)) return false;
+      if (k !== activeRef.current) {
+        showTab(k);
+        go(k, mode, id);
+      }
+      document.getElementById(id)?.scrollIntoView({ block: 'start' });
+      return true;
+    };
+
+    // An address that arrived with a mark on another tab (`/slug#site-details`).
+    const arrived = decodeURIComponent(window.location.hash.slice(1));
+    if (arrived && !hashOpensSheet(arrived) && tabHolding(arrived) !== activeRef.current) {
+      requestAnimationFrame(() => openMark(arrived, 'replace'));
+    }
+
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const link = (e.target as Element | null)?.closest?.('a[href]');
+      if (!link || link.getAttribute('target') === '_blank') return;
+      const href = link.getAttribute('href') ?? '';
+      // A tab's address — the bar, or any "see your ticket" link on the page.
+      const tab = hubTabOfHref(href);
+      if (tab) {
+        if (!keysRef.current.includes(tab)) return;
+        e.preventDefault();
+        if (tab !== activeRef.current) {
+          showTab(tab);
+          go(tab, 'push');
+        }
+        // A new page opens at its top; tapping the tab you are on goes back up.
+        window.scrollTo({ top: 0 });
+        return;
+      }
+      // A mark on another tab. The reply sheet's own marks are the sheet's.
+      if (!href.startsWith('#') || hashOpensSheet(href)) return;
+      const id = decodeURIComponent(href.slice(1));
+      const k = tabHolding(id);
+      if (!k || k === activeRef.current || !keysRef.current.includes(k)) return;
+      e.preventDefault();
+      openMark(id, 'push');
+    };
+    const onHash = () => {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (id && !hashOpensSheet(id)) openMark(id, 'replace');
+    };
+    document.addEventListener('click', onClick);
+    window.addEventListener('hashchange', onHash);
+    return () => {
+      document.removeEventListener('click', onClick);
+      window.removeEventListener('hashchange', onHash);
+    };
+  }, [go]);
+
+  // The bar is the page's own (`SiteMenuBar`, mounted beside this); this frame
+  // is the mechanism behind it and draws nothing of its own.
+  return null;
 }
 
 /** One toggle pill in the bottom menu. Active = filled ink pill (the signature

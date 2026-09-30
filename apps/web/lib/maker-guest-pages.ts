@@ -78,6 +78,7 @@ export function guestBarForStage(stage: LifecyclePhase) {
     hasStory: true,
     hasDetails: true,
     hasSchedule: true,
+    hasWelcome: true,
     liveBroadcast: false,
     // Present so no page is drawn LOCKED for want of an address; where each
     // one goes is the guest page's business, never the Maker's.

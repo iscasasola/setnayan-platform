@@ -93,7 +93,10 @@ test('the switch is NOT hidden behind ANY condition — it renders for every gue
   // The sheet's own gate, and the fallback's gate, are the same expression negated.
   const sheetGate = src.slice(0, sheetOpen).trimEnd();
   assert.match(sheetGate.slice(-40), /\{plan\.rsvpShouldRender \? \($/, 'the reply sheet is no longer gated on plan.rsvpShouldRender');
-  const bodyGate = src.slice(0, inBody[0]).trimEnd();
+  // 📱 On a tabbed page (owner 2026-09-30) the fallback is placed on the
+  // Welcome tab by `group('home', …)` — placement, not a gate: `group` returns
+  // its content untouched off a tabbed page and never drops it on one.
+  const bodyGate = src.slice(0, inBody[0]).trimEnd().replace(/\s*group\('home', \($/, '');
   assert.match(
     bodyGate.slice(-60),
     /\{plan\.rsvpShouldRender \? null : \($/,

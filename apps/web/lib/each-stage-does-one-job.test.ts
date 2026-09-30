@@ -8,7 +8,7 @@
  *   1. each stage's scene list matches the table — open browsing ON and OFF;
  *   2. "Two ways to celebrate" is on no stage;
  *   3. the Invitation bar reads RSVP before a reply and Me after it;
- *   4. the On the Day bar reads Now · Schedule · Camera · Gallery · Me;
+ *   4. the On the Day bar reads Live · Welcome · Camera · Gallery · Me (owner 2026-09-30);
  *   5. the Save the Date has no Camera tab;
  *   6. an empty scene is on the Maker canvas and absent for a guest;
  *   +  one source: WIDGET_PHASES is derived from the table, never listed twice.
@@ -148,12 +148,14 @@ test('3 · the Invitation bar: Welcome · Details · Our Love Story · Me — al
   assert.doesNotMatch(BODY, /\breplied: Boolean\(guest\.rsvp_status\)/, 'the bar is told whether they answered again — an RSVP tab is back');
 });
 
-test('4 · the On the Day bar: Now · Schedule · Camera · Gallery · Me', () => {
-  assert.deepEqual(bar('event'), ['Now', 'Schedule', 'Camera', 'Gallery', 'Me']);
-  // While a broadcast runs, Watch takes the Schedule's place (the bar holds five).
-  assert.deepEqual(bar('event', { liveBroadcast: true }), ['Now', 'Watch', 'Camera', 'Gallery', 'Me']);
-  // No schedule → no dead tab.
-  assert.deepEqual(bar('event', { hasSchedule: false }), ['Now', 'Camera', 'Gallery', 'Me']);
+test('4 · the On the Day bar: Live · Welcome · Camera · Gallery · Me', () => {
+  // Owner 2026-09-30, verbatim: *"Live - Welcome - Camera - Gallery - Me"*
+  // (DECISION_LOG "THE DAY'S MENU HAS FIVE") — it supersedes Now · Schedule.
+  assert.deepEqual(bar('event'), ['Live', 'Welcome', 'Camera', 'Gallery', 'Me']);
+  // The stream is part of Live — a broadcast no longer takes a tab of its own.
+  assert.deepEqual(bar('event', { liveBroadcast: true }), ['Live', 'Welcome', 'Camera', 'Gallery', 'Me']);
+  // A reader with no Welcome on the day (no table, look, reminders or gifts) → no dead tab.
+  assert.deepEqual(bar('event', { hasWelcome: false }), ['Live', 'Camera', 'Gallery', 'Me']);
 });
 
 test('5 · the Save the Date: no Camera tab — Welcome · Our Love Story, and Me for a key-holder', () => {

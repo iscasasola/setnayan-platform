@@ -231,8 +231,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   if (sp.part === YOUR_TEAM_BUDGET_PART) {
     return (
       <section className="sn-col space-y-6">
-        <PageMasthead title="Your Team" />
-        <PillarPartPicker label="Your Team part" parts={teamParts} current="budget" />
+        <PageMasthead title="Suppliers" />
+        <PillarPartPicker label="Suppliers part" parts={teamParts} current="budget" />
         <BudgetPage
           params={Promise.resolve({ eventId })}
           searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART })}
@@ -241,7 +241,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
   }
   const teamPartPicker = (
-    <PillarPartPicker label="Your Team part" parts={teamParts} current="team" />
+    <PillarPartPicker label="Suppliers part" parts={teamParts} current="team" />
   );
   const supabase = await createClient();
 

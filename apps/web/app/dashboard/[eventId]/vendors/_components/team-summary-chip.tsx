@@ -83,7 +83,7 @@ export function TeamSummaryChip({
   return createPortal(
     <button
       type="button"
-      aria-label={`Your team — ${summary}. Open Your team.`}
+      aria-label={`Your suppliers — ${summary}. Open Suppliers.`}
       onClick={() => {
         haptic('tick');
         goToBuildTab('build');

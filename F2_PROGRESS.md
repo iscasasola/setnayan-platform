@@ -30,7 +30,12 @@ guest inside the top third at 390×844. Desktop keeps its header row but the SAM
 - B4: remove PillarPartPicker/guestListParts from guests page; ?gview=checkin → /guests/checkin; ?gview=hosts → /guests; keep /hosts redirect page.
 - Controller add (2026-10-01): PHONE Guest list = frame 2 of corpus `prototypes/phone_app_simple_2026-10-01_fable.html`: title + ⋯ · search (top bar hosts it on phone) · ONE Filter ▾ · counts line · rows; setup (Sort · Show ▾ · Import · Share · Finalize) behind ⋯; add → round +. Don't do Home/Your Team/More.
 
-## Left / verify
+## Left / verify (HANDOFF 2026-10-01 — next account starts here)
+- PR #6215 (DRAFT, base rd/guest-card-and-rows-redesign, label do-not-auto-merge, auto-merge NOT armed). Never merge.
+- CI on the last push was still running at handoff: read `gh pr checks 6215` — typecheck, unit suite, production build, bundle-size (shared cap 206,848 B; E was at 206,832 — no new dynamic() chunk was added) are the ones to watch. Local full tsc/unit/build were NOT run (heavy lock busy; CI is the gate).
+- Local runs done: every CI guard script (all pass after the no-card fix), port-controls OK, and every test under guests/, hosts/, _components/, frontdoor/, (launcher)/ plus lib tests touching the changed files (all pass after the loading.tsx fix).
+- 390 px screenshot NOT taken: needs a dev server (`f2` entry added to the primary checkout's .claude/launch.json, port 3481; `.env.local` copied into wt-f2/apps/web) and a signed-in host on a test event. Measure the first guest row is inside 281 px at 390×844.
+- Update the PR body from the draft at the end of this session's notes (body in PR is still the part-A version) — see the report below for the flags.
 - Full unit suite + every CI guard + bundle check (build) — see PR checks.
 - Not on this branch (in flight elsewhere): manual "Finalize the list" (#6198) and "Guests reply?" (G1) — the ⋯ has neither yet.
 - Show ▾ moved into ⋯ (phone-column-channel.ts). Meters hidden below lg (one counts line).

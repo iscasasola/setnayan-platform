@@ -14,6 +14,7 @@ import {
   deletionIsBlocked,
   supplierIsReleased,
   supplierWasPaid,
+  tallyPayments,
 } from '@/lib/event-deletion-gate';
 import { manilaTodayISO } from '@/lib/event-board';
 import {
@@ -288,7 +289,8 @@ export async function getEventDeletionImpact(
     🔑 SPLIT BY STATUS, BECAUSE "WE HAVE YOUR MONEY" AND "NOBODY HAS OPENED
     YOUR SCREENSHOT" ARE DIFFERENT FACTS AND ONLY ONE OF THEM IS TRUE HERE.
 
-    `payment_status` is pending / matched / rejected — there is no 'paid'
+    `payment_status` is pending / matched / rejected / resubmit_requested —
+    there is no 'paid'
     (a query filtering for one comes back rejected, not thrown, which is how a
     duplicate-reference guard once ran inert for a month). `matched` is an admin
     having confirmed the transfer; `pending` is a screenshot nobody has looked
@@ -296,9 +298,10 @@ export async function getEventDeletionImpact(
     at and said did not arrive, so it must not hold somebody's celebration
     hostage.
 
-    Both still count toward `paymentRows`, which is what BLOCKS — a payment we
-    have not checked is exactly the case where refusing is right. What changes
-    is what the person is TOLD.
+    Every status but `rejected` counts toward `paymentRows`, which is what
+    BLOCKS — a payment we have not checked is exactly the case where refusing is
+    right. What changes is what the person is TOLD. `resubmit_requested` (we
+    asked for a new screenshot) is still being checked, so it is told as pending.
   */
   let matchedPayments: number | null = null;
   let pendingPayments: number | null = null;
@@ -341,29 +344,32 @@ export async function getEventDeletionImpact(
       matchedPayments = 0;
       pendingPayments = 0;
     } else {
-      [paymentRows, receiptRows, matchedPayments, pendingPayments] =
-        await Promise.all([
-          readCount(
-            admin.from('payments').select('*', HEAD).in('order_id', orderIds),
+      /*
+        ONE read of the statuses, sorted by `tallyPayments` — never a filter per
+        status. Filtering per status is how a `rejected` or `resubmit_requested`
+        payment came to BLOCK the delete while matching neither description,
+        leaving the couple a false "we couldn't check" and no door. A failed
+        read leaves all three null, which fails closed as before.
+      */
+      const [paymentsRes, receiptCount] = await Promise.all([
+        admin.from('payments').select('status').in('order_id', orderIds),
+        readCount(
+          admin.from('receipts').select('*', HEAD).in('order_id', orderIds),
+        ),
+      ]);
+      receiptRows = receiptCount;
+      if (paymentsRes.error) {
+        logQueryError('delete-actions: event payments (delete stays blocked)', paymentsRes.error, { event_id: trimmed });
+      } else {
+        const tally = tallyPayments(
+          ((paymentsRes.data ?? []) as { status: string | null }[]).map(
+            (p) => p.status,
           ),
-          readCount(
-            admin.from('receipts').select('*', HEAD).in('order_id', orderIds),
-          ),
-          readCount(
-            admin
-              .from('payments')
-              .select('*', HEAD)
-              .in('order_id', orderIds)
-              .eq('status', 'matched'),
-          ),
-          readCount(
-            admin
-              .from('payments')
-              .select('*', HEAD)
-              .in('order_id', orderIds)
-              .eq('status', 'pending'),
-          ),
-        ]);
+        );
+        paymentRows = tally.holding;
+        matchedPayments = tally.matched;
+        pendingPayments = tally.awaitingCheck;
+      }
     }
   }
 

@@ -166,30 +166,33 @@ test('the impact read names the block and counts pending payments apart', () => 
   );
   /*
     🪤 THIS ASSERTION WAS DECORATION ON ITS FIRST RUN AND THE MUTATION CAUGHT
-    IT. It matched a bare `.eq('status', 'pending')` — which the read of the
-    couple's own OPEN REQUEST also satisfies, three functions away. Flipping the
-    payments query to 'matched' left it green while the whole
-    pending-vs-matched distinction was gone. Anchored to the payments query
-    itself now: every `.from('payments')` is taken with the code that follows
-    it, and BOTH statuses have to appear among them.
+    IT: a bare `.eq('status', 'pending')` was also satisfied by the couple's own
+    OPEN REQUEST read, three functions away.
+
+    It then pinned the WRONG shape — one `.eq('status', …)` filter per payment
+    status — and that shape was the bug (2026-09-30): `rejected` and
+    `resubmit_requested` blocked the delete while matching neither filter, so
+    the refusal fell back to a false "we couldn't check" with no door. The
+    statuses are now read ONCE and sorted by `tallyPayments`, whose totality is
+    tested in `event-deletion-gate.test.ts`. This pins that the impact read
+    actually uses it, and that no per-status payments filter creeps back.
   */
-  const payStatuses = new Set<string>();
+  assert.equal(
+    count(src, 'tallyPayments('),
+    1,
+    'The impact read must sort payment statuses with tallyPayments — a filter ' +
+      'per status leaves a status that blocks but is never named.',
+  );
   let at = src.indexOf("from('payments')");
+  assert.ok(at >= 0, 'The impact read must read payments at all.');
   while (at >= 0) {
-    const window = src.slice(at, at + 220);
-    for (const m of window.matchAll(/\.eq\('status', '([a-z_]+)'\)/g)) {
-      // `noUncheckedIndexedAccess` — a capture group is `string | undefined`
-      // even when the pattern guarantees it. Skip rather than store `undefined`.
-      if (m[1]) payStatuses.add(m[1]);
-    }
+    const window = src.slice(at, at + 160);
+    assert.ok(
+      !/\.eq\('status'/.test(window),
+      'A per-status payments filter is back: ' + window,
+    );
     at = src.indexOf("from('payments')", at + 1);
   }
-  assert.ok(
-    payStatuses.has('matched') && payStatuses.has('pending'),
-    'Pending payments must be counted apart from matched ones. They are ' +
-      'different facts and only one of them means we have the money. Found: ' +
-      JSON.stringify([...payStatuses]),
-  );
   assert.match(
     src,
     /still checking a payment/,

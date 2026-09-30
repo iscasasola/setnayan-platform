@@ -15,7 +15,9 @@ import {
   deletionIsBlocked,
   supplierIsReleased,
   supplierWasPaid,
+  tallyPayments,
 } from './event-deletion-gate';
+import { blockKind } from './event-deletion-reasons';
 
 /** Nothing anywhere — the only shape that may be deleted. */
 const CLEAR = {
@@ -322,6 +324,62 @@ test('a pending or declined ask does NOT release', () => {
       }),
       false,
       `"${state}" released the deletion — only an explicit agreement may`,
+    );
+  }
+});
+
+// ── payment statuses ────────────────────────────────────────────────────────
+// 2026-09-30: a celebration whose only payment was REJECTED (or sent back for
+// a re-upload) was blocked while `blockKind` found nothing to name, so the
+// couple read "We couldn't check what's been paid for" — false — with no door.
+
+test('a REJECTED payment holds nothing — it is money that never arrived', () => {
+  const t = tallyPayments(['rejected', 'rejected']);
+  assert.deepEqual(t, { holding: 0, matched: 0, awaitingCheck: 0 });
+  assert.equal(
+    deletionIsBlocked({ ...CLEAR, paymentRows: t.holding }),
+    false,
+  );
+});
+
+test('a matched payment blocks as money we have', () => {
+  assert.deepEqual(tallyPayments(['matched', 'rejected']), {
+    holding: 1,
+    matched: 1,
+    awaitingCheck: 0,
+  });
+});
+
+test('pending, resubmit_requested and any unknown status block as still being checked', () => {
+  assert.deepEqual(
+    tallyPayments(['pending', 'resubmit_requested', 'some_future_status', null]),
+    { holding: 4, matched: 0, awaitingCheck: 4 },
+  );
+});
+
+test('every blocking payment mix is NAMED — never the false "couldn’t check"', () => {
+  const STATUSES = ['pending', 'matched', 'rejected', 'resubmit_requested', 'unknown'];
+  // Every non-empty mix of up to two statuses.
+  const mixes: string[][] = [];
+  for (const a of STATUSES) {
+    mixes.push([a]);
+    for (const b of STATUSES) mixes.push([a, b]);
+  }
+  for (const mix of mixes) {
+    const t = tallyPayments(mix);
+    const blocked = deletionIsBlocked({ ...CLEAR, paymentRows: t.holding });
+    if (!blocked) continue;
+    const kind = blockKind({
+      unreadable: false,
+      unsettledPaidSuppliers: 0,
+      settledOrders: 0,
+      receiptRows: 0,
+      matchedPayments: t.matched,
+      pendingPayments: t.awaitingCheck,
+    });
+    assert.ok(
+      kind === 'settled' || kind === 'awaiting_check',
+      `${JSON.stringify(mix)} blocks the delete but is described as ${kind}`,
     );
   }
 });

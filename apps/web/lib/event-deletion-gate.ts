@@ -49,7 +49,10 @@ export const SETTLED_ORDER_STATUSES = [
 export type MoneyEvidence = {
   /** Orders currently sitting in a settled state. */
   settledOrders: number | null;
-  /** Payment rows against ANY of this event's orders, whatever their status. */
+  /**
+   * Payment rows against ANY of this event's orders, whatever the ORDER's
+   * status — every payment except one Setnayan REJECTED. See `tallyPayments`.
+   */
   paymentRows: number | null;
   /** BIR official receipts against ANY of this event's orders. */
   receiptRows: number | null;
@@ -88,6 +91,45 @@ export const CANCELLABLE_ORDER_STATUSES = [
   'submitted',
   'awaiting_payment',
 ] as const;
+
+/**
+ * Sort one celebration's `payments.status` values into what the gate needs.
+ *
+ * 🚨 WHY THIS IS ONE TOTAL FUNCTION, NOT THREE STATUS FILTERS. The impact read
+ * used to count ALL payments as blocking, then name the block by counting
+ * `matched` and `pending` separately. `payment_status` has FOUR values —
+ * `pending · matched · rejected · resubmit_requested` — so a celebration whose
+ * only payment was rejected, or sent back for a re-upload, was BLOCKED while
+ * neither description matched. `blockKind` found nothing to name, the panel fell
+ * back to "We couldn't check what's been paid for", and offered no door. That
+ * sentence was false (the read succeeded) and the dead end was permanent.
+ * Found 2026-09-30 chasing a report that a celebration could not be deleted.
+ *
+ * - `rejected` holds NOTHING. It is money we looked at and said never arrived.
+ *   Only an admin can set it (payments has no UPDATE policy for the couple), so
+ *   dropping it cannot reopen the cancel-the-paid-order hole above.
+ * - `matched` is money we have — it blocks as settled.
+ * - EVERYTHING ELSE blocks as still being checked: `pending`,
+ *   `resubmit_requested`, and any status added later. An unknown value refuses
+ *   WITH the "ask us" door, never with a sentence about a failed read.
+ */
+export function tallyPayments(statuses: readonly (string | null)[]): {
+  /** Blocks the delete. */
+  holding: number;
+  matched: number;
+  awaitingCheck: number;
+} {
+  let holding = 0;
+  let matched = 0;
+  let awaitingCheck = 0;
+  for (const status of statuses) {
+    if (status === 'rejected') continue;
+    holding += 1;
+    if (status === 'matched') matched += 1;
+    else awaitingCheck += 1;
+  }
+  return { holding, matched, awaitingCheck };
+}
 
 /** Supplier states that mean really booked, not merely being considered. */
 export const BOOKED_VENDOR_STATUSES = [

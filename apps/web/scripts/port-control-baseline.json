@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "bffcac8c",
+  "generatedFromRef": "2f177830",
   "routeCount": 439,
   "destinations": 948,
   "actions": 672,
@@ -821,6 +821,7 @@
         "[slug]/_components/maker-empty-scene.tsx",
         "[slug]/_components/maker-fixed-parts.tsx",
         "[slug]/_components/maker-guest-scenes.tsx",
+        "[slug]/_components/maker-section-find.ts",
         "[slug]/_components/not-you-switch.tsx",
         "[slug]/_components/our-love-story-styles.tsx",
         "[slug]/_components/our-love-story-widget.tsx",

@@ -1,6 +1,10 @@
 /**
  * The thank-you's two lines (guest pathway, owner 2026-09-27 prototype frame 4:
- * "Thank you — See you on the 18th, Ana!" · "Joyfully accepts · 3 seats · Fish").
+ * "Thank you — See you on the 18th!" · "Joyfully accepts · 3 seats · Fish").
+ *
+ * 🎩 NO FIRST NAME (owner, DECISION_LOG 2026-09-30 — no casual greetings): the
+ * prototype's "See you on the 18th, Ana!" is a salutation, and a guest's
+ * screen does not call them by their first name.
  *
  * Pure. The DATE is the event's own `YYYY-MM-DD`, read as text — never through
  * `new Date()`, which is midnight UTC and the previous day in Manila.
@@ -24,18 +28,15 @@ export function dayOrdinal(eventDate: string | null | undefined): string | null 
 
 export function thankYouHeadline(input: {
   status: string;
-  firstName: string | null | undefined;
   eventDate: string | null | undefined;
   solemn: boolean;
 }): string {
-  const first = (input.firstName ?? '').trim().split(/\s+/)[0] || '';
-  const who = first ? `, ${first}` : '';
   const day = dayOrdinal(input.eventDate);
   if (input.status === 'attending' && !input.solemn) {
-    return day ? `See you on the ${day}${who}!` : `See you there${who}!`;
+    return day ? `See you on the ${day}!` : 'See you there!';
   }
-  if (input.status === 'declined') return `Thank you${who} — you'll be missed`;
-  return `Thank you${who}`;
+  if (input.status === 'declined') return 'Thank you — you’ll be missed';
+  return 'Thank you';
 }
 
 const MEAL_WORD: Record<string, string> = {

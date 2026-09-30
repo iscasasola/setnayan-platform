@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { composeFormalName } from '@/lib/formal-name';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { formatEventDate } from '@/lib/events';
@@ -43,7 +44,7 @@ type Props = {
  * Hub's key gate when a required one of their four is missing
  * (`plusOneGate`). What it shows, in order:
  *
- *   · "Welcome, Ben" — and "Maria Santos is bringing you as their guest";
+ *   · their name (formal, never "Welcome, Ben") — and "Maria Santos is bringing you as their guest";
  *   · YOUR DETAILS — what the bringer already filled, shown and marked
  *     "from Maria", never asked again (a quiet "Something wrong? Change it"
  *     opens those same boxes in place);
@@ -173,12 +174,14 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const confirmAction = confirmPlusOneName.bind(null, home);
   const abandonAction = abandonPlusOneInvite.bind(null, home);
 
-  const firstName = missing.name ? null : (row.first_name ?? '').trim() || null;
+  // 🎩 No "Welcome, <first name>" (owner, DECISION_LOG 2026-09-30 — no casual
+  // greetings). Once their name is in, the heading is their FORMAL name.
+  const formalName = missing.name ? null : composeFormalName(row);
 
   return (
     <DoorShell
-      eyebrow="You're invited!"
-      title={firstName ? `Welcome, ${firstName}` : `You are the +1 of ${primaryName}`}
+      eyebrow="You’re invited"
+      title={formalName ?? `You are the +1 of ${primaryName}`}
       sub={<>{primaryName} is bringing you as their guest.</>}
       meta={`${event.display_name} · ${formatEventDate(event.event_date as string | null)}`}
     >

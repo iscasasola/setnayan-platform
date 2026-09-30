@@ -187,7 +187,6 @@ import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
-import { inviteReplyPath } from '@/lib/invite-arrival';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
@@ -741,6 +740,7 @@ export async function SiteBody({
   const inviteCard = invitationCard({
     words: clientWords,
     firstStartAt: scheduleBlocks[0]?.start_at ?? null,
+    firstLabel: scheduleBlocks[0]?.label ?? null,
   });
   // Which wedding-only parts this event TYPE may show. The words half of the
   // owner's ruling is done; this is the other half — a seven-year-old does not
@@ -1157,6 +1157,11 @@ export async function SiteBody({
       maker: isMakerCanvas,
     });
     const detailsScenes = scenesLeftForDetails(plan.publicSafeWidgets, welcome);
+    // 📖 THE LOVE STORY ONCE (guest text audit 2026-09-30): the "Our love story"
+    // scene and the prose `OurStory` below both drew it, so a guest read the
+    // couple's story twice in a row. When the scene is on the page, it IS the
+    // story; the prose stands in only when it is not.
+    const storySceneShown = detailsScenes.some((w) => w.widget_type === 'our_love_story');
     const remindersScene = welcome.includes('reminders')
       ? (plan.publicSafeWidgets.find((w) => w.widget_type === 'what_to_bring') ?? null)
       : null;
@@ -1609,14 +1614,12 @@ export async function SiteBody({
                 branches), so this naturally stays off the post-event Editorial.
                 Under open-browse a teaser plate stands in when there's no story so
                 the Story tab never lands on nothing. */}
-            <div id={SITE_MENU_ANCHORS.story} className="scroll-mt-6">
-              {event.love_story ? (
+            <div id={storySceneShown ? undefined : SITE_MENU_ANCHORS.story} className="scroll-mt-6">
+              {storySceneShown ? null : event.love_story ? (
                 <OurStory loveStory={event.love_story} variant="full" />
               ) : plan.openBrowse ? (
                 <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />
-              ) : (
-                <OurStory loveStory={event.love_story} variant="full" />
-              )}
+              ) : null}
             </div>
           </>
         ))}
@@ -1715,8 +1718,6 @@ export async function SiteBody({
                 camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,
-                // Drawn only for the canvas's guest bar — a stranger has no RSVP tab.
-                rsvp: event.slug ? inviteReplyPath(event.slug) : null,
               },
               stageSlots: STAGE_BAR[pageStage].slots,
           });
@@ -1830,6 +1831,14 @@ export async function SiteBody({
       maker: false,
     });
     const detailsScenes = scenesLeftForDetails(plan.hideableInOrder, welcome);
+    // 📖 The love story once — see the stranger's tree above.
+    const storySceneShown = detailsScenes.some((w) => w.widget_type === 'our_love_story');
+    // The day is behind us: the post-event window, the recap body, or a date
+    // long past (`inactive` covers both "weeks before" and "weeks after").
+    const eventIsBehind =
+      dayOfPhase === 'post' ||
+      lifecyclePhase === 'editorial' ||
+      (dayOfPhase === 'inactive' && Boolean(event.event_date) && Date.parse(String(event.event_date)) < Date.now());
     const remindersScene = welcome.includes('reminders')
       ? (plan.hideableInOrder.find((w) => w.widget_type === 'what_to_bring') ?? null)
       : null;
@@ -2095,7 +2104,6 @@ export async function SiteBody({
               tables={seatMap.tables}
               entrance={seatMap.entrance}
               targetTableId={seatMap.targetTableId}
-              firstName={guestHubData.firstName}
               arrived={guestHubData.arrived}
               sceneStyle={fixedStyle('find_your_seat')}
             />
@@ -2286,19 +2294,24 @@ export async function SiteBody({
                   Keep them… when you plan your own celebration" is marketing on
                   a memorial page. The suppliers who served are still reachable
                   through the marketplace; only the pitch is withheld. */}
+              {/* 🕰 ONLY AFTER THE DAY (guest text audit 2026-09-30). "Suppliers
+                  who made this day" is past tense — before the event it thanked
+                  people for a day that had not happened, and asked guests to
+                  shop in the middle of an invitation. And "supplier", never
+                  "vendor", on a guest's screen. */}
               {!clientWords.solemn &&
-              lifecyclePhase !== 'save_the_date' &&
+              eventIsBehind &&
               eventVendorCredits.length > 0 ? (
                 <section
-                  aria-label="Vendors who made this day"
+                  aria-label="Suppliers who made this day"
                   className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
                 >
                   <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                    Vendors who made this day
+                    Suppliers who made this day
                   </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight">Loved a vendor? Keep them.</h2>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight">Loved a supplier? Keep them.</h2>
                   <p className="mt-1 text-sm text-ink/70">
-                    Save any vendor here to your Setnayan account — they&rsquo;ll be waiting when you
+                    Save any supplier here to your Setnayan account — they&rsquo;ll be waiting when you
                     plan your own celebration.
                   </p>
                   {saveFlash ? (
@@ -2602,10 +2615,10 @@ export async function SiteBody({
               {/* Menu-shell "Story" anchor (PR6) — present only when a love story
                   exists (OurStory renders nothing otherwise), matching
                   menuSections.story. */}
-              {menuOn && event.love_story ? (
+              {menuOn && event.love_story && !storySceneShown ? (
                 <span id={SITE_MENU_ANCHORS.story} aria-hidden className="sr-only" />
               ) : null}
-              <OurStory loveStory={event.love_story} variant="full" />
+              {storySceneShown ? null : <OurStory loveStory={event.love_story} variant="full" />}
               {/* Guest Columns (BUILD ① · GUEST_COLUMNS_ENABLED, default OFF) — the
                   guest's one column for the couple's paper + the approved columns.
                   Guest-session tree only (cookie holders); flag off → renders null. */}
@@ -2747,8 +2760,6 @@ export async function SiteBody({
               hasStory: menuSections.story,
               hasDetails: menuSections.details,
               hasSchedule: plan.hideableInOrder.some((w) => w.widget_type === 'schedule'),
-              // 🗂 RSVP becomes Me once they have answered (owner 2026-09-27).
-              replied: Boolean(guest.rsvp_status) && guest.rsvp_status !== 'pending',
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
               // 📖 After the day: Film and Suppliers, only where the recap drew them.
               postEvent: recapBar,
@@ -2764,8 +2775,6 @@ export async function SiteBody({
                     : null,
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,
-                // The guest's own RSVP page — the Invitation bar's RSVP tab.
-                rsvp: event.slug ? inviteReplyPath(event.slug) : null,
               },
             })}
           />

@@ -123,7 +123,7 @@ export function buildMakerNavigatorData(input: {
   minis['f:story'] = { eyebrow: 'Our story', title: 'How it began', line: undefined };
   // 🏠 The Invitation's Welcome page (owner 2026-09-30).
   minis['f:look'] = { eyebrow: 'What to wear', title: "Your guest's look" };
-  minis['f:gifts'] = { eyebrow: 'E-Gifts', title: 'Send a blessing' };
+  minis['f:gifts'] = { eyebrow: 'E-Gifts', title: 'E-Gifts' };
 
   const byType: Partial<Record<WidgetType, SceneMini>> = {
     countdown: { eyebrow: 'Counting down', title: facts.daysToGo !== null ? `${facts.daysToGo} days` : 'Countdown', line: facts.dateLabel ?? undefined },

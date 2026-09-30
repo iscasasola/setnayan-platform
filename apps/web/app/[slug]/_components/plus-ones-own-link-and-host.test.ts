@@ -109,12 +109,14 @@ test('E · the in-place boxes are the reply’s four, posted through the reply�
   assert.match(src, /<PlusOneSeatPanels/, 'the in-place form is not the reply’s own four boxes');
   assert.match(src, /name="seat_names_only" value="1"/, 'the in-place save is not the seat-only branch');
   assert.match(src, /await submitRsvp\(eventId, guestId, fd\)/, 'the in-place save is not the guest’s own save');
+  // The REAL reason is shown — never a stock "check your connection" (audit 2026-09-30).
+  assert.match(src, /catch \(err\) \{[\s\S]{0,200}setFailed\(seatNameFailure\(err\)\)/, 'the reason a name did not save never reaches the guest');
   assert.match(src, /idPrefix=\{`me-\$\{seatId\}-`\}/, 'the boxes would share ids with the reply on the same page');
   for (const extra of ['song_title', 'guest_note', 'rsvp_status', 'selfie']) {
     assert.ok(!src.includes(extra), `the in-place naming asks for ${extra}`);
   }
   // A failure is SAID, never a closed form that looks saved.
-  assert.match(src, /catch \{\s*setFailed\(true\);/);
+
   assert.match(src, /role="alert"/);
 });
 

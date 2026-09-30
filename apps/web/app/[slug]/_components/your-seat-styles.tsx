@@ -27,7 +27,6 @@ export type YourSeatProps = {
   tables: EventTableRow[];
   entrance: EntrancePos;
   targetTableId: string;
-  firstName: string;
   arrived: boolean;
 };
 
@@ -44,12 +43,12 @@ function Venue({ venueName }: { venueName: string | null }) {
 }
 
 /** B · The table number — the number fills the screen; the map is one tap away. */
-export function SeatTableNumber({ tableLabel, venueName, tables, entrance, targetTableId, firstName, arrived }: YourSeatProps) {
+export function SeatTableNumber({ tableLabel, venueName, tables, entrance, targetTableId, arrived }: YourSeatProps) {
   const { eyebrow, big } = tableLabelParts(tableLabel);
   return (
     <section className="space-y-4 text-center" data-scene-style="table-number">
       {arrived ? (
-        <ArrivalGreeting firstName={firstName} tableLabel={tableLabel} />
+        <ArrivalGreeting tableLabel={tableLabel} />
       ) : (
         <p className="pahina-eyebrow justify-center">
           <span aria-hidden>✦</span>
@@ -76,18 +75,19 @@ export function SeatTableNumber({ tableLabel, venueName, tables, entrance, targe
   );
 }
 
-/** C · The place card — your name on a place card, your table under it; the map beneath. */
-export function SeatPlaceCard({ tableLabel, venueName, tables, entrance, targetTableId, firstName, arrived }: YourSeatProps) {
+/** C · The place card — your table on a place card; the map beneath. */
+export function SeatPlaceCard({ tableLabel, venueName, tables, entrance, targetTableId, arrived }: YourSeatProps) {
   return (
     <section className="space-y-5" data-scene-style="place-card">
       {arrived ? (
         <div className="text-center">
-          <ArrivalGreeting firstName={firstName} tableLabel={tableLabel} />
+          <ArrivalGreeting tableLabel={tableLabel} />
         </div>
       ) : null}
       <div className="mx-auto max-w-xs border border-ink/15 bg-paper-deep px-6 py-7 text-center shadow-sm">
-        <p className="font-pahina text-3xl font-light italic leading-tight text-ink">{firstName}</p>
-        <p aria-hidden className="my-3 text-gild">✦</p>
+        {/* 🎩 No first name (owner, DECISION_LOG 2026-09-30: no casual greetings on
+            a guest's screen — `ArrivalGreeting`). The card is the table's. */}
+        <p aria-hidden className="mb-3 text-gild">✦</p>
         <p className="font-sans text-xs uppercase tracking-[0.28em] text-ink/60">Your table</p>
         <p className="mt-1 font-pahina text-4xl font-light leading-tight text-gild">{tableLabel}</p>
         <div className="mt-2">

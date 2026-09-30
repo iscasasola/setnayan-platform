@@ -23,8 +23,9 @@ export type ScheduleMomentView = {
   id: string;
   /** The widget's own time label (viewer-local after mount, event-local before). */
   timeLabel: string;
-  /** "Ceremony", "Reception" — the block's kind, in the event type's words. */
-  kindLabel: string;
+  /** "Ceremony", "Reception" — the block's kind, in the event type's words;
+   *  null when it would only repeat the moment's own title (`scheduleKickerFor`). */
+  kindLabel: string | null;
   label: string;
   location: string | null;
   notes: string | null;
@@ -83,8 +84,9 @@ export function ScheduleOneChapter({ moments, currentIndex, upNextIndex }: BodyP
               </p>
               <p className="mt-3 font-mono text-base tabular-nums text-gild">{m.timeLabel}</p>
               <p className="mt-2 font-sans text-xs uppercase tracking-[0.2em] text-ink/60">
-                {m.kindLabel}
-                {isNow || isNext ? ` · ${formatCount(i + 1)} of ${formatCount(moments.length)}` : ''}
+                {[m.kindLabel, isNow || isNext ? `${formatCount(i + 1)} of ${formatCount(moments.length)}` : null]
+                  .filter(Boolean)
+                  .join(' · ')}
               </p>
               <p className="mt-2 font-pahina text-4xl font-light leading-tight text-ink">{m.label}</p>
               {m.location ? (

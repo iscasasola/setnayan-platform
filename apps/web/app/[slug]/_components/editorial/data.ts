@@ -3749,7 +3749,7 @@ function peterAndMary(): EditorialData {
         { year: '2024', title: 'The proposal', note: 'Sunday lunch, both families in' },
         { year: '2026', title: 'The wedding', note: 'A ridge-top estate in bloom' },
       ],
-      anchors: { song: 'their parents’ favourite', place: 'Tagaytay', injoke: 'isang kanta pa', food: 'lechon, of course' },
+      anchors: { song: 'their parents’ favorite', place: 'Tagaytay', injoke: 'isang kanta pa', food: 'lechon, of course' },
     },
     specialMessage:
       'To all 150 of you who filled this garden — salamat. A full table was the whole point, and you made it overflow.',
@@ -3804,7 +3804,7 @@ function peterAndMary(): EditorialData {
       '/realstories/peter-mary-g3.jpg',
     ],
     dayChapters: [],
-    song: { url: null, label: 'their parents’ favourite' },
+    song: { url: null, label: 'their parents’ favorite' },
     photoWallPhotos: [],
     photoWallActive: false,
     challengeAnswers: [],

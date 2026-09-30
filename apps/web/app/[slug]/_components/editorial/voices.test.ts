@@ -56,7 +56,7 @@ test('the sort is STABLE — nobody\'s column jumps between visits', () => {
 });
 
 test('a badge reads as English, never the raw database value', () => {
-  assert.equal(roleLabel('maid_of_honor'), 'Maid of honour');
+  assert.equal(roleLabel('maid_of_honor'), 'Maid of honor');
   assert.equal(roleLabel('bride_parents'), 'Parents of the bride');
   assert.equal(roleLabel('ring_bearer'), null, 'a role with no badge got one');
   assert.equal(roleLabel(null), null);

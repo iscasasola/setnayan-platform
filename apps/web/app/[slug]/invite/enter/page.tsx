@@ -254,7 +254,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const rsvpWords = readRsvpWords(event.rsvp_ask_config);
   const ownHeadline = thankYouHeadline({
     status,
-    firstName: (guest.display_name as string | null)?.trim() || (guest.first_name as string | null),
     eventDate: event.event_date as string | null,
     solemn: words.solemn,
   });

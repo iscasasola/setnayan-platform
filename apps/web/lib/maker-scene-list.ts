@@ -578,7 +578,9 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   // 🎨 The day's own parts, where the normal body draws them (their stand-ins sit
   // right after the entourage on the Maker's canvas).
   if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage)) shown.push(fixed(k));
-  if (input.storyRenders) shown.push(fixed('story'));
+  // 📖 The page draws the love story ONCE (site-body `storySceneShown`): with the
+  // "Our love story" scene on the page, the prose section is not drawn.
+  if (input.storyRenders && !drawable.some((w) => w.widget_type === 'our_love_story')) shown.push(fixed('story'));
 
   // ── The fold: every other section, with the reason this stage leaves it out.
   const folded: MakerFolded[] = [];

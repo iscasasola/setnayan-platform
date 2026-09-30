@@ -206,7 +206,7 @@ test('the details · big date and the card print the same date and places; the c
 
 const BLOCKS = [
   { block_id: 'b1', event_id: 'e1', block_type: 'ceremony', label: 'The wedding', start_at: '2026-12-18T15:00:00Z', end_at: null, location: 'Our Lady of Lourdes', notes: null, run_state: 'upcoming', actual_start_at: null },
-  { block_id: 'b2', event_id: 'e1', block_type: 'photos', label: 'Photos', start_at: '2026-12-18T16:30:00Z', end_at: null, location: null, notes: 'On the church steps', run_state: 'upcoming', actual_start_at: null },
+  { block_id: 'b2', event_id: 'e1', block_type: 'cocktails', label: 'Photos', start_at: '2026-12-18T16:30:00Z', end_at: null, location: null, notes: 'On the church steps', run_state: 'upcoming', actual_start_at: null },
   { block_id: 'b3', event_id: 'e1', block_type: 'reception', label: 'Reception', start_at: '2026-12-18T18:30:00Z', end_at: null, location: 'The Garden Pavilion', notes: null, run_state: 'upcoming', actual_start_at: null },
 ];
 
@@ -407,7 +407,6 @@ const SEAT = {
   tables: [{ table_id: 't7', table_label: 'Table 7', table_type: 'round', capacity: 10, x: null, y: null }],
   entrance: { x: 50, y: 95 },
   targetTableId: 't7',
-  firstName: 'Ana',
   arrived: false,
 };
 
@@ -419,7 +418,12 @@ test('find your seat · the table number and the place card carry the table, the
   assert.match(big, /<details/, 'the map waits behind a tap, with no script');
   const card = decode(html(h(YourSeatBlock, { ...SEAT, sceneStyle: 'place-card' } as never)));
   assertStyled(card, 'place-card', 'place card');
-  assert.ok(card.includes('Ana') && card.includes('Table 7') && card.includes('The Garden Pavilion'));
+  assert.ok(card.includes('Table 7') && card.includes('The Garden Pavilion'));
+  // 🎩 No first name on a guest's screen (owner, DECISION_LOG 2026-09-30) — in any seat style.
+  for (const style of ['table-number', 'place-card']) {
+    const arrived = decode(html(h(YourSeatBlock, { ...SEAT, arrived: true, firstName: 'Ana', sceneStyle: style } as never)));
+    assert.doesNotMatch(arrived, /Ana/, `${style}: a first name reached the guest's screen`);
+  }
 });
 
 // ── PHOTOS YOU ADD · EACH GUEST'S OWN PHOTOS ─────────────────────────────────

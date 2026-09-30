@@ -46,6 +46,7 @@ import {
   SideChipEditor,
 } from './chip-editors';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { publishPhoneColumn } from './phone-column-channel';
 import { Sheet } from '@/app/_components/sheet';
 import { setGuestInvitationSent } from '../../invitation/actions';
 import { buildUndo, projectGuests } from '@/lib/guest-optimistic';
@@ -897,6 +898,14 @@ export function GuestListMultiselect({
     fixedSlots: 1,
   });
   const phoneColumn = phone.columns[0] ?? 'invite';
+  // The phone's Show ▾ is drawn behind the title's ⋯ (frame 2 of the approved
+  // simple phone app) — the SAME pick, published for that sheet to read.
+  const phonePick = phone.pick;
+  useEffect(() => {
+    publishPhoneColumn({ column: phoneColumn, available: availableColumns, pick: (c) => phonePick(0, c) });
+    return () => publishPhoneColumn(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phoneColumn, availableColumns]);
 
   // Collapsed section keys (redesign Phase 1) — client-only, resets on reload.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -1298,22 +1307,10 @@ export function GuestListMultiselect({
           2026-06-03 directive. See the table's note above for why this is not
           `sm:hidden` any more. */}
       <div className="space-y-5 lg:hidden">
-        {/* The phone's ONE column beside the name (owner 2026-09-30: "the
-            same component with ONE column slot + Name") — its header is the
-            same dropdown the computer's columns have, remembered per device. */}
-        <div className="flex items-center justify-between gap-2 px-1 text-xs text-ink/55" data-roster-phone-column="">
-          <span>Name</span>
-          <span className="inline-flex items-center gap-1.5">
-            Showing
-            <ColumnPick
-              slot={0}
-              column={phoneColumn}
-              available={availableColumns}
-              onPick={phone.pick}
-              label="What each row shows"
-            />
-          </span>
-        </div>
+        {/* The phone's ONE column beside the name (owner 2026-09-30) is still
+            picked with the same dropdown — but behind the title's ⋯ now, as
+            "Show ▾" (frame 2 of the approved simple phone app: setup never sits
+            as a strip above the rows). See phone-column-channel.ts. */}
         {sections.map((sec) => (
           <section key={sec.key}>
             {sec.label ? (

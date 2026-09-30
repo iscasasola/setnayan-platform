@@ -21,6 +21,9 @@
 import { useRef, useState } from 'react';
 import { MoreHorizontal, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { ROSTER_COLUMN_LABEL, type RosterColumn } from '@/lib/roster-columns';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { usePhoneColumn } from './phone-column-channel';
 
 export function GuestsPhoneMenu({
   sort,
@@ -32,11 +35,15 @@ export function GuestsPhoneMenu({
   addDoors: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const show = usePhoneColumn();
   const sheetRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheetRef });
 
   return (
-    <div className="lg:hidden" data-guests-phone-menu="">
+    // ⚖ At EVERY width (controller, owner reminder 2026-10-01: "Desktop keeps its
+    // header row but the same controls (one Filter ▾ + ⋯)"). A computer also
+    // keeps Sort ▾ and the doors in its row — it may show more, never different.
+    <div data-guests-phone-menu="">
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -49,7 +56,7 @@ export function GuestsPhoneMenu({
       </button>
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-end bg-ink/[0.32] backdrop-blur-[4px]"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/[0.32] backdrop-blur-[4px] sm:items-center"
           role="presentation"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
@@ -60,7 +67,7 @@ export function GuestsPhoneMenu({
             role="dialog"
             aria-modal="true"
             aria-label="More for the guest list"
-            className="max-h-[85vh] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-cream px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3"
+            className="max-h-[85vh] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-cream px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 sm:max-w-md sm:rounded-3xl"
           >
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-ink">Guest list</span>
@@ -77,6 +84,22 @@ export function GuestsPhoneMenu({
               <span className="text-sm text-ink">Sort</span>
               {sort}
             </div>
+            {/* Show ▾ — the phone's one column beside each name (E's pick,
+                remembered per device). Only a phone draws that column. */}
+            {show ? (
+              <div className="flex items-center justify-between gap-3 lg:hidden" data-guests-phone-menu-show="">
+                <span className="text-sm text-ink">Show</span>
+                <PickMenu
+                  compact
+                  label="What each row shows"
+                  value={show.column}
+                  buttonText={ROSTER_COLUMN_LABEL[show.column]}
+                  options={show.available.map((c) => ({ key: c, label: ROSTER_COLUMN_LABEL[c] }))}
+                  onPick={(key) => show.pick(key as RosterColumn)}
+                  dataAttr="data-roster-column-pick"
+                />
+              </div>
+            ) : null}
             {/* A door that goes somewhere closes the sheet behind it (a link to
                 this same page would otherwise leave it open over the result). */}
             <div

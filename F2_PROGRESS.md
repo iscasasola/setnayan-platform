@@ -9,6 +9,13 @@ Brief: corpus `CLOUD_PROMPTS_OCT3_2026-09-30.md` § F + controller prompt (F2). 
 ## Order
 A (top bar searches guests) → pop-up "Who can reply?" → B2 (helper grants + colour + activity onto the guest card) → B4 (parts row removed LAST).
 
+## 🎯 TARGET (controller, owner reminder 2026-10-01) — NOT optional polish
+The approved phone design `~/Documents/Claude/Projects/Setnayan/prototypes/phone_app_simple_2026-10-01_fable.html`,
+frame 2 "Guests", IS the Guest list on a phone: title + ⋯ · one search (top bar) · ONE Filter ▾ (RSVP · Side ·
+Role · Group) · one counts line · rows; Sort / Show / Import / Share / Finalize / Guests reply? behind ⋯; first
+guest inside the top third at 390×844. Desktop keeps its header row but the SAME controls (one Filter ▾ + ⋯) —
+"desktop may show more, never different". Report must include a 390 px screenshot.
+
 ## Done
 - A · top bar searches guests (`lib/search-scope.ts` guests scope, `app/dashboard/(launcher)/_components/guests-top-search.tsx`, FindAddRow = Add + Filter + Sort, `guests-search.tsx` deleted, guard `guests/the-top-bar-searches-guests.test.ts`). port baseline regenerated.
 
@@ -26,7 +33,8 @@ A (top bar searches guests) → pop-up "Who can reply?" → B2 (helper grants + 
 ## Left / verify
 - Full unit suite + every CI guard + bundle check (build) — see PR checks.
 - Not on this branch (in flight elsewhere): manual "Finalize the list" (#6198) and "Guests reply?" (G1) — the ⋯ has neither yet.
-- Show ▾ (phone column picker from E) stays as the column header, not moved into ⋯.
+- Show ▾ moved into ⋯ (phone-column-channel.ts). Meters hidden below lg (one counts line).
+- 390 px screenshot: needs a signed-in session on a running build — see report.
 
 ## Gotchas
 - Bracketed test paths: `npx tsx <file>` (no --test) runs them; `tsx --test` with brackets runs 0.

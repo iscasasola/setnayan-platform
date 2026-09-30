@@ -1819,7 +1819,12 @@ function SummaryFacetBar({
 }) {
   return (
     <div className="gl-settle">
-      <RosterMeters paxProgress={paxProgress} stats={stats} measured={measured} />
+      {/* The meters are the computer's extra (frame 2 of the approved simple
+          phone app: ONE counts line on a phone — the page's RosterCountsLine,
+          above the rows). They carry figures, no controls. */}
+      <div className="hidden lg:block" data-roster-meters="">
+        <RosterMeters paxProgress={paxProgress} stats={stats} measured={measured} />
+      </div>
 
       <FindAddRow
         // ⚖ The row is ADD only (owner 2026-09-30 — the top bar searches this

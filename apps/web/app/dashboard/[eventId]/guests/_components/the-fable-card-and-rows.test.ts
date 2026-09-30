@@ -256,9 +256,9 @@ test('list head: Sort ▾ and four dropdowns — RSVP · Side · Role · Group �
   // (frame A — search left for the top bar on 2026-10-01); on a computer they
   // sit in the one row (frame F).
   const ROW = read('find-add-row.tsx');
-  // ⤷ 2026-10-01 (the approved simple phone app, frame 2): on a phone the
-  // dropdowns fold under ONE Filter ▾, on a line of their own when open.
-  assert.match(ROW, /order-last w-full min-w-0 items-start gap-2 lg:order-none lg:flex lg:w-auto \$\{filterOpen \? 'flex' : 'hidden'\}/, 'the phone filter line is gone — the controls squeeze one 390px row');
+  // ⤷ 2026-10-01 (the approved simple phone app, frame 2): at every width the
+  // four dropdowns fold under ONE Filter ▾, on a line of their own when open.
+  assert.match(ROW, /order-last w-full min-w-0 \$\{filterOpen \? 'block' : 'hidden'\}/, 'the filter line is gone — the controls squeeze one 390px row');
   assert.match(PAGE, /sort=\{<RosterSort sorts=\{sorts\} current=\{sort\} \/>\}/, 'Sort ▾ left the row');
   // "Share the link" — Invite means one guest's ticket everywhere.
   assert.match(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'roster-doors.ts'), 'utf8'), /'Share the link'/);

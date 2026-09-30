@@ -24,6 +24,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { inviteSendPath } from '@/lib/guest-invite-message';
 import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
+import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 
 const WEB = join(__dirname, '..', '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -117,7 +118,9 @@ test('⓺ what travels is the Digital ticket, never the bare QR (owner 2026-09-3
   // "so what will show is not QR Code. it will be the Digital Ticket" ·
   // "we do not copy the QR Code, we copy the Digital Ticket".
   const src = read(SEND);
-  assert.match(body(src, 'ticketUrl'), /\$\{PASS_CARD_ROUTE\}\?guest=/, 'the shared file is not the pass-card (ticket) route');
+  assert.match(body(src, 'ticketUrl'), /\$\{TICKET_ROUTE\}\?guest=/, 'the shared file is not the pass-card (ticket) route');
+  // Spelled in send-invite.tsx (bundle), held equal to the one source here.
+  assert.equal(/export const TICKET_ROUTE = '([^']+)'/.exec(src)?.[1], PASS_CARD_ROUTE, 'TICKET_ROUTE drifted from PASS_CARD_ROUTE');
   assert.doesNotMatch(src, /\/api\/website\/qr\/guest\//, 'send-invite.tsx still fetches the bare QR PNG');
   const cell = read(CELL);
   assert.match(body(cell, 'copyTicketImage'), /ticketUrl\(guestId\)/);

@@ -143,7 +143,7 @@ export function GuestInviteCell({
     io.observe(el);
     return () => io.disconnect();
   }, [onScreen]);
-  const fileName = ticketFileName(guest.fullName, facts);
+  const fileName = ticketFileName(guest.fullName);
   const file = useTicketFile(guest.guestId, fileName, Boolean(guest.inviteUrl) && onScreen);
 
   if (!guest.inviteUrl) {

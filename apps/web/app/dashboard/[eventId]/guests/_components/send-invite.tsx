@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { Check, Copy, Download, Send, Undo2 } from 'lucide-react';
-import { PASS_CARD_ROUTE, passCardFileName } from '@/lib/pass-card';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import {
   buildGuestInviteMessage,
@@ -72,14 +71,23 @@ type ShareNav = Navigator & {
   canShare?: (data: { files?: File[]; text?: string }) => boolean;
 };
 
-/** The route one guest's Digital ticket is drawn at — the couple's chosen style. */
+/**
+ * The route one guest's Digital ticket is drawn at — the couple's chosen style.
+ * `PASS_CARD_ROUTE` in `lib/pass-card.ts`, spelled here rather than imported:
+ * this file is in the Maker's and the shared first load, and importing that
+ * module for one string pulled it into a new shared chunk (measured — the
+ * shared-bundle ceiling sits at 0.0KB headroom). A guard holds the two equal.
+ */
+export const TICKET_ROUTE = '/api/guest/pass-card';
+
 export function ticketUrl(guestId: string): string {
-  return `${PASS_CARD_ROUTE}?guest=${encodeURIComponent(guestId)}`;
+  return `${TICKET_ROUTE}?guest=${encodeURIComponent(guestId)}`;
 }
 
-/** The ticket's file name — the same one "Save my ticket" gives it. */
-export function ticketFileName(name: string, facts: InviteEventFacts): string {
-  return passCardFileName({ guestName: name, eventName: facts.hostsName, eventDate: facts.eventDate });
+/** The ticket's file name — "Maria-Santos-ticket.png"; the route's own header wins when it sends one. */
+export function ticketFileName(name: string): string {
+  const who = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+  return `${who || 'Guest'}-ticket.png`;
 }
 
 /** The guest's Digital ticket as a File, fetched ahead of the tap (see the 🪤 above). */
@@ -93,10 +101,15 @@ export function useTicketFile(guestId: string, name: string, enabled: boolean): 
     if (!nav || typeof nav.share !== 'function' || typeof nav.canShare !== 'function') return;
     let alive = true;
     fetch(ticketUrl(guestId), { credentials: 'same-origin' })
-      .then((r) => (r.ok ? r.blob() : null))
-      .then((blob) => {
-        if (!alive || !blob) return;
-        setFile(new File([blob], name, { type: blob.type || 'image/png' }));
+      .then(async (r) => {
+        if (!r.ok) return null;
+        // The route names the file the way "Save my ticket" does — use that.
+        const said = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1];
+        return { blob: await r.blob(), fileName: said || name };
+      })
+      .then((got) => {
+        if (!alive || !got) return;
+        setFile(new File([got.blob], got.fileName, { type: got.blob.type || 'image/png' }));
       })
       .catch(() => {
         /* No ticket → the text-only share, which still carries the link. */
@@ -170,7 +183,7 @@ export function SendInviteActions({
   const [pending, startTransition] = useTransition();
   const manualRef = useRef<HTMLTextAreaElement>(null);
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
-  const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName, facts), Boolean(guest.inviteUrl));
+  const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName), Boolean(guest.inviteUrl));
 
   useEffect(() => {
     setSentAt(guest.sentAt);
@@ -303,7 +316,7 @@ export function SendInviteActions({
               {said.kind === 'copied-desktop' ? (
                 <SaveFileLink
                   href={ticketUrl(guest.guestId)}
-                  filename={ticketFileName(guest.fullName, facts)}
+                  filename={ticketFileName(guest.fullName)}
                   className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 text-sm font-medium text-ink/80"
                 >
                   {(state) => (

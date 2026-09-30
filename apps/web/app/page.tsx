@@ -45,6 +45,7 @@ import './_components/frontdoor/front-door.css';
 import { FrontDoor } from './_components/frontdoor/front-door';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
+import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
 import { maybeRunOAuthRefresh } from '@/lib/oauth-refresh-job';
 import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
 
@@ -306,6 +307,11 @@ export default async function HomePage({
   // nobody schedules. It is also the only writer that seals a token, which is
   // why the September vault had encrypted zero production rows.
   after(() => maybeRunOAuthRefresh().catch(() => {}));
+  // 🧽 The face-tagging selfie ends when the event's Papic closes, twelve hours
+  // after the event (owner 2026-09-30) — tags stay. CRON-FREE: a ~30-min DB
+  // claim, carried by admin AND public traffic so a quiet console cannot hold a
+  // guest's selfie past its close. Never throws.
+  after(() => maybeRunPapicCloseSelfieErase().catch(() => {}));
 
   return (
     <>

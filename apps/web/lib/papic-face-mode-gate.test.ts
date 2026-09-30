@@ -20,6 +20,7 @@
  * ALL of app/ so no embedder call site can hide from this guardrail — every one
  * must be either a gated CAPTURE_FILE or an explicitly documented exemption.
  */
+import { stripComments } from './strip-comments';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -130,26 +131,30 @@ for (const rel of [
   });
 }
 
-// Belt-and-suspenders: the server ENROLLMENT writes must resolve the mode AND
+// Belt-and-suspenders: the server ENROLLMENT write must resolve the mode AND
 // route every descriptor through the write guard, so a crafted POST carrying a
 // vector on a mode_b / forced-mode_b (christening/debut) event can never persist
-// a biometric. Guards against silently deleting that server-side enforcement.
-for (const rel of [
-  'app/[slug]/actions.ts', // submitRsvp
-  'app/papic/face-enroll-actions.ts', // enrollGuestFace
-]) {
-  test(`server enrollment write nulls the vector off mode_a in ${rel}`, () => {
-    const src = fs.readFileSync(path.join(WEB, rel), 'utf8');
-    assert.ok(
-      src.includes('resolvePapicFaceMode'),
-      `${rel}: enrollment write does not resolve papic_face_mode server-side.`,
-    );
-    assert.ok(
-      src.includes('faceVectorForMode'),
-      `${rel}: enrollment write does not route the descriptor through faceVectorForMode — a mode_b event could persist a POSTed vector.`,
-    );
-  });
-}
+// a biometric. Since 2026-09-30 there is ONE enrollment writer — the day-of
+// catch — which reads the mode through `resolveFaceTagging` (the same read
+// that answers Papic-active and the couple's switch).
+test('server enrollment write nulls the vector off mode_a in app/papic/face-enroll-actions.ts', () => {
+  const rel = 'app/papic/face-enroll-actions.ts';
+  const src = fs.readFileSync(path.join(WEB, rel), 'utf8');
+  assert.ok(
+    /resolveFaceTagging\(admin, eventId\)/.test(src) && src.includes('const faceMode = faceTagging.mode;'),
+    `${rel}: enrollment write does not resolve papic_face_mode server-side.`,
+  );
+  assert.ok(
+    src.includes('faceVectorForMode'),
+    `${rel}: enrollment write does not route the descriptor through faceVectorForMode — a mode_b event could persist a POSTed vector.`,
+  );
+});
+
+test('the RSVP (app/[slug]/actions.ts) is no longer an enrollment writer', () => {
+  const src = stripComments(fs.readFileSync(path.join(WEB, 'app/[slug]/actions.ts'), 'utf8'));
+  assert.doesNotMatch(src, /from\('guest_face_enrollments'\)\s*\.insert\(/, 'the RSVP writes a face enrollment again');
+  assert.doesNotMatch(src, /'rsvp_selfie'/, "an enrollment source 'rsvp_selfie' is written again");
+});
 
 // DISCOVERY: scan ALL of app/ so no embedder call site can hide from the
 // guardrail. Every file that calls an embedder MUST be either a gated

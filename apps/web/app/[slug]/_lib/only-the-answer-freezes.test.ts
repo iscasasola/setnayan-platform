@@ -82,7 +82,7 @@ function guest(over: Record<string, unknown> = {}) {
   };
 }
 
-async function render(replyLocked: boolean, over: Record<string, unknown> = {}) {
+async function render(replyLocked: boolean, over: Record<string, unknown> = {}, props: Record<string, unknown> = {}) {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { RsvpWidget } = await import('../_components/rsvp-widget');
   return renderToStaticMarkup(
@@ -93,6 +93,7 @@ async function render(replyLocked: boolean, over: Record<string, unknown> = {}) 
       eventPublicId: 'S89E-XXXX',
       faceMode: 'mode_b',
       replyLocked,
+      ...props,
     } as never),
   );
 }
@@ -144,20 +145,23 @@ test('a final list keeps the meal, the allergy box and the note editable', async
   assert.match(html, /nut allergy/);
 });
 
-test('a coming guest keeps the selfie step when the list is final', async () => {
-  // 🪤 The selfie is revealed by `:has(rsvp_status=attending:checked)`. With no
+test('a coming guest keeps the tagging question when the list is final', async () => {
+  // 🪤 The question is revealed by `:has(rsvp_status=attending:checked)`. With no
   // radio rendered that selector can NEVER match, so the step would silently
-  // vanish for exactly the guests who are coming.
-  const open = await render(false);
-  const locked = await render(true);
-  const marker = /selfie|Selfie/;
-  assert.match(open, marker);
-  assert.match(locked, marker, 'the selfie step vanished once the answer locked');
+  // vanish for exactly the guests who are coming. (Owner 2026-09-30: the reply
+  // card asks the QUESTION only — the selfie itself is taken on the day.)
+  const ask = { askTagging: true };
+  const marker = /name="face_tagging"/;
+  assert.match(await render(false, {}, ask), marker);
+  assert.match(await render(true, {}, ask), marker, 'the tagging question vanished once the answer locked');
 });
 
-test('a guest who is NOT coming gets no selfie step', async () => {
-  const html = await render(true, { rsvp_status: 'declined' });
-  assert.doesNotMatch(html, /selfie_ref/);
+test('a guest who is NOT coming gets no tagging question — and no card ever draws a selfie', async () => {
+  const html = await render(true, { rsvp_status: 'declined' }, { askTagging: true });
+  assert.doesNotMatch(html, /name="face_tagging"/);
+  for (const locked of [false, true]) {
+    assert.doesNotMatch(await render(locked, {}, { askTagging: true }), /selfie_ref|biometric_consent/);
+  }
 });
 
 test('the button stops claiming to save an RSVP it cannot change', async () => {

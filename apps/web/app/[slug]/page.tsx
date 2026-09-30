@@ -1755,6 +1755,7 @@ async function InvitationBody({
         guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'
       }
       slug={event.slug ?? slug}
+      hasFaceSelfie={guest.photo_source === 'selfie'}
       eventId={event.event_id}
       guestId={guest.guest_id}
       askMeal={resolveRsvpAsk(event.rsvp_ask_config).meal}

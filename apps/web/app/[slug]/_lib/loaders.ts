@@ -49,7 +49,9 @@ import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
-import { resolveFaceMode, resolveFaceTagging, type PapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
+import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { dayOfFaceCatchShows, type FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
@@ -1392,7 +1394,9 @@ export const loadGuestContext = cache(
           : dayOfFaceCatchShows({
               // A failed wish read is silence too — never a re-ask of a "No".
               askable: faceTagging.askable && !wishError,
-              enrolled: Boolean(liveEnrollment),
+              // A seat that reuses its account's face here (owner 2026-09-30,
+              // "No selfie needed on the day") has nothing to be asked for.
+              enrolled: Boolean(liveEnrollment) || (await guestReusesAccountFace(admin, event.event_id, guest.guest_id)),
               wish: faceTaggingWish,
             });
       }

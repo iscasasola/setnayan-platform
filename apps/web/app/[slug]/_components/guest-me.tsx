@@ -27,6 +27,7 @@ import type { InviteEventFacts } from '@/lib/guest-invite-message';
 export function GuestMe({
   name,
   slug,
+  hasFaceSelfie = false,
   eventId,
   guestId,
   askMeal,
@@ -49,6 +50,8 @@ export function GuestMe({
   slug: string;
   eventId: string;
   /** Whose key this page holds — the bringer, for "Add name" in place. */
+  /** The guest holds a face-tagging selfie — Switch erases it, and says so first (owner 2026-09-30). */
+  hasFaceSelfie?: boolean;
   guestId: string;
   /** The couple's "ask" switches — a plus-one is asked only what they ask. */
   askMeal: boolean;
@@ -79,7 +82,7 @@ export function GuestMe({
     <div className="space-y-6" data-guest-me>
       <div>
         <p className="font-serif text-2xl leading-tight text-ink">{name}</p>
-        <NotYouSwitch slug={slug} />
+        <NotYouSwitch slug={slug} erasesSelfie={hasFaceSelfie} />
       </div>
       <YourGuests
         guests={guests}

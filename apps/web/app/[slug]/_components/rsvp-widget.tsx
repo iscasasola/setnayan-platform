@@ -8,7 +8,6 @@ import { plusOneSeats } from '@/lib/guests';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
 import { rsvpAsks, type RsvpAskConfig, type RsvpAskField, type RsvpWords } from '@/lib/rsvp-ask';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
-import { SelfieCapture } from './selfie-capture';
 import { SelfieNoThanksConfirm } from './selfie-no-thanks-confirm';
 import {
   FACE_TAGGING_FIELD,
@@ -38,7 +37,6 @@ export function RsvpWidget({
   profileDetails = null,
   words,
   doorAction,
-  offerSelfie = true,
   askTagging = false,
   hostPitch = false,
   ask = {},
@@ -150,40 +148,22 @@ export function RsvpWidget({
    * and the door can never drift apart.
    */
   doorAction?: (formData: FormData) => Promise<void>;
-  /**
-   * MAY THIS SURFACE ASK FOR THE SELFIE + FACE-RECOGNITION CONSENT?
-   *
-   * 🔑 FACE TAGGING DOES NOT HAPPEN ON THE INVITE (owner, verbatim 2026-09-11):
-   * *"face tagging does not happen on the invite. it happens on their first view
-   * on the day of the event? or on the day papic becomes available to use for
-   * them."* The invite arrival's Reply door passes `false`.
-   *
-   * ⚠ A PROP, NOT A DELETION, AND THAT IS THE WHOLE POINT. This card is SHARED —
-   * the Event Hub's own RSVP card renders it too (site-body.tsx). Deleting the
-   * block would have taken the selfie off the Event Hub card as well, which the
-   * owner did not ask for.
-   *
-   * ⇒ NOTHING IS LOST, because the catch already ships: `day-of-face-enroll.tsx`
-   * ("the day-of catch for a guest who skipped the optional RSVP selfie") is
-   * mounted in three live places and self-hides once enrolled. The consequence,
-   * stated plainly: fewer guests enrol early, so more are asked on the day —
-   * which is the owner's stated intent, not an oversight.
-   *
-   * ⚖ AND WHERE IT IS OFFERED, IT IS ASKED FIRST (owner, verbatim 2026-09-29:
-   * *"only if the want tagging service. if the do not click tagging service. no
-   * selfie needed"* → *"it should only depend if they want to be tagged"*).
-   * This prop now governs ONE QUESTION — "Want to be tagged in the photos?",
-   * Yes, tag me / No thanks — and the selfie sits behind its Yes (a CSS-only
-   * `:has()` reveal, `.tag-yes-reveal`). No → nothing more is asked, and
-   * `submitRsvp` refuses any selfie that still rides along. The Event Hub card
-   * passes `false` when the couple declined face tagging for their event.
+  /*
+   * 📵 NO REPLY CARD DRAWS A CAMERA (owner 2026-09-30 — DECISION_LOG "THE
+   * TAGGING QUESTION IS ASKED AT RSVP; THE SELFIE IS TAKEN ON THE DAY").
+   * `offerSelfie` is GONE, not defaulted off: the Event Hub card used to pass
+   * `offerSelfie={faceTaggingAskable}` and so enrolled a face weeks before the
+   * day (`submitRsvp` source 'rsvp_selfie'). The selfie is taken only by the
+   * day-of catch (`day-of-face-enroll.tsx`), only from a guest who said Yes,
+   * and only while the event's Papic is open. A prop that could turn the
+   * camera back on would be a door the rule has to keep shut by hand.
    */
-  offerSelfie?: boolean;
   /**
-   * 🏷 THE QUESTION WITHOUT THE CAMERA — the INVITATION's reply page (owner
-   * 2026-09-30, "go"): with `offerSelfie={false}`, still ask "Want to be tagged
-   * in the photos?" and save the answer; the selfie is taken on the day, only
-   * from a guest who said Yes (`dayOfFaceCatchShows`).
+   * 🏷 THE QUESTION WITHOUT THE CAMERA — on EVERY reply card (the invitation's
+   * reply page and the Event Hub's): ask "Want to be tagged in the photos?" and
+   * save the answer; the selfie is taken on the day, only from a guest who said
+   * Yes (`dayOfFaceCatchShows`). Pass `askable` from `lib/face-tagging-gate.ts`
+   * — false unless the event's Papic is active and open and face tagging runs.
    */
   askTagging?: boolean;
   /**
@@ -303,12 +283,11 @@ export function RsvpWidget({
   // "Want to be tagged in the photos?" — defaulted from the guest's stored
   // answer, never pre-set otherwise (a default would be an answer nobody gave).
   const taggingWish = guest.face_tagging_wanted ?? null;
-  const questionOnly = !offerSelfie && askTagging;
-  const tagThenSelfie = (
+  const tagQuestion = (
     <>
       <fieldset data-rsvp-step data-face-tagging-choice className="space-y-2">
         <legend className="mb-1 font-serif text-xl text-ink">{FACE_TAGGING_QUESTION}</legend>
-        <p className="pb-1 text-xs text-ink/60">{faceTaggingHint(faceMode, words.theOrganizer, { onTheDay: questionOnly })}</p>
+        <p className="pb-1 text-xs text-ink/60">{faceTaggingHint(faceMode, words.theOrganizer, { onTheDay: true })}</p>
         {(
           [
             { key: 'yes', label: FACE_TAGGING_YES, on: taggingWish === true },
@@ -333,12 +312,7 @@ export function RsvpWidget({
             2026-09-29, OWNER ANSWERS (3)) — only for a guest who has one. */}
         {guest.photo_source === 'selfie' ? <SelfieNoThanksConfirm /> : null}
       </fieldset>
-      {/* 📵 The invitation draws no camera: the selfie waits for the day. */}
-      {questionOnly ? null : (
-        <div data-rsvp-step className="tag-yes-reveal">
-          <SelfieCapture faceMode={faceMode} />
-        </div>
-      )}
+      {/* 📵 No camera on a reply card: the selfie waits for the day. */}
     </>
   );
   /* 🎨 The scene's style — only the header and the answers' look change. */
@@ -373,18 +347,13 @@ export function RsvpWidget({
           {flash.text}
         </p>
       ) : null}
-      {/* The selfie step reveals once the guest picks "attending" — pure
-          CSS :has(), the same pattern as the has-[:checked] ring on the radios
-          below, so this stays a server component with no client state.
+      {/* The tagging question (class `selfie-reveal`, kept for the rule's
+          sake) reveals once the guest picks "attending" — pure CSS :has(), the
+          same pattern as the has-[:checked] ring on the radios below, so this
+          stays a server component with no client state.
           Omitted when the answer is locked: there is no radio to watch, so the
           rule is dead weight AND its selector text is the only `rsvp_status`
           left in the markup, which reads to any scan like a live control. */}
-      {/* The selfie waits for "Yes, tag me" — the same CSS-only :has() shape,
-          declared on its own because it must also work on a LOCKED card, where
-          the rule below is not rendered (there is no answer radio to watch). */}
-      {offerSelfie ? (
-        <style>{`.rsvp-form .tag-yes-reveal{display:none}.rsvp-form:has(input[name="${FACE_TAGGING_FIELD}"][value="yes"]:checked) .tag-yes-reveal{display:block}`}</style>
-      ) : null}
       {replyLocked ? null : (
         <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}`}</style>
       )}
@@ -511,23 +480,17 @@ export function RsvpWidget({
         )
       )}
 
-      {/* ⚠ THE SELFIE IS REVEALED BY `:has(rsvp_status=attending:checked)`. With
-          the answer locked there IS no radio, so that selector can never match
-          and the selfie step would vanish for exactly the guests who are
-          coming — in the fortnight before the day, when getting their photos to
-          find them is the whole point. Locked + attending renders it outright. */}
-      {/* ⚖ ONE QUESTION, THEN THE SELFIE ONLY AFTER ITS YES (owner 2026-09-29).
-          Two sibling steps, never nested, so one-at-a-time walks them as two
-          screens: the question, then — only once "Yes, tag me" is ticked and
-          the selfie is drawn — the selfie. "No thanks" leaves it undrawn, so
-          the walker skips it and nothing more is asked. Nobody is shown the
-          selfie without choosing it: with no answer ticked it stays hidden. */}
-      {!offerSelfie && !questionOnly ? null : replyLocked ? (
+      {/* ⚠ THE QUESTION IS REVEALED BY `:has(rsvp_status=attending:checked)`.
+          With the answer locked there IS no radio, so that selector can never
+          match — locked + attending renders it outright. ⚖ ONE QUESTION, NO
+          CAMERA (owner 2026-09-30): "Yes, tag me" is stored, and the selfie is
+          asked on the day, only while the event's Papic is open. */}
+      {!askTagging ? null : replyLocked ? (
         guest.rsvp_status === 'attending' ? (
-          <div className="space-y-6">{tagThenSelfie}</div>
+          <div className="space-y-6">{tagQuestion}</div>
         ) : null
       ) : (
-        <div className="selfie-reveal space-y-6">{tagThenSelfie}</div>
+        <div className="selfie-reveal space-y-6">{tagQuestion}</div>
       )}
 
       {/* ── WHO ARE YOU BRINGING ────────────────────────────────────────────

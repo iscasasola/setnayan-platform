@@ -143,27 +143,21 @@ test('the photos sentence does not outrun the feature', () => {
 
 // ═══ 4 · no face tagging on the invite — and none taken from the Event Hub ══
 
-test('the Reply door asks this card NOT to offer the selfie', () => {
+test('the Reply door asks the tagging QUESTION only — no reply card draws a camera', () => {
   const mount = between(REPLY, '<RsvpWidget', '/>', 'the RsvpWidget mount on the Reply door');
-  assert.match(
-    mount,
-    /offerSelfie=\{false\}/,
-    'the invite arrival is asking for a face again — owner: face tagging happens on the day, not on the invite',
-  );
   // 🏷 Owner 2026-09-30 ("go"): the QUESTION is asked there — never the camera.
   // Rendered, and the crafted-post strip executed, in the-selfie-waits-for-a-yes.
-  assert.match(mount, /askTagging=\{faceTagging\.askable\}/, 'the invitation no longer asks the tagging question, or ignores the couple’s decline');
+  assert.match(mount, /askTagging=\{faceTagging\.askable\}/, 'the invitation no longer asks the tagging question, or ignores the gate');
+  assert.doesNotMatch(mount, /offerSelfie/, 'a selfie prop is back on the Reply door');
 });
 
-test('the Event Hub card keeps its selfie — the prop defaults ON, and no hub mount turns it off', () => {
+test('the Event Hub card asks the question too, and takes no selfie (owner 2026-09-30)', () => {
   const body = readWeb('app/[slug]/_components/site-body.tsx');
   assert.ok(body.split('<RsvpWidget').length - 1 > 0, 'the body renders no reply card at all — read this file');
-  assert.doesNotMatch(
-    body,
-    /offerSelfie=\{false\}/,
-    'a removal scoped to the invite arrival has leaked onto the Event Hub card',
-  );
-  assert.match(WIDGET, /offerSelfie = true,/, 'the prop no longer defaults on — every other surface would lose the selfie silently');
+  const mount = between(body, '<RsvpWidget', '/>', 'the RsvpWidget mount on the Event Hub');
+  assert.match(mount, /askTagging=\{faceTaggingAskable\}/, 'the Event Hub card no longer asks the tagging question');
+  assert.doesNotMatch(mount, /offerSelfie/, 'the Event Hub card offers a selfie again — it enrolled faces weeks before the day');
+  assert.doesNotMatch(WIDGET, /<SelfieCapture/, 'the reply card draws a camera again');
 });
 
 test('the day-of catch the removal relies on is still mounted', () => {
@@ -311,25 +305,18 @@ test('a guest who IS coming still gets the meal boxes when the list is final', a
   assert.match(locked, /name="dietary_restrictions"/, 'a coming guest lost the allergy box once the list was frozen');
 });
 
-test('the door renders no selfie, the site card still does', async () => {
+test('no reply card renders a selfie — the door or the site card', async () => {
   // 🪤 ANCHORED ON THE CONTROLS, NOT ON THE WORD. `.selfie-reveal` is named in
   // the card's one CSS rule — which must STAY, because the same rule drives the
-  // meal reveal above. A `doesNotMatch(/selfie/)` would therefore be red for a
-  // reason that has nothing to do with whether a face is being asked for.
-  const onDoor = await render({ offerSelfie: false });
-  for (const control of ['selfie_ref', 'biometric_consent', 'selfie_quality']) {
-    assert.doesNotMatch(
-      onDoor,
-      new RegExp(`name="${control}"`),
-      `the invite arrival still posts ${control} — it is asking for a face again`,
-    );
+  // meal reveal above.
+  for (const [label, html] of [
+    ['door', await render({ askTagging: true })],
+    ['site card', await render({ askTagging: true }, { rsvp_status: 'attending' })],
+  ] as const) {
+    for (const control of ['selfie_ref', 'biometric_consent', 'selfie_quality']) {
+      assert.doesNotMatch(html, new RegExp(`name="${control}"`), `the ${label} still posts ${control} — it is asking for a face again`);
+    }
   }
-  const onSite = await render({}, { rsvp_status: 'attending' });
-  assert.match(
-    onSite,
-    /name="biometric_consent"/,
-    'the Event Hub card lost its selfie — the removal was meant to be scoped to the invite arrival',
-  );
 });
 
 // ═══ 5 · the last door names the face it is about to open ══════════════════

@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { resolveFaceTagging } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { formatEventDateWithPrecision } from '@/lib/events';
 import { joinDoorMeta } from '@/lib/join-door-meta';
@@ -305,7 +305,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
             <p className="font-serif text-lg text-ink" data-reply-for="">
               {guestName}
             </p>
-            {canvas ? null : <NotYouSwitch slug={home} />}
+            {canvas ? null : <NotYouSwitch slug={home} erasesSelfie={guest.photo_source === 'selfie'} />}
           </div>
         </FirstScreenOnly>
 
@@ -363,9 +363,10 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
              save strips any face field (`stripInviteFaceFields`), so the
              2026-09-11 rule "face tagging happens on the day, not on the invite"
              holds for face DATA. On the day `day-of-face-enroll.tsx` asks only a
-             guest who said Yes for the selfie, and never one who said No. The
-             couple's own decline (`askable`) hides the question altogether. */
-          offerSelfie={false}
+             guest who said Yes for the selfie, and never one who said No.
+             `askable` (lib/face-tagging-gate.ts) hides the question altogether
+             unless the event's Papic is active and open and face tagging runs
+             there (owner 2026-09-30). No reply card draws a camera any more. */
           askTagging={faceTagging.askable}
           ask={resolveRsvpAsk(event.rsvp_ask_config)}
           gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}

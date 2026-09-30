@@ -100,7 +100,9 @@ export async function FaceTaggingChoice({
     <>
       Guests who choose to add a selfie get their photos found for them
       automatically. It is always their choice — nothing is stored unless
-      they agree — and you can switch it off for your whole event.
+      they agree — and you can switch it off for your whole event. Switching
+      it off erases every guest&rsquo;s selfie; photos already tagged stay
+      tagged.
     </>
   );
 

@@ -38,6 +38,7 @@ export function RsvpWidget({
   words,
   doorAction,
   offerSelfie = true,
+  askTagging = false,
   hostPitch = false,
   ask = {},
   gate = null,
@@ -168,11 +169,14 @@ export function RsvpWidget({
    * `submitRsvp` refuses any selfie that still rides along. The Event Hub card
    * passes `false` when the couple declined face tagging for their event.
    */
+  offerSelfie?: boolean;
   /**
-   * `'question'` — the INVITATION's reply page (owner 2026-09-30): the question
-   * and its saved answer only, no camera; the selfie is taken on the day.
+   * 🏷 THE QUESTION WITHOUT THE CAMERA — the INVITATION's reply page (owner
+   * 2026-09-30, "go"): with `offerSelfie={false}`, still ask "Want to be tagged
+   * in the photos?" and save the answer; the selfie is taken on the day, only
+   * from a guest who said Yes (`dayOfFaceCatchShows`).
    */
-  offerSelfie?: boolean | 'question';
+  askTagging?: boolean;
   /**
    * The invitation is already linked to their account — only then may the
    * "planning your own celebration?" line show (`hostPitchShows`). Before the
@@ -290,7 +294,7 @@ export function RsvpWidget({
   // "Want to be tagged in the photos?" — defaulted from the guest's stored
   // answer, never pre-set otherwise (a default would be an answer nobody gave).
   const taggingWish = guest.face_tagging_wanted ?? null;
-  const questionOnly = offerSelfie === 'question';
+  const questionOnly = !offerSelfie && askTagging;
   const tagThenSelfie = (
     <>
       <fieldset data-rsvp-step data-face-tagging-choice className="space-y-2">
@@ -351,7 +355,7 @@ export function RsvpWidget({
       {/* The selfie waits for "Yes, tag me" — the same CSS-only :has() shape,
           declared on its own because it must also work on a LOCKED card, where
           the rule below is not rendered (there is no answer radio to watch). */}
-      {offerSelfie && !questionOnly ? (
+      {offerSelfie ? (
         <style>{`.rsvp-form .tag-yes-reveal{display:none}.rsvp-form:has(input[name="${FACE_TAGGING_FIELD}"][value="yes"]:checked) .tag-yes-reveal{display:block}`}</style>
       ) : null}
       {replyLocked ? null : (
@@ -479,7 +483,7 @@ export function RsvpWidget({
           the selfie is drawn — the selfie. "No thanks" leaves it undrawn, so
           the walker skips it and nothing more is asked. Nobody is shown the
           selfie without choosing it: with no answer ticked it stays hidden. */}
-      {!offerSelfie ? null : replyLocked ? (
+      {!offerSelfie && !questionOnly ? null : replyLocked ? (
         guest.rsvp_status === 'attending' ? (
           <div className="space-y-6">{tagThenSelfie}</div>
         ) : null

@@ -365,7 +365,8 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
              holds for face DATA. On the day `day-of-face-enroll.tsx` asks only a
              guest who said Yes for the selfie, and never one who said No. The
              couple's own decline (`askable`) hides the question altogether. */
-          offerSelfie={faceTagging.askable ? 'question' : false}
+          offerSelfie={false}
+          askTagging={faceTagging.askable}
           ask={resolveRsvpAsk(event.rsvp_ask_config)}
           gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
           termsOnSend

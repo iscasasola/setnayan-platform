@@ -181,7 +181,7 @@ test('2 · with the selfie not offered (the invite door, or the couple declined)
 });
 
 test('2 · 🏷 THE INVITATION ASKS, THE DAY TAKES THE SELFIE (owner 2026-09-30, "go"): the question and its answer, no camera, no face field', async () => {
-  const html = await card({ offerSelfie: 'question', faceMode: 'mode_a' });
+  const html = await card({ offerSelfie: false, askTagging: true, faceMode: 'mode_a' });
   assert.ok(html.includes(FACE_TAGGING_QUESTION), 'the invitation no longer asks the tagging question');
   answerInput(html, 'yes');
   answerInput(html, 'no');
@@ -199,7 +199,7 @@ test('2 · 🏷 THE INVITATION ASKS, THE DAY TAKES THE SELFIE (owner 2026-09-30,
   const strip = door.indexOf('stripInviteFaceFields(formData);');
   assert.ok(strip > -1 && strip < door.indexOf('return submitRsvp(eventId, guestId, formData);'), 'the invitation’s save no longer strips face fields before submitRsvp');
   // The reply page asks only where the couple has not declined.
-  assert.match(read('app/[slug]/invite/reply/page.tsx'), /offerSelfie=\{faceTagging\.askable \? 'question' : false\}/);
+  assert.match(read('app/[slug]/invite/reply/page.tsx'), /offerSelfie=\{false\}\s*askTagging=\{faceTagging\.askable\}/);
 });
 
 test('2 · the Event Hub card asks only where the couple has not declined', () => {

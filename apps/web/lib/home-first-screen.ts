@@ -122,3 +122,63 @@ export function glanceDays(daysOut: number | null): { value: string; label: stri
 export function glanceMoney(php: number | null): string {
   return php === null ? '—' : formatPhp(php);
 }
+
+/*
+  ─── "YOUR SERVICES" — Papic and Setnayan AI, one compact row ─────────────────
+
+  Owner, 2026-10-01, on the first screenshots: *"how about papic? and sai? not
+  seen here? … let's add it"*. One row under the numbers, two items, each with
+  the status the dashboard ALREADY derives — never a new opinion of its own:
+
+   · Papic — `resolvePapicHomeTile` (lib/papic-home-tile.ts), the same reader
+     the dashboard's Papic tile and the "free camera" nudge share. It is a
+     READINESS read (photos gathered, pre-capture), not an ownership pill.
+   · Setnayan AI — `isSetnayanAiActiveForEvent` under the resolved paywall, the
+     entitlement the dashboard's `aiEntitled` uses.
+
+  🔒 NOT IN THE STORE SHELL. Both are in `STORE_SHELL_HIDDEN_ADDON_KEYS`
+  (lib/store-shell.ts) and their pages are web-only there, so the row is absent.
+  ⛔ NEVER TWICE: the service that is today's Next card is left out of the row.
+  A read that failed prints "—".
+*/
+
+export type HomeServiceKey = 'papic' | 'ai';
+export type HomeService = { key: HomeServiceKey; name: string; status: string };
+
+/** What `resolvePapicHomeTile` returned, or 'failed' when it threw. */
+export type PapicStatusInput =
+  | { permitted: false }
+  | { permitted: true; tile: { photosGathered: number | null; preCapture: boolean } | null | 'failed' };
+
+export function papicStatus(input: PapicStatusInput): string {
+  // A viewer the capture counts are not shared with gets the door, not a number.
+  if (!input.permitted) return 'Open';
+  const { tile } = input;
+  if (tile === 'failed') return '—';
+  // No pool, no camera, no photo: this event has no Papic yet.
+  if (tile === null) return 'Not added';
+  // A refused count is not "nothing shot yet" (S41b).
+  if (tile.photosGathered === null) return '—';
+  if (tile.preCapture || tile.photosGathered === 0) return 'Free camera ready';
+  return `On · ${formatCount(tile.photosGathered)} ${tile.photosGathered === 1 ? 'photo' : 'photos'}`;
+}
+
+/** `null` = the entitlement could not be resolved. */
+export function aiStatus(active: boolean | null): string {
+  if (active === null) return '—';
+  return active ? 'On' : 'Try it';
+}
+
+export function homeServices(input: {
+  next: HomeNextKind;
+  storeShell: boolean;
+  papic: string;
+  ai: string;
+}): HomeService[] {
+  if (input.storeShell) return [];
+  const all: HomeService[] = [
+    { key: 'papic', name: 'Papic', status: input.papic },
+    { key: 'ai', name: 'Setnayan AI', status: input.ai },
+  ];
+  return all.filter((s) => s.key !== input.next);
+}

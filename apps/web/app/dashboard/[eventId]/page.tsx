@@ -16,7 +16,15 @@ import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
-import { glanceCount, glanceDays, glanceMoney, pickHomeNext } from '@/lib/home-first-screen';
+import {
+  aiStatus,
+  glanceCount,
+  glanceDays,
+  glanceMoney,
+  homeServices,
+  papicStatus,
+  pickHomeNext,
+} from '@/lib/home-first-screen';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { loadAfterSummary, type AfterSummary } from '@/lib/after-summary';
@@ -58,7 +66,8 @@ import { EventDashboard, daysUntil } from './_components/event-dashboard';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
-import { papicNudgeShouldShow } from '@/lib/papic-home-tile';
+import { papicNudgeShouldShow, resolvePapicHomeTile } from '@/lib/papic-home-tile';
+import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
 import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { resolveSetnayanAiOfferForEvent } from '@/lib/setnayan-ai-server';
@@ -164,7 +173,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision';
+      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -557,8 +566,10 @@ export default async function EventHomePage({
   // ⛓ The flag, the offer and its settings chain INSIDE one started promise —
   // each still asked only when the one before it says so.
   const aiOfferRead = (async () => {
-    const paywallOn = await resolveSetnayanAiPaywallEnabled();
-    const aiOffer = paywallOn
+    // `null` = the paywall could not be resolved: no offer, and Home's
+    // "Your services" row prints "—" for Setnayan AI rather than guess.
+    const paywallOn = await resolveSetnayanAiPaywallEnabled().catch((): boolean | null => null);
+    const aiOffer = paywallOn === true
       ? await resolveSetnayanAiOfferForEvent(
           supabase,
           eventId,
@@ -568,7 +579,7 @@ export default async function EventHomePage({
     // Only the BUY-card branch needs the BDO/GCash settings — fetch lazily,
     // same pattern as the studio buy page.
     const aiOfferSettings = aiOffer ? await fetchPlatformSettings(supabase) : null;
-    return { aiOffer, aiOfferSettings };
+    return { aiOffer, aiOfferSettings, paywallOn };
   })();
 
   // 🔒 NO PRICE ON THE FIRST SCREEN IN THE STORE SHELL. This offer carries a
@@ -581,6 +592,16 @@ export default async function EventHomePage({
 
   // 🪜 The guided "What's left" (Details part 5) — the FIRST candidate for the
   // one Next card. Authorised by the viewer's role, so it chains on that read.
+  // 📷 Papic's status for Home's "Your services" row — the SAME reader the
+  // dashboard's Papic tile and the free-camera nudge use (readiness, not a
+  // pill of ownership), authorised by the same membership read. A throw is
+  // 'failed' and prints "—".
+  const papicTileRead = papicViewerRead.then(({ canViewPapicCounts: may }) =>
+    may
+      ? resolvePapicHomeTile(adminClient, eventId, true).catch((): 'failed' => 'failed')
+      : Promise.resolve(null),
+  );
+
   const homeGuideRead = papicViewerRead.then(({ viewerMemberType }) =>
     readHomeGuide({ eventId, memberType: viewerMemberType }).catch(() => null),
   );
@@ -599,10 +620,11 @@ export default async function EventHomePage({
     },
     { nikahImamBooked, nikahImamNote },
     { canViewPapicCounts, papicNudgeVisible, viewerMemberType },
-    { aiOffer, aiOfferSettings },
+    { aiOffer, aiOfferSettings, paywallOn },
     storeShell,
     homeGuide,
     moneyNow,
+    papicTile,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -613,6 +635,7 @@ export default async function EventHomePage({
     storeShellRead,
     homeGuideRead,
     moneyRead,
+    papicTileRead,
   ]);
 
   /*
@@ -627,7 +650,9 @@ export default async function EventHomePage({
     guide: homeGuide,
     hasDate: Boolean(event.event_date),
     noun: eventNoun(event.event_type as string | null),
-    papicReady: Boolean(event.event_date && papicNudgeVisible),
+    // Papic's page is web-only in the store shell (STORE_SHELL_HIDDEN_ADDON_KEYS),
+    // so the Next card does not send an App Store user there.
+    papicReady: Boolean(event.event_date && papicNudgeVisible && !storeShell),
     aiOffer: aiOfferShown,
   });
   const rawPrecision = (event as { event_date_precision?: string | null }).event_date_precision;
@@ -639,6 +664,25 @@ export default async function EventHomePage({
           (event as { timezone?: string | null }).timezone ?? undefined,
         );
   const homeStats = computeGuestStats(guests);
+  const homeServiceRow = homeServices({
+    next: homeNext.kind,
+    storeShell,
+    papic: papicStatus(
+      canViewPapicCounts ? { permitted: true, tile: papicTile } : { permitted: false },
+    ),
+    ai: aiStatus(
+      paywallOn === null
+        ? null
+        : isSetnayanAiActiveForEvent(
+            event as {
+              planning_mode?: string | null;
+              setnayan_ai_active?: boolean | null;
+              setnayan_ai_active_until?: string | null;
+            },
+            { paywallEnabled: paywallOn },
+          ),
+    ),
+  });
   const homeTypeLabel = ((event.event_type as string | null) ?? 'wedding')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -660,6 +704,7 @@ export default async function EventHomePage({
           ? null
           : { paid: glanceMoney(moneyNow?.paid ?? null), owing: glanceMoney(moneyNow?.owing ?? null) }
       }
+      services={homeServiceRow}
     />
   );
 

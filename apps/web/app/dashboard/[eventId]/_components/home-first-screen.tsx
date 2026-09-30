@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
-import type { HomeNext, HomeNextKind } from '@/lib/home-first-screen';
+import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
 
 /**
  * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
@@ -19,6 +19,15 @@ function nextHref(kind: HomeNextKind, eventId: string): string {
   return doors.find((d) => d.kind === kind)?.href ?? '#home-all';
 }
 
+/** Where each service in the "Your services" row goes — `href:` literals, for the same scan. */
+function serviceHref(key: HomeServiceKey, eventId: string): string {
+  const doors: ReadonlyArray<{ key: HomeServiceKey; href: string }> = [
+    { key: 'papic', href: `/dashboard/${eventId}/studio/papic` },
+    { key: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
+  ];
+  return doors.find((d) => d.key === key)?.href ?? `/dashboard/${eventId}`;
+}
+
 /**
  * 📱 THE HOME'S FIRST SCREEN — owner-APPROVED 2026-10-01 ("THE SIMPLE PHONE APP
  * — APPROVED", frame 1 "Home"). A server component, and deliberately nothing
@@ -26,7 +35,8 @@ function nextHref(kind: HomeNextKind, eventId: string): string {
  * (`lib/home-first-screen.ts`), so this file adds no client weight and no read.
  *
  *   ONE Next card (one button) → Edit your Event Hub (always) → days to go ·
- *   coming · no reply → Paid / Still owing → "See all" (the rest of Home).
+ *   coming · no reply → Paid / Still owing → Your services (Papic · Setnayan
+ *   AI, owner 2026-10-01) → "See all" (the rest of Home).
  *
  * 🔒 ON A PHONE IT FILLS THE SCREEN, so nothing else sits above the fold: the
  * wrapper is at least one screen tall minus the top bar and the measured dock
@@ -47,6 +57,8 @@ export type HomeFirstScreenProps = {
   /** True when the no-reply figure is a measured number above zero. */
   noReplyWaiting: boolean;
   money: { paid: string; owing: string } | null;
+  /** Papic · Setnayan AI with their status — already filtered (store shell, the Next card). */
+  services: HomeService[];
 };
 
 export function HomeFirstScreen({
@@ -58,6 +70,7 @@ export function HomeFirstScreen({
   noReply,
   noReplyWaiting,
   money,
+  services,
 }: HomeFirstScreenProps) {
   return (
     <section
@@ -128,6 +141,26 @@ export function HomeFirstScreen({
             <span className="block font-display text-[20px] text-terracotta-700">{money.owing}</span>
           </span>
         </Link>
+      ) : null}
+
+      {/* ④ YOUR SERVICES — compact, one line each; never the one that is Next. */}
+      {services.length > 0 ? (
+        <nav aria-label="Your services" data-home-services className="flex flex-col gap-1">
+          <p className="px-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/50">Your services</p>
+          <div className="grid grid-cols-2 gap-2">
+            {services.map((svc) => (
+              <Link
+                key={svc.key}
+                href={serviceHref(svc.key, eventId)}
+                data-home-service={svc.key}
+                className="sn-glass-bare sn-press flex min-w-0 flex-col rounded-xl px-3 py-2.5"
+              >
+                <span className="truncate text-[14px] font-semibold text-ink">{svc.name}</span>
+                <span className="truncate text-[12px] text-ink/60">{svc.status}</span>
+              </Link>
+            ))}
+          </div>
+        </nav>
       ) : null}
 
       <a

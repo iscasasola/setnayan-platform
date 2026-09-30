@@ -2713,13 +2713,20 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     transform: none;
   }
 }
+/* 🪤 `backwards`, NEVER `both`/`forwards` (Fix E, 2026-09-30). A transform
+ * animated to `none` and FILLED forwards ends as translateY(0) — an identity
+ * matrix, which still makes this element the containing block of every
+ * `position: fixed` inside it. The roster's bulk bar is fixed to the screen
+ * bottom; held by a filled wrapper it sat at the bottom of the whole LIST
+ * instead, off-screen on a phone. `backwards` shows the same motion and leaves
+ * no transform behind. (`the-bulk-bar-is-pinned-to-the-screen.test.ts`) */
 .gl-settle {
-  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 /* A hair of stagger so the roster settles just after the facet bar,
  * reading as one connected motion rather than two independent pops. */
 .gl-settle-delayed {
-  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
   animation-delay: 0.05s;
 }
 
@@ -4643,7 +4650,9 @@ html.dark {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
-.sn-lens-swap { animation: sn-lens-swap var(--sn-dur-elem) var(--sn-ease-out) both; }
+/* `backwards`, not `both`: a filled end transform traps `position: fixed`
+ * descendants (see `.gl-settle`). */
+.sn-lens-swap { animation: sn-lens-swap var(--sn-dur-elem) var(--sn-ease-out) backwards; }
 
 /* Selected-row affordance — the master row that owns the open inspector. */
 [data-inspector-selected='true'] {

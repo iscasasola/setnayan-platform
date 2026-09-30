@@ -106,8 +106,9 @@ test('a ticket prints the style — Full means full, tickets included', () => {
 // ── 2 · THE PRINTED LISTS ──────────────────────────────────────────────────
 
 const ROWS: EntourageGuestRow[] = [
-  { guest_id: 'a', pair_with_guest_id: 'b', ...MANUEL, role: 'principal_sponsor_ninong' },
-  { guest_id: 'b', pair_with_guest_id: 'a', name_prefix: 'Mrs.', first_name: 'Rosa', middle_name: 'Lim', last_name: 'Casasola', role: 'principal_sponsor_ninang' },
+  // A real couple (ticked "They're a couple", #6189) — only a couple shares a surname on one line.
+  { guest_id: 'a', pair_with_guest_id: 'b', couple_with_guest_id: 'b', ...MANUEL, role: 'principal_sponsor_ninong' },
+  { guest_id: 'b', pair_with_guest_id: 'a', couple_with_guest_id: 'a', name_prefix: 'Mrs.', first_name: 'Rosa', middle_name: 'Lim', last_name: 'Casasola', role: 'principal_sponsor_ninang' },
   { guest_id: 'c', display_name: 'Tito Boy', first_name: 'Jose', last_name: 'Reyes', role: 'guest' },
   { guest_id: 'd', name_prefix: 'Ms.', first_name: 'Ana', middle_name: 'Bautista', last_name: 'Cruz', role: 'guest' },
 ];

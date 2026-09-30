@@ -44,6 +44,7 @@ guest inside the top third at 390×844. Desktop keeps its header row but the SAM
 ## Owner rulings 2026-10-01 (in this build)
 - Phone: only the round + adds; its four ways also in ⋯. Keep the rows' dashed "+" add-to-group.
 - Desktop: "keep it similar" — the SAME round + and the SAME add sheet (no header capture bar); dashed "+" on desktop rows.
+- The + lives in the HEADER beside ⋯ at both widths — NO floating button (DECISION_LOG "THE BOTTOM BAR IS HOME · GUESTS · SUPPLIERS · HUB · MORE"); `CustomerNavFab` returns null on /guests.
 - Phone Show ▾ visible on the counts line; desktop shows several columns.
 - Every person is their own row (never merge a pair).
 

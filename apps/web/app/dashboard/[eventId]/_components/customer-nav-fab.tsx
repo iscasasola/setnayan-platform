@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { NavFab } from '@/app/_components/nav/nav-fab';
@@ -37,7 +38,11 @@ export function CustomerNavFab({
   eventId: string;
   phase?: MenuLifecyclePhase;
 }) {
-  if (phase === 'after') return null;
+  // ⚖ Not on the Guest list itself (owner 2026-10-01, DECISION_LOG "THE BOTTOM
+  // BAR IS HOME · GUESTS · SUPPLIERS · HUB · MORE": no floating button at the
+  // bottom of Guests). Its Add is the round + in that page's header.
+  const pathname = usePathname();
+  if (phase === 'after' || pathname === `/dashboard/${eventId}/guests`) return null;
 
   return (
     <NavFab

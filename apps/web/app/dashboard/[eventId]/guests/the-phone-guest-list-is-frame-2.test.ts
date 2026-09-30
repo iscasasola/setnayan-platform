@@ -41,7 +41,7 @@ test('Sort ▾ and the add doors are behind ⋯ on a phone and in the row on a c
   }
 });
 
-test('ONE Filter ▾ at every width over the SAME four dropdowns; the add box becomes the round +', () => {
+test('ONE Filter ▾ at every width over the SAME four dropdowns; ONE + in the header opens the add sheet', () => {
   assert.match(ROW, /data-find-add-filter-toggle=""/, 'the one Filter ▾ is gone');
   assert.doesNotMatch(ROW.slice(ROW.indexOf('data-find-add-filter-toggle'), ROW.indexOf('data-find-add-filter-toggle') + 300), /lg:hidden/, 'the computer lost the one Filter ▾ — desktop may show more, never different');
   assert.match(ROW, /\{filterOpen \? 'block' : 'hidden'\}" data-find-add-filter=""|\$\{filterOpen \? 'block' : 'hidden'\}`\} data-find-add-filter=""/, 'the four dropdowns are not behind the one Filter ▾');
@@ -49,12 +49,18 @@ test('ONE Filter ▾ at every width over the SAME four dropdowns; the add box be
   assert.doesNotMatch(ROW, /data-find-add-add|<CaptureBar|\badd\b\s*[:?]/, 'a header add box is back in the row');
   // One ⋯ element: beside the phone's title, at the end of the computer's row.
   assert.match(ROW, /\{more \? <div className="ml-auto hidden shrink-0 lg:block">\{more\}<\/div> : null\}/, 'the computer lost its ⋯');
-  assert.match(PAGE, /more=\{moreMenu\}/, 'the row is not handed the ⋯');
-  assert.match(PAGE, /data-guests-phone-title="">[\s\S]{0,160}Guests[\s\S]{0,40}\{moreMenu\}/, 'the phone lost its title + ⋯ line (frame 2)');
-  assert.match(PAGE, /data-guests-add-fab=""/, 'there is no way to add a guest');
-  const fab = PAGE.slice(PAGE.indexOf('data-guests-add-fab') - 300, PAGE.indexOf('data-guests-add-fab') + 300);
-  assert.match(fab, /<OpenAddGuestButton\b/, 'the round + no longer opens the add sheet');
-  assert.doesNotMatch(fab, /lg:hidden/, 'the round + is phone-only again — the computer must add the same way');
+  assert.match(PAGE, /more=\{\s*<div className="flex items-center gap-2">[\s\S]{0,60}\{moreMenu\}/, 'the row is not handed the ⋯');
+  assert.match(PAGE, /data-guests-phone-title="">[\s\S]{0,160}Guests[\s\S]{0,120}\{moreMenu\}/, 'the phone lost its title + ⋯ line (frame 2)');
+  // ⚖ The + is in the HEADER beside ⋯ at every width — never a floating button
+  // (owner 2026-10-01, "THE BOTTOM BAR IS HOME · GUESTS · SUPPLIERS · HUB · MORE").
+  assert.doesNotMatch(PAGE, /data-guests-add-fab|className="fixed[^"]*"[^>]*>\s*<OpenAddGuestButton/, 'a floating add button is back on the Guests page');
+  assert.match(PAGE, /const addPlus = <OpenAddGuestButton\b/, 'the header + is gone');
+  assert.match(PAGE, /data-guests-phone-title="">[\s\S]{0,260}\{addPlus\}\s*\{moreMenu\}/, 'the phone header has no + beside ⋯');
+  assert.match(PAGE, /more=\{\s*<div className="flex items-center gap-2">\s*\{addPlus\}\s*\{moreMenu\}/, 'the computer header has no + beside ⋯');
+  assert.doesNotMatch(read('_components', 'add-guest-sheet.tsx'), /\bfixed right-|\bbottom-\[/, 'the + became a floating button');
+  // The layout's own floating "Add guest" stands down on this page.
+  const navFab = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', '_components', 'customer-nav-fab.tsx'), 'utf8'));
+  assert.match(navFab, /pathname === `\/dashboard\/\$\{eventId\}\/guests`\) return null;/, 'the floating "Add guest" still covers the Guests page');
   // The sheet: the name box first (the shipped CaptureBar, Enter adds), then the other ways as rows.
   assert.match(PAGE, /<AddGuestSheet\s+nameBox=\{<CaptureBar eventId=\{eventId\}[^}]*\} withDoors=\{false\} \/>\}\s+doors=\{<AddDoors eventId=\{eventId\} rows \/>\}/, 'the add sheet is not the name box + the other ways');
   assert.equal((PAGE.match(/<CaptureBar\b/g) ?? []).length, 1, 'a second capture bar (header) is back');

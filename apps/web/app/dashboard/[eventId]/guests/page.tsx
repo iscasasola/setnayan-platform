@@ -998,6 +998,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // The ⋯ — Show · Sort · the doors · the add doors (guests-phone-menu.tsx).
   // ONE element, placed twice by breakpoint: beside the phone's title (frame 2
   // of the approved simple phone app) and at the end of the computer's row.
+  // The header's two round buttons, + then ⋯ — the phone's title line and the
+  // end of the computer's row draw this ONE element.
+  const addPlus = <OpenAddGuestButton label={finished ? 'Still adding someone? — the list is open' : 'Add a guest'} />;
   const moreMenu = (
     <GuestsPhoneMenu
       sort={<RosterSort sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} current={sort} />}
@@ -1068,7 +1071,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <span aria-hidden className="font-display text-2xl text-ink">
           Guests
         </span>
-        {moreMenu}
+        <div className="flex items-center gap-2">
+          {addPlus}
+          {moreMenu}
+        </div>
       </div>
       {/* ⚖ THE MASTHEAD'S DOORS BECAME ONE ROW — owner 2026-09-20: "these row
           can be 1 row". Every door keeps the exact condition it had here
@@ -1242,7 +1248,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           // behind ⋯). The page has no visible title — owner-locked 2026-08-21,
           // `PageMasthead` — so the ⋯ rides at the end of the one row instead
           // of costing a row of its own; the first guest stays in the top third.
-          more={moreMenu}
+          more={
+            <div className="flex items-center gap-2">
+              {addPlus}
+              {moreMenu}
+            </div>
+          }
           roleNames={roleNames}
           stats={stats}
           measured={guestsMeasured}
@@ -1386,18 +1397,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       </div>
       )}
 
-      {/* ⚖ ONE WAY TO ADD, AT EVERY WIDTH — the round + (frame 2 of the
-          approved simple phone app; owner 2026-10-01 "okay keep it similar" for
-          the computer). It opens the add sheet: the name box first (Enter adds,
-          the shipped CaptureBar), then the other ways in. It stands above the
-          phone's bottom bar and at the list's bottom-right on a computer, below
-          the bulk bar. After the day it still says the list is open. */}
-      <div
-        className="fixed right-4 z-30 bottom-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+0.75rem)] lg:bottom-8 lg:right-8"
-        data-guests-add-fab=""
-      >
-        <OpenAddGuestButton label={finished ? 'Still adding someone? — the list is open' : 'Add a guest'} />
-      </div>
+      {/* ⚖ ONE WAY TO ADD, AT EVERY WIDTH — the round + in the header, beside
+          ⋯ (owner 2026-10-01 "okay keep it similar", then "THE BOTTOM BAR IS
+          HOME · GUESTS · SUPPLIERS · HUB · MORE": no floating button at the
+          bottom). It opens this sheet: the name box first (Enter adds, the
+          shipped CaptureBar), then the other ways in. */}
       <AddGuestSheet
         nameBox={<CaptureBar eventId={eventId} defaultSide={teamFilter === 'all' ? 'both' : teamFilter} withDoors={false} />}
         doors={<AddDoors eventId={eventId} rows />}

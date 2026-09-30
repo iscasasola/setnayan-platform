@@ -3,7 +3,7 @@
 /**
  * add-guest-sheet.tsx — ONE way to add a guest, at every width: the round +.
  *
- * ⚖ Owner 2026-10-01 (via the controller): the phone's Add is the round + (frame
+ * ⚖ Owner 2026-10-01 (via the controller): the phone's Add is a round + (frame
  * 2 of the approved simple phone app) → *"this also should be visible on desktop
  * mode?"* → *"okay keep it similar"*: the computer uses the SAME round + and the
  * SAME sheet. Tapping + opens it: first "Type a name…" (Enter adds — the shipped
@@ -20,6 +20,11 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 
 const OPEN_EVENT = 'setnayan:add-guest-open';
 
+/**
+ * The round + — in the Guests page HEADER, beside ⋯, at every width (owner
+ * 2026-10-01, DECISION_LOG "THE BOTTOM BAR IS HOME · GUESTS · SUPPLIERS · HUB ·
+ * MORE": no floating button at the bottom). Same circle and size as the ⋯.
+ */
 export function OpenAddGuestButton({ label }: { label: string }) {
   return (
     <button
@@ -28,9 +33,9 @@ export function OpenAddGuestButton({ label }: { label: string }) {
       title={label}
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
       data-guests-add-plus=""
-      className="flex h-14 w-14 items-center justify-center rounded-full bg-ink text-cream shadow-[0_14px_30px_-12px_rgba(26,26,26,0.6)] hover:bg-ink/90"
+      className="flex h-11 w-11 items-center justify-center rounded-full bg-ink text-cream hover:bg-ink/90"
     >
-      <Plus className="h-6 w-6" strokeWidth={2} aria-hidden />
+      <Plus className="h-5 w-5" strokeWidth={2} aria-hidden />
     </button>
   );
 }

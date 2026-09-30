@@ -1174,8 +1174,8 @@ export function GuestListMultiselect({
               <th className="w-[104px] px-3 py-2.5 font-semibold">
                 <InfoTip label="Invite" align="end" ariaLabel="How Invite works">
                   <span className="block normal-case tracking-normal font-normal">
-                    Each guest has their own QR. Tap Invite to send the message and their QR
-                    together — on a computer, copy the message, then the QR, and paste both.
+                    Each guest has their own ticket. Tap Invite to send the message and their
+                    ticket together — on a computer, copy the message, then the ticket, and paste both.
                   </span>
                 </InfoTip>
               </th>

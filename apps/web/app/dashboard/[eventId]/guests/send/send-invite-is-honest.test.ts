@@ -63,7 +63,7 @@ test('⓵ the three paths: files where the sheet takes a file, text where not, c
   assert.match(share, /files:\s*\[file\],\s*text:\s*message\(true\)/);
   assert.match(share, /\{\s*text:\s*message\(false\)\s*\}/);
   // …and the card's Send invite goes through it. No share sheet, or a refused
-  // one → the copy (which offers Download QR + Mark as sent).
+  // one → the copy (which offers Download ticket + Mark as sent).
   const send = body(read(SEND), 'send');
   assert.match(send, /shareInvite\(/, 'Send invite has its own share path again');
   assert.match(send, /copyText\('copied-desktop'\)/);
@@ -109,7 +109,16 @@ test('⓸ the QR image is fetched before the tap, never between the tap and navi
   assert.doesNotMatch(body(src, 'send'), /\bfetch\(/, 'a fetch inside send() can spend iOS’s user activation');
   assert.doesNotMatch(body(src, 'shareInvite'), /\bfetch\(/, 'a fetch inside shareInvite() can spend iOS’s user activation');
   assert.doesNotMatch(body(src, 'invite'), /\bfetch\(/, 'a fetch inside the Invite column’s tap can spend iOS’s user activation');
-  assert.match(body(src, 'useQrFile'), /useEffect\([\s\S]*fetch\(`\/api\/website\/qr\/guest\/\$\{guestId\}`/);
+  assert.match(body(src, 'useTicketFile'), /useEffect\([\s\S]*fetch\(ticketUrl\(guestId\)/);
+});
+
+test('⓺ what travels is the Digital ticket, never the bare QR (owner 2026-09-30)', () => {
+  // "so what will show is not QR Code. it will be the Digital Ticket" ·
+  // "we do not copy the QR Code, we copy the Digital Ticket".
+  const src = read(SEND);
+  assert.match(body(src, 'ticketUrl'), /\$\{PASS_CARD_ROUTE\}\?guest=/, 'the shared file is not the pass-card (ticket) route');
+  assert.doesNotMatch(src, /\/api\/website\/qr\/guest\//, 'send-invite.tsx still fetches the bare QR PNG');
+  assert.match(body(src, 'copyTicketImage'), /ticketUrl\(guestId\)/);
 });
 
 test('⓹ the couple’s wording survives the Details and Menu saves that share its jsonb', () => {

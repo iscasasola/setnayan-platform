@@ -39,6 +39,7 @@ import {
   ShieldCheck,
   Sparkles,
   Table2,
+  Ticket,
   UserSquare,
   Users,
   UtensilsCrossed,
@@ -810,22 +811,22 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_guest_invite_v1: {
     key: 'customer_guest_invite_v1',
     label: 'Guest list — Invite',
-    blurb: 'Sending each guest their own message and QR from the Invite column.',
+    blurb: 'Sending each guest their own message and Digital ticket from the Invite column.',
     slides: [
       {
-        Icon: QrCode,
-        title: 'Each guest has their own QR',
-        body: 'Every guest on your list has a personal QR and link. It opens their own invitation, with their name on it.',
+        Icon: Ticket,
+        title: 'Each guest has their own ticket',
+        body: 'Every guest on your list has a personal link and Digital ticket. The ticket opens their own invitation, and it is their pass at the door.',
       },
       {
         Icon: Send,
         title: 'Tap Invite to send it',
-        body: 'Pick Messenger, Viber or any app &mdash; the message and their QR go together. The row then shows it was sent.',
+        body: 'Pick Messenger, Viber or any app &mdash; the message and their ticket go together. The row then shows it was sent.',
       },
       {
         Icon: Laptop,
         title: 'On a computer',
-        body: 'Tap Invite, then <b>Copy message</b> and <b>Copy QR</b>, and paste both into the chat. Tap <b>Mark as sent</b> when it is on its way.',
+        body: 'Tap Invite, then <b>Copy message</b> and <b>Copy ticket</b>, and paste both into the chat. Tap <b>Mark as sent</b> when it is on its way.',
       },
       {
         Icon: CheckCircle2,

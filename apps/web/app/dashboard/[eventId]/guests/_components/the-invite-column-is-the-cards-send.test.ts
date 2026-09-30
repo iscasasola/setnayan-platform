@@ -11,7 +11,7 @@
  *   2. The couple's own rows and a guest marked Passed away get NO control:
  *      the same rule the card's Send invite keeps (`guest-card-body.tsx`).
  *   3. It is NOT a second sender. The cell lives in `send-invite.tsx` and goes
- *      through the SAME share (`shareInvite`), the same QR file (`useQrFile`),
+ *      through the SAME share (`shareInvite`), the same Digital ticket file (`useTicketFile`),
  *      the same message builder and the ONE Sent ✓ writer — and the card's
  *      `SendInviteActions` goes through that same `shareInvite`, so the two
  *      cannot drift into sending different things.
@@ -78,7 +78,7 @@ test('the couple and a guest marked Passed away get no Invite — the card’s o
 test('the cell is the card’s Send invite in a row’s width, not a second sender', () => {
   assert.match(ROSTER, /import \{ GuestInviteCell \} from '\.\/send-invite';/);
   const cell = bodyOf(SEND, 'GuestInviteCell');
-  for (const piece of ['shareInvite(', 'useQrFile(', 'buildGuestInviteMessage(', 'setGuestInvitationSent(', 'copyQrImage(']) {
+  for (const piece of ['shareInvite(', 'useTicketFile(', 'buildGuestInviteMessage(', 'setGuestInvitationSent(', 'copyTicketImage(']) {
     assert.ok(cell.includes(piece), `GuestInviteCell no longer calls ${piece} — it has grown its own path`);
   }
   // …and the card goes through the SAME share, so the two cannot send different things.
@@ -93,6 +93,19 @@ test('the page reads the words once, hands them to the list, and mounts the tour
   assert.ok(TOUR_KEYS.includes('customer_guest_invite_v1'), 'the tour key is not registered');
   const n = TOURS.customer_guest_invite_v1.slides.length;
   assert.ok(n >= 3 && n <= 4, `the Invite tour has ${n} slides — the brief is 3–4 short ones`);
+});
+
+test('the column hands over the Digital ticket, not the QR — and says so', () => {
+  // Owner 2026-09-30: "we do not copy the QR Code, we copy the Digital Ticket".
+  const cell = bodyOf(SEND, 'GuestInviteCell');
+  assert.match(cell, /Copy ticket/);
+  assert.match(cell, /Paste the message, then paste the ticket\./);
+  assert.doesNotMatch(cell, /Copy QR|paste the QR/);
+  const tour = TOURS.customer_guest_invite_v1.slides.map((s) => `${s.title} ${s.body}`).join(' ');
+  assert.match(tour, /ticket/);
+  assert.doesNotMatch(tour, /\bQR\b/);
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  assert.match(head, /their\s+ticket/);
 });
 
 test('nothing a couple reads says "email" — Setnayan sends guests nothing', () => {

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
-import { Check, Copy, Download, QrCode, Send, Undo2 } from 'lucide-react';
+import { Check, Copy, Download, Send, Ticket, Undo2 } from 'lucide-react';
+import { PASS_CARD_ROUTE, passCardFileName } from '@/lib/pass-card';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { saveImageToDevice } from '@/lib/save-to-device';
 import { Popover } from './overlay-primitives';
@@ -24,11 +25,15 @@ import { saveInviteMessage } from '../send/actions';
  *
  * ── WHAT EACH BUTTON DOES, AND WHY IT IS THIS ─────────────────────────────
  *   · SEND INVITE — the phone's share sheet (Messenger · Viber · Messages):
- *       ⓵ the message AND the guest's QR as an image, where the sheet takes a
- *         file (`navigator.canShare({ files })`);
- *       ⓶ the message alone where it does not — the link's page shows their QR;
+ *       ⓵ the message AND the guest's DIGITAL TICKET (the pass-card PNG, in the
+ *         couple's chosen ticket style), where the sheet takes a file
+ *         (`navigator.canShare({ files })`);
+ *       ⓶ the message alone where it does not — the link's page shows their ticket;
  *       ⓷ no share sheet at all (most desktops): the message is COPIED, and
- *         Download QR + Mark as sent are offered beside it.
+ *         Download ticket + Mark as sent are offered beside it.
+ *     🎫 THE TICKET, NOT THE QR (owner 2026-09-30: *"so what will show is not QR
+ *     Code. it will be the Digital Ticket"* · *"we do not copy the QR Code, we
+ *     copy the Digital Ticket"*). The QR is on the ticket.
  *     A share the phone completed stamps Sent ✓ (`invitation_sent_at`, through
  *     the ONE writer in `invitation/actions.ts`). Closing the sheet is not a
  *     failure and stamps nothing.
@@ -36,11 +41,14 @@ import { saveInviteMessage } from '../send/actions';
  *     paste into Messenger/Viber themselves. 🔑 A COPY IS NOT A SEND, so it
  *     never stamps by itself; it OFFERS "Mark as sent".
  *
- * 🪤 THE QR FILE IS FETCHED BEFORE THE TAP. iOS Safari refuses a share that is
- * not inside the tap's user activation, and an `await fetch()` between the tap
- * and `navigator.share` can spend it. So the PNG (the same route Download uses,
- * `/api/website/qr/guest/<id>`) is fetched on mount, and the tap shares what
- * is already in hand. If it is not ready, the text-only share still works.
+ * 🪤 THE TICKET FILE IS FETCHED BEFORE THE TAP. iOS Safari refuses a share that
+ * is not inside the tap's user activation, and an `await fetch()` between the
+ * tap and `navigator.share` can spend it. So the PNG (the same route the
+ * guest's "Save my ticket" and the card's "Download ticket (PNG)" use,
+ * `PASS_CARD_ROUTE?guest=<id>`) is fetched ahead, and the tap shares what is
+ * already in hand. If it is not ready — or the guest has no ticket (they
+ * replied they can't come) — the text-only share still works, and its wording
+ * says the ticket is on the page the link opens.
  *
  * ⛔ WE SEND NOTHING. No SMS (V1), no email, no delivery on the couple's
  * behalf — every message leaves from the couple's own phone.
@@ -66,12 +74,18 @@ type ShareNav = Navigator & {
   canShare?: (data: { files?: File[]; text?: string }) => boolean;
 };
 
-function qrFileName(name: string): string {
-  return `qr-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase().replace(/^-+|-+$/g, '') || 'guest'}.png`;
+/** The route one guest's Digital ticket is drawn at — the couple's chosen style. */
+function ticketUrl(guestId: string): string {
+  return `${PASS_CARD_ROUTE}?guest=${encodeURIComponent(guestId)}`;
 }
 
-/** The guest's QR as a File, fetched ahead of the tap (see the 🪤 above). */
-function useQrFile(guestId: string, name: string, enabled: boolean): File | null {
+/** The ticket's file name — the same one "Save my ticket" gives it. */
+function ticketFileName(name: string, facts: InviteEventFacts): string {
+  return passCardFileName({ guestName: name, eventName: facts.hostsName, eventDate: facts.eventDate });
+}
+
+/** The guest's Digital ticket as a File, fetched ahead of the tap (see the 🪤 above). */
+function useTicketFile(guestId: string, name: string, enabled: boolean): File | null {
   const [file, setFile] = useState<File | null>(null);
   useEffect(() => {
     setFile(null);
@@ -80,14 +94,14 @@ function useQrFile(guestId: string, name: string, enabled: boolean): File | null
     // Only a device that can share files needs the bytes.
     if (!nav || typeof nav.share !== 'function' || typeof nav.canShare !== 'function') return;
     let alive = true;
-    fetch(`/api/website/qr/guest/${guestId}`, { credentials: 'same-origin' })
+    fetch(ticketUrl(guestId), { credentials: 'same-origin' })
       .then((r) => (r.ok ? r.blob() : null))
       .then((blob) => {
         if (!alive || !blob) return;
-        setFile(new File([blob], qrFileName(name), { type: blob.type || 'image/png' }));
+        setFile(new File([blob], name, { type: blob.type || 'image/png' }));
       })
       .catch(() => {
-        /* No file → the text-only share, which still carries the link. */
+        /* No ticket → the text-only share, which still carries the link. */
       });
     return () => {
       alive = false;
@@ -98,7 +112,7 @@ function useQrFile(guestId: string, name: string, enabled: boolean): File | null
 
 /**
  * THE ONE SHARE — the phone's sheet with the message and, where the sheet takes
- * a file, the guest's QR. Shared by `SendInviteActions` (the guest card and the
+ * a file, the guest's Digital ticket. Shared by `SendInviteActions` (the guest card and the
  * one-by-one run) and `GuestInviteCell` (the Guest list's Invite column), so a
  * row and a card can never send two different things.
  *
@@ -109,7 +123,7 @@ function useQrFile(guestId: string, name: string, enabled: boolean): File | null
  */
 export async function shareInvite(
   file: File | null,
-  message: (qrAttached: boolean) => string,
+  message: (ticketAttached: boolean) => string,
 ): Promise<'shared' | 'closed' | 'copy'> {
   const nav = typeof navigator !== 'undefined' ? (navigator as ShareNav) : null;
   const path = inviteSendPath({
@@ -129,9 +143,9 @@ export async function shareInvite(
 }
 
 /**
- * COPY QR — the guest's QR PNG onto the clipboard as an IMAGE, so it pastes
- * straight into Messenger or Viber on a computer (owner 2026-09-30: *"copy a
- * message with the link and the photo with it"*).
+ * COPY TICKET — the guest's Digital ticket onto the clipboard as an IMAGE, so it
+ * pastes straight into Messenger or Viber on a computer (owner 2026-09-30:
+ * *"we do not copy the QR Code, we copy the Digital Ticket"*).
  *
  * 🪤 THE BLOB IS HANDED OVER AS A PROMISE. Safari refuses `clipboard.write`
  * once the click's activation is spent, and an `await fetch()` before it
@@ -139,19 +153,20 @@ export async function shareInvite(
  * inside the click.
  *
  * A browser that refuses an image on the clipboard (older Firefox, some
- * in-app browsers) gets the PNG as a file instead — the same save the card's
- * Download QR uses (`saveImageToDevice`), so it never opens a new page.
+ * in-app browsers) gets the PNG as a file instead (`saveImageToDevice`, so it
+ * never opens a new page). A guest with NO ticket — the route's one 404, for a
+ * guest who replied they can't come — is said as that, not as a failure.
  */
-export async function copyQrImage(
+export async function copyTicketImage(
   guestId: string,
-  name: string,
-): Promise<'copied' | 'saved' | 'failed'> {
-  const url = `/api/website/qr/guest/${guestId}`;
+  fileName: string,
+): Promise<'copied' | 'saved' | 'none' | 'failed'> {
+  const url = ticketUrl(guestId);
   try {
     if (typeof ClipboardItem !== 'undefined' && typeof navigator.clipboard?.write === 'function') {
       const png = fetch(url, { credentials: 'same-origin' })
         .then((r) => {
-          if (!r.ok) throw new Error(`qr ${r.status}`);
+          if (!r.ok) throw new Error(`ticket ${r.status}`);
           return r.blob();
         })
         .then((b) => (b.type === 'image/png' ? b : new Blob([b], { type: 'image/png' })));
@@ -159,9 +174,11 @@ export async function copyQrImage(
       return 'copied';
     }
   } catch {
-    /* Refused — save the file instead, below. */
+    /* Refused, or no ticket — find out which below. */
   }
-  const saved = await saveImageToDevice(url, qrFileName(name));
+  const probe = await fetch(url, { credentials: 'same-origin' }).catch(() => null);
+  if (probe?.status === 404) return 'none';
+  const saved = await saveImageToDevice(url, fileName);
   return saved === 'failed' ? 'failed' : 'saved';
 }
 
@@ -172,7 +189,7 @@ function isTouchDevice(): boolean {
 
 type Said =
   | { kind: 'copied' } // Copy message — offers Mark as sent
-  | { kind: 'copied-desktop' } // Send invite with no share sheet — copy + Download QR + Mark as sent
+  | { kind: 'copied-desktop' } // Send invite with no share sheet — copy + Download ticket + Mark as sent
   | { kind: 'manual'; text: string } // clipboard blocked — the text, selectable
   | { kind: 'error'; text: string };
 
@@ -200,7 +217,7 @@ export function SendInviteActions({
   const [pending, startTransition] = useTransition();
   const manualRef = useRef<HTMLTextAreaElement>(null);
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
-  const file = useQrFile(guest.guestId, guest.fullName, Boolean(guest.inviteUrl));
+  const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName, facts), Boolean(guest.inviteUrl));
 
   useEffect(() => {
     setSentAt(guest.sentAt);
@@ -220,7 +237,7 @@ export function SendInviteActions({
     );
   }
 
-  const message = (qrAttached: boolean) =>
+  const message = (ticketAttached: boolean) =>
     buildGuestInviteMessage({
       ...facts,
       formalName: guest.formalName,
@@ -228,7 +245,7 @@ export function SendInviteActions({
       guestName: guest.fullName,
       inviteUrl: guest.inviteUrl ?? '',
       template,
-      qrAttached,
+      ticketAttached,
     }) ?? '';
 
   function mark(sent: boolean) {
@@ -326,20 +343,20 @@ export function SendInviteActions({
           <div className="space-y-1.5 text-[13px] text-ink/75">
             <p>
               {said.kind === 'copied-desktop'
-                ? `Message copied — paste it to ${first} in Messenger or Viber, and add their QR.`
+                ? `Message copied — paste it to ${first} in Messenger or Viber, and add their ticket.`
                 : `Copied — paste it to ${first} in Messenger or Viber.`}
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {said.kind === 'copied-desktop' ? (
                 <SaveFileLink
-                  href={`/api/website/qr/guest/${guest.guestId}`}
-                  filename={qrFileName(guest.fullName)}
+                  href={ticketUrl(guest.guestId)}
+                  filename={ticketFileName(guest.fullName, facts)}
                   className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 text-sm font-medium text-ink/80"
                 >
                   {(state) => (
                     <>
                       <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                      {state === 'saving' ? 'Saving…' : 'Download QR'}
+                      {state === 'saving' ? 'Saving…' : 'Download ticket'}
                     </>
                   )}
                 </SaveFileLink>
@@ -547,19 +564,20 @@ export function GuestSendInvite({
  * with it. and instructions on how to use it"*).
  *
  * 🔑 NOT A SECOND SENDER. It is the card's Send invite in a row's width: the
- * same message (`buildGuestInviteMessage`), the same QR file fetched ahead of
- * the tap (`useQrFile`), the same share (`shareInvite`), and the same ONE
+ * same message (`buildGuestInviteMessage`), the same Digital ticket fetched ahead of
+ * the tap (`useTicketFile`), the same share (`shareInvite`), and the same ONE
  * writer for Sent ✓ (`setGuestInvitationSent`, which revalidates this page and
  * the Invitation page, so "Not sent yet (N)" falls).
  *
- *   · A PHONE — one tap opens the share sheet with the message AND the QR.
+ *   · A PHONE — one tap opens the share sheet with the message AND their
+ *     Digital ticket (owner 2026-09-30: the ticket, never the bare QR).
  *     An app taking it is the couple's send → Sent ✓. Closing it sends nothing.
- *   · A COMPUTER — Copy message, then Copy QR, and paste both. 🔑 A COPY IS
+ *   · A COMPUTER — Copy message, then Copy ticket, and paste both. 🔑 A COPY IS
  *     NOT A SEND (the card's rule), so it offers "Mark as sent", never stamps.
  *
- * 🪤 THE QR IS FETCHED ONLY FOR A ROW ON SCREEN, AND ONLY ON A PHONE. The card
- * fetches on mount because there is one card; a list of 180 rows fetching 180
- * PNGs on arrival is a cost nobody asked for. A row that has been seen keeps
+ * 🪤 THE TICKET IS FETCHED ONLY FOR A ROW ON SCREEN, AND ONLY ON A PHONE. The
+ * card fetches on mount because there is one card; a list of 180 rows asking
+ * the server to draw 180 tickets on arrival is a cost nobody asked for. A row that has been seen keeps
  * its file, so a tap never waits on the network (iOS spends the tap's
  * activation on any `await` before `navigator.share`).
  */
@@ -581,8 +599,9 @@ export function GuestInviteCell({
   const [open, setOpen] = useState(false);
   const [said, setSaid] = useState<
     | { kind: 'message' }
-    | { kind: 'qr' }
-    | { kind: 'qr-saved' }
+    | { kind: 'ticket' }
+    | { kind: 'ticket-saved' }
+    | { kind: 'no-ticket' }
     | { kind: 'manual'; text: string }
     | { kind: 'error'; text: string }
     | null
@@ -611,7 +630,8 @@ export function GuestInviteCell({
     io.observe(el);
     return () => io.disconnect();
   }, [onScreen]);
-  const file = useQrFile(guest.guestId, guest.fullName, Boolean(guest.inviteUrl) && onScreen);
+  const fileName = ticketFileName(guest.fullName, facts);
+  const file = useTicketFile(guest.guestId, fileName, Boolean(guest.inviteUrl) && onScreen);
 
   if (!guest.inviteUrl) {
     return (
@@ -625,7 +645,7 @@ export function GuestInviteCell({
     );
   }
 
-  const message = (qrAttached: boolean) =>
+  const message = (ticketAttached: boolean) =>
     buildGuestInviteMessage({
       ...facts,
       formalName: guest.formalName,
@@ -633,7 +653,7 @@ export function GuestInviteCell({
       guestName: guest.fullName,
       inviteUrl: guest.inviteUrl ?? '',
       template,
-      qrAttached,
+      ticketAttached,
     }) ?? '';
 
   function mark(sent: boolean) {
@@ -653,7 +673,7 @@ export function GuestInviteCell({
 
   async function invite() {
     setSaid(null);
-    // A phone: the share sheet, message + QR together. A computer: the panel —
+    // A phone: the share sheet, message + ticket together. A computer: the panel —
     // its share sheet (Mail, AirDrop) is not where Messenger and Viber live.
     if (isTouchDevice()) {
       const out = await shareInvite(file, message);
@@ -673,14 +693,16 @@ export function GuestInviteCell({
     }
   }
 
-  async function copyQr() {
-    const out = await copyQrImage(guest.guestId, guest.fullName);
+  async function copyTicket() {
+    const out = await copyTicketImage(guest.guestId, fileName);
     setSaid(
       out === 'copied'
-        ? { kind: 'qr' }
+        ? { kind: 'ticket' }
         : out === 'saved'
-          ? { kind: 'qr-saved' }
-          : { kind: 'error', text: 'We couldn’t get the QR just now. Try again.' },
+          ? { kind: 'ticket-saved' }
+          : out === 'none'
+            ? { kind: 'no-ticket' }
+            : { kind: 'error', text: 'We couldn’t get the ticket just now. Try again.' },
     );
   }
 
@@ -732,19 +754,24 @@ export function GuestInviteCell({
                 )}
                 {said?.kind === 'message' ? 'Copied ✓' : 'Copy message'}
               </button>
-              <button type="button" onClick={copyQr} className={small} data-guest-invite-copy-qr="">
-                {said?.kind === 'qr' ? (
+              <button type="button" onClick={copyTicket} className={small} data-guest-invite-copy-ticket="">
+                {said?.kind === 'ticket' ? (
                   <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2.25} />
                 ) : (
-                  <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  <Ticket aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 )}
-                {said?.kind === 'qr' ? 'Copied ✓' : 'Copy QR'}
+                {said?.kind === 'ticket' ? 'Copied ✓' : 'Copy ticket'}
               </button>
             </div>
-            <p className="text-xs leading-relaxed text-ink/60">Paste the message, then paste the QR.</p>
+            <p className="text-xs leading-relaxed text-ink/60">Paste the message, then paste the ticket.</p>
             <div aria-live="polite" className="space-y-1.5">
-              {said?.kind === 'qr-saved' ? (
-                <p className="text-xs text-ink/75">Your browser saved the QR as a file instead — attach it to the message.</p>
+              {said?.kind === 'ticket-saved' ? (
+                <p className="text-xs text-ink/75">Your browser saved the ticket as a file instead — attach it to the message.</p>
+              ) : null}
+              {said?.kind === 'no-ticket' ? (
+                <p className="text-xs text-ink/75">
+                  {first} has no ticket — they replied they can’t come. The message still carries their link.
+                </p>
               ) : null}
               {said?.kind === 'manual' ? (
                 <>

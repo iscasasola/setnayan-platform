@@ -7,7 +7,8 @@
  * these tests hold that refusal rather than trusting the caller.
  *
  * Owner, 2026-09-29 (DECISION_LOG): each guest gets their PERSONAL link, their
- * QR, "save it — it opens our Event Hub anytime". Never "website".
+ * Digital ticket (owner 2026-09-30: the ticket, not the bare QR), "it opens our
+ * Event Hub anytime". Never "website".
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,7 +38,7 @@ test('🔑 the owner’s message: name, the couple’s wedding, the date, their 
   const msg = buildGuestInviteMessage(BASE)!;
   assert.match(msg, /^Hi Maria! 💌 You’re invited to Indalecio & Claire’s wedding on Friday, December 18\./);
   assert.match(msg, /tap to reply:\nhttps:\/\/www\.setnayan\.com\/cale-ice\?invite=abc123\n/);
-  assert.match(msg, /opens our Event Hub anytime, and it’s your ticket at the door/);
+  assert.match(msg, /opens our Event Hub anytime, and it’s your pass at the door/);
   assert.match(msg, /This link is just for you, so please don’t forward it\./);
 });
 
@@ -56,7 +57,7 @@ test('🔒 no link → NO MESSAGE, so a Send button can never offer a dead invit
 test('🔒 no message ever says "website" or "site" — it is an Event Hub (owner 2026-09-24)', () => {
   const all = [
     buildGuestInviteMessage(BASE)!,
-    buildGuestInviteMessage({ ...BASE, qrAttached: true })!,
+    buildGuestInviteMessage({ ...BASE, ticketAttached: true })!,
     buildGuestInviteMessage({ ...BASE, voice: 'guest' })!,
     buildGuestInviteMessage({ ...BASE, solemn: true, eventWord: 'wake', hostsName: 'Lola Nena' })!,
     buildGroupInviteMessage({ ...BASE, joinUrl: 'https://www.setnayan.com/cale-ice/invite' })!,
@@ -66,11 +67,14 @@ test('🔒 no message ever says "website" or "site" — it is an Event Hub (owne
   for (const m of all) assert.doesNotMatch(m, /\bweb ?site\b|\bsite\b/i, m);
 });
 
-test('the QR line is true in both paths — "(attached)" only when the share sheet attaches it', () => {
-  assert.match(buildGuestInviteMessage({ ...BASE, qrAttached: true })!, /QR code for the event \(attached\)/);
+test('the ticket line is true in both paths — "(attached)" only when the share sheet attaches it', () => {
+  // Owner 2026-09-30: "we do not copy the QR Code, we copy the Digital Ticket".
+  const attached = buildGuestInviteMessage({ ...BASE, ticketAttached: true })!;
+  assert.match(attached, /Here’s your ticket for the event \(attached\) — it opens our Event Hub anytime, and it’s your pass at the door\./);
   const copied = buildGuestInviteMessage(BASE)!;
   assert.doesNotMatch(copied, /attached/);
-  assert.match(copied, /QR code for the event is on that page too/);
+  assert.match(copied, /Your ticket for the event is on that page too/);
+  for (const m of [attached, copied]) assert.doesNotMatch(m, /QR/, 'the guest is handed the ticket, not a QR');
 });
 
 test('event-type aware: the name and the word the event type uses', () => {

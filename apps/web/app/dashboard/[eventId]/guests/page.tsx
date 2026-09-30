@@ -997,7 +997,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // The ⋯ — Show · Sort · the doors · the add doors (guests-phone-menu.tsx).
   // ONE element, placed twice by breakpoint: beside the phone's title (frame 2
   // of the approved simple phone app) and at the end of the computer's row.
-  const guestsMenu = (
+  const moreMenu = (
     <GuestsPhoneMenu
       sort={<RosterSort sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} current={sort} />}
       doors={rosterTabs}
@@ -1067,7 +1067,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <span aria-hidden className="font-display text-2xl text-ink">
           Guests
         </span>
-        {guestsMenu}
+        {moreMenu}
       </div>
       {/* ⚖ THE MASTHEAD'S DOORS BECAME ONE ROW — owner 2026-09-20: "these row
           can be 1 row". Every door keeps the exact condition it had here
@@ -1245,7 +1245,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           // behind ⋯). The page has no visible title — owner-locked 2026-08-21,
           // `PageMasthead` — so the ⋯ rides at the end of the one row instead
           // of costing a row of its own; the first guest stays in the top third.
-          more={guestsMenu}
+          more={moreMenu}
           roleNames={roleNames}
           stats={stats}
           measured={guestsMeasured}

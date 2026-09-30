@@ -49,8 +49,8 @@ test('ONE Filter ▾ at every width over the SAME four dropdowns; the add box be
   assert.match(ROW, /className=\{`hidden lg:block \$\{open/, 'the add box is drawn on a phone again (frame 2: the round +)');
   // One ⋯ element: beside the phone's title, at the end of the computer's row.
   assert.match(ROW, /\{more \? <div className="ml-auto hidden shrink-0 lg:block">\{more\}<\/div> : null\}/, 'the computer lost its ⋯');
-  assert.match(PAGE, /more=\{guestsMenu\}/, 'the row is not handed the ⋯');
-  assert.match(PAGE, /data-guests-phone-title="">[\s\S]{0,160}Guests[\s\S]{0,40}\{guestsMenu\}/, 'the phone lost its title + ⋯ line (frame 2)');
+  assert.match(PAGE, /more=\{moreMenu\}/, 'the row is not handed the ⋯');
+  assert.match(PAGE, /data-guests-phone-title="">[\s\S]{0,160}Guests[\s\S]{0,40}\{moreMenu\}/, 'the phone lost its title + ⋯ line (frame 2)');
   assert.match(PAGE, /data-guests-add-fab=""/, 'the phone has no way to add a guest');
   const fab = PAGE.slice(PAGE.indexOf('data-guests-add-fab'), PAGE.indexOf('data-guests-add-fab') + 600);
   assert.match(fab, /<OpenQuickAddButton/, 'the round + no longer opens the quick-add sheet');

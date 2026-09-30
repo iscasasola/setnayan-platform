@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 754 files · 2139 lines
+# 752 files · 2129 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -98,7 +98,6 @@
 4 apps/web/app/[slug]/_components/guest-column-form.tsx
 2 apps/web/app/[slug]/_components/guest-doorway-strip.tsx
 3 apps/web/app/[slug]/_components/guest-hub-bar.tsx
-3 apps/web/app/[slug]/_components/guest-hub-card.tsx
 1 apps/web/app/[slug]/_components/hub/hub-shell.tsx
 1 apps/web/app/[slug]/_components/live-wall-block.tsx
 1 apps/web/app/[slug]/_components/pahina-masthead.tsx
@@ -302,6 +301,7 @@
 1 apps/web/app/dashboard/[eventId]/_components/after/finished-event-summary.tsx
 3 apps/web/app/dashboard/[eventId]/_components/checklist/checklist-full.tsx
 2 apps/web/app/dashboard/[eventId]/_components/connect-supplier-modal.tsx
+1 apps/web/app/dashboard/[eventId]/_components/coordinator-colour-domains.tsx
 1 apps/web/app/dashboard/[eventId]/_components/day-of-mode/banner.tsx
 2 apps/web/app/dashboard/[eventId]/_components/day-of-mode/coordinator-broadcast-card.tsx
 3 apps/web/app/dashboard/[eventId]/_components/day-of-mode/get-help-card.tsx
@@ -368,9 +368,6 @@
 2 apps/web/app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx
 5 apps/web/app/dashboard/[eventId]/guests/souvenirs/_components/souvenir-desk.tsx
 3 apps/web/app/dashboard/[eventId]/guests/tea-ceremony/page.tsx
-3 apps/web/app/dashboard/[eventId]/hosts/_components/consent-gated-invite-form.tsx
-1 apps/web/app/dashboard/[eventId]/hosts/_components/coordinator-colour-domains.tsx
-3 apps/web/app/dashboard/[eventId]/hosts/page.tsx
 3 apps/web/app/dashboard/[eventId]/invitation/_components/guest-invite-modal.tsx
 1 apps/web/app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx
 2 apps/web/app/dashboard/[eventId]/invitation/page.tsx
@@ -518,6 +515,7 @@
 5 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/claim-link-share.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx
+3 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx
 9 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/host-service-details.tsx

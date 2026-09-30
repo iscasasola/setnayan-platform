@@ -34,6 +34,17 @@ release wins on guest pages:
   43 async entries (main 43). Maker first load 504.8KB → **500.0KB**. Guard:
   `the-maker-never-imports-the-guest-bridge.test.ts`; pointing the Maker back at the bridge
   turns it red.
+- **The "Place card" seat style shows the guest's FORMAL name** (owner 2026-09-30: *"A place card is
+  a name card by definition, and 'no casual greetings' means formal, not no name"*). It reads
+  "Mr. Manuel C. Casasola" (prefix, first name, middle initial(s), last name, suffix), drawn in the
+  hero's Names look, with the table under it. The new `placeCardName` in `lib/formal-name.ts` returns
+  NULL without a last name, so the card never prints a bare first name. #6183's no-first-name rule
+  still holds for greetings everywhere else. The name is resolved on the server (`site-body`), so no
+  new client import. The guest read now also selects `name_prefix, middle_name, name_suffix`; its
+  narrow column list is deliberate, and the dup-rule baseline was regenerated with its generator
+  (+3 `omit` lines against `ENTOURAGE_COLUMNS`). Guards: `formal-name.test.ts` and
+  `every-scene-style-draws.test.ts`. Sabotage checks: printing a bare first name turns both red;
+  dropping the Names look turns the style test red.
 - Regenerated the port-control baseline with `gen-port-baseline.mjs`.
 - Guards: `a-guest-answers-yes-or-no.test.ts` now checks every RSVP style (two answers,
   the couple's words, "maybe" guests must answer). Sabotage check: removing the words

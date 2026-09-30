@@ -142,7 +142,8 @@ import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubSlotClipStillRefs, sanitizeHubCanvas } from '@/lib/hub-canvas';
-import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubSceneRunsAttr } from '@/lib/element-style';
+import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubElementInlineStyle, hubSceneRunsAttr } from '@/lib/element-style';
+import { placeCardName } from '@/lib/formal-name';
 import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
@@ -2106,6 +2107,10 @@ export async function SiteBody({
               targetTableId={seatMap.targetTableId}
               arrived={guestHubData.arrived}
               sceneStyle={fixedStyle('find_your_seat')}
+              /* 🪪 The Place card is a name card: the guest's FORMAL name, in the
+                 hero's Names look (owner 2026-09-30) — never a bare first name. */
+              formalName={placeCardName(guest)}
+              nameStyle={hubElementInlineStyle(heroCanvas.elements?.names)}
             />
           ) : null}
 

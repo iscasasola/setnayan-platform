@@ -419,11 +419,39 @@ test('find your seat · the table number and the place card carry the table, the
   const card = decode(html(h(YourSeatBlock, { ...SEAT, sceneStyle: 'place-card' } as never)));
   assertStyled(card, 'place-card', 'place card');
   assert.ok(card.includes('Table 7') && card.includes('The Garden Pavilion'));
-  // 🎩 No first name on a guest's screen (owner, DECISION_LOG 2026-09-30) — in any seat style.
+  // 🎩 No casual first name on a guest's screen (owner, DECISION_LOG 2026-09-30) — in any seat style.
   for (const style of ['table-number', 'place-card']) {
     const arrived = decode(html(h(YourSeatBlock, { ...SEAT, arrived: true, firstName: 'Ana', sceneStyle: style } as never)));
     assert.doesNotMatch(arrived, /Ana/, `${style}: a first name reached the guest's screen`);
   }
+});
+
+test('find your seat · 🪪 the place card is a name card: the FORMAL name in the Names look, never a bare first name', async () => {
+  const { YourSeatBlock } = await import('./your-seat-block');
+  const { placeCardName } = await import('@/lib/formal-name');
+  const guest = { name_prefix: 'Mr.', first_name: 'Manuel', middle_name: 'Cruz', last_name: 'Casasola' };
+  const card = decode(
+    html(
+      h(YourSeatBlock, {
+        ...SEAT,
+        sceneStyle: 'place-card',
+        formalName: placeCardName(guest),
+        nameStyle: { fontFamily: 'var(--font-names-test)' },
+      } as never),
+    ),
+  );
+  assert.match(card, /<p data-place-card-name=""[^>]*style="font-family:var\(--font-names-test\)"[^>]*>Mr\. Manuel C\. Casasola<\/p>/, 'the formal name, in the Names look');
+  assert.ok(card.includes('Table 7'), 'and the table');
+  // A guest with only a first name gets NO name on the card — never "Manuel" alone.
+  const bare = decode(
+    html(h(YourSeatBlock, { ...SEAT, sceneStyle: 'place-card', formalName: placeCardName({ first_name: 'Manuel' }) } as never)),
+  );
+  assert.doesNotMatch(bare, /Manuel/, 'a bare first name reached the place card');
+  assert.ok(bare.includes('Table 7'), 'the card still carries its table');
+  // The site passes the name from the guest row's formal parts (`placeCardName(guest)`).
+  const { readFileSync } = await import('node:fs');
+  const site = readFileSync(new URL('./site-body.tsx', import.meta.url), 'utf8');
+  assert.match(site, /formalName=\{placeCardName\(guest\)\}/, 'the page no longer hands the card the formal name');
 });
 
 // ── PHOTOS YOU ADD · EACH GUEST'S OWN PHOTOS ─────────────────────────────────

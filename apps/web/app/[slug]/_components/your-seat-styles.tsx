@@ -75,8 +75,22 @@ export function SeatTableNumber({ tableLabel, venueName, tables, entrance, targe
   );
 }
 
-/** C · The place card — your table on a place card; the map beneath. */
-export function SeatPlaceCard({ tableLabel, venueName, tables, entrance, targetTableId, arrived }: YourSeatProps) {
+/** C · The place card — your formal name and your table on a place card; the map beneath. */
+export function SeatPlaceCard({
+  tableLabel,
+  venueName,
+  tables,
+  entrance,
+  targetTableId,
+  arrived,
+  formalName = null,
+  nameStyle,
+}: YourSeatProps & {
+  /** `placeCardName` — the formal name ("Mr. Manuel C. Casasola"); null draws the table alone. */
+  formalName?: string | null;
+  /** The hero's Names look, resolved on the server (`hubElementInlineStyle`). */
+  nameStyle?: Record<string, string>;
+}) {
   return (
     <section className="space-y-5" data-scene-style="place-card">
       {arrived ? (
@@ -85,9 +99,19 @@ export function SeatPlaceCard({ tableLabel, venueName, tables, entrance, targetT
         </div>
       ) : null}
       <div className="mx-auto max-w-xs border border-ink/15 bg-paper-deep px-6 py-7 text-center shadow-sm">
-        {/* 🎩 No first name (owner, DECISION_LOG 2026-09-30: no casual greetings on
-            a guest's screen — `ArrivalGreeting`). The card is the table's. */}
-        <p aria-hidden className="mb-3 text-gild">✦</p>
+        {/* 🪪 A place card is a name card (owner 2026-09-30): the guest's FORMAL
+            name, in the hero's Names look — never a bare first name, which would
+            be the casual greeting #6183 took off guest screens. */}
+        {formalName ? (
+          <>
+            <p data-place-card-name="" className="font-pahina text-3xl font-light italic leading-tight text-ink" style={nameStyle}>
+              {formalName}
+            </p>
+            <p aria-hidden className="my-3 text-gild">✦</p>
+          </>
+        ) : (
+          <p aria-hidden className="mb-3 text-gild">✦</p>
+        )}
         <p className="font-sans text-xs uppercase tracking-[0.28em] text-ink/60">Your table</p>
         <p className="mt-1 font-pahina text-4xl font-light leading-tight text-gild">{tableLabel}</p>
         <div className="mt-2">

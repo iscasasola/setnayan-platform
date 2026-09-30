@@ -16,6 +16,10 @@ type Props = {
   arrived: boolean;
   /** 🎨 `map` (this, the default) · `table-number` · `place-card` — `your-seat-styles.tsx`. */
   sceneStyle?: string | null;
+  /** 🪪 The Place card's name — `placeCardName` ("Mr. Manuel C. Casasola"), null = none. */
+  formalName?: string | null;
+  /** 🪪 …drawn in the hero's Names look (`hubElementInlineStyle`), resolved on the server. */
+  nameStyle?: Record<string, string>;
 };
 
 /**
@@ -35,10 +39,12 @@ export function YourSeatBlock({
   targetTableId,
   arrived,
   sceneStyle = null,
+  formalName = null,
+  nameStyle,
 }: Props) {
   const same = { tableLabel, venueName, tables, entrance, targetTableId, arrived };
   if (sceneStyle === 'table-number') return <SeatTableNumber {...same} />;
-  if (sceneStyle === 'place-card') return <SeatPlaceCard {...same} />;
+  if (sceneStyle === 'place-card') return <SeatPlaceCard {...same} formalName={formalName} nameStyle={nameStyle} />;
   // Pahina (design 2026-07-25 §11a): the guest-personal layer is STARRED, not
   // numbered — a gild ✦ marks "this belongs to you". (Editorial chapters used
   // to keep their own №; owner 2026-09-25 "drop the numbers" removed those, so

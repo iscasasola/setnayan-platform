@@ -39,7 +39,8 @@ import dynamic from 'next/dynamic';
 /**
  * ⚡ THE INSTANT LOVE STORY (`love-story-live.tsx`) — its scrapbook and its
  * words, loaded the first time Love Story is opened, in a chunk of its own
- * (`maker-love-story`) imported from HERE ONLY. This file is the launch page's
+ * imported from HERE ONLY — unnamed on purpose: a chunk NAME is one more entry
+ * in the runtime's name map (measured: the named version was 9 bytes over). This file is the launch page's
  * alone, so the chunk has one parent — and everything it builds on (the moment
  * sheet, the chapter list, the Maker's save queue) is already on that page.
  * Imported from anywhere else (Details' stand-ins are also the editor's and the
@@ -47,12 +48,8 @@ import dynamic from 'next/dynamic';
  * page downloads — measured: +139 bytes over a shared bundle with none spare.
  * The Love Story page and Details' editor reach them through the context.
  */
-const LiveLoveStoryBook = dynamic(() =>
-  import(/* webpackChunkName: "maker-love-story" */ '../../website/our-story/_components/love-story-live').then((m) => m.LiveLoveStoryBook),
-);
-const LiveStoryPanel = dynamic(() =>
-  import(/* webpackChunkName: "maker-love-story" */ '../../website/our-story/_components/love-story-live').then((m) => m.LiveStoryPanel),
-);
+const LiveLoveStoryBook = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveLoveStoryBook));
+const LiveStoryPanel = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveStoryPanel));
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { makerAddShowsOn } from '@/lib/maker-selection';

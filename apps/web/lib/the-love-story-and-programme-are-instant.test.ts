@@ -208,8 +208,8 @@ test('D · every Love Story save is held, batched and asks for the Apply count �
   // The Maker draws the live pieces — lazily, from a chunk ONLY the Maker can
   // load (`maker-shell.tsx` is the launch page's alone), handed down by context.
   const shell = readFileSync(join(ROOT, 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), 'utf8');
-  assert.match(shell, /const LiveLoveStoryBook = dynamic\(\(\) =>\s*import\(\/\* webpackChunkName: "maker-love-story" \*\/ '\.\.\/\.\.\/website\/our-story\/_components\/love-story-live'\)/);
-  assert.match(shell, /const LiveStoryPanel = dynamic\(\(\) =>\s*import\(\/\* webpackChunkName: "maker-love-story" \*\//);
+  assert.match(shell, /const LiveLoveStoryBook = dynamic\(\(\) => import\('\.\.\/\.\.\/website\/our-story\/_components\/love-story-live'\)/);
+  assert.match(shell, /const LiveStoryPanel = dynamic\(\(\) => import\('\.\.\/\.\.\/website\/our-story\/_components\/love-story-live'\)/);
   assert.match(shell, /liveLoveStoryBook: LiveLoveStoryBook as ComponentType[\s\S]{0,80}liveStoryPanel: LiveStoryPanel as ComponentType/);
   for (const f of [
     `${OS}/page.tsx`,

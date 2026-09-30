@@ -23,5 +23,10 @@ the host, event type, event name, and the services availed when we receive an em
   for `audience: 'admin'`. Customer emails are unchanged.
 - Guard: `lib/admin-payment-alert-says-who.test.ts` renders the real email from a fixture.
 
-SPEC IMPACT: None. (The customer-facing tagline "Filipino wedding planning + verified vendors" is
-unchanged and still pardoned in `anniversary-emails.test.ts` as an owner positioning call.)
+- **Customer email footer (owner "yes", 2026-09-30):** the tagline under every branded customer email is
+  now "Setnayan · Filipino celebration planning + verified suppliers" (was "Filipino wedding planning +
+  verified vendors"). `anniversary-emails.test.ts` pins the new line and holds "wedding"/"vendor" out
+  of it. The site SEO titles in `app/layout.tsx` are unchanged (not part of the decision).
+
+SPEC IMPACT: `DECISION_LOG.md` row 2026-09-30 "THE EMAIL FOOTER SAYS CELEBRATION AND SUPPLIERS"
+(owner "yes" to the controller's recommendation) — the customer email tagline.

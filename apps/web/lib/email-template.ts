@@ -71,8 +71,14 @@ export type BrandedEmailSection = {
   rows: ReadonlyArray<{ label: string; value: string; strong?: boolean }>;
 };
 
-/** The customer-facing brand line under every mail (unchanged). */
-export const EMAIL_TAGLINE = 'Setnayan · Filipino wedding planning + verified vendors';
+/**
+ * The customer-facing brand line under every mail. Owner, 2026-09-30 ("yes" to
+ * the controller's recommendation): "celebration", not "wedding" — Setnayan
+ * serves seventeen event types — and "suppliers", not "vendors". It was
+ * "Filipino wedding planning + verified vendors". Pinned by
+ * `anniversary-emails.test.ts` (SHARED_CHROME_LINE).
+ */
+export const EMAIL_TAGLINE = 'Setnayan · Filipino celebration planning + verified suppliers';
 /**
  * 🔒 THE ADMIN BRAND LINE. Owner, 2026-09-30, on the payment alert: no
  * "wedding" (the desk sees every event type), "supplier" not "vendor".

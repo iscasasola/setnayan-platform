@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "fafcc1852",
-  "routeCount": 441,
+  "generatedFromRef": "004383126",
+  "routeCount": 439,
   "destinations": 949,
   "actions": 672,
-  "blocks": 5230,
+  "blocks": 5223,
   "routes": {
     "/": {
       "files": [
@@ -9283,33 +9283,6 @@
       "blocks": [
         "BespokeMonogramMark",
         "PahinaMasthead"
-      ]
-    },
-    "/dev/rsvp-stage-lab": {
-      "files": [
-        "dev/rsvp-stage-lab/actions.ts",
-        "dev/rsvp-stage-lab/lab.tsx",
-        "dev/rsvp-stage-lab/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "HTMLIFrameElement",
-        "HubDraftActionResult",
-        "MakerRsvpStage",
-        "RsvpStageLab"
-      ]
-    },
-    "/dev/rsvp-stage-lab/frame": {
-      "files": [
-        "dev/rsvp-stage-lab/frame/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "DoorShell",
-        "RsvpCanvasBridge",
-        "RsvpWidget"
       ]
     },
     "/dev/schedule-lab": {

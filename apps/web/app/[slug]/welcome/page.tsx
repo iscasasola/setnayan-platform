@@ -14,6 +14,7 @@ import { plusOneFilled, plusOneGate, plusOneMissing, type PlusOneRow } from '@/l
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
 import { abandonPlusOneInvite, confirmPlusOneName } from './actions';
 import { eventWordsFor } from '../_lib/event-words';
@@ -83,8 +84,9 @@ export default async function WelcomePage({ params, searchParams }: Props) {
 
   const { data: guest } = await admin
     .from('guests')
+    // The shared guest-name columns (the five parts among them), not a hand-picked few.
     .select(
-      'guest_id, first_name, last_name, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions',
+      `${ENTOURAGE_COLUMNS}, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions`,
     )
     .eq('guest_id', session.guest_id)
     .eq('event_id', event.event_id)
@@ -111,6 +113,9 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const row: PlusOneRow = {
     first_name: (guest.first_name as string | null) ?? null,
     last_name: (guest.last_name as string | null) ?? null,
+    name_prefix: (guest.name_prefix as string | null) ?? null,
+    middle_name: (guest.middle_name as string | null) ?? null,
+    name_suffix: (guest.name_suffix as string | null) ?? null,
     plus_one_name_confirmed_at: (guest.plus_one_name_confirmed_at as string | null) ?? null,
     meal_preference: (guest.meal_preference as string | null) ?? null,
     dietary_restrictions: (guest.dietary_restrictions as string | null) ?? null,
@@ -171,7 +176,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
 
   // 🎩 No "Welcome, <first name>" (owner, DECISION_LOG 2026-09-30 — no casual
   // greetings). Once their name is in, the heading is their FORMAL name.
-  const formalName = missing.name ? null : composeFormalName({ first_name: row.first_name, last_name: row.last_name });
+  const formalName = missing.name ? null : composeFormalName(row);
 
   return (
     <DoorShell

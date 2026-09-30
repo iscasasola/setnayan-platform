@@ -15,8 +15,12 @@ this one records only what the fold itself had to decide.
 - **RSVP reply takes no email** (#6157) — supersedes #6174's couple-row email gate
   in `submitRsvp`; its guard now pins the stronger floor (no `contact_email` read).
 - **Maker RSVP stage** (#6176) on top of no-maybe (#6167) and no-email (#6157).
-- **Server-action budget**: #6176's dev-only lab's four exports became one bound
-  `labRsvp(kind, …)` — 1225 of 1225, ceiling unchanged.
+- **#6176's dev-only `/dev/rsvp-stage-lab` is left out of the release** (it 404s in
+  production anyway). Its four exported actions put the fold at 1228 of the 1225
+  server-action ceiling, and its static import of the RSVP stage split the
+  `maker-details` modules into extra async chunks. That pushed the shared bundle's webpack
+  runtime over 202KB. Without it: 1224 actions, shared 17 B under 202KB (main is 7 B under).
+  Re-add it after the release by importing the stage from `details-lazy.tsx`.
 - **Maker first-load budget** (511.0KB → 503.2KB of 505, ceiling unchanged): the
   element sheet, the scene's bound-fact box and the Look pages' Details editors now
   load on a tap from the existing `maker-details` chunk (details-lazy.tsx, idle-prefetched).

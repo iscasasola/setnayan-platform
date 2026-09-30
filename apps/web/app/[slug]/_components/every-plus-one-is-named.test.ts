@@ -176,12 +176,15 @@ test('the switcher is the shared PickMenu — "You" first, then +1 · name ✓ /
 
 // ── 3 · minimum questions ──────────────────────────────────────────────────
 
-test('a plus-one is asked ONLY first name, last name, meal and dietary', async () => {
+// Owner 2026-09-30: the name is the FIVE parts every name box uses — "Prefix ·
+// First · Middle · Last · Suffix, to stay consistent" — so "first name, last
+// name" became the five; still nothing but the name, meal and dietary.
+test('a plus-one is asked ONLY their name (five parts), meal and dietary', async () => {
   const block = plusOneBlock(await renderWidget(4));
   const names = [...block.matchAll(/name="([^"]+)"/g)].map((m) => m[1]!);
   assert.ok(names.length > 0);
   for (const n of names) {
-    assert.match(n, /^plus_one_(first_name|last_name|meal|dietary|seat_id)_[1-4]$/, `a plus-one is asked "${n}"`);
+    assert.match(n, /^plus_one_(name_prefix|first_name|middle_name|last_name|name_suffix|meal|dietary|seat_id)_[1-4]$/, `a plus-one is asked "${n}"`);
   }
   assert.doesNotMatch(block, /song|guest_note|selfie|note to/i);
 });

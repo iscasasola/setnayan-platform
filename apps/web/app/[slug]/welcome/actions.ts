@@ -9,6 +9,7 @@ import { envFlagEnabled } from '@/lib/env-flag';
 import { saveMethodFor } from '@/lib/guest-one-path';
 import { MEAL_PREFERENCES, type MealPreference } from '@/lib/guests';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { normalizeNamePart } from '@/lib/formal-name';
 import {
   hasAgreedToTerms,
   RSVP_TERMS_COOKIE,
@@ -37,7 +38,7 @@ import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
  *
  * 🔒 ONLY THE FOUR, ONLY THEIR OWN ROW. The guest is the one this browser's
  * pass names (never a form field), and must be a plus-one of THIS event. What
- * is written: first + last name, meal (a known value, only when the couple asks
+ * is written: the name (its five parts — owner 2026-09-30), meal (a known value, only when the couple asks
  * it), dietary (only when asked). Never an answer, a song, a note, a selfie.
  * Their attendance is not touched — it follows their own reply if they give one.
  */
@@ -83,6 +84,12 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
   if (first_name && last_name) {
     patch.first_name = first_name;
     patch.last_name = last_name;
+    // The other three parts ride with the name, as the Guest list stores them
+    // (owner 2026-09-30: "Prefix · First · Middle · Last · Suffix") — only a
+    // box the door drew; blank clears it (NULL, never '').
+    for (const part of ['name_prefix', 'middle_name', 'name_suffix'] as const) {
+      if (formData.get(part) !== null) patch[part] = normalizeNamePart(formData.get(part));
+    }
     // 🔴 CLEARING THIS IS THE HALF THAT WAS MISSING, AND WITHOUT IT THE WHOLE
     // SCREEN ACHIEVED NOTHING VISIBLE. An unnamed plus-one was minted with a
     // placeholder `display_name` ("+2 · TBA", formerly "+ TBA · brought by …"),

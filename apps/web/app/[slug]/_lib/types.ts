@@ -425,6 +425,10 @@ export type GuestRow = {
      *  is stored (owner 2026-09-29: name · meal · dietary per plus-one). */
     first?: string | null;
     last?: string | null;
+    /** The seat's other name parts — five boxes, like every name (owner 2026-09-30). */
+    prefix?: string | null;
+    middle?: string | null;
+    suffix?: string | null;
     meal?: string | null;
     dietary?: string | null;
     /** 🔒 This seat's person linked their own account — their name is theirs

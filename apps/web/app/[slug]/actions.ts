@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { lockLinkedSeatNames, planSeatNames, readSeatNames, type ExtraSeatRow } from '@/lib/extra-seats';
+import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, type ExtraSeatRow } from '@/lib/extra-seats';
 import { plusOneSeats } from '@/lib/guests';
 import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING } from '@/lib/seat-name-words';
 import { after } from 'next/server';
@@ -1025,6 +1025,9 @@ async function nameTheSeats(
               ...seatAnswers,
               first_name: first,
               last_name: last,
+              // The other three parts, as the Guest list stores them (owner
+              // 2026-09-30: five parts) — only the ones the reply posted.
+              ...seatNamePartColumns(op),
               // Clearing this is what actually replaces "+ TBA · brought by …":
               // guestDisplayName PREFERS display_name, so leaving it would keep
               // the placeholder on the seating chart and in the emcee script.
@@ -1047,6 +1050,7 @@ async function nameTheSeats(
             event_id: eventId,
             first_name: first,
             last_name: last,
+            ...seatNamePartColumns(op),
             side: primary.side,
             group_category: primary.group_category,
             role: 'guest',

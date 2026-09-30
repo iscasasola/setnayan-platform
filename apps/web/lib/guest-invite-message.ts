@@ -57,7 +57,16 @@ export type InviteEventFacts = {
 };
 
 export type GuestInviteContext = InviteEventFacts & {
-  /** `guests.first_name` — the greeting. Falls back to the first word of guestName. */
+  /**
+   * 📝 `{name}` — THE GUEST'S NAME EXACTLY AS THE COUPLE ENTERED IT on the Guest
+   * list (owner 2026-09-30: *"we want the copy to indicate the name as given. to
+   * them"*): `guestFullName` — the couple's own Display name when they set one,
+   * else the five parts composed, "Mr. Manuel Cortez Casasola Jr.". Never cut
+   * to a first name. The two fields below are only the fallback for a caller
+   * with no row to compose from.
+   */
+  formalName?: string | null;
+  /** `guests.first_name` — used only when there is no formal name. */
   firstName?: string | null;
   /** The display name, used only when there is no first name. */
   guestName?: string | null;
@@ -77,7 +86,7 @@ export const INVITE_TEMPLATE_MAX = 1000;
 
 /** The four placeholders, as the editor lists them. */
 export const INVITE_PLACEHOLDERS = [
-  { token: '{name}', says: 'their first name' },
+  { token: '{name}', says: 'their name, as on your Guest list' },
   { token: '{event}', says: 'your event, by name' },
   { token: '{date}', says: 'the date' },
   { token: '{link}', says: 'their own link' },
@@ -220,7 +229,10 @@ function fill(template: string, values: { name: string; event: string; date: str
   });
 }
 
-function greetingName(ctx: Pick<GuestInviteContext, 'firstName' | 'guestName'>): string {
+function greetingName(ctx: Pick<GuestInviteContext, 'formalName' | 'firstName' | 'guestName'>): string {
+  // The name as given — whole, never shortened (owner 2026-09-30).
+  const given = (ctx.formalName ?? '').replace(/\s+/g, ' ').trim();
+  if (given) return given;
   const first = (ctx.firstName ?? '').trim();
   if (first) return first;
   return (ctx.guestName ?? '').trim().split(/\s+/)[0] ?? '';

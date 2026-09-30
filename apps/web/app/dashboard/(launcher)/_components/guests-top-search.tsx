@@ -90,7 +90,7 @@ function GuestsTopSearchBox({ scope }: { scope: SearchScope }) {
         </kbd>
       </div>
       {focused && escape ? (
-        <div className="absolute inset-x-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl border border-ink/15 bg-white/95 p-1.5 shadow-[0_24px_48px_-24px_rgba(30,26,18,0.45)] backdrop-blur">
+        <div className="sn-glass-bare absolute inset-x-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl bg-white/95 p-1.5 shadow-[0_24px_48px_-24px_rgba(30,26,18,0.45)] backdrop-blur">
           <Link
             href={escape.href}
             data-guests-top-search-escape=""

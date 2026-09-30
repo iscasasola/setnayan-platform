@@ -120,7 +120,7 @@ export function WhoCanReplyAsk({
         aria-modal="true"
         aria-labelledby="who-can-reply-title"
         data-who-can-reply=""
-        className="sn-pop-in w-full max-w-sm space-y-4 rounded-3xl border border-ink/10 bg-cream p-5 shadow-[0_40px_80px_-40px_rgba(30,26,18,0.55)]"
+        className="sn-pop-in w-full max-w-sm space-y-4 rounded-3xl bg-cream p-5 shadow-[0_40px_80px_-40px_rgba(30,26,18,0.55)]"
       >
         <h2 id="who-can-reply-title" className="font-display text-2xl text-ink">
           Who can reply?
@@ -134,7 +134,7 @@ export function WhoCanReplyAsk({
               disabled={pending}
               onClick={() => pick(c.value, c.label)}
               data-who-can-reply-choice={c.value}
-              className="min-h-[56px] w-full rounded-2xl border border-ink/15 bg-white px-4 text-left text-base font-semibold text-ink transition-colors hover:border-ink/40 disabled:opacity-60"
+              className="min-h-[56px] w-full rounded-2xl bg-white px-4 text-left text-base font-semibold text-ink shadow-[0_6px_18px_-10px_rgba(30,26,18,0.45)] transition-shadow hover:shadow-[0_10px_24px_-10px_rgba(30,26,18,0.55)] disabled:opacity-60"
             >
               {c.label}
             </button>

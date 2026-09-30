@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
+import { sentrySourcemapsCanUpload } from './lib/sentry-sourcemaps-can-upload';
 
 function getHostnameFromEnv(url: string | undefined): string | null {
   if (!url) return null;
@@ -475,6 +476,15 @@ const nextConfig: NextConfig = {
     // Next lever after webpackMemoryOptimizations (#1258) + ignoreBuildErrors
     // (#1425). Escalate to Vercel Enhanced Builds (paid) if this recurs.
     cpus: 1,
+    // ─── EACH COMPILER IN ITS OWN PROCESS (2026-10-01) ─────────────────
+    // Next turns the build worker OFF by default whenever a custom `webpack`
+    // function exists — ours above, and Sentry's wrapper adds another — so the
+    // server, edge and client compilations all ran in ONE long-lived heap.
+    // On: each compiler runs in a child that EXITS when it is done, and the
+    // parent `next build` stays ~150 MB through compile. Same output; measured
+    // 6.1 min vs 8.3 min wall on this app. Numbers + the heap ceiling it pairs
+    // with: lib/the-build-has-headroom-ci-cannot-prove.test.ts.
+    webpackBuildWorker: true,
     // ─── THE ROUTE CEILING ──────────────────────────────────────────────
     // Vercel caps a deployment at 2048 routes in `.vercel/output/config.json`.
     // On 2026-09-23 production could not deploy at all: three builds died at
@@ -729,7 +739,7 @@ export default withSentryConfig(nextConfig, {
   // SENTRY_PROJECT (and SENTRY_ORG if the token is not org-scoped) maps come
   // back on by themselves, uploaded and then deleted — no code change.
   sourcemaps: {
-    disable: !(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_PROJECT),
+    disable: !sentrySourcemapsCanUpload(process.env),
     deleteSourcemapsAfterUpload: true,
   },
 });

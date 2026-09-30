@@ -269,7 +269,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
         <h2 className="mb-3 text-sm font-medium text-ink">Hosts</h2>
         {hosts === null ? (
           <p role="alert" className="text-sm text-mulberry">
-            {COULD_NOT_LOAD} the hosts — the read was refused, so this is not "no hosts".
+            {COULD_NOT_LOAD} the hosts — the read was refused, so this is not &ldquo;no hosts&rdquo;.
           </p>
         ) : hosts.length === 0 ? (
           <p className="text-sm text-ink/60">Verified: this event has no host accounts.</p>
@@ -376,7 +376,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
 
         {enrolledIds === null ? (
           <p role="alert" className="mt-4 text-sm text-mulberry">
-            {COULD_NOT_LOAD} the face enrolments — the "Enrolled" column below is unknown, not "no".
+            {COULD_NOT_LOAD} the face enrolments — the &ldquo;Enrolled&rdquo; column below is unknown, not &ldquo;no&rdquo;.
           </p>
         ) : null}
         <div className="mt-4">

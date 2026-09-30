@@ -25,6 +25,15 @@ release wins on guest pages:
   `app/_components/nav/sub-nav.tsx` was only imported by a test after Stage D retired the
   phone sub-nav. The file is deleted, and `the-phone-bar-is-anchored.test.ts` now tests
   the dock holding the bar alone.
+- **Shared bundle back under 202KB, and the limit was not raised.** CI measured #6187 just over the
+  limit (202.0KB). Every app chunk was byte-identical to main; only webpack's runtime grew, by one
+  async-chunk entry. The Maker imported `findMakerSection` from the guest page's ~32KB editing
+  bridge, so the bridge was shared by two chunk groups and split into a chunk of its own.
+  `findMakerSection` now lives in `app/[slug]/_components/maker-section-find.ts`, and the bridge
+  re-exports it. Measured locally: shared 206,833 bytes gz (15 bytes under, identical to main),
+  43 async entries (main 43). Maker first load 504.8KB → **500.0KB**. Guard:
+  `the-maker-never-imports-the-guest-bridge.test.ts`; pointing the Maker back at the bridge
+  turns it red.
 - Regenerated the port-control baseline with `gen-port-baseline.mjs`.
 - Guards: `a-guest-answers-yes-or-no.test.ts` now checks every RSVP style (two answers,
   the couple's words, "maybe" guests must answer). Sabotage check: removing the words

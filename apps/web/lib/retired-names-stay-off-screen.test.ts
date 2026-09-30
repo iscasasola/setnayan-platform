@@ -3,7 +3,7 @@
  *
  * Owner, 2026-09-29: *"Change pakanta to Music Maker."* · *"Only Papic is
  * customized and all other namings should be generic"* · *"Samahan - Group"* ·
- * *"Ala ala - Memories"* · Alaga → *"Loved ones"* · Panood → *"Watch Live"* ·
+ * *"Ala ala - Memories"* · Alaga → *"Loved ones"* · Panood → *"Live Studio"* ("Watch Live" also fine on the guest's watch page) ·
  * Kwento → *"Photo Notes"*. Papic and Patiktok keep their names (DECISION_LOG
  * "PATIKTOK KEEPS ITS NAME", "OWNER ANSWERS — NINE PENDING DECISIONS").
  *
@@ -121,7 +121,8 @@ test('the retired list is the owner-named set, and keeps Papic + Patiktok', () =
   }
   const now = Object.fromEntries(RETIRED_NAMES.map((n) => [n.was, n.now]));
   assert.equal(now.Pakanta, 'Music Maker', 'brand: "Music Maker", two capitalised words');
-  assert.equal(now.Panood, 'Watch Live');
+  // Owner 2026-09-29 ("THREE OF THE CONTROLLER'S OPEN QUESTIONS ANSWERED"): Panood is the Live Studio.
+  assert.equal(now.Panood, 'Live Studio');
   assert.equal(now.Kwento, 'Photo Notes');
 });
 

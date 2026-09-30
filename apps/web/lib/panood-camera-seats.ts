@@ -61,7 +61,7 @@ export async function fetchPanoodCameras(
 
   if (error) {
     if (error.code === '42P01' || error.code === '42703') return [];
-    throw new Error(`Failed to read Watch Live cameras: ${error.message}`);
+    throw new Error(`Failed to read Live Studio cameras: ${error.message}`);
   }
 
   return (data ?? []) as PanoodCameraRow[];

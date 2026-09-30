@@ -51,6 +51,7 @@ import { printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
+import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
 
 /**
@@ -181,6 +182,8 @@ async function readEntourage(
   eventId: string,
   /** The couple's role words — the print says "Bride's Crew" where they do. */
   names?: RoleNames,
+  /** The event's Name style (owner 2026-09-30) — the card prints the names in it. */
+  style?: NameStyle,
 ): Promise<{ groups: ReturnType<typeof buildEntourage>; passedAway: ReadonlySet<string> }> {
   const { data, error } = await admin
     .from('guests')
@@ -198,7 +201,7 @@ async function readEntourage(
   const passedAway = new Set(rows.filter((r) => r.passed_away === true && r.guest_id).map((r) => r.guest_id as string));
   // The couple's own section order, read on ITS OWN (the loader's rule: an
   // unreadable preference prints the built-in order, never breaks the card).
-  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names), passedAway };
+  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names, style), passedAway };
 }
 
 function attireLines(raw: unknown, names?: RoleNames): Array<{ label: string; line: string }> {
@@ -549,7 +552,7 @@ async function readPrintSetInputs(admin: SupabaseClient, eventId: string, event:
   const stored = parsePrintDetails(event.print_details);
   const [blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu] = await Promise.all([
     readBlocks(admin, eventId),
-    readEntourage(admin, eventId, readRoleNames(event.role_names)),
+    readEntourage(admin, eventId, readRoleNames(event.role_names), stored.nameStyle),
     resolveStdFinalizedVenues(admin, eventId),
     event.slug ? resolveEventOwnerSlug(admin, eventId).catch(() => null) : Promise.resolve(null),
     readGiftLines(admin, eventId),
@@ -729,7 +732,7 @@ export async function loadGuestPasses(
     logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');
     return { passes: [], images: {}, measured: false };
   }
-  type G = PassCardRow & { guest_id: string; first_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null };
+  type G = PassCardRow & { guest_id: string; first_name: string | null; middle_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null };
   const listed = ((data ?? []) as unknown as G[]).filter((g) => g.qr_token);
   const all = opts.ticketsOnly
     ? filterPassCardRows(listed, (g) => ({
@@ -760,12 +763,12 @@ export async function loadGuestPasses(
   const images: PrintImages = {};
   const passes: PrintPass[] = [];
   let n = 0;
+  // 🔤 The event's Name style (owner 2026-09-30) — the ticket's ONE name rule,
+  // shared with the Digital ticket (`passCardGuestName`) — `ticketName`.
+  const style = nameStyleOfPrintDetails(set.event.print_details);
   for (const g of guests) {
     n += 1;
-    const name =
-      [g.name_prefix, g.first_name, g.last_name, g.name_suffix].filter((s) => s && s.trim()).join(' ').trim() ||
-      g.display_name?.trim() ||
-      'Guest';
+    const name = ticketName(g, style);
     const ref = `qr-${g.guest_id}`;
     try {
       const png = await renderInvitationQrPng({

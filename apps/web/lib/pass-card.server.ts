@@ -13,6 +13,7 @@ import { renderPassCardPng } from '@/lib/pass-card-render';
 import { renderInvitationQrPng } from '@/lib/qr';
 import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
 import {
   filterPassCardRows,
   passCardDesignFrom,
@@ -43,11 +44,13 @@ import {
  */
 const PASS_CARD_GUEST_COLUMNS =
   'guest_id, event_id, deleted_at, entry_source, passed_away, rsvp_status, plus_one_of_guest_id, qr_token, ' +
-  'name_prefix, first_name, last_name, name_suffix, display_name, plus_one_allowed, plus_one_name, plus_one_name_confirmed_at';
+  'name_prefix, first_name, middle_name, last_name, name_suffix, display_name, plus_one_allowed, plus_one_name, plus_one_name_confirmed_at';
 
 export type PassCardGuest = PassCardRow & {
   name_prefix: string | null;
   first_name: string | null;
+  /** Read for the Name style's Middle initial / Surname first (`ticketName`). */
+  middle_name: string | null;
   last_name: string | null;
   name_suffix: string | null;
   display_name: string | null;
@@ -64,13 +67,16 @@ export function asPassCardRow(g: PassCardGuest): PassCardRow {
   };
 }
 
-/** The name the card prints — the same join the printed pass batch uses (`loadGuestPasses`). */
-export function passCardGuestName(g: Pick<PassCardGuest, 'name_prefix' | 'first_name' | 'last_name' | 'name_suffix' | 'display_name'>): string {
-  return (
-    [g.name_prefix, g.first_name, g.last_name, g.name_suffix].filter((s) => s && s.trim()).join(' ').trim() ||
-    g.display_name?.trim() ||
-    'Guest'
-  );
+/**
+ * The name the card prints — the SAME rule the printed pass batch uses
+ * (`loadGuestPasses`): `ticketName`, in the event's Name style (owner
+ * 2026-09-30). Omitted style = Full = the ticket's line before the style.
+ */
+export function passCardGuestName(
+  g: Pick<PassCardGuest, 'name_prefix' | 'first_name' | 'middle_name' | 'last_name' | 'name_suffix' | 'display_name'>,
+  style?: NameStyle,
+): string {
+  return ticketName(g, style);
 }
 
 /** One guest row (and, for a plus-one, the row of whoever brought them). */
@@ -235,7 +241,7 @@ async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerId
 /** The card's facts for one guest — the PrintPass both the picture and the print draw. */
 export function passCardPass(kit: PassCardKit, g: PassCardGuest, qrRef: string | null): PrintPass {
   return {
-    name: passCardGuestName(g),
+    name: passCardGuestName(g, nameStyleOfPrintDetails(kit.set.event.print_details)),
     // 🪑 NO TABLE ON THE DIGITAL TICKET (owner 2026-09-30: "no seat plan on the
     // digital ticket for the moment"). The ticket is a saved picture; a table
     // the couple moves later would sit on it wrong. Find my seat has the live one.
@@ -261,7 +267,7 @@ export function passCardDesignFor(kit: PassCardKit, asked?: string | null): Pass
 }
 
 export function passCardFileNameFor(kit: PassCardKit, g: PassCardGuest): string {
-  return passCardFileName({ guestName: passCardGuestName(g), eventName: kit.set.event.display_name, eventDate: kit.set.event.event_date });
+  return passCardFileName({ guestName: passCardGuestName(g, nameStyleOfPrintDetails(kit.set.event.print_details)), eventName: kit.set.event.display_name, eventDate: kit.set.event.event_date });
 }
 
 /**

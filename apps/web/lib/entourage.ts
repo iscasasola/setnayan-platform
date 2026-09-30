@@ -1,5 +1,6 @@
 import { guestFullName, type GuestRole } from '@/lib/guests';
 import { roleNameMany, roleNameOne, type RoleNames } from '@/lib/role-names';
+import { middleInitials, type NameStyle } from '@/lib/name-style';
 
 /**
  * THE ENTOURAGE, AS AN INVITATION PRINTS IT.
@@ -609,9 +610,12 @@ export type EntourageGuestRow = {
  * ⚠ RETURNS null RATHER THAN AN EMPTY LINE. A row with no usable name is
  * dropped, because a bullet with nothing beside it reads as a person whose name
  * we lost.
+ *
+ * 🔤 `style` — the event's Name style (`lib/name-style.ts`, owner 2026-09-30).
+ * Omitted = Full, the line this printed before the style existed.
  */
-export function personName(row: EntourageGuestRow): string | null {
-  return guestFullName(row);
+export function personName(row: EntourageGuestRow, style?: NameStyle): string | null {
+  return guestFullName(row, style);
 }
 
 /**
@@ -773,10 +777,12 @@ function orderLines(
 export function entourageLines(
   rows: readonly EntourageGuestRow[],
   groupKey: string,
+  /** The event's Name style — omitted = Full. It changes the WORDS, never the order. */
+  style?: NameStyle,
 ): EntourageRow[] {
   const spec = GROUPS.find((g) => g.key === groupKey);
   if (!spec) return [];
-  return orderLines(pairUp(peopleForSpec(rows, spec), spec.sides), spec);
+  return orderLines(pairUp(peopleForSpec(rows, spec, style), spec.sides), spec);
 }
 
 /** Every printed group key, in printing order. */
@@ -840,11 +846,12 @@ function parentWordOf(row: EntourageGuestRow): 'father' | 'mother' | null {
 function peopleForSpec(
   rows: readonly EntourageGuestRow[],
   spec: GroupSpec,
+  style?: NameStyle,
 ): EntouragePerson[] {
   const people: EntouragePerson[] = [];
   for (const role of spec.roles) {
     for (const row of holdersOfRoleInPrintOrder(rows, role)) {
-      const name = personName(row);
+      const name = personName(row, style);
       if (!name) continue;
       people.push({
         id: row.guest_id ?? null,
@@ -853,7 +860,7 @@ function peopleForSpec(
         pairId: row.pair_with_guest_id ?? null,
         order: typeof row.entourage_order === 'number' ? row.entourage_order : null,
         ceremonyOnly: isCeremonyOnly(row),
-        split: splitForPairLine(row),
+        split: splitForPairLine(row, style),
         sortKey: sortKeyOf(row, name),
         parentWord: parentWordOf(row),
       });
@@ -885,13 +892,21 @@ function sortKeyOf(row: EntourageGuestRow, printed: string): { last: string; fir
   return { last: bare || printed, first: '' };
 }
 
-/** See `EntouragePerson.split`. */
-function splitForPairLine(row: EntourageGuestRow): { given: string; surname: string } | null {
+/**
+ * See `EntouragePerson.split`.
+ *
+ * 🔤 THE NAME STYLE DECIDES THE GIVEN HALF. Middle initial → "Hon. Ricardo M.";
+ * Surname first puts the surname FIRST, so "Hon. Ricardo M. & Mrs.
+ * Villahermosa, Jessica L." would be nonsense — that style never shares a
+ * surname and prints both names whole.
+ */
+function splitForPairLine(row: EntourageGuestRow, style?: NameStyle): { given: string; surname: string } | null {
+  if (style === 'surname-first') return null;
   if (row.display_name?.trim()) return null;
   if (row.name_suffix?.trim()) return null;
   const surname = row.last_name?.trim();
   if (!surname) return null;
-  const given = [row.name_prefix, row.first_name, row.middle_name]
+  const given = [row.name_prefix, row.first_name, style === 'middle-initial' ? middleInitials(row.middle_name) : row.middle_name]
     .map((part) => (part ?? '').trim())
     .filter(Boolean)
     .join(' ');
@@ -947,13 +962,15 @@ export function buildEntourage(
   sectionOrder?: readonly string[] | null,
   /** `events.role_names` — the couple's words for roles (owner 2026-09-30). Omitted → the usual words. */
   names?: RoleNames | null,
+  /** `events.print_details.name_style` — the event's Name style (owner 2026-09-30). Omitted → Full. */
+  style?: NameStyle,
 ): EntourageGroup[] {
   const groups: EntourageGroup[] = [];
   const byKey = new Map(GROUPS.map((g) => [g.key, g]));
   for (const key of orderedGroupKeys(sectionOrder)) {
     const spec = byKey.get(key)!;
     // The SAME function the dashboard reorders with — see `entourageLines`.
-    const built = entourageLines(rows, spec.key);
+    const built = entourageLines(rows, spec.key, style);
     if (built.length === 0) continue;
     const present = new Set<string>();
     for (const line of built) for (const p of line) if (p) present.add(p.role);
@@ -1042,14 +1059,14 @@ function pairUp(people: readonly EntouragePerson[], sides: GroupSpec['sides']): 
  * ⛔ The couple themselves are excluded — their names are the masthead, and
  * printing them in a guest list reads as a mistake.
  */
-export function plainGuestNames(rows: readonly EntourageGuestRow[]): string[] {
+export function plainGuestNames(rows: readonly EntourageGuestRow[], style?: NameStyle): string[] {
   const cast = new Set<string>(ENTOURAGE_ROLES);
   const names: string[] = [];
   for (const row of rows) {
     const role = row.role ?? '';
     if (cast.has(role) || role === 'bride' || role === 'groom') continue;
     if ((row.extra_roles ?? []).some((r) => cast.has(r))) continue;
-    const name = personName(row);
+    const name = personName(row, style);
     if (name) names.push(name);
   }
   return names;

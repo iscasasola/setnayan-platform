@@ -5,7 +5,7 @@
  * ── THE RULE (owner, 2026-09-29) ────────────────────────────────────────────
  * *"Only Papic is customized and all other namings should be generic."*
  * Pakanta → **Music Maker** · Samahan → **Group** · Alaala → **Memories** ·
- * Alaga → **Loved ones** · Panood → **Watch Live** · Kwento → **Photo Notes**.
+ * Alaga → **Loved ones** · Panood → **Live Studio** · Kwento → **Photo Notes**.
  * Papic and Patiktok keep their names.
  * The rename is of WORDS ON A SCREEN. Identifiers are deliberately NOT renamed:
  * `/studio/pakanta`, `pakanta_song_r2_key`, `samahan_stories`, the `PAKANTA`
@@ -69,8 +69,12 @@ export const RETIRED_NAMES: readonly RetiredName[] = [
   { was: 'Alaga', now: 'Loved ones', pattern: 'alaga' },
   // Papic and Patiktok KEEP their names (DECISION_LOG 2026-09-29 "PATIKTOK
   // KEEPS ITS NAME") — never add them here.
-  // Panood → Watch Live (owner 2026-09-29 "NINE PENDING DECISIONS" #6).
-  { was: 'Panood', now: 'Watch Live', pattern: 'panood' },
+  // Panood → Live Studio (owner 2026-09-29, DECISION_LOG "THREE OF THE
+  // CONTROLLER'S OPEN QUESTIONS ANSWERED" (1): *"Panood is the Live Studio .
+  // Watch Live is okay also"*). Live Studio is the host's tool — the name the
+  // Live Studio SKU already carries; "Watch Live" stays right on the guest's
+  // watch page. Was "Watch Live" per "NINE PENDING DECISIONS" #6.
+  { was: 'Panood', now: 'Live Studio', pattern: 'panood' },
   // Kwento → Photo Notes (owner 2026-09-29 "NINE PENDING DECISIONS" #9). The
   // Tagalog noun ("ang kwento", "inyong kwento") is a word, not the feature.
   {

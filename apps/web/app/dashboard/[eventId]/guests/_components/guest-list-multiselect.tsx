@@ -722,7 +722,7 @@ function RowInvite({
       size={size}
       guest={{
         guestId: guest.guest_id,
-        formalName: guestFullName(guest),
+        formalName: guestFullName(guest, invite.facts.nameStyle),
         firstName: guest.first_name,
         fullName: guestDisplayName(guest),
         inviteUrl: guest.qr_token ? `${invite.base}?invite=${guest.qr_token}` : null,

@@ -86,6 +86,8 @@ export const ChangedSincePrinted = dynamic(() => import(/* webpackChunkName: "ma
 
 /* ── Your event (names · date · venues · parents & hosts · the march) ─────── */
 export const NamesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.NamesEditor), { loading: SlotRows });
+// 🔤 Name style ▾ (owner 2026-09-30) — under the Names, the same file, the same chunk.
+export const NameStylePicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.NameStylePicker), { loading: SlotRows });
 export const OneNameEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.OneNameEditor), { loading: SlotRows });
 export const DateEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateEditor), { loading: SlotRows });
 export const DateBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateBody), { loading: SlotFill });

@@ -42,6 +42,7 @@ import { GuestQrCard } from './guest-detail-body';
 import type { GuestSendInvite } from './send-invite';
 import type { GuestPassCardLink } from './guest-pass-card-link';
 import type { ComponentType } from 'react';
+import { PrefixSelect } from '@/app/_components/formal-name-inputs';
 import type { InviteSetup } from './invite-message-setup';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
@@ -304,7 +305,7 @@ export function GuestCardBody({
                 eventId={eventId}
                 guest={{
                   guestId: guest.guest_id,
-                  formalName: guestFullName(guest),
+                  formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
                   firstName: guest.first_name,
                   fullName: guestDisplayName(guest),
                   inviteUrl: guest.qr_token ? `${invitationBase}?invite=${guest.qr_token}` : null,
@@ -386,7 +387,13 @@ export function GuestCardBody({
               ) : (
               <>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Field id="name_prefix" label="Prefix" defaultValue={guest.name_prefix ?? ''} />
+                {/* 🪪 Prefix is the guest side's dropdown (owner 2026-09-30). */}
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-ink" htmlFor="name_prefix">
+                    Prefix
+                  </label>
+                  <PrefixSelect id="name_prefix" defaultValue={guest.name_prefix} />
+                </div>
                 <Field id="first_name" label="First name *" required defaultValue={guest.first_name} />
                 <Field id="middle_name" label="Middle name" defaultValue={guest.middle_name ?? ''} />
               </div>

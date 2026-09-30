@@ -142,7 +142,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   // Streaming Plus retired (collapsed into the always-multicam SKUs).
   {
     skuCode: 'panood_daily_broadcast',
-    displayName: 'Watch Live Daily Broadcast (always multi-cam, up to 6)',
+    displayName: 'Live Studio Daily Broadcast (always multi-cam, up to 6)',
     category: 'panood',
     // Repriced 2026-05-17: was 49900 (₱499 single-cam), now 249900 (₱2,499
     // always-multicam baked in).
@@ -156,7 +156,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   },
   {
     skuCode: 'panood_camera_sync',
-    displayName: 'Watch Live Camera Sync (multi-cam)',
+    displayName: 'Live Studio Camera Sync (multi-cam)',
     category: 'panood',
     priceCentavos: 9900,
     unit: 'day',
@@ -169,7 +169,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   },
   {
     skuCode: 'panood_annual_streaming',
-    displayName: 'Watch Live Annual Streaming (always multi-cam, all events)',
+    displayName: 'Live Studio Annual Streaming (always multi-cam, all events)',
     category: 'panood',
     // Repriced 2026-05-17: was 299900 (₱2,999), now 1999900 (₱19,999).
     // Vendor / competition-organizer subscription positioning at year +
@@ -184,7 +184,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   },
   {
     skuCode: 'panood_annual_streaming_plus',
-    displayName: 'Watch Live Annual Streaming Plus (multi-cam unlimited)',
+    displayName: 'Live Studio Annual Streaming Plus (multi-cam unlimited)',
     category: 'panood',
     priceCentavos: 399900,
     unit: 'year',

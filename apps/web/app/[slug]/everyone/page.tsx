@@ -8,7 +8,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { isHostMemberType } from '../_lib/host-scope';
-import { loadEntourageSectionOrder, loadEventRoleNames } from '../_lib/loaders';
+import { loadEntourageSectionOrder, loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import {
   buildEntourage,
   plainGuestNames,
@@ -122,6 +122,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
   const recognised = await eventRecognisesViewer(event.event_id);
   const admin = createAdminClient();
 
+  const nameStyle = await loadEventNameStyle(admin, event.event_id);
   const { data: castRows } = await admin
     .from('guests')
     .select(ENTOURAGE_COLUMNS)
@@ -136,6 +137,8 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
     await loadEntourageSectionOrder(admin, event.event_id),
     // The couple's own words for roles (owner 2026-09-30) — the same ones the invitation prints.
     await loadEventRoleNames(admin, event.event_id),
+    // …and the event's Name style (owner 2026-09-30) — the names in the same style too.
+    nameStyle,
   );
 
   /*
@@ -151,7 +154,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
       .select(ENTOURAGE_COLUMNS)
       .eq('event_id', event.event_id)
       .is('deleted_at', null);
-    guests = plainGuestNames((guestRows ?? []) as EntourageGuestRow[]);
+    guests = plainGuestNames((guestRows ?? []) as EntourageGuestRow[], nameStyle);
   }
 
   const name = event.display_name ?? 'this celebration';

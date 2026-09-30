@@ -428,7 +428,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                  they have no link yet — the modal then offers no Copy button. */
               const inviteMessage = buildGuestInviteMessage({
             ...inviteSetup.facts,
-            formalName: guestFullName(guest),
+            formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
             firstName: guest.first_name,
             guestName: guestDisplayName(guest),
             inviteUrl: qr?.url ?? '',
@@ -509,7 +509,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
              they have no link yet — the modal then offers no Copy button. */
           const inviteMessage = buildGuestInviteMessage({
             ...inviteSetup.facts,
-            formalName: guestFullName(guest),
+            formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
             firstName: guest.first_name,
             guestName: guestDisplayName(guest),
             inviteUrl: qr?.url ?? '',

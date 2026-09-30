@@ -61,6 +61,7 @@ import {
   type FormalName,
 } from '@/lib/formal-name';
 import { formalNameFromGuestList } from '@/lib/formal-name-from-guest-list';
+import { PrefixSelect } from '@/app/_components/formal-name-inputs';
 import { AnalyticsChoice } from './_components/analytics-choice';
 import { SettingsShell } from './_components/settings-shell';
 import { groupFromSearchParams } from '@/lib/profile-settings-groups';
@@ -520,16 +521,19 @@ export default async function ProfilePage({ searchParams }: Props) {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_5rem]">
               {FORMAL_NAME_FIELDS.map((f) => (
                 <Field key={f} label={FORMAL_NAME_LABELS[f]} htmlFor={f}>
-                  <input
-                    id={f}
-                    name={f}
-                    maxLength={FORMAL_NAME_PART_MAX}
-                    defaultValue={formalNameShown[f] ?? ''}
-                    placeholder={
-                      f === 'name_prefix' ? 'Mr., Atty.…' : f === 'name_suffix' ? 'Jr., II…' : undefined
-                    }
-                    className="input-field"
-                  />
+                  {f === 'name_prefix' ? (
+                    /* 🪪 The guest side's Prefix dropdown (owner 2026-09-30). */
+                    <PrefixSelect id={f} defaultValue={formalNameShown[f]} autoComplete="honorific-prefix" />
+                  ) : (
+                    <input
+                      id={f}
+                      name={f}
+                      maxLength={FORMAL_NAME_PART_MAX}
+                      defaultValue={formalNameShown[f] ?? ''}
+                      placeholder={f === 'name_suffix' ? 'Jr., II…' : undefined}
+                      className="input-field"
+                    />
+                  )}
                 </Field>
               ))}
             </div>

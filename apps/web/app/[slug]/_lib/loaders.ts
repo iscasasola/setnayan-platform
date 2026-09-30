@@ -29,6 +29,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
+import { loadNameStyle } from '@/lib/name-style.server';
+import type { NameStyle } from '@/lib/name-style';
 import {
   buildEntourage,
   ENTOURAGE_COLUMNS,
@@ -1770,6 +1772,17 @@ export const loadEventRoleNames = cache(
     loadRoleNames(admin, eventId, 'loadEventRoleNames'),
 );
 
+/**
+ * The event's Name style (`events.print_details.name_style`, owner 2026-09-30
+ * — Full · Middle initial · Surname first). Same posture as the role words: its
+ * own query, cached per request, and an unreadable value prints Full — the
+ * names as they printed before the style existed — never a broken page.
+ */
+export const loadEventNameStyle = cache(
+  async (admin: AdminClient, eventId: string): Promise<NameStyle> =>
+    loadNameStyle(admin, eventId, 'loadEventNameStyle'),
+);
+
 export const loadEntourage = cache(
   async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
     const { data, error } = await admin
@@ -1817,6 +1830,7 @@ export const loadEntourage = cache(
       (data ?? []) as EntourageGuestRow[],
       await loadEntourageSectionOrder(admin, eventId),
       await loadEventRoleNames(admin, eventId),
+      await loadEventNameStyle(admin, eventId),
     );
   },
 );

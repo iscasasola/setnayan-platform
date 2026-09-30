@@ -7,7 +7,7 @@ import type { MarchOption } from '@/lib/march-moves';
 import type { MarchResult } from '@/lib/march-result';
 import { setEntourageLineOrder } from '../../guests/entourage-order-actions';
 import { joinEntourageLine, swapEntouragePlaces } from '../../guests/march-actions';
-import { unpairGuestAction } from '../../guests/pair-actions';
+import { setWalkingPairCouple, unpairGuestAction } from '../../guests/pair-actions';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { DetailsPieceButton, useDetailsPiece } from './details-go';
@@ -41,6 +41,13 @@ export type MarchLineData = {
   /** Its step in the whole march, 1-based. */
   step: number;
   slots: [MarchSlotData, MarchSlotData];
+  /**
+   * Two walkers only: are they a real COUPLE (`isCouple`)? `plusOne` — one is
+   * the other's +1, which already makes them a couple and needs no tick.
+   * Null for a line of one. (Owner 2026-09-30: walking together is not being
+   * a couple.)
+   */
+  couple: { on: boolean; plusOne: boolean } | null;
 };
 
 export type MarchSectionData = { key: string; label: string; lines: MarchLineData[] };
@@ -276,6 +283,18 @@ export function MarchControls({
           )}
         </div>
       ))}
+      {pairIds.length === 2 && line.couple ? (
+        /* ⚖ OWNER 2026-09-30 — "They're a couple". Walking together prints
+           both full names; ticked (or a +1) prints the couple's short form
+           when their surnames match. Saves in place, like every march move. */
+        <CoupleTick
+          key={line.leadId}
+          eventId={eventId}
+          ids={[pairIds[0]!, pairIds[1]!]}
+          couple={line.couple}
+          onProblem={setProblem}
+        />
+      ) : null}
       {pairIds.length === 2 ? (
         <button
           type="button"
@@ -294,5 +313,59 @@ export function MarchControls({
       ) : null}
       <HubSavesImmediately />
     </section>
+  );
+}
+
+/**
+ * "They're a couple" — one walking pair's tick (owner 2026-09-30, DECISION_LOG
+ * "WALKING TOGETHER IS NOT BEING A COUPLE"). The tick is drawn at the tap and
+ * saved behind it (`makerSave`); a refused save puts it back and says why. A
+ * +1 pair is a couple already, so its box is ticked and fixed.
+ */
+function CoupleTick({
+  eventId,
+  ids,
+  couple,
+  onProblem,
+}: {
+  eventId: string;
+  ids: readonly [string, string];
+  couple: { on: boolean; plusOne: boolean };
+  onProblem: (reason: string | null) => void;
+}) {
+  const [on, setOn] = useState(couple.on);
+  useEffect(() => setOn(couple.on), [couple.on]);
+  return (
+    <label className="flex min-h-11 items-center gap-2 text-sm text-ink" data-march-couple="">
+      <input
+        type="checkbox"
+        className="h-5 w-5 shrink-0 accent-ink"
+        checked={on}
+        disabled={couple.plusOne}
+        onChange={(e) => {
+          const next = e.currentTarget.checked;
+          setOn(next);
+          onProblem(null);
+          void makerSave(() => setWalkingPairCouple(eventId, ids[0], ids[1], next), requestMakerRefresh)
+            .then((r) => {
+              if (r.ok) return;
+              setOn(!next);
+              onProblem(r.reason);
+            })
+            .catch(() => {
+              setOn(!next);
+              onProblem('That did not go through — nothing was changed.');
+            });
+        }}
+      />
+      <span>
+        They&rsquo;re a couple
+        <small className="block text-xs text-ink/55">
+          {couple.plusOne
+            ? 'One is the other’s +1, so they print as a couple.'
+            : 'Leave it off if they only walk together — both full names print.'}
+        </small>
+      </span>
+    </label>
   );
 }

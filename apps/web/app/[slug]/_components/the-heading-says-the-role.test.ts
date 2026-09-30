@@ -61,21 +61,24 @@ const ROWS: EntourageGuestRow[] = [
   p('maid_of_honor', 'Mia', 'Uy'),
   p('matron_of_honor', 'Tess', 'Ong'),
   p('best_man', 'Ben', 'Sy'),
-  // Shared surname, data-paired → the surname said once, titles kept.
-  p('principal_sponsor_ninong', 'Ricardo', 'Villahermosa', 'n1', 'a1', { name_prefix: 'Hon.' }),
-  p('principal_sponsor_ninang', 'Jessica', 'Villahermosa', 'a1', 'n1', { name_prefix: 'Mrs.' }),
+  // A COUPLE (ticked "They're a couple" in the march) with a shared surname →
+  // the surname said once, titles kept. (Owner 2026-09-30: only a real couple.)
+  p('principal_sponsor_ninong', 'Ricardo', 'Villahermosa', 'n1', 'a1', { name_prefix: 'Hon.', couple_with_guest_id: 'a1' }),
+  p('principal_sponsor_ninang', 'Jessica', 'Villahermosa', 'a1', 'n1', { name_prefix: 'Mrs.', couple_with_guest_id: 'n1' }),
   // Different surnames, data-paired → both full names.
   p('principal_sponsor_ninong', 'Eduardo', 'Bautista', 'n2', 'a2', { name_prefix: 'Dr.' }),
   p('principal_sponsor_ninang', 'Carmen', 'Reyes', 'a2', 'n2'),
   // Same surname but NOT paired in the data → two lines, never guessed into a pair.
   p('principal_sponsor_ninong', 'Jose', 'Abad'),
   p('principal_sponsor_ninang', 'Teresita', 'Abad'),
-  // A suffix cannot be compressed honestly → both full names.
-  p('principal_sponsor_ninong', 'Mario', 'Lopez', 'n3', 'a3', { name_suffix: 'Jr.' }),
-  p('principal_sponsor_ninang', 'Nora', 'Lopez', 'a3', 'n3'),
+  // A suffix cannot be compressed honestly → both full names, even for a couple.
+  p('principal_sponsor_ninong', 'Mario', 'Lopez', 'n3', 'a3', { name_suffix: 'Jr.', couple_with_guest_id: 'a3' }),
+  p('principal_sponsor_ninang', 'Nora', 'Lopez', 'a3', 'n3', { couple_with_guest_id: 'n3' }),
   p('principal_sponsor', 'Legacy', 'Sponsor'),
+  // Bea is Paolo's +1 → a couple without a tick.
   p('candle_sponsor', 'Paolo', 'Cruz', 'c1', 'c2'),
-  p('candle_sponsor', 'Bea', 'Cruz', 'c2', 'c1'),
+  p('candle_sponsor', 'Bea', 'Cruz', 'c2', 'c1', { plus_one_of_guest_id: 'c1' }),
+  // Same surname, walking together, NOT a couple → both full names.
   p('veil_sponsor', 'Miguel', 'Reyes', 'v1', 'v2'),
   p('veil_sponsor', 'Anna', 'Reyes', 'v2', 'v1'),
   p('cord_sponsor', 'Luis', 'Santos'),
@@ -133,9 +136,9 @@ function items(html: string): string[] {
   return [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => visible(m[1]!).trim());
 }
 
-test('option 1 — a DATA-paired Ninong & Ninang share ONE line: surname once only when both match exactly', async () => {
+test('option 1 — a DATA-paired Ninong & Ninang share ONE line: surname once only for a COUPLE whose surnames match exactly', async () => {
   const lines = items(section(await render(), 'Principal Sponsors'));
-  // Shared surname → "Hon. Ricardo & Mrs. Jessica Villahermosa", titles as entered.
+  // A couple with a shared surname → "Hon. Ricardo & Mrs. Jessica Villahermosa", titles as entered.
   assert.ok(lines.includes('Hon. Ricardo & Mrs. Jessica Villahermosa'), lines.join(' | '));
   // Different surnames → both full names joined by " & ".
   assert.ok(lines.includes('Dr. Eduardo Bautista & Carmen Reyes'), lines.join(' | '));
@@ -196,7 +199,8 @@ test('Secondary Sponsors, stacked by default: one sub-heading per role, the pair
   }
   // Each pair is one <li>, both names in it.
   assert.match(s, /<li[^>]*>(Paolo &amp; Bea Cruz|Bea &amp; Paolo Cruz)<\/li>/);
-  assert.match(s, /<li[^>]*>(Miguel &amp; Anna Reyes|Anna &amp; Miguel Reyes)<\/li>/);
+  // Walking together is not being a couple: both full names.
+  assert.match(s, /<li[^>]*>(Miguel Reyes &amp; Anna Reyes|Anna Reyes &amp; Miguel Reyes)<\/li>/);
   // Order: the sub-heading, then its names.
   assert.ok(seen.indexOf('Candle') < seen.indexOf('Cruz') && seen.indexOf('Cruz') < seen.indexOf('Veil'));
   assert.ok(seen.indexOf('Veil') < seen.indexOf('Reyes') && seen.indexOf('Reyes') < seen.indexOf('Cord'));
@@ -207,7 +211,7 @@ test('Secondary Sponsors, inline (A): "Role: names" on one line', async () => {
   assert.match(s, /data-role-layout="inline"/);
   const seen = visible(s);
   assert.match(seen, /Candle: (Paolo & Bea Cruz|Bea & Paolo Cruz)/);
-  assert.match(seen, /Veil: (Miguel & Anna Reyes|Anna & Miguel Reyes)/);
+  assert.match(seen, /Veil: (Miguel Reyes & Anna Reyes|Anna Reyes & Miguel Reyes)/);
   assert.match(seen, /Cord: Luis Santos/);
   assert.doesNotMatch(seen, /Sponsor\b(?!s)/);
 });

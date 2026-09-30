@@ -27,6 +27,6 @@ Design: `Setnayan/prototypes/phone_app_simple_2026-10-01_fable.html` frame 1 · 
 ## Gotchas
 - `hasOverlays` no longer counts the (removed) guide tile; it now counts `papicNudgeVisible` so the Papic nudge still mounts when it is not the Next card.
 - The Next card for `ai` links to `/studio/setnayan-ai`; the offer card (with the buy) still renders below — deliberate.
-- `Recommended` badge on Edit your Event Hub is in the approved frame; owner's call whether it stays.
+- `Recommended` badge DROPPED (owner 2026-10-01); the guard now fails if it returns.
 - Day-of and After branches are unchanged (first screen only in the plan phase).
 - `a-debut-is-not-a-wedding…test.ts` pins the exact `<SetDateNudge …/>` string — keep it byte-identical.

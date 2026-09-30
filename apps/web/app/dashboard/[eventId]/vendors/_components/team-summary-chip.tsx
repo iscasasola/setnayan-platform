@@ -83,6 +83,9 @@ export function TeamSummaryChip({
   return createPortal(
     <button
       type="button"
+      // Hidden by the takeover while its phone find area is closed — the team
+      // rows at the top of the page already say what this chip says.
+      data-team-summary-chip=""
       aria-label={`Your team — ${summary}. Open Your team.`}
       onClick={() => {
         haptic('tick');

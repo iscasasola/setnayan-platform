@@ -34,9 +34,11 @@
  * `PlanBudgetAccordion`) lives in `page.tsx` and is unchanged.
  */
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { ChevronDown, Info, Sparkles, X } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import type { PillarPart } from '@/lib/pillar-parts';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
@@ -100,9 +102,25 @@ export function ServicesTakeover({
   budgetSlot,
   compareSlot,
   premium = false,
-  partPicker,
+  teamParts,
+  teamSlot,
+  initialFindOpen = false,
 }: {
   eventId: string;
+  /**
+   * The team, as rows — booked first, one next step each (`team-rows.tsx`).
+   * Owner-APPROVED 2026-10-01 (prototype frame 4 "Your Team"): on a phone this
+   * and ONE "Find a supplier" button are the whole screen; everything below
+   * opens from that button or from ⋯.
+   */
+  teamSlot?: ReactNode;
+  /**
+   * The page arrived AIMED at something below the team (`?tab=` · `?open=` ·
+   * `?inspect=`) — the lock door, a checklist deep link, a bench doorway. Open
+   * the find area in the FIRST render, so the bench's own mount-time scroll to
+   * the opened tile lands on a laid-out element rather than a hidden one.
+   */
+  initialFindOpen?: boolean;
   shortlistSlot?: ReactNode;
   buildSlot?: ReactNode;
   budgetSlot?: ReactNode;
@@ -112,9 +130,10 @@ export function ServicesTakeover({
    *  gold-accented crest strip signalling smart matching / watch guard are on
    *  (PR-4 · S5). Purely presentational; gated on the AI subscription upstream. */
   premium?: boolean;
-  /** Your Team's part picker — Your team · Budget (`lib/pillar-parts.ts`,
-   *  owner 2026-09-29). Rendered by the page; the takeover only places it. */
-  partPicker?: ReactNode;
+  /** Your Team's parts — Your team · Budget (`lib/pillar-parts.ts`, owner
+   *  2026-09-29). Budget moved behind ⋯ with the approved phone design
+   *  (2026-10-01): every part but the team itself is a row in that menu. */
+  teamParts?: readonly PillarPart[];
 }) {
   // Read once so the whole surface agrees within a render (same contract as
   // `build-compare.tsx` / `build-locked.tsx`).
@@ -124,10 +143,21 @@ export function ServicesTakeover({
   const [compareOpen, setCompareOpen] = useState(false);
   // Budget is a collapsible lens too (calm rail by default; opens on select).
   const [budgetOpen, setBudgetOpen] = useState(false);
+  // ── THE FIND AREA (approved phone design, 2026-10-01) ─────────────────────
+  // Below lg, the bench · picks · payments · plans sit behind "Find a supplier"
+  // so the team is the screen. NOTHING is unmounted — the grid is only
+  // `hidden` — and every door into it opens it: the button, every ⋯ row (they
+  // all go through `goToSection`), the BB_TAB_EVENT bus, and a deep link
+  // (`initialFindOpen`). Desktop always shows it, below the team.
+  const [findOpen, setFindOpen] = useState(initialFindOpen);
+  useEffect(() => {
+    if (initialFindOpen) setFindOpen(true);
+  }, [initialFindOpen]);
 
   // Scroll a section into view + mirror ?tab= for refresh/deep-links.
-  // Shared by the bus listener and the on-mount ?tab= adopt.
+  // Shared by the bus listener, the on-mount ?tab= adopt and "Find a supplier".
   const goToSection = useCallback((next: BudgetBuildTab, smooth = true) => {
+    setFindOpen(true);
     if (next === 'compare') setCompareOpen(true);
     if (next === 'budget') setBudgetOpen(true);
     try {
@@ -137,10 +167,14 @@ export function ServicesTakeover({
     } catch {
       // URL/history unavailable — the scroll still happens, client-only.
     }
-    const el = document.getElementById(sectionId(next));
-    if (el) {
-      el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
-    }
+    // One frame later: the find area may have been hidden until the state
+    // above commits, and a hidden element cannot be scrolled to.
+    requestAnimationFrame(() => {
+      const el = document.getElementById(sectionId(next));
+      if (el) {
+        el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+      }
+    });
   }, []);
 
   // The docked section sub-nav (event layout) writes ?tab= via replaceState and
@@ -200,16 +234,41 @@ export function ServicesTakeover({
           dashboard pages already use it); it is NOT re-drawn here. Its back
           chevron is the "crumb" the plan asks for — this product has no
           breadcrumb component and the masthead's own docblock says so. */}
-      {replan ? (
-        <PageMasthead
-          title="Your Team"
-        />
-      ) : null}
+      <PageMasthead title="Your Team" />
 
-      {/* Your Team's parts — Your team · Budget (owner 2026-09-29: Budget
-          moved into this pillar). One dropdown, first on the page, so the
-          couple's money is one tap from the bench at every width. */}
-      {partPicker ? <div className="mb-4">{partPicker}</div> : null}
+      {/* ── THE APPROVED PHONE SCREEN (owner 2026-10-01, prototype frame 4) ──
+          Title + ⋯ · the team, booked first, one next step each · ONE "Find a
+          supplier". Budget and the section jumps live behind ⋯; the category
+          walls live inside Find a supplier. The visible title is aria-hidden:
+          the masthead's h1 above already names the page for a screen reader. */}
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p aria-hidden className="font-display text-[28px] leading-none text-ink">
+          Your Team
+        </p>
+        <TeamMoreMenu parts={teamParts} replan={replan} />
+      </div>
+
+      {teamSlot ? <div data-team-slot="">{teamSlot}</div> : null}
+
+      <button
+        type="button"
+        data-find-supplier=""
+        aria-expanded={findOpen}
+        aria-controls="team-find-area"
+        onClick={() => goToSection('shortlist')}
+        className="mb-6 mt-3.5 inline-flex w-full items-center justify-center rounded-full border-[1.5px] border-ink bg-cream px-4 py-3.5 font-display text-base text-ink transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry lg:w-auto lg:px-8"
+      >
+        Find a supplier
+      </button>
+
+      {/* While the find area is closed on a phone, the floating team chip
+          (build-locked.tsx) would repeat what the rows above already say, as a
+          second bar over the bottom nav. It comes back with the find area. */}
+      {findOpen ? null : (
+        <style>{`@media (max-width:1023px){[data-team-summary-chip]{display:none}}`}</style>
+      )}
+
+      <div id="team-find-area" data-find-area={findOpen ? 'open' : 'closed'} className={findOpen ? undefined : 'hidden lg:block'}>
 
       {/* Premium tier crest (S5) — shows only when Setnayan AI is active, marking
           the Marketplace as the couple's premium planning surface.
@@ -260,8 +319,11 @@ export function ServicesTakeover({
 
           Not sticky, deliberately: the bottom nav and the team chip already dock
           on mobile, and a third pinned bar is the stacked-bars defect
-          `lint-no-stacked-pinned-bars.mjs` exists to prevent. */}
-      {replan ? <SectionChips /> : null}
+          `lint-no-stacked-pinned-bars.mjs` exists to prevent.
+
+          2026-10-01: MOVED BEHIND ⋯ (`TeamMoreMenu`) with the approved phone
+          design — a row of pills is the one shape INTERACTION_RULES §2 bans.
+          Same buttons, same bus; they are now menu rows. */}
 
       {/* Merkado layout (S1 · 2026-07-09): MOBILE stacks (shortlist → build →
           compare) exactly as before — the grid collapses to one column and the
@@ -388,6 +450,7 @@ export function ServicesTakeover({
             </ServiceSection>
           </div>
         ) : null}
+      </div>
       </div>
     </section>
   );
@@ -566,19 +629,77 @@ function ExploreInfoToggle() {
  * re-listed, so a future reorder happens in one place.
  */
 function SectionChips() {
+  // 2026-10-01 — rendered INSIDE the ⋯ menu (`TeamMoreMenu`) as menu rows, no
+  // longer as a pill row. A press also closes the menu it sits in.
   return (
-    <nav aria-label="Jump to a section" className="mb-6 flex flex-wrap gap-2">
+    <nav aria-label="Jump to a section" className="flex flex-col">
       {BUDGET_BUILD_TABS.map((tab) => (
         <button
           key={tab}
           type="button"
-          onClick={() => goToBuildTab(tab)}
-          className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-3.5 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          onClick={(e) => {
+            e.currentTarget.closest('details')?.removeAttribute('open');
+            goToBuildTab(tab);
+          }}
+          className={MENU_ROW_CLASS}
         >
           {tabLabel(tab)}
         </button>
       ))}
     </nav>
+  );
+}
+
+const MENU_ROW_CLASS =
+  'flex w-full items-center rounded-md px-3 py-2.5 text-left text-sm text-ink transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-mulberry';
+
+/**
+ * TeamMoreMenu — the ⋯ beside "Your Team" (approved phone design 2026-10-01:
+ * "budget, compare quotes, reuse-a-booking behind ⋯").
+ *
+ * A native `<details>`, so it opens with no JavaScript of its own; the effect
+ * only adds what `<details>` lacks — closing on Escape and on a tap outside.
+ * Rows: every Your Team part except the team itself (Budget, from
+ * `lib/pillar-parts.ts` — never a hand-typed href), then the section jumps
+ * (`SectionChips`, unchanged buttons on the unchanged bus). Reusable bookings
+ * live in the Picks section they have always been in (dark behind their flag).
+ */
+function TeamMoreMenu({ parts, replan }: { parts?: readonly PillarPart[]; replan: boolean }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (e: Event) => {
+      const el = ref.current;
+      if (!el?.open) return;
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !el.contains(e.target as Node)) {
+        el.removeAttribute('open');
+      }
+    };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, []);
+  const otherParts = (parts ?? []).filter((p) => p.key !== 'team');
+  if (otherParts.length === 0 && !replan) return null;
+  return (
+    <details ref={ref} className="relative shrink-0" data-team-more="">
+      <summary
+        aria-label="More for Your Team"
+        className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full border border-ink/15 bg-cream text-base font-semibold tracking-[0.04em] text-ink/70 transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry [&::-webkit-details-marker]:hidden"
+      >
+        ⋯
+      </summary>
+      <div className="absolute right-0 top-11 z-30 w-60 rounded-xl bg-cream p-1.5 shadow-xl ring-1 ring-ink/10">
+        {otherParts.map((p) => (
+          <Link key={p.key} href={p.href} className={MENU_ROW_CLASS} data-team-part={p.key}>
+            {p.label}
+          </Link>
+        ))}
+        {replan ? <SectionChips /> : null}
+      </div>
+    </details>
   );
 }
 

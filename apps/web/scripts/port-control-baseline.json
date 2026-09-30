@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "40fff251d",
+  "generatedFromRef": "a4cd07b70",
   "routeCount": 439,
-  "destinations": 947,
+  "destinations": 948,
   "actions": 674,
   "blocks": 5299,
   "routes": {
@@ -193,8 +193,9 @@
         "/explore?category=wedding_coordination",
         "/explore?event_type=[seg]",
         "/explore?match=0",
-        "/tour",
-        "/vendors"
+        "/for-suppliers",
+        "/open-shop",
+        "/tour"
       ],
       "actions": [
         "formAction"
@@ -523,8 +524,8 @@
       ],
       "destinations": [
         "/creators",
-        "/onboarding/wedding?from=pricing",
-        "/vendors"
+        "/for-suppliers",
+        "/onboarding/wedding?from=pricing"
       ],
       "actions": [],
       "blocks": [
@@ -669,7 +670,7 @@
       ],
       "destinations": [
         "/explore",
-        "/vendors"
+        "/for-suppliers"
       ],
       "actions": [],
       "blocks": [
@@ -9464,9 +9465,9 @@
         "features/page.tsx"
       ],
       "destinations": [
+        "/for-suppliers",
         "/pricing",
-        "/signup",
-        "/vendors"
+        "/signup"
       ],
       "actions": [],
       "blocks": [
@@ -9495,6 +9496,58 @@
         "StickyMobileCTA",
         "VendorsLedger",
         "WhySetnayan"
+      ]
+    },
+    "/for-suppliers": {
+      "files": [
+        "for-suppliers/_components/for-vendors-motion.tsx",
+        "for-suppliers/_components/vendor-grow-hero.tsx",
+        "for-suppliers/_components/vendor-grow-sections.tsx",
+        "for-suppliers/_components/vendor-hero-gate.tsx",
+        "for-suppliers/_components/vendor-tier-deltas.tsx",
+        "for-suppliers/_components/vendor-tier-matrix.tsx",
+        "for-suppliers/page.tsx"
+      ],
+      "destinations": [
+        "/for-suppliers",
+        "/help",
+        "/open-shop",
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "CardGrid",
+        "CellView",
+        "Col",
+        "Eyebrow",
+        "FeatureLI",
+        "Fragment",
+        "GridCard",
+        "H2",
+        "HTMLAnchorElement",
+        "HTMLDivElement",
+        "Image",
+        "Lede",
+        "Link",
+        "RevealOnView",
+        "SoonPill",
+        "VendorGrowAI",
+        "VendorGrowAnalytics",
+        "VendorGrowCTA",
+        "VendorGrowFairPay",
+        "VendorGrowGetPaid",
+        "VendorGrowHero",
+        "VendorGrowHub",
+        "VendorGrowNoFakes",
+        "VendorGrowReach",
+        "VendorGrowStyles",
+        "VendorGrowThesis",
+        "VendorGrowTools",
+        "VendorGrowTrust",
+        "VendorGrowWebsite",
+        "VendorHeroGate",
+        "VendorTierDeltas",
+        "VendorTierMatrix"
       ]
     },
     "/forgot-password": {
@@ -12928,66 +12981,14 @@
         "SubmitButton"
       ]
     },
-    "/vendors": {
-      "files": [
-        "vendors/_components/for-vendors-motion.tsx",
-        "vendors/_components/vendor-grow-hero.tsx",
-        "vendors/_components/vendor-grow-sections.tsx",
-        "vendors/_components/vendor-hero-gate.tsx",
-        "vendors/_components/vendor-tier-deltas.tsx",
-        "vendors/_components/vendor-tier-matrix.tsx",
-        "vendors/page.tsx"
-      ],
-      "destinations": [
-        "/help",
-        "/open-shop",
-        "/pricing",
-        "/vendors"
-      ],
-      "actions": [],
-      "blocks": [
-        "CardGrid",
-        "CellView",
-        "Col",
-        "Eyebrow",
-        "FeatureLI",
-        "Fragment",
-        "GridCard",
-        "H2",
-        "HTMLAnchorElement",
-        "HTMLDivElement",
-        "Image",
-        "Lede",
-        "Link",
-        "RevealOnView",
-        "SoonPill",
-        "VendorGrowAI",
-        "VendorGrowAnalytics",
-        "VendorGrowCTA",
-        "VendorGrowFairPay",
-        "VendorGrowGetPaid",
-        "VendorGrowHero",
-        "VendorGrowHub",
-        "VendorGrowNoFakes",
-        "VendorGrowReach",
-        "VendorGrowStyles",
-        "VendorGrowThesis",
-        "VendorGrowTools",
-        "VendorGrowTrust",
-        "VendorGrowWebsite",
-        "VendorHeroGate",
-        "VendorTierDeltas",
-        "VendorTierMatrix"
-      ]
-    },
     "/waitlist": {
       "files": [
         "waitlist/page.tsx"
       ],
       "destinations": [
         "/explore",
-        "/onboarding/wedding",
-        "/vendors"
+        "/for-suppliers",
+        "/onboarding/wedding"
       ],
       "actions": [],
       "blocks": [

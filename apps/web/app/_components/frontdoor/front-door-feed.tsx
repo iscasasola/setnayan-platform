@@ -352,8 +352,15 @@ export function FrontDoorFeed({
     liveShops: liveShopCount ?? 0,
   });
 
+  // `none` = no shops to show — a real zero OR a failed read (the composer
+  // floors null to 0). "The first shops" over an empty grid would name shops
+  // that are not there, so it is plain "Shops"; the line under it says which.
   const shopsHeading =
-    shape.shopsHeading === 'trending' ? 'Trending shops' : 'The first shops';
+    shape.shopsHeading === 'trending'
+      ? 'Trending shops'
+      : shape.shopsHeading === 'first-shops'
+        ? 'The first shops'
+        : 'Shops';
   const realWeddingsEarnedGrid = shape.stories === 'grid';
 
   // Chapters ranked by real views — see the module docblock. Not filtered by
@@ -375,6 +382,21 @@ export function FrontDoorFeed({
           </span>
         ) : null}
       </h2>
+      {/*
+        🧪 THE EMPTY SHELF (2026-09-30). The two trial shops became `is_demo`
+        (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1): "Discover's Shops
+        shelf … show[s] nothing until a real supplier joins"), so an empty
+        shelf is now the normal state. It says so in one plain line — and a
+        failed read says THAT instead, never "none" (`liveShopCount` is null
+        only when the count read failed). The invite card below is the door.
+      */}
+      {shops.length === 0 ? (
+        <p className="fd-notice" role="status">
+          {liveShopCount === 0
+            ? 'No supplier has opened a shop yet.'
+            : 'Shops couldn’t load just now — try again in a moment.'}
+        </p>
+      ) : null}
       <div className="fd-grid">
         {shops.map((s) => (
           <ShopCard key={s.href} s={s} />

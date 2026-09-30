@@ -632,7 +632,17 @@ const nextConfig: NextConfig = {
       // `public/for-vendors/*.avif`, so a `:path*` catch-all would break those
       // asset URLs. Marketplace subpaths (`/vendors/*` → /explore) are handled
       // separately in middleware.ts.
-      { source: '/for-vendors', destination: '/vendors', permanent: true },
+      //
+      // 2026-09-30 — and again, `/vendors` → `/for-suppliers` (owner,
+      // DECISION_LOG 2026-09-29 "LANE 2 §2C": "supplier sign-up moves /vendors →
+      // /for-suppliers with a permanent forward from the old address"). BOTH old
+      // addresses point STRAIGHT at the new one — never `/for-vendors` →
+      // `/vendors` → `/for-suppliers`, a two-hop chain that search engines
+      // follow reluctantly. Query strings ride along (Next keeps them). The
+      // `/vendors/*` subpaths are NOT this page's: they were the marketplace
+      // and keep their own 308 to /explore in middleware.ts.
+      { source: '/for-vendors', destination: '/for-suppliers', permanent: true },
+      { source: '/vendors', destination: '/for-suppliers', permanent: true },
       // 2026-07-16 — Storytellers hub (PR-D · council verdict): /storytellers
       // is a SPEAKABLE WORD, not a page — it redirects into the "From Our
       // Storytellers" shelf on the single stories hub, so creators/marketing

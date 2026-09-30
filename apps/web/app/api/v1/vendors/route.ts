@@ -73,6 +73,8 @@ export async function GET(req: Request) {
     // + /v/[slug] + sitemap gate. The reconcile migration 20270331400000 marked
     // the founder + every paid vendor 'verified', so no real vendor is dropped.
     .eq('verification_state', 'verified')
+    // Never a demo shop (2026-09-30, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)).
+    .eq('is_demo', false)
     .order('created_at', { ascending: false })
     .order('public_id', { ascending: false })
     .limit(limit + 1);

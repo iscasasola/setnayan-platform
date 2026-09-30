@@ -10,7 +10,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { loadLandingCards } from '@/lib/supplier-landing-data';
-import { cityName, pagePath, qualifyingPages, type QualifyingPage } from '@/lib/supplier-landing';
+import { pagePath, placeName, qualifyingPages, type QualifyingPage } from '@/lib/supplier-landing';
 
 const TITLE = 'Filipino event suppliers by event, category and city';
 const DESCRIPTION =
@@ -53,7 +53,7 @@ export default async function SuppliersIndexPage() {
             <p>
               <Link href="/explore" className="font-medium text-ink underline underline-offset-4">Browse every verified supplier</Link>
               {' · '}
-              <Link href="/vendors" className="text-ink/70 underline underline-offset-4">Are you a supplier? List your services</Link>
+              <Link href="/for-suppliers" className="text-ink/70 underline underline-offset-4">Are you a supplier? List your services</Link>
             </p>
           </div>
         ) : (
@@ -67,7 +67,7 @@ export default async function SuppliersIndexPage() {
                   {list.map((p) => (
                     <li key={pagePath(p, tileSlug)}>
                       <Link href={pagePath(p, tileSlug)} className="underline underline-offset-4">
-                        {source.taxonomy.tileLabel[p.tile] ?? p.tile} in {p.city ? cityName(p.city) : 'the Philippines'}
+                        {source.taxonomy.tileLabel[p.tile] ?? p.tile} in {placeName(p)}
                       </Link>{' '}
                       <span className="text-sm text-ink/55">({p.cards})</span>
                     </li>

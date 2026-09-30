@@ -346,3 +346,26 @@ test('E · five quick values for one field are ONE write after the pause; the fi
   assert.equal(sent, 1, `${sent} writes for five values`);
   assert.deepEqual(answers, [CARRIED, CARRIED, CARRIED, CARRIED, 4]);
 });
+
+test('D · the Love Story page and Details draw the instant pieces the Maker hands down — and their own without it', async () => {
+  const React = (await import('react')).default;
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { MakerContext } = await import('../app/dashboard/[eventId]/launch/_components/maker-context');
+  const { InMakerLiveBook, InMakerLiveStoryPanel } = await import(`../${OS}/_components/in-maker-return-to`);
+  const Book = (p: Record<string, unknown>) => React.createElement('i', { 'data-live-book': String(p.eventId) });
+  const Panel = (p: Record<string, unknown>) => React.createElement('i', { 'data-live-panel': String(p.eventId) });
+  const own = React.createElement('b', null, 'server-drawn');
+  const inMaker = (child: unknown) =>
+    renderToStaticMarkup(
+      React.createElement(
+        MakerContext.Provider,
+        { value: { eventId: 'e-1', liveLoveStoryBook: Book, liveStoryPanel: Panel } as never },
+        child as never,
+      ),
+    );
+  assert.match(inMaker(React.createElement(InMakerLiveBook, { book: { eventId: 'e-1' } }, own)), /data-live-book="e-1"/);
+  assert.match(inMaker(React.createElement(InMakerLiveStoryPanel, { panel: { eventId: 'e-1' } }, own)), /data-live-panel="e-1"/);
+  assert.match(renderToStaticMarkup(React.createElement(InMakerLiveBook, { book: {} }, own)), /server-drawn/, 'outside the Maker the page draws its own book');
+  assert.match(renderToStaticMarkup(React.createElement(InMakerLiveStoryPanel, { panel: {} }, own)), /server-drawn/);
+});

@@ -421,7 +421,7 @@ test('🎉 the arrival greeting is quiet at a wake — and unchanged everywhere 
   const wake = eventWordsFromProfile(WAKE_PROFILE);
 
   const quiet = renderToStaticMarkup(
-    h(EventWordsProvider, { words: wake }, h(ArrivalGreeting, { tableLabel: 'Table 5' })),
+    h(EventWordsProvider, { words: wake, children: h(ArrivalGreeting, { tableLabel: 'Table 5' }) }),
   );
   assert.ok(quiet.includes('Thank you for being here.'), 'the wake has no quiet arrival line');
   assert.ok(quiet.includes('Table 5'), 'the quiet arm dropped the table');
@@ -432,7 +432,7 @@ test('🎉 the arrival greeting is quiet at a wake — and unchanged everywhere 
   // the shipped greeting, popper and bloom included.
   for (const tree of [
     h(ArrivalGreeting, { tableLabel: 'Table 5' }),
-    h(EventWordsProvider, { words: WORDS_AS_SHIPPED }, h(ArrivalGreeting, { tableLabel: 'Table 5' })),
+    h(EventWordsProvider, { words: WORDS_AS_SHIPPED, children: h(ArrivalGreeting, { tableLabel: 'Table 5' }) }),
   ]) {
     const party = renderToStaticMarkup(tree);
     assert.ok(party.includes('So glad you made it.'));

@@ -41,13 +41,19 @@ guest inside the top third at 390×844. Desktop keeps its header row but the SAM
   add-to-group after the role (`AddToGroupControl`, pinned by the-phone-card-edits-what-the-desktop-row-edits.test.ts);
   frame 2 puts search on the title line — we keep it in the shell top bar (F brief).
 
+## HANDOFF 2026-10-01 (account move) — next account starts here
+- Head: see `git log -1`. PR #6215 DRAFT (base rd/guest-card-and-rows-redesign), label do-not-auto-merge, auto-merge not armed. Never merge.
+- CI at handoff (latest ci runs): 3d2a739d8 in_progress ; de7d0fd5d in_progress ; f658cd034 completed cancelled. Read `gh pr checks 6215`; fix whatever is red. Last fully green CI pieces seen: production build + bundle-size (202.0 KB shared, within cap) on 9dda59e84.
+- NEXT: (1) wait for CI on the head; (2) refresh the add-sheet screenshots with the Tips fold open (script: scratchpad f2/shot3.mjs; harness app/dev/f2-guests-lab — local only, git-excluded; dev server launch.json `f2` :3481; take heavy lock `f2`); (3) re-run the full unit suite once (last full run: 20,995 pass, the 1 failure fixed).
+- Open flags for the owner: "Who can reply?" goes live at next Event Hub Apply (only writer is the Maker draft); no "scan" add path exists; no "one name per line" Quick add list tip (that page is first/last name fields, not parsed lines).
+
 ## Owner rulings 2026-10-01 (in this build)
 - Phone: only the round + adds; its four ways also in ⋯. Keep the rows' dashed "+" add-to-group.
 - Desktop: "keep it similar" — the SAME round + and the SAME add sheet (no header capture bar); dashed "+" on desktop rows.
 - The + lives in the HEADER beside ⋯ at both widths — NO floating button (DECISION_LOG "THE BOTTOM BAR IS HOME · GUESTS · SUPPLIERS · HUB · MORE"); `CustomerNavFab` returns null on /guests.
 - Phone Show ▾ visible on the counts line; desktop shows several columns.
 - Every person is their own row (never merge a pair).
-- Add sheet tips (lib/quick-add-tips.ts): one example + one Tips ▾. NOT added: the "one name per line in Quick add list" tip and tips on the Quick add list page — that page is first-name/last-name fields, not parsed lines, so both would be untrue (flagged to controller).
+- Add sheet tips (lib/quick-add-tips.ts): one example + one Tips ▾ (DONE, guarded by lib/quick-add-tips.test.ts). NOT added: the "one name per line in Quick add list" tip and tips on the Quick add list page — that page is first-name/last-name fields, not parsed lines, so both would be untrue (flagged to controller).
 
 ## Checks as of e692506fb+ (2026-10-01)
 - Local: full typecheck clean; full unit suite 20,995 pass / 1 fail → the one failure (numbers-carry-commas flagged the name `guestsMenu`) fixed by renaming to `moreMenu`; CI guard scripts all pass; port-controls OK.

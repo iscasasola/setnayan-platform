@@ -27,6 +27,9 @@ finalized", and "Add from your people" added nobody.
   `lib/rsvp-ask.ts` returns a date only when the host SET one and it is today or later. The invitation, the reply
   page and the reminder email use it; `resolveReplyBy` (with its 30-day default) is left for the host's Maker only.
   Guard: `lib/a-guest-never-reads-a-passed-reply-by.test.ts`.
+- **Only a person can be invited from your people** (owner: "business and pets and gadgets are not people. so not
+  allowed to be invited"). A loved one is offered only when `dependent_kind = 'person'`; the roster now carries
+  `dependentKind`. Guard: `lib/only-a-person-can-be-invited.test.ts`.
 - Empty Guest list copy: "No guests yet. Start by adding your first guest."
 - Deleted the unreferenced `setEstimatedBudget` action to keep the server-action budget at its ceiling.
 - Guards (each sabotaged red, then restored): `lib/guest-list-closed.test.ts`,

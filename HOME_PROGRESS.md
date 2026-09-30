@@ -11,8 +11,8 @@ Design: `Setnayan/prototypes/phone_app_simple_2026-10-01_fable.html` frame 1 · 
 - `event-dashboard.tsx` — only `export`ed `daysUntil` (pinned by a-finished-event-reads-as-finished.test.ts).
 
 ## Next (wrapped 2026-10-01 at the account's handoff limit — NOTHING below has run yet)
-1. Typecheck (`pnpm -C apps/web exec tsc --noEmit` under heavy-lock) — the WIP has NOT been typechecked.
-2. Regenerate `apps/web/scripts/port-control-baseline.json` (it lists `DetailsGuideHomeCard`, now gone; add `HomeFirstScreen`).
+1. ✅ Typecheck (`pnpm typecheck` in apps/web — plain tsc OOMs, use the script’s 7 GB flag).
+2. ✅ typecheck green; port baseline regenerated (only DetailsGuideHomeCard + Suspense removed — deliberate; Next hrefs are `href:` literals in home-first-screen.tsx so the scan sees them).
 3. Guard test (e.g. `app/dashboard/[eventId]/home-first-screen.test.ts`): (a) exactly one `data-home-next` card in HomeFirstScreen and it is the first thing in the plan branch; (b) `data-home-edit-hub` rendered unconditionally; (c) glanceCount(…, false) / glanceMoney(null) === "—" and page.tsx passes `guestsMeasured`. Sabotage each.
 4. Dev lab `app/dev/home-lab/page.tsx` (NODE_ENV production → notFound, like details-lab) rendering HomeFirstScreen on fixtures; screenshot at 390×844.
 5. Lint + every CI guard + unit tests from apps/web (bracketed paths one file at a time); `changelog.d/rd-phone-home-simple.md` (SPEC IMPACT: None).

@@ -624,7 +624,6 @@ export default async function EventHomePage({
   */
   const aiOfferShown = Boolean(aiOffer && aiOfferSettings && !storeShell);
   const homeNext = pickHomeNext({
-    eventId,
     guide: homeGuide,
     hasDate: Boolean(event.event_date),
     noun: eventNoun(event.event_type as string | null),

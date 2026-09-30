@@ -1,6 +1,23 @@
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
-import type { HomeNext } from '@/lib/home-first-screen';
+import type { HomeNext, HomeNextKind } from '@/lib/home-first-screen';
+
+/**
+ * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
+ * port-controls scan (`scripts/port-controls.mjs` HREF_RE) only sees an
+ * `href`/`href:` followed by a literal, so a `switch` returning strings made
+ * the guided flow's door read as "lost".
+ */
+function nextHref(kind: HomeNextKind, eventId: string): string {
+  const doors: ReadonlyArray<{ kind: HomeNextKind; href: string }> = [
+    { kind: 'guide', href: `/dashboard/${eventId}/launch?tool=details&guide=1` },
+    { kind: 'date', href: `/dashboard/${eventId}/date-selection` },
+    { kind: 'papic', href: `/dashboard/${eventId}/studio/papic` },
+    { kind: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
+    { kind: 'plan', href: '#home-all' },
+  ];
+  return doors.find((d) => d.kind === kind)?.href ?? '#home-all';
+}
 
 /**
  * 📱 THE HOME'S FIRST SCREEN — owner-APPROVED 2026-10-01 ("THE SIMPLE PHONE APP
@@ -59,7 +76,7 @@ export function HomeFirstScreen({
         <h2 className="mt-1 font-display text-[24px] leading-tight text-ink">{next.title}</h2>
         <p className="mt-1 text-sm text-ink/65">{next.body}</p>
         <Link
-          href={next.href}
+          href={nextHref(next.kind, eventId)}
           className="sn-press mt-3 flex w-full items-center justify-center rounded-full bg-ink px-5 py-3.5 text-[15px] font-semibold text-cream transition hover:bg-ink/90"
         >
           {next.action}

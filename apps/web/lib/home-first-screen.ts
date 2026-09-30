@@ -45,11 +45,9 @@ export type HomeNext = {
   title: string;
   body: string;
   action: string;
-  href: string;
 };
 
 export type HomeNextInput = {
-  eventId: string;
   guide: HomeGuide;
   hasDate: boolean;
   noun: 'wedding' | 'event';
@@ -58,17 +56,22 @@ export type HomeNextInput = {
   aiOffer: boolean;
 };
 
-/** ONE card, always — the first unfinished thing, else the plan below. */
+/**
+ * ONE card, always — the first unfinished thing, else the plan below.
+ *
+ * ⚠ The card's DESTINATION is not decided here: each kind's link is a literal
+ * in `home-first-screen.tsx` (`NEXT_HREF`), where `lint-port-no-lost-controls`
+ * can see it. A link built in `lib/` is invisible to that scan, which is how
+ * the guided flow's `?tool=details&guide=1` first read as "lost".
+ */
 export function pickHomeNext(input: HomeNextInput): HomeNext {
-  const { eventId, guide, hasDate, noun, papicReady, aiOffer } = input;
-  const base = `/dashboard/${eventId}`;
+  const { guide, hasDate, noun, papicReady, aiOffer } = input;
   if (guide) {
     return {
       kind: 'guide',
       title: guide.nextTitle ?? guide.roundTitle,
       body: `Your Event Hub · ${guide.roundTitle} · ${formatCount(guide.done)} of ${formatCount(guide.total)} done.`,
       action: 'Continue',
-      href: `${base}/launch?tool=details&guide=1`,
     };
   }
   if (!hasDate) {
@@ -77,7 +80,6 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       title: `Set your ${noun} date`,
       body: 'Lock it in to start the countdown and open what waits for a date.',
       action: 'Set your date',
-      href: `${base}/date-selection`,
     };
   }
   if (papicReady) {
@@ -86,7 +88,6 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       title: 'Your free camera is ready',
       body: 'Hand it to someone you trust and the candids start landing in your gallery.',
       action: 'Open Papic',
-      href: `${base}/studio/papic`,
     };
   }
   if (aiOffer) {
@@ -95,7 +96,6 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       title: 'Plan with Setnayan AI',
       body: 'Ask anything about your event.',
       action: 'See Setnayan AI',
-      href: `${base}/studio/setnayan-ai`,
     };
   }
   return {
@@ -103,7 +103,6 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
     title: 'You are on track',
     body: 'Nothing is waiting on you right now. Your whole plan is just below.',
     action: 'See your plan',
-    href: '#home-all',
   };
 }
 

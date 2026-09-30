@@ -30,6 +30,7 @@ import { loadInviteSetup } from '../_components/invite-message-setup';
 import { fetchInvitationBase } from '../_components/guest-card-data';
 import { REQUEST_WORDS, undoStillOpen } from '@/lib/request-key';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
+import { preMatchFor } from '@/lib/find-me';
 
 export const metadata = { title: 'Requests' };
 
@@ -50,7 +51,9 @@ type Props = {
 type RequestRow = {
   guest_id: string;
   first_name: string;
+  middle_name: string | null;
   last_name: string;
+  name_suffix: string | null;
   display_name: string | null;
   email: string | null;
   mobile: string | null;
@@ -110,7 +113,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
   // ⚠ an answer. Bind the error and gate the claim on whether the read happened.
   const { data: rowsRaw, error: rowsError } = await supabase
     .from('guests')
-    .select('guest_id, first_name, last_name, display_name, email, mobile, rsvp_status, notes, created_at')
+    .select('guest_id, first_name, middle_name, last_name, name_suffix, display_name, email, mobile, rsvp_status, notes, created_at')
     .eq('event_id', eventId)
     .eq('entry_source', 'self_added_unlisted')
     .is('deleted_at', null)
@@ -133,13 +136,15 @@ export default async function RequestsPage({ params, searchParams }: Props) {
     display_name: string | null;
     role: string | null;
     extra_roles: string[] | null;
+    middle_name: string | null;
+    name_suffix: string | null;
   };
   let candidates: Candidate[] = [];
   let candidatesMeasured = true;
   if (rows.length > 0) {
     const { data: candRaw, error: candError } = await supabase
       .from('guests')
-      .select('guest_id, first_name, last_name, display_name, role, extra_roles')
+      .select('guest_id, first_name, last_name, display_name, role, extra_roles, middle_name, name_suffix')
       .eq('event_id', eventId)
       .eq('entry_source', 'host_seeded')
       .is('deleted_at', null)
@@ -183,6 +188,13 @@ export default async function RequestsPage({ params, searchParams }: Props) {
   const byId = new Map(candidates.map((c) => [c.guest_id, c]));
   const items = rows.map((g) => {
     const name = (g.display_name?.trim() || `${g.first_name} ${g.last_name === '—' ? '' : g.last_name}`).trim();
+    // 🔎 PRE-MATCHED FIRST (owner 2026-09-30, "THE GENERIC QR FINDS YOU"): the
+    // one guest whose name this request's name matches EXACTLY, by the same
+    // rule the generic-QR door found them with (lib/find-me.ts) — so the couple
+    // taps Link once. Several exact matches → no pre-match; then the fuzzy
+    // suggestion, as before. Still a suggestion: nothing binds until Link.
+    const exact = preMatchFor(g, candidates);
+    if (exact) return { g, name, match: exact };
     const hit = suggestRequestMatch(name, seeds);
     return { g, name, match: hit ? (byId.get(hit.guestId) ?? null) : null };
   });

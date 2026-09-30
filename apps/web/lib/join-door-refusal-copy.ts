@@ -43,6 +43,7 @@ export const JOIN_DOOR_ERROR_KEYS = [
   'bad_email',
   'missing_terms',
   'too_many_attempts',
+  'no_match',
 ] as const;
 
 export type JoinDoorErrorKey = (typeof JOIN_DOOR_ERROR_KEYS)[number];
@@ -69,6 +70,9 @@ export function joinDoorRefusalMessages(w: JoinDoorOrganizerWords): Record<JoinD
     bad_email: 'That email address does not look right — please check it.',
     missing_terms: 'Please tick that you agree to the Terms and the Privacy Notice.',
     too_many_attempts: 'Too many tries from this connection — please wait a minute and try again.',
+    // 🔎 The generic-QR last-4 check (lib/find-me.ts). Never says WHICH part
+    // was wrong — the name or the digits.
+    no_match: `That doesn’t match. Try again, or ask ${w.theOrganizer} to confirm you.`,
   };
 }
 

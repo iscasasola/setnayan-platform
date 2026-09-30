@@ -1477,7 +1477,7 @@ function RosterBulkBar({
       role="region"
       aria-label="Bulk actions for selected guests"
       data-roster-bulk-bar=""
-      className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5rem)] z-40 mx-auto max-w-3xl rounded-2xl bg-ink px-3 py-2.5 text-cream shadow-[0_18px_40px_-14px_rgba(26,26,26,0.6)] lg:bottom-6"
+      className="fixed inset-x-3 bottom-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+0.75rem)] z-40 mx-auto max-w-3xl rounded-2xl bg-ink px-3 py-2.5 text-cream shadow-[0_18px_40px_-14px_rgba(26,26,26,0.6)] lg:bottom-6"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <p className="text-sm">

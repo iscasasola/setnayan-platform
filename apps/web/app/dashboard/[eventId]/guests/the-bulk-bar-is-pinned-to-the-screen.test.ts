@@ -40,5 +40,9 @@ test('the roster still renders inside those wrappers, and the bulk bar is still 
   const rows = stripComments(
     readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-list-multiselect.tsx'), 'utf8'),
   );
-  assert.match(rows, /className="fixed inset-x-3 bottom-\[calc\(env\(safe-area-inset-bottom\)\+5rem\)\]/);
+  // In the iOS app the bottom chrome is the measured dock (bar + the section
+  // strip when one is up + the home indicator — `--sn-bottomdock-h`, published
+  // by <BottomDock>). A fixed "+5rem" sat UNDER the strip whenever one was up;
+  // the bar now stands on the dock's real height.
+  assert.match(rows, /className="fixed inset-x-3 bottom-\[calc\(var\(--sn-bottomdock-h,calc\(env\(safe-area-inset-bottom\)\+64px\)\)\+0\.75rem\)\]/, 'the bulk bar no longer stands on the measured dock');
 });

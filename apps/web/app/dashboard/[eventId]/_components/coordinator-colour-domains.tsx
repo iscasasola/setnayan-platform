@@ -8,12 +8,14 @@
  * craft the way a vendor is — they can hold access across several parts of your
  * design at once. Grant only what makes sense; each one is its own switch."*
  *
- * 🔑 IT IS HERE AND NOT ON A VENDOR PAGE BECAUSE A COORDINATOR HAS NO
- * `vendorId`. Their grant is keyed to the PERSON — the `event_members` row with
- * `member_type = 'coordinator'` that `sync_delegate_membership` mints when a
- * delegate accepts. A booked planner/coordinator who was never promoted to a
- * host has no such row, which is why their vendor workspace card points here
- * instead of offering a switch that would mean the wrong thing.
+ * 🔑 IT IS KEYED TO THE PERSON, NOT TO A BOOKING. Their grant is the
+ * `event_members` row with `member_type = 'coordinator'` that
+ * `sync_delegate_membership` mints when a delegate accepts — a coordinator has
+ * no `vendorId` of their own. It moved off the Hosts page in the Hosts fold
+ * (2026-09-30): the hired planner's copy sits on their supplier workspace
+ * (`promote-coordinator-card.tsx`); a limited helper's goes on their guest
+ * card with the rest of the helper grants (build F2, after the card redesign).
+ * Who is listed is assembled once, in `lib/colour-access.server.ts`.
  *
  * ⚠ THIS IS NOT `permissions_json.areas.mood_board`, AND THE TWO DO NOT
  * OVERLAP. That flag decides whether a delegate may OPEN the mood board;
@@ -89,10 +91,10 @@ export function CoordinatorColourDomains({
       className="sn-tile space-y-3 p-5"
     >
       {/* 🔑 A <div>, NOT A <header>. `.sn-eye`'s own spec in globals.css calls it
-          a "Tile eyebrow", and this IS a tile — one card inside the hosts page.
+          a "Tile eyebrow", and this IS a tile — one card inside the page that holds it.
           Wrapping it in <header> is the shape that drifted the card token onto
           real page headers, which is what scripts/lint-page-masthead.mjs
-          watches for; the page's own masthead is <PageMasthead>, above. */}
+          watches for; the page's own masthead is its <PageMasthead>. */}
       <div className="space-y-1">
         <p id="colour-domains-heading" className="sn-eye">
           <Palette aria-hidden className="mr-1.5 inline h-3.5 w-3.5" strokeWidth={1.75} />

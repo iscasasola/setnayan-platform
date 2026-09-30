@@ -20,23 +20,23 @@ const read = (...p: string[]) =>
   stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', ...p), 'utf8'));
 const keys = (parts: { key: string }[]) => parts.map((p) => p.key);
 
-test('the Guest list holds Guests and Hosts always, Check-in from the day onward', () => {
-  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'plan', current: 'roster' })), ['roster', 'hosts']);
-  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'dayof', current: 'roster' })), ['roster', 'hosts', 'checkin']);
-  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'after', current: 'roster' })), ['roster', 'hosts', 'checkin']);
+// ⚖ The Hosts fold (owner 2026-09-30): Hosts is no longer OFFERED — its pieces
+// moved and `?gview=hosts` redirects to the list. A door that only bounces you
+// back to where you stood is a dead door.
+test('the Guest list holds Guests always, Check-in from the day onward, and no longer offers Hosts', () => {
+  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'plan', current: 'roster' })), ['roster']);
+  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'dayof', current: 'roster' })), ['roster', 'checkin']);
+  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'after', current: 'roster' })), ['roster', 'checkin']);
 });
 
 test('a part on screen is always offered — the picker never shows a value it lacks', () => {
-  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'plan', current: 'checkin' })), ['roster', 'hosts', 'checkin']);
+  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'plan', current: 'checkin' })), ['roster', 'checkin']);
+  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'plan', current: 'hosts' })), ['roster', 'hosts']);
 });
 
 test('every Guest list part stays on the guest list page', () => {
   const hrefs = guestListParts({ eventId: 'E', phase: 'after', current: 'roster' }).map((p) => p.href);
-  assert.deepEqual(hrefs, [
-    '/dashboard/E/guests',
-    '/dashboard/E/guests?gview=hosts',
-    '/dashboard/E/guests?gview=checkin',
-  ]);
+  assert.deepEqual(hrefs, ['/dashboard/E/guests', '/dashboard/E/guests?gview=checkin']);
 });
 
 test('Your Team holds the team and the Budget, both on the Your Team page', () => {
@@ -74,13 +74,20 @@ test('the guest list MOUNTS its parts: the picker, the shipped Hosts page and th
   assert.match(page, /<CheckinDeskPage[\s\S]*?gview: GUEST_LIST_PART_VIEW\.checkin/, 'the desk does not know it is inside the guest list');
 });
 
-test('/hosts lands in the part for anybody who can see the guest list, and only them', () => {
+test('/hosts lands on the Guest list for anybody who can see it, and keeps a helper without it', () => {
   const page = read('hosts', 'page.tsx');
-  const at = page.indexOf('const embedded');
-  assert.ok(at > 0, 'the Hosts page no longer knows when it is the guest list part');
-  const block = page.slice(at, page.indexOf('const admin', at));
-  assert.match(block, /if \(!isDelegateWithoutArea\(viewer, 'guest_list'\)\)/, 'a helper without the guest list would be sent to a page that refuses them');
-  assert.match(block, /redirect\(partHref\(/, 'the redirect no longer carries the params the actions set');
+  const gate = page.slice(page.indexOf('fetchEventViewer(supabase'), page.indexOf('createAdminClient()'));
+  assert.match(
+    gate,
+    /if \(!isDelegateWithoutArea\(viewer, 'guest_list'\)\) redirect\(`\/dashboard\/\$\{eventId\}\/guests`\);/,
+    'the couple / a guest-list holder is no longer sent to the Guest list',
+  );
+  assert.ok(
+    gate.indexOf("redirect('/dashboard')") < gate.indexOf('isDelegateWithoutArea'),
+    'a stranger must be turned away before the guest-list redirect is asked',
+  );
+  assert.match(page, /data-own-access/, 'a helper without the guest list lost their own access view');
+  assert.doesNotMatch(page, /<form|action=\{/, '/hosts grew a control again — its controls moved (the Hosts fold)');
 });
 
 test('Your Team MOUNTS the shipped Budget page as its part, and the picker on the team', () => {

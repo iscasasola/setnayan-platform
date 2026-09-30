@@ -74,6 +74,26 @@ export function seatIsFullCohost(roleSubtype: string): boolean {
   return FULL_COHOST_KINDS.has(roleSubtype);
 }
 
+/**
+ * The seats a couple may hand COLOUR domains to (MB16): live seats, never the
+ * viewer's own, never a full co-host. `set_coordinator_colour_access` grants
+ * only to a `coordinator` member, which `sync_delegate_membership` mints for a
+ * limited helper / hired planner seat; a full co-host is a `couple` member who
+ * already holds every colour (owner 2026-09-30: "Claire Buanhog is not a
+ * coordinator" — she is the Bride). Pure, so the rule is executed by
+ * `colour-access-lists-only-coordinators.test.ts`; the read that uses it is
+ * `lib/colour-access.server.ts`.
+ */
+export function seatsThatTakeColourGrants<T extends { user_id: string | null; role_subtype: string }>(
+  seats: readonly T[],
+  viewerUserId: string,
+): (T & { user_id: string })[] {
+  return seats
+    .filter((s): s is T & { user_id: string } => Boolean(s.user_id))
+    .filter((s) => s.user_id !== viewerUserId)
+    .filter((s) => !seatIsFullCohost(s.role_subtype));
+}
+
 export function accessLevelOfSeat(seat: SeatRow | null): GuestAccessLevel {
   if (!seat || seat.removed_at) return 'none';
   if (seatIsFullCohost(seat.role_subtype)) return 'co_host';

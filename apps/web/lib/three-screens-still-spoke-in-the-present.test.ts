@@ -26,12 +26,14 @@ const code = (p: string) =>
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
     .replace(/^\s*\/\/.*$/gm, '');
 
+// ⚖ Since the Hosts fold (owner 2026-09-30) the only screen left at /hosts is a
+// helper's OWN access view; the rule it was held to is unchanged.
 test('the Hosts page uses the event’s own noun, and knows it is over', () => {
   const h = code('app/dashboard/[eventId]/hosts/page.tsx');
-  assert.ok(!/planning this wedding with you/.test(h), 'the hardcoded wedding must be gone');
+  assert.ok(!/this wedding/.test(h), 'the hardcoded wedding must be gone');
   assert.match(h, /eventNoun\(eventType\)/, 'the shipped noun resolver, not a second one');
   assert.match(h, /getMenuLifecyclePhase\(/, 'and the shipped phase resolver');
-  assert.match(h, /Who planned this \$\{eventNounWord\} with you\?/, 'past tense after the day');
+  assert.match(h, /What you could do on this \$\{eventNounWord\}/, 'past tense after the day');
   assert.match(h, /event_date, event_end_date, cleared_at, timezone/, 'it must read the dates');
 });
 

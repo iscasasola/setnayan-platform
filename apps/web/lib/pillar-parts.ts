@@ -24,7 +24,12 @@
  *
  * ── EVERY DOOR KEEPS THE CONDITION IT HAD ──────────────────────────────────
  *   Guests      always
- *   Hosts       always — its menu row has no phase gate
+ *   Hosts       NOT OFFERED since the Hosts fold (owner 2026-09-30, DECISION_LOG
+ *               "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS…"): its pieces
+ *               moved (the Access column, the planner's workspace, the
+ *               Overview feed) and `?gview=hosts` redirects to the list. Listed
+ *               only while it is the one showing, until that redirect lands.
+ *               The row itself is cut after the card redesign (build F2).
  *   Check-in    from the day of the event onward: the menu row shows it on the
  *               day, and the guest list's own Check-in door shows it after.
  *               The union of the two, never earlier — a check-in desk before
@@ -57,10 +62,10 @@ export function guestListParts({
   current: GuestListPartKey;
 }): PillarPart<GuestListPartKey>[] {
   const base = `/dashboard/${eventId}/guests`;
-  const parts: PillarPart<GuestListPartKey>[] = [
-    { key: 'roster', label: 'Guests', href: base },
-    { key: 'hosts', label: 'Hosts', href: `${base}?gview=${GUEST_LIST_PART_VIEW.hosts}` },
-  ];
+  const parts: PillarPart<GuestListPartKey>[] = [{ key: 'roster', label: 'Guests', href: base }];
+  if (current === 'hosts') {
+    parts.push({ key: 'hosts', label: 'Hosts', href: `${base}?gview=${GUEST_LIST_PART_VIEW.hosts}` });
+  }
   if (phase !== 'plan' || current === 'checkin') {
     parts.push({ key: 'checkin', label: 'Check-in', href: `${base}?gview=${GUEST_LIST_PART_VIEW.checkin}` });
   }

@@ -91,6 +91,7 @@ import { GuestMindMap } from './_components/guest-mind-map';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestCardBody, GUEST_CARD_ERROR_COPY } from './_components/guest-card-body';
 import { GuestInviteCell } from './_components/guest-invite-cell';
+import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
 import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -886,6 +887,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         variant="panel"
         inviteSetup={inspectedInviteSetup}
         SendInvite={GuestInviteCell}
+        TicketThumb={GuestTicketThumb}
+        MoreMenu={GuestMoreMenu}
         returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
         errorMessage={
           typeof search.error === 'string'
@@ -1670,6 +1673,8 @@ function pickFlash(search: {
   bulk_sided?: string;
   bulk_seated?: string;
   bulk_unseatable?: string;
+  new_qr?: string;
+  inspect?: string;
   bulk_deleted?: string;
   paired?: string;
   unpaired?: string;
@@ -1705,6 +1710,10 @@ function pickFlash(search: {
   if (search.bulk_grouped) {
     const n = Number(search.bulk_grouped);
     return `Added ${formatCount(n)} guest${n === 1 ? '' : 's'} to the group.`;
+  }
+  // ⋯ › New QR from a row (the card says it on the card itself).
+  if (search.new_qr === '1' && !search.inspect) {
+    return 'Done — a new QR and link. The old ones no longer work. Send them the new one.';
   }
   if (search.bulk_seated) {
     const n = Number(search.bulk_seated);

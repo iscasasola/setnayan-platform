@@ -25,13 +25,24 @@ import { roleGroupLabel, roleGroupOf } from '@/lib/role-groups';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
 import { FormPick } from './card-fields';
-import { GuestMoreMenu, GuestTicketThumb } from './guest-ticket-parts';
+/* ⚡ TYPE ONLY, like SendInvite below: the ticket view and the ⋯ are handed in
+   by the pages that draw them (the Guest list, the standalone card). The Maker's
+   parent cards pass neither — they get a plain server-drawn ticket and no ⋯ —
+   so the NFC writer and the confirm sheets never enter the Maker's first load
+   (`check-maker-js-budget.mjs`). Not a lazy import either: an async chunk adds
+   an entry to the every-page webpack runtime, measured +58 B against a shared
+   bundle with 20 B to spare. */
+import type { GuestMoreMenu, GuestTicketThumb } from './guest-ticket-parts';
 /* ⚡ TYPE ONLY. The Invite pair is handed in by the page that draws it
    (\`SendInvite\` below): the Guest list passes the real one, and the Maker —
    whose parent cards never show it — passes nothing, so its code stays out of
    the Maker's first load (\`check-maker-js-budget.mjs\`). */
 import type { GuestInviteCell } from './guest-invite-cell';
+// A server component: the route comes from its own module (a constant imported
+// from a 'use client' file would arrive here as a client reference, not a string).
+import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
+import type { ComponentType } from 'react';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
@@ -168,6 +179,8 @@ export function GuestCardBody({
   inviteFlash,
   inviteSetup,
   SendInvite,
+  TicketThumb,
+  MoreMenu,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -196,6 +209,10 @@ export function GuestCardBody({
   inviteSetup?: InviteSetup | null;
   /** The Invite pair itself — given with \`inviteSetup\` by the pages that draw it. */
   SendInvite?: typeof GuestInviteCell;
+  /** Their ticket, small (tap → full view + Save ticket). Absent (the Maker) → a plain ticket image. */
+  TicketThumb?: ComponentType<Parameters<typeof GuestTicketThumb>[0]>;
+  /** The ⋯ (Write to NFC · New QR · Unlink). Absent (the Maker) → none; the Guest list has it. */
+  MoreMenu?: ComponentType<Parameters<typeof GuestMoreMenu>[0]>;
 }) {
   const {
     guest,
@@ -236,8 +253,8 @@ export function GuestCardBody({
   const seats = plusOneSeats(guest);
   const hostWord = access?.level === 'co_host' ? 'Co-host' : 'Host';
 
-  const more = (
-    <GuestMoreMenu
+  const more = MoreMenu ? (
+    <MoreMenu
       eventId={eventId}
       guestId={guest.guest_id}
       guestName={name}
@@ -245,7 +262,7 @@ export function GuestCardBody({
       linked={Boolean(linkedAccount)}
       returnTo={returnTo}
     />
-  );
+  ) : null;
 
   // ── the one-line summaries of the closed rows ──
   const roleWord = guestRoleLabel(guest.role, roleNames);
@@ -358,7 +375,19 @@ export function GuestCardBody({
       {/* ── TOP · their ticket, Invite · ⋯, the status line ─────────────────
           Outside the autosave form: Invite and ⋯ bring their own actions. */}
       <section className="flex items-start gap-3.5 rounded-2xl border border-ink/10 bg-white/60 p-3.5" data-guest-card-top="">
-        <GuestTicketThumb guestId={guest.guest_id} name={name} available={hasTicket} />
+        {TicketThumb ? (
+          <TicketThumb guestId={guest.guest_id} name={name} available={hasTicket} />
+        ) : hasTicket ? (
+          // eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket route, drawn by the server
+          <img
+            src={`${PASS_CARD_ROUTE}?guest=${encodeURIComponent(guest.guest_id)}`}
+            alt={`${name}'s ticket`}
+            width={92}
+            height={123}
+            loading="lazy"
+            className="aspect-[3/4] w-[92px] shrink-0 rounded-lg bg-white object-cover ring-1 ring-ink/10"
+          />
+        ) : null}
         <div className="min-w-0 flex-1 space-y-2">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">Their ticket</p>

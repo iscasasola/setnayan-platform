@@ -45,7 +45,12 @@ export function FormPick({
   const [current, setCurrent] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setCurrent(value), [value]);
+  // A fresh server value (a save landed, the row was edited elsewhere) moves the
+  // button AND the posted value — a stale hidden input would post the old one back.
+  useEffect(() => {
+    setCurrent(value);
+    if (ref.current) ref.current.value = value;
+  }, [value]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

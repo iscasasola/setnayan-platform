@@ -42,7 +42,11 @@ const ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'act
 // ── THE CARD ────────────────────────────────────────────────────────────────
 
 test('card top: the ticket (tap → full view + Save ticket), ONE Invite, ⋯, the status line — no QR look', () => {
-  assert.match(CARD, /<GuestTicketThumb guestId=\{guest\.guest_id\}/, 'the ticket thumbnail is gone');
+  assert.match(CARD, /<TicketThumb guestId=\{guest\.guest_id\}/, 'the ticket thumbnail is gone');
+  // The Guest list and the standalone card hand in the real ticket view and ⋯.
+  for (const page of [PAGE, stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8'))]) {
+    assert.match(page, /TicketThumb=\{GuestTicketThumb\}\s*MoreMenu=\{GuestMoreMenu\}/, 'a guest page draws the card without its ticket view or ⋯');
+  }
   assert.equal((CARD.match(/<SendInvite\b/g) ?? []).length, 1, 'the card draws more than one Invite');
   assert.match(CARD, /more=\{more\}/, 'the ⋯ is not beside Invite');
   assert.doesNotMatch(CARD, /Customize guest QRs|launch\?tool=details&item=qr|Copy message|Download QR/, 'the old QR tools are back on the card');

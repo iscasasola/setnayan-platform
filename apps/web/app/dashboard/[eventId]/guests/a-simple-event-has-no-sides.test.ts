@@ -54,8 +54,11 @@ test('the roster table gates its Side column, bulk "Assign side…", and the pho
   assert.match(ms, /\{hasSides \? \(\s*<ArrangeTh column="side"/, 'the Side column header renders on a sideless event');
   assert.match(ms, /\{hasSides \? \(\s*<td className="px-3 py-2\.5">[^<]*<SideChipEditor/, 'the Side cell renders on a sideless event');
   assert.match(ms, /\{hasSides \? \(\s*<>\s*<label className="sr-only" htmlFor="bulk-side">/, 'the bulk "Assign side…" renders on a sideless event');
-  assert.match(ms, /colSpan=\{hasSides \? 9 : 8\}/, 'a section heading spans a column that is not there');
-  assert.match(ms, /colSpan=\{hasSides \? 7 : 6\}/, 'a self-join row spans a column that is not there');
+  // The Access column (#6191) sits beside Role on every event, so each span is
+  // one wider than when this guard was written — the Side column is still the
+  // only one a sideless event drops.
+  assert.match(ms, /colSpan=\{hasSides \? 10 : 9\}/, 'a section heading spans a column that is not there');
+  assert.match(ms, /colSpan=\{hasSides \? 8 : 7\}/, 'a self-join row spans a column that is not there');
   assert.match(ms, /\{hasSides \? \(\s*<SideChipEditor eventId=\{eventId\} guest=\{guest\}>\s*<RowAvatar/, 'the phone row avatar opens a side editor on a sideless event');
 });
 

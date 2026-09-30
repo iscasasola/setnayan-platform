@@ -11,12 +11,18 @@ Worktree: ~/Documents/Claude/Projects/wt-phone-team · branch rd/phone-your-team
 - page.tsx — measured read + early "Couldn't load" return, teamRowList from existing maps
 - vendors/your-team-phone-first.test.ts — (a)(b)(c) guards; pillar-parts.test.ts updated
 
+- typecheck clean (0 errors) · lint clean · every CI guard script passes (bundle/maker budgets need a build — CI)
+- 12 sabotages, each caught (see PR body) · 390 px shots in ~/Documents/Claude/Projects/wt-phone-team-shots/
+- PR #6220 draft, label do-not-auto-merge, auto-merge null
+
 ## Next
-- typecheck · lint · every CI guard · unit tests (bracketed: `npx tsx <file>`)
-- sabotage-check each guard; 390 px screenshot from a render harness (never a real account)
-- PR ready (do-not-auto-merge label; never merge)
+- full `pnpm test:unit` result → then `gh pr ready 6220` (never merge)
 
 ## Gotchas
+- Render harness: scratchpad team-harness (tsx --require preload.cjs stubs next/link, next/navigation,
+  accordion-lock; globalThis.React; tailwind CLI over the rendered HTML; playwright-core from root .pnpm).
+- globals.css gives every <button> min-height 44px — the Lock button was taller than Pay/Nudge links
+  until GO_CLASS got min-h-[44px] -my-2.5.
 - Bracketed test paths: `npx tsx --test "app/.../[eventId]/..."` runs 0 tests — use `npx tsx <file>`.
 - ServicesTakeover's `}: {` props close at column 0 — a `\n}` anchor ends the body early.
 - NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED is ON in prod: rows use the bench card's Lock verdict.

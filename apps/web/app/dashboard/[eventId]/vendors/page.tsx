@@ -140,7 +140,8 @@ import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
 // second copy of it (owner 2026-09-29).
 import BudgetPage from '../budget/page';
 
-export const metadata = { title: 'Vendors' };
+// The browser tab says what the screen says ("supplier", never "vendor", in UI).
+export const metadata = { title: 'Your Team' };
 
 type Props = {
   params: Promise<{ eventId: string }>;

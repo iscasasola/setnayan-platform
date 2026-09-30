@@ -161,11 +161,14 @@ UPDATE public.canonical_service_taxonomy
    AND 'corporate' = ANY(applicable_event_types)
    AND NOT ('grand_opening' = ANY(applicable_event_types));
 
--- ---- 4. Papic pool sizing — corporate's row, copied -------------------------
--- Priced like corporate (owner 2026-09-29, "yes like corporate"): seeded from
--- corporate's row column for column, INCLUDING its per-head figure and its
--- recommendation floor. Each kind gets its own row, so the owner can still
--- give it its own figure later at /admin/pricing.
+-- ---- 4. Papic pool sizing — corporate's sizing, copied ----------------------
+-- Priced like corporate (owner 2026-09-29, "yes like corporate"): the SIZING
+-- columns — per head, entitlement floor, recommendation floor, ceiling — are
+-- corporate's own row (`c`). The GLOBAL columns are the 'default' row's (`d`),
+-- because only that row owns them (lint-pool-config-global-columns.mjs;
+-- POOL_CONFIG_GLOBAL_COLUMNS in lib/papic-pool-sizing.ts) — the same split the
+-- 17 seeded rows in 20271239794268 use. Each kind gets its own row, so the
+-- owner can still give it its own figure later at /admin/pricing.
 INSERT INTO public.papic_event_pool_config (
   config_key, points_per_guest, floor_points, recommend_floor_points, ceiling_points,
   soft_stop_pct, pass_service_codes, is_active,
@@ -173,12 +176,13 @@ INSERT INTO public.papic_event_pool_config (
 )
 SELECT
   v.event_type,
-  d.points_per_guest, d.floor_points, d.recommend_floor_points, d.ceiling_points,
+  c.points_per_guest, c.floor_points, c.recommend_floor_points, c.ceiling_points,
   d.soft_stop_pct, d.pass_service_codes, d.is_active,
   d.camera_grant_points, d.free_grant_points, d.free_one_camera_points
-FROM public.papic_event_pool_config d
+FROM public.papic_event_pool_config c
+JOIN public.papic_event_pool_config d ON d.config_key = 'default'
 CROSS JOIN (VALUES ('concert'), ('open_house'), ('grand_opening')) AS v(event_type)
-WHERE d.config_key = 'corporate'
+WHERE c.config_key = 'corporate'
 ON CONFLICT (config_key) DO NOTHING;
 
 -- ---- 5. a Samahan may own them ----------------------------------------------

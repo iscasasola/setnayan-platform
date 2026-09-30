@@ -77,9 +77,11 @@ test('every new kind is offered Papic, and is named in llms.txt', () => {
 test('the Papic sizing row is CORPORATE\'s row, copied — no per-head figure is invented', () => {
   const sql = typesMigration();
   const pool = sql.slice(sql.indexOf('INSERT INTO public.papic_event_pool_config'));
-  assert.match(pool, /d\.points_per_guest, d\.floor_points, d\.recommend_floor_points, d\.ceiling_points/,
+  assert.match(pool, /c\.points_per_guest, c\.floor_points, c\.recommend_floor_points, c\.ceiling_points/,
     'every sizing number must come from corporate\'s row');
-  assert.match(pool, /WHERE d\.config_key = 'corporate'/, 'priced like corporate (owner 2026-09-29)');
+  assert.match(pool, /WHERE c\.config_key = 'corporate'/, 'priced like corporate (owner 2026-09-29)');
+  // The global columns stay the 'default' row's — only that row owns them.
+  assert.match(pool, /JOIN public\.papic_event_pool_config d ON d\.config_key = 'default'/);
 });
 
 test('🔎 "competition" finds a Tournament — a search word, not a new type', () => {

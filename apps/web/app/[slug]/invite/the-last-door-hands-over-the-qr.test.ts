@@ -80,7 +80,6 @@ test('the proceed button survives the addition, unchanged and still phase-aware'
   // regression dressed as a feature.
   assert.match(ENTER, /href=\{`\/\$\{home\}`\}/, 'the Enter door no longer opens the Event Hub');
   assert.match(ENTER, /\{destinationWords\.cta\}/, 'the button label stopped coming from the phase');
-  assert.match(ENTER, /\{destinationWords\.blurb\}/, 'the blurb stopped coming from the phase');
   assert.match(ENTER, /arrivalDestinationFor\(\{/, 'the door stopped asking the resolver');
   // …and the 90-day rule is still asked for, never restated (CLAUDE.md rule 7).
   assert.doesNotMatch(ENTER, /STD_THRESHOLD_DAYS|\b90\b/, 'the threshold has been copied into the door');

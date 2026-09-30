@@ -1,38 +1,48 @@
 /**
- * Customer menu — the SINGLE canonical hierarchy for the couple's nav.
+ * Customer menu — the SINGLE canonical tree for an event's menu.
  *
- * Owner direction 2026-06-17: *"sub nav are child menus of the 6 menus … we are
- * redesigning how the customer menu is."* There are SIX top menus (Home · Guests
- * · Explore · Studio · Design · Budget); each owns its CHILD MENUS, which surface
- * as the docked section sub-nav (mobile) and — in later phases — the desktop
- * sidebar groups. This module is that one tree, so the bottom nav, the docked
- * sub-nav, and the sidebar can never describe three different structures.
+ * ─── STAGE D: THE EVENT MENU IS FIVE ROWS (owner 2026-09-29) ─────────────
+ * Owner, verbatim: *"so basically. this is what an event needs. Guestlist ·
+ * Your Team · Event Hub Maker · Our Services (Papic, Live Studio, Gallery,
+ * Patiktok, Music Maker)"* → *"include Setnayan AI (SAI) to our services"*;
+ * and, for the phone: *"on mobile mode. we do not want that sub bottom nav
+ * anymore. we want it to be simple and easy to manage"*. DECISION_LOG rows
+ * "WHAT AN EVENT NEEDS — THE EVENT MENU BECOMES FOUR PILLARS (+ HOME)" and
+ * "ON PHONES, NO SUB BOTTOM NAV — ONE SIMPLE BOTTOM BAR"; plan
+ * `EVENT_HUB_BUILD_PLAN_2026-09-28.md` § "Stage D".
  *
- * Neutral module (no `'use client'`) — a Server Component (sidebar/bottom-nav,
- * later PRs) and the Client docked sub-nav can both import it; lucide icon refs
- * render in both contexts (the boundary issue was only ever the `'use client'`
- * wrapper, not the icons). Same pattern as `lib/guest-journey.ts`.
+ *     Home · Guest list · Your Team · Event Hub Maker · Our Services
  *
- * Rollout (plan `adaptive-forging-lobster.md`): PR1 (this) builds the tree + the
- * generalized docked sub-nav for the two menus that already have children
- * (Guests, Explore). PR2/PR3 add children to Design/Budget then Home/Studio; PR4
- * points the desktop sidebar at this tree; PR5 folds phase-awareness in; PR6
- * links parent→child in the nav registry. So in PR1 only Guests + Explore carry
- * `children`; the other four are parents-without-children (the dock shows nothing
- * for them, exactly as today).
+ * The SAME five rows on the desktop rail, in the ☰ drawer and on the phone's
+ * one bottom bar, in every phase (plan · day-of · after) and for every event
+ * type. Every other screen is reached from INSIDE one of the five — each
+ * pillar owns its parts in its own page (a PickMenu, never a second bar):
  *
- * TWO CHILD FLAVORS (the dock dispatches each differently):
- *   - `route`: a separate page. onSelect → router.push; active ← longest-prefix
- *     of the pathname over the child `match`. (Guests journey.)
- *   - `tab`:   an in-page panel on the parent's single route. onSelect →
- *     replaceState(?tab=) + the `BB_TAB_EVENT` bus; active ← `?tab=`. (Explore
- *     "Build" takeover.)
+ *   Guest list      → Guests · Hosts · Check-in   (`lib/pillar-parts.ts`)
+ *   Your Team       → Your team · Budget           (`lib/pillar-parts.ts`)
+ *   Event Hub Maker → Details (Schedule · Mood Board · Logo · …) + the stages
+ *   Our Services    → Papic · Live Studio · Gallery (Editorial) · Patiktok ·
+ *                     Music Maker · Setnayan AI (SAI)   (`lib/our-services.ts`)
  *
- * MATCH vs SECTION-MATCH. `activeMatch` is the BROAD set that lights the bottom-nav
- * TAB (e.g. Guests also covers /event-qr + /hosts) — used by the bottom nav (PR4).
- * `sectionMatch` is the NARROWER set where the docked sub-nav SHOWS (the journey
- * proper: /guests* + /seating*; the takeover ROOT only: exactly /vendors). They
- * differ on purpose, so the dock keeps today's exact visibility.
+ * 🔑 A ROW THAT LEFT THE MENU STILL LIGHTS ITS HOME. Each pillar CLAIMS the
+ * pages it now holds (`alsoMatch`), so `/budget` lights Your Team, `/hosts`
+ * lights Guest list, `/studio/papic` lights Our Services and `/schedule` the
+ * Event Hub Maker — the rail and the bar never show "you are nowhere".
+ *
+ * ✅ NO INTERIM ROW (train n, 2026-09-29). The Seat plan row waited here for
+ * its Details home (Details › Your event › Seat plan, #6138); that home is on
+ * main, and `/seating` lands the couple of an Event Hub event there
+ * (`detailsIsTheDoor`). So the row is gone and its pages — `/seating` and the
+ * 3D view (`STUDIO_ABSORBED.pa3d`) — are claimed by the Event Hub Maker, or by
+ * Our Services where there is no Maker (the Schedule's rule, `toolHasGoneHome`).
+ *
+ * ⚠ THE OLD PHASE-SWAPPING BAR IS RETIRED (plan 5 · day-of 5 · after 5, each a
+ * different five — 2026-09-24). The owner's "simple and easy to manage" is one
+ * bar that never rearranges itself under the thumb.
+ *
+ * Neutral module (no `'use client'`): the server layout and the client rail /
+ * bar both import it. Icons cross the boundary as NAMES only — see
+ * `EventMenuIconName`.
  */
 
 import {
@@ -42,166 +52,40 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { BUDGET_BUILD_TABS, TAB_META, tabLabel } from './budget-build';
-import { isExploreReplanEnabled } from './explore-replan-flag';
 import { SUITE_NAV_ON, studioHubHref } from './studio-hub';
 import { isStoreShellWebOnlyPath } from './store-shell';
 
 /* The Suite doorway flag + href come from `lib/studio-hub.ts` — one branch,
    read by every surface (it used to be re-typed here). */
 
-export type CustomerMenuKey =
-  // Plan phase
-  | 'home' | 'guests' | 'explore' | 'studio' | 'design' | 'budget'
-  // Papic — a tab in every phase (owner 2026-09-24, "the life source")
-  | 'papic'
-  // Day-of phase
-  | 'now' | 'checkin' | 'seats' | 'schedule'
-  // After phase
-  | 'review' | 'galleries'
-  /* THE EVENT HUB — one key, one word, in ALL THREE phases (owner-locked
-     vocabulary 2026-08-16: *Event Hub* = the one public address; design
-     `EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md` § 1.2).
-     🔒 THE KEY IS 'launch' AND IT DID NOT CHANGE. It is load-bearing in four
-     places and three of them fail SILENTLY — the registry slot
-     `customer.bottom-nav.launch`, the localStorage section-open state and the
-     badge map. The retired 'services' (day-of) and 'editorial' (after) keys
-     were the SAME slot wearing two other names; their registry defaults retire
-     in this same commit, or /admin/menus keeps offering a rename for a row that
-     no longer renders. */
-  | 'launch';
-
-export type MenuChildKind = 'route' | 'tab' | 'anchor';
-
-export type CustomerMenuChild = {
-  key: string;
-  label: string;
-  icon: LucideIcon;
-  kind: MenuChildKind;
-  /** kind='route' — destination + its active-state prefix (longest wins). */
-  href?: string;
-  match?: string;
-  /** kind='tab' — the `?tab=` value driven over the BB_TAB_EVENT bus. */
-  tab?: string;
-  /** kind='anchor' — the id of an on-page section the dock scrolls to (and a
-   *  scroll-spy lights as it enters view). For single-page menus whose children
-   *  are scroll sections, not separate routes (e.g. Budget). */
-  hash?: string;
-  /** Rendered dimmed-but-tappable ("not yet", e.g. Day-of before its window). */
-  muted?: boolean;
-  /** Nav-registry slot key. When set, the docked sub-nav overlays the admin
-   *  override (label · icon · hidden) from `/admin/menus` on top of these code
-   *  defaults — so every sub-nav child is editable from the registry SSOT. */
-  slotKey?: string;
-};
+/**
+ * The phone bar's tab keys. 🔒 EVERY KEY IS THE KEY IT WAS: `home` · `guests`
+ * · `explore` · `launch` · `studio` drive the registry slots
+ * (`customer.bottom-nav.<key>`), badges and hideKeys, and each of those fails
+ * SILENTLY on a rename. Only the WORDS moved (Overview → Home, Guests → Guest
+ * list, Suite → Our Services).
+ */
+export type CustomerMenuKey = 'home' | 'guests' | 'explore' | 'launch' | 'studio';
 
 export type CustomerMenu = {
   key: CustomerMenuKey;
   /** Fallback label/icon for surfaces that don't overlay the nav registry.
-   *  The bottom nav + sidebar resolve label/icon from the registry (navSlots);
-   *  these are the code defaults that mirror `customer-bottom-nav.tsx`. */
+   *  The bottom nav resolves label/icon from the registry (navSlots) first. */
   label: string;
   icon: LucideIcon;
   href: string;
-  /** BROAD active match — lights the bottom-nav TAB (consumed in PR4). Mirrors
-   *  the specs in `customer-bottom-nav.tsx` verbatim. */
+  /** BROAD active match — lights the bottom-nav TAB: the row's own claims,
+   *  plus the claims of any rail row that has no tab of its own. */
   activeMatch: string | string[];
   activeMatchExact?: boolean;
-  /** NARROW match — where the docked sub-nav SHOWS. Omitted when the menu has no
-   *  children (the dock then never shows for it). */
-  sectionMatch?: string | string[];
-  /** Exact-equal section match (no startsWith) — the takeover root only. */
-  sectionMatchExact?: boolean;
-  /** aria-label for the docked <SubNav>. */
-  subnavLabel?: string;
-  children?: CustomerMenuChild[];
 };
 
-export type CustomerMenuCtx = {
-  /** Un-mutes the Guests "Day-of" stage once the live window is open. */
+export type CustomerMenuCtx = EventMenuCtx & {
+  /** Retained for callers; nothing on the one bar is time-gated any more. */
   dayOfOpen?: boolean;
-  /** When set, overrides the returned tree with the phase-appropriate menus.
-   *  Day-of and After menus have no children (the dock hides). */
-  phase?: MenuLifecyclePhase;
-  /** Top-level menu keys to drop for this event type, derived from its
-   *  Event-Type Profile (e.g. ['explore','budget'] for a vendor-free Simple
-   *  Event). Empty/undefined → every menu shows (wedding + all existing types
-   *  byte-identical). Only filters the planning tree; the Day-of/After phase
-   *  takeovers carry no explore/budget menu so they're unaffected. */
-  hideKeys?: string[];
-  /** Whether this event type enables the 'website' surface — gates the Studio
-   *  "Launch" route child. Resolved from the profile in
-   *  layout.tsx. Undefined/false → the child is omitted. */
-  websiteEnabled?: boolean;
-  /** Whether this event type enables the 'seating' surface — gates the DAY-OF
-   *  "Seats" tab (owner 2026-08-28, "only its own rooms").
-   *
-   *  🔑 THIS CANNOT BE DONE WITH `hideKeys`, AND THAT IS THE WHOLE REASON THE
-   *  FIELD EXISTS. `hideKeys` filters `planningMenus` at the very bottom of
-   *  buildCustomerMenuTree; the day-of branch RETURNS BEFORE IT. Adding 'seats'
-   *  to hideKeys would compile, read as correct, and hide nothing — a gate with
-   *  no handle. (There is also no 'seats' key in the planning tree at all:
-   *  seating lives inside Guests' activeMatch.)
-   *
-   *  ⚠ UNDEFINED MEANS SHOW, deliberately — a caller that has not been taught
-   *  this field must not silently lose the tab. Only an explicit `false` hides
-   *  it, and layout.tsx always passes the resolved value. */
-  seatingEnabled?: boolean;
-  /** The event's public slug, resolved from the event row in layout.tsx.
-   *  NOTE: the "Launch" child no longer routes on it (2026-07-25 — Launch opens
-   *  the unified website editor, which carries its own "View live" link); the
-   *  field stays because callers pass it and future children may use it. */
+  /** Retained for callers/other consumers; no row routes on it. */
   slug?: string | null;
-  /** The event's Studio products as plain data — see `EventMenuCtx`. */
-  studioRows?: EventMenuCtx['studioRows'];
-  /** The App Store / Play Store shell — see `EventMenuCtx.storeShell`. */
-  storeShell?: boolean;
 };
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   THE EVENT MENU, BY MOMENT — ONE SECTIONED TREE (owner 2026-09-24)
-   ═══════════════════════════════════════════════════════════════════════════
-
-   Owner: *"realign what the sidebar of an event is and the bottom nav and
-   hamburger menu on mobile mode so everything is easier to access by its flow.
-   like finding the logo maker at the bottom feels so far."* Binding drawing:
-   `build-sessions/prototypes/event_menu_by_moment_2026-09-24.html`.
-
-   🔑 THERE WERE TWO TREES, AND THIS IS NOW THE ONLY ONE. The phone's bar read
-   `buildCustomerMenuTree` (below); the desktop rail and the ☰ drawer read
-   `buildCustomerNavGroups` (`customer-nav-config.ts`); and the shell drew
-   "Browse by category" and a Studio group of its own on top of both. Every
-   one of those now reads THIS function: `buildCustomerNavGroups` is a
-   projection of these sections (icon NAMES → components), the phone bar picks
-   its five tabs out of these rows by key, and the phone's moment strip is one
-   of these sections. A third builder is the failure mode, not an option.
-
-   THE SHAPE — one structure for every event type (owner: *"the other event
-   will change accordingly. since wedding has all features"*):
-
-     event   → Details (the event's name row; renamed from Personalization)
-     spine   → Overview · Papic ✦ · Galleries · Editorial (after only) — no heading
-     Book    → Your Team · Budget
-     Look    → Mood Board ✦ · Logo Maker ✦ · Pakanta ✦
-     Invite  → Guests · Hosts · Event Hub Controller
-     The day → Schedule · Check-in (day-of only) · Seat plan ·
-               Live Studio ✦ · Patiktok ✦
-               (3D Plan ✦ is ABSORBED into Seat plan — see `STUDIO_ABSORBED`)
-     end     → Setnayan AI ✦ · (any future product) · Suite · Refer a couple
-
-   The existing event-type gating DROPS rows a kind lacks (hideKeys, the
-   website/seating surfaces, and the product rows `railToolsSignedIn` already
-   filtered through `addOnOfferedForEvent`); a section left empty is dropped,
-   so its heading never renders over nothing.
-
-   🔒 EVERY KEY IS THE KEY IT WAS. `home`, `guests`, `explore`, `studio`,
-   `launch`, `budget`, `refer`, `personalization`, `seat`, `schedule`,
-   `galleries`, `editorial`, `hosts` drive registry slots, localStorage state,
-   badges and hideKeys, and every one of those fails SILENTLY on a rename. Only
-   the words moved: Personalization→Details · All services→Suite. The phone's
-   own words moved in the same pass (Now→Overview · Seats→Seat plan ·
-   Review→Your Team), so one page has one word on every surface.
-*/
 
 /** An icon NAME. The tree carries names, never components: the product rows
  *  arrive from a SERVER layout, and a `LucideIcon` handed across the
@@ -250,22 +134,22 @@ export type EventMenuRow = {
   icon: EventMenuIconName;
   /** Active-state prefix for the rail (defaults to `href`). */
   matchPrefix?: string;
-  /** A Studio product — drawn with its ✦ at its moment, not under a heading. */
-  studio?: boolean;
   /**
-   * Further route families this row claims — the pages of a product ABSORBED
-   * into it (see `STUDIO_ABSORBED`). Each lights THIS row on the rail and in
-   * the moment strip, exactly as its `href` does. Plain strings: this crosses
-   * no boundary as anything else.
+   * Further route families this row claims — the pages it now HOLDS (a part
+   * of a pillar, a service of Our Services, a product absorbed into it). Each
+   * lights THIS row on the rail and its tab on the bar, exactly as its `href`
+   * does. Plain strings: this crosses no boundary as anything else.
    */
   alsoMatch?: string[];
 };
 
-export type EventMenuSectionKey = 'event' | 'spine' | 'book' | 'look' | 'invite' | 'day' | 'end';
+/** `event` = the event's name row (Event settings) · `pillars` = the five. */
+export type EventMenuSectionKey = 'event' | 'pillars';
 
 export type EventMenuSection = {
   key: EventMenuSectionKey;
-  /** '' = no heading (the event row, the spine and the end of the list). */
+  /** Always '' now — five plain rows need no headings. Kept on the type so a
+   *  surface that draws a heading has one place to read it from. */
   label: string;
   rows: EventMenuRow[];
 };
@@ -277,49 +161,43 @@ export type EventStudioRow = { key: string; href: string; name: string };
 export type EventMenuCtx = {
   phase?: MenuLifecyclePhase;
   hideKeys?: string[];
+  /** The event type has an Event Hub (`surfaceEnabled(profile, 'website')`).
+   *  Off → no Event Hub Maker row, and the pages the Maker holds (Schedule,
+   *  Mood Board, Logo, Editorial) are reached from Our Services instead — the
+   *  page that keeps a tool "where there is no Maker" (`toolHasGoneHome`). */
   websiteEnabled?: boolean;
-  /** ⚠ UNDEFINED MEANS SHOW — only an explicit `false` drops Seat plan. */
+  /** ⚠ UNDEFINED MEANS SEATING — only an explicit `false` stops a row claiming
+   *  `/seating` (a kind with no seating, whose /seating redirects home). */
   seatingEnabled?: boolean;
   /**
    * The event's Studio products, from `railToolsSignedIn({eventId, count: 1,
-   * profile})` in `layout.tsx`. Placed by KEY (see `STUDIO_PLACEMENT`).
-   * Undefined → no product rows: this module is imported by client components
-   * and must not pull the whole add-on catalogue into their bundle to guess.
-   * `the-event-menu-is-one-tree.test.ts` fails if the layout stops passing it.
+   * profile})` in `layout.tsx`. No product is a ROW any more — each is a card
+   * on Our Services — but their pages are CLAIMED here so a product page
+   * lights the pillar that holds it. Undefined → only the fixed routes are
+   * claimed (this module must not pull the whole add-on catalogue into a
+   * client bundle to guess). `the-event-menu-is-one-tree.test.ts` fails if the
+   * layout stops passing it.
    */
   studioRows?: ReadonlyArray<EventStudioRow>;
   /**
    * Is this the App Store / Play Store shell? Resolved ONCE, server-side, by
    * `isStoreShellRequest()` in `layout.tsx`. When true, every row whose door
    * `lib/store-shell.ts` refuses is DROPPED from the tree — see
-   * `storeShellRefusesMenuRow` below for why here and nowhere else.
-   * Undefined → the web: nothing is dropped.
+   * `storeShellRefusesMenuRow` below. Undefined → the web: nothing is dropped.
    */
   storeShell?: boolean;
 };
 
 /**
  * ─── THE STORE SHELL'S ONE ROSTER FILTER (2026-09-25) ─────────────────────
- * Owner, testing the iOS app: *"the bottom nav is not fixed."* One of the four
- * things wrong on that bar was a BLANK SLOT between Overview and Your Team.
- *
- * 🔑 ROOT CAUSE: the Papic tab opens `/studio/papic`, a route
- * `lib/store-shell.ts` refuses (Apple 3.1.1 / 3.1.3(b)). The menu still BUILT
- * the tab; `StoreShellLinkGuard` then hid its `<a>` with `display:none` after
- * paint — and left the tab's `<li>` standing in a five-column grid. An
- * invisible box. The same hand-off put "Setnayan AI" in the Suite's moment
- * strip, where tapping it landed on "Not available in the app" — the
- * incomplete-functionality shape App Review rejects.
- *
- * So the refusal happens HERE, in the one tree every event menu reads — the
- * rail, the ☰ drawer, the moment strip and the bottom bar — and a refused row
- * is never built at all. The four surfaces then lay out what is left, which
- * is how the remaining tabs re-spread. The link guard stays as the net for
- * links drawn anywhere else; it was never meant to be the menu's filter.
+ * A refused row is never BUILT — a row hidden after paint left a blank slot in
+ * the phone's grid (the Papic tab the owner saw on 2026-09-25). None of the
+ * five pillars is refused today (Our Services filters its own cards), but the
+ * filter stays at the one place every surface reads, so a future refusal
+ * cannot reintroduce the blank slot.
  *
  * ⚠ THE REFUSED LIST IS NOT RESTATED. It is `isStoreShellWebOnlyPath` — the
- * same function middleware uses — so a menu can never offer a door the app
- * would answer with /web-only.
+ * same function middleware uses.
  */
 export function storeShellRefusesMenuRow(href: string, storeShell: boolean | undefined): boolean {
   if (!storeShell) return false;
@@ -327,70 +205,35 @@ export function storeShellRefusesMenuRow(href: string, storeShell: boolean | und
 }
 
 /**
- * WHERE EACH STUDIO PRODUCT SITS (its icon here; its moment is its entry in
- * `SECTION_ORDER` below) — by key, so the Suite's catalogue stays the
- * one list of products and this stays the one list of moments.
+ * ─── A PRODUCT WHOSE PAGES ANOTHER ROW HOLDS ──────────────────────────────
+ * Every other product's pages are claimed by Our Services (its card is
+ * there). These three live somewhere else, so they are claimed there:
  *
- *   papic                        → the spine, under Overview (owner 2026-09-24:
- *                                  *"papic is the life source of setnayan. it
- *                                  is where we collect photos and make
- *                                  memories"*)
- *   mood-board · palogo · pakanta → Look
- *   panood · patiktok             → The day
- *   pa3d                          → ABSORBED into Seat plan (`STUDIO_ABSORBED`)
- *   setnayan-ai                   → the end of the list
- *   pawebsite                     → DROPPED: the one-door ruling (2026-09-02)
- *                                  sends it to /launch, which Invite's Event
- *                                  Hub Controller row already opens
- *   __all__                       → DROPPED: the `studio` row IS the Suite row
- *   anything else                 → the END, so a future product is never
- *                                  silently lost
- */
-const STUDIO_PLACEMENT: Record<string, EventMenuIconName | 'drop'> = {
-  papic: 'papic',
-  'mood-board': 'mood-board',
-  palogo: 'logo',
-  pakanta: 'pakanta',
-  pa3d: 'plan3d',
-  panood: 'live',
-  patiktok: 'patiktok',
-  'setnayan-ai': 'ai',
-  pawebsite: 'drop',
-  __all__: 'drop',
-};
-
-/**
- * ─── A PRODUCT ABSORBED INTO A ROW (owner 2026-09-24) ─────────────────────
- * Owner, on the new menu: *"seat plan also show 3D plan? so i think we can
- * remove the 3D Plan menu. since the 3D version is on the seatplan already.
- * but make sure mapping stay consistent"*.
+ *   pa3d        → the Event Hub Maker — the 3D view is the seat plan's own
+ *                 `List | 2D | 3D` segment (owner 2026-09-24, "the 3D version
+ *                 is on the seatplan already"), and the Seat plan is Details ›
+ *                 Your event › Seat plan.
+ *   palogo      → the Event Hub Maker — Details › Logo (owner 2026-09-24/25:
+ *                 "the logo maker lives in the editor").
+ *   mood-board  → the Event Hub Maker — Details › Mood Board (owner
+ *                 2026-09-29: "schedule, mood board and seat plan will be
+ *                 inside").
  *
- * The 3D Plan row opened `/seating/lab` — the SAME page Seat plan's own
- * `List | 2D | 3D` segment opens (`SeatingViewSegment`), and the lab links on
- * to the 3D Plan control centre (`/plan3d`). So the product row was a second
- * door to a view of the seat plan. It is not drawn; its pages are CLAIMED by
- * the host row instead, so `/seating/lab` and `/plan3d` light **Seat plan** on
- * the rail and in the phone's moment strip, exactly as `/seating` does.
- *
- * 🔒 THE KEY STAYS `pa3d`. It is still in `railToolsSignedIn` (the Suite
- * parity count), still in `SECTION_ORDER.day` (its fallback slot) and still in
- * `STUDIO_PLACEMENT` (its icon) — nothing that keys off it is renamed.
- *
- * ⚠ THIS IS NOT A DROP. If the host row is absent while the product is offered
- * (today impossible: both ride the `seating` surface — `seatingEnabled` is
- * `surfaceEnabled(profile, 'seating')` and pa3d's catalogue `surface` is
- * `'seating'`), the product row stands in its own slot rather than vanishing.
+ * With no host row (no Maker for this kind, or no seating) the product falls
+ * back to Our Services, whose page keeps the tool where there is no Maker.
+ * 🔒 THE KEYS STAY (`pa3d`, `palogo`, `mood-board`) — they are the catalogue's.
  */
 export const STUDIO_ABSORBED: Readonly<
   Record<string, { into: string; routes: (base: string) => string[] }>
 > = {
-  pa3d: { into: 'seat', routes: (base) => [`${base}/seating/lab`, `${base}/plan3d`] },
-  /* 🛠 THE LOGO MAKER LIVES IN THE EVENT HUB MAKER (owner 2026-09-24/25: "the
-     logo maker lives in the editor"; one sidebar row "Event Hub Maker"). Its
-     door is the Maker bar's "Logo"; `/monogram` lights the Maker row. Same rule
-     as pa3d: with no Maker row (no Event Hub for this kind) it keeps its own. */
+  pa3d: { into: 'launch', routes: (base) => [`${base}/seating/lab`, `${base}/plan3d`] },
   palogo: { into: 'launch', routes: (base) => [`${base}/monogram`] },
+  'mood-board': { into: 'launch', routes: (base) => [`${base}/studio/mood-board`] },
 };
+
+/** Products no row claims: the Event Hub product IS the Maker row's page
+ *  (one door, 2026-09-02), and `__all__` IS the Our Services row. */
+const UNCLAIMED_PRODUCTS = new Set(['pawebsite', '__all__']);
 
 /** Every path a row claims: its href, its `matchPrefix`, its `alsoMatch`. */
 export function eventMenuRowClaims(r: EventMenuRow): string[] {
@@ -399,138 +242,121 @@ export function eventMenuRowClaims(r: EventMenuRow): string[] {
   );
 }
 
-/**
- * The order each moment reads in — and, for a product, WHICH moment: a
- * product key listed here is placed; one listed nowhere goes to `__unknown__`
- * at the end. (One list decides placement. A second `section` field beside it
- * was tried and was decorative — moving Logo Maker there changed nothing.)
- * Keys absent from the tree are skipped.
- */
-const SECTION_ORDER: Record<Exclude<EventMenuSectionKey, 'event'>, string[]> = {
-  spine: ['home', 'papic', 'galleries', 'editorial'],
-  book: ['explore', 'budget'],
-  look: ['mood-board', 'palogo', 'pakanta'],
-  invite: ['guests', 'hosts', 'launch'],
-  day: ['schedule', 'checkin', 'seat', 'pa3d', 'panood', 'patiktok'],
-  end: ['setnayan-ai', '__unknown__', 'studio', 'refer'],
-};
-
-const SECTION_LABEL: Record<EventMenuSectionKey, string> = {
-  event: '',
-  spine: '',
-  book: 'Book',
-  look: 'Look',
-  invite: 'Invite',
-  day: 'The day',
-  end: '',
-};
+/** THE FIVE, in the owner's order. */
+const PILLAR_ROWS = ['home', 'guests', 'explore', 'launch', 'studio'] as const;
 
 /**
- * THE tree. Every event-menu surface reads this — see the block above.
+ * THE tree. Every event-menu surface reads this — the rail, the ☰ drawer and
+ * the phone's bottom bar.
  */
 export function buildEventMenuSections(
   eventId: string,
   ctx: EventMenuCtx = {},
 ): EventMenuSection[] {
   const base = `/dashboard/${eventId}`;
-  const phase = ctx.phase ?? 'plan';
   const hide = new Set(ctx.hideKeys ?? []);
+  const maker = !!ctx.websiteEnabled;
+  // The Seat plan's page — held by the Maker (Details › Your event › Seat plan)
+  // or, with no Maker, by Our Services. None where the kind seats nobody (its
+  // /seating redirects home), so no row claims a door that is not there.
+  const seatPages = ctx.seatingEnabled !== false ? [`${base}/seating`] : [];
 
   const rows = new Map<string, EventMenuRow>();
   const put = (r: EventMenuRow) => rows.set(r.key, r);
 
+  // The event's name row (Event settings) — drawn AS the name, not as a row.
   put({ key: 'personalization', label: 'Details', href: `${base}/details`, icon: 'details' });
-  // Sentinel matchPrefix: every other event route shares `${base}/`, so only
-  // the exact pathname === href branch may light Overview.
-  put({ key: 'home', label: 'Overview', href: base, icon: 'overview', matchPrefix: '__home__' });
-  // Galleries in EVERY phase, directly under Papic: it is where Papic's photos
-  // land, and the page already says "collecting" before the first one.
-  put({ key: 'galleries', label: 'Galleries', href: `${base}/galleries`, icon: 'galleries' });
-  // 🛠 Editorial's door is the Event Hub Maker's "Post Event" (owner
-  // 2026-09-25: one row, "Event Hub Maker", holding Logo Maker · Editorial ·
-  // Love Story). It keeps its own row only where there is no Maker to hold it.
-  if (phase === 'after' && !ctx.websiteEnabled) {
-    put({ key: 'editorial', label: 'Editorial', href: `${base}/story`, icon: 'editorial' });
-  }
-  put({ key: 'explore', label: 'Your Team', href: `${base}/vendors`, icon: 'team' });
-  put({ key: 'budget', label: 'Budget', href: `${base}/budget`, icon: 'budget' });
-  put({ key: 'guests', label: 'Guests', href: `${base}/guests`, icon: 'guests' });
-  put({ key: 'hosts', label: 'Hosts', href: `${base}/hosts`, icon: 'hosts' });
-  // THE EVENT HUB CONTROLLER — one row, one word, every phase. Gated on the
-  // website surface on the rail AND the phone alike (the two used to disagree
-  // for the day-of and after bars). `matchPrefix` claims the /website family:
-  // the editor and Editorial maker are this controller's own doors.
-  // ✏️ 2026-09-25: THE EVENT HUB MAKER — the controller's new name (owner:
-  // "label change only; menu key `launch` and routes unchanged"). It also
-  // claims `/story`, whose own row left the tree (its door is the bar's Post
-  // Event); the Logo Maker is absorbed below (`STUDIO_ABSORBED.palogo`).
-  if (ctx.websiteEnabled) {
+
+  // HOME — the event's front page. Sentinel matchPrefix: every other event
+  // route shares `${base}/`, so only the exact pathname may light it.
+  put({ key: 'home', label: 'Home', href: base, icon: 'overview', matchPrefix: '__home__' });
+
+  // GUEST LIST — the people room: Guests · Hosts · Check-in are its parts
+  // (`guestListParts`), and the pages about the same people light it.
+  put({
+    key: 'guests',
+    label: 'Guest list',
+    href: `${base}/guests`,
+    icon: 'guests',
+    alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`],
+  });
+
+  // YOUR TEAM — suppliers + Budget (`yourTeamParts`). The old /budget page
+  // lands on the part; its standalone address still lights this row.
+  put({
+    key: 'explore',
+    label: 'Your Team',
+    href: `${base}/vendors`,
+    icon: 'team',
+    alsoMatch: [`${base}/budget`],
+  });
+
+  // EVENT HUB MAKER — one row, one word, every phase (key `launch`, 2026-09-02).
+  // `matchPrefix` claims the /website family; `/story` is its Post Event;
+  // `/schedule` is Details › Schedule (the page lands there for the couple).
+  if (maker) {
     put({
       key: 'launch',
       label: 'Event Hub Maker',
       href: `${base}/launch`,
       icon: 'hub',
       matchPrefix: `${base}/website`,
-      alsoMatch: [`${base}/story`],
+      alsoMatch: [
+        `${base}/story`,
+        `${base}/schedule`,
+        // `/seating` is Details › Your event › Seat plan (the page lands there).
+        ...seatPages,
+      ],
     });
   }
-  put({ key: 'schedule', label: 'Schedule', href: `${base}/schedule`, icon: 'schedule' });
-  // Check-in appears in The day WHEN the day comes — on the laptop too now.
-  if (phase === 'dayof') {
-    put({ key: 'checkin', label: 'Check-in', href: `${base}/guests/checkin`, icon: 'checkin' });
-  }
-  // 🪑 Gated on the seating surface on the rail too (it used to gate only the
-  // phone's day-of tab), so a kind whose /seating redirects gets no dead row.
-  if (ctx.seatingEnabled !== false) {
-    put({ key: 'seat', label: 'Seat plan', href: `${base}/seating`, icon: 'seat' });
-  }
-  // ✏️ 2026-09-29: "Suite" → "Our Services" (DECISION_LOG "WHAT AN EVENT
-  // NEEDS"). A label change only — the key stays `studio`, the route /suite.
-  put({ key: 'studio', label: SUITE_NAV_ON ? 'Our Services' : 'Studio', href: studioHubHref(eventId), icon: 'suite' });
-  put({ key: 'refer', label: 'Refer a couple', href: `${base}/refer`, icon: 'refer' });
 
-  const unknown: EventMenuRow[] = [];
+  // OUR SERVICES — the Suite page is this pillar ("Suite becomes this page").
+  // It holds Galleries (its Gallery card) and, below, every product page no
+  // other row holds. Where there is no Maker, it also holds the pages the
+  // Maker would have (its page keeps those tools — `toolHasGoneHome`).
+  const hub = studioHubHref(eventId);
+  put({
+    key: 'studio',
+    label: SUITE_NAV_ON ? 'Our Services' : 'Studio',
+    href: hub,
+    icon: 'suite',
+    alsoMatch: [
+      `${base}/suite`,
+      `${base}/studio`,
+      `${base}/galleries`,
+      ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
+      ...(maker ? [] : seatPages),
+    ].filter((m) => m !== hub.split('?')[0]),
+  });
+
+  // THE PRODUCTS' PAGES — claimed by whichever row holds them.
+  const claim = (key: string, paths: string[]) => {
+    const host = rows.get(key);
+    if (!host) return false;
+    host.alsoMatch = [...new Set([...(host.alsoMatch ?? []), ...paths])];
+    return true;
+  };
   for (const t of ctx.studioRows ?? []) {
-    const icon = STUDIO_PLACEMENT[t.key];
-    if (icon === 'drop') continue;
+    if (UNCLAIMED_PRODUCTS.has(t.key)) continue;
+    const own = t.href.split('?')[0]!;
     const absorbed = STUDIO_ABSORBED[t.key];
-    const host = absorbed ? rows.get(absorbed.into) : undefined;
-    if (absorbed && host) {
-      const claims = [t.href.split('?')[0]!, ...absorbed.routes(base)];
-      host.alsoMatch = [...new Set([...(host.alsoMatch ?? []), ...claims])];
-      continue;
-    }
-    const placed = Object.values(SECTION_ORDER).some((keys) => keys.includes(t.key));
-    const row: EventMenuRow = {
-      key: t.key,
-      label: t.name,
-      href: t.href,
-      icon: icon ?? 'product',
-      studio: true,
-    };
-    if (placed) put(row);
-    else unknown.push(row);
+    if (absorbed && claim(absorbed.into, [own, ...absorbed.routes(base)])) continue;
+    claim('studio', absorbed ? [own, ...absorbed.routes(base)] : [own]);
   }
 
   // 🍎 A row the store shell refuses is never built — `storeShellRefusesMenuRow`.
   const refused = (r: EventMenuRow) => storeShellRefusesMenuRow(r.href, ctx.storeShell);
-  const pick = (keys: string[]): EventMenuRow[] =>
+  const pick = (keys: readonly string[]): EventMenuRow[] =>
     keys.flatMap((k) => {
-      if (k === '__unknown__') return unknown.filter((r) => !hide.has(r.key) && !refused(r));
       const r = rows.get(k);
       return r && !hide.has(k) && !refused(r) ? [r] : [];
     });
 
   const sections: EventMenuSection[] = [
-    { key: 'event', label: SECTION_LABEL.event, rows: pick(['personalization']) },
-    ...(Object.keys(SECTION_ORDER) as Array<keyof typeof SECTION_ORDER>).map((key) => ({
-      key,
-      label: SECTION_LABEL[key],
-      rows: pick(SECTION_ORDER[key]),
-    })),
+    { key: 'event', label: '', rows: pick(['personalization']) },
+    { key: 'pillars', label: '', rows: pick(PILLAR_ROWS) },
   ];
-  // An empty moment hides its heading — dropped here so no surface can draw
-  // a heading over nothing.
+  // An empty section is dropped here, so no surface can draw over nothing.
   return sections.filter((s) => s.rows.length > 0);
 }
 
@@ -540,96 +366,35 @@ export function eventMenuRows(sections: EventMenuSection[]): EventMenuRow[] {
 }
 
 /**
- * THE MOMENT STRIP (phone only) — the section the current page belongs to.
- *
- * Longest-prefix over every row's claims (`eventMenuRowClaims`: its href,
- * `matchPrefix` and `alsoMatch`), so `/plan3d` — a page of the 3D Plan product
- * absorbed into Seat plan — finds The day. Overview is excluded (it is the event's front page, not a moment), as
- * is the event's Details row. A moment with a single row is not a strip.
+ * ─── THE PHONE BAR'S SHORT WORDS (owner 2026-09-29) ─────────────────────
+ * Owner, on the one bar: *"accept it. Maker and Services"*. On the PHONE
+ * bottom bar only, two tabs wear a short form of their row's name — five
+ * full names do not fit a 375px bar on one line. The desktop rail and the ☰
+ * drawer keep the full names ("Event Hub Maker", "Our Services"), and so does
+ * the tour. This map is the ONE place a phone word may differ from its row;
+ * `the-phone-has-one-bottom-bar.test.ts` fails on any other difference.
+ * (Where the Suite flag is off the row says "Studio", and so does the tab.)
  */
-export function eventMomentForPath(
-  pathname: string,
-  sections: EventMenuSection[],
-): EventMenuSection | null {
-  let best: { section: EventMenuSection; len: number } | null = null;
-  for (const section of sections) {
-    if (section.key === 'event') continue;
-    for (const r of section.rows) {
-      if (r.key === 'home') continue;
-      for (const m of eventMenuRowClaims(r)) {
-        if (pathname === m || pathname.startsWith(`${m}/`)) {
-          if (!best || m.length > best.len) best = { section, len: m.length };
-        }
-      }
-    }
-  }
-  if (!best || stripRows(best.section).length < 2) return null;
-  return best.section;
-}
+export const PHONE_BAR_SHORT: Readonly<Partial<Record<CustomerMenuKey, string>>> = {
+  launch: 'Maker',
+  ...(SUITE_NAV_ON ? { studio: 'Services' } : {}),
+};
 
 /**
- * The rows a moment strip DRAWS. Overview is never one of them: it is the
- * event's front page, not a step of a moment, and it is always on the bar
- * directly below the strip — so on Galleries the strip read "Overview ·
- * Papic · Galleries" over a bar that already said Overview. The binding
- * drawing (`event_menu_by_moment_2026-09-24.html`) draws the spine strip as
- * Papic · Galleries · Editorial, with no Overview chip.
+ * THE PHONE'S ONE BOTTOM BAR — the five pillars, picked out of the one tree,
+ * the same in every phase:
  *
- * ⚠ ONLY OVERVIEW. The drawing keeps the other bar twins in their strips —
- * Your Team in Book, Guests and the Event Hub Controller in Invite — because
- * there they are the NEXT STEP of the moment, which is the strip's whole job.
- */
-function stripRows(section: EventMenuSection): EventMenuRow[] {
-  return section.rows.filter((r) => r.key !== 'home');
-}
-
-/**
- * THE MOMENT STRIP'S CHIPS — one route child per row of the moment, each
- * matching by the claim that covers THIS page (longest wins: its
- * `matchPrefix`, or a page of a product absorbed into it — `/plan3d` → Seat
- * plan), else its own path. The same claims `eventMomentForPath` used to pick
- * the moment, so the strip that docks and the chip that lights can never
- * disagree. Pure, so the lighting is tested rather than read off the JSX.
- */
-export function eventMomentChildren(
-  pathname: string,
-  moment: EventMenuSection | null,
-): CustomerMenuChild[] {
-  return (moment ? stripRows(moment) : []).map((r) => {
-    const claim = eventMenuRowClaims(r)
-      .filter((m) => pathname === m || pathname.startsWith(`${m}/`))
-      .sort((a, b) => b.length - a.length)[0];
-    return {
-      key: r.key,
-      label: r.label,
-      icon: EVENT_MENU_ICONS[r.icon],
-      kind: 'route' as const,
-      href: r.href,
-      match: claim ?? r.href.split('?')[0],
-    };
-  });
-}
-
-/**
- * The phone's bottom bar — FIVE TABS PICKED OUT OF THE ONE TREE, per phase:
- *
- *   plan  → Overview · Papic · Your Team · Guests · Event Hub Controller
- *   dayof → Overview · Papic · Check-in · Event Hub Controller · Schedule
- *   after → Overview · Papic · Galleries · Your Team · Event Hub Controller
+ *     Home · Guest list · Your Team · Event Hub Maker · Our Services
  *
  * Every label and href comes from `buildEventMenuSections`, so a tab and its ☰
- * row can never say two words for one page. Only the phone-only extras live
- * here: the broad `activeMatch` that lights a tab, and the Explore takeover's
- * docked children while the replan flag is off.
+ * row can never say two words for one page — except the two short words in
+ * `PHONE_BAR_SHORT` (Maker · Services), which the owner chose for the bar. A
+ * tab lights across every page its row claims — every rail row IS a tab now.
  *
- * 🔑 Papic replaces the Suite tab (planning) and the Seats tab (day-of) — both
- * stay one tap away in ☰, Seat plan also in The day's strip. The Studio
- * anchor dock (Setnayan AI · Website · Capture · Branding) is retired with the
- * Suite tab that carried it: its four anchors are rows at their moments now.
- *
- * 🔒 THE KEYS DID NOT MOVE: the day-of Overview is still `now` and the after
- * Your Team is still `review`, because the registry slots
- * `customer.bottom-nav.now` / `.review` key off them. Their WORDS moved.
+ * 🔑 NOTHING DOCKS ABOVE IT. There is no section sub-nav and no moment strip
+ * any more (owner 2026-09-29, "we do not want that sub bottom nav anymore");
+ * a pillar's parts are picked INSIDE its page. `the-phone-has-one-bottom-bar
+ * .test.ts` holds that.
  */
 export function buildCustomerMenuTree(
   eventId: string,
@@ -637,122 +402,36 @@ export function buildCustomerMenuTree(
 ): CustomerMenu[] {
   const base = `/dashboard/${eventId}`;
   const phase = ctx.phase ?? 'plan';
-  const sections = buildEventMenuSections(eventId, ctx);
-  const byKey = new Map(eventMenuRows(sections).map((r) => [r.key, r]));
+  const all = eventMenuRows(buildEventMenuSections(eventId, ctx));
+  const byKey = new Map(all.map((r) => [r.key, r]));
 
-  const tab = (
-    rowKey: string,
-    extra: Partial<CustomerMenu> & { key?: CustomerMenuKey } = {},
-  ): CustomerMenu[] => {
-    const r = byKey.get(rowKey);
+  return PILLAR_ROWS.flatMap((key): CustomerMenu[] => {
+    const r = byKey.get(key);
     if (!r) return [];
+    const label = PHONE_BAR_SHORT[key] ?? r.label;
+    if (key === 'home') {
+      return [
+        {
+          key,
+          label,
+          icon: EVENT_MENU_ICONS[r.icon],
+          href: r.href,
+          // The checklist is the Home page's own "View your full checklist".
+          activeMatch: [base, `${base}/checklist`],
+          activeMatchExact: true,
+        },
+      ];
+    }
     return [
       {
-        key: (extra.key ?? rowKey) as CustomerMenuKey,
-        label: r.label,
+        key,
+        label,
         icon: EVENT_MENU_ICONS[r.icon],
-        href: r.href,
-        activeMatch: r.matchPrefix && r.matchPrefix !== '__home__' ? [r.href, r.matchPrefix] : r.href,
-        ...extra,
+        // After the day, Your Team opens on the suppliers who worked it, each
+        // with its review chip — the SHIPPED deep link (2026-06-12).
+        href: key === 'explore' && phase === 'after' ? `${r.href}?tab=build` : r.href,
+        activeMatch: [...new Set(eventMenuRowClaims(r))],
       },
     ];
-  };
-
-  const overview = (key: 'home' | 'now') =>
-    tab('home', {
-      key,
-      activeMatch: phase === 'plan' ? [base, `${base}/checklist`] : base,
-      activeMatchExact: true,
-    });
-  const papic = tab('papic');
-  const launch = tab('launch', { activeMatch: `${base}/launch` });
-
-  if (phase === 'dayof') {
-    return [
-      ...overview('now'),
-      ...papic,
-      ...tab('checkin'),
-      ...launch,
-      ...tab('schedule'),
-    ];
-  }
-  if (phase === 'after') {
-    return [
-      ...overview('home'),
-      ...papic,
-      ...tab('galleries'),
-      // ?tab=build — the SHIPPED deep link (2026-06-12) onto "Your team", the
-      // suppliers who actually worked the day, each with its review chip. The
-      // after moment is a count on that page, not a second name for it.
-      ...tab('explore', { key: 'review', href: `${base}/vendors?tab=build`, activeMatch: `${base}/vendors` }),
-      ...launch,
-    ];
-  }
-
-  return [
-    ...overview('home'),
-    ...papic,
-    ...tab('explore', {
-      activeMatch: `${base}/vendors`,
-      // THE MOBILE DOCK IS GONE under the Explore replan
-      // (Explore_Integration_BUILD_SPEC_2026-07-29 §5). Emitting children ONLY
-      // while the flag is OFF keeps the flag an honest kill-switch. The
-      // takeover sub-nav shows on the ROOT only.
-      ...(isExploreReplanEnabled()
-        ? {}
-        : {
-            sectionMatch: `${base}/vendors`,
-            sectionMatchExact: true,
-            subnavLabel: 'Services sections',
-            children: BUDGET_BUILD_TABS.map((t) => ({
-              key: t,
-              label: tabLabel(t),
-              icon: TAB_META[t].icon,
-              kind: 'tab' as const,
-              tab: t,
-              slotKey: `customer.budget-subnav.${t}`,
-            })),
-          }),
-    }),
-    // Guests lights across the people rooms it has always covered — Seat plan
-    // and Hosts have rows of their own in ☰, but the TAB is the people room.
-    ...tab('guests', {
-      activeMatch: [
-        `${base}/guests`,
-        `${base}/seating`,
-        `${base}/plan3d`,
-        `${base}/event-qr`,
-        `${base}/hosts`,
-        `${base}/people`,
-      ],
-    }),
-    ...launch,
-  ];
-}
-
-/** True when the pathname sits inside a menu's docked-sub-nav SECTION (narrow
- *  match). Exact-equal when `sectionMatchExact`, else prefix (== or startsWith
- *  `${m}/`). Menus with no `sectionMatch` (no children) never match. */
-export function matchesMenuSection(pathname: string, menu: CustomerMenu): boolean {
-  if (!menu.sectionMatch) return false;
-  const ms = Array.isArray(menu.sectionMatch) ? menu.sectionMatch : [menu.sectionMatch];
-  return ms.some((m) =>
-    menu.sectionMatchExact ? pathname === m : pathname === m || pathname.startsWith(`${m}/`),
-  );
-}
-
-/** The route-child whose `match` prefix best (longest) covers the pathname, or
- *  null. Mirrors `activeJourneyKey` but generalized over any route children. */
-export function activeRouteChildKey(
-  pathname: string,
-  children: CustomerMenuChild[],
-): string | null {
-  let best: CustomerMenuChild | null = null;
-  for (const c of children) {
-    if (c.kind !== 'route' || !c.match) continue;
-    if (pathname === c.match || pathname.startsWith(`${c.match}/`)) {
-      if (!best || (c.match.length > (best.match?.length ?? 0))) best = c;
-    }
-  }
-  return best?.key ?? null;
+  });
 }

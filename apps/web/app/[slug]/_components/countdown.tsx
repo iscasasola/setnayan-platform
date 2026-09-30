@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { countdownTargetMs } from '@/lib/countdown-target';
 import { sceneCardClass, sceneCardTileClass } from '@/lib/scene-card-look';
+import { CountdownBigNumber, CountdownCalendar } from './countdown-styles';
 
 /*
  * ✉️ 2026-08-24 (AP-3) — THE INVITATION STOPPED READING LIKE A RECEIPT.
@@ -48,6 +49,14 @@ type Props = {
    * page always looked when no background was chosen.
    */
   bare?: boolean;
+  /**
+   * 🎨 THE SCENE'S STYLE (owner 2026-09-29, "every scene … at least three
+   * premade styles"): `four-tiles` (this file, the default) · `big-number` ·
+   * `calendar` (`countdown-styles.tsx`). Absent or unknown draws the tiles. The
+   * style only arranges the reading — every guard below runs first, so no style
+   * can draw a countdown the tiles would not.
+   */
+  sceneStyle?: string | null;
 };
 
 type Remaining = { days: number; hours: number; minutes: number; seconds: number; isPast: boolean };
@@ -63,7 +72,7 @@ function compute(target: number): Remaining {
   return { days, hours, minutes, seconds, isPast: false };
 }
 
-export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
+export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle = null }: Props) {
   // 🔴 THIS LABEL IS A WEDDING VOW. It read "Until we say 'I do'" on a
   // seven-year-old's birthday and on a graduation — seen on the real pages, not
   // caught by any scan, because it contains none of the words a wedding-word
@@ -116,6 +125,15 @@ export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
   // shipped mechanism that is actively wrong for it.")
   if (w.solemn) return null;
 
+  const label =
+    w.eventWord === 'wedding' ? <>Until we say &lsquo;I do&rsquo;</> : <>Until the day</>;
+  if (sceneStyle === 'big-number') {
+    return <CountdownBigNumber label={label} remaining={remaining} targetIso={targetIso} bare={bare} />;
+  }
+  if (sceneStyle === 'calendar') {
+    return <CountdownCalendar label={label} remaining={remaining} targetIso={targetIso} bare={bare} />;
+  }
+
   const boxes: { label: string; value: number | null }[] = [
     { label: 'Days', value: remaining?.days ?? null },
     { label: 'Hours', value: remaining?.hours ?? null },
@@ -128,13 +146,7 @@ export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
       data-scene-card={bare ? 'bare' : 'own'}
       className={sceneCardClass('countdown', bare)}
     >
-      <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">
-        {w.eventWord === 'wedding' ? (
-          <>Until we say &lsquo;I do&rsquo;</>
-        ) : (
-          <>Until the day</>
-        )}
-      </p>
+      <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
       <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
         {boxes.map((b) => (
           /* With no box, the numbers stand on their own — no tile each. */

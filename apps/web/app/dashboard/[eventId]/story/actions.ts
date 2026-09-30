@@ -384,7 +384,7 @@ export async function saveEditorial(
     ⛔ Do NOT reinstate this as a "cheap upsell". It was ruled on directly.
   */
   // Still resolved: the genuinely-premium EXTRAS below (chapter curation,
-  // section order, manual guest wishes) remain PRO. What is now free is the
+  // their own columns, manual guest wishes) remain PRO; section order is free. What is now free is the
   // couple's own WORDS — starting an editorial, and correcting it.
   const isPro = await isEditorialProActive(admin, eventId);
 
@@ -448,24 +448,30 @@ export async function saveEditorial(
     if (chapterOverrides.length) draft.chapterOverrides = chapterOverrides;
     else delete draft.chapterOverrides;
 
-    // Section order (PRO reorder). null → delete (revert to default order).
+    // Their own columns (PRO authorship).
     const customColumns = sanitizeCustomColumns(input.customColumns);
     if (customColumns.length) draft.customColumns = customColumns;
     else delete draft.customColumns;
-    const sectionOrder = sanitizeSectionOrder(
-      input.sectionOrder,
-      customColumns.map((c) => c.id),
-    );
-    if (sectionOrder) draft.sectionOrder = sectionOrder;
-    else delete draft.sectionOrder;
 
     // Manual guest-wishes (PRO). Empty → delete the key.
     const reviews = sanitizeReviews(input.reviews);
     if (reviews.length) draft.reviews = reviews;
     else delete draft.reviews;
   }
-  // else: not PRO — leave draft.chapterOverrides / draft.sectionOrder /
+  // else: not PRO — leave draft.chapterOverrides / draft.customColumns /
   // draft.reviews exactly as they were on `base` (spread into `draft` already).
+
+  // Section order is FREE (owner E4, 2026-09-25; controller ruling 2026-09-29:
+  // "the story page's reorder is FREE too" — it matches the Event Hub Maker,
+  // where moving a scene is never Pro). The order may only name the columns
+  // the story HOLDS after the block above — a free couple cannot author a
+  // column by naming it in the order. null → delete (revert to default order).
+  const sectionOrder = sanitizeSectionOrder(
+    input.sectionOrder,
+    sanitizeCustomColumns(draft.customColumns).map((c) => c.id),
+  );
+  if (sectionOrder) draft.sectionOrder = sectionOrder;
+  else delete draft.sectionOrder;
 
   // Fails closed: anything this build does not recognise reads as 'only me'.
   const audience = storyAudienceOf(input.audience);

@@ -1669,8 +1669,9 @@ function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
  * from the sheet's own height — so a format is laid out, never stretched.
  */
 function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMATS['calling-card']): PrintDoc {
-  // 🎟 No table / seat on any ticket while TICKET_SHOWS_TABLE is off.
-  const pass = ticketPass(rawPass);
+  // 🎟 The table / seat is drawn only when the reader filled it — on the day
+  // (`ticketShowsTable`, lib/guests-may-see-seats.ts).
+  const pass = rawPass;
   // The phone card is its own composition (portrait, the QR the hero) — the
   // same one the 1080 × 1440 picture a guest saves is drawn from.
   if (fmt.style === 'phone') return PASS_CARD_LAYOUTS[ctx.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](ctx, pass, fmt);
@@ -1744,15 +1745,16 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   y += 10 * k;
   if (style === 'boarding') {
     // Gate · Seat · Boarding → Table · Seat · Time, each a small labelled field.
-    // 🎟 While TICKET_SHOWS_TABLE is off the Table and Seat fields go, not
-    // print "—": an empty field reads as a table the guest was never given.
+    // 🎟 A Table or Seat the ticket does not carry (before the day, or not
+    // placed) goes, not print "—": an empty field reads as a table the guest
+    // was never given.
     const fields: Array<[string, string | null]> = (
       [
         ['Table', pass.seat ? pass.seat.replace(/^Table\s+/i, '') : null],
         ['Seat', pass.seatNumber ?? null],
         ['Time', data.ceremonyTime],
       ] as Array<[string, string | null]>
-    ).filter(([label]) => TICKET_SHOWS_TABLE || (label !== 'Table' && label !== 'Seat'));
+    ).filter(([label, value]) => (label !== 'Table' && label !== 'Seat') || value !== null);
     const colW = (mainW - pad * 2) / 3;
     fields.forEach(([label, value], i) => {
       const fx = pad + i * colW;
@@ -1832,29 +1834,19 @@ function fitLine(ops: PrintOp[], raw: string, x: number, y: number, o: TextOpts)
 type CardFacts = { label: string; value: string }[];
 
 /**
- * 🎟 THE TABLE ON A TICKET — OFF FOR NOW. Owner, 2026-09-30, verbatim: "so on
- * their digital ticket, no seat plan for the moment."
+ * 🎟 THE TABLE ON A TICKET — ON THE DAY. Owner, 2026-09-30, verbatim: *"their
+ * digital Ticket will also update on the date of the event with the seat
+ * number"* (it replaced the same day's *"no seat plan for the moment"*).
  *
- * Every ticket draws its pass through `ticketPass`: the Digital ticket (the
- * PNG a guest saves), the Printed ticket (the PDF), in every style, and the Pro
- * zip — so no table and no seat number appear on any of them, whatever the
- * date or the couple's switch. Name, event, date, arrive time, "and 1 guest"
- * and the QR are untouched. The live pages (Find your seat, the seat pass, the
- * 3D walk) still show seats on the day — `lib/guests-may-see-seats.ts`.
+ * The drawing is pure and draws what the pass carries. WHETHER it carries a
+ * table is decided by the readers, on ONE rule — `ticketShowsTable` in
+ * `lib/guests-may-see-seats.ts` (from 00:00 Manila on the event's date): the
+ * Digital ticket's kit (`lib/pass-card.server.ts`) and the Printed ticket batch
+ * (`loadGuestPasses`, lib/print-set.server.ts) fill `seat` only then.
  *
- * To bring the table back: set this to `true`. Nothing else changes — what
- * `seat` holds is still decided by the one seat rule upstream.
+ * The facts a pass card prints, in order — Table and Arrive, each only when it exists.
  */
-export const TICKET_SHOWS_TABLE: boolean = false;
-
-/** The pass as a ticket may draw it — no table or seat while `TICKET_SHOWS_TABLE` is off. */
-export function ticketPass(pass: PrintPass): PrintPass {
-  return TICKET_SHOWS_TABLE ? pass : { ...pass, seat: null, seatNumber: null };
-}
-
-/** The facts a pass card prints, in order — Table and Arrive, each only when it exists (Table: only while `TICKET_SHOWS_TABLE`). */
-export function passCardFacts(rawPass: PrintPass): CardFacts {
-  const pass = ticketPass(rawPass);
+export function passCardFacts(pass: PrintPass): CardFacts {
   return guestPassFacts({
     displayName: pass.name,
     // Under a "TABLE" label the value is the table's own name ("7", "VIP").
@@ -1886,7 +1878,7 @@ function cardWhen(data: PrintSetData, withWord: boolean): string | null {
  * sizes each design has room for; `a-round-code-sits-in-a-round-slot.test.ts`
  * decodes every design at 300 px wide.
  */
-export const ROUND_CODE_ROOM = { classic: 200, ticket: 210, poster: 200 } as const;
+export const ROUND_CODE_ROOM = { classic: 210, ticket: 210, poster: 200 } as const;
 
 /**
  * The code on its white tile — ALWAYS black on white, whatever the theme (it
@@ -1953,62 +1945,123 @@ function cardSheet(ctx: Ctx, fmt: PrintFormat): { doc: PrintDoc; u: number } {
   return { doc, u: doc.w / 360 };
 }
 
+/**
+ * 🎟 A · CLASSIC IS THE FABLE TICKET (owner 2026-09-30, DECISION_LOG "APPROVED —
+ * THE FABLE DESIGNS FOR THE GUEST CARD, THE GUEST LIST ROWS AND THE GUEST
+ * LANDING PAGE"; `prototypes/guest_landing_page_2026-09-30_fable.html`, the
+ * 3 : 4 ticket "identical everywhere"). Top to bottom, centred inside a fine
+ * inner border: the couple's mark in a ring · the couple, in the heading face ·
+ * a rule with the theme's ornament · the guest's name, biggest · "and 1 guest",
+ * or ON THE DAY the seat as a pill ("Table 7 · Seat 3" — `ticketShowsTable`
+ * decides upstream whether `seat` is filled) · the code in a round slot · a
+ * foot row, DATE left and ARRIVE right. One drawing: the screen shows this PNG,
+ * Save hands it over, and the phone-card print draws the same function.
+ *
+ * ⭕ The code keeps `ROUND_CODE_ROOM.classic` — the Fable proportions would
+ * draw it smaller than decodes at 300 px (a-round-code-sits-in-a-round-slot).
+ */
 function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): PrintDoc {
   const { look, data } = ctx;
   const { doc, u } = cardSheet(ctx, fmt);
   const { ops, w, h } = doc;
   const X = (v: number) => v * u;
-  const pad = Math.max(X(22), SAFE_PT + 2);
+  // the fine inner border (the Fable ticket's gilt hairline) sits just inside
+  // the safe line; everything else sits inside it
+  const inset = SAFE_PT + 1;
+  const pad = inset + Math.max(X(12), 4);
   const foil: PrintLayer | undefined = ctx.foil ? 'foil' : undefined;
+  const inner = w - pad * 2;
 
-  // head — mark, couple beside it; the when-line under
-  cardMark(ops, look, data, pad + X(22), pad + X(22), X(22), false);
+  ops.push({ t: 'path', d: roundRectPath(inset, inset, w - inset * 2, h - inset * 2, X(17)), stroke: look.accent, sw: Math.max(0.4, X(1)), opacity: 0.35 });
+
+  // head — the mark in its ring, the couple, the ornament rule
+  cardMark(ops, look, data, w / 2, pad + X(20), X(20), false);
   const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
-  fitLine(ops, couple, pad + X(56), pad + X(30), { font: look.headFont, size: X(24), color: look.heading, align: 'left', caps: look.capsNames, maxWidth: w - pad * 2 - X(56), layer: foil });
-  const when = cardWhen(data, true);
-  if (when) fitLine(ops, when, pad, pad + X(66), { font: look.bodyFont, size: X(11), color: look.accent, align: 'left', caps: true, tracking: 0.14, maxWidth: w - pad * 2 });
+  fitLine(ops, couple, w / 2, pad + X(64), { font: look.scriptFont ?? look.headFont, size: X(22), color: look.heading, align: 'center', caps: look.capsNames, tracking: 0.03, maxWidth: inner, layer: foil });
+  const ruleY = pad + X(76);
+  const gapHalf = X(10);
+  ops.push({ t: 'rect', x: pad, y: ruleY, w: w / 2 - gapHalf - pad, h: Math.max(0.4, X(1)), fill: look.accent, opacity: 0.35 });
+  ops.push({ t: 'rect', x: w / 2 + gapHalf, y: ruleY, w: w / 2 - gapHalf - pad, h: Math.max(0.4, X(1)), fill: look.accent, opacity: 0.35 });
+  const dm = X(4);
+  ops.push({ t: 'path', d: `M${f2(w / 2)} ${f2(ruleY - dm)}L${f2(w / 2 + dm)} ${f2(ruleY + X(0.5))}L${f2(w / 2)} ${f2(ruleY + dm + X(1))}L${f2(w / 2 - dm)} ${f2(ruleY + X(0.5))}Z`, fill: look.accent });
 
-  // foot — a rule, then the door line
+  // the guest, then "and 1 guest" — or on the day, the seat as a pill
+  let y = ruleY + X(30);
+  fitLine(ops, pass.name, w / 2, y, { font: look.headFont, size: X(28), color: look.heading, align: 'center', maxWidth: inner });
+  const party = pass.pending ? null : partyLine(pass.party);
+  const seat = pass.pending || !pass.seat ? null : [pass.seat, pass.seatNumber ? `Seat ${pass.seatNumber}` : null].filter(Boolean).join(' · ');
+  y += X(20);
+  if (seat) {
+    const size = X(11);
+    const sw = Math.min(inner, measure(printableText(seat).toUpperCase(), look.bodyFont, size, 0.16 * size) + X(24));
+    const ph = X(20);
+    ops.push({ t: 'path', d: roundRectPath(w / 2 - sw / 2, y - ph + X(6), sw, ph, ph / 2), fill: look.accent, opacity: 0.14 });
+    fitLine(ops, seat, w / 2, y, { font: look.bodyFont, size, color: look.heading, align: 'center', caps: true, tracking: 0.16, maxWidth: sw - X(12) });
+  } else if (party) {
+    fitLine(ops, party, w / 2, y, { font: look.bodyFont, size: X(11), color: look.muted, align: 'center', caps: true, tracking: 0.2, maxWidth: inner });
+  }
+
+  // foot — the door line (and the small Setnayan mark on a free event)
   const footY = h - Math.max(X(18), SAFE_PT) - X(2);
-  const ruleY = footY - X(22);
-  ops.push({ t: 'rect', x: pad, y: ruleY, w: w - pad * 2, h: Math.max(0.4, X(1)), fill: look.ink, opacity: 0.16 });
   cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode, pass.pending ? 'Not valid at the door yet' : undefined);
 
-  // the middle — name, party, the code, the facts — centred between the two.
-  // A pending request carries none of them: the band takes the facts' place.
-  const party = pass.pending ? null : partyLine(pass.party);
-  const facts = pass.pending ? [{ label: '', value: '' }] : passCardFacts(pass);
-  // ⭕ A round code spends a third of its box on the filler ring (lib/qr-style-svg.ts
-  // SHAPE = CIRCLE), so the same box gives it modules ~1.4× smaller — too small to
-  // scan off a 300-px ticket at 1× (owner's controller, 2026-09-30). It takes the room
-  // there is instead (`ROUND_CODE_ROOM`).
+  // the DATE · ARRIVE row above it — a pending request's band takes its place
+  const facts = pass.pending ? [{ label: '', value: '' }] : cardFootFacts(data, pass);
+  const metaTop = footY - X(50);
+  // the code in its slot, centred between the name block and the foot row
   const round = data.qrShape === 'circle';
   const tile = X(round ? ROUND_CODE_ROOM.classic : 176);
   const tilePad = X(10);
-  const blockH = X(30) + (party ? X(20) : 0) + X(14) + tile + tilePad * 2 + (facts.length ? X(14) + X(35) : 0);
-  const top = pad + X(82);
-  const y0 = top + Math.max(0, (ruleY - X(8) - top - blockH) / 2);
-  let y = y0 + X(30);
-  fitLine(ops, pass.name, w / 2, y, { font: look.headFont, size: X(34), color: look.heading, align: 'center', maxWidth: w - pad * 2 });
-  if (party) {
-    y += X(20);
-    fitLine(ops, party, w / 2, y, { font: look.bodyFont, size: X(15), color: look.muted, align: 'center' });
+  const slotTop = y + X(6);
+  const size = Math.min(tile, metaTop - X(6) - slotTop - tilePad * 2);
+  const codeY = slotTop + Math.max(0, (metaTop - X(6) - slotTop - size - tilePad * 2) / 2);
+  if (round) {
+    // the round slot — a soft well of the paper colour, with a fine ring
+    ops.push({ t: 'circle', cx: w / 2, cy: codeY + tilePad + size / 2, r: size / 2 + tilePad + X(6), fill: look.ink, opacity: 0.05 });
+    ops.push({ t: 'circle', cx: w / 2, cy: codeY + tilePad + size / 2, r: size / 2 + tilePad + X(6), stroke: look.accent, sw: Math.max(0.4, X(1)), opacity: 0.45 });
   }
-  y += X(14);
-  const size = Math.min(tile, ruleY - X(8) - y - tilePad * 2 - (facts.length ? X(49) : 0));
-  codeTile(ops, pass, w / 2 - size / 2 - tilePad, y, size, tilePad, X(16), 0, data.qrShape);
-  y += size + tilePad * 2 + X(14);
+  codeTile(ops, pass, w / 2 - size / 2 - tilePad, codeY, size, tilePad, X(16), 0, data.qrShape);
+
   if (pass.pending) {
     // The dashed band (frame B) — "REQUEST PENDING" over "waiting for <couple>".
-    const bw = w - pad * 2 - X(20);
-    ops.push({ t: 'rect', x: (w - bw) / 2, y: y - X(6), w: bw, h: X(44), stroke: look.accent, sw: Math.max(0.5, X(1.2)), dash: true });
-    fitLine(ops, 'Request pending', w / 2, y + X(12), { font: look.headFont, size: X(17), color: look.heading, align: 'center', caps: true, tracking: 0.12, maxWidth: bw - X(16) });
-    fitLine(ops, pass.pending, w / 2, y + X(29), { font: look.bodyFont, size: X(11), color: look.muted, align: 'center', maxWidth: bw - X(16) });
+    const bw = inner - X(20);
+    const by = metaTop + X(2);
+    ops.push({ t: 'rect', x: (w - bw) / 2, y: by - X(4), w: bw, h: X(38), stroke: look.accent, sw: Math.max(0.5, X(1.2)), dash: true });
+    fitLine(ops, 'Request pending', w / 2, by + X(13), { font: look.headFont, size: X(16), color: look.heading, align: 'center', caps: true, tracking: 0.12, maxWidth: bw - X(16) });
+    fitLine(ops, pass.pending, w / 2, by + X(27), { font: look.bodyFont, size: X(11), color: look.muted, align: 'center', maxWidth: bw - X(16) });
   } else if (facts.length) {
-    const gap = X(100);
-    facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, y + X(9), u, 20, gap - X(8)));
+    ops.push({ t: 'rect', x: pad, y: metaTop, w: inner, h: Math.max(0.4, X(1)), fill: look.ink, opacity: 0.12 });
+    facts.forEach((f, i) => {
+      const right = i === 1 || (facts.length === 1 && f.label === 'Arrive');
+      const x = right ? w - pad : pad;
+      const align = right ? 'right' : 'left';
+      fitLine(ops, f.label, x, metaTop + X(15), { font: look.bodyFont, size: X(9.5), color: look.accent, align, caps: true, tracking: 0.22 });
+      fitLine(ops, f.value, x, metaTop + X(34), { font: look.headFont, size: X(19), color: look.heading, align, maxWidth: inner / 2 - X(6) });
+    });
   }
   return doc;
+}
+
+/** The Fable ticket's foot row: DATE (the day, without the weekday) and ARRIVE — each only when it exists. */
+function cardFootFacts(data: PrintSetData, pass: PrintPass): CardFacts {
+  const date = data.dateLabel ? (data.dateLabel.split(' · ').pop() ?? '').trim() : '';
+  return [
+    date ? { label: 'Date', value: date } : null,
+    pass.arrive ? { label: 'Arrive', value: pass.arrive } : null,
+  ].filter((f): f is { label: string; value: string } => f !== null);
+}
+
+/** A rounded rectangle as a path (the ticket's inner border, the seat pill). */
+function roundRectPath(x: number, y: number, w: number, h: number, r: number): string {
+  // Every command carries an x AND a y (no H / V) — the fit checks read a path's box as pairs.
+  const k = 0.5523 * r;
+  const [x1, y1] = [x + w, y + h];
+  return (
+    `M${f2(x + r)} ${f2(y)}L${f2(x1 - r)} ${f2(y)}C${f2(x1 - r + k)} ${f2(y)} ${f2(x1)} ${f2(y + r - k)} ${f2(x1)} ${f2(y + r)}` +
+    `L${f2(x1)} ${f2(y1 - r)}C${f2(x1)} ${f2(y1 - r + k)} ${f2(x1 - r + k)} ${f2(y1)} ${f2(x1 - r)} ${f2(y1)}` +
+    `L${f2(x + r)} ${f2(y1)}C${f2(x + r - k)} ${f2(y1)} ${f2(x)} ${f2(y1 - r + k)} ${f2(x)} ${f2(y1 - r)}` +
+    `L${f2(x)} ${f2(y + r)}C${f2(x)} ${f2(y + r - k)} ${f2(x + r - k)} ${f2(y)} ${f2(x + r)} ${f2(y)}Z`
+  );
 }
 
 /** The ticket's outline: rounded corners and a half-circle notch in each side at the perforation. */
@@ -2173,7 +2226,7 @@ const PASS_CARD_LAYOUTS: Record<PassCardDesign, (ctx: Ctx, pass: PrintPass, fmt:
  */
 export function layoutPassCard(input: LayoutInput, rawPass: PrintPass, design?: PassCardDesign): PrintDoc {
   const ctx: Ctx = { look: input.look, data: input.data, mode: input.mode, foil: input.foil };
-  const pass = ticketPass(rawPass); // 🎟 TICKET_SHOWS_TABLE
+  const pass = rawPass; // 🎟 the table only on the day — `ticketShowsTable`, decided by the reader
   const doc = PASS_CARD_LAYOUTS[design ?? input.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](ctx, pass, PRINT_FORMATS[PASS_CARD_FORMAT_ID]);
   return input.mode === 'print' && input.whiteInk ? underprintWhite(doc) : doc;
 }

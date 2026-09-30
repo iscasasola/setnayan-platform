@@ -107,7 +107,15 @@ test('🔑 every column the entourage renders from is named in ONE place, and bo
     ['app/[slug]/everyone/page.tsx', 2],
   ] as const) {
     const src = stripComments(read(file));
-    const uses = (src.match(/\.select\(ENTOURAGE_COLUMNS\)/g) ?? []).length;
+    // A read that also asks for who is a real couple (owner 2026-09-30,
+    // `ENTOURAGE_COUPLE_FIELDS`) still reads the ONE list — and both routes'
+    // entourage reads must ask for it, or one page shortens a pair the other does not.
+    const uses = (src.match(/\.select\((?:ENTOURAGE_COLUMNS|`\$\{ENTOURAGE_COLUMNS\}, \$\{ENTOURAGE_COUPLE_FIELDS\}`)\)/g) ?? []).length;
+    assert.equal(
+      (src.match(/\.select\(`\$\{ENTOURAGE_COLUMNS\}, \$\{ENTOURAGE_COUPLE_FIELDS\}`\)/g) ?? []).length,
+      1,
+      `${file}'s entourage read no longer asks who is a couple`,
+    );
     assert.equal(
       uses,
       expected,

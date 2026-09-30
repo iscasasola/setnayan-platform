@@ -53,6 +53,10 @@ export type EntouragePerson = {
   role: GuestRole;
   /** Their partner's guest id, when the couple paired them. */
   pairId: string | null;
+  /** `guests.plus_one_of_guest_id` — whose +1 this person is. See `isCouple`. */
+  plusOneOf?: string | null;
+  /** `guests.couple_with_guest_id` — ticked "They're a couple" in the Wedding March. See `isCouple`. */
+  coupleWith?: string | null;
   /** `guests.entourage_order` — the LINE's hand-set position, not this person's.
    *  Both halves of a pair carry the same number; see `orderLines`. */
   order: number | null;
@@ -60,7 +64,7 @@ export type EntouragePerson = {
    *  walk, and print normally; they simply have no chair. */
   ceremonyOnly: boolean;
   /**
-   * The name split for a SHARED-SURNAME pair line — `given` is everything
+   * The name split for a COUPLE's shared-surname line (`isCouple`) — `given` is everything
    * before the surname ("Hon. Ricardo"), `surname` the last name exactly as
    * entered. Null when the name cannot be split honestly: a hand-typed
    * `display_name`, no last name, or a suffix ("Jr." would be lost or misplaced
@@ -519,21 +523,49 @@ export function roleBlocks(group: EntourageGroup): EntourageRoleBlock[] | null {
 }
 
 /**
+ * Are the two people on one line a real COUPLE — not merely walking together?
+ *
+ * ⚖ OWNER 2026-09-30 (DECISION_LOG "WALKING TOGETHER IS NOT BEING A COUPLE"):
+ * *"sometimes the principal sponsor are not couples. Or the entourage are also
+ * not couples."* Walking beside someone implies NOTHING about a relationship.
+ * A couple is exactly one of:
+ *   · one is the other's +1 in the Guest list (`plus_one_of_guest_id`);
+ *   · the hosts ticked "They're a couple" on that pair in the Maker's Wedding
+ *     March — `couple_with_guest_id`, read as MUTUAL (A → B and B → A), so a
+ *     tick left over from an earlier pairing can never adopt a new partner.
+ * 🔑 A SHARED SURNAME IS NEVER EVIDENCE. Two Reyes sponsors are two people.
+ */
+export function isCouple(
+  a: Pick<EntouragePerson, 'id' | 'plusOneOf' | 'coupleWith'> | null | undefined,
+  b: Pick<EntouragePerson, 'id' | 'plusOneOf' | 'coupleWith'> | null | undefined,
+): boolean {
+  if (!a?.id || !b?.id || a.id === b.id) return false;
+  if (a.plusOneOf === b.id || b.plusOneOf === a.id) return true;
+  return a.coupleWith === b.id && b.coupleWith === a.id;
+}
+
+/**
  * The names of one printed line, a pair kept together, in the line's own order
  * (left then right — Ninong then Ninang, bridesmaid then groomsman).
  *
- * ⚖ OWNER 2026-09-30 (option 1): *"Hon. Ricardo & Mrs. Jessica Villahermosa"*.
+ * ⚖ OWNER 2026-09-30: a walking pair is BOTH FULL NAMES —
+ * *"Dr. Eduardo Bautista & Ms. Carmen Reyes"*. The couple-style short form
+ * *"Hon. Ricardo & Mrs. Jessica Villahermosa"* is for a real couple ONLY:
  *   · the pair comes from the DATA (`pair_with_guest_id`, via `pairUp`) —
  *     never guessed from a shared surname;
- *   · the surname is said once ONLY when both surnames match EXACTLY and both
- *     names split cleanly (`split`); otherwise both full names, joined by " & ";
+ *   · the surname is said once ONLY when they are a couple (`isCouple`) AND
+ *     both surnames match EXACTLY AND both names split cleanly (`split`);
+ *     otherwise both full names, joined by " & " — a shared surname alone
+ *     NEVER shortens (the Oct 1 release did, and that was the bug);
  *   · titles stay exactly as entered;
  *   · an unpaired person is just their name.
  */
 export function lineNames(row: EntourageRow): string {
   const [l, r] = row;
   if (l && r) {
-    if (l.split && r.split && l.split.surname === r.split.surname) return `${l.split.given} & ${r.name}`;
+    if (isCouple(l, r) && l.split && r.split && l.split.surname === r.split.surname) {
+      return `${l.split.given} & ${r.name}`;
+    }
     return `${l.name} & ${r.name}`;
   }
   return (l ?? r)?.name ?? '';
@@ -572,6 +604,18 @@ export function pairsShareALine(group: EntourageGroup): boolean {
 export const ENTOURAGE_COLUMNS =
   'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, entourage_order';
 
+/**
+ * + what `isCouple` reads — asked for by the readers that PRINT a pair line
+ * (the invitation's section and the Maker's march via `loadEntourage`, the
+ * `/everyone` page, the printed Entourage card):
+ * `${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`.
+ *
+ * Deliberately NOT inside `ENTOURAGE_COLUMNS` (see its "DO NOT WIDEN" note) and
+ * deliberately not named `*_COLUMNS`. A reader that forgets it degrades the SAFE
+ * way — both full names — never the wrong way.
+ */
+export const ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_id';
+
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g.roles]);
 
@@ -583,6 +627,10 @@ export type EntourageGuestRow = {
    *  Never write this column directly: mutuality is not expressible as a row
    *  constraint, so two round trips leave a half-pair. */
   pair_with_guest_id?: string | null;
+  /** `guests.plus_one_of_guest_id` — see `ENTOURAGE_COUPLE_FIELDS` / `isCouple`. */
+  plus_one_of_guest_id?: string | null;
+  /** `guests.couple_with_guest_id` — the Wedding March's "They're a couple" tick. */
+  couple_with_guest_id?: string | null;
   display_name?: string | null;
   name_prefix?: string | null;
   first_name?: string | null;
@@ -858,6 +906,8 @@ function peopleForSpec(
         name,
         role,
         pairId: row.pair_with_guest_id ?? null,
+        plusOneOf: row.plus_one_of_guest_id ?? null,
+        coupleWith: row.couple_with_guest_id ?? null,
         order: typeof row.entourage_order === 'number' ? row.entourage_order : null,
         ceremonyOnly: isCeremonyOnly(row),
         split: splitForPairLine(row, style),

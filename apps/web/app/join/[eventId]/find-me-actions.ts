@@ -80,7 +80,7 @@ const doorPath = (slug: string, error?: string) =>
  * memory) and always the same redirect back to the door, whatever was found;
  * the door then draws the answer from the encrypted find state.
  */
-export async function findMeAction(eventId: string, token: string, formData: FormData) {
+async function lookUpName(eventId: string, token: string, formData: FormData) {
   const admin = createAdminClient();
   const { slug } = await openDoor(admin, eventId, token);
 
@@ -118,7 +118,7 @@ export async function findMeAction(eventId: string, token: string, formData: For
  * QR's own redeem hop. Wrong → "That doesn't match" (never which part).
  * Out of tries → the couple confirms them instead (their Link).
  */
-export async function checkLastFourAction(eventId: string, token: string, formData: FormData) {
+async function checkLastFour(eventId: string, token: string, formData: FormData) {
   const admin = createAdminClient();
   const { slug } = await openDoor(admin, eventId, token);
 
@@ -166,7 +166,7 @@ export async function checkLastFourAction(eventId: string, token: string, formDa
 }
 
 /** "I don't know that number" — the couple confirms them instead. */
-export async function findMeAskHostsAction(eventId: string, token: string) {
+async function askHosts(eventId: string, token: string) {
   const admin = createAdminClient();
   const { slug } = await openDoor(admin, eventId, token);
   const state = await readFindState(eventId);
@@ -178,9 +178,22 @@ export async function findMeAskHostsAction(eventId: string, token: string) {
 }
 
 /** "Not you? Start over" — forget what was typed. */
-export async function findMeStartOverAction(eventId: string, token: string) {
+async function startOver(eventId: string, token: string) {
   const admin = createAdminClient();
   const { slug } = await openDoor(admin, eventId, token);
   await forgetFindState();
   redirect(doorPath(slug));
+}
+
+/**
+ * THE ONE EXPORTED ACTION for all four presses — each export is a Vercel route
+ * and the app sits at its route budget (scripts/lint-server-action-budget.mjs).
+ * The press is named by the form's `step`; an unknown step starts over.
+ */
+export async function findMeAction(eventId: string, token: string, formData: FormData) {
+  const step = String(formData.get('step') ?? '');
+  if (step === 'name') return lookUpName(eventId, token, formData);
+  if (step === 'digits') return checkLastFour(eventId, token, formData);
+  if (step === 'hosts') return askHosts(eventId, token);
+  return startOver(eventId, token);
 }

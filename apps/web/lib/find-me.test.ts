@@ -136,7 +136,7 @@ test('🔒 1 · nothing about the guest is drawn before the check', () => {
   // The door reads only the find state's verdict — never the guest row.
   assert.doesNotMatch(flow, /FINDABLE_COLUMNS|loadFindableRows/, 'the door reads the matched guest’s row to draw its screen');
   // The digits screen asks nothing but the four digits.
-  assert.equal((digits.match(/<input\b/g) ?? []).length, 1, 'the digits screen shows or asks more than the four digits');
+  assert.equal((digits.match(/<input\b(?![^>]*type="hidden")/g) ?? []).length, 1, 'the digits screen shows or asks more than the four digits');
   // The find state is ENCRYPTED, not merely signed — it carries the guest's id.
   const srv = read('lib/find-me.server.ts');
   assert.match(srv, /new EncryptJWT\(/);
@@ -146,10 +146,10 @@ test('🔒 1 · nothing about the guest is drawn before the check', () => {
 
 test('🔒 2 · the door and the digits check both ask isFindable — the couple seat rule lives in one place', () => {
   const a = read('app/join/[eventId]/find-me-actions.ts');
-  const check = fn(a, 'checkLastFourAction');
+  const check = fn(a, 'checkLastFour');
   assert.match(check, /isFindable\(live, bound\)/, 'the digits check opens a row it did not re-check live');
   assert.match(check, /namesMatchExactly\(state!\.parts, live\)/);
-  const find = fn(a, 'findMeAction');
+  const find = fn(a, 'lookUpName');
   assert.match(find, /findOutcome\(parts, read\.rows, read\.bound\)/);
   assert.match(read('lib/find-me.ts'), /if \(isCoupleSeat\(row\.role, row\.extra_roles\)\) return false;/);
   assert.match(read('lib/find-me.ts'), /if \(row\.entry_source !== 'host_seeded'\) return false;/);
@@ -157,7 +157,7 @@ test('🔒 2 · the door and the digits check both ask isFindable — the couple
 
 test('🔒 3 · the tries are spent BEFORE the digits are compared — per connection and per guest', () => {
   const a = read('app/join/[eventId]/find-me-actions.ts');
-  const check = fn(a, 'checkLastFourAction');
+  const check = fn(a, 'checkLastFour');
   const spend = check.indexOf('await spendDigitsTry(');
   const compare = check.indexOf('lastFourMatches(');
   assert.ok(spend > 0 && compare > spend, 'a try is compared before it is counted — the guessing loop is free');
@@ -179,7 +179,7 @@ test('🔒 3 · the tries are spent BEFORE the digits are compared — per conne
 test('🔒 4 · a correct last-4 is the personal QR’s own redeem hop — this door mints nothing', () => {
   const a = read('app/join/[eventId]/find-me-actions.ts');
   assert.doesNotMatch(a, /setGuestSession|signGuestSession|event_members'\)\.insert|\.insert\(/, 'the find-me door issues a key of its own');
-  const check = fn(a, 'checkLastFourAction');
+  const check = fn(a, 'checkLastFour');
   assert.match(
     check,
     /redirect\(`\/\$\{slug\}\/redeem\?slug=\$\{encodeURIComponent\(slug\)\}&token=\$\{encodeURIComponent\(live!\.qr_token!\)\}`\)/,

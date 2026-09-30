@@ -5,12 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction, selfJoinAction } from '../actions';
-import {
-  checkLastFourAction,
-  findMeAction,
-  findMeAskHostsAction,
-  findMeStartOverAction,
-} from '../find-me-actions';
+import { findMeAction } from '../find-me-actions';
 import { readFindState } from '@/lib/find-me.server';
 import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
 import { JoinShell, type JoinShellEvent } from './join-shell';
@@ -141,19 +136,14 @@ export async function JoinFlow({
       // name comes FIRST, alone. What the door answered lives in this
       // browser's encrypted find state — never in the address.
       const found = await readFindState(eventId);
-      const startOver = findMeStartOverAction.bind(null, eventId, token);
+      const findMe = findMeAction.bind(null, eventId, token);
       return (
         <JoinShell event={shellEvent} skin={skin}>
           {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
           {!found ? (
-            <FindMeNameStep action={findMeAction.bind(null, eventId, token)} organizer={w.theOrganizer} />
+            <FindMeNameStep action={findMe} organizer={w.theOrganizer} />
           ) : found.outcome === 'digits' ? (
-            <FindMeDigitsStep
-              action={checkLastFourAction.bind(null, eventId, token)}
-              askHosts={findMeAskHostsAction.bind(null, eventId, token)}
-              startOver={startOver}
-              organizer={w.theOrganizer}
-            />
+            <FindMeDigitsStep action={findMe} organizer={w.theOrganizer} />
           ) : found.outcome === 'confirm' ? (
             <div data-find-me="confirm">
               <div className="mb-6 space-y-2">
@@ -163,7 +153,7 @@ export async function JoinFlow({
                 </p>
               </div>
               <RequestForm action={selfAction} ask={ask} organizer={w.theOrganizer} fixedParts={found.parts} />
-              <StartOver action={startOver} />
+              <StartOver action={findMe} />
             </div>
           ) : (
             <div data-find-me="none">
@@ -317,6 +307,7 @@ export async function JoinFlow({
 function FindMeNameStep({ action, organizer }: { action: (formData: FormData) => Promise<void>; organizer: string }) {
   return (
     <form action={action} className="space-y-6" data-find-me="name">
+      <input type="hidden" name="step" value="name" />
       <div className="space-y-2">
         <p className="font-serif text-2xl text-ink">Find your invitation</p>
         <p className="text-sm text-ink/70">Type your name the way {organizer} would have it on their guest list.</p>
@@ -339,18 +330,15 @@ function FindMeNameStep({ action, organizer }: { action: (formData: FormData) =>
  */
 function FindMeDigitsStep({
   action,
-  askHosts,
-  startOver,
   organizer,
 }: {
   action: (formData: FormData) => Promise<void>;
-  askHosts: () => Promise<void>;
-  startOver: () => Promise<void>;
   organizer: string;
 }) {
   return (
     <div data-find-me="digits">
       <form action={action} className="space-y-6">
+        <input type="hidden" name="step" value="digits" />
         <div className="space-y-2">
           <p className="font-serif text-3xl text-ink">We found you!</p>
           <p className="text-base text-ink/75">
@@ -379,7 +367,8 @@ function FindMeDigitsStep({
           Open my invitation
         </SubmitButton>
       </form>
-      <form action={askHosts} className="mt-3">
+      <form action={action} className="mt-3">
+        <input type="hidden" name="step" value="hosts" />
         <SubmitButton
           overlay={false}
           pendingLabel="One moment…"
@@ -388,15 +377,16 @@ function FindMeDigitsStep({
           I don&rsquo;t know that number
         </SubmitButton>
       </form>
-      <StartOver action={startOver} />
+      <StartOver action={action} />
     </div>
   );
 }
 
 /** "Not you? Start over" — forgets what was typed. */
-function StartOver({ action }: { action: () => Promise<void> }) {
+function StartOver({ action }: { action: (formData: FormData) => Promise<void> }) {
   return (
     <form action={action} className="mt-2">
+      <input type="hidden" name="step" value="over" />
       <SubmitButton
         overlay={false}
         pendingLabel="One moment…"

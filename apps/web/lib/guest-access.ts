@@ -53,9 +53,19 @@ export type GuestAccessState = {
   lock: 'creator' | 'celebrant' | null;
 };
 
+/**
+ * A full co-host seat (bride, groom, partner, co-host, celebrant…) is a
+ * `couple` member in the database — equal to the creator — and every other
+ * live seat is a `coordinator` member. The same split `seat_is_full_cohost`
+ * draws in SQL.
+ */
+export function seatIsFullCohost(roleSubtype: string): boolean {
+  return FULL_COHOST_KINDS.has(roleSubtype);
+}
+
 export function accessLevelOfSeat(seat: SeatRow | null): GuestAccessLevel {
   if (!seat || seat.removed_at) return 'none';
-  if (FULL_COHOST_KINDS.has(seat.role_subtype)) return 'co_host';
+  if (seatIsFullCohost(seat.role_subtype)) return 'co_host';
   return 'limited_helper';
 }
 

@@ -22,6 +22,7 @@ import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form'
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { CoordinatorColourDomains, type CoordinatorColourGrantee } from './_components/coordinator-colour-domains';
 import { isColourDomain, type ColourChangeRow, type ColourDomain } from '@/lib/colour-access';
+import { seatIsFullCohost } from '@/lib/guest-access';
 import {
   setCoordinatorColourDomain,
   rejectColourChange,
@@ -298,15 +299,16 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
 
   // ── MB16 · colour domains for the people helping run this celebration ────
   //
-  // 🔑 WHO IS ELIGIBLE IS THE SHIPPED DEFINITION, NOT A NEW ONE. An accepted
-  // delegate with a claimed account is an `event_members` row with
-  // `member_type = 'coordinator'` — minted and deleted by
-  // `sync_delegate_membership` — and that is exactly what
-  // `set_coordinator_colour_access` requires and what the grant table's composite FK
-  // CASCADEs from. So the list below is every accepted host, whatever their
-  // role_subtype: the couple's own maid of honour is as grantable as their
-  // planner, because the database calls both the same thing and inventing a
-  // narrower TS-only rule here would put the screen and the gate out of step.
+  // 🔑 WHO IS ELIGIBLE IS THE SHIPPED DEFINITION, NOT A NEW ONE:
+  // `set_coordinator_colour_access` requires an `event_members` row with
+  // `member_type = 'coordinator'`, and the grant table's composite FK CASCADEs
+  // from it. `sync_delegate_membership` (20271251336140) mints that row for a
+  // limited helper / hired planner seat — but a FULL co-host seat (bride,
+  // groom, partner, co-host, celebrant) becomes a `couple` member, equal to the
+  // creator, who already holds every colour. Listing one here offered switches
+  // the gate refuses, under a card that calls them a coordinator (owner
+  // 2026-09-30: "Claire Buanhog is not a coordinator" — she is the Bride).
+  // `seatIsFullCohost` mirrors the SQL split, so the screen and the gate agree.
   let colourGrantees: CoordinatorColourGrantee[] = [];
   if (isCouple && accepted.length > 0) {
     const [{ data: colourGrantRows, error: colourGrantErr }, { data: colourChangeRows, error: colourChangeErr }] =
@@ -358,6 +360,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       // somebody something they already have is the kind of control that makes
       // a person doubt what the rest of the page means.
       .filter((r) => r.user_id !== user.id)
+      // …and so is every other full co-host: the other half of the couple is
+      // not a coordinator, and the database agrees.
+      .filter((r) => !seatIsFullCohost(r.role_subtype))
       .map((r) => ({
         userId: r.user_id,
         displayName:

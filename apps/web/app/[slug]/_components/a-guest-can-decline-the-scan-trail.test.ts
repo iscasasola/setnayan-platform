@@ -68,22 +68,43 @@ test('the switch is NOT hidden behind ANY condition — it renders for every gue
   // leaves a scan trail, so putting this control inside that branch would hide
   // it from most of the people it exists for.
   //
-  // 🔑 THE WINDOW IS ON THE LEFT, AND THAT IS THE WHOLE LESSON. The first
-  // version of this check sliced FORWARD from `<ScanTrailNotice` and asked
-  // whether the mount named `photo_source`. A gate is written BEFORE the
-  // element it gates, so the mutation run wrapped the switch in
-  // `{guest.photo_source === 'selfie' ? …}` and this test stayed GREEN. A check
-  // that cannot see the sabotage is not a check.
-  // The stripper blanks a comment's CONTENTS but keeps offsets, so a JSX
-  // comment leaves `{      }` behind. Those empties are dropped, or a gate
-  // written before the comment would hide behind one.
+  // 🔑 THE WINDOW IS ON THE LEFT, AND THAT IS THE WHOLE LESSON. A gate is
+  // written BEFORE the element it gates — a check that slices forward from the
+  // mount cannot see `{guest.photo_source === 'selfie' ? …}` wrapped around it.
+  //
+  // ⚖ 2026-09-30 — IT MOVED INTO "YOUR DETAILS" (owner: off the page body, into
+  // the guest's details sheet, as one small line; RA 10173 — moved, never gone).
+  // So there are exactly TWO mounts and they are COMPLEMENTS of one expression:
+  // inside `<RsvpSheet>` (which renders iff `plan.rsvpShouldRender`), and in the
+  // body iff NOT `plan.rsvpShouldRender`. Every recognised guest gets exactly one.
+  // The stripper keeps offsets and leaves `{      }` for a JSX comment; drop them.
   const src = code(SITE_BODY).replace(/\{\s*\}/g, ' ');
-  const before = src.slice(0, src.indexOf('<ScanTrailNotice')).trimEnd();
-  const last = before.slice(-1);
-  assert.ok(
-    last === '}' || last === '>',
-    'the scan-trail switch is inside a conditional — it must render for EVERY ' +
-      `recognised guest. It is preceded by: …${before.slice(-60)}`,
+  const mounts = [...src.matchAll(/<ScanTrailNotice\b/g)].map((m) => m.index!);
+  assert.equal(mounts.length, 2, `expected the sheet mount + the no-sheet fallback, found ${mounts.length}`);
+
+  const sheetOpen = src.indexOf('<RsvpSheet');
+  const sheetClose = src.indexOf('</RsvpSheet>');
+  assert.ok(sheetOpen > -1 && sheetClose > sheetOpen, 'the reply sheet is gone — re-point this guard');
+  const inSheet = mounts.filter((at) => at > sheetOpen && at < sheetClose);
+  const inBody = mounts.filter((at) => at < sheetOpen || at > sheetClose);
+  assert.equal(inSheet.length, 1, 'the switch is not inside "Your details"');
+  assert.equal(inBody.length, 1, 'there is no body fallback for a page with no reply sheet');
+
+  // The sheet's own gate, and the fallback's gate, are the same expression negated.
+  const sheetGate = src.slice(0, sheetOpen).trimEnd();
+  assert.match(sheetGate.slice(-40), /\{plan\.rsvpShouldRender \? \($/, 'the reply sheet is no longer gated on plan.rsvpShouldRender');
+  const bodyGate = src.slice(0, inBody[0]).trimEnd();
+  assert.match(
+    bodyGate.slice(-60),
+    /\{plan\.rsvpShouldRender \? null : \($/,
+    `the body fallback is not the exact complement of the sheet's gate. It is preceded by: …${bodyGate.slice(-60)}`,
+  );
+  // Inside the sheet, nothing between the wrapper and the mount decides anything.
+  const beforeSheetMount = src.slice(0, inSheet[0]).trimEnd();
+  assert.equal(
+    beforeSheetMount.slice(-1),
+    '>',
+    `the switch inside "Your details" sits inside a conditional. It is preceded by: …${beforeSheetMount.slice(-60)}`,
   );
   // The face notice keeps its own gate — this must be an addition, not a move.
   assert.match(src, /photo_source === 'selfie'/, 'the face notice lost its selfie gate');

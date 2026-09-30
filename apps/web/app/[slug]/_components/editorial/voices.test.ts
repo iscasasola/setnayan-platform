@@ -83,10 +83,11 @@ test('the wall only ever prints a badge beside a name', () => {
   const block = /function GuestColumnsWall[\s\S]*?\n}\n/.exec(wall)?.[0] ?? '';
   assert.ok(block, 'the columns wall moved — this scan is now blind');
   // every roleLabel render sits inside a `c.author ? …` branch
-  const badges = [...block.matchAll(/roleLabel\(c\.role\)/g)];
+  // (`, names` since 2026-09-30 — the couple's own word for the role.)
+  const badges = [...block.matchAll(/roleLabel\(c\.role(, names)?\)/g)];
   assert.ok(badges.length >= 2, `expected the badge in both voices, found ${badges.length}`);
   assert.ok(
-    !/\{roleLabel\(c\.role\)[\s\S]{0,80}\}\s*\n\s*\) : null\}\s*\n\s*<\/article>/.test(
+    !/\{roleLabel\(c\.role(, names)?\)[\s\S]{0,80}\}\s*\n\s*\) : null\}\s*\n\s*<\/article>/.test(
       block.replace(/c\.author \? \([\s\S]*?\) : null/g, ''),
     ),
     'a role badge renders outside the author branch',

@@ -118,7 +118,7 @@ export function arrivalDestinationWords(
     case 'save_the_date':
       return {
         blurb:
-          'The day is still a way off, so what opens now is the save the date — the day to hold. Your seat is kept, and the full invitation follows closer to the time.',
+          'The day is still a way off, so what opens now is the save the date — the day to hold. Your place is kept, and the full invitation follows closer to the time.',
         cta: 'Open the save the date',
       };
     case 'day_of':
@@ -136,7 +136,9 @@ export function arrivalDestinationWords(
     default:
       return {
         blurb:
-          'Your invitation is ready — your seat, your QR and everything shared with guests are waiting on it.',
+          // 🪑 No "your seat" before the day — seats open on the day itself
+          // (owner 2026-09-30: "seat plan is only on the day"). `day_of` keeps it.
+          'Your invitation is ready — your QR and everything shared with guests are waiting on it.',
         cta: 'Open your invitation',
       };
   }

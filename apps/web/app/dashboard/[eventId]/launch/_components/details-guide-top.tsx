@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import {
-  GUIDED_ROUNDS,
   progressLabel,
   progressShare,
   type GuidedPlan,
@@ -55,12 +54,12 @@ export function GuideTop({
   tour?: ReactNode;
 }) {
   const options: PickOption[] = plan.rounds.flatMap((r) => {
-    const group = `Round ${r} · ${GUIDED_ROUNDS[r].title}`;
+    const group = `Round ${r} · ${plan.roundWords[r].title}`;
     return [
       ...plan.steps
         .filter((s) => s.round === r)
         .map((s): PickOption => ({ key: `step:${s.key}`, label: s.optional ? `${s.title} · optional` : s.title, group, trail: MARK[s.state] })),
-      { key: `ready:${r}`, label: `Apply · ${GUIDED_ROUNDS[r].ready}`, group },
+      { key: `ready:${r}`, label: `Apply · ${plan.roundWords[r].ready}`, group },
     ];
   });
   return (

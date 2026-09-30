@@ -97,6 +97,7 @@ export function MakerShell({
   more,
   applySlot = null,
   details = null,
+  rsvpStage = null,
   factEditors = NO_FACT_EDITORS,
   hasWork,
   viewAs = {},
@@ -138,6 +139,9 @@ export function MakerShell({
    *  the address and its QR, and the printed cards they fill — and `controls`
    *  the fields (what the prints include, and every line of wording). */
   details?: { page: ReactNode; controls: ReactNode } | null;
+  /** 🗳 The RSVP stage (bar item `rsvp-stage`) — its scenes, canvas and
+   *  controls, one lazy node built by the launch page; null = not offered. */
+  rsvpStage?: ReactNode;
   /** ✍ The Details items' own editors a fact tapped on a stage opens
    *  (`detailsFactEditors`) — the SAME nodes Details draws. RSVP and Love Story
    *  moved into Details whole (part 2b); their pages are Details items now. */
@@ -571,6 +575,18 @@ export function MakerShell({
                 }
                 controls={details?.controls ?? null}
               />
+            </div>
+          ) : null}
+          {/* 🗳 THE RSVP STAGE — a stage of its own (owner 2026-09-30 re-plan),
+              drawn like Details: it covers the work area, the editor keeps its
+              state underneath. Picking another stage puts that stage back. */}
+          {hasWork && selection?.kind === 'tool' && selection.key === 'rsvp-stage' ? (
+            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-rsvp-layer="">
+              {rsvpStage ?? (
+                <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
+                  Your RSVP could not be loaded just now. Nothing was changed — please reopen this in a moment.
+                </p>
+              )}
             </div>
           ) : null}
         </div>

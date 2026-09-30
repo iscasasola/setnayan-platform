@@ -158,9 +158,13 @@ test('each movement is mounted where it belongs', () => {
   assert.match(action, /data-motion=\{landed \? 'label-land' : undefined\}/);
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(body, /landed=\{Boolean\(rsvpFlash && rsvpFlash\.tone !== 'error'\)\}/);
-  const card = body.slice(body.indexOf('const passCard'), body.indexOf('const passCard') + 600);
-  assert.match(card, /id=\{PASS_ANCHOR\}/);
-  assert.match(card, /data-motion="pass"/, 'the pass lifts when opened');
+  // The pass is the Digital ticket on Me since 2026-09-30 (guest-ticket.tsx).
+  const card = stripComments(read('app/[slug]/_components/guest-ticket.tsx'));
+  const ticketAt = card.indexOf('data-guest-ticket={state}');
+  assert.ok(ticketAt > 0, 'precondition: the ticket section');
+  const ticket = card.slice(card.lastIndexOf('<section', ticketAt), ticketAt + 200);
+  assert.match(ticket, /id=\{PASS_ANCHOR\}/);
+  assert.match(ticket, /data-motion="pass"/, 'the pass lifts when opened');
   const ee = stripComments(read('app/[slug]/_components/everything-else-sheet.tsx'));
   assert.match(ee, /title="Everything else"\s+rise/);
   const cam = stripComments(read('app/papic/guest/_components/papic-guest-capture.tsx'));

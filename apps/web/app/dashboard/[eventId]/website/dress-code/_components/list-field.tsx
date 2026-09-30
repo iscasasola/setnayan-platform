@@ -30,6 +30,10 @@ const TONE_STYLES: Record<Tone, { accent: string; ring: string; placeholder: str
 };
 
 const ITEM_MAX = 80;
+
+/** A row's identity for React — never rendered, so no server/client mismatch. */
+let rowSeq = 0;
+const row = (value: string) => ({ id: rowSeq++, value });
 const LIST_MAX = 8;
 
 export function ListField({
@@ -43,18 +47,28 @@ export function ListField({
 }) {
   // Seed with at least one editable row so a brand-new event has somewhere
   // to type into. Existing config rows render as-is.
-  const [rows, setRows] = useState<string[]>(initial.length > 0 ? initial : ['']);
+  //
+  // 🔑 EACH ROW KEEPS ITS OWN ID AND ITS OWN TEXT. The rows were keyed by their
+  // position with the text left in the input alone, so removing a row above
+  // one the couple had just edited kept the wrong input: the edit vanished and
+  // the removed line came back. A Do or a Don't must be fixable, so the row is
+  // the unit — it is removed whole, with whatever was typed in it.
+  const [rows, setRows] = useState(() => (initial.length > 0 ? initial : ['']).map(row));
   const style = TONE_STYLES[tone];
 
   return (
     <div className="space-y-2">
       <ul className="space-y-2">
-        {rows.map((row, i) => (
-          <li key={i} className="flex items-center gap-2">
+        {rows.map((r, i) => (
+          <li key={r.id} className="flex items-center gap-2">
             <input
               type="text"
               name={name}
-              defaultValue={row}
+              value={r.value}
+              onChange={(e) => {
+                const value = e.target.value;
+                setRows((prev) => prev.map((p) => (p.id === r.id ? { ...p, value } : p)));
+              }}
               maxLength={ITEM_MAX}
               placeholder={style.placeholder}
               className={`flex-1 min-h-[44pt] rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${style.ring}`}
@@ -62,7 +76,7 @@ export function ListField({
             {rows.length > 1 ? (
               <button
                 type="button"
-                onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
+                onClick={() => setRows((prev) => prev.filter((p) => p.id !== r.id))}
                 aria-label={`Remove row ${i + 1}`}
                 className="inline-flex h-11 w-11 min-h-[44pt] items-center justify-center rounded-md border border-ink/15 bg-cream text-ink/60 transition-colors hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
               >
@@ -75,7 +89,7 @@ export function ListField({
       {rows.length < LIST_MAX ? (
         <button
           type="button"
-          onClick={() => setRows((prev) => [...prev, ''])}
+          onClick={() => setRows((prev) => [...prev, row('')])}
           className={`inline-flex h-11 min-h-[44pt] items-center gap-2 rounded-md border border-dashed border-ink/25 bg-cream px-4 text-sm font-medium ${style.accent} transition-colors hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink`}
         >
           <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />

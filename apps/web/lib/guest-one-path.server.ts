@@ -1,17 +1,13 @@
 import 'server-only';
 
-import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession, type GuestSessionPayload } from '@/lib/guest-session';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
-import { sendEventAccountMagicLink } from '@/lib/event-account-link';
-import { INVITE_LINK_SENT_COOKIE } from '@/lib/invite-arrival';
-import { resolveGuestViewer, shouldSendKeepLink, type GuestViewer } from '@/lib/guest-one-path';
+import { resolveGuestViewer, type GuestViewer } from '@/lib/guest-one-path';
 
 /**
- * guest-one-path.server.ts — the reads and the one send behind the guest's one
- * path. The DECISIONS are pure and live in `guest-one-path.ts`; this file only
+ * guest-one-path.server.ts — the reads behind the guest's one path. The DECISIONS are pure and live in `guest-one-path.ts`; this file only
  * gathers the facts they are asked about.
  */
 
@@ -75,60 +71,10 @@ export async function readSeatHolder(eventId: string, guestId: string): Promise<
   return (data?.user_id as string | null | undefined) ?? null;
 }
 
-/** Was a keep-link already sent from this browser for this event (last 24h)? */
-export async function keepLinkSentFor(eventId: string): Promise<boolean> {
-  const cookieStore = await cookies();
-  return cookieStore.get(INVITE_LINK_SENT_COOKIE)?.value === eventId;
-}
-
-/**
- * THE ONE SEND. Called by the reply's Save (both the `/{slug}` sheet and the
- * invite arrival's Reply door) and by the one account card — so "form first,
- * then sign up" is one address, one press, on every surface.
- *
- * Returns whether a link went out. Never throws past its caller's redirect: a
- * failed send leaves the reply saved and the card still offering the link.
- */
-export async function sendKeepLinkOnce(params: {
-  eventId: string;
-  guestId: string;
-  email: string | null;
-  termsAgreed: boolean;
-}): Promise<boolean> {
-  const { eventId, guestId } = params;
-  const email = (params.email ?? '').trim();
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const alreadySent = await keepLinkSentFor(eventId);
-  const seatHeld = user || alreadySent ? false : (await readSeatHolder(eventId, guestId)) !== null;
-  if (
-    !shouldSendKeepLink({
-      email,
-      termsAgreed: params.termsAgreed,
-      signedIn: Boolean(user),
-      seatHeld,
-      alreadySent,
-    })
-  ) {
-    return false;
-  }
-  const { ok } = await sendEventAccountMagicLink({
-    eventId,
-    guestId,
-    email,
-    termsAgreed: true,
-  });
-  if (ok) {
-    const cookieStore = await cookies();
-    cookieStore.set(INVITE_LINK_SENT_COOKIE, eventId, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24,
-    });
-  }
-  return ok;
-}
+/*
+  📵 `sendKeepLinkOnce` and `keepLinkSentFor` WERE HERE — the reply's Save and
+  the account card emailed a passwordless sign-in link. Deleted, not merely
+  uncalled (owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS — THE QR AND THE
+  LINK DO EVERYTHING"): nothing on a guest's path sends mail. Pinned by
+  lib/guest-one-path.test.ts § 2.
+*/

@@ -91,6 +91,32 @@ export const INVITE_THEME_IDS = [
 export type InviteThemeId = (typeof INVITE_THEME_IDS)[number];
 
 /**
+ * 🎞 EACH THEME'S OWN BACKGROUND, BY A NAME YOU CAN PICTURE (owner 2026-09-29,
+ * DECISION_LOG "OWNER ANSWERS — TEN OPEN QUESTIONS" (11): *"Names for theme: yes
+ * give a name that can be recognized easier"* — e.g. "Luxe chandeliers"). Shown
+ * as the Main background's first choice instead of "<Theme>’s own background".
+ * Each is the theme's name plus what its loop shows (the theme's own blurb).
+ * Classic has no background (plain paper), so no name.
+ */
+export const THEME_BACKGROUND_NAMES: Readonly<Record<InviteThemeId, string | null>> = {
+  house: null,
+  abaca: 'Rustic sunset table',
+  galeriya: 'Modern gallery walls',
+  cinderella: 'Cinderella moonlit frost',
+  velvet: 'Luxe chandeliers',
+  vintage: 'Vintage capiz light',
+  whimsical: 'Whimsical lantern meadow',
+  regency: 'Regency ballroom',
+  gatsby: 'Gatsby champagne deco',
+  cyber: 'Cyber neon street',
+};
+
+/** The Main background's name for a theme's own loop — its picture-able name, else "<Theme>’s own background". */
+export function themeBackgroundName(id: InviteThemeId): string {
+  return THEME_BACKGROUND_NAMES[id] ?? `${INVITE_THEMES[id]?.name ?? 'The theme'}’s own background`;
+}
+
+/**
  * A retired id → the theme it is READ as. Stored values only; never offered,
  * never written. D3 (build plan §4): capiz→Vintage · minimalist→Modern ·
  * fairytale→Cinderella · custom→Classic.

@@ -5,6 +5,8 @@ import { resolveRenamedEventSlug } from '@/lib/slug-forwarding';
 import { recordScan } from '@/lib/scan-trail';
 import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { PLUS_ONE_WELCOMED_COOKIE, plusOneWelcomeDue } from '@/lib/plus-one-welcome';
+import { requestKeyState } from '@/lib/request-key';
+import { REQUEST_KEY_COOKIE, forgetRequestKey, rememberRequestKey } from '@/lib/request-key.server';
 
 // Resolves an `?invite=<token>` link by validating the token, signing the
 // guest-session cookie, recording a scan_events row, and redirecting to
@@ -89,19 +91,58 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(target);
   }
 
-  const { data: guest } = await admin
+  // Read WITH removed rows: a Declined or Linked request's key still answers
+  // (lib/request-key.ts). Every other removed row stays `invalid_token` below.
+  const { data: keyRow } = await admin
     .from('guests')
     .select(
-      'guest_id, event_id, qr_token, first_name, plus_one_of_guest_id, plus_one_name_confirmed_at',
+      'guest_id, event_id, qr_token, first_name, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, deleted_at, custom_tags',
     )
     .eq('qr_token', token)
-    .is('deleted_at', null)
     .maybeSingle();
 
-  if (!guest || guest.event_id !== event.event_id) {
+  if (!keyRow || keyRow.event_id !== event.event_id) {
     target.searchParams.set('invite_error', 'invalid_token');
     return NextResponse.redirect(target);
   }
+
+  /* 🔓 A REQUESTER'S KEY (owner 2026-09-29, "A REQUESTER GETS THEIR QR AT ONCE;
+     IT UNLOCKS ONLY WHEN THE COUPLE ACCEPTS"; prototype frames C · D · E).
+     Pending or declined → NO guest session: the key is remembered as a REQUEST
+     (its own cookie, which no guest page reads) and they see their request
+     screen — "Waiting for the couple to confirm you", or "Sorry, your request
+     was not approved." Accepted → the same key opens their invitation below;
+     Linked → it opens the guest they were joined to. Asked LIVE, every time. */
+  const keyState = requestKeyState(keyRow);
+  if (keyState.kind === 'pending' || keyState.kind === 'declined') {
+    await rememberRequestKey(keyRow.qr_token as string);
+    return NextResponse.redirect(new URL(`/${event.slug}/request`, url.origin));
+  }
+  if (keyState.kind === 'none') {
+    target.searchParams.set('invite_error', 'invalid_token');
+    return NextResponse.redirect(target);
+  }
+  let guest = keyRow;
+  if (keyState.kind === 'linked') {
+    const { data: joined } = await admin
+      .from('guests')
+      .select(
+        'guest_id, event_id, qr_token, first_name, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, deleted_at, custom_tags',
+      )
+      .eq('guest_id', keyState.into)
+      .eq('event_id', event.event_id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (!joined) {
+      target.searchParams.set('invite_error', 'invalid_token');
+      return NextResponse.redirect(target);
+    }
+    guest = joined;
+  }
+  // "You're in!" (frame D) — only for the browser that sent the request, or a
+  // Linked key (which only a requester ever held).
+  const wasRequest =
+    keyState.kind === 'linked' || request.cookies.get(REQUEST_KEY_COOKIE)?.value === keyRow.qr_token;
 
   await setGuestSession({
     guest_id: guest.guest_id,
@@ -127,6 +168,11 @@ export async function GET(request: NextRequest) {
     (!guest.first_name ||
       guest.first_name === 'TBA' ||
       guest.first_name.toLowerCase() === 'tba');
+
+  if (wasRequest) {
+    await forgetRequestKey();
+    return NextResponse.redirect(new URL(`/${event.slug}/invite/enter?in=1`, url.origin));
+  }
 
   if (isTbaPlusOne && !guest.plus_one_name_confirmed_at) {
     // event.slug, not the query value — the database's own spelling.

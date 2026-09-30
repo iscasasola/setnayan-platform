@@ -1,7 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchGuestsByEvent, printedCardName, ROLE_LABELS } from '@/lib/guests';
+import { fetchGuestsByEvent, guestRoleLabel, printedCardName } from '@/lib/guests';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -15,6 +16,8 @@ export default async function PrintSheetPage({ params }: Props) {
   const { eventId } = await params;
 
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30) — printed on each card.
+  const roleNames = await loadRoleNames(supabase, eventId, 'PrintSheetPage.roleNames');
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -73,7 +76,7 @@ export default async function PrintSheetPage({ params }: Props) {
                   management row, where the compact name is correct and a title
                   would be noise. */}
               <p className="print-name">{printedCardName(guest)}</p>
-              <p className="print-role">{ROLE_LABELS[guest.role]}</p>
+              <p className="print-role">{guestRoleLabel(guest.role, roleNames)}</p>
               <p className="print-footer">{event.display_name}</p>
             </div>
           </article>

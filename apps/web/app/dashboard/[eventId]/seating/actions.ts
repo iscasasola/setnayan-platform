@@ -1322,6 +1322,35 @@ export async function setTableSeat(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// 🖨 Printing the table signs — stamps ONLY the tables' sign sheets
+// (`event_tables.qr_published_at`, "this sign was run off"), never the floor
+// plan's `published_at`. Owner 2026-09-30: "seatplan will show on the date of
+// the event" — guests' seats open by themselves on the day, and `published_at`
+// is now the couple's "Show guests their seats early" switch. Printing signs
+// weeks ahead is normal, so it must not quietly open seats to guests early.
+// Idempotent; qr_tokens are never re-rolled (publishSeating's own contract).
+export async function stampTableSigns(formData: FormData): Promise<{ stamped: number }> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const now = new Date().toISOString();
+  const { data: stamped, error } = await supabase
+    .from('event_tables')
+    .update({ qr_published_at: now, updated_at: now })
+    .eq('event_id', eventId)
+    .select('table_id');
+  if (error) throw new Error(error.message);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  revalidatePath(`/dashboard/${eventId}/seating/print`);
+  return { stamped: stamped?.length ?? 0 };
+}
+
 // Publish the seating pack: stamp every table + the floor plan as published so
 // the print pack (table sign sheets carrying each table's QR, + guest place
 // cards) is ready for the venue. Idempotent — table qr_tokens already exist from

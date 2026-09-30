@@ -31,8 +31,8 @@ import {
   CUSTOM_QR_GUEST_SERVICE_KEY,
   eventOwnsCustomQrGuest,
   eventOwnsPakanta,
-  eventSeatingPublished,
 } from './seat-pass';
+import { guestsMaySeeSeatsFor } from './guests-may-see-seats';
 
 // ── Shared Supabase query-builder stub (same shape as entitlements.test.ts) ──
 type QueryResult = {
@@ -136,64 +136,72 @@ test('eventOwnsPakanta: ALWAYS false (Pakanta is not_built · inert stub)', asyn
   assert.equal(await eventOwnsPakanta(exploding, 'evt_999'), false);
 });
 
-// ── 1b. publication gate (FIX 1 — privacy boundary) ─────────────────────────
+// ── 1b. the seat gate (privacy boundary) — guestsMaySeeSeatsFor ────────────
+// Was `eventSeatingPublished` (the published flag alone). Since 2026-09-30 the
+// question is the one rule in lib/guests-may-see-seats.ts; these are its
+// read-failure cases, kept from the old suite: every failure WITHHOLDS.
 
 type SingleResult = {
-  data: { published_at: string | null } | null;
+  data: Record<string, unknown> | null;
   error: { code?: string; message: string } | null;
 };
 
-// from().select().eq().maybeSingle() — resolves to { data, error }.
-function makePublishedSupabase(result: SingleResult) {
-  const builder: Record<string, unknown> = {
-    from: () => builder,
-    select: () => builder,
-    eq: () => builder,
-    maybeSingle: () => Promise.resolve(result),
-  };
-  return builder as unknown as SupabaseClient;
+// from(table).select().eq().maybeSingle() — resolves per table.
+function makeSeatSupabase(byTable: Record<string, SingleResult>) {
+  return {
+    from: (table: string) => {
+      const builder: Record<string, unknown> = {
+        select: () => builder,
+        eq: () => builder,
+        maybeSingle: () => Promise.resolve(byTable[table] ?? { data: null, error: null }),
+      };
+      return builder;
+    },
+  } as unknown as SupabaseClient;
 }
 
-test('eventSeatingPublished: published_at set → true (roster may render)', async () => {
-  const supabase = makePublishedSupabase({
-    data: { published_at: '2026-06-13T00:00:00Z' },
-    error: null,
+const BEFORE = new Date('2026-12-17T15:59:00Z'); // 23:59 Manila, Dec 17
+const EVENT_ROW = { data: { event_date: '2026-12-18', event_date_precision: 'day' }, error: null };
+
+test('guestsMaySeeSeatsFor: switch on before the day → true (roster may render)', async () => {
+  const supabase = makeSeatSupabase({
+    event_floor_plan: { data: { published_at: '2026-06-13T00:00:00Z' }, error: null },
+    events: EVENT_ROW,
   });
-  assert.equal(await eventSeatingPublished(supabase, 'evt_1'), true);
+  assert.equal(await guestsMaySeeSeatsFor(supabase, 'evt_1', { now: BEFORE }), true);
 });
 
-test('eventSeatingPublished: published_at null (DRAFT) → false (no leak)', async () => {
-  const supabase = makePublishedSupabase({ data: { published_at: null }, error: null });
-  assert.equal(await eventSeatingPublished(supabase, 'evt_1'), false);
+test('guestsMaySeeSeatsFor: switch off before the day → false (no leak)', async () => {
+  const supabase = makeSeatSupabase({ event_floor_plan: { data: { published_at: null }, error: null }, events: EVENT_ROW });
+  assert.equal(await guestsMaySeeSeatsFor(supabase, 'evt_1', { now: BEFORE }), false);
 });
 
-test('eventSeatingPublished: no floor-plan row → false', async () => {
-  const supabase = makePublishedSupabase({ data: null, error: null });
-  assert.equal(await eventSeatingPublished(supabase, 'evt_1'), false);
+test('guestsMaySeeSeatsFor: no floor-plan row before the day → false', async () => {
+  const supabase = makeSeatSupabase({ event_floor_plan: { data: null, error: null }, events: EVENT_ROW });
+  assert.equal(await guestsMaySeeSeatsFor(supabase, 'evt_1', { now: BEFORE }), false);
 });
 
-test('eventSeatingPublished: 42P01 undefined_table → false (graceful, no throw)', async () => {
-  const supabase = makePublishedSupabase({
-    data: null,
-    error: { code: '42P01', message: 'undefined_table' },
+for (const code of ['42P01', '42703', '08006']) {
+  test(`guestsMaySeeSeatsFor: floor-plan read error ${code} before the day → false (fail closed)`, async () => {
+    const supabase = makeSeatSupabase({
+      event_floor_plan: { data: null, error: { code, message: code } },
+      events: EVENT_ROW,
+    });
+    assert.equal(await guestsMaySeeSeatsFor(supabase, 'evt_1', { now: BEFORE }), false);
   });
-  assert.equal(await eventSeatingPublished(supabase, 'evt_1'), false);
+}
+
+test('guestsMaySeeSeatsFor: an unreadable event never claims its day has come', async () => {
+  const supabase = makeSeatSupabase({
+    event_floor_plan: { data: { published_at: null }, error: null },
+    events: { data: null, error: { code: '42501', message: 'denied' } },
+  });
+  assert.equal(await guestsMaySeeSeatsFor(supabase, 'evt_1', { now: new Date('2027-01-01T00:00:00Z') }), false);
 });
 
-test('eventSeatingPublished: 42703 undefined_column → false (graceful)', async () => {
-  const supabase = makePublishedSupabase({
-    data: null,
-    error: { code: '42703', message: 'undefined_column' },
-  });
-  assert.equal(await eventSeatingPublished(supabase, 'evt_1'), false);
-});
-
-test('eventSeatingPublished: any other read error → false (fail closed, no leak)', async () => {
-  const supabase = makePublishedSupabase({
-    data: null,
-    error: { code: '08006', message: 'connection_failure' },
-  });
-  assert.equal(await eventSeatingPublished(supabase, 'evt_1'), false);
+test('guestsMaySeeSeatsFor: on the day, switch off → true', async () => {
+  const supabase = makeSeatSupabase({ event_floor_plan: { data: { published_at: null }, error: null }, events: EVENT_ROW });
+  assert.equal(await guestsMaySeeSeatsFor(supabase, 'evt_1', { now: new Date('2026-12-17T16:00:00Z') }), true);
 });
 
 // ── 2. activation-hook contract (dependency-free replica) ────────────────────

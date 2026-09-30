@@ -77,18 +77,7 @@ export function GuestDoorwayStrip({
         />
       ) : null}
 
-      {pabuya ? (
-        <DoorCard
-          href={pabuya}
-          icon={<Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-          title="Send a blessing"
-          detail={
-            words.solemn
-              ? `A gift of sympathy — straight to ${words.theOrganizer}.`
-              : `The digital money dance — straight to ${words.theOrganizer}.`
-          }
-        />
-      ) : null}
+      {pabuya ? <GiftDoorCard href={pabuya} words={words} /> : null}
 
       {broadcast ? (
         /* NOT A LINK, ON PURPOSE. A broadcast URL saved weeks ahead cannot be
@@ -114,6 +103,39 @@ export function GuestDoorwayStrip({
         </div>
       ) : null}
     </aside>
+  );
+}
+
+/** The E-Gifts door — one card, drawn here at the foot or on the Invitation's Welcome page, never both. */
+function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
+  return (
+    <DoorCard
+      href={href}
+      icon={<Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+      title="Send a blessing"
+      detail={
+        words.solemn
+          ? `A gift of sympathy — straight to ${words.theOrganizer}.`
+          : `The digital money dance — straight to ${words.theOrganizer}.`
+      }
+    />
+  );
+}
+
+/**
+ * 🏠 E-GIFTS ON THE WELCOME PAGE (owner 2026-09-30: *"also E-Gifts should
+ * already show"*). The same door the strip draws, under its own eyebrow, for the
+ * Invitation's Welcome page (`lib/invitation-welcome.ts`). `href` is
+ * `resolveGuestDoorways(...).pabuya` — null means no card, never an empty one.
+ */
+export function WelcomeGifts({ href, words }: { href: string; words: EventWords }) {
+  return (
+    <section className="space-y-3" data-welcome-gifts="">
+      <p className="pahina-eyebrow">
+        <span>E-Gifts</span>
+      </p>
+      <GiftDoorCard href={href} words={words} />
+    </section>
   );
 }
 

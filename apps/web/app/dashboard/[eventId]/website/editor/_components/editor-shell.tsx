@@ -23,11 +23,11 @@ import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, stageTakesOwnScenes, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
+import { keysLeavingWith } from '@/lib/invitation-welcome';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
-import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
-import { DetailsBoundField } from './details-bound-field';
+import type { ElementDraftAction, ElementPalette, ElementTarget } from './element-sheet';
 import { detailsItemForSection, detailsItemForTap } from '@/lib/maker-details-selection';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
@@ -46,7 +46,8 @@ import {
   sceneDrawEffect,
   type CanvasHold,
 } from './element-preview';
-import { makerSave, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerNeedsRender, makerSave, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
 
@@ -55,12 +56,13 @@ const GATE_FAILED = 'That could not be saved. The scene is back as it was — pl
 import { preloadMakerFonts, preloadMakerImages, whenIdle } from '@/lib/maker-preload';
 import { BufferedCanvasFrame, warmCanvasBudget, type CanvasFrame } from './buffered-canvas-frame';
 import { BOTH_PHONE_WIDTH, bothDesktopFit, usePaneSize } from './both-view';
-import { PickMenu } from './pick-menu';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
+import { makerGuestPages, ME_NOT_ON_CANVAS, type MakerGuestPage } from '@/lib/maker-guest-pages';
+import { MakerPagePick } from './page-pick';
 import {
   canvasKeyOfSelection,
   fixedOfKey,
@@ -84,7 +86,7 @@ import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { SceneBackgroundRow } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, SceneBackgroundRow } from '../../../launch/_components/details-lazy';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -457,15 +459,24 @@ export function MakerWork({
   const canvasOrder = canvasOrderOf(navigator.stageLists);
   const canvasOrderRef = useRef(canvasOrder);
   canvasOrderRef.current = canvasOrder;
+  /** Every scene's canvas as the canvas iframe draws it: the render's, with the
+   *  Maker's own copy over it (`lib/maker-draft-store.ts`) — what a hold starts from. */
+  const drawnCanvases = (): Record<string, HubSectionCanvas> => {
+    const server = serverCanvasesRef.current ?? {};
+    return Object.fromEntries(Object.keys(server).map((t) => [t, draftedCanvasOr(t, server[t])]));
+  };
   useEffect(() => {
     const next = maker?.renderStamp ?? '';
     if (canvasKeepsItsPage(canvasHold.current, serverCanvasesRef.current ?? {}, Date.now(), canvasOrderRef.current)) return;
     canvasHold.current = NO_CANVAS_HOLD;
     setCanvasStamp(next);
   }, [maker?.renderStamp]);
-  /** A write the bridge did not draw: the next render reloads the canvas. */
+  /** A write the bridge did not draw: the next render reloads the canvas — and
+   *  a held save in the same burst must still bring that render
+   *  (`makerNeedsRender`: a held save owes none on its own). */
   const releaseCanvas = () => {
     canvasHold.current = NO_CANVAS_HOLD;
+    makerNeedsRender();
   };
   /* 🔓 EVERY OTHER WRITE RELEASES THE HOLD. A Maker form (the shell's submit
      listener) and every draft save not drawn by the bridge (`makerSave` without
@@ -1114,12 +1125,13 @@ export function MakerWork({
      render keeps the page. Putting one BACK cannot be drawn by the bridge (the
      page never drew it), so that write reloads, double-buffered, as before. */
   const hideOnCanvas = (scene: MakerScene) => {
-    const key = `w:${scene.type}`;
-    broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key, shown: false });
+    /* 🏠 The dress code takes the guest's look on Welcome with it (`keysLeavingWith`). */
+    const keys = keysLeavingWith(`w:${scene.type}`);
+    for (const key of keys) broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key, shown: false });
     canvasHold.current = holdChange(
       canvasHold.current,
-      { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
-      { order: (o) => orderWithout(o, key) },
+      { canvases: drawnCanvases(), order: canvasOrderRef.current },
+      { order: (o) => keys.reduce(orderWithout, o) },
       Date.now(),
     );
     scheduleSnapshots(400);
@@ -1146,7 +1158,7 @@ export function MakerWork({
          page reads the eye alone): the render keeps the page as it is. */
       canvasHold.current = holdChange(
         canvasHold.current,
-        { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+        { canvases: drawnCanvases(), order: canvasOrderRef.current },
         {},
         Date.now(),
       );
@@ -1189,7 +1201,7 @@ export function MakerWork({
     else if (how.still) {
       canvasHold.current = holdChange(
         canvasHold.current,
-        { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+        { canvases: drawnCanvases(), order: canvasOrderRef.current },
         {},
         Date.now(),
       );
@@ -1200,6 +1212,8 @@ export function MakerWork({
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { [scene.type]: widget } }));
+    /* ⚡ A hide the bridge drew brings no render — the Apply count comes back with the save. */
+    if (held) fd.set(HUB_DRAFT_BAR_FIELD, '1');
     /* Serialised with the moves: each carries its own scene's whole gate. */
     reorderQueue.current = reorderQueue.current
       .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held }))
@@ -1400,20 +1414,30 @@ export function MakerWork({
   const selectedTile = list.shown.find((t) => tileIsSelected(t, selection));
   selectedKeyRef.current = selectedTile ? markerOf(selectedTile) : null;
   const tabs = canvasBar ? navigatorTabs(canvasBar, list.shown.map((t) => t.key)) : null;
-  const activeTab = tabs ? (tabs.find((t) => t.key === tabKey) ?? tabs.find((t) => !t.leaves) ?? null) : null;
   const selectedTabKey = tabs && selectedTile ? (tabOfTile(tabs, selectedTile.key)?.key ?? null) : null;
   /* A scene picked on the canvas may sit under another tab — follow it there. */
   useEffect(() => {
     if (selectedTabKey) setTabKey(selectedTabKey);
   }, [selectedTabKey]);
+  /* 📄 PAGE ▾ — the navigator's one dropdown is the guest's own pages on this
+     stage, in the guest bar's own words (owner 2026-09-30, `lib/maker-guest-pages.ts`).
+     Each page knows the scenes under it; none is hidden. */
+  const guestPages = makerGuestPages(stage, list.shown.map((t) => t.key));
+  const shownPage = guestPages.find((p) => p.key === tabKey) ?? guestPages.find((p) => !p.leaves) ?? null;
+  const selectedPageKey = selectedTile ? (guestPages.find((p) => p.tiles.includes(selectedTile.key))?.key ?? null) : null;
+  useEffect(() => {
+    if (selectedPageKey) setTabKey(selectedPageKey);
+  }, [selectedPageKey]);
 
   /* 🧰 THE SCENE INSPECTOR'S TABS — Format · Animate · Arrange · Content
      (Keynote rebuild, 2026-09-27; approved prototype frame A). Built here, where
      the stage's list, the canvases, the canvas frame and the navigator's own
      draft form (`post` / `move` / `eyeWrite`) live; the Inspector only lays
      them out. The Transition tab is folded into Animate (owner, answer 4). */
-  const canvasOf = (type: string): HubSectionCanvas =>
-    heldCanvasFor(canvasHold.current, type, Date.now()) ?? elementEditing?.canvases[type] ?? {};
+  /* ⚡ The Maker's own copy while it is newer than the render (`lib/maker-draft-store.ts`):
+     a pick the bridge drew brings no render any more, so the render's canvases
+     can be older than what this Maker wrote. */
+  const canvasOf = (type: string): HubSectionCanvas => draftedCanvasOr(type, elementEditing?.canvases[type]);
   /** "Every scene" = THIS stage's scenes (owner, answer 6), with their canvases. */
   const stageScenes = shownSceneIds.flatMap((id) => {
     const sc = sceneById.get(id);
@@ -1483,7 +1507,7 @@ export function MakerWork({
                 }
                 canvasHold.current = holdChange(
                   canvasHold.current,
-                  { canvases: elementEditing.canvases, order: canvasOrder },
+                  { canvases: drawnCanvases(), order: canvasOrder },
                   { canvases },
                   Date.now(),
                 );
@@ -1540,6 +1564,23 @@ export function MakerWork({
   /* 🧭 EVERY scene of the stage, in canvas order, the tabs as headers between
      the groups (`navigatorRows`) — never a tab that hides the rest. */
   const navRows = navigatorRows(tabs, list.shown.map((t) => t.key));
+  /* 📄 A page pick JUMPS — the navigator to that page's first scene, the canvas
+     to it — in the Maker alone: one message to the loaded canvas, no reload.
+     Me and a page that leaves have no scenes here; the navigator's top says so. */
+  const jumpToPage = (page: MakerGuestPage) => {
+    const key = page.key;
+    setTabKey(key);
+    const first = page.tiles[0];
+    if (!first) {
+      navList?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      return;
+    }
+    scrollPreviewTo(first);
+    (
+      navList?.querySelector(`[data-maker-group="${CSS.escape(key)}"]`) ??
+      navList?.querySelector(`[data-maker-tile="${CSS.escape(first)}"]`)
+    )?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
+  };
   /* …and the navigator keeps the selected tile in view, whichever side picked it. */
   const selectedTileKey = selectedTile?.key ?? null;
   useEffect(() => {
@@ -1613,29 +1654,13 @@ export function MakerWork({
               view ("Home ▾"); picking a tab JUMPS the navigator and the canvas to
               that group — never a filter, never a stage change. One line at the
               narrowest column, the palette beside it. */}
+          {/* 📄 …AND IT IS THE GUEST'S PAGES (owner 2026-09-30, pointing at the
+              guest bar: *"there should be Home, Details, Story, Me on top
+              dropdown"*). "Page ▾" offers exactly the pages the guest's bar
+              offers on this stage, in its words (`lib/maker-guest-pages.ts`
+              asks `resolveSiteNav`, the bar's own function) and with its icons. */}
           <li className="flex min-w-0 shrink-0 items-center gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
-            {tabs ? (
-              <PickMenu
-                label="This stage's menu"
-                dataAttr="data-maker-tab-pick"
-                value={activeTab?.key ?? null}
-                options={tabs.map((t) => ({
-                  key: t.key,
-                  label: t.label,
-                  ...(t.leaves ? { disabledNote: 'opens its own page' } : {}),
-                }))}
-                onPick={(key) => {
-                  const t = tabs.find((x) => x.key === key);
-                  if (!t || t.leaves) return;
-                  setTabKey(t.key);
-                  scrollPreviewTo(t.key);
-                  navList
-                    ?.querySelector(`[data-maker-group="${CSS.escape(t.key)}"]`)
-                    ?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
-                }}
-                className="flex-1"
-              />
-            ) : null}
+            {shownPage ? <MakerPagePick pages={guestPages} value={shownPage.key} onPick={jumpToPage} /> : null}
             <button
               type="button"
               onClick={() => select?.({ kind: 'main' })}
@@ -1661,11 +1686,18 @@ export function MakerWork({
               />
             </li>
           ) : null}
-          {activeTab?.leaves ? (
+          {shownPage?.key === 'me' ? (
+            <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:mb-2 lg:self-stretch" data-maker-page-me="">
+              <InfoTip className="min-w-0 max-w-full" label={ME_NOT_ON_CANVAS.label} align="start">
+                {ME_NOT_ON_CANVAS.body}
+              </InfoTip>
+            </li>
+          ) : null}
+          {shownPage?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
-              <InfoTip className="min-w-0 max-w-full" label={`${activeTab.label} opens its own page`} align="start">
-                On this stage, “{activeTab.label}” takes a guest to a page of its own, so there are no scenes to arrange
-                here. Pick another tab to see its scenes.
+              <InfoTip className="min-w-0 max-w-full" label={`${shownPage.label} opens its own page`} align="start">
+                On this stage, “{shownPage.label}” takes a guest to a page of its own, so there are no scenes to arrange
+                here, and it can’t be shown on this canvas yet. Pick another page to see its scenes.
               </InfoTip>
             </li>
           ) : null}
@@ -1788,7 +1820,7 @@ export function MakerWork({
                       aria-label={
                         tile.kind === 'post-event'
                           ? postEventTileLabel(tile)
-                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ' (always here on this stage · comes from your guest list)' : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
+                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ` (always here on this stage · comes from ${MAKER_FIXED_SOURCE[tile.fixed]!.from})` : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
                       }
                       onClick={() => {
                         select?.(selectionForTile(tile));
@@ -2174,11 +2206,9 @@ export function MakerWork({
         <ElementSheet
           eventId={eventId}
           target={elementTarget}
-          canvas={
-            heldCanvasFor(canvasHold.current, elementTarget.widgetType, Date.now()) ??
-            elementEditing.canvases[elementTarget.widgetType] ??
-            {}
-          }
+          /* The RENDER's canvas — the sheet lays the Maker's own copy over it
+             (`draftedCanvasOr`), which is what keeps a pick from building on it. */
+          canvas={elementEditing.canvases[elementTarget.widgetType] ?? {}}
           palette={elementEditing.palette}
           ownsPro={ownsPro}
           hideLocked={maker.storeShell}
@@ -2200,7 +2230,7 @@ export function MakerWork({
             scheduleSnapshots(600);
           }}
           onSaving={(widgetType, canvas) => {
-            canvasHold.current = holdCanvas(canvasHold.current, elementEditing.canvases, widgetType, canvas, Date.now(), canvasOrder);
+            canvasHold.current = holdCanvas(canvasHold.current, drawnCanvases(), widgetType, canvas, Date.now(), canvasOrder);
           }}
           onPlay={() =>
             postToShownCanvases({ source: 'setnayan-editor', t: 'playEl', key: elementTarget.key, el: elementTarget.el })
@@ -2221,7 +2251,7 @@ export function MakerWork({
                DECISION_LOG "…TAP IS A SHORTCUT"). A scene the couple changed
                "just here" keeps the box that asked, so its ↺ is never lost. */
             const sceneKey = `w:${selectedScene.type}`;
-            const sceneCanvas: HubSectionCanvas = elementEditing?.canvases[selectedScene.type] ?? {};
+            const sceneCanvas: HubSectionCanvas = canvasOf(selectedScene.type);
             const ownWords = detailsBound?.ownWords.includes(selectedScene.type) ?? false;
             const boundItem: DetailsItemKey | null = ownWords
               ? null
@@ -2252,11 +2282,16 @@ export function MakerWork({
                      the render the save brings back keeps the page instead of
                      reloading it. "Use Details" and a cleared message reload —
                      the page must draw what it did not preview. */
+                  const type = selectedScene.type;
+                  const written = patch.widgets?.[type as WidgetType]?.canvas;
+                  if (written) noteDraftedCanvas(type, written, elementEditing.canvases[type]);
                   if (choice === 'use-details' || text.trim().length === 0) {
                     releaseCanvas();
                     return;
                   }
-                  const type = selectedScene.type;
+                  /* "Everywhere" writes the Details fact itself, which this page
+                     reads from the render — so that one burst still ends in ONE. */
+                  if (choice === 'everywhere') makerNeedsRender();
                   const now = Date.now();
                   // "Everywhere" also changes every other scene still bound to Details.
                   const others =
@@ -2275,10 +2310,10 @@ export function MakerWork({
                     releaseCanvas();
                     return;
                   }
-                  const shown = heldCanvasFor(canvasHold.current, type, now) ?? elementEditing.canvases[type] ?? {};
+                  const shown = heldCanvasFor(canvasHold.current, type, now) ?? canvasOf(type);
                   canvasHold.current = holdCanvas(
                     canvasHold.current,
-                    elementEditing.canvases,
+                    drawnCanvases(),
                     type,
                     patch.widgets?.[type as WidgetType]?.canvas ?? shown,
                     now,
@@ -2727,7 +2762,7 @@ function Inspector({
       : selection.kind === 'main'
         ? 'Main · behind every scene'
         : selection.kind === 'tool'
-          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Details', 'rsvp-page': 'RSVP' }[selection.key]
+          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Details', 'rsvp-page': 'RSVP', 'rsvp-stage': 'RSVP' }[selection.key]
           : fixedOfKey(selection.key)
             ? fixedScenePanel(fixedOfKey(selection.key)!).label
             : (rows[selection.key]?.label ?? 'Edit');

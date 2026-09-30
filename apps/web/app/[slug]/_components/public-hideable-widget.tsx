@@ -1,4 +1,5 @@
 import type { EventWords } from '../_lib/event-words';
+import type { RoleNames } from '@/lib/role-names';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
@@ -47,6 +48,8 @@ type PublicHideableWidgetProps = {
    */
   makerEmpty?: boolean;
   event: EventRow;
+  /** The couple's words for roles (`events.role_names`, owner 2026-09-30), read once by the body. */
+  roleNames?: RoleNames;
   /** The event type's own words, resolved ONCE by the body and threaded here
    *  rather than re-resolved per widget. */
   words: EventWords;
@@ -93,6 +96,7 @@ function PublicHideableWidgetBody({
   words,
   widget,
   event,
+  roleNames = {},
   scheduleBlocks,
   scheduleEstimated = false,
   ourPhotoUrls,
@@ -152,7 +156,7 @@ function PublicHideableWidgetBody({
          nobody is identified here — so this is always the general view.
          `role_palette` is already on this row: `loadEventShell` selects it
          with the admin client, the same read the page's theme colours use. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} hideWhenEmpty={guestView} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;

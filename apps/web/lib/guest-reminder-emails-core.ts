@@ -36,6 +36,20 @@ import { SUPPORT_EMAIL } from '@/lib/contact-addresses';
  * this the expensive way on 2026-09-20).
  */
 
+/**
+ * 📵 OFF FOR GUESTS (owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS — THE QR
+ * AND THE LINK DO EVERYTHING", item 5): *"But we have expenses for these
+ * emails"* → *"No email. Either use the qr and link only"*. Reminders are now
+ * the couple's own messages (Copy message on the Guest list), and the guest's
+ * page always shows the current time and venue.
+ *
+ * A CONSTANT, NOT A SETTING — the couple's "Reminder emails" switch is gone from
+ * the Maker (a switch that sends nothing would be a lie). The sender returns
+ * before it reads anything while this is false. Emails to couples, hosts and
+ * suppliers are untouched (item 6 of the same row).
+ */
+export const GUEST_REMINDER_EMAILS_ON = false as boolean;
+
 export const REMINDER_MILESTONES = [30, 7, 1] as const;
 export type ReminderMilestone = (typeof REMINDER_MILESTONES)[number];
 

@@ -2,7 +2,7 @@
 
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { DEFAULT_EVENT_POOL_CONFIG } from '@/lib/papic-event-pool';
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from 'react';
 import {
   Camera,
   Loader2,
@@ -210,7 +210,43 @@ type Props = {
    *  never client-supplied), so the challenge-completion reward can link into
    *  their Story maker at /papic/me/[token]. Null → no reward CTA. */
   storyToken?: string | null;
+  /** True when this camera is mounted INSIDE the guest's Event Hub (`/[slug]`
+   *  site-body), false on the standalone `/papic/guest` page.
+   *
+   *  Owner 2026-09-30, on the hub's terms card: "space is too big also should
+   *  only be the small frame". The small-card states (terms · blocked · no
+   *  camera) used to wrap themselves in a full-page `<main min-h-screen …>`
+   *  on BOTH mounts, so inside the hub the card floated in a screen of empty
+   *  cream — and nested a `<main>` inside the hub's own `<main>`, which is
+   *  invalid HTML. Embedded, the card renders bare (see `CardFrame`).
+   *  REQUIRED, like `capApplies`: two mounts, and an optional prop is how one
+   *  of them quietly forgets it. Pinned by
+   *  `app/[slug]/_components/the-hub-camera-terms-is-only-the-card.test.ts`. */
+  embedded: boolean;
 };
+
+/**
+ * The page around a small-card state. Standalone (`/papic/guest`) the card IS
+ * the page, so it is centred on a full-height cream ground. Embedded in the
+ * Event Hub the hub already owns the page — the card renders alone, with no
+ * `<main>`, no `min-h-screen` and no page-level centring or background.
+ */
+function CardFrame({
+  embedded,
+  pad,
+  children,
+}: {
+  embedded: boolean;
+  pad: 'py-10' | 'py-12';
+  children: ReactNode;
+}) {
+  if (embedded) return <>{children}</>;
+  return (
+    <main className={`flex min-h-screen items-center justify-center bg-cream px-4 ${pad} text-ink`}>
+      {children}
+    </main>
+  );
+}
 
 /**
  * Announce that the guest camera just refused a shot for want of points.
@@ -247,6 +283,7 @@ export function PapicGuestCapture({
   eventStyle,
   faceMode,
   storyToken = null,
+  embedded,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   const styleRef = useRef<PapicStyle>(eventStyle);
@@ -1323,8 +1360,8 @@ export function PapicGuestCapture({
 
   if (blocked) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-        <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
+      <CardFrame embedded={embedded} pad="py-12">
+        <div className="mx-auto w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center text-ink shadow-sm">
           <CircleAlert aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">Camera unavailable</h1>
           <p className="mt-2 text-sm text-ink/65">
@@ -1332,7 +1369,7 @@ export function PapicGuestCapture({
             think this is a mistake, reach out to the host directly.
           </p>
         </div>
-      </main>
+      </CardFrame>
     );
   }
 
@@ -1341,8 +1378,8 @@ export function PapicGuestCapture({
   // 1.2 / Google Play UGC EULA requirement).
   if (!accepted) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-10 text-ink">
-        <div className="sn-rise w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 shadow-sm">
+      <CardFrame embedded={embedded} pad="py-10">
+        <div className="sn-rise mx-auto w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-ink shadow-sm">
           <ShieldCheck aria-hidden className="h-7 w-7 text-mulberry" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">
             Before you start shooting, {guestName}
@@ -1401,14 +1438,14 @@ export function PapicGuestCapture({
             Agree &amp; open my camera
           </button>
         </div>
-      </main>
+      </CardFrame>
     );
   }
 
   if (camError) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-        <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
+      <CardFrame embedded={embedded} pad="py-12">
+        <div className="mx-auto w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center text-ink shadow-sm">
           <CircleAlert aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">We need your camera</h1>
           <p className="mt-2 text-sm text-ink/65">
@@ -1423,7 +1460,7 @@ export function PapicGuestCapture({
             Reload &amp; try again
           </button>
         </div>
-      </main>
+      </CardFrame>
     );
   }
 

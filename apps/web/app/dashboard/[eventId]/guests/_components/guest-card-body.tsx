@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { LINKED_NAME_WORDS } from '@/lib/extra-seats';
 import {
   Armchair,
   ArrowRight,
@@ -11,13 +12,15 @@ import {
   UserX,
 } from 'lucide-react';
 import { SIDE_CHIP_SOFT } from '@/lib/side-colors';
+import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   guestDisplayName,
   guestInitials,
   GROUP_CATEGORY_LABELS,
   MEAL_LABELS,
-  ROLE_LABELS,
+  guestRoleLabel,
+  guestRolePickLabel,
   RSVP_LABELS,
   SIDE_LABELS,
   type GuestGroupCategory,
@@ -27,6 +30,7 @@ import {
   type RsvpStatus,
   PLUS_ONE_CHOICES,
   plusOneSeats,
+  guestFullName,
 } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
@@ -140,6 +144,12 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   swap_needs_name: 'Type the name of the person taking the spot.',
   swap_after_day: 'The day has passed — this spot can no longer be given away.',
   swap_failed: 'The spot could not be given away just now — nothing was changed. Please try again.',
+  // "Unlink" (lib/seat-unlink.ts).
+  unlink_not_allowed: 'Only the couple can unlink an account from an invitation.',
+  unlink_nothing_linked: 'No account holds this invitation — there is nothing to unlink.',
+  unlink_holds_access:
+    'That account is a Co-host or helper through this guest. Set their Access back to None first, then unlink. (On the bride, groom or celebrant row a Co-host cannot be removed here — ask Setnayan support.)',
+  unlink_failed: 'The account could not be unlinked just now — nothing was changed. Please try again.',
 };
 
 export function GuestCardBody({
@@ -205,6 +215,9 @@ export function GuestCardBody({
     recordedAt,
     access,
     canManageAccess,
+    nameLinked,
+    linkedAccount,
+    roleNames,
   } = data;
   const accessTagLabel = access ? accessTag(access) : null;
 
@@ -261,7 +274,7 @@ export function GuestCardBody({
             {[
               RSVP_LABELS[guest.rsvp_status],
               hasSides ? SIDE_LABELS[guest.side] : null,
-              ROLE_LABELS[guest.role],
+              guestRoleLabel(guest.role, roleNames),
               seatedAt,
             ]
               .filter(Boolean)
@@ -291,6 +304,7 @@ export function GuestCardBody({
                 eventId={eventId}
                 guest={{
                   guestId: guest.guest_id,
+                  formalName: guestFullName(guest),
                   firstName: guest.first_name,
                   fullName: guestDisplayName(guest),
                   inviteUrl: guest.qr_token ? `${invitationBase}?invite=${guest.qr_token}` : null,
@@ -351,7 +365,26 @@ export function GuestCardBody({
         {/* ── 2 · DETAILS — name, contact, private note: one line each ───── */}
         <Section title="Details">
           <div className="overflow-hidden rounded-lg border border-ink/10">
-            <Disclosure summary="Name" value={guestDisplayName(guest)}>
+            <Disclosure summary="Name" value={nameLinked ? `${guestDisplayName(guest)} · ${LINKED_NAME_WORDS}` : guestDisplayName(guest)}>
+              {/* 🔒 A plus-one who linked their own account keeps their own name
+                  (owner 2026-09-29, OWNER ANSWERS (10)): read-only here, and
+                  `updateGuest` leaves the name out of its write. The stored
+                  parts still post, so the form's own checks are satisfied. */}
+              {nameLinked ? (
+                <div data-guest-name-linked="">
+                  <p className="text-sm text-ink">
+                    <span className="font-medium">{guestDisplayName(guest)}</span>
+                    <span className="text-ink/60"> · {LINKED_NAME_WORDS}</span>
+                  </p>
+                  <input type="hidden" name="first_name" value={guest.first_name} />
+                  <input type="hidden" name="last_name" value={guest.last_name} />
+                  <input type="hidden" name="name_prefix" value={guest.name_prefix ?? ''} />
+                  <input type="hidden" name="middle_name" value={guest.middle_name ?? ''} />
+                  <input type="hidden" name="name_suffix" value={guest.name_suffix ?? ''} />
+                  <input type="hidden" name="display_name" value={guest.display_name ?? ''} />
+                </div>
+              ) : (
+              <>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Field id="name_prefix" label="Prefix" defaultValue={guest.name_prefix ?? ''} />
                 <Field id="first_name" label="First name *" required defaultValue={guest.first_name} />
@@ -367,6 +400,8 @@ export function GuestCardBody({
                   placeholder="e.g. Tito Boy & Tita Cora"
                 />
               </div>
+              </>
+              )}
             </Disclosure>
 
             <Disclosure
@@ -596,7 +631,7 @@ export function GuestCardBody({
                   {hasSides ? 'Role in wedding' : 'Role'}
                 </label>
                 <div className="flex h-10 items-center justify-between rounded-md border border-ink/15 bg-ink/[0.03] px-3 text-sm">
-                  <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span>
+                  <span className="font-medium text-ink">{guestRoleLabel(guest.role, roleNames)}</span>
                   <span className="text-xs text-ink/45">Foundation · locked</span>
                 </div>
                 <input type="hidden" name="role" value={guest.role} />
@@ -607,7 +642,14 @@ export function GuestCardBody({
                   id="role"
                   label={hasSides ? 'Role in wedding' : 'Role'}
                   defaultValue={guest.role}
-                  options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
+                  /* ⚖ Owner 2026-09-30: best man OR best woman, maid OR
+                     matron of honour — each pair sits under ONE heading so
+                     the two words read as the alternatives they are. */
+                  options={pickItems(availableRoles).flatMap((it) =>
+                    it.kind === 'pair'
+                      ? it.roles.map((v) => ({ value: v, label: guestRolePickLabel(v, roleNames), group: it.heading }))
+                      : [{ value: it.role, label: guestRolePickLabel(it.role, roleNames) }],
+                  )}
                 />
                 {isIncWedding ? (
                   <p className="text-xs text-ink/55">
@@ -718,7 +760,7 @@ export function GuestCardBody({
             />
             <TagChip
               icon={<Tag aria-hidden className="h-3 w-3" strokeWidth={2} />}
-              label={ROLE_LABELS[guest.role]}
+              label={guestRoleLabel(guest.role, roleNames)}
             />
             {seatedAt ? (
               <TagChip
@@ -769,6 +811,31 @@ export function GuestCardBody({
             />
           </div>
         </Section>
+      ) : null}
+
+      {/* 🔗 WHO HOLDS THIS INVITATION — and the undo (2026-09-30: a test account
+          held the owner's GROOM row, and there was no door to take it back).
+          Shown on EVERY row the couple can see bound, couple rows included.
+          Rides the release door (`unlink_account`), so +0 actions. */}
+      {linkedAccount ? (
+        <form action={releaseAction} className="space-y-2 border-t border-ink/10 pt-4" data-unlink-account="">
+          <input type="hidden" name="unlink_account" value="1" />
+          <p className="text-sm text-ink/80">
+            This invitation is linked to{' '}
+            <span className="font-medium text-ink">{linkedAccount.email ?? 'a Setnayan account'}</span>.
+          </p>
+          <SubmitButton
+            className="block w-full rounded-lg border border-ink/15 px-3.5 py-2.5 text-left text-sm font-medium text-ink/70 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
+            aria-label={`Unlink ${linkedAccount.email ?? 'this account'} from ${guestDisplayName(guest)}'s invitation`}
+            pendingLabel="Unlinking…"
+          >
+            Unlink
+          </SubmitButton>
+          <p className="text-xs text-ink/50">
+            Not them? Unlinking gives this invitation a new QR and link, and that account stops seeing it.
+            The guest, their reply and their seat stay.
+          </p>
+        </form>
       ) : null}
 
       {/* ── 8 · REMOVE — explicit, never autosaved, and never nested inside the
@@ -984,8 +1051,21 @@ function Select({
   label: string;
   required?: boolean;
   defaultValue: string;
-  options: { value: string; label: string }[];
+  /** `group` — consecutive options sharing one render under ONE `<optgroup>` heading. */
+  options: { value: string; label: string; group?: string }[];
 }) {
+  // Consecutive options with the same `group` fold into one <optgroup>.
+  const runs: Array<{ group?: string; items: { value: string; label: string }[] }> = [];
+  for (const o of options) {
+    const last = runs[runs.length - 1];
+    if (o.group && last && last.group === o.group) last.items.push(o);
+    else runs.push({ group: o.group, items: [o] });
+  }
+  const opt = (o: { value: string; label: string }) => (
+    <option key={o.value} value={o.value}>
+      {o.label}
+    </option>
+  );
   return (
     <div className="space-y-1.5">
       <label className="block text-sm font-medium text-ink" htmlFor={id}>
@@ -998,11 +1078,15 @@ function Select({
         defaultValue={defaultValue}
         className="input-field"
       >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
+        {runs.map((r, i) =>
+          r.group ? (
+            <optgroup key={`g${i}`} label={r.group}>
+              {r.items.map(opt)}
+            </optgroup>
+          ) : (
+            r.items.map(opt)
+          ),
+        )}
       </select>
     </div>
   );

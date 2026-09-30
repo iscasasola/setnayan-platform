@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { plusOneNameSlots } from '@/lib/extra-seats';
+import { LINKED_NAME_WORDS, plusOneNameSlots } from '@/lib/extra-seats';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
 import { formatCount } from '@/lib/format-number';
+import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
 
 /**
  * WHO ARE YOU BRINGING — one short set per plus-one seat, and one switcher.
@@ -15,7 +16,10 @@ import { formatCount } from '@/lib/format-number';
  * 1-4 pluses. so there needs to be a way to write their names in a simpler way.
  * like a toggle on which guest they are editing."*
  *
- *   · EACH SEAT IS ASKED FOUR THINGS — first name, last name, meal, dietary.
+ *   · EACH SEAT IS ASKED FOUR THINGS — its name, meal, dietary. The name is
+ *     the FIVE parts every other name box uses (owner 2026-09-30: *"The name
+ *     will be same: Prefix · First · Middle · Last · Suffix, to stay
+ *     consistent"*) — the shared `FormalNameInputs`, never a pair of its own.
  *     No song, no note to the couple, no selfie: those are the plus-one's own to
  *     answer on their own key, if the couple asks. Meal and dietary obey the
  *     couple's same "ask" switches as the bringer's own.
@@ -40,16 +44,26 @@ export type PlusOneSeatInput = {
   name: string | null;
   first?: string | null;
   last?: string | null;
+  /** The seat's other stored name parts (owner 2026-09-30, five parts). */
+  prefix?: string | null;
+  middle?: string | null;
+  suffix?: string | null;
   meal?: string | null;
   dietary?: string | null;
+  linked?: boolean;
 };
 
 export type PlusOneSlot = {
   seatId: string | null;
   first: string;
   last: string;
+  prefix?: string;
+  middle?: string;
+  suffix?: string;
   meal: string;
   dietary: string;
+  /** 🔒 Their own account holds this seat — the name is theirs (owner 2026-09-29). */
+  linked?: boolean;
 };
 
 /** The meal order the bringer's own picker uses. */
@@ -71,8 +85,12 @@ export function plusOneSlots(
       seatId: slot.seatId,
       first: slot.name ? first : '',
       last: slot.name ? last : '',
+      prefix: slot.name ? (seat?.prefix ?? '') : '',
+      middle: slot.name ? (seat?.middle ?? '') : '',
+      suffix: slot.name ? (seat?.suffix ?? '') : '',
       meal: seat?.meal && (MEAL_ORDER as string[]).includes(seat.meal) ? seat.meal : 'no_preference',
       dietary: seat?.dietary ?? '',
+      linked: Boolean(seat?.linked && slot.name),
     };
   });
 }
@@ -253,26 +271,30 @@ export function PlusOneSeatPanels({
               </p>
             ) : null}
             {slot.seatId ? <input type="hidden" name={`plus_one_seat_id_${n}`} value={slot.seatId} /> : null}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <SeatField
-                id={`${idPrefix}plus_one_first_name_${n}`}
-                name={`plus_one_first_name_${n}`}
-                label="First name"
-                defaultValue={slot.first}
-                placeholder="First name"
-                autoComplete="off"
-                onInput={(e) => readName(e.currentTarget)}
-              />
-              <SeatField
-                id={`${idPrefix}plus_one_last_name_${n}`}
-                name={`plus_one_last_name_${n}`}
-                label="Last name"
-                defaultValue={slot.last}
-                placeholder="Last name"
-                autoComplete="off"
-                onInput={(e) => readName(e.currentTarget)}
-              />
-            </div>
+            {/* 🔒 LOCKED ONCE THEY LINK THEIR OWN ACCOUNT (owner 2026-09-29,
+                OWNER ANSWERS (10)): the name is shown, never posted — so the
+                reply writes only this seat's meal and dietary. `submitRsvp`
+                refuses a posted name for a linked seat as well. */}
+            {slot.linked ? (
+              <p className="text-sm text-ink" data-plus-one-linked="">
+                <span className="font-medium">{`${slot.first} ${slot.last}`.trim()}</span>
+                <span className="text-ink/60"> · {LINKED_NAME_WORDS}</span>
+              </p>
+            ) : (
+            <FormalNameInputs
+              defaults={{
+                name_prefix: slot.prefix,
+                first_name: slot.first,
+                middle_name: slot.middle,
+                last_name: slot.last,
+                name_suffix: slot.suffix,
+              }}
+              nameStart="plus_one_"
+              nameEnd={`_${n}`}
+              idPrefix={idPrefix}
+              onInput={(e) => readName(e.currentTarget)}
+            />
+            )}
             {askMeal ? (
               <div className="space-y-1.5">
                 <label htmlFor={`${idPrefix}plus_one_meal_${n}`} className="block text-sm font-medium text-ink">

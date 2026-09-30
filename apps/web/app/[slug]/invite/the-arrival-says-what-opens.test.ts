@@ -100,8 +100,12 @@ test('the Reply door no longer offers a sign-in choice — its one button is Sen
 test('the promise it does make is one the provider flow keeps', () => {
   // Both providers return through the connect route, which binds the seat; the
   // RSVP page still reads the account's own details as defaults.
-  assert.match(SAVE, /name="next" value=\{connect\}/, 'the Save button no longer returns through connect');
-  assert.match(SAVE, /const connect = `\/join\/\$\{eventId\}\/connect`;/, 'the Save button no longer returns to THIS event');
+  // The one Save posts to `startAccountSaveAction`, which hands the provider
+  // THIS event's connect route (📵 never an emailed link — owner 2026-09-29).
+  assert.match(SAVE, /action=\{startAccountSaveAction\.bind\(null, eventId, slug\)\}/, 'the Save button no longer posts to the one save');
+  const actions = read('[slug]/actions.ts');
+  const save = actions.slice(actions.indexOf('export async function startAccountSaveAction'));
+  assert.match(save.slice(0, save.indexOf('\n}\n')), /next\.set\('next', eventConnectPath\(eventId\)\)/, 'the Save no longer returns through THIS event’s connect route');
   assert.match(
     REPLY,
     /\.select\('meal_preference, dietary_restrictions, email, phone, display_name'\)/,
@@ -290,7 +294,8 @@ test('what survives a decline: the contact boxes and the note stay', async () =>
   // still needs a way to reach them, the email is also their sign-in, and a
   // declining guest most often wants to leave a message.
   const locked = await render({ replyLocked: true }, { rsvp_status: 'declined' });
-  for (const field of ['contact_email', 'contact_mobile', 'contact_display_name', 'guest_note']) {
+  // 📵 There is no email box to keep (owner 2026-09-29, "NO EMAIL TO GUESTS").
+  for (const field of ['contact_mobile', 'contact_display_name', 'guest_note']) {
     assert.match(locked, new RegExp(`name="${field}"`), `${field} was taken away from a declining guest`);
   }
 });
@@ -366,14 +371,15 @@ test('a FAR-FUTURE event is not promised an invitation', () => {
   assert.doesNotMatch(farWords.cta, /Open your invitation/, 'the button still says invitation');
   assert.match(farWords.cta, /save the date/i, 'the button does not name what it opens');
 
-  // …and the near case is untouched: the shipped sentence, byte for byte.
+  // …and the near case: the shipped sentence, minus "your seat" (owner
+  // 2026-09-30: "seat plan is only on the day" — seats open on the day itself).
   const near = getLifecyclePhase(iso(NOW + 30 * day), MNL, null, NOW);
   assert.equal(near, 'rsvp', 'fixture drifted: 30 days out is no longer the invitation phase');
   const nearWords = arrivalDestinationWords(arrivalDestination({ phasesEnabled: true, lifecyclePhase: near }));
   assert.equal(
     nearWords.blurb,
-    'Your invitation is ready — your seat, your QR and everything shared with guests are waiting on it.',
-    'the sentence that was never wrong has been rewritten',
+    'Your invitation is ready — your QR and everything shared with guests are waiting on it.',
+    'the invitation-phase sentence must not promise a seat before the day',
   );
   assert.equal(nearWords.cta, 'Open your invitation');
 });

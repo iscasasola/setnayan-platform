@@ -6,8 +6,10 @@ import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
 import { plusOneSeats } from '@/lib/guests';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
-import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
+import { rsvpAsks, type RsvpAskConfig, type RsvpAskField, type RsvpWords } from '@/lib/rsvp-ask';
+import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { SelfieCapture } from './selfie-capture';
+import { SelfieNoThanksConfirm } from './selfie-no-thanks-confirm';
 import {
   FACE_TAGGING_FIELD,
   FACE_TAGGING_NO,
@@ -21,6 +23,7 @@ import { stubNo } from './pahina-keepsake';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
 import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
+import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 
@@ -35,14 +38,20 @@ export function RsvpWidget({
   words,
   doorAction,
   offerSelfie = true,
-  keepOffer = false,
   hostPitch = false,
   ask = {},
   gate = null,
   termsOnSend = false,
   oneAtATime = false,
   previewEveryQuestion = false,
+  answerWords = null,
 }: {
+  /**
+   * 📝 The couple's own YES / NO wording (the RSVP stage, owner 2026-09-30 —
+   * `rsvp_ask_config.words`, `readRsvpWords`). DISPLAY ONLY: the radios still
+   * post `attending` / `declined`. Absent = today's wording.
+   */
+  answerWords?: RsvpWords | null;
   /**
    * The Maker's RSVP canvas (a host looking at the SAMPLE guest): every
    * switched-on question is shown, none waiting on an "attending" tap — so
@@ -60,8 +69,8 @@ export function RsvpWidget({
   /**
    * The RSVP page's Terms tick (owner 2026-09-27: "Terms tick on the RSVP Send
    * step"): unticked, REQUIRED, the `/signup` clickwrap (lib/terms-agreement.ts).
-   * Replaces the "keep this invitation" box on that page — saving to an account
-   * is the NEXT screen's one button, not a second decision on this one.
+   * Saving to an account is the NEXT screen's one button, never a decision on
+   * this one.
    */
   termsOnSend?: boolean;
   /**
@@ -161,17 +170,6 @@ export function RsvpWidget({
    */
   offerSelfie?: boolean;
   /**
-   * FORM FIRST, THEN SIGN UP (owner 2026-09-25). True when this guest has no
-   * account on this invitation yet (`replyOffersKeep`, lib/guest-one-path.ts):
-   * the card then offers ONE unticked box beside the email — "keep this
-   * invitation on my phone · I agree to the Terms" — and the same Save that
-   * stores the reply emails the sign-in link to that address (`submitRsvp` →
-   * `sendKeepLinkOnce`). The email is asked once; there is no second box.
-   * 🔒 Unticked and never pre-set: sending the link CREATES an account, so it is
-   * the same clickwrap `/signup` uses (lib/terms-agreement.ts).
-   */
-  keepOffer?: boolean;
-  /**
    * The invitation is already linked to their account — only then may the
    * "planning your own celebration?" line show (`hostPitchShows`). Before the
    * link it was one more account prompt in front of the one that matters.
@@ -205,12 +203,20 @@ export function RsvpWidget({
       />
     );
   }
-  const askPlusOnes = rsvpAsks(ask, 'plus_ones');
-  const askMeal = rsvpAsks(ask, 'meal');
-  const askDietary = rsvpAsks(ask, 'dietary');
-  const askNote = rsvpAsks(ask, 'note');
-  const askMobile = rsvpAsks(ask, 'mobile');
-  const askSong = rsvpAsks(ask, 'song_request');
+  /* 🗳 THE RSVP STAGE'S CANVAS (owner 2026-09-30: every edit shows at once):
+     on the Maker's sample every question is DRAWN — one the couple switched off
+     is hidden and marked (`data-rsvp-ask`), so flipping its switch shows or
+     hides it on the tap, with no new page (`rsvp-canvas-bridge.tsx`). A guest's
+     page never takes this arm: it draws only what is asked, as before. */
+  const asked = (field: RsvpAskField) => previewEveryQuestion || rsvpAsks(ask, field);
+  const canvasAsk = (field: RsvpAskField) =>
+    previewEveryQuestion ? { 'data-rsvp-ask': field, hidden: !rsvpAsks(ask, field) || undefined } : {};
+  const askPlusOnes = asked('plus_ones');
+  const askMeal = asked('meal');
+  const askDietary = asked('dietary');
+  const askNote = asked('note');
+  const askMobile = asked('mobile');
+  const askSong = asked('song_request');
   // The Maker's canvas shows EVERY switched-on question at once — the couple is
   // looking at what they ask, not answering it, so nothing waits on "attending".
   const revealAll = previewEveryQuestion;
@@ -225,34 +231,30 @@ export function RsvpWidget({
   // are all answered").
   const requireMobile = askMobile && Boolean(gate?.missing.includes('mobile'));
 
-  // The three boxes, declared ONCE so the folded and unfolded arms can never
+  const mobileField = (
+    <Field
+      id="contact_mobile"
+      label="Mobile"
+      autoComplete="tel"
+      required={requireMobile}
+      defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
+      placeholder="+63 …"
+    />
+  );
+  // The contact boxes, declared ONCE so the folded and unfolded arms can never
   // drift apart. Both arms render them, so both POST them.
+  //
+  // 📵 NO EMAIL BOX (owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS — THE QR
+  // AND THE LINK DO EVERYTHING": *"No email. Either use the qr and link only"*).
+  // Nothing emails a guest any more, so the reply does not collect an address
+  // it would never use — and `submitRsvp` no longer reads one. Mobile stays, and
+  // only when the couple switched it on.
   const contactFields = (
     <>
-      <div className={askMobile ? 'grid grid-cols-1 gap-4 sm:grid-cols-2' : undefined}>
-        <Field
-          id="contact_email"
-          label="Email"
-          type="email"
-          autoComplete="email"
-          defaultValue={guest.email ?? profileDetails?.email ?? ''}
-          placeholder="you@email.com"
-        />
-        {/* Mobile only — email always shows, since a blank one cannot clobber
-            the stored sign-in address (see the comment on `storedEmail`
-            server-side) and it is also the "keep this invitation" address.
-            Turned off by the couple's "What do you ask your guests?" toggle. */}
-        {askMobile ? (
-          <Field
-            id="contact_mobile"
-            label="Mobile"
-            autoComplete="tel"
-            required={requireMobile}
-            defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
-            placeholder="+63 …"
-          />
-        ) : null}
-      </div>
+      {askMobile ? (
+        // 🗳 Wrapped only on the Maker's canvas (to show / hide on its switch).
+        previewEveryQuestion ? <div {...canvasAsk('mobile')}>{mobileField}</div> : mobileField
+      ) : null}
       <Field
         id="contact_display_name"
         label="What should we call you? (optional)"
@@ -263,23 +265,21 @@ export function RsvpWidget({
   );
 
   /**
-   * "ALL DETAILS ARE FILLED" — owner, 2026-08-21.
+   * "ALL DETAILS ARE FILLED" — owner, 2026-08-21: a guest whose details we
+   * already hold is shown a one-line summary, not boxes.
    *
-   * Both ways of reaching them must be present: an email with no number, or a
-   * number with no email, is still something the host has to chase, so this
-   * asks for BOTH and falls back to the full form when either is missing.
+   * 📵 Email is no longer one of them (owner 2026-09-29, no email to guests), so
+   * "filled" now means: the mobile is known when the couple asks for it. With
+   * mobile off the only box left is the optional "what should we call you",
+   * which never needs to unfold on its own.
    * ⚠ Meal and dietary are NOT required. "No preference" and "no allergies" are
-   * real answers, and a guest with neither would otherwise be shown five boxes
+   * real answers, and a guest with neither would otherwise be shown the boxes
    * forever for facts that have nothing to add.
    */
-  const knownEmail = (guest.email ?? profileDetails?.email ?? '').trim();
   const knownMobile = (guest.mobile ?? profileDetails?.phone ?? '').trim();
-  // The mobile box is not asked at all when the couple turned it off — then a
-  // known email is enough to fold, the same way a mobile-less guest never
-  // falls back to the full form once mobile is off.
-  const detailsAlreadyKnown = knownEmail !== '' && (!askMobile || knownMobile !== '');
+  const detailsAlreadyKnown = !askMobile || knownMobile !== '';
   const knownName = (guest.display_name ?? profileDetails?.displayName ?? '').trim();
-  const knownSummary = [knownName || `${guest.first_name} ${guest.last_name}`.trim(), knownEmail, knownMobile]
+  const knownSummary = [knownName || `${guest.first_name} ${guest.last_name}`.trim(), askMobile ? knownMobile : '']
     .filter(Boolean)
     .join(' · ');
 
@@ -311,6 +311,9 @@ export function RsvpWidget({
             {option.label}
           </label>
         ))}
+        {/* 🗑 One confirm before a "No" deletes a selfie already given (owner
+            2026-09-29, OWNER ANSWERS (3)) — only for a guest who has one. */}
+        {guest.photo_source === 'selfie' ? <SelfieNoThanksConfirm /> : null}
       </fieldset>
       <div data-rsvp-step className="tag-yes-reveal">
         <SelfieCapture faceMode={faceMode} />
@@ -322,7 +325,7 @@ export function RsvpWidget({
     <form action={action} className="rsvp-form space-y-6">
       {/* FIRST in the form: the one-question progress sits above everything
           the guest reads (rsvp-one-at-a-time.tsx, "THE SCREEN'S ORDER"). */}
-      {oneAtATime ? <RsvpOneAtATime /> : null}
+      {previewEveryQuestion ? <RsvpOneAtATimeLive initial={oneAtATime} /> : oneAtATime ? <RsvpOneAtATime /> : null}
       {flash ? (
         <p
           role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -400,9 +403,16 @@ export function RsvpWidget({
         </InvitationFacts>
       ) : null}
 
-      {/* Three quiet outlined options; the chosen one takes the palette's DEEP
+      {/* TWO quiet outlined options; the chosen one takes the palette's DEEP
           accent fill. Labels are the spec's reply-card wording — the `key`
-          values (and therefore the server action's contract) are unchanged. */}
+          values (and therefore the server action's contract) are unchanged.
+          ⚖ NO MIDDLE ANSWER (owner 2026-09-30: "for now. let us fix the RSVP
+          remove the maybe"). A guest is offered yes or no, nothing else; the
+          couple's own Guest list tools still see and set 'maybe'. A guest
+          ALREADY saved as 'maybe' keeps that row — but no radio matches it, so
+          nothing is preselected, and the answer is REQUIRED for them so a Save
+          cannot post an empty answer and be dropped. `submitRsvp` refuses a
+          NEW 'maybe' from a crafted post (`?rsvp=choose`). */}
       {replyLocked ? (
         <LockedAnswer status={guest.rsvp_status} />
       ) : (
@@ -417,12 +427,10 @@ export function RsvpWidget({
             words.solemn
               ? ([
                   { key: 'attending', label: 'Will be there' },
-                  { key: 'maybe', label: 'Undecided, for now' },
                   { key: 'declined', label: 'Unable to come' },
                 ] as const)
               : ([
                   { key: 'attending', label: 'Joyfully accepts' },
-                  { key: 'maybe', label: 'Undecided, for now' },
                   { key: 'declined', label: 'Regretfully declines' },
                 ] as const)
           ).map((option) => (
@@ -435,10 +443,13 @@ export function RsvpWidget({
                 name="rsvp_status"
                 value={option.key}
                 defaultChecked={guest.rsvp_status === option.key}
-                required={termsOnSend || undefined}
+                required={termsOnSend || guest.rsvp_status === 'maybe' || undefined}
                 className="sr-only"
               />
-              {option.label}
+              {/* 📝 The couple's words for YES / NO (the value posted is unchanged). */}
+              <span data-rsvp-word={rsvpWordBridgeKey(option.key)}>
+                {answerWords?.[option.key] ?? option.label}
+              </span>
             </label>
           ))}
         </fieldset>
@@ -483,7 +494,7 @@ export function RsvpWidget({
           box for every guest the couple already allowed one, without
           touching who is allowed (a host action, done on the Guest list). */}
       {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
-        <div id="plus-ones" data-rsvp-step className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
+        <div id="plus-ones" data-rsvp-step {...canvasAsk('plus_ones')} className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
           {/* One short set per seat + one "Filling in for ▾" switcher
               (owner 2026-09-29) — its own file, so this card only mounts it. */}
           <RsvpPlusOnes
@@ -530,7 +541,7 @@ export function RsvpWidget({
         <div className={replyLocked || revealAll ? undefined : 'attending-reveal'}>
           <div className="space-y-6">
             {askMeal ? (
-              <div data-rsvp-step>
+              <div data-rsvp-step {...canvasAsk('meal')}>
               <Select
                 id="meal_preference"
                 label={bringsPlusOnes ? 'Your meal preference' : 'Meal preference'}
@@ -549,7 +560,7 @@ export function RsvpWidget({
               </div>
             ) : null}
             {askDietary ? (
-              <div data-rsvp-step>
+              <div data-rsvp-step {...canvasAsk('dietary')}>
               <Field
                 id="dietary_restrictions"
                 label={bringsPlusOnes ? 'Your dietary notes' : 'Dietary notes'}
@@ -569,7 +580,7 @@ export function RsvpWidget({
           SAME door the day-of card uses (`guest_submit_song_request`). Optional;
           a blank box asks nothing. Only for somebody who is coming. */}
       {askSong && !replyLocked ? (
-        <div data-rsvp-step className={revealAll ? undefined : 'attending-reveal'}>
+        <div data-rsvp-step {...canvasAsk('song_request')} className={revealAll ? undefined : 'attending-reveal'}>
           <div className="space-y-4">
             <Field id="song_title" label="A song to get you dancing (optional)" question={oneAtATime} placeholder="Song" />
             <Field id="song_artist" label="Who sings it?" placeholder="Artist" />
@@ -579,7 +590,7 @@ export function RsvpWidget({
 
       {/* ⚙ ASK TOGGLE (owner 2026-09-25): "Note to you" off. */}
       {askNote ? (
-        <div data-rsvp-step className="space-y-1.5">
+        <div data-rsvp-step {...canvasAsk('note')} className="space-y-1.5">
           <label htmlFor="guest_note" className={questionClass(oneAtATime)}>
             A note to {words.theOrganizer} (optional)
           </label>
@@ -611,6 +622,8 @@ export function RsvpWidget({
           leave the app and go and ask for it, for every guest.
           Owner, 2026-08-21, pointing at that page: "these are all the
           information we want to fill up."
+          📵 The EMAIL box went on 2026-09-29 (owner: "No email. Either use the
+          qr and link only") — nothing emails a guest, so none is collected.
 
           🔒 First and last name stay HOST-ONLY, deliberately. The link that
           reaches this card is printed on a poster, and a stranger who can
@@ -653,46 +666,7 @@ export function RsvpWidget({
         </div>
       )}
 
-      {/* ── KEEP THIS INVITATION (owner 2026-09-25) ─────────────────────────
-          The reply's email box IS the sign-up. One unticked box, directly under
-          the address it will use, turns this Save into "save + email me the
-          sign-in link". Outside the folded details on purpose: a guest whose
-          details are already filled in must still see it. */}
       <div data-rsvp-step className="space-y-5">
-      {keepOffer ? (
-        <label
-          htmlFor="keep_invitation"
-          className="flex min-h-[44px] items-start gap-3 text-sm text-ink/75"
-        >
-          <input
-            id="keep_invitation"
-            name={TERMS_FIELD}
-            type="checkbox"
-            className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
-          />
-          <span>
-            <span className="block font-medium text-ink">Keep this invitation on my phone</span>
-            <span className="mt-0.5 block">
-              We&rsquo;ll email a sign-in link to the address above — no password needed. I agree
-              to the{' '}
-              <Link href="/terms" className="font-medium text-link underline-offset-2 hover:underline">
-                Terms
-              </Link>{' '}
-              and{' '}
-              <Link href="/privacy" className="font-medium text-link underline-offset-2 hover:underline">
-                Privacy Policy
-              </Link>
-              .
-            </span>
-          </span>
-        </label>
-      ) : null}
-
-      {/* ONE PRESS. With the keep box ticked the same button says what it now
-          does — CSS `:has()`, like the reveals above, so no client state. */}
-      {keepOffer ? (
-        <style>{`.rsvp-form .keep-on{display:none}.rsvp-form:has(#keep_invitation:checked) .keep-on{display:inline}.rsvp-form:has(#keep_invitation:checked) .keep-off{display:none}`}</style>
-      ) : null}
       {termsOnSend ? (
         /* THE RSVP PAGE's last step (owner 2026-09-27): the Terms tick, then ONE
            button. Unticked and required — the browser will not send without it,
@@ -713,12 +687,7 @@ export function RsvpWidget({
         className="button-primary min-h-[44px] w-full sm:w-auto"
         pendingLabel={replyLocked ? 'Saving details…' : 'Saving RSVP…'}
       >
-        {keepOffer ? (
-          <>
-            <span className="keep-off">{replyLocked ? 'Save details' : 'Save RSVP'}</span>
-            <span className="keep-on">Save &amp; keep this on my phone</span>
-          </>
-        ) : replyLocked ? (
+        {replyLocked ? (
           'Save details'
         ) : (
           'Save RSVP'
@@ -814,7 +783,6 @@ function RsvpFocusForm({
       )}
       <input type="hidden" name="dietary_restrictions" value={guest.dietary_restrictions ?? ''} />
       <input type="hidden" name="guest_note" value={guest.guest_note ?? ''} />
-      <input type="hidden" name="contact_email" value={guest.email ?? ''} />
       {askMobile && !declining ? null : (
         <input type="hidden" name="contact_mobile" value={guest.mobile ?? ''} />
       )}

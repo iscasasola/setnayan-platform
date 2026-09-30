@@ -9,6 +9,7 @@ import { envFlagEnabled } from '@/lib/env-flag';
 import { saveMethodFor } from '@/lib/guest-one-path';
 import { MEAL_PREFERENCES, type MealPreference } from '@/lib/guests';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { normalizeNamePart } from '@/lib/formal-name';
 import {
   hasAgreedToTerms,
   RSVP_TERMS_COOKIE,
@@ -19,7 +20,6 @@ import {
 } from '@/lib/terms-agreement';
 import { PLUS_ONE_WELCOMED_COOKIE, PLUS_ONE_WELCOMED_MAX_AGE, plusOneUnnamed } from '@/lib/plus-one-welcome';
 import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
-import { claimAccountAction } from '../actions';
 
 /**
  * THE PLUS-ONE'S OWN DOOR — the save (prototype `rsvp_plus_ones_2026-09-29.html`,
@@ -29,8 +29,8 @@ import { claimAccountAction } from '../actions';
  * One form, three ways out (`then`):
  *   · `keep` — "Save to my account": saves the answers and the Terms tick, then
  *     takes the DEVICE's method, re-decided here (`saveMethodFor`) — Apple or
- *     Google through `/join/{eventId}/connect`, or the emailed link
- *     (`claimAccountAction`, the Event Hub's own). The shipped doors, reused.
+ *     Google through `/join/{eventId}/connect`. The shipped doors, reused.
+ *     📵 Never an emailed link (owner 2026-09-29, "NO EMAIL TO GUESTS").
  *   · `pass` — "Not now — just show my pass": saves whatever was typed (nothing
  *     is required) and shows their QR on this same door.
  *   · absent — the older name-only form ("Correct — that's me"): name required,
@@ -38,7 +38,7 @@ import { claimAccountAction } from '../actions';
  *
  * 🔒 ONLY THE FOUR, ONLY THEIR OWN ROW. The guest is the one this browser's
  * pass names (never a form field), and must be a plus-one of THIS event. What
- * is written: first + last name, meal (a known value, only when the couple asks
+ * is written: the name (its five parts — owner 2026-09-30), meal (a known value, only when the couple asks
  * it), dietary (only when asked). Never an answer, a song, a note, a selfie.
  * Their attendance is not touched — it follows their own reply if they give one.
  */
@@ -84,6 +84,12 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
   if (first_name && last_name) {
     patch.first_name = first_name;
     patch.last_name = last_name;
+    // The other three parts ride with the name, as the Guest list stores them
+    // (owner 2026-09-30: "Prefix · First · Middle · Last · Suffix") — only a
+    // box the door drew; blank clears it (NULL, never '').
+    for (const part of ['name_prefix', 'middle_name', 'name_suffix'] as const) {
+      if (formData.get(part) !== null) patch[part] = normalizeNamePart(formData.get(part));
+    }
     // 🔴 CLEARING THIS IS THE HALF THAT WAS MISSING, AND WITHOUT IT THE WHOLE
     // SCREEN ACHIEVED NOTHING VISIBLE. An unnamed plus-one was minted with a
     // placeholder `display_name` ("+2 · TBA", formerly "+ TBA · brought by …"),
@@ -165,10 +171,10 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
     next.set('next', `/join/${event.event_id}/connect`);
     return method === 'apple' ? signInWithApple(next) : signInWithGoogle(next);
   }
-  // The emailed link — the Event Hub's own claim, with this form's email box
-  // and tick (it reads `keep_email` and the Terms from the form or the cookie).
-  formData.delete('return_to');
-  return claimAccountAction(event.event_id as string, home, formData);
+  // 📵 No provider on this device (an in-app browser): there is no email link
+  // any more (owner 2026-09-29, "NO EMAIL TO GUESTS"). The answers are saved;
+  // the door hands over "Open in your browser" under its plain Save.
+  redirect(`/${home}`);
 }
 
 export async function abandonPlusOneInvite(

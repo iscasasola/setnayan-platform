@@ -76,7 +76,8 @@ import {
   type HubDraftRefusal,
   type HubDraftState,
 } from '@/lib/hub-draft';
-import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
@@ -123,7 +124,13 @@ export async function hubDraftAction(
       } catch {
         return { ok: false, intent, error: 'That change could not be read.' };
       }
-      await writeHubDraft(supabase, eventId, mergeHubDraft(current, patch));
+      /* ⚡ The bar is read BESIDE the write (from the same merge, which is pure),
+         so asking for it adds no round trip after the save. */
+      const wantsBar = formData.get(HUB_DRAFT_BAR_FIELD) === '1';
+      const [, bar] = await Promise.all([
+        writeHubDraft(supabase, eventId, mergeHubDraft(current, patch)),
+        wantsBar ? hubDraftBarAfterSave(supabase, eventId, mergeHubDraft(current, patch)) : Promise.resolve(null),
+      ]);
       /* ⚡ ONE RENDER PER SAVE, AND NOT THE WHOLE MAKER (owner 2026-09-28:
          *"picking something takes a lot of time before the website reacts"*).
          A draft write changes nothing a guest can see — guests meet the draft
@@ -136,7 +143,14 @@ export async function hubDraftAction(
          bridge already drew (`element-preview.ts`). The client router cache is
          cleared by that refresh, so nothing stale is served on a revisit.
          Held by `a-maker-pick-never-reloads-what-it-drew.test.ts`. */
-      return done();
+      /* ⚡ A MAKER PICK ASKS FOR THE BAR (owner 2026-09-30, SPEED FIRST): a pick
+         the bridge drew is followed by NO render of the Maker
+         (`lib/maker-refresh.ts`), so the Apply · Undo · Restore count comes back
+         in this same answer — the SAME summary the render counts with, for both
+         answers to "owns Pro" (this action never asks — the view switch must
+         not reach a save; the toolbar picks). */
+      if (!bar) return done();
+      return { ...done(), bar };
     }
     if (intent === 'reset') {
       const scope = formData.get('stage');

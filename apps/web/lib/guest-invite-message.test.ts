@@ -37,7 +37,7 @@ test('🔑 the owner’s message: name, the couple’s wedding, the date, their 
   const msg = buildGuestInviteMessage(BASE)!;
   assert.match(msg, /^Hi Maria! 💌 You’re invited to Indalecio & Claire’s wedding on Friday, December 18\./);
   assert.match(msg, /tap to reply:\nhttps:\/\/www\.setnayan\.com\/cale-ice\?invite=abc123\n/);
-  assert.match(msg, /opens our Event Hub anytime, and it’s your pass at the door/);
+  assert.match(msg, /opens our Event Hub anytime, and it’s your ticket at the door/);
   assert.match(msg, /This link is just for you, so please don’t forward it\./);
 });
 

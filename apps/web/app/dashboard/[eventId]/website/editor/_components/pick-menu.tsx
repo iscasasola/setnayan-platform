@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
@@ -51,6 +51,9 @@ export type PickOption = {
   /** A small picture of the choice, drawn before its label (the pass card's
    *  three looks — the couple sees each while picking). Decorative. */
   thumb?: string;
+  /** The choice's own icon, drawn before its label on the button and in the
+   *  list (the Maker's Page ▾ — each page with the guest bar's icon). Decorative. */
+  icon?: ReactNode;
 };
 
 export function PickMenu({
@@ -171,6 +174,7 @@ export function PickMenu({
         className={`sn-press inline-flex min-h-10 min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 px-3 text-[13px] font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white ${className}`}
       >
         {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
+        {current?.icon ? <span aria-hidden className="inline-flex shrink-0">{current.icon}</span> : null}
         <span className="min-w-0 truncate" style={current?.fontFamily ? { fontFamily: current.fontFamily } : undefined}>
           {buttonText ?? current?.label ?? label}
         </span>
@@ -249,6 +253,7 @@ export function PickMenu({
             // eslint-disable-next-line @next/next/no-img-element -- a generated preview from our own route
             <img src={o.thumb} alt="" aria-hidden width={27} height={36} loading="lazy" className="my-1 h-9 w-[27px] shrink-0 rounded-sm object-cover ring-1 ring-ink/10" />
           ) : null}
+          {o.icon ? <span aria-hidden className="inline-flex shrink-0">{o.icon}</span> : null}
           <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
             {o.label}
           </span>

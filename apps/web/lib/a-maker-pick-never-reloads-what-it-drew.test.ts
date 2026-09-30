@@ -33,6 +33,7 @@ import { makerStageLists, type MakerStageInput } from './maker-scene-list';
 import { everySceneBackgroundPatch, withBackground } from './scene-background-scope';
 import type { InvitationWidgetRow, WidgetType } from './invitation-widgets';
 import { stripComments } from './strip-comments';
+import { keysLeavingWith } from './invitation-welcome';
 import {
   CANVAS_HOLD_MS,
   NO_CANVAS_HOLD,
@@ -139,7 +140,7 @@ test('a scene taken off the page — the eye, and Hidden — keeps the page, on 
   type Gate = { mode: 'auto' | 'shown' | 'hidden'; isVisible: boolean };
   const step = (hold: CanvasHold, basis: ReturnType<typeof render>, key: string, before: Gate, after: Gate, openBrowse: boolean): CanvasHold | null => {
     const effect = sceneDrawEffect(before, after, openBrowse);
-    if (effect === 'hide') return holdChange(hold, basis, { order: (o) => orderWithout(o, key) }, NOW);
+    if (effect === 'hide') return holdChange(hold, basis, { order: (o) => keysLeavingWith(key).reduce(orderWithout, o) }, NOW);
     if (effect === 'none') return holdChange(hold, basis, {}, NOW);
     return null; // the shell releases: a reload
   };
@@ -182,7 +183,7 @@ test('two quick picks of different kinds both count toward what the canvas shows
   const before = render([]);
   const bg = withBackground({}, { kind: 'color', color: '#335577' }, false);
   let hold = holdChange(NO_CANVAS_HOLD, before, { canvases: { venue_map: bg } }, NOW);
-  hold = holdChange(hold, before, { order: (o) => orderWithout(o, 'w:dress_code') }, NOW + 200);
+  hold = holdChange(hold, before, { order: (o) => keysLeavingWith('w:dress_code').reduce(orderWithout, o) }, NOW + 200);
   const after = render([{ widgets: { venue_map: { canvas: bg } } }, { widgets: { dress_code: { is_visible: false } } } as HubDraftPatch]);
   assert.equal(canvasKeepsItsPage(hold, after.canvases, NOW + 2_000, after.order), true);
 });
@@ -200,7 +201,7 @@ test('the safety net: anything the bridge did not draw reloads the canvas', () =
   assert.equal(canvasKeepsItsPage(held, more.canvases, NOW + 1_000, more.order), false);
   // A scene was put BACK on the page, or moved — the order differs.
   const hidden = render([{ widgets: { dress_code: { is_visible: false } } } as HubDraftPatch]);
-  const hideHold = holdChange(NO_CANVAS_HOLD, before, { order: (o) => orderWithout(o, 'w:dress_code') }, NOW);
+  const hideHold = holdChange(NO_CANVAS_HOLD, before, { order: (o) => keysLeavingWith('w:dress_code').reduce(orderWithout, o) }, NOW);
   assert.equal(canvasKeepsItsPage(hideHold, before.canvases, NOW + 1_000, before.order), false, 'the hide was refused');
   const more2 = render([{ widgets: { dress_code: { is_visible: false }, what_to_bring: { is_visible: false } } } as HubDraftPatch]);
   assert.equal(canvasKeepsItsPage(hideHold, more2.canvases, NOW + 1_000, more2.order), false, 'another scene left the page too');
@@ -231,7 +232,9 @@ test('the shell holds every kind the bridge draws, and compares the scene order 
   // A scene taken off the page: hidden by the bridge, held without it.
   const hide = SHELL.slice(SHELL.indexOf('const hideOnCanvas = '), SHELL.indexOf('const post = ('));
   assert.match(hide, /t: 'sceneShow', key, shown: false/);
-  assert.match(hide, /orderWithout\(o, key\)/);
+  // 🏠 …with the scenes that leave WITH it (the dress code takes the guest's look on Welcome).
+  assert.match(hide, /const keys = keysLeavingWith\(`w:\$\{scene\.type\}`\);/);
+  assert.match(hide, /keys\.reduce\(orderWithout, o\)/);
   // Every eye / Hidden write is decided as the page reads it; everything else releases.
   const post = SHELL.slice(SHELL.indexOf('const drawHow = '), SHELL.indexOf('const eyeWrite = '));
   assert.match(post, /sceneDrawEffect\([\s\S]*sceneFormat\?\.openBrowse/, 'the decision reads open browsing, as the page does');
@@ -250,17 +253,26 @@ test('only saves the bridge drew are marked held; the shell announces every form
     'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx',
     'app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx',
   ];
-  for (const f of held) assert.match(read(f), /makerSave\([\s\S]*?\{ held: true \}\)/, `${f}: a drawn pick must be held`);
+  // `{ held: true }`, or with more options beside it (the part sheet's `ok`, 2026-09-30).
+  for (const f of held) assert.match(read(f), /makerSave\([\s\S]*?\{ held: true\b[^}]*\},?\s*\)/, `${f}: a drawn pick must be held`);
   for (const f of [
     'app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx',
     'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
     'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx',
-    'app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx',
   ]) {
     const src = read(f);
     assert.match(src, /makerSave\(/, `${f}: every Maker draft save goes through makerSave`);
     assert.doesNotMatch(src, /held: true/, `${f}: nothing here is drawn by the bridge — it must release the hold`);
+  }
+  /* 🗳 The RSVP settings: Details' item draws nothing (its save stays unheld and
+     brings its one render); the RSVP STAGE's saves are drawn by its own bridge
+     (`rsvp-canvas-bridge.tsx`) and held — `the-rsvp-stage-is-realtime.test.ts` E. */
+  {
+    const rsvp = read('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
+    const details = rsvp.slice(rsvp.indexOf('start(async () => {'), rsvp.indexOf('const saveWord = '));
+    assert.match(details, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'Details’ RSVP save must stay unheld');
+    assert.equal((rsvp.match(/held: true/g) ?? []).length, 2, 'only the stage’s two saves (the config, the reply-by date) are held');
   }
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
   assert.match(shell, /form\.dataset\.makerHeld !== '1'\) \{\s*announceUnheldWrite\(\);/);

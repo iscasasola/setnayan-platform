@@ -35,7 +35,7 @@ test('the card section reuses the Hosts pieces and their actions — never a cop
       if (statSync(p).isDirectory()) walk(p);
       else if (/\.tsx$/.test(n)) {
         const src = read(p);
-        for (const k of Object.keys(defs)) if (new RegExp(`function ${k}\\b`).test(src)) defs[k] += 1;
+        for (const k of Object.keys(defs)) if (new RegExp(`function ${k}\\b`).test(src)) defs[k] = (defs[k] ?? 0) + 1;
       }
     }
   };

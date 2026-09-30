@@ -271,8 +271,8 @@ export function buildEventMenuSections(
   // route shares `${base}/`, so only the exact pathname may light it.
   put({ key: 'home', label: 'Home', href: base, icon: 'overview', matchPrefix: '__home__' });
 
-  // GUEST LIST — the people room: Guests · Hosts · Check-in are its parts
-  // (`guestListParts`), and the pages about the same people light it.
+  // GUEST LIST — the people room: Access and Check-in are columns of the list
+  // (F2 cut its parts row), and the pages about the same people light it.
   put({
     key: 'guests',
     label: 'Guest list',

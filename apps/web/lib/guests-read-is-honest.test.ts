@@ -28,7 +28,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -159,11 +159,16 @@ test('every claim on the page is gated on that measurement', () => {
   };
   assert.match(propOf('EmptyState'), /measured=\{guestsMeasured\}/, 'the zero-state must know');
   assert.match(propOf('SummaryFacetBar'), /measured=\{guestsMeasured\}/, 'the summary bar must know');
-  // 4 · THE PHONE. The page hides its desktop header on mobile on purpose, so
-  //     this panel is the ONLY count there — an ungated zero here is not a
-  //     duplicate of a lie told elsewhere, it is the whole lie. Missed on the
-  //     first cut of this fix and found by re-counting the ungated `stats.` uses.
-  assert.match(propOf('MobileGuestCarousel'), /measured=\{guestsMeasured\}/, 'the phone summary must know');
+  // 4 · THE PHONE. ⤷ 2026-09-30 (Fix E): the phone no longer has a head of
+  //     its own — the summary bar above IS the phone's head — so the gate on
+  //     SummaryFacetBar covers both widths. What must hold is that the bar is
+  //     not hidden on a phone, or the phone would show no gated count at all.
+  {
+    const at = src.indexOf('data-roster-head=""');
+    assert.notEqual(at, -1, 'the roster head lost its anchor — this guard is blind');
+    const tag = src.slice(src.lastIndexOf('<div', at), at);
+    assert.doesNotMatch(tag.replace(/\b(?:sm|md|lg|xl|2xl):[\w-]+/g, ''), /\bhidden\b/, 'the one roster head is hidden on a phone again');
+  }
   assert.match(src, /We couldn&rsquo;t load your guest list/, 'and must say so');
   // 2 · the headcount (precedent rule 3)
   assert.match(
@@ -179,22 +184,17 @@ test('every claim on the page is gated on that measurement', () => {
     /<RosterMeters[^>]*\bmeasured=\{measured\}/,
     'the page renders the meter without telling it whether the read happened',
   );
-  // 5 · the facet pills sit in the SAME panel as that hedge. Seven confident
-  //     zeros beside one small "not loaded" line reads as "we could not
-  //     measure it, and it is zero" — the hedge loses.
-  const pills = src.match(/count=\{measured \? \w+\.count : undefined\}/g) ?? [];
-  assert.equal(pills.length, 2, 'both facet rows — Side and RSVP — must drop their counts');
+  // 5 · ⤷ 2026-09-30: the count-bearing facet pills became four dropdowns with
+  //     NO counts on them (owner, the Fable rows); the figures moved to ONE
+  //     counts line, which is drawn only when the read was measured.
+  assert.match(src, /const countsLine = guestsMeasured \? \(\s*<RosterCountsLine/, 'the counts line is drawn on a refused read');
+  assert.doesNotMatch(src, /count=\{\w+\.count\}/, 'an ungated count is back on a facet');
 });
 
-test('the phone summary states no figure it did not measure', () => {
-  const src = stripComments(
-    readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), '..',
-        'app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx'),
-      'utf8',
-    ),
-  );
-  assert.match(src, /measured \? \(\s*<>\s*\{formatCount\(total\)\}/, 'the headline count must be gated');
-  const pills = src.match(/\{measured \? \w+ : '—'\}/g) ?? [];
-  assert.equal(pills.length, 3, 'all three RSVP pills — attending, pending, declined');
+test('the phone draws no second head that could state an unmeasured figure', () => {
+  // ⤷ 2026-09-30 (Fix E): the phone-only head was DELETED, not hidden — the
+  // gated summary bar is the phone's head too. A second head coming back is a
+  // second place a refused read could print a zero.
+  const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'app/dashboard/[eventId]/guests/_components');
+  assert.ok(!existsSync(join(dir, 'mobile-guest-carousel.tsx')), 'the phone-only head is back');
 });

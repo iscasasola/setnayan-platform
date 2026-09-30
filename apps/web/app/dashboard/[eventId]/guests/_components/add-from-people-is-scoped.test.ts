@@ -162,8 +162,23 @@ test('the phone has a door to the picker at all', () => {
     A phone is also where the feature is worth the most — retyping a name we
     already hold costs more on a thumb keyboard than anywhere else.
   */
+  /*
+    ⤷ 2026-09-30 (Fix E — "the guestlist is not same … like the desktop"): the
+    phone-only head is gone. The ONE roster head renders at every width, so the
+    capture bar's own opener IS the phone's door — provided that head is not
+    hidden on a phone again. Both halves are asserted: the opener, and the head.
+  */
+  const page = read('app', 'dashboard', '[eventId]', 'guests', 'page.tsx');
+  const headAt = page.indexOf('data-roster-head=""');
+  assert.notEqual(headAt, -1, 'The roster head lost its anchor — this guard is blind.');
+  const headTag = page.slice(page.lastIndexOf('<div', headAt), headAt);
+  assert.doesNotMatch(
+    headTag.replace(/\b(?:sm|md|lg|xl|2xl):[\w-]+/g, ''),
+    /\bhidden\b/,
+    'The roster head is hidden on a phone again — and with it the only door to the picker.',
+  );
   const src = read(
-    'app', 'dashboard', '[eventId]', 'guests', '_components', 'mobile-guest-carousel.tsx',
+    'app', 'dashboard', '[eventId]', 'guests', '_components', 'capture-bar.tsx',
   );
   assert.match(
     src,

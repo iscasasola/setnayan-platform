@@ -282,6 +282,15 @@ test('the Guest list and the profile type a Prefix in the guest side’s dropdow
       if (ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) {
         const tag = n.tagName.getText(sf);
         if (tag === 'PrefixSelect') selects += 1;
+        /* The Fable guest card (#6192) draws every choice as ONE shipped
+           PickMenu (`FormPick`, owner 2026-09-28 "any set of choices is a
+           dropdown") — the same list as PrefixSelect when it is built from
+           `prefixChoicesFor` (NAME_PREFIX_CHOICES). */
+        if (tag === 'FormPick') {
+          const attrs = n.attributes.properties.filter(ts.isJsxAttribute);
+          const val = (k: string) => attrs.find((a) => a.name.getText(sf) === k)?.initializer?.getText(sf) ?? '';
+          if (val('name') === '"name_prefix"' && /prefixChoicesFor\(/.test(val('options'))) selects += 1;
+        }
         if (tag === 'input' || tag === 'Field') {
           const attrs = n.attributes.properties.filter(ts.isJsxAttribute);
           const val = (k: string) => attrs.find((a) => a.name.getText(sf) === k)?.initializer?.getText(sf) ?? '';

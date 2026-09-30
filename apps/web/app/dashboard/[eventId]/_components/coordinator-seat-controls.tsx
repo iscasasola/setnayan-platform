@@ -16,7 +16,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
  * Where they are drawn now:
  *   · the hired planner's seat — their supplier workspace
  *     (`promote-coordinator-card.tsx`);
- *   · a limited helper's seat — their guest card (build F2).
+ *   · a limited helper's seat — their guest card (`guest-helper-access.tsx`),
+ *     without the reasoned Remove (Access → None is their removal).
  *
  * 🔑 NEVER FOR A FULL CO-HOST. A co-host seat is a `couple` member
  * (20271251336140) with the same access as the creator; nothing reads its
@@ -78,11 +79,18 @@ export function CoordinatorSeatControls({
   moderatorId,
   permissions,
   returnTo,
+  withRemove = true,
 }: {
   eventId: string;
   moderatorId: string;
   permissions: ModeratorPermissions | null;
   returnTo: SeatReturnTo;
+  /**
+   * The reasoned Remove is the HIRED PLANNER's. A limited helper from the guest
+   * list is removed the guest-list way — Access → None on the same card
+   * (`setGuestAccess`) — so their card draws no second, different Remove.
+   */
+  withRemove?: boolean;
 }) {
   const budgetLevel = resolveAreaLevel(permissions, 'budget');
   // Owner ruling 2026-08-06 — the couple approves photo access per
@@ -108,6 +116,7 @@ export function CoordinatorSeatControls({
           {photosLevel ? 'Hide event photos' : 'Allow event photos'}
         </SubmitButton>
       </form>
+      {withRemove ? (
       <form action={removeHost} className="flex items-center gap-1.5">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="moderator_id" value={moderatorId} />
@@ -131,6 +140,7 @@ export function CoordinatorSeatControls({
           Remove
         </SubmitButton>
       </form>
+      ) : null}
     </div>
   );
 }

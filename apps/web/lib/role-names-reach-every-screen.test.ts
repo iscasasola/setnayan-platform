@@ -152,7 +152,6 @@ const SHOWS_THE_USUAL_WORD_ON_PURPOSE: Array<[file: string, line: string, why: s
   ['app/dashboard/[eventId]/guests/page.tsx', ': ROLE_GROUP_LABELS[grp];', 'a SORT KEY — renamed only where the heading is drawn'],
   ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', ': ROLE_GROUP_LABELS[grp];', 'the same SORT KEY on the client — the heading is re-said by sectionHeadingInTheirWords'],
   ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', "label: grp === 'guest' ? 'Guests' : ROLE_GROUP_LABELS[grp],", 'the honoree heading — bride/groom/celebrant, never renamed'],
-  ['app/dashboard/[eventId]/guests/_components/active-filters.tsx', "&& ROLE_GROUP_LABELS[view])", 'an existence check; the chip text itself uses roleGroupLabel'],
 ];
 
 test('every screen that shows a role word is handed the couple’s words', () => {

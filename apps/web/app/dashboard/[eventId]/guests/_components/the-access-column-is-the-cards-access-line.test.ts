@@ -34,6 +34,7 @@ const ROSTER = read('guest-list-multiselect.tsx');
 const CELL = read('guest-access-cell.tsx');
 const CARD_LINE = read('guest-access-control.tsx');
 const PAGE = read('..', 'page.tsx');
+const ROSTER_COLUMNS_SRC = read('..', '..', '..', '..', '..', 'lib', 'roster-columns.ts');
 
 /** The BODY of a named function (walks past the destructured params first). */
 function bodyOf(src: string, name: string): string {
@@ -57,13 +58,18 @@ function bodyOf(src: string, name: string): string {
   throw new Error(`unbalanced braces in ${name}`);
 }
 
-test('both row shapes draw the Access control, and the header declares its column', () => {
+test('both row shapes draw the Access control, and Access is a column any header can pick', () => {
+  // Since 2026-09-30 (the full-width list) every cell comes through ONE switch,
+  // RosterCell, which both row shapes draw — so Access is the same control on
+  // a computer's column and on the phone's one slot.
   for (const row of ['DesktopRow', 'MobileListRow']) {
-    const n = (bodyOf(ROSTER, row).match(/<RowAccess\b/g) ?? []).length;
-    assert.equal(n, 1, `${row} draws ${n} Access controls — every guest row needs exactly one`);
+    assert.match(bodyOf(ROSTER, row), /<RosterCell\b/, `${row} no longer draws its cells through RosterCell`);
   }
-  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
-  assert.match(head, /<th className="[^"]*"[^>]*>\s*<span className="block truncate">Access<\/span>/, 'the table has no Access column header');
+  const cell = bodyOf(ROSTER, 'RosterCell');
+  const n = (cell.match(/<RowAccess\b/g) ?? []).length;
+  assert.equal(n, 1, `RosterCell draws ${n} Access controls — the Access column needs exactly one`);
+  assert.match(cell, /case 'access':\s*return <RowAccess\b/, 'the Access column does not draw RowAccess');
+  assert.match(ROSTER_COLUMNS_SRC, /access: 'Access'/, 'Access is no longer a column a header can pick');
 });
 
 test('the cell is the card’s Access line in a row’s width — one action, one dropdown, one vocabulary', () => {

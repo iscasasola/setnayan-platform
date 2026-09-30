@@ -92,6 +92,7 @@ import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import type { CustomSectionContent } from '@/lib/custom-sections';
 import { applyPostEventItems, postEventArrangementOf } from '@/lib/post-event-draft';
+import { storyProExtrasOf } from '@/lib/story-pro-extras';
 import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraft } from '@/lib/fixed-scene-styles';
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { postEventPreset } from '@/lib/post-event-presets';
@@ -552,7 +553,7 @@ export async function hubDraftAction(
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
       const liveStory = (storyRow as { draft_json?: unknown }).draft_json ?? {};
-      snapshot.editorial = postEventArrangementOf(liveStory);
+      snapshot.editorial = { ...postEventArrangementOf(liveStory), ...storyProExtrasOf(liveStory) };
       const { data: sRows, error: sErr } = await supabase
         .from('event_editorial')
         .update({ draft_json: applyPostEventItems(liveStory, storyItems) })
@@ -587,6 +588,10 @@ export async function hubDraftAction(
       else if (item.kind === 'editorial') {
         // A held look keeps the WHOLE drafted map — its free part is now live.
         if (item.item.field === 'sceneLooks') remaining.editorial = { ...(remaining.editorial ?? {}), sceneLooks: item.item.value };
+        // 💎 A story extra held for Pro stays drafted whole, for the Apply after Pro.
+        else if (item.item.field === 'chapterOverrides' || item.item.field === 'customColumns' || item.item.field === 'reviews') {
+          remaining.editorial = { ...(remaining.editorial ?? {}), [item.item.field]: item.item.value };
+        }
       } else if (item.kind === 'fixed-style') {
         // A style pick is free and never held; nothing to keep.
       } else if (item.field === 'canvas') {

@@ -58,6 +58,14 @@ import {
 import { HUB_ELEMENT_PRO_FIELDS, combineChanges, refChange, type LookChange } from '@/lib/hub-look-pro';
 import { postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
 import { isPostEventStyleId, postEventLookKey, postEventStyleHome, type PostEventStyleId } from '@/lib/post-event-styles';
+import {
+  STORY_PRO_EXTRA_KEYS,
+  STORY_PRO_EXTRA_LABEL,
+  sanitizeStoryProExtra,
+  storyProExtrasOf,
+  type StoryProExtraKey,
+  type StoryProExtras,
+} from '@/lib/story-pro-extras';
 
 /**
  * The story's visibility switches — `EditorialSections` (`editorial/data.ts`,
@@ -156,8 +164,16 @@ export type PostEventArrangement = {
   customIds: string[];
 };
 
-/** The drafted part: each key present ONLY when the couple changed it in the Maker. */
-export type PostEventDraft = Partial<Pick<PostEventArrangement, 'sections' | 'sectionOrder' | 'sceneLooks'>>;
+/**
+ * The drafted part: each key present ONLY when the couple changed it.
+ *
+ * 💎 The three story extras (`chapterOverrides`, `customColumns`, `reviews`)
+ * are Event Hub Pro. A couple without Pro writes them in the story workroom and
+ * `saveEditorial` keeps them HERE, off the live story, until Apply asks for Pro
+ * (`lib/story-pro-extras.ts`). Each is replaced whole, like every other key.
+ */
+export type PostEventDraft = Partial<Pick<PostEventArrangement, 'sections' | 'sectionOrder' | 'sceneLooks'>> &
+  Partial<StoryProExtras>;
 
 const isObj = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 
@@ -273,6 +289,9 @@ export function sanitizePostEventDraft(raw: unknown): PostEventDraft | undefined
     out.sectionOrder = readStorableSectionOrder(raw.sectionOrder);
   }
   if ('sceneLooks' in raw && isObj(raw.sceneLooks)) out.sceneLooks = readSceneLooks(raw.sceneLooks);
+  for (const key of STORY_PRO_EXTRA_KEYS) {
+    if (key in raw && Array.isArray(raw[key])) (out as Record<string, unknown>)[key] = sanitizeStoryProExtra(key, raw[key]);
+  }
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
@@ -314,6 +333,12 @@ export function overlayPostEventDraftJson(
   if (draft.sceneLooks !== undefined) {
     if (Object.keys(draft.sceneLooks).length === 0) delete base.sceneLooks;
     else base.sceneLooks = draft.sceneLooks;
+  }
+  for (const key of STORY_PRO_EXTRA_KEYS) {
+    const v = draft[key];
+    if (v === undefined) continue;
+    if (v.length === 0) delete base[key];
+    else base[key] = v;
   }
   return base;
 }
@@ -453,6 +478,13 @@ export type PostEventApplyItem =
       pro: boolean;
       /** Set only on the FREE PART of a held look (`sceneLooksFreePart`). */
       freePart?: true;
+    }
+  | {
+      /** 💎 One of the story's Pro extras — added or changed is Pro, taken off is free. */
+      field: StoryProExtraKey;
+      value: StoryProExtras[StoryProExtraKey];
+      change: LookChange;
+      pro: boolean;
     };
 
 const asText = (v: unknown): string | null => (v === null || v === undefined ? null : typeof v === 'string' ? v : JSON.stringify(v));
@@ -528,15 +560,38 @@ export function classifyPostEventDraft(draft: PostEventDraft, liveDraftJson: unk
     const change = sceneLooksChange(live.sceneLooks, draft.sceneLooks);
     items.push({ field: 'sceneLooks', value: draft.sceneLooks, change: change === 'none' ? 'change' : change, pro: grows(change) });
   }
+  const liveExtras = storyProExtrasOf(liveDraftJson);
+  for (const key of STORY_PRO_EXTRA_KEYS) {
+    const drafted = draft[key];
+    if (drafted === undefined) continue;
+    const was = liveExtras[key];
+    if (JSON.stringify(drafted) === JSON.stringify(was)) continue;
+    const change = storyProExtraChange(was, drafted);
+    items.push({ field: key, value: drafted, change, pro: grows(change) });
+  }
   return items;
 }
 
 /**
+ * One extra, live → drafted: emptied is a REMOVAL (free — taking your own words
+ * off is never charged); a list that only lost entries, each otherwise as it
+ * was, is a removal too; anything new or changed is Pro.
+ */
+export function storyProExtraChange(live: readonly unknown[], next: readonly unknown[]): LookChange {
+  if (next.length === 0) return live.length === 0 ? 'none' : 'remove';
+  if (live.length === 0) return 'add';
+  const liveSet = new Set(live.map((v) => JSON.stringify(v)));
+  const onlyTakesAway = next.length < live.length && next.every((v) => liveSet.has(JSON.stringify(v)));
+  return onlyTakesAway ? 'remove' : 'change';
+}
+
+/**
  * The story's `draft_json` with the applied items written in — a NEW object.
- * 🔒 IT TOUCHES THREE KEYS AND NOTHING ELSE: the couple's workroom words and
- * columns, the chapters' curation, the compiled scenes, and everything that
- * decides WHO reads the story (which is not in `draft_json` at all) stay
- * exactly as they were.
+ * 🔒 IT TOUCHES ONLY THE DRAFTED KEYS: the arrangement (sections, order,
+ * looks) and the three Pro extras a couple without Pro tried in the workroom
+ * (`lib/story-pro-extras.ts`). The couple's words, the compiled scenes, and
+ * everything that decides WHO reads the story (which is not in `draft_json` at
+ * all) stay exactly as they were.
  */
 export function applyPostEventItems(liveDraftJson: unknown, items: readonly PostEventApplyItem[]): Record<string, unknown> {
   const base = isObj(liveDraftJson) ? { ...liveDraftJson } : {};
@@ -545,10 +600,14 @@ export function applyPostEventItems(liveDraftJson: unknown, items: readonly Post
     else if (item.field === 'sectionOrder') {
       if (item.value === null) delete base.sectionOrder;
       else base.sectionOrder = item.value;
-    } else {
+    } else if (item.field === 'sceneLooks') {
       const clean = readSceneLooks(item.value);
       if (Object.keys(clean).length === 0) delete base.sceneLooks;
       else base.sceneLooks = clean;
+    } else {
+      const clean = sanitizeStoryProExtra(item.field, item.value);
+      if (clean.length === 0) delete base[item.field];
+      else base[item.field] = clean;
     }
   }
   return base;
@@ -563,5 +622,7 @@ export function postEventItemLabel(item: PostEventApplyItem): string {
       return 'Post Event · the order of its scenes';
     case 'sceneLooks':
       return 'Post Event · a font or an animation on a scene';
+    default:
+      return `Post Event · ${STORY_PRO_EXTRA_LABEL[item.field].toLowerCase()}`;
   }
 }

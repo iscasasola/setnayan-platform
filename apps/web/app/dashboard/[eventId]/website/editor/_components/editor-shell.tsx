@@ -91,7 +91,8 @@ import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { DetailsBoundField, ElementSheet, SceneBackgroundRow } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
+import { readTypeStart, type TypeStart } from '@/lib/hub-part-words';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -445,6 +446,34 @@ export function MakerWork({
   useEffect(() => {
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
   }, [selectionKey, stage]);
+  /* ✍ TAP-TO-TYPE (Maker core part 2): the tap that began typing on the
+     canvas. Only the tap is kept here — the bar (`type-in-place.tsx`, loaded
+     with the Details pieces) hears every keystroke itself, so a letter never
+     re-renders the Maker. A tap on a part's words closes that part's sheet;
+     on a desktop it selects the scene too (on a phone nothing rises over the
+     keyboard). */
+  const [typeStart, setTypeStart] = useState<TypeStart | null>(null);
+  useEffect(() => {
+    const onType = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const d = event.data as { source?: unknown; t?: unknown } | null;
+      if (d?.source === 'setnayan-site' && d.t === 'edit') setTypeStart(null);
+      const start = readTypeStart(event.data, event.source, Date.now());
+      if (!start) return;
+      setElementTarget(null);
+      if (window.innerWidth >= 1024) {
+        const picked = selectionForCanvasKey(start.key, scenes);
+        if (picked) select?.(picked);
+      }
+      setTypeStart(start);
+    };
+    window.addEventListener('message', onType);
+    return () => window.removeEventListener('message', onType);
+  }, [scenes, select]);
+  const endTyping = () => {
+    (typeStart?.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
+    setTypeStart(null);
+  };
   /* 💎 The Apply sheet's "Go to" a part's own font or motion (owner 2026-09-28):
      the toolbar selects the scene, then asks for the part's sheet here. */
   useEffect(() => {
@@ -2319,6 +2348,33 @@ export function MakerWork({
         ) : null}
       </section>
 
+      {/* ✍ The type bar over the words being typed (tap-to-type). */}
+      {typeStart && elementEditing && !workHidden ? (
+        <TypeBar
+          key={typeStart.n}
+          eventId={eventId}
+          start={typeStart}
+          heroCanvas={elementEditing.canvases.hero ?? {}}
+          draftAction={elementEditing.draftAction}
+          twoPeople={sceneFormat?.twoPeople !== false}
+          frames={() => [frameRef.current, bothFrameRef.current]}
+          post={postToShownCanvases}
+          broadcast={broadcastToCanvas}
+          onSaving={(widgetType, canvas) => {
+            canvasHold.current = holdCanvas(canvasHold.current, drawnCanvases(), widgetType, canvas, Date.now(), canvasOrder);
+            scheduleSnapshots(600);
+          }}
+          onClose={endTyping}
+          onStyle={() => {
+            const { key, el } = typeStart;
+            endTyping();
+            if (isHubElementKey(el)) {
+              setElementTarget({ key, widgetType: 'hero', el });
+              postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key, el });
+            }
+          }}
+        />
+      ) : null}
       {/* ══ 4 · THE INSPECTOR — only when something is selected ══ */}
       {workHidden ? null : elementTarget && elementEditing ? (
         <ElementSheet

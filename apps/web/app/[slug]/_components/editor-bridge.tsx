@@ -28,6 +28,7 @@ import { findMakerSection, sectionAfter } from './maker-section-find';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
+import { createCanvasTyping, typeablePart } from './type-in-place-canvas';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -51,6 +52,8 @@ import { applySceneCardPreview } from '@/lib/scene-card-look';
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *   frame  ⇄ parent  t:'type' · 'typeText' · 'typeStop' · 'typeSync' — ✍ tap-to-type
+ *                    (`type-in-place-canvas.ts` has the whole protocol)
  *
  * ✍ `words` IS THE SCENE'S TEXT, LIVE (owner 2026-09-27, writing his own
  * message: *"needs to show on the scene editor"*). The Content box of a scene
@@ -412,6 +415,11 @@ export function EditorBridge() {
   useEffect(() => {
     const origin = window.location.origin;
     const cleanups: Array<() => void> = [];
+    /* ✍ TAP ANY TEXT, TYPE RIGHT THERE (Maker core part 2): a tap on a hero
+       part's words puts the caret in them; the Maker hears every keystroke and
+       writes it (`type-in-place-canvas.ts`). */
+    const typing = createCanvasTyping(window, (m) => window.parent?.postMessage(m, origin));
+    cleanups.push(() => typing.dispose());
 
     // ── canvas → Maker: a tapped section selects its navigator tile ─────────
     const bind = (el: HTMLElement, key: string) => {
@@ -440,9 +448,21 @@ export function EditorBridge() {
         // never follows it anywhere (see maker-canvas-guard.tsx).
         e.preventDefault();
         e.stopPropagation();
+        // ✍ A tap inside the words being typed only moves the caret.
+        if (typing.inside(e.target)) return;
         // 🔤 A tap ON a part edits that part; anywhere else, the scene.
         const part = tappedElement(e.target, el);
         mark(part);
+        /* ✍ A hero part's words: the caret goes IN them, here, in the tap
+           itself (a phone raises its keyboard only for a focus made in the
+           gesture) — and the Maker's type bar, not its sheet, answers. */
+        const typeEl = typeablePart(part, key);
+        if (part && typeEl) {
+          const at = e as MouseEvent;
+          typing.begin(part, key, typeEl, { x: at.clientX, y: at.clientY });
+          return;
+        }
+        typing.stop();
         // 📱 On a phone the element's sheet rises over the lower canvas, so the
         // part is brought up to where it stays in view while it is edited.
         try {
@@ -493,6 +513,9 @@ export function EditorBridge() {
     const onSelection = () => {
       if (selTimer) window.clearTimeout(selTimer);
       selTimer = window.setTimeout(() => {
+        /* ✍ Letters selected while typing are the caret's, not a pick for the
+           style sheet (Style ▾ opens it, on the whole part). */
+        if (typing.typing()) return;
         const hit = selectionInPart(window.getSelection());
         const section = hit?.part.closest('[data-setnayan-editor-bound="1"]') as HTMLElement | null;
         const marker = section?.previousElementSibling;
@@ -554,7 +577,26 @@ export function EditorBridge() {
         applySchedulePreview(document, (data as { moment?: unknown }).moment);
         return;
       }
+      /* ✍ Tap-to-type: the Maker ends the typing (Done, Style ▾, a tap
+         outside), or asks for the words as they are now (its bar just loaded). */
+      if (data && data.source === 'setnayan-editor' && data.t === 'typeStop') {
+        typing.stop();
+        return;
+      }
+      if (data && data.source === 'setnayan-editor' && data.t === 'typeSync') {
+        typing.sync();
+        return;
+      }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
+      if (data.t === 'typeText') {
+        /* ✍ A Wording ▾ / Format ▾ pick, the other pane's keystroke, or a
+           refused save's words put back — on the part now. */
+        const text = (data as { text?: unknown }).text;
+        if (typeof data.el === 'string' && typeof text === 'string') {
+          typing.set(findMakerSection(document, data.key), data.el, text.slice(0, 240));
+        }
+        return;
+      }
       const el = findMakerSection(document, data.key);
       if (!el) return;
       if (data.t === 'sceneShow') {

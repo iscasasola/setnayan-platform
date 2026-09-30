@@ -378,8 +378,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/guests",
-    // Guests → Guest list (Stage D, owner 2026-09-29). Key unchanged.
-    label: "Guest list",
+    // Guests → Guest list (2026-09-29) → Guests (owner 2026-09-30: "Home,
+    // Guests, Your Team, More Services"). Key unchanged.
+    label: "Guests",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Users",
@@ -451,8 +452,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/guests",
-    // Guests → Guest list (Stage D, owner 2026-09-29). Key unchanged.
-    label: "Guest list",
+    // Guests → Guest list (2026-09-29) → Guests (owner 2026-09-30: "Home,
+    // Guests, Your Team, More Services"). Key unchanged.
+    label: "Guests",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Users",
@@ -537,36 +539,13 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   // `.papic`, `.schedule`, `.review` and `.galleries` (and `.seats`, retired
   // 2026-09-24). Left here, /admin/menus would keep offering a rename for six
   // tabs that no longer render — an edit that saves and reaches no screen.
-  {
-    // THE EVENT HUB MAKER — ONE slot for the one public address, in ALL phases
-    // (2026-09-02, EH3 · design EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md § 1.2).
-    //
-    // ⛔ RETIRED IN THE SAME COMMIT: `customer.bottom-nav.services` (day-of,
-    // this position) and `customer.bottom-nav.editorial` (after, position 3).
-    // They were the same slot wearing two other names. Leaving them here would
-    // have kept /admin/menus offering a rename + an icon + a hide for two rows
-    // that no longer render anywhere — an admin edit that appears to save and
-    // reaches no screen, which is exactly the silent half of a key change.
-    //
-    // 🔒 The KEY is 'launch', matching the menu key that did NOT change in
-    // lib/customer-menu.ts and customer-nav-config.ts. `customer-bottom-nav.tsx`
-    // looks the slot up as `customer.bottom-nav.${m.key}`, so a slot named for
-    // the LABEL would overlay nothing and fail green.
-    key: "customer.bottom-nav.launch",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/launch",
-    // The phone bar's short word (owner 2026-09-29: "Maker and Services") —
-    // the rail slot `customer.sidebar.launch` keeps "Event Hub Maker".
-    label: "Maker",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Globe",
-    customRef: null,
-    sortOrder: 3,
-  },
+  // ⛔ `customer.bottom-nav.launch` RETIRED 2026-09-30 — the phone bar is the
+  // four (Home · Guests · Your Team · More); the Event Hub Maker left it (owner:
+  // "the menu changes also on the mobile view") and is reached from Home. A
+  // slot for a tab that no longer renders is an admin rename that saves and
+  // reaches no screen. The rail slot `customer.sidebar.launch` stays.
   // ⛔ `customer.bottom-nav.editorial` RETIRED 2026-09-02 (EH3). The after-phase
-  // tab it governed is now the Event Hub (`customer.bottom-nav.launch` above) —
+  // tab it governed became the Event Hub (`customer.bottom-nav.launch`, itself retired 2026-09-30) —
   // the editorial maker is a door INSIDE the controller ("The story", S5), and
   // the DESKTOP rail keeps its own /story row, which
   // `a-finished-event-shows-its-summary.test.ts` holds open. That guard exists

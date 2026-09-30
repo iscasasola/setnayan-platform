@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { NavFab } from '@/app/_components/nav/nav-fab';
@@ -37,7 +38,13 @@ export function CustomerNavFab({
   eventId: string;
   phase?: MenuLifecyclePhase;
 }) {
+  const pathname = usePathname();
   if (phase === 'after') return null;
+  // 📱 ONLY ON THE GUESTS PAGE (owner 2026-09-30, "the menu changes also on the
+  // mobile view"): the round button is Guests' own action, so it shows where
+  // the guests are — not over Home, Your Team or a service. Unmounting it also
+  // clears `data-sn-fab`, so the four tabs spread across the full bar.
+  if (pathname !== `/dashboard/${eventId}/guests`) return null;
 
   return (
     <NavFab

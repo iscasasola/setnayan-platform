@@ -120,7 +120,7 @@ test('🍎 no event menu offers a door the app would refuse — in the shell, an
   }
 });
 
-test('🍎 the store-shell bar is the same five as the web — none blank, none repeated', () => {
+test('🍎 the store-shell bar is the same four as the web — none blank, none repeated', () => {
   for (const phase of PHASES) {
     const web = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO_ROWS });
     const app = buildCustomerMenuTree(EVENT_ID, {
@@ -130,7 +130,9 @@ test('🍎 the store-shell bar is the same five as the web — none blank, none 
       storeShell: true,
     });
     assert.deepEqual(app.map((m) => m.key), web.map((m) => m.key), `${phase}: the app bar lost a pillar`);
-    assert.equal(app.length, 5, `${phase}: ${app.length} tab(s) in the store shell`);
+    // The four (owner 2026-09-30): Home · Guests · Your Team · More — the iOS
+    // app is the bar the owner looked at when he asked for this.
+    assert.deepEqual(app.map((m) => m.key), ['home', 'guests', 'explore', 'studio'], `${phase}: the app bar is not the four`);
     for (const m of app) {
       assert.ok(m.label.trim().length > 0 && m.href.length > 0, `${phase}: a tab with no label or href`);
     }

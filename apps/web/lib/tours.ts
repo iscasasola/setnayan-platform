@@ -878,16 +878,16 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_event_menu_v1: {
     key: 'customer_event_menu_v1',
     label: 'Your event menu',
-    blurb: 'The five places that hold everything for an event — the same on phone and laptop.',
+    blurb: 'The places that hold everything for an event, on your phone and your laptop.',
     slides: [
       {
         Icon: Sparkles,
-        title: 'Five places for your whole event',
-        body: 'Home, Guest list, Your Team, Event Hub Maker and More Services. The same five sit at the bottom of your phone and down the side of your laptop.',
+        title: 'Your whole event, in a few places',
+        body: 'Home, Guests, Your Team, Event Hub Maker and More Services sit down the side of your laptop. On your phone the bar at the bottom holds Home, Guests, Your Team and More &mdash; the Event Hub Maker opens from Home.',
       },
       {
         Icon: Users,
-        title: 'Guest list',
+        title: 'Guests',
         body: 'Your guests, your hosts and, on the day, check-in. Switch between them from the menu at the top of the page.',
       },
       {

@@ -57,10 +57,10 @@ const HUB_KEY = 'launch';
    here, in exactly the sense "Launch" and "Services" already were. */
 // ✏️ 2026-09-25: the controller is the Event Hub Maker (owner, label change only).
 const HUB_LABEL = 'Event Hub Maker';
-/* ✏️ 2026-09-29: on the PHONE bar only, the owner's short word — "Maker"
-   ("accept it. Maker and Services"). The rail and ☰ keep HUB_LABEL. */
-const PHONE_HUB_LABEL = 'Maker';
-const wordFor = (surface: 'phone' | 'rail') => (surface === 'phone' ? PHONE_HUB_LABEL : HUB_LABEL);
+/* ✏️ 2026-09-30: the Maker has NO TAB on the phone bar (owner, "the menu
+   changes also on the mobile view" — the bar is Home · Guests · Your Team ·
+   More; the Maker is reached from Home, whose tab its pages light). So the
+   Hub has one word on the rail and ☰, and no word at all on the bar. */
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
 /** Every menu word the phone shows in a phase — its tabs (the docked sub-nav
@@ -103,12 +103,14 @@ test('both rosters are real in all three phases', () => {
 
 /* ══ 1 · ONE KEY, ONE WORD, ONE ADDRESS — IN ALL THREE PHASES ════════════ */
 
-test('the Event Hub is the same key, label and href in every phase, on both rosters', () => {
+test('the Event Hub is the same key, label and href in every phase — on the rail; the phone bar has none', () => {
   for (const phase of PHASES) {
-    for (const [surface, entries] of [
-      ['phone', phoneEntries(phase)],
-      ['rail', railEntries(phase)],
-    ] as const) {
+    assert.deepEqual(
+      phoneEntries(phase).filter((e) => e.key === HUB_KEY || e.href === HUB_HREF),
+      [],
+      `the phone bar for "${phase}" grew a Maker tab again (owner 2026-09-30: the four)`,
+    );
+    for (const [surface, entries] of [['rail', railEntries(phase)]] as const) {
       const hits = entries.filter((e) => e.key === HUB_KEY);
       assert.equal(
         hits.length,
@@ -119,7 +121,7 @@ test('the Event Hub is the same key, label and href in every phase, on both rost
       );
       assert.equal(
         hits[0]!.label,
-        wordFor(surface),
+        HUB_LABEL,
         `the ${surface} roster for "${phase}" calls the Event Hub ` +
           `"${hits[0]!.label}". A rename that reaches two phases and not the ` +
           'third is exactly the defect this file was written for.',
@@ -153,7 +155,7 @@ test('no roster offers a SECOND name for the Hub', () => {
       const names = entries.filter((e) => e.href === HUB_HREF).map((e) => e.label);
       assert.deepEqual(
         [...new Set(names)],
-        [wordFor(surface)],
+        surface === 'phone' ? [] : [HUB_LABEL],
         `${surface}/${phase}: ${HUB_HREF} is offered under ${names.length} ` +
           `name(s) — ${names.join(' · ')}. One address, one word.`,
       );
@@ -194,9 +196,7 @@ test("the Hub's key is 'launch' everywhere, and its registry slots key off it", 
       'row silently stops being renameable and hideable from /admin/menus.',
   );
   const keys = new Set(NAV_SLOT_DEFAULTS.map((s) => s.key));
-  for (const slot of ['customer.sidebar.launch', 'customer.bottom-nav.launch']) {
-    assert.ok(keys.has(slot), `${slot} is missing from NAV_SLOT_DEFAULTS`);
-  }
+  assert.ok(keys.has('customer.sidebar.launch'), 'customer.sidebar.launch is missing from NAV_SLOT_DEFAULTS');
 });
 
 /* ══ 3 · THE REGISTRY FOLLOWS THE CODE ══════════════════════════════════ */
@@ -207,6 +207,8 @@ test('the retired slots are gone from NAV_SLOT_DEFAULTS, and the live ones read 
     'customer.bottom-nav.services',
     'customer.bottom-nav.editorial',
     'customer.studio-subnav.launch',
+    // Retired 2026-09-30 with the Maker's phone tab (the bar is the four).
+    'customer.bottom-nav.launch',
   ]) {
     assert.equal(
       bySlot.has(dead),
@@ -216,10 +218,7 @@ test('the retired slots are gone from NAV_SLOT_DEFAULTS, and the live ones read 
         'edit that appears to save and changes nothing.',
     );
   }
-  for (const [live, word] of [
-    ['customer.sidebar.launch', HUB_LABEL],
-    ['customer.bottom-nav.launch', PHONE_HUB_LABEL],
-  ] as const) {
+  for (const [live, word] of [['customer.sidebar.launch', HUB_LABEL]] as const) {
     const slot = bySlot.get(live)!;
     assert.equal(slot.label, word, `${live} still defaults to "${slot.label}"`);
     assert.equal(
@@ -232,20 +231,20 @@ test('the retired slots are gone from NAV_SLOT_DEFAULTS, and the live ones read 
 
 /* ══ 4 · THE PHONE AND THE RAIL AGREE, PHASE BY PHASE ═══════════════════ */
 
-test('the rail and the phone send the Event Hub to the same address in every phase', () => {
+test('the rail opens the Event Hub; on the phone its address lights Home, where it is reached', () => {
   for (const phase of PHASES) {
-    const phone = phoneEntries(phase).find((e) => e.key === HUB_KEY)!;
     const rail = railEntries(phase).find((e) => e.key === HUB_KEY)!;
-    assert.equal(
-      phone.href,
-      rail.href,
-      `in "${phase}" the phone opens ${phone.href} and the rail opens ` +
-        `${rail.href}. Two rosters naming one place and pointing at two is the ` +
-        'drift that costs a person a dead end.',
-    );
-    // The phone wears the owner's short word for the rail's full one — and only that.
+    assert.equal(rail.href, HUB_HREF, `in "${phase}" the rail opens ${rail.href}`);
     assert.equal(rail.label, HUB_LABEL, `in "${phase}" the rail's word drifted`);
-    assert.equal(phone.label, PHONE_HUB_LABEL, `in "${phase}" the phone's word drifted`);
+    // No tab — but standing in the Maker on a phone still lights a tab: Home.
+    const home = buildCustomerMenuTree(EVENT_ID, {
+      websiteEnabled: true,
+      ...(phase === 'plan' ? {} : { phase }),
+    }).find((m) => m.key === 'home')!;
+    assert.ok(
+      ([] as string[]).concat(home.activeMatch).includes(HUB_HREF),
+      `in "${phase}" the Maker lights no tab on the phone`,
+    );
   }
 });
 

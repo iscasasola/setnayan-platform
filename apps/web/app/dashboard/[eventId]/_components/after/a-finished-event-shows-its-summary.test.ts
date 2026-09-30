@@ -123,8 +123,16 @@ test('the rail and the phone agree on the After destinations', () => {
      unchanged and still holds that door open, which is the whole 2026-08-21
      lesson. The Hub itself is compared here too, so the two rosters cannot
      start disagreeing about where the after-phase leads. */
-  // Stage D: the galleries are reached through Our Services (key 'studio').
-  for (const key of ['launch', 'studio']) {
+  // Stage D: the galleries are reached through More Services (key 'studio').
+  // 2026-09-30: the Maker left the phone bar (the four) — it is reached from
+  // Home, whose tab its pages light; the rail keeps its row (test 1 above).
+  assert.ok(!phone.some((m) => m.key === 'launch'), 'the Maker is a phone tab again');
+  const home = phone.find((m) => m.key === 'home')!;
+  assert.ok(
+    ([] as string[]).concat(home.activeMatch).some((p) => p.endsWith('/launch')),
+    'after the day, the Maker lights no tab on the phone',
+  );
+  for (const key of ['studio']) {
     const row = phone.find((m) => m.key === key);
     assert.ok(row, `the phone's After roster lost its ${key} tab`);
     assert.ok(

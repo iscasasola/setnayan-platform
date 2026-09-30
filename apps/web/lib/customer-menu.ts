@@ -79,6 +79,8 @@ export type CustomerMenu = {
    *  plus the claims of any rail row that has no tab of its own. */
   activeMatch: string | string[];
   activeMatchExact?: boolean;
+  /** Extra EXACT-only paths (Home's own page while it also holds the Maker's). */
+  activeMatchAlsoExact?: string[];
 };
 
 export type CustomerMenuCtx = EventMenuCtx & {
@@ -296,7 +298,9 @@ export function buildEventMenuSections(
   // (`guestListParts`), and the pages about the same people light it.
   put({
     key: 'guests',
-    label: 'Guest list',
+    // "Guests" (owner 2026-09-30: *"Home, Guests, Your Team, More Services"*)
+    // — "Guest list" 2026-09-29 → 2026-09-30. Rail, ☰ and phone bar alike.
+    label: 'Guests',
     href: `${base}/guests`,
     icon: 'guests',
     alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`],
@@ -402,21 +406,34 @@ export function eventMenuRows(sections: EventMenuSection[]): EventMenuRow[] {
  * (Where the Suite flag is off the row says "Studio", and so does the tab.)
  */
 export const PHONE_BAR_SHORT: Readonly<Partial<Record<CustomerMenuKey, string>>> = {
-  launch: 'Maker',
-  // "More" (owner 2026-09-30) — the rail and ☰ say "More Services".
+  // "More" (owner 2026-09-30) — the rail and ☰ say "More Services". The
+  // Maker's short word left with its tab (it is not on the bar any more).
   ...(SUITE_NAV_ON ? { studio: 'More' } : {}),
 };
 
 /**
- * THE PHONE'S ONE BOTTOM BAR — the five pillars, picked out of the one tree,
- * the same in every phase:
+ * 📱 THE PHONE BAR IS THE FOUR (owner 2026-09-30: *"the menu changes also on
+ * the mobile view"*; DECISION_LOG "THE PHONE MENU IS THE SAME FOUR"):
  *
- *     Home · Guest list · Your Team · Event Hub Maker · More Services
+ *     Home · Guests · Your Team · More
+ *
+ * picked from the SAME tree as the rail — every row but the Event Hub Maker,
+ * which is reached from Home and its own entry points on a phone. Its pages
+ * (the Maker, /website, /story, /schedule, the seat plan) light HOME, the tab
+ * they are reached from, so the bar never says "you are nowhere".
+ */
+export const PHONE_BAR_ROWS = ['home', 'guests', 'explore', 'studio'] as const;
+
+/**
+ * THE PHONE'S ONE BOTTOM BAR — the four (`PHONE_BAR_ROWS`), picked out of
+ * the one tree, the same in every phase:
+ *
+ *     Home · Guests · Your Team · More
  *
  * Every label and href comes from `buildEventMenuSections`, so a tab and its ☰
- * row can never say two words for one page — except the two short words in
- * `PHONE_BAR_SHORT` (Maker · More), which the owner chose for the bar. A
- * tab lights across every page its row claims — every rail row IS a tab now.
+ * row can never say two words for one page — except the one short word in
+ * `PHONE_BAR_SHORT` (More), which the owner chose for the bar. A tab lights
+ * across every page its row claims; Home also holds the Maker's pages.
  *
  * 📂 THE BAR HAS NO SUB-ROWS. More Services' five children are the rail's;
  * on the phone the "More" tab opens a chooser sheet with the same five
@@ -436,21 +453,36 @@ export function buildCustomerMenuTree(
   const all = eventMenuRows(buildEventMenuSections(eventId, ctx));
   const byKey = new Map(all.map((r) => [r.key, r]));
 
-  return PILLAR_ROWS.flatMap((key): CustomerMenu[] => {
+  // The Maker's pages have no tab of their own on the phone — Home holds them.
+  const maker = byKey.get('launch');
+  const makerClaims = maker ? [...new Set(eventMenuRowClaims(maker))] : [];
+
+  return PHONE_BAR_ROWS.flatMap((key): CustomerMenu[] => {
     const r = byKey.get(key);
     if (!r) return [];
     const label = PHONE_BAR_SHORT[key] ?? r.label;
     if (key === 'home') {
+      // The checklist is the Home page's own "View your full checklist". Both
+      // are EXACT (every event route shares `${base}/`); the Maker's pages
+      // light Home by prefix.
       return [
-        {
-          key,
-          label,
-          icon: EVENT_MENU_ICONS[r.icon],
-          href: r.href,
-          // The checklist is the Home page's own "View your full checklist".
-          activeMatch: [base, `${base}/checklist`],
-          activeMatchExact: true,
-        },
+        makerClaims.length
+          ? {
+              key,
+              label,
+              icon: EVENT_MENU_ICONS[r.icon],
+              href: r.href,
+              activeMatch: makerClaims,
+              activeMatchAlsoExact: [base, `${base}/checklist`],
+            }
+          : {
+              key,
+              label,
+              icon: EVENT_MENU_ICONS[r.icon],
+              href: r.href,
+              activeMatch: [base, `${base}/checklist`],
+              activeMatchExact: true,
+            },
       ];
     }
     return [

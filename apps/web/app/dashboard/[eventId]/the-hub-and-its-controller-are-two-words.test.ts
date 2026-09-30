@@ -52,9 +52,8 @@ const HUB_HREF = `${BASE}/launch`;
    the dashboard screen is NOT called by the guest site's bare name — is
    unchanged; only the qualified name moved. */
 const CONTROLLER = 'Event Hub Maker';
-/* ✏️ 2026-09-29: the PHONE bar's short word for the same row (owner: "Maker
-   and Services"). Still never the bare guest word — that is what this file holds. */
-const PHONE_CONTROLLER = 'Maker';
+/* ✏️ 2026-09-30: the phone bar has no Maker tab any more (the four — owner,
+   "the menu changes also on the mobile view"), so there is no phone word. */
 const GUEST_WORD = 'Event Hub';
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
@@ -114,19 +113,24 @@ test('every dashboard row that opens the maker is called "Event Hub Maker"', () 
       const hits = (rows as Array<{ href?: string; label?: string }>).filter(
         (r) => r.href === HUB_HREF,
       );
+      // 2026-09-30: the phone bar is the four — the Maker has NO tab there
+      // (owner, "the menu changes also on the mobile view"); it is reached
+      // from Home. So the phone holds zero rows for it, the rail exactly one.
+      const want = surface === 'phone' ? 0 : 1;
       assert.equal(
         hits.length,
-        1,
+        want,
         `${surface}/${phase} has ${hits.length} rows pointing at ${HUB_HREF} — ` +
-          'the ruling is ONE row per surface per phase.',
+          `the ruling is ${want} on this surface per phase.`,
       );
+      checked += 1;
+      if (want === 0) continue;
       assert.equal(
         hits[0]!.label,
-        surface === 'phone' ? PHONE_CONTROLLER : CONTROLLER,
+        CONTROLLER,
         `${surface}/${phase} calls the controller "${hits[0]!.label}". ` +
           `The dashboard row is the CONTROLLER; "${GUEST_WORD}" is what a guest opens.`,
       );
-      checked += 1;
     }
   }
   // Six windows (2 surfaces × 3 phases). A builder that quietly stopped
@@ -156,12 +160,10 @@ test('no dashboard row anywhere is labelled with the bare guest word', () => {
   );
 });
 
-test('both live registry slots default to the controller name', () => {
+test('the live registry slot defaults to the controller name (the phone slot retired 2026-09-30)', () => {
   const bySlot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s]));
-  for (const [key, word] of [
-    ['customer.sidebar.launch', CONTROLLER],
-    ['customer.bottom-nav.launch', PHONE_CONTROLLER],
-  ] as const) {
+  assert.ok(!bySlot.has('customer.bottom-nav.launch'), 'a registry slot for a phone tab that no longer renders');
+  for (const [key, word] of [['customer.sidebar.launch', CONTROLLER]] as const) {
     const slot = bySlot.get(key);
     assert.ok(slot, `${key} is missing from NAV_SLOT_DEFAULTS`);
     assert.equal(

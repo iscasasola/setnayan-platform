@@ -7,7 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { updateOurStory, loveStoryMomentAction } from './actions';
 import { StoryFields, type LoveStoryBlob } from './_components/story-fields';
 import { LoveStoryBook } from './_components/love-story-book';
-import { LiveLoveStoryBook } from '../../launch/_components/details-lazy';
+import { LiveLoveStoryBook } from './_components/live-book-lazy';
 import { HubDraftField } from '../_components/hub-draft-field';
 import { PickFromOurEvents, type OtherEvent } from './_components/pick-from-our-events';
 import { SubmitButton } from '@/app/_components/submit-button';

@@ -120,6 +120,3 @@ export function momentNeedsServer(before: readonly LoveStoryMoment[], formData: 
   const held = new Set(before.flatMap((m) => m.media ?? []));
   return readMomentMedia(formData.getAll('media')).some((ref) => !held.has(ref));
 }
-
-/** A moment the Maker's instant scrapbook could not keep — its message is said on the sheet. */
-export class MomentNotKept extends Error {}

@@ -6,7 +6,8 @@ import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas }
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { loveStoryScenes, resolveMoments } from '@/lib/love-story-moments';
-import { MomentNotKept, applyMomentIntent, momentNeedsServer, type LocalMomentIntent } from '@/lib/love-story-moment-intent';
+import { applyMomentIntent, momentNeedsServer, type LocalMomentIntent } from '@/lib/love-story-moment-intent';
+import { MomentNotKept } from './moment-sheet';
 import { patchStoryWord, storyStr, STORY_SHORT_MAX } from '@/lib/love-story-words';
 import { loveStoryPreviewMessage, markMakerCanvasStale, postToMakerCanvas } from '@/lib/maker-live-preview';
 import { hubDraftAction } from '../../hub-draft-actions';

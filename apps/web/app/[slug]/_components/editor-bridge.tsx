@@ -1,6 +1,6 @@
 'use client';
 
-import { LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview';
+import { LOVE_STORY_PREVIEW_T as LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW_T as SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview-apply';
 import { useEffect } from 'react';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,

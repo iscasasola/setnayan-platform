@@ -31,12 +31,13 @@ import { mergeStoryWords, patchStoryWord } from '@/lib/love-story-words';
 import { applyMomentIntent, momentNeedsServer } from '@/lib/love-story-moment-intent';
 import { resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import {
-  applyLoveStoryPreview,
-  applySchedulePreview,
+  LOVE_STORY_PREVIEW,
+  SCHEDULE_PREVIEW,
   loveStoryPreviewMessage,
   makerQuietWrite,
   schedulePreviewMessage,
 } from '@/lib/maker-live-preview';
+import { LOVE_STORY_PREVIEW_T, SCHEDULE_PREVIEW_T, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview-apply';
 
 const ROOT = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(ROOT, rel), 'utf8'));
@@ -133,6 +134,8 @@ function el(attrs: Record<string, string>, text = '', children: El[] = []): El {
 }
 
 test('B · a Love Story scene and a Programme moment take the Maker’s words in place', () => {
+  assert.equal(LOVE_STORY_PREVIEW_T, LOVE_STORY_PREVIEW, 'the canvas and the Maker must name the story message alike');
+  assert.equal(SCHEDULE_PREVIEW_T, SCHEDULE_PREVIEW, 'the canvas and the Maker must name the programme message alike');
   const line = el({ 'data-love-line': '' }, 'old line');
   const when = el({ 'data-love-when': '' }, '2018 · How we met');
   const place = el({ 'data-love-place': '' }, '');
@@ -179,7 +182,7 @@ test('C · both editors post editor-bridge messages before the save goes; the st
   assert.match(live, /postToMakerCanvas\(\s*loveStoryPreviewMessage\(/);
   const insp = read(`${SCH}/_components/moment-inspector.tsx`);
   const field = insp.slice(insp.indexOf('function liveField('), insp.indexOf('function saveField('));
-  assert.match(field, /onOverride\(m\.block_id, patch\);\s*postToMakerCanvas\(schedulePreviewMessage\(/, 'a typed name must be on the rail and the canvas before it saves');
+  assert.match(field, /onOverride\(m\.block_id, patch\);\s*postMomentToCanvas\(\{ id: m\.block_id, \[field\]: text \}\);/, 'a typed name must be on the rail and the canvas before it saves');
   assert.match(field, /momentLatestWrite\(m\.block_id, field,/, 'typing is not batched');
   for (const box of ['label', 'location', 'notes']) {
     assert.match(insp, new RegExp(`onChange=\\{live \\? \\(e\\) => liveField\\('${box}', e\\.target\\.value\\) : undefined\\}`), `the ${box} box does not draw as it is typed`);
@@ -204,7 +207,9 @@ test('D · every Love Story save is held, batched and asks for the Apply count �
   assert.match(live, /noteDraftedCanvas\(LOVE_STORY_DRAFT_TYPE, back as HubSectionCanvas[\s\S]*postPreview\(back\)/);
   // The Maker draws the live pieces — lazily, never in its first load.
   const lazy = readFileSync(join(ROOT, 'app/dashboard/[eventId]/launch/_components/details-lazy.tsx'), 'utf8');
-  assert.match(lazy, /LiveLoveStoryBook = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\.\/\.\.\/website\/our-story\/_components\/love-story-live'\)/);
+  const book = readFileSync(join(ROOT, `${OS}/_components/live-book-lazy.tsx`), 'utf8');
+  assert.match(book, /LiveLoveStoryBook = dynamic\(\s*\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/love-story-live'\)/);
+  assert.match(read(`${OS}/page.tsx`), /import \{ LiveLoveStoryBook \} from '\.\/_components\/live-book-lazy';/, 'the page must reach the scrapbook lazily');
   assert.match(lazy, /LiveStoryPanel = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\//);
   assert.match(read(`${OS}/page.tsx`), /\{inMaker \? \(\s*<LiveLoveStoryBook\s+story=\{story\}/, 'the Maker still draws the scrapbook from the server render');
   assert.match(read('app/dashboard/[eventId]/launch/_components/maker-details.tsx'), /<LiveStoryPanel eventId=\{eventId\}/);
@@ -212,7 +217,7 @@ test('D · every Love Story save is held, batched and asks for the Apply count �
 
 /* ── E · the Programme: quiet, batched ─────────────────────────────────────── */
 
-test('E · a Programme edit from the Maker revalidates nothing; the standalone page still does', () => {
+test('E · a Programme edit from the Maker revalidates nothing; the standalone page still does', async () => {
   assert.equal(makerQuietWrite(form([['maker_quiet', '1']])), true);
   assert.equal(makerQuietWrite(form([])), false);
   const actions = read(`${SCH}/actions.ts`);
@@ -229,7 +234,15 @@ test('E · a Programme edit from the Maker revalidates nothing; the standalone p
     assert.doesNotMatch(body, /\brevalidatePath\(/, `${fn} revalidates outside the quiet guard`);
   }
   const live = read(`${SCH}/_components/schedule-live.ts`);
-  assert.match(live, /fd\.set\(MAKER_QUIET_FIELD, '1'\);\s*const r = await makerSave\(\(\) => run\(fd\), requestMakerRefresh, \{ held: true, ok: \(\) => true \}\);/);
+  assert.match(live, /fd\.set\(SCHEDULE_QUIET_FIELD, '1'\);\s*const r = await run\(fd\);/);
+  // Its own spelling of the Maker's names (see its docblock) — held equal here.
+  const sl = await import(`../${SCH}/_components/schedule-live`);
+  const mlp = await import('@/lib/maker-live-preview');
+  assert.equal(sl.SCHEDULE_QUIET_FIELD, mlp.MAKER_QUIET_FIELD);
+  assert.equal(sl.SCHEDULE_CANVAS_POST_EVENT, mlp.MAKER_CANVAS_POST_EVENT);
+  assert.equal(sl.SCHEDULE_CANVAS_STALE_EVENT, mlp.MAKER_CANVAS_STALE_EVENT);
+  assert.equal(sl.MOMENT_WRITE_BEAT_MS, (await import('@/lib/maker-refresh')).MAKER_WRITE_BEAT_MS);
+  assert.doesNotMatch(live, /from '@\/lib\/maker-/, 'the rail (the standalone Schedule page too) must not import the Maker’s modules — a new shared chunk grows every page');
   for (const fn of ['updateScheduleBlock', 'toggleBlockVisibility', 'setBlockResponsibleParty', 'setBlockPrepVisibility', 'bulkRetimeScheduleBlocks', 'deleteScheduleBlock']) {
     assert.match(live, new RegExp(`${fn}: quiet\\(actions\\.${fn}`), `${fn} is sent loud from the Maker`);
   }
@@ -307,4 +320,21 @@ test('G · the special message saves as it is typed in the Maker — held, batch
   const details = read('app/dashboard/[eventId]/launch/_components/maker-details.tsx');
   assert.match(details, /<WordsCard text=\{specialMessage\} note="How it reads on your Event Hub\." live="special_message" \/>/);
   assert.match(details, /data-live-words=\{live\}/);
+});
+
+test('E · five quick values for one field are ONE write after the pause; the first four are carried by it', async () => {
+  const { momentLatestWrite, CARRIED } = await import(`../${SCH}/_components/schedule-live`);
+  let sent = 0;
+  const outs: Array<Promise<unknown>> = [];
+  for (let i = 0; i < 5; i++) {
+    outs.push(
+      momentLatestWrite('b-lab', 'label', async () => {
+        sent += 1;
+        return i;
+      }),
+    );
+  }
+  const answers = await Promise.all(outs);
+  assert.equal(sent, 1, `${sent} writes for five values`);
+  assert.deepEqual(answers, [CARRIED, CARRIED, CARRIED, CARRIED, 4]);
 });

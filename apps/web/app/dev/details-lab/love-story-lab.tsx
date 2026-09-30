@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LiveLoveStoryBook, setLoveStoryLabSaver } from '@/app/dashboard/[eventId]/website/our-story/_components/love-story-live';
+import { LiveLoveStoryBook } from '@/app/dashboard/[eventId]/website/our-story/_components/live-book-lazy';
 import type { LoveStoryBlob } from '@/app/dashboard/[eventId]/website/our-story/_components/story-fields';
 
 /**
@@ -24,15 +24,22 @@ export function LoveStoryLab({ ms, refuse, story }: { ms: number; refuse: boolea
   const [ready, setReady] = useState(false);
   useEffect(() => {
     window.__labSaves = [];
-    setLoveStoryLabSaver(async (_eventId, fd) => {
-      window.__labSaves!.push({ at: performance.now(), patch: String(fd.get('patch')) });
-      await new Promise((r) => setTimeout(r, ms));
-      return refuse
-        ? { ok: false as const, intent: 'save' as const, error: 'The lab refused it.' }
-        : { ok: true as const, intent: 'save' as const, applied: 0, held: [] };
+    let off = () => {};
+    /* The SAME module the Maker loads (its `maker-details` chunk) — never a copy of its own. */
+    void import(
+      /* webpackChunkName: "maker-details" */ '@/app/dashboard/[eventId]/website/our-story/_components/love-story-live'
+    ).then(({ setLoveStoryLabSaver }) => {
+      off = () => setLoveStoryLabSaver(null);
+      setLoveStoryLabSaver(async (_eventId: string, fd: FormData) => {
+        window.__labSaves!.push({ at: performance.now(), patch: String(fd.get('patch')) });
+        await new Promise((r) => setTimeout(r, ms));
+        return refuse
+          ? { ok: false as const, intent: 'save' as const, error: 'The lab refused it.' }
+          : { ok: true as const, intent: 'save' as const, applied: 0, held: [] };
+      });
+      setReady(true);
     });
-    setReady(true);
-    return () => setLoveStoryLabSaver(null);
+    return () => off();
   }, [ms, refuse]);
   if (!ready) return null;
   return (

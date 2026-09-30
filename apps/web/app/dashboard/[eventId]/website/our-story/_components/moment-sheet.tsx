@@ -21,7 +21,14 @@ import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { InMakerReturnTo } from './in-maker-return-to';
-import { MomentNotKept } from '@/lib/love-story-moment-intent';
+
+/**
+ * A moment the Maker's instant scrapbook could not keep (`love-story-live.tsx`
+ * throws it) — its message is said on the sheet, which stays open. Declared
+ * HERE, not beside the rule that raises it: this sheet is in the Maker's first
+ * load, and the rule is not (it loads with Details).
+ */
+export class MomentNotKept extends Error {}
 
 /**
  * ADD A MOMENT — the sheet (phone) / side panel (laptop) from the prototype

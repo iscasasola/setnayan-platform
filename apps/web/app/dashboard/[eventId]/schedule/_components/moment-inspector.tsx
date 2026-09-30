@@ -30,11 +30,9 @@ import {
   wallDateKey,
 } from '@/lib/schedule-rail';
 import type { DayMoment, DayRequest, DaySupplier } from './day-types';
-import { SUPERSEDED } from '@/lib/maker-refresh';
-import { postToMakerCanvas, schedulePreviewMessage } from '@/lib/maker-live-preview';
 import { formatBlockTime, formatBlockTimeRange } from '@/lib/schedule';
 import { DETAILS_PIECE_LABEL_EVENT } from '../../launch/_components/details-piece';
-import { momentLatestWrite } from './schedule-live';
+import { CARRIED, momentLatestWrite, postMomentToCanvas } from './schedule-live';
 
 const FIELD_WHAT = { label: 'The name', location: 'The place', notes: 'The note' } as const;
 import { Eyebrow, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions } from './day-ui';
@@ -127,7 +125,7 @@ export function MomentInspector({
       try {
         const out = await action();
         /* A later keystroke carried this one — its answer decides. */
-        if (out === SUPERSEDED) return;
+        if (out === CARRIED) return;
         if (saved && ids[0]) onConfirm?.(ids[0], saved);
         setSave('saved');
         after?.();
@@ -145,7 +143,7 @@ export function MomentInspector({
     if (field === 'label' && text.length === 0) return;
     const patch: Partial<DayMoment> = { [field]: field === 'label' ? text : text || null };
     onOverride(m.block_id, patch);
-    postToMakerCanvas(schedulePreviewMessage({ id: m.block_id, [field]: text }));
+    postMomentToCanvas({ id: m.block_id, [field]: text });
     if (field === 'label') {
       window.dispatchEvent(new CustomEvent(DETAILS_PIECE_LABEL_EVENT, { detail: { item: 'schedule', piece: m.block_id, label: text } }));
     }
@@ -188,9 +186,7 @@ export function MomentInspector({
     if (live) {
       /* ⚡ The new time is on the canvas now; quick − / + taps are ONE save. */
       const start = patch.start_at ?? m.start_at;
-      postToMakerCanvas(
-        schedulePreviewMessage({ id: m.block_id, time: formatBlockTimeRange(start, patch.end_at === undefined ? m.end_at : patch.end_at) }),
-      );
+      postMomentToCanvas({ id: m.block_id, time: formatBlockTimeRange(start, patch.end_at === undefined ? m.end_at : patch.end_at) });
       window.dispatchEvent(
         new CustomEvent(DETAILS_PIECE_LABEL_EVENT, { detail: { item: 'schedule', piece: m.block_id, sub: formatBlockTime(start) } }),
       );

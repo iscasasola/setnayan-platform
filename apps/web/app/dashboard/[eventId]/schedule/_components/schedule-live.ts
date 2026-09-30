@@ -16,17 +16,37 @@
  *   · every write is sent with `maker_quiet` (`quietDayActions`): the action
  *     writes and revalidates nothing — no render of the Maker;
  *   · the rail shows the change at once (its own overrides, as before) and a
- *     name, place or note is ON the stage canvases as it is typed
- *     (`schedulePreviewMessage` through the editor bridge);
- *   · typing and − / + taps are ONE save after the pause (`makerLatestWrite`);
+ *     name, place or note is ON the stage canvases as it is typed (the editor
+ *     bridge's `scheduleMoment`, `lib/maker-live-preview.ts`);
+ *   · typing and − / + taps are ONE save after the pause (`momentLatestWrite`);
  *   · what the bridge cannot draw (a moment shown or hidden, moved, re-timed,
  *     removed) reloads the canvases ONCE after its save landed, double
- *     buffered (`markMakerCanvasStale`);
+ *     buffered;
  *   · a refused save puts back the last value that DID save and says which.
+ *
+ * 📦 WHY THIS FILE IMPORTS NOTHING OF THE MAKER'S. The rail is also the
+ * standalone Schedule page's; a module the Schedule page and the Maker's first
+ * load both import is split into a chunk of its own, and every new chunk grows
+ * the webpack runtime every page downloads (the shared bundle has 0 bytes to
+ * spare). So the quiet field, the two window events and the one-save-per-pause
+ * rule are spelled here — the SAME strings as `lib/maker-live-preview.ts`
+ * (`the-love-story-and-programme-are-instant.test.ts` holds them equal) and the
+ * same rule as `makerLatestWrite` (`lib/maker-refresh.ts`).
  */
-import { MAKER_QUIET_FIELD, markMakerCanvasStale } from '@/lib/maker-live-preview';
-import { makerLatestWrite, makerSave, requestMakerRefresh, type Superseded } from '@/lib/maker-refresh';
 import type { DayActions } from './day-types';
+
+/** = `MAKER_QUIET_FIELD` (lib/maker-live-preview.ts). */
+export const SCHEDULE_QUIET_FIELD = 'maker_quiet';
+/** = `MAKER_CANVAS_POST_EVENT` / `MAKER_CANVAS_STALE_EVENT` (lib/maker-live-preview.ts). */
+export const SCHEDULE_CANVAS_POST_EVENT = 'setnayan:maker-canvas-post';
+export const SCHEDULE_CANVAS_STALE_EVENT = 'setnayan:maker-canvas-stale';
+
+/** One moment's new words on every stage canvas (the bridge's `scheduleMoment`). */
+export function postMomentToCanvas(moment: { id: string; label?: string; time?: string; location?: string }): void {
+  window.dispatchEvent(
+    new CustomEvent(SCHEDULE_CANVAS_POST_EVENT, { detail: { source: 'setnayan-editor', t: 'scheduleMoment', moment } }),
+  );
+}
 
 /** Fields the bridge lays on the canvas itself, or that no guest sees — no reload owed. */
 const DRAWN_OR_UNSEEN = new Set([
@@ -37,7 +57,7 @@ const DRAWN_OR_UNSEEN = new Set([
   'notes',
   'responsible_party',
   'responsible_vendor_ids',
-  MAKER_QUIET_FIELD,
+  SCHEDULE_QUIET_FIELD,
 ]);
 
 /** Does this write change what the canvas draws in a way the bridge cannot lay? */
@@ -48,18 +68,18 @@ export function scheduleWriteRedraws(fd: FormData): boolean {
 
 /**
  * The rail's actions, as the Maker sends them: quiet (no revalidate → no render
- * of the Maker), counted as held Maker saves, and followed by ONE canvas reload
- * when the bridge could not draw the change. A removed moment is taken off the
- * rail by `onGone` once its delete has landed.
+ * of the Maker), and followed by ONE canvas reload when the bridge could not
+ * draw the change. A removed moment is taken off the rail by `onGone` once its
+ * delete has landed.
  */
 export function quietDayActions(actions: DayActions, onGone: (blockId: string) => void): DayActions {
   const quiet =
     (run: (fd: FormData) => Promise<unknown>, after?: (fd: FormData) => void) =>
     async (fd: FormData) => {
-      fd.set(MAKER_QUIET_FIELD, '1');
-      const r = await makerSave(() => run(fd), requestMakerRefresh, { held: true, ok: () => true });
+      fd.set(SCHEDULE_QUIET_FIELD, '1');
+      const r = await run(fd);
       after?.(fd);
-      if (scheduleWriteRedraws(fd)) markMakerCanvasStale();
+      if (scheduleWriteRedraws(fd)) window.dispatchEvent(new Event(SCHEDULE_CANVAS_STALE_EVENT));
       return r;
     };
   return {
@@ -73,7 +93,59 @@ export function quietDayActions(actions: DayActions, onGone: (blockId: string) =
   };
 }
 
-/** One moment's field, typed or stepped: the newest value is the ONE save after the pause. */
-export function momentLatestWrite(blockId: string, field: string, send: () => Promise<unknown>): Promise<unknown | Superseded> {
-  return makerLatestWrite(`schedule:${blockId}:${field}`, send);
+/** How long a typed or stepped value waits for the next one — `MAKER_WRITE_BEAT_MS`. */
+export const MOMENT_WRITE_BEAT_MS = 350;
+/** What a write a LATER value carried resolves to: that later write answers for both. */
+export const CARRIED: unique symbol = Symbol('schedule-write-carried');
+
+type Slot = { timer: ReturnType<typeof setTimeout> | null; flying: boolean; next: { send: () => Promise<unknown>; done: (v: unknown) => void; fail: (e: unknown) => void } | null };
+const slots = new Map<string, Slot>();
+
+function go(key: string): void {
+  const s = slots.get(key);
+  if (!s || s.flying || !s.next) return;
+  const { send, done, fail } = s.next;
+  s.next = null;
+  s.flying = true;
+  const land = () => {
+    s.flying = false;
+    if (s.next && s.timer === null) go(key);
+    if (!s.flying && !s.next && s.timer === null) slots.delete(key);
+  };
+  Promise.resolve()
+    .then(send)
+    .then(
+      (v) => {
+        land();
+        done(v);
+      },
+      (e) => {
+        land();
+        fail(e);
+      },
+    );
+}
+
+/**
+ * One moment's field, typed or stepped: the newest value is the ONE save after
+ * the pause — never two in flight for one field. A value a later one replaced
+ * resolves to `CARRIED`.
+ */
+export function momentLatestWrite(blockId: string, field: string, send: () => Promise<unknown>): Promise<unknown> {
+  const key = `${blockId}:${field}`;
+  let s = slots.get(key);
+  if (!s) {
+    s = { timer: null, flying: false, next: null };
+    slots.set(key, s);
+  }
+  const slot = s;
+  return new Promise((done, fail) => {
+    slot.next?.done(CARRIED);
+    slot.next = { send, done, fail };
+    if (slot.timer !== null) clearTimeout(slot.timer);
+    slot.timer = setTimeout(() => {
+      slot.timer = null;
+      go(key);
+    }, MOMENT_WRITE_BEAT_MS);
+  });
 }

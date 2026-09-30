@@ -257,8 +257,9 @@ export async function setEventFaceMode(formData: FormData): Promise<void> {
     🔓 REOPEN A FINALIZED GUEST LIST — a second intent on this action, because
     the server-action budget is at its ceiling and a new export would breach it.
 
-    Writes all three columns (lib/admin-reopen-guest-list.ts says why clearing
-    the stamp alone is undone on the couple's next visit). Through the
+    Clears the stamp and the frozen count — the same two columns the host's own
+    Reopen clears (lib/admin-reopen-guest-list.ts). Only the host's Finalize
+    closes a list now, so no date is moved. Through the
     service-role client, which is what `guard_pax_finalize_columns` permits and
     what `guard_guest_edits_when_locked` exempts. The row is `.select()`ed back
     so "saved" is only ever said about a write that landed.
@@ -266,7 +267,7 @@ export async function setEventFaceMode(formData: FormData): Promise<void> {
   if (formData.get('intent') === 'reopen_guest_list') {
     const { data: before, error: beforeError } = await admin
       .from('events')
-      .select('guest_count_locked_at, final_pax, guest_list_edit_deadline')
+      .select('guest_count_locked_at, final_pax')
       .eq('event_id', eventId)
       .maybeSingle();
     if (beforeError) {
@@ -280,12 +281,12 @@ export async function setEventFaceMode(formData: FormData): Promise<void> {
       .from('events')
       .update(patch)
       .eq('event_id', eventId)
-      .select('guest_count_locked_at, final_pax, guest_list_edit_deadline');
+      .select('guest_count_locked_at, final_pax');
     if (updateError) {
       logQueryError('setEventFaceMode:reopen', updateError);
       redirectBack('error', 'reopen_failed');
     }
-    if (!reopenLanded(after, patch)) redirectBack('error', 'reopen_not_applied');
+    if (!reopenLanded(after)) redirectBack('error', 'reopen_not_applied');
 
     // Non-fatal by the same contract as deleteEvent: the list IS reopened by
     // now, so a failed audit write is shouted, not turned into an error page.

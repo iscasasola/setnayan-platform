@@ -3,12 +3,12 @@
  *
  * Two promises, both of which fail SILENTLY when broken:
  *
- * (a) "Reopen guest list" really reopens it. Clearing only
- *     `guest_count_locked_at` looks like it worked — and `ensureFinalized`
- *     (lib/pax.ts) re-stamps it on the couple's next visit, because it decides
- *     by the DEADLINE. So the reopen must clear the stamp AND `final_pax` AND
- *     move the deadline into the future, and the action must check the row it
- *     wrote before it says "saved".
+ * (a) "Reopen guest list" really reopens it. Only the host's Finalize closes a
+ *     list (owner ruling 2026-09-30 · lib/guest-list-closed.ts), so a reopen is
+ *     the same two-column write as the host's own `reopenGuestList`: clear the
+ *     stamp AND `final_pax` (a frozen count left behind keeps billing the old
+ *     number). No date is moved — the reply-by date closes nothing. And the
+ *     action must check the row it wrote before it says "saved".
  *
  * (b) Every read on /admin/events/[eventId] has an error branch that renders
  *     "Couldn't load" — a refused read never becomes `0` or an empty list
@@ -35,52 +35,39 @@ const PAGE = stripComments(
   readFileSync(join(HERE, '..', 'app', 'admin', 'events', '[eventId]', 'page.tsx'), 'utf8'),
 );
 
-const NOW = Date.parse('2026-09-30T08:00:00Z');
+/* ── (a) the reopen clears the stamp and the frozen count ────────────────── */
 
-/* ── (a) the reopen clears all three columns ─────────────────────────────── */
-
-test('the reopen patch clears the stamp AND final_pax AND sets a future deadline', () => {
-  const p = guestListReopenPatch(NOW);
-  assert.deepEqual(Object.keys(p).sort(), [
-    'final_pax',
-    'guest_count_locked_at',
-    'guest_list_edit_deadline',
-  ]);
+test('the reopen patch clears the stamp AND final_pax — and nothing else', () => {
+  const p = guestListReopenPatch();
+  assert.deepEqual(Object.keys(p).sort(), ['final_pax', 'guest_count_locked_at']);
   assert.equal(p.guest_count_locked_at, null);
   assert.equal(p.final_pax, null);
-  assert.match(p.guest_list_edit_deadline, /^\d{4}-\d{2}-\d{2}$/, 'the column is a DATE');
-  assert.equal(p.guest_list_edit_deadline, '2026-10-14');
 });
 
-test('after the patch, the question ensureFinalized asks answers OPEN — even for an event already past', () => {
-  const p = guestListReopenPatch(NOW);
-  for (const eventDate of ['2026-09-01', '2026-10-01', '2027-06-01', null]) {
-    assert.equal(
-      guestListIsClosed({
-        lockedAt: p.guest_count_locked_at,
-        editDeadline: p.guest_list_edit_deadline,
-        eventDate,
-        nowMs: NOW,
-      }),
-      false,
-      `event ${eventDate}: a reopened list must not read as closed, or ensureFinalized re-stamps it on the next visit`,
-    );
-  }
-  // Control: the stamp alone, with the old deadline in the past, is NOT a reopen.
-  assert.equal(
-    guestListIsClosed({ lockedAt: null, editDeadline: '2026-09-15', eventDate: '2026-10-01', nowMs: NOW }),
-    true,
+test('after the patch the list reads OPEN — the one question guestListIsClosed asks', () => {
+  const p = guestListReopenPatch();
+  assert.equal(guestListIsClosed({ lockedAt: p.guest_count_locked_at }), false);
+  // Control: a stamped list is closed, whatever its dates.
+  assert.equal(guestListIsClosed({ lockedAt: '2026-09-30T08:00:00Z' }), true);
+});
+
+test('the reopen matches the host\'s own Reopen column-for-column', () => {
+  const pax = stripComments(readFileSync(join(HERE, 'pax.ts'), 'utf8'));
+  const host = pax.slice(pax.indexOf('export async function reopenGuestList'));
+  assert.match(
+    host,
+    /\.update\(\{ guest_count_locked_at: null, final_pax: null \}\)/,
+    'the host reopen changed shape — re-read it and keep the admin reopen identical',
   );
 });
 
 test('reopenLanded only says yes to exactly one row carrying the patch', () => {
-  const p = guestListReopenPatch(NOW);
-  const ok = { guest_count_locked_at: null, final_pax: null, guest_list_edit_deadline: p.guest_list_edit_deadline };
-  assert.equal(reopenLanded([ok], p), true);
-  assert.equal(reopenLanded([], p), false, 'matched nothing');
-  assert.equal(reopenLanded(null, p), false, 'no rows came back');
-  assert.equal(reopenLanded([{ ...ok, guest_count_locked_at: '2026-09-30T08:00:01Z' }], p), false, 're-stamped');
-  assert.equal(reopenLanded([{ ...ok, final_pax: 120 }], p), false, 'count still frozen');
+  const ok = { guest_count_locked_at: null, final_pax: null };
+  assert.equal(reopenLanded([ok]), true);
+  assert.equal(reopenLanded([]), false, 'matched nothing');
+  assert.equal(reopenLanded(null), false, 'no rows came back');
+  assert.equal(reopenLanded([{ ...ok, guest_count_locked_at: '2026-09-30T08:00:01Z' }]), false, 're-stamped');
+  assert.equal(reopenLanded([{ ...ok, final_pax: 120 }]), false, 'count still frozen');
 });
 
 test('the action applies the patch, selects the row back, and checks it before saying saved', () => {

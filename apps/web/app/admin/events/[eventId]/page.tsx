@@ -12,7 +12,7 @@ import { logAdminDataAccess } from '@/lib/admin-data-access';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
-import { guestListIsClosed, FINALIZE_LEAD_DAYS } from '@/lib/guest-list-closed';
+import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { guestFullName } from '@/lib/guests';
 
@@ -47,7 +47,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const COULD_NOT_LOAD = "Couldn't load";
 
 const NOTICE: Record<string, string> = {
-  guest_list_reopened: `Guest list reopened. The couple can edit it again until the new deadline (${FINALIZE_LEAD_DAYS} days from today), when it finalizes again on its own.`,
+  guest_list_reopened:
+    'Guest list reopened. The hosts can add, remove and change replies again; it stays open until a host presses Finalize.',
   face_mode_on: 'Face auto-tagging is now ON for this event (unless the couple declined).',
   face_mode_off: 'Face auto-tagging is now OFF for this event.',
 };
@@ -202,7 +203,8 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   const lockedAt = (ev.guest_count_locked_at as string | null) ?? null;
   const deadline = (ev.guest_list_edit_deadline as string | null) ?? null;
   const eventDate = (ev.event_date as string | null) ?? null;
-  const closed = guestListIsClosed({ lockedAt, editDeadline: deadline, eventDate });
+  // Closed ONLY by the host's Finalize (owner ruling 2026-09-30) — the stamp.
+  const closed = guestListIsClosed({ lockedAt });
 
   const stored = (ev.papic_face_mode as string | null) ?? 'mode_b';
   const declined = ev.face_tagging_declined_by_couple === true;
@@ -308,7 +310,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
           <div>
             <dt className="text-xs text-ink/60">State</dt>
             <dd className="font-medium text-ink">
-              {lockedAt ? 'Finalized' : closed ? 'Closed (deadline passed)' : 'Open'}
+              {closed ? 'Finalized' : 'Open'}
             </dd>
           </div>
           <div>
@@ -322,10 +324,8 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
             </dd>
           </div>
           <div>
-            <dt className="text-xs text-ink/60">Edit deadline</dt>
-            <dd className="text-ink">
-              {deadline ? fmtDate(deadline) : `Not set (${FINALIZE_LEAD_DAYS} days before the event)`}
-            </dd>
+            <dt className="text-xs text-ink/60">Reply-by date</dt>
+            <dd className="text-ink">{deadline ? fmtDate(deadline) : 'Not set'}</dd>
           </div>
         </dl>
         {closed ? (
@@ -335,7 +335,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
             confirmLabel="Reopen"
             destructive={false}
             className="mt-4"
-            message={`Reopen the guest list for "${name}"? This clears the finalized stamp and the frozen final count, and moves the edit deadline to ${FINALIZE_LEAD_DAYS} days from today. The couple can add, remove and change replies again until then; the list finalizes again on its own at the new deadline. Recorded in the admin audit log.`}
+            message={`Reopen the guest list for "${name}"? This clears the finalized stamp and the frozen final count. The hosts can add, remove and change replies again, and the list stays open until a host presses Finalize. Recorded in the admin audit log.`}
           >
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="intent" value="reopen_guest_list" />

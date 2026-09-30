@@ -1,4 +1,4 @@
-# TEAM_PROGRESS — phone Your Team (rd/phone-your-team)
+# TEAM_PROGRESS — phone Suppliers page, was "Your Team" (rd/phone-your-team)
 
 Worktree: ~/Documents/Claude/Projects/wt-phone-team · branch rd/phone-your-team · PR: (see `gh pr list --head rd/phone-your-team`)
 
@@ -15,8 +15,16 @@ Worktree: ~/Documents/Claude/Projects/wt-phone-team · branch rd/phone-your-team
 - 12 sabotages, each caught (see PR body) · 390 px shots in ~/Documents/Claude/Projects/wt-phone-team-shots/
 - PR #6220 draft, label do-not-auto-merge, auto-merge null
 
+- Renamed "Suppliers" (owner 2026-10-01) on this page; floating team chip RETIRED (nothing floats
+  at the bottom) — file deleted, mount + html.teamchip-docked removed, retirement guard, baselines regenerated
+- agreed-total guard: readEventVendorsMeasured registered as the page's entry
+- CI on 2924d57c8: every guard + typecheck + lint + unit tests green (DB replay was still running at handoff)
+- PR #6220 marked ready; label do-not-auto-merge; auto-merge null. NEVER merge.
+
 ## Next
-- full `pnpm test:unit` result → then `gh pr ready 6220` (never merge)
+- Nothing to build. If CI's DB replay / e2e on the final head goes red, investigate that step only.
+- Owner-facing open points in the PR body (Nudge = opens the conversation; ⋯ labels are the pinned
+  section labels; no deposit amount shown because none is stored).
 
 ## Gotchas
 - Render harness: scratchpad team-harness (tsx --require preload.cjs stubs next/link, next/navigation,

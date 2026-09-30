@@ -290,6 +290,8 @@ export function lockLinkedSeatNames(ops: readonly SeatNameOp[], linked: Readonly
 
 /** The words for a name locked by its person's own account — bringer and host alike. */
 export const LINKED_NAME_WORDS = 'Linked to their account';
+/** A guest row whose name comes from the linked account's own profile (owner 2026-09-30). */
+export const PROFILE_NAME_WORDS = 'From their account';
 
 /**
  * The reply's name boxes: one per seat the guest was given, each carrying the

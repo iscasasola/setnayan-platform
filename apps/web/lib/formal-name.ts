@@ -174,6 +174,40 @@ export function placeCardName(
   );
 }
 
+/**
+ * 👤 A PROFILE'S NAME, WHEN IT IS ONE — the five parts normalised, NULL unless
+ * they hold a first AND a last name. A linked guest row wears the profile's name
+ * only then (owner 2026-09-30, lib/linked-profile-names.ts); an account that
+ * never filled its name leaves the row as the couple typed it.
+ */
+export function profileFormalName(
+  row: Partial<Record<FormalNameField, string | null | undefined>>,
+): FormalName | null {
+  const name = {} as FormalName;
+  for (const f of FORMAL_NAME_FIELDS) name[f] = normalizeNamePart(row[f]);
+  return name.first_name && name.last_name ? name : null;
+}
+
+/**
+ * The row as every screen shows it: a linked account's five parts over the
+ * row's own. The couple's nickname (`display_name`) is theirs and stays.
+ */
+export function withProfileName<T extends { guest_id: string; first_name: string; last_name: string }>(
+  row: T,
+  names: Record<string, { name: FormalName }>,
+): T {
+  const n = names[row.guest_id]?.name;
+  if (!n) return row;
+  return {
+    ...row,
+    name_prefix: n.name_prefix,
+    first_name: n.first_name ?? row.first_name,
+    middle_name: n.middle_name,
+    last_name: n.last_name ?? row.last_name,
+    name_suffix: n.name_suffix,
+  };
+}
+
 /** The @tag as shown — `users.slug` with its "@". NULL when there is no slug. */
 export function atTag(slug: string | null | undefined): string | null {
   const s = (slug ?? '').trim();

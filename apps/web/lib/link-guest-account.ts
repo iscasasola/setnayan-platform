@@ -4,6 +4,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { isCoupleSeat, seatBindRefusal } from '@/lib/seat-binding';
+import { FORMAL_NAME_FIELDS, normalizeNamePart, type FormalName } from '@/lib/formal-name';
 
 /**
  * Persistent guest accounts (PR-E) — link a signed guest session to a new
@@ -87,6 +88,26 @@ export async function fillAccountNameFromSeat(
     // Best-effort, but never silent: a refused name fill is logged, and the
     // link itself (already written above) still stands.
     if (nameError) console.warn('[link-guest-account] name fill refused:', nameError.message);
+
+    /* 🆕 A FIRST-TIME ACCOUNT STARTS WITH ITS PROFILE FILLED (owner 2026-09-30,
+       DECISION_LOG "A FIRST-TIME ACCOUNT MADE FROM AN INVITATION STARTS WITH ITS
+       PROFILE ALREADY FILLED"). This runs only from an act on the person's OWN
+       seat (see "ONLY ON PURPOSE" above), so the seat's five name parts become
+       the profile's formal name — but ONLY on a profile that has never held one:
+       the update matches only while all five parts are NULL, so a name the
+       person typed is never replaced, and a second run is a no-op. They see it
+       on their profile and edit it there.
+       📷 The photo does NOT travel: a guest's own selfie is a face-tagging
+       enrolment asset that is deleted when they withdraw consent, so sharing
+       its stored object as a profile photo would leave a dead image behind. */
+    const parts = {} as FormalName;
+    for (const f of FORMAL_NAME_FIELDS) parts[f] = normalizeNamePart(seat[f as keyof typeof seat]);
+    if (parts.first_name && parts.last_name && parts.first_name.toLowerCase() !== 'tba') {
+      let fill = admin.from('users').update(parts).eq('user_id', userId);
+      for (const f of FORMAL_NAME_FIELDS) fill = fill.is(f, null);
+      const { error: partsError } = await fill;
+      if (partsError) console.warn('[link-guest-account] formal name fill refused:', partsError.message);
+    }
   } catch {
     // Best-effort — a missing name must never cost somebody their link.
   }

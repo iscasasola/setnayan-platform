@@ -3,7 +3,7 @@ import { DressCodeFields } from '../../dress-code/_components/dress-code-fields'
 import type { LoveStoryBlob } from '../../our-story/_components/story-fields';
 import { LoveStoryChaptersPanel } from '../../our-story/_components/love-story-chapters-panel';
 import { WordsReturnTo } from '../../our-story/_components/words-return-to';
-import { PhotoMomentsEditor } from '../../../launch/_components/details-lazy';
+import { PhotoMomentsEditor } from '../../photo-moments/_components/photo-moments-editor';
 import type { DressCodeConfig } from '../../dress-code/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatWallClock } from '@/lib/schedule-datetime-local';

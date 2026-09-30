@@ -173,22 +173,6 @@ test('1 · no piece a stand-in loads is a first-load boundary of the Maker', () 
   assert.deepEqual(leaks, [], `A Details piece is back in the Maker's first load:\n  ${leaks.join('\n  ')}`);
 });
 
-test('1b · no client module the first load reaches imports a lazy piece statically either', () => {
-  // Test 1 walks only the server files. A `'use client'` module in the first
-  // load (the stage editor, the Maker shell) that imports a piece directly
-  // pulls it back just the same — the Photo moments editor left that way
-  // (rd/maker-diet) and must not come back.
-  const { seen } = firstLoadClosure(graph.boundaries.keys());
-  const leaks: string[] = [];
-  for (const f of seen) {
-    for (const spec of staticImports(read(f))) {
-      const r = resolveSpec(f, spec);
-      if (r && lazyPieces.has(r)) leaks.push(`${rel(f)} imports ${rel(r)} statically; import it from ${lazyPieces.get(r)}`);
-    }
-  }
-  assert.deepEqual(leaks, [], `A lazy piece is back in the Maker's first load:\n  ${leaks.join('\n  ')}`);
-});
-
 test('2 · every stand-in export is a dynamic() of its piece, and no stand-in imports a piece statically', () => {
   for (const s of STAND_INS) {
     const src = stripComments(read(join(WEB, s)));

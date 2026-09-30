@@ -126,15 +126,13 @@ export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "make
 export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });
 export const HeroFrameSync = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.HeroFrameSync), { loading: SlotNone });
 export const SceneBackgroundRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row').then((m) => m.SceneBackgroundRow), { loading: SlotRows });
-
-/* 🥗 Two tap-only pieces of the stage editor (rd/maker-diet, 2026-09-30 — room
-   in the 505KB Maker budget for #6205/#6209 without raising it):
-   · the Photo moments editor — the panel of one scene, drawn when it is opened.
-   Same chunk, same idle prefetch. 🛡 `details-pieces-are-lazy.test.ts` 1b. */
-export const PhotoMomentsEditor = dynamic(
-  () => import(/* webpackChunkName: "maker-details" */ '../../website/photo-moments/_components/photo-moments-editor').then((m) => m.PhotoMomentsEditor),
-  { loading: SlotRows },
-);
+/* 🥗 …and the Main look's Colours panel and the Pro rows' locked panel (rd/maker-diet,
+   2026-09-30): each draws only when its row is opened — "Main" and a Pro row are
+   taps, never the Maker's arrival — so they ride this chunk instead of the first
+   load, like the background panel above. Room in the 505KB Maker budget for #6205
+   and #6209 without raising it. */
+export const ColorsPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/pro-panels').then((m) => m.ColorsPanel), { loading: SlotRows });
+export const ProLockPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/pro-panels').then((m) => m.ProLockPanel), { loading: SlotRows });
 
 /* ── What's left (Details part 5): a step's heading, its foot, the Ready screens ── */
 export const GuideHead = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideHead), { loading: SlotNone });
@@ -172,10 +170,10 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './details-guide'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/pro-panels'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/element-sheet'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/details-bound-field'),
     import(/* webpackChunkName: "maker-details" */ './details-look-pages'),
-    import(/* webpackChunkName: "maker-details" */ '../../website/photo-moments/_components/photo-moments-editor'),
     prefetchEntourage(),
   ]);
 

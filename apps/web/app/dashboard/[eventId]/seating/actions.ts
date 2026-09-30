@@ -805,27 +805,61 @@ export async function saveVenuePhotoVisibility(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// Save the couple's draggable seating-priority tier order (smart seat-plan
-// Phase 2). Upserts just the priority_order column on the per-event floor-plan
-// singleton (other columns keep their DB defaults / existing values). The client
-// value is re-validated server-side via parsePriorityOrder — never trusted — and
-// stored as a clean PriorityOrder, or null when empty/malformed (→ the default
-// order). Lock-gated like every seating mutation.
+// Save the couple's Auto Arrange preferences on the per-event floor-plan
+// singleton — whichever of the two the form carries, and only those columns
+// (the others keep their DB defaults / existing values):
+//   · `priority_order` — the draggable seating-priority tier order (smart
+//     seat-plan Phase 2). Re-validated server-side via parsePriorityOrder —
+//     never trusted — and stored as a clean PriorityOrder, or null when
+//     empty/malformed (→ the default order).
+//   · `role_seating` — the per-role auto-seat choice (owner 2026-09-30 · "sit
+//     together" or "sit with their group"), beside priority_order. Re-read
+//     through parseRoleSeating — never trusted: unknown keys and values are
+//     dropped (and so read as "together").
+// ⚖ ONE action for both, not two: every exported server action is a Vercel
+// route and the budget sits at its ceiling (lint-server-action-budget.mjs).
+// Lock-gated like every seating mutation.
 export async function savePriorityOrder(formData: FormData) {
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
   }
-  const raw = formData.get('priority_order');
-  // Iteration 0053 P4 Unit 6: re-derive tier labels from the event's role set.
-  const roleSet = await resolveRoleSetForEvent(eventId);
-  let parsed: PriorityOrder | null = null;
-  if (typeof raw === 'string' && raw.length > 0) {
-    try {
-      parsed = parsePriorityOrder(JSON.parse(raw), roleSet);
-    } catch {
-      parsed = null;
+  const writesRoleSeating = formData.has('role_seating');
+  // A form without either field keeps the historical meaning: reset the order.
+  const writesPriority = formData.has('priority_order') || !writesRoleSeating;
+
+  const row: {
+    event_id: string;
+    updated_at: string;
+    priority_order?: PriorityOrder | null;
+    role_seating?: RoleSeating;
+  } = { event_id: eventId, updated_at: new Date().toISOString() };
+
+  if (writesPriority) {
+    const raw = formData.get('priority_order');
+    // Iteration 0053 P4 Unit 6: re-derive tier labels from the event's role set.
+    const roleSet = await resolveRoleSetForEvent(eventId);
+    let parsed: PriorityOrder | null = null;
+    if (typeof raw === 'string' && raw.length > 0) {
+      try {
+        parsed = parsePriorityOrder(JSON.parse(raw), roleSet);
+      } catch {
+        parsed = null;
+      }
     }
+    row.priority_order = parsed;
+  }
+  if (writesRoleSeating) {
+    const raw = formData.get('role_seating');
+    let parsed: RoleSeating = {};
+    if (typeof raw === 'string' && raw.length > 0) {
+      try {
+        parsed = parseRoleSeating(JSON.parse(raw));
+      } catch {
+        parsed = {};
+      }
+    }
+    row.role_seating = parsed;
   }
 
   const supabase = await createClient();
@@ -836,56 +870,7 @@ export async function savePriorityOrder(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  const { error } = await supabase.from('event_floor_plan').upsert(
-    {
-      event_id: eventId,
-      priority_order: parsed,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id' },
-  );
-  if (error) throw new Error(error.message);
-
-  await refreshSeatingLock(supabase, lockIdFrom(formData));
-  revalidatePath(`/dashboard/${eventId}/seating`);
-}
-
-// Save the couple's per-role auto-seat choice (owner 2026-09-30 · "sit
-// together" or "sit with their group"). Upserts just the role_seating column on
-// the floor-plan singleton, beside priority_order. The client value is re-read
-// through parseRoleSeating — never trusted: unknown keys and values are dropped
-// (and so read as "together"). Lock-gated like every seating mutation.
-export async function saveRoleSeating(formData: FormData) {
-  const eventId = formData.get('event_id');
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    throw new Error('Invalid input');
-  }
-  const raw = formData.get('role_seating');
-  let parsed: RoleSeating = {};
-  if (typeof raw === 'string' && raw.length > 0) {
-    try {
-      parsed = parseRoleSeating(JSON.parse(raw));
-    } catch {
-      parsed = {};
-    }
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
-
-  const { error } = await supabase.from('event_floor_plan').upsert(
-    {
-      event_id: eventId,
-      role_seating: parsed,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id' },
-  );
+  const { error } = await supabase.from('event_floor_plan').upsert(row, { onConflict: 'event_id' });
   if (error) throw new Error(error.message);
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));

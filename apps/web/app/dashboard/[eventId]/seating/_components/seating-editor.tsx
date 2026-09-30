@@ -158,7 +158,6 @@ import {
   saveBooths,
   saveFloorPlan,
   savePriorityOrder,
-  saveRoleSeating,
   commitWeld,
   saveSigns,
   saveVenuePhotoVisibility,
@@ -1374,7 +1373,8 @@ export function SeatingEditor({
   // 🪑 Owner 2026-09-30 — per role set, "Sit together" (default: one table, the
   // fewest neighbouring tables if they outnumber it) or "Sit with their group".
   // One toggle per set that has anybody in it, named in the couple's own role
-  // words. Optimistic; persists via saveRoleSeating beside the priority order.
+  // words. Optimistic; persists via savePriorityOrder (its `role_seating` field),
+  // beside the priority order — one action for both.
   const [roleSeating, setRoleSeating] = useState<RoleSeating>(() => floorPlan.role_seating ?? {});
   const roleSeatingRows = useMemo(() => {
     const counts = new Map<RoleSeatingKey, number>();
@@ -1399,7 +1399,7 @@ export function SeatingEditor({
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('role_seating', JSON.stringify(next));
     startTransition(async () => {
-      await runGated(() => saveRoleSeating(fd));
+      await runGated(() => savePriorityOrder(fd));
     });
   };
 

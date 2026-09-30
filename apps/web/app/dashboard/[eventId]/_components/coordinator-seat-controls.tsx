@@ -50,7 +50,7 @@ export function CoordinatorGrantChips({ permissions }: { permissions: ModeratorP
         <span
           key={g.area}
           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-            g.level === 'edit' ? 'bg-terracotta/10 text-terracotta' : 'bg-ink/5 text-ink/60'
+            g.level === 'edit' ? 'bg-terracotta/10 text-terracotta-700' : 'bg-ink/5 text-ink/60'
           }`}
         >
           {DELEGATE_AREA_LABEL[g.area]}
@@ -127,7 +127,7 @@ export function CoordinatorSeatControls({
           <option value="new_coordinator">We have a new coordinator</option>
           <option value="other">Other</option>
         </select>
-        <SubmitButton pendingLabel="Removing…" className="text-[11px] text-terracotta-700 underline hover:text-terracotta">
+        <SubmitButton pendingLabel="Removing…" className="text-[11px] text-terracotta-700 underline hover:text-terracotta-800">
           Remove
         </SubmitButton>
       </form>

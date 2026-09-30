@@ -109,6 +109,10 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   // Documents icons it sits between; a section header whose icon is a
   // different gold from the two beside it reads as a bug.
   ['vendors/[vendorId]/workspace/_components/colour-access-card.tsx', 1],
+  // The RA 10173 consent modal, moved here from the Hosts page in the Hosts
+  // fold (2026-09-30): the ShieldCheck ICON and three CHECKBOX accents —
+  // non-text, 3:1 — never a word.
+  ['vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx', 4],
   ['vendors/[vendorId]/workspace/_components/deposit-reservation.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/handover-inbox.tsx', 2],
   ['vendors/[vendorId]/workspace/_components/host-service-details.tsx', 1],

@@ -68,7 +68,8 @@ import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
 import { updateOurStory } from '../../website/our-story/actions';
 
-import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-look-pages';
+// ⚡ Opened on a tap — the Look editors load with the Details pieces (`details-lazy.tsx`).
+import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-lazy';
 /* ⚡ Each piece's editor and picture load when Details is opened — never with the
    Maker (`details-lazy.tsx`; held by `details-pieces-are-lazy.test.ts`). */
 import {

@@ -27,8 +27,7 @@ import { keysLeavingWith } from '@/lib/invitation-welcome';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
-import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
-import { DetailsBoundField } from './details-bound-field';
+import type { ElementDraftAction, ElementPalette, ElementTarget } from './element-sheet';
 import { detailsItemForSection, detailsItemForTap } from '@/lib/maker-details-selection';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
@@ -87,7 +86,7 @@ import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { SceneBackgroundRow } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, SceneBackgroundRow } from '../../../launch/_components/details-lazy';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,

@@ -11,7 +11,8 @@ import { MakerPageFrame, MakerPageSwitch } from './maker-page';
 import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { useMaker } from './maker-context';
 import { DetailsGoTo, DetailsPieceButton, useDetailsPiece } from './details-go';
-import { ElementSheet } from '../../website/editor/_components/element-sheet';
+// ⚡ The sheet opens on a tap — it loads with the Details pieces (`details-lazy.tsx`).
+import { ElementSheet } from './details-lazy';
 import { HUB_ELEMENT_LABEL, isHubElementKey, type HubElementKey } from '@/lib/element-style';
 
 /**

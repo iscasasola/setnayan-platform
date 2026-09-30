@@ -105,6 +105,21 @@ export const MakerRsvpSettings = dynamic(() => import(/* webpackChunkName: "make
 /* 🗳 The RSVP stage (owner 2026-09-30 re-plan: RSVP is its own stage) — its scenes, canvas and controls, in this chunk. */
 export const MakerRsvpStage = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-stage').then((m) => m.MakerRsvpStage), { loading: SlotFill });
 
+/* 🚂 The element sheet (size · font · colour · motion of one scene element) opens
+   on a TAP, never on arrival — so it rides this chunk, prefetched at idle with
+   the rest (`loadDetailsPieces`), instead of the Maker's first load. Moved in the
+   2026-09-30 release train to bring the Maker back under its 505KB budget
+   (scripts/check-maker-js-budget.mjs) without raising it. */
+export const ElementSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/element-sheet').then((m) => m.ElementSheet), { loading: SlotNone });
+/* 🚂 …and the scene's bound-fact box ("Change it everywhere / Just this scene",
+   #6048/#6176) draws only once a scene is selected — same chunk, same idle prefetch. */
+export const DetailsBoundField = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/details-bound-field').then((m) => m.DetailsBoundField), { loading: SlotRows });
+/* 🚂 The Look pages' Details editors (Logo · Hero · Reveal, #6166/#6176) — drawn
+   when that Details item is opened; same chunk, same idle prefetch. */
+export const DetailsLookBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookBody), { loading: SlotFill });
+export const DetailsLookEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookEditor), { loading: SlotRows });
+export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPieces), { loading: SlotRows });
+
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
 export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });
 export const HeroFrameSync = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.HeroFrameSync), { loading: SlotNone });
@@ -146,6 +161,9 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './details-guide'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/element-sheet'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/details-bound-field'),
+    import(/* webpackChunkName: "maker-details" */ './details-look-pages'),
     prefetchEntourage(),
   ]);
 

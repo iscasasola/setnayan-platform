@@ -148,8 +148,12 @@ export async function EditorialContent({
   // `resolveProfileByEvent` is request-cached, so it costs nothing.
   const w = await eventWordsForEvent(eventId);
   // The couple's words for roles (owner 2026-09-30) — the column badges say
-  // them. Graceful: unreadable → the usual words.
-  const roleNames = await loadRoleNames(createAdminClient(), eventId, 'EditorialContent.roleNames');
+  // them. Graceful: unreadable → the usual words. 🔴 A curated SAMPLE has no
+  // event row (see `isSample` below) and is prerendered with no service key —
+  // it is never looked up; it wears the usual words.
+  const roleNames: RoleNames = isSampleEditorialId(eventId)
+    ? {}
+    : await loadRoleNames(createAdminClient(), eventId, 'EditorialContent.roleNames');
   let data: EditorialData | null = null;
   try {
     data = await loadEditorialData(eventId);

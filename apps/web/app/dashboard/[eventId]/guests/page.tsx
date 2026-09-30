@@ -113,7 +113,7 @@ import {
 } from '@/app/_components/inspector/inspector-column';
 import { formatCount } from '@/lib/format-number';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
-import { accessTag } from '@/lib/guest-access';
+import type { GuestAccessState } from '@/lib/guest-access';
 
 import { MiniTour } from '@/app/_components/mini-tour';
 
@@ -750,18 +750,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // Auto-Arrange does. Falls back to suggestTableFor's default when no floor plan
   // row exists yet (undefined → the param default kicks in).
   const stage = floorPlan ? { x: floorPlan.stage_x, y: floorPlan.stage_y } : undefined;
-  // "+Co-host" / "+Limited helper" — TRUE by construction, from the live seats
-  // (owner 2026-09-28 "make it true"). A refused read shows no tag at all,
-  // never a list with every co-host silently demoted.
+  // The Access column (owner 2026-09-28: co-hosts come from the guest list) —
+  // every guest's Access, TRUE by construction, from the live seats ("make it
+  // true"). ONE read for the whole list; the column writes through the card's
+  // own action. A refused read (null) hands the roster NO states, so no cell is
+  // drawn — never a list with every co-host silently reading "None".
   const accessMap = await loadGuestAccessMap(
     eventId,
     guests.map((g) => ({ guest_id: g.guest_id, role: g.role })),
   );
-  const accessTagByGuest: Record<string, string> = {};
-  for (const [id, st] of accessMap ?? []) {
-    const tag = accessTag(st);
-    if (tag) accessTagByGuest[id] = tag;
-  }
+  const accessByGuest: Record<string, GuestAccessState> = Object.fromEntries(accessMap ?? []);
   const seatByGuest: Record<string, { placed: string | null; suggested: string | null }> =
     Object.fromEntries(
       visible.map((g) => {
@@ -1343,7 +1341,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               currentGroupId={currentGroupId}
               selfJoinIds={selfJoinIds}
               seatByGuest={seatByGuest}
-              accessTagByGuest={accessTagByGuest}
+              accessByGuest={accessByGuest}
+              // Only a co-host changes Access — the same `couple` gate the
+              // card and `setGuestAccess` use; a helper reads the word.
+              canManageAccess={viewer.isCouple}
               // From the FULL roster, before any filter (frame G, 2026-09-29).
               seatsByBringer={bringerSeatsFrom(guests)}
               // The Invite column (owner 2026-09-30): every guest's own link +

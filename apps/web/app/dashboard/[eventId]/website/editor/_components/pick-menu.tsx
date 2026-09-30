@@ -71,6 +71,7 @@ export function PickMenu({
   dataAttr,
   className = '',
   buttonText,
+  compact = false,
 }: {
   /** What the control is, for a screen reader ("This stage's menu"). */
   label: string;
@@ -83,6 +84,9 @@ export function PickMenu({
   className?: string;
   /** Words on the button instead of the current option's label ("Round 1 · 3 of 7"). */
   buttonText?: string;
+  /** A chip-sized button (the guest list's phone row, one line of small chips)
+   *  — the list it opens is the same. Default: the Maker bar's 40px button. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PickListPlacement | null>(null);
@@ -178,7 +182,9 @@ export function PickMenu({
         aria-controls={open ? listId : undefined}
         {...(dataAttr ? { [dataAttr]: '' } : {})}
         onClick={() => setOpen((o) => !o)}
-        className={`sn-press inline-flex min-h-10 min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 px-3 text-[13px] font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white ${className}`}
+        className={`sn-press inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white ${
+          compact ? 'min-h-7 px-2 text-xs' : 'min-h-10 px-3 text-[13px]'
+        } ${className}`}
       >
         {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
         {current?.icon ? <span aria-hidden className="inline-flex shrink-0">{current.icon}</span> : null}

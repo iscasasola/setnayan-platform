@@ -99,6 +99,10 @@ test('a fixed-pixel column has a budget too, so it cannot eat Name by another un
   // does, so without this budget a `w-[400px]` column would sail past the 55%
   // check above. 144px = the checkbox + the Invite button; a new fixed column
   // must come with a reason to raise it.
+  // 144 → 292 on 2026-09-30: the ACCESS column (owner 2026-09-28, co-hosts
+  // come from the guest list — None · Co-host · Limited helper as ONE dropdown
+  // per guest). 148px is the narrowest cell that shows "Limited helper" in the
+  // shared PickMenu at 13px without truncating it.
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
   // Only the CELLS' own classes — the checkbox inside the first one is `w-4`.
   const cellClasses = [...head.matchAll(/<(?:th|ArrangeTh)\b[^>]*?className="([^"]*)"/g)].map((m) => m[1]!).join(' ');
@@ -106,7 +110,7 @@ test('a fixed-pixel column has a budget too, so it cannot eat Name by another un
   const rem = [...cellClasses.matchAll(/\bw-(\d+)\b/g)].map((m) => Number(m[1]) * 4);
   assert.ok(px.length + rem.length >= 2, `found ${px.length + rem.length} fixed widths — this guard is blind`);
   const total = [...px, ...rem].reduce((a, b) => a + b, 0);
-  assert.ok(total <= 144, `fixed-pixel columns claim ${total}px (${[...px, ...rem].join(' + ')}) — Name keeps the leftover`);
+  assert.ok(total <= 292, `fixed-pixel columns claim ${total}px (${[...px, ...rem].join(' + ')}) — Name keeps the leftover`);
 });
 
 test('the header and every body cell share ONE horizontal padding', () => {

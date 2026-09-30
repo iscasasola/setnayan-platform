@@ -124,7 +124,9 @@ export async function setCoordinatorColourDomain(
   if (env.status === 'not_a_coordinator') return { status: 'not_a_coordinator' };
   if (env.status !== 'ok') return { status: 'error', message: env.status ?? 'unknown' };
 
-  revalidatePath(`/dashboard/${eventId}/hosts`);
+  // The coordinator's domains are drawn on the hired planner's workspace since
+  // the Hosts fold (2026-09-30) — every workspace under Your Team.
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   return { status: 'ok' };
 }
 
@@ -233,7 +235,7 @@ export async function rejectColourChange(
   if (env.status === 'slot_gone') return { status: 'slot_gone' };
   if (env.status !== 'ok') return { status: 'error', message: env.status ?? 'unknown' };
 
-  revalidatePath(`/dashboard/${eventId}/hosts`);
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
   return { status: 'ok' };
 }

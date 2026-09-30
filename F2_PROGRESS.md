@@ -30,6 +30,17 @@ guest inside the top third at 390×844. Desktop keeps its header row but the SAM
 - B4: remove PillarPartPicker/guestListParts from guests page; ?gview=checkin → /guests/checkin; ?gview=hosts → /guests; keep /hosts redirect page.
 - Controller add (2026-10-01): PHONE Guest list = frame 2 of corpus `prototypes/phone_app_simple_2026-10-01_fable.html`: title + ⋯ · search (top bar hosts it on phone) · ONE Filter ▾ · counts line · rows; setup (Sort · Show ▾ · Import · Share · Finalize) behind ⋯; add → round +. Don't do Home/Your Team/More.
 
+## Phone head as built (measured, local harness at 390×844)
+- Top bar (search) · "Guests" + ⋯ line (phone-only, visible; the sr-only <h1> stays) · Filter ▾ line · counts line
+  (no total) · rows · round + (the phone's Add). First guest row top = **275 px** (< 281 top third), no sideways scroll.
+- Computer: add box · Filter ▾ · Sort ▾ · ⋯ in one row; doors row; meters. Capture bar's four doors are in ⋯ on a phone.
+- Harness: `apps/web/app/dev/f2-guests-lab/page.tsx` — LOCAL ONLY, in `.git/info/exclude`, never commit. Mirrors the
+  page's head with fixture data (no sign-in, no reads). Dev server: launch.json `f2` :3481.
+- Owner correction (2026-10-01): EVERY PERSON IS THEIR OWN ROW — never merge a pair; guard in the-fable-card-and-rows.
+- Known diffs vs the approved rows (NOT changed — pinned by E's guards; owner call): phone row shows a dashed "+"
+  add-to-group after the role (`AddToGroupControl`, pinned by the-phone-card-edits-what-the-desktop-row-edits.test.ts);
+  frame 2 puts search on the title line — we keep it in the shell top bar (F brief).
+
 ## Left / verify (HANDOFF 2026-10-01 — next account starts here)
 - PR #6215 (DRAFT, base rd/guest-card-and-rows-redesign, label do-not-auto-merge, auto-merge NOT armed). Never merge.
 - CI on the last push was still running at handoff: read `gh pr checks 6215` — typecheck, unit suite, production build, bundle-size (shared cap 206,848 B; E was at 206,832 — no new dynamic() chunk was added) are the ones to watch. Local full tsc/unit/build were NOT run (heavy lock busy; CI is the gate).

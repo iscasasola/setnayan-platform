@@ -146,7 +146,10 @@ export function CaptureBar({
             string itself would keep compiling, keep rendering and quietly stop
             opening anything the first time that constant moved. A control that
             does nothing is the hardest kind of broken to notice. */}
-        <div className="ml-auto flex shrink-0 items-center gap-0.5">
+        {/* On a phone these four doors are rows in the ⋯ (frame 2 of the
+            approved simple phone app) — the SAME `AddDoors` — so the name box
+            keeps one line and the first guest stays in the top third. */}
+        <div className="ml-auto hidden shrink-0 items-center gap-0.5 lg:flex">
           <span aria-hidden className="mx-1 h-5 w-px bg-ink/10" />
           <AddDoors eventId={eventId} />
         </div>

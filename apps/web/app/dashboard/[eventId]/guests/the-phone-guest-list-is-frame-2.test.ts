@@ -23,6 +23,7 @@ const MENU = read('_components', 'guests-phone-menu.tsx');
 test('the doors row hides on a phone ONLY because the ⋯ draws the same element', () => {
   assert.match(PAGE, /<div className="hidden lg:block" data-roster-doors-row="">\{rosterTabs\}<\/div>/);
   assert.match(PAGE, /doors=\{rosterTabs\}/, 'the phone ⋯ no longer carries the roster\'s doors — they are gone from every phone');
+  assert.equal((PAGE.match(/<GuestsPhoneMenu\b/g) ?? []).length, 1, 'a second, drifting ⋯');
   assert.equal((PAGE.match(/<RosterTabs\b/g) ?? []).length, 1, 'a second, drifting copy of the doors row');
   for (const slot of ['{sort}', '{doors}', '{addDoors}']) assert.ok(MENU.includes(slot), `the ⋯ sheet dropped ${slot}`);
   // ⋯ at every width — "desktop may show more, never different".
@@ -44,7 +45,12 @@ test('ONE Filter ▾ at every width over the SAME four dropdowns; the add box be
   assert.match(ROW, /data-find-add-filter-toggle=""/, 'the one Filter ▾ is gone');
   assert.doesNotMatch(ROW.slice(ROW.indexOf('data-find-add-filter-toggle'), ROW.indexOf('data-find-add-filter-toggle') + 300), /lg:hidden/, 'the computer lost the one Filter ▾ — desktop may show more, never different');
   assert.match(ROW, /\{filterOpen \? 'block' : 'hidden'\}" data-find-add-filter=""|\$\{filterOpen \? 'block' : 'hidden'\}`\} data-find-add-filter=""/, 'the four dropdowns are not behind the one Filter ▾');
+  // Frame 2 wins for the phone head: the phone's Add is the round +; the add box leads the computer's row.
   assert.match(ROW, /className=\{`hidden lg:block \$\{open/, 'the add box is drawn on a phone again (frame 2: the round +)');
+  // One ⋯ element: beside the phone's title, at the end of the computer's row.
+  assert.match(ROW, /\{more \? <div className="ml-auto hidden shrink-0 lg:block">\{more\}<\/div> : null\}/, 'the computer lost its ⋯');
+  assert.match(PAGE, /more=\{guestsMenu\}/, 'the row is not handed the ⋯');
+  assert.match(PAGE, /data-guests-phone-title="">[\s\S]{0,160}Guests[\s\S]{0,40}\{guestsMenu\}/, 'the phone lost its title + ⋯ line (frame 2)');
   assert.match(PAGE, /data-guests-add-fab=""/, 'the phone has no way to add a guest');
   const fab = PAGE.slice(PAGE.indexOf('data-guests-add-fab'), PAGE.indexOf('data-guests-add-fab') + 600);
   assert.match(fab, /<OpenQuickAddButton/, 'the round + no longer opens the quick-add sheet');

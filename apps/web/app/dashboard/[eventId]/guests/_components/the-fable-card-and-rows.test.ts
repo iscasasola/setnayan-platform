@@ -148,6 +148,23 @@ test('rows: "walks with" and Pair are gone from the list', () => {
   assert.doesNotMatch(ROWS, /walks with|<PartnerLine|pairSelectedGuests|unpairGuestAction|Pair these 2/);
 });
 
+test('rows: no two-person row — every person is their own row, name and face', () => {
+  // ⚖ Owner 2026-10-01, on the approved rows prototype's merged sponsor row:
+  // *"wedding march are not necessarily couples. they are just paired for the
+  // march … They have their own plus"*. So the list never merges two people:
+  // no pair lookup, no "A & B" name, no two-letter pair avatar, no couple
+  // short form — each row's name comes from ONE guest.
+  for (const [where, src] of [['guest-list-multiselect.tsx', ROWS], ['guests/page.tsx', PAGE]] as const) {
+    assert.doesNotMatch(src, /pair_with_guest_id|pairWith|coupleShortName|PairAvatar|` & `|' & '|" & "/, `${where} merges two people into one row`);
+  }
+  // Both row shapes name exactly one guest.
+  const names = ROWS.match(/const shownName = [^;]+;/g) ?? [];
+  assert.ok(names.length >= 2, 'the row name was not found — re-aim this guard');
+  for (const n of names) {
+    assert.equal(n, 'const shownName = seatLabel ?? guestFullName(guest) ?? guestDisplayName(guest);', `a row name is built from more than one guest: ${n}`);
+  }
+});
+
 test('rows: the eye left; every column is a slot whose header is ONE dropdown — Name first', () => {
   // ⤷ 2026-09-30, the full-width list (DECISION_LOG "THE GUEST LIST USES THE
   // FULL WIDTH…"): Name first, then as many slots as fit, each header a

@@ -51,6 +51,7 @@ import { ChevronDown, Plus } from 'lucide-react';
 export function FindAddRow({
   filter,
   sort,
+  more,
   add,
   folded,
   addLabel = 'Add a guest',
@@ -59,6 +60,8 @@ export function FindAddRow({
   filter: React.ReactNode;
   /** Sort ▾ — beside the filters, the last control on the row. */
   sort?: React.ReactNode;
+  /** The ⋯ at the end of the row (Show · Sort · the doors · the add doors). */
+  more?: React.ReactNode;
   /** The quick-add bar with its four doors. */
   add: React.ReactNode;
   /** The event is over: the add box waits behind "+" until asked for. */
@@ -92,10 +95,13 @@ export function FindAddRow({
       Role · Group)"; controller: desktop keeps its row, with the SAME
       controls). The four dropdowns are the SAME `RosterFilters`, opened by the
       one Filter ▾ onto a line of their own. The search is the top bar's; on a
-      phone the add box is the round + (`data-guests-add-fab`, page.tsx) and
-      Sort ▾ sits behind the title's ⋯; a computer also keeps both in the row.
+      phone the Add is the round + and the ⋯ sits beside the title; a
+      computer keeps its add box, Sort ▾ and ⋯ in this row.
     */
-    <div className="flex flex-wrap items-start gap-2 border-b border-ink/[0.07] py-3">
+    <div className="flex flex-wrap items-start gap-2 border-b border-ink/[0.07] py-2 lg:py-3">
+      {/* ⚖ The add box leads the computer's row. On a phone the Add is the
+          round + (frame 2 of the approved simple phone app, the newest design,
+          which wins for the phone head — `data-guests-add-fab`, page.tsx). */}
       <div ref={addRef} className={`hidden lg:block ${open ? 'min-w-0 grow basis-0' : 'shrink-0'}`} data-find-add-add="">
         {open ? (
           add
@@ -117,6 +123,8 @@ export function FindAddRow({
         <ChevronDown className={`h-4 w-4 transition-transform ${filterOpen ? 'rotate-180' : ''}`} strokeWidth={1.8} aria-hidden />
       </button>
       {sort ? <div className="hidden shrink-0 lg:block">{sort}</div> : null}
+      {/* The computer's ⋯; a phone draws the same ⋯ beside its title. */}
+      {more ? <div className="ml-auto hidden shrink-0 lg:block">{more}</div> : null}
 
       <div className={`order-last w-full min-w-0 ${filterOpen ? 'block' : 'hidden'}`} data-find-add-filter="">
         {filter}

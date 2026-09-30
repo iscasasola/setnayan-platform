@@ -1,13 +1,8 @@
 import { GridPageSkeleton } from '@/components/skeletons';
 
 /**
- * ONE HEADER BUTTON IS RESERVED, AT EVERY WIDTH — the ⋯ beside the title
- * (F2, 2026-10-01: frame 2 of the approved simple phone app, "title + ⋯", and
- * the same ⋯ on a computer). It is always drawn, so the skeleton always holds
- * its place.
- *
- * ── Before F2 ──
- * No header buttons were reserved, because the page's header had none.
+ * NO HEADER BUTTONS ARE RESERVED, because the page's header no longer has any
+ * (the ⋯ rides at the end of the Add · Filter row since F2, not in the header).
  *
  * ⚖ Owner 2026-09-20: the masthead's doors ("Invite guests", "Arrange the
  * room", the Wedding March, Share, Check-in) became ONE ROW of tabs under the
@@ -25,6 +20,6 @@ import { GridPageSkeleton } from '@/components/skeletons';
 
 export default function GuestsLoading() {
   return (
-    <GridPageSkeleton tiles={15} cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" tileClass="h-24" actions={1} />
+    <GridPageSkeleton tiles={15} cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" tileClass="h-24" />
   );
 }

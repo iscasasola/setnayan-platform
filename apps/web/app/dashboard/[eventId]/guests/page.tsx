@@ -993,6 +993,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     />
   );
 
+  // The ⋯ — Show · Sort · the doors · the add doors (guests-phone-menu.tsx).
+  // ONE element, placed twice by breakpoint: beside the phone's title (frame 2
+  // of the approved simple phone app) and at the end of the computer's row.
+  const guestsMenu = (
+    <GuestsPhoneMenu
+      sort={<RosterSort sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} current={sort} />}
+      doors={rosterTabs}
+      addDoors={<AddDoors eventId={eventId} rows />}
+    />
+  );
+
   const master = (
     /* 🔴 THE SHELL'S TOP NAV COMES BACK ON GUESTS (owner 2026-08-21, two
        screenshots: *"the top nav disappeared also … we still want to have the
@@ -1015,7 +1026,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
        ⚠ Vendors keeps its own `.shell-topbar` hide. That one is a full-screen
        takeover and it is scoped `@media (max-width:1023px)`; it is not this. */
-    <section className="sn-col max-w-none space-y-6" data-roster-full-width="">
+    <section className="sn-col max-w-none space-y-4 lg:space-y-6" data-roster-full-width="">
 
       {/* The floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
           (nav-surfaces follow-up to #1470): the global journey bottom nav is now
@@ -1045,17 +1056,18 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             <span className="sn-h1-tail">Guests</span>
           )
         }
-        /* ⚖ PHONE: title + ⋯ (owner 2026-10-01, "THE SIMPLE PHONE APP —
-           APPROVED", frame 2). Setup lives behind ⋯, drawn with the SAME
-           controls the computer shows in its rows — see guests-phone-menu.tsx. */
-        actions={
-          <GuestsPhoneMenu
-            sort={<RosterSort sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} current={sort} />}
-            doors={rosterTabs}
-            addDoors={<AddDoors eventId={eventId} rows />}
-          />
-        }
       />
+      {/* ⚖ PHONE: "Guests" + ⋯ — frame 2 of the approved simple phone app
+          (owner 2026-10-01, the newest approved design, which wins for the
+          phone head). The <h1> above stays the page's heading; this line is
+          what the phone shows. A computer keeps no visible title (owner
+          2026-08-21, PageMasthead) and has its ⋯ at the end of its row. */}
+      <div className="flex items-center justify-between gap-3 lg:hidden" data-guests-phone-title="">
+        <span aria-hidden className="font-display text-2xl text-ink">
+          Guests
+        </span>
+        {guestsMenu}
+      </div>
       {/* ⚖ THE MASTHEAD'S DOORS BECAME ONE ROW — owner 2026-09-20: "these row
           can be 1 row". Every door keeps the exact condition it had here
           (Check-in after · Invite/Arrange/Wedding March before · Share with a
@@ -1228,6 +1240,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             <details>; it now recedes behind the row's "+", and never opens on
             its own once the event has passed (`folded`). */}
         <SummaryFacetBar
+          // ⚖ The ⋯ (frame 2 of the approved simple phone app: setup lives
+          // behind ⋯). The page has no visible title — owner-locked 2026-08-21,
+          // `PageMasthead` — so the ⋯ rides at the end of the one row instead
+          // of costing a row of its own; the first guest stays in the top third.
+          more={guestsMenu}
           roleNames={roleNames}
           stats={stats}
           measured={guestsMeasured}
@@ -1769,6 +1786,7 @@ function pickFlash(search: {
 // now laid out inline (`layout="inline"`).
 
 function SummaryFacetBar({
+  more,
   roleNames,
   stats,
   measured,
@@ -1790,6 +1808,8 @@ function SummaryFacetBar({
   sorts,
   sort,
 }: {
+  /** The ⋯ — Show · Sort · the doors · the add doors (guests-phone-menu.tsx). */
+  more: React.ReactNode;
   /** A birthday has no sides — no Side dropdown. */
   hasSides: boolean;
   /** Sort ▾'s list and the live sort. */
@@ -1863,6 +1883,7 @@ function SummaryFacetBar({
         }
         // Sort ▾ sits after the four dropdowns — one control, placed by `FindAddRow`.
         sort={<RosterSort sorts={sorts} current={sort} />}
+        more={more}
         add={addBar}
       />
 
@@ -1931,7 +1952,8 @@ function RosterCountsLine({
   requests: number;
 }) {
   const parts: { n: number; word: string; wine?: boolean }[] = [
-    ...(filtered ? [] : [{ n: stats.total, word: stats.total === 1 ? 'guest' : 'guests' }]),
+    // No total here (the approved rows and frame 2 of the simple phone app:
+    // "96 attending · 35 no reply · 58 to invite") — the page's heading carries it.
     { n: stats.attending, word: 'attending' },
     { n: stats.declined, word: 'not coming' },
     { n: stats.pending, word: 'no reply' },

@@ -256,6 +256,8 @@ async function sweepVendorFeatures(admin: AdminClient, now: Date): Promise<void>
     // unverified vendor is private (no public website / marketplace listing),
     // so it must never be auto-promoted to FB/IG. Mirrors the Explore gate.
     .eq('verification_state', 'verified')
+    // Never auto-post a demo shop to Setnayan's pages (2026-09-30, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)).
+    .eq('is_demo', false)
     .eq('social_feature_opt_out', false)
     .is('social_featured_at', null)
     .order('created_at', { ascending: true })
@@ -381,8 +383,10 @@ async function sweepMilestones(admin: AdminClient): Promise<void> {
       .select('vendor_profile_id', { count: 'exact', head: true })
       .eq('public_visibility', 'verified')
       // PR-B — the "vendors_verified" milestone must count truly-verified
-      // vendors only, matching what the public marketplace surfaces.
-      .eq('verification_state', 'verified'),
+      // vendors only, matching what the public marketplace surfaces — which
+      // since 2026-09-30 never includes a demo shop.
+      .eq('verification_state', 'verified')
+      .eq('is_demo', false),
     admin.from('guests').select('guest_id', { count: 'exact', head: true }),
   ]);
 

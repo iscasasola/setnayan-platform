@@ -54,6 +54,7 @@ export async function GET(req: Request, { params }: Params) {
       .eq('public_id', publicId)
       .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
       .eq('verification_state', 'verified')
+      .eq('is_demo', false) // 404 a demo shop, as /v/[slug] does (2026-09-30)
       .maybeSingle();
     row = (data as VendorDetailRow | null) ?? null;
   }
@@ -65,6 +66,7 @@ export async function GET(req: Request, { params }: Params) {
       .ilike('business_slug', publicId)
       .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
       .eq('verification_state', 'verified')
+      .eq('is_demo', false) // 404 a demo shop, as /v/[slug] does (2026-09-30)
       .maybeSingle();
     row = (data as VendorDetailRow | null) ?? null;
   }

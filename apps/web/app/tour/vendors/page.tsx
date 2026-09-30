@@ -198,6 +198,10 @@ export default async function TourVendorsPage() {
     .from('vendor_profiles')
     .select('business_name')
     .eq('is_demo', true)
+    // A SEEDED sample (no owner). Since 2026-09-30 two real accounts' shops are
+    // `is_demo` too (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)); the rule above
+    // — never surface a real vendor's identity — now needs this line to hold.
+    .is('user_id', null)
     .in('public_visibility', ['verified', 'coming_soon'])
     .not('business_name', 'is', null)
     .order('business_name', { ascending: true })

@@ -29,7 +29,7 @@ export function VendorHeroGate() {
   }, []);
 
   useEffect(() => {
-    // Deep-linked past the hero (e.g. /vendors#model) — don't gate.
+    // Deep-linked past the hero (e.g. /for-suppliers#model) — don't gate.
     if (window.location.hash) return;
     const html = document.documentElement;
     const body = document.body;

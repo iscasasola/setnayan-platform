@@ -9,11 +9,17 @@ import {
   eventSlug,
   isIndexable,
   pagePath,
+  placeName,
   priceSummaries,
   qualifyingPages,
+  REGION_PAGE_SLUG,
+  regionFromPageSlug,
+  regionOfCity,
   tileFromSlug,
   type LandingCard,
 } from './supplier-landing';
+import { CITIES } from '@/app/onboarding/wedding/_data/wedding-cities';
+import { allRegions } from './region-source';
 
 let n = 0;
 function card(p: Partial<LandingCard>): LandingCard {
@@ -72,9 +78,79 @@ test('qualifying pages: city AND nationwide pages, only where the tile serves th
     card({ shopId: 'c', tile: 'funeral_home' }),
   ];
   const pages = qualifyingPages(cards, (tile) => tile !== 'funeral_home');
-  const keys = pages.map((p) => `${p.event}/${p.tile}/${p.city ?? '*'}`).sort();
-  // QC has 2 cards (a, b) → below the card floor. Nationwide has 3 from 3 shops.
-  assert.deepEqual(keys, ['debut/coordinator/*']);
+  const keys = pages.map((p) => `${p.event}/${p.tile}/${p.city ?? (p.region ? `@${p.region}` : '*')}`).sort();
+  // QC has 2 cards (a, b) → below the card floor. Nationwide has 3 from 3 shops,
+  // and so does Metro Manila (QC + Manila) — a region page is the same gate
+  // over a wider place.
+  assert.deepEqual(keys, ['debut/coordinator/*', 'debut/coordinator/@ncr']);
+});
+
+// ── regions (owner 2026-09-29: "region-level supplier pages: yes, under the
+//    city pages' rule — a page exists only with ≥3 cards from ≥2 shops") ────
+
+test('a region page gathers the cards of every city inside it, under the SAME gate', () => {
+  const cards = [
+    card({ shopId: 'a', cityKeys: ['quezon-city'] }),
+    card({ shopId: 'b', cityKeys: ['makati'] }),
+    card({ shopId: 'b', cityKeys: ['pasig'] }),
+    card({ shopId: 'c', cityKeys: ['cebu'] }), // Central Visayas — not Metro Manila
+    card({ shopId: 'd', cityKeys: [] }), // no known city — nationwide only
+  ];
+  const ncr = cardsForPage(cards, { event: 'debut', tile: 'coordinator', city: null, region: 'ncr' });
+  assert.equal(ncr.length, 3);
+  assert.equal(isIndexable(ncr), true, '3 cards from 2 shops across three NCR cities is a page');
+
+  // Regions use the SAME `isIndexable` as cities — no second gate to drift.
+  // Three cards, all from ONE shop, spread over three cities, is still that
+  // shop's page, not a comparison.
+  const oneShop = [
+    card({ shopId: 'a', cityKeys: ['quezon-city'] }),
+    card({ shopId: 'a', cityKeys: ['makati'] }),
+    card({ shopId: 'a', cityKeys: ['pasig'] }),
+  ];
+  const regions = qualifyingPages(oneShop, () => true).filter((p) => p.region);
+  assert.deepEqual(regions, [], 'one shop in three cities minted a region page');
+
+  // A branch in a second region puts that card in both regions.
+  const branch = card({ shopId: 'e', cityKeys: ['quezon-city', 'cebu'] });
+  assert.equal(
+    cardsForPage([branch], { event: 'debut', tile: 'coordinator', city: null, region: 'c-visayas' }).length,
+    1,
+  );
+});
+
+test('a region page slug can never be mistaken for a city — the URL slot is shared', () => {
+  // SABOTAGE: set davao's page slug to 'davao' → RED.
+  const cityKeys = new Set(CITIES.map((c) => c.k));
+  for (const [region, slug] of Object.entries(REGION_PAGE_SLUG)) {
+    assert.ok(!cityKeys.has(slug), `region ${region}'s page slug "${slug}" is also a city key`);
+    assert.equal(regionFromPageSlug(slug), region);
+  }
+  assert.equal(new Set(Object.values(REGION_PAGE_SLUG)).size, Object.keys(REGION_PAGE_SLUG).length);
+  assert.equal(regionFromPageSlug('davao'), null, 'davao is the CITY; its region is davao-region');
+  assert.equal(regionFromPageSlug('nope'), null);
+});
+
+test('every region a supplier can be in has a page slug, and every city has a region', () => {
+  for (const r of allRegions()) {
+    if (!r.is_scopable) continue;
+    assert.ok(REGION_PAGE_SLUG[r.slug], `region ${r.slug} has no page slug`);
+  }
+  for (const c of CITIES) {
+    assert.ok(regionOfCity(c.k), `city ${c.k} (rk ${c.rk}) resolves to no region with a page`);
+  }
+  assert.equal(regionOfCity('quezon-city'), 'ncr');
+  assert.equal(regionOfCity('cebu'), 'c-visayas');
+  assert.equal(regionOfCity('baguio'), 'car');
+  assert.equal(regionOfCity('tuguegarao'), 'cagayan', "wedding-cities' 'cagayan-valley' resolves to the canonical slug");
+});
+
+test('a region page has its own address and its own name', () => {
+  const page = { event: 'wedding', tile: 'catering', city: null, region: 'ncr' };
+  assert.equal(pagePath(page, { catering: 'catering' }), '/suppliers/wedding/catering/metro-manila');
+  assert.equal(placeName(page), 'Metro Manila');
+  assert.equal(placeName({ event: 'wedding', tile: 'catering', city: 'quezon-city' }), 'Quezon City');
+  assert.equal(placeName({ event: 'wedding', tile: 'catering', city: null }), 'the Philippines');
 });
 
 // ── prices ───────────────────────────────────────────────────────────────

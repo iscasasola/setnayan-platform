@@ -4273,10 +4273,10 @@ function EmptyState({
               List your business
             </Link>
             <Link
-              href="/vendors"
+              href="/for-suppliers"
               className="inline-flex h-10 items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
             >
-              How vendor listings work →
+              How supplier listings work →
             </Link>
           </div>
         </div>
@@ -4896,7 +4896,7 @@ async function CatalogView({
             the search hero; render the slim FocusedModeSearchForm instead.
             The FolderTabs and per-folder grid below STILL render so the
             host can browse within their planning context. Direct visits to
-            /vendors render the full search-first hero. */}
+            /explore render the full search-first hero. */}
         {!focusedMode ? (
           <>
             {/* 2026-06-13 search-first reframe — owner directive verbatim:
@@ -4960,6 +4960,28 @@ async function CatalogView({
             }}
           />
         )}
+
+        {/*
+          ═ THE EMPTY MARKETPLACE SAYS SO, PLAINLY ═ (2026-09-30)
+          This view renders ONLY when `countLiveShops` read a real 0 — a failed
+          read is `null` and never reaches here — so the sentence is a measured
+          fact, not a guess. It became the normal state the day the two trial
+          shops were marked `is_demo` (owner, DECISION_LOG 2026-09-29 "LANE 2
+          §2C" (1): "the marketplace show[s] nothing until a real supplier
+          joins"). One plain line for the couple, one door for the supplier —
+          the same /open-shop door the front door's invite card uses.
+        */}
+        <div className="mx-auto mt-6 max-w-2xl px-4 text-center">
+          <p className="text-base font-medium text-ink/80">
+            No supplier has opened a shop yet — new shops show up here the day they open.
+          </p>
+          <p className="mt-2 text-sm text-ink/60">
+            Are you a supplier?{' '}
+            <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
+              Open your shop &rarr;
+            </Link>
+          </p>
+        </div>
 
         {/* 2026-06-14 search-first — owner "we just want a search bar". The
             curated browse catalog below the hero (icon strip + venue pickers +

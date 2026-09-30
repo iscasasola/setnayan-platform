@@ -924,6 +924,16 @@ function BottomNavTab({
       <Link
         href={item.href}
         aria-current={active ? 'page' : undefined}
+        aria-haspopup={item.onSelect ? 'dialog' : undefined}
+        onClick={
+          item.onSelect
+            ? (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+                e.preventDefault();
+                item.onSelect!();
+              }
+            : undefined
+        }
         onPointerDown={onPressStart}
         onPointerUp={onPressEnd}
         onPointerLeave={onPressEnd}

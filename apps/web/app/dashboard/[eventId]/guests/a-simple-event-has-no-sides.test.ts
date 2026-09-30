@@ -36,12 +36,16 @@ test('only a wedding role set has sides — simple, generic (birthday) and null 
 test('the page derives hasSides from the profile and gates the Side filter, sort and people picker', () => {
   const page = src('page.tsx');
   assert.match(page, /const hasSides = eventHasSides\(resolveRoleSet\(guestRoleSetKey\)\)/);
-  assert.match(page, /\{hasSides \? \(\s*<FacetRow label="Side">/, 'the desktop Side filter renders on a sideless event');
+  // One head at every width (#6192 Fix E): the Side filter is a dropdown in
+  // RosterFilters, told by the page whether the event has sides.
+  assert.match(page, /<RosterFilters\s+hasSides=\{hasSides\}/, 'the filter row is not told whether the event has sides');
+  assert.match(src('_components/roster-controls.tsx'), /\{hasSides \? \(\s*<PickMenu\s+label="Side"/, 'the Side filter renders on a sideless event');
+  assert.match(page, /sorts=\{SORT_OPTIONS\.filter\(\(o\) => hasSides \|\| o\.value !== 'side'\)/, 'Sort ▾ offers Side on a sideless event');
   assert.match(page, /hasSides && \(teamRaw === 'bride' \|\| teamRaw === 'groom'\)/, 'a ?team=bride link still filters a sideless event');
   assert.match(page, /!hasSides && sortRaw === 'side'/, 'a ?sort=side link still sorts a sideless event by side');
   assert.match(page, /hasSides \? groupingRaw : groupingRaw\.filter\(\(k\) => k !== 'side'\)/, 'side headings survive on a sideless event');
   assert.match(page, /<AddFromPeopleSheet[\s\S]*?showSides=\{hasSides\}/, 'the people picker asks for a side on a sideless event');
-  for (const mount of ['<GuestListMultiselect', '<MobileGuestCarousel', '<GuestMindMap', '<SummaryFacetBar']) {
+  for (const mount of ['<GuestListMultiselect', '<GuestMindMap', '<SummaryFacetBar']) {
     const at = page.indexOf(mount);
     assert.ok(at >= 0, `${mount} moved; re-anchor`);
     const props = page.slice(at, page.indexOf('/>', at));
@@ -51,23 +55,19 @@ test('the page derives hasSides from the profile and gates the Side filter, sort
 
 test('the roster table gates its Side column, bulk "Assign side…", and the phone side chip', () => {
   const ms = src('_components/guest-list-multiselect.tsx');
-  assert.match(ms, /\{hasSides \? \(\s*<ArrangeTh column="side"/, 'the Side column header renders on a sideless event');
-  assert.match(ms, /\{hasSides \? \(\s*<td className="px-3 py-2\.5">[^<]*<SideChipEditor/, 'the Side cell renders on a sideless event');
-  assert.match(ms, /\{hasSides \? \(\s*<>\s*<label className="sr-only" htmlFor="bulk-side">/, 'the bulk "Assign side…" renders on a sideless event');
-  // The Access column (#6191) sits beside Role on every event, so each span is
-  // one wider than when this guard was written — the Side column is still the
-  // only one a sideless event drops.
-  assert.match(ms, /colSpan=\{hasSides \? 10 : 9\}/, 'a section heading spans a column that is not there');
-  assert.match(ms, /colSpan=\{hasSides \? 8 : 7\}/, 'a self-join row spans a column that is not there');
+  // The columns are one list (lib/roster-columns.ts, #6192): a sideless event's
+  // list has no Side, so the header, the cell and every colSpan follow it.
+  assert.match(src('../../../../lib/roster-columns.ts'), /if \(!opts\.hasSides\) order = order\.filter\(\(c\) => c !== 'side'\)/, 'the Side column is offered on a sideless event');
+  assert.match(ms, /defaultRosterColumns\(\{ anyUnsent, checkinOpen, hasSides \}\)/, 'the roster does not pass hasSides to its columns');
+  assert.match(ms, /colSpan=\{2 \+ desk\.columns\.length\}/, 'a section heading spans a fixed count, not the drawn columns');
+  assert.match(ms, /\.\.\.\(hasSides \? \(\['bride', 'groom', 'both'\] as GuestSide\[\]\) : \[\]\)\.map\(\(s\) => \(\{ key: `side:\$\{s\}`/, 'the bulk ⋯ offers "Set side" on a sideless event');
   assert.match(ms, /\{hasSides \? \(\s*<SideChipEditor eventId=\{eventId\} guest=\{guest\}>\s*<RowAvatar/, 'the phone row avatar opens a side editor on a sideless event');
 });
 
-test('the phone filter and Assign sheet, the arrange menu, and the mind map have no sides either', () => {
-  const car = src('_components/mobile-guest-carousel.tsx');
-  assert.match(car, /\{hasSides \? \(\s*<SegRow label="Side">/, 'the phone Side filter renders on a sideless event');
-  assert.match(car, /\{hasSides \? \(\s*<SheetChoice\s+label="Side"/, 'the phone Assign sheet offers Side on a sideless event');
-  const arr = src('_components/arrange-controls.tsx');
-  assert.match(arr, /hasSides \? ARRANGE_COLUMNS : ARRANGE_COLUMNS\.filter\(\(c\) => c\.key !== 'side'\)/);
+test('the mind map has no sides either', () => {
+  // The phone's own carousel and the arrange menu were retired by #6192 (one
+  // head at every width); their Side controls are the RosterFilters dropdown
+  // and Sort ▾, both gated above.
   const map = src('_components/guest-mind-map.tsx');
   assert.match(map, /for \(const side of hasSides \? BRANCH_SIDE_LAYOUT : \[\]\)/, 'the mind map grows side branches on a sideless event');
 });

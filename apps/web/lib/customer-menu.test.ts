@@ -24,10 +24,11 @@ test('the bar is the owner’s five, in the owner’s order, in every phase', ()
   for (const phase of ['plan', 'dayof', 'after'] as const) {
     const tree = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO });
     assert.deepEqual(tree.map((m) => m.key), FIVE, `${phase}: the bar rearranged itself`);
-    // The phone bar's short words (owner 2026-09-29: "Maker and Services").
+    // The rail's words, save the one short bar word (owner 2026-10-01:
+    // "Home - Guests - Suppliers - Hub - More").
     assert.deepEqual(
       tree.map((m) => m.label),
-      ['Home', 'Guest list', 'Your Team', 'Maker', SUITE_NAV_ON ? 'Services' : 'Studio'],
+      ['Home', 'Guests', 'Suppliers', 'Hub', SUITE_NAV_ON ? 'More' : 'Studio'],
     );
   }
 });

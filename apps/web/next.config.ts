@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
+import { sentrySourcemapsCanUpload } from './lib/sentry-sourcemaps-can-upload';
 
 function getHostnameFromEnv(url: string | undefined): string | null {
   if (!url) return null;
@@ -475,6 +476,15 @@ const nextConfig: NextConfig = {
     // Next lever after webpackMemoryOptimizations (#1258) + ignoreBuildErrors
     // (#1425). Escalate to Vercel Enhanced Builds (paid) if this recurs.
     cpus: 1,
+    // ─── EACH COMPILER IN ITS OWN PROCESS (2026-10-01) ─────────────────
+    // Next turns the build worker OFF by default whenever a custom `webpack`
+    // function exists — ours above, and Sentry's wrapper adds another — so the
+    // server, edge and client compilations all ran in ONE long-lived heap.
+    // On: each compiler runs in a child that EXITS when it is done, and the
+    // parent `next build` stays ~150 MB through compile. Same output; measured
+    // 6.1 min vs 8.3 min wall on this app. Numbers + the heap ceiling it pairs
+    // with: lib/the-build-has-headroom-ci-cannot-prove.test.ts.
+    webpackBuildWorker: true,
     // ─── THE ROUTE CEILING ──────────────────────────────────────────────
     // Vercel caps a deployment at 2048 routes in `.vercel/output/config.json`.
     // On 2026-09-23 production could not deploy at all: three builds died at
@@ -711,8 +721,25 @@ export default withSentryConfig(nextConfig, {
   // prone build). `disable` is keyed off the token, so this self-re-enables the
   // moment the owner provisions one; `deleteSourcemapsAfterUpload` then keeps
   // the maps out of the deployed bundle once upload is live.
+  //
+  // 🚨 A TOKEN ALONE CANNOT UPLOAD — AND THIS GATE USED TO ASK ONLY FOR THE TOKEN.
+  // Measured 2026-10-01: Vercel Production has had SENTRY_AUTH_TOKEN for 138
+  // days and has NEVER had SENTRY_PROJECT (nor SENTRY_ORG). So every production
+  // build ran webpack with `devtool: 'source-map'` (server + edge) and
+  // `'hidden-source-map'` (client), and then the Sentry plugin printed
+  //     "No project provided. Will not upload source maps."
+  // Maps were built on every deploy and uploaded on none — a pure memory tax on
+  // the build that OOM'd (`exited 137`, 8 cores / 16 GB, cache OFF) on
+  // 15df3c1 and 5440da5. Local builds never have the token, so no local
+  // measurement ever paid it, which is why "it builds at ~5 GB here" kept
+  // failing to explain Vercel. Same code, maps on vs off, this Mac: see
+  // lib/the-build-has-headroom-ci-cannot-prove.test.ts for the numbers.
+  //
+  // The gate now asks for everything an upload needs. The day the owner adds
+  // SENTRY_PROJECT (and SENTRY_ORG if the token is not org-scoped) maps come
+  // back on by themselves, uploaded and then deleted — no code change.
   sourcemaps: {
-    disable: !process.env.SENTRY_AUTH_TOKEN,
+    disable: !sentrySourcemapsCanUpload(process.env),
     deleteSourcemapsAfterUpload: true,
   },
 });

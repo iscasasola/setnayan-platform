@@ -2,6 +2,8 @@
 
 import { LAUNCH_PHASE_CHOICES, launchPhaseLabel, type LaunchPhaseKey } from './launch-phase-choices';
 import { useFormStatus } from 'react-dom';
+import { useState } from 'react';
+import { parseTicketUrl, TICKET_URL_ERROR_TEXT, TICKET_URL_MAX } from '@/lib/ticket-url';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { FileUpload } from '@/app/_components/file-upload';
 import {
@@ -207,13 +209,36 @@ export function VisibilityPanel({
   action,
   eventId,
   visibility,
+  ticketUrl = null,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
   visibility: 'public' | 'unlisted' | 'private';
+  /** `events.ticket_url` — the organizer's own ticket page, or null. */
+  ticketUrl?: string | null;
 }) {
+  // Which option is picked RIGHT NOW (before Save) — so "Where to get tickets"
+  // appears the moment Public is chosen, in place, not after a round trip.
+  const [picked, setPicked] = useState<'public' | 'unlisted' | 'private'>(visibility);
+  const [ticketError, setTicketError] = useState<string | null>(null);
   return (
-    <form action={action} className={PANEL}>
+    <form
+      action={action}
+      className={PANEL}
+      onSubmit={(e) => {
+        // The same rule the server and the database hold (lib/ticket-url.ts) —
+        // said in words here, before the round trip.
+        if (picked !== 'public') return;
+        const field = e.currentTarget.elements.namedItem('ticket_url');
+        const parsed = parseTicketUrl(field instanceof HTMLInputElement ? field.value : null);
+        if (!parsed.ok) {
+          e.preventDefault();
+          setTicketError(TICKET_URL_ERROR_TEXT[parsed.reason]);
+        } else {
+          setTicketError(null);
+        }
+      }}
+    >
       <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <ReturnTo eventId={eventId} rowKey="visibility" />
@@ -237,6 +262,7 @@ export function VisibilityPanel({
               name="visibility"
               value={value}
               defaultChecked={visibility === value}
+              onChange={() => setPicked(value)}
               className="mt-0.5 h-3.5 w-3.5"
             />
             <span className="min-w-0">
@@ -246,6 +272,48 @@ export function VisibilityPanel({
           </label>
         ))}
       </fieldset>
+      {picked === 'public' ? (
+        <div className="mt-2 space-y-2" data-public-extras="">
+          {/* 🌐 Owner 2026-09-29: choosing Public turns on "Anyone, I approve".
+              Said here, on the switch, so it is never a surprise — and only on
+              the switch: a Public event keeps whatever the host chose since. */}
+          {visibility !== 'public' ? (
+            <p className="text-[0.7rem] text-ink/60" data-public-turns-on-asks="">
+              Public turns on &ldquo;Anyone, I approve&rdquo; — people without a key can ask to join, and
+              they wait in Requests until you Keep, Link or Remove them. You can turn it off on your RSVP page.
+            </p>
+          ) : null}
+          {/* 🎟 "Where to get tickets" — the organizer's own ticket page. The
+              organizer sells the tickets; Setnayan never does. */}
+          <label className="block">
+            <span className="block text-[0.7rem] font-semibold text-ink/60">
+              Where to get tickets <span className="font-normal text-ink/45">(optional)</span>
+            </span>
+            <input
+              className="mt-1 block min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-base text-ink placeholder:text-ink/35 sm:text-sm"
+              type="url"
+              name="ticket_url"
+              inputMode="url"
+              autoComplete="url"
+              defaultValue={ticketUrl ?? ''}
+              maxLength={TICKET_URL_MAX}
+              placeholder="https://"
+              aria-invalid={ticketError ? true : undefined}
+              aria-describedby={ticketError ? `ticket-error-${eventId}` : undefined}
+              onInput={() => setTicketError(null)}
+            />
+            <span className="mt-1 block text-[0.7rem] text-ink/50">
+              Guests get a &ldquo;Get tickets&rdquo; button that opens this link. You sell the tickets — Setnayan
+              never does. Leave it blank for no button.
+            </span>
+          </label>
+          {ticketError ? (
+            <p id={`ticket-error-${eventId}`} role="alert" className="text-[0.7rem] font-medium text-terracotta-700">
+              {ticketError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <SaveButton />
     </form>
   );

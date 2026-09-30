@@ -27,11 +27,12 @@ import { CoordinatorGrantChips } from '../_components/coordinator-seat-controls'
  *     (`vendors/[vendorId]/workspace/_components/promote-coordinator-card.tsx`);
  *   · "your coordinator did X" → a short feed on the Overview's Hosts card
  *     (`lib/delegate-activity.server.ts`);
- *   · a limited helper's grants and colour domains → their guest card (build
- *     F2, after the card redesign; the parts row is cut then too).
+ *   · a limited helper's grants, colour domains and activity → their guest
+ *     card, under the Access line (F2, `guests/_components/guest-helper-access.tsx`).
  *
- * So an old link, a bookmark or the Guest list's Hosts part (`?gview=hosts`,
- * which renders this page) lands on the Guest list for anybody who can see it.
+ * So an old link, a bookmark or an old Guest list Hosts part link
+ * (`?gview=hosts`, which the Guest list redirects here since F2) lands on the
+ * Guest list for anybody who can see it.
  *
  * 🔑 ONE VIEWER STAYS: a helper the couple never shared the guest list with
  * (`isDelegateWithoutArea(viewer, 'guest_list')`). The guest list would only
@@ -44,7 +45,7 @@ export const metadata = { title: 'Your access' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  // Carried by the Guest list's Hosts part (`?gview=hosts`), which renders this
+  // Once carried by the Guest list's Hosts part (cut in F2), which rendered this
   // page whole; nothing here reads them any more.
   searchParams: Promise<{
     invite_sent?: string;

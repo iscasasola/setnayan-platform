@@ -1,32 +1,31 @@
 'use client';
 
 import { useRoleNames } from './role-names-context';
-import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-// Mail/Phone are the contact-column icons. (The pairing icons left with
-// "walks with" — owner 2026-09-30: it lives only in the Maker's Wedding March.)
-import {
-  ChevronDown,
-  Mail,
-  Phone,
-  Trash2,
-  X,
-} from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { useRouter } from 'next/navigation';
+import { ChevronDown, Trash2, X } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { pushUndo } from './undo-toast';
-import { QuickViewButton } from './guest-drawer';
 import {
   InspectorTrigger,
   useInspectorContext,
 } from '@/app/_components/inspector/inspector-column';
 import { SeatChip } from './seat-chip';
 import { GuestInviteCell } from './guest-invite-cell';
+import { GuestMoreMenu } from './guest-ticket-parts';
 import { GuestAccessCell } from './guest-access-cell';
+import { GuestCheckinCell } from './guest-checkin-cell';
+import { useRosterColumns } from './use-roster-columns';
 import type { GuestAccessState } from '@/lib/guest-access';
+import {
+  defaultRosterColumns,
+  ROSTER_COLUMN_LABEL,
+  SLOT_PX,
+  type RosterColumn,
+} from '@/lib/roster-columns';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
@@ -43,12 +42,16 @@ import {
   GuestListHasSidesContext,
   PlusOneChipEditor,
   RoleChipEditor,
+  ROW_RSVP_WORDS,
   RsvpChipEditor,
   SideChipEditor,
 } from './chip-editors';
-import { keepGuestAction, removeGuestAction } from '../claims/actions';
+import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { publishPhoneColumn } from './phone-column-channel';
+import { Sheet } from '@/app/_components/sheet';
+import { setGuestInvitationSent } from '../../invitation/actions';
 import { buildUndo, projectGuests } from '@/lib/guest-optimistic';
-import { resolveRoleSet } from '@/lib/role-sets';
+import { plusOnesUnderBringers } from '@/lib/plus-ones-under-bringers';
 import {
   bulkApplyRoleAndGroup,
   bulkSoftDeleteGuestsForUndo,
@@ -63,6 +66,7 @@ import {
   plusOneSeats,
   guestRoleLabel,
   guestRolePickLabel,
+  REQUEST_ENTRY_SOURCE,
   RSVP_LABELS,
   SIDE_LABELS,
   SIDE_ORDER,
@@ -70,20 +74,13 @@ import {
   TEAM_SIDE_LABELS,
   type GuestGroupTeamSide,
   type GuestGroupWithCount,
-  type GuestRole,
   type GuestRow,
   type GuestSide,
   type RsvpStatus,
 } from '@/lib/guests';
 import { type RolePalette } from '@/lib/mood-board';
-import { roleChipStyle, roleTextStyle } from '@/lib/role-chip-style';
-import {
-  SIDE_AVATAR,
-  SIDE_CHIP,
-  SIDE_CONTROL_BORDER,
-  SIDE_RING,
-  SIDE_TINT_FILL,
-} from '@/lib/side-colors';
+import { roleTextStyle } from '@/lib/role-chip-style';
+import { SIDE_AVATAR, SIDE_TINT_FILL } from '@/lib/side-colors';
 import {
   importanceGroupOf,
   ROLE_GROUP_LABELS,
@@ -122,7 +119,6 @@ import {
   type ArrangeCtx,
   type ArrangeKey,
 } from '@/lib/roster-arrangement';
-import { ArrangeSheet, ArrangeTh } from './arrange-controls';
 import { formatCount } from '@/lib/format-number';
 
 type SectionGroup = RoleGroup | 'guest';
@@ -285,93 +281,76 @@ function RowAvatar({
   );
 }
 
-// Desktop table row (owner 2026-06-05 "guest on desktop mode will be row/table
-// style not grid style"). Photo thumbnail + name in the first cell, then the
-// side / role / groups / RSVP / contact columns. The checkbox owns selection;
-// the name links to the detail page.
+// Desktop table row (owner 2026-06-05 "row/table style"; redrawn 2026-09-30 to
+// the approved Fable rows, then to the full width): ☐ · Name · then one cell per
+// COLUMN SLOT — as many as the screen fits, each showing what its header's
+// dropdown picked (`lib/roster-columns.ts`). The eye "Quick view" left: a click
+// anywhere on the row opens the card on the right. And a walking pair is not on
+// the list at all — the Maker's Wedding March owns the processional.
 function DesktopRow({
   guest,
-  eventId,
-  palette,
   displayUrl,
   selected,
   onToggle,
-  groupIds,
-  groups,
-  groupsById,
-  currentGroupId,
-  bulkRoleSections,
-  seat,
-  invite,
+  nameById,
+  columns,
+  facts,
 }: {
   guest: GuestRow;
-  eventId: string;
-  palette: RolePalette;
-  invite: GuestInviteSetup | null;
   displayUrl?: string;
   selected: boolean;
   onToggle: () => void;
-  groupIds: string[];
-  groups: GuestGroupWithCount[];
-  groupsById: Record<string, GuestGroupWithCount>;
-  currentGroupId: string | null;
-  bulkRoleSections: RoleSection[];
-  // Reactive seat state (Living Roster P3) — undefined only if a guest slips the
-  // server-built map (defensively degrades to the suggested/dash path).
-  seat?: { placed: string | null; suggested: string | null };
+  /** guest_id → display name, built ONCE from the roster — "+1 of <bringer>". */
+  nameById: Record<string, string>;
+  /** What each slot shows, left → right. */
+  columns: readonly RosterColumn[];
+  facts: RowFacts;
 }) {
-  const hasSides = useContext(GuestListHasSidesContext);
-  // Group labels for the quick-view drawer (Contact + groups live there now).
-  const groupLabels = groupIds
-    .map((id) => groupsById[id]?.label)
-    .filter((label): label is string => Boolean(label));
-  // Desktop inspector selection (Inspector P2). When this guest owns the open
-  // `?inspect=` column, the whole row wears the quiet gold selected treatment —
-  // matching how Studio/Overview mark their selected master item. The name
-  // InspectorTrigger below opts OUT of its own default wash (.sn-guest-namelink)
-  // so the row isn't double-marked. Below xl there is no InspectorLayout, so
-  // `ctx` is null and this is inert (mobile unchanged).
+  const { eventId } = facts;
+  // Desktop inspector selection (Inspector P2): the open row wears the gild wash
+  // with a bar on its left (owner 2026-09-30, frame F — the same colour as a
+  // ticked row, because both mean "this row is in hand").
   const inspectorCtx = useInspectorContext();
   const inspected = Boolean(inspectorCtx && inspectorCtx.selectedId === guest.guest_id);
   // Frame G (owner 2026-09-29): "+3 (2 named)", an unnamed seat reads "+2 · TBA".
   const extraSeats = useBringerSeats(guest.guest_id);
   const seatLabel = usePlaceholderLabel(guest.guest_id);
   const shownName = seatLabel ?? guestFullName(guest) ?? guestDisplayName(guest);
+  const bringer = guest.plus_one_of_guest_id ? (nameById[guest.plus_one_of_guest_id] ?? null) : null;
+  const openRef = useRef<HTMLTableRowElement>(null);
   return (
     <tr
-      className={`border-t border-ink/5 align-middle transition-colors ${
-        selected
-          ? 'bg-terracotta/[0.06]'
-          : inspected
-            ? 'bg-[var(--sn-gold-100)]'
-            : 'hover:bg-terracotta/[0.04]'
+      className={`group/row cursor-pointer border-t border-ink/5 align-middle transition-colors ${
+        selected || inspected
+          ? 'bg-[var(--sn-gold-100)] shadow-[inset_3px_0_0_var(--sn-gold-500,#b8923a)]'
+          : 'hover:bg-ink/[0.025]'
       }`}
+      ref={openRef}
+      /* "Open · click anywhere on the row" (frame F): a click that lands on no
+         control of its own opens the card, through the name's own trigger. */
+      onClick={(e) => {
+        const t = e.target as HTMLElement;
+        if (t.closest('a,button,input,label,select,textarea,[role="menu"],[role="dialog"],[data-sheet]')) return;
+        openRef.current?.querySelector<HTMLAnchorElement>('a.sn-guest-namelink')?.click();
+      }}
+      title="Open · click anywhere on the row"
+      data-row-open=""
     >
-      {/* ⚖ The side, as an EDGE (owner 2026-09-20: "remove the pill boxes ...
-          so it looks neater"). A 2px rule down the left of the row lets a host
-          scan "all the bride's people" without reading a word, at zero
-          horizontal cost — where 77 tinted capsules cost a column. The Side
-          column keeps its label: an edge is for scanning, not a substitute for
-          a word a colour-blind reader or a screen reader can use.
-          Reusing SIDE_CONTROL_BORDER rather than adding a twelfth near-identical
-          side map — it is already exactly "a border colour per side". */}
-      <td className={`border-l-2 px-3 py-2.5 ${SIDE_CONTROL_BORDER[guest.side]}`}>
+      <td className="px-3 py-2.5">
+        {/* The box shows on hover, and stays once anything is ticked (frame G). */}
         <label className="flex items-center justify-center">
           <input
             type="checkbox"
             checked={selected}
             onChange={onToggle}
             aria-label={`Select ${(guestFullName(guest) ?? guestDisplayName(guest))}`}
-            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            className="h-4 w-4 rounded border-ink/30 text-terracotta opacity-40 transition-opacity focus:opacity-100 focus:ring-terracotta group-hover/row:opacity-100 checked:opacity-100"
           />
         </label>
       </td>
       <td className="px-3 py-2.5">
-        <div className="flex items-center justify-between gap-2">
-          {/* Name → the master-detail trigger (Inspector P2). Desktop (≥xl)
-              plain click SELECTS this guest into the sticky inspector column and
-              keeps the roster; below xl (and on modified / new-tab clicks) it
-              navigates to the standalone detail route exactly as before. */}
+        {/* A +1 sits indented under the guest who brings them (frame B). */}
+        <div className={`flex min-w-0 items-center gap-2 ${bringer ? 'pl-5' : ''}`}>
           <InspectorTrigger
             inspectId={guest.guest_id}
             href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
@@ -379,13 +358,8 @@ function DesktopRow({
           >
             <RowAvatar guest={guest} displayUrl={displayUrl} />
             <div className="min-w-0">
-              {/* `title` so a name the column still cannot fit is RECOVERABLE
-                  on hover. Truncation is right for a dense roster; silently
-                  losing half a guest's name is not. */}
-              <p
-                className="truncate font-medium text-ink"
-                title={shownName}
-              >
+              {/* `title` so a name the column still cannot fit is RECOVERABLE. */}
+              <p className="truncate font-display text-[15px] text-ink" title={shownName}>
                 {shownName}
               </p>
               {/* 🕯 Listed, never counted — the guest card's "Passed away". */}
@@ -393,22 +367,28 @@ function DesktopRow({
                 <p className="truncate text-xs text-ink/55" data-passed-away="">
                   {PASSED_AWAY_LINE}
                 </p>
-              ) : null}
-              {plusOneSeats(guest) > 0 || extraSeats.some((s) => s.named) ? (
-                <p className="truncate text-xs text-ink/55">
-                  {/* The host's number and how many are named — "+3 (2 named)". */}
-                  <PlusOneSeatsSummary count={plusOneSeats(guest)} seats={extraSeats} />
+              ) : bringer ? (
+                <p className="truncate text-xs text-ink/55" data-plus-one-of="">
+                  +1 of {bringer}
                 </p>
               ) : null}
-              {/* ⚖ OWNER 2026-09-30 — no "walks with" on a Guest list row. Who
-                  walks beside whom is set and shown ONLY in the Maker's Wedding
-                  March (DECISION_LOG "WALKING TOGETHER IS NOT BEING A COUPLE"). */}
             </div>
           </InspectorTrigger>
-          {/* The second way into the guest card. The name beside it is the
-              first; both select the same `?inspect=` card, which the layout
-              presents as a column at ≥xl and a peek sheet below. */}
-          <QuickViewButton guest={guest} />
+          {/* ⚖ The dashed "+" add-to-group on EVERY computer row too (owner
+              2026-10-01, "this also should be visible on desktop mode?" → yes:
+              desktop may show more, never different). The phone row has it
+              after the role; here it sits beside the name — unless the Groups
+              column is showing, which already carries the same control. */}
+          {!columns.includes('groups') && !guest.passed_away ? (
+            <span className="shrink-0" data-desk-add-to-group="">
+              <AddToGroupControl
+                eventId={eventId}
+                guest={guest}
+                groups={facts.groups}
+                memberGroupIds={facts.groupMemberships[guest.guest_id] ?? []}
+              />
+            </span>
+          ) : null}
         </div>
         {/* More names than seats — allowed, and said, with a Remove per name.
             OUTSIDE the name trigger: a button cannot sit inside a link. */}
@@ -419,204 +399,241 @@ function DesktopRow({
           seats={extraSeats}
         />
       </td>
-      {hasSides ? (
-        <td className="px-3 py-2.5">
-          {/* Inline editors (P2): the chip opens an anchored popover that applies
-              through the optimistic overlay + drops an undo toast. */}
-          <SideChipEditor eventId={eventId} guest={guest}>
-            <SideText side={guest.side} />
-          </SideChipEditor>
+      {columns.map((column) => (
+        <td key={column} className="px-3 py-2.5" data-roster-cell={column}>
+          <RosterCell column={column} guest={guest} facts={facts} size="row" />
         </td>
-      ) : null}
-      <td className="px-3 py-2.5">
-        <RoleChipEditor eventId={eventId} guest={guest} roleSections={bulkRoleSections}>
-          <RoleTexts guest={guest} palette={palette} />
-        </RoleChipEditor>
-      </td>
-      {/* The Access column (owner 2026-09-28) — the card's Access line, in a
-          row's width. One guest at a time; the bulk picker was retired. */}
-      <td className="px-3 py-2.5">
-        <RowAccess eventId={eventId} guest={guest} size="row" />
-      </td>
-      <td className="px-3 py-2.5">
-        <div className="flex items-center gap-1.5">
-          <GroupChipList
-            eventId={eventId}
-            guestId={guest.guest_id}
-            groupIds={groupIds}
-            groupsById={groupsById}
-            currentGroupId={currentGroupId}
-            compact
-            plain
-          />
-          <AddToGroupControl
-            eventId={eventId}
-            guest={guest}
-            groups={groups}
-            memberGroupIds={groupIds}
-          />
-        </div>
-      </td>
-      <td className="px-3 py-2.5">
-        <RsvpChipEditor
-          eventId={eventId}
-          guest={guest}
-          seatedTableLabel={seat?.placed ?? null}
-        >
-          <RsvpText status={guest.rsvp_status} />
-        </RsvpChipEditor>
-      </td>
-      {/* Reactive seat (Living Roster P3): placed 🪑 T# · declined — · else the
-          dashed ~T# suggestion. The +1 badge rides along. */}
-      <td className="px-3 py-2.5">
-        <SeatChip
-          placed={seat?.placed ?? null}
-          suggested={seat?.suggested ?? null}
-          rsvp={guest.rsvp_status}
-          plusOnes={plusOneSeats(guest)}
-          plain
-          plusControl={<PlusOneChipEditor eventId={eventId} guest={guest} />}
-        />
-      </td>
-      {/* Owner 2026-09-14: "contact number should just show icon to call." The
-          raw +63 string was also the widest value in the row, in the column
-          that was squeezing the NAME.
-
-          🔑 THESE LINKS ARE BILLED, NOT SNUCK IN. `no-door-out-of-the-app`
-          Rule 1 forbids a couple-facing surface from computing a
-          `tel:`/`mailto:`, because a couple who phones a SHOP books
-          off-platform. It caught this cell, correctly. Asked, the owner scoped
-          the rule the same day: "only for the couple and if coordinator is
-          given access."
-
-          A GUEST is not a shop — no booking fee, no in-app booking to protect,
-          and the couple typed the number in themselves. And the scope is ACCESS:
-          this file renders only inside /dashboard/[eventId]/guests, which is
-          already gated by `guest_list` access, so a coordinator without that
-          grant never reaches it. The exemption is one exact line in
-          GUEST_CONTACT_BILL and is counted — a THIRD link here fails CI. */}
-      <td className="px-3 py-2.5">
-        <span className="flex items-center gap-1.5">
-          {guest.mobile ? (
-            <a
-              href={`tel:${guest.mobile.replace(/[^\d+]/g, '')}`}
-              title={`Call ${guest.mobile}`}
-              aria-label={`Call ${guestFullName(guest) ?? guestDisplayName(guest)} on ${guest.mobile}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/45 transition-colors hover:bg-ink/5 hover:text-terracotta-700"
-            >
-              <Phone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-            </a>
-          ) : null}
-          {guest.email ? (
-            <a
-              href={`mailto:${guest.email}`}
-              title={`Email ${guest.email}`}
-              aria-label={`Email ${guestFullName(guest) ?? guestDisplayName(guest)} at ${guest.email}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/45 transition-colors hover:bg-ink/5 hover:text-terracotta-700"
-            >
-              <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-            </a>
-          ) : null}
-          {/* An em dash, not an empty cell: "no contact yet" is a fact the host
-              acts on, and a blank reads as a rendering failure. */}
-          {!guest.mobile && !guest.email ? (
-            <span className="text-xs text-ink/40">—</span>
-          ) : null}
-        </span>
-      </td>
-      {/* The Invite column (owner 2026-09-30) — the card's Send invite, in a
-          row's width. Empty for the couple and a guest marked Passed away. */}
-      <td className="px-3 py-2.5">
-        <RowInvite eventId={eventId} guest={guest} invite={invite} size="row" />
-      </td>
+      ))}
     </tr>
   );
 }
 
-// Self-join "needs you" row (Living Roster P2). People who joined via the
-// couple's invite link but whose name didn't match the list arrive as real
-// guest rows tagged `entry_source='self_added_unlisted'`; page.tsx threads their
-// ids in so the roster surfaces them INLINE (blush-tinted) with the three
-// reconcile choices, instead of a couple having to visit /guests/claims. Keep /
-// Remove call the SAME claim actions the deep page uses (so the semantics — and
-// what clears the "needs you" state — stay identical); Link (a merge into an
-// existing guest, which needs a target picker) deep-links to that page.
-function SelfJoinDesktopRow({
-  guest,
-  eventId,
-  displayUrl,
-}: {
-  guest: GuestRow;
+/**
+ * What every row's cells need that is not the guest — built ONCE per render of
+ * the list, so a row never re-derives a lookup a hundred rows share.
+ */
+type RowFacts = {
   eventId: string;
-  displayUrl?: string;
+  palette: RolePalette;
+  invite: GuestInviteSetup | null;
+  groups: GuestGroupWithCount[];
+  groupsById: Record<string, GuestGroupWithCount>;
+  groupMemberships: Record<string, string[]>;
+  currentGroupId: string | null;
+  bulkRoleSections: RoleSection[];
+  seatByGuest: Record<string, { placed: string | null; suggested: string | null }>;
+  /** An account holds this invitation; null = not measured. */
+  linkedOf: (guestId: string) => boolean | null;
+  /** guest_id → when they arrived; null = not read (before the day) or refused. */
+  checkins: Readonly<Record<string, string>> | null;
+};
+
+const DASH = <span className="text-xs text-ink/40">—</span>;
+
+/**
+ * ONE CELL, ANY COLUMN — the same control for a column wherever it is drawn
+ * (owner 2026-09-30: "each cell uses the same control everywhere"): the desktop
+ * row's slots and the phone row's one slot both come through here, so a column
+ * cannot mean one thing on a computer and another on a phone.
+ *
+ *   · Invite  — `GuestInviteCell` (Invite · ⋯ + status); the hosts read Host.
+ *   · RSVP    — the reply pill, ONE dropdown.
+ *   · Access  — `GuestAccessCell` (#6191), the card's Access line.
+ *   · Check-in — `GuestCheckinCell`, the desk's own actions.
+ *   · Seat · Side · Role · Groups · +N — the shipped chip editors.
+ *   · Account — Linked / Not linked, "—" when nobody measured.
+ *   · Contact — the mobile as tap-to-call. Never an email (no email to guests).
+ */
+function RosterCell({
+  column,
+  guest,
+  facts,
+  size,
+}: {
+  column: RosterColumn;
+  guest: GuestRow;
+  facts: RowFacts;
+  size: 'row' | 'phone';
 }) {
-  const hasSides = useContext(GuestListHasSidesContext);
-  const name = guestDisplayName(guest);
-  // `align-middle` centres the cells against the 36px avatar instead of letting
-  // them sit on its baseline; the 2px edge and px-3 keep this row's columns on
-  // the same lines as every other row's.
+  const { eventId } = facts;
+  const isHost = HOST_ROLES.has(guest.role);
+  const extraSeats = useBringerSeats(guest.guest_id);
+  const seat = facts.seatByGuest[guest.guest_id];
+  const linked = facts.linkedOf(guest.guest_id);
+  switch (column) {
+    case 'invite':
+      // Invite · ⋯ with the status under it. The bride's row says Host — they
+      // are the hosts, nothing to send.
+      if (isHost) return <span className="text-xs font-medium text-ink/55">Host</span>;
+      if (guest.passed_away) return <span className="text-xs text-ink/45">Remembered</span>;
+      return <RowInvite eventId={eventId} guest={guest} invite={facts.invite} size={size} linked={linked} />;
+    case 'rsvp':
+      if (guest.passed_away) return DASH;
+      return (
+        <RsvpChipEditor eventId={eventId} guest={guest} seatedTableLabel={seat?.placed ?? null}>
+          <RsvpText status={guest.rsvp_status} host={isHost} />
+        </RsvpChipEditor>
+      );
+    case 'access':
+      return <RowAccess eventId={eventId} guest={guest} size={size} />;
+    case 'checkin': {
+      // A request nobody accepted admits nobody (the desk refuses it too); a
+      // refused read says "—", never "Check in" for everybody.
+      if (guest.passed_away || guest.entry_source === REQUEST_ENTRY_SOURCE || facts.checkins === null) return DASH;
+      return (
+        <GuestCheckinCell
+          eventId={eventId}
+          guestId={guest.guest_id}
+          name={guestDisplayName(guest)}
+          checkedInAt={facts.checkins[guest.guest_id] ?? null}
+        />
+      );
+    }
+    case 'seat':
+      // Placed · suggested until placed · a dash when none or not coming.
+      return (
+        <SeatChip
+          placed={seat?.placed ?? null}
+          suggested={seat?.suggested ?? null}
+          rsvp={guest.rsvp_status}
+          plusOnes={0}
+          plain
+        />
+      );
+    case 'side':
+      return (
+        <SideChipEditor eventId={eventId} guest={guest}>
+          <SideText side={guest.side} />
+        </SideChipEditor>
+      );
+    case 'role':
+      return (
+        <RoleChipEditor eventId={eventId} guest={guest} roleSections={facts.bulkRoleSections}>
+          <RoleTexts guest={guest} palette={facts.palette} />
+        </RoleChipEditor>
+      );
+    case 'groups': {
+      const groupIds = facts.groupMemberships[guest.guest_id] ?? [];
+      return (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <GroupChipList
+            eventId={eventId}
+            guestId={guest.guest_id}
+            groupIds={groupIds}
+            groupsById={facts.groupsById}
+            currentGroupId={facts.currentGroupId}
+            compact
+            plain
+          />
+          <AddToGroupControl eventId={eventId} guest={guest} groups={facts.groups} memberGroupIds={groupIds} />
+        </div>
+      );
+    }
+    case 'plus':
+      // +N — the host's number; a dash when there is nothing to say.
+      if (isHost || guest.rsvp_status === 'declined' || guest.passed_away) return DASH;
+      return (
+        <div className="space-y-0.5">
+          <PlusOneChipEditor eventId={eventId} guest={guest} />
+          {/* "+3 (2 named)" — how many of the seats already have a name. */}
+          {extraSeats.some((s) => s.named) ? (
+            <p className="whitespace-nowrap text-[11px] text-ink/55">
+              <PlusOneSeatsSummary count={plusOneSeats(guest)} seats={extraSeats} />
+            </p>
+          ) : null}
+        </div>
+      );
+    case 'account':
+      if (linked === null) return DASH;
+      return linked ? (
+        <span className="text-xs font-medium text-success-800">Linked</span>
+      ) : (
+        <span className="text-xs text-ink/55">Not linked</span>
+      );
+    case 'contact':
+      return <ContactCell mobile={guest.mobile} name={guestDisplayName(guest)} />;
+  }
+}
+
+/**
+ * The Contact column — the guest's mobile, one tap to call. Rule 1 allows a
+ * guest's contact "only for the couple and if coordinator is given access"
+ * (owner 2026-09-14), and this list renders only behind guest_list access —
+ * billed in `no-door-out-of-the-app.test.ts`. No email: nothing on this list
+ * writes to a guest by email (owner 2026-09-30).
+ */
+function ContactCell({ mobile, name }: { mobile: string | null; name: string }) {
+  const number = mobile?.trim();
+  if (!number) return DASH;
   return (
-    <tr className="border-t border-danger-200/60 bg-danger-50/50 align-middle">
-      <td className={`border-l-2 px-3 py-3 ${SIDE_CONTROL_BORDER[guest.side]}`} />
-      <td className="px-3 py-3">
-        <div className="flex items-center gap-3">
-          {displayUrl ? (
-            <span className="inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-danger-200">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={displayUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
-            </span>
-          ) : (
-            <span
-              aria-hidden
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-100 text-xs font-semibold text-danger-900"
-            >
-              {guestInitials(guest)}
-            </span>
-          )}
-          <div className="min-w-0">
-            <p className="truncate font-medium text-ink">{name}</p>
-            <p className="truncate text-xs font-medium text-danger-700">
-              asked to join · not on your list yet
-            </p>
-            <p className="truncate text-[11px] text-ink/45">
-              Keep adds them and sends their invitation · Remove tells them nothing
-            </p>
-          </div>
-        </div>
-      </td>
-      <td colSpan={hasSides ? 8 : 7} className="px-3 py-3">
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <form action={keepGuestAction.bind(null, eventId)} className="inline-flex">
-            <input type="hidden" name="guest_id" value={guest.guest_id} />
-            {/* Keep needs the line the Requests page asks for; here it is the name as they typed it. */}
-            <input type="hidden" name="line" value={name} />
-            <SubmitButton
-              overlay={false}
-              pendingLabel="Keeping…"
-              className="inline-flex h-8 items-center rounded-md bg-terracotta-700 px-3 text-xs font-medium text-cream hover:bg-terracotta-800"
-            >
-              Keep
-            </SubmitButton>
-          </form>
-          <Link
-            href={`/dashboard/${eventId}/guests/claims`}
-            className="inline-flex h-8 items-center rounded-md border border-ink/15 px-3 text-xs font-medium text-ink/70 hover:border-ink/30"
-          >
-            Link
-          </Link>
-          <form action={removeGuestAction.bind(null, eventId)} className="inline-flex">
-            <input type="hidden" name="guest_id" value={guest.guest_id} />
-            <SubmitButton
-              overlay={false}
-              pendingLabel="Removing…"
-              className="inline-flex h-8 items-center rounded-md border border-danger-300/70 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
-            >
-              Remove
-            </SubmitButton>
-          </form>
-        </div>
-      </td>
-    </tr>
+    <a
+      href={`tel:${number.replace(/[^\d+]/g, '')}`}
+      aria-label={`Call ${name}`}
+      className="inline-flex min-h-[36px] items-center whitespace-nowrap text-xs text-ink/70 underline-offset-4 hover:text-ink hover:underline"
+    >
+      {number}
+    </a>
+  );
+}
+
+/**
+ * One row's Access control — the card's Access line in a row's width
+ * (`guest-access-cell.tsx`), reading the state the page loaded once. A guest
+ * the read did not answer for gets "—": a refused read must not render as
+ * "None" on every co-host.
+ */
+function RowAccess({
+  eventId,
+  guest,
+  size,
+}: {
+  eventId: string;
+  guest: GuestRow;
+  size: 'row' | 'phone';
+}) {
+  const { byGuest, canManage } = useContext(GuestAccessContext);
+  const state = byGuest[guest.guest_id];
+  if (!state) return DASH;
+  return (
+    <GuestAccessCell
+      eventId={eventId}
+      guestId={guest.guest_id}
+      firstName={guest.first_name}
+      state={state}
+      canManage={canManage}
+      size={size}
+    />
+  );
+}
+
+/**
+ * A slot's header — ONE dropdown choosing what the column shows (owner
+ * 2026-09-30: "allow dropdown to each column like mobile mode"). Picking a
+ * column already shown elsewhere swaps the two, so nothing shows twice.
+ */
+function ColumnPick({
+  slot,
+  column,
+  available,
+  onPick,
+  label,
+}: {
+  slot: number;
+  column: RosterColumn;
+  available: readonly RosterColumn[];
+  onPick: (slot: number, column: RosterColumn) => void;
+  label: string;
+}) {
+  return (
+    <PickMenu
+      compact
+      label={label}
+      value={column}
+      buttonText={ROSTER_COLUMN_LABEL[column]}
+      options={available.map((c) => ({ key: c, label: ROSTER_COLUMN_LABEL[c] }))}
+      onPick={(key) => onPick(slot, key as RosterColumn)}
+      dataAttr="data-roster-column-pick"
+    />
   );
 }
 
@@ -627,10 +644,19 @@ type Props = {
   groups: GuestGroupWithCount[];
   groupMemberships: Record<string, string[]>; // guest_id → group_id[]
   currentGroupId: string | null;
-  // Self-join reconcile queue (Living Roster P2): guest_ids of unlisted joiners
-  // (entry_source='self_added_unlisted'), fetched into page.tsx. Rendered as the
-  // blush "needs you" row inline in the roster (Keep / Link / Remove).
+  // Self-join requests (Living Roster P2): guest_ids of unlisted joiners
+  // (entry_source='self_added_unlisted'). Since 2026-09-30 (the Fable rows,
+  // frame D) they are NEVER rows between real guests — the page's one strip
+  // under the title leads to the Requests page — so these are left out here.
   selfJoinIds: string[];
+  /**
+   * The Account column — guest_ids an account holds (`event_members.guest_id`).
+   * null when the read was refused: the column then says "—", never a
+   * confident "Not linked" nobody measured.
+   */
+  linkedGuestIds?: readonly string[] | null;
+  /** The event's tables, for the bulk bar's Set table ▾. */
+  tables?: readonly { tableId: string; label: string }[];
   // Reactive seat column (Living Roster P3), keyed by guest_id: `placed` = the
   // guest's live assignment's table label (null when unseated); `suggested` = the
   // pure per-row seat-suggest hint (null when seated/declined/no tables).
@@ -680,6 +706,14 @@ type Props = {
    *  Access; the action refuses everyone else, so the column offers no dropdown. */
   canManageAccess?: boolean;
   /**
+   * The Check-in column (owner 2026-09-30) — guest_id → when they arrived.
+   * Only read from the event day (`checkinOpen`); null when the read was
+   * refused, and the column then says "—" rather than "Check in" for everybody.
+   */
+  checkins?: Readonly<Record<string, string>> | null;
+  /** The event day or after — Check-in is a column choice, and leads. */
+  checkinOpen?: boolean;
+  /**
    * Every guest's extra seats, from the FULL roster (`bringerSeatsFrom`, built
    * in page.tsx before any filter): "+3 (2 named)", "+2 · TBA", and the
    * "3 named · 1 allowed" warning (owner 2026-09-29, frame G).
@@ -712,26 +746,41 @@ function RowInvite({
   guest,
   invite,
   size,
+  linked,
 }: {
   eventId: string;
   guest: GuestRow;
   invite: GuestInviteSetup | null;
   size: 'row' | 'phone';
+  linked: boolean | null;
 }) {
   if (guest.role === 'bride' || guest.role === 'groom' || guest.passed_away) return null;
   if (!invite) {
     return size === 'row' ? <span className="text-xs text-ink/40">—</span> : null;
   }
+  const inviteUrl = guest.qr_token ? `${invite.base}?invite=${guest.qr_token}` : null;
   return (
     <GuestInviteCell
       eventId={eventId}
-      size={size}
+      layout={size}
+      linked={linked}
+      /* ⋯ — the same list as the card's (Write to NFC · New QR · Unlink). */
+      more={
+        <GuestMoreMenu
+          eventId={eventId}
+          guestId={guest.guest_id}
+          guestName={guestDisplayName(guest)}
+          nfcUrl={inviteUrl}
+          linked={linked === true}
+          returnTo={`/dashboard/${eventId}/guests`}
+        />
+      }
       guest={{
         guestId: guest.guest_id,
         formalName: guestFullName(guest, invite.facts.nameStyle),
         firstName: guest.first_name,
         fullName: guestDisplayName(guest),
-        inviteUrl: guest.qr_token ? `${invite.base}?invite=${guest.qr_token}` : null,
+        inviteUrl,
         sentAt: guest.invitation_sent_at,
       }}
       facts={invite.facts}
@@ -740,38 +789,12 @@ function RowInvite({
   );
 }
 
-/**
- * One row's Access control — the card's Access line in a row's width
- * (`guest-access-cell.tsx`), reading the state the page loaded once. A guest
- * the read did not answer for gets nothing: a refused read must not render as
- * "None" on every co-host.
- */
-function RowAccess({
-  eventId,
-  guest,
-  size,
-}: {
-  eventId: string;
-  guest: GuestRow;
-  size: 'row' | 'phone';
-}) {
-  const { byGuest, canManage } = useContext(GuestAccessContext);
-  const state = byGuest[guest.guest_id];
-  if (!state) return null;
-  return (
-    <GuestAccessCell
-      eventId={eventId}
-      guestId={guest.guest_id}
-      firstName={guest.first_name}
-      state={state}
-      canManage={canManage}
-      size={size}
-    />
-  );
-}
-
 const NO_SEATS: Readonly<Record<string, readonly BringerSeat[]>> = {};
 const NO_ACCESS: Readonly<Record<string, GuestAccessState>> = {};
+
+/** The hosts' rows — no Invite, the reply reads Always. The RSVP and role LOCKS stay in their editors. */
+const HOST_ROLES: ReadonlySet<string> = new Set(['bride', 'groom']);
+
 
 export function GuestListMultiselect({
   eventId,
@@ -793,9 +816,14 @@ export function GuestListMultiselect({
   hasSides = true,
   accessByGuest = NO_ACCESS,
   canManageAccess = false,
+  checkins = null,
+  checkinOpen = false,
   seatsByBringer = NO_SEATS,
   invite = null,
+  linkedGuestIds = null,
+  tables = [],
 }: Props) {
+  const linkedSet = useMemo(() => (linkedGuestIds ? new Set(linkedGuestIds) : null), [linkedGuestIds]);
   // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5). Reused as
   // the role-editor popover's option groups (P2).
   /**
@@ -813,18 +841,11 @@ export function GuestListMultiselect({
   const faceFor = (g: GuestRow): string | undefined =>
     photoDisplayUrls[g.photo_url ?? ''] ?? accountFaceByGuest[g.guest_id];
 
-  const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
+  const bulkRoleSections = useMemo(() => bulkRoleSectionsFor(roleSetKey), [roleSetKey]);
   // The couple's words for roles (owner 2026-09-30) — headings are drawn in them.
   const roleNames = useRoleNames();
   // Which visible rows are unlisted self-joiners → render the blush needs-you
   // variant instead of the normal editable row.
-  const selfJoinSet = useMemo(() => new Set(selfJoinIds), [selfJoinIds]);
-  // The Access column's one context value — a fresh object per render would
-  // re-render every row's cell on every keystroke in the search box.
-  const accessCtx = useMemo(
-    () => ({ byGuest: accessByGuest, canManage: canManageAccess }),
-    [accessByGuest, canManageAccess],
-  );
   // Selection lives in the shared external store so the mobile carousel's
   // Customize panel (a sibling component) shows the live count / select-all
   // and the desktop SelectionBar stay in lockstep (owner directive
@@ -847,20 +868,62 @@ export function GuestListMultiselect({
   // Project the SSR list through the overlay — everything below renders from
   // `rosterGuests`, so optimistically-removed guests vanish immediately.
   const rosterGuests = useMemo(
-    () => projectGuests(guests, optimistic),
-    [guests, optimistic],
+    () => plusOnesUnderBringers(projectGuests(guests, optimistic).filter((g) => !selfJoinIds.includes(g.guest_id))),
+    [guests, optimistic, selfJoinIds],
   );
+  const guestsById = useMemo(() => new Map(rosterGuests.map((g) => [g.guest_id, g] as const)), [rosterGuests]);
 
-  // guest_id → display name, for the selection chips. Built from the FULL
-  // roster, not the filtered view: a guest filtered out of the current lens
-  // must still be nameable.
-  const partnerNameById = useMemo(() => {
+  // guest_id → display name, for "+1 of <bringer>" — from the roster in hand.
+  const nameById = useMemo(() => {
     const map: Record<string, string> = {};
     for (const g of rosterGuests) map[g.guest_id] = guestDisplayName(g);
     return map;
   }, [rosterGuests]);
 
-  const [showNewGroupForm, setShowNewGroupForm] = useState(false);
+  // The Access column's one context value — a fresh object per render would
+  // re-render every row's cell on every keystroke in the search box.
+  const accessCtx = useMemo(
+    () => ({ byGuest: accessByGuest, canManage: canManageAccess }),
+    [accessByGuest, canManageAccess],
+  );
+
+  // ── THE COLUMN SLOTS (owner 2026-09-30, "THE GUEST LIST USES THE FULL
+  // WIDTH"): which columns this list can show, in their default order — Invite
+  // leads while anybody is still to be sent theirs; from the event day
+  // Check-in leads. The desktop fits as many as its width allows; the phone
+  // shows ONE beside the name. Each device remembers its own picks.
+  const anyUnsent = useMemo(
+    () =>
+      rosterGuests.some(
+        (g) =>
+          !HOST_ROLES.has(g.role) &&
+          !g.passed_away &&
+          g.entry_source !== REQUEST_ENTRY_SOURCE &&
+          !g.invitation_sent_at &&
+          g.rsvp_status !== 'declined',
+      ),
+    [rosterGuests],
+  );
+  const availableColumns = useMemo(
+    () => defaultRosterColumns({ anyUnsent, checkinOpen, hasSides }),
+    [anyUnsent, checkinOpen, hasSides],
+  );
+  const desk = useRosterColumns({ storageKey: 'sn:guest-list-columns:v1', defaults: availableColumns });
+  const phone = useRosterColumns({
+    storageKey: 'sn:guest-list-columns:phone:v1',
+    defaults: availableColumns,
+    fixedSlots: 1,
+  });
+  const phoneColumn = phone.columns[0] ?? 'invite';
+  // The phone's Show ▾ is drawn behind the title's ⋯ (frame 2 of the approved
+  // simple phone app) — the SAME pick, published for that sheet to read.
+  const phonePick = phone.pick;
+  useEffect(() => {
+    publishPhoneColumn({ column: phoneColumn, available: availableColumns, pick: (c) => phonePick(0, c) });
+    return () => publishPhoneColumn(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phoneColumn, availableColumns]);
+
   // Collapsed section keys (redesign Phase 1) — client-only, resets on reload.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleSection = (key: string) =>
@@ -876,8 +939,8 @@ export function GuestListMultiselect({
   // into select-all or the SelectionBar bulk actions — and keeping them out lets
   // allSelected/someSelected be reached by clicking the visible checkboxes.
   const allIds = useMemo(
-    () => rosterGuests.map((g) => g.guest_id).filter((id) => !selfJoinSet.has(id)),
-    [rosterGuests, selfJoinSet],
+    () => rosterGuests.map((g) => g.guest_id),
+    [rosterGuests],
   );
   const allSelected =
     selectedIds.length > 0 && selectedIds.length === allIds.length;
@@ -916,6 +979,36 @@ export function GuestListMultiselect({
   const groupsById = useMemo(
     () => Object.fromEntries(groups.map((g) => [g.group_id, g])),
     [groups],
+  );
+
+  const facts: RowFacts = useMemo(
+    () => ({
+      eventId,
+      palette,
+      invite,
+      groups,
+      groupsById,
+      groupMemberships,
+      currentGroupId,
+      bulkRoleSections,
+      seatByGuest,
+      linkedOf: (id: string) => (linkedSet ? linkedSet.has(id) : null),
+      checkins: checkinOpen ? checkins : null,
+    }),
+    [
+      eventId,
+      palette,
+      invite,
+      groups,
+      groupsById,
+      groupMemberships,
+      currentGroupId,
+      bulkRoleSections,
+      seatByGuest,
+      linkedSet,
+      checkinOpen,
+      checkins,
+    ],
   );
 
   /*
@@ -957,7 +1050,11 @@ export function GuestListMultiselect({
       if (best) groupLabelById.set(g.guest_id, best);
     }
 
-    const ctx: ArrangeCtx<GuestRow> = {
+    // A +1 is bucketed with the guest who brings them — sorting or grouping
+    // never separates the two (owner 2026-09-30, frame B).
+    const lead = (g: GuestRow): GuestRow =>
+      (g.plus_one_of_guest_id ? guestsById.get(g.plus_one_of_guest_id) : undefined) ?? g;
+    const ctx0: ArrangeCtx<GuestRow> = {
       lastName: (g) => g.last_name,
       sideLabel: (g) => SIDE_LABELS[g.side],
       roleGroupLabel: (g) => {
@@ -981,6 +1078,15 @@ export function GuestListMultiselect({
         if (seat?.suggested) return [1, seat.suggested];
         return [2, ''];
       },
+    };
+    const ctx: ArrangeCtx<GuestRow> = {
+      lastName: (g) => ctx0.lastName(lead(g)),
+      sideLabel: (g) => ctx0.sideLabel(lead(g)),
+      roleGroupLabel: (g) => ctx0.roleGroupLabel(lead(g)),
+      groupLabel: (g) => ctx0.groupLabel(lead(g)),
+      rsvpLabel: (g) => ctx0.rsvpLabel(lead(g)),
+      seatLabel: (g) => ctx0.seatLabel(lead(g)),
+      seatRank: (g) => ctx0.seatRank(lead(g)),
     };
 
     // ⛔ THE HONOREE IS PULLED OUT BEFORE ANY BUCKETING. Left in, they would
@@ -1027,6 +1133,7 @@ export function GuestListMultiselect({
     return out;
   }, [
     rosterGuests,
+    guestsById,
     grouping,
     groupMemberships,
     groupsById,
@@ -1041,32 +1148,20 @@ export function GuestListMultiselect({
     <GuestAccessContext.Provider value={accessCtx}>
     <BringerSeatsProvider seats={seatsByBringer}>
     <div className="space-y-4">
-      {/* Floating bulk-action bar — DESKTOP ONLY (lg+). On phones + tablets
-          the carousel's Customize panel + Assign bottom sheet own bulk
-          actions (owner directive 2026-06-03), so the floating bar would be
-          redundant chrome there. */}
+      {/* The bulk bar — every width, floating at the bottom (owner 2026-09-30,
+          frames C and G). On a phone a long press starts picking; on a
+          computer, the row's box. */}
       {selectedIds.length > 0 ? (
-        /* 🪤 THE STICKY LIVES HERE, NOT ON THE BAR ITSELF. A sticky element can
-           only slide inside its PARENT's box; this wrapper used to be exactly
-           as tall as the bar, so there was zero slack and it scrolled away the
-           instant the list moved — the bar carried `sticky top-20` and was
-           inert, which reads exactly like no sticky at all. Hoisting it to this
-           wrapper gives it the full `space-y-4` column as its containing block,
-           so it pins under the header for the whole scroll of the roster.
-           Keep `z-30`: it must sit above the glass roster panel below. */
-        <div className="sticky top-20 z-30 hidden lg:block">
-          <SelectionBar
-            eventId={eventId}
-            count={selectedIds.length}
-            selectedIds={selectedIds}
-            groups={groups}
-            onClear={() => guestSelection.clear()}
-            showNewGroupForm={showNewGroupForm}
-            setShowNewGroupForm={setShowNewGroupForm}
-            bulkRoleSections={bulkRoleSections}
-            nameById={partnerNameById}
-          />
-        </div>
+        <RosterBulkBar
+          eventId={eventId}
+          selectedIds={selectedIds}
+          guestsById={guestsById}
+          groups={groups}
+          tables={tables}
+          bulkRoleSections={bulkRoleSections}
+          selectMode={selectMode}
+          allIds={allIds}
+        />
       ) : null}
 
       {/* Guest list — owner 2026-06-05. DESKTOP is a row/table layout ("guest
@@ -1095,7 +1190,9 @@ export function GuestListMultiselect({
            sentence always meant. `overflow-x-auto` is belt-and-braces: at any
            width the table now SCROLLS instead of stacking cells on each
            other. */
+        ref={desk.ref}
         className="hidden overflow-x-auto rounded-tile border lg:block"
+        data-roster-slots={desk.columns.length}
         style={{
           background: 'var(--sn-glass-bg)',
           borderColor: 'var(--sn-glass-line)',
@@ -1123,7 +1220,7 @@ export function GuestListMultiselect({
                   cell carries a 2px side rule; without a matching (transparent)
                   one here the header labels sit 2px off every column beneath
                   them — a misalignment invisible in a diff and obvious on screen. */}
-              <th className="w-10 border-l-2 border-transparent px-3 py-2.5 font-semibold">
+              <th className="w-10 px-3 py-2.5 font-semibold">
                 <label className="flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -1139,104 +1236,43 @@ export function GuestListMultiselect({
                   />
                 </label>
               </th>
-              {/* ── COLUMN WIDTHS · the name gets the leftover, so keep the
-                  leftover worth having ──────────────────────────────────────
-                  These six fixed columns summed to 78%, leaving Name 22% MINUS
-                  the 40px checkbox — and the name cell spends 116px of that on
-                  padding, the avatar and the quick-view button before a glyph
-                  is drawn, so "Maria Villanueva" rendered "Maria Vil…". With a
-                  guest inspected the rail takes clamp(340px,30vw,420px) more,
-                  and at 1440px the name had ~0px of text left.
-                  🔑 The binding Roster archetype gives the name the free space;
-                  it is the one column a couple actually reads. Nothing is
-                  REMOVED — which columns exist was never ruled on, only that
-                  desktop is rows and not tiles (owner 2026-06-05); the six are
-                  simply no longer allowed to eat the table.
-                  Role keeps the largest share of the six because it renders
-                  CHIPS, not text, and was widest for that reason. The extra
-                  comes from Contact, one line of `text-xs`. */}
-              {/* 🔑 NAME CARRIES THE LONGEST VALUE IN THE ROW and gets what is
-                  left, so every percentage below is taken FROM it. The other six
-                  columns claimed 56%, and with the avatar and quick-view button
-                  inside the cell the name text measured 96px on the owner's
-                  screen — "Indalecio Casasola" was already cut to "Indalecio
-                  Casa…" BEFORE full names existed. A formal name is longer
-                  still ("Ms. Claire Estoras Buanhog"), so shipping the whole
-                  name into an unchanged column would have shown LESS of it than
-                  before. Trimmed to 46% total; the chips in those columns are
-                  short and fixed-width, so they lose nothing. */}
-              {/* ⚖ Owner 2026-09-20 — the header IS the arrangement control:
-                  the word sorts, the box beside it groups. Widths unchanged. */}
-              {/* ⚖ WIDTHS REBALANCED 2026-09-21 for the checkbox each header now
-                  carries. The six kept their pre-control widths when the
-                  controls landed, so ~20px of checkbox per column had nowhere
-                  to go: the labels spilled over their own cells, every header
-                  sat shifted from the column beneath it, the last one was
-                  pushed off the right edge reading "CONTA", and the table
-                  overflowed its own scroller instead of filling the screen.
-                  The six go 46% → 50%; Name keeps the rest.
-
-                  🪤 AND CAPITALS ARE WIDER THAN LOWERCASE. Once the sort labels
-                  really rendered in capitals (2026-09-21 — preflight had been
-                  resetting them to mixed case), SIDE needed 79px in a 71px cell
-                  and CONTACT 84px in 82 at the owner's 1,022px table, reading
-                  "SI…" and "CONTAC…". Side 7% → 8%, Contact 8% → 9%: the fixed
-                  columns now claim 55%, the ceiling the geometry guard allows,
-                  and Name keeps 45%.
-
-                  🪤 AND THAT WAS NOT ENOUGH — measured, not guessed. Rendered
-                  at 1100px with the real Tailwind config, the table was STILL
-                  1,085px inside a 1,066px scroller after the first fix, and
-                  "Contact" still read "CONTA": the whole 19px overflow was
-                  that one plain-text header, whose word needs ~72px in a 53px
-                  cell. The first fix's own spill check read it as zero,
-                  because it measured child elements and this cell has none.
-                  Contact goes 5% → 8% (it now reads in full down to ~900px),
-                  and every header cell carries `overflow-hidden` so no single
-                  word can widen the table again.
-
-                  ⛔ PADDING IS NOT WHERE THE SPACE COMES FROM. Trimming these
-                  to px-2 buys 8px a column and puts the header 4px left of
-                  every cell under it — the exact crookedness
-                  `the-roster-lines-up.test.ts` exists to stop. One padding,
-                  header and body, always.
-
-                  🔑 Truncation in ArrangeTh is the floor under all of it:
-                  these widths make truncating RARE, they do not prevent it,
-                  and nothing here may depend on a label fitting. */}
-              <ArrangeTh column="name" grouping={grouping} sort={sort} className="px-3 py-2.5 font-semibold" />
-              {hasSides ? (
-                <ArrangeTh column="side" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
-              ) : null}
-              <ArrangeTh column="role" grouping={grouping} sort={sort} className="w-[12%] px-3 py-2.5 font-semibold" />
-              {/* ⚖ THE ACCESS COLUMN (owner 2026-09-28: co-hosts come from the
-                  guest list — None · Co-host · Limited helper, one dropdown per
-                  guest). Beside Role, where its "+Co-host" tag used to trail.
-                  A FIXED width like Invite: one dropdown of known size, the
-                  longest word ("Limited helper") just fitting at 13px. It is
-                  taken from Name — see the Invite note and the pixel budget in
-                  the-header-fits-its-own-cell.test.ts. */}
-              <th className="w-[148px] overflow-hidden px-3 py-2.5 font-semibold">
-                <span className="block truncate">Access</span>
-              </th>
-              <ArrangeTh column="group" grouping={grouping} sort={sort} className="w-[10%] px-3 py-2.5 font-semibold" />
-              <ArrangeTh column="rsvp" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
-              <ArrangeTh column="seat" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
-              <th className="w-[9%] overflow-hidden px-3 py-2.5 font-semibold">
-                <span className="block truncate">Contact</span>
-              </th>
-              {/* ⚖ THE INVITE COLUMN (owner 2026-09-30). A FIXED width, not a
-                  percentage: it holds one button of known size, and every
-                  percentage is taken from Name (see the width note above). The
-                  (i) says in one line what the first-visit tour says in four. */}
-              <th className="w-[104px] px-3 py-2.5 font-semibold">
-                <InfoTip label="Invite" align="end" ariaLabel="How Invite works">
-                  <span className="block normal-case tracking-normal font-normal">
-                    Each guest has their own ticket. Tap Invite to send the message and their
-                    ticket together — on a computer, copy the message, then the ticket, and paste both.
+              {/* ⚖ Owner 2026-09-30: Name first and widest, then as many
+                  column SLOTS as the width fits, each header ONE dropdown
+                  choosing what that column shows (no column twice — picking
+                  one already shown swaps the two). Words only: Sort ▾ above the
+                  list is the one place for order. Every header cell clips its
+                  own word (`overflow-hidden`), so no label can widen the table. */}
+              <th className="overflow-hidden px-3 py-2.5 font-semibold"><span className="block truncate">Name</span></th>
+              {desk.columns.map((column, slot) => (
+                <th
+                  key={column}
+                  /* Every slot is SLOT_PX wide — the same number the slot
+                     count is computed from, so Name always keeps the rest.
+                     The dropdown's list is portalled, so clipping the cell
+                     never clips the menu. */
+                  style={{ width: SLOT_PX }}
+                  className="overflow-hidden px-3 py-2 font-semibold normal-case tracking-normal"
+                  data-roster-slot={slot}
+                >
+                  <span className="flex items-center gap-1">
+                    <ColumnPick
+                      slot={slot}
+                      column={column}
+                      available={availableColumns}
+                      onPick={desk.pick}
+                      label={`Column ${slot + 1} shows`}
+                    />
+                    {column === 'invite' ? (
+                      <InfoTip label="Invite" labelClassName="sr-only" align="end" ariaLabel="How Invite works">
+                        <span className="block normal-case tracking-normal font-normal">
+                          Each guest has their own ticket. Invite sends the message, their link and their
+                          ticket together. On a computer: copy the message, then copy the ticket.
+                        </span>
+                      </InfoTip>
+                    ) : null}
                   </span>
-                </InfoTip>
-              </th>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -1245,7 +1281,7 @@ export function GuestListMultiselect({
                 {sec.label ? (
                   <tr>
                     <td
-                      colSpan={hasSides ? 10 : 9}
+                      colSpan={2 + desk.columns.length}
                       className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
                     >
                       <TierHeader
@@ -1261,33 +1297,18 @@ export function GuestListMultiselect({
                 {/* No collapse test here — the section build already emptied a
                     shut section, so the rule lives in ONE place for both
                     surfaces (this table and the mobile grid below). */}
-                {sec.guests.map((guest) =>
-                    selfJoinSet.has(guest.guest_id) ? (
-                      <SelfJoinDesktopRow
-                        key={guest.guest_id}
-                        guest={guest}
-                        eventId={eventId}
-                        displayUrl={faceFor(guest)}
-                      />
-                    ) : (
-                      <DesktopRow
-                        key={guest.guest_id}
-                        guest={guest}
-                        eventId={eventId}
-                        palette={palette}
-                        displayUrl={faceFor(guest)}
-                        selected={selectedSet.has(guest.guest_id)}
-                        onToggle={() => guestSelection.toggle(guest.guest_id)}
-                        groupIds={groupMemberships[guest.guest_id] ?? []}
-                        groups={groups}
-                        groupsById={groupsById}
-                        currentGroupId={currentGroupId}
-                        bulkRoleSections={bulkRoleSections}
-                        seat={seatByGuest[guest.guest_id]}
-                        invite={invite}
-                      />
-                    ),
-                  )}
+                {sec.guests.map((guest) => (
+                  <DesktopRow
+                    key={guest.guest_id}
+                    guest={guest}
+                    displayUrl={faceFor(guest)}
+                    selected={selectedSet.has(guest.guest_id)}
+                    onToggle={() => guestSelection.toggle(guest.guest_id)}
+                    nameById={nameById}
+                    columns={desk.columns}
+                    facts={facts}
+                  />
+                ))}
               </Fragment>
             ))}
           </tbody>
@@ -1304,9 +1325,10 @@ export function GuestListMultiselect({
           2026-06-03 directive. See the table's note above for why this is not
           `sm:hidden` any more. */}
       <div className="space-y-5 lg:hidden">
-        {/* The phone has no header row to hold six boxes, so the same choices
-            live behind one icon (owner 2026-09-20). */}
-        <ArrangeSheet grouping={grouping} sort={sort} />
+        {/* The phone's ONE column beside the name (owner 2026-09-30) is still
+            picked with the same dropdown — but behind the title's ⋯ now, as
+            "Show ▾" (frame 2 of the approved simple phone app: setup never sits
+            as a strip above the rows). See phone-column-channel.ts. */}
         {sections.map((sec) => (
           <section key={sec.key}>
             {sec.label ? (
@@ -1334,35 +1356,28 @@ export function GuestListMultiselect({
                 a guest who had opted in would lose their face on mobile only. */}
             {sec.guests.length > 0 ? (
               <ul className="flex list-none flex-col gap-2">
-                {sec.guests.map((guest) =>
-                  selfJoinSet.has(guest.guest_id) ? (
-                    <li key={guest.guest_id} className="list-none">
-                      <MobileSelfJoinCard
-                        guest={guest}
-                        eventId={eventId}
-                        displayUrl={faceFor(guest)}
-                      />
-                    </li>
-                  ) : (
-                    <MobileListRow
-                      key={guest.guest_id}
-                      guest={guest}
-                      eventId={eventId}
-                      displayUrl={faceFor(guest)}
-                      selectMode={selectMode}
-                      selected={selectedSet.has(guest.guest_id)}
-                      onToggle={() => guestSelection.toggle(guest.guest_id)}
-                      palette={palette}
-                      groupIds={groupMemberships[guest.guest_id] ?? []}
-                      groups={groups}
-                      groupsById={groupsById}
-                      currentGroupId={currentGroupId}
-                      bulkRoleSections={bulkRoleSections}
-                      seat={seatByGuest[guest.guest_id]}
-                      invite={invite}
-                    />
-                  ),
-                )}
+                {sec.guests.map((guest) => (
+                  <MobileListRow
+                    key={guest.guest_id}
+                    guest={guest}
+                    eventId={eventId}
+                    displayUrl={faceFor(guest)}
+                    selectMode={selectMode}
+                    selected={selectedSet.has(guest.guest_id)}
+                    onToggle={() => guestSelection.toggle(guest.guest_id)}
+                    palette={palette}
+                    groupIds={groupMemberships[guest.guest_id] ?? []}
+                    groups={groups}
+                    groupsById={groupsById}
+                    currentGroupId={currentGroupId}
+                    bulkRoleSections={bulkRoleSections}
+                    seat={seatByGuest[guest.guest_id]}
+                    nameById={nameById}
+                    linked={facts.linkedOf(guest.guest_id)}
+                    column={phoneColumn}
+                    facts={facts}
+                  />
+                ))}
               </ul>
             ) : null}
           </section>
@@ -1377,129 +1392,192 @@ export function GuestListMultiselect({
 }
 
 // -----------------------------------------------------------------------
-// SelectionBar — sticky top action bar surfaced when ≥1 guest selected.
-// Renders three forms (assign-role · add-to-group · new-group) inline so
-// the host can act without leaving the page. Each form ships the
-// selectedIds as repeated hidden inputs ("guest_ids[]").
+// THE BULK BAR — ticked rows, one bar, the same four on every width (owner
+// 2026-09-30, the Fable rows, frames C and G): "N selected · M not yet invited ·
+// Clear", then Invite selected · Set group ▾ · Set table ▾ · ⋯.
+//
+//   · Invite selected — the one-by-one run (`/guests/send`) with only the
+//     ticked guests, in the order they were ticked: one share sheet per guest,
+//     each with that guest's own ticket. Bride and groom are never sent to.
+//   · Set group ▾ / Set table ▾ — ONE dropdown each (existing groups + New
+//     group… · the tables + No table). Each choice applies at once — no Apply —
+//     through the ONE bulk action the old Apply used (`bulkApplyRoleAndGroup`,
+//     which now also takes `table`), so no server action was added.
+//   · ⋯ — the rest, ONE list: Set side · Set role · Mark invited · Remove.
+//
+// There is no Pair here any more: who walks beside whom is set in the Maker's
+// Wedding March only (DECISION_LOG 2026-09-30 "WALKING TOGETHER IS NOT BEING A
+// COUPLE").
 // -----------------------------------------------------------------------
 
-function SelectionBar({
+const NEW_GROUP_KEY = '__new_group__';
+
+function RosterBulkBar({
   eventId,
-  count,
   selectedIds,
+  guestsById,
   groups,
-  onClear,
-  showNewGroupForm,
-  nameById,
-  setShowNewGroupForm,
+  tables,
   bulkRoleSections,
+  selectMode,
+  allIds,
 }: {
   eventId: string;
-  count: number;
+  /** Every guest in view — "Select all N". */
+  allIds: string[];
   selectedIds: string[];
+  guestsById: Map<string, GuestRow>;
   groups: GuestGroupWithCount[];
-  onClear: () => void;
-  /** guest_id → display name, so the bar can SAY who is selected. */
-  nameById: Record<string, string>;
-  showNewGroupForm: boolean;
-  setShowNewGroupForm: (v: boolean) => void;
+  tables: readonly { tableId: string; label: string }[];
   bulkRoleSections: RoleSection[];
+  /** The phone's select mode — Done leaves it. */
+  selectMode: boolean;
 }) {
-  const { viaAll } = useGuestSelection();
+  // No sides on this event (owner 2026-09-30) → no "Set side" in the ⋯.
+  const hasSides = useContext(GuestListHasSidesContext);
+  const roleNames = useRoleNames();
+  const toast = useToast();
+  const router = useRouter();
+  const [busy, startTransition] = useTransition();
+  const [newGroup, setNewGroup] = useState(false);
+  const { remove } = useGuestRemoval(eventId);
+  const count = selectedIds.length;
+
+  const picked = selectedIds.map((id) => guestsById.get(id)).filter((g): g is GuestRow => Boolean(g));
+  const invitable = picked.filter(
+    (g) => g.role !== 'bride' && g.role !== 'groom' && !g.passed_away && g.entry_source !== REQUEST_ENTRY_SOURCE,
+  );
+  const notYet = invitable.filter((g) => !g.invitation_sent_at).length;
+
+  const done = () => {
+    guestSelection.clear();
+    if (selectMode) guestSelection.exit();
+  };
+
+  // The shipped bulk action, as the old Apply posted it — one field at a time.
+  const apply = (field: 'group_id' | 'side' | 'role' | 'table', value: string) => {
+    const fd = new FormData();
+    for (const id of selectedIds) fd.append('guest_ids[]', id);
+    fd.set(field, value);
+    startTransition(async () => {
+      await bulkApplyRoleAndGroup(eventId, fd);
+    });
+  };
+
+  const markInvited = () => {
+    startTransition(async () => {
+      const results = await Promise.all(invitable.map((g) => setGuestInvitationSent(eventId, g.guest_id, true)));
+      const ok = results.filter((r) => r.ok).length;
+      if (ok < invitable.length) toast.error(`${formatCount(invitable.length - ok)} could not be marked — try again.`);
+      else toast.success(`${formatCount(ok)} marked as invited`);
+      done();
+      router.refresh();
+    });
+  };
+
+  const moreOptions: PickOption[] = [
+    ...(hasSides ? (['bride', 'groom', 'both'] as GuestSide[]) : []).map((s) => ({ key: `side:${s}`, label: SIDE_LABELS[s], group: 'Set side' })),
+    ...bulkRoleSections.flatMap((sec) =>
+      sec.roles.map((r) => ({
+        key: `role:${r}`,
+        label: guestRolePickLabel(r, roleNames),
+        group: `Set role · ${sectionHeadingInTheirWords(sec.label, roleNames)}`,
+      })),
+    ),
+    { key: 'mark', label: 'Mark invited', group: 'More', disabledNote: invitable.length === 0 ? 'nobody to invite' : undefined },
+    { key: 'remove', label: 'Remove from list', group: 'More' },
+  ];
+
+  const inviteIds = invitable.map((g) => g.guest_id).join(',');
+
   return (
     <div
       role="region"
       aria-label="Bulk actions for selected guests"
-      /* Sticky positioning is owned by the mount wrapper (see the note at the
-         SelectionBar call site) — it is the element with room to slide. This
-         div keeps only the card's appearance. */
-      className="rounded-xl border border-terracotta/40 bg-cream/95 p-3 shadow-md backdrop-blur"
+      data-roster-bulk-bar=""
+      className="fixed inset-x-3 bottom-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+0.75rem)] z-40 mx-auto max-w-3xl rounded-2xl bg-ink px-3 py-2.5 text-cream shadow-[0_18px_40px_-14px_rgba(26,26,26,0.6)] lg:bottom-6"
     >
-      {/* Single-Apply toolbar (owner directive 2026-05-23 PM verbatim:
-          "apply and add button should be 1 only and at the last, Apply.
-          New Group can be placed on the dropdown of Groups"). Two
-          selects (role + group) inside ONE form, ONE Apply button at the
-          end. "+ New group..." is a sentinel option inside the Groups
-          select — picking it expands the inline create form OUTSIDE
-          this form (NewGroupInlineForm has its own action).
-          *
-          *  BulkApplyForm + BulkDeleteForm are two separate <form>
-          *  elements (each has its own server action — Apply hits
-          *  bulkApplyRoleAndGroup, Delete goes through useGuestRemoval).
-          *  Wrapping them in this flex flex-wrap parent so they sit on
-          *  the SAME ROW at desktop widths instead of stacking. On
-          *  narrow screens flex-wrap kicks in and Delete drops to its
-          *  own line — natural responsive behavior. */}
-      <div className="flex flex-wrap items-center gap-3">
-        <BulkApplyForm
-          eventId={eventId}
-          selectedIds={selectedIds}
-          groups={groups}
-          onNewGroupClick={() => setShowNewGroupForm(true)}
-          onClear={onClear}
-          count={count}
-          bulkRoleSections={bulkRoleSections}
-        />
-
-        {/* Delete affordance · owner directive 2026-05-23. Living Roster P1
-         *  (2026-07-11): the blocking confirm dialog is replaced by an
-         *  OPTIMISTIC remove + 6s undo snackbar — the rows vanish instantly and
-         *  a soft-delete is now reversible from the host UI (undo restores the
-         *  guests AND the seats the delete released). Same server gates
-         *  (couple-protected, RSVP-set-blocked) enforced server-side. */}
-        <OptimisticDeleteButton
-          eventId={eventId}
-          selectedIds={selectedIds}
-          count={count}
-        />
-
-      </div>
-
-      {/* 🔑 WHO is selected, not just HOW MANY.
-          Owner 2026-09-14: "when selecting someone, can we place them
-          persistent? so it will be easier to see which ones we are selecting?"
-          Pairing is the case that forces it — the two people you pair are
-          usually far apart in a long roster, so the tinted rows that say who
-          you picked are off-screen from each other AND from this bar. A count
-          alone cannot be checked against intent; a name can.
-          Each chip removes just that guest, so a wrong pick costs one click
-          instead of Clear selection and starting over. */}
-      {/* ⚖ …but NOT after select-all (owner 2026-09-21: "there are so many
-          that showed. do not show this when we click on the select all").
-          Seventy-nine chips answer no question — the ticks in the list do. */}
-      {viaAll ? null : (
-      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-ink/[0.07] pt-2">
-        {selectedIds.map((id) => (
-          <span
-            key={id}
-            className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-2 py-0.5 text-xs text-ink/75"
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p className="text-sm">
+          <span className="font-semibold">{formatCount(count)} selected</span>
+          {notYet > 0 ? <span className="text-cream/70"> · {formatCount(notYet)} not yet invited</span> : null}
+        </p>
+        {count < allIds.length ? (
+          <button
+            type="button"
+            onClick={() => guestSelection.selectAllInView(allIds)}
+            className="inline-flex min-h-[44px] items-center px-1 text-sm text-cream underline-offset-4 hover:underline"
           >
-            {/* A selected guest the current filter hides still has to be
-                nameable — otherwise narrowing the lens would turn part of your
-                own selection into blanks. */}
-            <span className="max-w-[18ch] truncate">{nameById[id] ?? 'Not in this view'}</span>
-            <button
-              type="button"
-              onClick={() => guestSelection.toggle(id)}
-              aria-label={`Remove ${nameById[id] ?? 'this guest'} from the selection`}
-              className="inline-flex items-center rounded-full p-0.5 text-ink/40 hover:bg-ink/10 hover:text-ink"
+            Select all {formatCount(allIds.length)}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={done}
+          className="inline-flex min-h-[44px] items-center px-1 text-sm text-cream/70 underline-offset-4 hover:text-cream hover:underline"
+        >
+          {selectMode ? 'Done' : 'Clear'}
+        </button>
+        <div className="flex w-full flex-wrap items-center gap-1.5 sm:ml-auto sm:w-auto">
+          {invitable.length > 0 ? (
+            <Link
+              href={`/dashboard/${eventId}/guests/send?ids=${inviteIds}`}
+              className="inline-flex min-h-[44px] items-center rounded-full bg-cream px-4 text-sm font-medium text-ink"
+              data-bulk-invite=""
             >
-              <X aria-hidden className="h-3 w-3" strokeWidth={2.2} />
-            </button>
-          </span>
-        ))}
+              Invite selected
+            </Link>
+          ) : null}
+          <PickMenu
+            label="Set group"
+            value={null}
+            buttonText="Set group"
+            options={[
+              ...groups.map((g) => ({ key: g.group_id, label: g.label })),
+              { key: NEW_GROUP_KEY, label: 'New group…' },
+            ]}
+            onPick={(key) => (key === NEW_GROUP_KEY ? setNewGroup(true) : apply('group_id', key))}
+            dataAttr="data-bulk-set-group"
+          />
+          <PickMenu
+            label="Set table"
+            value={null}
+            buttonText="Set table"
+            options={[{ key: '', label: 'No table' }, ...tables.map((t) => ({ key: t.tableId, label: tableWord(t.label) }))]}
+            onPick={(key) => apply('table', key || 'none')}
+            dataAttr="data-bulk-set-table"
+          />
+          <PickMenu
+            label="More for the selected guests"
+            value={null}
+            buttonText="⋯"
+            options={moreOptions}
+            onPick={(key) => {
+              if (key.startsWith('side:')) apply('side', key.slice(5));
+              else if (key.startsWith('role:')) apply('role', key.slice(5));
+              else if (key === 'mark') markInvited();
+              else if (key === 'remove') void remove(selectedIds);
+            }}
+            dataAttr="data-bulk-more"
+          />
+        </div>
       </div>
-      )}
-
-      {showNewGroupForm ? (
-        <NewGroupInlineForm
-          eventId={eventId}
-          selectedIds={selectedIds}
-          onClose={() => setShowNewGroupForm(false)}
-        />
-      ) : null}
+      {busy ? <p className="pt-1 text-xs text-cream/70">Saving…</p> : null}
+      <Sheet open={newGroup} onClose={() => setNewGroup(false)} labelledById="bulk-new-group-title" rise>
+        <div className="space-y-3 p-5 text-ink">
+          <h2 id="bulk-new-group-title" className="font-display text-xl">
+            New group for {formatCount(count)} {count === 1 ? 'guest' : 'guests'}
+          </h2>
+          <NewGroupInlineForm eventId={eventId} selectedIds={selectedIds} onClose={() => setNewGroup(false)} />
+        </div>
+      </Sheet>
     </div>
   );
+}
+
+/** "7" → "Table 7"; a table the couple named stays as named. */
+function tableWord(label: string): string {
+  return /^\d+$/.test(label.trim()) ? `Table ${label.trim()}` : label;
 }
 
 // Optimistic bulk-delete (Living Roster P1). Hides the selected rows via the
@@ -1579,216 +1657,6 @@ function useGuestRemoval(eventId: string) {
   }
 
   return { removing, remove };
-}
-
-function OptimisticDeleteButton({
-  eventId,
-  selectedIds,
-  count,
-}: {
-  eventId: string;
-  selectedIds: string[];
-  count: number;
-}) {
-  const { removing: deleting, remove } = useGuestRemoval(eventId);
-
-  async function handleDelete() {
-    await remove(selectedIds);
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleDelete}
-      disabled={deleting}
-      aria-label={`Remove ${formatCount(count)} selected guest${count === 1 ? '' : 's'}`}
-      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-danger-300/60 bg-danger-50 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100 disabled:opacity-60"
-    >
-      <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-      {deleting ? 'Removing…' : `Delete ${formatCount(count)}`}
-    </button>
-  );
-}
-
-// Sentinel value for the "+ New group..." option inside the Groups
-// dropdown. Picking it doesn't submit a group_id (we strip it client-
-// side before submit) — it opens the inline create form.
-const NEW_GROUP_SENTINEL = '__new_group__';
-
-function BulkApplyForm({
-  eventId,
-  selectedIds,
-  groups,
-  onNewGroupClick,
-  onClear,
-  count,
-  bulkRoleSections,
-}: {
-  eventId: string;
-  selectedIds: string[];
-  groups: GuestGroupWithCount[];
-  onNewGroupClick: () => void;
-  onClear: () => void;
-  count: number;
-  bulkRoleSections: RoleSection[];
-}) {
-  const hasSides = useContext(GuestListHasSidesContext);
-  const roleNames = useRoleNames();
-  // Track the group select so we can intercept the sentinel and clear
-  // it from the form before submit (preventing the server from seeing
-  // a bogus group_id). Role select is fully form-managed; no state
-  // needed for it.
-  const [groupValue, setGroupValue] = useState('');
-
-  return (
-    <form
-      action={bulkApplyRoleAndGroup.bind(null, eventId)}
-      className="flex flex-wrap items-center gap-3"
-    >
-      {selectedIds.map((id) => (
-        <input key={id} type="hidden" name="guest_ids[]" value={id} />
-      ))}
-
-      <div className="flex items-center gap-2">
-        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-terracotta-700 px-2 text-xs font-semibold text-cream">
-          {formatCount(count)}
-        </span>
-        <span className="text-sm font-medium text-ink">selected</span>
-      </div>
-
-      {/* Role select */}
-      <label className="sr-only" htmlFor="bulk-role">
-        Assign role to selected guests
-      </label>
-      <div className="relative">
-        <select
-          id="bulk-role"
-          name="role"
-          defaultValue=""
-          className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-        >
-          <option value="">Assign role…</option>
-          {bulkRoleSections.map((section) => (
-            <optgroup key={section.label} label={sectionHeadingInTheirWords(section.label, roleNames)}>
-              {section.roles.map((r) => (
-                <option key={r} value={r}>
-                  {guestRolePickLabel(r, roleNames)}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <ChevronDown
-          aria-hidden
-          className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
-          strokeWidth={1.75}
-        />
-      </div>
-
-      {/* Side select · owner directive 2026-05-23 PM: "we want them to
-          pick a role, add to a group, assign sides". Sits between Role
-          and Group in the bulk toolbar. Server action accepts an
-          optional `side` field on the same bulkApplyRoleAndGroup
-          payload — applying alone, alongside Role, alongside Group, or
-          all three together is supported. */}
-      {hasSides ? (
-      <>
-        <label className="sr-only" htmlFor="bulk-side">
-          Assign side to selected guests
-        </label>
-        <div className="relative">
-          <select
-            id="bulk-side"
-            name="side"
-            defaultValue=""
-            className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-          >
-            <option value="">Assign side…</option>
-            {(['bride', 'groom', 'both'] as GuestSide[]).map((side) => (
-              <option key={side} value={side}>
-                {SIDE_LABELS[side]}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            aria-hidden
-            className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
-            strokeWidth={1.75}
-          />
-        </div>
-      </>
-      ) : null}
-
-      {/* The bulk "Part of the host" picker is RETIRED (owner 2026-09-28:
-          "+Co-host" must be TRUE, so it is derived from a real seat, set one
-          guest at a time on their card's Access line — never a bulk label). */}
-
-      {/* Group select — owner directive 2026-05-23 PM: "New Group can be
-          placed on the dropdown of Groups". The sentinel option opens
-          the inline create form (rendered by the parent component) and
-          resets the select so the form doesn't submit a bogus value. */}
-      <label className="sr-only" htmlFor="bulk-group">
-        Add selected guests to a group
-      </label>
-      <div className="relative">
-        <select
-          id="bulk-group"
-          name="group_id"
-          value={groupValue}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === NEW_GROUP_SENTINEL) {
-              // Sentinel — open the create form, reset the select so
-              // the form submits an empty group_id (no-op on server
-              // side).
-              onNewGroupClick();
-              setGroupValue('');
-              return;
-            }
-            setGroupValue(v);
-          }}
-          className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-        >
-          <option value="">Add to group…</option>
-          {groups.length > 0 ? (
-            <optgroup label="Custom groups">
-              {groups.map((g) => (
-                <option key={g.group_id} value={g.group_id}>
-                  {g.label} · {TEAM_SIDE_LABELS[g.team_side]}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-          <optgroup label="Create">
-            <option value={NEW_GROUP_SENTINEL}>+ New group…</option>
-          </optgroup>
-        </select>
-        <ChevronDown
-          aria-hidden
-          className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
-          strokeWidth={1.75}
-        />
-      </div>
-
-      {/* Single Apply button at the end · owner directive. SubmitButton gives
-          it the same in-flight "Applying…" + disabled feedback as Delete. */}
-      <SubmitButton
-        pendingLabel="Applying…"
-        className="inline-flex h-9 items-center rounded-md bg-mulberry px-4 text-xs font-medium text-cream hover:bg-mulberry-600"
-      >
-        Apply
-      </SubmitButton>
-
-      <button
-        type="button"
-        onClick={onClear}
-        className="inline-flex h-9 items-center gap-1 rounded-md border border-ink/20 bg-cream px-3 text-xs text-ink/70 hover:border-ink/40"
-      >
-        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Clear selection
-      </button>
-    </form>
-  );
 }
 
 function NewGroupInlineForm({
@@ -1874,17 +1742,19 @@ function MobileListRow({
   selected,
   onToggle,
   palette,
-  groupIds,
   groups,
   groupsById,
+  groupIds,
   currentGroupId,
   bulkRoleSections,
   seat,
-  invite,
+  nameById,
+  linked,
+  column,
+  facts,
 }: {
   guest: GuestRow;
   eventId: string;
-  invite: GuestInviteSetup | null;
   displayUrl?: string;
   selectMode: boolean;
   selected: boolean;
@@ -1896,132 +1766,164 @@ function MobileListRow({
   currentGroupId: string | null;
   bulkRoleSections: RoleSection[];
   seat?: { placed: string | null; suggested: string | null };
+  /** guest_id → display name — "+1 of <bringer>". */
+  nameById: Record<string, string>;
+  /** An account holds this invitation; null = not measured. */
+  linked: boolean | null;
+  /** The phone's one column slot — drawn under the dashed line. */
+  column: RosterColumn;
+  facts: RowFacts;
 }) {
   const hasSides = useContext(GuestListHasSidesContext);
-  // Select mode owns the row for checkbox bulk ops, and the couple can never
-  // be removed (the server refuses them, so don't
-  // dangle a Delete that can only fail).
-  const swipeable =
-    !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
+  const isHost = HOST_ROLES.has(guest.role);
+  // The couple can never be removed (the server refuses them), and select mode
+  // owns the row — no swipe in either case.
+  const swipeable = !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
   // Frame G (owner 2026-09-29): "+3 (2 named)", an unnamed seat reads "+2 · TBA".
   const extraSeats = useBringerSeats(guest.guest_id);
   const seatLabel = usePlaceholderLabel(guest.guest_id);
   const shownName = seatLabel ?? guestFullName(guest) ?? guestDisplayName(guest);
+  const bringer = guest.plus_one_of_guest_id ? (nameById[guest.plus_one_of_guest_id] ?? null) : null;
+  const table = seat?.placed && guest.rsvp_status !== 'declined' ? `Table ${seat.placed}` : null;
+
+  // Long-press any row to start selecting (frame C). A plain tap then ticks.
+  const press = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressed = useRef(false);
+  const startPress = () => {
+    longPressed.current = false;
+    if (press.current) clearTimeout(press.current);
+    press.current = setTimeout(() => {
+      longPressed.current = true;
+      guestSelection.enter();
+      if (!selected) onToggle();
+      if (typeof navigator !== 'undefined') navigator.vibrate?.(12);
+    }, 480);
+  };
+  const endPress = () => {
+    if (press.current) clearTimeout(press.current);
+    press.current = null;
+  };
 
   const row = (
     <div
-      className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-cream px-3 py-2.5 ${
-        selected ? 'border-terracotta ring-2 ring-terracotta/40' : SIDE_RING[guest.side]
-      }`}
+      onPointerDown={selectMode ? undefined : startPress}
+      onPointerUp={endPress}
+      onPointerLeave={endPress}
+      onPointerCancel={endPress}
+      onContextMenu={(e) => {
+        if (longPressed.current) e.preventDefault();
+      }}
+      onClickCapture={(e) => {
+        // The long press already ticked the row — its lift is not a tap.
+        if (longPressed.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          longPressed.current = false;
+        }
+      }}
+      className={`relative select-none overflow-hidden rounded-xl border bg-cream px-3 py-3 ${
+        selected ? 'border-[var(--sn-gold-500,#b8923a)] bg-[var(--sn-gold-100)]' : 'border-ink/10'
+      } ${bringer ? 'ml-5' : ''}`}
+      data-guest-row=""
     >
-      {/* Stretched detail link (z-0); content sits above it (z-10) and the
-          interactive bits re-enable pointer events (z-20). */}
-      <Link
-        href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-        aria-label={guestDisplayName(guest)}
-        className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-      />
-      {selectMode ? (
-        <label
-          onClick={(e) => e.stopPropagation()}
-          className="relative z-20 inline-flex shrink-0 cursor-pointer items-center"
-        >
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onToggle}
-            aria-label={`Select ${(guestFullName(guest) ?? guestDisplayName(guest))}`}
-            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-          />
-        </label>
-      ) : (
-        // The avatar ALREADY carries the side (RowAvatar tints it, and
-        // SIDE_RING tints the row's border), so making it the side trigger adds
-        // no pixels to a row whose whole point is density — it turns an existing
-        // signal into the control for the thing it signals.
-        <span className="pointer-events-auto relative z-20">
-          {hasSides ? (
-            <SideChipEditor eventId={eventId} guest={guest}>
+      <div className="flex items-start gap-3">
+        {selectMode ? (
+          <label className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              aria-label={`Select ${shownName}`}
+              className="h-5 w-5 rounded-full border-ink/30 text-terracotta focus:ring-terracotta"
+            />
+          </label>
+        ) : (
+          // The avatar ALREADY carries the side (its tint), so it is the side's
+          // control — no extra pixels in a row whose point is density.
+          <span className="relative z-20 shrink-0">
+            {hasSides ? (
+              <SideChipEditor eventId={eventId} guest={guest}>
+                <RowAvatar guest={guest} displayUrl={displayUrl} />
+              </SideChipEditor>
+            ) : (
               <RowAvatar guest={guest} displayUrl={displayUrl} />
-            </SideChipEditor>
+            )}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          {selectMode ? (
+            <button type="button" onClick={onToggle} className="block w-full truncate text-left font-display text-[16px] leading-snug text-ink">
+              {shownName}
+            </button>
           ) : (
-            <RowAvatar guest={guest} displayUrl={displayUrl} />
+            /* Tap the name for the full guest card. */
+            <InspectorTrigger
+              inspectId={guest.guest_id}
+              href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+              className="block min-w-0 truncate rounded-md text-left font-display text-[16px] leading-snug text-ink"
+            >
+              {shownName}
+            </InspectorTrigger>
           )}
-        </span>
-      )}
-      <div className="relative z-10 min-w-0 flex-1">
-        <p className="pointer-events-none truncate text-sm font-medium text-ink">
-          {shownName}
-        </p>
-        {guest.passed_away ? (
-          <p className="pointer-events-none truncate text-xs text-ink/55" data-passed-away="">
-            {PASSED_AWAY_LINE}
-          </p>
-        ) : null}
-        {/* Sub-line. Role and groups CANNOT be edited without being shown, so
-            allowing that here costs a second line on rows that previously had
-            one (owner call 2026-09-05 — "allow it if possible"). It is kept to
-            one flex line that scrolls rather than wraps, so a guest with four
-            groups never grows the row a third time. */}
-        <div className="m-no-scrollbar pointer-events-auto -mx-0.5 mt-0.5 overflow-x-auto px-0.5">
-          {/* `w-max` so the chips keep their natural width and scroll instead of
-              squashing — the row has no space to give, and a half-width role
-              chip is worse than one the host has to nudge sideways. */}
-          <div className="flex w-max items-center gap-1">
-          <RoleChipEditor
-            eventId={eventId}
-            guest={guest}
-            roleSections={bulkRoleSections}
-          >
-            <RoleTexts guest={guest} palette={palette} />
-          </RoleChipEditor>
-          {/* Access — the desktop row's Access column, on the phone: the same
-              dropdown, chip-sized for the one sub-line. */}
-          <RowAccess eventId={eventId} guest={guest} size="phone" />
-          <GroupChipList
-            eventId={eventId}
-            guestId={guest.guest_id}
-            groupIds={groupIds}
-            groupsById={groupsById}
-            currentGroupId={currentGroupId}
-            compact
-            plain
-          />
-          <AddToGroupControl
-            eventId={eventId}
-            guest={guest}
-            groups={groups}
-            memberGroupIds={groupIds}
-          />
-          {plusOneSeats(guest) > 0 || extraSeats.some((s) => s.named) ? (
-            <span className="pointer-events-none whitespace-nowrap text-xs text-ink/55">
-              <PlusOneSeatsSummary count={plusOneSeats(guest)} seats={extraSeats} />
-            </span>
-          ) : null}
-          </div>
+          {/* ONE line about them — side · role · groups · +N · Table (frame A).
+              Each word that the desktop row can edit is its editor here too, so
+              a phone is never read-only; the line SCROLLS, it never wraps. */}
+          {guest.passed_away ? (
+            <p className="truncate text-xs text-ink/55" data-passed-away="">
+              {PASSED_AWAY_LINE}
+            </p>
+          ) : (
+            <div className="m-no-scrollbar -mx-0.5 mt-0.5 overflow-x-auto px-0.5 text-xs text-ink/55">
+              <div className="flex w-max items-center gap-1.5">
+                {bringer ? <span data-plus-one-of="">+1 of {bringer.split(/\s+/)[0]}</span> : null}
+                <RoleChipEditor eventId={eventId} guest={guest} roleSections={bulkRoleSections}>
+                  <RoleTexts guest={guest} palette={palette} />
+                </RoleChipEditor>
+                <GroupChipList
+                  eventId={eventId}
+                  guestId={guest.guest_id}
+                  groupIds={groupIds}
+                  groupsById={groupsById}
+                  currentGroupId={currentGroupId}
+                  compact
+                  plain
+                />
+                <AddToGroupControl eventId={eventId} guest={guest} groups={groups} memberGroupIds={groupIds} />
+                {!isHost && (plusOneSeats(guest) > 0 || extraSeats.some((s) => s.named)) ? (
+                  <span className="whitespace-nowrap">
+                    · <PlusOneSeatsSummary count={plusOneSeats(guest)} seats={extraSeats} />
+                  </span>
+                ) : null}
+                {table ? <span className="whitespace-nowrap">· {table}</span> : null}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="shrink-0">
+          {/* The reply pill — unless the one column already IS the reply. */}
+          {guest.passed_away || column === 'rsvp' ? null : (
+            <RsvpChipEditor eventId={eventId} guest={guest} seatedTableLabel={seat?.placed ?? null}>
+              <RsvpText status={guest.rsvp_status} host={isHost} />
+            </RsvpChipEditor>
+          )}
         </div>
       </div>
-      <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
-        <RsvpChipEditor
-          eventId={eventId}
-          guest={guest}
-          mobileCycle
-          seatedTableLabel={seat?.placed ?? null}
-        >
-          <RsvpText status={guest.rsvp_status} />
-        </RsvpChipEditor>
-        <SeatChip
-          placed={seat?.placed ?? null}
-          suggested={seat?.suggested ?? null}
-          rsvp={guest.rsvp_status}
-          plusOnes={plusOneSeats(guest)}
-          plain
-          plusControl={<PlusOneChipEditor eventId={eventId} guest={guest} />}
-        />
-        {/* Invite — the desktop row's Invite column, on the phone (owner
-            2026-09-30). One tap: the share sheet, message and QR together. */}
-        <RowInvite eventId={eventId} guest={guest} invite={invite} size="phone" />
-      </div>
+      {/* Under the dashed line: the ONE column this phone shows — Invite · ⋯
+          and the status by default (frame A), or whatever the "Showing"
+          dropdown picked, through the same cell the computer's columns use.
+          While picking rows it hides, so a row is just a thing to tick. */}
+      {selectMode ? null : (
+        <div className="mt-2.5 border-t border-dashed border-ink/15 pt-2.5" data-roster-cell={column}>
+          {column === 'invite' && isHost ? (
+            <p className="flex items-center justify-between text-xs text-ink/55">
+              <span className="font-medium">Host</span>
+              {linked === null ? null : <span>{linked ? 'Linked' : 'Not linked'}</span>}
+            </p>
+          ) : (
+            <RosterCell column={column} guest={guest} facts={facts} size="phone" />
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -2039,8 +1941,7 @@ function MobileListRow({
       ) : (
         row
       )}
-      {/* More names than seats — below the row, where its Removes can be
-          tapped (the row itself is one stretched link). */}
+      {/* More names than seats — below the row, where its Removes can be tapped. */}
       <PlusOneOverNote
         eventId={eventId}
         guestName={shownName}
@@ -2049,79 +1950,6 @@ function MobileListRow({
         className="mx-3"
       />
     </li>
-  );
-}
-
-// MobileSelfJoinCard — the mobile twin of SelfJoinDesktopRow (Living Roster P4).
-// A blush "needs you" card for an unlisted joiner surfaced inline in the roster:
-// Keep / Link / Remove call the SAME claim actions the desktop row + the
-// /guests/claims deep page use, so the semantics (and what clears the "needs you"
-// state) stay identical.
-function MobileSelfJoinCard({
-  guest,
-  eventId,
-  displayUrl,
-}: {
-  guest: GuestRow;
-  eventId: string;
-  displayUrl?: string;
-}) {
-  const name = guestDisplayName(guest);
-  return (
-    <div className="overflow-hidden rounded-xl border border-danger-200/70 bg-danger-50/60">
-      <div className="flex items-center gap-3 p-3">
-        {displayUrl ? (
-          <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-danger-200">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={displayUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
-          </span>
-        ) : (
-          <span
-            aria-hidden
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-100 text-xs font-semibold text-danger-900"
-          >
-            {guestInitials(guest)}
-          </span>
-        )}
-        <div className="min-w-0">
-          <p className="truncate font-medium text-ink">{name}</p>
-          <p className="truncate text-xs font-medium text-danger-700">asked to join</p>
-        </div>
-      </div>
-      <p className="px-3 pb-2 text-[11px] text-ink/55">
-        Keep adds them and sends their invitation · Remove tells them nothing.
-      </p>
-      <div className="flex items-center gap-2 px-3 pb-3">
-        <form action={keepGuestAction.bind(null, eventId)} className="flex-1">
-          <input type="hidden" name="guest_id" value={guest.guest_id} />
-          {/* Keep needs the line the Requests page asks for; here it is the name as they typed it. */}
-          <input type="hidden" name="line" value={name} />
-          <SubmitButton
-            overlay={false}
-            pendingLabel="Keeping…"
-            className="inline-flex h-9 w-full items-center justify-center rounded-md bg-terracotta-700 px-3 text-xs font-medium text-cream hover:bg-terracotta-800"
-          >
-            Keep
-          </SubmitButton>
-        </form>
-        <Link
-          href={`/dashboard/${eventId}/guests/claims`}
-          className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-ink/15 px-3 text-xs font-medium text-ink/70 hover:border-ink/30"
-        >
-          Link
-        </Link>
-        <form action={removeGuestAction.bind(null, eventId)} className="flex-1">
-          <input type="hidden" name="guest_id" value={guest.guest_id} />
-          <SubmitButton
-            overlay={false}
-            pendingLabel="Removing…"
-            className="inline-flex h-9 w-full items-center justify-center rounded-md border border-danger-300/70 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
-          >
-            Remove
-          </SubmitButton>
-        </form>
-      </div>
-    </div>
   );
 }
 
@@ -2378,21 +2206,24 @@ function SideText({ side }: { side: GuestRow['side'] }) {
   return <span className="text-xs text-ink/60">{ROSTER_SIDE_LABEL[side]}</span>;
 }
 
-/* A dot, not a filled pill — the status still reads at a glance, and the four
-   tones keep the roster proto's warm semantics (attending → success, maybe →
-   warning, pending → neutral ink, declined → danger). */
-const ROSTER_RSVP_DOT: Record<RsvpStatus, string> = {
-  attending: 'bg-success-600',
-  maybe: 'bg-warn-500',
-  pending: 'bg-ink/25',
-  declined: 'bg-danger-600',
+/* The reply as a small pill (owner 2026-09-30, the Fable rows) — attending →
+   success, no reply / maybe → warning, not coming → danger. */
+const ROSTER_RSVP_PILL: Record<RsvpStatus, string> = {
+  attending: 'bg-success-50 text-success-800 ring-1 ring-success-200',
+  maybe: 'bg-warn-50 text-warn-900 ring-1 ring-warn-200',
+  pending: 'bg-warn-50 text-warn-900 ring-1 ring-warn-200',
+  declined: 'bg-danger-50 text-danger-800 ring-1 ring-danger-200',
 };
 
-function RsvpText({ status }: { status: RsvpStatus }) {
+/** The reply pill — Attending · No reply · Not coming (· Maybe), and Always for the hosts. */
+function RsvpText({ status, host = false }: { status: RsvpStatus; host?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-ink/70">
-      <span aria-hidden className={`h-1.5 w-1.5 flex-none rounded-full ${ROSTER_RSVP_DOT[status]}`} />
-      {RSVP_LABELS[status]}
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
+        host ? 'bg-ink/[0.06] text-ink/70' : ROSTER_RSVP_PILL[status]
+      }`}
+    >
+      {host ? 'Always' : ROW_RSVP_WORDS[status]}
     </span>
   );
 }

@@ -66,40 +66,21 @@ function component(name: string): string {
 
 const HEAD = SRC.slice(SRC.indexOf('<thead'), SRC.indexOf('</thead>'));
 
-test('the header reserves the same left edge every row draws', () => {
-  // With `table-fixed` the header sets the column box. A 2px border on the body
-  // cell and none on the header is a 2px shift on every column.
-  assert.match(
-    firstCellClass(HEAD, '<th '),
-    /border-l-2/,
-    "the header's first cell no longer reserves the row's side edge — the body will sit off the labels",
-  );
-});
+// ⤷ 2026-09-30 (the Fable rows' ledger): the 2px side-coloured edge MOVED —
+// "Side is now a word on the sub-line. Plain English beats a colour code." And
+// requests are no longer rows (one strip leads to the Requests page), so the
+// self-join row variant is gone. The rule that stays: header and row agree.
 
-test('every row variant draws that edge, so no row is narrower than another', () => {
-  for (const name of ['DesktopRow', 'SelfJoinDesktopRow']) {
-    assert.match(
-      firstCellClass(component(name), '<td '),
-      /border-l-2/,
-      `${name}'s first cell has no side edge — its columns step 2px off the others`,
-    );
-  }
+test('the header and the row agree on the left edge — neither draws a side edge now', () => {
+  const head = firstCellClass(HEAD, '<th ');
+  const row = firstCellClass(component('DesktopRow'), '<td ');
+  assert.equal(/border-l-2/.test(head), /border-l-2/.test(row), 'the header and the row disagree on a left edge — the columns step 2px');
+  assert.doesNotMatch(row, /SIDE_CONTROL_BORDER/, 'the colour-coded side edge is back — the side is a word now');
 });
 
 test('the header and every row use the SAME horizontal padding', () => {
-  // A px-4 name cell on one row variant and px-3 on another is a column that
-  // moves depending on which kind of row you are looking at.
-  /*
-    🪤 A FULL-WIDTH `colSpan` CELL IS NOT A COLUMN. The self-join banner spans
-    the whole table, so its padding cannot push any column sideways — a first
-    draft of this assertion failed on it, which is a guard convicting innocent
-    markup. Only cells that participate in the column grid are compared.
-  */
   const pads = new Set<string>();
-  for (const region of [HEAD, component('DesktopRow'), component('SelfJoinDesktopRow')]) {
-    // 🪤 `<ArrangeTh>` IS A HEADER CELL. Since #5793 six of the eight header
-    // cells render through it, and a scan for `<t[dh]` could not see them —
-    // their padding went unchecked while this test stayed green.
+  for (const region of [HEAD, component('DesktopRow')]) {
     for (const m of region.matchAll(/<(?:t[dh]|ArrangeTh)\b[\s\S]*?>/g)) {
       const cell = m[0];
       const span = /colSpan=\{(\d+)\}/.exec(cell);
@@ -108,41 +89,31 @@ test('the header and every row use the SAME horizontal padding', () => {
       if (pad) pads.add(pad[1]!);
     }
   }
-  assert.deepEqual(
-    [...pads].sort(),
-    ['px-3'],
-    `the roster mixes horizontal cell padding: ${[...pads].sort().join(', ')}`,
-  );
+  assert.deepEqual([...pads].sort(), ['px-3'], `the roster mixes horizontal cell padding: ${[...pads].sort().join(', ')}`);
 });
 
 test('rows centre their cells instead of hanging them off the avatar baseline', () => {
-  // A table cell's default vertical-align is baseline, and `td` inherits it
-  // from the `tr` — so one class on the row fixes every cell in it.
-  for (const name of ['DesktopRow', 'SelfJoinDesktopRow']) {
-    assert.match(
-      component(name),
-      /<tr[\s\S]{0,300}?align-middle/,
-      `${name} does not centre its cells — short cells drop to the bottom beside the 36px avatar`,
-    );
-  }
+  assert.match(
+    component('DesktopRow'),
+    /<tr[\s\S]{0,300}?align-middle/,
+    'DesktopRow does not centre its cells — short cells drop to the bottom beside the 36px avatar',
+  );
 });
 
 test('the header still declares exactly one column per cell in a row', () => {
-  // The cheapest way for a table to go crooked is a cell count that no longer
-  // matches. The self-join row spans the rest, so its spans must add up too.
-  // A column is a header cell however it is spelled (see the padding note).
   const headerCells = (HEAD.match(/<(?:th|ArrangeTh)[\s>]/g) ?? []).length;
   const bodyCells = (component('DesktopRow').match(/<td[ >]/g) ?? []).length;
   assert.equal(bodyCells, headerCells, `${bodyCells} body cells against ${headerCells} headers`);
-
-  const selfJoin = component('SelfJoinDesktopRow');
-  const plain = (selfJoin.match(/<td(?![^>]*colSpan)[ >]/g) ?? []).length;
-  const spans = [...selfJoin.matchAll(/colSpan=\{(\d+)\}/g)].map((m) => Number(m[1]));
-  // Two stacked rows share this component; each must cover the full width.
+  // ⤷ 2026-09-30, the full-width list: after ☐ and Name, the header draws ONE
+  // <th> per slot and the row ONE <td> per slot — from the SAME list, or a
+  // header would sit over the wrong column the moment a slot is picked.
+  assert.match(HEAD, /desk\.columns\.map\(/, 'the header no longer draws one cell per slot');
+  assert.match(component('DesktopRow'), /columns\.map\(\(column\) => \(\s*<td\b/, 'the row no longer draws one cell per slot');
+  assert.match(SRC, /<DesktopRow\b[\s\S]*?columns=\{desk\.columns\}/, 'the rows are handed a different column list from the header');
+  // …and every full-width row (a section heading) spans exactly that many.
+  const spans = [...SRC.matchAll(/colSpan=\{([^}]+)\}/g)].map((m) => m[1]!.trim());
+  assert.ok(spans.length >= 1, 'no full-width row found — this guard is blind');
   for (const span of spans) {
-    assert.ok(
-      span + plain >= headerCells,
-      `a self-join row covers ${span + plain} of ${headerCells} columns`,
-    );
+    assert.equal(span, '2 + desk.columns.length', `a full-width row spans {${span}}, not ☐ + Name + every slot`);
   }
 });

@@ -1,67 +1,13 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
+import type { PickMenuProps, PickOption } from './pick-menu-types';
 
-/**
- * ONE COMPACT PICKER — "Home ▾", "● Invitation ▾", "Pages ▾".
- *
- * Owner, 2026-09-27, on the navigator's tab row (it wrapped to 140px tall in a
- * 168px column): *"this should be a tap to show option to pick or a drop
- * down."* And on the toolbar's stage row (clipped at laptop widths): *"we can
- * also convert this to a drop down/tap to show options for smaller screens?"*
- *
- * A button showing the current choice; a tap lists the options; picking one
- * calls `onPick` — the SAME action the full row's buttons run, so the two can
- * never mean different things. The list is placed against the VIEWPORT (the
- * toolbar and the navigator both scroll, and an overflow container would clip
- * a list that hangs below it — `ComingNext`'s rule). Esc and a tap outside
- * close it; arrow keys move through the options.
- *
- * 🪤 THE LIST IS PORTALLED TO `document.body` (measured live 2026-09-27): the
- * element sheet is `.sn-glass-bare`, and an ancestor with `backdrop-filter`
- * (or `transform` / `filter`) becomes the containing block for `position:
- * fixed` — the Font list was drawn at the viewport top PLUS the sheet's own
- * top, wholly below a phone screen. From `body` no ancestor can do that. Where
- * it opens (below, or above when there is no room) is `placePickList`,
- * executed by `pick-menu-place.test.ts`. The faces still resolve: every
- * `--font-*` variable is declared on `<html>` (app/layout.tsx). `z-[95]`
- * clears the Maker overlay (`fixed inset-0 z-[80]`) and its scene picker
- * (z-[90]/z-[91]), and stays under toasts (z-[100]).
- */
-export type PickOption = {
-  key: string;
-  label: string;
-  /** The terracotta "live today" dot, beside the label. */
-  dot?: boolean;
-  /** The words beside the dot in the open list. Default "live today" (the
-   *  Maker's stages); the People picker says "waiting on you" for Requests. */
-  dotNote?: string;
-  /** Listed but not pickable, with its reason (a tab that opens its own page). */
-  disabledNote?: string;
-  /** Draw the option IN a face (the font dropdown — each font in its own face). */
-  fontFamily?: string;
-  /** A labelled group heading ("Stages", "Pages"); consecutive options with the
-   *  same group share one heading. Omitted = no heading (every other picker). */
-  group?: string;
-  /** A short mark at the row's end — the guided flow's ✓ / ○ beside each step. */
-  trail?: { text: string; tone: 'ok' | 'left' | 'muted'; label?: string };
-  /** A small picture of the choice, drawn before its label (the pass card's
-   *  three looks — the couple sees each while picking). Decorative. */
-  thumb?: string;
-  /** The choice's own icon, drawn before its label on the button and in the
-   *  list (the Maker's Page ▾ — each page with the guest bar's icon). Decorative. */
-  icon?: ReactNode;
-  /**
-   * 🎨 One line under the label — what the choice looks like (a scene's Style
-   * dropdown: "One figure leads; the rest step down"). Omitted = one line.
-   */
-  hint?: string;
-  /** 🎨 A small live picture of the choice, left of the label (a Style's mini preview). */
-  preview?: ReactNode;
-};
+/** ONE COMPACT PICKER — its design notes and types: `pick-menu-types.ts`. */
+export type { PickOption, PickMenuProps } from './pick-menu-types';
 
 export function PickMenu({
   label,
@@ -71,37 +17,22 @@ export function PickMenu({
   dataAttr,
   className = '',
   buttonText,
+  picked,
   compact = false,
-}: {
-  /** What the control is, for a screen reader ("This stage's menu"). */
-  label: string;
-  /** The option shown on the button. */
-  value: string | null;
-  options: readonly PickOption[];
-  onPick: (key: string) => void;
-  /** A data-attribute name stamped on the button, for tests and the tour. */
-  dataAttr?: string;
-  className?: string;
-  /** Words on the button instead of the current option's label ("Round 1 · 3 of 7"). */
-  buttonText?: string;
-  /** A chip-sized button (the guest list's phone row, one line of small chips)
-   *  — the list it opens is the same. Default: the Maker bar's 40px button. */
-  compact?: boolean;
-}) {
+}: PickMenuProps) {
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PickListPlacement | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
   const current = options.find((o) => o.key === value) ?? null;
+  const isOn = (key: string) => (picked ? picked.includes(key) : key === value);
 
   const place = () => {
     const r = btnRef.current?.getBoundingClientRect();
     if (!r) return;
     const next = placePickList({
       button: r,
-      // The list's FULL height — `scrollHeight` ignores the maxHeight cap, so a
-      // re-measure never feeds the cap back into itself.
       listHeight: listRef.current?.scrollHeight ?? 0,
       viewport: { width: window.innerWidth, height: window.innerHeight },
     });
@@ -116,13 +47,6 @@ export function PickMenu({
     );
   };
 
-  // Placed BEFORE paint, twice: first from the button alone (the list is not
-  // mounted yet), then with the list's real height, which may flip it above
-  // the button. `place` keeps the same object when nothing moved, so this
-  // settles after one extra pass.
-  // …and focus moves into the list the first time it is actually mounted (on a
-  // first open the list only exists after the placement pass, so a focus call
-  // in the `[open]` effect below found nothing — measured in the browser).
   const focusedOnOpen = useRef(false);
   useLayoutEffect(() => {
     if (!open) {
@@ -132,8 +56,6 @@ export function PickMenu({
     place();
     if (!focusedOnOpen.current && listRef.current) {
       focusedOnOpen.current = true;
-      // The CURRENT option first — a selector list would return whichever comes
-      // first in the document, i.e. always the top option.
       (
         listRef.current.querySelector<HTMLButtonElement>('button[aria-selected="true"]:not([disabled])') ??
         listRef.current.querySelector<HTMLButtonElement>('button:not([disabled])')
@@ -200,6 +122,7 @@ export function PickMenu({
               id={listId}
               role="listbox"
               aria-label={label}
+              aria-multiselectable={picked ? true : undefined}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
@@ -217,12 +140,6 @@ export function PickMenu({
                 run.group === null ? (
                   run.options.map(renderOption)
                 ) : (
-                  /* A labelled GROUP (owner 2026-09-27, the compact Maker bar:
-                     "combine them in 1 dropdown" — Stages and Pages in one
-                     list). The heading is not an option: no button, so the
-                     arrow keys and the first-focus query pass over it; the
-                     group is announced by its aria-label, the visible word is
-                     aria-hidden. */
                   <li
                     key={`group:${run.group}`}
                     role="group"
@@ -237,6 +154,22 @@ export function PickMenu({
                   </li>
                 ),
               )}
+              {picked ? (
+                <li role="none" className="mt-1 border-t border-ink/10 pt-1">
+                  <button
+                    type="button"
+                    data-pick-done=""
+                    onClick={() => {
+                      setOpen(false);
+                      btnRef.current?.focus();
+                    }}
+                    className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/60 hover:bg-ink/5"
+                  >
+                    <span>Tick as many as apply.</span>
+                    <span className="font-semibold text-ink">Done ✓</span>
+                  </button>
+                </li>
+              ) : null}
             </ul>,
             document.body,
           )
@@ -250,16 +183,16 @@ export function PickMenu({
         <button
           type="button"
           role="option"
-          aria-selected={o.key === value}
+          aria-selected={isOn(o.key)}
           disabled={Boolean(o.disabledNote)}
           data-pick-option={o.key}
           onClick={() => {
-            setOpen(false);
+            if (!picked) setOpen(false);
             onPick(o.key);
           }}
           className={`flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-300 ease-in-out disabled:cursor-default disabled:text-ink/40 ${
             o.hint || o.preview ? 'py-2' : ''
-          } ${o.key === value ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'}`}
+          } ${!picked && o.key === value ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'}`}
         >
           {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
           {o.thumb ? (
@@ -291,6 +224,11 @@ export function PickMenu({
             >
               <span aria-hidden>{o.trail.text}</span>
               {o.trail.label ? <span className="sr-only">{o.trail.label}</span> : null}
+            </span>
+          ) : null}
+          {picked && picked.includes(o.key) ? (
+            <span aria-hidden className="ml-auto shrink-0 pl-3 text-[14px] font-semibold text-success-700">
+              ✓
             </span>
           ) : null}
         </button>

@@ -425,7 +425,12 @@ test('G · Remove is the host’s own remove-a-guest, behind its own two taps �
 test('G · both roster rows draw the summary and the warning, from the FULL roster', () => {
   const list = read(...G, '_components', 'guest-list-multiselect.tsx');
   for (const row of ['function DesktopRow(', 'function MobileListRow(']) {
-    const body = bodyOf(list, row);
+    // ⤷ 2026-09-30, the full-width list: the desktop row draws its +N column
+    // through RosterCell, so its baseline is the row plus the cells it draws.
+    const body =
+      row === 'function DesktopRow(' && /<RosterCell\b/.test(bodyOf(list, row))
+        ? bodyOf(list, row) + bodyOf(list, 'function RosterCell(')
+        : bodyOf(list, row);
     assert.match(body, /<PlusOneSeatsSummary count=\{plusOneSeats\(guest\)\} seats=\{extraSeats\} \/>/, `${row} lacks "+N (k named)"`);
     assert.match(body, /<PlusOneOverNote/, `${row} lacks the "named · allowed" warning`);
     assert.match(body, /const shownName = seatLabel \?\? /, `${row} does not label an unnamed seat "+N · TBA"`);

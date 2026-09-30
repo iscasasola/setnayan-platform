@@ -22,7 +22,7 @@ import type { OurService } from '@/lib/our-services';
 export function OurServicesGrid({ services }: { services: readonly OurService[] }) {
   if (services.length === 0) return null;
   return (
-    <section aria-label="Our Services" data-our-services className="space-y-3">
+    <section aria-label="More Services" data-our-services className="space-y-3">
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {services.map((s, i) => (
           <li key={s.key} data-our-service={s.key} className="flex flex-col gap-1.5">

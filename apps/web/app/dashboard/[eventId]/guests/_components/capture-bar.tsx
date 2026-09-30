@@ -40,10 +40,17 @@ const ICON_BTN =
 export function CaptureBar({
   eventId,
   defaultSide,
+  withDoors = true,
+  placeholder = 'Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter',
 }: {
   eventId: string;
   /** The active Side lens — a new guest inherits it (prototype `:855`). */
   defaultSide: GuestSide;
+  /** Inside the add sheet the four doors are rows under the box, not icons. */
+  withDoors?: boolean;
+  /** The add sheet says "Type a name…" and puts an example that fits THIS
+   *  event under the box (`lib/quick-add-tips.ts`) — never two examples. */
+  placeholder?: string;
 }) {
   const [value, setValue] = useState('');
   const [pending, startTransition] = useTransition();
@@ -99,7 +106,7 @@ export function CaptureBar({
                 setValue('');
               }
             }}
-            placeholder="Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter"
+            placeholder={placeholder}
             aria-label="Add a guest"
             autoComplete="off"
             autoCorrect="off"
@@ -146,36 +153,58 @@ export function CaptureBar({
             string itself would keep compiling, keep rendering and quietly stop
             opening anything the first time that constant moved. A control that
             does nothing is the hardest kind of broken to notice. */}
-        <div className="ml-auto flex shrink-0 items-center gap-0.5">
-          <span aria-hidden className="mx-1 h-5 w-px bg-ink/10" />
-          <OpenAddFromPeopleButton
-            ariaLabel="Add from your people"
-            label={<Users className="h-4 w-4" strokeWidth={1.8} aria-hidden />}
-            className={ICON_BTN}
-          />
-          <OpenQuickAddButton
-            ariaLabel="Full add form"
-            label={<ClipboardList className="h-4 w-4" strokeWidth={1.8} aria-hidden />}
-            className={ICON_BTN}
-          />
-          <Link
-            href={`/dashboard/${eventId}/guests/import`}
-            aria-label="Import CSV"
-            title="Import CSV"
-            className={ICON_BTN}
-          >
-            <Upload className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-          </Link>
-          <Link
-            href={`/dashboard/${eventId}/guests/quick`}
-            aria-label="Quick add list"
-            title="Quick add list"
-            className={ICON_BTN}
-          >
-            <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-          </Link>
-        </div>
+        {/* On a phone these four doors are rows in the ⋯ (frame 2 of the
+            approved simple phone app) — the SAME `AddDoors` — so the name box
+            keeps one line and the first guest stays in the top third. */}
+        {withDoors ? (
+          <div className="ml-auto hidden shrink-0 items-center gap-0.5 lg:flex">
+            <span aria-hidden className="mx-1 h-5 w-px bg-ink/10" />
+            <AddDoors eventId={eventId} />
+          </div>
+        ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * The four ways in beside the name box — People · Full form · Import · Quick
+ * add list. ONE list, drawn twice: as icons beside the box (a computer) and as
+ * labelled rows in the phone's ⋯ (the approved simple phone app, frame 2 —
+ * DECISION_LOG 2026-10-01 "THE SIMPLE PHONE APP — APPROVED": setup lives behind
+ * ⋯, the add box becomes the round +). Same openers, same links.
+ */
+export function AddDoors({ eventId, rows = false }: { eventId: string; rows?: boolean }) {
+  const cls = rows
+    ? 'flex min-h-[44px] w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-ink hover:bg-ink/5'
+    : ICON_BTN;
+  const door = (icon: React.ReactNode, words: string) =>
+    rows ? (
+      <>
+        {icon}
+        <span>{words}</span>
+      </>
+    ) : (
+      icon
+    );
+  return (
+    <>
+      <OpenAddFromPeopleButton
+        ariaLabel="Add from your people"
+        label={door(<Users className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Add from your people')}
+        className={cls}
+      />
+      <OpenQuickAddButton
+        ariaLabel="Full add form"
+        label={door(<ClipboardList className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Full add form')}
+        className={cls}
+      />
+      <Link href={`/dashboard/${eventId}/guests/import`} aria-label="Import CSV" title="Import CSV" className={cls}>
+        {door(<Upload className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Import guests from a file')}
+      </Link>
+      <Link href={`/dashboard/${eventId}/guests/quick`} aria-label="Quick add list" title="Quick add list" className={cls}>
+        {door(<ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Quick add list')}
+      </Link>
+    </>
   );
 }

@@ -48,7 +48,6 @@ import {
   TeamRemoveCandidate,
   TeamSavePlan,
 } from './team-controls';
-import { TeamSummaryChip } from './team-summary-chip';
 import type { BlockedLockReason } from '@/lib/bench-card-actions';
 import { BLOCKED_LOCK_ROW, CANT_LOCK_YET_HEADING } from '@/lib/explore-info-copy';
 import { depositStepHref, type DepositStep } from '@/lib/deposit-pay-step';
@@ -571,21 +570,10 @@ export function BuildLocked({
         />
       ) : null}
 
-      {/* 8 · the MOBILE team summary chip (Integration spec §5, owner-approved
-             2026-07-29) — the one replacement PR-3's removed dock actually
-             needed. Rendered from here because this is where the three numbers
-             already are; it portals to <body> and floats above the bottom nav,
-             so its position in this tree doesn't matter. Suppressed when there
-             is nothing to report: a chip reading "0 locked · 0 in build" is
-             noise, and the section is one scroll away regardless. */}
-      {lockedRows.length > 0 || toLockRows.length > 0 ? (
-        <TeamSummaryChip
-          lockedCount={lockedRows.length}
-          inBuildCount={toLockRows.length}
-          bufferText={buffer.text}
-          bufferTone={buffer.tone}
-        />
-      ) : null}
+      {/* 8 · (RETIRED 2026-10-01) the floating mobile team chip. Owner: the
+             phone keeps its simple bottom bar and NOTHING ELSE FLOATS AT THE
+             BOTTOM (DECISION_LOG 2026-10-01). What it said — locked · to lock ·
+             buffer — is now the rows at the top of the page and the tiles above. */}
     </div>
   );
 }

@@ -77,7 +77,7 @@ test('the service-role write is authorised by that check, not by itself', () => 
 test('the card renders nothing when there is nothing to decline', () => {
   const code = strip(CARD);
   // Since 2026-09-30 ("automatic") the one gate answers: tagging would run here
-  // (Papic active, or the admin's override; christening/debut only by the admin).
+  // (Papic active, or the admin's override — every event type since 2026-10-01 #8).
   assert.match(code, /const tagging = await resolveFaceTagging\(createAdminClient\(\), eventId\);/);
   assert.match(code, /if \(!tagging\.available\) return null;/);
 });

@@ -456,7 +456,7 @@ export function BuildCompare({
             </p>
           ) : orderedBuilds.length === 0 ? (
             <p className="text-sm text-ink/55">
-              No saved plans yet. Add candidates to your build, then save your team under a name.
+              No saved plans yet. Add candidates to your build, then save your suppliers under a name.
             </p>
           ) : (
             <ul className="divide-y divide-ink/8">
@@ -544,7 +544,7 @@ export function BuildCompare({
       {rows.length === 0 ? (
         <div className="sn-tile px-4 py-10 text-center text-sm text-ink/60">
           {replan
-            ? 'No vendors in your team yet. Add some candidates from the bench, then save them under a name to compare plans side by side.'
+            ? 'No suppliers yet. Add some candidates from the bench, then save them under a name to compare plans side by side.'
             : 'No vendors in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
         </div>
       ) : (

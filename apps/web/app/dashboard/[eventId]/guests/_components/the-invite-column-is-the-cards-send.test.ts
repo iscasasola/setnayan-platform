@@ -61,10 +61,13 @@ function bodyOf(src: string, name: string): string {
 }
 
 test('both row shapes draw the Invite control, and the header declares its column', () => {
+  // Since 2026-09-30 (the full-width list) every cell comes through ONE switch,
+  // RosterCell, which both row shapes draw.
   for (const row of ['DesktopRow', 'MobileListRow']) {
-    const n = (bodyOf(ROSTER, row).match(/<RowInvite\b/g) ?? []).length;
-    assert.equal(n, 1, `${row} draws ${n} Invite controls — every guest row needs exactly one`);
+    assert.match(bodyOf(ROSTER, row), /<RosterCell\b/, `${row} no longer draws its cells through RosterCell`);
   }
+  const n = (bodyOf(ROSTER, 'RosterCell').match(/<RowInvite\b/g) ?? []).length;
+  assert.equal(n, 1, `RosterCell draws ${n} Invite controls — the Invite column needs exactly one`);
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
   assert.match(head, /<InfoTip\s+label="Invite"/, 'the table has no Invite column header with its (i)');
 });
@@ -111,7 +114,7 @@ test('the column hands over the Digital ticket, not the QR — and says so', () 
   // Owner 2026-09-30: "we do not copy the QR Code, we copy the Digital Ticket".
   const cell = bodyOf(CELL, 'GuestInviteCell');
   assert.match(cell, /Copy ticket/);
-  assert.match(cell, /Paste the message, then paste the ticket\./);
+  assert.match(cell, /Paste the message, then paste the ticket in the chat\./);
   assert.doesNotMatch(cell, /Copy QR|paste the QR/);
   const tour = TOURS.customer_guest_invite_v1.slides.map((s) => `${s.title} ${s.body}`).join(' ');
   assert.match(tour, /ticket/);

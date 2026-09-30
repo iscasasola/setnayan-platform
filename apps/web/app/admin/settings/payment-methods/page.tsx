@@ -2,7 +2,7 @@ import { Smartphone, Trash2, Wallet } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BackButton } from '@/app/_components/back-button';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { fetchPlatformSettingsMeasured } from '@/lib/platform-settings';
 import {
   channelHeadroom,
   headroomMessage,
@@ -73,7 +73,12 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
   const admin = createAdminClient();
-  const settings = await fetchPlatformSettings(admin);
+  // 🔒 MEASURED, NOT FALLBACK (2026-09-30). A refused read seeds every input
+  // below with blanks; one Save would then write those blanks over the real
+  // BDO / GCash details every order page reads. `settingsReadFailed` says so
+  // and disables Save.
+  const { settings, readFailed: settingsReadFailed } =
+    await fetchPlatformSettingsMeasured(admin);
 
   // Setnayan inflow per rail, in TWO windows — the meter needs both.
   //
@@ -212,6 +217,14 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
         </p>
       ) : null}
 
+      {settingsReadFailed ? (
+        <FormFlash tone="error">
+          Couldn&rsquo;t load the saved payment details — refresh to try again.
+          Saving is off until they load, so blank fields can&rsquo;t overwrite
+          the real ones.
+        </FormFlash>
+      ) : null}
+
       <form action={savePaymentInstruments} className="space-y-8">
         <section className="space-y-4">
           <div className="flex items-center gap-2">
@@ -295,6 +308,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           <SubmitButton
             className="button-primary inline-flex items-center gap-2"
             pendingLabel="Saving…"
+            disabled={settingsReadFailed}
           >
             Save payment details
           </SubmitButton>

@@ -42,6 +42,7 @@ const CONSUMERS = [
   // day-of-face-enroll.tsx left the list 2026-09-30: its one screen says
   // nothing about the organiser (owner: "too many texts"); SelfieCapture does.
   'live-wall-block.tsx',
+  'arrival-greeting.tsx',
 ];
 
 /**

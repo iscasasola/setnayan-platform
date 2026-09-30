@@ -7,7 +7,7 @@
  * with no submenus", 2026-07-15), and "each pillar's page shows its parts".
  * The controller's placements this file carries:
  *
- *   Guest list   Guests · Hosts · Check-in
+ *   Guest list   NO PARTS since F2 (2026-10-01) — see below
  *   Your Team    Your team · Budget
  *
  * 🔑 PARTS ARE WHOLE SHIPPED SCREENS, NOT NEW ONES. Hosts is the shipped
@@ -22,57 +22,22 @@
  * vanishes silently is the failure this repo keeps meeting (see
  * `roster-doors.ts`'s own header), so the list is pinned where it is decided.
  *
+ * ⚖ THE GUEST LIST'S PARTS ROW WAS CUT LAST, IN F2 (owner 2026-09-30,
+ * DECISION_LOG "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS; HOSTS FOLDS INTO
+ * THE GUEST LIST" (5)(6)). Access and Check-in are columns of the list; the
+ * Hosts pieces moved (the Access column, a helper's guest card, the planner's
+ * workspace, the Overview feed). `?gview=hosts` lands on `/hosts` (the Guest
+ * list, or a helper's own access view) and `?gview=checkin` on the door crew's
+ * standalone desk — both redirects live in `guests/page.tsx`.
+ *
  * ── EVERY DOOR KEEPS THE CONDITION IT HAD ──────────────────────────────────
- *   Guests      always
- *   Hosts       NOT OFFERED since the Hosts fold (owner 2026-09-30, DECISION_LOG
- *               "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS…"): its pieces
- *               moved (the Access column, the planner's workspace, the
- *               Overview feed) and `?gview=hosts` redirects to the list. Listed
- *               only while it is the one showing, until that redirect lands.
- *               The row itself is cut after the card redesign (build F2).
- *   Check-in    from the day of the event onward: the menu row shows it on the
- *               day, and the guest list's own Check-in door shows it after.
- *               The union of the two, never earlier — a check-in desk before
- *               anybody can arrive is a screen with nothing to do.
  *   Your team   always
  *   Budget      wherever the event type has the budget surface — the same
  *               switch the Budget page itself gates on.
  */
 
-import type { MenuLifecyclePhase } from './day-of-mode';
-
 export type PillarPart<K extends string = string> = { key: K; label: string; href: string };
 
-/** The Guest list's parts. `roster` is the list itself, in every view of it. */
-export type GuestListPartKey = 'roster' | 'hosts' | 'checkin';
-
-/** The `?gview=` value that renders each non-roster part in the guest list body. */
-export const GUEST_LIST_PART_VIEW = { hosts: 'hosts', checkin: 'checkin' } as const;
-
-export function guestListParts({
-  eventId,
-  phase,
-  current,
-}: {
-  eventId: string;
-  phase: MenuLifecyclePhase;
-  /** The part on screen. A part is always listed while it is the one showing
-   *  (a desk opened by its URL before the day), so the picker never shows a
-   *  value it does not offer. */
-  current: GuestListPartKey;
-}): PillarPart<GuestListPartKey>[] {
-  const base = `/dashboard/${eventId}/guests`;
-  const parts: PillarPart<GuestListPartKey>[] = [{ key: 'roster', label: 'Guests', href: base }];
-  if (current === 'hosts') {
-    parts.push({ key: 'hosts', label: 'Hosts', href: `${base}?gview=${GUEST_LIST_PART_VIEW.hosts}` });
-  }
-  if (phase !== 'plan' || current === 'checkin') {
-    parts.push({ key: 'checkin', label: 'Check-in', href: `${base}?gview=${GUEST_LIST_PART_VIEW.checkin}` });
-  }
-  return parts;
-}
-
-/** Your Team's parts. `team` is the shipped Your Team takeover. */
 export type YourTeamPartKey = 'team' | 'budget';
 
 /** The `?part=` value that renders the Budget part in the Your Team page. */
@@ -94,7 +59,7 @@ export function yourTeamParts({
   budgetEnabled: boolean;
 }): PillarPart<YourTeamPartKey>[] {
   const parts: PillarPart<YourTeamPartKey>[] = [
-    { key: 'team', label: 'Your team', href: `/dashboard/${eventId}/vendors` },
+    { key: 'team', label: 'Suppliers', href: `/dashboard/${eventId}/vendors` },
   ];
   if (budgetEnabled) parts.push({ key: 'budget', label: 'Budget', href: yourTeamBudgetHref(eventId) });
   return parts;

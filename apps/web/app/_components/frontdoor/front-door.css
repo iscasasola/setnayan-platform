@@ -508,6 +508,26 @@
   border-radius: 0 3px 3px 0;
   background: var(--fd-gold);
 }
+/* 📂 MORE SERVICES OPENS (owner 2026-09-30) — the one event-menu row with
+   children. Its five sit indented under it; the chevron turns when open.
+   Before the icon-strip block below on purpose: at 72px `.fd-row`'s own
+   padding wins and the chevron is hidden there. */
+.fd-mchild {
+  padding-left: 28px;
+}
+.fd-mchev {
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  opacity: 0.55;
+  transform: rotate(-45deg);
+  transition: transform var(--sn-dur-control) var(--sn-ease);
+}
+.fd-row[aria-expanded='true'] .fd-mchev {
+  transform: rotate(45deg);
+}
 /* ── THE ICON SLOT — ONE BOX, EVERY ROW, EVERY CHROME ─────────────────────
    It used to be a TEXT slot (`text-align:center` over a 15px glyph) with a
    separate `display:block; margin:0 auto` rule bolted on for SVGs and scoped
@@ -1318,6 +1338,7 @@ h2.fd-sechead,
      and Alaala counts on the account rows, so the rail stays consistent with
      itself rather than growing an exception.) */
   .fd-rctx,
+  .fd-mchev,
   .fd-signin-prompt p,
   .fd-notice,
   .fd-smallprint {
@@ -1448,7 +1469,8 @@ h2.fd-sechead,
      `display: none` lives in a LATER block in this same file, so at equal
      specificity a bare selector here would lose to it and change nothing. */
   .fd-rail .fd-toolline,
-  .fd-rail .fd-toolplay {
+  .fd-rail .fd-toolplay,
+  .fd-rail .fd-mchev {
     display: revert;
   }
   /* And the other half of the same bug: the strip also flattens `.fd-row-2l`
@@ -1474,6 +1496,9 @@ h2.fd-sechead,
   }
   .fd-row .fd-icon-caption {
     display: none;
+  }
+  .fd-rail .fd-mchild {
+    padding-left: 28px;
   }
   .fd-scrim {
     position: fixed;

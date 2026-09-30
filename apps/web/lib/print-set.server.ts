@@ -16,6 +16,7 @@ import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
+import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { sanitizeRoleAttire, ATTIRE_STYLE_LABEL, type RoleAttireRule } from '@/lib/role-dress-code';
 import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { ROLE_GROUP_LABELS, roleGroupLabel } from '@/lib/role-groups';
@@ -612,6 +613,9 @@ export async function loadPrintSet(
   const mark = resolveMonogram(event);
   const [a, b] = splitInitials(mark.text || event.display_name || '');
   const isWedding = (event.event_type ?? 'wedding') === 'wedding';
+  // 🕊 A wake's printed card is never "The celebration of" (audit 2026-09-30) —
+  // it takes the post-event cover's own words ("In loving memory", frontKicker).
+  const solemn = isWedding ? false : (await eventWordsFor(event.event_type)).solemn;
 
   const images: PrintImages = {};
   // 🖼 The Our Story poster's own photo (owner 2026-09-29, OWNER ANSWERS (1)) —
@@ -645,7 +649,7 @@ export async function loadPrintSet(
 
   const data: PrintSetData = {
     names: coupleNames(event.display_name),
-    eyebrow: isWedding ? 'The wedding of' : 'The celebration of',
+    eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'The celebration of',
     dateLabel: printedDate(event.event_date),
     ceremonyTime: blockTime(ceremony),
     ceremonyVenue: ceremony?.location?.trim() || venues.ceremony || event.std_film_ceremony_name?.trim() || null,

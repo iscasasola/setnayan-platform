@@ -93,7 +93,7 @@ test('3 · the same five tabs in every phase, and the same five rows on the rail
   assert.equal(bars[0]!.length, 5, `the bar has ${bars[0]!.length} tabs: ${bars[0]!.join(' · ')}`);
   assert.deepEqual(bars[1], bars[0], 'the day-of bar rearranged itself');
   assert.deepEqual(bars[2], bars[0], 'the after bar rearranged itself');
-  // Same rows, same order — and the same word, except the owner's two short
+  // Same rows, same order — and the same word, except the owner's one short
   // bar words, which come from the one map and nowhere else.
   const rail = buildCustomerNavGroups(EVENT_ID, ctx)
     .find((g) => g.key === 'pillars')!
@@ -101,28 +101,32 @@ test('3 · the same five tabs in every phase, and the same five rows on the rail
   assert.deepEqual(bars[0], rail, 'the phone and the laptop disagree about the menu');
 });
 
-test('4 · the phone says "Maker" and "Services"; the rail and ☰ keep the full names', () => {
+test('4 · Home · Guests · Suppliers · Hub · More — the rail says the same, save "More Services"', () => {
   /*
-    Owner, 2026-09-29: "accept it. Maker and Services" — on the PHONE bottom
-    bar only. Asserted on BOTH sides, because each half fails silently: a
+    Owner, 2026-10-01 (DECISION_LOG "THE BOTTOM BAR IS HOME · GUESTS ·
+    SUPPLIERS · HUB · MORE"): the bar and the rail wear the same words; the one
+    short bar word is "More" for the rail's expanding "More Services" row. Asserted on BOTH sides, because each half fails silently: a
     short word leaking onto the rail renders fine, and so does a full name
     wrapping to two lines on a 375px bar.
   */
   const ctx = { websiteEnabled: true, seatingEnabled: true } as const;
   const services = SUITE_NAV_ON;
   const bar = buildCustomerMenuTree(EVENT_ID, ctx).map((m) => m.label);
-  assert.deepEqual(bar, ['Home', 'Guest list', 'Your Team', 'Maker', services ? 'Services' : 'Studio']);
+  assert.deepEqual(bar, ['Home', 'Guests', 'Suppliers', 'Hub', services ? 'More' : 'Studio']);
   const rail = buildCustomerNavGroups(EVENT_ID, ctx)
     .find((g) => g.key === 'pillars')!
     .items.map((i) => i.label);
-  assert.deepEqual(rail, ['Home', 'Guest list', 'Your Team', 'Event Hub Maker', services ? 'Our Services' : 'Studio']);
+  assert.deepEqual(rail, ['Home', 'Guests', 'Suppliers', 'Hub', services ? 'More Services' : 'Studio']);
   // The registry defaults are what the bar and the rail actually overlay first.
   const slot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s.label]));
-  assert.equal(slot.get('customer.bottom-nav.launch'), 'Maker');
-  assert.equal(slot.get('customer.sidebar.launch'), 'Event Hub Maker');
+  assert.equal(slot.get('customer.bottom-nav.launch'), 'Hub');
+  assert.equal(slot.get('customer.sidebar.launch'), 'Hub');
+  assert.equal(slot.get('customer.bottom-nav.explore'), 'Suppliers');
+  assert.equal(slot.get('customer.sidebar.explore'), 'Suppliers');
+  assert.equal(slot.get('customer.bottom-nav.guests'), 'Guests');
   if (services) {
-    assert.equal(slot.get('customer.bottom-nav.studio'), 'Services');
-    assert.equal(slot.get('customer.sidebar.studio'), 'Our Services');
+    assert.equal(slot.get('customer.bottom-nav.studio'), 'More');
+    assert.equal(slot.get('customer.sidebar.studio'), 'More Services');
   }
 });
 
@@ -130,4 +134,16 @@ test('5 · the day-of "Planning" pill is gone from the top bar (owner: "remove i
   const src = stripComments(readFileSync(LAYOUT, 'utf8'));
   assert.ok(!src.includes('/more`'), 'the event top bar links /more again');
   assert.ok(!/>\s*Planning\s*</.test(src), 'the event top bar says "Planning" again');
+});
+
+test('6 · nothing floats over the bar — the couple has no round button (owner 2026-10-01)', () => {
+  /* Owner, pointing at the round "Add guest" button in the live bar: "this
+     will be gone, correct? we only have our simple bottom nav?". The dock
+     holds the bar alone (test 1); this holds the sibling slot beside it. */
+  const src = stripComments(readFileSync(LAYOUT, 'utf8'));
+  assert.ok(!/NavFab/.test(src), 'the event layout mounts a floating button beside the bar again');
+  assert.ok(
+    !existsSync(join(HERE, '_components', 'customer-nav-fab.tsx')),
+    'customer-nav-fab.tsx is back — deleted on 2026-10-01, not merely unmounted',
+  );
 });

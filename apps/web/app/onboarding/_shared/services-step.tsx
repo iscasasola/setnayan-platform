@@ -424,6 +424,7 @@ export function ServicesStep({
   selection,
   onSelectionChange,
   className,
+  solemn = false,
 }: {
   /**
    * What the couple has picked so far. Present WITH `onSelectionChange` ⇒ the
@@ -454,6 +455,12 @@ export function ServicesStep({
    */
   aiHref?: string | null;
   className?: string;
+  /**
+   * 🕊 The event type's solemn register (a wake). Changes WORDS only — the Papic
+   * card keeps its prices and controls, but drops its celebratory framing.
+   * Absent ⇒ false ⇒ every existing mount reads byte-identically.
+   */
+  solemn?: boolean;
 }) {
   const { papic, ai } = view;
   const hubPro = view.hubPro ?? null;
@@ -540,13 +547,23 @@ export function ServicesStep({
 
       {/* ── CARD 1 · PAPIC — already on, free, informational ─────────────── */}
       <article className="rounded-[var(--m-r-lg)] border border-ink/12 bg-paper p-5 sm:p-6">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-emerald-700">
-          <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-          Included · already on
-        </span>
+        {solemn ? (
+          <span className="inline-flex items-center rounded-full bg-ink/5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/60">
+            Set up for you
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-emerald-700">
+            <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+            Included · already on
+          </span>
+        )}
 
         <h2 className="mt-3 text-balance font-serif text-2xl font-medium italic leading-tight text-ink">
-          Store every photo as you prepare — right through to your {eventWord}.
+          {solemn ? (
+            'Every photo family and friends share, kept in one place.'
+          ) : (
+            <>Store every photo as you prepare — right through to your {eventWord}.</>
+          )}
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-ink/60">
           Every guest&rsquo;s phone becomes a camera. Photos and clips land in your
@@ -560,8 +577,14 @@ export function ServicesStep({
             strokeWidth={2}
           />
           <span>
-            <strong className="font-semibold">Papic is live on this {eventWord}.</strong>{' '}
-            Your free shots and guest QR are ready.
+            {solemn ? (
+              <>Photo sharing is ready whenever you need it — the free shots and guest QR are set up.</>
+            ) : (
+              <>
+                <strong className="font-semibold">Papic is live on this {eventWord}.</strong>{' '}
+                Your free shots and guest QR are ready.
+              </>
+            )}
           </span>
         </p>
 

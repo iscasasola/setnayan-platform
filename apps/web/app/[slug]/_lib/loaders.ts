@@ -20,12 +20,15 @@
 // slug-only — see its doc block).
 import { plusOneSeats } from '@/lib/guests';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
+import { linkedSeatIds } from './plus-one-seats.server';
 import { cache } from 'react';
 import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import {
   buildEntourage,
   ENTOURAGE_COLUMNS,
@@ -39,7 +42,7 @@ import { buildSitePaletteVars } from '@/lib/site-palette';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
-import { proSiteVarsFor } from './pro-site-vars';
+import { pinPlateInk, proSiteVarsFor } from './pro-site-vars';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -48,7 +51,7 @@ import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { resolveFaceMode, resolveFaceTagging, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { dayOfFaceCatchShows, type FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { resolveGuestCamera } from '@/lib/papic-limited';
-import { eventSeatingPublished } from '@/lib/seat-pass';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { DEFAULT_STUDIO_ANIM, heroMarkSvg } from '@/lib/hero-monogram-data';
@@ -273,7 +276,10 @@ export function guestLookFrom(
     theme: hub.theme === 'house' ? null : hub.theme,
     art: event.site_art_direction === 'candlelight' ? 'candlelight' : null,
     accent: hub.accent,
-    vars: vars && Object.keys(vars).length > 0 ? vars : null,
+    // 🔒 LAST: the plate keeps an ink that reads on the plate paper every layer
+    // above left it with (owner 2026-09-30, "I cannot see the venues properly" —
+    // a dark theme's light plate ink met a mood-board palette's light plate).
+    vars: vars && Object.keys(vars).length > 0 ? pinPlateInk(vars, hub.theme) : null,
     ombre,
   };
 }
@@ -729,7 +735,7 @@ export const loadMedia = cache(
         venue_address: event.venue_address,
       }),
     };
-    const eventVenues = resolveEventVenues(venueBookings, {
+    const resolvedVenues = resolveEventVenues(venueBookings, {
       venue_name: event.venue_name,
       venue_address: event.venue_address,
       venue_latitude: event.venue_latitude,
@@ -738,6 +744,19 @@ export const loadMedia = cache(
       std_film_venue_name: event.std_film_venue_name as string | null,
       ceremony_venue_address: (event as { ceremony_venue_address?: string | null }).ceremony_venue_address ?? null,
     });
+    // 🏛📷 Each venue card's picture (owner 2026-09-30), signed here beside the
+    // other site media. The ref was already checked against the supplier's
+    // CURRENT public photos or this event's own upload folder
+    // (`applyVenueChoices`), and the signer refuses anything outside the public
+    // media bucket. A picture is not the address: a public shop photo (or the
+    // couple's own) names no more than the venue NAME a guest already reads
+    // before replying, so `withheldVenue` leaves it on the card.
+    const eventVenues = await Promise.all(
+      resolvedVenues.map(async (v) => ({
+        ...v,
+        photoUrl: v.photo ? await displayUrlForStoredAsset(siteMediaServeRef(v.photo)).catch(() => null) : null,
+      })),
+    );
 
     // Resolve the couple-curated "Our photos" gallery (Increment A.4) to display
     // URLs up-front so both render paths share the result. events.our_photos is a
@@ -1139,7 +1158,7 @@ export const loadDoorwayFacts = cache(
     );
     const pabuyaRouteEnabled = isPabuyaPublicRouteEnabled();
     const [seatingPublished, enabledEgiftCount] = await Promise.all([
-      seatingSurfaceEnabled ? eventSeatingPublished(admin, eventId) : Promise.resolve(false),
+      seatingSurfaceEnabled ? guestsMaySeeSeatsFor(admin, eventId) : Promise.resolve(false),
       pabuyaRouteEnabled
         ? fetchEgiftMethods(admin, eventId, { enabledOnly: true }).then((m) => m.length)
         : Promise.resolve(0),
@@ -1446,9 +1465,15 @@ export const loadGuestContext = cache(
     // Graceful-degrade: if the join fails or no assignment exists, tableLabel
     // stays null and the card shows "Not yet assigned" — safe for every event
     // regardless of whether the seating editor has been used.
+    //
+    // 🪑 Read ONLY when guests may see their seats (`doorway.seatingPublished`
+    // is `guestsMaySeeSeatsFor` — on the event's day, or early by the couple's
+    // switch). Every reader of `tableLabel` downstream (the hub card's seat
+    // tile, YourSeatBlock, the door line, the keepsake) then withholds the
+    // table before the day without each having to ask.
     let guestTableLabel: string | null = null;
     let guestTableId: string | null = null;
-    try {
+    if (doorway.seatingPublished) try {
       const { data: assignmentRow } = await admin
         .from('event_seat_assignments')
         .select('table_id')
@@ -1570,6 +1595,7 @@ export const loadGuestContext = cache(
         `${guest.first_name} ${guest.last_name}`.trim(),
       rsvpStatus: guest.rsvp_status,
       tableLabel: guestTableLabel,
+      seatsOpen: seatPassActive,
       mealPreference: guest.meal_preference,
       dietaryRestrictions: guest.dietary_restrictions,
       // "Coming up" follows the host-set run-of-show pointer when the trigger
@@ -1640,6 +1666,7 @@ export const loadGuestContext = cache(
       if (seatErr) {
         logQueryError('loadGuestContext.seats', seatErr, { event_id: event.event_id }, 'graceful_degrade');
       } else {
+        const linked = await linkedSeatIds(admin, event.event_id, (seatRows ?? []).map((r) => r.guest_id as string));
         plusOneSeatRows = (seatRows ?? []).map((r) => {
           const placeholder = isPlaceholderSeat({
             guest_id: r.guest_id as string,
@@ -1651,8 +1678,12 @@ export const loadGuestContext = cache(
             name: placeholder ? null : `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || null,
             first: placeholder ? null : ((r.first_name as string | null) ?? null),
             last: placeholder ? null : ((r.last_name as string | null) ?? null),
+            prefix: placeholder ? null : ((r.name_prefix as string | null) ?? null),
+            middle: placeholder ? null : ((r.middle_name as string | null) ?? null),
+            suffix: placeholder ? null : ((r.name_suffix as string | null) ?? null),
             meal: (r.meal_preference as string | null) ?? null,
             dietary: (r.dietary_restrictions as string | null) ?? null,
+            linked: linked.has(r.guest_id as string),
           };
         });
       }
@@ -1727,6 +1758,18 @@ export const loadEntourageSectionOrder = cache(
   },
 );
 
+/**
+ * The couple's own words for roles (`events.role_names`, owner 2026-09-30 —
+ * Bridesmaid → "Bride's Crew"). Same posture as the section order above: its
+ * own query, and an unreadable value prints the USUAL words, never a broken
+ * page. Cached per request, so the entourage, the dress code and the "You are"
+ * line all read it once.
+ */
+export const loadEventRoleNames = cache(
+  async (admin: AdminClient, eventId: string): Promise<RoleNames> =>
+    loadRoleNames(admin, eventId, 'loadEventRoleNames'),
+);
+
 export const loadEntourage = cache(
   async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
     const { data, error } = await admin
@@ -1773,6 +1816,7 @@ export const loadEntourage = cache(
     return buildEntourage(
       (data ?? []) as EntourageGuestRow[],
       await loadEntourageSectionOrder(admin, eventId),
+      await loadEventRoleNames(admin, eventId),
     );
   },
 );

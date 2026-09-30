@@ -103,12 +103,12 @@ export type TourKey =
   | 'customer_print_menu_v1'
   | 'customer_details_guided_v1'
   | 'customer_print_story_poster_v1'
-  | 'customer_guest_reminders_v1'
   | 'customer_schedule_v1'
   | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
   | 'customer_people_v1'
   | 'customer_apply_pro_v1'
+  | 'discover_upcoming_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -131,12 +131,12 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_print_menu_v1',
   'customer_details_guided_v1',
   'customer_print_story_poster_v1',
-  'customer_guest_reminders_v1',
   'customer_schedule_v1',
   'customer_add_scene_v1',
   'customer_hero_designs_v1',
   'customer_people_v1',
   'customer_apply_pro_v1',
+  'discover_upcoming_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -706,30 +706,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     ],
   },
-  /*
-    📮 GUEST REMINDER EMAILS (owner 2026-09-26, "THE LAST 30 DAYS"). Fires the
-    first time the couple opens the Maker's RSVP page after the Maker welcome —
-    the switch lives there. Two slides: what each guest gets, and that the
-    switch is theirs. Mounted inside the RSVP page's controls (launch/page.tsx),
-    so it never stacks on the Maker's own first-visit welcome.
-  */
-  customer_guest_reminders_v1: {
-    key: 'customer_guest_reminders_v1',
-    label: 'Reminder emails for your guests',
-    blurb: 'Three short emails — 30 days, 7 days and the day before — each listing only what a guest has not ticked.',
-    slides: [
-      {
-        Icon: Mailbox,
-        title: 'Your guests are reminded for you',
-        body: 'Every guest who gave an email gets three short reminders &mdash; <strong>30 days</strong>, <strong>7 days</strong> and <strong>the day before</strong>. Each one lists only what they have not ticked on their checklist, and links to their own page. A guest who has not replied is asked to reply by your date first.',
-      },
-      {
-        Icon: CheckCircle2,
-        title: 'The switch is yours',
-        body: 'They are on by default. Turn <strong>Reminder emails</strong> off on this page and nobody is emailed. Guests without an email are never emailed either way &mdash; their invitation is the link you share.',
-      },
-    ],
-  },
+  // 📮 `customer_guest_reminders_v1` retired 2026-09-29 with the switch it
+  // taught — no email to guests (owner ruling, DECISION_LOG "NO EMAIL TO GUESTS").
   /*
     THE SCHEDULE'S FIRST VISIT (Schedule rebuild slice 1, 2026-09-27; owner
     2026-09-25: every feature gets a first-visit tour). One slide per thing the
@@ -867,6 +845,29 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         title: 'Keep it, change it, or take it off',
         body: 'Tap Go to to see an effect in the Maker, or &times; to take it off your draft. Unlock Event Hub Pro to put them all live &mdash; or apply the rest now; the Pro ones stay in your draft.',
         sells: true,
+      },
+    ],
+  },
+  /* 🌍 DISCOVER (owner 2026-09-29, DECISION_LOG "DISCOVER IS THE DOOR TO THE
+     WHOLE SETNAYAN UNIVERSE"; prototype `discover_upcoming_2026-09-29.html`
+     frame 1C). Mounted on `/` for a signed-in visitor by the shipped
+     `<MiniTour>` in `front-door.tsx`. Two slides, the prototype's own words —
+     minus its "you'll hear by email", which the same day's NO EMAIL TO GUESTS
+     ruling retired: an approved requester learns it by reopening their link. */
+  discover_upcoming_v1: {
+    key: 'discover_upcoming_v1',
+    label: 'Discover',
+    blurb: 'Your people’s public events first, then everything public on Setnayan.',
+    slides: [
+      {
+        Icon: Calendar,
+        title: 'Your people’s public events',
+        body: 'When someone you follow or are connected to announces a public event, it shows here &mdash; soonest first. Tap <b>Ask to join</b>; the host approves who gets in.',
+      },
+      {
+        Icon: Users,
+        title: 'Then the rest of Setnayan',
+        body: 'Below them: every other upcoming public event, nearest region first, then shops and people to follow. Tickets, when an event has them, are sold by its organizer &mdash; never by Setnayan.',
       },
     ],
   },

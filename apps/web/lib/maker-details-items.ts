@@ -432,7 +432,6 @@ export const RSVP_PIECES: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'questions', label: 'What you ask' },
   { key: 'who', label: 'Who can reply' },
   { key: 'reply-by', label: 'Reply by' },
-  { key: 'reminders', label: 'Reminder emails' },
   { key: 'requests', label: 'Requests' },
 ];
 

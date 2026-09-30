@@ -46,6 +46,13 @@ import { saveInviteMessage } from '../send/actions';
 
 export type SendInviteGuest = {
   guestId: string;
+  /**
+   * The message's `{name}` — the guest's name exactly as the couple entered it
+   * (`guestFullName`: their Display name, else the five parts composed; owner
+   * 2026-09-30 *"the name as given. to them"*). REQUIRED so no caller can build
+   * a message that shortens it to a first name by leaving it out.
+   */
+  formalName: string | null;
   firstName: string | null;
   fullName: string;
   /** The guest's OWN invitation link, or null when they have no QR token yet. */
@@ -140,6 +147,7 @@ export function SendInviteActions({
   const message = (qrAttached: boolean) =>
     buildGuestInviteMessage({
       ...facts,
+      formalName: guest.formalName,
       firstName: guest.firstName,
       guestName: guest.fullName,
       inviteUrl: guest.inviteUrl ?? '',
@@ -353,6 +361,7 @@ export function InviteMessageEditor({
 
   const preview = buildGuestInviteMessage({
     ...facts,
+    formalName: sample ? sample.formalName : 'Ms. Maria Santos',
     firstName: sample?.firstName ?? 'Maria',
     guestName: sample?.fullName ?? 'Maria',
     inviteUrl: sample?.inviteUrl ?? 'https://www.setnayan.com/…',

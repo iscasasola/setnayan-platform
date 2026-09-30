@@ -18,6 +18,8 @@
  * blank part is or in what order the parts print.
  */
 
+import { parsePersonName } from '@/lib/person-name-parse';
+
 /** The five parts, in PRINTED order. Same column names as `guests`. */
 export const FORMAL_NAME_FIELDS = [
   'name_prefix',
@@ -42,6 +44,52 @@ export const FORMAL_NAME_LABELS: Record<FormalNameField, string> = {
 };
 
 /**
+ * THE PREFIX DROPDOWN'S CHOICES — the guest-side name boxes (the RSVP's
+ * plus-ones, the plus-one's own door, the ask-to-join request) offer Prefix as
+ * ONE dropdown (owner 2026-09-30: *"The name will be same: Prefix · First ·
+ * Middle · Last · Suffix, to stay consistent"*; a set of choices is a dropdown).
+ *
+ * ⚖ Not a new vocabulary: every entry is one the Guest list's own name splitter
+ * already reads as a prefix (`parsePersonName`, lib/person-name-parse.ts) —
+ * `formal-name.test.ts` holds that, so the two can never disagree about what a
+ * title is. It is the SHORT list a guest picks from; a stored prefix outside it
+ * (the host typed "Justice") is kept as an extra option, never dropped.
+ */
+export const NAME_PREFIX_CHOICES = [
+  'Mr.',
+  'Mrs.',
+  'Ms.',
+  'Miss',
+  'Dr.',
+  'Dra.',
+  'Atty.',
+  'Engr.',
+  'Arch.',
+  'Prof.',
+  'Hon.',
+  'Judge',
+  'Rev.',
+  'Fr.',
+  'Msgr.',
+  'Bro.',
+  'Sis.',
+  'Pastor',
+  'Capt.',
+  'Col.',
+  'Gen.',
+  'Maj.',
+  'Lt.',
+  'Sgt.',
+] as const;
+
+/** The dropdown's options for a given stored prefix: the list, plus that value when it is not on it. */
+export function prefixChoicesFor(current: string | null | undefined): string[] {
+  const kept = normalizeNamePart(current);
+  const list: string[] = [...NAME_PREFIX_CHOICES];
+  return kept && !list.includes(kept) ? [kept, ...list] : list;
+}
+
+/**
  * One part, as stored: trimmed, inner whitespace collapsed, capped, and a
  * blank becomes NULL — never '' — so "no suffix" and "suffix cleared" are the
  * same value and nothing prints an empty gap.
@@ -57,6 +105,22 @@ export function formalNameFromForm(form: { get(name: string): unknown }): Formal
   const out = {} as FormalName;
   for (const f of FORMAL_NAME_FIELDS) out[f] = normalizeNamePart(form.get(f));
   return out;
+}
+
+/**
+ * A one-line name ("Atty. Bob Casasola Jr.") split into the five parts by the
+ * Guest list's own splitter (`parsePersonName`) — for boxes that open on a name
+ * that was only ever stored whole (an account's display name).
+ */
+export function formalNameFromLine(line: string | null | undefined): FormalName {
+  const p = parsePersonName(line ?? '');
+  return {
+    name_prefix: normalizeNamePart(p.prefix),
+    first_name: normalizeNamePart(p.firstName),
+    middle_name: normalizeNamePart(p.middleName),
+    last_name: normalizeNamePart(p.lastName),
+    name_suffix: normalizeNamePart(p.suffix),
+  };
 }
 
 /** True when not one part holds anything — the profile has never been filled. */

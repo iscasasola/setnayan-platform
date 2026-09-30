@@ -1,6 +1,16 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  PRINTED_CHANGED_EVENT,
+  PRINT_VERSION_HEADER,
+  changedSincePrinted,
+  printedDayLabel,
+  printedTarget,
+  readPrintedStamp,
+  writePrintedStamp,
+  type PrintedStamp,
+} from '@/lib/printed-stamp';
 import { Download, Loader2 } from 'lucide-react';
 
 /**
@@ -116,6 +126,11 @@ export function PrintSaveButton({
         return;
       }
       const blob = await res.blob();
+      // 🖨 Keep what this paper was drawn from (lib/printed-stamp.ts) — the
+      // piece says "Changed since you printed" once the inputs move on.
+      const version = res.headers.get(PRINT_VERSION_HEADER);
+      const target = printedTarget(href);
+      if (version && target) writePrintedStamp(target.eventId, target.piece, version);
       await hand(new File([blob], fileName, { type: blob.type || 'application/octet-stream' }));
     } catch {
       setState({ k: 'error', message: 'That file could not be saved — check your connection and try again.' });
@@ -162,5 +177,28 @@ export function PrintSaveButton({
         </span>
       ) : null}
     </span>
+  );
+}
+
+/**
+ * 🖨 "CHANGED SINCE YOU PRINTED" (owner 2026-09-29, OWNER ANSWERS (5)) — shown on
+ * a printed piece when this browser saved it and what it is drawn from has
+ * changed since (`printInputsVersion`; lib/printed-stamp.ts). Says nothing when
+ * it never saw a save — never a false "changed".
+ */
+export function ChangedSincePrinted({ eventId, piece, version }: { eventId: string; piece: string; version: string | null | undefined }) {
+  const [stamp, setStamp] = useState<PrintedStamp | null>(null);
+  useEffect(() => {
+    const read = () => setStamp(readPrintedStamp(eventId, piece));
+    read();
+    window.addEventListener(PRINTED_CHANGED_EVENT, read);
+    return () => window.removeEventListener(PRINTED_CHANGED_EVENT, read);
+  }, [eventId, piece]);
+  if (!changedSincePrinted(stamp, version)) return null;
+  return (
+    <p role="status" data-changed-since-printed={piece} className="border-l-2 border-mulberry/60 pl-3 text-[13px] text-ink/80">
+      <span className="font-semibold text-ink">Changed since you printed</span>
+      {stamp ? ` on ${printedDayLabel(stamp.at)}` : ''} — save it again so the paper matches.
+    </p>
   );
 }

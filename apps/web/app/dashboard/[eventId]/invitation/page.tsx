@@ -5,7 +5,8 @@ import { ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
+import { fetchGuestsByEvent, guestDisplayName, guestFullName, guestRoleLabel, RSVP_LABELS } from '@/lib/guests';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -64,6 +65,8 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = await loadRoleNames(supabase, eventId, 'InvitationAdminPage.roleNames');
 
   const { data: event, error: eventError } = await supabase
     .from('events')
@@ -259,7 +262,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           {previewQrSvg ? (
             <div
               aria-label="QR preview with monogram"
-              className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
+              className="qr-slot h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
               dangerouslySetInnerHTML={{ __html: previewQrSvg }}
             />
           ) : null}
@@ -425,6 +428,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                  they have no link yet — the modal then offers no Copy button. */
               const inviteMessage = buildGuestInviteMessage({
             ...inviteSetup.facts,
+            formalName: guestFullName(guest),
             firstName: guest.first_name,
             guestName: guestDisplayName(guest),
             inviteUrl: qr?.url ?? '',
@@ -436,7 +440,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   <td className="px-4 py-3">
                     <div
                       aria-label={`QR for ${guestDisplayName(guest)}`}
-                      className="inline-block h-16 w-16 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
+                      className="qr-slot inline-block h-16 w-16 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
                       dangerouslySetInnerHTML={{ __html: qr?.svg ?? '' }}
                     />
                   </td>
@@ -449,7 +453,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                     </Link>
                     <p className="text-xs text-ink/55">{guest.email ?? guest.mobile ?? '—'}</p>
                   </td>
-                  <td className="px-3 py-3 text-ink/70">{ROLE_LABELS[guest.role]}</td>
+                  <td className="px-3 py-3 text-ink/70">{guestRoleLabel(guest.role, roleNames)}</td>
                   <td className="px-3 py-3 text-ink/70">{RSVP_LABELS[guest.rsvp_status]}</td>
                   <td className="px-3 py-3">
                     <code className="block break-all font-mono text-[10px] leading-relaxed text-ink/60">
@@ -505,6 +509,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
              they have no link yet — the modal then offers no Copy button. */
           const inviteMessage = buildGuestInviteMessage({
             ...inviteSetup.facts,
+            formalName: guestFullName(guest),
             firstName: guest.first_name,
             guestName: guestDisplayName(guest),
             inviteUrl: qr?.url ?? '',
@@ -519,7 +524,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               <div className="flex items-start gap-3">
                 <div
                   aria-label={`QR for ${guestDisplayName(guest)}`}
-                  className="h-20 w-20 shrink-0 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
+                  className="qr-slot h-20 w-20 shrink-0 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
                   dangerouslySetInnerHTML={{ __html: qr?.svg ?? '' }}
                 />
                 <div className="min-w-0">
@@ -529,7 +534,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   >
                     {guestDisplayName(guest)}
                   </Link>
-                  <p className="text-xs text-ink/55">{ROLE_LABELS[guest.role]}</p>
+                  <p className="text-xs text-ink/55">{guestRoleLabel(guest.role, roleNames)}</p>
                   <p className="text-xs text-ink/55">RSVP: {RSVP_LABELS[guest.rsvp_status]}</p>
                 </div>
               </div>

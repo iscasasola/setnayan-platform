@@ -231,7 +231,7 @@ export async function InvitePanel({
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-8">
             {qrSvg ? (
               <div
-                className="shrink-0 rounded-xl bg-cream p-3 shadow-inner [&>svg]:h-40 [&>svg]:w-40"
+                className="qr-slot shrink-0 rounded-xl bg-cream p-3 shadow-inner [&>svg]:h-40 [&>svg]:w-40"
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
             ) : null}

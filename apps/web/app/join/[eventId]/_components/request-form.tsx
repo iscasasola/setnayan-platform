@@ -3,11 +3,15 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { REQUEST_ANSWERS, REQUEST_MAX_SEATS } from '@/lib/guest-requests';
+import type { FormalName } from '@/lib/formal-name';
+import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
 
 /**
  * ASK TO JOIN — the request form (guest pathway prototype frame 7b, owner
- * 2026-09-26/27). The person types their name (the guest list is NEVER shown),
- * answers the RSVP and leaves a way to reach them. It produces a REQUEST, not an
+ * 2026-09-26/27). The person types their name — the five parts every name box
+ * uses, Prefix · First · Middle · Last · Suffix (owner 2026-09-30) — (the guest
+ * list is NEVER shown),
+ * answers the RSVP (📵 no email — owner 2026-09-29). It produces a REQUEST, not an
  * admission: the join actions write no membership and no guest session, and the
  * couple Keeps, Links or Removes it in Guest List → Requests.
  *
@@ -15,7 +19,7 @@ import { REQUEST_ANSWERS, REQUEST_MAX_SEATS } from '@/lib/guest-requests';
  * `rsvp_ask_config` the RSVP enforces), and the server reads back only those
  * (`readRequestAnswers`). Field names match the RSVP's own
  * (`rsvp_status`, `meal_preference`, `dietary_restrictions`, `guest_note`,
- * `contact_email`, `contact_mobile`).
+ * `contact_mobile`).
  *
  * A server component — nothing here needs JavaScript to post.
  */
@@ -23,35 +27,25 @@ export function RequestForm({
   action,
   ask,
   organizer,
-  defaultName = '',
+  defaultParts = {},
   accountEmail = null,
 }: {
   action: (formData: FormData) => Promise<void>;
   ask: RsvpAskConfig;
   /** "the couple" / "the family" — the event's own word. */
   organizer: string;
-  defaultName?: string;
+  /** A signed-in asker's name, already split — they do not retype it. */
+  defaultParts?: Partial<FormalName>;
   /** Signed in with a real address — it is the contact; no box is shown. */
   accountEmail?: string | null;
 }) {
   const meals = Object.keys(MEAL_LABELS) as MealPreference[];
   return (
     <form action={action} className="space-y-6" data-join-request="">
-      <div className="space-y-1.5">
-        <label htmlFor="request-name" className="block text-sm font-medium text-ink">
-          Your name
-        </label>
-        <input
-          id="request-name"
-          name="name"
-          type="text"
-          required
-          defaultValue={defaultName}
-          placeholder="First and last name"
-          autoComplete="name"
-          className="input-field"
-        />
-      </div>
+      <fieldset className="space-y-2">
+        <legend className="mb-1 text-sm font-medium text-ink">Your name</legend>
+        <FormalNameInputs defaults={defaultParts} required forSelf idPrefix="request-" />
+      </fieldset>
 
       <fieldset className="space-y-2">
         <legend className="mb-1 text-sm font-medium text-ink">Will you be there?</legend>
@@ -114,23 +108,9 @@ export function RequestForm({
         </div>
       ) : null}
 
-      {accountEmail ? null : (
-        <div className="space-y-1.5">
-          <label htmlFor="request-email" className="block text-sm font-medium text-ink">
-            Email <span className="font-normal text-ink/60">— we write here once you are in</span>
-          </label>
-          <input
-            id="request-email"
-            name="contact_email"
-            type="email"
-            required={!rsvpAsks(ask, 'mobile')}
-            autoComplete="email"
-            inputMode="email"
-            className="input-field"
-          />
-        </div>
-      )}
-
+      {/* 📵 NO EMAIL BOX (owner 2026-09-29, "NO EMAIL TO GUESTS"): the requester
+          gets their own key on Send — the pending Digital ticket and their link —
+          so nothing needs an address to reach them. */}
       {rsvpAsks(ask, 'mobile') ? (
         <div className="space-y-1.5">
           <label htmlFor="request-mobile" className="block text-sm font-medium text-ink">

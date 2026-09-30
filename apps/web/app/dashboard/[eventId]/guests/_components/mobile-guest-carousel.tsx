@@ -28,13 +28,16 @@
  * inline chrome. The filter + sort + assign bottom SHEETS are kept verbatim.
  */
 
+import { useRoleNames } from './role-names-context';
+import { pickItems } from '@/lib/role-alternatives';
+import { sectionHeadingInTheirWords } from '@/lib/role-groups';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowUpDown, Check, ChevronLeft, ChevronRight, CircleCheck, Clock, LayoutGrid, List, PencilLine, QrCode, Send, Share2, SlidersHorizontal, UserPlus, X } from 'lucide-react';
 import { OpenAddFromPeopleButton } from './add-from-people-sheet';
 import {
-  ROLE_LABELS,
+  guestRoleLabel,
   SIDE_LABELS,
   type GuestRole,
   type GuestSide,
@@ -1062,6 +1065,8 @@ function AssignSheet({
 }) {
   const { ids: selectedIds } = useGuestSelection();
   const count = selectedIds.length;
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = useRoleNames();
   const [step, setStep] = useState<'menu' | 'side' | 'role' | 'group'>('menu');
   const [newGroup, setNewGroup] = useState('');
   const [, startTransition] = useTransition();
@@ -1197,14 +1202,35 @@ function AssignSheet({
             {bulkRoleSections.map((section) => (
               <div key={section.label}>
                 <h3 className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                  {section.label}
+                  {sectionHeadingInTheirWords(section.label, roleNames)}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {section.roles.map((r) => (
-                    <SheetPill key={r} onClick={() => applyRole(r)}>
-                      {ROLE_LABELS[r]}
-                    </SheetPill>
-                  ))}
+                  {/* ⚖ Owner 2026-09-30: an either-or pair reads as ONE choice
+                      with two words — "Best Man · or · Best Woman". */}
+                  {pickItems(section.roles).map((it) =>
+                    it.kind === 'pair' ? (
+                      <span
+                        key={it.roles[0]}
+                        role="group"
+                        aria-label={it.heading}
+                        className="inline-flex items-center gap-1 rounded-full bg-ink/[0.04] p-0.5"
+                      >
+                        <SheetPill onClick={() => applyRole(it.roles[0])}>
+                          {guestRoleLabel(it.roles[0], roleNames)}
+                        </SheetPill>
+                        <span aria-hidden className="text-[10px] uppercase tracking-wide text-ink/40">
+                          or
+                        </span>
+                        <SheetPill onClick={() => applyRole(it.roles[1])}>
+                          {guestRoleLabel(it.roles[1], roleNames)}
+                        </SheetPill>
+                      </span>
+                    ) : (
+                      <SheetPill key={it.role} onClick={() => applyRole(it.role)}>
+                        {guestRoleLabel(it.role, roleNames)}
+                      </SheetPill>
+                    ),
+                  )}
                 </div>
               </div>
             ))}

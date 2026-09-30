@@ -104,7 +104,8 @@ test('3 · the Maker offers the theme\'s own · same as my hero · Upload media 
   for (const source of ['theme', 'hero', 'own', 'none']) {
     assert.match(comp, new RegExp(`'data-main-ground-source': '${source}'`), `the ${source} choice is drawn`);
   }
-  assert.match(comp, /label=\{`\$\{theme\.name\}’s own background`\}/, 'the theme\'s background by name (e.g. "Luxe’s own background")');
+  // 🎞 By a name you can picture (owner 2026-09-29, OWNER ANSWERS (11)) — "Luxe chandeliers".
+  assert.match(comp, /label=\{themeBackgroundName\(themeId\)\}/, 'the theme\'s background is not named by its picture-able name');
   assert.match(comp, /label="None — just the colour"/);
   assert.match(comp, /save\(\{ ground: 'theme' \}/, 'the theme\'s own is a stored choice');
   assert.match(comp, /save\(\{ ground: 'none' \}/, 'none is a stored choice — the loop can be turned off');
@@ -146,4 +147,19 @@ test('4 · Parallax on the couple\'s own photo is the shipped parallax, in page-
   assert.match(motion, /if\(el\.getAttribute\('data-pahina-parallax'\)==='page'\)\{p=\(window\.scrollY\|\|0\)\/sh;\}/);
   assert.equal(resolveMainGround({ kind: 'photo', media: PHOTO, tint: TINT, motion: 'parallax' }, hero, noClip)?.parallax, true);
   assert.ok(isHubMainChoice({ ground: 'none' }));
+});
+
+// 🎞 OWNER 2026-09-29, "OWNER ANSWERS — TEN OPEN QUESTIONS" (11): each theme's own
+// background has a short name you can picture; every theme with a loop has one.
+test('every theme with a background loop has a picture-able name; Classic (no loop) has none', async () => {
+  const { INVITE_THEMES, INVITE_THEME_IDS, THEME_BACKGROUND_NAMES, themeBackgroundName } = await import('./invite-themes');
+  for (const id of INVITE_THEME_IDS) {
+    const name = THEME_BACKGROUND_NAMES[id];
+    if (INVITE_THEMES[id].media) {
+      assert.ok(name && name.trim().length > 3, `${id} has a loop and no name`);
+      assert.ok(name!.startsWith(INVITE_THEMES[id].name.split(' ').pop()!) || name!.startsWith(INVITE_THEMES[id].name.split(' ')[0]!), `${id}: "${name}" does not say which theme it is`);
+      assert.equal(themeBackgroundName(id), name);
+    } else assert.equal(name, null, `${id} has no loop yet is named`);
+  }
+  assert.equal(THEME_BACKGROUND_NAMES.velvet, 'Luxe chandeliers', 'the owner’s own example');
 });

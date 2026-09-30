@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { isUuid } from '@/lib/is-uuid';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
-import { fetchGuestsByEventMeasured, guestDisplayName } from '@/lib/guests';
+import { fetchGuestsByEventMeasured, guestDisplayName, guestFullName } from '@/lib/guests';
 import { NotSharedWithYou } from '../../_components/not-shared-with-you';
 import { fetchInvitationBase } from '../_components/guest-card-data';
 import { loadInviteSetup } from '../_components/invite-message-setup';
@@ -58,6 +58,7 @@ export default async function SendInvitesPage({ params }: Props) {
     .filter((g) => g.role !== 'bride' && g.role !== 'groom')
     .map((g) => ({
       guestId: g.guest_id,
+      formalName: guestFullName(g),
       firstName: g.first_name,
       fullName: guestDisplayName(g),
       inviteUrl: invitationBase && g.qr_token ? `${invitationBase}?invite=${g.qr_token}` : null,

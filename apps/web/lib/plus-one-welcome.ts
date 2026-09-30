@@ -33,6 +33,10 @@ export const PLUS_ONE_WELCOMED_MAX_AGE = 60 * 60 * 24 * 365;
 export type PlusOneRow = {
   first_name: string | null;
   last_name: string | null;
+  /** The other three name parts — the door's name boxes are the five (owner 2026-09-30). */
+  name_prefix?: string | null;
+  middle_name?: string | null;
+  name_suffix?: string | null;
   plus_one_name_confirmed_at: string | null;
   meal_preference: string | null;
   dietary_restrictions: string | null;

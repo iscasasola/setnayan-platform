@@ -22,6 +22,8 @@
  * an unconsented role never reaches this file at all.
  */
 
+import { roleNameOne, type RoleNames } from '@/lib/role-names';
+
 /** `guests.role` values that carry editorial weight. Everything else is a guest. */
 export type ColumnVoice = 'parents' | 'named' | 'guest';
 
@@ -36,6 +38,7 @@ const NAMED_ROLES = new Set([
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
+  'best_woman',
   'principal_sponsor',
   'principal_sponsor_ninong',
   'principal_sponsor_ninang',
@@ -56,13 +59,21 @@ const ROLE_LABEL: Record<string, string> = {
   maid_of_honor: 'Maid of honour',
   matron_of_honor: 'Matron of honour',
   best_man: 'Best man',
+  best_woman: 'Best woman',
   principal_sponsor: 'Principal sponsor',
   officiant: 'Officiant',
 };
 
-export function roleLabel(role: string | null | undefined): string | null {
+/**
+ * `names` is the event's `events.role_names` (owner 2026-09-30): a couple who
+ * calls their best man "Kuya Best" sees that on the badge. 🔑 Only a role that
+ * EARNS a badge here can be renamed onto one — a rename never adds a badge.
+ */
+export function roleLabel(role: string | null | undefined, names?: RoleNames | null): string | null {
   const r = (role ?? '').trim();
-  return ROLE_LABEL[r] ?? null;
+  const usual = ROLE_LABEL[r];
+  if (!usual) return null;
+  return roleNameOne(r, names) ?? usual;
 }
 
 export type ColumnLike = { role?: string | null };

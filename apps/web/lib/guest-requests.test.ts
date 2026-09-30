@@ -20,23 +20,23 @@ const form = (o: Record<string, string>) => {
   for (const [k, v] of Object.entries(o)) fd.set(k, v);
   return fd;
 };
-const OK = { name: 'Carla Dizon', rsvp_status: 'attending', contact_email: 'Carla@Example.com', terms: 'on' };
+const OK = { name: 'Carla Dizon', rsvp_status: 'attending', terms: 'on' };
 
-test('a complete request reads: name, answer, contact — email lower-cased', () => {
-  const r = readRequestAnswers(form(OK), {});
+// 📵 Owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS": the request asks for no
+// email and needs no contact — the requester holds their own key from Send.
+test('a complete request reads: name and answer — no email is read, even if one is posted', () => {
+  const r = readRequestAnswers(form({ ...OK, contact_email: 'Carla@Example.com' }), {});
   assert.equal(r.ok, true);
   if (!r.ok) return;
   assert.equal(r.value.name, 'Carla Dizon');
   assert.equal(r.value.rsvp_status, 'attending');
-  assert.equal(r.value.email, 'carla@example.com');
+  assert.equal(r.value.email, null, 'a typed email is collected again');
 });
 
 test('each missing piece is refused with its own reason', () => {
   const cases: Array<[Record<string, string>, string]> = [
     [{ ...OK, name: ' ' }, 'missing_name'],
     [{ ...OK, rsvp_status: 'pending' }, 'missing_answer'],
-    [{ ...OK, contact_email: '' }, 'missing_contact'],
-    [{ ...OK, contact_email: 'not-an-email' }, 'bad_email'],
     [{ ...OK, terms: '' }, 'missing_terms'],
   ];
   for (const [input, error] of cases) {
@@ -45,8 +45,8 @@ test('each missing piece is refused with its own reason', () => {
   }
 });
 
-test('a signed-in account’s email is the contact when none is typed', () => {
-  const r = readRequestAnswers(form({ ...OK, contact_email: '' }), {}, 'me@acct.test');
+test('a signed-in account’s own email is kept — who they signed in as', () => {
+  const r = readRequestAnswers(form(OK), {}, 'Me@Acct.test');
   assert.equal(r.ok && r.value.email, 'me@acct.test');
 });
 

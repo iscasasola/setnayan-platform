@@ -20,6 +20,7 @@ import {
   fetchGuestsByEventMeasured,
   guestDisplayName,
   GROUP_CATEGORY_LABELS,
+  guestRoleLabel,
   ROLE_LABELS,
   RSVP_LABELS,
   SIDE_LABELS,
@@ -35,10 +36,15 @@ import {
 import {
   filterByRoleGroup,
   honoreeRank,
+  roleGroupLabel,
   roleGroupOf,
   ROLE_GROUP_LABELS,
   roleImportanceRank,
+  type RoleGroup,
 } from '@/lib/role-groups';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
+import { RoleNamesProvider } from './_components/role-names-context';
 import {
   compareByKeys,
   groupingFromParams,
@@ -341,6 +347,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30) — graceful: the usual words on a refusal.
+  const roleNames = await loadRoleNames(supabase, eventId, 'GuestsPage.roleNames');
+  // The View lenses say the couple's word too ("Bride's Crew", not "Bridesmaids").
+  const viewFiltersNamed = viewFilters.map((f) =>
+    f.key === 'all' ? f : { ...f, label: roleGroupLabel(f.key as RoleGroup, roleNames) },
+  );
 
   // A delegate the host never shared the guest list with reads ZERO guest rows
   // — an RLS refusal and an empty event are the same value — so without this
@@ -656,7 +668,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // from the entourage's own printed wording; this is the roster's
       // ROLE_LABELS, used only to make a role searchable. Two rules, so two
       // names — a shared identifier would hide that they differ.
-      const roleSearchLabel = ROLE_LABELS[g.role];
+      // + the couple's own word for it (owner 2026-09-30), so "crew" finds the Bride's Crew.
+      const roleSearchLabel = `${ROLE_LABELS[g.role]} ${guestRoleLabel(g.role, roleNames)}`;
       const roleEnumNormalized = g.role.replace(/_/g, ' ');
       const groupBlob = groupBlobByGuestId.get(g.guest_id) ?? '';
       const haystack = [
@@ -760,6 +773,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     sideLabel: (g) => SIDE_LABELS[g.side],
     roleGroupLabel: (g) => {
       const grp = roleGroupOf(g.role);
+      // ⚠ A SORT KEY, NOT A HEADING — `ROLE_SECTION_ORDER` ranks by these exact
+      // words, so the couple's renames are applied where the heading is DRAWN.
       return grp === 'guest' ? 'Guests' : ROLE_GROUP_LABELS[grp];
     },
     groupLabel: (g) => arrangeGroupKey?.get(g.guest_id) ?? null,
@@ -1171,6 +1186,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             <details>; it now recedes behind the row's "+", and never opens on
             its own once the event has passed (`startAdding`). */}
         <SummaryFacetBar
+          roleNames={roleNames}
           stats={stats}
           measured={guestsMeasured}
           eventId={eventId}
@@ -1191,7 +1207,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           teamActive={teamFilter}
           teamCounts={teamCounts}
           view={view}
-          views={viewFilters}
+          views={viewFiltersNamed}
           groups={groups}
           currentGroupId={currentGroupId}
           tagFilter={tagFilter}
@@ -1219,6 +1235,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             eventId={eventId}
             search={search}
             groups={groups}
+            roleNames={roleNames}
             className="flex-nowrap whitespace-nowrap"
           />
         </div>
@@ -1240,7 +1257,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           q={q}
           sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
           currentSort={sort}
-          views={viewFilters}
+          views={viewFiltersNamed}
           activeView={view}
           groups={groups}
           currentGroupId={currentGroupId}
@@ -1386,14 +1403,18 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // leaving the roster for a route — it is opt-in, so Studio/Vendors/Overview
   // keep their standalone routes.
   return (
-    <InspectorLayout
-      paramKey="inspect"
-      className="sn-inspector-shell--card"
-      mobileSheet
-      hasSelection={Boolean(inspectorBody)}
-      master={master}
-      inspector={inspectorBody}
-    />
+    // 🏷 The couple's role words reach every client chip and picker below
+    // (owner 2026-09-30 — "Bride's Crew"). `role-names-reach-every-screen.test.ts`.
+    <RoleNamesProvider names={roleNames}>
+      <InspectorLayout
+        paramKey="inspect"
+        className="sn-inspector-shell--card"
+        mobileSheet
+        hasSelection={Boolean(inspectorBody)}
+        master={master}
+        inspector={inspectorBody}
+      />
+    </RoleNamesProvider>
   );
 }
 
@@ -1709,6 +1730,7 @@ const SUMMARY_FILTER_KEYS = [
 ] as const;
 
 function SummaryFacetBar({
+  roleNames,
   stats,
   measured,
   eventId,
@@ -1727,6 +1749,8 @@ function SummaryFacetBar({
   tagFilter,
   tags,
 }: {
+  /** The couple's own words for roles (owner 2026-09-30). */
+  roleNames: RoleNames;
   stats: GuestStats;
   /** False when the guest read was refused — every figure here is then unknown. */
   measured: boolean;
@@ -1947,7 +1971,7 @@ function SummaryFacetBar({
 
       {/* What is applied stays on screen with the rows folded away — the only
           place an active filter is visible besides the number on the button. */}
-      <ActiveFilters eventId={eventId} search={search} groups={groups} />
+      <ActiveFilters eventId={eventId} search={search} groups={groups} roleNames={roleNames} />
     </div>
   );
 }

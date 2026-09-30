@@ -25,6 +25,11 @@
  *   D · no switch, radio or checkbox is `disabled` by a save in flight (a
  *       `useTransition` / `useFormStatus` pending, directly or through a prop):
  *       a locked switch is the wait A removed, back by another door.
+ *   E · (owner 2026-09-30, SPEED FIRST) a save marked `held` is followed by NO
+ *       render of the Maker (`lib/maker-refresh.ts`), so it must be a change
+ *       the CANVAS already shows: its handler posts to the canvas (or hands the
+ *       shell the hold, `onSaving`) before the save. A `held` on a change the
+ *       bridge never drew would leave the canvas showing the old page for good.
  *
  * A write made INSIDE `start(async () => …)` does not count for A: React 19
  * holds it until the whole action settles (the RSVP switches, 2026-09-29).
@@ -54,7 +59,9 @@ const DIRS = [
 /** State writes that report on a save rather than show the edit. */
 const STATUS_SETTER = /^set(Error|Note|Problem|Failed|Busy|Pending|Save|Saving|Status|State|Reading|Loading)$/;
 /** Canvas posts — the bridge draws the edit (`element-preview.ts`, `scene-bg-preview.ts`). */
-const CANVAS_POST = new Set(['onPreview', 'lay', 'broadcastToCanvas', 'postToCanvas', 'postMessage']);
+/* 🗳 `announceRsvpPreview` / `announceReplyByLine` — the RSVP stage's panel: the stage
+   posts each into its kept frames at once (`maker-rsvp-stage.tsx` → `rsvp-canvas-bridge.tsx`). */
+const CANVAS_POST = new Set(['onPreview', 'lay', 'broadcastToCanvas', 'postToCanvas', 'postMessage', 'announceRsvpPreview', 'announceReplyByLine']);
 
 /**
  * Handlers that save without drawing first, and why that is right. Keyed
@@ -485,4 +492,63 @@ test('a made-once page frame is double-buffered, never an iframe keyed on the re
   });
   assert.ok(tags.includes('BufferedCanvasFrame'), 'the page frame must load a new render BEHIND the one shown');
   assert.ok(!tags.includes('iframe'), 'a bare <iframe> here is remounted blank by every Maker render');
+});
+
+/* ── E · A SAVE THAT BRINGS NO RENDER IS A SAVE THE CANVAS ALREADY SHOWS ───── */
+
+/** Calls that put a change on the canvas (or hand the shell the canvas hold, which decides). */
+const ON_CANVAS = new Set([...CANVAS_POST, 'onSaving', 'hideOnCanvas']);
+
+/** `held` handlers that draw nothing, and why that is right. */
+const HELD_WITHOUT_DRAWING: Record<string, string> = {};
+
+function optionsHold(call: ts.CallExpression): boolean {
+  const opts = call.arguments[2];
+  if (!opts || !ts.isObjectLiteralExpression(opts)) return false;
+  return opts.properties.some((p) => {
+    const name = p.name && ts.isIdentifier(p.name) ? p.name.text : null;
+    if (name !== 'held') return false;
+    if (ts.isShorthandPropertyAssignment(p)) return true;
+    return ts.isPropertyAssignment(p) && p.initializer.kind !== ts.SyntaxKind.FalseKeyword;
+  });
+}
+
+/** Does anything before `call`, inside `handler`, put the change on the canvas? */
+function canvasFirst(call: ts.Node, handler: ts.Node): boolean {
+  let drew = false;
+  for (let child: ts.Node = call, p = call.parent; p && child !== handler; child = p, p = p.parent) {
+    if (!(ts.isBlock(p) || ts.isSourceFile(p))) continue;
+    for (const st of p.statements) {
+      if (st === child) break;
+      walk(st, (x) => {
+        if (ts.isCallExpression(x) && ON_CANVAS.has(calleeName(x) ?? '')) drew = true;
+      });
+    }
+  }
+  return drew;
+}
+
+test('E · every held save (no render behind it) is a change the canvas already shows', () => {
+  const blind: Hit[] = [];
+  let held = 0;
+  for (const full of FILES) {
+    const sf = parse(full);
+    walk(sf, (n) => {
+      if (!isMakerSave(n) || !optionsHold(n)) return;
+      held += 1;
+      const h = handlerOf(n);
+      const key = `${rel(full)} › ${h?.name ?? '<top>'}`;
+      if (key in HELD_WITHOUT_DRAWING) return;
+      if (!h || !canvasFirst(n, h.fn)) blind.push({ file: rel(full), handler: h?.name ?? '<top>', line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
+    });
+  }
+  console.log(`[every-maker-edit] held saves: ${held}`);
+  assert.ok(held >= 4, `only ${held} held saves found — the scan is not reading the Maker`);
+  assert.deepEqual(
+    blind,
+    [],
+    `These saves are marked held — no Maker render follows them — but nothing puts the change on the canvas first. ` +
+      `Post it to the canvas (the bridge), or drop \`held\` so the save brings its one render:\n` +
+      blind.map((b) => `  ${b.file}:${b.line} (${b.handler})`).join('\n'),
+  );
 });

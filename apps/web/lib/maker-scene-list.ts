@@ -46,9 +46,21 @@ import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from './public-site-stage-lab
 import type { OpenUpKind, PostEventListRow, PostEventSceneStatus } from './post-event-scenes';
 import type { SceneTemplateId } from './scene-templates';
 import { stageShowsEntourage } from './stage-scenes';
+import { welcomeParts } from './invitation-welcome';
 
 /** The sections that are always in their place on a stage — never dragged. */
-export type MakerFixedKey = 'film' | 'editorial' | 'hero' | 'greeting' | 'pass' | 'rsvp' | 'entourage' | 'story';
+export type MakerFixedKey =
+  | 'film'
+  | 'editorial'
+  | 'hero'
+  | 'greeting'
+  | 'pass'
+  | 'rsvp'
+  /* 🏠 The Invitation's Welcome page (owner 2026-09-30 — `lib/invitation-welcome.ts`). */
+  | 'look'
+  | 'gifts'
+  | 'entourage'
+  | 'story';
 
 export type MakerTile =
   | {
@@ -140,7 +152,7 @@ export type MakerStageList = {
 export const MAKER_SCENE_LABEL: Partial<Record<WidgetType, string>> = {
   hero: 'Names & date',
   greeting: 'Personal greeting',
-  qr_card: "Guest's QR pass",
+  qr_card: "Guest's ticket",
   tier_comparison: 'Two ways to celebrate',
 };
 
@@ -152,8 +164,10 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
      with "Your guest" — never sample content — so the couple sees where each
      guest's own part sits on the page. */
   greeting: { label: 'Personal greeting', why: 'Each guest sees their own — their name, and how they are joining you.' },
-  pass: { label: "Guest's QR pass", why: 'Each guest sees their own pass and QR code.' },
+  pass: { label: "Guest's ticket", why: 'Each guest sees their own Digital ticket and QR code.' },
   rsvp: { label: 'RSVP', why: 'Each guest replies from their own link.' },
+  look: { label: "Guest's look", why: 'Each guest sees what they wear — their role, their colours, your Do’s & Don’ts.' },
+  gifts: { label: 'E-Gifts', why: 'Every guest sees your E-Gifts here once a gift method is on.' },
   entourage: { label: 'The entourage', why: 'Always here on this stage, after your sections — it lists everyone with a role.' },
   story: { label: 'Our story', why: 'Always here on this stage, after the entourage — written from your love story.' },
 };
@@ -188,21 +202,38 @@ export const MAKER_TOOL_EDITOR_NAME: Record<NonNullable<(typeof MAKER_FIXED_TOOL
 };
 
 /** For a fixed section with no Maker tool: what fills it, and the page that changes it. */
-export const MAKER_FIXED_SOURCE: Partial<Record<MakerFixedKey, { text: string; page: 'guests'; link: string }>> = {
+export const MAKER_FIXED_SOURCE: Partial<
+  Record<MakerFixedKey, { text: string; page: 'guests' | 'studio/mood-board' | 'pabuya'; link: string; from: string }>
+> = {
   entourage: {
     text: 'Nothing to edit here. It comes from your guest list — the roles you give people there.',
     page: 'guests',
     link: 'Open your guest list',
+    from: 'your guest list',
+  },
+  look: {
+    text: 'Each guest sees their own look — from your Mood Board and your dress code.',
+    page: 'studio/mood-board',
+    link: 'Open your Mood Board',
+    from: 'your Mood Board',
+  },
+  gifts: {
+    text: 'Guests see the ways to send you a gift that you switch on.',
+    page: 'pabuya',
+    link: 'Open E-Gifts',
+    from: 'your E-Gifts',
   },
   greeting: {
     text: 'Each guest sees their own greeting — written from your guest list.',
     page: 'guests',
     link: 'Open your guest list',
+    from: 'your guest list',
   },
   pass: {
-    text: 'Each guest sees their own pass and QR — made from your guest list.',
+    text: 'Each guest sees their own Digital ticket and QR — made from your guest list.',
     page: 'guests',
     link: 'Open your guest list',
+    from: 'your guest list',
   },
 };
 
@@ -253,7 +284,7 @@ const EMPTY_REASON: Partial<Record<WidgetType, string>> = {
   schedule: 'Empty — add the moments of your day in Schedule.',
   venue_map: 'Empty — add your venue.',
   special_message: 'Empty — write your message.',
-  what_to_bring: 'Empty — add what guests should bring.',
+  what_to_bring: 'Empty — add reminders for your guests.',
   our_photos: 'Empty — add your photos.',
   our_love_story: 'Empty — add your story.',
   countdown: 'Needs your date.',
@@ -426,19 +457,44 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   if (plan.qrCardShouldRender) shown.push(fixed('pass'));
   if (plan.rsvpShouldRender) shown.push(fixed('rsvp'));
 
+  // 🏠 THE WELCOME PAGE — after the reply, before Details, in the order the
+  // canvas draws it (`GuestWelcome`, asked through the SAME `welcomeParts`):
+  // the guest's look · Reminders (the `what_to_bring` scene, which leaves
+  // Details for it) · E-Gifts.
+  const drawable = plan.publicSafeWidgets.filter((w) => whyNotDrawn(w, input) === null);
+  const welcome = welcomeParts({
+    stage,
+    bodyNormal: plan.body === 'normal',
+    scenes: drawable.map((w) => w.widget_type),
+    identified: false,
+    reminders: null,
+    giftHref: null,
+    maker: true,
+  });
   const drawn = new Set<string>();
-  for (const w of plan.publicSafeWidgets) {
-    if (whyNotDrawn(w, input) !== null) continue;
+  const sceneTile = (w: InvitationWidgetRow): MakerTile => {
     drawn.add(w.widget_id);
     const empty = emptyOf(w, input);
-    shown.push({
+    return {
       kind: 'scene',
       key: `w:${w.widget_type}`,
       widgetId: w.widget_id,
       type: w.widget_type,
       label: makerSceneLabel(w.widget_type),
       ...(empty ? { empty } : {}),
-    });
+    };
+  };
+  for (const part of welcome) {
+    if (part === 'look') shown.push(fixed('look'));
+    else if (part === 'gifts') shown.push(fixed('gifts'));
+    else {
+      const row = drawable.find((w) => w.widget_type === 'what_to_bring');
+      if (row) shown.push(sceneTile(row));
+    }
+  }
+
+  for (const w of drawable) {
+    if (!drawn.has(w.widget_id)) shown.push(sceneTile(w));
   }
   // The entourage is not the Save the Date's job (`STAGE_FIXED`).
   if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));

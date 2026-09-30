@@ -79,6 +79,10 @@ export const PrintMenuEditor = dynamic(() => import(/* webpackChunkName: "maker-
 export const PrintChoicePicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-choice-picker').then((m) => m.PrintChoicePicker), { loading: SlotRows });
 export const PassCardDesignPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './pass-card-design-picker').then((m) => m.PassCardDesignPicker), { loading: SlotRows });
 export const PrintSaveButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.PrintSaveButton), { loading: SlotButton });
+// 🖼 The A3 poster's own photo (owner 2026-09-29) — the Details chunk, like every print control.
+export const PosterPhotoPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './poster-photo-picker').then((m) => m.PosterPhotoPicker), { loading: SlotRows });
+// 🖨 "Changed since you printed" (owner 2026-09-29) — the same file, the same chunk, nothing drawn while it loads.
+export const ChangedSincePrinted = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.ChangedSincePrinted));
 
 /* ── Your event (names · date · venues · parents & hosts · the march) ─────── */
 export const NamesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.NamesEditor), { loading: SlotRows });
@@ -98,6 +102,23 @@ export const ParentCards = dynamic(() => import(/* webpackChunkName: "maker-deta
 export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.LoveStoryPieceFocus), { loading: SlotNone });
 export const ScheduleSlots = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.ScheduleSlots), { loading: SlotNone });
 export const MakerRsvpSettings = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask').then((m) => m.MakerRsvpSettings), { loading: SlotRows });
+/* 🗳 The RSVP stage (owner 2026-09-30 re-plan: RSVP is its own stage) — its scenes, canvas and controls, in this chunk. */
+export const MakerRsvpStage = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-stage').then((m) => m.MakerRsvpStage), { loading: SlotFill });
+
+/* 🚂 The element sheet (size · font · colour · motion of one scene element) opens
+   on a TAP, never on arrival — so it rides this chunk, prefetched at idle with
+   the rest (`loadDetailsPieces`), instead of the Maker's first load. Moved in the
+   2026-09-30 release train to bring the Maker back under its 505KB budget
+   (scripts/check-maker-js-budget.mjs) without raising it. */
+export const ElementSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/element-sheet').then((m) => m.ElementSheet), { loading: SlotNone });
+/* 🚂 …and the scene's bound-fact box ("Change it everywhere / Just this scene",
+   #6048/#6176) draws only once a scene is selected — same chunk, same idle prefetch. */
+export const DetailsBoundField = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/details-bound-field').then((m) => m.DetailsBoundField), { loading: SlotRows });
+/* 🚂 The Look pages' Details editors (Logo · Hero · Reveal, #6166/#6176) — drawn
+   when that Details item is opened; same chunk, same idle prefetch. */
+export const DetailsLookBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookBody), { loading: SlotFill });
+export const DetailsLookEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookEditor), { loading: SlotRows });
+export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPieces), { loading: SlotRows });
 
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
 export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });
@@ -134,11 +155,15 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ './parent-cards'),
     import(/* webpackChunkName: "maker-details" */ './details-tool-pieces'),
     import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask'),
+    import(/* webpackChunkName: "maker-details" */ './maker-rsvp-stage'),
     import(/* webpackChunkName: "maker-details" */ './maker-logo'),
     import(/* webpackChunkName: "maker-details" */ './maker-reveal'),
     import(/* webpackChunkName: "maker-details" */ './details-guide'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/element-sheet'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/details-bound-field'),
+    import(/* webpackChunkName: "maker-details" */ './details-look-pages'),
     prefetchEntourage(),
   ]);
 

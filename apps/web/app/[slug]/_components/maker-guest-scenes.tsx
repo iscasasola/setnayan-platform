@@ -39,9 +39,7 @@ export function MakerGuestScenes({
         <>
           {mark('f:greeting')}
           <section className="space-y-2" data-maker-guest-scene="greeting">
-            <p className="font-pahina text-3xl font-light italic leading-tight text-ink">
-              Hi, <span className="text-gild">Your guest</span>.
-            </p>
+            {/* 🎩 No "Hi, …" — no casual greetings (owner 2026-09-30). */}
             <p className="max-w-prose text-base leading-relaxed text-ink/70">
               {solemn ? 'We hope you can be with us' : 'We’d love to celebrate with you'}
               {date ? ` on ${date}` : ''}.
@@ -75,5 +73,37 @@ export function MakerGuestScenes({
         </>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 🏠 THE WELCOME PAGE'S TWO GUEST-ONLY PLACES, AS THE MAKER DRAWS THEM (owner
+ * 2026-09-30 — `lib/invitation-welcome.ts`). Each guest's own look can only be
+ * drawn for a guest, and the E-Gifts door only once a gift method is on; here
+ * the couple sees where each lands, after its own marker (`f:look`, `f:gifts`),
+ * so a tap selects it. Never sample content; a guest never receives this markup.
+ */
+export function MakerWelcomeLook() {
+  return (
+    <section className="space-y-2" data-maker-guest-scene="look">
+      <p className="pahina-eyebrow">
+        <span>What to wear</span>
+      </p>
+      <p className="font-pahina text-xl text-ink">Your guest&rsquo;s role, colours and outfit</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH} look, from your Mood Board</p>
+    </section>
+  );
+}
+
+/** The E-Gifts place with no gift method on yet — the page draws the real door once there is one. */
+export function MakerWelcomeGiftsEmpty() {
+  return (
+    <section className="space-y-2" data-maker-guest-scene="gifts">
+      <p className="pahina-eyebrow">
+        <span>E-Gifts</span>
+      </p>
+      <p className="font-pahina text-xl font-light italic text-ink/60">Add a way to receive gifts.</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/40">Only you see this · guests see it once a gift method is on</p>
+    </section>
   );
 }

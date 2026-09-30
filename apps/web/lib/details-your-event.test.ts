@@ -155,7 +155,8 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   assert.match(LOAD, /<EntourageOrderPanel eventId=\{eventId\} view="all" \/>/, 'the order list is the shipped Guest list panel, moved in whole');
   const loaders = read('app/[slug]/_lib/loaders.ts');
   assert.match(loaders, /return buildEntourage\(\s*\(data \?\? \[\]\) as EntourageGuestRow\[\],\s*await loadEntourageSectionOrder\(admin, eventId\),/);
-  assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)\)/);
+  // (+ the couple's role words since 2026-09-30 — words only, the ORDER argument is unchanged.)
+  assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)(, names)?\)/);
   assert.match(read('app/dashboard/[eventId]/guests/_components/entourage-order-panel.tsx'), /orderedGroupKeys\(savedSections\)[\s\S]*?entourageLines\(rows, key\)/);
   // The guest's own line is built from the same groups the section prints.
   const body = read('app/[slug]/_components/site-body.tsx');

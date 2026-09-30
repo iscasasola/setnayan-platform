@@ -68,7 +68,8 @@ import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
 import { updateOurStory } from '../../website/our-story/actions';
 
-import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-look-pages';
+// ⚡ Opened on a tap — the Look editors load with the Details pieces (`details-lazy.tsx`).
+import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-lazy';
 /* ⚡ Each piece's editor and picture load when Details is opened — never with the
    Maker (`details-lazy.tsx`; held by `details-pieces-are-lazy.test.ts`). */
 import {
@@ -367,6 +368,9 @@ export function MakerDetails(props: MakerDetailsProps) {
   // `v=` the render stamp, so a changed look shows at once.
   const qrSrc = slug ? `/api/website/qr/${encodeURIComponent(slug)}?draft=1&v=${encodeURIComponent(stamp)}` : null;
   const qrMark = makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell });
+  // ⭕ The plate follows the code (owner 2026-09-30): a round code sits on a round plate.
+  // The plate WRAPS the picture rather than clipping it, so a code drawn square still shows whole.
+  const qrPlate = qr.style.shape === 'circle' ? ' rounded-full' : '';
   const free = freePrintParts(eventId, slug);
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
@@ -491,8 +495,10 @@ export function MakerDetails(props: MakerDetailsProps) {
         className="flex flex-col items-center gap-3 rounded-md bg-white/80 p-4 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)] sm:flex-row sm:text-left"
       >
         {qrSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG
-          <img src={qrSrc} alt="QR code for your Event Hub address" width={176} height={176} className="h-40 w-40 shrink-0 bg-white p-1 sm:h-44 sm:w-44" />
+          <span className={`shrink-0 bg-white p-1${qrPlate}`} data-qr-plate="">
+            {/* eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG */}
+            <img src={qrSrc} alt="QR code for your Event Hub address" width={176} height={176} className="block h-[152px] w-[152px] sm:h-[168px] sm:w-[168px]" />
+          </span>
         ) : null}
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink">Your Event Hub address</p>
@@ -515,8 +521,10 @@ export function MakerDetails(props: MakerDetailsProps) {
     qr: (
       <section data-details-qr="" className="flex flex-col items-center gap-4">
         {qrSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG; `v` is the render stamp so a new look shows at once
-          <img src={qrSrc} alt="Your Event Hub QR code" width={240} height={240} className="h-56 w-56 bg-white p-2 shadow-[0_1px_2px_rgba(40,34,24,.08)]" />
+          <span className={`bg-white p-2 shadow-[0_1px_2px_rgba(40,34,24,.08)]${qrPlate}`} data-qr-plate="">
+            {/* eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG; `v` is the render stamp so a new look shows at once */}
+            <img src={qrSrc} alt="Your Event Hub QR code" width={240} height={240} className="block h-52 w-52" />
+          </span>
         ) : (
           <p className="text-sm text-ink/70">Set your Event Hub address first — the QR opens it.</p>
         )}
@@ -1048,8 +1056,10 @@ function WordsCard({ text, note }: { text: string | null; note: string }) {
 
 /**
  * 🪑 The Seat plan as the navigator draws it — how many tables, how many are
- * seated, and whether guests see it (its "done": the door is open). Plain
- * words for every kind of event; a count that could not be read is SAID.
+ * seated, and whether guests see it yet. Its "done" is ARRANGED (a guest is
+ * seated), never visibility: seats open by themselves on the event's day, so a
+ * visibility "done" could never be finished before it. Plain words for every
+ * kind of event; a count that could not be read is SAID.
  */
 function seatPlanRow(
   seatPlan: { tables: number | null; seated: number | null; open: boolean | null } | null,
@@ -1061,11 +1071,11 @@ function seatPlanRow(
       ? 'Could not be read just now'
       : t === 0
         ? 'No tables yet'
-        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : ''}`;
+        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : seatPlan?.open === false ? ' · guests see it on the day' : ''}`;
   return {
     label: 'Seat plan',
     sub,
-    done: seatPlan?.open ?? undefined,
+    done: n === null ? undefined : n > 0,
     usedOn: [PUBLIC_STAGE_LABELS.event, 'Table signs', 'Passes', 'Find your seat'],
     icon: <Armchair aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
     panelLabel: 'Guests',

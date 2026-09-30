@@ -28,6 +28,10 @@ export const STAGE_FACT_TAPS: ReadonlyArray<{ key: string; els: ReadonlyArray<st
   { key: 'w:special_message', els: ['body', null], item: 'special-message' },
   { key: 'w:our_love_story', els: ['body', null], item: 'love-story' },
   { key: 'f:story', els: ['body', null], item: 'love-story' },
+  // 🏛 A venue card tapped opens Details › Venues in place — "Use the
+  // supplier's details" or "Enter your own", and the card's photo (owner
+  // 2026-09-30: "so click on it. use supplier details. or input your data").
+  { key: 'w:venue_map', els: ['body', null], item: 'venues' },
 ];
 
 /** The Details item a canvas tap names, or null (a design word, or no fact there). */

@@ -1204,8 +1204,14 @@ export async function updatePaxSettings(formData: FormData): Promise<GovernedFie
     actor_user_id: user.id,
   });
 
-  revalidatePath(`/dashboard/${eventId}/details`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/guests`, 'layout');
+  /* ⚡ The Maker's RSVP stage saves the date behind the canvas (`maker_quiet`):
+     a `revalidatePath` in an action makes its answer carry a whole render of
+     the page it was sent from — the Maker (owner 2026-09-30, "no reloads"). The
+     two pages below are dynamic and re-read on the next visit anyway. */
+  if (formData.get('maker_quiet') !== '1') {
+    revalidatePath(`/dashboard/${eventId}/details`, 'layout');
+    revalidatePath(`/dashboard/${eventId}/guests`, 'layout');
+  }
   return { ok: true };
 }
 

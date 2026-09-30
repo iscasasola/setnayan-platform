@@ -175,7 +175,7 @@ test('4 · Me holds name + Switch, the plus-ones, and Save — mounted INTO the 
       ],
       passes: { p1: '<svg data-pass="lola"></svg>' },
       account: { kind: 'linked', accountEmail: 'ana@example.com' },
-      hasEmail: true,
+      personalLink: 'https://x/ana?invite=t0',
       userAgent: null,
       termsCarried: true,
     }),
@@ -183,7 +183,7 @@ test('4 · Me holds name + Switch, the plus-ones, and Save — mounted INTO the 
   assert.match(html, /Ana Reyes/);
   assert.match(html, /action="\/ana\/sign-out"/);
   assert.match(html, /Send their invite/);
-  assert.match(html, /Show Lola’s pass/);
+  assert.match(html, /Show Lola’s ticket/);
   assert.match(html, /data-pass="lola"/);
   // A TBA seat is named IN PLACE on Me (owner 2026-09-29, frame E) — no link back to the reply.
   assert.match(html, /data-add-name-in-place/);

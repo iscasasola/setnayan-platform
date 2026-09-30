@@ -3,6 +3,8 @@ import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-re
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Gift, QrCode } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { loadRoleNames } from '@/lib/role-names.server';
+import { RoleNamesProvider } from '../_components/role-names-context';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../../_components/not-shared-with-you';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -48,6 +50,8 @@ export default async function CheckinDeskPage({ params, searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30) — the desk says them.
+  const roleNames = await loadRoleNames(supabase, eventId, 'CheckinDeskPage.roleNames');
 
   // Door crew = couple OR coordinator (matches guest_checkins RLS).
   const { data: membership } = await supabase
@@ -196,7 +200,9 @@ export default async function CheckinDeskPage({ params, searchParams }: Props) {
         </Link>
       </header>
 
-      <CheckinDesk eventId={eventId} guests={guests} initialCheckins={checkins} expected={expected} />
+      <RoleNamesProvider names={roleNames}>
+        <CheckinDesk eventId={eventId} guests={guests} initialCheckins={checkins} expected={expected} />
+      </RoleNamesProvider>
 
       {/* Day-of: silently re-pull the roster so a live reseat updates each
           guest's table on the board without a manual reload (seat-finding PR 5).

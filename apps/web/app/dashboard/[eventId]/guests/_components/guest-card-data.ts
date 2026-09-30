@@ -13,10 +13,13 @@ import {
   type InvitedToBlock,
 } from '@/lib/guests';
 import { formatRecordedAt } from '@/lib/recorded-at';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
 import type { GuestAccessState } from '@/lib/guest-access';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { readSeatAccount } from '@/lib/seat-unlink';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -81,6 +84,17 @@ export type GuestCardData = {
   access: GuestAccessState | null;
   /** The viewer is a co-host, so the Access dropdown is theirs to change. */
   canManageAccess: boolean;
+  /** 🔒 A plus-one who linked their OWN account — their name is shown read-only,
+   *  "Linked to their account" (owner 2026-09-29, OWNER ANSWERS (10)). */
+  nameLinked: boolean;
+  /**
+   * The account this row is bound to (`event_members.guest_id`), shown to the
+   * couple with an Unlink (lib/seat-unlink.ts). Null when nobody holds it, or
+   * when the viewer is not a couple member — the read is another account's.
+   */
+  linkedAccount: { email: string | null; memberType: string } | null;
+  /** The couple's own words for roles (`events.role_names`, owner 2026-09-30). `{}` = the usual words. */
+  roleNames: RoleNames;
 };
 
 export async function loadGuestCard(
@@ -215,7 +229,13 @@ export async function loadGuestCard(
     })(),
   ]);
 
+  // Who holds this row — read only for the couple (another account's email).
+  const linkedAccount = canManageAccess ? await readSeatAccount(eventId, guest.guest_id) : null;
+  // The couple's words for roles — its own read, graceful (usual words on a refusal).
+  const roleNames = await loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames');
+
   return {
+    roleNames,
     guest,
     isCouple,
     hasSides,
@@ -230,5 +250,19 @@ export async function loadGuestCard(
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),
     access: accessMap?.get(guest.guest_id) ?? null,
     canManageAccess,
+    nameLinked: guest.plus_one_of_guest_id
+      ? await (async () => {
+          const { data, error } = await createAdminClient()
+            .from('event_members')
+            .select('id')
+            .eq('event_id', eventId)
+            .eq('guest_id', guest.guest_id)
+            .limit(1)
+            .maybeSingle();
+          if (error) logQueryError('loadGuestCard.nameLinked', error, { eventId, guestId }, 'graceful_degrade');
+          return Boolean(data);
+        })()
+      : false,
+    linkedAccount,
   };
 }

@@ -84,7 +84,8 @@ import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
-import { normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { foldEventRoles, normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
 import { eventNoun } from '@/lib/event-noun';
@@ -530,6 +531,23 @@ export default async function WebsiteEditorPage({
   const dressCodeConfig = normalizeDressCodeConfig(
     (drafted as { dress_code_config?: unknown }).dress_code_config,
   );
+  /* 👗 THE ROLES ON THIS GUEST LIST, for the Dress code scene's "What each role
+     wears" (owner 2026-09-30: a host sets each role's outfit right here). The
+     panel was handed none, so it said the guest list had no ninongs to a couple
+     who had them. An unread list offers no rows — and the saved outfits still
+     ride along unchanged (`CarriedAttire`), so a Save cannot wipe them. */
+  const { data: roleRows, error: roleRowsError } = await supabase
+    .from('guests')
+    .select('role')
+    .eq('event_id', eventId)
+    .is('deleted_at', null);
+  if (roleRowsError) {
+    logQueryError('WebsiteEditorPage.dressCodeRoles', roleRowsError, { eventId }, 'graceful_degrade');
+  }
+  const dressCodeRoles = foldEventRoles(
+    (roleRows ?? []) as { role: string | null }[],
+    await loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'),
+  );
   // Dress code starts from the Mood Board (owner 2026-07-25): when the couple
   // hasn't set a palette yet, seed the panel's swatches from role_palette so
   // "edit" begins from their own colours, not a blank. Saving persists the
@@ -874,6 +892,7 @@ export default async function WebsiteEditorPage({
               action={updateDressCode.bind(null, eventId)}
               eventId={eventId}
               config={dressCodeConfig}
+              eventRoles={dressCodeRoles}
               eventNoun={eventNoun((event.event_type as string | null) ?? 'wedding')}
             />
           ),
@@ -924,10 +943,12 @@ export default async function WebsiteEditorPage({
         },
         {
           key: 'what-to-bring',
-          label: 'What to bring',
-          blurb: 'Gifts, registry, or a kind no-gift note.',
+          /* 🏠 "Reminders" to guests, on the Invitation's Welcome page (owner
+             2026-09-30 — `lib/invitation-welcome.ts`); the same store as ever. */
+          label: 'Reminders',
+          blurb: 'Arrive by, what to bring, what to wear on your feet.',
           href: `${w}/what-to-bring`,
-          anchor: 'details',
+          anchor: 'w:what_to_bring',
           status: drafted.what_to_bring ? done('Written') : todo('Not set'),
           panel: (
             <TextPanel
@@ -935,9 +956,9 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="what-to-bring"
               name="note"
-              label="What to bring"
+              label="Reminders"
               maxLength={600}
-              placeholder="Gifts, registry, or a kind no-gift note…"
+              placeholder="Arrive by 2:30 · Bring your ticket · Wear flat shoes for the garden…"
               defaultValue={(drafted.what_to_bring as string | null) ?? ''}
               /* ✍ Typed here, seen on the scene at once (`canvas-words.tsx`). */
               previewKey="w:what_to_bring"

@@ -2,8 +2,20 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
-import { fillAccountNameFromSeat, linkGuestSessionToUser } from '@/lib/link-guest-account';
+import {
+  fillAccountNameFromSeat,
+  isCoupleMember,
+  linkGuestSessionToUser,
+} from '@/lib/link-guest-account';
 import { TERMS_VERSION } from '@/lib/terms-agreement';
+import { readGuestSession } from '@/lib/guest-session';
+import {
+  isCoupleSeat,
+  seatBindRefusal,
+  seatDisplayName,
+  type SeatBindRefusal,
+} from '@/lib/seat-binding';
+import { coupleSentThisSeatLink, signCoupleSeatLink } from '@/lib/seat-link-approval';
 
 /**
  * Invite/Join v2 — email-link → real Setnayan account (0000 ADDENDUM 2026-06-25).
@@ -40,6 +52,13 @@ export async function sendEventAccountMagicLink(params: {
    * nothing rather than an agreement nobody made.
    */
   termsAgreed?: boolean;
+  /**
+   * The COUPLE pressed "send them a sign-in link" on this row's own guest card
+   * (`inviteGuestByEmailAction`). Signs the return so a couple seat — which no
+   * guest link may bind (lib/seat-binding.ts) — can be kept by the account this
+   * address belongs to. Absent on every guest-side door.
+   */
+  sentByCouple?: boolean;
 }): Promise<{ ok: boolean }> {
   const admin = createAdminClient();
   const email = params.email.trim();
@@ -48,12 +67,25 @@ export async function sendEventAccountMagicLink(params: {
   // 1. Stamp the email on the guest row (couple contact + the cross-device
   //    email-match key). Best-effort: only fills a NULL email so we never clobber
   //    a different address the couple already recorded for that seat.
-  await admin
+  //    🔒 NEVER onto a COUPLE row from a guest door (2026-09-30): an address
+  //    typed by whoever holds the bride / groom / celebrant key would point the
+  //    row's person at their account (`set_guest_person`). Only the couple's own
+  //    "send them a sign-in link" (`sentByCouple`) may stamp it.
+  const { data: seatRow } = await admin
     .from('guests')
-    .update({ email, updated_at: new Date().toISOString() })
+    .select('role, extra_roles')
     .eq('guest_id', params.guestId)
     .eq('event_id', params.eventId)
-    .is('email', null);
+    .maybeSingle();
+  const coupleRow = !seatRow || isCoupleSeat(seatRow.role as string | null, seatRow.extra_roles as string[] | null);
+  if (!coupleRow || params.sentByCouple) {
+    await admin
+      .from('guests')
+      .update({ email, updated_at: new Date().toISOString() })
+      .eq('guest_id', params.guestId)
+      .eq('event_id', params.eventId)
+      .is('email', null);
+  }
 
   // 2. Ensure an auth user exists for this email. createUser is idempotent for
   //    our purposes — if the address is already registered it errors, which we
@@ -80,7 +112,12 @@ export async function sendEventAccountMagicLink(params: {
 
   // 3. Generate a magic login link (does NOT send email). redirectTo lands on
   //    /auth/callback (PKCE exchange) → the event-connect route.
-  const next = `/join/${params.eventId}/connect`;
+  const approval = params.sentByCouple
+    ? await signCoupleSeatLink({ eventId: params.eventId, guestId: params.guestId, email })
+    : null;
+  const next = `/join/${params.eventId}/connect${
+    approval ? `?approved=${encodeURIComponent(approval)}` : ''
+  }`;
   const { data, error } = await admin.auth.admin.generateLink({
     type: 'magiclink',
     email,
@@ -141,46 +178,126 @@ async function recordTermsForNewAccount(
   }
 }
 
+/** A seat this account could be bound to on this event, found — never bound — here. */
+export type SeatToConnect = {
+  guestId: string;
+  /** The name the couple put on the row (`seatDisplayName`). */
+  name: string;
+  role: string | null;
+  /** How the seat was found: this browser's guest pass, or the account's email. */
+  via: 'cookie' | 'email';
+  /** Non-null → this account may not hold it (`lib/seat-binding.ts`). */
+  refusal: SeatBindRefusal;
+};
+
+/**
+ * WHICH SEAT WOULD THIS ACCOUNT BE BOUND TO? Read-only — the confirm page
+ * (`/join/{id}/connect/confirm`) asks the person about exactly this seat, and
+ * `connectEventForUser` binds only the seat whose id came back from that page.
+ *
+ * Two authorizations, in order, both scoped to THIS event:
+ *   1. the SIGNED guest pass in this browser — only when it names this event
+ *      (the old binder linked whatever event the cookie named);
+ *   2. an EMAIL match (cross-device) — the magic link proved the inbox, so a
+ *      row in THIS event carrying that address is theirs to be ASKED about.
+ * A row already held by a different account is never offered.
+ */
+export async function findSeatToConnect(
+  eventId: string,
+  userId: string,
+  userEmail: string | null,
+  coupleApproval: string | null = null,
+): Promise<SeatToConnect | null> {
+  try {
+    const admin = createAdminClient();
+    const heldByOther = async (guestId: string) => {
+      const { data: bound } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('guest_id', guestId)
+        .maybeSingle();
+      return Boolean(bound && bound.user_id !== userId);
+    };
+    const shape = async (
+      row: Record<string, unknown>,
+      via: 'cookie' | 'email',
+    ): Promise<SeatToConnect> => {
+      const guestId = row.guest_id as string;
+      const role = (row.role as string | null) ?? null;
+      const extra = (row.extra_roles as string[] | null) ?? null;
+      const refusal = isCoupleSeat(role, extra)
+        ? seatBindRefusal({
+            seatRole: role,
+            seatExtraRoles: extra,
+            accountIsCouple: await isCoupleMember(admin, eventId, userId),
+            // Only the EMAIL path can carry the couple's own link; a guest pass
+            // in a browser is never the couple's choice.
+            coupleSentTheLink:
+              via === 'email' &&
+              (await coupleSentThisSeatLink(coupleApproval, { eventId, guestId, email: userEmail })),
+          })
+        : null;
+      return {
+        guestId,
+        name: seatDisplayName(row as { display_name?: string; first_name?: string; last_name?: string }),
+        role,
+        via,
+        refusal,
+      };
+    };
+    const COLUMNS = 'guest_id, event_id, role, extra_roles, display_name, first_name, last_name';
+
+    // 1. This browser's guest pass — for THIS event only.
+    const session = await readGuestSession();
+    if (session && session.event_id === eventId) {
+      const { data: row } = await admin
+        .from('guests')
+        .select(COLUMNS)
+        .eq('guest_id', session.guest_id)
+        .eq('event_id', eventId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (row && !(await heldByOther(row.guest_id as string))) return await shape(row, 'cookie');
+    }
+
+    // 2. The account's email, on a row of THIS event.
+    if (!userEmail) return null;
+    const { data: row } = await admin
+      .from('guests')
+      .select(COLUMNS)
+      .eq('event_id', eventId)
+      .ilike('email', userEmail)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (!row || (await heldByOther(row.guest_id as string))) return null;
+    return await shape(row, 'email');
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Connect an event to the signed-in user, creating the `event_members` row that
- * makes the event show in their picker. Two authorizations, in order:
- *   1. the SIGNED guest-session cookie (same browser) — reuses
- *      linkGuestSessionToUser, the canonical binder;
- *   2. an EMAIL match (cross-device) — the magic link proved the user owns this
- *      email, so an unclaimed seed row in THIS event with the same email is theirs.
+ * makes the event show in their picker.
+ *
+ * 🔒 BINDS ONLY WHAT WAS CONFIRMED (2026-09-30). Without `confirmedGuestId` this
+ * binds NOTHING — it only answers "is this account already inside?". With it,
+ * it binds that one seat and only if `findSeatToConnect` still finds exactly
+ * that seat, un-refused. The id comes from the confirm page, where the person
+ * was shown "This invitation is for <name>. Save it to <email>?" and pressed
+ * Yes — so a stale guest pass on a shared phone can no longer turn a sign-in
+ * into somebody else's seat.
  * Never throws — callers are post-auth routes where a throw would 500 the login.
  */
 export async function connectEventForUser(
   eventId: string,
   userId: string,
   userEmail: string | null,
+  opts: { confirmedGuestId?: string | null; coupleApproval?: string | null } = {},
 ): Promise<{ connected: boolean }> {
   try {
-    // 1. Cookie path (same browser).
-    //
-    // 🚨 THIS REPORTED SUCCESS FOR THE WRONG EVENT. `linkGuestSessionToUser`
-    // links whatever event the BROWSER'S guest cookie names — which need not be
-    // the `eventId` this call was asked about — and `guest_already_claimed` links
-    // nothing at all. Both were returned as `connected: true`, so the couple's
-    // "send them a sign-in link" could report a connection it had not made, and
-    // the caller then sent the person to an event they hold no seat on.
-    //
-    // The fix is to answer the question that was ASKED: is this user a member of
-    // THIS event now? The membership read below already exists for the
-    // second-click case; it is simply consulted before believing the cookie.
-    const viaCookie = await linkGuestSessionToUser(userId);
     const admin = createAdminClient();
-    if (viaCookie.linked || viaCookie.reason === 'guest_already_claimed') {
-      const { data: forThisEvent } = await admin
-        .from('event_members')
-        .select('id')
-        .eq('event_id', eventId)
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (forThisEvent) return { connected: true };
-      // The cookie belonged to a different wedding (or claimed nothing). Fall
-      // through to the email-match path, which is scoped to THIS event.
-    }
 
     // Already a member of this event (e.g. a second click of the link)?
     // ⚠ `id`, NOT `member_id` — public.event_members' primary key is `id`.
@@ -196,27 +313,41 @@ export async function connectEventForUser(
       .maybeSingle();
     if (existing) return { connected: true };
 
-    // 2. Email-match fallback (cross-device). The magic link authenticated this
-    //    address, so an unclaimed seed row for this event with the same email is
-    //    theirs to bind.
-    if (!userEmail) return { connected: false };
+    const confirmed = opts.confirmedGuestId ?? null;
+    if (!confirmed) return { connected: false };
+    const seat = await findSeatToConnect(eventId, userId, userEmail, opts.coupleApproval ?? null);
+    if (!seat || seat.guestId !== confirmed || seat.refusal) return { connected: false };
+
+    // 1. Cookie path (same browser).
+    //
+    // 🚨 THIS ONCE REPORTED SUCCESS FOR THE WRONG EVENT. `linkGuestSessionToUser`
+    // used to link whatever event the BROWSER'S guest cookie named — which need
+    // not be the `eventId` this call was asked about — and `guest_already_claimed`
+    // links nothing at all. It is now told the event AND the confirmed row, and
+    // the membership for THIS event is still what decides the answer.
+    if (seat.via === 'cookie') {
+      const viaCookie = await linkGuestSessionToUser(userId, { eventId, guestId: seat.guestId });
+      if (viaCookie.linked || viaCookie.reason === 'guest_already_claimed') {
+        const { data: forThisEvent } = await admin
+          .from('event_members')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (forThisEvent) return { connected: true };
+      }
+      return { connected: false };
+    }
+
+    // 2. Email-match path (cross-device), the confirmed row only.
     const { data: guest } = await admin
       .from('guests')
       .select('guest_id, role')
+      .eq('guest_id', seat.guestId)
       .eq('event_id', eventId)
-      .ilike('email', userEmail)
       .is('deleted_at', null)
       .maybeSingle();
     if (!guest) return { connected: false };
-
-    // Don't hijack a seat already bound to a different account.
-    const { data: bound } = await admin
-      .from('event_members')
-      .select('user_id')
-      .eq('event_id', eventId)
-      .eq('guest_id', guest.guest_id)
-      .maybeSingle();
-    if (bound && bound.user_id !== userId) return { connected: false };
 
     const { error } = await admin.from('event_members').upsert(
       {

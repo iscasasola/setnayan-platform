@@ -57,7 +57,9 @@ const keys = (stage: LifecyclePhase, over: Partial<MakerStageInput> = {}) =>
    your_photos are each guest's own), so the table read by the canvas is: */
 const CANVAS_TABLE: Record<LifecyclePhase, WidgetType[]> = {
   save_the_date: ['countdown', 'our_love_story'], // the gallery is the film's while a film plays (see below)
-  rsvp: ['countdown', 'special_message', 'our_love_story', 'schedule', 'venue_map', 'dress_code', 'what_to_bring'],
+  // 🏠 Reminders (`what_to_bring`) lead: they are on the Welcome page, after the
+  // reply and before Details (owner 2026-09-30 — `lib/invitation-welcome.ts`).
+  rsvp: ['what_to_bring', 'countdown', 'special_message', 'our_love_story', 'schedule', 'venue_map', 'dress_code'],
   event: ['schedule', 'venue_map', 'photo_moments'],
   editorial: ['our_love_story', 'our_photos', 'special_message'],
 };
@@ -136,11 +138,12 @@ const bar = (stage: LifecyclePhase, over: Partial<Parameters<typeof resolveSiteN
     ...over,
   }).map((s) => s.label);
 
-test('3 · the Invitation bar: Home · Details · Story · RSVP — and RSVP becomes Me once they answer', () => {
-  assert.deepEqual(bar('rsvp', { replied: false }), ['Home', 'Details', 'Story', 'RSVP']);
-  assert.deepEqual(bar('rsvp', { replied: true }), ['Home', 'Details', 'Story', 'Me']);
-  // A stranger: Home · Details · Story, no RSVP and no Me.
-  assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Home', 'Details', 'Story']);
+test('3 · the Invitation bar: Welcome · Details · Our Love Story · RSVP — and RSVP becomes Me once they answer', () => {
+  // Owner 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love Story - Me"*.
+  assert.deepEqual(bar('rsvp', { replied: false }), ['Welcome', 'Details', 'Our Love Story', 'RSVP']);
+  assert.deepEqual(bar('rsvp', { replied: true }), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  // A stranger: Welcome · Details · Our Love Story, no RSVP and no Me.
+  assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Welcome', 'Details', 'Our Love Story']);
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
   assert.match(BODY, /replied: Boolean\(guest\.rsvp_status\) && guest\.rsvp_status !== 'pending',/, 'the guest bar is told whether they answered');
 });
@@ -153,10 +156,10 @@ test('4 · the On the Day bar: Now · Schedule · Camera · Gallery · Me', () =
   assert.deepEqual(bar('event', { hasSchedule: false }), ['Now', 'Camera', 'Gallery', 'Me']);
 });
 
-test('5 · the Save the Date: no Camera tab — Home · Story, and Me for a key-holder', () => {
+test('5 · the Save the Date: no Camera tab — Welcome · Our Love Story, and Me for a key-holder', () => {
   const std = bar('save_the_date');
   assert.ok(!std.includes('Camera'), `the Save the Date offers a camera: ${std.join(' · ')}`);
-  assert.deepEqual(std, ['Home', 'Story', 'Me']);
+  assert.deepEqual(std, ['Welcome', 'Our Love Story', 'Me']);
 });
 
 /* ── 6 · empty scenes ──────────────────────────────────────────────────── */

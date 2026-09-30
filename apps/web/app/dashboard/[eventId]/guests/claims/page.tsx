@@ -1,9 +1,12 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { loadRoleNames } from '@/lib/role-names.server';
+import { RoleNamesProvider } from '../_components/role-names-context';
 import { getCurrentUser } from '@/lib/auth';
-import { RSVP_LABELS, type GuestRole, type RsvpStatus } from '@/lib/guests';
+import { guestFullName, RSVP_LABELS, type GuestRole, type RsvpStatus } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { candidateName, unlinkedCandidates } from '@/lib/unlisted-guests';
@@ -20,7 +23,13 @@ import { LinkPicker } from './link-picker';
 import { KeepQuickAdd } from './keep-quick-add';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { keepGuestAction, removeGuestAction, linkGuestAction } from './actions';
+import { keepGuestAction, removeGuestAction, linkGuestAction, undoAcceptAction, undoDeclineAction } from './actions';
+import { Check, Undo2, X } from 'lucide-react';
+import { SendInviteActions } from '../_components/send-invite';
+import { loadInviteSetup } from '../_components/invite-message-setup';
+import { fetchInvitationBase } from '../_components/guest-card-data';
+import { REQUEST_WORDS, undoStillOpen } from '@/lib/request-key';
+import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 
 export const metadata = { title: 'Requests' };
 
@@ -30,6 +39,8 @@ type Props = {
     error?: string;
     done?: string;
     bound?: string;
+    /** The row just decided (frame G2) — drawn with its next step and Undo. */
+    who?: string;
     /** `1` = drawn IN PLACE in the Event Hub Maker (Details › RSVP › Requests
      *  waiting, part 2b): no way back, no masthead, and each save stays put. */
     maker?: string;
@@ -50,9 +61,9 @@ type RequestRow = {
 
 /** What reached the person after Keep or Link (`doneOnRequests` in actions.ts). */
 const DONE_COPY: Record<string, string> = {
-  emailed: 'Done — their invitation is on its way by email, with "Save to my account" waiting on it.',
-  no_email: 'Done — they left no email, so share their invitation from the guest list.',
-  not_sent: 'Done — but their invitation email did not send. Share it from the guest list.',
+  // 📵 Nothing is emailed (owner 2026-09-29). Their own link already opens.
+  kept: 'Done — they’re on your list. The link they already have now opens their invitation.',
+  declined: 'Declined.',
 };
 
 /**
@@ -73,12 +84,14 @@ const DONE_COPY: Record<string, string> = {
  */
 export default async function RequestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const { error: actionError, done, maker } = await searchParams;
+  const { error: actionError, done, maker, who } = await searchParams;
   const inMaker = maker === '1';
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30) — the Keep line says them.
+  const roleNames = await loadRoleNames(supabase, eventId, 'RequestsPage.roleNames');
 
   // Couple-only surface.
   const { data: membership } = await supabase
@@ -113,13 +126,20 @@ export default async function RequestsPage({ params, searchParams }: Props) {
   // bound to an account (owner 2026-09-21). Measured separately: one read can be
   // refused while the other is not, and a refused read here hides Link, which
   // would read as "there is nobody to link them to".
-  type Candidate = { guest_id: string; first_name: string; last_name: string; display_name: string | null };
+  type Candidate = {
+    guest_id: string;
+    first_name: string;
+    last_name: string;
+    display_name: string | null;
+    role: string | null;
+    extra_roles: string[] | null;
+  };
   let candidates: Candidate[] = [];
   let candidatesMeasured = true;
   if (rows.length > 0) {
     const { data: candRaw, error: candError } = await supabase
       .from('guests')
-      .select('guest_id, first_name, last_name, display_name')
+      .select('guest_id, first_name, last_name, display_name, role, extra_roles')
       .eq('event_id', eventId)
       .eq('entry_source', 'host_seeded')
       .is('deleted_at', null)
@@ -159,7 +179,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
 
   // The suggested match for each request — a suggestion the couple acts on with
   // Link, never a bind (a name is not a secret).
-  const seeds = candidates.map((c) => ({ guestId: c.guest_id, name: candidateName(c), email: null }));
+  const seeds = candidates.map((c) => ({ guestId: c.guest_id, name: candidateName(c), email: null, role: c.role }));
   const byId = new Map(candidates.map((c) => [c.guest_id, c]));
   const items = rows.map((g) => {
     const name = (g.display_name?.trim() || `${g.first_name} ${g.last_name === '—' ? '' : g.last_name}`).trim();
@@ -167,6 +187,91 @@ export default async function RequestsPage({ params, searchParams }: Props) {
     return { g, name, match: hit ? (byId.get(hit.guestId) ?? null) : null };
   });
   const lookAlikes = items.filter((i) => i.match).length;
+
+  /* ── THE ROW JUST DECIDED (owner 2026-09-29, DECISION_LOG "TICKETS ON THE
+     THANK-YOU SCREEN" (2) + "NO EMAIL TO GUESTS" (3); prototype
+     guest_ticket_flow_2026-09-29.html frame G2). Accepted: their QR and link
+     already open their invitation, so nothing HAS to be sent — the couple may
+     nudge with the shared Send invite · Copy message (the one message builder,
+     #6146). Declined: what their QR will say. Both carry Undo for a moment. */
+  let decided: ReactNode = null;
+  if (!inMaker && who && (done === 'kept' || done === 'declined')) {
+    const { data: row, error: rowError } = await createAdminClient()
+      .from('guests')
+      .select(`${ENTOURAGE_COLUMNS}, qr_token, invitation_sent_at, entry_source, deleted_at, updated_at, rsvp_status`)
+      .eq('guest_id', who)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    // Unread → the plain "Done" line below, never a row that says nothing happened.
+    if (rowError) logQueryError('RequestsPage.decided', rowError, { event_id: eventId }, 'graceful_degrade');
+    const who_ = row
+      ? ((row.display_name as string | null)?.trim() || `${row.first_name ?? ''} ${row.last_name === '—' ? '' : (row.last_name ?? '')}`.trim())
+      : '';
+    const now = Date.now();
+    if (row && done === 'kept' && !row.deleted_at) {
+      const [setup, base] = await Promise.all([
+        loadInviteSetup(supabase, eventId),
+        (async () => {
+          const { data: ev, error: evError } = await supabase.from('events').select('slug').eq('event_id', eventId).maybeSingle();
+          // Unread → no link on Send invite (it says so itself), never a wrong one.
+          if (evError) logQueryError('RequestsPage.decided.slug', evError, { event_id: eventId }, 'graceful_degrade');
+          return fetchInvitationBase(eventId, (ev?.slug as string | null) ?? null);
+        })(),
+      ]);
+      decided = (
+        <section className="mt-4 border-l-2 border-success-700 py-1 pl-3" data-request-decided="accepted" role="status">
+          <p className="text-lg font-semibold text-ink">{who_}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-success-800">
+            <Check aria-hidden className="h-4 w-4" strokeWidth={2.25} />
+            Accepted · just now · their QR and link now open their invitation
+          </p>
+          <div className="mt-3">
+            <SendInviteActions
+              eventId={eventId}
+              guest={{
+                guestId: row.guest_id as string,
+                formalName: guestFullName(row),
+                firstName: (row.first_name as string | null) ?? null,
+                fullName: who_,
+                inviteUrl: base && row.qr_token ? `${base}?invite=${row.qr_token as string}` : null,
+                sentAt: (row.invitation_sent_at as string | null) ?? null,
+              }}
+              facts={setup.facts}
+              template={setup.template}
+              extra={
+                undoStillOpen(row.updated_at as string | null, now) ? (
+                  <form action={undoAcceptAction.bind(null, eventId)}>
+                    <input type="hidden" name="guest_id" value={row.guest_id as string} />
+                    <SubmitButton overlay={false} pendingLabel="Undoing…" className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium text-ink/70">
+                      <Undo2 aria-hidden className="h-4 w-4" /> Undo
+                    </SubmitButton>
+                  </form>
+                ) : null
+              }
+            />
+          </div>
+        </section>
+      );
+    } else if (row && done === 'declined' && row.deleted_at) {
+      decided = (
+        <section className="mt-4 border-l-2 border-danger-700 py-1 pl-3" data-request-decided="declined" role="status">
+          <p className="text-lg font-semibold text-ink">{who_}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-danger-800">
+            <X aria-hidden className="h-4 w-4" strokeWidth={2.25} />
+            Declined · just now · their QR will say “{REQUEST_WORDS.declined}”
+          </p>
+          {undoStillOpen(row.deleted_at as string | null, now) ? (
+            <form action={undoDeclineAction.bind(null, eventId)} className="mt-2">
+              <input type="hidden" name="guest_id" value={row.guest_id as string} />
+              <SubmitButton overlay={false} pendingLabel="Undoing…" className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink/[0.06] px-4 text-sm font-medium text-ink">
+                <Undo2 aria-hidden className="h-4 w-4" /> Undo
+              </SubmitButton>
+            </form>
+          ) : null}
+        </section>
+      );
+    }
+  }
   const answerLabel = (s: RsvpStatus) => REQUEST_ANSWERS.find((a) => a.value === s)?.label ?? RSVP_LABELS[s];
 
   return (
@@ -193,7 +298,9 @@ export default async function RequestsPage({ params, searchParams }: Props) {
           {actionError}
         </p>
       ) : null}
-      {done && DONE_COPY[done] ? (
+      {decided ? (
+        decided
+      ) : done && DONE_COPY[done] ? (
         <p role="status" className="mt-4 border-l-2 border-success-700 pl-3 text-sm text-success-800">
           {DONE_COPY[done]}
         </p>
@@ -249,25 +356,29 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                   )}
 
                   <div className="mt-3 flex flex-wrap items-start gap-2">
-                    {/* KEEP — onto the list, with the name, side, role and
-                        group the couple chooses (owner 2026-09-21), prefilled
-                        with what they typed and the seats they asked for. */}
+                    {/* ACCEPT (the shipped KEEP — onto the list, with the name,
+                        side, role and group the couple chooses, owner
+                        2026-09-21, prefilled with what they typed and the seats
+                        they asked for). Worded Accept · Decline · Link per the
+                        approved prototype (guest_ticket_flow_2026-09-29, G1). */}
                     <details className="group/keep">
                       <summary
                         className={`sn-press inline-flex min-h-11 cursor-pointer list-none items-center rounded-full px-5 text-sm font-semibold [&::-webkit-details-marker]:hidden ${
                           match ? 'bg-ink/[0.06] text-ink' : 'bg-ink text-cream'
                         }`}
                       >
-                        Keep
+                        Accept
                       </summary>
                       <form action={keepGuestAction.bind(null, eventId)} className={`mt-3 space-y-3 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`}>
                         <input type="hidden" name="guest_id" value={g.guest_id} />
                         {inMaker ? null : <input type="hidden" name="from" value="requests" />}
-                        <KeepQuickAdd
-                          defaultLine={keepLineFor(name, g.notes)}
-                          offeredRoles={offeredRoles}
-                          existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
-                        />
+                        <RoleNamesProvider names={roleNames}>
+                          <KeepQuickAdd
+                            defaultLine={keepLineFor(name, g.notes)}
+                            offeredRoles={offeredRoles}
+                            existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
+                          />
+                        </RoleNamesProvider>
                         <SubmitButton className="button-primary" pendingLabel="Adding…">
                           Add to my list
                         </SubmitButton>
@@ -276,12 +387,13 @@ export default async function RequestsPage({ params, searchParams }: Props) {
 
                     <form action={removeGuestAction.bind(null, eventId)}>
                       <input type="hidden" name="guest_id" value={g.guest_id} />
+                      {inMaker ? null : <input type="hidden" name="from" value="requests" />}
                       <SubmitButton
                         overlay={false}
-                        pendingLabel="Removing…"
+                        pendingLabel="Declining…"
                         className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink/[0.06] px-5 text-sm font-semibold text-ink"
                       >
-                        Remove
+                        Decline
                       </SubmitButton>
                     </form>
 
@@ -320,8 +432,8 @@ export default async function RequestsPage({ params, searchParams }: Props) {
           </ul>
 
           <p className="mt-6 text-sm text-ink/55">
-            Keep or Link sends them their invitation, with &ldquo;Save to my account&rdquo; waiting on it. Remove tells
-            them nothing.
+            They already hold their own QR and link. Accept or Link and it opens their invitation; Decline and it
+            says &ldquo;{REQUEST_WORDS.declined}&rdquo; Nothing is emailed.
           </p>
         </>
       )}

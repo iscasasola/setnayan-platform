@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
 import { PASSED_AWAY, type GuestRole } from '@/lib/guests';
 import { readGuestReminders, resolveReplyBy } from '@/lib/rsvp-ask';
@@ -15,6 +16,7 @@ import { guestChecklistItems } from '@/app/[slug]/_lib/guest-checklist-facts';
 import { isSendableEmail, resolveCoupleName, type StdGuestRow } from '@/lib/save-the-date-emails-core';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
+  GUEST_REMINDER_EMAILS_ON,
   buildGuestReminderEmail,
   dueMilestone,
   reminderEventDates,
@@ -26,6 +28,10 @@ import {
 
 /**
  * GUEST REMINDER EMAILS — 30 · 7 · 1 DAYS BEFORE THE EVENT. The sender.
+ *
+ * 📵 SWITCHED OFF FOR GUESTS 2026-09-29 (`GUEST_REMINDER_EMAILS_ON`, owner: "No
+ * email. Either use the qr and link only"). Kept whole, not deleted: the lock
+ * table and the renderer are the owner's to turn back on.
  *
  * Owner 2026-09-26 (DECISION_LOG "THE LAST 30 DAYS: EACH GUEST GETS YOUR
  * CHECKLIST"): optional reminder emails at 30 / 7 / 1 days to identified guests
@@ -127,6 +133,8 @@ const num = (v: number | string | null | undefined): number | null => {
 export type GuestReminderRunSummary = { events: number; scanned: number; sent: number };
 
 export async function runGuestReminderEmails(now: Date = new Date()): Promise<GuestReminderRunSummary> {
+  // 📵 Switched off for guests (owner 2026-09-29) — see GUEST_REMINDER_EMAILS_ON.
+  if (!GUEST_REMINDER_EMAILS_ON) return { events: 0, scanned: 0, sent: 0 };
   // No Resend key → nothing can send. Return BEFORE any lock is claimed, so the
   // day Resend is keyed the reminders that are due still go out.
   if (!(await isEmailConfigured())) return { events: 0, scanned: 0, sent: 0 };
@@ -201,12 +209,15 @@ async function remindOneEvent(
   if (guests.length === 0) return { scanned: 0, sent: 0 };
 
   // ── The facts every guest's checklist shares, gathered ONCE per event ──
-  const [blocks, bookings, ownerSlug, ticksRes, seatsRes] = await Promise.all([
+  const [blocks, bookings, ownerSlug, ticksRes, seatsRes, seatsOpen] = await Promise.all([
     fetchPublicScheduleBlocks(admin, ev.event_id, true),
     loadVenueBookings(admin, ev.event_id),
     resolveEventOwnerSlug(admin, ev.event_id),
     admin.from('guest_checklist_ticks').select('guest_id, ticks').eq('event_id', ev.event_id),
     admin.from('event_seat_assignments').select('guest_id, table_id').eq('event_id', ev.event_id),
+    // 🪑 The one seat rule — a reminder names the table only when guests may
+    // see their seats (on the day, or early by the couple's switch).
+    guestsMaySeeSeatsFor(admin, ev.event_id),
   ]);
   if (ticksRes.error) logQueryError('guest-reminder-emails: guest_checklist_ticks.select', ticksRes.error, { event_id: ev.event_id });
   if (seatsRes.error) logQueryError('guest-reminder-emails: event_seat_assignments.select', seatsRes.error, { event_id: ev.event_id });
@@ -267,7 +278,7 @@ async function remindOneEvent(
         venueAddress: replied ? venueAddress : null,
         venueLatitude: replied ? venueLat : null,
         venueLongitude: replied ? venueLng : null,
-        tableLabel: tableLabelById.get(tableIdByGuest.get(g.guest_id) ?? '') ?? null,
+        tableLabel: seatsOpen ? (tableLabelById.get(tableIdByGuest.get(g.guest_id) ?? '') ?? null) : null,
       });
       const pending = untickedItems(items, ticksByGuest.get(g.guest_id) ?? []);
       const replyLine = replyByLine({ rsvpStatus: g.rsvp_status, replyBy, today, listClosed });

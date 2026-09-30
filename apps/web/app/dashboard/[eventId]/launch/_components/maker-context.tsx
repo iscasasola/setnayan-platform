@@ -34,7 +34,7 @@ export type MakerDevice = 'desktop' | 'phone' | 'both';
 /** What the inspector is showing. `null` = nothing selected, inspector closed. */
 export type MakerSelection =
   | { kind: 'scene'; id: string; tab?: MakerSceneTab }
-  | { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'post-event' | 'details' | 'rsvp-page' }
+  | { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'post-event' | 'details' | 'rsvp-page' | 'rsvp-stage' }
   | { kind: 'main' }
   | { kind: 'row'; key: string }
   /** 📖 One of Post Event's written scenes (Maker Phase 8) — by its scene key. */

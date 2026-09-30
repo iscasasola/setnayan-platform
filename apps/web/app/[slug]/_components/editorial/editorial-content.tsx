@@ -43,6 +43,8 @@ import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import { storyAudienceAdmits, STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
@@ -145,6 +147,13 @@ export async function EditorialContent({
   // sees. Resolved from the event id because this component receives only that;
   // `resolveProfileByEvent` is request-cached, so it costs nothing.
   const w = await eventWordsForEvent(eventId);
+  // The couple's words for roles (owner 2026-09-30) — the column badges say
+  // them. Graceful: unreadable → the usual words. 🔴 A curated SAMPLE has no
+  // event row (see `isSample` below) and is prerendered with no service key —
+  // it is never looked up; it wears the usual words.
+  const roleNames: RoleNames = isSampleEditorialId(eventId)
+    ? {}
+    : await loadRoleNames(createAdminClient(), eventId, 'EditorialContent.roleNames');
   let data: EditorialData | null = null;
   try {
     data = await loadEditorialData(eventId);
@@ -736,7 +745,7 @@ export async function EditorialContent({
                   <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     columns from the guests, approved by {w.theOrganizer}
                   </p>
-                  <GuestColumnsWall columns={data.guestColumns ?? []} />
+                  <GuestColumnsWall columns={data.guestColumns ?? []} names={roleNames} />
                 </div>
               ) : null,
             // Shared photos from the day ("From the Day").
@@ -1731,8 +1740,10 @@ function LivePhotoWall({
  */
 function GuestColumnsWall({
   columns,
+  names,
 }: {
   columns: NonNullable<EditorialData['guestColumns']>;
+  names: RoleNames;
 }): ReactElement {
   // §5 THE THREE VOICES, built 2026-08-18. Until now every column rendered
   // identically — same size, same rule, same order — while the spec had always
@@ -1757,7 +1768,7 @@ function GuestColumnsWall({
           {c.author ? (
             <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
               {c.author}
-              {roleLabel(c.role) ? ` · ${roleLabel(c.role)}` : ''}
+              {roleLabel(c.role, names) ? ` · ${roleLabel(c.role, names)}` : ''}
             </p>
           ) : null}
         </article>
@@ -1782,9 +1793,9 @@ function GuestColumnsWall({
                       the reader strips the role in lockstep with the byline,
                       because there is exactly one maid of honour and a badge
                       over an unnamed column would identify her anyway. */}
-                  {roleLabel(c.role) ? (
+                  {roleLabel(c.role, names) ? (
                     <span className="ml-2 rounded-sm bg-ink/[0.06] px-1.5 py-0.5 text-ink/60">
-                      {roleLabel(c.role)}
+                      {roleLabel(c.role, names)}
                     </span>
                   ) : null}
                 </p>

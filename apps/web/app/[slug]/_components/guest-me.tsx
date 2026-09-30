@@ -37,7 +37,7 @@ export function GuestMe({
   passes,
   passCards = null,
   account,
-  hasEmail,
+  personalLink,
   userAgent,
   termsCarried,
   inviteFacts,
@@ -62,7 +62,8 @@ export function GuestMe({
    *  named plus-one's who is coming. Null: they have no card yet. */
   passCards?: { own: string; plusOnes: Readonly<Record<string, string>> } | null;
   account: GuestAccountState | null;
-  hasEmail: boolean;
+  /** This guest's own invitation link — handed over where no provider can sign in. */
+  personalLink: string | null;
   userAgent: string | null;
   termsCarried: boolean;
   /** The event's words for "Send their invite". */
@@ -100,7 +101,7 @@ export function GuestMe({
           state={account}
           eventId={eventId}
           slug={slug}
-          hasEmail={hasEmail}
+          personalLink={personalLink}
           userAgent={userAgent}
           termsCarried={termsCarried}
         />

@@ -1,8 +1,7 @@
 import { Fragment } from 'react';
 import Link from 'next/link';
-import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
-import { guestPassFacts } from '@/lib/guest-pass';
-import { PASS_CARD_ROUTE, passCardLine } from '@/lib/pass-card';
+import { resolveArrivalAction } from '@/lib/arrival-action';
+import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
 import { MapPin } from 'lucide-react';
@@ -16,7 +15,9 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // The event hub's sanctioned column widths — a page-level column outside the
 // four is a defect, and `measures.test.ts` counts them.
 import { PLATE } from '../_lib/measures';
-import { ROLE_LABELS } from '@/lib/guests';
+import { guestRoleLabel } from '@/lib/guests';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { loadEventRoleNames } from '../_lib/loaders';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
@@ -27,7 +28,6 @@ import { saveAttendedVendorAction, submitRsvp } from '../actions';
 import { GuestChecklist } from './guest-checklist';
 import { guestChecklistItems } from '../_lib/guest-checklist-facts';
 import { daysUntil } from '@/lib/guest-checklist';
-import { GuestCodeKeepers } from './guest-code-keepers';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { isChineseWedding } from '@/lib/chinese-wedding';
@@ -36,7 +36,7 @@ import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
-import { anyoneMayAskToJoin, resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { anyoneMayAskToJoin, readRsvpWords, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
@@ -102,7 +102,6 @@ import { LiveWallBlock } from './live-wall-block';
 import { SongRequestCard } from './song-request-card';
 import { songRequestCardShows, type SongRequestDoor } from '@/lib/guest-song-request-rule';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
-import { GuestHubCard } from './guest-hub-card';
 import { YourSeatBlock } from './your-seat-block';
 import { SeatDoorLine } from './seat-door-line';
 import {
@@ -142,6 +141,8 @@ import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
 import { stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
+import { GuestWelcome } from './guest-welcome';
+import { scenesLeftForDetails, welcomeCarriesGifts, welcomeParts } from '@/lib/invitation-welcome';
 import { mainGroundLayerFor } from '../_lib/main-ground-layer';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
@@ -169,13 +170,12 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene } f
 import { PreviewWayBack } from './preview-way-back';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
-import { KeepOnHomeScreen } from './keep-on-home-screen';
 import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
 import { GetTickets } from './get-tickets';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
-import { hostPitchShows, replyOffersKeep } from '@/lib/guest-one-path';
+import { hostPitchShows } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
 import { marchPlaceOf } from '@/lib/march-place';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
@@ -205,13 +205,6 @@ import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
  * + the allow-list fence in the plan, not reviewer discipline.
  */
 
-function displayNameOf(g: {
-  first_name: string;
-  last_name: string;
-  display_name: string | null;
-}): string {
-  return g.display_name?.trim() || `${g.first_name} ${g.last_name}`.trim();
-}
 
 
 
@@ -509,6 +502,10 @@ export async function SiteBody({
   const magicTraveller = sanitizeMagicTraveller(
     (event as { site_magic_traveller?: unknown }).site_magic_traveller,
   );
+  // 🏷 THE COUPLE'S WORDS FOR ROLES (owner 2026-09-30 — Bridesmaid → "Bride's
+  // Crew"). Read once per request (cached loader), graceful: an unreadable
+  // value is the usual words. Handed to every widget that names a reader's role.
+  const roleNames = await loadEventRoleNames(createAdminClient(), event.event_id);
   // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25, Event Hub Maker
   // Details panel) — read once here for both mounts below (the reply card and
   // the song-request card). An absent key is ON, so an event that never opens
@@ -1077,8 +1074,25 @@ export async function SiteBody({
     // taps went nowhere (the council's no-dead-anchors rule, broken by its own
     // open-browse branch).
     const bodyRenders = browsableBodyRenders(plan);
+    /* 🏠 THE WELCOME PAGE, for a stranger and for the Maker's canvas (owner
+       2026-09-30 — `lib/invitation-welcome.ts`). A stranger has no look to be
+       shown (no role), so they meet Reminders and E-Gifts; the canvas draws
+       every place so the couple can fill it, in the order the navigator lists. */
+    const welcome = welcomeParts({
+      stage: pageStage,
+      bodyNormal: plan.body === 'normal',
+      scenes: plan.publicSafeWidgets.map((w) => w.widget_type),
+      identified: false,
+      reminders: event.what_to_bring,
+      giftHref: doorways.pabuya,
+      maker: isMakerCanvas,
+    });
+    const detailsScenes = scenesLeftForDetails(plan.publicSafeWidgets, welcome);
+    const remindersScene = welcome.includes('reminders')
+      ? (plan.publicSafeWidgets.find((w) => w.widget_type === 'what_to_bring') ?? null)
+      : null;
     const menuSections = {
-      details: bodyRenders && (plan.openBrowse || plan.publicSafeWidgets.length > 0),
+      details: bodyRenders && (plan.openBrowse || detailsScenes.length > 0),
       // 🔴 THE OWNER SAW THIS ONE: a Story tab on a seven-year-old's birthday.
       // The love story is wedding-by-nature — it asks how the two of them met,
       // and a type with no two people has no answer.
@@ -1100,8 +1114,8 @@ export async function SiteBody({
     // 🎬 Scroll · Scrub per section — the same scenes as the guest tree, so a
     // stranger following the link sees the page the couple arranged.
     const publicWidgetNodes = (
-      <HubScenes widgets={plan.publicSafeWidgets} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
-      {plan.publicSafeWidgets.map((widget) => (
+      <HubScenes widgets={detailsScenes} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+      {detailsScenes.map((widget) => (
       /* One node per widget still (HubScenes pairs by position): the marker
          and the section travel together in one fragment. */
       <Fragment key={widget.widget_id}>
@@ -1117,6 +1131,7 @@ export async function SiteBody({
           (openBrowseContent as Partial<Record<string, boolean>>)[widget.widget_type] === false
         }
         event={event}
+        roleNames={roleNames}
         words={clientWords}
         scheduleBlocks={scheduleBlocks}
         isLive={dayOfPhase === 'live'}
@@ -1313,13 +1328,14 @@ export async function SiteBody({
             )}
 
             {/* Find your seat — the FREE guest finder (seat-finding PR 1). Pure
-                navigation on this always-rendered public landing: the /find-seat
-                route resolves the published plan itself and shows a friendly
-                "not posted yet" state when there's nothing to search, so this link
-                is safe to always render (mirrors the find-my-table CTA pattern). A
-                guest who scanned the shared venue QR taps this, types their name,
-                and sees their table — no app, no login, no paid SKU. */}
-            {insideAllowed ? (
+                navigation on the public landing. A guest who scanned the shared
+                venue QR taps this, types their name, and sees their table — no
+                app, no login, no paid SKU. */}
+            {/* 🪑 2026-09-30 (owner: "seat plan is only on the day"): shown only
+                once guests may see their seats — the one rule
+                (lib/guests-may-see-seats.ts, via `doorwayFacts.seatingPublished`),
+                never a door to a "not yet" page. */}
+            {insideAllowed && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished ? (
             <div className="mt-8 text-center">
               <Link
                 href={`/${event.slug}/find-seat`}
@@ -1398,6 +1414,41 @@ export async function SiteBody({
                 mark={makerMark}
               />
             ) : null}
+            {/* 🏠 WELCOME — after the reply, before Details (owner 2026-09-30).
+                A stranger meets Reminders and E-Gifts here; the Maker's canvas
+                draws all three places, each after its navigator marker. */}
+            {welcome.length > 0 ? (
+              <div className="mt-12">
+                <GuestWelcome
+                  parts={welcome}
+                  words={clientWords}
+                  look={null}
+                  reminders={
+                    remindersScene ? (
+                      <PublicHideableWidget
+                        widget={remindersScene}
+                        canvasMediaUrls={canvasMediaUrls}
+                        hubTheme={sceneTheme}
+                        ownClipPlays={isMakerCanvas}
+                        guestView={!isMakerCanvas}
+                        makerEmpty={
+                          isMakerCanvas &&
+                          (openBrowseContent as Partial<Record<string, boolean>>).what_to_bring === false
+                        }
+                        event={event}
+                        words={clientWords}
+                        scheduleBlocks={scheduleBlocks}
+                        isLive={dayOfPhase === 'live'}
+                        ourPhotoUrls={ourPhotoUrls}
+                      />
+                    ) : null
+                  }
+                  giftHref={doorways.pabuya}
+                  mark={makerMark}
+                  maker={isMakerCanvas}
+                />
+              </div>
+            ) : null}
             {plan.openBrowse ? (
               // Open-browse Details — always present so the tab is never dead:
               // event-level facts (the anonymous event_details variant — §5.10),
@@ -1410,11 +1461,11 @@ export async function SiteBody({
                   venues={event.venues}
                 />
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
-                {plan.publicSafeWidgets.length === 0 ? (
+                {detailsScenes.length === 0 ? (
                   <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                 ) : null}
               </section>
-            ) : plan.publicSafeWidgets.length > 0 ? (
+            ) : detailsScenes.length > 0 ? (
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
               </section>
@@ -1564,7 +1615,6 @@ export async function SiteBody({
   const guestTree = (g: GuestSiteIdentity) => {
     const {
       guest,
-      qrSvg,
       invitationUrl,
       guestLiveGallery,
       seatPassActive,
@@ -1640,8 +1690,25 @@ export async function SiteBody({
     // sr-only spans inside the normal body, so they are absent in the phases
     // `phasedBody` does not reach.
     const guestBodyRenders = browsableBodyRenders(plan);
+    /* 🏠 THE WELCOME PAGE (owner 2026-09-30 — `lib/invitation-welcome.ts`):
+       this guest's look · the couple's Reminders · E-Gifts, after the reply.
+       Reminders LEAVES Details for it; the dress code stays on Details as the
+       everyone view, and this guest's own half moves to Welcome. */
+    const welcome = welcomeParts({
+      stage: pageStage,
+      bodyNormal: plan.body === 'normal',
+      scenes: plan.hideableInOrder.map((w) => w.widget_type),
+      identified: !isMakerCanvas,
+      reminders: event.what_to_bring,
+      giftHref: doorways.pabuya,
+      maker: false,
+    });
+    const detailsScenes = scenesLeftForDetails(plan.hideableInOrder, welcome);
+    const remindersScene = welcome.includes('reminders')
+      ? (plan.hideableInOrder.find((w) => w.widget_type === 'what_to_bring') ?? null)
+      : null;
     const menuSections = {
-      details: guestBodyRenders && plan.hideableInOrder.length > 0,
+      details: guestBodyRenders && detailsScenes.length > 0,
       story: guestBodyRenders && Boolean(event.love_story),
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
@@ -1685,131 +1752,22 @@ export async function SiteBody({
       ? formatBlockTimeRange(firstScheduleBlock.start_at, null) || null
       : null;
 
-    /* The pass's own facts, resolved once so the card and its guard read the
-       same list. BOTH are required for the "Bringing" line: `plus_one_allowed`
-       is the couple's permission and `plus_one_name` is an actual person. The
-       allowance alone is not a companion, and a pass must not announce a seat
-       nobody claimed. */
-    const passFacts = guestPassFacts({
-      displayName: displayNameOf(guest),
-      tableLabel: guestHubData.tableLabel,
-      arriveLabel: firstScheduleTimeLabel,
-      plusOneName: guest.plus_one_allowed ? guest.plus_one_name : null,
-    });
-
-    /* 🛂 NO PASS UNTIL ACCEPTED, NONE FOR "CAN'T COME" (owner 2026-09-29:
-       "only accepted accounts get their images" · "no pass for those who
-       cannot come"). The card's place holds ONE plain line instead — under the
-       same anchor, so "Show your pass" still lands somewhere that explains.
-       Derived from the row at render time: change the reply and it is back. */
-    const passWithheld = g.passCard === 'awaiting' || g.passCard === 'cannotCome' ? passCardLine(g.passCard) : null;
-    const passWithheldCard = plan.qrCardShouldRender && passWithheld ? (
-      <section id={PASS_ANCHOR} data-pass-card-withheld={g.passCard ?? ''} className="mx-auto max-w-md scroll-mt-6 text-center">
-        <p className="text-sm text-ink/70">{passWithheld}</p>
-      </section>
-    ) : null;
-    const passCard = passWithheldCard ? passWithheldCard : plan.qrCardShouldRender ? (
-      <section
-        id={PASS_ANCHOR}
-        data-motion="pass"
-        className="mx-auto max-w-md scroll-mt-6 text-center"
-      >
-        {/* The anchor the arrival action's day-of label points at. A fragment
-            link to a missing id fails SILENTLY — the first version of that
-            action invented `#your-qr`, which existed nowhere, so "Show your
-            pass" scrolled a guest nowhere at the door. Pinned by
-            `one-action-says-where-you-stand` (#5783).
-
-            ⚠ THE ANCHOR TRAVELS WITH THE CARD. This card now renders in one of
-            two slots — on the day it leads, directly under the programme — so
-            the id moves with it and the action's link keeps resolving, to a
-            shorter scroll. It renders in exactly ONE slot per render, so there
-            is never a second element with this id.
-
-            🎫 IT LOOKS LIKE A PASS NOW (owner 2026-09-21, on this card: "so many
-            text. we want the event hub to be minimalist" — canvas "4 · The
-            pass"). Gone from the face: the "YOUR INVITATION QR · For tagging &
-            pickup" heading, the paragraph about photographers, and the raw
-            invitation URL in mono. What is left is what a door reads: whose
-            celebration, who you are, where you sit, when to arrive, and one
-            large code. Colours are the site palette's (mulberry = the moodboard
-            wine), never hard-coded. */}
-        <div className="text-left">
-          <p className="font-pahina text-xl leading-tight text-ink">{event.display_name}</p>
-          {event.event_date ? (
-            <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
-              {formatEventDate(event.event_date)}
-            </p>
-          ) : null}
-        </div>
-        {/* ── THE FOUR FACTS A DOOR NEEDS (arrival board "4 · the pass").
-            🔑 EVERY FACT IS OMITTED WHEN IT DOES NOT EXIST — no "Table TBA".
-            A pass that states a table the couple never assigned is worse than
-            one that stays quiet: the guest believes it and is moved in front
-            of other people. See lib/guest-pass.ts. */}
-        {passFacts.length > 0 ? (
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 pt-5 text-left">
-            {passFacts.map((fact) => (
-              <div key={fact.label}>
-                <dt className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
-                  {fact.label}
-                </dt>
-                <dd className="mt-0.5 text-base font-medium text-ink">{fact.value}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
-        <div
-          aria-label={`QR code for ${displayNameOf(guest)}`}
-          className="mx-auto mt-5 inline-block rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-56"
-          dangerouslySetInnerHTML={{ __html: qrSvg }}
-        />
-        <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">
-          Show this at the door. It finds your table too.
-        </p>
-        {/* Save it or copy it — the code is drawn as an inline SVG, so a
-            long-press offers nothing and a screenshot was the only answer. */}
-        <GuestCodeKeepers
-          invitationUrl={invitationUrl}
-          className="mt-4"
-          passCardHref={g.passCard === 'pass' ? PASS_CARD_ROUTE : null}
-        />
-        {/* 🔑 ONE SEAT LINK (owner 2026-09-21). This card used to carry TWO —
-            "Find my table" (the Indoor Blueprint map) and "Your seat pass"
-            (this guest's exact seat, the same map, their tablemates and the
-            arrival bloom). Both are free now, and the pass does everything the
-            map does, so they were two doors to one question.
-            🪑 2026-09-27 ("FIND YOUR SEAT, REDESIGNED"): the one seat page is
-            now `/find-seat`, which knows this guest by the SAME resolver as this
-            page (cookie OR signed-in seat) — so no /seat/claim hop is needed,
-            and its table, map and door pass are free. `/seat` stays the landing
-            of the PRINTED branded QR cards. `seatPassActive` already asks whether this kind of
-            event seats people and whether the seating is published, so the
-            link never opens a notFound() or an empty plan.
-            The Indoor Blueprint map stays reachable from the everything-else
-            sheet's own "Find my table" row. */}
-        {seatPassActive ? (
-          <Link
-            href={`/${event.slug}/find-seat`}
-            className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-sm font-medium text-ink/75 hover:border-terracotta hover:text-terracotta-700"
-          >
-            <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Find my seat
-          </Link>
-        ) : null}
-        <div aria-hidden className="h-6" />
-      </section>
-    ) : null;
+    /* 🎫 THE PASS IS NOT ON HOME ANY MORE — IT IS THE DIGITAL TICKET, ON ME
+       (owner 2026-09-30, on `#site-pass`: "i thought this will be the digital
+       ticket" — then: the ticket belongs on the guest's Me page only, not on
+       Home/Details). `GuestTicket` (guest-ticket.tsx) is mounted into the Me
+       section by page.tsx and carries `PASS_ANCHOR`, so the day-of "Show your
+       ticket" link still lands on it. Do NOT re-add a pass or QR block here:
+       two would mean two elements with one id, and a second drawing of the
+       ticket. Guarded by `the-hub-shows-the-ticket.test.ts`. */
 
     const greetingBlock = plan.greetingShouldRender ? (
-      /* Pahina §7: the greeting becomes a left-aligned SALUTATION in
-         the display face with the guest's name in gild — the
-         personalization (nobody else in the market has it) is
-         unchanged, only its setting. */
+      /* Pahina §7: the greeting's setting. 🎩 NO CASUAL GREETING (owner
+         2026-09-30, DECISION_LOG "NO CASUAL GREETINGS": *"no casual
+         greeting"*) — the "Hi, <first name>." salutation that led this block
+         is gone from the Welcome page; the sentence that says when, where and
+         as whom stays, and names nobody. */
       <section className="space-y-3">
-        <p className="font-pahina text-3xl font-light italic leading-tight text-ink">
-          Hi, <span className="text-gild">{guest.first_name}</span>.
-        </p>
         <p className="max-w-prose text-base leading-relaxed text-ink/70">
           {clientWords.solemn
             ? 'We hope you can be with us on'
@@ -1822,7 +1780,7 @@ export async function SiteBody({
             </>
           ) : null}
           . You&rsquo;re joining us as{' '}
-          <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span> ·{' '}
+          <span className="font-medium text-ink">{guestRoleLabel(guest.role, roleNames)}</span> ·{' '}
           <span className="text-ink/80">{sideLabel}</span>.
         </p>
       </section>
@@ -1973,23 +1931,19 @@ export async function SiteBody({
             />
           ) : null}
           {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
-          {/* Guest Hub Card — persistent status summary for identified returning
-              guests. Shows RSVP status, seat, meal, and next schedule item at
-              a glance on every return visit. Hidden from anonymous visitors
-              (this branch only runs when a guest session is present). */}
-          <GuestHubCard
-            words={clientWords}
-            data={guestHubData}
-            guestListClosed={plan.guestListClosed}
-            detailsCardOnPage={plan.rsvpShouldRender}
-          />
+          {/* 🎫 NO "HI AGAIN · YOUR INVITATION SUMMARY" CARD (owner 2026-09-30).
+              Its reply, seat, meal and "coming up" were a second statement of
+              what the top control, the Digital ticket on Me and the Your details
+              sheet each already say. Its one door — the reply sheet — is the top
+              control's Change, the Me tab, and the line in the reply section. */}
 
-          {/* ── KEEP IT ON YOUR HOME SCREEN (owner 2026-09-20). Sits directly
-              above the account card because they answer the same question —
-              "how do I find this again?" — and this is the answer that needs
-              no account. It renders nothing on a desktop, and nothing at all
-              for a guest already reading inside the installed app. */}
-          <KeepOnHomeScreen coupleName={event.display_name ?? 'this celebration'} />
+          {/* ⛔ NO "ADD TO HOME SCREEN" CARD ON THE EVENT HUB — owner, 2026-09-30,
+              pointing at the "Keep it with you · Put … on your home screen" card
+              that sat here: "remove this part on the website". The per-event
+              manifest and the couple's icon still ship (app/[slug]/manifest.
+              webmanifest · icon/[spec]), so a guest can still install from the
+              browser's own menu — the page just no longer teaches it. Pinned by
+              `lib/the-event-hub-has-no-home-screen-card.test.ts`. */}
           {/* ── THE ONE ACCOUNT PROMPT (owner 2026-09-25). One card, one place,
               until the invitation is linked — then one quiet "Linked to …" line.
               It replaced the email box that asked for the address a second time,
@@ -2002,7 +1956,7 @@ export async function SiteBody({
               state={account}
               eventId={event.event_id}
               slug={event.slug ?? ''}
-              knownEmail={guest.email ?? null}
+              personalLink={invitationUrl}
               photosClosing={accountlessPhotosClosed}
               eventWord={clientWords.eventWord}
             />
@@ -2059,13 +2013,6 @@ export async function SiteBody({
                 </section>
               ) : null}
 
-              {/* ── THE PASS LEADS (arrival board "5 · On the day"). On the day the
-                  QR climbs from far below the vendor pitch to directly under the
-                  programme: a guest at a door is holding a phone to be let in,
-                  not to read. Withheld from someone who declined — see
-                  lib/day-of-lead.ts. Guarded by
-                  lib/the-day-rearranges-the-invitation.test.ts. */}
-              {dayOfLead.passLeads ? passCard : null}
 
               {/* Chinese (Tsinoy) tea-ceremony card — static, guest-safe tradition copy
                   (no roster / no PII). Mirrors the public + identified-guest paths for
@@ -2122,6 +2069,10 @@ export async function SiteBody({
                   an unblocked guest, resolved on the page. */}
               {papicGuest ? (
                 <PapicGuestCapture
+                  /* Inside the hub: the terms / blocked / no-camera states are
+                     ONLY the small card — no full-page frame (owner 2026-09-30,
+                     "space is too big also should only be the small frame"). */
+                  embedded
                   guestName={guest.first_name}
                   eventName={event.display_name}
                   eventId={event.event_id}
@@ -2262,12 +2213,6 @@ export async function SiteBody({
                 </section>
               ) : null}
 
-              {/* QR card — always-on per the editor contract. Gated so V1.1 can
-                  decouple if the host wants QR off (e.g., a couple who doesn't
-                  want their wedding photographed). */}
-              {/* The pass in its ordinary place — on the day it leads instead,
-                  directly under the programme rail above. */}
-              {dayOfLead.passLeads ? null : passCard}
 
               {/* RSVP — always-on per the editor contract. The wedding's
                   load-bearing form: the editor blocks hiding it, but the gate
@@ -2304,16 +2249,11 @@ export async function SiteBody({
                   scroll away. */}
               {plan.rsvpShouldRender ? (
                 <section className="space-y-4">
-                  {guest.rsvp_status === 'attending' ? (
-                    <PahinaKeepsake
-                      variant="accepted"
-                      displayName={guestHubData.displayName}
-                      guestId={guest.guest_id}
-                      tableLabel={guestHubData.tableLabel}
-                      venueName={venueLine}
-                      eventDate={event.event_date}
-                    />
-                  ) : guest.rsvp_status === 'declined' ? (
+                  {/* 🎫 NO "YOUR KEEPSAKE" FOR A GUEST WHO IS COMING (owner
+                      2026-09-30). It restated the name, the seat, where and when —
+                      everything the Digital ticket on Me now carries. The AFTER
+                      memento (same component, "You were there") is untouched. */}
+                  {guest.rsvp_status === 'declined' ? (
                     /* Declined: a quiet line, never a keepsake — the ticket is
                        for people who are coming (design §11). */
                     <div>
@@ -2348,6 +2288,14 @@ export async function SiteBody({
                       section it has always been. Quiet on purpose; the accented
                       control on this screen is the arrival action under the
                       mark, and one accent per screen is the point of that slice. */}
+                  {/* …UNLESS THE TOP CONTROL ALREADY OPENS IT (owner 2026-09-30).
+                      "You're going · Change" under the mark links the same sheet
+                      (`#site-me` is a sheet anchor, RSVP_SHEET_ANCHORS), so a
+                      second "Need to change your reply…" was the same door twice.
+                      Keyed on the action HAVING a Change, not on its words: on
+                      the day, or for a guest still owed a reply, it has none and
+                      this line is the way in. */}
+                  {arrivalAction?.secondary ? null : (
                   <a
                     href="#your-details"
                     className="flex min-h-[52px] w-full items-center justify-between gap-3 text-sm text-ink/80 underline-offset-4 transition-colors hover:text-ink hover:underline"
@@ -2362,8 +2310,46 @@ export async function SiteBody({
                       &rarr;
                     </span>
                   </a>
+                  )}
                 </section>
               ) : null}
+
+              {/* 🏠 WELCOME — after the reply: this guest's look · Reminders ·
+                  E-Gifts (owner 2026-09-30). One self-contained section; what
+                  it holds is `welcomeParts`' answer above, nothing decided here.
+                  Guarded by `lib/welcome-is-the-guests-own.test.ts`. */}
+              <GuestWelcome
+                parts={welcome}
+                words={clientWords}
+                look={{
+                  config: event.dress_code_config ?? null,
+                  ceremonyType: event.ceremony_type ?? null,
+                  genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
+                  guestRole: guest.role ?? null,
+                  march: marchPlaceOf(entourage, guest.guest_id),
+                  rolePalette: event.role_palette,
+                }}
+                reminders={
+                  remindersScene ? (
+                    <HideableWidgetRender
+                      widget={remindersScene}
+                      canvasMediaUrls={canvasMediaUrls}
+                      hubTheme={sceneTheme}
+                      ownClipPlays={isMakerCanvas}
+                      guestView={!isMakerCanvas}
+                      event={event}
+                      guest={guest}
+                      sideLabel={sideLabel}
+                      scheduleBlocks={scheduleBlocks}
+                      isLive={isLive}
+                      isLimitedPlusOne={isLimitedPlusOne}
+                      ourPhotoUrls={ourPhotoUrls}
+                      words={clientWords}
+                    />
+                  ) : null
+                }
+                giftHref={doorways.pabuya}
+              />
 
               {guest.photo_source === 'selfie' ? (
                 <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
@@ -2377,7 +2363,13 @@ export async function SiteBody({
                   the "After they reply" preview — it has no row to read, and
                   the honest "we couldn't check" line would be a lie about a
                   person who does not exist (owner 2026-09-27). */}
-              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
+              {/* ⚖ …in the page body ONLY when there is no reply sheet to carry
+                  it (owner 2026-09-30: off the page, into "Your details"). The
+                  opt-out is the guest's right under RA 10173, so it may move
+                  but never vanish: with the sheet it renders there, below. */}
+              {plan.rsvpShouldRender ? null : (
+                <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
+              )}
 
               {/* Hideable widgets render here in display_order. The host
                   controls visibility + order via the widget editor at
@@ -2387,7 +2379,7 @@ export async function SiteBody({
               {/* Menu-shell "Details" anchor (PR6) — the couple's detail widgets
                   (schedule · dress code · FAQ · registry · …). Present only when
                   at least one such widget rendered, matching menuSections.details. */}
-              {menuOn && plan.hideableInOrder.length > 0 ? (
+              {menuOn && detailsScenes.length > 0 ? (
                 <span id={SITE_MENU_ANCHORS.details} aria-hidden className="sr-only" />
               ) : null}
               {/* 🪑 "Your seat · Table 3 →" — the Details scene's seat line (owner
@@ -2401,16 +2393,19 @@ export async function SiteBody({
                   children unless a section scrubs AND the event owns Event Hub
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               <div className="sn-hub-cards space-y-4">
-              <HubScenes widgets={plan.hideableInOrder} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
-              {plan.hideableInOrder.map((widget) => (
+              <HubScenes widgets={detailsScenes} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+              {detailsScenes.map((widget) => (
                 <HideableWidgetRender
                   key={widget.widget_id}
                   widget={widget}
+                  /* 🏠 This guest's own look is on Welcome; Details keeps everyone's. */
+                  dressCodeGeneral={welcome.includes('look')}
                   canvasMediaUrls={canvasMediaUrls}
                   hubTheme={sceneTheme}
                   ownClipPlays={isMakerCanvas}
                   guestView={!isMakerCanvas}
                   event={event}
+                  roleNames={roleNames}
                   guest={guest}
                   sideLabel={sideLabel}
                   scheduleBlocks={scheduleBlocks}
@@ -2549,7 +2544,6 @@ export async function SiteBody({
                 flash={rsvpFlash}
                 replyLocked={plan.guestListClosed}
                 profileDetails={profileDetails}
-                keepOffer={account ? replyOffersKeep(account) : false}
                 hostPitch={account ? hostPitchShows(account) : false}
                 ask={rsvpAsk}
                 /* "Ask one question at a time" — the SAME stored value the RSVP
@@ -2557,7 +2551,14 @@ export async function SiteBody({
                    screen"). In the Maker's canvas `event` is the couple's DRAFT,
                    so the switch shows here before Apply. */
                 oneAtATime={askOneAtATime(event.rsvp_ask_config)}
+                answerWords={readRsvpWords(event.rsvp_ask_config)}
               />
+            </div>
+            {/* ⚖ THE SCAN-TRAIL OPT-OUT, unchanged, as one small line at the
+                foot of "Your details" (owner 2026-09-30) — where a guest goes
+                to change what we hold about them. RA 10173: moved, never gone. */}
+            <div data-scan-trail-in-details className="mt-6 border-t border-ink/10 pt-4">
+              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
             </div>
           </RsvpSheet>
         ) : null}
@@ -2790,7 +2791,13 @@ export async function SiteBody({
       {plan.fullBleed || isEditorCanvas ? null : (
         <GuestDoorwayStrip words={clientWords}
           venueWalk={doorways.venueWalk}
-          pabuya={doorways.pabuya}
+          /* 🏠 On the Invitation the gift door is on the Welcome page instead
+             (owner 2026-09-30) — one door per page, never two. */
+          pabuya={
+            welcomeCarriesGifts({ stage: pageStage, bodyNormal: plan.body === 'normal', giftHref: doorways.pabuya, maker: false })
+              ? null
+              : doorways.pabuya
+          }
           broadcast={broadcastNotice}
           personalised={identity.kind === 'guest'}
           dateLabel={event.event_date ? formatEventDate(event.event_date) : null}

@@ -9,7 +9,7 @@ import { extractPosterFrame } from '../../../_components/std-media-picker';
 import { hubDraftAction } from '../../hub-draft-actions';
 import { CALMER_CLIP_SCRIM, measureFrame, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
-import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, themeBackgroundName, type InviteThemeId } from '@/lib/invite-themes';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
@@ -410,7 +410,7 @@ export function MainBackgroundPanel({
       <div className="flex flex-col gap-1.5" role="group" aria-label="What is behind every scene">
         <Choice
           on={choice === 'theme'}
-          label={`${theme.name}’s own background`}
+          label={themeBackgroundName(themeId)}
           thumb={themeStillUrl}
           disabled={pending}
           data={{ 'data-main-ground-source': 'theme' }}

@@ -230,12 +230,18 @@ export async function loadYourPeople(): Promise<YourPeople> {
 /**
  * User ids behind CONFIRMED person-connections, or `null` when a read failed.
  *
+ * ⚠ EXPORTED FOR ONE SERVER-SIDE CALLER — `lib/discover-events.ts`, which
+ * needs "who is the viewer connected to" to find their people's public events
+ * (DECISION_LOG 2026-09-29, DISCOVER). One definition of "connected", not a
+ * third copy. The ids are for SERVER-SIDE matching only: `YourPeople` above
+ * still carries slugs, and Discover's cards carry no user id at all.
+ *
  * ⚠ `person_connections` is keyed on `people.person_id`, NOT on `user_id` —
  * two hops, and skipping the first is how this would silently match nothing.
  * Only `status = 'confirmed'` counts: a pending edge is one person's claim
  * about a relationship the other has not agreed to.
  */
-async function confirmedConnectionUserIds(
+export async function confirmedConnectionUserIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
   me: string,
 ): Promise<string[] | null> {

@@ -223,6 +223,8 @@ export type EventRow = {
     dos?: string[];
     donts?: string[];
     palette?: { name: string; hex: string }[];
+    /** 👗 The outfit figure — shown unless `false` (owner 2026-09-30). */
+    show_figure?: boolean;
   } | null;
   // Landing page visibility lever from PR #381 — ‹public, unlisted, private›.
   // Private renders <PrivateLanding> for non-guest visitors.
@@ -427,8 +429,15 @@ export type GuestRow = {
      *  is stored (owner 2026-09-29: name · meal · dietary per plus-one). */
     first?: string | null;
     last?: string | null;
+    /** The seat's other name parts — five boxes, like every name (owner 2026-09-30). */
+    prefix?: string | null;
+    middle?: string | null;
+    suffix?: string | null;
     meal?: string | null;
     dietary?: string | null;
+    /** 🔒 This seat's person linked their own account — their name is theirs
+     *  (owner 2026-09-29, OWNER ANSWERS (10)); the reply shows it read-only. */
+    linked?: boolean;
   }[];
   /** The name the host recorded for the +1, mirrored here so the host's own
    *  list chips stop reading "+ TBA" once the guest names them. */

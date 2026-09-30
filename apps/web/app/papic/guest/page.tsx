@@ -335,6 +335,8 @@ export default async function PapicGuestPage({
   return (
     <>
     <PapicGuestCapture
+      /* Standalone: the card IS the page (full-height, centred). */
+      embedded={false}
       guestName={guestName}
       eventName={eventName}
       eventId={session.event_id}

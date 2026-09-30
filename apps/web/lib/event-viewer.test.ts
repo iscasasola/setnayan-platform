@@ -185,7 +185,7 @@ const UNEXPLAINED_EMPTY_BILL: Readonly<Record<string, string>> = {
   'app/dashboard/[eventId]/guests/claims/page.tsx':
     'couple-only by its own member_type gate — a delegate never reaches it',
   'app/dashboard/[eventId]/website/editor/page.tsx':
-    'couple-only by its own member_type gate; it only COUNTS entourage roles to know whether the page draws the entourage, and an unread count keeps the tile',
+    'couple-only by its own member_type gate; it COUNTS entourage roles to know whether the page draws the entourage (an unread count keeps the tile), and lists the roles for the Dress code scene (an unread list offers no rows and the saved outfits ride along)',
   'app/dashboard/[eventId]/guests/invite/page.tsx':
     'couple-only by its own member_type gate',
   'app/dashboard/[eventId]/guests/new/page.tsx':

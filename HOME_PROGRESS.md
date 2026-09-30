@@ -22,7 +22,7 @@ Design: `Setnayan/prototypes/phone_app_simple_2026-10-01_fable.html` frame 1 · 
 ## Round 2 — "Your services" (owner 2026-10-01: "how about papic? and sai? … let's add it")
 - ✅ One compact row under Paid/Owing, above See all: Papic (`resolvePapicHomeTile` readiness → "On · N photos" / "Free camera ready" / "Not added" / "—") and Setnayan AI (`isSetnayanAiActiveForEvent` under the resolved paywall → "On" / "Try it" / "—"). Hidden in the store shell (both in STORE_SHELL_HIDDEN_ADDON_KEYS); the service that is the Next card is left out. The Papic Next card is now also withheld in the store shell (its page is web-only there).
 - ✅ Guard extended (10 tests); 6 more sabotages each red.
-- ⏳ typecheck/lint queued behind the heavy lock; screenshots to refresh.
+- ✅ typecheck · lint · every CI node guard · every lint:* script · touched tests (papic-home-tile, store-shell, setnayan-ai, guests-read-is-honest, a-finished-event…, a-debut…, every app/dashboard/[eventId] file) — all 0 fail. Screenshots refreshed: scratchpad home-390-{guide,date,unread,papic}.png.
 
 ## Gotchas
 - `hasOverlays` no longer counts the (removed) guide tile; it now counts `papicNudgeVisible` so the Papic nudge still mounts when it is not the Next card.

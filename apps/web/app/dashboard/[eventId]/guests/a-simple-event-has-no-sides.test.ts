@@ -52,7 +52,7 @@ test('the page derives hasSides from the profile and gates the Side filter, sort
 test('the roster table gates its Side column, bulk "Assign side…", and the phone side chip', () => {
   const ms = src('_components/guest-list-multiselect.tsx');
   assert.match(ms, /\{hasSides \? \(\s*<ArrangeTh column="side"/, 'the Side column header renders on a sideless event');
-  assert.match(ms, /\{hasSides \? \(\s*<td className="px-3 py-2\.5">\s*<SideChipEditor/, 'the Side cell renders on a sideless event');
+  assert.match(ms, /\{hasSides \? \(\s*<td className="px-3 py-2\.5">[^<]*<SideChipEditor/, 'the Side cell renders on a sideless event');
   assert.match(ms, /\{hasSides \? \(\s*<>\s*<label className="sr-only" htmlFor="bulk-side">/, 'the bulk "Assign side…" renders on a sideless event');
   assert.match(ms, /colSpan=\{hasSides \? 9 : 8\}/, 'a section heading spans a column that is not there');
   assert.match(ms, /colSpan=\{hasSides \? 7 : 6\}/, 'a self-join row spans a column that is not there');

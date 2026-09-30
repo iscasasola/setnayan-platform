@@ -61,7 +61,6 @@ import { suggestTableFor } from '@/lib/seat-suggest';
 import { readFinalizeState } from '@/lib/pax';
 import { FinalizeGuestListControl } from './_components/finalize-guest-list-control';
 import { eventHasSides, SIDELESS_SIDE } from '@/lib/guest-side-question';
-import { resolveRoleSet } from '@/lib/role-sets';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';

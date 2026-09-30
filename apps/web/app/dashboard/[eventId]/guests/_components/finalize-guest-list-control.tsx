@@ -65,7 +65,7 @@ export function FinalizeGuestListControl({
       data-guest-list-finalize={locked ? 'finalized' : 'open'}
       className={
         locked
-          ? 'rounded-xl border border-ink/15 bg-ink/[0.03] px-4 py-3 text-sm text-ink/70'
+          ? 'px-1 py-1 text-sm text-ink/70'
           : 'flex flex-wrap items-center justify-between gap-2 px-1 text-sm text-ink/60'
       }
     >

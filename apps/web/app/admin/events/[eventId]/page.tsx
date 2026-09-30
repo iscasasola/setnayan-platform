@@ -167,7 +167,10 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
     ? null
     : (guestsRead.data ?? []).map((g) => ({
         guest_id: g.guest_id as string,
-        name: guestFullName(g) ?? 'Unnamed guest',
+        // Explicitly 'full', not the event's Name style: the admin reads every
+        // part of the name to find the right guest; the host's style governs
+        // what is PRINTED, not an admin lookup row.
+        name: guestFullName(g, 'full') ?? 'Unnamed guest',
         excluded: g.face_recognition_excluded === true,
       }));
 

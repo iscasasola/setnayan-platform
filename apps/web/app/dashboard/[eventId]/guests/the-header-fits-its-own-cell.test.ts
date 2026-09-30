@@ -100,8 +100,10 @@ test('a fixed-pixel column has a budget too, so it cannot eat Name by another un
   // check above. 144px = the checkbox + the Invite button; a new fixed column
   // must come with a reason to raise it.
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
-  const px = [...head.matchAll(/\bw-\[(\d+)px\]/g)].map((m) => Number(m[1]));
-  const rem = [...head.matchAll(/\bw-(\d+)\b/g)].map((m) => Number(m[1]) * 4);
+  // Only the CELLS' own classes — the checkbox inside the first one is `w-4`.
+  const cellClasses = [...head.matchAll(/<(?:th|ArrangeTh)\b[^>]*?className="([^"]*)"/g)].map((m) => m[1]!).join(' ');
+  const px = [...cellClasses.matchAll(/\bw-\[(\d+)px\]/g)].map((m) => Number(m[1]));
+  const rem = [...cellClasses.matchAll(/\bw-(\d+)\b/g)].map((m) => Number(m[1]) * 4);
   assert.ok(px.length + rem.length >= 2, `found ${px.length + rem.length} fixed widths — this guard is blind`);
   const total = [...px, ...rem].reduce((a, b) => a + b, 0);
   assert.ok(total <= 144, `fixed-pixel columns claim ${total}px (${[...px, ...rem].join(' + ')}) — Name keeps the leftover`);

@@ -53,14 +53,19 @@ test('⓵ the three paths: files where the sheet takes a file, text where not, c
   assert.equal(inviteSendPath({ share: false, filesOk: true }), 'copy');
   assert.equal(inviteSendPath({ share: false, filesOk: false }), 'copy');
 
-  const send = body(read(SEND), 'send');
-  assert.match(send, /inviteSendPath\(/, 'Send invite no longer decides its path through inviteSendPath');
+  // The decision lives in `shareInvite` since 2026-09-30 — shared by the card's
+  // Send invite AND the Guest list's Invite column, so the two cannot drift.
+  const share = body(read(SEND), 'shareInvite');
+  assert.match(share, /inviteSendPath\(/, 'Send invite no longer decides its path through inviteSendPath');
   // "files" is only claimed after the browser says it can share THAT file.
-  assert.match(send, /canShare\?\.\(\{\s*files:\s*\[file\]\s*\}\)/, 'files are shared without asking canShare({ files })');
+  assert.match(share, /canShare\?\.\(\{\s*files:\s*\[file\]\s*\}\)/, 'files are shared without asking canShare({ files })');
   // The message that travels WITH the image says "(attached)"; the text-only one does not.
-  assert.match(send, /files:\s*\[file\],\s*text:\s*message\(true\)/);
-  assert.match(send, /\{\s*text:\s*message\(false\)\s*\}/);
-  // No share sheet, or a refused one → the copy (which offers Download QR + Mark as sent).
+  assert.match(share, /files:\s*\[file\],\s*text:\s*message\(true\)/);
+  assert.match(share, /\{\s*text:\s*message\(false\)\s*\}/);
+  // …and the card's Send invite goes through it. No share sheet, or a refused
+  // one → the copy (which offers Download QR + Mark as sent).
+  const send = body(read(SEND), 'send');
+  assert.match(send, /shareInvite\(/, 'Send invite has its own share path again');
   assert.match(send, /copyText\('copied-desktop'\)/);
 });
 
@@ -82,12 +87,19 @@ test('⓷ a copy is not a send; a closed share sheet stamps nothing', () => {
   const src = read(SEND);
   const copy = body(src, 'copyText');
   assert.doesNotMatch(copy, /\bmark\(/, 'Copy message stamps Sent by itself — a copy is not a send');
-  const send = body(src, 'send');
-  // mark(true) comes AFTER the awaited share, and an AbortError returns first.
-  const shareAt = send.indexOf('await nav.share(');
-  const markAt = send.indexOf('mark(true)');
-  assert.ok(shareAt > 0 && markAt > shareAt, 'Sent ✓ is stamped before the phone handed the message over');
-  assert.match(send, /'AbortError'\)\s*return;/, 'closing the share sheet must return without stamping');
+  // The share reports 'shared' only AFTER the awaited sheet, and 'closed' on an
+  // AbortError — and every caller stamps on 'shared' alone.
+  const share = body(src, 'shareInvite');
+  const shareAt = share.indexOf('await nav.share(');
+  const sharedAt = share.indexOf("return 'shared'");
+  assert.ok(shareAt > 0 && sharedAt > shareAt, 'Sent ✓ is stamped before the phone handed the message over');
+  assert.match(share, /'AbortError'\)\s*return 'closed';/, 'closing the share sheet must not read as a send');
+  for (const caller of ['send', 'invite']) {
+    const b = body(src, caller);
+    assert.match(b, /if \(out === 'shared'\) return mark\(true\);/, `${caller}() stamps on something other than a completed share`);
+    assert.match(b, /if \(out === 'closed'\) return;/, `${caller}() treats a closed sheet as something to act on`);
+    assert.equal((b.match(/\bmark\(true\)/g) ?? []).length, 1, `${caller}() stamps Sent ✓ on more than one path`);
+  }
   // The explicit "Mark as sent" exists where a copy happened.
   assert.match(src, /data-send-invite-mark[\s\S]{0,400}Mark as sent/);
 });
@@ -95,6 +107,8 @@ test('⓷ a copy is not a send; a closed share sheet stamps nothing', () => {
 test('⓸ the QR image is fetched before the tap, never between the tap and navigator.share', () => {
   const src = read(SEND);
   assert.doesNotMatch(body(src, 'send'), /\bfetch\(/, 'a fetch inside send() can spend iOS’s user activation');
+  assert.doesNotMatch(body(src, 'shareInvite'), /\bfetch\(/, 'a fetch inside shareInvite() can spend iOS’s user activation');
+  assert.doesNotMatch(body(src, 'invite'), /\bfetch\(/, 'a fetch inside the Invite column’s tap can spend iOS’s user activation');
   assert.match(body(src, 'useQrFile'), /useEffect\([\s\S]*fetch\(`\/api\/website\/qr\/guest\/\$\{guestId\}`/);
 });
 

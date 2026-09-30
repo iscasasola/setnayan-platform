@@ -685,7 +685,7 @@ export function GuestInviteCell({
   }
 
   const small =
-    'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-full border border-ink/20 bg-cream px-3 text-[13px] font-medium text-ink disabled:opacity-60';
+    'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-ink/20 bg-cream px-2.5 text-[13px] font-medium text-ink disabled:opacity-60';
   const sentDay = sentAt
     ? new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })
     : null;
@@ -718,7 +718,7 @@ export function GuestInviteCell({
         Invite
       </button>
       {open ? (
-        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={272} role="dialog" labelledById={titleId}>
+        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={296} role="dialog" labelledById={titleId}>
           <div className="space-y-2 p-1.5" data-guest-invite-panel="">
             <p id={titleId} className="text-sm font-medium text-ink">
               Invite {first}
@@ -750,11 +750,11 @@ export function GuestInviteCell({
                 <>
                   <p className="text-xs text-ink/75">The copy was blocked — select the message and copy it.</p>
                   <textarea
+                    className="w-full rounded-lg border border-ink/15 bg-white p-2 text-xs leading-relaxed text-ink"
                     readOnly
                     value={said.text}
                     rows={5}
                     onFocus={(e) => e.currentTarget.select()}
-                    className="w-full rounded-lg border border-ink/15 bg-white p-2 text-xs leading-relaxed text-ink"
                   />
                 </>
               ) : null}

@@ -6,7 +6,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventWordsFor } from '../_lib/event-words';
+import { eventWordsFor, giftIsMoneyDance } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
@@ -230,9 +230,9 @@ export default async function PabuyaPublicPage({
                 other celebratory type gets the plain eyebrow. */}
             {words.solemn
               ? 'A gift of sympathy'
-              : words.eventWord === 'wedding'
+              : giftIsMoneyDance(words)
                 ? 'The pabuya · digital money dance'
-                : 'Send a gift'}
+                : 'The pabuya · E-Gifts'}
           </p>
           <h1 className="mt-2 font-display text-3xl font-medium italic sm:text-4xl">
             E-Gifts for {hostName}
@@ -243,14 +243,14 @@ export default async function PabuyaPublicPage({
                 A quiet way to help {words.theOrganizer} — wherever you are in
                 the world.{howToSend ? ` ${howToSend}` : ''}
               </>
-            ) : words.eventWord === 'wedding' ? (
+            ) : giftIsMoneyDance(words) ? (
               <>
                 Pin your cash on {words.theOrganizer} — wherever you are in the
                 world.{howToSend ? ` ${howToSend}` : ''}
               </>
             ) : (
               <>
-                Send a gift to {words.theOrganizer} — wherever you are in the
+                Send E-Gifts to {words.theOrganizer} — wherever you are in the
                 world.{howToSend ? ` ${howToSend}` : ''}
               </>
             )}

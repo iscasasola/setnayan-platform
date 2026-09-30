@@ -32,7 +32,7 @@ import { stripComments } from '@/lib/strip-comments';
 import { fetchPlatformSettingsMeasured, fetchPlatformSettings } from '@/lib/platform-settings';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { GENERIC_PROFILE, WAKE_PROFILE, WEDDING_PROFILE } from '@/lib/event-type-profile';
-import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
+import { eventWordsFromProfile, giftIsMoneyDance } from '@/app/[slug]/_lib/event-words';
 
 const WEB = join(import.meta.dirname, '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -151,30 +151,36 @@ test('the guest page renders a side only when the event type has sides', () => {
 
 // ── 5 · the money dance is a wedding's ──────────────────────────────────────
 
-test('only a wedding reads "digital money dance"; the wake keeps its own line', () => {
-  assert.equal(eventWordsFromProfile(WEDDING_PROFILE).eventWord, 'wedding');
-  assert.notEqual(eventWordsFromProfile(GENERIC_PROFILE).eventWord, 'wedding');
+test('giftIsMoneyDance: only a wedding; never a generic event, never the wake', () => {
+  assert.equal(giftIsMoneyDance(eventWordsFromProfile(WEDDING_PROFILE)), true);
+  assert.equal(giftIsMoneyDance(eventWordsFromProfile(GENERIC_PROFILE)), false);
+  assert.equal(giftIsMoneyDance(eventWordsFromProfile(WAKE_PROFILE)), false);
+});
 
+test('every gift surface asks giftIsMoneyDance, and the other arm names E-Gifts', () => {
+  // ONE decision (s13-is-finished.test.ts: no guest file compares against a
+  // wedding word itself) and ONE product name (the-guest-text-is-honest §9).
   const sites: Array<[string, RegExp]> = [
     [
       'app/[slug]/_components/guest-doorway-strip.tsx',
-      /words\.solemn\s*\?\s*`A gift of sympathy[^`]*`\s*:\s*words\.eventWord === 'wedding'\s*\?\s*`The digital money dance[^`]*`\s*:\s*`Send a gift straight to \$\{words\.theOrganizer\}\.`/,
+      /words\.solemn\s*\?\s*`A gift of sympathy[^`]*`\s*:\s*giftIsMoneyDance\(words\)\s*\?\s*`The digital money dance[^`]*`\s*:\s*`Send E-Gifts straight to \$\{words\.theOrganizer\}\.`/,
     ],
     [
       'app/[slug]/hub/page.tsx',
-      /words\.solemn\s*\?\s*<>A gift of sympathy[^<]*<\/>\s*:\s*words\.eventWord === 'wedding'\s*\?\s*<>The digital money dance[^<]*<\/>\s*:\s*<>Send a gift straight to \{words\.theOrganizer\}\.<\/>/,
+      /words\.solemn\s*\?\s*<>A gift of sympathy[^<]*<\/>\s*:\s*giftIsMoneyDance\(words\)\s*\?\s*<>The digital money dance[^<]*<\/>\s*:\s*<>Send E-Gifts straight to \{words\.theOrganizer\}\.<\/>/,
     ],
     [
       'app/[slug]/pabuya/page.tsx',
-      /words\.solemn\s*\?\s*'A gift of sympathy'\s*:\s*words\.eventWord === 'wedding'\s*\?\s*'The pabuya · digital money dance'\s*:\s*'Send a gift'/,
+      /words\.solemn\s*\?\s*'A gift of sympathy'\s*:\s*giftIsMoneyDance\(words\)\s*\?\s*'The pabuya · digital money dance'\s*:\s*'The pabuya · E-Gifts'/,
     ],
   ];
   for (const [rel, shape] of sites) {
-    assert.match(src(rel), shape, `${rel}: the money-dance line must be wedding-only`);
+    const s = src(rel);
+    assert.match(s, shape, `${rel}: the money-dance line must be wedding-only`);
+    assert.doesNotMatch(s, /eventWord === 'wedding'/, `${rel}: decide through giftIsMoneyDance, not a raw comparison`);
   }
-  // Every "money dance" / "Pin your cash" literal on these surfaces sits in a
-  // wedding arm — counted, so a new unguarded one shows up.
+  // "Pin your cash" is the dance's own gesture — wedding arm only, exactly once.
   const pab = src('app/[slug]/pabuya/page.tsx');
-  assert.match(pab, /\) : words\.eventWord === 'wedding' \? \(\s*<>\s*Pin your cash on/, 'pabuya: "Pin your cash" must be wedding-only');
+  assert.match(pab, /\) : giftIsMoneyDance\(words\) \? \(\s*<>\s*Pin your cash on/, 'pabuya: "Pin your cash" must be wedding-only');
   assert.equal([...pab.matchAll(/Pin your cash/g)].length, 1);
 });

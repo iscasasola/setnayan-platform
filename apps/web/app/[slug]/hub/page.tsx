@@ -44,7 +44,7 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventWordsFromProfile } from '../_lib/event-words';
+import { eventWordsFromProfile, giftIsMoneyDance } from '../_lib/event-words';
 import { resolveAlbumDoor } from '../_lib/album-door.server';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
@@ -733,9 +733,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
                   "with gentler wording than a wedding's digital money dance". */}
               {words.solemn
                 ? <>A gift of sympathy — straight to {words.theOrganizer}.</>
-                : words.eventWord === 'wedding'
+                : giftIsMoneyDance(words)
                   ? <>The digital money dance — straight to {words.theOrganizer}.</>
-                  : <>Send a gift straight to {words.theOrganizer}.</>}
+                  : <>Send E-Gifts straight to {words.theOrganizer}.</>}
             </span>
             {/* DELTA · which rails wait behind the door. Names only, from the
                 closed vocabulary in egift-kinds.ts — never the couple's own

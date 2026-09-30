@@ -1,4 +1,4 @@
-import type { EventWords } from '../_lib/event-words';
+import { giftIsMoneyDance, type EventWords } from '../_lib/event-words';
 import Link from 'next/link';
 import { ArrowRight, Boxes, Gift, Radio } from 'lucide-react';
 
@@ -115,13 +115,13 @@ function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
       title="E-Gifts"
       detail={
         // 💃 The money dance is a WEDDING tradition (2026-09-30) — a debut's or
-        // a graduation's guest read it on this card. Every other celebratory
-        // type gets the plain line; the wake keeps its own.
+        // a graduation's guest read it on this card. giftIsMoneyDance decides;
+        // every other celebratory type gets the plain line; the wake keeps its own.
         words.solemn
           ? `A gift of sympathy — straight to ${words.theOrganizer}.`
-          : words.eventWord === 'wedding'
+          : giftIsMoneyDance(words)
             ? `The digital money dance — straight to ${words.theOrganizer}.`
-            : `Send a gift straight to ${words.theOrganizer}.`
+            : `Send E-Gifts straight to ${words.theOrganizer}.`
       }
     />
   );

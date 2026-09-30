@@ -22,10 +22,12 @@ empty list and the screen stated an absence it never measured. Five fixes:
   `side_labels` from `resolveWeddingOnlyParts`; a non-wedding guest sees no
   "Bride's side / Groom's side / Both sides" anywhere (sentence, Details row,
   footnote).
-- **Gift card** — "digital money dance" / "Pin your cash" are wedding-only
-  (`words.eventWord === 'wedding'`, the countdown's precedent) on the gift door,
-  the hub gift link and `/[slug]/pabuya`; other celebratory types read
-  "Send a gift straight to …"; the wake keeps "A gift of sympathy".
+- **Gift card** — "digital money dance" / "Pin your cash" are wedding-only on
+  the gift door, the hub gift link and `/[slug]/pabuya`, decided in ONE place:
+  `giftIsMoneyDance(words)` in `app/[slug]/_lib/event-words.ts` (so no guest file
+  compares against a wedding word — `s13-is-finished.test.ts`). Other
+  celebratory types read "Send E-Gifts straight to …" (one product name —
+  `the-guest-text-is-honest.test.ts` §9); the wake keeps "A gift of sympathy".
 
 Guarded by `apps/web/lib/admin-money-and-gift-words-are-honest.test.ts` (sabotage-checked).
 

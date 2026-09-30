@@ -114,5 +114,6 @@ on `3dbd2b51d` 20,787 pass / 0 fail · full unit suite on `53171ce74` (all five 
    helper without guest-list access lands (today `isDelegateWithoutArea` sends them to `/hosts`
    standalone).
 
-A read-only Fable planning pass for section B was running when this file was written. If its plan
-arrives, it is appended below.
+**The full file-by-file build plan for section B is in
+[`CHECKIN_COLUMN_AND_PARTS_ROW_PLAN.md`](CHECKIN_COLUMN_AND_PARTS_ROW_PLAN.md)**, including three open
+owner questions.

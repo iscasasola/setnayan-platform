@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MutableRefObject } from 'react';
-import { findMakerSection } from '@/app/[slug]/_components/editor-bridge';
+import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { makerSavesInFlight } from '@/lib/maker-refresh';
 
 /**

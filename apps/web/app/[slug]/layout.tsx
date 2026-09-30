@@ -7,6 +7,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { DayOfAnnouncement } from './_components/day-of-announcement';
 import { GuestLookScope } from './_components/guest-look-scope';
 import { lookScopeProps } from './_components/host-draft-look';
+import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { loadDayOfBroadcast, loadEventShell, loadGuestLook, type GuestLook } from './_lib/loaders';
 
 /**
@@ -116,6 +117,8 @@ export default async function GuestTreeLayout({
   let broadcast: { body: string; createdAt: string } | null = null;
   let eventId: string | null = null;
   let stage: AnnouncementStage = 'before';
+  /** 🎨 The couple's pick for the announcement's shape (`style_preferences.scene_styles`). */
+  let announcementStyle: string | null = null;
 
   try {
     const event = await loadEventShell(slug);
@@ -143,6 +146,13 @@ export default async function GuestTreeLayout({
         calendarDayInZone(venueTz),
       );
       stage = announcementStage(phase, ended);
+      // Before the day it sits over the Invitation; on it, over The Day.
+      announcementStyle = fixedSceneStyleOf(
+        (event as { style_preferences?: unknown }).style_preferences,
+        'announcements',
+        stage === 'live' ? 'event' : 'rsvp',
+        event.event_type ?? null,
+      );
       broadcast = isThisEventsGuest
         ? await loadDayOfBroadcast(createAdminClient(), event.event_id, stage)
         : null;
@@ -179,6 +189,7 @@ export default async function GuestTreeLayout({
             body={broadcast.body}
             eventId={eventId}
             stage={stage === 'live' ? 'live' : 'before'}
+            sceneStyle={announcementStyle}
           />
         </div>
       ) : null}

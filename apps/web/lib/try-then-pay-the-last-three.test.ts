@@ -160,7 +160,7 @@ test('3 · without Pro Apply holds every one; with Pro it writes every one', () 
   const free = planHubDraftApply(tried(), LIVE, false);
   for (const i of free.apply) {
     if (i.kind === 'event') assert.ok(!pro.has(i.column), `Apply without Pro published ${i.column}`);
-    else assert.notEqual(`${i.widgetType}.${i.field}`, 'custom_1.custom', 'Apply without Pro filled an empty scene');
+    else if (i.kind === 'widget') assert.notEqual(`${i.widgetType}.${i.field}`, 'custom_1.custom', 'Apply without Pro filled an empty scene');
   }
   // Switching the song on is free — but with no song live it plays nothing.
   assert.ok(free.apply.some((i) => i.kind === 'event' && i.column === 'site_bg_music_enabled'));

@@ -138,7 +138,7 @@ test('5 · the draft holds an ombré exactly, overlays it on the row, and Apply 
   assert.equal(bg.change, 'change');
   assert.equal(bg.pro, OMBRE_IS_PRO, 'the ombré’s Pro answer must be exactly the one switch');
   const plan = planHubDraftApply(draft, LIVE, false);
-  const applied = plan.apply.find((i) => i.kind === 'event' && i.column === 'site_bg_color');
+  const applied = plan.apply.find((i): i is Extract<typeof i, { kind: 'event' }> => i.kind === 'event' && i.column === 'site_bg_color');
   assert.equal(applied?.value, STORED, 'Apply for a free couple must carry the ombré to the live row');
   assert.equal(plan.refused.length, 0);
 });

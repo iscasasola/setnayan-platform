@@ -57,27 +57,23 @@ const HUB_KEY = 'launch';
    here, in exactly the sense "Launch" and "Services" already were. */
 // ✏️ 2026-09-25: the controller is the Event Hub Maker (owner, label change only).
 const HUB_LABEL = 'Event Hub Maker';
+/* ✏️ 2026-09-29: on the PHONE bar only, the owner's short word — "Maker"
+   ("accept it. Maker and Services"). The rail and ☰ keep HUB_LABEL. */
+const PHONE_HUB_LABEL = 'Maker';
+const wordFor = (surface: 'phone' | 'rail') => (surface === 'phone' ? PHONE_HUB_LABEL : HUB_LABEL);
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
-/** Every menu word the phone shows in a phase — top-level tabs AND docked
- *  sub-nav children, because a second name one tap down is still a second
- *  name. `plan` is the DEFAULT (no phase argument), exactly as layout.tsx
+/** Every menu word the phone shows in a phase — its tabs (the docked sub-nav
+ *  that used to add a second level is retired, Stage D). `plan` is the DEFAULT (no phase argument), exactly as layout.tsx
  *  calls it for an event that has not happened. */
 function phoneEntries(phase: (typeof PHASES)[number]) {
   const tree: CustomerMenu[] = buildCustomerMenuTree(EVENT_ID, {
     websiteEnabled: true,
     ...(phase === 'plan' ? {} : { phase }),
   });
-  return [
-    ...tree.map((m) => ({ key: m.key as string, label: m.label, href: m.href })),
-    ...tree.flatMap((m) =>
-      (m.children ?? []).map((c) => ({
-        key: c.key,
-        label: c.label,
-        href: c.href ?? '',
-      })),
-    ),
-  ];
+  // Stage D (2026-09-29): nothing docks under a tab any more — the tabs ARE
+  // every word the phone's menu shows.
+  return tree.map((m) => ({ key: m.key as string, label: m.label, href: m.href }));
 }
 
 /** Every row the desktop rail shows in a phase, across all its sections. */
@@ -123,7 +119,7 @@ test('the Event Hub is the same key, label and href in every phase, on both rost
       );
       assert.equal(
         hits[0]!.label,
-        HUB_LABEL,
+        wordFor(surface),
         `the ${surface} roster for "${phase}" calls the Event Hub ` +
           `"${hits[0]!.label}". A rename that reaches two phases and not the ` +
           'third is exactly the defect this file was written for.',
@@ -157,7 +153,7 @@ test('no roster offers a SECOND name for the Hub', () => {
       const names = entries.filter((e) => e.href === HUB_HREF).map((e) => e.label);
       assert.deepEqual(
         [...new Set(names)],
-        [HUB_LABEL],
+        [wordFor(surface)],
         `${surface}/${phase}: ${HUB_HREF} is offered under ${names.length} ` +
           `name(s) — ${names.join(' · ')}. One address, one word.`,
       );
@@ -220,9 +216,12 @@ test('the retired slots are gone from NAV_SLOT_DEFAULTS, and the live ones read 
         'edit that appears to save and changes nothing.',
     );
   }
-  for (const live of ['customer.sidebar.launch', 'customer.bottom-nav.launch']) {
+  for (const [live, word] of [
+    ['customer.sidebar.launch', HUB_LABEL],
+    ['customer.bottom-nav.launch', PHONE_HUB_LABEL],
+  ] as const) {
     const slot = bySlot.get(live)!;
-    assert.equal(slot.label, HUB_LABEL, `${live} still defaults to "${slot.label}"`);
+    assert.equal(slot.label, word, `${live} still defaults to "${slot.label}"`);
     assert.equal(
       slot.route,
       '/dashboard/[eventId]/launch',
@@ -244,7 +243,9 @@ test('the rail and the phone send the Event Hub to the same address in every pha
         `${rail.href}. Two rosters naming one place and pointing at two is the ` +
         'drift that costs a person a dead end.',
     );
-    assert.equal(phone.label, rail.label, `in "${phase}" the two surfaces disagree on the word`);
+    // The phone wears the owner's short word for the rail's full one — and only that.
+    assert.equal(rail.label, HUB_LABEL, `in "${phase}" the rail's word drifted`);
+    assert.equal(phone.label, PHONE_HUB_LABEL, `in "${phase}" the phone's word drifted`);
   }
 });
 

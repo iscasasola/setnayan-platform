@@ -79,9 +79,11 @@ test('the ROLE is withheld in lockstep with the byline, at the reader', () => {
 });
 
 test('the wall only ever prints a badge beside a name', () => {
-  const wall = readFileSync(join(HERE, 'editorial-content.tsx'), 'utf8');
-  const block = /function GuestColumnsWall[\s\S]*?\n}\n/.exec(wall)?.[0] ?? '';
-  assert.ok(block, 'the columns wall moved — this scan is now blind');
+  // 2026-09-29: the letters are the Post Event "Messages" scene, in its three
+  // styles (`post-event-scene-views-2.tsx`) — the wall moved, the rule did not.
+  const wall = readFileSync(join(HERE, 'post-event-scene-views-2.tsx'), 'utf8');
+  const block = /export function MessagesScene[\s\S]*?\n}\n/.exec(wall)?.[0] ?? '';
+  assert.ok(block, 'the Messages scene moved — this scan is now blind');
   // every roleLabel render sits inside a `c.author ? …` branch
   // (`, names` since 2026-09-30 — the couple's own word for the role.)
   const badges = [...block.matchAll(/roleLabel\(c\.role(, names)?\)/g)];
@@ -97,7 +99,8 @@ test('the wall only ever prints a badge beside a name', () => {
 test('parents are lifted OUT of the masonry, not just restyled inside it', () => {
   // The spec asks for centre placement and large type — a masonry cell flattens
   // everything to the same size, so a parent's block has to leave the grid.
-  const wall = readFileSync(join(HERE, 'editorial-content.tsx'), 'utf8');
-  assert.match(wall, /voiceOf\(c\.role\) === 'parents'/);
-  assert.match(wall, /voiceOf\(c\.role\) !== 'parents'/);
+  const wall = readFileSync(join(HERE, 'post-event-scene-views-2.tsx'), 'utf8');
+  // Every style orders by voice, and a parent's letter is drawn apart from the rest.
+  assert.match(wall, /const ordered = byVoiceWeight\(letters\);/);
+  assert.ok((wall.match(/voiceOf\(c\.role\) === 'parents'/g) ?? []).length >= 2, 'a parent is not drawn apart');
 });

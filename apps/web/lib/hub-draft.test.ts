@@ -189,8 +189,10 @@ const tryPro = () =>
 test('a FREE couple: every Pro key is refused and stays in the draft; the free keys apply', () => {
   const d = tryPro();
   const plan = planHubDraftApply(d, LIVE, false);
-  const applied = plan.apply.map((i) => (i.kind === 'event' ? i.column : `${i.widgetType}.${i.field}`));
-  const refused = plan.refused.map((i) => (i.kind === 'event' ? i.column : `${i.widgetType}.${i.field}`));
+  const keyOf = (i: (typeof plan.apply)[number]) =>
+    i.kind === 'event' ? i.column : i.kind === 'widget' ? `${i.widgetType}.${i.field}` : i.kind === 'editorial' ? `editorial.${i.item.field}` : i.kind;
+  const applied = plan.apply.map(keyOf);
+  const refused = plan.refused.map(keyOf);
   assert.ok(applied.includes('countdown.mode'), 'hide is free');
   assert.ok(applied.includes('countdown.display_order'), 'reorder is free');
   assert.ok(applied.includes('schedule.canvas'), 'swapping media FOR a colour takes media down — free');

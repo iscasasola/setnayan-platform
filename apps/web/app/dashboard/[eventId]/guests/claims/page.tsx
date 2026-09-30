@@ -113,7 +113,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
   // ⚠ an answer. Bind the error and gate the claim on whether the read happened.
   const { data: rowsRaw, error: rowsError } = await supabase
     .from('guests')
-    .select('guest_id, first_name, middle_name, last_name, name_suffix, display_name, email, mobile, rsvp_status, notes, created_at')
+    .select(`${ENTOURAGE_COLUMNS}, email, mobile, rsvp_status, notes, created_at`)
     .eq('event_id', eventId)
     .eq('entry_source', 'self_added_unlisted')
     .is('deleted_at', null)

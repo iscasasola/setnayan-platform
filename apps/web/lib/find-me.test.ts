@@ -126,7 +126,7 @@ test('the Requests page pre-match: the one exact name, else nothing', () => {
   assert.equal(preMatchFor(typed('Mario', 'Santos'), cands), null);
   const page = read('app/dashboard/[eventId]/guests/claims/page.tsx');
   assert.match(page, /const exact = preMatchFor\(g, candidates\);\s*if \(exact\) return \{ g, name, match: exact \};/, 'Requests no longer shows the pre-match');
-  assert.match(page, /\.select\('guest_id, first_name, middle_name, last_name, name_suffix, display_name,/, 'the request’s own name parts are not read');
+  assert.match(page, /\.select\(`\$\{ENTOURAGE_COLUMNS\}, email, mobile, rsvp_status, notes, created_at`\)/, 'the request’s own name parts are not read');
 });
 
 test('🔒 1 · nothing about the guest is drawn before the check', () => {
@@ -134,7 +134,7 @@ test('🔒 1 · nothing about the guest is drawn before the check', () => {
   const digits = fn(flow, 'FindMeDigitsStep');
   assert.doesNotMatch(digits, /maskMobile|lastFourOf|\.mobile\b|plus_one|outfit|attire|guestId|first_name|display_name/i, 'the digits screen draws a detail of the guest');
   // The door reads only the find state's verdict — never the guest row.
-  assert.doesNotMatch(flow, /FINDABLE_COLUMNS|loadFindableRows/, 'the door reads the matched guest’s row to draw its screen');
+  assert.doesNotMatch(flow, /findableSelect|loadFindableRows|readFindableRow/, 'the door reads the matched guest’s row to draw its screen');
   // The digits screen asks nothing but the four digits.
   assert.equal((digits.match(/<input\b(?![^>]*type="hidden")/g) ?? []).length, 1, 'the digits screen shows or asks more than the four digits');
   // The find state is ENCRYPTED, not merely signed — it carries the guest's id.

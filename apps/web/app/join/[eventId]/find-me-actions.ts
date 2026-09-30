@@ -18,14 +18,13 @@ import {
   lastFourMatches,
   namesMatchExactly,
   readTypedLastFour,
-  type FindableRow,
 } from '@/lib/find-me';
 import {
-  FINDABLE_COLUMNS,
   forgetFindState,
   loadFindableRows,
   logFindAttempt,
   readFindState,
+  readFindableRow,
   spendDigitsTry,
   spendNameLookup,
   writeFindState,
@@ -141,12 +140,7 @@ async function checkLastFour(eventId: string, token: string, formData: FormData)
 
   // The row, LIVE: it must still be findable and still carry the name typed —
   // a guest bound, removed or renamed since step 1 is not opened.
-  const [{ data: row }, { data: holder }] = await Promise.all([
-    admin.from('guests').select(FINDABLE_COLUMNS).eq('guest_id', guestId).eq('event_id', eventId).maybeSingle(),
-    admin.from('event_members').select('guest_id').eq('event_id', eventId).eq('guest_id', guestId).maybeSingle(),
-  ]);
-  const live = row as unknown as FindableRow | null;
-  const bound = new Set<string>(holder ? [guestId] : []);
+  const { row: live, bound } = await readFindableRow(admin, eventId, guestId);
   const typed = readTypedLastFour(formData.get('last4'));
   const ok =
     !!live &&

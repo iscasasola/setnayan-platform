@@ -106,8 +106,26 @@ export async function readFindState(eventId: string): Promise<FindState | null> 
   }
 }
 
-export const FINDABLE_COLUMNS =
+/**
+ * What the find-me door reads of a guest — a narrow, purpose-built list, NOT
+ * a canonical `guests` shape (so not exported, and not named `*_COLUMNS`: the
+ * dup-rule lint would hold every other `guests` read to it).
+ */
+const findableSelect =
   'guest_id, first_name, middle_name, last_name, name_suffix, role, extra_roles, entry_source, deleted_at, passed_away, mobile, qr_token';
+
+/** One guest, LIVE, for the last-4 check — the row and whether an account holds it. */
+export async function readFindableRow(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  guestId: string,
+): Promise<{ row: FindableRow | null; bound: Set<string> }> {
+  const [{ data: row }, { data: holder }] = await Promise.all([
+    admin.from('guests').select(findableSelect).eq('guest_id', guestId).eq('event_id', eventId).maybeSingle(),
+    admin.from('event_members').select('guest_id').eq('event_id', eventId).eq('guest_id', guestId).maybeSingle(),
+  ]);
+  return { row: (row as unknown as FindableRow | null) ?? null, bound: new Set<string>(holder ? [guestId] : []) };
+}
 
 /**
  * Every row of the event the door may look at, and which of them an account
@@ -122,7 +140,7 @@ export async function loadFindableRows(
   const [{ data: rows, error }, { data: members, error: memberError }] = await Promise.all([
     admin
       .from('guests')
-      .select(FINDABLE_COLUMNS)
+      .select(findableSelect)
       .eq('event_id', eventId)
       .eq('entry_source', 'host_seeded')
       .is('deleted_at', null)

@@ -52,7 +52,7 @@ function canvasBar(stage: LifecyclePhase, facts: { hasDetails: boolean; hasStory
       hasStory: facts.hasStory,
       hasDetails: facts.hasDetails,
       liveBroadcast: false,
-      destinations: { camera: '/papic/guest?from=cale-ice', watch: '/cale-ice/hub', join: '/cale-ice/invite', rsvp: '/cale-ice/invite/reply' },
+      destinations: { camera: '/papic/guest?from=cale-ice', watch: '/cale-ice/hub', join: '/cale-ice/invite' },
       stageSlots: STAGE_BAR[stage].slots,
     }),
   );
@@ -103,17 +103,16 @@ test('1 · the header names the stage it shows — each stage its own label, nev
   assert.equal(pageStageFor({ phasesEnabled: false, lifecyclePhase: 'rsvp', dayOfPhase: 'pre' }), 'rsvp');
 });
 
-test('2 · the tab bar follows the stage’s one config — On the Day is Now · Schedule · Camera · Me, the Invitation is Welcome · Details · Our Love Story · RSVP', () => {
+test('2 · the tab bar follows the stage’s one config — On the Day is Now · Schedule · Camera · Me, the Invitation is Welcome · Details · Our Love Story · Me', () => {
   // Owner 2026-09-27, "EACH STAGE DOES ONE JOB": the day gains its Schedule
   // (Gallery joins once a chapter is public — none is here).
   const day = canvasBar('event', { hasDetails: true, hasStory: false }).map((b) => b.label);
   assert.deepEqual(day, ['Now', 'Schedule', 'Camera', 'Me']);
-  // …and the Invitation reads Welcome · Details · Our Love Story · RSVP (owner
+  // …and the Invitation reads Welcome · Details · Our Love Story · Me (owner
   // 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love Story
-  // - Me"*) — RSVP becomes Me once the guest has answered (held in
-  // each-stage-does-one-job.test.ts).
+  // - Me"*; *"RSVP does not have 4 tabs under"* — no RSVP tab, ever).
   const invite = canvasBar('rsvp', { hasDetails: true, hasStory: true }).map((b) => b.label);
-  assert.deepEqual(invite, ['Welcome', 'Details', 'Our Love Story', 'RSVP']);
+  assert.deepEqual(invite, ['Welcome', 'Details', 'Our Love Story', 'Me']);
   // the allow-list removes: a stage that does not list a slot never draws it
   const narrowed = resolveSiteNav({
     viewer: { kind: 'public' }, phase: 'after', hostAllowsCamera: true, anyChapterPublic: true, liveBroadcast: false,

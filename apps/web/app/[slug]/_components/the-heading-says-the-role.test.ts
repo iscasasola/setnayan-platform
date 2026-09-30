@@ -12,7 +12,7 @@
  *   1. a section whose heading names its roles draws names with no role beside
  *      them — and still SAYS the role to a screen reader (sr-only);
  *   2. a section that mixes roles the heading cannot name keeps the word beside
- *      each name (Bearers, Parents, a Matron under "Maid of Honour & Best Man");
+ *      each name (Bearers, Parents, a Matron under "Maid of Honor & Best Man");
  *   3. Secondary Sponsors draw one sub-heading per role, pairs on one line, no
  *      "Candle Sponsor" anywhere — stacked by default, "Role: names" inline;
  *   4. the printed Entourage card groups them the same way;
@@ -56,8 +56,8 @@ function p(
 }
 
 const ROWS: EntourageGuestRow[] = [
-  p('groom_parents', 'Pedro', 'Abad'),
-  p('bride_parents', 'Rosa', 'Lim'),
+  p('groom_parents', 'Pedro', 'Abad', undefined, undefined, { name_prefix: 'Mr.' }),
+  p('bride_parents', 'Rosa', 'Lim', undefined, undefined, { name_prefix: 'Mrs.' }),
   p('maid_of_honor', 'Mia', 'Uy'),
   p('matron_of_honor', 'Tess', 'Ong'),
   p('best_man', 'Ben', 'Sy'),
@@ -178,12 +178,14 @@ test('a section that MIXES roles the heading cannot name keeps the word beside e
   assert.match(bearers, /Tino Go Ring Bearer/);
   assert.match(bearers, /Nico Go Bible Bearer/);
   const parents = visible(section(html, 'Parents'));
-  assert.match(parents, /Parents of the Groom/);
-  assert.match(parents, /Parents of the Bride/);
-  // Under "Maid of Honour & Best Man" a Matron is NOT what the heading says — she keeps hers.
-  const honour = visible(section(html, 'Maid of Honour &amp; Best Man'));
-  assert.match(honour, /Tess Ong Matron of Honour/);
-  assert.doesNotMatch(honour.replace('Maid of Honour & Best Man', ''), /Maid of Honour|Best Man/);
+  // ONE name is ONE parent — the typed title says which (audit 2026-09-30).
+  assert.match(parents, /Pedro Abad Father of the Groom/);
+  assert.match(parents, /Rosa Lim Mother of the Bride/);
+  assert.doesNotMatch(parents.replace(/^Parents/, ''), /Parents of the/, 'a plural beside one name');
+  // Under "Maid of Honor & Best Man" a Matron is NOT what the heading says — she keeps hers.
+  const honour = visible(section(html, 'Maid of Honor &amp; Best Man'));
+  assert.match(honour, /Tess Ong Matron of Honor/);
+  assert.doesNotMatch(honour.replace('Maid of Honor & Best Man', ''), /Maid of Honor|Best Man/);
 });
 
 test('Secondary Sponsors, stacked by default: one sub-heading per role, the pair on ONE line, no role per name', async () => {

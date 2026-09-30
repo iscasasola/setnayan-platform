@@ -498,7 +498,9 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   }
   // The entourage is not the Save the Date's job (`STAGE_FIXED`).
   if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));
-  if (input.storyRenders) shown.push(fixed('story'));
+  // 📖 The page draws the love story ONCE (site-body `storySceneShown`): with the
+  // "Our love story" scene on the page, the prose section is not drawn.
+  if (input.storyRenders && !drawable.some((w) => w.widget_type === 'our_love_story')) shown.push(fixed('story'));
 
   // ── The fold: every other section, with the reason this stage leaves it out.
   const folded: MakerFolded[] = [];

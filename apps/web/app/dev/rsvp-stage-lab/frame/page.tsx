@@ -27,7 +27,7 @@ export default async function RsvpStageLabFrame({ searchParams }: { searchParams
   const meta = '18 December 2026 · San Agustin Church';
   if (sp.scene === 'thanks' || sp.scene === 'decline') {
     const status = sp.scene === 'thanks' ? 'attending' : 'declined';
-    const ownHeadline = thankYouHeadline({ status, firstName: guest.first_name, eventDate: '2026-12-18', solemn: words.solemn });
+    const ownHeadline = thankYouHeadline({ status, eventDate: '2026-12-18', solemn: words.solemn });
     const theirWords = thankYouWords({ status, words: {}, ownHeadline, name: guest.first_name });
     return (
       <DoorShell

@@ -37,7 +37,22 @@ function clean(s: unknown): string {
   return String(s).trim().replace(/[.!?]+$/, '');
 }
 
+/**
+ * Words a couple's sentence commonly STARTS with — the only first words it is
+ * safe to lowercase when the sentence is woven into ours ("It began …: we met
+ * at …"). Anything else might be a name ("Ana's cousin introduced us"), and a
+ * name keeps its capital (guest text audit 2026-09-30: "it began: ana's…").
+ */
+const COMMON_OPENERS = new Set([
+  'a', 'an', 'the', 'we', 'our', 'us', 'it', 'its', 'he', 'she', 'they', 'their', 'his', 'her',
+  'my', 'at', 'in', 'on', 'during', 'after', 'before', 'when', 'while', 'through', 'over',
+  'back', 'one', 'two', 'some', 'years', 'mutual', 'friends', 'there', 'that', 'this',
+  'with', 'from', 'by', 'under', 'just', 'both', 'online', 'college', 'school', 'work',
+]);
+
 function lowerFirst(s: string): string {
+  const first = (s.split(/\s+/)[0] ?? '').replace(/[^\p{L}']/gu, '');
+  if (!COMMON_OPENERS.has(first.toLowerCase())) return s;
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
 
@@ -46,7 +61,10 @@ function composeOurStory(story: NonNullable<LoveStoryInput>): string[] {
   const out: string[] = [];
 
   const howMet = clean(story.how_we_met);
-  const metYear = clean(story.met_year) || clean(story.proposal_year);
+  // 🔴 Only the year they MET. The proposal year stood in for a missing one, so
+  // a couple who met in 2016 and got engaged in 2024 read "It began back in
+  // 2024" (guest text audit 2026-09-30). No year is better than the wrong one.
+  const metYear = clean(story.met_year);
   if (howMet) {
     const yearBit = metYear ? ` back in ${metYear}` : '';
     out.push(`It began${yearBit}, as the best stories do: ${lowerFirst(howMet)}.`);

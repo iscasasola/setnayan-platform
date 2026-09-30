@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
+import { formatEventDateWithPrecision } from '@/lib/events';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 import { inviteEnterPath } from '@/lib/invite-arrival';
 import { eventWordsFor } from '../../_lib/event-words';
@@ -245,13 +246,11 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         deadline: event.guest_list_edit_deadline as string | null,
         eventDate: event.event_date as string | null,
       });
-  const closesLabel = replyBy
-    ? new Date(`${replyBy.date}T00:00:00Z`).toLocaleDateString('en-PH', {
-        day: 'numeric',
-        month: 'long',
-        timeZone: 'UTC',
-      })
-    : null;
+  // ONE date formatter on this page (guest text audit 2026-09-30): the event
+  // date above reads "Friday, December 18, 2026" (`formatEventDateWithPrecision`
+  // via `joinDoorMeta`), and the reply-by line read "18 December" in a second
+  // locale. Both now come from the same function.
+  const closesLabel = replyBy ? formatEventDateWithPrecision(replyBy.date, 'day') || null : null;
 
   const guestName =
     (guest.display_name as string | null)?.trim() ||
@@ -318,7 +317,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
                 className="font-medium text-link underline-offset-2 hover:underline"
                 href={inviteEnterPath(home)}
               >
-                Go to your QR and open the {words.eventWord}
+                Open your invitation
               </Link>
               {replyLocked ? null : <> &mdash; or change your answer below.</>}
             </DoorNotice>

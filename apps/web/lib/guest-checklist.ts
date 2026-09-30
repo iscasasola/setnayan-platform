@@ -97,7 +97,7 @@ export function buildChecklist(input: {
     items.push({ key: 'wear', title: 'What to wear', sub: [input.wear, input.wearNote].filter(Boolean).join(' · ') || null });
   }
   const swatches = input.motif.filter((h) => HEX.test(h)).slice(0, 6);
-  if (swatches.length > 0) items.push({ key: 'motif', title: 'Motif colours', sub: null, swatches });
+  if (swatches.length > 0) items.push({ key: 'motif', title: 'Motif colors', sub: null, swatches });
   if (input.arriveBy || input.venueName) {
     items.push({
       key: 'arrive',

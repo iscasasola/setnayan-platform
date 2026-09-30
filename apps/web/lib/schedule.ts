@@ -1031,6 +1031,61 @@ export function formatViewerTime(iso: string | null, eventTz: string): string | 
   return new Date(instant).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+/**
+ * Does the VIEWER's clock read the same as the venue's right now? (guest text
+ * audit 2026-09-30: "YOUR TIME" sat under every row of a Manila wedding read in
+ * Manila — a label that tells a guest nothing but asks them to wonder.) Compared
+ * by OFFSET, not by zone name: Asia/Singapore and Asia/Manila read one clock.
+ * Unknown (no Intl) → true, so nothing extra is said.
+ */
+export function viewerSharesEventClock(eventTz: string, atMs: number = Date.now()): boolean {
+  try {
+    const viewerOffset = -new Date(atMs).getTimezoneOffset() * 60_000;
+    const eventOffset = partsAsUTC(atMs, eventTz) - Math.floor(atMs / 1000) * 1000;
+    return Math.abs(viewerOffset - eventOffset) < 60_000;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Is `atMs` on the event's own calendar day, in the VENUE's clock? `firstStartIso`
+ * is a stored block time (the venue's wall clock at UTC). "Up next" only means
+ * something on the day — weeks before, the first moment is not "next".
+ */
+export function isOnEventDay(firstStartIso: string, eventTz: string, atMs: number = Date.now()): boolean {
+  const d = new Date(firstStartIso);
+  if (Number.isNaN(d.getTime())) return false;
+  const eventDay = firstStartIso.slice(0, 10);
+  try {
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: eventTz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(atMs));
+    return today === eventDay;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The small kicker above a moment's title — its type — or null when it would
+ * say nothing: the raw "Custom" type, or a type that repeats the title
+ * ("CEREMONY" over "Ceremony").
+ */
+export function scheduleKickerFor(
+  type: ScheduleBlockType,
+  title: string,
+  eventType: string | null | undefined,
+): string | null {
+  if (type === 'custom') return null;
+  const kicker = scheduleBlockLabelFor(type, eventType);
+  if (kicker.trim().toLowerCase() === (title ?? '').trim().toLowerCase()) return null;
+  return kicker;
+}
+
 /** "5:00 AM" or "5:00 AM – 6:30 AM" in the viewer's local time. */
 export function formatViewerTimeRange(
   startIso: string,

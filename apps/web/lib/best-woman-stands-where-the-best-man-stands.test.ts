@@ -125,7 +125,7 @@ test('on the invitation she pairs across from the maid of honour, in the groomâ€
   assert.equal(honour!.rows[0]![0]?.role, 'maid_of_honor');
   assert.equal(honour!.rows[0]![1]?.role, 'best_woman');
   // The heading names who is standing there â€” never "Best Man" over a woman.
-  assert.equal(honour!.label, 'Maid of Honour & Best Woman');
+  assert.equal(honour!.label, 'Maid of Honor & Best Woman');
 });
 
 test('the heading a couple who changed nothing sees is byte-identical', () => {
@@ -134,7 +134,7 @@ test('the heading a couple who changed nothing sees is byte-identical', () => {
     { guest_id: 'b', first_name: 'Ben', last_name: 'B', role: 'best_man' },
     { guest_id: 't', first_name: 'Tess', last_name: 'C', role: 'matron_of_honor' },
   ]);
-  assert.equal(honour!.label, 'Maid of Honour & Best Man');
+  assert.equal(honour!.label, 'Maid of Honor & Best Man');
 });
 
 test('the pickers show each pair as ONE either-or line, and drop nobody', () => {

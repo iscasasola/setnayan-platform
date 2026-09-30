@@ -71,6 +71,12 @@ export type EntouragePerson = {
    * From the name parts where the row has them; see `sortKeyOf`.
    */
   sortKey?: { last: string; first: string };
+  /**
+   * 'father' / 'mother' when the name's OWN title says so (Mr. → father; Mrs.,
+   * Ms., Miss → mother), else null. Gender is not stored; the title the couple
+   * typed is the only honest source, and without one nothing is guessed.
+   */
+  parentWord?: 'father' | 'mother' | null;
 };
 
 /**
@@ -201,19 +207,19 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
   */
   {
     key: 'honour',
-    label: 'Maid of Honour & Best Man',
+    label: 'Maid of Honor & Best Man',
     /* ⚖ Owner 2026-09-30: "We can pick either best man or best woman and maid
        or matron of honor." `best_woman` stands where the best man stands — the
        groom's column — so she pairs across from the maid/matron exactly as he
        does. Nothing makes the pairs exclusive: a couple may have both. */
     roles: ['maid_of_honor', 'matron_of_honor', 'best_man', 'best_woman'],
     sides: [['maid_of_honor', 'matron_of_honor'], ['best_man', 'best_woman']],
-    sideWords: ['Maid of Honour', 'Best Man'],
+    sideWords: ['Maid of Honor', 'Best Man'],
     unusual: ['best_woman'],
     headingForm: 'one',
     /* 🚂 Train 2026-09-30 (#6165 + #6170): a best woman makes the heading say
        "Best Woman" (`unusual`), so the heading names her too — no word beside
-       her name. A Matron keeps hers: the column still reads "Maid of Honour". */
+       her name. A Matron keeps hers: the column still reads "Maid of Honor". */
     headingNames: ['maid_of_honor', 'best_man', 'best_woman'],
   },
   {
@@ -348,8 +354,8 @@ const ROLE_LABEL: Partial<Record<GuestRole, string>> = {
   veil_sponsor: 'Veil Sponsor',
   cord_sponsor: 'Cord Sponsor',
   coin_sponsor: 'Coin Sponsor',
-  maid_of_honor: 'Maid of Honour',
-  matron_of_honor: 'Matron of Honour',
+  maid_of_honor: 'Maid of Honor',
+  matron_of_honor: 'Matron of Honor',
   best_man: 'Best Man',
   best_woman: 'Best Woman',
   bridesmaid: 'Bridesmaid',
@@ -436,7 +442,23 @@ export function roleBesideName(group: EntourageGroup, person: EntouragePerson): 
   if (spec?.headingNames?.includes(person.role)) return null;
   const distinct = new Set(peopleOf(group).map((p) => p.role));
   if (distinct.size <= 1) return null;
-  return roleLabel(person.role, group.names);
+  return parentBesideOne(person, group.names) ?? roleLabel(person.role, group.names);
+}
+
+/**
+ * 👪 ONE NAME IS ONE PARENT (guest text audit 2026-09-30). "Parents of the
+ * Bride" sat beside a single name — a plural beside one person. Beside ONE
+ * name the word is singular: "Father of the Bride" / "Mother of the Bride"
+ * when the typed title says which, "Parent of the Bride" when it does not
+ * (nothing is guessed from a first name). The plural is for two, and the
+ * group heading already carries it. The couple's own word still wins.
+ */
+function parentBesideOne(person: EntouragePerson, names: RoleNames | null | undefined): string | null {
+  if (person.role !== 'bride_parents' && person.role !== 'groom_parents') return null;
+  if (roleNameOne(person.role, names) !== null) return null;
+  const side = person.role === 'bride_parents' ? 'Bride' : 'Groom';
+  const who = person.parentWord === 'father' ? 'Father' : person.parentWord === 'mother' ? 'Mother' : 'Parent';
+  return `${who} of the ${side}`;
 }
 
 /**
@@ -803,6 +825,17 @@ export function columnOfRole(groupKey: string, role: string): 0 | 1 | null {
   return sideOf({ role: role as GuestRole }, spec.sides);
 }
 
+/** 'father' / 'mother' from the typed title (prefix, else the display name's first word). */
+function parentWordOf(row: EntourageGuestRow): 'father' | 'mother' | null {
+  const title = (row.name_prefix ?? row.display_name?.trim().split(/\s+/)[0] ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.$/, '');
+  if (title === 'mr') return 'father';
+  if (title === 'mrs' || title === 'ms' || title === 'miss') return 'mother';
+  return null;
+}
+
 /** The people of one group, in `spec.roles` order — the sequence pairing sees. */
 function peopleForSpec(
   rows: readonly EntourageGuestRow[],
@@ -822,6 +855,7 @@ function peopleForSpec(
         ceremonyOnly: isCeremonyOnly(row),
         split: splitForPairLine(row),
         sortKey: sortKeyOf(row, name),
+        parentWord: parentWordOf(row),
       });
     }
   }

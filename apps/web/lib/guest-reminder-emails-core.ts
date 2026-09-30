@@ -167,7 +167,7 @@ export function reminderHeadline(milestone: ReminderMilestone, daysLeft: number)
 export function pendingLine(item: ChecklistItem): string {
   if (item.key === 'motif') {
     const n = item.swatches?.length ?? 0;
-    return `${item.title} — ${n > 0 ? `${n} colour${n === 1 ? '' : 's'}, ` : ''}see them on your page`;
+    return `${item.title} — ${n > 0 ? `${n} color${n === 1 ? '' : 's'}, ` : ''}see them on your page`;
   }
   return item.sub ? `${item.title} — ${item.sub}` : item.title;
 }

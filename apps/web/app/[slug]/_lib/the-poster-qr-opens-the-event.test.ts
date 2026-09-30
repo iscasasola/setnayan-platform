@@ -77,6 +77,9 @@ test('8 · the upload decodes in the browser with the repo’s jsqr, and never p
   assert.match(src, /window\.location\.assign\(target\)/);
   assert.doesNotMatch(src, /fetch\(|FormData|XMLHttpRequest|'use server'/, 'the picture is being sent somewhere');
   assert.match(src, /setSaid\(NOT_THIS_EVENTS_CODE\)/);
+  // A picture with NO readable code is told so — never "not this event's".
+  assert.match(src, /if \(!found\) \{\s*setSaid\(UNREADABLE_QR\)/, 'a blurry photo of the right QR is told it is the wrong one');
+  assert.match(src, /catch \{\s*setSaid\(UNREADABLE_QR\)/);
 });
 
 test('8 · the door offers exactly two things: Upload your QR · Sign in', async () => {

@@ -49,6 +49,8 @@ export function invitationCard(input: {
   words: Pick<EventWords, 'solemn' | 'twoPeople' | 'eventWord'>;
   /** The programme's first moment, as stored (the event's own wall-clock). */
   firstStartAt: string | null | undefined;
+  /** That moment's own title ("Guests arrive") — the time never stands alone. */
+  firstLabel?: string | null;
 }): InvitationCard | null {
   const { words } = input;
   if (words.solemn) return null;
@@ -59,9 +61,24 @@ export function invitationCard(input: {
       : 'invites you to celebrate',
     // The programme's own formatter, so the card, the pass and the run of show
     // read one clock (the pass once added eight hours by converting twice).
-    timeLabel: input.firstStartAt ? formatBlockTimeRange(input.firstStartAt, null) || null : null,
+    // 🏷 NEVER AN UNLABELED TIME (guest text audit 2026-09-30): a bare "2:30 PM"
+    // under the date reads as the ceremony. It is the programme's FIRST moment,
+    // so it wears that moment's own title — "Guests arrive 2:30 PM" — from the
+    // data, never a word we invent. No title → "Starts 2:30 PM".
+    timeLabel: firstMomentLine(input.firstStartAt, input.firstLabel),
     hubHref: `#${SITE_MENU_ANCHORS.details}`,
     // The couple may put their own words in its place (the `link` part).
     hubLabel: HUB_LINK_DEFAULT_WORDS,
   };
+}
+
+/** "Guests arrive 2:30 PM" — the first moment's title and its time; null with no time. */
+export function firstMomentLine(
+  startAt: string | null | undefined,
+  label: string | null | undefined,
+): string | null {
+  const time = startAt ? formatBlockTimeRange(startAt, null) : '';
+  if (!time) return null;
+  const title = (label ?? '').trim();
+  return `${title || 'Starts'} ${time}`;
 }

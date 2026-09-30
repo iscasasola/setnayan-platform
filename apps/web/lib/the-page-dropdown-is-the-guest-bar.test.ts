@@ -74,7 +74,7 @@ test('1 · the guest bar asked is the REAL one — the same function a guest’s
   // A guest's own bar, asked independently: the dropdown equals it.
   const direct = resolveSiteNav({
     viewer: { kind: 'guest' }, phase: 'before', hostAllowsCamera: true, anyChapterPublic: true, hasStory: true,
-    hasDetails: true, replied: true, liveBroadcast: false, destinations: { camera: '/c', rsvp: '/r' },
+    hasDetails: true, liveBroadcast: false, destinations: { camera: '/c' },
     stageSlots: STAGE_BAR.rsvp.slots,
   }).map((s) => s.label);
   assert.deepEqual(makerGuestPages('rsvp', tilesOf('rsvp')).map((p) => p.label), direct);
@@ -117,7 +117,11 @@ test('2 · a pick jumps and never filters: every scene sits under exactly one pa
   }
   const pages = makerGuestPages('rsvp', tilesOf('rsvp'));
   assert.ok(pages.filter((p) => p.tiles.length > 0).length >= 3, 'the Invitation’s scenes must span pages for this to mean anything');
-  assert.ok(pages.find((p) => p.key === 'story')!.tiles.includes('f:story'), 'the love story sits under Story');
+  // The love story is drawn ONCE (audit 2026-09-30): the scene when it is on the
+  // page, else the prose — either way it sits under Story.
+  const storyTiles = pages.find((p) => p.key === 'story')!.tiles;
+  assert.ok(storyTiles.includes('f:story') || storyTiles.includes('w:our_love_story'), 'the love story sits under Story');
+  assert.ok(!(storyTiles.includes('f:story') && storyTiles.includes('w:our_love_story')), 'the love story is listed twice');
   assert.ok(pages.find((p) => p.key === 'details')!.tiles.includes('w:venue_map'), 'the sections sit under Details');
   assert.ok(pages.find((p) => p.key === 'home')!.tiles.includes('f:hero'), 'the names sit under Home');
 });

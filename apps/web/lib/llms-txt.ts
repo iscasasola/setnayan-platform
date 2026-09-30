@@ -425,6 +425,9 @@ export const LIVE_EVENT_TYPES: readonly string[] = [
   'simple events',
   'dates',
   'hangouts',
+  'concerts',
+  'open houses',
+  'grand openings',
   'wakes',
 ] as const;
 

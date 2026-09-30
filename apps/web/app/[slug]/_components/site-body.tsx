@@ -206,6 +206,7 @@ import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
+import { GetTickets } from './get-tickets';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
@@ -407,6 +408,9 @@ type SiteBodyProps = {
    *  (the Host controls bar, "Manage", the Live hub pill) never returns. Inert
    *  outside the canvas. */
   canvasGuestBars?: boolean;
+  /** 🎟 "Get tickets" — `publicTicketUrl(...)` (lib/ticket-url.ts): the
+   *  organizer's own ticket page, or null unless the event is Public. */
+  ticketUrl?: string | null;
   /** 🖼 The Maker's made-once Hero page (`?only=hero`) — draw that ONE scene.
    *  Resolved by `canvasOnlyScene`, which is null off the host canvas. */
   canvasOnly?: CanvasOnlyScene | null;
@@ -501,6 +505,7 @@ export async function SiteBody({
   editorialDraft = null,
   editorBridge = false,
   canvasGuestBars = false,
+  ticketUrl = null,
   canvasOnly = null,
   themeTile = false,
   makerWayBack = null,
@@ -1556,6 +1561,11 @@ export async function SiteBody({
                   }
                 />
               ) : null}
+              {/* 🎟 A PUBLIC event's "Get tickets" (owner 2026-09-29) — above the
+                  door, for everyone who reads the general details, the host's
+                  own view included, so they see what their visitors get. The
+                  organizer sells the tickets; this only links to their page. */}
+              <GetTickets url={ticketUrl} />
               {viewerIsHost ? (
                 /* THE HOST'S OWN PAGE. Wins over every `reason` variant below:
                    a stale or absent guest cookie says nothing about somebody

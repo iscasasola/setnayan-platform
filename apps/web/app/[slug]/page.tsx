@@ -71,6 +71,7 @@ import {
   isScheduledLaunchDue,
   publishSaveTheDate,
 } from '@/lib/launch-save-the-date';
+import { publicTicketUrl } from '@/lib/ticket-url';
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
@@ -1321,6 +1322,9 @@ async function InvitationBody({
     // the Maker, which would hear its bridge as the canvas's.
     themeTile: triedTheme !== null,
     canvasGuestBars: isEditorCanvas && search.bars === '1',
+    // 🎟 Public events only — `visibility` is the effective one this page
+    // renders from, so a private or unlisted event never draws the button.
+    ticketUrl: publicTicketUrl({ visibility, ticketUrl: event.ticket_url }),
     // 🖼 `?only=hero` — the Maker's Hero page draws the hero alone. Host canvas
     // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's
     // `?only=` is ignored). See `_lib/editor-canvas.ts`.

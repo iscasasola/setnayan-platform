@@ -7,6 +7,9 @@ import { EVENT_VISIBILITIES, type EventVisibility } from '@/lib/event-visibility
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { editorialAllowsEventType } from '@/lib/editorial-event-types';
+import { rsvpAskConfigOnGoingPublic } from '@/lib/rsvp-ask';
+import { parseTicketUrl, TICKET_URL_ERROR_TEXT } from '@/lib/ticket-url';
+import { carryAskToJoinIntoDraft } from '@/lib/going-public.server';
 
 /**
  * Landing-page visibility toggle — server actions.
@@ -95,14 +98,27 @@ export async function updateLandingPageVisibility(formData: FormData) {
   // secured account.
   await requireHostMembership(eventId, { secured: visibility !== 'private' });
 
+  // 🎟 THE TICKETS LINK rides this same form — the Maker's visibility panel
+  // draws "Where to get tickets" right under Public (owner 2026-09-29: a public
+  // event may link to where its tickets are sold; the ORGANIZER sells them,
+  // never Setnayan). Checked BEFORE anything is written, so a refused link
+  // leaves visibility untouched too. The panel checks the same rule in the
+  // browser and says it in words; reaching this throw means that was bypassed.
+  const ticketFieldPosted = formData.has('ticket_url');
+  const ticket = ticketFieldPosted ? parseTicketUrl(formData.get('ticket_url')) : null;
+  if (ticket && !ticket.ok) {
+    throw new Error(TICKET_URL_ERROR_TEXT[ticket.reason]);
+  }
+
   const supabase = await createClient();
 
   // Fetch the slug first so we can revalidate the public landing path
-  // after the update lands. Same supabase client so RLS catches any
-  // mid-flight membership change.
+  // after the update lands — and the visibility and RSVP settings the event
+  // has NOW, so a move INTO public can be told from a save that stays public.
+  // Same supabase client so RLS catches any mid-flight membership change.
   const { data: event, error: fetchErr } = await supabase
     .from('events')
-    .select('slug')
+    .select('slug, landing_page_visibility, rsvp_ask_config')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -113,13 +129,54 @@ export async function updateLandingPageVisibility(formData: FormData) {
     redirect('/dashboard');
   }
 
-  const { error: updateErr } = await supabase
+  // 🌐 CHOOSING PUBLIC TURNS ON "ASK TO JOIN" (owner 2026-09-29, DECISION_LOG
+  // "DISCOVER BUILD — TWO LAST ANSWERS"). Only on the switch INTO public: a
+  // later save of an already-public event returns null here, so a host who
+  // turned requests off afterwards keeps them off.
+  const askNext = rsvpAskConfigOnGoingPublic({
+    previousVisibility: (event as { landing_page_visibility: string | null }).landing_page_visibility,
+    nextVisibility: visibility,
+    rawConfig: (event as { rsvp_ask_config: unknown }).rsvp_ask_config,
+  });
+
+  const { data: updated, error: updateErr } = await supabase
     .from('events')
-    .update({ landing_page_visibility: visibility })
-    .eq('event_id', eventId);
+    .update({
+      landing_page_visibility: visibility,
+      ...(askNext ? { rsvp_ask_config: askNext } : {}),
+    })
+    .eq('event_id', eventId)
+    .select('event_id');
 
   if (updateErr) {
     throw new Error(`Failed to update visibility: ${updateErr.message}`);
+  }
+  // Zero rows is a refusal, never a success.
+  if (!Array.isArray(updated) || updated.length === 0) {
+    throw new Error('Failed to update visibility: the change was refused.');
+  }
+
+  // The Maker draft follows the live switch (lib/going-public.ts).
+  if (askNext) await carryAskToJoinIntoDraft(supabase, eventId);
+
+  // The tickets link is withheld from a host session's UPDATE grant
+  // (migration 20271254654868) — it is written HERE, after the host gate above
+  // and the parse above, through the service role. Only while Public: the
+  // field is drawn under Public alone, and a stored link stays put (unshown)
+  // when the event moves away from it.
+  if (ticket && ticket.ok && visibility === 'public') {
+    const admin = createAdminClient();
+    const { data: ticketRows, error: ticketErr } = await admin
+      .from('events')
+      .update({ ticket_url: ticket.value })
+      .eq('event_id', eventId)
+      .select('event_id');
+    if (ticketErr) {
+      throw new Error(`Failed to save the tickets link: ${ticketErr.message}`);
+    }
+    if (!Array.isArray(ticketRows) || ticketRows.length === 0) {
+      throw new Error('Failed to save the tickets link: the change was refused.');
+    }
   }
 
   // Revalidate the hub + privacy editor + public landing so the toggle

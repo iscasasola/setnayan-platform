@@ -14,14 +14,17 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { accessNote, type GuestAccessLevel, type GuestAccessState } from '@/lib/guest-access';
+import {
+  ACCESS_LEVEL_LABEL,
+  accessNote,
+  type GuestAccessLevel,
+  type GuestAccessState,
+} from '@/lib/guest-access';
 import { setGuestAccess } from '../[guestId]/access-actions';
 
-const LABELS: Record<GuestAccessLevel, string> = {
-  none: 'Guest only',
-  co_host: 'Co-host',
-  limited_helper: 'Limited helper',
-};
+// ONE vocabulary for the card's Access line and the guest list's Access column
+// (owner 2026-09-28: "None · Co-host · Limited helper") — `lib/guest-access`.
+const LABELS = ACCESS_LEVEL_LABEL;
 
 export function GuestAccessControl({
   eventId,

@@ -17,6 +17,16 @@ import {
 } from '@/lib/event-moderators';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke';
+import { seatIsFullCohost } from '@/lib/guest-access';
+
+/**
+ * 🔑 A GRANT IS A COORDINATOR'S, NEVER A CO-HOST'S. A full co-host seat is a
+ * `couple` member (20271251336140) with the same access as the creator —
+ * nothing reads its permissions_json — so writing a budget or photo grant on
+ * one would change nothing and say something ("Hide budget" on the Groom).
+ * The page no longer offers it; this refuses it at the door too.
+ */
+const COHOST_NEEDS_NO_GRANT = 'A co-host already has the same access as you.';
 
 // Iteration 0048 — V1 multi-host invite server actions.
 //
@@ -236,10 +246,13 @@ export async function setDelegateBudget(formData: FormData) {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from('event_moderators')
-    .select('permissions_json')
+    .select('permissions_json, role_subtype')
     .eq('moderator_id', moderatorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  if (row && seatIsFullCohost((row as { role_subtype: string }).role_subtype)) {
+    redirect(`/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent(COHOST_NEEDS_NO_GRANT)}`);
+  }
   if (row) {
     const perms = ((row as { permissions_json: ModeratorPermissions | null })
       .permissions_json ?? {
@@ -301,10 +314,13 @@ export async function setDelegatePhotos(formData: FormData) {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from('event_moderators')
-    .select('permissions_json')
+    .select('permissions_json, role_subtype')
     .eq('moderator_id', moderatorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  if (row && seatIsFullCohost((row as { role_subtype: string }).role_subtype)) {
+    redirect(`/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent(COHOST_NEEDS_NO_GRANT)}`);
+  }
   if (row) {
     const perms = ((row as { permissions_json: ModeratorPermissions | null })
       .permissions_json ?? {

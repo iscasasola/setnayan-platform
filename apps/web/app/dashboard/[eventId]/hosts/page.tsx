@@ -7,21 +7,22 @@ import { ArrowLeft, CheckCircle2, ClipboardList, Mail, Trash2, Users } from 'luc
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  hostRolesForEventType,
   ROLE_SUBTYPE_LABEL,
-  ROLE_SUBTYPE_HINT,
   DELEGATE_AREAS,
   DELEGATE_AREA_LABEL,
   resolveAreaLevel,
   type ModeratorPermissions,
   type RoleSubtype,
 } from '@/lib/event-moderators';
+import { guestDisplayName } from '@/lib/guests';
+import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { revokeHostInvite, removeHost, setDelegateBudget, setDelegatePhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { CoordinatorColourDomains, type CoordinatorColourGrantee } from './_components/coordinator-colour-domains';
 import { isColourDomain, type ColourChangeRow, type ColourDomain } from '@/lib/colour-access';
+import { accessTag, guestAccessState, seatAccessWord, seatIsFullCohost } from '@/lib/guest-access';
 import {
   setCoordinatorColourDomain,
   rejectColourChange,
@@ -53,6 +54,9 @@ type Props = {
 type ModeratorRow = {
   moderator_id: string;
   user_id: string | null;
+  /** The guest-list row this seat was picked from (20271251336140), or null
+   *  for the hired planner's email invite. */
+  guest_id: string | null;
   role_subtype: RoleSubtype;
   display_label: string | null;
   invitation_email: string | null;
@@ -86,6 +90,15 @@ type UserMini = {
   user_id: string;
   display_name: string | null;
   email: string | null;
+};
+
+/** The guest row a seat was picked from — its name and its role (the celebrant lock). */
+type SeatGuest = {
+  guest_id: string;
+  display_name: string | null;
+  first_name: string;
+  last_name: string;
+  role: string;
 };
 
 export default async function EventHostsPage({ params, searchParams }: Props) {
@@ -147,6 +160,13 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       redirect(partHref(`/dashboard/${eventId}/guests`, search, { gview: GUEST_LIST_PART_VIEW.hosts }));
     }
   }
+  // 🔑 MAY THIS VIEWER SEE A GUEST'S NAME? The seats below are named by their
+  // guest rows. Embedded, the guest list's own gate already answered — a
+  // delegate without `guest_list` never reaches the part (guests/page.tsx
+  // returns NotSharedWithYou first). Standalone, the redirect above leaves
+  // exactly one kind of viewer on this page: that delegate. So the guest read
+  // is conditioned on the door, and a seat they may not name shows "—".
+  const mayNameSeatGuests = embedded;
 
   const admin = createAdminClient();
   // Event name + moderator rows both key off eventId and don't depend on each
@@ -167,7 +187,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       admin
         .from('event_moderators')
         .select(
-          'moderator_id, user_id, role_subtype, display_label, invitation_email, invitation_sent_at, invitation_expires_at, accepted_at, invitation_token, permissions_json',
+          'moderator_id, user_id, guest_id, role_subtype, display_label, invitation_email, invitation_sent_at, invitation_expires_at, accepted_at, invitation_token, permissions_json',
         )
         .eq('event_id', eventId)
         .is('removed_at', null)
@@ -216,12 +236,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   const hostsPartlyRefused =
     Boolean(rowsError) || Boolean(logRowsError) || Boolean(coordRowsError);
   const eventName = (eventRow as { display_name: string | null } | null)?.display_name ?? 'Your event';
-  // Phase 5 — the role picker offers this event type's OWN roles. It used to
-  // iterate all 13, so a birthday host chose between "Maid of honor" and "Best
-  // man". Unknown/missing types fail open to the full list rather than to an
-  // empty dropdown; see lib/host-roles.ts.
   const eventType = (eventRow as { event_type: string | null } | null)?.event_type ?? null;
-  const roleChoices = hostRolesForEventType(eventType);
   const eventNounWord = eventNoun(eventType);
   // ONE resolver, the same one the Overview, the rail and the guest list ask.
   const eventHasHappened =
@@ -234,9 +249,36 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
     ) === 'after';
 
   const all = (rows ?? []) as ModeratorRow[];
-  const accepted = all.filter((r) => r.accepted_at);
-  const pending = all.filter((r) => !r.accepted_at && r.invitation_token);
+  // ⚠ LIVE IS `user_id`, NEVER `accepted_at` (migration 20271251336140):
+  // event_moderators.accepted_at is DEFAULT now(), so it is stamped on a seat
+  // nobody has joined yet — measured on prod, 2026-09-28. Split on the
+  // timestamp, a waiting seat listed itself under "Current hosts" with no name,
+  // and a guest-list seat (no invitation token — nothing for them to accept)
+  // was never listed as waiting at all, under a sentence that described it.
+  const accepted = all.filter((r) => r.user_id);
+  const pending = all.filter((r) => !r.user_id && (r.guest_id || r.invitation_token));
   const activity = (logRows ?? []) as ActionLogRow[];
+
+  // The guest rows the seats were picked from — ONE read for every seat, live
+  // or waiting: their names (a waiting seat has no account to name it by) and
+  // their roles (a celebrant co-host cannot be removed — `guestAccessState`,
+  // the same rule the guest list draws its lock from).
+  const seatGuestIds = all.map((r) => r.guest_id).filter((id): id is string => !!id);
+  const guestById: Record<string, SeatGuest> = {};
+  if (seatGuestIds.length > 0 && mayNameSeatGuests) {
+    // The canonical guest column list (`lint:dup-rule` holds every guests read
+    // to it) — this page uses the name parts and the role.
+    const { data: guestRows, error: guestRowsError } = await admin
+      .from('guests')
+      .select(ENTOURAGE_COLUMNS)
+      .eq('event_id', eventId)
+      .in('guest_id', seatGuestIds);
+    // ⚠ the seats' names. Refused, a real co-host renders without one.
+    if (guestRowsError) {
+      logQueryError('HostsPage.seatGuests', guestRowsError, { eventId }, 'graceful_degrade');
+    }
+    for (const g of (guestRows ?? []) as SeatGuest[]) guestById[g.guest_id] = g;
+  }
 
   // Booked coordinators not yet invited (matched loosely by email).
   const invitedEmails = new Set(
@@ -298,15 +340,16 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
 
   // ── MB16 · colour domains for the people helping run this celebration ────
   //
-  // 🔑 WHO IS ELIGIBLE IS THE SHIPPED DEFINITION, NOT A NEW ONE. An accepted
-  // delegate with a claimed account is an `event_members` row with
-  // `member_type = 'coordinator'` — minted and deleted by
-  // `sync_delegate_membership` — and that is exactly what
-  // `set_coordinator_colour_access` requires and what the grant table's composite FK
-  // CASCADEs from. So the list below is every accepted host, whatever their
-  // role_subtype: the couple's own maid of honour is as grantable as their
-  // planner, because the database calls both the same thing and inventing a
-  // narrower TS-only rule here would put the screen and the gate out of step.
+  // 🔑 WHO IS ELIGIBLE IS THE SHIPPED DEFINITION, NOT A NEW ONE:
+  // `set_coordinator_colour_access` requires an `event_members` row with
+  // `member_type = 'coordinator'`, and the grant table's composite FK CASCADEs
+  // from it. `sync_delegate_membership` (20271251336140) mints that row for a
+  // limited helper / hired planner seat — but a FULL co-host seat (bride,
+  // groom, partner, co-host, celebrant) becomes a `couple` member, equal to the
+  // creator, who already holds every colour. Listing one here offered switches
+  // the gate refuses, under a card that calls them a coordinator (owner
+  // 2026-09-30: "Claire Buanhog is not a coordinator" — she is the Bride).
+  // `seatIsFullCohost` mirrors the SQL split, so the screen and the gate agree.
   let colourGrantees: CoordinatorColourGrantee[] = [];
   if (isCouple && accepted.length > 0) {
     const [{ data: colourGrantRows, error: colourGrantErr }, { data: colourChangeRows, error: colourChangeErr }] =
@@ -358,6 +401,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       // somebody something they already have is the kind of control that makes
       // a person doubt what the rest of the page means.
       .filter((r) => r.user_id !== user.id)
+      // …and so is every other full co-host: the other half of the couple is
+      // not a coordinator, and the database agrees.
+      .filter((r) => !seatIsFullCohost(r.role_subtype))
       .map((r) => ({
         userId: r.user_id,
         displayName:
@@ -365,7 +411,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           usersById[r.user_id]?.display_name?.trim() ||
           usersById[r.user_id]?.email ||
           'This host',
-        roleLine: `${ROLE_SUBTYPE_LABEL[r.role_subtype] ?? 'Host'}${
+        // The guest list's word for the seat (Limited helper), never
+        // role_subtype's ("Viewer (read-only)"); the planner keeps its label.
+        roleLine: `${seatAccessWord(r.role_subtype) ?? ROLE_SUBTYPE_LABEL[r.role_subtype] ?? 'Host'}${
           r.accepted_at
             ? ` · joined ${new Date(r.accepted_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}`
             : ''
@@ -593,7 +641,42 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             </p>
           </header>
           <ul className="divide-y divide-ink/10">
-            {pending.map((row) => (
+            {pending.map((row) => {
+              // A seat picked from the guest list waits for THAT GUEST to join
+              // (Attending + signed in) — there is no link and nothing to
+              // revoke here: their Access is changed where it was set, on their
+              // guest card, through the one writer (`setGuestAccess`).
+              const seatGuest = row.guest_id ? guestById[row.guest_id] ?? null : null;
+              if (row.guest_id) {
+                const waiting = accessTag(
+                  guestAccessState({
+                    seat: { role_subtype: row.role_subtype, user_id: row.user_id, removed_at: null },
+                    guestRole: seatGuest?.role ?? 'guest',
+                    isCreator: false,
+                  }),
+                );
+                return (
+                  <li
+                    key={row.moderator_id}
+                    className="flex flex-wrap items-start justify-between gap-3 py-3"
+                    data-waiting-guest-seat=""
+                  >
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium text-ink">
+                        {seatGuest ? guestDisplayName(seatGuest) : row.display_label ?? '—'}
+                      </p>
+                      <p className="text-xs text-ink/55">{waiting}</p>
+                    </div>
+                    <Link
+                      href={`/dashboard/${eventId}/guests/${row.guest_id}`}
+                      className="text-[11px] text-ink/55 underline hover:text-ink"
+                    >
+                      Change on their guest card
+                    </Link>
+                  </li>
+                );
+              }
+              return (
               <li
                 key={row.moderator_id}
                 className="flex flex-wrap items-start justify-between gap-3 py-3"
@@ -630,7 +713,8 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                   ) : null}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       ) : null}
@@ -644,55 +728,59 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         </header>
         {accepted.length === 0 ? (
           <p className="sn-row border-dashed p-4 text-sm text-ink/55">
-            You&apos;re the only host so far. Use the form below to add your partner, parents,
-            or anyone else who should be part of planning.
+            You&apos;re the only host so far. On the guest list, set a guest&apos;s Access to
+            Co-host — your partner, a parent, anyone who should be part of planning.
           </p>
         ) : (
           <ul className="divide-y divide-ink/10">
             {accepted.map((row) => {
               const userInfo = row.user_id ? usersById[row.user_id] ?? null : null;
-              const budgetLevel = resolveAreaLevel(row.permissions_json, 'budget');
-              // Owner ruling 2026-08-06 — the couple approves photo access per
-              // delegate. Refused until they press it.
-              const photosLevel = resolveAreaLevel(row.permissions_json, 'photos');
-              const grantChips = DELEGATE_AREAS.filter((a) => a !== 'budget')
-                .map((a) => ({ area: a, level: resolveAreaLevel(row.permissions_json, a) }))
-                .filter((g) => g.level !== null);
+              const seatGuest = row.guest_id ? guestById[row.guest_id] ?? null : null;
+              // 🔑 A FULL CO-HOST IS A `couple` MEMBER (20271251336140), equal
+              // to the creator: their access comes from the membership, never
+              // from permissions_json, so the per-area chips and the budget /
+              // photo grants below mean nothing for them — a "Budget · off"
+              // chip on the Groom was a lie. Those controls are a
+              // COORDINATOR's (hired planner, limited helper), whose access is
+              // exactly what the map says.
+              const fullCohost = seatIsFullCohost(row.role_subtype);
+              // The guest list's lock, from the same rule the guest card draws
+              // it from: a celebrant co-host stays (the database refuses the
+              // removal — `a_celebrant_cohost_stays`), so no Remove is offered
+              // that can only fail.
+              const cohostLock = fullCohost
+                ? guestAccessState({
+                    seat: { role_subtype: row.role_subtype, user_id: row.user_id, removed_at: null },
+                    guestRole: seatGuest?.role ?? 'guest',
+                    isCreator: false,
+                  }).lock
+                : null;
               return (
                 <li
                   key={row.moderator_id}
                   className="flex flex-wrap items-start justify-between gap-3 py-3"
+                  data-seat={fullCohost ? 'co-host' : 'coordinator'}
                 >
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium text-ink">
-                      {userInfo?.display_name?.trim() || userInfo?.email || '—'}
+                      {userInfo?.display_name?.trim() ||
+                        (seatGuest ? guestDisplayName(seatGuest) : null) ||
+                        userInfo?.email ||
+                        '—'}
                     </p>
+                    {/* The guest list's Access word (Co-host · Limited helper),
+                        never role_subtype's label — "Bride" and "Viewer
+                        (read-only)" are the pre-2026-09-28 words for the same
+                        seats. The hired planner keeps its own. */}
                     <p className="sn-eye">
-                      {ROLE_SUBTYPE_LABEL[row.role_subtype]}
+                      {seatAccessWord(row.role_subtype) ?? ROLE_SUBTYPE_LABEL[row.role_subtype]}
                       {row.display_label ? ` · ${row.display_label}` : ''}
                     </p>
-                    <p className="flex flex-wrap gap-1">
-                      {grantChips.map((g) => (
-                        <span
-                          key={g.area}
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            g.level === 'edit'
-                              ? 'bg-terracotta/10 text-terracotta'
-                              : 'bg-ink/5 text-ink/60'
-                          }`}
-                        >
-                          {DELEGATE_AREA_LABEL[g.area]}
-                          {g.level === 'view' ? ' · view' : ''}
-                        </span>
-                      ))}
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          budgetLevel ? 'bg-ink/5 text-ink/60' : 'bg-ink/[0.03] text-ink/35'
-                        }`}
-                      >
-                        Budget {budgetLevel ? '· view' : '· off'}
-                      </span>
-                    </p>
+                    {fullCohost ? (
+                      <p className="text-xs text-ink/55">The same access to this event as you.</p>
+                    ) : (
+                      <CoordinatorGrantChips permissions={row.permissions_json} />
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
                     <p className="font-mono text-[10px] text-ink/50">
@@ -706,63 +794,20 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                         : '—'}
                     </p>
                     {isCouple && row.user_id !== user.id ? (
-                      <div className="flex items-center gap-2">
-                        <form action={setDelegateBudget}>
-                          <input type="hidden" name="event_id" value={eventId} />
-                          <input type="hidden" name="moderator_id" value={row.moderator_id} />
-                          <input
-                            type="hidden"
-                            name="budget_grant"
-                            value={budgetLevel ? 'off' : 'view'}
-                          />
-                          <SubmitButton
-                            pendingLabel="Saving…"
-                            className="text-[11px] text-ink/55 underline hover:text-ink"
-                          >
-                            {budgetLevel ? 'Hide budget' : 'Allow budget view'}
-                          </SubmitButton>
-                        </form>
-                        <form action={setDelegatePhotos}>
-                          <input type="hidden" name="event_id" value={eventId} />
-                          <input type="hidden" name="moderator_id" value={row.moderator_id} />
-                          <input
-                            type="hidden"
-                            name="photos_grant"
-                            value={photosLevel ? 'off' : 'view'}
-                          />
-                          <SubmitButton
-                            pendingLabel="Saving…"
-                            className="text-[11px] text-ink/55 underline hover:text-ink"
-                          >
-                            {photosLevel ? 'Hide event photos' : 'Allow event photos'}
-                          </SubmitButton>
-                        </form>
-                        <form action={removeHost} className="flex items-center gap-1.5">
-                          <input type="hidden" name="event_id" value={eventId} />
-                          <input type="hidden" name="moderator_id" value={row.moderator_id} />
-                          <select
-                            name="reason"
-                            required
-                            defaultValue=""
-                            aria-label="Reason for removing this coordinator"
-                            className="rounded border border-ink/15 bg-cream px-1.5 py-1 text-[11px] text-ink"
-                          >
-                            <option value="" disabled>
-                              Reason…
-                            </option>
-                            <option value="no_longer_availing">No longer availing their services</option>
-                            <option value="abuse_misuse">Abuse / misuse</option>
-                            <option value="new_coordinator">We have a new coordinator</option>
-                            <option value="other">Other</option>
-                          </select>
-                          <SubmitButton
-                            pendingLabel="Removing…"
-                            className="text-[11px] text-terracotta-700 underline hover:text-terracotta"
-                          >
-                            Remove
-                          </SubmitButton>
-                        </form>
-                      </div>
+                      fullCohost ? (
+                        <CohostSeatControls
+                          eventId={eventId}
+                          moderatorId={row.moderator_id}
+                          guestId={row.guest_id}
+                          lock={cohostLock}
+                        />
+                      ) : (
+                        <CoordinatorSeatControls
+                          eventId={eventId}
+                          moderatorId={row.moderator_id}
+                          permissions={row.permissions_json}
+                        />
+                      )
                     ) : null}
                   </div>
                 </li>
@@ -845,9 +890,10 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         <p className="sn-eye">Add a co-host</p>
         <h2 className="text-xl font-semibold tracking-tight">Co-hosts come from your guest list</h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Open a guest and set their <b className="font-semibold text-ink">Access</b> to
+          On the guest list, set a guest&apos;s <b className="font-semibold text-ink">Access</b> to
           Co-host (the same access as you) or Limited helper (can view, can&apos;t change
-          anything). It starts as soon as they say yes to the invitation and sign in.
+          anything) — in the Access column, or on their card. It starts as soon as they say
+          yes to the invitation and sign in.
         </p>
         <Link href={`/dashboard/${eventId}/guests`} className="button-primary inline-flex h-11 items-center px-5">
           Open the guest list
@@ -855,5 +901,149 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       </section>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * A COORDINATOR seat's per-area grants (hired planner, limited helper) — what
+ * `permissions_json` says, area by area. Never drawn for a full co-host: their
+ * access is the `couple` membership, and the map means nothing for them.
+ */
+function CoordinatorGrantChips({ permissions }: { permissions: ModeratorPermissions | null }) {
+  const budgetLevel = resolveAreaLevel(permissions, 'budget');
+  const grantChips = DELEGATE_AREAS.filter((a) => a !== 'budget')
+    .map((a) => ({ area: a, level: resolveAreaLevel(permissions, a) }))
+    .filter((g) => g.level !== null);
+  return (
+    <p className="flex flex-wrap gap-1">
+      {grantChips.map((g) => (
+        <span
+          key={g.area}
+          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            g.level === 'edit' ? 'bg-terracotta/10 text-terracotta' : 'bg-ink/5 text-ink/60'
+          }`}
+        >
+          {DELEGATE_AREA_LABEL[g.area]}
+          {g.level === 'view' ? ' · view' : ''}
+        </span>
+      ))}
+      <span
+        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+          budgetLevel ? 'bg-ink/5 text-ink/60' : 'bg-ink/[0.03] text-ink/35'
+        }`}
+      >
+        Budget {budgetLevel ? '· view' : '· off'}
+      </span>
+    </p>
+  );
+}
+
+/**
+ * The couple's controls on a COORDINATOR seat: the budget and photo grants
+ * (locked D1 · owner 2026-08-06) and removal with its reason (owner
+ * 2026-06-22 — `abuse_misuse` is an admin signal). These are the only seats
+ * the grants apply to; see `CohostSeatControls` for the other kind.
+ */
+function CoordinatorSeatControls({
+  eventId,
+  moderatorId,
+  permissions,
+}: {
+  eventId: string;
+  moderatorId: string;
+  permissions: ModeratorPermissions | null;
+}) {
+  const budgetLevel = resolveAreaLevel(permissions, 'budget');
+  // Owner ruling 2026-08-06 — the couple approves photo access per
+  // delegate. Refused until they press it.
+  const photosLevel = resolveAreaLevel(permissions, 'photos');
+  return (
+    <div className="flex items-center gap-2">
+      <form action={setDelegateBudget}>
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="moderator_id" value={moderatorId} />
+        <input type="hidden" name="budget_grant" value={budgetLevel ? 'off' : 'view'} />
+        <SubmitButton pendingLabel="Saving…" className="text-[11px] text-ink/55 underline hover:text-ink">
+          {budgetLevel ? 'Hide budget' : 'Allow budget view'}
+        </SubmitButton>
+      </form>
+      <form action={setDelegatePhotos}>
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="moderator_id" value={moderatorId} />
+        <input type="hidden" name="photos_grant" value={photosLevel ? 'off' : 'view'} />
+        <SubmitButton pendingLabel="Saving…" className="text-[11px] text-ink/55 underline hover:text-ink">
+          {photosLevel ? 'Hide event photos' : 'Allow event photos'}
+        </SubmitButton>
+      </form>
+      <form action={removeHost} className="flex items-center gap-1.5">
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="moderator_id" value={moderatorId} />
+        <select
+          name="reason"
+          required
+          defaultValue=""
+          aria-label="Reason for removing this coordinator"
+          className="rounded border border-ink/15 bg-cream px-1.5 py-1 text-[11px] text-ink"
+        >
+          <option value="" disabled>
+            Reason…
+          </option>
+          <option value="no_longer_availing">No longer availing their services</option>
+          <option value="abuse_misuse">Abuse / misuse</option>
+          <option value="new_coordinator">We have a new coordinator</option>
+          <option value="other">Other</option>
+        </select>
+        <SubmitButton pendingLabel="Removing…" className="text-[11px] text-terracotta-700 underline hover:text-terracotta">
+          Remove
+        </SubmitButton>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * The couple's controls on a FULL CO-HOST seat (owner 2026-09-28: "host can
+ * … remove a host at any point in time"). No grants — they hold the same
+ * access as the creator — and no coordinator reasons: a co-host is not a
+ * service being discontinued, so `removeHost` records its plain
+ * `removed_by_couple`. A seat picked from the guest list is changed where it
+ * was set (their card's Access line — the one writer); a celebrant co-host
+ * stays, and the page says so instead of offering a Remove the database
+ * refuses (`a_celebrant_cohost_stays`).
+ */
+function CohostSeatControls({
+  eventId,
+  moderatorId,
+  guestId,
+  lock,
+}: {
+  eventId: string;
+  moderatorId: string;
+  guestId: string | null;
+  lock: 'creator' | 'celebrant' | null;
+}) {
+  if (lock === 'celebrant') {
+    return <p className="text-[11px] text-ink/55">A celebrant stays a co-host.</p>;
+  }
+  if (guestId) {
+    return (
+      <Link
+        href={`/dashboard/${eventId}/guests/${guestId}`}
+        className="text-[11px] text-ink/55 underline hover:text-ink"
+      >
+        Change access on their guest card
+      </Link>
+    );
+  }
+  // A co-host seat from before the guest list held them (the old email
+  // invite): no guest row to change it on, so removal stays here.
+  return (
+    <form action={removeHost}>
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="moderator_id" value={moderatorId} />
+      <SubmitButton pendingLabel="Removing…" className="text-[11px] text-terracotta-700 underline hover:text-terracotta">
+        Remove co-host
+      </SubmitButton>
+    </form>
   );
 }

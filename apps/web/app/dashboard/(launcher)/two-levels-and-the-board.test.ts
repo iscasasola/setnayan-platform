@@ -864,7 +864,9 @@ test('the event rail is the one tree, by moment', () => {
   assert.deepEqual(keysByGroup.event, ['personalization']);
   assert.deepEqual(keysByGroup.spine, ['home', 'galleries']);
   assert.deepEqual(keysByGroup.book, ['explore', 'budget']);
-  assert.deepEqual(keysByGroup.invite, ['guests', 'hosts', 'launch']);
+  // 👥 2026-09-30: Hosts is a PART of the Guest list (lib/pillar-parts.ts),
+  // set on the guest list itself — its row left the tree.
+  assert.deepEqual(keysByGroup.invite, ['guests', 'launch']);
   assert.deepEqual(keysByGroup.day, ['schedule', 'seat']);
   assert.deepEqual(keysByGroup.end, ['studio', 'refer']);
   /*
@@ -878,7 +880,14 @@ test('the event rail is the one tree, by moment', () => {
   const personalization = rows.find((i) => i.key === 'personalization');
   assert.equal(personalization?.href, '/dashboard/EVT123/details');
   assert.equal(personalization?.label, 'Details', 'Personalization → Details (owner 2026-09-24)');
-  assert.equal(rows.find((i) => i.key === 'hosts')?.href, '/dashboard/EVT123/hosts');
+  // Hosts' door is the Guest list's part picker now (pillar-parts.test.ts
+  // pins that the guest list mounts it); the row is gone, and `/hosts` lights
+  // the Guests row instead of nothing.
+  assert.equal(rows.find((i) => i.key === 'hosts'), undefined, 'the Hosts row is back in the rail');
+  assert.ok(
+    rows.find((i) => i.key === 'guests')?.alsoMatch?.includes('/dashboard/EVT123/hosts'),
+    '/hosts lights no row on the rail',
+  );
   /*
     ⏳ REFER WAS NEVER CLICKABLE FOR A SINGLE DAY until 2026-08-18. 🔒 It keeps
     the key 'refer' so the event layout's `navHideKeys` gate hides it while the

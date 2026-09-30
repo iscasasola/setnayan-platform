@@ -46,7 +46,7 @@ import type { ComponentType } from 'react';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
-import { accessTag } from '@/lib/guest-access';
+import { ACCESS_LEVEL_LABEL, accessTag } from '@/lib/guest-access';
 import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
 
@@ -132,11 +132,6 @@ const CARD_RSVP_WORDS: Record<RsvpStatus, string> = {
   maybe: 'Maybe',
 };
 
-const ACCESS_WORDS: Record<'none' | 'co_host' | 'limited_helper', string> = {
-  none: 'Guest only',
-  co_host: 'Co-host',
-  limited_helper: 'Limited helper',
-};
 
 /** "7" → "Table 7"; a table the couple named ("Sponsors") stays as named. */
 function tableWords(label: string): string {
@@ -287,7 +282,7 @@ export function GuestCardBody({
   const photosSummary = `Tagging ${guest.photo_consent ? 'on' : 'off'}${guest.faceblock_enabled ? ' · Blurred' : ''}`;
   const accessSummary = [
     linked === null ? null : linked ? 'Linked' : 'Not linked',
-    access ? ACCESS_WORDS[access.level] : null,
+    access ? ACCESS_LEVEL_LABEL[access.level] : null,
     access?.lock === 'creator' ? 'creator' : null,
   ]
     .filter(Boolean)

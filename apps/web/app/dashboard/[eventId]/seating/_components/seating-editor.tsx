@@ -131,13 +131,11 @@ import {
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
   roleSeatingChoice,
-  roleSeatingLabel,
   roleSeatingSetOf,
   roleSeatingSetsFor,
   type RoleSeating,
   type RoleSeatingKey,
 } from '@/lib/role-seating';
-import type { RoleNames } from '@/lib/role-names';
 import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
 // Feature C (2D booth footprint + facing): reuse the 3D booth dims + facing
 // derivation so the 2D editor and the 3D venue walk agree (no magic numbers,
@@ -261,9 +259,10 @@ type Props = {
   // Iteration 0053 P4 Unit 6: the event's role-set key (string, RSC-serializable).
   // The editor re-resolves it client-side to tier/label by the event type.
   roleSetKey: string;
-  /** The couple's own role words (`events.role_names`) — names the Auto Arrange
-   *  "sit together" toggles. Absent = the usual words. */
-  roleNames?: RoleNames | null;
+  /** The Auto Arrange "sit together" switch labels, already in the couple's own
+   *  role words (built on the server by lib/role-seating-labels.ts, so this lazy
+   *  chunk never imports the role-word modules). Absent = the set's key. */
+  roleSeatingLabels?: Partial<Record<RoleSeatingKey, string>> | null;
   // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). ADVISORY ONLY:
   // when true, a manual "Table 4" (ones-digit-4) shows a gentle notice but the
   // save still proceeds. Derived from isChineseWedding() in the page (primary OR
@@ -366,7 +365,7 @@ const defaultGrid = defaultTablePosition;
 export function SeatingEditor({
   eventId,
   roleSetKey,
-  roleNames = null,
+  roleSeatingLabels = null,
   chineseTradition = false,
   tables: tablesProp,
   guests: guestsProp,
@@ -1386,8 +1385,8 @@ export function SeatingEditor({
     }
     return roleSeatingSetsFor(roleSet.offeredRoles)
       .filter((key) => (counts.get(key) ?? 0) > 0)
-      .map((key) => ({ key, label: roleSeatingLabel(key, roleNames), count: counts.get(key) ?? 0 }));
-  }, [guests, roleSet, roleNames]);
+      .map((key) => ({ key, label: roleSeatingLabels?.[key] ?? key, count: counts.get(key) ?? 0 }));
+  }, [guests, roleSet, roleSeatingLabels]);
   const toggleRoleSeating = (key: RoleSeatingKey) => {
     if (!canEdit) return;
     const next: RoleSeating = {

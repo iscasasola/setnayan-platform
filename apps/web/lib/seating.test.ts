@@ -7,6 +7,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   groupTablesIntoUnits,
   computeAutoSeat,
@@ -38,7 +40,8 @@ import {
   SETNAYAN_BOOTH_PROMO_LABEL,
 } from './seating';
 import { BOOKED_VENDOR_STATUSES } from './vendors';
-import { parseRoleSeating, roleSeatingChoice, roleSeatingLabel, roleSeatingSetsFor } from './role-seating';
+import { parseRoleSeating, roleSeatingChoice, roleSeatingSetsFor } from './role-seating';
+import { roleSeatingLabel, roleSeatingLabels } from './role-seating-labels';
 
 // Checked index access — the repo typechecks with noUncheckedIndexedAccess, so a
 // bare units[i] is T | undefined. Asserts presence and returns the element.
@@ -1000,6 +1003,7 @@ test("role seating: each toggle is named in the couple's own role words", () => 
   assert.equal(roleSeatingLabel('wedding_party', crew), "Bride's Crew & Groom's Crew");
   assert.equal(roleSeatingLabel('wedding_party', null), 'Bridesmaids & Groomsmen');
   assert.equal(roleSeatingLabel('bearers_flower_girl', crew), 'Ring Bearers & Little Angels');
+  assert.equal(roleSeatingLabels(crew).wedding_party, "Bride's Crew & Groom's Crew");
   // A Muslim wedding offers no principal sponsors — no toggle for them.
   assert.ok(!roleSeatingSetsFor(['guest', 'wali', 'bridesmaid']).includes('principal_sponsors'));
   assert.ok(roleSeatingSetsFor(['guest', 'wali', 'bridesmaid']).includes('wedding_party'));
@@ -1038,4 +1042,18 @@ test('auto-seat: when a group spans two tables, a plus-one still lands beside th
   const rows = computeAutoSeat(two, [...grp, gz, plus], [], STAGE, null);
   assert.equal(rows.length, 11);
   assert.equal(seatTableOf(rows, 'gz'), seatTableOf(rows, 'gz+1'), 'split from their plus-one');
+});
+
+// 🔒 SHARED-BUNDLE FENCE (2026-09-30). The seat-plan editor is a lazy client
+// chunk; when it (via lib/role-seating.ts) imported the role-word modules,
+// webpack re-shuffled its shared split chunks and the always-loaded runtime
+// went ~12 bytes over the 202KB shared budget. The labels are made on the
+// server (lib/role-seating-labels.ts) and passed in as strings instead.
+test('role seating stays import-free, and the seat-plan editor never imports the role-word modules', () => {
+  const src = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8');
+  assert.doesNotMatch(src('lib/role-seating.ts'), /^\s*import\b/m, 'lib/role-seating.ts must import nothing');
+  const editor = src('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  for (const mod of ['role-seating-labels', 'role-names', 'role-groups']) {
+    assert.doesNotMatch(editor, new RegExp(`from '@/lib/${mod}'`), `seating-editor imports lib/${mod}`);
+  }
 });

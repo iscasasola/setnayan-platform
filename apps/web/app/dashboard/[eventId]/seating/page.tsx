@@ -37,6 +37,7 @@ import type { SeatingDetailsShell, SeatingGuest, SeatingGroup } from './_compone
 /* ⚡ The editor loads when the Seat plan is opened — never with the Maker (`seating-lazy.tsx`). */
 import { SeatingEditor } from './_components/seating-lazy';
 import { loadRoleNames } from '@/lib/role-names.server';
+import { roleSeatingLabels } from '@/lib/role-seating-labels';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
 import SeatingLabPage from './lab/page';
 
@@ -215,7 +216,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     <SeatingEditor
       eventId={eventId}
       roleSetKey={roleSet.key}
-      roleNames={roleNames}
+      roleSeatingLabels={roleSeatingLabels(roleNames)}
       chineseTradition={chineseTradition}
       tables={tables}
       guests={seatingGuests}

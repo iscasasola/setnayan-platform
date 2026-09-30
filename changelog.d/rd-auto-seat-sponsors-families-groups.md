@@ -36,3 +36,25 @@ it inherits `event_floor_plan` RLS).
 
 SPEC IMPACT: None. This implements the two 2026-09-30 DECISION_LOG rows as
 written.
+
+### Fix: fit the 202KB shared bundle
+
+CI's "bundle size check" measured this PR at 202.0KB against a 202KB budget,
+a few bytes over. None of this PR's code was in the shared chunks. The growth
+was all in the always-loaded webpack runtime: its chunk map got about 12
+gzipped bytes bigger.
+
+The cause was the lazy seat-plan editor importing `lib/role-seating.ts`, which
+imported the role-word modules (`role-groups`, `role-names`). Other client
+pages share those modules, so webpack re-shuffled its split chunks.
+
+The fix is at the source:
+- `lib/role-seating.ts` now imports nothing.
+- The switch labels moved to `lib/role-seating-labels.ts`. The seat-plan page
+  builds them on the server and passes the editor plain strings.
+- A guard test in `lib/seating.test.ts` fails if either import comes back. It
+  was sabotaged both ways and went red.
+
+Measured locally: the shared bundle is 206,828 bytes, against 206,833 on
+`main` and a budget of 206,848. The limit was not raised, and behaviour is
+unchanged.

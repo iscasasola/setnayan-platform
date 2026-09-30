@@ -25,10 +25,14 @@
  * Stored on `event_floor_plan.role_seating` (jsonb, beside `priority_order`):
  * `{ [key]: 'together' | 'group' }`. NULL / a missing key / junk = 'together'.
  *
- * Pure. No I/O, no React — read by the server actions AND the seat-plan panel.
+ * Pure. No I/O, no React, no imports — read by the server actions AND the
+ * seat-plan panel.
  */
-import { roleGroupLabel } from './role-groups';
-import { roleNameMany, type RoleNames } from './role-names';
+// 🔒 NO IMPORTS, deliberately. The seat-plan editor (a lazy client chunk)
+// imports this file; pulling the role-word modules in from here re-shuffled
+// webpack's shared split chunks and grew the always-loaded runtime past the
+// 202KB shared budget (2026-09-30). The toggle LABELS need the couple's role
+// words, so they live in lib/role-seating-labels.ts and are made on the server.
 
 export type RoleSeatingKey =
   | 'principal_sponsors'
@@ -101,24 +105,6 @@ export function parseRoleSeating(raw: unknown): RoleSeating {
     if (KEYS.has(k) && (v === 'together' || v === 'group')) out[k as RoleSeatingKey] = v;
   }
   return out;
-}
-
-/** The toggle's words for one set, in this couple's role words. */
-export function roleSeatingLabel(key: RoleSeatingKey, names?: RoleNames | null): string {
-  switch (key) {
-    case 'principal_sponsors':
-      return roleGroupLabel('principal_sponsors', names);
-    case 'immediate_family':
-      return 'Immediate family (both sides)';
-    case 'wedding_party':
-      return `${roleGroupLabel('bridesmaids', names)} & ${roleGroupLabel('groomsmen', names)}`;
-    case 'secondary_sponsors':
-      return roleGroupLabel('secondary_sponsors', names);
-    case 'bearers_flower_girl':
-      return `${roleNameMany('ring_bearer', names) ?? 'Ring Bearers'} & ${
-        roleNameMany('flower_girl', names) ?? 'Flower Girls'
-      }`;
-  }
 }
 
 /**

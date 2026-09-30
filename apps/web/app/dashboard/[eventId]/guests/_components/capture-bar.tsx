@@ -41,12 +41,16 @@ export function CaptureBar({
   eventId,
   defaultSide,
   withDoors = true,
+  placeholder = 'Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter',
 }: {
   eventId: string;
   /** The active Side lens — a new guest inherits it (prototype `:855`). */
   defaultSide: GuestSide;
   /** Inside the add sheet the four doors are rows under the box, not icons. */
   withDoors?: boolean;
+  /** The add sheet says "Type a name…" and puts an example that fits THIS
+   *  event under the box (`lib/quick-add-tips.ts`) — never two examples. */
+  placeholder?: string;
 }) {
   const [value, setValue] = useState('');
   const [pending, startTransition] = useTransition();
@@ -102,7 +106,7 @@ export function CaptureBar({
                 setValue('');
               }
             }}
-            placeholder="Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter"
+            placeholder={placeholder}
             aria-label="Add a guest"
             autoComplete="off"
             autoCorrect="off"

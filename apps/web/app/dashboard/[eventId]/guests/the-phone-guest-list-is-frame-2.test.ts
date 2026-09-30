@@ -62,7 +62,7 @@ test('ONE Filter ▾ at every width over the SAME four dropdowns; ONE + in the h
   const navFab = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', '_components', 'customer-nav-fab.tsx'), 'utf8'));
   assert.match(navFab, /pathname === `\/dashboard\/\$\{eventId\}\/guests`\) return null;/, 'the floating "Add guest" still covers the Guests page');
   // The sheet: the name box first (the shipped CaptureBar, Enter adds), then the other ways as rows.
-  assert.match(PAGE, /<AddGuestSheet\s+nameBox=\{<CaptureBar eventId=\{eventId\}[^}]*\} withDoors=\{false\} \/>\}\s+doors=\{<AddDoors eventId=\{eventId\} rows \/>\}/, 'the add sheet is not the name box + the other ways');
+  assert.match(PAGE, /<AddGuestSheet\s+nameBox=\{<CaptureBar eventId=\{eventId\}[^}]*\} withDoors=\{false\} placeholder="Type a name…" \/>\}\s+doors=\{<AddDoors eventId=\{eventId\} rows \/>\}/, 'the add sheet is not the name box + the other ways');
   assert.equal((PAGE.match(/<CaptureBar\b/g) ?? []).length, 1, 'a second capture bar (header) is back');
 });
 

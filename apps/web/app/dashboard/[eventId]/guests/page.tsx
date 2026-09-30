@@ -1404,7 +1404,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           bottom). It opens this sheet: the name box first (Enter adds, the
           shipped CaptureBar), then the other ways in. */}
       <AddGuestSheet
-        nameBox={<CaptureBar eventId={eventId} defaultSide={teamFilter === 'all' ? 'both' : teamFilter} withDoors={false} />}
+        nameBox={<CaptureBar eventId={eventId} defaultSide={teamFilter === 'all' ? 'both' : teamFilter} withDoors={false} placeholder="Type a name…" />}
         doors={<AddDoors eventId={eventId} rows />}
         tips={quickAddTips({ hasSides, offeredRoles: resolveRoleSet(guestRoleSetKey).offeredRoles })}
       />

@@ -210,7 +210,8 @@ test('the empty pot has its own sentence, and the per-guest one survives', () =>
   );
   assert.match(
     src,
-    /That&rsquo;s all \{formatCount\(total\)\} photos, \{guestName\}!/,
+    // No first name — no casual greetings on a guest's screen (owner, DECISION_LOG 2026-09-30).
+    /That&rsquo;s all \{formatCount\(total\)\} photos!/,
     'the per-guest congratulation was lost; a celebration where the ceiling ' +
       'genuinely binds must behave byte-identically',
   );

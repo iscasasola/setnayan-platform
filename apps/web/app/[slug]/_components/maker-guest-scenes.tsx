@@ -89,7 +89,7 @@ export function MakerWelcomeLook() {
       <p className="pahina-eyebrow">
         <span>What to wear</span>
       </p>
-      <p className="font-pahina text-xl text-ink">Your guest&rsquo;s role, colours and outfit</p>
+      <p className="font-pahina text-xl text-ink">Your guest&rsquo;s role, colors and outfit</p>
       <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH} look, from your Mood Board</p>
     </section>
   );

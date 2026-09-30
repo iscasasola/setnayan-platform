@@ -179,7 +179,7 @@ export function DayOfFaceEnroll({
             ) : (
               <>
                 Take a quick selfie — or upload a photo — so {w.theOrganizer} and their
-                team can recognise you. Pictures reach you when someone scans your
+                team can recognize you. Pictures reach you when someone scans your
                 QR or tags you.
               </>
             )}

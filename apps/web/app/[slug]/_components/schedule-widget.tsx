@@ -9,7 +9,9 @@ import {
   formatViewerTimeRange,
   wallClockToInstant,
   type ScheduleBlockRow,
-  scheduleBlockLabelFor,
+  scheduleKickerFor,
+  viewerSharesEventClock,
+  isOnEventDay,
 } from '@/lib/schedule';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { pickTriggerNowNext, type RunOfShowBlock } from '@/lib/run-of-show';
@@ -196,12 +198,23 @@ export function ScheduleWidget({
   const showRunOfShow =
     eventId !== null && runOfShowBlocks.some((b) => b.run_state !== 'upcoming');
 
+  // 🕰 ONE CLOCK, SAID ONCE (guest text audit 2026-09-30). Times convert to
+  // the viewer's own clock only when it differs from the venue's, and then the
+  // list says so ONCE — never "YOUR TIME" under every row of a Manila wedding
+  // read in Manila. Only after mount (`now`), so SSR and hydration agree.
+  const inViewerClock = now !== null && !viewerSharesEventClock(eventTz, nowMs);
+  // "Up next" is a day-of word. Weeks before, the first moment is not "next".
+  // A started run of show (triggerPick) is the day by definition.
+  const firstStart = ordered[0]?.start_at ?? null;
+  const showUpNext =
+    triggerPick !== null || (now !== null && firstStart !== null && isOnEventDay(firstStart, eventTz, nowMs));
+
   return (
     <section className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <p className="pahina-eyebrow">
-            <span>The programme</span>
+            <span>The program</span>
           </p>
           <h2 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
             The run of show
@@ -214,6 +227,13 @@ export function ScheduleWidget({
                would contradict each other. */
             <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
               Estimated program · times may shift on the day
+            </p>
+          ) : null}
+          {inViewerClock ? (
+            /* Plain small text, not the protected 0.66rem eyebrow — it is a
+               note about the times, not a section name. */
+            <p className="text-xs text-ink/55" data-your-time="">
+              Times shown in your time
             </p>
           ) : null}
         </div>
@@ -247,7 +267,8 @@ export function ScheduleWidget({
       <ol className="border-t border-ink/12" data-hub-rows="">
         {(compact && !showAll ? ordered.slice(0, COMPACT_MOMENTS) : ordered).map((b, i) => {
           const isNow = i === currentIndex;
-          const isNext = i === upNextIndex;
+          const isNext = showUpNext && i === upNextIndex;
+          const kicker = scheduleKickerFor(b.block_type, b.label, eventType);
           return (
             <li
               key={b.block_id}
@@ -263,15 +284,10 @@ export function ScheduleWidget({
                   {(() => {
                     // Viewer-local only after mount (now != null) so SSR (server tz)
                     // and the first client render agree — no hydration flip.
-                    const viewer = now ? formatViewerTimeRange(b.start_at, b.end_at, eventTz) : null;
+                    const viewer = inViewerClock ? formatViewerTimeRange(b.start_at, b.end_at, eventTz) : null;
                     return viewer ?? formatBlockTimeRange(b.start_at, b.end_at);
                   })()}
                 </p>
-                {now ? (
-                  <p className="font-mono text-[0.6rem] uppercase tracking-[0.14em] text-ink/40">
-                    your time
-                  </p>
-                ) : null}
                 {isNow ? (
                   <span className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.18em] text-terracotta">
                     <span className="sn-live-dot inline-block h-1 w-1 rounded-full bg-terracotta" />
@@ -284,10 +300,12 @@ export function ScheduleWidget({
                 ) : null}
               </div>
               <div className="min-w-0">
-                <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/45">
-                  {scheduleBlockLabelFor(b.block_type, eventType)}
-                </p>
-                <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
+                {kicker ? (
+                  <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/45">
+                    {kicker}
+                  </p>
+                ) : null}
+                <p className={`${kicker ? 'mt-1 ' : ''}font-pahina text-xl font-light leading-snug text-ink`}>
                   {b.label}
                 </p>
                 {b.location ? (

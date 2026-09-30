@@ -410,7 +410,7 @@ async function PersonalPass({
     return (
       <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
-          title={`Welcome, ${firstName}`}
+          title="Your seat"
           body={`Your seat is being arranged. On the day, your exact table and a map to it will appear right here.`}
         />
       </SeatPassShell>

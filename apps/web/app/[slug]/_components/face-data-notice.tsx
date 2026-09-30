@@ -123,7 +123,7 @@ export async function FaceDataNotice({
           ) : (
             <>
               Your photo is on the guest list for this {w.eventWord}, so
-              {' '}{w.theOrganizerPossessive} team can recognise you. No facial
+              {' '}{w.theOrganizerPossessive} team can recognize you. No facial
               recognition runs here.
             </>
           )}

@@ -1,4 +1,5 @@
 import { loveStoryScenes } from '@/lib/love-story-moments';
+import { SITE_MENU_ANCHORS } from '../_lib/site-menu';
 
 /**
  * Our Love Story — the guest render of `events.love_story`.
@@ -43,7 +44,10 @@ export function OurLoveStoryWidget({
   // numbers" neither carries a chapter numeral anymore, so two "Our story"
   // headings never collide on a number; the label alone still reads correctly.
   return (
-    <section className="space-y-10" data-love-story-scenes={scenes.length}>
+    /* 📖 THIS IS THE STORY THE "Our Love Story" TAB LANDS ON (guest text audit
+       2026-09-30): with this scene on the page the prose `OurStory` is not drawn
+       (it told the story a second time), so the tab's anchor is here. */
+    <section id={SITE_MENU_ANCHORS.story} className="scroll-mt-6 space-y-10" data-love-story-scenes={scenes.length}>
       <div>
         <p className="pahina-eyebrow">
           <span>Our love story</span>

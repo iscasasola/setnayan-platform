@@ -3,7 +3,7 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ShieldCheck, UserCheck, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { inviteHost } from '../actions';
+import { inviteHost } from '@/app/dashboard/[eventId]/hosts/actions';
 
 const PLANNER_ROLE = 'wedding_planner_external';
 

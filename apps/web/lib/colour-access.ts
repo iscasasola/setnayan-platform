@@ -115,9 +115,10 @@ export const COLOUR_DOMAIN_BLURB: Readonly<Record<ColourDomain, string>> = {
  *
  * 🔑 `planner_coordinator` IS EMPTY HERE ON PURPOSE, and it is not an
  * oversight. A coordinator holds SEVERAL independent domains at once, which a
- * single per-booking switch cannot express — their grants live on
- * `/dashboard/[eventId]/hosts`, keyed to the person. The vendor card points
- * there instead of showing a switch that would mean the wrong thing.
+ * single per-booking switch cannot express — their grants are keyed to the
+ * person. Since the Hosts fold (2026-09-30) a planner booking's workspace draws
+ * the Promote-your-coordinator card instead of this switch, and the planner's
+ * domains live inside it (`CoordinatorColourDomains`).
  *
  * An empty array is an ANSWER everywhere else too: a caterer, a photographer
  * and a band do not adjust anybody's palette, and their card renders one

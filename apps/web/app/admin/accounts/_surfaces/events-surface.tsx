@@ -37,8 +37,9 @@ type EventRow = {
  * ⚠ These were "locked — cannot ever store face data" until 2026-08-05. The
  * owner (also the DPO) ruled that face tagging applies to every event type we
  * offer, so the switch now works here too — but the confirmation names the risk
- * and the guardian-consent workflow still does not exist. Mirrors
- * MINOR_HEAVY_EVENT_TYPES in lib/papic-face-mode.ts.
+ * and the guardian-consent workflow still does not exist. Used only for the
+ * admin confirmation copy — face tagging itself resolves on for every type
+ * (owner 2026-10-01, "ELEVEN OWNER ANSWERS" #8).
  */
 const MINOR_HEAVY = new Set(['christening', 'debut']);
 

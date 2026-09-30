@@ -75,6 +75,7 @@ import {
 } from '@/lib/hub-draft-store';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { postEventPreset } from '@/lib/post-event-presets';
 import {
   SECTION_CONTENT_EVENT_COLUMNS,
   computeSectionContentMap,
@@ -1008,6 +1009,13 @@ export async function addCustomSection(formData: FormData): Promise<void> {
 
   await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
 
+  /* 🎞 ONE OF POST EVENT'S TWELVE PRESETS (`lib/post-event-presets.ts`) — Pro,
+     but TRIED IN THE DRAFT, PAID AT APPLY (owner 2026-09-25, E3). It rides the
+     same door as every scene of their own (#6091, below): added hidden, shown
+     in the draft, held at Apply without Pro. It only brings its template, its
+     name and `canvas.postEventPreset`. */
+  const preset = postEventPreset(formData.get('post_event_preset'));
+
   /* ⛔ PRO, CHECKED HERE AND NOT ONLY IN THE EDITOR. Adding a section is
      arranging the page, not fixing a word we wrote (owner 2026-09-22). Admin
      client for the SKU read, as `website/colors/actions.ts` does: orders RLS is
@@ -1054,7 +1062,8 @@ export async function addCustomSection(formData: FormData): Promise<void> {
      with that template and its default effect. Adding is already Pro (above),
      so the default motion is written too. A POST with no template (an older
      form) still adds the plain section it always did. */
-  const template = sceneTemplateIdFromForm(formData.get('template'));
+  // A preset carries its own template — the form's is never trusted over it.
+  const template = preset ? preset.template : sceneTemplateIdFromForm(formData.get('template'));
 
   /* 💾 THE MAKER ADDS INTO THE DRAFT (DECISION_LOG 2026-09-27, "+ ADD A SCENE"
      WORKS IN THE EVENT HUB MAKER). The row is inserted HIDDEN
@@ -1066,11 +1075,13 @@ export async function addCustomSection(formData: FormData): Promise<void> {
     const drafted = await draftedDisplayOrders(eventId);
     const end = Math.max(bottom, ...Object.values(drafted)) + 1;
     // The draft holds the template as a Pro couple gets it (its motion too) —
-    // tried on the canvas, paid at Apply.
-    const canvas = template ? (sceneTemplateDefaults(template, true) as HubSectionCanvas) : null;
+    // tried on the canvas, paid at Apply. A preset names itself on the canvas
+    // (`postEventPreset` is not a look key: free, and never frames a scene).
+    const presetMark = preset ? { postEventPreset: preset.id } : {};
+    const canvas = template ? ({ ...sceneTemplateDefaults(template, true), ...presetMark } as HubSectionCanvas) : null;
     // 🔒 LIVE, a free couple's hidden row carries only the template pick (free),
     // never its motion: nothing Pro sits in a live row they have not paid for.
-    const liveCanvas = template ? (sceneTemplateDefaults(template, ownsPro) as HubSectionCanvas) : null;
+    const liveCanvas = template ? ({ ...sceneTemplateDefaults(template, ownsPro), ...presetMark } as HubSectionCanvas) : null;
     const { data: added, error: addErr } = await supabase
       .from('invitation_widgets')
       .insert({
@@ -1079,7 +1090,9 @@ export async function addCustomSection(formData: FormData): Promise<void> {
         display_order: end,
         ...ADDED_SCENE_LIVE,
         is_always_on: false,
-        ...(liveCanvas ? { config_json: { canvas: liveCanvas } } : {}),
+        /* A preset starts pre-titled with its own name; its words are the
+           couple's to write (an empty scene is never shown to a guest). */
+        ...(liveCanvas ? { config_json: { canvas: liveCanvas, ...(preset ? { title: preset.name } : {}) } } : {}),
       })
       .select('widget_id')
       .single();

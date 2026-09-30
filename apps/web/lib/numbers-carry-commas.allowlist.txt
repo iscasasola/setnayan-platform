@@ -22,6 +22,7 @@ app/_components/card-record-section.tsx :: row.pax :: TEXT — the ledger's coar
 app/dashboard/[eventId]/sponsors/page.tsx :: tier :: TEXT — a sponsor tier NAME ("Principal"), not a count
 app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx :: HUB_TRANSITION_HINT.auto :: TEXT — a hint sentence constant
 app/vendor-dashboard/clients/[eventId]/page.tsx :: r.amount :: TEXT — laterRows[].amount is pesoFromCentavos(...) output, already "₱12,500"
+app/[slug]/_components/editorial/post-event-scene-views.tsx :: count :: TEXT — the Timeline heading's count is COUNT_WORDS[n] ("Three") or fmt(n), a string already grouped where it is built
 
 # ── IDENTIFIER: digits that must be matched exactly ──
 app/admin/website-media/clear-folder-button.tsx :: count :: IDENTIFIER — "Type 1878 to confirm": the admin types these digits and they are compared with String(count), so a comma would make the delete impossible

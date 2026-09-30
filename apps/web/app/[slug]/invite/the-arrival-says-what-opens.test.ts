@@ -150,6 +150,9 @@ test('the Reply door asks this card NOT to offer the selfie', () => {
     /offerSelfie=\{false\}/,
     'the invite arrival is asking for a face again — owner: face tagging happens on the day, not on the invite',
   );
+  // 🏷 Owner 2026-09-30 ("go"): the QUESTION is asked there — never the camera.
+  // Rendered, and the crafted-post strip executed, in the-selfie-waits-for-a-yes.
+  assert.match(mount, /askTagging=\{faceTagging\.askable\}/, 'the invitation no longer asks the tagging question, or ignores the couple’s decline');
 });
 
 test('the Event Hub card keeps its selfie — the prop defaults ON, and no hub mount turns it off', () => {
@@ -368,7 +371,7 @@ test('a FAR-FUTURE event is not promised an invitation', () => {
     'a couple 200 days out is still told their invitation is ready, over a page that opens the save the date',
   );
   assert.doesNotMatch(farWords.blurb, /your QR/, 'the QR is promised in a phase where qr_card is gated out of the page');
-  assert.doesNotMatch(farWords.cta, /Open your invitation/, 'the button still says invitation');
+  assert.doesNotMatch(farWords.cta, /Open (your|the) invitation/, 'the button still says invitation');
   assert.match(farWords.cta, /save the date/i, 'the button does not name what it opens');
 
   // …and the near case: the shipped sentence, minus "your seat" (owner
@@ -381,12 +384,14 @@ test('a FAR-FUTURE event is not promised an invitation', () => {
     'Your invitation is ready — your QR and everything shared with guests are waiting on it.',
     'the invitation-phase sentence must not promise a seat before the day',
   );
-  assert.equal(nearWords.cta, 'Open your invitation');
+  // The Fable landing page's own words (frames 1 · 3): "Open the invitation".
+  assert.equal(nearWords.cta, 'Open the invitation');
 });
 
 test('the door ASKS the resolver — it does not restate the rule, and does not repoint the link', () => {
   assert.match(ENTER, /arrivalDestinationFor\(\{/, 'the Enter door no longer resolves the face it is opening');
-  assert.match(ENTER, /\{destinationWords\.blurb\}/, 'the blurb is hard-coded again');
+  // 2026-09-30: the Fable landing page carries no blurb under the button (frames 1 · 3 · 4 · 6).
+  assert.doesNotMatch(ENTER, /\{destinationWords\.blurb\}/, 'a blurb came back under the Fable button');
   assert.match(ENTER, /\{destinationWords\.cta\}/, 'the button label is hard-coded again');
   assert.doesNotMatch(
     flat(ENTER),

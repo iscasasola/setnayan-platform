@@ -8,7 +8,7 @@
  * Runs only in the browser, only against the canvas iframe the Maker already
  * owns. Nothing is fetched: the copy points at the URLs the canvas loaded.
  */
-import { findMakerSection } from '@/app/[slug]/_components/editor-bridge';
+import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import type { TileAncestor, TileAttr, TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 
 function attrsOf(el: Element): TileAttr[] {

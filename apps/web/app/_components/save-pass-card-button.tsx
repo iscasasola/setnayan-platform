@@ -30,7 +30,8 @@ export function SavePassCardButton({
   hrefs: readonly string[];
   label: string;
   className?: string;
-  variant?: 'button' | 'link';
+  /** `primary` — the one filled, full-width "Save my ticket" of the guest's landing page (Fable frames 3 · 5 · 6). */
+  variant?: 'button' | 'link' | 'primary';
 }) {
   const [state, setState] = useState<State>({ k: 'idle' });
   const busy = useRef(false);
@@ -61,11 +62,13 @@ export function SavePassCardButton({
   const text =
     state.k === 'working' ? 'Saving…' : state.k === 'ready' ? 'Tap to save' : state.k === 'saved' ? 'Saved' : label;
   const base =
-    variant === 'link'
+    variant === 'primary'
+      ? 'button-primary w-full justify-center gap-1.5'
+      : variant === 'link'
       ? 'inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-ink underline underline-offset-4'
       : 'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-sm font-medium text-ink transition hover:border-terracotta hover:text-terracotta-700';
   return (
-    <span className="inline-flex flex-col items-start">
+    <span className={variant === 'primary' ? 'flex w-full flex-col items-stretch' : 'inline-flex flex-col items-start'}>
       <button type="button" data-save-pass-card={hrefs.length} onClick={onClick} aria-busy={state.k === 'working' || undefined} className={`${base} ${className ?? ''}`}>
         {state.k === 'working' ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />

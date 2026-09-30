@@ -43,6 +43,7 @@ import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteReplyPath } from '@/lib/invite-arrival';
+import { LANDING_OPEN_PARAM, LANDING_OPEN_VALUE } from '@/lib/guest-landing';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
 import { cookies } from 'next/headers';
@@ -175,6 +176,9 @@ type Props = {
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
     save?: string;
     rsvp?: string;
+    // 🚪 `?from=landing` — "Open the invitation" on the guest's landing page,
+    // before a reply: past the reply gate (lib/guest-landing.ts). Inert elsewhere.
+    from?: string;
     // The one account press's outcome (`startAccountSaveAction`): `terms` when
     // it came back for the Terms tick. Nothing is emailed (owner 2026-09-29).
     keep?: string;
@@ -1300,6 +1304,10 @@ async function InvitationBody({
     doorwayFacts,
     proWatermarkHidden,
     isEditorCanvas,
+    // 💾 Post Event's drafted scenes (owner 2026-09-25 / 2026-09-29) — the
+    // host's draft only; `hostDraft` is null for every guest, so their story
+    // reads the live row.
+    editorialDraft: hostDraft?.editorial ?? null,
     // The click-to-edit bridge: the Maker's iframe only, never the preview tab.
     editorBridge: isEditorCanvas && asksForEditorBridge(search),
     // 🎨 …and never a theme TILE: it is drawn as the canvas, but its parent is
@@ -1522,7 +1530,12 @@ async function InvitationBody({
     askMobile: resolveRsvpAsk(event.rsvp_ask_config).mobile,
     locked: gateLocked,
   });
-  if (!isPlusOne && keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability) {
+  // 🚪 "Open the invitation" on the guest's landing page (owner 2026-09-30,
+  // prototype guest_landing_page frame 1) opens it BEFORE a reply — the landing
+  // page itself leads with "Reply to the invitation", so the answers are still
+  // asked first. Only that link carries the mark (`openBeforeReplyHref`).
+  const openedFromLanding = search[LANDING_OPEN_PARAM] === LANDING_OPEN_VALUE;
+  if (!isPlusOne && keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability && !openedFromLanding) {
     redirect(inviteReplyPath(event.slug ?? slug));
   }
 

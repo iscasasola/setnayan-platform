@@ -1,6 +1,7 @@
 import type { EventWords } from '../_lib/event-words';
 import { Camera, CircleSlash, Sparkles } from 'lucide-react';
 import { sceneCardClass } from '@/lib/scene-card-look';
+import { PhotoMomentsDownTheDay, PhotoMomentsYesAndNo } from './photo-moments-styles';
 
 /*
  * ✉️ 2026-08-24 (AP-3) — THE INVITATION STOPPED READING LIKE A RECEIPT.
@@ -68,6 +69,7 @@ export function PhotoMomentsWidget({
   words,
   hideWhenEmpty = false,
   bare = false,
+  sceneStyle = null,
 }: {
   config: unknown;
   words: EventWords;
@@ -82,8 +84,16 @@ export function PhotoMomentsWidget({
   /** A GUEST's view (owner 2026-09-26): an empty section is left out, not
    *  printed as "will share closer to the day". The Maker canvas keeps it. */
   hideWhenEmpty?: boolean;
+  /** 🎨 `cards` (this, the default) · `down-the-day` · `yes-and-no` — `photo-moments-styles.tsx`. */
+  sceneStyle?: string | null;
 }) {
   const { intro_copy, moments } = parsePhotoMomentsConfig(config);
+  if (moments.length > 0 && sceneStyle === 'down-the-day') {
+    return <PhotoMomentsDownTheDay intro={intro_copy} moments={moments} bare={bare} />;
+  }
+  if (moments.length > 0 && sceneStyle === 'yes-and-no') {
+    return <PhotoMomentsYesAndNo intro={intro_copy} moments={moments} bare={bare} />;
+  }
 
   // No host-curated moments yet — render polite brand-voice fallback
   // instead of the prior hardcoded sample list. Per the no-dev-text rule,

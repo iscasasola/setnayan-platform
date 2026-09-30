@@ -407,6 +407,10 @@ export type GuestRow = {
   guest_id: string;
   first_name: string;
   last_name: string;
+  /** The other formal name parts (`lib/formal-name.ts`) — the place card prints them. */
+  name_prefix?: string | null;
+  middle_name?: string | null;
+  name_suffix?: string | null;
   display_name: string | null;
   role: GuestRole;
   side: 'bride' | 'groom' | 'both';

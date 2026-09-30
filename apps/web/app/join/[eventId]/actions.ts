@@ -24,6 +24,7 @@ import {
   type RequestAnswers,
 } from '@/lib/guest-requests';
 import { isCoupleSeat } from '@/lib/seat-binding';
+import { forgetFindState } from '@/lib/find-me.server';
 
 // Sanity ceiling on requests per event. Nobody is admitted by a request any
 // more, but every request is still a row the couple has to read — this bounds
@@ -622,5 +623,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   if (!requestId) {
     return refuse('join_failed');
   }
+  // The generic QR's name step is finished with (lib/find-me.server.ts).
+  await forgetFindState();
   return requestSent(admin, eventId, token, requestId);
 }

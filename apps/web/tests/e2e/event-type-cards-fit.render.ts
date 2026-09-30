@@ -17,7 +17,11 @@ import type { EventTypeRow } from '../../app/dashboard/(account)/create-event/_c
 // Precedent: `app/pay/[reference]/_components/one-stage-at-a-time.test.ts`.
 (globalThis as { React?: typeof React }).React = React;
 
-const TYPES: EventTypeRow[] = [
+/** [key, label, tagline] — a TUPLE type, so each slot is a `string`, never
+ *  `string | undefined` (the repo compiles with `noUncheckedIndexedAccess`). */
+type Row = readonly [key: string, label: string, description: string];
+
+const ROWS: readonly Row[] = [
   ['wedding', 'Wedding', 'The day you say “I do.”'],
   ['gender_reveal', 'Gender Reveal', 'Pink or blue?'],
   ['birthday', 'Birthday', 'Another year, celebrated.'],
@@ -33,7 +37,9 @@ const TYPES: EventTypeRow[] = [
   ['reunion', 'Reunion', 'Old friends, one table.'],
   ['gala_night', 'Gala Night', 'An evening in black tie.'],
   ['simple_event', 'Simple Event', 'Anything else worth gathering for.'],
-].map(([key, label, description]) => ({
+];
+
+const TYPES: EventTypeRow[] = ROWS.map(([key, label, description]) => ({
   key,
   label,
   description,

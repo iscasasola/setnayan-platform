@@ -65,6 +65,9 @@ import {
 } from '@/lib/maker-details-items';
 import { LOVE_STORY_CHAPTERS, LOVE_STORY_CHAPTER_LABEL } from '@/lib/love-story-moments';
 import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
+import { StoryPanel } from '../../website/editor/_components/authoring-panels';
+import { updateOurStory } from '../../website/our-story/actions';
+import { InMakerLiveStoryPanel } from '../../website/our-story/_components/in-maker-return-to';
 
 // ⚡ Opened on a tap — the Look editors load with the Details pieces (`details-lazy.tsx`).
 import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-lazy';
@@ -72,7 +75,6 @@ import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details
    Maker (`details-lazy.tsx`; held by `details-pieces-are-lazy.test.ts`). */
 import {
   LoveStoryPieceFocus,
-  LiveStoryPanel,
   PabuyaMessageEditor,
   ParentCards,
   QrLookControls,
@@ -339,9 +341,18 @@ export function detailsFactEditors(input: {
     ...(input.loveStory
       ? {
           'love-story': (
-            /* ⚡ Every answer saves as it is typed and is on the scrapbook at
-               once (`love-story-live.tsx`) — no Save button, no render. */
-            <LiveStoryPanel eventId={eventId} story={input.loveStory.story} ownsPro={input.loveStory.ownsPro} />
+            /* ⚡ In the Maker every answer saves as it is typed and is on the
+               scrapbook at once (`love-story-live.tsx`, handed down by the
+               Maker) — no Save button, no render. Without the Maker around it
+               (the dev lab) the Story row's own form, as it was. */
+            <InMakerLiveStoryPanel panel={{ eventId, story: input.loveStory.story, ownsPro: input.loveStory.ownsPro }}>
+              <StoryPanel
+                action={updateOurStory.bind(null, eventId)}
+                eventId={eventId}
+                story={input.loveStory.story}
+                ownsPro={input.loveStory.ownsPro}
+              />
+            </InMakerLiveStoryPanel>
           ),
         }
       : {}),

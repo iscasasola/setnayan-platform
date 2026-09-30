@@ -87,12 +87,15 @@ export type MakerState = {
    */
   factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
   /**
-   * ⚡ The instant scrapbook (`love-story-live.tsx`, loaded with Details). Handed
-   * down HERE rather than imported by the Love Story page, so the standalone
-   * Love Story page never reaches Details' lazy chunk (a route that can load it
-   * adds its dependencies to the webpack runtime every page downloads).
+   * ⚡ The instant scrapbook (`love-story-live.tsx`, its own lazy chunk — see
+   * `maker-shell.tsx`). Handed down HERE rather than imported by the Love Story
+   * page or Details, so the only route that can load it is the Maker's (a route
+   * that can load a chunk adds what it lacks to the webpack runtime every page
+   * downloads).
    */
   liveLoveStoryBook?: ComponentType<Record<string, unknown>>;
+  /** ⚡ …and its words panel (Details' Love Story editor, and a stage's tapped story). */
+  liveStoryPanel?: ComponentType<Record<string, unknown>>;
 };
 
 /**

@@ -205,17 +205,22 @@ test('D · every Love Story save is held, batched and asks for the Apply count �
   // A refusal goes back to what the draft holds — on the page AND the canvas — and says so.
   assert.match(live, /did not save, so it is back as it was/);
   assert.match(live, /noteDraftedCanvas\(LOVE_STORY_DRAFT_TYPE, back as HubSectionCanvas[\s\S]*postPreview\(back\)/);
-  // The Maker draws the live pieces — lazily, never in its first load.
-  const lazy = readFileSync(join(ROOT, 'app/dashboard/[eventId]/launch/_components/details-lazy.tsx'), 'utf8');
-  assert.match(lazy, /LiveLoveStoryBook = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\.\/\.\.\/website\/our-story\/_components\/love-story-live'\)/);
-  // The Love Story PAGE never imports it — the Maker hands it down (a route that
-  // can load Details' chunk grows the runtime every page downloads).
-  const page = read(`${OS}/page.tsx`);
-  assert.doesNotMatch(page, /details-lazy|love-story-live/, 'the standalone Love Story page reaches Details’ lazy chunk');
-  assert.match(page, /<InMakerLiveBook book=\{\{ \.\.\.bookProps, story \}\}>/);
-  assert.match(read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), /liveLoveStoryBook: LiveLoveStoryBook as ComponentType/);
-  assert.match(lazy, /LiveStoryPanel = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\//);
-  assert.match(read('app/dashboard/[eventId]/launch/_components/maker-details.tsx'), /<LiveStoryPanel eventId=\{eventId\}/);
+  // The Maker draws the live pieces — lazily, from a chunk ONLY the Maker can
+  // load (`maker-shell.tsx` is the launch page's alone), handed down by context.
+  const shell = readFileSync(join(ROOT, 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), 'utf8');
+  assert.match(shell, /const LiveLoveStoryBook = dynamic\(\(\) =>\s*import\(\/\* webpackChunkName: "maker-love-story" \*\/ '\.\.\/\.\.\/website\/our-story\/_components\/love-story-live'\)/);
+  assert.match(shell, /const LiveStoryPanel = dynamic\(\(\) =>\s*import\(\/\* webpackChunkName: "maker-love-story" \*\//);
+  assert.match(shell, /liveLoveStoryBook: LiveLoveStoryBook as ComponentType[\s\S]{0,80}liveStoryPanel: LiveStoryPanel as ComponentType/);
+  for (const f of [
+    `${OS}/page.tsx`,
+    'app/dashboard/[eventId]/launch/_components/maker-details.tsx',
+    'app/dashboard/[eventId]/launch/_components/details-lazy.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx',
+  ]) {
+    assert.doesNotMatch(read(f), /love-story-live/, `${f} reaches the instant Love Story's chunk — only the Maker's shell may`);
+  }
+  assert.match(read(`${OS}/page.tsx`), /<InMakerLiveBook book=\{\{ \.\.\.bookProps, story \}\}>/);
+  assert.match(read('app/dashboard/[eventId]/launch/_components/maker-details.tsx'), /<InMakerLiveStoryPanel panel=\{\{ eventId, story: input\.loveStory\.story, ownsPro: input\.loveStory\.ownsPro \}\}>/);
 });
 
 /* ── E · the Programme: quiet, batched ─────────────────────────────────────── */

@@ -33,7 +33,26 @@ import { MakerTour } from './maker-tour';
 import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
-import { LiveLoveStoryBook, prefetchDetailsWhenIdle } from './details-lazy';
+import { prefetchDetailsWhenIdle } from './details-lazy';
+import dynamic from 'next/dynamic';
+
+/**
+ * ⚡ THE INSTANT LOVE STORY (`love-story-live.tsx`) — its scrapbook and its
+ * words, loaded the first time Love Story is opened, in a chunk of its own
+ * (`maker-love-story`) imported from HERE ONLY. This file is the launch page's
+ * alone, so the chunk has one parent — and everything it builds on (the moment
+ * sheet, the chapter list, the Maker's save queue) is already on that page.
+ * Imported from anywhere else (Details' stand-ins are also the editor's and the
+ * dev lab's), it would need those pieces listed in the webpack runtime every
+ * page downloads — measured: +139 bytes over a shared bundle with none spare.
+ * The Love Story page and Details' editor reach them through the context.
+ */
+const LiveLoveStoryBook = dynamic(() =>
+  import(/* webpackChunkName: "maker-love-story" */ '../../website/our-story/_components/love-story-live').then((m) => m.LiveLoveStoryBook),
+);
+const LiveStoryPanel = dynamic(() =>
+  import(/* webpackChunkName: "maker-love-story" */ '../../website/our-story/_components/love-story-live').then((m) => m.LiveStoryPanel),
+);
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { makerAddShowsOn } from '@/lib/maker-selection';
@@ -331,6 +350,7 @@ export function MakerShell({
       setLookPages,
       factEditors,
       liveLoveStoryBook: LiveLoveStoryBook as ComponentType<Record<string, unknown>>,
+      liveStoryPanel: LiveStoryPanel as ComponentType<Record<string, unknown>>,
     }),
     [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, lookPages, factEditors],
   );

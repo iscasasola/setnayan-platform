@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3f2350eef",
+  "generatedFromRef": "c63f727a7",
   "routeCount": 439,
   "destinations": 947,
   "actions": 674,
-  "blocks": 5300,
+  "blocks": 5299,
   "routes": {
     "/": {
       "files": [
@@ -6441,6 +6441,7 @@
         "Icon",
         "IconBtn",
         "Image",
+        "InMakerLiveStoryPanel",
         "InfoTip",
         "ItemPieces",
         "K",
@@ -6451,7 +6452,6 @@
         "LifecyclePhase",
         "Link",
         "LiveReplyByField",
-        "LiveStoryPanel",
         "Load",
         "LogoLayer",
         "LookFrame",
@@ -6551,6 +6551,7 @@
         "SpecialMessageField",
         "State",
         "StoredQrStyle",
+        "StoryPanel",
         "Suspense",
         "Switch",
         "SwitchRow",
@@ -9359,8 +9360,6 @@
     "/dev/details-lab": {
       "files": [
         "dev/details-lab/look-lab.tsx",
-        "dev/details-lab/love-story-fixture.ts",
-        "dev/details-lab/love-story-lab.tsx",
         "dev/details-lab/page.tsx"
       ],
       "destinations": [],
@@ -9368,9 +9367,7 @@
       "blocks": [
         "DetailsItemKey",
         "DetailsPieceButton",
-        "LiveLoveStoryBook",
         "LookLab",
-        "LoveStoryLab",
         "MakerContext.Provider",
         "MakerDetails",
         "MakerLookPages",

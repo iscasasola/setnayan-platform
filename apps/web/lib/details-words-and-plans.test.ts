@@ -131,10 +131,11 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   assert.match(launch, /<MakerRsvpCanvas questionsSrc=\{rsvpSrc\} repliedSrc=\{rsvpRepliedSrc\}/);
   assert.match(launch, /settings: \(\s*<MakerRsvpSettings\b/);
   const details = read(`${L}/maker-details.tsx`);
-  // Love Story's words are the Story row's own chapters panel, saving as they
-  // are typed (2026-09-30, "so hard to edit … the delay of response is
-  // terrible"): `LiveStoryPanel` draws the SHIPPED `LoveStoryChaptersPanel`.
-  assert.match(details, /'love-story': \(\s*<LiveStoryPanel\s+eventId=\{eventId\}/);
+  // Love Story's words: in the Maker the instant panel (2026-09-30, "so hard to
+  // edit … the delay of response is terrible"), handed down by the Maker and
+  // drawing the SHIPPED `LoveStoryChaptersPanel`; without the Maker, the Story
+  // row's own panel (`StoryPanel`, `updateOurStory`).
+  assert.match(details, /'love-story': \(\s*<InMakerLiveStoryPanel panel=\{[^}]*\}\}>\s*<StoryPanel\s+action=\{updateOurStory\.bind\(null, eventId\)\}/);
   const live = read('app/dashboard/[eventId]/website/our-story/_components/love-story-live.tsx');
   assert.match(live, /<LoveStoryChaptersPanel story=\{story as LoveStoryBlob\} ownsPro=\{ownsPro\} \/>/);
   // 🧩 Three parts, never a whole page dropped in (DECISION_LOG "A TOOL MOVED

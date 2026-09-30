@@ -5,7 +5,6 @@ import { HubDraftField } from '../../website/_components/hub-draft-field';
 import { useMaker } from './maker-context';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../website/hub-draft-actions';
-import { markMakerCanvasStale } from '@/lib/maker-live-preview';
 import { useSceneWordsBox } from '../../website/editor/_components/canvas-words';
 import { useDetailsFactScene } from './details-tap';
 
@@ -93,8 +92,10 @@ export function SpecialMessageField({
       if (res.ok) {
         saved.current = text;
         setState('saved');
-        /* Every OTHER scene that shows the message loads again, behind the page shown. */
-        markMakerCanvasStale();
+        /* Every OTHER scene that shows the message loads again, behind the page
+           shown — `MAKER_CANVAS_STALE_EVENT` (lib/maker-live-preview.ts), spelled
+           here so Details' lazy chunk does not need that module's chunk. */
+        window.dispatchEvent(new Event('setnayan:maker-canvas-stale'));
         return;
       }
       /* Only what did not save goes back — in the box, on the scene, on the card. */

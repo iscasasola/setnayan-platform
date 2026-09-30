@@ -6,7 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { updateOurStory, loveStoryMomentAction } from './actions';
 import { StoryFields, type LoveStoryBlob } from './_components/story-fields';
-import { LoveStoryBook } from './_components/love-story-book';
+import { LoveStoryBook, type LoveStoryBookProps } from './_components/love-story-book';
 import { InMakerLiveBook } from './_components/in-maker-return-to';
 import { HubDraftField } from '../_components/hub-draft-field';
 import { PickFromOurEvents, type OtherEvent } from './_components/pick-from-our-events';
@@ -208,7 +208,7 @@ export default async function OurStoryEditorPage({
   /* The scrapbook's props — the server-drawn book's and, in the Maker, the
      instant one's (`InMakerLiveBook`, which also takes the story itself). */
   const since = years.length ? Math.min(...years) : null;
-  const bookProps = {
+  const bookProps: Omit<LoveStoryBookProps, 'moments' | 'since'> = {
     inMaker,
     eventId,
     names: event.display_name ?? '',

@@ -5,6 +5,8 @@ import type { GuestAccountState } from '@/lib/guest-one-path';
 import type { PlusOneAnswers, PlusOneRow } from '@/lib/plus-one-welcome';
 import { SaveToAccount } from '../../_components/save-to-account';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
+import { composeFormalName, type FormalNameField } from '@/lib/formal-name';
+import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
 
 /**
  * 👋 THE PLUS-ONE'S OWN DOOR — its body (the page, `../page.tsx`, reads the
@@ -63,44 +65,16 @@ export function PlusOneDoor({
   confirmAction: (formData: FormData) => Promise<void>;
   abandonAction: (formData: FormData) => Promise<void>;
 }) {
-  const wholeName = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim();
+  const wholeName = composeFormalName(row) ?? '';
   const meal = (row.meal_preference ?? '') as MealPreference | '';
   const missingCount = [missing.name, missing.meal, missing.dietary].filter(Boolean).length;
   const anyFilled = filled.name || filled.meal || filled.dietary;
 
-  const nameBoxes = (defaults: { first: string; last: string }, required: boolean) => (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-ink" htmlFor="first_name">
-          First name
-        </label>
-        <input
-          id="first_name"
-          name="first_name"
-          autoComplete="given-name"
-          required={required}
-          maxLength={80}
-          defaultValue={defaults.first}
-          className="input-field"
-          placeholder="Andres"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-ink" htmlFor="last_name">
-          Last name
-        </label>
-        <input
-          id="last_name"
-          name="last_name"
-          autoComplete="family-name"
-          required={required}
-          maxLength={80}
-          defaultValue={defaults.last}
-          className="input-field"
-          placeholder="Tan"
-        />
-      </div>
-    </div>
+  // The FIVE name parts every name box uses (owner 2026-09-30: *"The name will
+  // be same: Prefix · First · Middle · Last · Suffix, to stay consistent"*) —
+  // the shared boxes, never a first/last pair of this door's own.
+  const nameBoxes = (defaults: Partial<Record<FormalNameField, string | null>>, required: boolean) => (
+    <FormalNameInputs defaults={defaults} required={required} forSelf />
   );
   const mealBox = (defaultValue: string, required: boolean) => (
     <div className="space-y-1.5">
@@ -171,7 +145,18 @@ export function PlusOneDoor({
               Something wrong? Change it
             </summary>
             <div className="mt-2 space-y-4">
-              {filled.name ? nameBoxes({ first: row.first_name ?? '', last: row.last_name ?? '' }, false) : null}
+              {filled.name
+                ? nameBoxes(
+                    {
+                      name_prefix: row.name_prefix ?? null,
+                      first_name: row.first_name,
+                      middle_name: row.middle_name ?? null,
+                      last_name: row.last_name,
+                      name_suffix: row.name_suffix ?? null,
+                    },
+                    false,
+                  )
+                : null}
               {filled.meal ? mealBox(meal, false) : null}
               {filled.dietary ? dietaryBox(String(row.dietary_restrictions ?? '')) : null}
             </div>
@@ -182,7 +167,7 @@ export function PlusOneDoor({
       {missingCount > 0 ? (
         <section className="space-y-4" data-plus-one-missing>
           <p className="text-sm font-medium text-ink">{missingCount === 1 ? 'One more thing' : 'A few things'}</p>
-          {missing.name ? nameBoxes({ first: '', last: '' }, true) : null}
+          {missing.name ? nameBoxes({}, true) : null}
           {missing.meal ? mealBox('', true) : null}
           {missing.dietary ? dietaryBox('') : null}
           {missing.name ? (

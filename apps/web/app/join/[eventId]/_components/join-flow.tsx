@@ -7,6 +7,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction, selfJoinAction } from '../actions';
 import { JoinShell, type JoinShellEvent } from './join-shell';
 import { RequestForm } from './request-form';
+import { formalNameFromLine, isFormalNameEmpty, type FormalName } from '@/lib/formal-name';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
@@ -214,7 +215,7 @@ export async function JoinFlow({
   // Google / Apple handed over.
   const { data: profile } = await admin
     .from('users')
-    .select('display_name')
+    .select('display_name, name_prefix, first_name, middle_name, last_name, name_suffix')
     .eq('user_id', user.id)
     .maybeSingle();
   const metaFirst = (user.user_metadata?.first_name as string | undefined) ?? '';
@@ -226,6 +227,18 @@ export async function JoinFlow({
     [metaFirst, metaLast].filter(Boolean).join(' ') ||
     ''
   ).trim();
+  // The five boxes open on the account's own formal name (profile → Full name),
+  // else the one name above split by the shared parser — never retyped.
+  const defaultParts: FormalName =
+    profile && !isFormalNameEmpty(profile)
+      ? {
+          name_prefix: profile.name_prefix ?? null,
+          first_name: profile.first_name ?? null,
+          middle_name: profile.middle_name ?? null,
+          last_name: profile.last_name ?? null,
+          name_suffix: profile.name_suffix ?? null,
+        }
+      : formalNameFromLine(defaultName);
 
   if (seeded) {
     return (
@@ -253,7 +266,7 @@ export async function JoinFlow({
         action={action}
         ask={ask}
         organizer={w.theOrganizer}
-        defaultName={defaultName}
+        defaultParts={defaultParts}
         accountEmail={accountEmail}
       />
     </JoinShell>

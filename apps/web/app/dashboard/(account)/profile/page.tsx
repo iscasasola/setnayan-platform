@@ -329,6 +329,28 @@ export default async function ProfilePage({ searchParams }: Props) {
     faceProfileOptedIn = Boolean(faceProfile);
   }
 
+  // 🙂 "EVENTS THAT CAN REUSE YOUR FACE" (owner 2026-09-30, design screen 5):
+  // one row per event whose seat this account holds, OFF unless the owner
+  // turned it on. Read only when the account has a face profile — without one
+  // there is nothing to reuse and no list is drawn.
+  let faceReuseEvents: { eventId: string; name: string; on: boolean }[] = [];
+  if (faceProfileFlagOn && faceProfileOptedIn) {
+    const [{ data: seats, error: seatsErr }, { data: reuseRow, error: reuseErr }] = await Promise.all([
+      supabase.from('event_members').select('event_id, events(display_name)').eq('user_id', user.id).not('guest_id', 'is', null),
+      supabase.from('user_face_profiles').select('reuse_event_ids').eq('user_id', user.id).maybeSingle(),
+    ]);
+    if (seatsErr) logQueryError('AccountProfilePage.faceReuseSeats', seatsErr, {}, 'graceful_degrade');
+    if (reuseErr) logQueryError('AccountProfilePage.faceReuse', reuseErr, {}, 'graceful_degrade');
+    const on = new Set(((reuseRow as { reuse_event_ids?: string[] | null } | null)?.reuse_event_ids ?? []) as string[]);
+    const seen = new Set<string>();
+    for (const r of (seats ?? []) as unknown as Array<{ event_id: string; events: { display_name: string | null } | null }>) {
+      if (!r.event_id || seen.has(r.event_id)) continue;
+      seen.add(r.event_id);
+      faceReuseEvents.push({ eventId: r.event_id, name: r.events?.display_name?.trim() || 'An event', on: on.has(r.event_id) });
+    }
+    faceReuseEvents = faceReuseEvents.slice(0, 50);
+  }
+
   // If the user has exactly one active event, "Back" lands on that event's
   // home rather than the event-picker. Two+ events fall through to /dashboard.
   const events = await fetchUserEvents(supabase, user.id, 'couple');
@@ -1039,6 +1061,31 @@ export default async function ProfilePage({ searchParams }: Props) {
             >
               <input type="hidden" name="enabled" value={faceProfileOptedIn ? 'false' : 'true'} />
             </SwitchRow>
+
+            {faceReuseEvents.length > 0 ? (
+              <div data-face-reuse-events className="space-y-1">
+                <p className="text-sm font-medium text-ink">Events that can reuse your face</p>
+                <p className="text-xs text-ink/60">
+                  Each event is separate. Allowing one never allows another. Turning one off
+                  doesn&rsquo;t change whether you&rsquo;re tagged there — only that you take a
+                  quick selfie on the day instead.
+                </p>
+                <div className="divide-y divide-ink/10">
+                  {faceReuseEvents.map((ev) => (
+                    <SwitchRow
+                      key={ev.eventId}
+                      action={setAccountFaceProfileConsent}
+                      on={ev.on}
+                      id={`face-reuse-${ev.eventId}`}
+                      label={ev.name}
+                    >
+                      <input type="hidden" name="reuse_event_id" value={ev.eventId} />
+                      <input type="hidden" name="reuse" value={ev.on ? 'false' : 'true'} />
+                    </SwitchRow>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {/* Account-level erasure (guardrail #3) — one action wipes the
                 account profile and, optionally, the per-event enrollments too. */}

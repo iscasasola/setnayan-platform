@@ -111,6 +111,7 @@ import { fallbackSeedFromPublicId } from '@/lib/wax-seal/types';
 import { LiveWallBlock } from './live-wall-block';
 import { SongRequestCard } from './song-request-card';
 import { songRequestCardShows, type SongRequestDoor } from '@/lib/guest-song-request-rule';
+import { SELFIE_LIFETIME_LINE, SIGN_OUT_ERASES_SELFIE } from '@/lib/face-selfie-lifetime';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
 import { YourSeatBlock } from './your-seat-block';
 import { SeatDoorLine } from './seat-door-line';
@@ -2289,6 +2290,7 @@ export async function SiteBody({
                   eventWord={clientWords.eventWord}
                   timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                   sceneStyle={fixedStyle('photos_of_you')}
+                  selfieLine={guest.photo_source === 'selfie' ? SELFIE_LIFETIME_LINE : null}
                 />
               ) : null}
 
@@ -2665,6 +2667,11 @@ export async function SiteBody({
           {/* Footer with sign-out */}
           <section className="border-t border-ink/10 pt-6 text-center text-xs text-ink/50">
             <form action={`/${event.slug}/sign-out`} method="post">
+              {/* 🧽 Said BEFORE the tap (owner 2026-09-30): the sign-out route
+                  erases the face-tagging selfie; tags stay. */}
+              {guest.photo_source === 'selfie' ? (
+                <p data-sign-out-erases-selfie="" className="mb-2">{SIGN_OUT_ERASES_SELFIE}</p>
+              ) : null}
               <button type="submit" className="underline-offset-4 hover:underline">
                 Sign out of this invitation
               </button>
@@ -2711,10 +2718,13 @@ export async function SiteBody({
                 eventId={event.event_id}
                 eventPublicId={event.public_id}
                 faceMode={faceMode}
-                /* The tag question (and the selfie only after its Yes) is put to
-                   no guest when the couple declined face tagging (owner
-                   2026-09-29 — lib/face-tagging-wish.ts). */
-                offerSelfie={faceTaggingAskable}
+                /* 🏷 THE QUESTION ONLY — never the camera (owner 2026-09-30,
+                   "THE TAGGING QUESTION IS ASKED AT RSVP; THE SELFIE IS TAKEN
+                   ON THE DAY"). This card used to draw the selfie and enrol a
+                   face weeks early; the day-of catch takes it now. Asked only
+                   where Papic is active and open and face tagging runs
+                   (`resolveFaceTagging`, lib/face-tagging-gate.ts). */
+                askTagging={faceTaggingAskable}
                 flash={rsvpFlash}
                 replyLocked={plan.guestListClosed}
                 profileDetails={profileDetails}

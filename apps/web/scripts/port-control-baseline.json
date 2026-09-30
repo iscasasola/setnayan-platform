@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1579ea81d",
+  "generatedFromRef": "7b186b059",
   "routeCount": 439,
-  "destinations": 948,
+  "destinations": 949,
   "actions": 673,
-  "blocks": 5291,
+  "blocks": 5299,
   "routes": {
     "/": {
       "files": [
@@ -790,6 +790,7 @@
         "[slug]/_components/everything-else-sheet.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/face-receipt-card.tsx",
+        "[slug]/_components/face-tagging-row.tsx",
         "[slug]/_components/get-inside.tsx",
         "[slug]/_components/guest-account-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
@@ -996,9 +997,9 @@
       "actions": [
         "action",
         "arrivalAction",
-        "submit",
         "toggle",
         "toggleBlur",
+        "turnOff",
         "withdraw"
       ],
       "blocks": [
@@ -1047,6 +1048,7 @@
         "DayEntry",
         "DayOfAnnouncement",
         "DayOfBanner",
+        "DayOfFaceEnroll",
         "Detail",
         "DetailsBigDate",
         "DetailsCard",
@@ -1075,8 +1077,8 @@
         "EventWordsProvider",
         "EverythingElseSheet",
         "FaceDataNotice",
-        "FaceGateResult",
         "FaceReceiptCard",
+        "FaceTaggingRow",
         "FacebookWatchCard",
         "Field",
         "FilmMonogram",
@@ -1179,6 +1181,7 @@
         "ModeIcon",
         "MomentsEssay",
         "Monogram",
+        "NameStyle",
         "NavLinksRow",
         "NotYouSwitch",
         "OneLinePairs",
@@ -1202,7 +1205,6 @@
         "PapicGuestCapture",
         "PartHead",
         "PeWaiting",
-        "Phase",
         "PhaseRibbon",
         "Photo",
         "PhotoGallery",
@@ -4865,6 +4867,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PrefixSelect",
         "ProfileShareButton",
         "PushToggle",
         "Row",
@@ -5746,6 +5749,7 @@
         "dashboard/[eventId]/guests/_components/entourage-lazy.tsx",
         "dashboard/[eventId]/guests/_components/entourage-order-panel.tsx",
         "dashboard/[eventId]/guests/_components/filter-popover.tsx",
+        "dashboard/[eventId]/guests/_components/finalize-guest-list-control.tsx",
         "dashboard/[eventId]/guests/_components/find-add-row.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
         "dashboard/[eventId]/guests/_components/guest-access-control.tsx",
@@ -5782,6 +5786,7 @@
         "dashboard/[eventId]/guests/_components/view-switcher.tsx",
         "dashboard/[eventId]/guests/_components/walking-order-lines.tsx",
         "dashboard/[eventId]/guests/entourage-order-actions.ts",
+        "dashboard/[eventId]/guests/finalize-actions.ts",
         "dashboard/[eventId]/guests/groups-actions.ts",
         "dashboard/[eventId]/guests/inline-actions.ts",
         "dashboard/[eventId]/guests/loading.tsx",
@@ -5807,7 +5812,8 @@
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/launch?tool=details&item=qr",
         "/dashboard/[seg]/seating",
-        "/dashboard/[seg]/story"
+        "/dashboard/[seg]/story",
+        "/dashboard/profile"
       ],
       "actions": [
         "action",
@@ -5848,6 +5854,7 @@
         "Field",
         "File",
         "FilterPopover",
+        "FinalizeGuestListControl",
         "FindAddRow",
         "FormData",
         "Fragment",
@@ -5861,6 +5868,7 @@
         "GuestCardData",
         "GuestInviteCell",
         "GuestListFinalizedContext.Provider",
+        "GuestListHasSidesContext.Provider",
         "GuestListMultiselect",
         "GuestMindMap",
         "GuestQrCard",
@@ -5927,6 +5935,7 @@
         "PlusOneOverNote",
         "PlusOneSeatsSummary",
         "Popover",
+        "PrefixSelect",
         "QrActions",
         "QuickAddInlineForm",
         "QuickAddResult",
@@ -6491,6 +6500,8 @@
         "MoodBoardMakerControls",
         "MoodBoardPieces",
         "MoreSheet",
+        "NameStyle",
+        "NameStylePicker",
         "NamesEditor",
         "OneNameEditor",
         "OpeningLineField",
@@ -10525,6 +10536,7 @@
         "AccountNameField",
         "FileUpload",
         "Link",
+        "PrefixSelect",
         "SubmitButton"
       ]
     },

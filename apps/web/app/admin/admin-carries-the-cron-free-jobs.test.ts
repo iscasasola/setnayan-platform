@@ -62,6 +62,10 @@ const JOBS = [
   // stops riding on admin traffic, the NPC pack goes back to declaring a
   // deletion period that nothing enforces — which is the defect they closed.
   { fn: 'maybeRunFaceDataRetention', what: 'face data deleted 3 months after the event ends' },
+  // 🧽 Owner 2026-09-30: the face-tagging selfie ends when the event's Papic
+  // closes (12 h after the event). Also carried by the public home page.
+  { fn: 'maybeRunPapicCloseSelfieErase', what: "a guest's face-tagging selfie erased when the event's Papic closes" },
+  { fn: 'maybeRunFaceRescan', what: 'the one face rescan after an event ends, before Papic closes' },
   {
     fn: 'maybeRunVendorIdentityRetention',
     what: "a supplier's raw identity uploads deleted 90 days after the decision",

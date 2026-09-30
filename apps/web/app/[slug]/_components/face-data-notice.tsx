@@ -2,7 +2,7 @@ import { eventWordsForEvent } from '../_lib/event-words';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withdrawFaceConsent, setGuestFaceBlock } from '../actions';
-import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { FaceReceiptCard } from './face-receipt-card';
 
 /**
@@ -99,7 +99,7 @@ export async function FaceDataNotice({
     // The EFFECTIVE mode, resolved server-side and fail-closed to mode_b — the
     // same resolver the enrollment write uses, so the receipt cannot describe a
     // measurement this event never takes.
-    resolvePapicFaceMode(createAdminClient(), eventId),
+    resolveFaceTagging(createAdminClient(), eventId).then((t) => t.mode),
   ]);
   const withdraw = withdrawFaceConsent.bind(null, eventId, guestId);
   const toggleBlur = setGuestFaceBlock.bind(null, eventId, guestId, faceBlockTarget(faceblockEnabled));

@@ -95,13 +95,19 @@ export async function accountSeedsForEvent(
     const userIds = Array.from(guestByUser.keys());
     if (userIds.length === 0) return [];
 
+    // 🔒 PER EVENT, OFF UNTIL TURNED ON (owner 2026-09-30, "Reuse the face on
+    // my account for this event"). An account-wide opt-in is NOT a yes for
+    // this event: only a profile whose owner listed THIS event in
+    // `reuse_event_ids` seeds the matcher here. "Allowing one event never
+    // allows another."
     const { data: profiles, error: profErr } = await admin
       .from('user_face_profiles')
       .select('user_id, face_vector, vectors')
       .in('user_id', userIds)
       .is('revoked_at', null)
       .not('consent_granted_at', 'is', null)
-      .not('face_vector', 'is', null);
+      .not('face_vector', 'is', null)
+      .contains('reuse_event_ids', [eventId]);
     if (profErr) console.error('[supabase-error] lib/account-face-profile.ts · from:user_face_profiles.select', profErr);
     if (profErr || !profiles || profiles.length === 0) return [];
 
@@ -204,5 +210,106 @@ export async function refineAccountProfileFromConfirmedTag(
     return { refined: !error };
   } catch {
     return { refined: false };
+  }
+}
+
+/**
+ * THE PER-EVENT REUSE SWITCH — "Reuse the face on my account for this event"
+ * (owner 2026-09-30; the design `event_sharing_consent_2026-09-30_fable.html`
+ * screens 3a/4/5). OFF by default: an event is reused only once its id sits in
+ * the owner's own `user_face_profiles.reuse_event_ids`.
+ *
+ * `hasFace` — the account holds a consented, live face to reuse at all; the
+ * switch is not drawn without one ("there is no face to reuse yet").
+ * Flag-gated like everything in this module: OFF → nothing is read.
+ */
+export async function accountFaceReuse(
+  client: Pick<SupabaseClient, 'from'>,
+  userId: string,
+  eventId: string,
+): Promise<{ hasFace: boolean; reusing: boolean }> {
+  const none = { hasFace: false, reusing: false };
+  if (!accountFaceProfileEnabled() || !userId || !eventId) return none;
+  try {
+    const { data, error } = await client
+      .from('user_face_profiles')
+      .select('face_vector, reuse_event_ids')
+      .eq('user_id', userId)
+      .is('revoked_at', null)
+      .not('consent_granted_at', 'is', null)
+      .maybeSingle();
+    if (error) console.error('[supabase-error] lib/account-face-profile.ts · from:user_face_profiles.select(reuse)', error);
+    if (error || !data) return none;
+    const row = data as { face_vector: unknown; reuse_event_ids: string[] | null };
+    const hasFace = Array.isArray(row.face_vector) && row.face_vector.length > 0;
+    return { hasFace, reusing: hasFace && (row.reuse_event_ids ?? []).includes(eventId) };
+  } catch {
+    return none;
+  }
+}
+
+/**
+ * Turn the reuse for ONE event on or off, on the owner's OWN row. `client`
+ * is the caller's own (RLS: auth.uid() = user_id), so it can never touch
+ * anyone else's face. Returns false when there is no live profile to change.
+ */
+export async function setAccountFaceReuse(
+  client: Pick<SupabaseClient, 'from'>,
+  userId: string,
+  eventId: string,
+  on: boolean,
+): Promise<boolean> {
+  if (!accountFaceProfileEnabled() || !userId || !eventId) return false;
+  try {
+    const { data, error } = await client
+      .from('user_face_profiles')
+      .select('id, reuse_event_ids')
+      .eq('user_id', userId)
+      .is('revoked_at', null)
+      .maybeSingle();
+    if (error) console.error('[supabase-error] lib/account-face-profile.ts · from:user_face_profiles.select(reuse-set)', error);
+    if (error || !data) return false;
+    const row = data as { id: number; reuse_event_ids: string[] | null };
+    const next = new Set(row.reuse_event_ids ?? []);
+    if (on) next.add(eventId);
+    else next.delete(eventId);
+    const { error: upErr } = await client
+      .from('user_face_profiles')
+      .update({ reuse_event_ids: Array.from(next), updated_at: new Date().toISOString() })
+      .eq('id', row.id)
+      .eq('user_id', userId);
+    if (upErr) console.error('[supabase-error] lib/account-face-profile.ts · from:user_face_profiles.update(reuse)', upErr);
+    return !upErr;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Does THIS guest's seat reuse its account's face at this event? Then the
+ * day-of catch has nothing to ask for ("No selfie needed on the day").
+ * Flag OFF → false, with no read.
+ */
+export async function guestReusesAccountFace(
+  admin: AdminLike,
+  eventId: string,
+  guestId: string,
+): Promise<boolean> {
+  if (!accountFaceProfileEnabled() || !eventId || !guestId) return false;
+  try {
+    const { data: member, error } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .not('user_id', 'is', null)
+      .limit(1)
+      .maybeSingle();
+    if (error) console.error('[supabase-error] lib/account-face-profile.ts · from:event_members.select(reuse)', error);
+    const userId = (member as { user_id: string | null } | null)?.user_id;
+    if (!userId) return false;
+    return (await accountFaceReuse(admin, userId, eventId)).reusing;
+  } catch {
+    return false;
   }
 }

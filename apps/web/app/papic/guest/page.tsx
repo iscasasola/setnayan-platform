@@ -1,3 +1,4 @@
+import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { Camera } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import Link from 'next/link';
@@ -130,6 +131,8 @@ export default async function PapicGuestPage({
     (ev as { papic_face_mode?: string | null } | null)?.papic_face_mode,
     (ev as { event_type?: string | null } | null)?.event_type,
     coupleDeclinedFaceTagging,
+    // ⚖ Automatic (owner 2026-09-30): Papic active turns face tagging on.
+    access === 'on',
   );
 
   // The face step now opens HERE, after the photo rules, on the guest's first
@@ -285,6 +288,9 @@ export default async function PapicGuestPage({
 
   const guestName =
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
+  // "Reuse the face on my account for this event" (owner 2026-09-30) → no
+  // selfie to ask for. Flag OFF → false with no read (lib/account-face-profile.ts).
+  const reusesAccountFace = await guestReusesAccountFace(admin, session.event_id, session.guest_id);
   // The guest's own "Want to be tagged in the photos?" answer — null when never
   // answered. A FAILED read turns the catch off (below) rather than reading as
   // "never answered": a guest who said "No thanks" must not be asked again
@@ -348,8 +354,13 @@ export default async function PapicGuestPage({
          answered → asked the one question first (DayOfFaceEnroll); the
          couple's decline, or an unreadable event → not asked at all. */
       needsFaceEnroll={dayOfFaceCatchShows({
-        askable: faceEnrollOn && Boolean(ev) && !coupleDeclinedFaceTagging && !guestReadError,
-        enrolled: Boolean(liveEnrollment),
+        /* 📸 Papic is 'on' and the camera is open by the time this renders
+           (both refused above), so what is left of `faceTaggingAskable` is the
+           mode: only a mode_a event matches faces, and a mode_b one stores no
+           selfie (`enrollGuestFace` refuses) — asking there asks for nothing.
+           `faceMode` already carries the couple's decline (owner 2026-09-30). */
+        askable: faceEnrollOn && Boolean(ev) && faceMode === 'mode_a' && !coupleDeclinedFaceTagging && !guestReadError,
+        enrolled: Boolean(liveEnrollment) || reusesAccountFace,
         wish: faceTaggingWish,
       })}
       faceTaggingWish={faceTaggingWish}

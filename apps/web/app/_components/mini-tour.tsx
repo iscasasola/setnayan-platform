@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { GuidedTour } from '@/app/_components/guided-tour';
+import { GuidedTour } from '@/app/_components/guided-tour-lazy';
 import { completeTour } from '@/lib/tour-actions';
 import { TOURS, type TourKey } from '@/lib/tours';
 

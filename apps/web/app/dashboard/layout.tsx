@@ -3,7 +3,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
-import { GuidedTour } from '@/app/_components/guided-tour';
+import { GuidedTour } from '@/app/_components/guided-tour-lazy';
 import { completeTour } from '@/lib/tour-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SecureAccountBanner } from './_components/secure-account-banner';

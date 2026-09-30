@@ -4,11 +4,13 @@ import { useRef, useState, useTransition } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-/* 🔴 The key and the slide filter live in `maker-bar.ts`, NOT here. This file is
+/* 🔴 The key (`maker-bar.ts`) and the slide filter (`maker-tour-slides.ts`) live
+   in plain modules, NOT here. This file is
    `'use client'`, and a server page that imports a CONSTANT from it gets a
    client reference, not the string — measured: `tour_seen_keys.includes(KEY)`
    was false for a couple who had finished the tour, so it replayed forever. */
-import { MAKER_TOUR_KEY, makerTourSlides } from './maker-bar';
+import { MAKER_TOUR_KEY } from './maker-bar';
+import { makerTourSlides } from './maker-tour-slides';
 import { formatCount } from '@/lib/format-number';
 
 /**

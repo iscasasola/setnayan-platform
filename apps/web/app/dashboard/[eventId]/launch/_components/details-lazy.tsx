@@ -127,6 +127,15 @@ export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "ma
 export const HeroFrameSync = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.HeroFrameSync), { loading: SlotNone });
 export const SceneBackgroundRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row').then((m) => m.SceneBackgroundRow), { loading: SlotRows });
 
+/* 🥗 Two tap-only pieces of the stage editor (rd/maker-diet, 2026-09-30 — room
+   in the 505KB Maker budget for #6205/#6209 without raising it):
+   · the Photo moments editor — the panel of one scene, drawn when it is opened.
+   Same chunk, same idle prefetch. 🛡 `details-pieces-are-lazy.test.ts` 1b. */
+export const PhotoMomentsEditor = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ '../../website/photo-moments/_components/photo-moments-editor').then((m) => m.PhotoMomentsEditor),
+  { loading: SlotRows },
+);
+
 /* ── What's left (Details part 5): a step's heading, its foot, the Ready screens ── */
 export const GuideHead = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideHead), { loading: SlotNone });
 export const GuideReady = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideReady), { loading: SlotFill });
@@ -166,6 +175,7 @@ const loadDetailsPieces: Load = () =>
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/element-sheet'),
     import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/details-bound-field'),
     import(/* webpackChunkName: "maker-details" */ './details-look-pages'),
+    import(/* webpackChunkName: "maker-details" */ '../../website/photo-moments/_components/photo-moments-editor'),
     prefetchEntourage(),
   ]);
 

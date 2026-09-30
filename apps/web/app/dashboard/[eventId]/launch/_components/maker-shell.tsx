@@ -29,7 +29,6 @@ import {
   type MakerState,
 } from './maker-context';
 import { movedPageItem, type DetailsItemKey } from '@/lib/maker-details-items';
-import { MakerTour } from './maker-tour';
 import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
@@ -48,6 +47,15 @@ import dynamic from 'next/dynamic';
  * page downloads — measured: +139 bytes over a shared bundle with none spare.
  * The Love Story page and Details' editor reach them through the context.
  */
+/**
+ * 🥗 THE TOUR LOADS WHEN IT OPENS (rd/maker-diet, 2026-09-30) — a first visit or
+ * "About the Maker", never an ordinary open. It carries every tour's copy
+ * (`lib/tours.ts`), which was in the Maker's first load for nobody. Unnamed and
+ * imported from here only, for the runtime reasons above. On a first visit the
+ * server renders it, and `next/dynamic` preloads its code with the page.
+ * 🛡 `the-tour-is-not-in-the-first-load.test.ts`.
+ */
+const MakerTour = dynamic(() => import('./maker-tour').then((m) => m.MakerTour));
 const LiveLoveStoryBook = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveLoveStoryBook));
 const LiveStoryPanel = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveStoryPanel));
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';

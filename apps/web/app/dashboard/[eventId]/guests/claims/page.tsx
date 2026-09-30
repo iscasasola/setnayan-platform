@@ -29,6 +29,7 @@ import { SendInviteActions } from '../_components/send-invite';
 import { loadInviteSetup } from '../_components/invite-message-setup';
 import { fetchInvitationBase } from '../_components/guest-card-data';
 import { REQUEST_WORDS, undoStillOpen } from '@/lib/request-key';
+import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 
 export const metadata = { title: 'Requests' };
 
@@ -197,7 +198,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
   if (!inMaker && who && (done === 'kept' || done === 'declined')) {
     const { data: row, error: rowError } = await createAdminClient()
       .from('guests')
-      .select('guest_id, name_prefix, first_name, middle_name, last_name, name_suffix, display_name, qr_token, invitation_sent_at, entry_source, deleted_at, updated_at, rsvp_status')
+      .select(`${ENTOURAGE_COLUMNS}, qr_token, invitation_sent_at, entry_source, deleted_at, updated_at, rsvp_status`)
       .eq('guest_id', who)
       .eq('event_id', eventId)
       .maybeSingle();

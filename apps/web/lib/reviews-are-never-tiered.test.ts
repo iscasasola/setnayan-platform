@@ -69,7 +69,7 @@ test('no surface tells a couple that reviews unlock on upgrade', () => {
   for (const rel of [
     'app/v/[slug]/page.tsx',
     'app/(shell)/explore/page.tsx',
-    'app/vendors/_components/vendor-tier-matrix.tsx',
+    'app/for-suppliers/_components/vendor-tier-matrix.tsx',
   ]) {
     const src = readFileSync(join(WEB, rel), 'utf8');
     // Strip comments: this file's own history is described in them on purpose.
@@ -85,7 +85,7 @@ test('no surface tells a couple that reviews unlock on upgrade', () => {
 });
 
 test('the public tier table does not advertise reviews as a paid perk', () => {
-  const src = readFileSync(join(WEB, 'app/vendors/_components/vendor-tier-matrix.tsx'), 'utf8');
+  const src = readFileSync(join(WEB, 'app/for-suppliers/_components/vendor-tier-matrix.tsx'), 'utf8');
   const code = src
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')

@@ -359,7 +359,7 @@ export const LINKED_ROUTES = [
   '/explore/compare',
   '/v/',
   '/pricing',
-  '/vendors',
+  '/for-suppliers',
   '/setnayan-ai',
   '/our-story',
   '/features',
@@ -493,7 +493,7 @@ What is LIVE today: every event type listed above; an event automatically becomi
 - [Vendor Marketplace](${url('/explore')}) — Browse verified Filipino event vendors. Filterable by category and city; compare shortlisted vendors at [/explore/compare](${url('/explore/compare')}).
 - [Vendor Public Profiles](${url('/v/')}) — Each vendor has a profile at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and tier badge.
 - [Pricing](${url('/pricing')}) — Planning tiers, customer software SKUs, and vendor subscriptions.
-- [List Your Business](${url('/vendors')}) — Vendor acquisition. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
+- [List Your Business](${url('/for-suppliers')}) — Vendor acquisition. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
 - [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.

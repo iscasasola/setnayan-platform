@@ -575,7 +575,7 @@ export function VendorGrowCTA() {
           <Link href="/open-shop" className="m-btn m-btn-primary m-btn-lg">
             List your business — free
           </Link>
-          <Link href="/vendors#model" className="m-btn m-btn-ghost m-btn-lg">
+          <Link href="/for-suppliers#model" className="m-btn m-btn-ghost m-btn-lg">
             See vendor plans
           </Link>
         </div>

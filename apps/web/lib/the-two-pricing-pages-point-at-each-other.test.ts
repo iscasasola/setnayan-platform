@@ -29,23 +29,23 @@ const readCode = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'ut
 const count = (s: string, re: RegExp) => (s.match(new RegExp(re.source, 'g')) ?? []).length;
 
 const PRICING = 'app/(shell)/pricing/page.tsx';
-const VENDORS = 'app/vendors/page.tsx';
+const VENDORS = 'app/for-suppliers/page.tsx';
 
 // SABOTAGE: remove either href → RED.
 test('each pricing page offers a door to the other', () => {
   assert.equal(
-    count(readCode(PRICING), /href="\/vendors"/),
+    count(readCode(PRICING), /href="\/for-suppliers"/),
     1,
     '/pricing must point at the supplier plans — a couple-facing catalogue with no vendor door strands every supplier who lands on the obvious URL',
   );
   assert.equal(
     count(readCode(VENDORS), /href="\/pricing"/),
     1,
-    '/vendors must point back — a supplier reading their own plans had no route to the prices their clients actually see',
+    '/for-suppliers must point back — a supplier reading their own plans had no route to the prices their clients actually see',
   );
 });
 
-// SABOTAGE: label the /vendors link "See pricing" → RED.
+// SABOTAGE: label the /for-suppliers link "See pricing" → RED.
 test('each link names WHOSE prices are on the other side', () => {
   const vendors = readCode(VENDORS);
   assert.match(
@@ -61,12 +61,12 @@ test('each link names WHOSE prices are on the other side', () => {
   );
 });
 
-// 🔑 THE CLAIM THAT STARTED THIS. /vendors renders live supplier prices to a
+// 🔑 THE CLAIM THAT STARTED THIS. /for-suppliers (was /vendors) renders live supplier prices to a
 // PERSON; /pricing renders supplier prices only into its JSON-LD. The register
 // said the opposite and it went into a PR and the corpus before it was caught.
 // SABOTAGE: stop rendering {m.price} in the matrix → RED.
-test('/vendors really is the supplier pricing page — it renders prices to a person', () => {
-  const matrix = readCode('app/vendors/_components/vendor-tier-matrix.tsx');
+test('/for-suppliers really is the supplier pricing page — it renders prices to a person', () => {
+  const matrix = readCode('app/for-suppliers/_components/vendor-tier-matrix.tsx');
   assert.match(
     matrix,
     /\{m\.price\}/,

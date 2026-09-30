@@ -32,9 +32,9 @@ import { readFileSync } from 'node:fs';
 const SWEPT_FILES = [
   '../app/_components/home/vendor-benefits.ts',
   '../app/vendor-dashboard/booking-fees/page.tsx',
-  '../app/vendors/_components/vendor-grow-sections.tsx',
-  '../app/vendors/_components/vendor-tier-matrix.tsx',
-  '../app/vendors/page.tsx',
+  '../app/for-suppliers/_components/vendor-grow-sections.tsx',
+  '../app/for-suppliers/_components/vendor-tier-matrix.tsx',
+  '../app/for-suppliers/page.tsx',
   './booking-fee-lock.ts',
 ] as const;
 

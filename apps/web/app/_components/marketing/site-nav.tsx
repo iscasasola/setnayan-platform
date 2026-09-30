@@ -62,7 +62,7 @@ export function Nav({
 
   const prices = label('public.site-nav.prices', 'Prices');
   const download = label('public.site-nav.download', 'Download');
-  const vendors = label('public.site-nav.vendors-overlay', 'Vendors');
+  const vendors = label('public.site-nav.vendors-overlay', 'Suppliers');
   const signin = label('public.site-nav.sign-in', 'Sign in');
 
   const press = (id: Exclude<OverlayId, null>) => {

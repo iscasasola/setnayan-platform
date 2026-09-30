@@ -170,7 +170,7 @@ test('source maps are built only when Sentry can upload them', () => {
   const sourcemaps = /sourcemaps:\s*\{([^}]*)\}/.exec(src);
   assert.ok(sourcemaps, 'next.config.ts no longer passes `sourcemaps` to withSentryConfig');
   assert.match(
-    sourcemaps![1],
+    sourcemaps![1] ?? '',
     /disable:\s*!sentrySourcemapsCanUpload\(process\.env\)/,
     'sourcemaps.disable must be !sentrySourcemapsCanUpload(process.env). A token-only ' +
       'gate built ~2,100 maps per Vercel deploy and uploaded none (2026-10-01).',

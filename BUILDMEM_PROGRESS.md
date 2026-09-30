@@ -1,25 +1,28 @@
-# BUILDMEM progress (rd/build-fits-in-memory)
+# BUILDMEM progress (rd/build-fits-in-memory) — DONE
 
-## Done
-- Worktree at origin/main 5440da56f; pnpm install.
-- Read failed Vercel log dpl_BwGjedz6GwabUURy5KAWUSiPihYu: 8 cores/16 GB, cache skipped, died 137 after 20m14s in "Creating an optimized production build".
+## Cause
+1. **Source maps built for nobody.** Vercel Production has SENTRY_AUTH_TOKEN (138 d) and never SENTRY_PROJECT; `sourcemaps.disable` was gated on the token alone → devtool `source-map`/`hidden-source-map` on every deploy, then Sentry: "No project provided. Will not upload source maps." (~2,100 .map files, .next 8.5 GB.) Local builds never have the token, so no local measurement ever paid this.
+2. **The 12288 MB V8 ceiling was the plateau.** V8 defers major GC until near its ceiling; a compiler also carries ~1.8 GB off-heap. With `webpackBuildWorker` defaulting OFF (custom webpack fn), all compilers shared one long-lived heap → ~12.4 GB + extras on a 16 GB box → SIGKILL 137 (not a V8 heap OOM — that's what Vercel logged).
+Already on before this PR: `experimental.cpus: 1`, `webpackMemoryOptimizations: true`, VERCEL_FORCE_NO_BUILD_CACHE=1 (cache not the cause).
 
-## Findings
-- `experimental.cpus: 1` and `webpackMemoryOptimizations: true` are ALREADY on.
-- Custom `webpack` fn (ours + Sentry's) => Next 15.5 `webpackBuildWorker` defaults OFF => all three compilers run in ONE main-process heap.
-- **SENTRY_AUTH_TOKEN is set in Vercel Production (138d), SENTRY_PROJECT/SENTRY_ORG are NOT.** next.config gates `sourcemaps.disable` on the token only, so every Vercel build runs devtool `source-map` (server) + `hidden-source-map` (client) — and the Sentry plugin then logs "No project provided. Will not upload source maps." Maps are built and never uploaded. Local builds (no token) never paid this cost, which is why local RSS (4.7–5.7 GB) never reproduced Vercel.
+## Measurements — 5440da5, owner's Mac (10 cores, 16 GB, Node 22), no Supabase env, dummy SENTRY_AUTH_TOKEN (= Vercel), phys footprint summed over the build tree (top MEM; ps RSS under-reports on macOS)
+| setting | compile | wall | peak footprint | result |
+|---|---|---|---|---|
+| maps ON, 12288, one process (Vercel as-is) | 14.7 min | 16.5 min | not sampled in compile; ≥ 9.64 GB after | pass locally |
+| maps OFF, 12288, one process | 6.8 min | 8.3 min | 12.35 GB | pass |
+| maps OFF, 12288, webpackBuildWorker | ~5 min | 6.1 min | 12.45 GB | pass |
+| maps OFF, 6144, webpackBuildWorker | ~5 min | 6.1 min | 9.46 GB | pass |
+| maps OFF, 4096, webpackBuildWorker | — | 3.2 min | 6.70 GB | **FAIL** V8 heap OOM |
+| **maps OFF, 8192, webpackBuildWorker (SHIPPED)** | 5.0–5.2 min | 6.9–7.0 min | **9.75–10.01 GB** | pass ×2 |
+Vercel reference: last good 1579ea8 compiled 6.3 min; failures died at 12.7 / 20.2 min.
 
-## Next
-- Measure baseline with a dummy token (maps on, = Vercel) vs fix (maps off), sampler sums RSS of all build processes.
-- Then consider webpackBuildWorker.
+## Shipped
+- `lib/sentry-sourcemaps-can-upload.ts` (token AND project) → `sourcemaps.disable`.
+- `experimental.webpackBuildWorker: true`.
+- build script heap 12288 → 8192.
+- `lib/the-build-has-headroom-ci-cannot-prove.test.ts`: heap band 8192–10240, worker true, cpus 1, sourcemap gate; each sabotaged red (6 sabotages).
+- Checks: typecheck ✓, next lint (changed files) ✓, 39 CI node guards ✓, bundle-size-check ✓, maker budget ✓, 147 config-reading unit tests ✓.
 
-## Measurement notes (2026-10-01)
-- ⚠ `ps` RSS / `/usr/bin/time -l` UNDER-REPORT on this Mac: pages in the compressor are not RSS. Mid-build the main `next build` showed RSS 1.8 GB while `top` MEM (phys footprint) was 8.66 GB (6.6 GB compressed). Sampler now sums `top -l 1 -stats pid,mem` over the build's process tree — the Linux-RSS equivalent.
-- Baseline, maps ON (dummy SENTRY_AUTH_TOKEN, = Vercel): rc 0, 16.5 min wall, compile 14.7 min, time -l max RSS 5.23 GB (under-reported), footprint >= 9.64 GB sampled only AFTER compile (sampler started late — compile peak unmeasured). 2101 .map files, .next = 8.5 GB.
-- Fix commit in progress: sourcemaps.disable gated on TOKEN && SENTRY_PROJECT.
-- Maps OFF (fix, same dummy token): rc 0, **8.3 min wall (was 16.5)**, **compile 6.8 min (was 14.7)**, `.next` 4.7 GB (was 8.5), .map files 3 (was 2101). Footprint peak 12.35 GB — the main process heap climbs toward the 12288 MB V8 ceiling during compile regardless (V8 grows lazily up to its limit; the limit, not the live set, sets the plateau).
-- Next: maps off + `webpackBuildWorker: true` (each compiler in its own child that exits).
-- Maps OFF + `webpackBuildWorker: true` (heap 12288): rc 0, **6.1 min wall**, footprint peak 12.45 GB — the SERVER compiler child alone climbs to ~11.4 GB, then exits and the tree drops to ~2–3 GB. So the plateau is the V8 CEILING, not the live set: a 12 GB ceiling lets V8 defer major GC until ~12 GB, on a 16 GB container, plus native (SWC) memory → SIGKILL 137 (not a V8 "heap out of memory" — which is what Vercel shows).
-- Next: same with heap 6144 to find the real live set.
-- Maps OFF + worker + heap **6144**: rc 0, 6.1 min wall (same as 12288 — no GC thrash), footprint peak **9.46 GB** (vs 12.45 at 12288). ~3 GB of the peak is off-heap (native/SWC) — which is why a 12 GB V8 ceiling on a 16 GB box leaves no room.
-- Next: heap 4096 probe to find the live-set floor, then pick the ceiling.
+## Owner follow-ups (not done — settings are owner-only)
+- If Sentry source maps are WANTED: add SENTRY_PROJECT (+ SENTRY_ORG if needed) in Vercel; maps + upload return automatically. Re-measure the build then.
+- Verify on the first Vercel deploy after merge: compile time in the log should be ~6 min, no 137.

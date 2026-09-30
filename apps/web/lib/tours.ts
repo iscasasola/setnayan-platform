@@ -903,7 +903,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Camera,
         title: 'Our Services',
-        body: 'Papic, Live Studio, Gallery, Patiktok, Music Maker and Setnayan AI &mdash; add the ones you want for your day.',
+        body: 'Papic, Live Watch, Gallery, Patiktok, Music Maker and Setnayan AI &mdash; add the ones you want for your day.',
       },
     ],
   },

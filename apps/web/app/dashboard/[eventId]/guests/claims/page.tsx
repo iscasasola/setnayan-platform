@@ -242,7 +242,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
               eventId={eventId}
               guest={{
                 guestId: row.guest_id as string,
-                formalName: guestFullName(row),
+                formalName: guestFullName(row, setup.facts.nameStyle),
                 firstName: (row.first_name as string | null) ?? null,
                 fullName: who_,
                 inviteUrl: base && row.qr_token ? `${base}?invite=${row.qr_token as string}` : null,

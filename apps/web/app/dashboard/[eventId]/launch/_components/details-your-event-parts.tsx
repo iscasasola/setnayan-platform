@@ -24,6 +24,7 @@ import {
   MarchControls,
   MarchPieces,
   NamesEditor,
+  NameStylePicker,
   OneNameEditor,
   ParentCards,
   PeopleBody,
@@ -32,6 +33,7 @@ import {
   VenuesEditor,
 } from './details-lazy';
 import { PrintPieceBody, type PrintsInput } from './maker-prints';
+import { DEFAULT_NAME_STYLE, type NameStyle } from '@/lib/name-style';
 
 /**
  * DETAILS › YOUR EVENT — the items' pictures and editors, composed for
@@ -63,6 +65,8 @@ export type YourEventInput = {
   } | null;
   /** A one-person event's name (`display_name`) — null / absent for a two-person event. */
   oneName?: { initial: string; hint: string } | null;
+  /** 🔤 The event's Name style (`print_details.name_style`, owner 2026-09-30) — absent = Full. */
+  nameStyle?: NameStyle;
   date: {
     confirmedVendorCount: number;
     dateDisplay: string | null;
@@ -167,13 +171,20 @@ export function yourEventParts({
     ),
   };
 
+  const namesEditor = input.oneName ? (
+    <OneNameEditor eventId={eventId} initial={input.oneName.initial} hint={input.oneName.hint} />
+  ) : input.names ? (
+    input.names.wholeForm ?? (
+      <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} keep={input.names.keep} />
+    )
+  ) : null;
   const editors: Partial<Record<EventItemKey, ReactNode>> = {
-    names: input.oneName ? (
-      <OneNameEditor eventId={eventId} initial={input.oneName.initial} hint={input.oneName.hint} />
-    ) : input.names ? (
-      input.names.wholeForm ?? (
-        <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} keep={input.names.keep} />
-      )
+    /* 🔤 Name style ▾ sits under the Names, in place (owner 2026-09-30). */
+    names: namesEditor ? (
+      <div className="flex flex-col gap-3">
+        {namesEditor}
+        <NameStylePicker eventId={eventId} saved={input.nameStyle ?? DEFAULT_NAME_STYLE} />
+      </div>
     ) : null,
     date: (
       <DateEditor

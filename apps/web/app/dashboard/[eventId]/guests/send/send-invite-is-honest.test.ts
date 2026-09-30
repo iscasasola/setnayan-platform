@@ -132,7 +132,9 @@ test('⓹ the couple’s wording survives the Details and Menu saves that share 
   assert.equal(stored.inviteMessage, 'Hi {name}! {link}');
   assert.equal(parsePrintDetails(serializePrintDetails(stored)).inviteMessage, 'Hi {name}! {link}');
   const route = read(PRINT_ROUTE);
-  assert.match(route, /inviteMessage:\s*stored\.inviteMessage/,
+  // The words save starts from EVERYTHING stored and overwrites only its own
+  // keys (2026-09-30: a named key list had dropped the poster photo).
+  assert.match(route, /const details = \{\s*\.\.\.stored,/,
     'the Details (words) save rebuilds print_details without the invite message — it would erase it');
   assert.match(route, /serializePrintDetails\(\{\s*\.\.\.stored,\s*menu:/, 'the Menu save no longer carries the rest');
 });

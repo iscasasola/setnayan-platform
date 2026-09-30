@@ -603,7 +603,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   const services: Service[] = [
     {
       key: 'panood',
-      name: 'Live Studio — livestream',
+      name: 'Live Watch — livestream',
       blurb: eventHasHappened
         ? 'This one runs during the celebration.'
         : 'Bring everyone who could not make it into the room.',

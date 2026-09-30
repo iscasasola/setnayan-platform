@@ -168,7 +168,7 @@ export interface OAuthIntegrationDef {
 export const OAUTH_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
   {
     id: 'youtube',
-    label: 'YouTube — Live Studio livestream',
+    label: 'YouTube — Live Watch livestream',
     category: 'video',
     secretColumn: 'youtube_oauth_client_secret_enc',
     secretEnv: 'YOUTUBE_OAUTH_CLIENT_SECRET',

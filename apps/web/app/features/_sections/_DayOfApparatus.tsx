@@ -51,7 +51,7 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
       Correct as they stand; not a gap.
 */
 const META: { Icon: LucideIcon; sku: string }[] = [
-  { Icon: Tv, sku: 'Live Studio (Live Stream)' },
+  { Icon: Tv, sku: 'Live Watch (Live Stream)' },
   { Icon: Camera, sku: 'Papic' },
   { Icon: Video, sku: 'Patiktok (Reel Booth)' },
   { Icon: Palette, sku: 'Pakulay' },

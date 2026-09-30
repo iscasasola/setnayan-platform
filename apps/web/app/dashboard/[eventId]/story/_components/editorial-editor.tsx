@@ -165,7 +165,7 @@ const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: strin
   { key: 'fromVendors', label: 'From your vendors', help: 'Day-of photos & clips your recommended vendor shared.' },
   { key: 'poweredBy', label: 'Powered by Setnayan', help: 'The Setnayan services you used.' },
   { key: 'liveWall', label: 'Live Photo Wall', help: 'The day’s candid photo wall, if you have it.' },
-  { key: 'watchFilm', label: 'Watch the film', help: 'Your Live Studio broadcast replay, if you streamed the day.' },
+  { key: 'watchFilm', label: 'Watch the film', help: 'Your Live Watch broadcast replay, if you streamed the day.' },
   { key: 'kwento', label: 'What they whispered', help: 'Your guests’ best wishes (Kwento), captured on the day.' },
   { key: 'guestColumns', label: 'Letters to the editor', help: 'Short columns your guests wrote for your paper — only the ones you approved.' },
   { key: 'fromTheCouple', label: 'From the couple', help: 'Your thank-you note to guests.' },

@@ -22,7 +22,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
@@ -42,7 +42,6 @@ const PARTS = read('guest-ticket-parts.tsx');
 const CELL = read('guest-invite-cell.tsx');
 const ROWS = read('guest-list-multiselect.tsx');
 const CHIPS = read('chip-editors.tsx');
-const PHONE = read('mobile-guest-carousel.tsx');
 const PAGE = read('..', 'page.tsx');
 const COLS = ['invite', 'rsvp', 'access', 'checkin', 'seat', 'side', 'role', 'groups', 'plus', 'account', 'contact'] as const;
 
@@ -247,10 +246,12 @@ test('list head: Sort ▾ and four dropdowns — RSVP · Side · Role · Group �
   for (const d of ['data-roster-filter-rsvp', 'data-roster-filter-side', 'data-roster-filter-role', 'data-roster-filter-group', 'data-roster-sort']) {
     assert.ok(controls.includes(d), `${d} is gone`);
   }
-  assert.match(PHONE, /<RosterFilters\b/);
-  assert.match(PHONE, /<RosterSort\b/);
+  // ⤷ 2026-09-30 (Fix E): ONE head at every width — the phone-only head is
+  // deleted, so the page's own RosterFilters + RosterSort are the phone's too.
+  assert.ok(!existsSync(join(HERE, 'mobile-guest-carousel.tsx')), 'the phone-only head is back');
   assert.match(PAGE, /<RosterFilters\b/);
   assert.match(PAGE, /<RosterSort\b/);
+  assert.equal((PAGE.match(/<RosterFilters\b/g) ?? []).length, 1, 'a second set of filters is back on the page');
   // "Share the link" — Invite means one guest's ticket everywhere.
-  assert.match(PHONE, /'Share the link'/);
+  assert.match(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'roster-doors.ts'), 'utf8'), /'Share the link'/);
 });

@@ -111,7 +111,12 @@ export function FindAddRow({
   return (
     // `items-start`: on a phone the add bar wraps to two lines, and the search
     // button should sit beside the NAME BOX, not float between the lines.
-    <div className="flex items-start gap-2 border-b border-ink/[0.07] py-3">
+    // ⚖ Fix E (owner 2026-09-30, a phone screenshot: "not same … like the
+    // desktop"): this row is the phone's head too now. Below `lg` the filter
+    // dropdowns cannot share a 390px line with search and +, so they WRAP to a
+    // line of their own under them (`order-last w-full`) — same component,
+    // same controls, one line more; at `lg` they sit between as before.
+    <div className="flex flex-wrap items-start gap-2 border-b border-ink/[0.07] py-3 lg:flex-nowrap">
       <div
         ref={findRef}
         className={side(mode === 'find')}
@@ -127,7 +132,11 @@ export function FindAddRow({
         ) : null}
       </div>
 
-      {mode === 'find' ? filter : null}
+      {mode === 'find' ? (
+        <div className="order-last w-full min-w-0 lg:order-none lg:w-auto" data-find-add-filter="">
+          {filter}
+        </div>
+      ) : null}
 
       <div
         ref={addRef}

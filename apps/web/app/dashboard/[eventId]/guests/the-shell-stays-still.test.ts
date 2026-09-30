@@ -26,19 +26,10 @@ test('switching search ↔ add never scrolls the page', () => {
   }
 });
 
-test('the sort labels render in capitals, like every other header', () => {
-  // Owner: "make the header all caps." Tailwind's preflight resets
-  // text-transform on every <button>, so the labels that SORT read in mixed
-  // case while the one plain cell, CONTACT, read in capitals.
-  const src = read('arrange-controls.tsx');
-  const sortButton = src.slice(src.indexOf('onClick={() => setSort(column)}'));
-  assert.match(sortButton.slice(0, 600), /\buppercase\b/, 'the sort label lost `uppercase` — preflight resets it on buttons');
-});
-
-test('no cryptic mark beside the grouping box', () => {
-  // Owner: "remove the weird symbol beside the checkbox of role."
-  assert.ok(!read('arrange-controls.tsx').includes('§'), 'the "§" is back beside a header checkbox');
-});
+// ⤷ 2026-09-30 (Fix E): two corrections here guarded `arrange-controls.tsx` —
+// the header's sort labels in capitals and no "§" beside a grouping box. That
+// header was deleted (every column header is ONE slot dropdown now, and Sort ▾
+// above the list is the one place for order), so they left with it.
 
 test('the honoree heading folds like every other one', () => {
   // Owner: "these rows should be able to make the content of that grouping

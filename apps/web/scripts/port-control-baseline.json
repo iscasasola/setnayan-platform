@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1e5b0be0",
+  "generatedFromRef": "7d69db8cf",
   "routeCount": 439,
-  "destinations": 945,
+  "destinations": 944,
   "actions": 674,
-  "blocks": 5281,
+  "blocks": 5277,
   "routes": {
     "/": {
       "files": [
@@ -193,8 +193,9 @@
         "/explore?category=wedding_coordination",
         "/explore?event_type=[seg]",
         "/explore?match=0",
-        "/tour",
-        "/vendors"
+        "/for-suppliers",
+        "/open-shop",
+        "/tour"
       ],
       "actions": [
         "formAction"
@@ -523,8 +524,8 @@
       ],
       "destinations": [
         "/creators",
-        "/onboarding/wedding?from=pricing",
-        "/vendors"
+        "/for-suppliers",
+        "/onboarding/wedding?from=pricing"
       ],
       "actions": [],
       "blocks": [
@@ -669,7 +670,7 @@
       ],
       "destinations": [
         "/explore",
-        "/vendors"
+        "/for-suppliers"
       ],
       "actions": [],
       "blocks": [
@@ -5076,6 +5077,8 @@
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
         "dashboard/[eventId]/_components/cohost-welcome.tsx",
         "dashboard/[eventId]/_components/connect-supplier-modal.tsx",
+        "dashboard/[eventId]/_components/coordinator-colour-domains.tsx",
+        "dashboard/[eventId]/_components/coordinator-seat-controls.tsx",
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
         "dashboard/[eventId]/_components/customer-nav-config.ts",
         "dashboard/[eventId]/_components/customer-nav-fab.tsx",
@@ -5164,7 +5167,10 @@
         "logPayment",
         "markNotificationRead",
         "planNextYearEvent",
+        "removeHost",
         "routes.dashboard.accessRequests",
+        "setDelegateBudget",
+        "setDelegatePhotos",
         "toggleChecklistItem"
       ],
       "blocks": [
@@ -5193,6 +5199,7 @@
         "CohostWelcome",
         "ColorRow",
         "ColourAccessResult",
+        "ColourChangeRowView",
         "ConfirmForm",
         "ContactCard",
         "ContactShortlistVendorButton",
@@ -5284,6 +5291,8 @@
         "ReadRefusedNotice",
         "Remaining",
         "RequestResult",
+        "Result",
+        "ReturnFields",
         "RevealChoice",
         "ReviewAxis",
         "ReviewRow",
@@ -5737,15 +5746,12 @@
     },
     "/dashboard/[eventId]/guests": {
       "files": [
-        "dashboard/[eventId]/guests/_components/active-filters.tsx",
         "dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx",
-        "dashboard/[eventId]/guests/_components/arrange-controls.tsx",
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/card-fields.tsx",
         "dashboard/[eventId]/guests/_components/chip-editors.tsx",
         "dashboard/[eventId]/guests/_components/entourage-lazy.tsx",
         "dashboard/[eventId]/guests/_components/entourage-order-panel.tsx",
-        "dashboard/[eventId]/guests/_components/filter-popover.tsx",
         "dashboard/[eventId]/guests/_components/find-add-row.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
         "dashboard/[eventId]/guests/_components/guest-access-cell.tsx",
@@ -5764,10 +5770,8 @@
         "dashboard/[eventId]/guests/_components/guests-search.tsx",
         "dashboard/[eventId]/guests/_components/invite-message-setup.ts",
         "dashboard/[eventId]/guests/_components/invited-to-chips.tsx",
-        "dashboard/[eventId]/guests/_components/lens-pill.tsx",
         "dashboard/[eventId]/guests/_components/live-search.tsx",
         "dashboard/[eventId]/guests/_components/march-button.tsx",
-        "dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx",
         "dashboard/[eventId]/guests/_components/overlay-primitives.tsx",
         "dashboard/[eventId]/guests/_components/plus-one-seats-note.tsx",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
@@ -5897,7 +5901,6 @@
         "MarchResult",
         "Meter",
         "MiniTour",
-        "MobileGuestCarousel",
         "MobileListRow",
         "MobileTree",
         "Mode",
@@ -5918,7 +5921,6 @@
         "PlusOneOverNote",
         "PlusOneSeatsSummary",
         "Popover",
-        "QuickAddInlineForm",
         "QuickAddResult",
         "QuickAddSheet",
         "QuickGroupResult",
@@ -5951,7 +5953,6 @@
         "SectionMoveButton",
         "SendInvite",
         "ShareDropdown",
-        "ShareTheLinkButton",
         "Sheet",
         "SideChipEditor",
         "SideText",
@@ -6199,44 +6200,21 @@
     },
     "/dashboard/[eventId]/hosts": {
       "files": [
-        "dashboard/[eventId]/hosts/_components/consent-gated-invite-form.tsx",
-        "dashboard/[eventId]/hosts/_components/coordinator-colour-domains.tsx",
         "dashboard/[eventId]/hosts/actions.ts",
         "dashboard/[eventId]/hosts/loading.tsx",
         "dashboard/[eventId]/hosts/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]",
-        "/dashboard/[seg]/guests",
-        "/dashboard/[seg]/guests/[seg]",
         "/dashboard/[seg]/people"
       ],
-      "actions": [
-        "inviteHost",
-        "removeHost",
-        "revokeHostInvite",
-        "routes.dashboard.messages.detail",
-        "routes.dashboard.messages.index",
-        "setDelegateBudget",
-        "setDelegatePhotos"
-      ],
+      "actions": [],
       "blocks": [
-        "CohostSeatControls",
-        "ColourChangeRowView",
-        "ConsentGatedInviteForm",
-        "ConsentModal",
-        "CoordinatorColourDomains",
         "CoordinatorGrantChips",
-        "CoordinatorSeatControls",
-        "HTMLDivElement",
-        "HTMLFormElement",
-        "HTMLInputElement",
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
-        "ReadRefusedNotice",
-        "Result",
-        "SubmitButton"
+        "ReadRefusedNotice"
       ]
     },
     "/dashboard/[eventId]/invitation": {
@@ -8656,10 +8634,12 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/claim-link-share.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/host-service-details.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/payment-asks-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/promote-coordinator-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/reservation-terms-ack.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/self-added-contact-card.tsx",
@@ -8685,6 +8665,10 @@
         "coupleReportNonDelivery",
         "createAutoShareInviteAction",
         "deleteWorkingNoteAction",
+        "inviteHost",
+        "revokeHostInvite",
+        "routes.dashboard.messages.detail",
+        "routes.dashboard.messages.index",
         "updateVendorCosts"
       ],
       "blocks": [
@@ -8695,13 +8679,19 @@
         "ClaimLinkShare",
         "ColourAccessCard",
         "ColourChangeRowView",
+        "ConsentGatedInviteForm",
+        "ConsentModal",
         "ContactShortlistVendorButton",
+        "CoordinatorColourDomains",
+        "CoordinatorGrantChips",
+        "CoordinatorSeatControls",
         "DepositReservation",
         "DetailPageSkeleton",
         "DisputeLinkButton",
         "FileUpload",
         "HTMLDivElement",
         "HTMLFormElement",
+        "HTMLInputElement",
         "HandoverInbox",
         "HandoverItem",
         "HostServiceDetails",
@@ -8711,6 +8701,7 @@
         "PaymentAsksCard",
         "PaymentHistoryList",
         "PaymentPlanStepper",
+        "PromoteCoordinatorCard",
         "ProofImage",
         "QuoteBridge",
         "ReadRefusedNotice",
@@ -9444,9 +9435,9 @@
         "features/page.tsx"
       ],
       "destinations": [
+        "/for-suppliers",
         "/pricing",
-        "/signup",
-        "/vendors"
+        "/signup"
       ],
       "actions": [],
       "blocks": [
@@ -9475,6 +9466,58 @@
         "StickyMobileCTA",
         "VendorsLedger",
         "WhySetnayan"
+      ]
+    },
+    "/for-suppliers": {
+      "files": [
+        "for-suppliers/_components/for-vendors-motion.tsx",
+        "for-suppliers/_components/vendor-grow-hero.tsx",
+        "for-suppliers/_components/vendor-grow-sections.tsx",
+        "for-suppliers/_components/vendor-hero-gate.tsx",
+        "for-suppliers/_components/vendor-tier-deltas.tsx",
+        "for-suppliers/_components/vendor-tier-matrix.tsx",
+        "for-suppliers/page.tsx"
+      ],
+      "destinations": [
+        "/for-suppliers",
+        "/help",
+        "/open-shop",
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "CardGrid",
+        "CellView",
+        "Col",
+        "Eyebrow",
+        "FeatureLI",
+        "Fragment",
+        "GridCard",
+        "H2",
+        "HTMLAnchorElement",
+        "HTMLDivElement",
+        "Image",
+        "Lede",
+        "Link",
+        "RevealOnView",
+        "SoonPill",
+        "VendorGrowAI",
+        "VendorGrowAnalytics",
+        "VendorGrowCTA",
+        "VendorGrowFairPay",
+        "VendorGrowGetPaid",
+        "VendorGrowHero",
+        "VendorGrowHub",
+        "VendorGrowNoFakes",
+        "VendorGrowReach",
+        "VendorGrowStyles",
+        "VendorGrowThesis",
+        "VendorGrowTools",
+        "VendorGrowTrust",
+        "VendorGrowWebsite",
+        "VendorHeroGate",
+        "VendorTierDeltas",
+        "VendorTierMatrix"
       ]
     },
     "/forgot-password": {
@@ -12908,66 +12951,14 @@
         "SubmitButton"
       ]
     },
-    "/vendors": {
-      "files": [
-        "vendors/_components/for-vendors-motion.tsx",
-        "vendors/_components/vendor-grow-hero.tsx",
-        "vendors/_components/vendor-grow-sections.tsx",
-        "vendors/_components/vendor-hero-gate.tsx",
-        "vendors/_components/vendor-tier-deltas.tsx",
-        "vendors/_components/vendor-tier-matrix.tsx",
-        "vendors/page.tsx"
-      ],
-      "destinations": [
-        "/help",
-        "/open-shop",
-        "/pricing",
-        "/vendors"
-      ],
-      "actions": [],
-      "blocks": [
-        "CardGrid",
-        "CellView",
-        "Col",
-        "Eyebrow",
-        "FeatureLI",
-        "Fragment",
-        "GridCard",
-        "H2",
-        "HTMLAnchorElement",
-        "HTMLDivElement",
-        "Image",
-        "Lede",
-        "Link",
-        "RevealOnView",
-        "SoonPill",
-        "VendorGrowAI",
-        "VendorGrowAnalytics",
-        "VendorGrowCTA",
-        "VendorGrowFairPay",
-        "VendorGrowGetPaid",
-        "VendorGrowHero",
-        "VendorGrowHub",
-        "VendorGrowNoFakes",
-        "VendorGrowReach",
-        "VendorGrowStyles",
-        "VendorGrowThesis",
-        "VendorGrowTools",
-        "VendorGrowTrust",
-        "VendorGrowWebsite",
-        "VendorHeroGate",
-        "VendorTierDeltas",
-        "VendorTierMatrix"
-      ]
-    },
     "/waitlist": {
       "files": [
         "waitlist/page.tsx"
       ],
       "destinations": [
         "/explore",
-        "/onboarding/wedding",
-        "/vendors"
+        "/for-suppliers",
+        "/onboarding/wedding"
       ],
       "actions": [],
       "blocks": [

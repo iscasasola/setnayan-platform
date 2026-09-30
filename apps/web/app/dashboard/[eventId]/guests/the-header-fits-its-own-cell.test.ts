@@ -42,24 +42,19 @@ const DIR = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests');
 const ROSTER = stripComments(
   readFileSync(join(DIR, '_components', 'guest-list-multiselect.tsx'), 'utf8'),
 );
-const CONTROLS = stripComments(
-  readFileSync(join(DIR, '_components', 'arrange-controls.tsx'), 'utf8'),
-);
-
-/**
- * The ArrangeTh component's own source, as one window.
- *
- * 🪤 THESE TWO ASSERTIONS USED TO SLICE FROM `<th className={className}` — and
- * the very next fix changed that expression, so `indexOf` returned -1, the
- * slice became the file's last character, and both went red judging nothing.
- * Anchored on the COMPONENT now, which a styling change cannot rename, and the
- * window asserts it was found rather than slicing from -1.
+/*
+ * ⤷ 2026-09-30 (Fix E): `arrange-controls.tsx` (ArrangeTh — the old sortable,
+ * groupable header) was deleted: it had no importer left once every header
+ * became ONE column-slot dropdown (the Fable rows). Its two properties — a
+ * header may shrink, and no header cell can widen the table — are asserted on
+ * the slot headers that replaced it.
  */
-function arrangeThBody(): string {
-  const a = CONTROLS.indexOf('export function ArrangeTh(');
-  const b = CONTROLS.indexOf('export function ArrangeSheet(');
-  assert.ok(a !== -1 && b > a, 'cannot find ArrangeTh in arrange-controls.tsx — this guard is blind');
-  return CONTROLS.slice(a, b);
+function slotTh(): string {
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  const at = head.indexOf('desk.columns.map((column, slot) => (');
+  assert.notEqual(at, -1, 'cannot find the slot headers — this guard is blind');
+  const th = head.indexOf('<th', at);
+  return head.slice(th, head.indexOf('>', head.indexOf('className=', th)) + 1);
 }
 
 /** The header row's cells, in order, as their opening tags. */
@@ -116,30 +111,12 @@ test('the header and every body cell share ONE horizontal padding', () => {
   );
 });
 
-test('an arrangeable header may SHRINK, so it can never spill into its neighbour', () => {
-  // The two classes are a pair and neither works alone: a flex child will not
-  // go below its content width unless `min-w-0` says it may, and `truncate`
-  // is what then clips instead of overflowing.
-  const th = arrangeThBody();
-  assert.match(
-    th,
-    /<span className="flex min-w-0 items-center/,
-    'the header cell\'s flex row cannot shrink — a long label will spill over the column beside it',
-  );
-  assert.match(
-    th,
-    /<span className="truncate">\{label\}<\/span>/,
-    'the column label is not truncated — under table-fixed it overflows its own cell rather than clipping',
-  );
-});
-
-test('the checkbox and the sort arrow never shrink instead of the label', () => {
-  // If the CONTROL is what gives way, the header degrades into an unclickable
-  // sliver while the word stays whole — backwards. The word is recoverable
-  // (it is in `title` and in the column below); the control is not.
-  const th = arrangeThBody();
-  assert.match(th, /<label\s+className="inline-flex shrink-0/, 'the grouping checkbox can be squeezed away');
-  assert.match(th, /<ChevronDown className="h-3 w-3 shrink-0"/, 'the sort arrow can be squeezed away');
+test('a header may SHRINK, so it can never spill into its neighbour', () => {
+  // Name's word clips itself; every slot header clips its own cell (its
+  // dropdown's list is portalled, so clipping never clips the menu).
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  assert.match(head, /<span className="block truncate">Name<\/span>/, 'the Name label is not truncated');
+  assert.match(slotTh(), /\boverflow-hidden\b/, 'a slot header does not clip its own cell');
 });
 
 test('every header cell still declares a scope, so the table stays readable aloud', () => {
@@ -159,11 +136,7 @@ test('no header cell can widen the table — the floor under every width above',
   //   · a LABEL spilling into its neighbour   → min-w-0 + truncate (above)
   //   · a CELL widening the scroll area       → overflow-hidden on the cell
   // The second is what made the page "not stretch the whole screen".
-  assert.match(
-    CONTROLS,
-    /<th className=\{`\$\{className \?\? ''\} overflow-hidden`\}/,
-    'ArrangeTh no longer clips its own cell — any caller can widen the table again',
-  );
+  assert.match(slotTh(), /\boverflow-hidden\b/, 'a slot header no longer clips its own cell — it can widen the table again');
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
   const plain = [...head.matchAll(/<th className="([^"]*)"[^>]*>\s*(?:<span[^>]*>)?\s*([A-Za-z]+)/g)]
     .filter((m) => m[2] && m[2] !== 'label'); // the text-bearing plain cells

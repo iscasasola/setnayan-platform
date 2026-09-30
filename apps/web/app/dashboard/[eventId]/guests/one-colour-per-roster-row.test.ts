@@ -106,11 +106,10 @@ test('⚖ there is ONE roster view — the grid is gone, not hidden', () => {
   for (const gone of ['function GuestCard(', 'function MobileGridItem(']) {
     assert.ok(!ROW.includes(gone), `${gone} survives — the grid view is hidden, not removed`);
   }
-  const carousel = readFileSync(
-    join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'mobile-guest-carousel.tsx'),
-    'utf8',
-  );
-  assert.ok(!carousel.includes('DensityBtn'), 'the density toggle is still on screen');
+  // ⤷ 2026-09-30 (Fix E): the phone-only head that carried the density
+  // toggle was deleted outright; the one roster head is `page.tsx`'s.
+  const page = readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'), 'utf8');
+  assert.ok(!page.includes('DensityBtn'), 'the density toggle is still on screen');
 });
 
 test('exactly one element in the row carries a filled tint', () => {

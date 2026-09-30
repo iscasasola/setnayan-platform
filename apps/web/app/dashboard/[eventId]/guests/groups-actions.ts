@@ -70,9 +70,8 @@ function backToList(eventId: string, params: Record<string, string>): string {
 // (2026-05-23 PM, verbatim): "apply and add button should be 1 only and at the
 // last, Apply". That one action reads `role`, `group_id` AND `side` off the same
 // FormData and no-ops on whichever is blank, so the two single-purpose halves
-// have been callerless ever since — the live toolbars
-// (`_components/guest-list-multiselect.tsx`, `_components/mobile-guest-carousel.tsx`)
-// bind only the combined one.
+// have been callerless ever since — the live toolbar (the bulk bar in
+// `_components/guest-list-multiselect.tsx`) binds only the combined one.
 //
 // Do not re-split them. One Apply button is the decision, not an accident.
 // -----------------------------------------------------------------------

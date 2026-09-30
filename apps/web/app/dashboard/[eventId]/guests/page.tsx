@@ -79,7 +79,6 @@ import {
 } from './_components/add-from-people-sheet';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { GuestsSearch } from './_components/guests-search';
-import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
 import { RosterFilters, RosterSort } from './_components/roster-controls';
 import { eventHasSides } from '@/lib/guest-side-question';
 import {
@@ -1022,7 +1021,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {/* The floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
           (nav-surfaces follow-up to #1470): the global journey bottom nav is now
           ALWAYS present on this surface — the Guests sub-views moved to top-of-
-          page `.sn-seg` tabs (MobileGuestCarousel) rather than a second bottom
+          page tabs (now `RosterTabs`, one row at every width) rather than a second bottom
           bar — so a dedicated "back to home" affordance is vestigial.
           ⚠ THE SENTENCE THAT USED TO FOLLOW HERE OUTLIVED BOTH ITS REFERENTS:
           it said the safe-area top padding was kept "because the top bar is
@@ -1206,7 +1205,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
-      {/* Desktop-only chrome — Living Roster reskin (P0 · 2026-07-11). The old
+      {/* The roster head — Living Roster reskin (P0 · 2026-07-11). The old
           split-brain of a stat strip (GUEST TARGET / PAX POOL / CONFIRMATIONS)
           up top + a SIDE / VIEW / GROUPS facet rail down the left is folded into
           ONE horizontal summary-facet bar: the live counts now sit ON the filter
@@ -1215,9 +1214,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           header and the active-filter breadcrumb at its foot. The Build ▸ Invite
           ▸ Confirm ▸ Seat ▸ Day-of stage-nav stepper (lifecycle ribbon) is
           RETIRED — its steps live in the left nav + the roster's own affordances.
-          Same filter params, same server actions: this is presentation only.
-          (Mobile top stays just the list; the carousel carries its own chrome.) */}
-      <div className="gl-settle hidden space-y-3 lg:block">
+          Same filter params, same server actions: this is presentation only. */}
+      {/* ⚖ ONE HEAD AT EVERY WIDTH — owner 2026-09-30, on a live phone
+          screenshot: *"the guestlist is not same and fixed like the desktop"*
+          · *"Fix E"*. The phone used to draw its OWN head (a second "Guest
+          list" title, a second Share the link, its own search and filters) in
+          a phone-only component, beside this one hidden behind `lg:`. Two heads
+          is how the phone drifted from the computer every time either changed.
+          This bar is now the only head: on a phone its filter dropdowns wrap
+          to their own line under search + Add (`FindAddRow`). */}
+      <div className="gl-settle space-y-3" data-roster-head="">
         {/* ⚖ THE SHELL — owner 2026-09-20. The CaptureBar no longer heads the
             chrome on its own: it is the ADD half of one shared row (FindAddRow),
             with FIND on the other end, and whichever is not in use folds to an
@@ -1260,34 +1266,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           sort={sort}
         />
       </div>
-
-      {/* mobile/tablet only — TOP-OF-PAGE 5-tab control surface (FIX B
-          2026-06-15): Summary · Search · Add · Customize · Journey as `.sn-seg`
-          pill tabs with the active panel below, rendered IN-FLOW above the
-          guest list (replaces the former bottom-docked sheet so the page has a
-          single bottom bar — the global journey nav). The Summary panel carries
-          the [Total][Attending][Pending][Declined] counts (animated); each box
-          is also an RSVP filter link, so mobile keeps RSVP filtering. */}
-      {/* Suspense required: MobileGuestCarousel uses useSearchParams() which
-          must be wrapped in a Suspense boundary in a Server Component parent
-          (Next.js 15 hard requirement — without it the route throws a 500). */}
-      <Suspense fallback={null}>
-        <MobileGuestCarousel
-          eventId={eventId}
-          q={q}
-          sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
-          currentSort={sort}
-          views={viewFiltersNamed}
-          groups={groups}
-          tags={allTags}
-          measured={guestsMeasured}
-          total={stats.total}
-          paxProgress={paxProgress}
-          joinUrl={joinUrl}
-          hasSides={hasSides}
-          maybeCount={stats.maybe}
-        />
-      </Suspense>
 
       {/* Mind-map view (redesign Phase 2) — the full editor over the SAME
           records as the list. The component splits responsively itself:

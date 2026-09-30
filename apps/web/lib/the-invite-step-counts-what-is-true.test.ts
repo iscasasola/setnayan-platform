@@ -199,9 +199,21 @@ test('"to invite" counts a column that has a writer — so it can fall', () => {
 });
 
 test('the event link is offered only when it works — never a dead "Share the link"', () => {
-  const rel = 'app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx';
-  const code = strip(readFileSync(join(WEB, rel), 'utf8'));
-  // `joinUrl` is null when the link cannot be handed out (no address, private,
-  // revoked token) — `fetchJoinUrl` asks `sharedJoinLinkState`. No link, no button.
-  assert.match(code, /\{joinUrl \? <ShareTheLinkButton joinUrl=\{joinUrl\} \/> : null\}/);
+  /* ⤷ 2026-09-30 (Fix E): the phone's own "Share the link" button (and, before
+     it, the Invite step's "link not working" badge) left with the phone-only
+     head. One door remains at every width — the roster's "Share the link" tab —
+     and it opens the invite panel, which hands out the link ONLY when
+     `sharedJoinLinkState` says it is usable and otherwise names the real reason
+     (no address yet · private · switched off). Measured 2026-09-30 on the
+     owner's 2-guest event: the badge was TRUE — the event is private and never
+     launched, so the link answered "Link not found". */
+  const panel = strip(
+    readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx'), 'utf8'),
+  );
+  assert.match(panel, /\{joinUrl && inviteLink\.usable \? \(/, 'the panel hands out a link without asking whether it works');
+  assert.match(panel, /inviteLink\.notice \?\?/, 'the panel stopped naming why the link does not work');
+  // The page's own copy of the link (the after-the-event Share menu) is null
+  // whenever the same rule says no.
+  const page = strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/page.tsx'), 'utf8'));
+  assert.match(page, /!sharedJoinLinkState\(\{[\s\S]{0,600}?\}\)\.usable\s*\)\s*\{\s*return null;/, 'fetchJoinUrl hands out a link the rule refused');
 });

@@ -75,3 +75,28 @@ export function delegateActivityLine(
     at: row.performed_at,
   };
 }
+
+/** The venue's zone when an event names none — `lib/schedule.ts` DEFAULT_EVENT_TZ. */
+const FALLBACK_TZ = 'Asia/Manila';
+
+/**
+ * WHEN a helper did it — "Sep 30, 10:14 AM", on the VENUE's clock.
+ *
+ * `performed_at` is a REAL instant (the database's now() at the write), unlike
+ * a schedule block's stored wall clock, so it is read in a real zone — the
+ * event's own, never the server's (the Hosts page printed it in UTC on Vercel,
+ * eight hours behind a Manila couple). Kept here, beside the line it belongs
+ * to, so no screen that also shows schedule times re-zones anything itself
+ * (`a-schedule-time-reads-the-same-everywhere.test.ts`).
+ */
+export function delegateActivityWhen(at: string, timeZone: string | null | undefined): string {
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timeZone || FALLBACK_TZ,
+  });
+}

@@ -62,6 +62,7 @@ import { cockpitEnabled } from '@/lib/setnayan-ai-cockpit-flag';
 import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
 import { seatAccessWord } from '@/lib/guest-access';
 import { fetchDelegateActivity } from '@/lib/delegate-activity.server';
+import { delegateActivityWhen } from '@/lib/delegate-activity';
 import {
   resolveSetnayanAiPaywallEnabled,
 } from '@/lib/integration-config';
@@ -2961,12 +2962,7 @@ export async function EventDashboard({
                                 {line.note ? <span className="text-ink/55"> — {line.note}</span> : null}
                               </span>
                               <span className="whitespace-nowrap font-mono text-[10.5px] text-ink/45">
-                                {new Date(line.at).toLocaleString('en-PH', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                })}
+                                {delegateActivityWhen(line.at, venueTz)}
                               </span>
                             </li>
                           ))}

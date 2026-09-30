@@ -6,7 +6,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { delegateActivityLine, delegateObject, delegateVerb, UNNAMED_HELPER } from '@/lib/delegate-activity';
+import {
+  delegateActivityLine,
+  delegateActivityWhen,
+  delegateObject,
+  delegateVerb,
+  UNNAMED_HELPER,
+} from '@/lib/delegate-activity';
 
 const row = (over: Partial<Parameters<typeof delegateActivityLine>[0]> = {}) => ({
   id: 'log-1',
@@ -48,4 +54,19 @@ test('a name that could not be read is a helper, never an empty string or an id'
   assert.equal(delegateActivityLine(row(), null).who, UNNAMED_HELPER);
   assert.equal(delegateActivityLine(row(), '   ').who, UNNAMED_HELPER);
   assert.equal(delegateActivityLine(row({ notes: '  ' }), 'Ana').note, null);
+});
+
+test('when is read on the venue clock — never the server’s zone', () => {
+  const norm = (x: string) => x.replace(/\s+/gu, ' ');
+  const before = process.env.TZ;
+  process.env.TZ = 'UTC';
+  try {
+    // 02:14 UTC is 10:14 AM in Manila.
+    assert.match(norm(delegateActivityWhen('2026-09-30T02:14:00Z', 'Asia/Manila')), /Sep 30, 10:14 AM/i);
+    assert.match(norm(delegateActivityWhen('2026-09-30T02:14:00Z', null)), /10:14 AM/i, 'no zone falls back to Manila, not UTC');
+    assert.equal(delegateActivityWhen('not a date', 'Asia/Manila'), '');
+  } finally {
+    if (before === undefined) delete process.env.TZ;
+    else process.env.TZ = before;
+  }
 });

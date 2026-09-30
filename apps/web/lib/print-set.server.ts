@@ -741,10 +741,10 @@ export async function loadGuestPasses(
 
   const seatOf = new Map<string, string>();
   const seatNumberOf = new Map<string, string>();
-  // Tables print only once guests may see their seats — the same one rule the
-  // guest pages ask (`guestsMaySeeSeatsFor`). The ticket itself drops them
-  // anyway while `TICKET_SHOWS_TABLE` is off (lib/print-layout.ts).
-  if (await guestsMaySeeSeatsFor(admin, eventId)) {
+  // 🎟 A ticket carries the table ON THE DAY (owner 2026-09-30, "THE TICKET
+  // GAINS THE SEAT ON THE DAY") — the ticket's half of the one seat rule
+  // (`ticketShowsTable`), never the couple's "show early" switch.
+  if (await guestsMaySeeSeatsFor(admin, eventId, { ticket: true })) {
     const [{ data: seats }, { data: tables }] = await Promise.all([
       admin.from('event_seat_assignments').select('guest_id, table_id, seat_number').eq('event_id', eventId),
       admin.from('event_tables').select('table_id, table_label').eq('event_id', eventId),

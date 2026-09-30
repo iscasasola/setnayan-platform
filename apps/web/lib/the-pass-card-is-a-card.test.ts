@@ -34,7 +34,7 @@ import {
   uniqueFileNames,
   type PassCardRow,
 } from './pass-card';
-import { layoutPassCard, layoutPieceDocs, passCardFacts, safeContainsBox, TICKET_SHOWS_TABLE, type PrintOp, type PrintPass, type PrintSetData } from './print-layout';
+import { layoutPassCard, layoutPieceDocs, passCardFacts, safeContainsBox, type PrintOp, type PrintPass, type PrintSetData } from './print-layout';
 import { INVITE_THEME_IDS } from './invite-themes';
 import { PRINT_FORMATS, printLookFor } from './print-pieces';
 import { renderPassCardPng } from './pass-card-render';
@@ -42,6 +42,7 @@ import { renderInvitationQrPng } from './qr';
 import { decodeQrPayloadFromImage } from './qr-decode';
 import { FREE_QR_LOOK } from './qr-look';
 import { buildChecklist } from './guest-checklist';
+import { ticketShowsTable } from './guests-may-see-seats';
 
 const WEB = join(__dirname, '..');
 const src = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
@@ -200,42 +201,51 @@ function data(over: Partial<PrintSetData> = {}): PrintSetData {
 }
 const PASS: PrintPass = { name: 'Maria Santos', seat: 'Table 7', qrRef: 'qr-g-1', serial: null, arrive: '3:30 PM', party: 1 };
 
-test('🎟 NO TABLE ON ANY TICKET for now — owner 2026-09-30: "so on their digital ticket, no seat plan for the moment."', () => {
-  // The owner's switch. Bringing the table back is flipping TICKET_SHOWS_TABLE
-  // in lib/print-layout.ts — and this line, which records that he decided it.
-  assert.equal(TICKET_SHOWS_TABLE, false, 'the ticket shows no table until the owner says otherwise');
-  // The facts: a seated guest's card says Arrive, never Table.
-  assert.deepEqual(passCardFacts(PASS).map((f) => [f.label, f.value]), [['Arrive', '3:30 PM']]);
+test('🎟 THE TABLE ON THE DAY — owner 2026-09-30: "their digital Ticket will also update on the date of the event with the seat number"', () => {
+  // The day rule: from 00:00 Manila on the event's date, and never before —
+  // whatever the couple's "show early" switch says (lib/guests-may-see-seats.ts).
+  const day = { eventDate: '2027-03-13', eventDatePrecision: 'day' };
+  assert.equal(ticketShowsTable(day, new Date('2027-03-12T15:59:59Z')), false, '23:59 Manila the night before shows a table');
+  assert.equal(ticketShowsTable(day, new Date('2027-03-12T16:00:00Z')), true, '00:00 Manila on the day shows no table');
+  assert.equal(ticketShowsTable({ ...day, eventDatePrecision: 'month' }, new Date('2027-03-20T00:00:00Z')), false, 'a month-only date has no day to open on');
+  // The drawing draws what the pass carries: a seated guest's card says Table,
+  // then Arrive; an unseated one says Arrive alone.
+  assert.deepEqual(passCardFacts(PASS).map((f) => [f.label, f.value]), [['Table', '7'], ['Arrive', '3:30 PM']]);
   assert.deepEqual(passCardFacts({ ...PASS, seat: null, arrive: null }), []);
-  // Every ticket, drawn with a table and without one, is the SAME drawing: the
-  // Digital ticket in every look, and every printed pass format (the PDF, and
-  // the Pro zip, which draws the same function).
+  // …so the readers are the gate: the Digital ticket's kit and the Printed
+  // batch fill `seat` only on the ticket's half of the rule.
+  const kit = stripComments(readFileSync(join(__dirname, 'pass-card.server.ts'), 'utf8'));
+  assert.match(kit, /guestsMaySeeSeatsFor\(admin, eventId, \{ ticket: true \}\)/, 'the Digital ticket reads the seat plan without the day rule');
+  assert.match(kit, /seat: kit\.seats\.get\(g\.guest_id\)\?\.seat \?\? null/, 'the Digital ticket no longer carries the seat it read');
+  const batch = stripComments(readFileSync(join(__dirname, 'print-set.server.ts'), 'utf8'));
+  assert.match(batch, /guestsMaySeeSeatsFor\(admin, eventId, \{ ticket: true \}\)/, 'the Printed tickets read the seat plan on the switch, not the day');
+  // A seat drawn is ink: every look and every printed pass format changes.
   const look = printLookFor('house');
   const noSeat: PrintPass = { ...PASS, seat: null, seatNumber: null };
   const seated: PrintPass = { ...PASS, seat: 'Table 7', seatNumber: '3' };
   for (const design of PASS_CARD_DESIGNS) {
     const a = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, seated, design);
     const b = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, noSeat, design);
-    assert.deepEqual(a.ops, b.ops, `Digital ticket · ${design}: a table must draw no ink`);
+    assert.notDeepEqual(a.ops, b.ops, `Digital ticket · ${design}: the table drew no ink on the day`);
   }
-  const passFormats = Object.values(PRINT_FORMATS).filter((f) => f.for === 'pass');
-  assert.ok(passFormats.some((f) => f.style === 'boarding') && passFormats.some((f) => f.style === 'phone'), 'the sweep reaches the boarding pass and the phone card');
-  for (const f of passFormats) {
-    const a = layoutPieceDocs('pass', { look, data: data(), mode: 'print', foil: false, format: f.id, pass: seated })[0]!;
-    const b = layoutPieceDocs('pass', { look, data: data(), mode: 'print', foil: false, format: f.id, pass: noSeat })[0]!;
-    assert.deepEqual(a.ops, b.ops, `Printed ticket · ${f.id}: a table or seat number must draw no ink`);
-  }
+  const boarding = Object.values(PRINT_FORMATS).find((f) => f.for === 'pass' && f.style === 'boarding')!;
+  const a = layoutPieceDocs('pass', { look, data: data(), mode: 'print', foil: false, format: boarding.id, pass: seated })[0]!;
+  const b = layoutPieceDocs('pass', { look, data: data(), mode: 'print', foil: false, format: boarding.id, pass: noSeat })[0]!;
+  assert.notDeepEqual(a.ops, b.ops, 'the boarding pass drew no Table · Seat on the day');
+  // Before the day the fields GO — never "Table —".
+  const layout = stripComments(readFileSync(join(__dirname, 'print-layout.ts'), 'utf8'));
+  assert.match(layout, /\.filter\(\(\[label, value\]\) => \(label !== 'Table' && label !== 'Seat'\) \|\| value !== null\)/, 'an unseated boarding pass prints an empty Table field again');
 });
 
-test('an unknown table is OMITTED — never "Table TBA" (holds whenever the ticket shows tables again)', () => {
+test('an unknown table is OMITTED — never "Table TBA"', () => {
   assert.deepEqual(passCardFacts({ ...PASS, seat: null }).map((f) => f.label), ['Arrive']);
-  if (!TICKET_SHOWS_TABLE) return;
   assert.deepEqual(passCardFacts(PASS).map((f) => [f.label, f.value]), [['Table', '7'], ['Arrive', '3:30 PM']]);
   for (const design of PASS_CARD_DESIGNS) {
     const look = printLookFor('house');
     const withTable = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, PASS, design);
     const without = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, { ...PASS, seat: null }, design);
-    assert.equal(withTable.ops.length - without.ops.length, 2, `${design}: the TABLE label and value are the only ink that goes`);
+    // The Fable ticket (Classic) draws the day's seat as ONE pill in the party line's place.
+    assert.equal(withTable.ops.length - without.ops.length, design === 'classic' ? 1 : 2, `${design}: the table's own ink is the only ink that goes`);
   }
 });
 
@@ -371,17 +381,17 @@ test('the zip holds exactly the guests who HAVE a card — named plus-ones in, p
   assert.match(s, /filterPassCardRows\(rows, asPassCardRow\)/);
 });
 
-test('🪑 NO TABLE ON THE DIGITAL TICKET — published or not (owner 2026-09-30)', () => {
-  // Owner, verbatim: "no seat plan on the digital ticket for the moment". A
-  // saved picture cannot follow the couple moving a table; Find my seat can.
+test('🪑 THE DIGITAL TICKET CARRIES THE TABLE ON THE DAY — never before (owner 2026-09-30)', () => {
+  // Owner, verbatim: "their digital Ticket will also update on the date of the
+  // event with the seat number" — superseding the same day's "no seat plan on
+  // the digital ticket for the moment".
   const s = src('lib/pass-card.server.ts');
   const fn = s.slice(s.indexOf('export function passCardPass'), s.indexOf('export function passCardDesignFor'));
   assert.ok(fn.length > 40, 'precondition: found passCardPass — re-point this guard');
-  assert.match(fn, /seat: null,/, 'the digital ticket carries a table again');
-  assert.doesNotMatch(s, /eventSeatingPublished|event_seat_assignments/, 'the ticket kit reads the seat plan again');
+  assert.match(fn, /seat: kit\.seats\.get\(g\.guest_id\)\?\.seat \?\? null,/, 'the digital ticket no longer carries the day’s table');
+  assert.doesNotMatch(s, /eventSeatingPublished/, 'the ticket follows the couple’s "show early" switch — it follows the day only');
   const facts = passCardFacts({ ...PASS, seat: null });
   assert.deepEqual(facts.map((f) => f.label), ['Arrive'], 'a ticket with no table draws no Table');
-  // The pure rule is kept for the day the owner brings the table back.
   const seats = [{ guest_id: 'maria', table_id: 't7' }];
   const tables = [{ table_id: 't7', table_label: '7' }];
   assert.equal(seatLabelsFrom(false, seats, tables).size, 0, 'unpublished → no table');

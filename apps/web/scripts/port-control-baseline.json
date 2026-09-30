@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "54398d3ab",
+  "generatedFromRef": "6b3e0b9f",
   "routeCount": 439,
   "destinations": 948,
-  "actions": 672,
-  "blocks": 5230,
+  "actions": 673,
+  "blocks": 5237,
   "routes": {
     "/": {
       "files": [
@@ -803,6 +803,7 @@
         "[slug]/_components/hub-scene-runs.tsx",
         "[slug]/_components/hub-scenes.tsx",
         "[slug]/_components/hub/hub-shell.tsx",
+        "[slug]/_components/in-app-bar.tsx",
         "[slug]/_components/invitation-shell.tsx",
         "[slug]/_components/invitation-skeleton.tsx",
         "[slug]/_components/live-wall-block.tsx",
@@ -890,6 +891,7 @@
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/ticket-picture.tsx",
+        "[slug]/_components/ticket-popup.tsx",
         "[slug]/_components/ticket-row.tsx",
         "[slug]/_components/tier-comparison-widget.tsx",
         "[slug]/_components/upload-your-qr.tsx",
@@ -1485,11 +1487,14 @@
         "CopyMyLink",
         "DoorNotice",
         "DoorShell",
+        "InAppBar",
         "InviteQrPanel",
         "Link",
         "RsvpCanvasBridge",
+        "SavePassCardButton",
         "SaveToAccount",
-        "TicketRow",
+        "TicketPicture",
+        "TicketPopup",
         "YourGuests"
       ]
     },
@@ -5681,6 +5686,7 @@
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-detail-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-drawer.tsx",
+        "dashboard/[eventId]/guests/_components/guest-invite-cell.tsx",
         "dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx",
         "dashboard/[eventId]/guests/_components/guest-mind-map.tsx",
         "dashboard/[eventId]/guests/_components/guest-name-fields.tsx",
@@ -9465,6 +9471,7 @@
         "join/[eventId]/_components/join-shell.tsx",
         "join/[eventId]/_components/request-form.tsx",
         "join/[eventId]/actions.ts",
+        "join/[eventId]/find-me-actions.ts",
         "join/[eventId]/loading.tsx",
         "join/[eventId]/page.tsx"
       ],
@@ -9476,11 +9483,15 @@
       ],
       "actions": [
         "action",
+        "findMe",
         "selfAction"
       ],
       "blocks": [
         "AskToJoinIntro",
+        "DoorOpen",
         "DoorShell",
+        "FindMeDigitsStep",
+        "FindMeNameStep",
         "FormFlash",
         "FormPageSkeleton",
         "FormalName",
@@ -9491,6 +9502,7 @@
         "Link",
         "RequestForm",
         "RequestSentScreen",
+        "StartOver",
         "SubmitButton"
       ]
     },

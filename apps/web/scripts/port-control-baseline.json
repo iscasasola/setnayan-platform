@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e88668a19",
+  "generatedFromRef": "f51107ee3",
   "routeCount": 439,
-  "destinations": 948,
+  "destinations": 946,
   "actions": 673,
-  "blocks": 5307,
+  "blocks": 5309,
   "routes": {
     "/": {
       "files": [
@@ -7352,12 +7352,14 @@
         "PageMasthead",
         "PaidMark",
         "ProChip",
-        "ProUpsellLine",
+        "ProTryLine",
         "ResolvedArrangement",
         "SaveArrangementResult",
         "SaveState",
         "ShareButtons",
         "StoryCoverKind",
+        "StoryProExtraKey",
+        "StoryProExtras",
         "StoryRail",
         "StoryStepKey",
         "StoryTheme",
@@ -8932,7 +8934,6 @@
         "/dashboard/[seg]/launch",
         "/dashboard/[seg]/launch?scene=[seg]",
         "/dashboard/[seg]/schedule?view=event-day",
-        "/dashboard/[seg]/story",
         "/dashboard/[seg]/studio/save-the-date",
         "/dashboard/[seg]/studio/website-pro"
       ],
@@ -9154,17 +9155,15 @@
         "dashboard/[eventId]/website/our-photos/actions.ts",
         "dashboard/[eventId]/website/our-photos/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/website"
-      ],
+      "destinations": [],
       "actions": [
         "updateAction"
       ],
       "blocks": [
         "FileUpload",
         "PageMasthead",
-        "SubmitButton",
-        "WebsiteProLock"
+        "PaidMark",
+        "SubmitButton"
       ]
     },
     "/dashboard/[eventId]/website/our-story": {

@@ -147,7 +147,7 @@ async function paintEditorial(ownsPro: boolean): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { EditorialPanel } = await import('../app/dashboard/[eventId]/website/editor/_components/authoring-panels');
   return renderToStaticMarkup(
-    React.createElement(EditorialPanel, { eventId: 'E1', ownsPro, unlockHref: '/buy', priceLabel: null }),
+    React.createElement(EditorialPanel, { ownsPro }),
   );
 }
 

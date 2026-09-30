@@ -95,8 +95,10 @@ test('⛔ the unlock words live in one helper, so no button can re-type a price 
     );
     if (/\bunlockLabel\(/.test(src)) callers += 1;
   }
-  // The three surfaces that show the CTA: pro-panels, authoring-panels, editor-shell.
-  assert.equal(callers, 3, `expected 3 files rendering unlockLabel(), found ${callers}`);
+  // The two surfaces that show the CTA: pro-panels and editor-shell. (The Post
+  // Event panel in authoring-panels dropped its unlock button on 2026-09-30 —
+  // "no link-outs"; Apply asks for Pro there, like every Maker row.)
+  assert.equal(callers, 2, `expected 2 files rendering unlockLabel(), found ${callers}`);
 });
 
 test('the editor page reads the price from the catalogue row', () => {

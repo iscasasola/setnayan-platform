@@ -1582,6 +1582,10 @@ export function planHubDraftApply(
       // A held look keeps the WHOLE drafted map, so the next Apply (after Pro)
       // finds it — and finds its free part already live.
       if (item.item.field === 'sceneLooks') remaining.editorial = { ...(remaining.editorial ?? {}), sceneLooks: item.item.value };
+      // 💎 A held story extra (moments, columns, wishes) stays drafted whole.
+      else if (item.item.field === 'chapterOverrides' || item.item.field === 'customColumns' || item.item.field === 'reviews') {
+        remaining.editorial = { ...(remaining.editorial ?? {}), [item.item.field]: item.item.value };
+      }
     } else if (item.kind === 'fixed-style') {
       // Never refused (a style pick is free) — kept for completeness.
       remaining.fixedStyles = { ...(remaining.fixedStyles ?? {}), [item.scene]: item.value };

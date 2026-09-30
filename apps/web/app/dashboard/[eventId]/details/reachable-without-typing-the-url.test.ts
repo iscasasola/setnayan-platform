@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerNavGroups } from '../_components/customer-nav-config';
-import { guestListParts } from '@/lib/pillar-parts';
+import { PEOPLE_GROUP_COPY } from '@/lib/event-people-roster';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..', '..');
@@ -81,7 +81,10 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
       'the couple cannot put a finished celebration away, or bring it back — ' +
       'and five screens tell them to do exactly that',
   },
-  { segment: 'hosts', whatIsLost: 'the couple cannot add a co-host' },
+  {
+    segment: 'hosts',
+    whatIsLost: 'a helper without the guest list cannot see what they may do (everyone else lands on the guest list)',
+  },
   {
     segment: 'refer',
     whatIsLost:
@@ -95,8 +98,10 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
  * purpose, to their new homes, never to nowhere. The rail is five rows now, so
  * a page that is not a row must PROVE its door in a mounted surface instead:
  *
- *   hosts → the Guest list's parts picker (`guestListParts`, rendered by the
- *           guest list page), and the old `/hosts` address lands there;
+ *   hosts → since the Hosts fold (owner 2026-09-30) `/hosts` is REDIRECT-ONLY:
+ *           anyone holding the guest list lands on it (a rail row), and the
+ *           one viewer it still draws for — a helper without the guest list —
+ *           reaches it from the People roster's "Running the day with you";
  *   refer → the account menu: the event layout hands `referHref` to the
  *           mounted <AccountSwitcher>, which draws "Refer a couple".
  *
@@ -104,11 +109,13 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
  * door turns this red exactly as deleting the old rail row did.
  */
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-const MOVED_DOOR: Record<string, () => boolean> = {
-  hosts: () =>
-    guestListParts({ eventId: 'EVT123', phase: 'plan', current: 'roster' }).some((p) => p.key === 'hosts') &&
-    read('app/dashboard/[eventId]/guests/page.tsx').includes('guestListParts(') &&
-    read('app/dashboard/[eventId]/hosts/page.tsx').includes('GUEST_LIST_PART_VIEW.hosts'),
+const MOVED_DOOR: Record<string, (railHrefs: string[]) => boolean> = {
+  hosts: (railHrefs) =>
+    railHrefs.includes('/dashboard/EVT123/guests') &&
+    read('app/dashboard/[eventId]/hosts/page.tsx').includes(
+      "if (!isDelegateWithoutArea(viewer, 'guest_list')) redirect(`/dashboard/${eventId}/guests`);",
+    ) &&
+    PEOPLE_GROUP_COPY.hosts.path === 'hosts',
   refer: () =>
     read('app/dashboard/[eventId]/layout.tsx').includes('referHref={referralEnabled ? `/dashboard/${eventId}/refer` : null}') &&
     read('app/_components/account-switcher/account-switcher.tsx').includes('href={referHref}') &&
@@ -118,7 +125,7 @@ const MOVED_DOOR: Record<string, () => boolean> = {
 /** Is this event page reachable by clicking — a rail row, or a proven moved door? */
 function hasDoor(segment: string, railHrefs: string[]): boolean {
   if (railHrefs.includes(`/dashboard/EVT123/${segment}`)) return true;
-  return MOVED_DOOR[segment]?.() ?? false;
+  return MOVED_DOOR[segment]?.(railHrefs) ?? false;
 }
 
 test('the pages people go to are linked from the event rail, not just addressable', () => {

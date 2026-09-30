@@ -69,6 +69,7 @@
  */
 
 import type { DayOfPhase } from '@/lib/day-of-mode';
+import { hubTabHref } from './hub-tabs';
 
 /** Who is holding the phone. */
 export type NavViewer =
@@ -124,7 +125,14 @@ export function navPhaseFor(input: {
   return 'before';
 }
 
-export type NavSlotKey = 'home' | 'details' | 'schedule' | 'story' | 'film' | 'suppliers' | 'camera' | 'watch' | 'gallery' | 'me';
+/**
+ * 📱 `live` is The Day's first tab (owner 2026-09-30, "THE DAY'S MENU HAS FIVE:
+ * LIVE · WELCOME · CAMERA · GALLERY · ME"). `home` stays the guest's own page —
+ * "Welcome" — on the Invitation AND on the day, so the keys keep meaning one
+ * thing each. `schedule` and `watch` are no longer drawn (the day's Live carries
+ * the programme and the stream); the keys stay so an old value still types.
+ */
+export type NavSlotKey = 'live' | 'home' | 'details' | 'schedule' | 'story' | 'film' | 'suppliers' | 'camera' | 'watch' | 'gallery' | 'me';
 
 export type NavSlot = {
   key: NavSlotKey;
@@ -160,8 +168,22 @@ export type NavInput = {
   /** Is there a schedule to show on the day? (On the Day's "Schedule" tab —
    *  owner 2026-09-27, "EACH STAGE DOES ONE JOB".) Absent → assumed. */
   hasSchedule?: boolean;
-  /** Is a broadcast running right now? */
+  /** Is a broadcast running right now? Since 2026-09-30 the stream is part of
+   *  the day's Live tab, never a tab of its own — kept on the input so callers
+   *  keep saying it, and no rule reads it. */
   liveBroadcast: boolean;
+  /** 🏠 THE DAY'S WELCOME (owner 2026-09-30): does this reader have a Welcome on
+   *  the day — their table, their look, the couple's reminders, E-Gifts? A tab
+   *  with nothing behind it is not drawn. Absent → assumed. */
+  hasWelcome?: boolean;
+  /**
+   * 📱 EACH TAB ITS OWN PAGE (owner 2026-09-30, `hub-tabs.ts`): the page shows
+   * one tab at a time, so each in-page tab goes to its own address
+   * (`?tab=<key>`) instead of a `#jump-mark` on one long page. Absent/false →
+   * the anchors, for the pages that are still one scroll (the Save the Date, the
+   * story after the day, the Maker's canvas).
+   */
+  tabbed?: boolean;
   /**
    * 📖 AFTER THE DAY — does the recap DRAW a film scene, and a team scene?
    * Resolved by the caller through the SAME predicates the recap renders with
@@ -188,14 +210,17 @@ export type NavInput = {
   stageSlots?: readonly NavSlotKey[];
 };
 
-/** In-page anchors, mirroring SITE_MENU_ANCHORS. */
-const ANCHOR: Record<'home' | 'details' | 'story' | 'gallery' | 'me', string> = {
+/** In-page anchors, mirroring SITE_MENU_ANCHORS. `welcome` is the day's
+ *  Welcome, which is not at the top of the day's page (Live is). */
+const ANCHOR: Record<'home' | 'welcome' | 'details' | 'story' | 'gallery' | 'me', string> = {
   home: '#site-home',
+  welcome: '#site-welcome',
   details: '#site-details',
   story: '#site-story',
   gallery: '#site-gallery',
   me: '#site-me',
 };
+const IN_PAGE_ANCHORS: readonly string[] = Object.values(ANCHOR);
 
 /** One-word kit labels — the nav cannot hold "Script & cues" (it wraps). */
 const KIT_SLOT_LABEL: Record<VendorKit, string> = {
@@ -210,7 +235,7 @@ const KIT_SLOT_LABEL: Record<VendorKit, string> = {
  * than leaving a hole or a dead button.
  */
 export function resolveSiteNav(input: NavInput): NavSlot[] {
-  const { viewer, phase, hostAllowsCamera, anyChapterPublic, liveBroadcast } = input;
+  const { viewer, phase, hostAllowsCamera, anyChapterPublic } = input;
   const dest = input.destinations ?? {};
   const hasStory = input.hasStory ?? false;
   const isVendor = viewer.kind === 'vendor';
@@ -221,34 +246,35 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     is "Welcome" — the guest's own page (owner 2026-09-30, verbatim: *"on
   //     Invitation, the menu is Welcome - Details - Our Love Story - Me"*). The
   //     key and the anchor stay `home`: only the word changed.
-  slots.push({
-    key: 'home',
-    label: phase === 'day' ? 'Now' : phase === 'after' ? 'Recap' : 'Welcome',
-    state: 'live',
-    href: ANCHOR.home,
-  });
+  //
+  // 📱 ON THE DAY: LIVE, THEN WELCOME (owner 2026-09-30, verbatim: *"Live -
+  //     Welcome - Camera - Gallery - Me"*, after being told the day was missing
+  //     the guest's table and E-Gifts). Live is what's on now and next, the
+  //     stream and the wall — it replaces "Now", "Schedule" and "Watch", which
+  //     were three tabs for one moment. Welcome is the guest's own page on the
+  //     day (their table, their look, the reminders, E-Gifts) — the same `home`
+  //     key as the Invitation's Welcome, because it is the same page idea. A
+  //     supplier gets no Welcome: it is a guest's page.
+  if (phase === 'day') {
+    slots.push({ key: 'live', label: 'Live', state: 'live', href: ANCHOR.home });
+    if (!isVendor && (input.hasWelcome ?? true)) {
+      slots.push({ key: 'home', label: 'Welcome', state: 'live', href: ANCHOR.welcome });
+    }
+  } else {
+    slots.push({
+      key: 'home',
+      label: phase === 'after' ? 'Recap' : 'Welcome',
+      state: 'live',
+      href: ANCHOR.home,
+    });
+  }
 
-  // 2 — DETAILS, or WATCH once a broadcast is actually running. Watch takes
-  //     this slot rather than the Gallery one: on the day a viewer needs the
-  //     camera AND the gallery, so the broadcast may not displace either.
-  if (phase === 'day' && liveBroadcast && !isVendor) {
-    slots.push(
-      dest.watch
-        ? { key: 'watch', label: 'Watch', state: 'live', href: dest.watch }
-        : { key: 'watch', label: 'Watch', state: 'locked', href: '#', lockedReason: 'The broadcast has not started' },
-    );
-  } else if (phase === 'before' && (input.hasDetails ?? true)) {
+  // 2 — DETAILS before the day; a supplier's "Cues" on any day. (No Watch and
+  //     no Schedule tab on the day any more — both live inside Live.)
+  if (phase === 'before' && (input.hasDetails ?? true)) {
     slots.push({ key: 'details', label: 'Details', state: 'live', href: ANCHOR.details });
   } else if (isVendor) {
     slots.push({ key: 'details', label: 'Cues', state: 'live', href: ANCHOR.details });
-  } else if (phase === 'day' && (input.hasSchedule ?? true)) {
-    // 🗂 ON THE DAY the second tab is the SCHEDULE (owner 2026-09-27: *"On
-    //    the day. seams to be missing a lot of details and menus on the guest
-    //    bar"* → Now · Schedule · Camera · Gallery · Me, "yes"). It lands on
-    //    the day's details, whose first scene IS the schedule
-    //    (`STAGE_SCENES.event`). No key needed: the programme is general
-    //    information (#6018).
-    slots.push({ key: 'schedule', label: 'Schedule', state: 'live', href: ANCHOR.details });
   }
 
   // 2½ — AFTER THE DAY: FILM, then SUPPLIERS (E1). Each only when the recap
@@ -264,7 +290,7 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   }
 
   // 3 — STORY. The couple's own words, before the day only: once the wedding is
-  //     happening, Now/Watch/Camera/Gallery are what a guest needs, and the bar
+  //     happening, Live/Welcome/Camera/Gallery are what a guest needs, and the bar
   //     holds five.
   if (phase === 'before' && !isVendor && hasStory) {
     // "Our Love Story" (owner 2026-09-30) — the tab's words, the key stays `story`.
@@ -373,7 +399,11 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     const i = allowed.findIndex((s) => s.key === 'suppliers');
     if (i >= 0) allowed.splice(i, 1);
   }
-  return allowed.slice(0, 5);
+  const five = allowed.slice(0, 5);
+  // 📱 Each tab its own page: an in-page tab goes to its address, not a mark.
+  return input.tabbed
+    ? five.map((sl) => (sl.state === 'live' && IN_PAGE_ANCHORS.includes(sl.href) ? { ...sl, href: hubTabHref(sl.key) } : sl))
+    : five;
 }
 
 /**

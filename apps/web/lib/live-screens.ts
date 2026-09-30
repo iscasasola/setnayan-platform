@@ -219,7 +219,7 @@ export function canAddScreen(activeCount: number): boolean {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   VENUE SCREENS COME WITH LIVE STUDIO — owner ruling 2026-09-20.
+   VENUE SCREENS COME WITH LIVE WATCH — owner ruling 2026-09-20.
    ══════════════════════════════════════════════════════════════════════════════
  * Asked whether venue screens should stay free or become a paid perk, the
  * owner said: "live studio is paid… depends on their live studio." Ruling:
@@ -245,7 +245,7 @@ export function canUseVenueScreens(input: { liveStudioActive: boolean }): boolea
  * in app/panood/control/[eventId]/page.tsx) — there is deliberately no second
  * purchase path.
  */
-export const VENUE_SCREENS_LOCKED_MESSAGE = 'Venue screens come with Live Studio';
+export const VENUE_SCREENS_LOCKED_MESSAGE = 'Venue screens come with Live Watch';
 
 /** The neutral card a paired TV shows instead of the event's content once it is locked. */
-export const VENUE_SCREEN_LOCKED_TV_MESSAGE = "Live Studio isn't active for this event.";
+export const VENUE_SCREEN_LOCKED_TV_MESSAGE = "Live Watch isn't active for this event.";

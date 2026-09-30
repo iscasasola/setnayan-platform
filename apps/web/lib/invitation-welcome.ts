@@ -77,7 +77,53 @@ export function welcomeParts(input: WelcomeInput): WelcomePart[] {
  * part: the door is the gift page's own gate (`giftHref`), for every reader.
  */
 export function welcomeCarriesGifts(input: Pick<WelcomeInput, 'stage' | 'bodyNormal' | 'giftHref' | 'maker'>): boolean {
-  return input.stage === 'rsvp' && input.bodyNormal && (Boolean(input.giftHref) || input.maker);
+  if (!input.bodyNormal) return false;
+  if (input.stage === 'rsvp') return Boolean(input.giftHref) || input.maker;
+  // 📱 On the day the Welcome carries it too (`welcomePartsOnTheDay`) — for a
+  // guest. The Maker's canvas does not draw the day's Welcome (see below).
+  if (input.stage === 'event') return Boolean(input.giftHref) && !input.maker;
+  return false;
+}
+
+/**
+ * 🏠 THE DAY'S WELCOME (owner 2026-09-30, verbatim: *"Live - Welcome - Camera -
+ * Gallery - Me"*, after being told the day was missing the guest's table and
+ * E-Gifts — DECISION_LOG "THE DAY'S MENU HAS FIVE": *"Welcome: the guest's own
+ * page on the day, same idea as the Invitation's Welcome: their table (the seat
+ * plan opens on the day), their look, the couple's reminders, E-Gifts"*).
+ *
+ * The same three parts as the Invitation's, read from the same facts — but NOT
+ * from the day's scene list: the dress code and the reminders are Invitation
+ * scenes (`STAGE_SCENES`), so on the day they are not "on the page" to take.
+ * They are the couple's words all the same, so the day's Welcome asks whether
+ * the couple SHOWS them (the scene is switched on), not whether this stage lists
+ * them. The table is not a part here: it is the page's own seat block, drawn
+ * above these by the caller.
+ *
+ * 🖼 Never the Maker's canvas: the look and the reminders are made on the
+ * Invitation stage, and the canvas's navigator lists what the canvas draws —
+ * a second copy of them on the day's canvas would be a scene with two homes.
+ */
+export function welcomePartsOnTheDay(input: {
+  bodyNormal: boolean;
+  /** An invited guest (only a guest has a role to dress for). */
+  identified: boolean;
+  /** Is the couple's dress code switched on for guests? */
+  dressCodeOn: boolean;
+  /** Is the couple's Reminders scene switched on for guests? */
+  remindersOn: boolean;
+  /** `events.what_to_bring`. */
+  reminders: string | null | undefined;
+  /** The gift door, or null when it would turn this reader away. */
+  giftHref: string | null;
+  maker: boolean;
+}): WelcomePart[] {
+  if (!input.bodyNormal || input.maker) return [];
+  const out: WelcomePart[] = [];
+  if (input.identified && input.dressCodeOn) out.push('look');
+  if (input.remindersOn && (input.reminders ?? '').trim().length > 0) out.push('reminders');
+  if (input.giftHref) out.push('gifts');
+  return out;
 }
 
 /**

@@ -57,10 +57,11 @@ import {
   FORMAL_NAME_FIELDS,
   FORMAL_NAME_LABELS,
   FORMAL_NAME_PART_MAX,
-  isFormalNameEmpty,
+  normalizeNamePart,
   type FormalName,
 } from '@/lib/formal-name';
 import { formalNameFromGuestList } from '@/lib/formal-name-from-guest-list';
+import { PrefixSelect } from '@/app/_components/formal-name-inputs';
 import { AnalyticsChoice } from './_components/analytics-choice';
 import { SettingsShell } from './_components/settings-shell';
 import { groupFromSearchParams } from '@/lib/profile-settings-groups';
@@ -174,17 +175,24 @@ export default async function ProfilePage({ searchParams }: Props) {
     if (url) photoDisplayMap[profile.profile_photo_url] = url;
   }
 
-  /* THE FORMAL NAME (owner 2026-09-21). Saved parts win. When the profile has
-     never been filled, the name a host already typed on a guest row that is
-     linked to THIS account pre-fills the form — shown, not saved, until the
-     person presses Save. See lib/formal-name-from-guest-list.ts. */
+  /* THE FORMAL NAME (owner 2026-09-21). The boxes show what is SAVED — never a
+     name somebody else typed. When a guest row linked to THIS account carries
+     parts the profile lacks, ONE line offers it: "Use 'Mr. Manuel Cortez
+     Casasola' from Ana & Miguel's list" (owner 2026-09-30, "one tap, never
+     silent"). The tap fills only the EMPTY parts — `updatePersonalInfo` writes
+     only the fields a form carries. See lib/formal-name-from-guest-list.ts. */
   const savedFormalName = Object.fromEntries(
     FORMAL_NAME_FIELDS.map((f) => [f, (profile?.[f] as string | null | undefined) ?? null]),
   ) as FormalName;
-  const formalNameSuggestion = isFormalNameEmpty(savedFormalName)
+  const formalNameShown = savedFormalName;
+  const formalNameSuggestion = FORMAL_NAME_FIELDS.some((f) => !normalizeNamePart(savedFormalName[f]))
     ? await formalNameFromGuestList(user.id)
     : null;
-  const formalNameShown = formalNameSuggestion?.name ?? savedFormalName;
+  const formalNameFill = formalNameSuggestion
+    ? FORMAL_NAME_FIELDS.filter((f) => !normalizeNamePart(savedFormalName[f]) && formalNameSuggestion.name[f])
+    : [];
+  const formalNameOffer =
+    formalNameSuggestion && formalNameFill.length > 0 ? composeFormalName(formalNameSuggestion.name) : null;
 
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
   const remindersOn = (profile?.reminders_enabled ?? true) as boolean;
@@ -319,6 +327,28 @@ export default async function ProfilePage({ searchParams }: Props) {
       logQueryError('AccountProfilePage.faceProfile', faceProfileProbeError, {}, 'graceful_degrade');
     }
     faceProfileOptedIn = Boolean(faceProfile);
+  }
+
+  // 🙂 "EVENTS THAT CAN REUSE YOUR FACE" (owner 2026-09-30, design screen 5):
+  // one row per event whose seat this account holds, OFF unless the owner
+  // turned it on. Read only when the account has a face profile — without one
+  // there is nothing to reuse and no list is drawn.
+  let faceReuseEvents: { eventId: string; name: string; on: boolean }[] = [];
+  if (faceProfileFlagOn && faceProfileOptedIn) {
+    const [{ data: seats, error: seatsErr }, { data: reuseRow, error: reuseErr }] = await Promise.all([
+      supabase.from('event_members').select('event_id, events(display_name)').eq('user_id', user.id).not('guest_id', 'is', null),
+      supabase.from('user_face_profiles').select('reuse_event_ids').eq('user_id', user.id).maybeSingle(),
+    ]);
+    if (seatsErr) logQueryError('AccountProfilePage.faceReuseSeats', seatsErr, {}, 'graceful_degrade');
+    if (reuseErr) logQueryError('AccountProfilePage.faceReuse', reuseErr, {}, 'graceful_degrade');
+    const on = new Set(((reuseRow as { reuse_event_ids?: string[] | null } | null)?.reuse_event_ids ?? []) as string[]);
+    const seen = new Set<string>();
+    for (const r of (seats ?? []) as unknown as Array<{ event_id: string; events: { display_name: string | null } | null }>) {
+      if (!r.event_id || seen.has(r.event_id)) continue;
+      seen.add(r.event_id);
+      faceReuseEvents.push({ eventId: r.event_id, name: r.events?.display_name?.trim() || 'An event', on: on.has(r.event_id) });
+    }
+    faceReuseEvents = faceReuseEvents.slice(0, 50);
   }
 
   // If the user has exactly one active event, "Back" lands on that event's
@@ -520,30 +550,36 @@ export default async function ProfilePage({ searchParams }: Props) {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_5rem]">
               {FORMAL_NAME_FIELDS.map((f) => (
                 <Field key={f} label={FORMAL_NAME_LABELS[f]} htmlFor={f}>
-                  <input
-                    id={f}
-                    name={f}
-                    maxLength={FORMAL_NAME_PART_MAX}
-                    defaultValue={formalNameShown[f] ?? ''}
-                    placeholder={
-                      f === 'name_prefix' ? 'Mr., Atty.…' : f === 'name_suffix' ? 'Jr., II…' : undefined
-                    }
-                    className="input-field"
-                  />
+                  {f === 'name_prefix' ? (
+                    /* 🪪 The guest side's Prefix dropdown (owner 2026-09-30). */
+                    <PrefixSelect id={f} defaultValue={formalNameShown[f]} autoComplete="honorific-prefix" />
+                  ) : (
+                    <input
+                      id={f}
+                      name={f}
+                      maxLength={FORMAL_NAME_PART_MAX}
+                      defaultValue={formalNameShown[f] ?? ''}
+                      placeholder={f === 'name_suffix' ? 'Jr., II…' : undefined}
+                      className="input-field"
+                    />
+                  )}
                 </Field>
               ))}
             </div>
-            {formalNameSuggestion ? (
-              <p className="flex items-center gap-2 text-xs text-ink/70">
+            {formalNameOffer ? (
+              /* 🪪 ONE TAP, NEVER SILENT. The inputs and the button belong to
+                 the small form below (`form=`), not to this one, so the tap
+                 posts only the empty parts it fills. */
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink/70" data-use-event-name="">
                 <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-terracotta" />
+                {formalNameFill.map((f) => (
+                  <input key={f} type="hidden" form="use-event-name" name={f} value={formalNameSuggestion?.name[f] ?? ''} />
+                ))}
+                <button type="submit" form="use-event-name" className="font-medium text-terracotta-700 underline underline-offset-2">
+                  Use “{formalNameOffer}”
+                </button>
                 <span>
-                  Filled in from{' '}
-                  {formalNameSuggestion.eventTitle ? (
-                    <span className="font-medium">{formalNameSuggestion.eventTitle}</span>
-                  ) : (
-                    'a guest list you are on'
-                  )}
-                  . Check it, then press Save to keep it.
+                  from {formalNameSuggestion?.eventTitle ? `${formalNameSuggestion.eventTitle}’s list` : 'a guest list you are on'}
                 </span>
               </p>
             ) : null}
@@ -578,6 +614,13 @@ export default async function ProfilePage({ searchParams }: Props) {
           </div>
         </div>
       </form>
+      {/* The one-tap "Use '<name>'" line's own form — its inputs sit in the
+          Full name box above and point here with `form="use-event-name"`. */}
+      {formalNameOffer ? (
+        <form id="use-event-name" action={updatePersonalInfo} className="hidden">
+          <input type="hidden" name="tab" value="profile" />
+        </form>
+      ) : null}
     </>
   );
 
@@ -1018,6 +1061,31 @@ export default async function ProfilePage({ searchParams }: Props) {
             >
               <input type="hidden" name="enabled" value={faceProfileOptedIn ? 'false' : 'true'} />
             </SwitchRow>
+
+            {faceReuseEvents.length > 0 ? (
+              <div data-face-reuse-events className="space-y-1">
+                <p className="text-sm font-medium text-ink">Events that can reuse your face</p>
+                <p className="text-xs text-ink/60">
+                  Each event is separate. Allowing one never allows another. Turning one off
+                  doesn&rsquo;t change whether you&rsquo;re tagged there — only that you take a
+                  quick selfie on the day instead.
+                </p>
+                <div className="divide-y divide-ink/10">
+                  {faceReuseEvents.map((ev) => (
+                    <SwitchRow
+                      key={ev.eventId}
+                      action={setAccountFaceProfileConsent}
+                      on={ev.on}
+                      id={`face-reuse-${ev.eventId}`}
+                      label={ev.name}
+                    >
+                      <input type="hidden" name="reuse_event_id" value={ev.eventId} />
+                      <input type="hidden" name="reuse" value={ev.on ? 'false' : 'true'} />
+                    </SwitchRow>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {/* Account-level erasure (guardrail #3) — one action wipes the
                 account profile and, optionally, the per-event enrollments too. */}

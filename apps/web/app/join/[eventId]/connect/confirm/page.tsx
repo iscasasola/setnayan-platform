@@ -25,6 +25,9 @@ import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-shell';
 import { confirmSeatLinkAction } from './actions';
+import { accountFaceReuse } from '@/lib/account-face-profile';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
+import { REUSE_FACE_FIELD } from '@/lib/face-selfie-lifetime';
 
 export const metadata = { title: 'Save this invitation?' };
 
@@ -51,11 +54,17 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
   // decides where they land, exactly as it did before this page existed.
   if (!seat) redirect(`/join/${eventId}/connect${carry}`);
 
-  const { data: event } = await createAdminClient()
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const admin = createAdminClient();
+  const [{ data: event }, faceTagging, reuse] = await Promise.all([
+    admin.from('events').select('slug').eq('event_id', eventId).maybeSingle(),
+    resolveFaceTagging(admin, eventId),
+    // The caller's own client: RLS scopes the face profile to its owner.
+    accountFaceReuse(supabase, user.id, eventId),
+  ]);
+  // 🙂 THE ONE SWITCH (owner 2026-09-30, design screens 3a/4): only for an
+  // account that HAS a face to reuse, at an event where face tagging is on
+  // offer (Papic active and open, face tagging runs). Off until they move it.
+  const offerReuse = faceTagging.askable && reuse.hasFace;
   const slug = ((event?.slug as string | null) ?? '').trim();
   const accountEmail = user.email && !isPlaceholderEmail(user.email) ? user.email : null;
   const line = seatConfirmLine({ seatName: seat.name, accountEmail });
@@ -91,6 +100,28 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
       ) : null}
       <DoorActions>
         <form action={confirmSeatLinkAction.bind(null, eventId, seat.guestId, thenReply, approved)}>
+          {offerReuse ? (
+            <div data-reuse-face className="mb-4 text-left">
+              <input type="hidden" name={`${REUSE_FACE_FIELD}_shown`} value="1" />
+              <style>{`[data-reuse-face] .reuse-on{display:none}[data-reuse-face]:has(input[name="${REUSE_FACE_FIELD}"]:checked) .reuse-on{display:block}`}</style>
+              <label className="flex min-h-[44px] cursor-pointer items-start justify-between gap-3 rounded-lg bg-ink/[0.04] px-4 py-3">
+                <span>
+                  <span className="block text-sm font-medium text-ink">Reuse the face on my account for this event</span>
+                  <span className="block text-xs text-ink/60">No selfie needed on the day</span>
+                </span>
+                <input
+                  type="checkbox"
+                  name={REUSE_FACE_FIELD}
+                  value="1"
+                  defaultChecked={reuse.reusing}
+                  className="mt-1 h-5 w-5 shrink-0 accent-terracotta"
+                />
+              </label>
+              <p className="reuse-on mt-2 text-xs text-ink/60">
+                The face on your account is used for this event only. Photo helpers see your tags, not your face data.
+              </p>
+            </div>
+          ) : null}
           <SubmitButton className="button-primary w-full" pendingLabel="Saving…">
             Yes, save it
           </SubmitButton>

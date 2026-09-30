@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { resolveFaceTagging } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { formatEventDateWithPrecision } from '@/lib/events';
 import { joinDoorMeta } from '@/lib/join-door-meta';
@@ -17,7 +17,7 @@ import { rsvpGate } from '@/lib/guest-one-path';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
 import { hubDoorSkin } from '../_components/hub-door-skin';
-import { readRsvpWords, resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { guestReplyBy, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
@@ -172,8 +172,6 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
 
   const replyLocked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at as string | null,
-    editDeadline: event.guest_list_edit_deadline as string | null,
-    eventDate: event.event_date as string | null,
   });
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const gate = canvas ? ({ kind: 'inside', didntReply: false } as const) : rsvpGate({
@@ -237,14 +235,14 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
      IS an answer to stand on — a guest the key gate sent here has not got one. */
   const hasAnswered = gate.kind === 'inside' && ((guest.rsvp_status as string | null) ?? 'pending') !== 'pending';
 
-  // "Reply by" — the SAME date the couple sees on the Maker's RSVP page
-  // (`resolveReplyBy`, lib/rsvp-ask.ts: their own deadline, else 30 days before
-  // — owner 2026-09-26 "yes to all" (d)). Never shown once the list is locked.
+  // "Reply by" — only a date the HOST set that is still ahead (`guestReplyBy`,
+  // lib/rsvp-ask.ts; controller 2026-09-30: never the 30-day default, never a
+  // passed date). Never shown once the list is locked.
   const replyBy = replyLocked
     ? null
-    : resolveReplyBy({
+    : guestReplyBy({
         deadline: event.guest_list_edit_deadline as string | null,
-        eventDate: event.event_date as string | null,
+        today: todayYmd(),
       });
   // ONE date formatter on this page (guest text audit 2026-09-30): the event
   // date above reads "Friday, December 18, 2026" (`formatEventDateWithPrecision`
@@ -305,7 +303,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
             <p className="font-serif text-lg text-ink" data-reply-for="">
               {guestName}
             </p>
-            {canvas ? null : <NotYouSwitch slug={home} />}
+            {canvas ? null : <NotYouSwitch slug={home} erasesSelfie={guest.photo_source === 'selfie'} />}
           </div>
         </FirstScreenOnly>
 
@@ -363,9 +361,10 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
              save strips any face field (`stripInviteFaceFields`), so the
              2026-09-11 rule "face tagging happens on the day, not on the invite"
              holds for face DATA. On the day `day-of-face-enroll.tsx` asks only a
-             guest who said Yes for the selfie, and never one who said No. The
-             couple's own decline (`askable`) hides the question altogether. */
-          offerSelfie={false}
+             guest who said Yes for the selfie, and never one who said No.
+             `askable` (lib/face-tagging-gate.ts) hides the question altogether
+             unless the event's Papic is active and open and face tagging runs
+             there (owner 2026-09-30). No reply card draws a camera any more. */
           askTagging={faceTagging.askable}
           ask={resolveRsvpAsk(event.rsvp_ask_config)}
           gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}

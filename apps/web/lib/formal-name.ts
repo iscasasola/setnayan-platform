@@ -19,6 +19,7 @@
  */
 
 import { parsePersonName } from '@/lib/person-name-parse';
+import { DEFAULT_NAME_STYLE, styledName, type NameStyle } from '@/lib/name-style';
 
 /** The five parts, in PRINTED order. Same column names as `guests`. */
 export const FORMAL_NAME_FIELDS = [
@@ -143,12 +144,16 @@ export function composeFormalName(
 }
 
 /**
- * 🪪 THE NAME ON A PLACE CARD — "Mr. Manuel C. Casasola".
+ * 🪪 THE NAME ON A PLACE CARD — in the EVENT'S NAME STYLE.
  *
  * Owner, 2026-09-30 (the "Place card" seat style): *"A place card is a name card
- * by definition, and 'no casual greetings' means formal, not no name."* So the
- * card prints the formal name with the MIDDLE NAME AS INITIALS — prefix, first,
- * middle initial(s), last, then any suffix ("Mr. Indalecio S. Casasola II").
+ * by definition, and 'no casual greetings' means formal, not no name."* It
+ * prints the formal name in the event's Name style (lib/name-style.ts; owner
+ * "ok" 2026-09-30, DECISION_LOG "THE COUPLE PICKS A NAME STYLE" addendum):
+ * Full "Mr. Manuel Cortez Casasola" (the default) · Middle initial "Mr. Manuel
+ * C. Casasola" — ONE letter, "de la Cruz" → "D." · Surname first "Mr.
+ * Casasola II, Manuel C.". One rule with the entourage and the tickets
+ * (`styledName`), never a second copy.
  *
  * 🔒 NEVER A BARE FIRST NAME. The first-name rule (#6183, DECISION_LOG
  * 2026-09-30) is about greetings like "Hi, Manuel", not labels — but a card
@@ -157,21 +162,50 @@ export function composeFormalName(
  */
 export function placeCardName(
   name: Partial<Record<FormalNameField, string | null | undefined>>,
+  style: NameStyle = DEFAULT_NAME_STYLE,
 ): string | null {
   const first = normalizeNamePart(name.first_name);
   const last = normalizeNamePart(name.last_name);
   if (!first || !last) return null;
-  const middle = normalizeNamePart(name.middle_name);
-  const initials = middle
-    ? middle
-        .split(/[\s.]+/)
-        .filter(Boolean)
-        .map((w) => `${w[0]!.toUpperCase()}.`)
-        .join(' ')
-    : null;
-  return [normalizeNamePart(name.name_prefix), first, initials, last, normalizeNamePart(name.name_suffix)]
-    .filter(Boolean)
-    .join(' ');
+  const part = (f: FormalNameField) => normalizeNamePart(name[f]);
+  return styledName(
+    { name_prefix: part('name_prefix'), first_name: first, middle_name: part('middle_name'), last_name: last, name_suffix: part('name_suffix') },
+    style,
+  );
+}
+
+/**
+ * 👤 A PROFILE'S NAME, WHEN IT IS ONE — the five parts normalised, NULL unless
+ * they hold a first AND a last name. A linked guest row wears the profile's name
+ * only then (owner 2026-09-30, lib/linked-profile-names.ts); an account that
+ * never filled its name leaves the row as the couple typed it.
+ */
+export function profileFormalName(
+  row: Partial<Record<FormalNameField, string | null | undefined>>,
+): FormalName | null {
+  const name = {} as FormalName;
+  for (const f of FORMAL_NAME_FIELDS) name[f] = normalizeNamePart(row[f]);
+  return name.first_name && name.last_name ? name : null;
+}
+
+/**
+ * The row as every screen shows it: a linked account's five parts over the
+ * row's own. The couple's nickname (`display_name`) is theirs and stays.
+ */
+export function withProfileName<T extends { guest_id: string; first_name: string; last_name: string }>(
+  row: T,
+  names: Record<string, { name: FormalName }>,
+): T {
+  const n = names[row.guest_id]?.name;
+  if (!n) return row;
+  return {
+    ...row,
+    name_prefix: n.name_prefix,
+    first_name: n.first_name ?? row.first_name,
+    middle_name: n.middle_name,
+    last_name: n.last_name ?? row.last_name,
+    name_suffix: n.name_suffix,
+  };
 }
 
 /** The @tag as shown — `users.slug` with its "@". NULL when there is no slug. */

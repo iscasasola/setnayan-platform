@@ -29,6 +29,7 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 import { DEFAULT_PASS_CARD_DESIGN, passCardDesignFrom, type PassCardDesign } from '@/lib/pass-card';
+import { DEFAULT_NAME_STYLE, nameStyleFrom, type NameStyle } from '@/lib/name-style';
 
 /** 72 PDF points to the inch. */
 export const PT_PER_IN = 72;
@@ -652,6 +653,15 @@ export type StoredPrintDetails = {
    * the panel warns when they are too few for A3 paper (`posterPhotoTooSmall`).
    */
   posterPhoto?: PosterPhoto | null;
+  /**
+   * 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE PICKS
+   * A NAME STYLE") — Full · Middle initial · Surname first, stored as
+   * `name_style`. Event-wide words with no other home, like the invite message:
+   * the entourage, the tickets, the printed cards, the name lists and `{name}`
+   * all print through it (`lib/name-style.ts`). Absent reads as Full = today.
+   * Saved by the Maker's Details › Names dropdown (`POST /api/hub-print/name-style`).
+   */
+  nameStyle?: NameStyle;
 };
 
 export type PosterPhoto = { ref: string; w: number | null; h: number | null };
@@ -782,7 +792,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * absent or broken value is nothing — never an invented opening line.
  */
 export function parsePrintDetails(raw: unknown): StoredPrintDetails {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [], inviteMessage: null, passDesign: DEFAULT_PASS_CARD_DESIGN };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [], inviteMessage: null, passDesign: DEFAULT_PASS_CARD_DESIGN, nameStyle: DEFAULT_NAME_STYLE };
   const r = raw as Record<string, unknown>;
   let rsvp: RsvpChoice | null = null;
   const c = r.rsvp && typeof r.rsvp === 'object' ? (r.rsvp as Record<string, unknown>) : null;
@@ -800,6 +810,7 @@ export function parsePrintDetails(raw: unknown): StoredPrintDetails {
     inviteMessage: sanitizeInviteTemplate(r.invite_message),
     passDesign: passCardDesignFrom(r.pass_design),
     posterPhoto: parsePosterPhoto(r.poster_photo),
+    nameStyle: nameStyleFrom(r.name_style),
   };
 }
 
@@ -813,6 +824,7 @@ export function serializePrintDetails(d: StoredPrintDetails): Record<string, unk
     invite_message: d.inviteMessage,
     pass_design: d.passDesign ?? DEFAULT_PASS_CARD_DESIGN,
     poster_photo: d.posterPhoto ? { ref: d.posterPhoto.ref, w: d.posterPhoto.w, h: d.posterPhoto.h } : null,
+    name_style: d.nameStyle ?? DEFAULT_NAME_STYLE,
   };
 }
 

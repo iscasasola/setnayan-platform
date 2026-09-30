@@ -135,7 +135,7 @@ test('a livestream is the Live Stream open-up; its absence is a skip — and the
   const withLive = compilePostEventScenes({ ...EMPTY, broadcast: true }, AT).scenes.find((s) => s.key === 'film')!;
   assert.equal(withLive.status, 'auto');
   assert.equal(withLive.open, 'film');
-  assert.match(withLive.source, /Live Studio replay/);
+  assert.match(withLive.source, /Live Watch replay/);
   const none = compilePostEventScenes(EMPTY, AT).scenes.find((s) => s.key === 'film')!;
   assert.equal(none.status, 'skipped');
   // Films without a broadcast: the replay is skipped, the Videos scene is filled.

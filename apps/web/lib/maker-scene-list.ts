@@ -202,8 +202,12 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
  */
 export const MAKER_DAY_PARTS: ReadonlyArray<{ key: MakerFixedKey; stages: readonly LifecyclePhase[] }> = [
   { key: 'announcements', stages: ['rsvp', 'event'] },
-  { key: 'find_your_seat', stages: ['event'] },
+  /* 📱 In the order of The Day's tabs (owner 2026-09-30, Live · Welcome ·
+     Camera · Gallery · Me): the live hub is Live's, the guest's table is their
+     Welcome's, their photos are the Gallery's — so the navigator's tab headers
+     fall between them, never across them (`lib/maker-navigator-tabs.ts`). */
   { key: 'live_hub', stages: ['event'] },
+  { key: 'find_your_seat', stages: ['event'] },
   { key: 'photos_of_you', stages: ['event'] },
 ];
 

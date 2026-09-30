@@ -1061,16 +1061,12 @@ export default async function WebsiteEditorPage({
           blurb: 'The story page guests revisit after the day.',
           href: `${w}/editorial`,
           pro: true,
-          locked: !ownsPro,
+          /* 💎 Like every row whose Pro is asked at Apply: open on the web, hidden
+             only in the app-store shell. The story's ◆ touches are kept in the
+             Event Hub draft (`saveEditorial`) and named on the Apply sheet. */
+          locked: draftedRowLockedIf(false),
           // Free-vs-Pro split, honest in BOTH states (owner 2026-07-25).
-          panel: (
-            <EditorialPanel
-              eventId={eventId}
-              ownsPro={ownsPro}
-              unlockHref={proUnlockHref}
-              priceLabel={proPriceLabel}
-            />
-          ),
+          panel: <EditorialPanel ownsPro={ownsPro} />,
         },
       ],
     },

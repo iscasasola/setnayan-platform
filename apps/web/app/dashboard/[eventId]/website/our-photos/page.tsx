@@ -8,7 +8,10 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { updateOurPhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { WebsiteProLock } from '../_components/website-pro-lock';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
+import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
+import { readHubDraft } from '@/lib/hub-draft-store';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
 
@@ -35,7 +38,7 @@ export default async function OurPhotosEditorPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ saved?: string; error?: string }>;
+  searchParams: Promise<{ saved?: string; drafted?: string; error?: string }>;
 }) {
   const { eventId } = await params;
   const search = await searchParams;
@@ -51,30 +54,35 @@ export default async function OurPhotosEditorPage({
 
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  const currentRefs = Array.isArray(event.our_photos)
+  const liveRefs = Array.isArray(event.our_photos)
     ? (event.our_photos.filter(
         (r): r is string => typeof r === 'string' && r.startsWith('r2://'),
       ) as string[])
     : [];
 
-  // ── Website PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
-  // The photo gallery is now a Website PRO perk. The gate = (NOT PRO) AND (this
-  // gallery has NO existing content). A couple that already curated photos, or
-  // owns PRO, always keeps the editor — and the live guest site never loses its
-  // gallery (only the EDITOR gates going forward). Fail-open: if the entitlement
-  // read throws, treat as owned so a real couple is never locked out.
-  const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
-  const hasContent = currentRefs.length > 0;
-  if (!proActive && !hasContent) {
-    return (
-      <WebsiteProLock
-        eventId={eventId}
-        backHref={`/dashboard/${eventId}/website`}
-        featureName="Your own photo gallery"
-        description="Add your engagement or pre-wedding photos as a gallery on your Event Hub. It's part of Event Hub PRO."
-      />
-    );
+  /* 💎 TRIED FREE, ASKED AT APPLY (owner 2026-09-28/29 — "◆ marks Pro and never
+     blocks"). This page used to answer a free couple with nothing but "Unlock
+     Event Hub PRO". Now every couple uploads and sees their gallery here; for a
+     couple without Pro the form saves to the Event Hub DRAFT (`draft=1` —
+     `updateOurPhotos` screens every photo first, then `draftEventsAndReturn`),
+     guests see nothing yet, and the Maker's Apply sheet names the gallery and
+     asks for Pro ("Unlock Pro and Apply"), screening each new photo again.
+     A couple with Pro saves live, as before. The entitlement read failing
+     treats the couple as free — the safe side is the draft, never a live write. */
+  const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => false);
+  let draftedRefs: string[] | null = null;
+  if (!proActive) {
+    try {
+      const drafted = (await readHubDraft(supabase, eventId))?.events.our_photos;
+      if (Array.isArray(drafted)) {
+        draftedRefs = drafted.filter((r): r is string => typeof r === 'string' && r.startsWith('r2://'));
+      }
+    } catch {
+      /* an unreadable draft shows what is live — never an empty gallery */
+    }
   }
+  const currentRefs = draftedRefs ?? liveRefs;
+  const heldForPro = !proActive && draftedRefs !== null && JSON.stringify(draftedRefs) !== JSON.stringify(liveRefs);
 
   // Resolve each ref to a 24h presigned display URL so the uploader shows the
   // existing gallery thumbnails on mount.
@@ -91,6 +99,7 @@ export default async function OurPhotosEditorPage({
 
   const updateAction = updateOurPhotos.bind(null, eventId);
   const saved = search.saved === '1';
+  const drafted = search.drafted === '1';
   const error = search.error;
 
   return (
@@ -108,6 +117,16 @@ export default async function OurPhotosEditorPage({
             Saved — your guests will see this gallery on your Event Hub.
           </div>
         ) : null}
+        {!proActive ? (
+          <p role={drafted ? 'status' : undefined} className="flex items-start gap-2 text-sm text-ink/70">
+            <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Pro" size="xs" />
+            <span>
+              {heldForPro || drafted
+                ? 'Saved in your Event Hub draft. Guests see this gallery after you Apply with Event Hub Pro in your Event Hub Maker.'
+                : 'Add your photos and see them here. Guests see the gallery after you Apply with Event Hub Pro in your Event Hub Maker.'}
+            </span>
+          </p>
+        ) : null}
         {error ? (
           <div
             role="alert"
@@ -119,6 +138,13 @@ export default async function OurPhotosEditorPage({
       </div>
 
       <form action={updateAction} className="space-y-4">
+        {!proActive ? (
+          <>
+            {/* To the draft — and back here, where the couple pressed Save. */}
+            <input type="hidden" name={HUB_DRAFT_FIELD} value="1" />
+            <input type="hidden" name="return_to" value={`/dashboard/${eventId}/website/our-photos?drafted=1`} />
+          </>
+        ) : null}
         <FileUpload
           bucket="media"
           pathPrefix={`events/${eventId}/our-photos`}

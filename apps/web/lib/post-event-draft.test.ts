@@ -48,6 +48,7 @@ import {
 } from './hub-draft';
 import { stripComments } from './strip-comments';
 import { hubDraftProEffects } from './hub-pro-effects';
+import { sanitizeCustomColumns } from './story-pro-extras';
 
 const LIVE_STORY = {
   headline: 'Rafael & Isabel, Married at Last',
@@ -103,7 +104,15 @@ test('sanitize: a draft save is a public POST — junk never reaches the draft',
   assert.deepEqual(d.sceneLooks, {
     numbers: { style: 'receipt', words: { label: 'The day' }, elements: { heading: { color: '#112233' } } },
   }, 'a bad id, an over-long line, a hero-only part, an unknown scene and a homed style are all dropped');
-  assert.ok(!('customColumns' in d), 'the workroom’s columns are not drafted from the Maker');
+  /* 💎 The workroom's own columns ARE drafted now — a couple without Pro tries
+     them there and Apply asks (`lib/story-pro-extras.ts`) — but only through the
+     render path's own reader, never as sent. */
+  assert.deepEqual(d.customColumns, sanitizeCustomColumns([{ id: 'pe0001', title: 'x', body: 'y' }]));
+  assert.deepEqual(
+    sanitizePostEventDraft({ customColumns: [{ id: 'A B<', title: '', body: '' }], reviews: [{ quote: '' }] }),
+    { customColumns: [], reviews: [] },
+    'a column the page would drop and a wish with no words never reach the draft',
+  );
   assert.equal(sanitizePostEventDraft({ evil: 1 }), undefined);
   assert.equal(sanitizePostEventDraft('x'), undefined);
 });

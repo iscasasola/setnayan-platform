@@ -34,7 +34,7 @@
  */
 
 import { NOT_SHARED, type HubFact } from './event-hub-control';
-import { guestListDeadlineEndMs, guestListIsClosed } from './guest-list-closed';
+import { guestListIsClosed } from './guest-list-closed';
 import { formatCount } from '@/lib/format-number';
 
 export type Plan3dEventRead = {
@@ -117,22 +117,21 @@ export function resolvePlan3dStanding(
   return { state: 'live', measured: true };
 }
 
-/** The guest list's finalization, as one sentence fragment for a row. */
+/**
+ * The guest list's finalization, as one sentence fragment for a row.
+ *
+ * ⚖ Owner 2026-09-30: *"i must click a finalize to finalize it."* No date closes
+ * the list, so there is no "finalizes <date>" to print. It is finalized when the
+ * host pressed Finalize, and open until then (lib/guest-list-closed.ts).
+ * `nowMs` is kept in the signature only because the sibling resolvers share it.
+ */
 export function resolveGuestListFinalize(
   event: Plan3dEventRead,
-  nowMs?: number,
-): { closed: boolean; endMs: number | null; label: string } {
-  if (!event.measured) return { closed: false, endMs: null, label: 'Couldn’t read it just now' };
-  const closed = guestListIsClosed({
-    lockedAt: event.guestListLockedAt,
-    editDeadline: event.guestListEditDeadline,
-    eventDate: event.eventDate,
-    nowMs,
-  });
-  const endMs = guestListDeadlineEndMs(event.guestListEditDeadline, event.eventDate);
-  if (closed) return { closed, endMs, label: 'finalized' };
-  if (endMs == null) return { closed, endMs, label: 'no finalize date' };
-  return { closed, endMs, label: `finalizes ${shortDate(new Date(endMs).toISOString()) ?? ''}`.trim() };
+  _nowMs?: number,
+): { closed: boolean; label: string } {
+  if (!event.measured) return { closed: false, label: 'Couldn’t read it just now' };
+  const closed = guestListIsClosed({ lockedAt: event.guestListLockedAt });
+  return { closed, label: closed ? 'finalized' : 'open' };
 }
 
 export function resolvePlan3dFacts(

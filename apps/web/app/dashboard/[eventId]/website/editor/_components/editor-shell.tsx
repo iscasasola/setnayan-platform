@@ -54,6 +54,7 @@ const REORDER_FAILED = 'That move could not be saved. Your scenes are back where
 const GATE_FAILED = 'That could not be saved. The scene is back as it was — please try again.';
 import { preloadMakerFonts, preloadMakerImages, whenIdle } from '@/lib/maker-preload';
 import { BufferedCanvasFrame, warmCanvasBudget, type CanvasFrame } from './buffered-canvas-frame';
+import { MAKER_CANVAS_POST_EVENT, MAKER_CANVAS_STALE_EVENT } from '@/lib/maker-live-preview';
 import { BOTH_PHONE_WIDTH, bothDesktopFit, usePaneSize } from './both-view';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -764,6 +765,51 @@ export function MakerWork({
       </DetailsFactSceneContext.Provider>
     );
   };
+  /* ⚡ THE LOVE STORY AND THE PROGRAMME, FROM WHEREVER THEY ARE EDITED
+     (`lib/maker-live-preview.ts`). An editor in Details holds no frame, so it
+     posts a window event; here it reaches every frame this stage holds — the
+     shown canvas, the Both pane, each warm stage. The newest message of each
+     kind is kept and sent again to a frame that loads later (its render may
+     predate a save still on its way). A change the bridge cannot draw marks
+     the canvas stale once its save has landed: it loads again, double
+     buffered, and the Maker itself is not re-rendered. */
+  const livePreviews = useRef<Map<string, unknown>>(new Map());
+  const staleSeq = useRef(0);
+  useEffect(() => {
+    const onPost = (e: Event) => {
+      const message = (e as CustomEvent<unknown>).detail;
+      if (!message || typeof message !== 'object') return;
+      const m = message as { t?: unknown; moment?: { id?: unknown } };
+      const slot = m.t === 'scheduleMoment' ? `schedule:${String(m.moment?.id ?? '')}` : String(m.t ?? '');
+      livePreviews.current.set(slot, message);
+      broadcastToCanvasRef.current(message);
+    };
+    const onStale = () => {
+      staleSeq.current += 1;
+      const n = staleSeq.current;
+      setCanvasStamp((s) => `${s.split('~')[0]}~${n}`);
+    };
+    const onLiveReady = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const d = event.data as { source?: string; t?: string } | null;
+      if (!d || d.source !== 'setnayan-site' || d.t !== 'ready') return;
+      const to = event.source as Window | null;
+      for (const message of livePreviews.current.values()) to?.postMessage(message, window.location.origin);
+    };
+    window.addEventListener(MAKER_CANVAS_POST_EVENT, onPost);
+    window.addEventListener(MAKER_CANVAS_STALE_EVENT, onStale);
+    window.addEventListener('message', onLiveReady);
+    return () => {
+      window.removeEventListener(MAKER_CANVAS_POST_EVENT, onPost);
+      window.removeEventListener(MAKER_CANVAS_STALE_EVENT, onStale);
+      window.removeEventListener('message', onLiveReady);
+    };
+  }, []);
+  /* A render (Apply, Undo, another write) brings the truth: what was kept to
+     re-send is older than it. */
+  useEffect(() => {
+    livePreviews.current.clear();
+  }, [maker?.renderStamp]);
   useEffect(() => {
     const onWordsReady = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;

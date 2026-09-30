@@ -234,7 +234,7 @@ function GoLivePrompt({
   if (!ownsPanood) {
     return (
       <p className="rounded-xl border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/65">
-        Buy Live Studio for this event to unlock one-tap go-live.
+        Buy Live Watch for this event to unlock one-tap go-live.
       </p>
     );
   }

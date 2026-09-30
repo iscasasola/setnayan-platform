@@ -34,71 +34,22 @@ import { draftEventsAndReturn, draftedEventColumn, isHubDraftWrite } from '@/lib
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import { ourEventPhotoRefs } from './_components/our-events-read';
 import {
-  MOMENT_BY_MAX,
-  MOMENT_LINE_MAX,
-  MOMENT_PLACE_MAX,
   chapterOf,
   formatMomentDate,
   LOVE_STORY_CHAPTER_LABEL,
   momentCapRefusal,
-  newMomentId,
-  readMomentDate,
   readMomentMedia,
   resolveMoments,
   storableMoments,
   type LoveStoryMoment,
 } from '@/lib/love-story-moments';
+import { mergeStoryWords, storyStr as str } from '@/lib/love-story-words';
+import { applyMomentIntent } from '@/lib/love-story-moment-intent';
 
-const FIELD_MAX = 600;
-const SHORT_MAX = 120;
-const YEAR_MAX = 12;
-
-/** The scalar LoveStory keys this form edits, all trimmed + length-capped. */
-const TEXT_FIELDS = [
-  'how_we_met',
-  'spark',
-  'spark_why',
-  'obstacle',
-  'obstacle_kept',
-  'proposal',
-  'proposal_feel',
-] as const;
-const SHORT_FIELDS = ['together_since', 'proposal_setting', 'obstacle_kind', 'proposal_voice'] as const;
-const YEAR_FIELDS = ['met_year', 'proposal_year'] as const;
-const ANCHOR_KEYS = ['song', 'place', 'injoke', 'food'] as const;
-
-function str(v: FormDataEntryValue | null, max: number): string {
-  return (typeof v === 'string' ? v.trim() : '').slice(0, max);
-}
-
-type MilestoneRow = { year: string; month?: string; day?: string; title: string };
-
-function readMilestones(formData: FormData): MilestoneRow[] {
-  const years = formData.getAll('ms_year');
-  const months = formData.getAll('ms_month');
-  const days = formData.getAll('ms_day');
-  const titles = formData.getAll('ms_title');
-  const rows: MilestoneRow[] = [];
-  for (let i = 0; i < years.length; i++) {
-    const year = str(years[i] ?? null, 4);
-    const title = str(titles[i] ??
-      null, SHORT_MAX);
-    if (!year || !title) continue; // a row needs at least a year + a title
-    const month = str(months[i] ?? null, 2);
-    const day = str(days[i] ?? null, 2);
-    rows.push({ year, ...(month ? { month } : {}), ...(day ? { day } : {}), title });
-  }
-  // Cap the timeline (a couple can't balloon their own blob into every /[slug] render).
-  if (rows.length > 100) rows.length = 100;
-  // Auto-sorted chronologically — the canonical milestones behavior.
-  rows.sort(
-    (a, b) =>
-      Number(a.year) - Number(b.year) ||
-      Number(a.month ?? 0) - Number(b.month ?? 0) ||
-      Number(a.day ?? 0) - Number(b.day ?? 0),
-  );
-  return rows;
-}
+/* The questions' caps, the timeline rows and the merge live in
+   `lib/love-story-words.ts` — ONE reading, shared with the Maker's instant
+   words panel, so a keystroke saved behind the page and this Save write the
+   same blob. */
 
 export async function updateOurStory(eventId: string, formData: FormData): Promise<void> {
   const user = await getCurrentUser();
@@ -119,34 +70,16 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
     .maybeSingle();
   const draftedStory = drafting ? await draftedEventColumn(eventId, 'love_story') : null;
   const base: unknown = draftedStory?.drafted ? draftedStory.value : current?.love_story;
-  const existing =
-    base && typeof base === 'object' && !Array.isArray(base)
-      ? (base as Record<string, unknown>)
-      : {};
-  const existingAnchors =
-    existing.anchors && typeof existing.anchors === 'object'
-      ? (existing.anchors as Record<string, unknown>)
-      : {};
-
-  const merged: Record<string, unknown> = { ...existing };
-  for (const key of TEXT_FIELDS) merged[key] = str(formData.get(key), FIELD_MAX);
-  for (const key of SHORT_FIELDS) merged[key] = str(formData.get(key), SHORT_MAX);
-  for (const key of YEAR_FIELDS) merged[key] = str(formData.get(key), YEAR_MAX);
-  merged.anchors = {
-    ...existingAnchors,
-    ...Object.fromEntries(ANCHOR_KEYS.map((k) => [k, str(formData.get(`anchor_${k}`), SHORT_MAX)])),
-  };
-  merged.milestones = readMilestones(formData);
-
+  // MERGE, never clobber (`mergeStoryWords`): keys this form does not edit survive.
   // together_since is DUAL-STORED: onboarding writes both the blob and the
   // events.together_since column, and public readers PREFER the column
   // (editorial data.ts, event-brief). Keep both in sync or edits are no-ops.
-  const togetherSince = str(formData.get('together_since'), SHORT_MAX);
+  const { story: merged, togetherSince } = mergeStoryWords(base, formData);
 
   if (drafting) {
     return draftEventsAndReturn(
       eventId,
-      { love_story: merged, together_since: togetherSince || null },
+      { love_story: merged, together_since: togetherSince },
       formData,
       `/dashboard/${eventId}/website/our-story?saved=1&drafted=1`,
     );
@@ -154,7 +87,7 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
 
   const { data: event, error } = await supabase
     .from('events')
-    .update({ love_story: merged, together_since: togetherSince || null })
+    .update({ love_story: merged, together_since: togetherSince })
     .eq('event_id', eventId)
     .select('slug')
     .maybeSingle();
@@ -205,41 +138,9 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
 const MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange', 'pick'] as const;
 type MomentIntent = (typeof MOMENT_INTENTS)[number];
 
-function momentFields(formData: FormData, prior: LoveStoryMoment | null, id: string): LoveStoryMoment | null {
-  const date = readMomentDate({
-    y: formData.get('date_y'),
-    m: formData.get('date_m'),
-    d: formData.get('date_d'),
-  });
-  const line = str(formData.get('line'), MOMENT_LINE_MAX);
-  if (!date || !line) return null; // a moment needs at least a year and a line
-  const place = str(formData.get('place'), MOMENT_PLACE_MAX);
-  const addedBy = str(formData.get('added_by'), MOMENT_BY_MAX);
-  const anchorRaw = formData.get('anchor');
-  const anchor = anchorRaw === 'met' || anchorRaw === 'yes' ? anchorRaw : undefined;
-  const media = readMomentMedia(formData.getAll('media'));
-  return {
-    id,
-    date,
-    line,
-    ...(place ? { place } : {}),
-    ...(media.length ? { media } : {}),
-    ...(addedBy ? { added_by: addedBy } : {}),
-    ...(anchor ? { anchor } : {}),
-    ...(formData.get('hidden') === 'on' ? { hidden: true } : {}),
-    canvas: prior?.canvas ?? {},
-  };
-}
-
-/** One anchor of each kind: tagging a second "How we met" moves the tag. */
-function oneAnchorEach(list: LoveStoryMoment[], keeper: LoveStoryMoment): LoveStoryMoment[] {
-  if (!keeper.anchor) return list;
-  return list.map((m) => {
-    if (m.id === keeper.id || m.anchor !== keeper.anchor) return m;
-    const { anchor: _drop, ...rest } = m;
-    return rest;
-  });
-}
+/* add · edit · delete · arrange are applied by `applyMomentIntent`
+   (`lib/love-story-moment-intent.ts`) — the SAME function the Maker's instant
+   scrapbook applies at the tap, so the two can never disagree. */
 
 export async function loveStoryMomentAction(eventId: string, formData: FormData): Promise<void> {
   const user = await getCurrentUser();
@@ -283,28 +184,11 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
   let after: LoveStoryMoment[] = before;
   let touched: LoveStoryMoment | null = null;
 
-  if (intent === 'add') {
-    const m = momentFields(formData, null, newMomentId(before));
-    if (!m) return fail('A moment needs a year and a line — nothing else is required.');
-    touched = m;
-    after = oneAnchorEach([...before, m], m);
-  } else if (intent === 'edit') {
-    if (!prior) return fail('That moment is no longer here.');
-    const m = momentFields(formData, prior, id);
-    if (!m) return fail('A moment needs a year and a line — nothing else is required.');
-    touched = m;
-    after = oneAnchorEach(before.map((x) => (x.id === id ? m : x)), m);
-  } else if (intent === 'delete') {
-    after = before.filter((m) => m.id !== id);
-  } else if (intent === 'arrange') {
-    // Show on / keep off the Event Hub — the Maker's eye, per moment.
-    if (!prior) return fail('That moment is no longer here.');
-    const hide = formData.get('hidden') === 'on';
-    after = before.map((m) => {
-      if (m.id !== id) return m;
-      const { hidden: _h, ...rest } = m;
-      return hide ? { ...rest, hidden: true } : rest;
-    });
+  if (intent !== 'pick') {
+    const r = applyMomentIntent(before, intent, formData);
+    if (!r.ok) return fail(r.error);
+    after = r.after;
+    touched = r.touched;
   } else {
     // 'pick' — "Pick from our events": refs an event the pair HOSTS already
     // shows. The SAME read the page offers from (`readOurEvents`), so the two

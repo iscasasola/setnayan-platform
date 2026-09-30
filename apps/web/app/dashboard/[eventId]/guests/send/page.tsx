@@ -58,7 +58,7 @@ export default async function SendInvitesPage({ params }: Props) {
     .filter((g) => g.role !== 'bride' && g.role !== 'groom')
     .map((g) => ({
       guestId: g.guest_id,
-      formalName: guestFullName(g),
+      formalName: guestFullName(g, setup.facts.nameStyle),
       firstName: g.first_name,
       fullName: guestDisplayName(g),
       inviteUrl: invitationBase && g.qr_token ? `${invitationBase}?invite=${g.qr_token}` : null,

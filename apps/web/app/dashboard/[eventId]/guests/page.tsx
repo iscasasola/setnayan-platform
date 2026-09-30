@@ -58,12 +58,16 @@ import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
-import { ensureFinalized } from '@/lib/pax';
+import { readFinalizeState } from '@/lib/pax';
+import { FinalizeGuestListControl } from './_components/finalize-guest-list-control';
+import { eventHasSides, SIDELESS_SIDE } from '@/lib/guest-side-question';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
+import { accountNamesByGuest } from '@/lib/linked-profile-names';
+import { withProfileName } from '@/lib/formal-name';
 import {
   GuestListMultiselect,
   ROLE_SECTION_ORDER,
@@ -109,7 +113,7 @@ import {
 } from '@/app/_components/inspector/inspector-column';
 import { formatCount } from '@/lib/format-number';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
-import { accessTag } from '@/lib/guest-access';
+import type { GuestAccessState } from '@/lib/guest-access';
 
 import { MiniTour } from '@/app/_components/mini-tour';
 
@@ -329,6 +333,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // ceremony-aware so muslim weddings offer the Nikah roles (resolveRoleSetKeyForEvent
   // returns 'wedding_muslim' for them) and Catholic weddings keep 'wedding'.
   const guestRoleSetKey = await resolveRoleSetKeyForEvent(eventId);
+  // ⚖ Sides are a WEDDING idea (owner 2026-09-30: "why is there groom and
+  // bride's side for a simple event"). The event-type profile's role set says
+  // whether this event has sides at all (lib/guest-side-question.ts), and when
+  // it does not, no side control, column, filter or sort renders anywhere on
+  // this page. `guests.side` is still WRITTEN (NOT NULL): SIDELESS_SIDE.
+  const hasSides = eventHasSides(resolveRoleSet(guestRoleSetKey));
   // The mind map's root reads "Your wedding" when no bride+groom are on the
   // list — which is EVERY debut or birthday. Same cached profile read as above.
   const eventWord = eventNoun((await resolveProfileByEvent(eventId)).eventType);
@@ -526,7 +536,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // NOT empty. Every count, meter and zero-state below is computed from
   // `guests`, so without this flag each of them states a fact about somebody's
   // wedding that nobody actually measured.
-  const guests = guestsRead.rows;
+  // 👤 A row linked to an account wears that profile's formal name (owner
+  // 2026-09-30) — overlaid HERE, once, so the list, the search and the open card
+  // read the same name. lib/linked-profile-names.ts holds the gate.
+  const profileNames = await accountNamesByGuest(supabase, eventId);
+  const guests = guestsRead.rows.map((g) => withProfileName(g, profileNames));
   const guestsMeasured = guestsRead.measured;
   // Self-join reconcile queue — the ids feed the inline blush roster rows; the
   // count still drives the /guests/claims banner + the mobile carousel badge.
@@ -601,15 +615,19 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     search.gview === 'map' ? 'map' : search.gview === 'share' ? 'share' : 'list';
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
-    teamRaw === 'bride' || teamRaw === 'groom' ? teamRaw : 'all';
+    hasSides && (teamRaw === 'bride' || teamRaw === 'groom') ? teamRaw : 'all';
   const tagFilter = (search.tag ?? '').trim();
-  const sort = (search.sort ?? 'importance') as SortKey;
+  const sortRaw = (search.sort ?? 'importance') as SortKey;
+  // No sides → no side sort or side sections (an old ?sort=side / ?by=side link
+  // on a birthday lands on the default order instead of "Both sides").
+  const sort: SortKey = !hasSides && sortRaw === 'side' ? 'importance' : sortRaw;
   // ⚖ Owner 2026-09-20 — grouping is its own question now, and its own param.
   // ⚠ `search.by` is passed THROUGH as possibly-undefined on purpose: absent
   // derives the old sort-driven sectioning (so every bookmarked ?sort=side
   // still renders sections), while an EMPTY `?by=` means "no headings". They
   // are different answers and `?? ''` would have collapsed them into one.
-  const grouping = groupingFromParams(search.by, sort);
+  const groupingRaw = groupingFromParams(search.by, sort);
+  const grouping = hasSides ? groupingRaw : groupingRaw.filter((k) => k !== 'side');
 
   // Custom-group filter — its OWN `group` param now (see back-compat note
   // above), independent of the role-group `view`, so a host can stack
@@ -732,18 +750,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // Auto-Arrange does. Falls back to suggestTableFor's default when no floor plan
   // row exists yet (undefined → the param default kicks in).
   const stage = floorPlan ? { x: floorPlan.stage_x, y: floorPlan.stage_y } : undefined;
-  // "+Co-host" / "+Limited helper" — TRUE by construction, from the live seats
-  // (owner 2026-09-28 "make it true"). A refused read shows no tag at all,
-  // never a list with every co-host silently demoted.
+  // The Access column (owner 2026-09-28: co-hosts come from the guest list) —
+  // every guest's Access, TRUE by construction, from the live seats ("make it
+  // true"). ONE read for the whole list; the column writes through the card's
+  // own action. A refused read (null) hands the roster NO states, so no cell is
+  // drawn — never a list with every co-host silently reading "None".
   const accessMap = await loadGuestAccessMap(
     eventId,
     guests.map((g) => ({ guest_id: g.guest_id, role: g.role })),
   );
-  const accessTagByGuest: Record<string, string> = {};
-  for (const [id, st] of accessMap ?? []) {
-    const tag = accessTag(st);
-    if (tag) accessTagByGuest[id] = tag;
-  }
+  const accessByGuest: Record<string, GuestAccessState> = Object.fromEntries(accessMap ?? []);
   const seatByGuest: Record<string, { placed: string | null; suggested: string | null }> =
     Object.fromEntries(
       visible.map((g) => {
@@ -833,7 +849,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
      account falls back to that account's photo — the couple's own upload still
      wins. Resolved through the SAME resolver, because the stored value is an
      `r2://` ref, not a URL. */
-  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId);
+  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId, user.id);
   const accountRefUrls = await guestPhotoDisplayUrls(
     Object.values(accountRefByGuest).map((ref) => ({ photo_url: ref })),
   );
@@ -914,10 +930,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     stats,
     eventRow.data?.estimated_pax ?? null,
   );
-  // Auto-finalize check (Adaptive Pax Pricing Phase 7) — lazily locks the count
-  // once the guest-list edit deadline passes (default 14d before the event), so
-  // the meter + vendor costs freeze. Surfaces the finalized banner below.
-  const finalize = await ensureFinalized(supabase, eventId);
+  // Finalize state: a READ. The list is final only when the host pressed
+  // Finalize (owner 2026-09-30, "i must click a finalize to finalize it"); no
+  // date closes it any more. See lib/guest-list-closed.ts.
+  const finalize = await readFinalizeState(supabase, eventId);
   const allTags = uniqueTags(guests);
   const flash = pickFlash(search);
   // Any filter active across ANY dimension — gates the mobile sticky
@@ -1137,35 +1153,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </Link>
       ) : null}
 
-      {/* Guest list finalized (Adaptive Pax Pricing Phase 7) — the edit deadline
-          passed; the binding count is frozen so late changes no longer move
-          vendor costs. Shown on desktop + mobile. */}
-      {finalize.locked ? (
-        /*
-          ⚠ IT SAID "2 GUESTS LOCKED IN" ON A LIST WITH NOBODY ON IT.
-
-          The frozen figure is `max(estimated_pax, headcount)` — for an event
-          where nobody was ever added it is simply the head count the couple
-          typed at sign-up. Calling that "guests locked in" put a number that
-          contradicts the list, in bold, at the top of the list. The owner's own
-          screen read "0 guests" and "2 guests locked in" and "0 of 2 pax" at
-          once.
-
-          🔑 SAY WHAT THE NUMBER IS FOR. It is the head count suppliers price
-          against, and that sentence is true whether the list has nobody on it
-          or three hundred — so it is ONE wording, not a conditional that has to
-          decide which case it is in.
-        */
-        <p className="rounded-xl border border-ink/15 bg-ink/[0.03] px-4 py-3 text-sm text-ink/70">
-          <span className="font-semibold text-ink">Guest list finalized</span>
-          {finalize.finalPax
-            ? ` · your suppliers price for ${formatCount(finalize.finalPax)} ${finalize.finalPax === 1 ? 'head' : 'heads'}`
-            : ''}
-          . Changes after your guest‑list deadline no longer change what your
-          suppliers charge, and your guests can no longer reply on your event
-          page.
-        </p>
-      ) : null}
+      {/* Finalize / Reopen (owner 2026-09-30: "i must click a finalize to
+          finalize it"). The ONLY way the list becomes final; a finalized list
+          says so and offers Reopen. Shown on desktop + mobile. */}
+      <FinalizeGuestListControl
+        eventId={eventId}
+        locked={finalize.locked}
+        finalPax={finalize.finalPax}
+      />
 
       {/* Desktop-only chrome — Living Roster reskin (P0 · 2026-07-11). The old
           split-brain of a stat strip (GUEST TARGET / PAX POOL / CONFIRMATIONS)
@@ -1190,6 +1185,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             <details>; it now recedes behind the row's "+", and never opens on
             its own once the event has passed (`startAdding`). */}
         <SummaryFacetBar
+          hasSides={hasSides}
           roleNames={roleNames}
           stats={stats}
           measured={guestsMeasured}
@@ -1259,7 +1255,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <MobileGuestCarousel
           eventId={eventId}
           q={q}
-          sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+          sorts={SORT_OPTIONS.filter((o) => hasSides || o.value !== 'side').map((o) => ({ key: o.value, label: o.label }))}
           currentSort={sort}
           views={viewFiltersNamed}
           activeView={view}
@@ -1281,6 +1277,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           arrived={arrivedCount}
           roleSetKey={guestRoleSetKey}
           joinUrl={joinUrl}
+          hasSides={hasSides}
         />
       </Suspense>
 
@@ -1316,6 +1313,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           groups={groups}
           groupMemberships={groupMemberships}
           eventWord={eventWord}
+          hasSides={hasSides}
         />
       ) : (
       /* Roster-as-hero — full-width (Living Roster P0). The left facet rail is
@@ -1333,6 +1331,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             />
           ) : (
             <GuestListMultiselect
+              hasSides={hasSides}
               eventId={eventId}
               listFinalized={finalize.locked}
               guests={visible}
@@ -1342,7 +1341,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               currentGroupId={currentGroupId}
               selfJoinIds={selfJoinIds}
               seatByGuest={seatByGuest}
-              accessTagByGuest={accessTagByGuest}
+              accessByGuest={accessByGuest}
+              // Only a co-host changes Access — the same `couple` gate the
+              // card and `setGuestAccess` use; a helper reads the word.
+              canManageAccess={viewer.isCouple}
               // From the FULL roster, before any filter (frame G, 2026-09-29).
               seatsByBringer={bringerSeatsFrom(guests)}
               // The Invite column (owner 2026-09-30): every guest's own link +
@@ -1395,7 +1397,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           nothing. Its own header carries the privacy reasoning. */}
       <AddFromPeopleSheet
         eventId={eventId}
-        defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
+        showSides={hasSides}
+        defaultSide={!hasSides ? SIDELESS_SIDE : teamFilter === 'all' ? 'both' : teamFilter}
       />
 
       {/* UndoToastHost is the single bottom snackbar for optimistic deletes.
@@ -1756,6 +1759,7 @@ function SummaryFacetBar({
   addBar,
   paxProgress,
   rsvpActive,
+  hasSides,
   teamActive,
   teamCounts,
   view,
@@ -1779,6 +1783,8 @@ function SummaryFacetBar({
   addBar: React.ReactNode;
   paxProgress: PaxProgress | null;
   rsvpActive: RsvpStatus | '';
+  /** False on an event with no sides (a birthday, a Simple Event): no Side row. */
+  hasSides: boolean;
   teamActive: 'all' | 'bride' | 'groom';
   teamCounts: { all: number; bride: number; groom: number };
   view: string;
@@ -1894,6 +1900,7 @@ function SummaryFacetBar({
                 no column to click — First name, Newest first — and left the
                 desktop with this row, by that choice. */}
 
+          {hasSides ? (
           <FacetRow label="Side">
             {sideOptions.map((s) => (
               <LensPill
@@ -1911,6 +1918,7 @@ function SummaryFacetBar({
               </LensPill>
             ))}
           </FacetRow>
+          ) : null}
 
           <FacetRow label="RSVP">
             {rsvpOptions.map((r) => {
@@ -2055,8 +2063,8 @@ function EmptyState({
   eventId: string;
   /** False when the guest read was refused — see fetchGuestsByEventMeasured. */
   measured: boolean;
-  /** The celebration has already happened. "Start by adding the couple's first
-   *  invite" is then a sentence about a party that is over — it is the copy the
+  /** The celebration has already happened. "Start by adding your first
+   *  guest" is then a sentence about a party that is over — it is the copy the
    *  owner was reading the morning after his Movie Night. The add paths STAY
    *  (a late name still belongs on the list); only the framing changes. */
   finished?: boolean;
@@ -2113,7 +2121,7 @@ function EmptyState({
       <p className="text-base text-ink/70">
         {finished
           ? 'No guests were added to this one. You can still add anybody who came.'
-          : 'No guests yet. Start by adding the couple’s first invite.'}
+          : 'No guests yet. Start by adding your first guest.'}
       </p>
       {/* Lead with the one-tap quick-add sheet (name + side, done) — the heavy
           detailed form stays one click away for power users. Inviting is THE

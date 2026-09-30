@@ -28,9 +28,15 @@ function meSection(): string {
 
 test('the Me section offers My QR only when the pass card is missing', () => {
   const me = meSection();
-  const opens = me.split('setQrOpen(true)').length - 1;
+  // 📱 The section is its own component now (`GuestMeSection`, owner
+  // 2026-09-30: on a tabbed page it is the Me TAB, drawn by the page body), so
+  // its one opener is the `onOpenQr` it is handed — GuestHubBar's own sheet,
+  // directly or, from the page body, by event.
+  const opens = me.split('onClick={onOpenQr}').length - 1;
   assert.equal(opens, 1, `exactly one My QR opener in the Me section (found ${opens})`);
-  const before = me.slice(0, me.indexOf('setQrOpen(true)'));
+  assert.match(hub, /onOpenQr=\{\(\) => setQrOpen\(true\)\}/, 'GuestHubBar hands the section its own sheet');
+  assert.match(hub, /window\.addEventListener\(OPEN_MY_QR_EVENT, open\)/, 'the page-drawn section can still open the sheet');
+  const before = me.slice(0, me.indexOf('onClick={onOpenQr}'));
   assert.match(
     before,
     /\{passOnPage \? null : \(\s*<button/,

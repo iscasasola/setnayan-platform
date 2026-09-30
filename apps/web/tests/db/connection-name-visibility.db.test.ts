@@ -193,6 +193,38 @@ test('once CONFIRMED, both sides see each other — the 2026-07-05 rule, unchang
   assert.equal((await namesSeenBy(ana, [benPerson]))[benPerson], 'Ben Reyes');
 });
 
+/**
+ * ⚖ 2026-09-30 (20271257194736): a connected person with no name on their
+ * person node is named from their ACCOUNT, never from the handle the host typed.
+ * Measured on prod: Claire's node had display_name NULL, so she resolved to
+ * nothing and "Add from your people" offered the host's typed "buanhogclaire".
+ * Sabotage: drop the users fallback from the COALESCE and both asserts fail.
+ */
+test('a connected person with a nameless node is named from their account — formal parts first', async () => {
+  await reset();
+  await db.query(`UPDATE public.people SET display_name = NULL, first_name = NULL, last_name = NULL WHERE person_id = $1`, [anaPerson]);
+  await db.query(`UPDATE public.users SET first_name = 'Ana', last_name = 'Cruz-Formal', display_name = 'anahandle' WHERE user_id = $1`, [ana]);
+  try {
+    assert.equal(
+      (await namesSeenBy(ben, [anaPerson]))[anaPerson],
+      'Ana Cruz-Formal',
+      'a nameless node resolved to nothing (or to the handle) instead of the account formal name',
+    );
+    await reset();
+    await db.query(`UPDATE public.users SET first_name = NULL, last_name = NULL WHERE user_id = $1`, [ana]);
+    assert.equal(
+      (await namesSeenBy(ben, [anaPerson]))[anaPerson],
+      'anahandle',
+      'with no formal parts, the account display name is the fallback',
+    );
+    // The fence did not move: a stranger still resolves nothing for her.
+    assert.deepEqual(await namesSeenBy(cara, [anaPerson]), {}, 'the fallback leaked a name past the fence');
+  } finally {
+    await reset();
+    await db.query(`UPDATE public.people SET display_name = 'Ana Cruz' WHERE person_id = $1`, [anaPerson]);
+  }
+});
+
 test('a DECLINED claim goes dark again for the person who made it', async () => {
   await seedEdge(caraPerson, anaPerson, 'pending', cara);
   assert.equal(

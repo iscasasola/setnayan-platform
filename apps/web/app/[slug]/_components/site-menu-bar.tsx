@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Home, Info, BookOpen, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Activity, Home, Info, BookOpen, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users } from 'lucide-react';
 import type { NavSlot } from '../_lib/site-nav';
+import { HUB_TAB_PARAM, activeHubTab, inPageTabs } from '../_lib/hub-tabs';
 
 /**
  * THE EVENT-SITE BOTTOM BAR — icon + label, one shape for everyone.
@@ -84,6 +86,8 @@ export type SiteMenuWatch = { href: string } | null;
 /** One icon per slot the resolver can emit. Exhaustive over NavSlotKey, so a
  *  new slot in the rules engine is a TYPE ERROR here rather than a blank tab. */
 const ICONS: Record<NavSlot['key'], typeof Home> = {
+  // 📱 The Day's first tab (owner 2026-09-30): what's on now, the stream, the wall.
+  live: Activity,
   home: Home,
   details: Info,
   schedule: CalendarClock,
@@ -105,6 +109,14 @@ const SLOT =
   'whitespace-nowrap overflow-hidden text-ellipsis transition-colors';
 
 export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
+  /* 📱 WHICH TAB YOU ARE ON — when each tab is its own page (owner 2026-09-30,
+     `hub-tabs.ts`), the bar marks the page showing: `aria-current="page"`, full
+     ink. Read from the address, the ONE state the hub shell's page frame keeps
+     (`hub/hub-shell.tsx`), so the mark and the page cannot disagree. On a page
+     that is one scroll no tab is "the page" and none is marked — as before. */
+  const params = useSearchParams();
+  const tabKeys = inPageTabs(slots);
+  const activeKey = tabKeys.length > 0 ? activeHubTab(params?.get(HUB_TAB_PARAM) ?? null, tabKeys) : null;
   // 🔴 A LOCKED TAB'S REASON WAS IN A `title=`, WHICH A PHONE CANNOT SHOW.
   //
   // This file's own comment says "a padlock with its reason says the truth" —
@@ -151,8 +163,12 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
             {slot.label}
           </button>
         ) : (
-          <a href={slot.href} className={`${SLOT} text-ink/65 hover:text-ink`}>
-            <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+          <a
+            href={slot.href}
+            aria-current={slot.key === activeKey ? 'page' : undefined}
+            className={`${SLOT} ${slot.key === activeKey ? 'text-ink' : 'text-ink/65 hover:text-ink'}`}
+          >
+            <Icon aria-hidden className="h-5 w-5" strokeWidth={slot.key === activeKey ? 2.25 : 1.75} />
             {slot.label}
           </a>
         )}
@@ -227,8 +243,13 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         ) : (
           <a
             href={slot.href}
+            aria-current={slot.key === activeKey ? 'page' : undefined}
             className={`${RAIL_SLOT} ${
-              isCamera ? 'text-mulberry hover:text-mulberry-600' : 'text-ink/65 hover:text-ink'
+              isCamera
+                ? 'text-mulberry hover:text-mulberry-600'
+                : slot.key === activeKey
+                  ? 'bg-ink/5 text-ink'
+                  : 'text-ink/65 hover:text-ink'
             }`}
           >
             <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />

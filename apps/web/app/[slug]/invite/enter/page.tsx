@@ -26,7 +26,7 @@ import { passCardEligibilityFor, plusOnePassCardIds, readTicketSeats } from '@/l
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
-import { readRsvpWords, resolveReplyBy } from '@/lib/rsvp-ask';
+import { guestReplyBy, readRsvpWords, todayYmd } from '@/lib/rsvp-ask';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
@@ -315,8 +315,10 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   });
   // 🎟 On the day the ticket carries the seat — the same read the ticket route draws from.
   const ownSeat = canvas || !seatDay ? null : ((await readTicketSeats(admin, event.event_id as string)).get(guest.guest_id as string) ?? null);
+  // The couple's wording AND their Name style (owner 2026-09-30) — `{name}` is composed in it.
+  const storedWords = parsePrintDetails((event as { print_details?: unknown }).print_details);
   const message = landingMessage({
-    template: parsePrintDetails((event as { print_details?: unknown }).print_details).inviteMessage,
+    template: storedWords.inviteMessage,
     formalName: guestFullName({
       display_name: guest.display_name as string | null,
       name_prefix: (guest as { name_prefix?: string | null }).name_prefix ?? null,
@@ -324,7 +326,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
       middle_name: (guest as { middle_name?: string | null }).middle_name ?? null,
       last_name: guest.last_name as string | null,
       name_suffix: (guest as { name_suffix?: string | null }).name_suffix ?? null,
-    }),
+    }, storedWords.nameStyle),
     hostsName: (event.display_name as string | null) ?? null,
     eventWord: words.eventWord,
     solemn: words.solemn,
@@ -355,18 +357,16 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   );
 
   const unreplied = reply === 'unreplied' && !canvas;
-  // "Please reply by …" (frame 1) — the SAME date the reply page and the Maker's
-  // RSVP page show (`resolveReplyBy`), never once the list is final.
+  // "Please reply by …" (frame 1) — only a date the HOST set that is still
+  // ahead (`guestReplyBy`), never a default, never once the list is final.
   const replyBy =
     unreplied &&
     !guestListIsClosed({
       lockedAt: (event as { guest_count_locked_at?: string | null }).guest_count_locked_at ?? null,
-      editDeadline: (event as { guest_list_edit_deadline?: string | null }).guest_list_edit_deadline ?? null,
-      eventDate: event.event_date as string | null,
     })
-      ? resolveReplyBy({
+      ? guestReplyBy({
           deadline: (event as { guest_list_edit_deadline?: string | null }).guest_list_edit_deadline ?? null,
-          eventDate: event.event_date as string | null,
+          today: todayYmd(),
         })
       : null;
   const replyByLabel = replyBy ? landingDayLabel(replyBy.date, 'day', { year: true }) : null;

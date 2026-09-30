@@ -49,7 +49,45 @@ export type BrandedEmailParts = {
    * who never started a gallery (a couple's GUEST) passes its own true reason.
    */
   footer?: string;
+  /**
+   * Labelled facts, rendered as small two-column tables between the paragraphs
+   * and the button — "Host · Ana Reyes", "Papic — 500 credits · ₱245.00". Each
+   * section gets an optional small-caps title. Every string is escaped.
+   */
+  sections?: BrandedEmailSection[];
+  /**
+   * Who the mail is FOR. 'admin' swaps the bottom line for one that is true of
+   * an alert to Setnayan's own team: no "wedding" (a desk that reconciles
+   * seventeen event types), "suppliers" not "vendors", and the reason line is
+   * ADMIN_EMAIL_FOOTER — not the Papic-gallery line every mail used to inherit,
+   * which told an admin they had "started a Papic gallery for your event".
+   * An explicit `footer` still wins over the audience default.
+   */
+  audience?: 'admin';
 };
+
+export type BrandedEmailSection = {
+  title?: string;
+  rows: ReadonlyArray<{ label: string; value: string; strong?: boolean }>;
+};
+
+/**
+ * The customer-facing brand line under every mail. Owner, 2026-09-30, picking
+ * option "1": *"Plan, share and relive every celebration"* — Setnayan serves
+ * every event type, and is more than planning (Papic, Live Studio, Patiktok,
+ * Music Maker, the Event Hub Maker, Setnayan AI). It was "Filipino wedding
+ * planning + verified vendors". Pinned by `anniversary-emails.test.ts`
+ * (SHARED_CHROME_LINE).
+ */
+export const EMAIL_TAGLINE = 'Setnayan · Plan, share and relive every celebration';
+/**
+ * 🔒 THE ADMIN BRAND LINE — the customer line, from HQ. Owner, 2026-09-30: no
+ * "wedding" (the desk sees every event type), never "vendor".
+ * `admin-payment-alert-says-who.test.ts` holds both words out of it.
+ */
+export const ADMIN_EMAIL_TAGLINE = 'Setnayan HQ · Plan, share and relive every celebration';
+/** Why an admin got the mail — the owner's own sentence. */
+export const ADMIN_EMAIL_FOOTER = "You're receiving this because you're a Setnayan admin.";
 
 /**
  * Render a branded HTML email body. Pure + side-effect-free; the caller pairs
@@ -57,7 +95,32 @@ export type BrandedEmailParts = {
  */
 export function renderBrandedEmail(parts: BrandedEmailParts): string {
   const { heading, paragraphs, ctaLabel, ctaHref, footnote } = parts;
-  const footer = parts.footer ?? "You're receiving this because you started a Papic gallery for your event.";
+  const isAdmin = parts.audience === 'admin';
+  const footer =
+    parts.footer ??
+    (isAdmin
+      ? ADMIN_EMAIL_FOOTER
+      : "You're receiving this because you started a Papic gallery for your event.");
+  const tagline = isAdmin ? ADMIN_EMAIL_TAGLINE : EMAIL_TAGLINE;
+  const sections = (parts.sections ?? [])
+    .filter((sec) => sec.rows.length > 0)
+    .map((sec) => {
+      const title = sec.title
+        ? `<div style="margin:0 0 6px;font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${C.faint};">${esc(sec.title)}</div>`
+        : '';
+      const rows = sec.rows
+        .map(
+          (r) =>
+            `<tr><td style="padding:6px 12px 6px 0;border-top:1px solid ${C.line};font-size:14px;line-height:1.45;color:${C.slate};vertical-align:top;">${esc(
+              r.label,
+            )}</td><td align="right" style="padding:6px 0;border-top:1px solid ${C.line};font-size:14px;line-height:1.45;color:${C.ink};vertical-align:top;${r.strong ? 'font-weight:700;' : ''}">${esc(
+              r.value,
+            )}</td></tr>`,
+        )
+        .join('');
+      return `<div style="margin:0 0 18px;">${title}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid ${C.line};">${rows}</table></div>`;
+    })
+    .join('');
   const body = paragraphs
     .map(
       (p) =>
@@ -82,6 +145,7 @@ export function renderBrandedEmail(parts: BrandedEmailParts): string {
             heading,
           )}</h1>
           ${body}
+          ${sections}
         </td></tr>
         <tr><td style="padding:8px 32px 4px;">
           <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:8px;background:${C.mulberry};">
@@ -99,7 +163,7 @@ export function renderBrandedEmail(parts: BrandedEmailParts): string {
         }
         <tr><td style="padding:24px 32px 28px;">
           <hr style="border:none;border-top:1px solid ${C.line};margin:0 0 14px;">
-          <p style="margin:0;font-size:12px;line-height:1.5;color:${C.faint};">Setnayan · Filipino wedding planning + verified vendors<br>${esc(footer)}</p>
+          <p style="margin:0;font-size:12px;line-height:1.5;color:${C.faint};">${esc(tagline)}<br>${esc(footer)}</p>
         </td></tr>
       </table>
     </td></tr>

@@ -111,10 +111,10 @@ export function VenueScreensSection({
           data-testid="venue-screens-locked"
           className="flex flex-wrap items-center gap-2 rounded-xl border border-terracotta/40 bg-terracotta/[0.07] px-3.5 py-2.5 text-xs leading-snug text-ink/75 transition-colors hover:bg-terracotta/[0.12]"
         >
-          <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Studio')} size="md" />
+          <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Watch')} size="md" />
           <span className="min-w-0 flex-1">
             <span className="block font-semibold text-ink">{VENUE_SCREENS_LOCKED_MESSAGE}</span>
-            Add, pair and drive a TV once Live Studio is unlocked. Already-added screens stay
+            Add, pair and drive a TV once Live Watch is unlocked. Already-added screens stay
             listed and removable below.
           </span>
           <span className="shrink-0 rounded-lg bg-mulberry px-3 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.06em] text-cream">
@@ -226,7 +226,7 @@ function ScreenRow({
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{name}</span>
           <PresencePill presence={presence} />
         </div>
-        <p className="text-xs text-ink/55">Locked with Live Studio. It can still be removed.</p>
+        <p className="text-xs text-ink/55">Locked with Live Watch. It can still be removed.</p>
         <form action={removeLiveScreen}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="screen_id" value={screen.id} />

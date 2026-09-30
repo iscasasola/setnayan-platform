@@ -81,29 +81,29 @@ const solemn = (eventWord: string): AnniversaryWords => ({ eventWord, solemn: tr
 const base = { coupleName: 'Maria & Jose', eventName: 'Maria & Jose', ctaHref: 'https://x.test/y' };
 
 /**
- * THE SHARED EMAIL CHROME IS NOT THIS MODULE'S COPY — and it says "wedding".
+ * THE SHARED EMAIL CHROME — the company's own tagline, pinned.
  *
- * `renderBrandedEmail` closes every branded email with
- * *"Setnayan · Filipino wedding planning + verified vendors"*. That is the
- * COMPANY'S OWN TAGLINE, not a claim about the reader's event, and whether
- * Setnayan still describes itself that way now it serves seventeen event types
- * is a positioning call and the owner's — the same reasoning by which the door
- * guard pardons "couples planning their…" rather than rewriting it.
+ * `renderBrandedEmail` closes every branded email with the company tagline.
+ * It used to read *"Setnayan · Filipino wedding planning + verified vendors"*,
+ * and this file pardoned it as a positioning call that was the owner's to make.
+ * ✅ MADE, 2026-09-30 — the owner picked *"Setnayan · Plan, share and relive
+ * every celebration"* (DECISION_LOG row that date).
  *
- * ⚖ Surfaced, not silently skipped, and not silently rewritten. It is billed
- * below so it stays visible, and the bill is checked so a pardon nobody needs
- * cannot lie around.
+ * The line is still split out of the scan below (it is chrome, not this
+ * module's copy), and it is still PINNED: the bill test checks the rendered
+ * mail carries exactly this line, and that the line itself says neither
+ * "wedding" nor "vendor" — so it cannot drift back unseen.
  *
  * 🔴 SEPARATELY, AND WORTH A LOOK: the line under it reads "You're receiving
  * this because you started a Papic gallery for your event" on EVERY branded
  * email, directly beneath each email's own true reason line. That is shared
  * chrome across many senders, so it is reported rather than changed here.
  */
-const SHARED_CHROME_PARDON = 'Setnayan · Filipino wedding planning + verified vendors';
+const SHARED_CHROME_LINE = 'Setnayan · Plan, share and relive every celebration';
 
 /** Every rendered surface of the email as one string — subject, text, html. */
 const rendered = (e: { subject: string; text: string; html: string } | null): string =>
-  e ? `${e.subject}\n${e.text}\n${e.html}`.split(SHARED_CHROME_PARDON).join('') : '';
+  e ? `${e.subject}\n${e.text}\n${e.html}`.split(SHARED_CHROME_LINE).join('') : '';
 
 test('the seeded-word scan still matches — a scan that finds nothing reads like a pass', () => {
   console.log(`seeded event words (${SEEDED_WORDS.length}): ${SEEDED_WORDS.join(', ')}`);
@@ -216,7 +216,7 @@ test('the refusal is keyed on the REGISTER, not on the type key', () => {
 /** Plurals included — a sibling guard spelt these singular and went blind. */
 const WEDDING_WORD = /\b(weddings?|brides?|grooms?|married|I do)\b/i;
 
-test('the shared-chrome pardon is a BILL — the line it pardons still exists', () => {
+test('the shared-chrome line is PINNED — the owner\'s wording, and no wedding or vendor in it', () => {
   const e = buildAnniversaryEmail({
     ...base,
     yearsAgo: 1,
@@ -225,10 +225,11 @@ test('the shared-chrome pardon is a BILL — the line it pardons still exists', 
   });
   assert.ok(e);
   assert.ok(
-    e.html.includes(SHARED_CHROME_PARDON),
-    'the shared email footer no longer carries this line — delete the pardon ' +
-      'rather than leaving standing permission lying around.',
+    e.html.includes(SHARED_CHROME_LINE),
+    'the shared email footer no longer carries the owner\'s tagline (2026-09-30) — ' +
+      'a change to it is an owner decision, not a copy edit.',
   );
+  assert.doesNotMatch(SHARED_CHROME_LINE, /wedding|vendor/i, 'the tagline serves every event type');
 });
 
 test('PRINT THE FINISHED SENTENCE for every word, and none of them says wedding', () => {

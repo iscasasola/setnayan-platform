@@ -54,6 +54,7 @@ import { HUB_ELEMENT_PRO_FIELDS } from '@/lib/hub-look-pro';
 import { postEventArrangementOf, sceneLooksFreePart, type PostEventSceneLooks } from '@/lib/post-event-draft';
 import { POST_EVENT_SCENE_TYPE_LABEL, postEventSceneTypeOf } from '@/lib/post-event-styles';
 import { postEventPreset } from '@/lib/post-event-presets';
+import { STORY_PRO_EXTRA_LABEL, storyProExtrasOf } from '@/lib/story-pro-extras';
 import { hubProEffectLine, UNLOCK_AND_APPLY_PARAM, unlockAndApplyHref, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 
 /** Where "Go to" takes the couple in the Maker (a `MakerSelection`, plus a part). */
@@ -191,7 +192,20 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
 
   for (const item of refused) {
     if (item.kind === 'editorial') {
-      for (const effect of postEventEffects(item.item.field === 'sceneLooks' ? item.item.value : null, live)) push(effect);
+      const f = item.item.field;
+      if (f === 'chapterOverrides' || f === 'customColumns' || f === 'reviews') {
+        /* 💎 A story extra tried free in the story workroom — named by what the
+           couple wrote; "Remove" puts back what guests read today. */
+        push({
+          id: `story:${f}`,
+          what: STORY_PRO_EXTRA_LABEL[f],
+          where: 'Post Event · your story',
+          jump: null,
+          remove: { editorial: { [f]: storyProExtrasOf(live.editorial ?? null)[f] } as HubDraftPatch['editorial'] },
+        });
+        continue;
+      }
+      for (const effect of postEventEffects(f === 'sceneLooks' ? item.item.value : null, live)) push(effect);
       continue;
     }
     // 🎨 A fixed part's Style pick is free — never refused, so never listed.

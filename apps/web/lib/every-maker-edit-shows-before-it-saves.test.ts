@@ -497,7 +497,9 @@ test('a made-once page frame is double-buffered, never an iframe keyed on the re
 /* ── E · A SAVE THAT BRINGS NO RENDER IS A SAVE THE CANVAS ALREADY SHOWS ───── */
 
 /** Calls that put a change on the canvas (or hand the shell the canvas hold, which decides). */
-const ON_CANVAS = new Set([...CANVAS_POST, 'onSaving', 'hideOnCanvas']);
+/* `preview` — the words box's own drawer (`useSceneWordsBox`): the special message
+   is on the tapped scene as it is typed, then saved held (2026-09-30). */
+const ON_CANVAS = new Set([...CANVAS_POST, 'onSaving', 'hideOnCanvas', 'preview']);
 
 /** `held` handlers that draw nothing, and why that is right. */
 const HELD_WITHOUT_DRAWING: Record<string, string> = {};

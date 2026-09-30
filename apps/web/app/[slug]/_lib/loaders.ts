@@ -29,6 +29,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
+import { loadNameStyle } from '@/lib/name-style.server';
+import type { NameStyle } from '@/lib/name-style';
 import {
   buildEntourage,
   ENTOURAGE_COLUMNS,
@@ -49,7 +51,10 @@ import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
-import { resolveFaceMode, resolveFaceTagging, type PapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
+import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
+import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { dayOfFaceCatchShows, type FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
@@ -1365,6 +1370,29 @@ export const loadGuestContext = cache(
       ? null
       : ((wishRow as { face_tagging_wanted?: boolean | null } | null)?.face_tagging_wanted ?? null);
     let needsFaceEnroll = false;
+    // 📸 IS THE FACE SCREEN OPEN RIGHT NOW (owner 2026-09-30 — the selfie is
+    // taken ON THE DAY): askable, and the guest capture window open — the same
+    // resolver the guest camera and the upload route close on. Me's "Face
+    // tagging" row offers the selfie only then. A failed read keeps it shut.
+    let faceStepOpen = false;
+    if (faceTagging.askable) {
+      const { data: gateRow, error: gateErr } = await admin
+        .from('events')
+        .select(GUEST_CAPTURE_GATE_COLUMNS)
+        .eq('event_id', event.event_id)
+        .maybeSingle();
+      if (gateErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:events.select(capture gate)', gateErr);
+      const g = gateRow as { event_date?: string | null; papic_guest_capture_early?: boolean | null; papic_window_start?: string | null; papic_window_end?: string | null } | null;
+      faceStepOpen =
+        !gateErr &&
+        Boolean(g) &&
+        guestCaptureGate({
+          earlyAllowed: g?.papic_guest_capture_early,
+          eventDate: g?.event_date,
+          windowStart: g?.papic_window_start,
+          windowEnd: g?.papic_window_end,
+        }).state === 'open';
+    }
     if (await isDataPrivacyControlActive('face_enrollment')) {
       if (guest.rsvp_status !== 'declined') {
         const { data: liveEnrollment, error: enrollError } = await admin
@@ -1392,7 +1420,9 @@ export const loadGuestContext = cache(
           : dayOfFaceCatchShows({
               // A failed wish read is silence too — never a re-ask of a "No".
               askable: faceTagging.askable && !wishError,
-              enrolled: Boolean(liveEnrollment),
+              // A seat that reuses its account's face here (owner 2026-09-30,
+              // "No selfie needed on the day") has nothing to be asked for.
+              enrolled: Boolean(liveEnrollment) || (await guestReusesAccountFace(admin, event.event_id, guest.guest_id)),
               wish: faceTaggingWish,
             });
       }
@@ -1456,6 +1486,8 @@ export const loadGuestContext = cache(
             // "what did the admin set", not "what runs on this event".
             (styleRow as { face_tagging_declined_by_couple?: boolean | null } | null)
               ?.face_tagging_declined_by_couple,
+            // ⚖ Automatic (owner 2026-09-30): this block runs only with Papic on.
+            papicGuestActive,
           ),
         };
       }
@@ -1709,6 +1741,7 @@ export const loadGuestContext = cache(
       seatMap,
       rsvpFaceMode,
       faceTaggingAskable: faceTagging.askable,
+      faceStepOpen,
       eventVendorCredits,
     };
   },
@@ -1771,6 +1804,17 @@ export const loadEventRoleNames = cache(
     loadRoleNames(admin, eventId, 'loadEventRoleNames'),
 );
 
+/**
+ * The event's Name style (`events.print_details.name_style`, owner 2026-09-30
+ * — Full · Middle initial · Surname first). Same posture as the role words: its
+ * own query, cached per request, and an unreadable value prints Full — the
+ * names as they printed before the style existed — never a broken page.
+ */
+export const loadEventNameStyle = cache(
+  async (admin: AdminClient, eventId: string): Promise<NameStyle> =>
+    loadNameStyle(admin, eventId, 'loadEventNameStyle'),
+);
+
 export const loadEntourage = cache(
   async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
     const { data, error } = await admin
@@ -1819,6 +1863,7 @@ export const loadEntourage = cache(
       (data ?? []) as EntourageGuestRow[],
       await loadEntourageSectionOrder(admin, eventId),
       await loadEventRoleNames(admin, eventId),
+      await loadEventNameStyle(admin, eventId),
     );
   },
 );

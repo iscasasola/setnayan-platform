@@ -40,7 +40,7 @@ import { formatCount } from '@/lib/format-number';
  * CONNECTED and HEALTHY, never what the secret is.
  */
 
-export const metadata = { title: 'Live Studio channels · Admin' };
+export const metadata = { title: 'Live Watch channels · Admin' };
 export const dynamic = 'force-dynamic';
 
 type PoolRow = {
@@ -124,7 +124,7 @@ export default async function LiveStudioChannelsPage({
       <PageMasthead title="Setnayan channel pool" />
       <div className="mb-6">
         <p className="max-w-2xl text-sm text-ink/70">
-          Every Live Studio event streams on a Setnayan-owned YouTube channel from this pool. Couples
+          Every Live Watch event streams on a Setnayan-owned YouTube channel from this pool. Couples
           never connect a Google account — which is why our consent screen can stay{' '}
           <strong className="font-semibold text-ink/80">Internal</strong> and needs no Google app
           verification. One channel is checked out per event, then returned.
@@ -182,7 +182,7 @@ export default async function LiveStudioChannelsPage({
           <li className="flex items-start gap-2 pt-1 text-ink/70">
             <AlertCircle aria-hidden className="mt-px h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
             <span>
-              <strong className="font-semibold text-ink/80">This does not make Live Studio turnkey.</strong>{' '}
+              <strong className="font-semibold text-ink/80">This does not make Live Watch turnkey.</strong>{' '}
               Connecting a channel removes the couple&rsquo;s need for a YouTube account. It does{' '}
               <em>not</em> remove the encoder: browsers cannot push RTMP and the native capture app was
               never built, so the couple&rsquo;s own OBS still has to window-capture the program output

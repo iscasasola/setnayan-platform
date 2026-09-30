@@ -225,7 +225,7 @@ export const POST_EVENT_WAITING: Readonly<Record<string, string>> = {
   numbers: 'Your guests and the photos of the day are counted here after the day.',
   chapters: 'Set the day’s schedule and each moment becomes a chapter here, with its photos.',
   gallery: 'Your photos appear here. Everything your guests capture on the day files itself by the minute.',
-  film: 'If you broadcast with Live Studio, the replay lands here after the day.',
+  film: 'If you broadcast with Live Watch, the replay lands here after the day.',
   videos: 'Paste a link to your same-day edit or your films, and they play here.',
   you: 'After the day, each guest opens their own captures here, from their own Papic link.',
   wishes: 'Wishes appear here as your guests leave them.',
@@ -284,7 +284,7 @@ const FIXED: Record<string, Def> = {
        and answer to its one switch; the film open-up is the replay's when there
        is one, else the videos'. */
     key: 'film', name: 'Watch Live', template: 14, open: 'film', pin: null, block: 'watchFilm', switch: 'watchFilm',
-    fill: (s) => (s.broadcast ? { count: 1, source: 'Live Studio replay' } : { skip: 'No livestream on this event' }),
+    fill: (s) => (s.broadcast ? { count: 1, source: 'Live Watch replay' } : { skip: 'No livestream on this event' }),
   },
   videos: {
     key: 'videos', name: 'Videos', template: 14, open: null, pin: null, block: 'watchFilm', switch: 'watchFilm',

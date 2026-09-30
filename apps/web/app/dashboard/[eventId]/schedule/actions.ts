@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { makerQuietWrite } from '@/lib/maker-live-preview';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -87,6 +88,25 @@ function parseDatetimeLocal(raw: FormDataEntryValue | null): string | null {
   // lives in the same module so the two can never disagree again; when they
   // did, saving without editing moved the block eight hours.
   return typeof raw === 'string' ? fromDatetimeLocalValue(raw) : null;
+}
+
+/**
+ * ⚡ A SCHEDULE EDIT FROM THE EVENT HUB MAKER REVALIDATES NOTHING (owner
+ * 2026-09-30: *"editing … the Programme … so hard to edit … the delay of
+ * response is terrible"*). A `revalidatePath` inside a server action makes its
+ * answer carry a whole render of the page it was SENT FROM, whatever path it
+ * names — from the Maker that is the whole Maker (3–6 s on production), and
+ * Next runs actions one at a time, so the next edit waited behind it. The
+ * Maker's rail already shows the change (its overrides) and its canvases take
+ * it through the editor bridge (`lib/maker-live-preview.ts`); the two pages
+ * below are dynamic and re-read on the next visit anyway. Everywhere else the
+ * paths are revalidated exactly as before. The flag touches cache freshness
+ * only — who may write what is still RLS's.
+ */
+function revalidateScheduleUnlessMaker(eventId: string, formData: FormData): void {
+  if (makerQuietWrite(formData)) return;
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  revalidatePath(`/dashboard/${eventId}`);
 }
 
 export async function createScheduleBlock(formData: FormData) {
@@ -204,8 +224,7 @@ export async function deleteScheduleBlock(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidateScheduleUnlessMaker(eventId, formData);
 }
 
 export async function toggleBlockVisibility(formData: FormData) {
@@ -234,8 +253,7 @@ export async function toggleBlockVisibility(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidateScheduleUnlessMaker(eventId, formData);
 }
 
 /**
@@ -282,8 +300,7 @@ export async function setBlockPrepVisibility(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidateScheduleUnlessMaker(eventId, formData);
 }
 
 // ────────────────────  Card 15 hierarchy actions  ────────────────────
@@ -424,8 +441,7 @@ export async function updateScheduleBlock(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidateScheduleUnlessMaker(eventId, formData);
 }
 
 /**
@@ -737,8 +753,7 @@ export async function setBlockResponsibleParty(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidateScheduleUnlessMaker(eventId, formData);
 }
 
 /**
@@ -791,8 +806,7 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
     if (error) throw new Error(`Retime failed at ${patch.block_id}: ${error.message}`);
   }
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidateScheduleUnlessMaker(eventId, formData);
 }
 
 /**

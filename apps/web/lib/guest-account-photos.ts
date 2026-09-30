@@ -55,6 +55,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 export async function accountPhotoRefsByGuest(
   supabase: SupabaseClient,
   eventId: string,
+  viewerUserId?: string | null,
 ): Promise<Record<string, string>> {
   // 1. As the caller. RLS decides whether they may see this event's members.
   const { data: members, error: memberErr } = await supabase
@@ -106,6 +107,24 @@ export async function accountPhotoRefsByGuest(
       .filter((u) => u.profile_photo_url)
       .map((u) => [u.user_id, u.profile_photo_url!] as const),
   );
+
+  /*
+    3. 🪞 YOUR OWN FACE ON YOUR OWN ROW (owner 2026-09-30: a person's own photo
+    always shows on their own guest row). The opt-in is about showing your face
+    to OTHER people; the viewer looking at their own row is not other people. So
+    the viewer's own photo is read AS THE VIEWER — their own `users` row is
+    theirs under RLS, no admin — and only when they are on this list.
+  */
+  if (viewerUserId && !refByUser.has(viewerUserId) && userIds.includes(viewerUserId)) {
+    const { data: own, error: ownErr } = await supabase
+      .from('users')
+      .select('user_id, profile_photo_url')
+      .eq('user_id', viewerUserId)
+      .maybeSingle();
+    if (ownErr) logQueryError('guest-account-photos: own photo', ownErr, { eventId });
+    const ownRef = (own as { profile_photo_url: string | null } | null)?.profile_photo_url;
+    if (ownRef) refByUser.set(viewerUserId, ownRef);
+  }
 
   const out: Record<string, string> = {};
   for (const row of rows) {

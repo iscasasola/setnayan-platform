@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import {
   FORMAL_NAME_FIELDS,
   FORMAL_NAME_LABELS,
@@ -80,20 +80,7 @@ export function FormalNameInputs({
             {mustFill(f) ? <span aria-hidden> *</span> : null}
           </label>
           {f === 'name_prefix' ? (
-            <select
-              id={idOf(f)}
-              name={nameOf(f)}
-              defaultValue={(defaults[f] ?? '').trim()}
-              autoComplete={auto(f)}
-              className="input-field w-full appearance-none bg-cream pr-8"
-            >
-              <option value="">—</option>
-              {prefixChoicesFor(defaults[f]).map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+            <PrefixSelect id={idOf(f)} name={nameOf(f)} defaultValue={defaults[f]} autoComplete={auto(f)} />
           ) : (
             <input
               id={idOf(f)}
@@ -112,5 +99,53 @@ export function FormalNameInputs({
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * 🪪 THE PREFIX DROPDOWN — one, everywhere a name's Prefix is typed (owner
+ * 2026-09-30: the Guest list and the profile use "the same dropdown as the
+ * guest side"). The short list is `NAME_PREFIX_CHOICES`; a stored prefix
+ * outside it (the host typed "Justice") stays as its own option, never dropped
+ * (`prefixChoicesFor`). "—" is no prefix.
+ *
+ * No hooks: uncontrolled with `defaultValue` (server-drawn forms, the guest
+ * card's autosave), or controlled with `value` + `onChange` (the Add-guest
+ * form, whose whole-name splitter fills it).
+ */
+export function PrefixSelect({
+  id,
+  name = 'name_prefix',
+  defaultValue,
+  value,
+  onChange,
+  autoComplete = 'off',
+  className = 'input-field w-full appearance-none bg-cream pr-8',
+}: {
+  id: string;
+  name?: string;
+  defaultValue?: string | null;
+  value?: string;
+  onChange?: (e: ChangeEvent<HTMLSelectElement>) => void;
+  autoComplete?: string;
+  className?: string;
+}) {
+  const current = value ?? defaultValue;
+  return (
+    <select
+      id={id}
+      name={name}
+      {...(value !== undefined ? { value: value.trim(), onChange } : { defaultValue: (defaultValue ?? '').trim(), onChange })}
+      autoComplete={autoComplete}
+      data-prefix-select=""
+      className={className}
+    >
+      <option value="">—</option>
+      {prefixChoicesFor(current).map((p) => (
+        <option key={p} value={p}>
+          {p}
+        </option>
+      ))}
+    </select>
   );
 }

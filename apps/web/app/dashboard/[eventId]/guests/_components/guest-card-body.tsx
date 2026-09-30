@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { LINKED_NAME_WORDS } from '@/lib/extra-seats';
+import { composeFormalName } from '@/lib/formal-name';
+import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS } from '@/lib/extra-seats';
 import {
   Armchair,
   ArrowRight,
@@ -42,6 +43,7 @@ import { GuestQrCard } from './guest-detail-body';
 import type { GuestSendInvite } from './send-invite';
 import type { GuestPassCardLink } from './guest-pass-card-link';
 import type { ComponentType } from 'react';
+import { PrefixSelect } from '@/app/_components/formal-name-inputs';
 import type { InviteSetup } from './invite-message-setup';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
@@ -217,8 +219,16 @@ export function GuestCardBody({
     canManageAccess,
     nameLinked,
     linkedAccount,
+    profileName,
     roleNames,
   } = data;
+  /* 👤 Whose words the name is (owner 2026-09-30): a linked account's profile
+     name is fixed here — "From their account" for the couple, a way to the
+     profile for the person themself. A plus-one's link keeps its own words. */
+  const nameLockWords = profileName ? (profileName.isYou ? null : PROFILE_NAME_WORDS) : nameLinked ? LINKED_NAME_WORDS : null;
+  const nameLocked = Boolean(profileName) || nameLinked;
+  // The five parts as one line — the same formal name the list prints.
+  const lockedName = composeFormalName(guest) ?? guestDisplayName(guest);
   const accessTagLabel = access ? accessTag(access) : null;
 
   const updateAction = updateGuest.bind(null, eventId, guest.guest_id);
@@ -304,7 +314,7 @@ export function GuestCardBody({
                 eventId={eventId}
                 guest={{
                   guestId: guest.guest_id,
-                  formalName: guestFullName(guest),
+                  formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
                   firstName: guest.first_name,
                   fullName: guestDisplayName(guest),
                   inviteUrl: guest.qr_token ? `${invitationBase}?invite=${guest.qr_token}` : null,
@@ -365,16 +375,25 @@ export function GuestCardBody({
         {/* ── 2 · DETAILS — name, contact, private note: one line each ───── */}
         <Section title="Details">
           <div className="overflow-hidden rounded-lg border border-ink/10">
-            <Disclosure summary="Name" value={nameLinked ? `${guestDisplayName(guest)} · ${LINKED_NAME_WORDS}` : guestDisplayName(guest)}>
-              {/* 🔒 A plus-one who linked their own account keeps their own name
-                  (owner 2026-09-29, OWNER ANSWERS (10)): read-only here, and
+            <Disclosure summary="Name" value={nameLocked ? `${lockedName}${nameLockWords ? ` · ${nameLockWords}` : ''}` : guestDisplayName(guest)}>
+              {/* 🔒 A linked person keeps their own name — a plus-one who linked
+                  (owner 2026-09-29, OWNER ANSWERS (10)) or any row whose account's
+                  profile holds a formal name (owner 2026-09-30): read-only here, and
                   `updateGuest` leaves the name out of its write. The stored
                   parts still post, so the form's own checks are satisfied. */}
-              {nameLinked ? (
+              {nameLocked ? (
                 <div data-guest-name-linked="">
                   <p className="text-sm text-ink">
-                    <span className="font-medium">{guestDisplayName(guest)}</span>
-                    <span className="text-ink/60"> · {LINKED_NAME_WORDS}</span>
+                    <span className="font-medium">{lockedName}</span>
+                    {nameLockWords ? <span className="text-ink/60"> · {nameLockWords}</span> : null}
+                    {profileName?.isYou ? (
+                      <>
+                        {' · '}
+                        <Link href="/dashboard/profile" className="text-terracotta-700 underline-offset-2 hover:underline">
+                          Edit on your profile ›
+                        </Link>
+                      </>
+                    ) : null}
                   </p>
                   <input type="hidden" name="first_name" value={guest.first_name} />
                   <input type="hidden" name="last_name" value={guest.last_name} />
@@ -386,7 +405,13 @@ export function GuestCardBody({
               ) : (
               <>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Field id="name_prefix" label="Prefix" defaultValue={guest.name_prefix ?? ''} />
+                {/* 🪪 Prefix is the guest side's dropdown (owner 2026-09-30). */}
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-ink" htmlFor="name_prefix">
+                    Prefix
+                  </label>
+                  <PrefixSelect id="name_prefix" defaultValue={guest.name_prefix} />
+                </div>
                 <Field id="first_name" label="First name *" required defaultValue={guest.first_name} />
                 <Field id="middle_name" label="Middle name" defaultValue={guest.middle_name ?? ''} />
               </div>
@@ -798,7 +823,7 @@ export function GuestCardBody({
       {/* ── ACCESS — co-host · limited helper (owner 2026-09-28: co-hosts come
           from the guest list). Its own action, so it sits OUTSIDE the autosave
           form, like the invitation block — a nested <form> is invalid HTML.
-          A refused read (access === null) shows nothing, never "Guest only". */}
+          A refused read (access === null) shows nothing, never "None". */}
       {access ? (
         <Section title="Access">
           <div className="px-0.5">

@@ -19,9 +19,8 @@
  * correction requests (2026-08-12), and the reason `your-people.ts` scopes
  * itself by hand.
  *
- * So the event source derives its ids from a `user_id = me` read FIRST and
- * fences the guest query with `.in('event_id', those)`. RLS is defence in
- * depth. It is never the fence.
+ * The other-events source is gone altogether now (owner 2026-09-30: connected
+ * people only), so the first test pins that no such read comes back.
  */
 
 import { test } from 'node:test';
@@ -39,31 +38,20 @@ const CAPTURE = [
   'app', 'dashboard', '[eventId]', 'guests', '_components', 'capture-bar.tsx',
 ] as const;
 
-test('the candidate read fences itself by the events the host organises', () => {
-  const src = read(...LIB);
-  assert.match(
-    src,
-    /member_type'?\s*,\s*'couple'/,
-    'The candidate list no longer derives the host’s own events from an ' +
-      'event_members read. Without that list there is nothing to fence with.',
-  );
+test('the picker never offers a guest of another event — connected people only', () => {
   /*
-    🪤 PINNED TO THE `guests` QUERY, NOT TO "somewhere in the file". The first
-    cut of this assertion matched `.in('event_id', myEventIds)` ANYWHERE — and
-    this module has TWO such calls, the other one reading event TITLES. Deleting
-    the fence from the guest query alone would have left the titles call
-    satisfying the regex, and the guard would have gone green over the exact
-    disclosure it exists to stop. Measured: the sabotage could not even be
-    applied uniquely, which is what exposed it.
+    Owner, 2026-09-30: *"when adding people. i should only see the people that
+    are connected to me. not the guest from events. only connected people,
+    samahan … and my beloved."* The one `guests` read allowed here is this
+    event's own list, for "already here" — fenced to THIS event by `.eq`.
   */
-  assert.match(
-    src,
-    /from\('guests'\)[\s\S]{0,500}?\.in\('event_id',\s*myEventIds\)/,
-    'The other-events GUEST query lost its explicit `.in(event_id, myEventIds)` ' +
-      'fence. `couple_writes_guest` is `… OR is_admin()`, and production’s ' +
-      'admin is the owner’s own account — leaning on RLS offers him every ' +
-      'guest in the database and looks completely fine.',
-  );
+  const src = read(...LIB);
+  const reads = src.match(/from\('guests'\)[\s\S]{0,300}?;/g) ?? [];
+  assert.equal(reads.length, 1, 'A second guests read is back in the picker — it offered other events’ guests.');
+  assert.match(reads[0]!, /\.eq\('event_id',\s*eventId\)/, 'The one guests read must be THIS event’s own list.');
+  assert.doesNotMatch(src, /source:\s*'event'/, 'An `event` candidate is being pushed again.');
+  assert.match(src, /source:\s*'people'/);
+  assert.match(src, /source:\s*'samahan'/);
 });
 
 test('no auth uuid and no person_id ever leaves this module', () => {

@@ -251,7 +251,7 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
    WAVE 4 — THE QR CAMERA-JOIN (Live_Studio_Unified_Spec § 4b/4c · migration
    20271003100000_live_studio_channel_camera_join.sql)
 
-   These two actions are what make a purchased Live Studio usable at all: without
+   These two actions are what make a purchased Live Watch usable at all: without
    them a host can create and name channels but NO PHONE CAN JOIN ONE
    (`live_studio_roam_zones.camera_operator_id` had zero writers anywhere).
 
@@ -949,7 +949,7 @@ export async function clearControlManualAir(formData: FormData): Promise<void> {
  * lib/live-studio-manual-air.ts for which route a given `isLive` source must use.
  */
 export async function endManualOnAir(eventId: string): Promise<{ ok: true } | { error: string }> {
-  if (!liveStudioRoamEnabled()) return { error: 'Live Studio is not available for this event.' };
+  if (!liveStudioRoamEnabled()) return { error: 'Live Watch is not available for this event.' };
 
   await requireHostMembership(eventId);
 

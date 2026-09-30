@@ -16,3 +16,20 @@ export function InMakerReturnTo() {
   if (!maker) return null;
   return <input type="hidden" name="return_to" value={`/dashboard/${maker.eventId}/launch?tool=love-story`} />;
 }
+
+/**
+ * ⚡ In the Event Hub Maker the scrapbook is the INSTANT one (`love-story-live.tsx`),
+ * handed down by the Maker (`liveLoveStoryBook`, its own lazy chunk) and drawn
+ * with the same props the page gives the server-drawn book; anywhere else — or
+ * before the Maker has it — the page's own `LoveStoryBook` (`children`).
+ */
+export function InMakerLiveBook({ book, children }: { book: Record<string, unknown>; children: React.ReactNode }) {
+  const Live = useMaker()?.liveLoveStoryBook;
+  return Live ? <Live {...book} /> : <>{children}</>;
+}
+
+/** ⚡ …and the words panel: the instant one in the Maker, the page's own form elsewhere (`children`). */
+export function InMakerLiveStoryPanel({ panel, children }: { panel: Record<string, unknown>; children: React.ReactNode }) {
+  const Live = useMaker()?.liveStoryPanel;
+  return Live ? <Live {...panel} /> : <>{children}</>;
+}

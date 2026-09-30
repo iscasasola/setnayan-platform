@@ -99,8 +99,9 @@ export function buildDigestEmail(
     paragraphs: [headline + '.', ...laneLines],
     ctaLabel: 'Open the work list',
     ctaHref: workUrl,
-    footnote:
-      'You receive this because you are a Setnayan HQ admin. It sends once a morning, only when work is waiting.',
+    footnote: 'It sends once a morning, only when work is waiting.',
+    // The admin footer, not the Papic-gallery line every mail used to inherit.
+    audience: 'admin',
   });
 
   return { subject, text, html };

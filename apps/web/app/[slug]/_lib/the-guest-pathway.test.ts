@@ -390,7 +390,7 @@ test('5 · "Not you? Switch" clears the guest pass with a POST, never a prefetch
   assert.match(form, /method="post"/);
   assert.match(html, /Switch/);
   assert.match(read('[slug]/sign-out/route.ts'), /await clearGuestSession\(\);/);
-  assert.match(REPLY, /<NotYouSwitch slug=\{home\} \/>/);
+  assert.match(REPLY, /<NotYouSwitch slug=\{home\} erasesSelfie=\{guest\.photo_source === 'selfie'\} \/>/);
 });
 
 // ═══ 7 · "Two ways to celebrate" leaves the Invitation and the Day ════════

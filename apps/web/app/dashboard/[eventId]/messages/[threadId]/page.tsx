@@ -261,9 +261,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // Fresh live pax (Phase 5) — the couple's own client can read their guests,
   // so show the current count, matching what the vendor now sees. Read before
   // the standing, which says when it has moved since the inquiry (SUP-2).
-  // ⚠ `resolveLivePax` CAN WRITE — `ensureFinalized` takes the lazy guest-count
-  // lock once the deadline has passed — so it starts only after every read that
-  // preceded it before the reads were started together has succeeded.
+  // `resolveLivePax` used to WRITE (a lazy date-based guest-count lock). Since
+  // 2026-09-30 only the host's Finalize writes that lock, so it is a pure read
+  // now; the ordering below is kept as it was, costing nothing.
   const livePaxRead = (async () => {
     await Promise.all([markedRead, vendorRead, messagesRead, lockHandshakeRead, pickRead, decisionsRead]);
     return resolveLivePax(supabase, thread.event_id);

@@ -27,6 +27,7 @@ import {
 } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { FORMAL_NAME_FIELDS, profileFormalName } from '@/lib/formal-name';
 import { resolveSubmittedSide } from '@/lib/guest-side-question';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -324,12 +325,13 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     : answerChanged
       ? new Date().toISOString()
       : ((prevGuest?.rsvp_responded_at as string | null) ?? null);
-  /* 🔒 A PLUS-ONE WHO LINKED THEIR OWN ACCOUNT KEEPS THEIR OWN NAME (owner
+  /* 🔒 A LINKED PERSON KEEPS THEIR OWN NAME — a plus-one who linked (owner
      2026-09-29, DECISION_LOG "OWNER ANSWERS — TEN OPEN QUESTIONS" (10): *"if
-     connected to an account, cannot change anymore"*). The host sees it
-     read-only ("Linked to their account"); this is the refusal behind that
+     connected to an account, cannot change anymore"*), or any row whose linked
+     account's profile holds a formal name (owner 2026-09-30). The host sees it
+     read-only ("From their account"); this is the refusal behind that
      screen — the name keys are left OUT of the write, so what is stored stays. */
-  const nameLocked = await plusOneNameLocked(createAdminClient(), eventId, guestId);
+  const nameLocked = await linkedNameLocked(createAdminClient(), eventId, guestId);
   const { data: updatedRows, error } = await supabase
     .from('guests')
     .update({
@@ -925,11 +927,15 @@ export async function releaseGuestClaim(
 }
 
 /**
- * Is this row a plus-one whose person linked their OWN account? (An
- * `event_members` row holds the seat.) Unread is treated as locked — refusing a
- * rename is recoverable, overwriting a person's own name is not.
+ * Is this row's name the linked person's to keep? Two cases lock it:
+ *   · a plus-one whose person linked their OWN account (owner 2026-09-29);
+ *   · any row linked to an account whose PROFILE holds a formal name (owner
+ *     2026-09-30) — the card shows that profile name read-only, and this is the
+ *     refusal behind that screen.
+ * Unread is treated as locked — refusing a rename is recoverable, overwriting a
+ * person's own name is not.
  */
-async function plusOneNameLocked(
+async function linkedNameLocked(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
   guestId: string,
@@ -941,17 +947,28 @@ async function plusOneNameLocked(
     .eq('event_id', eventId)
     .maybeSingle();
   if (error) return true;
-  if (!row?.plus_one_of_guest_id) return false;
   const { data: member, error: mErr } = await admin
     .from('event_members')
-    .select('id')
+    .select('user_id')
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .limit(1)
     .maybeSingle();
   if (mErr) {
-    console.error('plusOneNameLocked: event_members read failed — treating as locked', eventId, guestId, mErr.message);
+    console.error('linkedNameLocked: event_members read failed — treating as locked', eventId, guestId, mErr.message);
     return true;
   }
-  return Boolean(member);
+  if (!member) return false;
+  if (row?.plus_one_of_guest_id) return true;
+  if (!member.user_id) return false;
+  const { data: profile, error: pErr } = await admin
+    .from('users')
+    .select(FORMAL_NAME_FIELDS.join(', '))
+    .eq('user_id', member.user_id as string)
+    .maybeSingle();
+  if (pErr) {
+    console.error('linkedNameLocked: users read failed — treating as locked', eventId, guestId, pErr.message);
+    return true;
+  }
+  return Boolean(profile && profileFormalName(profile as unknown as Record<string, string | null>));
 }

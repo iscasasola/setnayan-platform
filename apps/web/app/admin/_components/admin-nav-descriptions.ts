@@ -106,7 +106,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   website:
     'Marketing site widget visibility and content toggles. Manage the public homepage and footer.',
   'live-studio-channels':
-    'The Setnayan-owned YouTube channels every Live Studio event streams on. Connect, verify, and release pool channels — couples never connect a Google account.',
+    'The Setnayan-owned YouTube channels every Live Watch event streams on. Connect, verify, and release pool channels — couples never connect a Google account.',
   'background-videos':
     'Upload and manage the homepage hero + pillar loop videos — the live pipeline behind the public landing page.',
   'website-media':

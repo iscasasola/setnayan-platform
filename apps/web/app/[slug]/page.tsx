@@ -56,6 +56,7 @@ import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { addCelebrantFromEvent, setFollowByPublicId } from '@/app/dashboard/(account)/people/actions';
+import { withdrawFaceConsent } from './actions';
 import { loadPreviewPerson } from './_lib/preview-person.server';
 import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { AdoptSeatSession } from './_components/adopt-seat-session';
@@ -74,7 +75,9 @@ import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { GuestHubBar } from './_components/guest-hub-bar';
+import { GuestHubBar, GuestMeSection } from './_components/guest-hub-bar';
+import { hubTabsOn } from './_lib/hub-tabs';
+import { pageStageFor } from './_lib/stage-bar';
 import { GuestTicket } from './_components/guest-ticket';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import {
@@ -175,6 +178,9 @@ type Props = {
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
     save?: string;
     rsvp?: string;
+    // 📱 `?tab=<key>` — each menu tab is its own page with its own address
+    // (owner 2026-09-30, `_lib/hub-tabs.ts`); SiteBody shows that tab first.
+    tab?: string;
     // 🚪 `?from=landing` — "Open the invitation" on the guest's landing page,
     // before a reply: past the reply gate (lib/guest-landing.ts). Inert elsewhere.
     from?: string;
@@ -1283,6 +1289,8 @@ async function InvitationBody({
     hostCameraOpen,
     phasesEnabled,
     lifecyclePhase,
+    // 📱 The tab in the address — the page opens on it (`_lib/hub-tabs.ts`).
+    activeTab: typeof search.tab === 'string' ? search.tab : null,
     stdFilm,
     stdBackground,
     stdBackgroundUrl,
@@ -1490,8 +1498,6 @@ async function InvitationBody({
   // holding a guest cookie for their own event is previewing, not arriving).
   const gateLocked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at ?? null,
-    editDeadline: event.guest_list_edit_deadline ?? null,
-    eventDate: event.event_date ?? null,
   });
   // 👋 A PLUS-ONE IS ASKED THE MINIMUM (owner 2026-09-29: *"plus guests are
   // only minimum questions"*) — their name and, when the couple asks it, their
@@ -1549,6 +1555,7 @@ async function InvitationBody({
     seatMap,
     rsvpFaceMode,
     faceTaggingAskable,
+    faceStepOpen,
     eventVendorCredits,
   } = guestContext;
 
@@ -1755,6 +1762,7 @@ async function InvitationBody({
         guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'
       }
       slug={event.slug ?? slug}
+      hasFaceSelfie={guest.photo_source === 'selfie'}
       eventId={event.event_id}
       guestId={guest.guest_id}
       askMeal={resolveRsvpAsk(event.rsvp_ask_config).meal}
@@ -1777,9 +1785,41 @@ async function InvitationBody({
       celebrants={celebrants}
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
+      /* Me → "Face tagging" (face-registration design, frame D): only where
+         face tagging is on offer — no Papic, no row (frame F). */
+      faceTagging={
+        faceTaggingAskable || guest.photo_source === 'selfie'
+          ? {
+              on: guest.photo_source === 'selfie',
+              open: faceStepOpen,
+              faceMode: rsvpFaceMode,
+              wish: guest.face_tagging_wanted ?? null,
+              turnOff: withdrawFaceConsent.bind(null, event.event_id, guest.guest_id),
+            }
+          : null
+      }
     />
     </>
   );
+
+  /* 📱 EACH TAB ITS OWN PAGE (owner 2026-09-30) — on the Invitation and The
+     Day a guest's page is tabs, and Me is one of them: the SAME section
+     GuestHubBar draws under a page that is one scroll (`GuestMeSection`), drawn
+     by the page body INSIDE the page instead. Decided by the one rule the body
+     itself uses (`hubTabsOn`); a stage that is tabbed always has the ordinary
+     body (only the Save the Date and Post Event stages change it), and a guest
+     is never the Maker's canvas, whose guest bars are the only ones switched off. */
+  const menuOnHere = siteMenuEnabled({
+    flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
+    isSample: Boolean(event.is_sample),
+  });
+  const guestPageTabbed = hubTabsOn({
+    stage: pageStageFor({ phasesEnabled, lifecyclePhase, dayOfPhase }),
+    bodyNormal: true,
+    barDrawn: menuOnHere,
+    makerCanvas: isEditorCanvas,
+  });
+  const galleryCountHere = guestLiveGallery?.total ?? 0;
 
   const venueOpen = venueIsOpen({
     rsvpStatus: guest.rsvp_status,
@@ -1804,7 +1844,12 @@ async function InvitationBody({
           needsFaceEnroll,
           guestHubData,
           seatMap,
-          papicGuest,
+          // 📷 NO CAMERA IN THE MAKER'S CANVAS (owner 2026-09-30: "we do not
+          // need camera on event hub maker because it just fix details and
+          // design"). The inline Papic camera turns itself on at mount, so every
+          // canvas frame the Maker loaded or re-keyed asked the browser for the
+          // camera and microphone again — Safari's prompt, on every edit.
+          papicGuest: isEditorCanvas ? null : papicGuest,
           showClaimAccountCta: !viewerAccount,
           account,
           accountlessPhotosClosed,
@@ -1817,6 +1862,11 @@ async function InvitationBody({
           didntReply: keyGate.kind === 'inside' && keyGate.didntReply,
           checklist,
         })}
+        meSection={
+          guestPageTabbed ? (
+            <GuestMeSection meSlot={meSlot} galleryHref={`/papic/me/${guest.qr_token}`} galleryCount={galleryCountHere} asTab />
+          ) : null
+        }
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar
           (My QR · Camera · Photos) + top-right account affordance. Replaces the
@@ -1832,9 +1882,10 @@ async function InvitationBody({
         cameraReady={guestRollCameraReady}
         papicGuestActive={papicGuestActive}
         hasAccount={Boolean(viewerAccount)}
-        galleryCount={guestLiveGallery?.total ?? 0}
+        galleryCount={galleryCountHere}
         hubHref={
-          dayOfPhase === 'live' || dayOfPhase === 'post'
+          // 📱 A page whose tabs ARE the day needs no door to a second hub.
+          !guestPageTabbed && (dayOfPhase === 'live' || dayOfPhase === 'post')
             ? `/${event.slug}/hub`
             : null
         }
@@ -1844,11 +1895,9 @@ async function InvitationBody({
         // Resolved from the SAME two inputs as the menu itself (site-body.tsx),
         // so the bar this component gives up and the bar that replaces it can
         // never disagree — and neither can the two owners of `#site-me`.
-        menuOn={siteMenuEnabled({
-          flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
-          isSample: Boolean(event.is_sample),
-        })}
-        meSlot={meSlot}
+        menuOn={menuOnHere}
+        meSlot={guestPageTabbed ? null : meSlot}
+        meInPage={guestPageTabbed}
       />
       )}
       {/* A signed-in guest recognised by their SEAT (no cookie for this event)

@@ -228,7 +228,7 @@ export async function fetchChannelCameras(
     .in('id', wanted.map((z) => z.camera_operator_id as number));
   if (error) {
     if (isPreBootstrap(error)) return out;
-    throw new Error(`Failed to read Live Studio channel cameras: ${error.message}`);
+    throw new Error(`Failed to read Live Watch channel cameras: ${error.message}`);
   }
 
   const seats = new Map<number, SeatRow>();

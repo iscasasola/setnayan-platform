@@ -85,7 +85,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
      screens shipped with. Both sources go through the same resolver, and the
      couple's own upload wins over the linked account's photo (owner 2026-09-20). */
   const photoDisplayUrls = await guestPhotoDisplayUrls([guest]);
-  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId);
+  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId, user.id);
   const accountRef = accountRefByGuest[guest.guest_id];
   const accountUrls = accountRef
     ? await guestPhotoDisplayUrls([{ photo_url: accountRef }])

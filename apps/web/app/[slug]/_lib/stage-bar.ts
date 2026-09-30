@@ -17,10 +17,10 @@
  * tab with no details, a Gallery nobody shared, Watch before a broadcast). A
  * slot missing from a stage's list is never drawn on that stage.
  *
- * ⏳ POST EVENT IS THE OWNER'S TO SET. Its list below is what the page drew on
- * 2026-09-26 (Recap · Camera · Gallery · Join/Me). Changing what the Post Event
- * bar offers is an edit to `STAGE_BAR.editorial.slots` and nothing else — the
- * header, the tab bar and the Maker's navigator all follow it.
+ * 📖 POST EVENT (owner 2026-09-25, answer 1 = yes — "POST EVENT — OWNER ANSWERS
+ * TO FABLE'S FIVE"): Recap · Film · Suppliers · Gallery · Me. The camera stays
+ * on the list only for the COUPLE — `resolveSiteNav` draws no guest or stranger
+ * camera after the day (answer 2, "no more camera since that event is done").
  */
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DayOfPhase } from '@/lib/day-of-mode';
@@ -58,7 +58,7 @@ export const STAGE_BAR: Readonly<Record<LifecyclePhase, StageBar>> = {
   },
   editorial: {
     label: PUBLIC_STAGE_LABELS.editorial,
-    slots: ['home', 'camera', 'gallery', 'me'],
+    slots: ['home', 'film', 'suppliers', 'camera', 'gallery', 'me'],
   },
 };
 

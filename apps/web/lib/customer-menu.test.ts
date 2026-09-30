@@ -1,161 +1,99 @@
+/**
+ * customer-menu.test.ts — the phone's ONE bottom bar (Stage D, owner
+ * 2026-09-29): Home · Guest list · Your Team · Event Hub Maker · Our Services,
+ * the same five in every phase, gated only by the event type.
+ */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildCustomerMenuTree, matchesMenuSection } from './customer-menu';
+import { buildCustomerMenuTree } from './customer-menu';
+import { SUITE_NAV_ON } from './studio-hub';
 
 const EVENT_ID = 'evt-test';
+const BASE = `/dashboard/${EVENT_ID}`;
 
 /** The event's Studio products as the layout hands them over (plain data). */
 const STUDIO = [
-  { key: 'papic', href: `/dashboard/${EVENT_ID}/studio/papic`, name: 'Papic' },
-  { key: 'mood-board', href: `/dashboard/${EVENT_ID}/studio/mood-board`, name: 'Mood Board' },
+  { key: 'papic', href: `${BASE}/studio/papic`, name: 'Papic' },
+  { key: 'mood-board', href: `${BASE}/studio/mood-board`, name: 'Mood Board' },
 ];
 
-/** Run `fn` with the Explore-replan flag forced to a value, then restore it.
- *  `isExploreReplanEnabled()` reads process.env at CALL time and
- *  `buildCustomerMenuTree` calls it per invocation, so this is enough — no
- *  module cache to bust. */
-function withReplanFlag(on: boolean, fn: () => void) {
-  const prev = process.env.NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED;
-  process.env.NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED = on ? 'true' : 'false';
-  try {
-    fn();
-  } finally {
-    if (prev === undefined) delete process.env.NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED;
-    else process.env.NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED = prev;
-  }
-}
+const FIVE = ['home', 'guests', 'explore', 'launch', 'studio'];
 
-const menu = (key: string, on: boolean) => {
-  let found: ReturnType<typeof buildCustomerMenuTree>[number] | undefined;
-  withReplanFlag(on, () => {
-    found = buildCustomerMenuTree(EVENT_ID).find((m) => m.key === key);
-  });
-  if (!found) throw new Error(`menu ${key} missing from the planning tree`);
-  return found;
-};
-
-// --- default (no gating): the planning bar — 2026-09-24, event menu by moment:
-//     Overview · Papic · Your Team · Guests · Event Hub Controller. Papic
-//     replaced the Suite tab (owner: "papic is the life source of setnayan");
-//     the Suite stays in ☰ as the list's closing row. -----------------------
-test('planning bar is the five tabs of the owner-approved roster', () => {
-  const keys = buildCustomerMenuTree(EVENT_ID, { websiteEnabled: true, studioRows: STUDIO }).map((m) => m.key);
-  assert.deepEqual(keys, ['home', 'papic', 'explore', 'guests', 'launch']);
-  // Empty hideKeys is a no-op.
-  const keys2 = buildCustomerMenuTree(EVENT_ID, { hideKeys: [], websiteEnabled: true, studioRows: STUDIO }).map((m) => m.key);
-  assert.deepEqual(keys2, keys);
-});
-
-test('without product rows there is no Papic tab (it is picked out of the tree, never invented)', () => {
-  const keys = buildCustomerMenuTree(EVENT_ID, { websiteEnabled: true }).map((m) => m.key);
-  assert.deepEqual(keys, ['home', 'explore', 'guests', 'launch']);
-});
-
-// --- Simple Event gating: drop Explore (vendors) + Budget ------------------
-test('hideKeys drops the named top menus (Simple Event = no explore/budget)', () => {
-  const keys = buildCustomerMenuTree(EVENT_ID, {
-    hideKeys: ['explore', 'budget'],
-    studioRows: STUDIO,
-  }).map((m) => m.key);
-  assert.deepEqual(keys, ['home', 'papic', 'guests']);
-});
-
-test('hideKeys with just explore drops only explore', () => {
-  const keys = buildCustomerMenuTree(EVENT_ID, { hideKeys: ['explore'], studioRows: STUDIO }).map((m) => m.key);
-  assert.deepEqual(keys, ['home', 'papic', 'guests']);
-});
-
-// --- Explore replan: the mobile takeover dock is gone (BUILD_SPEC §5) ------
-//     Owner complaint #1 — "why is the subnav still present?" The Coverage Strip
-//     is the navigator; the 4 chips (Shortlist · Build · Budget · Plans) are
-//     emitted only while the flag is OFF, so the flag stays a kill-switch.
-test('flag OFF: Explore still carries the 4 takeover tab children (production-identical)', () => {
-  const explore = menu('explore', false);
-  assert.deepEqual(
-    (explore.children ?? []).map((c) => c.key),
-    ['shortlist', 'build', 'budget', 'compare'],
-  );
-  assert.equal(explore.sectionMatch, `/dashboard/${EVENT_ID}/vendors`);
-  assert.equal(explore.sectionMatchExact, true);
-  assert.equal(explore.subnavLabel, 'Services sections');
-  // Every child is a tab child carrying its admin-registry slot.
-  for (const c of explore.children ?? []) {
-    assert.equal(c.kind, 'tab');
-    assert.equal(c.slotKey, `customer.budget-subnav.${c.key}`);
-  }
-  // The dock SHOWS on the takeover root while the flag is off.
-  assert.equal(matchesMenuSection(`/dashboard/${EVENT_ID}/vendors`, explore), true);
-});
-
-test('flag ON: Explore emits no dock — no children, no sectionMatch', () => {
-  const explore = menu('explore', true);
-  assert.equal(explore.children, undefined);
-  assert.equal(explore.sectionMatch, undefined);
-  assert.equal(explore.sectionMatchExact, undefined);
-  assert.equal(explore.subnavLabel, undefined);
-  // `customer-section-subnav.tsx` gates on BOTH: no sectionMatch ⇒ the menu is
-  // never the activeMenu, and no children ⇒ `inSection` is false anyway.
-  assert.equal(matchesMenuSection(`/dashboard/${EVENT_ID}/vendors`, explore), false);
-  // The bottom-nav TAB must still light on /vendors — only the dock went away.
-  assert.equal(explore.activeMatch, `/dashboard/${EVENT_ID}/vendors`);
-  assert.equal(explore.href, `/dashboard/${EVENT_ID}/vendors`);
-});
-
-test('flag ON leaves Guests childless, and the Studio anchor dock is retired', () => {
-  for (const on of [false, true]) {
-    // Guests is deliberately a plain, childless menu (owner 2026-07-10).
-    const guests = menu('guests', on);
-    assert.equal(guests.children, undefined);
-  }
-  /* 🔄 2026-09-24: the Studio anchor dock (Setnayan AI · Website · Capture ·
-     Branding) rode on the planning bar's Suite tab. Papic took that slot and
-     each anchor became a row at its moment, so no phone menu docks anchors. */
+test('the bar is the owner’s five, in the owner’s order, in every phase', () => {
   for (const phase of ['plan', 'dayof', 'after'] as const) {
     const tree = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO });
-    assert.ok(
-      tree.every((m) => (m.children ?? []).every((c) => c.kind !== 'anchor')),
-      `${phase}: a phone menu docks Studio anchors again`,
+    assert.deepEqual(tree.map((m) => m.key), FIVE, `${phase}: the bar rearranged itself`);
+    // The phone bar's short words (owner 2026-09-29: "Maker and Services").
+    assert.deepEqual(
+      tree.map((m) => m.label),
+      ['Home', 'Guest list', 'Your Team', 'Maker', SUITE_NAV_ON ? 'Services' : 'Studio'],
     );
-    assert.ok(!tree.some((m) => m.key === 'studio'), `${phase}: the Suite is a bar tab again`);
   }
 });
 
-// --- phase takeovers are unaffected (they carry no explore/budget) ---------
-// 🔤 'services' (day-of) and 'editorial' (after) became 'launch' on 2026-09-02
-// (EH3): one key, one word — "Event Hub" — in all three phases. The KEY is what
-// is pinned here; the word itself is held by
-// `one-menu-word-in-all-three-phases.test.ts`, which is where a rename must go
-// red rather than being edited green in two places.
-test('Day-of / After rosters are the owner-approved five', () => {
-  /* 2026-09-24: Now→Overview (key stays 'now'), Papic replaces Seats (Seat plan
-     stays in ☰ and The day's strip), Review→Your Team (key stays 'review'). */
-  const dayof = buildCustomerMenuTree(EVENT_ID, {
-    phase: 'dayof',
-    hideKeys: ['budget'],
-    websiteEnabled: true,
-    studioRows: STUDIO,
-  });
-  assert.deepEqual(dayof.map((m) => m.key), ['now', 'papic', 'checkin', 'launch', 'schedule']);
-  assert.equal(dayof[0]!.label, 'Overview');
-  const after = buildCustomerMenuTree(EVENT_ID, {
-    phase: 'after',
-    hideKeys: ['budget'],
-    websiteEnabled: true,
-    studioRows: STUDIO,
-  });
-  assert.deepEqual(after.map((m) => m.key), ['home', 'papic', 'galleries', 'review', 'launch']);
-  const review = after.find((m) => m.key === 'review')!;
-  assert.equal(review.label, 'Your Team');
-  assert.equal(review.href, `/dashboard/${EVENT_ID}/vendors?tab=build`);
+test('a product is never a tab — Papic is a card on Our Services', () => {
+  const withProducts = buildCustomerMenuTree(EVENT_ID, { websiteEnabled: true, studioRows: STUDIO });
+  const without = buildCustomerMenuTree(EVENT_ID, { websiteEnabled: true });
+  assert.deepEqual(withProducts.map((m) => m.key), without.map((m) => m.key));
+  // …but a product page still lights the tab that holds it.
+  const studio = withProducts.find((m) => m.key === 'studio')!;
+  assert.ok((studio.activeMatch as string[]).includes(`${BASE}/studio/papic`));
+  const maker = withProducts.find((m) => m.key === 'launch')!;
+  assert.ok((maker.activeMatch as string[]).includes(`${BASE}/studio/mood-board`), 'Mood Board lives in Details');
 });
 
-test('every phase gates by the same tree: a vendor-free kind has no Your Team tab after the day either', () => {
-  const after = buildCustomerMenuTree(EVENT_ID, {
-    phase: 'after',
-    hideKeys: ['explore', 'budget'],
+test('hideKeys drops Your Team for a vendor-free kind — in every phase', () => {
+  for (const phase of ['plan', 'dayof', 'after'] as const) {
+    const keys = buildCustomerMenuTree(EVENT_ID, { phase, hideKeys: ['explore'], websiteEnabled: true }).map((m) => m.key);
+    assert.deepEqual(keys, ['home', 'guests', 'launch', 'studio']);
+  }
+  // Empty hideKeys is a no-op.
+  assert.deepEqual(
+    buildCustomerMenuTree(EVENT_ID, { hideKeys: [], websiteEnabled: true }).map((m) => m.key),
+    FIVE,
+  );
+});
+
+test('no Event Hub for this kind → no Maker tab, and its pages light Our Services', () => {
+  const tree = buildCustomerMenuTree(EVENT_ID, { websiteEnabled: false, studioRows: STUDIO });
+  assert.deepEqual(tree.map((m) => m.key), ['home', 'guests', 'explore', 'studio']);
+  const studio = tree.find((m) => m.key === 'studio')!.activeMatch as string[];
+  for (const p of ['/schedule', '/story', '/studio/mood-board']) {
+    assert.ok(studio.includes(`${BASE}${p}`), `${p} lights nothing where there is no Maker`);
+  }
+});
+
+test('each tab lights the pages it now holds', () => {
+  const tree = buildCustomerMenuTree(EVENT_ID, {
     websiteEnabled: true,
-    studioRows: STUDIO,
-  }).map((m) => m.key);
-  assert.deepEqual(after, ['home', 'papic', 'galleries', 'launch']);
+    seatingEnabled: true,
+    studioRows: [...STUDIO, { key: 'pa3d', href: `${BASE}/seating/lab`, name: '3D Plan' }],
+  });
+  const lit = (key: string) => tree.find((m) => m.key === key)!.activeMatch as string[];
+  // Guest list: Hosts, the event QR, People.
+  for (const p of ['/guests', '/hosts', '/event-qr', '/people']) {
+    assert.ok(lit('guests').includes(`${BASE}${p}`), `Guest list does not light ${p}`);
+  }
+  assert.ok(lit('explore').includes(`${BASE}/budget`), 'Your Team does not light /budget');
+  // The Maker — and the Seat plan (Details › Your event › Seat plan, train n)
+  // with its 3D view.
+  for (const p of ['/launch', '/website', '/story', '/schedule', '/seating', '/plan3d']) {
+    assert.ok(lit('launch').includes(`${BASE}${p}`), `the Maker does not light ${p}`);
+  }
+  assert.ok(lit('studio').includes(`${BASE}/galleries`), 'Our Services does not light Galleries');
+});
+
+test('Home lights only itself (and its own checklist)', () => {
+  const home = buildCustomerMenuTree(EVENT_ID, { websiteEnabled: true })[0]!;
+  assert.equal(home.key, 'home');
+  assert.equal(home.activeMatchExact, true);
+  assert.deepEqual(home.activeMatch, [BASE, `${BASE}/checklist`]);
+});
+
+test('after the day, Your Team opens on the suppliers who worked it (the shipped deep link)', () => {
+  const after = buildCustomerMenuTree(EVENT_ID, { phase: 'after', websiteEnabled: true });
+  assert.equal(after.find((m) => m.key === 'explore')!.href, `${BASE}/vendors?tab=build`);
+  const plan = buildCustomerMenuTree(EVENT_ID, { phase: 'plan', websiteEnabled: true });
+  assert.equal(plan.find((m) => m.key === 'explore')!.href, `${BASE}/vendors`);
 });

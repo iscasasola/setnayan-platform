@@ -118,6 +118,7 @@ const EXEMPT: Record<string, { count: number; why: string }> = {
   'lib/alaala-chapters.ts': { count: 1, why: 'venue parts of real capture instants' },
   'lib/papic-window.ts': { count: 1, why: 'the capture window closes at a real instant' },
   'lib/schedule.ts': { count: 2, why: 'the tz maths itself, and formatViewerTime — the lift into the viewer\'s zone' },
+  'app/[slug]/_components/schedule-widget.tsx': { count: 1, why: 'the Clock face style\'s hand — `now`, a real instant, read in the venue\'s zone to sit among the stored wall-clock times' },
   'lib/upcoming-items.ts': { count: 1, why: 'appointments carry real timestamps, not schedule wall clocks' },
 };
 

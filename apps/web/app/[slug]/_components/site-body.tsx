@@ -57,6 +57,13 @@ import { EverythingElseSheet } from './everything-else-sheet';
 import { resolveEverythingElseRows } from '../_lib/everything-else-rows';
 import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
+import {
+  POST_EVENT_SUPPLIERS_ANCHOR,
+  postEventFilmDrawn,
+  postEventSuppliersAnchorKey,
+} from './editorial/post-event-bar-facts';
+import { resolveSectionOrder, shippedSections } from './editorial/editorial-order';
+import { openUpHash } from '@/lib/post-event-scenes';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
@@ -68,6 +75,8 @@ import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
+import type { PostEventDraft } from '@/lib/post-event-draft';
+import { POST_EVENT_STYLE_HOME } from '@/lib/post-event-styles';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
@@ -137,7 +146,7 @@ import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubSceneRunsAttr } from '@/lib/element-st
 import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
-import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
+import { makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
 import { stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
@@ -155,6 +164,12 @@ import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { HubScenes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
+import { sceneStyleOfRow } from '@/lib/scene-style-of-row';
+import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
+import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
+import { LiveHubArrangement } from './live-hub-styles';
+import { MakerDayPartStandIn } from './maker-fixed-parts';
+import { sceneStylesOn } from '@/lib/scene-styles';
 import { RsvpSheet } from './rsvp-sheet';
 import { rsvpSheetHeading, rsvpSheetTrigger } from './rsvp-sheet-state';
 import { PahinaKeepsake } from './pahina-keepsake';
@@ -358,6 +373,13 @@ type SiteBodyProps = {
    *  FALSE for every guest/anonymous visitor (and absent → false), so their
    *  HTML is unchanged byte-for-byte. It never reveals anything. */
   isEditorCanvas?: boolean;
+  /**
+   * 💾 POST EVENT'S DRAFTED SCENES — the host's draft of the story's order,
+   * switches and each scene's look (`HubDraft.editorial`), laid over the story
+   * ONLY in the host's preview. Null / absent for every guest, so their HTML is
+   * unchanged.
+   */
+  editorialDraft?: PostEventDraft | null;
   /** The click-to-edit bridge — the Maker's iframe (`?editor=1`) only, never
    *  the "Preview the whole stage" tab. Implies `isEditorCanvas`. */
   editorBridge?: boolean;
@@ -444,6 +466,7 @@ export async function SiteBody({
   doorwayFacts = null,
   proWatermarkHidden,
   isEditorCanvas = false,
+  editorialDraft = null,
   editorBridge = false,
   canvasGuestBars = false,
   canvasOnly = null,
@@ -791,6 +814,11 @@ export async function SiteBody({
   // and a failed read here must cost a tab, never the page.
   const recapBody = plan.body === 'editorial';
   let recapHasPhotos = false;
+  /* 📖 THE POST EVENT BAR'S FILM AND SUPPLIERS (owner 2026-09-25, E1) — asked of
+     the SAME redacted recap, through the SAME predicates the recap draws those
+     scenes with (`post-event-bar-facts.ts`), so neither slot can point at a
+     scene the page did not draw. */
+  let recapBar = { film: false, suppliers: false };
   if (recapBody) {
     try {
       // Redacted with the SAME viewer the story itself is rendered for: this
@@ -811,8 +839,29 @@ export async function SiteBody({
             }),
           )
         : false;
+      if (recap) {
+        // In the Maker's canvas the bar follows the couple's DRAFT, like the story does.
+        const drafted = isEditorCanvas ? editorialDraft : null;
+        const barInput = {
+          sections: drafted?.sections ?? recap.sections,
+          broadcast: Boolean(recap.watchFilmEmbedUrl),
+          films: recap.films?.length ?? 0,
+          teamVendors: recap.vendors.length,
+          vendorMedia: recap.vendorMedia.length,
+          vendorsWeLoved: recap.vendorsWeLoved.length,
+        };
+        recapBar = {
+          film: postEventFilmDrawn(barInput),
+          suppliers:
+            postEventSuppliersAnchorKey(
+              barInput,
+              shippedSections(resolveSectionOrder(drafted?.sectionOrder !== undefined ? drafted.sectionOrder : recap.sectionOrder)),
+            ) !== null,
+        };
+      }
     } catch {
       recapHasPhotos = false;
+      recapBar = { film: false, suppliers: false };
     }
   }
   // The id the recap stamps on its first photo block. Null unless the bar is
@@ -830,6 +879,16 @@ export async function SiteBody({
   // 🧭 The stage this page is showing (a host's `?phase=` preview included) —
   // its Event Bar (`STAGE_BAR`) names the header and filters the tab bar.
   const pageStage = pageStageFor({ phasesEnabled, lifecyclePhase, dayOfPhase });
+  /* 🎨 THE FIVE FIXED PARTS' STYLES (owner 2026-09-29) — the couple's pick from
+     `events.style_preferences.scene_styles` (the host's canvas: with the draft
+     laid on), resolved for this stage by the one registry. No pick = style A,
+     the page exactly as before. */
+  const fixedStyle = (scene: FixedStyleScene) =>
+    fixedSceneStyleOf((event as { style_preferences?: unknown }).style_preferences, scene, pageStage, event.event_type);
+  const entourageStyle = fixedStyle('entourage');
+  const liveHubStyle = fixedStyle('live_hub');
+  /** A live hub arranged by the couple (not style A): player and wall drawn together. */
+  const liveHubArranged = liveHubStyle === 'theatre' || liveHubStyle === 'wall-first';
 
   // ── THE DOORWAY STRIP — resolved ONCE, above the identity fork. ────────────
   //
@@ -946,6 +1005,21 @@ export async function SiteBody({
           /* 📖 Post Event's scene markers — the Maker's canvas only, the same
              gate as `makerMark` above; every guest's HTML is unchanged. */
           makerMarkers={Boolean(isEditorCanvas && editorBridge)}
+          /* 💾 The host's drafted scenes — never a guest's (null for them) —
+             and 🕰 the couple's own preview, where a scene with nothing yet
+             says what fills it. Both false for every guest. */
+          draft={isEditorCanvas ? editorialDraft : null}
+          hostPreview={isEditorCanvas}
+          /* 🎨 ONE VALUE ACROSS STAGES — the Schedule and Gallery scenes wear the
+             style picked on the section of the same name (`POST_EVENT_STYLE_HOME`),
+             read off the rows this page already holds (the host's draft laid
+             over them in the Maker, live for everyone else). */
+          sharedStyles={Object.fromEntries(
+            Object.values(POST_EVENT_STYLE_HOME).map((t) => [
+              t,
+              sanitizeHubCanvas(widgets.find((w) => w.widget_type === t)?.config_json).style ?? null,
+            ]),
+          )}
         />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
@@ -1117,6 +1191,7 @@ export async function SiteBody({
       {makerMark(`w:${widget.widget_type}`)}
       <PublicHideableWidget
         widget={widget}
+        stage={pageStage}
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
         ownClipPlays={isMakerCanvas}
@@ -1342,46 +1417,78 @@ export async function SiteBody({
                 viewers this exists for. Follows the broadcast, not the calendar
                 (owner-ruled 2026-09-02): `watchLive` is only ever set when the
                 couple's links resolve, so no dayOfPhase gate is needed here. */}
-            {plan.liveMediaVisible && watchLive ? (
-              <section className="mt-10">
-                <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} />
-              </section>
-            ) : null}
+            {/* 🎨 THE LIVE HUB'S STYLE — style A (no pick) draws the player and the
+                wall exactly as before; Theatre / Wall first arrange the SAME two
+                blocks together (`live-hub-styles.tsx`). */}
+            {(() => {
+              const playerPart = (
+                <>
+                {plan.liveMediaVisible && watchLive ? (
+                  <section className="mt-10">
+                    <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} />
+                  </section>
+                ) : null}
+                </>
+              );
+              const wallPart = (
+                <>
+                {/* Live Photo Wall mirror — anonymous visitors at the venue (master-QR
+                    scans without a guest cookie) get the live wall too during the
+                    celebration window. Same screened feed as the projector. The id is the
+                    anchor the event-day bar's "Photos" button scrolls to (publicAlbumHref
+                    above) — scroll-margin keeps it clear of the fixed bottom bar. */}
+                {/* 🔑 LAU-33 · THE MEASUREMENT REACHES THE RENDER. When the wall read
+                    was attempted and FAILED, say so. Without this the section simply
+                    was not there, which is byte-identical to "this couple does not
+                    own LIVE_WALL" and to "they turned the guest mirror off" — so a
+                    broken wall looked exactly like a setting, and nobody asked.
+                    Same anchor id, so the event-day bar's "Photos" button still
+                    lands somewhere that explains itself. */}
+                {insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && !liveWall && liveWallUnreadable ? (
+                  <section id="live-photo-wall" className="mt-10 scroll-mt-6">
+                    <p className="rounded-lg bg-ink/5 px-4 py-3 text-center text-sm text-ink/60">
+                      {LIVE_WALL_UNREADABLE_LINE}
+                    </p>
+                  </section>
+                ) : null}
 
-            {/* Live Photo Wall mirror — anonymous visitors at the venue (master-QR
-                scans without a guest cookie) get the live wall too during the
-                celebration window. Same screened feed as the projector. The id is the
-                anchor the event-day bar's "Photos" button scrolls to (publicAlbumHref
-                above) — scroll-margin keeps it clear of the fixed bottom bar. */}
-            {/* 🔑 LAU-33 · THE MEASUREMENT REACHES THE RENDER. When the wall read
-                was attempted and FAILED, say so. Without this the section simply
-                was not there, which is byte-identical to "this couple does not
-                own LIVE_WALL" and to "they turned the guest mirror off" — so a
-                broken wall looked exactly like a setting, and nobody asked.
-                Same anchor id, so the event-day bar's "Photos" button still
-                lands somewhere that explains itself. */}
-            {insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && !liveWall && liveWallUnreadable ? (
-              <section id="live-photo-wall" className="mt-10 scroll-mt-6">
-                <p className="rounded-lg bg-ink/5 px-4 py-3 text-center text-sm text-ink/60">
-                  {LIVE_WALL_UNREADABLE_LINE}
-                </p>
-              </section>
-            ) : null}
-
-            {insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
-              <section id="live-photo-wall" className="mt-10 scroll-mt-6">
-                <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
-                <LiveWallBlock
-                  slug={event.slug}
-                  initialTiles={liveWall.tiles}
-                  initialCount={liveWall.count}
-                  initialCaption={liveWall.caption}
-                  initialChallenge={liveWall.challenge}
-                  initialChallengeMeasured={liveWall.challengeMeasured}
-                  timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
-                />
-              </section>
-            ) : null}
+                {insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
+                  <section id="live-photo-wall" className="mt-10 scroll-mt-6">
+                    <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
+                    <LiveWallBlock
+                      slug={event.slug}
+                      initialTiles={liveWall.tiles}
+                      initialCount={liveWall.count}
+                      initialCaption={liveWall.caption}
+                      initialChallenge={liveWall.challenge}
+                      initialChallengeMeasured={liveWall.challengeMeasured}
+                      timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+                    />
+                  </section>
+                ) : null}
+                </>
+              );
+              // The same two gates the blocks above carry — an arrangement never
+              // draws a frame around a block this visitor would not be shown.
+              const playerShown = Boolean(plan.liveMediaVisible && watchLive);
+              const wallShown = Boolean(
+                insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && (liveWall || liveWallUnreadable),
+              );
+              return liveHubArranged && (playerShown || wallShown) ? (
+                <div className="mt-10">
+                  <LiveHubArrangement
+                    sceneStyle={liveHubStyle}
+                    player={playerShown ? playerPart : null}
+                    wall={wallShown ? wallPart : null}
+                  />
+                </div>
+              ) : (
+                <>
+                  {playerPart}
+                  {wallPart}
+                </>
+              );
+            })()}
 
             {/* Public widgets — owner directive 2026-05-23. Renders the
              *  host-configured hideable widgets that carry event-level data
@@ -1449,6 +1556,12 @@ export async function SiteBody({
                   venueName={event.venue_name}
                   venueAddress={event.venue_address}
                   venues={event.venues}
+                  dateIso={event.event_date ?? null}
+                  sceneStyle={sceneStyleOfRow(
+                    widgets.find((w) => w.widget_type === 'event_details'),
+                    pageStage,
+                    event.event_type,
+                  )}
                 />
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
                 {detailsScenes.length === 0 ? (
@@ -1470,7 +1583,26 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" /> : null}
+            {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null}
+
+            {/* 🎨 THE DAY'S OWN PARTS — the Maker's canvas only, never a guest:
+                a stand-in for each part a guest meets as their own (their
+                table, their photos) or only once it happens (a message, a
+                stream), so the couple can tap it and pick its style. Same list,
+                same order as the navigator (`makerDayPartsOn`). */}
+            {isMakerCanvas
+              ? makerDayPartsOn(pageStage).map((part) => (
+                  <Fragment key={part}>
+                    {makerMark(`f:${part}`)}
+                    <MakerDayPartStandIn
+                      part={part as Exclude<FixedStyleScene, 'entourage'>}
+                      styleName={
+                        sceneStylesOn(part, pageStage, event.event_type).find((st) => st.id === fixedStyle(part as FixedStyleScene))?.name ?? null
+                      }
+                    />
+                  </Fragment>
+                ))
+              : null}
 
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
@@ -1572,7 +1704,11 @@ export async function SiteBody({
               hasDetails: menuSections.details,
               hasSchedule: plan.publicSafeWidgets.some((w) => w.widget_type === 'schedule'),
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
+              // 📖 After the day: Film and Suppliers, only where the recap drew them.
+              postEvent: recapBar,
               destinations: {
+                film: openUpHash('film'),
+                suppliers: `#${POST_EVENT_SUPPLIERS_ANCHOR}`,
                 // Carries the event so the guest camera's refusal screen can
                 // send an unrecognised visitor BACK TO THIS INVITATION instead
                 // of to Setnayan's homepage — which was the only way off it.
@@ -1961,6 +2097,7 @@ export async function SiteBody({
               targetTableId={seatMap.targetTableId}
               firstName={guestHubData.firstName}
               arrived={guestHubData.arrived}
+              sceneStyle={fixedStyle('find_your_seat')}
             />
           ) : null}
 
@@ -1985,7 +2122,27 @@ export async function SiteBody({
                   Spec §7.5: remote guests first. Follows the broadcast, not the
                   calendar (owner-ruled 2026-09-02) — `watchLive` is only ever set
                   when the couple's links resolve, so no `isLive` gate here. */}
-              {watchLive ? <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} /> : null}
+              {/* 🎨 Theatre / Wall first draw the player AND the wall here, together;
+                  style A keeps the wall in its own place further down. */}
+              {liveHubArranged && (watchLive || (isLive && liveWall)) ? (
+                <LiveHubArrangement
+                  sceneStyle={liveHubStyle}
+                  player={watchLive ? <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} /> : null}
+                  wall={
+                    isLive && liveWall ? (
+                      <LiveWallBlock
+                        slug={event.slug}
+                        initialTiles={liveWall.tiles}
+                        initialCount={liveWall.count}
+                        initialCaption={liveWall.caption}
+                        timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+                      />
+                    ) : null
+                  }
+                />
+              ) : watchLive ? (
+                <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} />
+              ) : null}
 
               {/* Pahina §7 · functional-color exile STARTS HERE: the day-of
                   promotion used to wrap the whole widget in an app-green box.
@@ -2020,13 +2177,15 @@ export async function SiteBody({
                   {menuOn ? (
                     <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
                   ) : null}
-                  <LiveWallBlock
-                    slug={event.slug}
-                    initialTiles={liveWall.tiles}
-                    initialCount={liveWall.count}
-                    initialCaption={liveWall.caption}
-                    timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
-                  />
+                  {liveHubArranged ? null : (
+                    <LiveWallBlock
+                      slug={event.slug}
+                      initialTiles={liveWall.tiles}
+                      initialCount={liveWall.count}
+                      initialCaption={liveWall.caption}
+                      timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+                    />
+                  )}
                 </>
               ) : null}
 
@@ -2111,6 +2270,7 @@ export async function SiteBody({
                   occasion={clientWords.occasion}
                   eventWord={clientWords.eventWord}
                   timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+                  sceneStyle={fixedStyle('photos_of_you')}
                 />
               ) : null}
 
@@ -2390,6 +2550,7 @@ export async function SiteBody({
                   widget={widget}
                   /* 🏠 This guest's own look is on Welcome; Details keeps everyone's. */
                   dressCodeGeneral={welcome.includes('look')}
+                  stage={pageStage}
                   canvasMediaUrls={canvasMediaUrls}
                   hubTheme={sceneTheme}
                   ownClipPlays={isMakerCanvas}
@@ -2424,7 +2585,7 @@ export async function SiteBody({
                   fails if either disappears.
 
                   No `previewHref` here either — see the anonymous mount above. */}
-              {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" /> : null}
+              {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null}
 
               {isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
@@ -2542,6 +2703,12 @@ export async function SiteBody({
                    so the switch shows here before Apply. */
                 oneAtATime={askOneAtATime(event.rsvp_ask_config)}
                 answerWords={readRsvpWords(event.rsvp_ask_config)}
+                /* 🎨 The reply card's style — the RSVP row's `canvas.style`. */
+                sceneStyle={sceneStyleOfRow(
+                  widgets.find((w) => w.widget_type === 'rsvp'),
+                  pageStage,
+                  event.event_type,
+                )}
               />
             </div>
             {/* ⚖ THE SCAN-TRAIL OPT-OUT, unchanged, as one small line at the
@@ -2583,7 +2750,11 @@ export async function SiteBody({
               // 🗂 RSVP becomes Me once they have answered (owner 2026-09-27).
               replied: Boolean(guest.rsvp_status) && guest.rsvp_status !== 'pending',
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
+              // 📖 After the day: Film and Suppliers, only where the recap drew them.
+              postEvent: recapBar,
               destinations: {
+                film: openUpHash('film'),
+                suppliers: `#${POST_EVENT_SUPPLIERS_ANCHOR}`,
                 camera: papicGuest
                   ? `/papic/me/${guest.qr_token}`
                   : hostCameraOpen

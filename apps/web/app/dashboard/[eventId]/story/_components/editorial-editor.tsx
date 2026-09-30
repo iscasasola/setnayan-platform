@@ -128,7 +128,10 @@ const ORDERABLE_SECTION_LABELS: Record<EditorialOrderKey, string> = {
   watchFilm: 'Watch the Film',
   reviews: 'What They Said',
   poweredBy: 'Powered by Setnayan',
-  vendorsWeLoved: 'Vendors We Loved',
+  vendorsWeLoved: 'Suppliers We Loved',
+  seating: 'Where Everyone Sat',
+  entourage: 'Entourage',
+  beforeAfter: 'Before & After',
 };
 
 // Which on/off toggle governs each orderable section — shown as its live state in
@@ -145,6 +148,9 @@ const ORDERABLE_SECTION_TOGGLE: Record<EditorialOrderKey, keyof EditorialSection
   reviews: 'reviews',
   poweredBy: 'poweredBy',
   vendorsWeLoved: 'vendorsWeLoved',
+  seating: 'seating',
+  entourage: 'entourage',
+  beforeAfter: 'beforeAfter',
 };
 
 // Soft cap for a guest wish quote (server hard-caps at 280).
@@ -163,7 +169,10 @@ const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: strin
   { key: 'kwento', label: 'What they whispered', help: 'Your guests’ best wishes (Kwento), captured on the day.' },
   { key: 'guestColumns', label: 'Letters to the editor', help: 'Short columns your guests wrote for your paper — only the ones you approved.' },
   { key: 'fromTheCouple', label: 'From the couple', help: 'Your thank-you note to guests.' },
-  { key: 'vendorsWeLoved', label: 'Vendors we loved', help: 'The vendors you recommended — your endorsements, shown to future couples.' },
+  { key: 'vendorsWeLoved', label: 'Suppliers we loved', help: 'The suppliers you recommended — your endorsements, shown to future couples.' },
+  { key: 'seating', label: 'Where everyone sat', help: 'Your seat plan — each guest sees their own table; nobody’s name is shown to a stranger.' },
+  { key: 'entourage', label: 'Entourage', help: 'The roles you gave on your guest list, as the invitation listed them.' },
+  { key: 'beforeAfter', label: 'Before & after', help: 'Your Save the Date cover beside your story’s cover — only when you chose a new cover.' },
 ];
 
 // The 10 canonical LOCKED moments (Editorial_Experience_Spec §3). Offered as a
@@ -568,7 +577,7 @@ export function EditorialEditor({
     setDirty(true);
   };
 
-  // ── Section-order mutations (PRO) ─────────────────────────────────────────
+  // ── Section-order mutations (free — owner E4) ─────────────────────────────
   const moveSection = (index: number, dir: -1 | 1) => {
     setSectionOrder((order) => {
       const j = index + dir;
@@ -1201,24 +1210,19 @@ export function EditorialEditor({
         </section>
       ) : null}
 
-      {/* Section order — reorder the editorial's content sections (Editorial PRO).
-          The two locked-close sections (your words + your song) always close the
-          paper and can't be moved. Free couples see the order read-only. */}
+      {/* Section order — reorder the editorial's content sections. FREE for
+          every couple (owner E4 2026-09-25; ruling 2026-09-29: the story page
+          matches the Event Hub Maker, where moving a scene is never Pro — the
+          save action takes the order from anyone). The two locked-close
+          sections (your words + your song) always close the paper. */}
       <section className={card}>
         <div className="flex items-start justify-between gap-3">
           <h2 className="font-display text-lg italic text-ink">Section order</h2>
-          <ProChip owned={isPro} />
         </div>
         <p className="mt-0.5 text-sm text-ink/60">
-          The order your editorial&rsquo;s sections appear in.{' '}
-          {isPro ? 'Move any section up or down.' : 'This is the default order.'} Your words and
-          your song always close the paper.
+          The order your editorial&rsquo;s sections appear in. Move any section up or down. Your
+          words and your song always close the paper.
         </p>
-        {!isPro ? (
-          <ProUpsellLine eventId={eventId}>
-            Arrange your story your way with Editorial PRO.
-          </ProUpsellLine>
-        ) : null}
 
         <ol className="mt-4 space-y-1.5">
           {sectionOrder.map((k, i) => {
@@ -1250,7 +1254,7 @@ export function EditorialEditor({
                   <button
                     type="button"
                     onClick={() => moveSection(i, -1)}
-                    disabled={!isPro || i === 0}
+                    disabled={i === 0}
                     aria-label={`Move ${label} up`}
                     className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                   >
@@ -1259,7 +1263,7 @@ export function EditorialEditor({
                   <button
                     type="button"
                     onClick={() => moveSection(i, 1)}
-                    disabled={!isPro || i === sectionOrder.length - 1}
+                    disabled={i === sectionOrder.length - 1}
                     aria-label={`Move ${label} down`}
                     className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                   >

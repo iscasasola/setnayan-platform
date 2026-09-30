@@ -45,6 +45,23 @@
  *       unlocks on THIS event, and it is a SET: one person can hold two
  *       ("there is a stylist and an emcee both in 1 service", 2026-08-01).
  *
+ * ── AFTER THE DAY (owner, 2026-09-25 — "POST EVENT — OWNER ANSWERS TO FABLE'S
+ *    FIVE"; strategy §6, `POST_EVENT_SCENES_STRATEGY_2026-09-25.md`) ──────────
+ *
+ *  E1. "yes" to the one five-slot bar, filled for after the day:
+ *      Recap · Film · Suppliers · Gallery · Me (the couple: Manage). A slot
+ *      with nothing behind it is NOT DRAWN — the rest widen, never a dead tab.
+ *      "Suppliers", never "Vendors" (owner 2026-09-27).
+ *  E2. "no more camera since that event is done" → after the day a GUEST and a
+ *      STRANGER have no Camera slot at all; THE COUPLE KEEPS THEIRS (ruling 1
+ *      stands — it is still unconditional). This supersedes ruling 2's "drawn
+ *      locked" for the `after` phase only: the invitation's camera promise is
+ *      spent once the day is over, and a locked camera on the recap reads as
+ *      broken. Before the day and on the day, ruling 2 is unchanged.
+ *      ⚖ Six doors for the couple (Film · Suppliers · Camera · Gallery ·
+ *      Manage) would break the five-slot shape, so Suppliers — a scroll within
+ *      the page they are editing — yields first for them.
+ *
  * ── NAMING LOCK ─────────────────────────────────────────────────────────────
  * The photo slot is "Gallery", NEVER "Photos" — `site-menu.ts` carries the
  * owner rename. Labels are one word because a nav label that wraps grows its
@@ -107,7 +124,18 @@ export function navPhaseFor(input: {
   return 'before';
 }
 
-export type NavSlotKey = 'home' | 'details' | 'schedule' | 'rsvp' | 'story' | 'camera' | 'watch' | 'gallery' | 'me';
+export type NavSlotKey =
+  | 'home'
+  | 'details'
+  | 'schedule'
+  | 'rsvp'
+  | 'story'
+  | 'film'
+  | 'suppliers'
+  | 'camera'
+  | 'watch'
+  | 'gallery'
+  | 'me';
 
 export type NavSlot = {
   key: NavSlotKey;
@@ -151,6 +179,13 @@ export type NavInput = {
   replied?: boolean;
   /** Is a broadcast running right now? */
   liveBroadcast: boolean;
+  /**
+   * 📖 AFTER THE DAY — does the recap DRAW a film scene, and a team scene?
+   * Resolved by the caller through the SAME predicates the recap renders with
+   * (`editorial/post-event-bar-facts.ts`), so a slot can never point at a scene
+   * the page did not draw. Absent → neither (no Film, no Suppliers).
+   */
+  postEvent?: { film: boolean; suppliers: boolean };
   /** Where each leaving slot goes, resolved by the caller (it knows the slug,
    *  the guest's token and whether a paid roll exists). A missing destination
    *  means the caller could not build one — the slot then LOCKS rather than
@@ -161,6 +196,10 @@ export type NavInput = {
     join?: string | null;
     /** The guest's own RSVP page (`/{slug}/invite/reply`). Guests only. */
     rsvp?: string | null;
+    /** 📖 After the day: the film's open-up (`#open-film`, `openUpHash`). */
+    film?: string | null;
+    /** 📖 After the day: the first team scene's anchor. */
+    suppliers?: string | null;
   };
   /** 🧭 The STAGE's allow-list (`STAGE_BAR[stage].slots`, `stage-bar.ts`) — the
    *  one per-stage config. A slot the stage does not list is never drawn; the
@@ -231,6 +270,18 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     slots.push({ key: 'schedule', label: 'Schedule', state: 'live', href: ANCHOR.details });
   }
 
+  // 2½ — AFTER THE DAY: FILM, then SUPPLIERS (E1). Each only when the recap
+  //     actually drew that scene AND the caller built its landing — never a
+  //     locked stand-in: an absent film is content, and content is hidden, not
+  //     announced (rule 3).
+  const after = input.postEvent;
+  if (phase === 'after' && !isVendor && after?.film && dest.film) {
+    slots.push({ key: 'film', label: 'Film', state: 'live', href: dest.film });
+  }
+  if (phase === 'after' && !isVendor && after?.suppliers && dest.suppliers) {
+    slots.push({ key: 'suppliers', label: 'Suppliers', state: 'live', href: dest.suppliers });
+  }
+
   // 3 — STORY. The couple's own words, before the day only: once the wedding is
   //     happening, Now/Watch/Camera/Gallery are what a guest needs, and the bar
   //     holds five.
@@ -264,6 +315,9 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   // 4 — CAMERA (Papic). The centre slot on the day.
   if (isStranger) {
     // Inside content — never drawn for somebody without a key.
+  } else if (phase === 'after' && !isCouple) {
+    // 📖 E2 — "no more camera since that event is done". After the day a
+    // guest's camera promise is spent; the couple keeps theirs (next branch).
   } else if (isCouple) {
     // Unconditional. It is their wedding.
     slots.push(
@@ -341,7 +395,15 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   }
 
   const allow = input.stageSlots;
-  return allow ? slots.filter((s) => allow.includes(s.key)) : slots;
+  const allowed = allow ? slots.filter((s) => allow.includes(s.key)) : slots;
+  // ⚖ Five slots, always. After the day the couple can have six doors (their
+  // camera is unconditional); Suppliers — a scroll within the page they edit —
+  // yields first. Nobody else can exceed five.
+  if (allowed.length > 5) {
+    const i = allowed.findIndex((s) => s.key === 'suppliers');
+    if (i >= 0) allowed.splice(i, 1);
+  }
+  return allowed.slice(0, 5);
 }
 
 /**

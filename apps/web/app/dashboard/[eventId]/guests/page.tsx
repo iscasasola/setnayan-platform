@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import { eventNoun } from '@/lib/event-noun';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -78,7 +77,6 @@ import {
   OpenAddFromPeopleButton,
 } from './_components/add-from-people-sheet';
 import { GroupsSidebar } from './_components/groups-sidebar';
-import { GuestsSearch } from './_components/guests-search';
 import { RosterFilters, RosterSort } from './_components/roster-controls';
 import { eventHasSides } from '@/lib/guest-side-question';
 import {
@@ -1222,25 +1220,23 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           a phone-only component, beside this one hidden behind `lg:`. Two heads
           is how the phone drifted from the computer every time either changed.
           This bar is now the only head: on a phone its filter dropdowns wrap
-          to their own line under search + Add (`FindAddRow`). */}
+          to their own line under Add (`FindAddRow`). */}
       <div className="gl-settle space-y-3" data-roster-head="">
         {/* ⚖ THE SHELL — owner 2026-09-20. The CaptureBar no longer heads the
-            chrome on its own: it is the ADD half of one shared row (FindAddRow),
-            with FIND on the other end, and whichever is not in use folds to an
-            icon.
+            chrome on its own: it leads the one row (FindAddRow), with Filter and
+            Sort after it. Search is the top bar's (owner 2026-09-30).
             ⚠ THE NAME BOX IS STILL THE THING THE OWNER POINTED AT after the
             event — it invites you to type a guest into a celebration that is
             over. It stays RECEDED, not removed: somebody who turned up
             unannounced still belongs on the list. It used to recede into a
             <details>; it now recedes behind the row's "+", and never opens on
-            its own once the event has passed (`startAdding`). */}
+            its own once the event has passed (`folded`). */}
         <SummaryFacetBar
           roleNames={roleNames}
           stats={stats}
           measured={guestsMeasured}
           eventId={eventId}
           search={search}
-          q={q}
           paxProgress={paxProgress}
           finished={finished}
           // After the event the add box still exists — someone who turned up
@@ -1760,7 +1756,6 @@ function SummaryFacetBar({
   measured,
   eventId,
   search,
-  q,
   finished,
   addBar,
   paxProgress,
@@ -1789,7 +1784,6 @@ function SummaryFacetBar({
   measured: boolean;
   eventId: string;
   search: Record<string, string | undefined>;
-  q: string;
   /** The event has happened — the add box then never opens on its own. */
   finished: boolean;
   /** The quick-add bar, rendered by the page (it knows the Side lens). */
@@ -1810,20 +1804,16 @@ function SummaryFacetBar({
       <RosterMeters paxProgress={paxProgress} stats={stats} measured={measured} />
 
       <FindAddRow
-        // An EMPTY list opens on Add — there is nobody yet to find. Never
-        // after the event: the name box there is receded on purpose (the
-        // owner pointed at it inviting guests into a celebration that is over).
-        startAdding={!finished && measured && stats.total === 0}
+        // ⚖ The row is ADD only (owner 2026-09-30 — the top bar searches this
+        // event's guests now, `guests-top-search.tsx`). After the event the
+        // add box waits behind "+": the owner pointed at it inviting guests
+        // into a celebration that is over.
+        folded={finished}
         // ⚖ The phrase is the old disclosure's, kept on purpose: after the day
         // the add path RECEDES rather than disappears, because the cousin who
         // turned up unannounced still belongs on the list — and it must say
         // so, not just exist.
         addLabel={finished ? 'Still adding someone? — the list is open' : 'Add a guest'}
-        search={
-          <Suspense fallback={null}>
-            <GuestsSearch initialValue={q} />
-          </Suspense>
-        }
         filter={
           /* ⚖ Owner 2026-09-30 (the Fable rows, frame F): the five facet rows
              became FOUR dropdowns — RSVP · Side · Role · Group (tags sit at the
@@ -1848,8 +1838,7 @@ function SummaryFacetBar({
             />
           </div>
         }
-        // Sort ▾ rides beside search on a phone and after the four
-        // dropdowns on a computer — one control, placed by `FindAddRow`.
+        // Sort ▾ sits after the four dropdowns — one control, placed by `FindAddRow`.
         sort={<RosterSort sorts={sorts} current={sort} />}
         add={addBar}
       />

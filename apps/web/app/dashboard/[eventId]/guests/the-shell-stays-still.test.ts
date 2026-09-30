@@ -13,7 +13,7 @@ import { stripComments } from '@/lib/strip-comments';
 const C = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components');
 const read = (f: string) => stripComments(readFileSync(join(C, f), 'utf8'));
 
-test('switching search ↔ add never scrolls the page', () => {
+test('opening the add box never scrolls the page', () => {
   // Owner: "there is like an unbalanced motion making the table nudge down a
   // bit when pressed." Measured: a plain focus() scrolls the focused box into
   // view — 8px with this row tucked under the sticky top bar. The row has just
@@ -43,15 +43,13 @@ test('the honoree heading folds like every other one', () => {
   assert.ok(!/if \(!onToggle \|\| pinned\)/.test(src), 'a pinned heading renders without its fold button again');
 });
 
-test('both icons sit INSIDE their boxes, at the end', () => {
+test('the add icon sits INSIDE its box, at the end', () => {
   // Owner: "place this at the end of the text box inside the search text box
   // and same to the add text box. insert the + inside."
-  for (const [file, icon] of [['guests-search.tsx', 'Search'], ['capture-bar.tsx', 'Plus']] as const) {
-    const src = read(file);
-    const at = src.search(new RegExp(`<${icon}\\s[^>]*absolute right-3`));
-    assert.notEqual(at, -1, `${file}: the ${icon} icon is not inside the box at its end`);
-  }
+  // ⤷ 2026-10-01: the search box left the page for the top bar (owner
+  // 2026-09-30), so only the add half of this correction still lives here.
+  const src = read('capture-bar.tsx');
+  assert.notEqual(src.search(/<Plus\s[^>]*absolute right-3/), -1, 'capture-bar.tsx: the + is not inside the box at its end');
   // …and the text stops before it rather than running under it.
-  assert.match(read('guests-search.tsx'), /className="w-full pr-9"/, 'the search text can run under its icon');
-  assert.match(read('capture-bar.tsx'), /input-field w-full pr-9/, 'the add text can run under its icon');
+  assert.match(src, /input-field w-full pr-9/, 'the add text can run under its icon');
 });

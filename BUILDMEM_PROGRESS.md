@@ -19,3 +19,5 @@
 - Fix commit in progress: sourcemaps.disable gated on TOKEN && SENTRY_PROJECT.
 - Maps OFF (fix, same dummy token): rc 0, **8.3 min wall (was 16.5)**, **compile 6.8 min (was 14.7)**, `.next` 4.7 GB (was 8.5), .map files 3 (was 2101). Footprint peak 12.35 GB — the main process heap climbs toward the 12288 MB V8 ceiling during compile regardless (V8 grows lazily up to its limit; the limit, not the live set, sets the plateau).
 - Next: maps off + `webpackBuildWorker: true` (each compiler in its own child that exits).
+- Maps OFF + `webpackBuildWorker: true` (heap 12288): rc 0, **6.1 min wall**, footprint peak 12.45 GB — the SERVER compiler child alone climbs to ~11.4 GB, then exits and the tree drops to ~2–3 GB. So the plateau is the V8 CEILING, not the live set: a 12 GB ceiling lets V8 defer major GC until ~12 GB, on a 16 GB container, plus native (SWC) memory → SIGKILL 137 (not a V8 "heap out of memory" — which is what Vercel shows).
+- Next: same with heap 6144 to find the real live set.

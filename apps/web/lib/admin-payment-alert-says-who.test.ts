@@ -69,7 +69,7 @@ function render(alert: AdminOrderAlert): { subject: string; html: string } {
     ctaHref: `https://setnayan.test${alert.relatedUrl}`,
     audience: 'admin',
   });
-  return { subject: alert.subject, html };
+  return { subject: alert.title, html };
 }
 
 /** The bottom line of the card — tagline + why-you-got-this. */
@@ -184,7 +184,7 @@ test('emitNotification hands the sections, subject and admin audience to the mai
   const call = html.slice(0, html.indexOf('});'));
   assert.match(call, /sections: mail\?\.sections/, 'the facts must reach the HTML');
   assert.match(call, /audience: 'admin'/, 'the admin footer must reach the HTML');
-  assert.match(src, /subject: mail\?\.subject \?\? title/, 'the subject must be the alert subject');
+  assert.match(src, /subject: title,/, 'the subject is the title — which now names the host and event');
   assert.match(src, /\.\.\.sectionLines/, 'the plain-text half must carry the same facts');
 });
 

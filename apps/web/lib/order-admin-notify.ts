@@ -86,7 +86,6 @@ export async function notifyAdminsOrderAwaitingReconciliation(args: {
           relatedUrl: alert?.relatedUrl ?? '/admin/payments',
           email: alert
             ? {
-                subject: alert.subject,
                 paragraphs: alert.paragraphs,
                 sections: alert.sections,
                 ctaLabel: alert.ctaLabel,
@@ -174,7 +173,6 @@ export async function notifyAdminsPaymentProofSubmitted(args: {
           relatedUrl: alert?.relatedUrl ?? '/admin/payments',
           email: alert
             ? {
-                subject: alert.subject,
                 paragraphs: alert.paragraphs,
                 sections: alert.sections,
                 ctaLabel: alert.ctaLabel,

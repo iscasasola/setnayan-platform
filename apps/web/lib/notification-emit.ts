@@ -368,14 +368,14 @@ export type EmitNotificationArgs = {
    * A richer EMAIL than the one-paragraph default — used by the admin payment
    * alerts (owner 2026-09-30: *"identify also the name of the host, event type,
    * event name, and the services availed"*). Everything here affects the email
-   * only; the in-app row still stores `title` / `body` / `relatedUrl`.
+   * only; the in-app row still stores `title` / `body` / `relatedUrl`. The
+   * SUBJECT is still `title` (the-notice-follows-the-payer.test.ts holds that),
+   * so the alert puts the host and event into the title itself.
    */
   email?: NotificationEmailParts;
 };
 
 export type NotificationEmailParts = {
-  /** Subject line. Defaults to `title`. Not truncated to the tray's 160. */
-  subject?: string;
   /** Replaces the single `body` paragraph in the HTML half. */
   paragraphs?: string[];
   /** Labelled facts under the paragraphs (host, event, lines, payment). */
@@ -543,7 +543,7 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
 
         await sendEmail({
           to: recipient.email,
-          subject: mail?.subject ?? title,
+          subject: title,
           text,
           html,
           kind: type,

@@ -53,12 +53,10 @@ export type AdminOrderAlertFacts = {
 };
 
 export type AdminOrderAlert = {
-  /** In-app title AND the email heading. */
+  /** In-app title, the email SUBJECT and the email heading — one string. */
   title: string;
   /** In-app body (one line). */
   body: string;
-  /** The email subject — may run longer than the tray's 160. */
-  subject: string;
   paragraphs: string[];
   sections: Array<{
     title?: string;
@@ -144,8 +142,9 @@ function sectionsFor(facts: AdminOrderAlertFacts): AdminOrderAlert['sections'] {
   } else if (facts.hosts.length === 0) {
     who.push({ label: 'Host', value: 'No host account on this order' });
   } else {
-    facts.hosts.forEach((h, i) =>
-      who.push({ label: facts.hosts.length > 1 ? `Host ${i + 1}` : 'Host', value: personLine(h) }),
+    const hosts = facts.hosts;
+    hosts.forEach((h, i) =>
+      who.push({ label: hosts.length > 1 ? `Host ${i + 1}` : 'Host', value: personLine(h) }),
     );
   }
   if (facts.paidBy) {
@@ -204,7 +203,6 @@ export function buildPaymentLoggedAlert(facts: AdminOrderAlertFacts): AdminOrder
   const title = `Payment logged · ${pesoWhole(amount)} · ${who} — confirm it`;
   return {
     title,
-    subject: title,
     body: `${payer} says they have paid ${pesoWhole(amount)} via ${how}${
       ev ? ` for ${ev}` : ''
     }. Ref ${facts.referenceCode}. Check it against the account and confirm.`,
@@ -231,7 +229,6 @@ export function buildOrderSubmittedAlert(
   const title = `New order awaiting reconciliation · ${pesoWhole(amount)} · ${who}`;
   return {
     title,
-    subject: title,
     body: `${label} — ${pesoWhole(amount)} is awaiting payment confirmation. Reconcile once it lands. Ref ${facts.referenceCode}.`,
     paragraphs: [
       `${label} — ${pesoExact(amount)} is awaiting payment confirmation.`,

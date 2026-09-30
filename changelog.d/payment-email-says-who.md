@@ -10,7 +10,7 @@ the host, event type, event name, and the services availed when we receive an em
   guest), the event name and type (`event_type_vocab.label_en`), every service on the bill with its
   price, the total owed (`orderGrossOwed`), amount logged, method, the order reference, any bank
   reference, when it was logged (Manila), and the order id.
-- Subject: `Payment logged · ₱245 · Birthday Salubong ni Ate (Birthday) — confirm it`.
+- Subject (= the in-app title): `Payment logged · ₱245 · Birthday Salubong ni Ate (Birthday) — confirm it`.
 - The button (and the in-app link) opens `/admin/payments?filter=all&q=<order public id>` — that
   order on the payments desk, not the homepage. The order id is the only identifier in the URL.
 - A fact that cannot be read is said ("Could not read — open the order"), never dropped. If the order
@@ -18,7 +18,7 @@ the host, event type, event name, and the services availed when we receive an em
 - Admin emails wear an admin footer: "Setnayan HQ · Filipino celebration planning + verified
   suppliers" / "You're receiving this because you're a Setnayan admin." — not the Papic-gallery line
   every branded email inherited. The morning digest gets the same footer.
-- Mechanism: `emitNotification` takes an optional `email` (subject, paragraphs, sections, CTA label,
+- Mechanism: `emitNotification` takes an optional `email` (paragraphs, sections, CTA label,
   `audience: 'admin'`); `renderBrandedEmail` renders `sections` as labelled tables and swaps the footer
   for `audience: 'admin'`. Customer emails are unchanged.
 - Guard: `lib/admin-payment-alert-says-who.test.ts` renders the real email from a fixture.

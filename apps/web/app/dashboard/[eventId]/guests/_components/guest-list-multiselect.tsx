@@ -373,6 +373,21 @@ function DesktopRow({
               ) : null}
             </div>
           </InspectorTrigger>
+          {/* ⚖ The dashed "+" add-to-group on EVERY computer row too (owner
+              2026-10-01, "this also should be visible on desktop mode?" → yes:
+              desktop may show more, never different). The phone row has it
+              after the role; here it sits beside the name — unless the Groups
+              column is showing, which already carries the same control. */}
+          {!columns.includes('groups') && !guest.passed_away ? (
+            <span className="shrink-0" data-desk-add-to-group="">
+              <AddToGroupControl
+                eventId={eventId}
+                guest={guest}
+                groups={facts.groups}
+                memberGroupIds={facts.groupMemberships[guest.guest_id] ?? []}
+              />
+            </span>
+          ) : null}
         </div>
         {/* More names than seats — allowed, and said, with a Remove per name.
             OUTSIDE the name trigger: a button cannot sit inside a link. */}

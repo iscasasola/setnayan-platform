@@ -41,6 +41,12 @@ guest inside the top third at 390×844. Desktop keeps its header row but the SAM
   add-to-group after the role (`AddToGroupControl`, pinned by the-phone-card-edits-what-the-desktop-row-edits.test.ts);
   frame 2 puts search on the title line — we keep it in the shell top bar (F brief).
 
+## Owner rulings 2026-10-01 (in this build)
+- Phone: only the round + adds; its four ways also in ⋯. Keep the rows' dashed "+" add-to-group.
+- Desktop: "keep it similar" — the SAME round + and the SAME add sheet (no header capture bar); dashed "+" on desktop rows.
+- Phone Show ▾ visible on the counts line; desktop shows several columns.
+- Every person is their own row (never merge a pair).
+
 ## Checks as of e692506fb+ (2026-10-01)
 - Local: full typecheck clean; full unit suite 20,995 pass / 1 fail → the one failure (numbers-carry-commas flagged the name `guestsMenu`) fixed by renaming to `moreMenu`; CI guard scripts all pass; port-controls OK.
 - CI (on 9dda59e84): production build ✅, bundle-size ✅ (shared 202.0 KB within the 202 KB cap), Maker 501.6 KB ≤ 505 KB.

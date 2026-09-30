@@ -40,10 +40,13 @@ const ICON_BTN =
 export function CaptureBar({
   eventId,
   defaultSide,
+  withDoors = true,
 }: {
   eventId: string;
   /** The active Side lens — a new guest inherits it (prototype `:855`). */
   defaultSide: GuestSide;
+  /** Inside the add sheet the four doors are rows under the box, not icons. */
+  withDoors?: boolean;
 }) {
   const [value, setValue] = useState('');
   const [pending, startTransition] = useTransition();
@@ -149,10 +152,12 @@ export function CaptureBar({
         {/* On a phone these four doors are rows in the ⋯ (frame 2 of the
             approved simple phone app) — the SAME `AddDoors` — so the name box
             keeps one line and the first guest stays in the top third. */}
-        <div className="ml-auto hidden shrink-0 items-center gap-0.5 lg:flex">
-          <span aria-hidden className="mx-1 h-5 w-px bg-ink/10" />
-          <AddDoors eventId={eventId} />
-        </div>
+        {withDoors ? (
+          <div className="ml-auto hidden shrink-0 items-center gap-0.5 lg:flex">
+            <span aria-hidden className="mx-1 h-5 w-px bg-ink/10" />
+            <AddDoors eventId={eventId} />
+          </div>
+        ) : null}
       </div>
     </div>
   );

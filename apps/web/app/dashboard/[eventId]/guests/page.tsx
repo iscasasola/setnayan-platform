@@ -1,7 +1,7 @@
 import { eventNoun } from '@/lib/event-noun';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, ArrowRight, Send, LayoutGrid, ListOrdered, Plus } from 'lucide-react';
+import { Link2, ArrowRight, Send, LayoutGrid, ListOrdered } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -109,6 +109,7 @@ import { whoCanReplyBase, type WhoCanReplyDraft } from '@/lib/who-can-reply';
 import { WhoCanReplyAsk } from './_components/who-can-reply-ask';
 import { GuestsPhoneMenu } from './_components/guests-phone-menu';
 import { PhoneShowPick } from './_components/phone-show-pick';
+import { AddGuestSheet, OpenAddGuestButton } from './_components/add-guest-sheet';
 
 export const metadata = { title: 'Guests' };
 
@@ -1229,17 +1230,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           a phone-only component, beside this one hidden behind `lg:`. Two heads
           is how the phone drifted from the computer every time either changed.
           This bar is now the only head: on a phone its filter dropdowns wrap
-          to their own line under Add (`FindAddRow`). */}
+          to their own line under Filter ▾ (`FindAddRow`). */}
       <div className="gl-settle space-y-3" data-roster-head="">
-        {/* ⚖ THE SHELL — owner 2026-09-20. The CaptureBar no longer heads the
-            chrome on its own: it leads the one row (FindAddRow), with Filter and
-            Sort after it. Search is the top bar's (owner 2026-09-30).
-            ⚠ THE NAME BOX IS STILL THE THING THE OWNER POINTED AT after the
-            event — it invites you to type a guest into a celebration that is
-            over. It stays RECEDED, not removed: somebody who turned up
-            unannounced still belongs on the list. It used to recede into a
-            <details>; it now recedes behind the row's "+", and never opens on
-            its own once the event has passed (`folded`). */}
+        {/* ⚖ THE NAME BOX LIVES IN THE ADD SHEET NOW (owner 2026-10-01, "okay
+            keep it similar"): one round + at every width opens it. After the
+            event the + stays and says the list is still open — somebody who
+            turned up unannounced still belongs on the list — but nothing invites
+            typing a guest into a celebration that is over until it is asked. */}
         <SummaryFacetBar
           // ⚖ The ⋯ (frame 2 of the approved simple phone app: setup lives
           // behind ⋯). The page has no visible title — owner-locked 2026-08-21,
@@ -1256,12 +1253,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           // After the event the add box still exists — someone who turned up
           // unannounced belongs on the list — but it never opens on its own;
           // it waits behind the "+" (receded, not removed).
-          addBar={
-            <CaptureBar
-              eventId={eventId}
-              defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
-            />
-          }
           rsvpActive={rsvpFilter}
           teamActive={teamFilter}
           teamCounts={teamCounts}
@@ -1395,19 +1386,22 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       </div>
       )}
 
-      {/* ⚖ PHONE: the add box becomes the round + (frame 2 of the approved
-          simple phone app). The same quick-add sheet the computer's form door
-          opens; it stands above the bottom bar, below the bulk bar. */}
+      {/* ⚖ ONE WAY TO ADD, AT EVERY WIDTH — the round + (frame 2 of the
+          approved simple phone app; owner 2026-10-01 "okay keep it similar" for
+          the computer). It opens the add sheet: the name box first (Enter adds,
+          the shipped CaptureBar), then the other ways in. It stands above the
+          phone's bottom bar and at the list's bottom-right on a computer, below
+          the bulk bar. After the day it still says the list is open. */}
       <div
-        className="fixed right-4 z-30 bottom-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+0.75rem)] lg:hidden"
+        className="fixed right-4 z-30 bottom-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+0.75rem)] lg:bottom-8 lg:right-8"
         data-guests-add-fab=""
       >
-        <OpenQuickAddButton
-          ariaLabel={finished ? 'Still adding someone? — the list is open' : 'Add a guest'}
-          label={<Plus className="h-6 w-6" strokeWidth={2} aria-hidden />}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-ink text-cream shadow-[0_14px_30px_-12px_rgba(26,26,26,0.6)]"
-        />
+        <OpenAddGuestButton label={finished ? 'Still adding someone? — the list is open' : 'Add a guest'} />
       </div>
+      <AddGuestSheet
+        nameBox={<CaptureBar eventId={eventId} defaultSide={teamFilter === 'all' ? 'both' : teamFilter} withDoors={false} />}
+        doors={<AddDoors eventId={eventId} rows />}
+      />
       <QuickAddSheet
         eventId={eventId}
         existingGuests={quickAddPool}
@@ -1794,7 +1788,6 @@ function SummaryFacetBar({
   eventId,
   search,
   finished,
-  addBar,
   paxProgress,
   rsvpActive,
   teamActive,
@@ -1825,8 +1818,6 @@ function SummaryFacetBar({
   search: Record<string, string | undefined>;
   /** The event has happened — the add box then never opens on its own. */
   finished: boolean;
-  /** The quick-add bar, rendered by the page (it knows the Side lens). */
-  addBar: React.ReactNode;
   paxProgress: PaxProgress | null;
   rsvpActive: RsvpStatus | '';
   teamActive: 'all' | 'bride' | 'groom';
@@ -1848,16 +1839,6 @@ function SummaryFacetBar({
       </div>
 
       <FindAddRow
-        // ⚖ The row is ADD only (owner 2026-09-30 — the top bar searches this
-        // event's guests now, `guests-top-search.tsx`). After the event the
-        // add box waits behind "+": the owner pointed at it inviting guests
-        // into a celebration that is over.
-        folded={finished}
-        // ⚖ The phrase is the old disclosure's, kept on purpose: after the day
-        // the add path RECEDES rather than disappears, because the cousin who
-        // turned up unannounced still belongs on the list — and it must say
-        // so, not just exist.
-        addLabel={finished ? 'Still adding someone? — the list is open' : 'Add a guest'}
         filter={
           /* ⚖ Owner 2026-09-30 (the Fable rows, frame F): the five facet rows
              became FOUR dropdowns — RSVP · Side · Role · Group (tags sit at the
@@ -1885,7 +1866,6 @@ function SummaryFacetBar({
         // Sort ▾ sits after the four dropdowns — one control, placed by `FindAddRow`.
         sort={<RosterSort sorts={sorts} current={sort} />}
         more={more}
-        add={addBar}
       />
 
     </div>

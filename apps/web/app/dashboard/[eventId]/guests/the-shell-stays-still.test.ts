@@ -16,13 +16,13 @@ const read = (f: string) => stripComments(readFileSync(join(C, f), 'utf8'));
 test('opening the add box never scrolls the page', () => {
   // Owner: "there is like an unbalanced motion making the table nudge down a
   // bit when pressed." Measured: a plain focus() scrolls the focused box into
-  // view — 8px with this row tucked under the sticky top bar. The row has just
-  // been CLICKED, so it is on screen; nothing should move but the width.
-  const src = read('find-add-row.tsx');
+  // view. ⤷ 2026-10-01: the name box lives in the round +'s add sheet now, so
+  // the rule follows it there.
+  const src = read('add-guest-sheet.tsx');
   const calls = src.match(/\.focus\(([^)]*)\)/g) ?? [];
   assert.ok(calls.length >= 1, 'found no focus() call — this guard is blind');
   for (const c of calls) {
-    assert.match(c, /preventScroll:\s*true/, `${c} can scroll the page — the table nudges down on every switch`);
+    assert.match(c, /preventScroll:\s*true/, `${c} can scroll the page — the table nudges down on every open`);
   }
 });
 

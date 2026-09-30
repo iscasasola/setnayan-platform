@@ -45,16 +45,19 @@ test('ONE Filter ▾ at every width over the SAME four dropdowns; the add box be
   assert.match(ROW, /data-find-add-filter-toggle=""/, 'the one Filter ▾ is gone');
   assert.doesNotMatch(ROW.slice(ROW.indexOf('data-find-add-filter-toggle'), ROW.indexOf('data-find-add-filter-toggle') + 300), /lg:hidden/, 'the computer lost the one Filter ▾ — desktop may show more, never different');
   assert.match(ROW, /\{filterOpen \? 'block' : 'hidden'\}" data-find-add-filter=""|\$\{filterOpen \? 'block' : 'hidden'\}`\} data-find-add-filter=""/, 'the four dropdowns are not behind the one Filter ▾');
-  // Frame 2 wins for the phone head: the phone's Add is the round +; the add box leads the computer's row.
-  assert.match(ROW, /className=\{`hidden lg:block \$\{open/, 'the add box is drawn on a phone again (frame 2: the round +)');
+  // ONE way to add at every width (owner 2026-10-01 "okay keep it similar"): no header capture bar.
+  assert.doesNotMatch(ROW, /data-find-add-add|<CaptureBar|\badd\b\s*[:?]/, 'a header add box is back in the row');
   // One ⋯ element: beside the phone's title, at the end of the computer's row.
   assert.match(ROW, /\{more \? <div className="ml-auto hidden shrink-0 lg:block">\{more\}<\/div> : null\}/, 'the computer lost its ⋯');
   assert.match(PAGE, /more=\{moreMenu\}/, 'the row is not handed the ⋯');
   assert.match(PAGE, /data-guests-phone-title="">[\s\S]{0,160}Guests[\s\S]{0,40}\{moreMenu\}/, 'the phone lost its title + ⋯ line (frame 2)');
-  assert.match(PAGE, /data-guests-add-fab=""/, 'the phone has no way to add a guest');
-  const fab = PAGE.slice(PAGE.indexOf('data-guests-add-fab'), PAGE.indexOf('data-guests-add-fab') + 600);
-  assert.match(fab, /<OpenQuickAddButton/, 'the round + no longer opens the quick-add sheet');
-  assert.match(PAGE.slice(PAGE.indexOf('data-guests-add-fab') - 200, PAGE.indexOf('data-guests-add-fab')), /lg:hidden/);
+  assert.match(PAGE, /data-guests-add-fab=""/, 'there is no way to add a guest');
+  const fab = PAGE.slice(PAGE.indexOf('data-guests-add-fab') - 300, PAGE.indexOf('data-guests-add-fab') + 300);
+  assert.match(fab, /<OpenAddGuestButton\b/, 'the round + no longer opens the add sheet');
+  assert.doesNotMatch(fab, /lg:hidden/, 'the round + is phone-only again — the computer must add the same way');
+  // The sheet: the name box first (the shipped CaptureBar, Enter adds), then the other ways as rows.
+  assert.match(PAGE, /<AddGuestSheet\s+nameBox=\{<CaptureBar eventId=\{eventId\}[^}]*\} withDoors=\{false\} \/>\}\s+doors=\{<AddDoors eventId=\{eventId\} rows \/>\}/, 'the add sheet is not the name box + the other ways');
+  assert.equal((PAGE.match(/<CaptureBar\b/g) ?? []).length, 1, 'a second capture bar (header) is back');
 });
 
 test('phone: ONE answer column picked by a VISIBLE Show ▾ on the counts line; computer: several columns', () => {
@@ -77,4 +80,20 @@ test('phone: ONE answer column picked by a VISIBLE Show ▾ on the counts line; 
   // One counts line on a phone; the meters are the computer's extra.
   assert.match(PAGE, /<div className="hidden lg:block" data-roster-meters="">/, 'the meters stack above the rows on a phone again');
   assert.match(PAGE, /\{countsLine\}/, 'the phone lost its one counts line');
+});
+
+test('desktop may show more, never different: the dashed + on BOTH row shapes, and the same four add ways', () => {
+  // ⚖ Owner 2026-10-01: "yes to both" (phone: only the round + adds, its four
+  // ways in ⋯; keep the row's dashed "+" add-to-group) → "this also should be
+  // visible on desktop mode?" → yes.
+  const ROWS = read('_components', 'guest-list-multiselect.tsx');
+  const fn = (name: string) => ROWS.slice(ROWS.indexOf(`function ${name}(`), ROWS.indexOf('\nfunction ', ROWS.indexOf(`function ${name}(`) + 10));
+  assert.match(fn('MobileListRow'), /<AddToGroupControl\b/, 'the phone row lost its dashed +');
+  const desk = fn('DesktopRow');
+  assert.match(desk, /\{!columns\.includes\('groups'\) && !guest\.passed_away \? \(\s*<span className="shrink-0" data-desk-add-to-group="">\s*<AddToGroupControl\b/, 'a computer row has no dashed + when the Groups column is not showing');
+  // The four other ways are one tap from the + on both widths (the sheet) and in ⋯.
+  const capture = read('_components', 'capture-bar.tsx');
+  assert.match(read('_components', 'add-guest-sheet.tsx'), /\{doors\}/, 'the add sheet dropped the other ways in');
+  const doors = capture.slice(capture.indexOf('export function AddDoors'));
+  assert.equal((doors.match(/<OpenAddFromPeopleButton|<OpenQuickAddButton|\/guests\/import`|\/guests\/quick`/g) ?? []).length, 4, 'not all four add ways are offered');
 });

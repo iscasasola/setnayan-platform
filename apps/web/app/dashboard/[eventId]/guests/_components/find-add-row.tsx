@@ -1,7 +1,11 @@
 'use client';
 
 /**
- * find-add-row.tsx — the Guest list's one row: ADD, then Filter and Sort.
+ * find-add-row.tsx — the Guest list's one row: Filter ▾, then Sort and ⋯.
+ *
+ * ⚖ 2026-10-01 (later the same day) · ADD LEFT THIS ROW TOO. Owner: "okay keep it
+ * similar" — the computer adds with the SAME round + as the phone; its sheet
+ * (`add-guest-sheet.tsx`) holds the name box this row used to lead with.
  *
  * ⚖ 2026-10-01 · THE SEARCH HALF LEFT FOR THE TOP BAR. Owner 2026-09-30
  * (DECISION_LOG "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS; … THE TOP BAR
@@ -45,73 +49,34 @@
  * came with it, left with the search half on 2026-10-01 — see above.)
  */
 
-import { useRef, useState } from 'react';
-import { ChevronDown, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 export function FindAddRow({
   filter,
   sort,
   more,
-  add,
-  folded,
-  addLabel = 'Add a guest',
 }: {
   /** The filter dropdowns. */
   filter: React.ReactNode;
-  /** Sort ▾ — beside the filters, the last control on the row. */
+  /** Sort ▾ — in the row on a computer; behind ⋯ on a phone. */
   sort?: React.ReactNode;
-  /** The ⋯ at the end of the row (Show · Sort · the doors · the add doors). */
+  /** The ⋯ at the end of the row (Sort · the doors · the add doors). */
   more?: React.ReactNode;
-  /** The quick-add bar with its four doors. */
-  add: React.ReactNode;
-  /** The event is over: the add box waits behind "+" until asked for. */
-  folded: boolean;
-  /** What the folded "+" is called. After the event it must SAY the list is
-   *  still open — a bare "+" is reachable but tells a host nothing. */
-  addLabel?: string;
 }) {
-  const [open, setOpen] = useState(!folded);
-  const addRef = useRef<HTMLDivElement>(null);
-
-  const unfold = () => {
-    setOpen(true);
-    // 🪤 `preventScroll`, measured: a plain focus() scrolls the page to bring
-    // the box into view, and with this row tucked under the sticky top bar it
-    // moved the page 8px — the owner's "the table nudge[s] down a bit when
-    // pressed". The host has just CLICKED this row, so it is already on
-    // screen; nothing should move.
-    requestAnimationFrame(() => addRef.current?.querySelector('input')?.focus({ preventScroll: true }));
-  };
-
   const [filterOpen, setFilterOpen] = useState(false);
-
-  const iconBtn =
-    'flex h-11 w-11 items-center justify-center rounded-md border border-ink/15 text-ink/60 hover:bg-ink/5 hover:text-ink';
 
   return (
     /*
       ⚖ ONE Filter ▾ AT EVERY WIDTH (owner 2026-10-01, DECISION_LOG "THE SIMPLE
       PHONE APP — APPROVED", frame 2 — "one search · one Filter ▾ (RSVP · Side ·
-      Role · Group)"; controller: desktop keeps its row, with the SAME
-      controls). The four dropdowns are the SAME `RosterFilters`, opened by the
-      one Filter ▾ onto a line of their own. The search is the top bar's; on a
-      phone the Add is the round + and the ⋯ sits beside the title; a
-      computer keeps its add box, Sort ▾ and ⋯ in this row.
+      Role · Group)"; desktop keeps its row with the SAME controls). The four
+      dropdowns are the SAME `RosterFilters`, opened by the one Filter ▾ onto a
+      line of their own. The search is the top bar's. ADD IS NOT HERE ANY MORE:
+      owner 2026-10-01 "okay keep it similar" — one round + at every width
+      (`add-guest-sheet.tsx`), whose sheet holds the name box and the other ways.
     */
     <div className="flex flex-wrap items-start gap-2 border-b border-ink/[0.07] py-2 lg:py-3">
-      {/* ⚖ The add box leads the computer's row. On a phone the Add is the
-          round + (frame 2 of the approved simple phone app, the newest design,
-          which wins for the phone head — `data-guests-add-fab`, page.tsx). */}
-      <div ref={addRef} className={`hidden lg:block ${open ? 'min-w-0 grow basis-0' : 'shrink-0'}`} data-find-add-add="">
-        {open ? (
-          add
-        ) : (
-          <button type="button" onClick={unfold} aria-label={addLabel} title={addLabel} className={iconBtn}>
-            <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-          </button>
-        )}
-      </div>
-
       <button
         type="button"
         onClick={() => setFilterOpen((v) => !v)}

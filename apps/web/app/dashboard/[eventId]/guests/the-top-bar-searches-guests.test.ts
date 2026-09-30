@@ -28,7 +28,7 @@ const GUESTS = join(APP, 'dashboard', '[eventId]', 'guests');
 const LAUNCHER = join(APP, 'dashboard', '(launcher)', '_components');
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 
-test('the Guest list page row has no search box — Add, Filter and Sort only', () => {
+test('the Guest list page row has no search box — Filter, Sort and ⋯ only', () => {
   const row = read(join(GUESTS, '_components', 'find-add-row.tsx'));
   const page = read(join(GUESTS, 'page.tsx'));
   for (const [where, src] of [['find-add-row.tsx', row], ['guests/page.tsx', page]] as const) {
@@ -36,8 +36,7 @@ test('the Guest list page row has no search box — Add, Filter and Sort only', 
   }
   assert.doesNotMatch(row, /\bsearch\s*[:?]/, 'FindAddRow grew a `search` slot again');
   assert.ok(!existsSync(join(GUESTS, '_components', 'guests-search.tsx')), 'the page-level search box is back');
-  // The add box and the filters are what the row IS.
-  assert.match(row, /data-find-add-add=""/);
+  // The filters are what the row IS (Add is the round + since 2026-10-01).
   assert.match(row, /data-find-add-filter=""/);
 });
 

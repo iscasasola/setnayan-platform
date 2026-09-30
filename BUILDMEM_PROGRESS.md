@@ -21,3 +21,5 @@
 - Next: maps off + `webpackBuildWorker: true` (each compiler in its own child that exits).
 - Maps OFF + `webpackBuildWorker: true` (heap 12288): rc 0, **6.1 min wall**, footprint peak 12.45 GB — the SERVER compiler child alone climbs to ~11.4 GB, then exits and the tree drops to ~2–3 GB. So the plateau is the V8 CEILING, not the live set: a 12 GB ceiling lets V8 defer major GC until ~12 GB, on a 16 GB container, plus native (SWC) memory → SIGKILL 137 (not a V8 "heap out of memory" — which is what Vercel shows).
 - Next: same with heap 6144 to find the real live set.
+- Maps OFF + worker + heap **6144**: rc 0, 6.1 min wall (same as 12288 — no GC thrash), footprint peak **9.46 GB** (vs 12.45 at 12288). ~3 GB of the peak is off-heap (native/SWC) — which is why a 12 GB V8 ceiling on a 16 GB box leaves no room.
+- Next: heap 4096 probe to find the live-set floor, then pick the ceiling.

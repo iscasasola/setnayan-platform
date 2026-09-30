@@ -23,7 +23,7 @@ export function DayDirections({ venues }: { venues: readonly EventVenue[] }) {
   return (
     <section aria-label="Directions" data-day-directions="" className="space-y-3">
       {open.map((v) => (
-        <article key={v.role} data-venue-role={v.role} className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-6">
+        <article key={v.role} data-venue-role={v.role} className="sn-glass-bare space-y-3 rounded-2xl p-6">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
             {open.length > 1 ? `Getting there · ${VENUE_ROLE_LABEL[v.role]}` : 'Getting there'}
           </p>

@@ -249,7 +249,7 @@ test('5 · ONE bar: the page’s own SiteMenuBar, marking the tab from the same 
 test('5 · every tab group is marked, hidden off its tab, and names a tab from the order', () => {
   const BODY = stripComments(read('_components', 'site-body.tsx'));
   assert.match(BODY, /hidden=\{tab !== active \? true : undefined\}/);
-  const wants = [...BODY.matchAll(/\bgroup\(\s*('([a-z]+)'|leadTab|scenesTab|pageStage === 'event' \? 'live' : 'details')/g)].map((m) => m[2] ?? m[1]);
+  const wants = [...BODY.matchAll(/\bgroup\(\s*('([a-z]+)'|leadTab|scenesTab|pageStage === 'event' \? 'live' : 'details')/g)].map((m) => m[2] ?? m[1] ?? '');
   assert.ok(wants.length >= 20, `precondition: the groups were found (${wants.length})`);
   for (const w of wants) if (/^[a-z]+$/.test(w)) assert.ok((HUB_TAB_ORDER as readonly string[]).includes(w), `a group asks for "${w}", which is no tab`);
   // The Me tab: on a tabbed page the page body draws the guest's Me, and the

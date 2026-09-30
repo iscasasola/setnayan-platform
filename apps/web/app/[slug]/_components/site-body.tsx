@@ -109,6 +109,7 @@ import { SITE_WELCOME_ANCHOR } from '../_lib/site-menu';
 import { venueNowMs } from '@/lib/schedule';
 import { widgetByType, widgetShouldRender } from '@/lib/invitation-widgets';
 import { welcomePartsOnTheDay } from '@/lib/invitation-welcome';
+import { PUBLIC_WIDGET_ALLOWLIST } from '@/lib/public-widget-allowlist';
 
 /* The dayOfPhase → NavPhase mapping moved into `_lib/site-nav.ts` as
    `navPhaseFor`, because it needed a SECOND input (whether the page is showing
@@ -1372,7 +1373,16 @@ export async function SiteBody({
     /* 🏠 THE DAY'S WELCOME, for a reader without a key: the couple's reminders
        and E-Gifts (a stranger has no look to dress by), and the seat finder
        for whoever may use it. */
-    const dayWelcome = welcomePartsOnTheDay({ ...dayWelcomeFacts, identified: false });
+    // 🔒 The reminders reach a reader without a key only as the page's own
+    // anonymous fence would let them: a public-safe type, not set to "guests
+    // only" (`lib/public-widget-allowlist.ts`, `openBrowseWidgetVisibleTo`).
+    const dayRemindersPublic =
+      PUBLIC_WIDGET_ALLOWLIST.includes('what_to_bring') && dayRemindersRow?.audience !== 'guests_only';
+    const dayWelcome = welcomePartsOnTheDay({
+      ...dayWelcomeFacts,
+      identified: false,
+      remindersOn: dayWelcomeFacts.remindersOn && dayRemindersPublic,
+    });
     const findSeatShown = Boolean(
       insideAllowed && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished,
     );
@@ -1786,8 +1796,8 @@ export async function SiteBody({
                         widget={dayRemindersRow}
                         canvasMediaUrls={canvasMediaUrls}
                         hubTheme={sceneTheme}
-                        ownClipPlays={false}
-                        guestView
+                        ownClipPlays={isMakerCanvas}
+                        guestView={!isMakerCanvas}
                         event={event}
                         words={clientWords}
                         scheduleBlocks={scheduleBlocks}
@@ -2856,8 +2866,8 @@ export async function SiteBody({
                         widget={dayRemindersRow}
                         canvasMediaUrls={canvasMediaUrls}
                         hubTheme={sceneTheme}
-                        ownClipPlays={false}
-                        guestView
+                        ownClipPlays={isMakerCanvas}
+                        guestView={!isMakerCanvas}
                         event={event}
                         guest={guest}
                         sideLabel={sideLabel}
@@ -2911,9 +2921,9 @@ export async function SiteBody({
                   Details carries it, Me repeats it). Same two facts the pass
                   card's link asks: this kind seats people, the plan is posted. */}
               {/* 📱 …and on a tabbed page it is the guest's own Welcome's: their table. */}
-              {group('home', seatPassActive && !isMakerCanvas ? (
+              {group('home', <>{seatPassActive && !isMakerCanvas ? (
                 <SeatDoorLine slug={event.slug ?? ''} tableLabel={guestHubData.tableLabel} />
-              ) : null, { chapters: true, className: 'space-y-12' })}
+              ) : null}</>, { chapters: true, className: 'space-y-12' })}
               {/* 🎬 Scroll · Scrub per section (owner 2026-09-24). Byte-identical
                   children unless a section scrubs AND the event owns Event Hub
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
@@ -2958,7 +2968,8 @@ export async function SiteBody({
               {group('story', <>
               {storyScene ? (
                 <div className="sn-hub-cards space-y-4">
-                  <HubScenes widgets={[storyScene]} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+                  {/* No stage marks: a tabbed page is never the Save the Date the autoplay walks. */}
+                  <HubScenes widgets={[storyScene]} scrubAllowed={proWatermarkHidden}>
                     {[storyScene].map(renderScene)}
                   </HubScenes>
                 </div>

@@ -99,7 +99,7 @@ test('1 · …through the DRAFT: the preview shows it, Apply writes it (never Pr
   // Apply: every stage place is a free item, written as the WHOLE merged key.
   const plan = planHubDraftApply(draft, { events: {}, widgets: base }, false);
   assert.equal(plan.refused.length, 0, 'arranging is never Pro');
-  const items = plan.apply.filter((i) => i.kind === 'widget' && i.field === 'stage_order');
+  const items = plan.apply.filter((i): i is Extract<typeof i, { kind: 'widget' }> => i.kind === 'widget' && i.field === 'stage_order');
   assert.ok(items.length > 0, 'Apply writes the stage places');
   const applied = base.map((r) => {
     const it = items.find((i) => i.kind === 'widget' && i.widgetId === r.widget_id);

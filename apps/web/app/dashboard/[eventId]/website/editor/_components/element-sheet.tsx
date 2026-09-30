@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -146,7 +146,17 @@ export function ElementSheet({
   onOpenHero,
   usedColours = [],
   hideLocked = false,
+  saveCanvasWith,
+  wordsSlot = null,
 }: {
+  /**
+   * 🎞 A part that is NOT on a section row (a Post Event scene's, whose looks
+   * live in the story's `sceneLooks`): how its canvas is saved instead of the
+   * section write. The sheet — preview, hold, revert, error — is unchanged.
+   */
+  saveCanvasWith?: (canvas: HubSectionCanvas) => Promise<HubDraftActionResult>;
+  /** ✍ The part's own words, edited right here, above its Text rows. */
+  wordsSlot?: ReactNode;
   /** The app-store shell: a Pro row is hidden, never shown locked. */
   hideLocked?: boolean;
   /** 🔤 Part ▾ — every part of this scene, in order (like Pages' "Body ▾"). */
@@ -245,9 +255,11 @@ export function ElementSheet({
       try {
         /* ⚡ NO render behind it (`held`), and quick picks on this scene are ONE
            write: the latest canvas waits a beat, then goes; a pick made while
-           it waits replaces it (`makerLatestWrite`). */
+           it waits replaces it (`makerLatestWrite`). A fixed part's Style row
+           hands its own writer (`saveCanvasWith`) — same queue, same key. */
+        const write = () => (saveCanvasWith ? saveCanvasWith(next) : saveCanvas(draftAction, eventId, target.widgetType, next));
         res = await makerSave(
-          () => makerLatestWrite(canvasWriteKey(target.widgetType), () => saveCanvas(draftAction, eventId, target.widgetType, next)),
+          () => makerLatestWrite(canvasWriteKey(target.widgetType), write),
           () => router.refresh(),
           { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
         );
@@ -378,6 +390,7 @@ export function ElementSheet({
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4" aria-busy={pending} data-element-tab={tab}>
         {tab === 'text' ? (
           <>
+            {wordsSlot}
             <PartTextTab
               el={target.el}
               face={face}

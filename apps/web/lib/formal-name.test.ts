@@ -10,6 +10,7 @@ import {
   formalNameFromForm,
   isFormalNameEmpty,
   normalizeNamePart,
+  placeCardName,
 } from './formal-name';
 
 const ICE = {
@@ -72,4 +73,26 @@ test('the @tag is the slug with its @', () => {
   assert.equal(atTag('ice'), '@ice');
   assert.equal(atTag(''), null);
   assert.equal(atTag(null), null);
+});
+
+// ── 🪪 THE PLACE CARD NAME (owner 2026-09-30) ────────────────────────────────
+test('placeCardName · prefix, first, middle INITIAL, last — "Mr. Manuel C. Casasola"', () => {
+  assert.equal(
+    placeCardName({ name_prefix: 'Mr.', first_name: 'Manuel', middle_name: 'Cruz', last_name: 'Casasola' }),
+    'Mr. Manuel C. Casasola',
+  );
+  // An initial already typed stays one initial; a suffix keeps its place.
+  assert.equal(
+    placeCardName({ name_prefix: 'Mr.', first_name: 'Indalecio', middle_name: 'S.', last_name: 'Casasola', name_suffix: 'II' }),
+    'Mr. Indalecio S. Casasola II',
+  );
+  // Two middle names → two initials; no prefix → none printed.
+  assert.equal(placeCardName({ first_name: 'Ana', middle_name: 'maria clara', last_name: 'Reyes' }), 'Ana M. C. Reyes');
+  assert.equal(placeCardName({ first_name: 'Ana', last_name: 'Reyes' }), 'Ana Reyes');
+});
+
+test('placeCardName · never a bare first name — no last name, no card name', () => {
+  assert.equal(placeCardName({ name_prefix: 'Ms.', first_name: 'Ana' }), null);
+  assert.equal(placeCardName({ first_name: 'Ana', last_name: '  ' }), null);
+  assert.equal(placeCardName({ last_name: 'Reyes' }), null);
 });

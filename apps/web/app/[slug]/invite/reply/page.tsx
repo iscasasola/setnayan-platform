@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/papic-face-mode';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { formatEventDateWithPrecision } from '@/lib/events';
 import { joinDoorMeta } from '@/lib/join-door-meta';
@@ -152,9 +152,9 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
 
-  const [words, faceMode, supabase, hub, seats, animationOwned] = await Promise.all([
+  const [words, faceTagging, supabase, hub, seats, animationOwned] = await Promise.all([
     eventWordsFor(event.event_type as string),
-    resolvePapicFaceMode(admin, event.event_id as string),
+    resolveFaceTagging(admin, event.event_id as string),
     createClient(),
     wearTheHub(slug, admin, hostDraft, canvas),
     canvas ? Promise.resolve([]) : plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string),
@@ -351,21 +351,22 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           }}
           eventId={event.event_id as string}
           eventPublicId={event.public_id as string}
-          faceMode={faceMode}
+          faceMode={faceTagging.mode}
           flash={flash}
           replyLocked={replyLocked}
           profileDetails={profileDetails}
           doorAction={submitInviteReply.bind(null, event.event_id as string, guest.guest_id as string)}
-          /* 🔑 NO FACE TAGGING ON THE INVITE (owner, verbatim 2026-09-11: "face
-             tagging does not happen on the invite. it happens on their first view
-             on the day of the event? or on the day papic becomes available to use
-             for them."). The catch he describes ALREADY SHIPS —
-             `_components/day-of-face-enroll.tsx`, mounted on the day-of landing,
-             in the hub (`needsFaceEnroll`) and inside the Papic guest camera,
-             self-hiding once enrolled. So this is a removal from ONE surface, not
-             a feature taken away: a prop, because this card is shared with the
-             Event Hub's own RSVP card, which keeps its selfie. */
+          /* 🏷 THE QUESTION AT THE INVITATION, THE SELFIE ON THE DAY (owner
+             2026-09-30, "go"; DECISION_LOG "THE TAGGING QUESTION AT RSVP, THE
+             SELFIE ON THE DAY"). The invite asks "Want to be tagged in the
+             photos?" and saves the answer — no camera is drawn here, and the
+             save strips any face field (`stripInviteFaceFields`), so the
+             2026-09-11 rule "face tagging happens on the day, not on the invite"
+             holds for face DATA. On the day `day-of-face-enroll.tsx` asks only a
+             guest who said Yes for the selfie, and never one who said No. The
+             couple's own decline (`askable`) hides the question altogether. */
           offerSelfie={false}
+          askTagging={faceTagging.askable}
           ask={resolveRsvpAsk(event.rsvp_ask_config)}
           gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
           termsOnSend

@@ -4,12 +4,20 @@ import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import type { EventRow } from '../_lib/types';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
 import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue } from '@/lib/event-venues';
+import { VenueFullMap, VenueOneMap } from './venue-styles';
 
 // ---------------------------------------------------------------------------
 // Additional widgets (closing 0002 deferrals)
 // ---------------------------------------------------------------------------
 
-export function VenueWidget({ event }: { event: EventRow }) {
+export function VenueWidget({
+  event,
+  sceneStyle = null,
+}: {
+  event: EventRow;
+  /** 🎨 `map-and-plate` (this, the default) · `one-map` · `full-map` — `venue-styles.tsx`. */
+  sceneStyle?: string | null;
+}) {
   // 2026-05-21 — coords-based deep links (Google Maps · Waze · Apple Maps)
   // when the event has a geocoded venue. Falls back to a text-search
   // Google Maps link when only venue_address is set. Hidden entirely if
@@ -52,6 +60,8 @@ export function VenueWidget({ event }: { event: EventRow }) {
   // page.tsx and withheld by `withheldVenue` like the event's own columns; a
   // caller that never loaded it falls back to the one venue on the event row.
   const venues: EventVenue[] = event.venues?.length ? event.venues : legacyVenues(event);
+  if (sceneStyle === 'one-map') return <VenueOneMap venues={venues} withheld={Boolean(event.venue_withheld)} />;
+  if (sceneStyle === 'full-map') return <VenueFullMap venues={venues} withheld={Boolean(event.venue_withheld)} />;
 
   return (
     <section className="space-y-4">

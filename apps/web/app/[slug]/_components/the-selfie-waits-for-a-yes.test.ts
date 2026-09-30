@@ -180,6 +180,28 @@ test('2 · with the selfie not offered (the invite door, or the couple declined)
   assert.doesNotMatch(html, /name="biometric_consent"/, 'the selfie is drawn where it was not offered');
 });
 
+test('2 · 🏷 THE INVITATION ASKS, THE DAY TAKES THE SELFIE (owner 2026-09-30, "go"): the question and its answer, no camera, no face field', async () => {
+  const html = await card({ offerSelfie: false, askTagging: true, faceMode: 'mode_a' });
+  assert.ok(html.includes(FACE_TAGGING_QUESTION), 'the invitation no longer asks the tagging question');
+  answerInput(html, 'yes');
+  answerInput(html, 'no');
+  assert.match(html, /Yes means one quick selfie on the day, so your photos find you\./, 'the line under the question does not say the selfie is on the day');
+  // 📵 No face is collected at the invitation — no camera, no consent tick, no photo field.
+  assert.doesNotMatch(html, /name="biometric_consent"|name="age_affirmation"|name="selfie_/, 'the invitation draws a selfie again');
+  assert.doesNotMatch(html, /tag-yes-reveal/, 'a hidden selfie step rides along on the invitation');
+  // …and the invite's save strips any face field a crafted post carries.
+  const { stripInviteFaceFields } = await import('@/lib/face-tagging-wish');
+  const fd = new FormData();
+  for (const [k, v] of [['face_tagging', 'yes'], ['delete_selfie', '1'], ['selfie_ref', 'r2://x'], ['selfie_refs', 'a,b'], ['selfie_vector', '[1]'], ['selfie_anything', 'x'], ['biometric_consent', '1'], ['age_affirmation', '1'], ['rsvp_status', 'attending']] as [string, string][]) fd.set(k, v);
+  stripInviteFaceFields(fd);
+  assert.deepEqual([...fd.keys()].sort(), ['delete_selfie', 'face_tagging', 'rsvp_status'], 'a face field survives the invitation’s save');
+  const door = read('app/[slug]/invite/actions.ts');
+  const strip = door.indexOf('stripInviteFaceFields(formData);');
+  assert.ok(strip > -1 && strip < door.indexOf('return submitRsvp(eventId, guestId, formData);'), 'the invitation’s save no longer strips face fields before submitRsvp');
+  // The reply page asks only where the couple has not declined.
+  assert.match(read('app/[slug]/invite/reply/page.tsx'), /offerSelfie=\{false\}\s*askTagging=\{faceTagging\.askable\}/);
+});
+
 test('2 · the Event Hub card asks only where the couple has not declined', () => {
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(body, /offerSelfie=\{faceTaggingAskable\}/, 'the Event Hub card no longer honours the couple’s decline');

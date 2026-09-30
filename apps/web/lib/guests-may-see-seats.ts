@@ -62,6 +62,23 @@ export function guestsMaySeeSeats(event: SeatVisibilityFacts, now: Date = new Da
 }
 
 /**
+ * 🎟 THE TICKET'S OWN HALF OF THE RULE (owner 2026-09-30, verbatim: *"their
+ * digital Ticket will also update on the date of the event with the seat
+ * number"*). The Digital ticket (the screen, the saved PNG) and the Printed
+ * ticket carry the guest's table and seat FROM 00:00 MANILA ON THE EVENT'S
+ * DATE — the day half of `guestsMaySeeSeats`, and only that half: before the
+ * day, no table on any ticket, whatever the couple's "show early" switch says.
+ * A ticket is a picture the guest keeps; a table the couple moves the week
+ * before would sit on it wrong, while the live pages follow the switch.
+ */
+export function ticketShowsTable(
+  event: Pick<SeatVisibilityFacts, 'eventDate' | 'eventDatePrecision'>,
+  now: Date = new Date(),
+): boolean {
+  return seatDayHasCome(event.eventDate, event.eventDatePrecision, now);
+}
+
+/**
  * Read the facts for one event and answer. Admin client on the public, RLS-less
  * guest routes. Fails CLOSED on the switch (an unreadable floor plan never
  * opens early) and independently on the date (an unreadable event never
@@ -74,7 +91,7 @@ export function guestsMaySeeSeats(event: SeatVisibilityFacts, now: Date = new Da
 export async function guestsMaySeeSeatsFor(
   supabase: SupabaseClient,
   eventId: string,
-  opts: { now?: Date; throwOnReadError?: boolean } = {},
+  opts: { now?: Date; throwOnReadError?: boolean; /** The ticket's half: the day only (`ticketShowsTable`). */ ticket?: boolean } = {},
 ): Promise<boolean> {
   const [plan, event] = await Promise.all([
     supabase.from('event_floor_plan').select('published_at').eq('event_id', eventId).maybeSingle(),
@@ -90,6 +107,9 @@ export async function guestsMaySeeSeatsFor(
   }
   const shownEarlyAt = plan.error ? null : ((plan.data as { published_at?: string | null } | null)?.published_at ?? null);
   const row = event.error ? null : (event.data as { event_date?: string | null; event_date_precision?: string | null } | null);
+  if (opts.ticket) {
+    return ticketShowsTable({ eventDate: row?.event_date ?? null, eventDatePrecision: row?.event_date_precision ?? null }, opts.now ?? new Date());
+  }
   return guestsMaySeeSeats(
     { shownEarlyAt, eventDate: row?.event_date ?? null, eventDatePrecision: row?.event_date_precision ?? null },
     opts.now ?? new Date(),

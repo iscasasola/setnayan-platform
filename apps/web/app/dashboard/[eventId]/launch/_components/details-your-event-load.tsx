@@ -11,7 +11,7 @@ import { EntourageOrderPanel } from '../../guests/_components/entourage-order-pa
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
 import type { MarchSectionData, MarchSlotData } from './details-march';
-import { roleLabel, type EntourageGroup } from '@/lib/entourage';
+import { isCouple, roleLabel, type EntourageGroup } from '@/lib/entourage';
 import { joinersFor, swapsFor } from '@/lib/march-moves';
 import { readYourEventFacts } from './details-your-event-facts';
 
@@ -193,6 +193,14 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSectionDa
         label: row.filter((p) => p !== null).map((p) => p!.name).join(' and '),
         step,
         slots: [slot(0), slot(1)] as [MarchSlotData, MarchSlotData],
+        // Walking together is not being a couple (owner 2026-09-30) — the tick's state.
+        couple:
+          row[0] && row[1]
+            ? {
+                on: isCouple(row[0], row[1]),
+                plusOne: row[0].plusOneOf === row[1].id || row[1].plusOneOf === row[0].id,
+              }
+            : null,
       };
     }),
   }));

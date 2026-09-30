@@ -142,6 +142,38 @@ export function composeFormalName(
   return whole || null;
 }
 
+/**
+ * 🪪 THE NAME ON A PLACE CARD — "Mr. Manuel C. Casasola".
+ *
+ * Owner, 2026-09-30 (the "Place card" seat style): *"A place card is a name card
+ * by definition, and 'no casual greetings' means formal, not no name."* So the
+ * card prints the formal name with the MIDDLE NAME AS INITIALS — prefix, first,
+ * middle initial(s), last, then any suffix ("Mr. Indalecio S. Casasola II").
+ *
+ * 🔒 NEVER A BARE FIRST NAME. The first-name rule (#6183, DECISION_LOG
+ * 2026-09-30) is about greetings like "Hi, Manuel", not labels — but a card
+ * that reads only "Manuel" IS that greeting. Without a last name there is no
+ * formal name, and this returns NULL so the card prints its table alone.
+ */
+export function placeCardName(
+  name: Partial<Record<FormalNameField, string | null | undefined>>,
+): string | null {
+  const first = normalizeNamePart(name.first_name);
+  const last = normalizeNamePart(name.last_name);
+  if (!first || !last) return null;
+  const middle = normalizeNamePart(name.middle_name);
+  const initials = middle
+    ? middle
+        .split(/[\s.]+/)
+        .filter(Boolean)
+        .map((w) => `${w[0]!.toUpperCase()}.`)
+        .join(' ')
+    : null;
+  return [normalizeNamePart(name.name_prefix), first, initials, last, normalizeNamePart(name.name_suffix)]
+    .filter(Boolean)
+    .join(' ');
+}
+
 /** The @tag as shown — `users.slug` with its "@". NULL when there is no slug. */
 export function atTag(slug: string | null | undefined): string | null {
   const s = (slug ?? '').trim();

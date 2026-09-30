@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 403
+# facts: 407
 #   shadow  20
-#   omit    383
+#   omit    387
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -162,6 +162,10 @@ omit	app/_actions/plan3d-demo-actions.ts	guests	ENTOURAGE_COLUMNS	role
 omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
 omit	app/_components/chat-message-stream.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
+omit	app/admin/events/[eventId]/page.tsx	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/admin/events/[eventId]/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/admin/events/[eventId]/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
+omit	app/admin/events/[eventId]/page.tsx	guests	ENTOURAGE_COLUMNS	role
 omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_color
 omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_font_key
 omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key

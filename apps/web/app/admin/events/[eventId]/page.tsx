@@ -14,6 +14,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 import { guestListIsClosed, FINALIZE_LEAD_DAYS } from '@/lib/guest-list-closed';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
+import { guestFullName } from '@/lib/guests';
 
 export const metadata = { title: 'Event · Admin' };
 export const dynamic = 'force-dynamic';
@@ -153,7 +154,9 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   // ── per-guest face list ─────────────────────────────────────────────────
   const guestsRead = await admin
     .from('guests')
-    .select('guest_id, display_name, first_name, last_name, face_recognition_excluded')
+    .select(
+      'guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, face_recognition_excluded',
+    )
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
@@ -163,10 +166,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
     ? null
     : (guestsRead.data ?? []).map((g) => ({
         guest_id: g.guest_id as string,
-        name:
-          (g.display_name as string | null) ||
-          [g.first_name, g.last_name].filter(Boolean).join(' ') ||
-          'Unnamed guest',
+        name: guestFullName(g) ?? 'Unnamed guest',
         excluded: g.face_recognition_excluded === true,
       }));
 
@@ -242,7 +242,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
       ) : null}
 
       {/* The event */}
-      <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+      <section className="border-t border-ink/10 pt-5">
         <h2 className="text-lg font-medium text-ink">{name}</h2>
         <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
           <div>
@@ -265,7 +265,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
       </section>
 
       {/* Hosts */}
-      <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+      <section className="border-t border-ink/10 pt-5">
         <h2 className="mb-3 text-sm font-medium text-ink">Hosts</h2>
         {hosts === null ? (
           <p role="alert" className="text-sm text-mulberry">
@@ -288,7 +288,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
       </section>
 
       {/* Guests + the finalized list */}
-      <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+      <section className="border-t border-ink/10 pt-5">
         <h2 className="mb-3 text-sm font-medium text-ink">Guest list</h2>
         <dl className="grid grid-cols-3 gap-4 text-sm">
           <div>
@@ -348,7 +348,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
       </section>
 
       {/* Face tagging */}
-      <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+      <section className="border-t border-ink/10 pt-5">
         <h2 className="mb-3 text-sm font-medium text-ink">Papic face tagging</h2>
         <p className="text-sm text-ink">
           <span className="font-medium">{faceLabel}</span>

@@ -13,6 +13,7 @@ import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
 import { SeatingLockError } from './seating-lock-error';
+import { parseRoleSeating, type RoleSeating } from '@/lib/role-seating';
 import {
   BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
@@ -466,6 +467,7 @@ export async function autoSeatGuests(formData: FormData) {
     // guest, so auto-seat clusters the same groups the couple sees.
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
+    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
 
   // Anchor the role-tier rings on where the couple actually placed the stage,
@@ -481,6 +483,7 @@ export async function autoSeatGuests(formData: FormData) {
     floorPlan.priority_order,
     roleSet,
     groupAdjacency,
+    floorPlan.role_seating,
   );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -847,6 +850,48 @@ export async function savePriorityOrder(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// Save the couple's per-role auto-seat choice (owner 2026-09-30 · "sit
+// together" or "sit with their group"). Upserts just the role_seating column on
+// the floor-plan singleton, beside priority_order. The client value is re-read
+// through parseRoleSeating — never trusted: unknown keys and values are dropped
+// (and so read as "together"). Lock-gated like every seating mutation.
+export async function saveRoleSeating(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  const raw = formData.get('role_seating');
+  let parsed: RoleSeating = {};
+  if (typeof raw === 'string' && raw.length > 0) {
+    try {
+      parsed = parseRoleSeating(JSON.parse(raw));
+    } catch {
+      parsed = {};
+    }
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const { error } = await supabase.from('event_floor_plan').upsert(
+    {
+      event_id: eventId,
+      role_seating: parsed,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'event_id' },
+  );
+  if (error) throw new Error(error.message);
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
 // Keep-apart constraints (smart seat-plan · Phase 3). Couple-private rules that
 // two guests must never share a table; the solver expands each to both guests'
 // groups at solve time. Lock-gated like every seating mutation; RLS keeps them
@@ -1008,6 +1053,7 @@ export async function lockAndFill(
     first_name: g.first_name,
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
+    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
 
   const solved = solveSeatPlan({
@@ -1021,6 +1067,7 @@ export async function lockAndFill(
     // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
     roleSet: await resolveRoleSetForEvent(eventId),
     groupAdjacency: await fetchGroupAdjacency(supabase, eventId),
+    roleSeating: floorPlan.role_seating,
   });
   if (solved.assignments.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -2088,6 +2135,7 @@ export async function autoArrange(
     first_name: g.first_name,
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
+    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
   // Honour the couple's saved priority order (Phase 2) and, when keep-apart
   // rules exist, run the constraint-aware solver (Phase 3) instead of the plain
@@ -2109,11 +2157,12 @@ export async function autoArrange(
           groupMembers: memberships,
           roleSet,
           groupAdjacency,
+          roleSeating: floorPlan.role_seating,
         })
       : null;
   const rows =
     solved?.assignments ??
-    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency);
+    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency, floorPlan.role_seating);
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({
@@ -2240,6 +2289,7 @@ export async function buildSeatingDraft(
     first_name: g.first_name,
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
+    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
   // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
   // priorityOrder passed as null (this call's current effective default) so the
@@ -2252,6 +2302,8 @@ export async function buildSeatingDraft(
     { x: floorPlan.stage_x, y: floorPlan.stage_y },
     null,
     roleSet,
+    undefined,
+    floorPlan.role_seating,
   );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(

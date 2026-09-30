@@ -17,12 +17,17 @@
  *   ?look=1               the Look (part 3): Mood Board, Logo, Hero, Reveal — stand-ins
  *                         for the work area's pages, so the layout can be checked
  *   ?type=birthday|wake   another celebration (default: wedding) — no Love Story item
+ *   ?item=love-story      the INSTANT Love Story on fixtures (`love-story-lab.tsx`):
+ *                         `&ms=` the stand-in save's delay, `&refuse=1` every save refused,
+ *                         `&seed=1` a story still told only in its onboarding words
  *   ?guide=1|ready-N      the guided "What's left" (Details part 5) — with Your event on
  *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
  */
 import { notFound } from 'next/navigation';
 import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { LookLab } from './look-lab';
+import { LoveStoryLab } from './love-story-lab';
+import { LAB_STORY, LAB_STORY_SEED } from './love-story-fixture';
 import { INVITE_THEMES, pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
 import { detailsItemFor } from '@/lib/maker-details-items';
@@ -58,7 +63,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
     specialMessage,
     specialMessageAction: updateSpecialMessage.bind(null, EVENT),
     pabuyaMessage,
-    loveStory: { story: {}, ownsPro: pro },
+    loveStory: { story: one('seed') === '1' ? LAB_STORY_SEED : LAB_STORY, ownsPro: pro },
   });
   /* 🪜 The guided flow (part 5): Your event on fixtures, so its first steps are real items. */
   const guideAddr = parseGuideParam(one('guide'));
@@ -143,7 +148,10 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
         pabuyaMessage={pabuyaMessage}
         specialMessage={specialMessage}
         facts={facts}
-        loveStory={{ book: needsDb('The Love Story'), moments: 0 }}
+        loveStory={{
+          book: <LoveStoryLab ms={Number(one('ms') ?? 300) || 300} refuse={one('refuse') === '1'} story={one('seed') === '1' ? LAB_STORY_SEED : LAB_STORY} />,
+          moments: 3,
+        }}
         schedule={{ page: needsDb('The schedule'), moments: null, pieces: [] }}
         rsvp={{ page: needsDb('The guest’s RSVP'), settings: needsDb('The RSVP settings') }}
         hasPalette={!fresh}

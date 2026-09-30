@@ -21,6 +21,7 @@ import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { InMakerReturnTo } from './in-maker-return-to';
+import { MomentNotKept } from '@/lib/love-story-moment-intent';
 
 /**
  * ADD A MOMENT — the sheet (phone) / side panel (laptop) from the prototype
@@ -67,6 +68,7 @@ export function MomentSheet({
   triggerClassName,
   opensFor,
 }: {
+  /** Throws = the moment was NOT kept; its message says why (the Maker's instant scrapbook, `love-story-live.tsx`). */
   action: (formData: FormData) => void | Promise<void>;
   /** The whole list, for the live "Will sit in". */
   moments: readonly LoveStoryMoment[];
@@ -109,6 +111,29 @@ export function MomentSheet({
   /* Inside the Maker the moment opens IN PLACE (no sheet, no trap). */
   const inMaker = useMaker() !== null;
   useModalA11y({ open: open && !inMaker, onClose: () => setOpen(false), containerRef: ref });
+  /* ⚡ In the Maker a kept moment is on the page at the tap (`love-story-live.tsx`):
+     the sheet closes; a moment that could not be kept says why and stays open. */
+  const [refused, setRefused] = useState<string | null>(null);
+  const keep = async (formData: FormData) => {
+    setRefused(null);
+    try {
+      await action(formData);
+    } catch (e) {
+      /* A server action's redirect is not a refusal — let it through. */
+      if (!(e instanceof MomentNotKept)) throw e;
+      setRefused(e.message);
+      return;
+    }
+    if (!inMaker) return;
+    setOpen(false);
+    /* The one "Add a moment" sheet opens empty next time. */
+    if (!moment) {
+      setYear('');
+      setMonth('');
+      setDay('');
+      setAnchor('');
+    }
+  };
 
   const d = moment?.date;
   const [precision, setPrecision] = useState<Precision>(d?.d ? 'day' : d?.m ? 'month' : 'year');
@@ -192,7 +217,7 @@ export function MomentSheet({
               </button>
             </div>
 
-            <form action={action} className="mt-5 space-y-6">
+            <form action={keep} className="mt-5 space-y-6">
               <HubDraftField />
               <InMakerReturnTo />
               <input type="hidden" name="intent" value={moment ? 'edit' : 'add'} />
@@ -401,6 +426,11 @@ export function MomentSheet({
                 ) : null}
               </div>
 
+              {refused ? (
+                <p role="alert" className="text-[14px] text-terracotta-700">
+                  {refused}
+                </p>
+              ) : null}
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"

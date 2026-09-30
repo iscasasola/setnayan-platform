@@ -1,5 +1,6 @@
 'use client';
 
+import { LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview';
 import { useEffect } from 'react';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
@@ -538,6 +539,19 @@ export function EditorBridge() {
           const framed = typeof scene.bare === 'boolean' ? findMakerSection(document, scene.key) : null;
           if (framed && typeof scene.bare === 'boolean') applySceneCardPreview(framed, scene.bare);
         }
+        return;
+      }
+      /* ⚡ THE LOVE STORY AND THE PROGRAMME, AS THEY ARE TYPED (owner
+         2026-09-30: *"so hard to edit … the delay of response is terrible"*).
+         Page-wide, like the backgrounds above: the Maker's words land on the
+         scenes the server drew (`lib/maker-live-preview.ts`); nothing is
+         fetched and nothing reloads. */
+      if (data && data.source === 'setnayan-editor' && data.t === LOVE_STORY_PREVIEW) {
+        applyLoveStoryPreview(document, (data as { scenes?: unknown }).scenes);
+        return;
+      }
+      if (data && data.source === 'setnayan-editor' && data.t === SCHEDULE_PREVIEW) {
+        applySchedulePreview(document, (data as { moment?: unknown }).moment);
         return;
       }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;

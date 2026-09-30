@@ -131,8 +131,12 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   assert.match(launch, /<MakerRsvpCanvas questionsSrc=\{rsvpSrc\} repliedSrc=\{rsvpRepliedSrc\}/);
   assert.match(launch, /settings: \(\s*<MakerRsvpSettings\b/);
   const details = read(`${L}/maker-details.tsx`);
-  // Love Story's words are the Story row's own panel (`StoryPanel`, `updateOurStory`).
-  assert.match(details, /'love-story': \(\s*<StoryPanel\s+action=\{updateOurStory\.bind\(null, eventId\)\}/);
+  // Love Story's words are the Story row's own chapters panel, saving as they
+  // are typed (2026-09-30, "so hard to edit … the delay of response is
+  // terrible"): `LiveStoryPanel` draws the SHIPPED `LoveStoryChaptersPanel`.
+  assert.match(details, /'love-story': \(\s*<LiveStoryPanel\s+eventId=\{eventId\}/);
+  const live = read('app/dashboard/[eventId]/website/our-story/_components/love-story-live.tsx');
+  assert.match(live, /<LoveStoryChaptersPanel story=\{story as LoveStoryBlob\} ownsPro=\{ownsPro\} \/>/);
   // 🧩 Three parts, never a whole page dropped in (DECISION_LOG "A TOOL MOVED
   // INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): the Schedule's rail is
   // the picture and its OWN inspector fills the right column.
@@ -235,7 +239,7 @@ test('🔑 a tapped fact opens the SAME component its Details item shows — one
   assert.match(details, /'love-story': facts\['love-story'\] \?\? \(/, 'the Love Story item draws its own words editor');
   const shell = read(SHELL);
   assert.match(shell, /const node = factEditors\?\.\[item\];/, 'the stage builds its own editor');
-  assert.doesNotMatch(shell, /<SpecialMessageField\b|<StoryPanel\b/, 'the stage draws a second copy of a Details editor');
+  assert.doesNotMatch(shell, /<SpecialMessageField\b|<StoryPanel\b|<LiveStoryPanel\b/, 'the stage draws a second copy of a Details editor');
 
   // RENDER — the stage's inspector, with a special message scene open on
   // Content, draws the very node the Details item was handed.

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7793e3b77",
+  "generatedFromRef": "1579ea81d",
   "routeCount": 439,
   "destinations": 947,
-  "actions": 673,
-  "blocks": 5291,
+  "actions": 674,
+  "blocks": 5298,
   "routes": {
     "/": {
       "files": [
@@ -6451,6 +6451,7 @@
         "LifecyclePhase",
         "Link",
         "LiveReplyByField",
+        "LiveStoryPanel",
         "Load",
         "LogoLayer",
         "LookFrame",
@@ -6550,7 +6551,6 @@
         "SpecialMessageField",
         "State",
         "StoredQrStyle",
-        "StoryPanel",
         "Suspense",
         "Switch",
         "SwitchRow",
@@ -6947,6 +6947,7 @@
         "dashboard/[eventId]/schedule/_components/ros-p2.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-focus.ts",
         "dashboard/[eventId]/schedule/_components/schedule-lazy.tsx",
+        "dashboard/[eventId]/schedule/_components/schedule-live.ts",
         "dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx",
         "dashboard/[eventId]/schedule/_components/tell-the-host.tsx",
         "dashboard/[eventId]/schedule/_components/travel-itinerary.tsx",
@@ -9150,6 +9151,7 @@
         "dashboard/[eventId]/website/our-story/_components/in-maker-return-to.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-book.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-chapters-panel.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-live.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-open.ts",
         "dashboard/[eventId]/website/our-story/_components/love-story-pro-line.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-status.ts",
@@ -9169,6 +9171,7 @@
       ],
       "actions": [
         "action",
+        "keep",
         "updateAction"
       ],
       "blocks": [
@@ -9180,12 +9183,15 @@
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLFormElement",
         "HubDraftField",
         "InMakerReturnTo",
         "InfoTip",
         "Link",
+        "LiveLoveStoryBook",
         "LoveStoryBook",
         "LoveStoryChapter",
+        "LoveStoryChaptersPanel",
         "LoveStoryOpenAsk",
         "LoveStoryProLine",
         "MilestonesField",
@@ -9196,6 +9202,7 @@
         "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",
+        "RefusalLine",
         "StoryChapterFields",
         "StoryFields",
         "SubmitButton",
@@ -9350,6 +9357,8 @@
     "/dev/details-lab": {
       "files": [
         "dev/details-lab/look-lab.tsx",
+        "dev/details-lab/love-story-fixture.ts",
+        "dev/details-lab/love-story-lab.tsx",
         "dev/details-lab/page.tsx"
       ],
       "destinations": [],
@@ -9357,7 +9366,9 @@
       "blocks": [
         "DetailsItemKey",
         "DetailsPieceButton",
+        "LiveLoveStoryBook",
         "LookLab",
+        "LoveStoryLab",
         "MakerContext.Provider",
         "MakerDetails",
         "MakerLookPages",
@@ -9385,6 +9396,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "A",
         "DayActions",
         "DayMoment",
         "DayRole",

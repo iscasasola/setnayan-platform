@@ -19,6 +19,17 @@
 
 export type GuestAccessLevel = 'none' | 'co_host' | 'limited_helper';
 
+/**
+ * The owner's three words for a guest's Access (2026-09-28: "None · Co-host ·
+ * Limited helper"), shared by the guest card's Access line and the guest
+ * list's Access column so the two can never say different things.
+ */
+export const ACCESS_LEVEL_LABEL: Readonly<Record<GuestAccessLevel, string>> = {
+  none: 'None',
+  co_host: 'Co-host',
+  limited_helper: 'Limited helper',
+};
+
 /** event_moderators.role_subtype written for each level. */
 export const ACCESS_SEAT_KIND: Readonly<Record<Exclude<GuestAccessLevel, 'none'>, string>> = {
   co_host: 'co_host',
@@ -69,6 +80,20 @@ export function accessLevelOfSeat(seat: SeatRow | null): GuestAccessLevel {
   return 'limited_helper';
 }
 
+/**
+ * The Access word for a seat as the HOSTS part prints it: the guest list's
+ * own vocabulary (Co-host · Limited helper), never `role_subtype`'s label —
+ * "Viewer (read-only)" and "Bride" are the pre-2026-09-28 words for the same
+ * seats. The hired planner is not a guest-list access at all and keeps its
+ * own label, so this says null for it.
+ */
+export function seatAccessWord(roleSubtype: string): string | null {
+  if (roleSubtype === 'wedding_planner_external') return null;
+  return seatIsFullCohost(roleSubtype)
+    ? ACCESS_LEVEL_LABEL.co_host
+    : ACCESS_LEVEL_LABEL.limited_helper;
+}
+
 export function guestAccessState(input: {
   seat: SeatRow | null;
   guestRole: string;
@@ -86,7 +111,7 @@ export function guestAccessState(input: {
 /** The tag on the guest list, or null. The word is "Co-host", never "Host". */
 export function accessTag(state: GuestAccessState): string | null {
   if (state.level === 'none') return null;
-  const word = state.level === 'co_host' ? 'Co-host' : 'Limited helper';
+  const word = ACCESS_LEVEL_LABEL[state.level];
   return state.live ? word : `${word} · waiting for them to join`;
 }
 

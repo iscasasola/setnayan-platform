@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { submitRsvp } from '../actions';
 import { PlusOneSeatPanels } from './rsvp-plus-ones';
+import { seatNameFailure } from '@/lib/seat-name-words';
 
 /**
  * "ADD NAME" — IN PLACE, ON ME (prototype `rsvp_plus_ones_2026-09-29.html`,
@@ -54,13 +55,13 @@ export function AddNameInPlace({
     setFailed(null);
     startTransition(async () => {
       try {
-        const res = await submitRsvp(eventId, guestId, fd);
-        if (res && 'seatError' in res) setFailed(res.seatError);
+        await submitRsvp(eventId, guestId, fd);
         // Success re-renders this row as NAMED (the action revalidates the
         // page), which unmounts these boxes — nothing to close by hand.
-      } catch {
-        // Only a request that never came back lands here.
-        setFailed('Their name did not save — check your connection and try again.');
+      } catch (err) {
+        // The real reason — never "check your connection" for a save the
+        // server refused (guest text audit 2026-09-30).
+        setFailed(seatNameFailure(err));
       }
     });
   };

@@ -64,9 +64,9 @@ test('1 · for every stage, Page ▾ offers exactly the guest bar’s pages — 
     assert.deepEqual(pages.map((p) => [p.key, p.label]), bar.map((s) => [s.key, s.label]), `${stage}: not the guest bar`);
     // every page the stage's config allows, and nothing it does not
     for (const p of pages) assert.ok(STAGE_BAR[stage].slots.includes(p.key), `${stage}: ${p.key} is not on this stage's bar`);
-    // the guest who has answered: Me, never the RSVP it replaces
+    // Me, always last — there is no RSVP tab (owner 2026-09-30, "RSVP does not have 4 tabs under")
     assert.equal(pages.at(-1)?.key, 'me', `${stage}: the guest's Me is missing`);
-    assert.ok(!pages.some((p) => p.key === 'rsvp'), `${stage}: RSVP is replaced by Me once answered`);
+    assert.ok(!pages.some((p) => (p.key as string) === 'rsvp'), `${stage}: an RSVP tab is back`);
   }
 });
 

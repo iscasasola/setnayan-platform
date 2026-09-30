@@ -225,7 +225,7 @@ test('a stranger has NO camera and NO Me/Join tab — "Get inside" is the one wa
       } as Partial<NavInput>);
       assert.ok(!keys(s).includes('camera'), `a stranger got a camera tab (${phase})`);
       assert.ok(!keys(s).includes('me'), `a stranger got a Me/Join tab (${phase})`);
-      assert.ok(!keys(s).includes('rsvp'), `a stranger got an RSVP tab (${phase})`);
+      assert.ok(!(keys(s) as string[]).includes('rsvp'), `a stranger got an RSVP tab (${phase})`);
     }
   const before = at({ viewer: { kind: 'public' }, phase: 'before', hasStory: true } as Partial<NavInput>);
   assert.deepEqual(keys(before), ['home', 'details', 'story'], 'the stranger bar is Home · Details · Story');

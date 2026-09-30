@@ -9,7 +9,7 @@
 - **Love story:** drawn once (the scene OR the prose — the "Our Love Story" tab's anchor moves onto the scene when it is the one drawn); never fills the "met" year with the proposal year; never lowercases a first word that may be a name.
 - **E-Gifts:** one term on every door and the page; the page names only the methods the couple set up (no "handle").
 - **RSVP:** the sheet's top control says "Close"; the heading is "Your reply"; reply-by uses the event date's formatter; "Open your invitation".
-- **Failures:** a blurry QR photo gets its own message; "Add name" shows the action's real reason (returned, not thrown); selfie consent no longer says "in my settings" to a guest with no account.
+- **Failures:** a blurry QR photo gets its own message; "Add name" shows the real reason (`seatNameFailure`, `lib/seat-name-words.ts`) — never "check your connection" for a save the server refused; selfie consent no longer says "in my settings" to a guest with no account.
 - **Suppliers who made this day:** only after the day, and "supplier", never "vendor".
 - **No roadmap:** removed "Shutter ships with the Setnayan native app (Phase 2)".
 - **No casual greetings on guest pages** (DECISION_LOG 2026-09-30): removed "Welcome, {first}", "See you on the 18th, {first}!", "{first}, your camera's ready", "Before you start shooting, {name}", "That's all N photos, {name}!"; the +1 Welcome page shows the formal name. The couple's own copied invite message (`lib/guest-invite-message.ts`) is untouched — owner-approved wording in the couple's voice (controller, 2026-09-30).

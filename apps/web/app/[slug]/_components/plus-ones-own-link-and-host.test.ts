@@ -109,14 +109,14 @@ test('E · the in-place boxes are the reply’s four, posted through the reply�
   assert.match(src, /<PlusOneSeatPanels/, 'the in-place form is not the reply’s own four boxes');
   assert.match(src, /name="seat_names_only" value="1"/, 'the in-place save is not the seat-only branch');
   assert.match(src, /await submitRsvp\(eventId, guestId, fd\)/, 'the in-place save is not the guest’s own save');
-  // The REAL reason is shown — the action's returned sentence, not a stock guess (audit 2026-09-30).
-  assert.match(src, /if \(res && 'seatError' in res\) setFailed\(res\.seatError\)/, 'the reason a name did not save never reaches the guest');
+  // The REAL reason is shown — never a stock "check your connection" (audit 2026-09-30).
+  assert.match(src, /catch \(err\) \{[\s\S]{0,200}setFailed\(seatNameFailure\(err\)\)/, 'the reason a name did not save never reaches the guest');
   assert.match(src, /idPrefix=\{`me-\$\{seatId\}-`\}/, 'the boxes would share ids with the reply on the same page');
   for (const extra of ['song_title', 'guest_note', 'rsvp_status', 'selfie']) {
     assert.ok(!src.includes(extra), `the in-place naming asks for ${extra}`);
   }
   // A failure is SAID, never a closed form that looks saved.
-  assert.match(src, /catch \{[\s\S]{0,120}setFailed\('/);
+
   assert.match(src, /role="alert"/);
 });
 
@@ -140,7 +140,7 @@ test('E · an id prefix never renames a field the seat rule reads', async () => 
   assert.match(html, /name="plus_one_seat_id_1" value="s2"/, 'the box does not say which seat it names');
 });
 
-test('E · the seat-only branch: same key check, the ONE seat rule, returns before the reply, its reason on failure', () => {
+test('E · the seat-only branch: same key check, the ONE seat rule, returns before the reply, thrown on failure', () => {
   const actions = read(...SLUG, 'actions.ts');
   const submit = bodyOf(actions, 'export async function submitRsvp(');
   const branch = submit.indexOf("clean(formData.get('seat_names_only')) === '1'");
@@ -151,8 +151,7 @@ test('E · the seat-only branch: same key check, the ONE seat rule, returns befo
   assert.ok(branch < reply, 'the branch runs after the reply is read — it must touch nothing of it');
   const seg = submit.slice(branch, reply);
   assert.match(seg, /await nameTheSeats\(seatAdmin, eventId, guestId, formData, resolveRsvpAsk\(/, 'not the reply’s seat rule');
-  // RETURNED, not thrown: a thrown message is hidden in production (audit 2026-09-30).
-  assert.match(seg, /if \(!saved\.ok\) return \{ seatError: saved\.error \}/, 'a failed name is not said');
+  assert.match(seg, /if \(!saved\.ok\) throw new Error/, 'a failed name is not said');
   assert.match(seg, /revalidatePath\(`\/\$\{evAsk\.slug\}`\)/, 'Me does not re-render the seat as named');
   assert.match(seg, /return;/);
   // The reply path uses the SAME rule — one mechanism, never two.

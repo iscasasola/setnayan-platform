@@ -115,7 +115,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         data: {
           ...rsvpCanvasGuestFor(await loadPreviewPerson(admin, event.event_id as string)),
           role: 'guest',
-          entry_source: 'host_seeded', // a sample on the couple's list — a real guest_entry_source label
+          entry_source: 'host_seeded', // a real guest_entry_source label (the sample is on the list)
           qr_token: null as string | null,
           rsvp_status: search.as === 'declined' ? 'declined' : 'attending',
           meal_preference: null as string | null,

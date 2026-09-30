@@ -26,7 +26,34 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
+import { guestListParts } from '@/lib/pillar-parts';
 import { buildCustomerNavGroups } from '../_components/customer-nav-config';
+
+/**
+ * 👥 A PILLAR'S PART IS A DOOR (owner 2026-09-29: the event menu becomes four
+ * pillars and "each pillar's page shows its parts"). Since 2026-09-30 Hosts has
+ * no row of its own: it is picked on the Guest list page (`lib/pillar-parts.ts`
+ * — mounted, `pillar-parts.test.ts` pins it), and `/hosts` redirects into that
+ * part. So a segment's home is either a rail row OR the part that holds it —
+ * listed here by the SAME builder the picker reads, never re-typed.
+ */
+function partHomes(eventId: string): Map<string, string> {
+  const homes = new Map<string, string>();
+  for (const p of guestListParts({ eventId, phase: 'plan', current: 'roster' })) {
+    if (p.key === 'hosts') homes.set('hosts', p.href);
+  }
+  return homes;
+}
+
+/** Every address a person can press to reach `/dashboard/<id>/<segment>`. */
+function doorsTo(eventId: string, segment: string, railHrefs: string[]): string[] {
+  const direct = `/dashboard/${eventId}/${segment}`;
+  const doors = railHrefs.includes(direct) ? [direct] : [];
+  // A part is a door only while its PILLAR PAGE is one — the picker sits on it.
+  const part = partHomes(eventId).get(segment);
+  if (part && railHrefs.includes(part.split('?')[0]!)) doors.push(part);
+  return doors;
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..', '..');
@@ -80,7 +107,8 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
       'the couple cannot put a finished celebration away, or bring it back — ' +
       'and five screens tell them to do exactly that',
   },
-  { segment: 'hosts', whatIsLost: 'the couple cannot add a co-host' },
+  // Its door is the Guest list's Hosts part since 2026-09-30 (see `partHomes`).
+  { segment: 'hosts', whatIsLost: 'the couple cannot see who hosts with them or promote a coordinator' },
   {
     segment: 'refer',
     whatIsLost:
@@ -95,7 +123,7 @@ test('the pages people go to are linked from the event rail, not just addressabl
   assert.ok(hrefs.length >= 5, 'the rail lost destinations — every check below would pass vacuously');
 
   const unreachable = MUST_HAVE_A_DOOR.filter(
-    ({ segment }) => !hrefs.includes(`/dashboard/EVT123/${segment}`),
+    ({ segment }) => doorsTo('EVT123', segment, hrefs).length === 0,
   ).map(({ segment, whatIsLost }) => `${segment} — ${whatIsLost}`);
 
   assert.deepEqual(
@@ -156,7 +184,7 @@ test('every event link in the retired menu has a home in a mounted surface', () 
     .flatMap((g) => g.items)
     .map((i) => i.href);
 
-  const stranded = segments.filter((seg) => !hrefs.includes(`/dashboard/EVT123/${seg}`));
+  const stranded = segments.filter((seg) => doorsTo('EVT123', seg, hrefs).length === 0);
   assert.deepEqual(
     stranded,
     [],

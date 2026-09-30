@@ -37,7 +37,7 @@
 
 import {
   Home, Users, Compass, Sparkles, Palette, Gem, Globe, Camera, QrCode, Images,
-  Newspaper, Wallet, Music, Crown, CalendarDays, Armchair, Box, Radio,
+  Newspaper, Wallet, Music, CalendarDays, Armchair, Box, Radio,
   Clapperboard, Grid2x2, Gift,
   type LucideIcon,
 } from 'lucide-react';
@@ -183,7 +183,10 @@ export type CustomerMenuCtx = {
      spine   → Overview · Papic ✦ · Galleries · Editorial (after only) — no heading
      Book    → Your Team · Budget
      Look    → Mood Board ✦ · Logo Maker ✦ · Pakanta ✦
-     Invite  → Guests · Hosts · Event Hub Controller
+     Invite  → Guests · Event Hub Controller
+               (Hosts is a PART of the Guest list since 2026-09-30 —
+               `lib/pillar-parts.ts`; its row left the tree, `/hosts` still
+               lights Guests)
      The day → Schedule · Check-in (day-of only) · Seat plan ·
                Live Studio ✦ · Patiktok ✦
                (3D Plan ✦ is ABSORBED into Seat plan — see `STUDIO_ABSORBED`)
@@ -196,7 +199,7 @@ export type CustomerMenuCtx = {
 
    🔒 EVERY KEY IS THE KEY IT WAS. `home`, `guests`, `explore`, `studio`,
    `launch`, `budget`, `refer`, `personalization`, `seat`, `schedule`,
-   `galleries`, `editorial`, `hosts` drive registry slots, localStorage state,
+   `galleries`, `editorial` drive registry slots, localStorage state,
    badges and hideKeys, and every one of those fails SILENTLY on a rename. Only
    the words moved: Personalization→Details · All services→Suite. The phone's
    own words moved in the same pass (Now→Overview · Seats→Seat plan ·
@@ -213,7 +216,7 @@ export type EventMenuIconName =
   | 'overview' | 'papic' | 'galleries' | 'editorial'
   | 'team' | 'budget'
   | 'mood-board' | 'logo' | 'pakanta'
-  | 'guests' | 'hosts' | 'hub'
+  | 'guests' | 'hub'
   | 'schedule' | 'checkin' | 'seat' | 'plan3d' | 'live' | 'patiktok'
   | 'ai' | 'suite' | 'refer' | 'details' | 'product';
 
@@ -228,7 +231,6 @@ export const EVENT_MENU_ICONS: Record<EventMenuIconName, LucideIcon> = {
   logo: Gem,
   pakanta: Music,
   guests: Users,
-  hosts: Crown,
   hub: Globe,
   schedule: CalendarDays,
   checkin: QrCode,
@@ -410,7 +412,7 @@ const SECTION_ORDER: Record<Exclude<EventMenuSectionKey, 'event'>, string[]> = {
   spine: ['home', 'papic', 'galleries', 'editorial'],
   book: ['explore', 'budget'],
   look: ['mood-board', 'palogo', 'pakanta'],
-  invite: ['guests', 'hosts', 'launch'],
+  invite: ['guests', 'launch'],
   day: ['schedule', 'checkin', 'seat', 'pa3d', 'panood', 'patiktok'],
   end: ['setnayan-ai', '__unknown__', 'studio', 'refer'],
 };
@@ -454,8 +456,14 @@ export function buildEventMenuSections(
   }
   put({ key: 'explore', label: 'Your Team', href: `${base}/vendors`, icon: 'team' });
   put({ key: 'budget', label: 'Budget', href: `${base}/budget`, icon: 'budget' });
-  put({ key: 'guests', label: 'Guests', href: `${base}/guests`, icon: 'guests' });
-  put({ key: 'hosts', label: 'Hosts', href: `${base}/hosts`, icon: 'hosts' });
+  // 👥 HOSTS IS A PART OF THE GUEST LIST (owner 2026-09-29, the four pillars;
+  // `lib/pillar-parts.ts`: Guests · Hosts · Check-in, picked on the guest list
+  // page). Its own row left the tree on 2026-09-30, once co-hosts were set on
+  // the guest list itself (the Access column). `/hosts` still lights THIS row
+  // on the rail and in the moment strip — it redirects into the part, and a
+  // helper without the guest list still lands on it standalone — exactly as
+  // the phone's Guests tab has always covered it.
+  put({ key: 'guests', label: 'Guests', href: `${base}/guests`, icon: 'guests', alsoMatch: [`${base}/hosts`] });
   // THE EVENT HUB CONTROLLER — one row, one word, every phase. Gated on the
   // website surface on the rail AND the phone alike (the two used to disagree
   // for the day-of and after bars). `matchPrefix` claims the /website family:
@@ -715,7 +723,8 @@ export function buildCustomerMenuTree(
           }),
     }),
     // Guests lights across the people rooms it has always covered — Seat plan
-    // and Hosts have rows of their own in ☰, but the TAB is the people room.
+    // has a row of its own in ☰ and Hosts is the Guest list's part, but the
+    // TAB is the people room.
     ...tab('guests', {
       activeMatch: [
         `${base}/guests`,

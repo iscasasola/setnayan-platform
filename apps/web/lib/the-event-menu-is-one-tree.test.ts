@@ -106,7 +106,7 @@ function rail(profile: EventTypeProfile, phase: 'plan' | 'dayof' | 'after' = 'pl
 
 /* ══ 1 · THE OWNER'S SENTENCE ══════════════════════════════════════════════ */
 
-test('the Logo Maker lives inside the Event Hub Maker — one row, 19 on a wedding planning rail', () => {
+test('the Logo Maker lives inside the Event Hub Maker — one row, 18 on a wedding planning rail', () => {
   /*
     Counted the way the drawing counts: row 1 is the "Events" focus row above
     the event, row 2 is the event's name (Details), then every menu row.
@@ -120,7 +120,9 @@ test('the Logo Maker lives inside the Event Hub Maker — one row, 19 on a weddi
   const labels = ['Events', ...rail(WEDDING).flatMap((g) => g.items.map((i) => i.label))];
   // 21 → 20 on 2026-09-24: the 3D Plan row folded into Seat plan (§6).
   // 20 → 19 on 2026-09-25: the Logo Maker folded into the Event Hub Maker.
-  assert.equal(labels.length, 19, `the rail is ${labels.length} rows: ${labels.join(' · ')}`);
+  // 19 → 18 on 2026-09-30: Hosts became a PART of the Guest list
+  // (lib/pillar-parts.ts), set on the guest list itself.
+  assert.equal(labels.length, 18, `the rail is ${labels.length} rows: ${labels.join(' · ')}`);
   assert.equal(labels.indexOf('Logo Maker'), -1, 'the Logo Maker is a door in the Maker, not a row');
   const maker = rail(WEDDING).flatMap((g) => g.items).find((i) => i.key === 'launch');
   assert.ok(maker, 'the Event Hub Maker row is on the rail');
@@ -129,7 +131,7 @@ test('the Logo Maker lives inside the Event Hub Maker — one row, 19 on a weddi
     'Overview', 'Papic', 'Galleries',
     'Your Team', 'Budget',
     'Mood Board', 'Music Maker',
-    'Guests', 'Hosts', 'Event Hub Maker',
+    'Guests', 'Event Hub Maker',
     'Schedule', 'Seat plan', 'Live Studio', 'Patiktok',
     // NEXT_PUBLIC_SUITE is on in production (read 2026-09-22); the word
     // follows the one flag branch in lib/studio-hub.ts either way.

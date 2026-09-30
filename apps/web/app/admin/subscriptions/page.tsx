@@ -8,6 +8,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { approveSubscription, rejectSubscription } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 export const metadata = {
   title: 'Subscriptions · Admin',
   robots: { index: false, follow: false },
@@ -115,6 +116,14 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
       .limit(30),
   ]);
 
+  // ── READS ARE HONEST (2026-09-30) ─────────────────────────────────────────
+  // A refused read resolves with `{ error }`, not a throw — unbound, it became
+  // `[]` and the masthead said "0 pending" to an admin with vendors waiting to
+  // be activated. Each list renders "Couldn't load" instead of its empty state.
+  const pendingFailed = Boolean(pendingRes.error);
+  const recentFailed = Boolean(recentRes.error);
+  if (pendingRes.error) logQueryError('admin/subscriptions: pending', pendingRes.error);
+  if (recentRes.error) logQueryError('admin/subscriptions: recent', recentRes.error);
   const pending = (pendingRes.data ?? []) as SubscriptionRow[];
   const recent = (recentRes.data ?? []) as SubscriptionRow[];
 
@@ -162,7 +171,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
           actions={
             <span className="inline-flex items-center gap-1.5 rounded-full bg-orange/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-orange">
               <Crown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              {pending.length} pending
+              {pendingFailed ? 'Pending unknown' : `${pending.length} pending`}
             </span>
           }
         />
@@ -210,7 +219,14 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
         <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
           Awaiting confirmation
         </h2>
-        {pending.length === 0 ? (
+        {pendingFailed ? (
+          <p
+            role="alert"
+            className="rounded-md bg-warn-50 px-4 py-6 text-center text-sm text-warn-900"
+          >
+            Couldn&rsquo;t load this — refresh to try again. This is not an empty queue.
+          </p>
+        ) : pending.length === 0 ? (
           <p className="rounded-md border border-ink/10 bg-paper px-4 py-6 text-center text-sm text-ink/55">
             No pending subscription orders. New upgrades show up here the moment a
             vendor starts one.
@@ -295,7 +311,11 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
         <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
           Recently resolved
         </h2>
-        {recent.length === 0 ? (
+        {recentFailed ? (
+          <p role="alert" className="text-sm text-warn-900">
+            Couldn&rsquo;t load this — refresh to try again.
+          </p>
+        ) : recent.length === 0 ? (
           <p className="text-sm text-ink/55">Nothing resolved yet.</p>
         ) : (
           <ul className="divide-y divide-ink/10 rounded-md border border-ink/10 bg-paper">

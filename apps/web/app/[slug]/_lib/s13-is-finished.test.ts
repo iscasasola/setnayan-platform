@@ -57,7 +57,7 @@ const ALLOWED: Record<string, string> = {
   '_components/event-words-provider.tsx':
     'The fallback constant. It is DEFINED as the wedding wording on purpose, so a missing provider cannot regress the only case that exists in production.',
   '_lib/event-words.ts':
-    "The resolver's own default parameter (`?? 'wedding'`), matching every other guest-tree call site.",
+    "The resolver's own default parameter (`?? 'wedding'`), matching every other guest-tree call site; and `giftIsMoneyDance` — the ONE place the gift surfaces ask whether this type's gift is the money dance, so no guest-facing file compares against a wedding word itself.",
   '_components/countdown.tsx':
     'The wedding-vow branch. A wedding keeps "Until we say ‘I do’"; every other type reads "Until the day".',
   '_components/save-the-date.tsx':

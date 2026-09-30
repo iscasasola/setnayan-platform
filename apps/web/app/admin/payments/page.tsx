@@ -200,9 +200,16 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
 
   let payments: PaymentJoined[] = [];
   let unquotedOrders: OrderJoined[] = [];
+  // ── READS ARE HONEST (2026-09-30) ─────────────────────────────────────────
+  // Supabase RESOLVES with `{ error }` instead of throwing, so a refused read
+  // arrived as `data: null`, `?? []` made it an empty list, and this desk said
+  // "Nothing to reconcile." to an admin with a customer's money waiting on it.
+  // `readFailed` names WHICH read was refused; the lists render that instead of
+  // their empty state. Same shape as vendor-dashboard/reads-are-honest.test.ts.
+  let readFailed: 'queue' | 'search' | null = null;
 
   if (filter === 'orders_needing_quote') {
-    const { data } = await admin
+    const { data, error: quoteError } = await admin
       .from('orders')
       .select(
         'order_id,user_id,public_id,reference_code,description,requested_total_php,confirmed_total_php,status,admin_notes,created_at, user:users!orders_user_id_fkey(email, public_id)',
@@ -210,6 +217,10 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       .eq('status', 'submitted')
       .order('created_at', { ascending: true })
       .limit(100);
+    if (quoteError) {
+      logQueryError('admin/payments: orders needing a quote', quoteError);
+      readFailed = 'queue';
+    }
     unquotedOrders = ((data ?? []) as unknown as OrderJoined[]).filter((row) =>
       matchesQuery(q, [row.public_id, row.reference_code, row.user?.email]),
     );
@@ -235,11 +246,18 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     // present we resolve the matching orders first and scope the payment read
     // to them, rather than filtering the page we already fetched.
     if (q) {
-      const { data: hits } = await admin
+      const { data: hits, error: searchError } = await admin
         .from('orders')
         .select('order_id')
         .or(`public_id.ilike.%${q}%,reference_code.ilike.%${q}%`)
         .limit(200);
+      // A refused order lookup must NOT quietly fall back to the bank-reference
+      // search below — that would answer "no payment matches" about an order
+      // that exists. Say the search failed instead.
+      if (searchError) {
+        logQueryError('admin/payments: order search', searchError, { q });
+        readFailed = 'search';
+      }
       const ids = (hits ?? []).map((r) => (r as { order_id: string }).order_id);
       // 🪤 An empty id list must NOT become `.in.()` — PostgREST rejects the
       // whole query, which reads as "no results" rather than as an error. Fall
@@ -251,8 +269,14 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           )
         : paymentsQuery.ilike('reference_number', `%${q}%`);
     }
-    const { data } = await paymentsQuery;
-    payments = (data ?? []) as unknown as PaymentJoined[];
+    if (readFailed !== 'search') {
+      const { data, error: queueError } = await paymentsQuery;
+      if (queueError) {
+        logQueryError('admin/payments: payment queue', queueError);
+        readFailed = 'queue';
+      }
+      payments = (data ?? []) as unknown as PaymentJoined[];
+    }
   }
 
   // Pre-resolve every payment-proof screenshot to a short-lived presigned GET
@@ -399,7 +423,12 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       ) : null}
 
       {filter === 'orders_needing_quote' ? (
-        <OrdersNeedingQuote orders={unquotedOrders} vatRatePct={vatRatePct} />
+        <OrdersNeedingQuote
+          orders={unquotedOrders}
+          vatRatePct={vatRatePct}
+          readFailed={readFailed}
+          query={qDisplay}
+        />
       ) : (
         <PaymentsList
           payments={payments}
@@ -409,6 +438,8 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           eventInfo={eventInfo}
           deskBills={deskBills}
           dupExposure={dupExposure}
+          readFailed={readFailed}
+          query={qDisplay}
         />
       )}
     </div>
@@ -481,15 +512,22 @@ function PlatformChip({
 function OrdersNeedingQuote({
   orders,
   vatRatePct,
+  readFailed,
+  query,
 }: {
   orders: OrderJoined[];
   vatRatePct: number;
+  /** Which read was refused, if any — see `readFailed` in the page. */
+  readFailed: 'queue' | 'search' | null;
+  /** The search term as typed, for the no-match line. */
+  query: string;
 }) {
   const vatApplies = vatRatePct > 0;
+  if (readFailed) return <ReadFailedNotice which={readFailed} />;
   if (orders.length === 0) {
     return (
       <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-[color:var(--sn-ink-400)]">
-        No orders waiting for a quote.
+        {query ? `No order matches “${query}”.` : 'No orders waiting for a quote.'}
       </div>
     );
   }
@@ -577,6 +615,23 @@ function OrdersNeedingQuote({
   );
 }
 
+/**
+ * Rendered INSTEAD of an empty state when the read behind it was refused — an
+ * empty queue and an unread queue must never look alike on a money desk.
+ */
+function ReadFailedNotice({ which }: { which: 'queue' | 'search' }) {
+  return (
+    <div
+      role="alert"
+      className="rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink"
+    >
+      {which === 'search'
+        ? 'The search couldn’t run — this is not “no match”. Refresh to try again.'
+        : 'Couldn’t load this — refresh to try again. This is not an empty queue.'}
+    </div>
+  );
+}
+
 function PaymentsList({
   payments,
   screenshotUrlMap,
@@ -585,7 +640,13 @@ function PaymentsList({
   eventInfo,
   deskBills,
   dupExposure,
+  readFailed,
+  query,
 }: {
+  /** Which read was refused, if any — see `readFailed` in the page. */
+  readFailed: 'queue' | 'search' | null;
+  /** The search term as typed, for the no-match line. */
+  query: string;
   payments: PaymentJoined[];
   /** Which celebration each order belongs to — see fetchOrderEventInfo. */
   eventInfo: OrderEventInfoResult;
@@ -617,10 +678,11 @@ function PaymentsList({
    */
   receiptReads: Record<string, ReceiptReadRow>;
 }) {
+  if (readFailed) return <ReadFailedNotice which={readFailed} />;
   if (payments.length === 0) {
     return (
       <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-[color:var(--sn-ink-400)]">
-        Nothing to reconcile.
+        {query ? `No payment matches “${query}”.` : 'Nothing to reconcile.'}
       </div>
     );
   }

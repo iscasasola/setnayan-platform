@@ -132,6 +132,7 @@ import {
 import {
   TABLE_TYPE_CATALOG,
   ROLE_TIER_LABELS,
+  autoArrangeSummary,
   computeAutoLayout,
   // The ONE placement oracle (lib/seating.ts · council verdict 2026-07-16). The
   // 3D move/rotate paths validate through these SAME pure helpers as the 2D
@@ -2049,10 +2050,21 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     fd.set('positions', JSON.stringify(layout));
     fd.set('booths', '[]');
     void persist(async () => {
-      await autoArrange(fd);
+      const res = await autoArrange(fd);
       seatResyncRef.current = true;
       router.refresh();
-      setNotice('Tidied every table and seated your guests.');
+      // The server's counts, not a fixed line: it may have ADDED tables (owner
+      // 2026-09-30) and must never claim everyone is seated when someone isn't.
+      setNotice(
+        autoArrangeSummary({
+          tables: tables.length + res.tablesAdded,
+          tablesAdded: res.tablesAdded,
+          booths: 0,
+          boothWhere: '',
+          seated: res.seated,
+          unseated: res.unseated,
+        }),
+      );
     });
   }, [canEdit, tables, floor, room, tablesById, eventId, lock.lockId, persist, router]);
 

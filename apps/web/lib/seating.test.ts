@@ -38,6 +38,10 @@ import {
   rectEndsWorld,
   boothPresenceLabel,
   SETNAYAN_BOOTH_PROMO_LABEL,
+  autoSeatRoom,
+  tablesToAddForAutoSeat,
+  autoArrangeNewTableKey,
+  autoArrangeSummary,
 } from './seating';
 import { BOOKED_VENDOR_STATUSES } from './vendors';
 import { parseRoleSeating, roleSeatingChoice, roleSeatingSetsFor } from './role-seating';
@@ -1056,4 +1060,142 @@ test('role seating stays import-free, and the seat-plan editor never imports the
   for (const mod of ['role-seating-labels', 'role-names', 'role-groups']) {
     assert.doesNotMatch(editor, new RegExp(`from '@/lib/${mod}'`), `seating-editor imports lib/${mod}`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// AUTO ARRANGE ADDS TABLES (owner 2026-09-30 · "it did not add tables").
+// The live room: two serpentine arcs (3 chairs each) and one Round (10 seats),
+// all 16 chairs taken, 82 guests who haven't declined. Auto Arrange seated no
+// one and said "Everyone who hasn't declined already has a seat."
+// ---------------------------------------------------------------------------
+
+function ownerRoom() {
+  const tables = [
+    tbl({ table_id: 't1', table_label: 'Table 1', table_type: 'serpentine', capacity: 3, x_pos: 30, y_pos: 30 }),
+    tbl({ table_id: 't2', table_label: 'Table 2', table_type: 'round_10', capacity: 10, x_pos: 50, y_pos: 30 }),
+    tbl({ table_id: 't3', table_label: 'Table 3', table_type: 'serpentine', capacity: 3, x_pos: 70, y_pos: 30 }),
+  ];
+  const guests: AutoSeatGuest[] = [
+    guest({ guest_id: 'bride', role: 'bride' }),
+    guest({ guest_id: 'groom', role: 'groom' }),
+    guest({ guest_id: 'no1', rsvp_status: 'declined' }),
+    guest({ guest_id: 'no2', rsvp_status: 'declined' }),
+  ];
+  for (let i = 0; i < 82; i++) {
+    guests.push(
+      guest({
+        guest_id: `g${String(i).padStart(2, '0')}`,
+        // A sponsor set, a family, and pending replies ride along — every kind
+        // auto-seat must still place once the room is big enough.
+        role: i < 8 ? 'principal_sponsor' : 'friend',
+        group_category: i >= 8 && i < 20 ? 'family' : 'friends',
+        rsvp_status: i % 5 === 0 ? 'pending' : 'attending',
+      }),
+    );
+  }
+  const assignments: SeatAssignmentRow[] = [];
+  const cap: Record<string, number> = { t1: 3, t2: 10, t3: 3 };
+  let gi = 0;
+  for (const [tid, n] of Object.entries(cap)) {
+    for (let s = 0; s < n; s++) {
+      assignments.push(asg({ guest_id: `g${String(gi).padStart(2, '0')}`, table_id: tid, seat_number: s }));
+      gi++;
+    }
+  }
+  return { tables, guests, assignments };
+}
+
+test('auto-arrange room: the owner\'s room is 66 chairs short and gets 7 Round (10 seats) tables', () => {
+  const { tables, guests, assignments } = ownerRoom();
+  const room = autoSeatRoom(tables, guests, assignments);
+  assert.deepEqual(room, { toSeat: 66, freeSeats: 0, shortfall: 66 });
+  const add = tablesToAddForAutoSeat(room.shortfall, tables.map((t) => t.table_label));
+  assert.equal(add.length, 7);
+  assert.deepEqual(
+    add.map((t) => t.label),
+    ['Table 4', 'Table 5', 'Table 6', 'Table 7', 'Table 8', 'Table 9', 'Table 10'],
+    'new tables continue the room\'s numbering',
+  );
+  assert.ok(add.every((t) => t.type === 'round_10' && t.capacity === 10));
+});
+
+test('auto-arrange room: with the added tables, every guest who has not declined gets a seat and nobody moves', () => {
+  const { tables, guests, assignments } = ownerRoom();
+  const add = tablesToAddForAutoSeat(
+    autoSeatRoom(tables, guests, assignments).shortfall,
+    tables.map((t) => t.table_label),
+  );
+  const grown = [
+    ...tables,
+    ...add.map((t, i) =>
+      tbl({ table_id: `n${i}`, table_label: t.label, table_type: t.type, capacity: t.capacity, x_pos: 20 + (i % 4) * 20, y_pos: 50 + Math.floor(i / 4) * 20 }),
+    ),
+  ];
+  const rows = computeAutoSeat(grown, guests, assignments, STAGE);
+  assert.equal(rows.length, 66, 'all 66 unseated, non-declined, non-couple guests are seated');
+  const seatedBefore = new Set(assignments.map((a) => a.guest_id));
+  assert.ok(rows.every((r) => !seatedBefore.has(r.guest_id)), 'a guest already seated is never moved');
+  assert.ok(rows.every((r) => r.guest_id !== 'no1' && r.guest_id !== 'no2'), 'declined stay out');
+  // The truth the toast reads: nobody left over.
+  assert.equal(autoSeatRoom(grown, guests, assignments).toSeat - rows.length, 0);
+  assert.equal(autoSeatRoom(grown, guests, [...assignments, ...rows.map((r) => asg(r))]).toSeat, 0);
+});
+
+test('auto-arrange room: a room that already holds everyone adds nothing', () => {
+  const tables = [tbl({ table_id: 'a', table_label: 'Table 1' }), tbl({ table_id: 'b', table_label: 'Table 2' })];
+  const guests = Array.from({ length: 20 }, (_, i) => guest({ guest_id: `x${i}` }));
+  const room = autoSeatRoom(tables, guests, []);
+  assert.deepEqual(room, { toSeat: 20, freeSeats: 20, shortfall: 0 });
+  assert.deepEqual(tablesToAddForAutoSeat(room.shortfall, ['Table 1', 'Table 2']), []);
+});
+
+test('auto-arrange room: the sweetheart and deleted chairs are not room; the couple and declined are not guests to seat', () => {
+  const tables = [
+    tbl({ table_id: 'sw', table_label: 'Sweetheart', table_type: 'sweetheart_2', capacity: 2 }),
+    tbl({ table_id: 'a', table_label: 'Table 1', capacity: 10, removed_seats: [8, 9] }),
+  ];
+  const guests = [
+    guest({ guest_id: 'bride', role: 'bride' }),
+    guest({ guest_id: 'groom', role: 'groom' }),
+    guest({ guest_id: 'd', rsvp_status: 'declined' }),
+    ...Array.from({ length: 11 }, (_, i) => guest({ guest_id: `y${i}` })),
+  ];
+  const room = autoSeatRoom(tables, guests, [asg({ guest_id: 'y0', table_id: 'a' })]);
+  assert.deepEqual(room, { toSeat: 10, freeSeats: 7, shortfall: 3 });
+  // And the count agrees with what the seater actually does.
+  const rows = computeAutoSeat(tables, guests, [asg({ guest_id: 'y0', table_id: 'a' })], STAGE);
+  assert.equal(rows.length, 7);
+  assert.ok(rows.every((r) => r.table_id !== 'sw'), 'the sweetheart is never filled by auto-seat');
+});
+
+test('auto-arrange room: new tables fill numbering gaps and skip 4 for a Chinese wedding', () => {
+  assert.deepEqual(
+    tablesToAddForAutoSeat(15, ['Table 1', 'Table 3', 'Sponsors']).map((t) => t.label),
+    ['Table 2', 'Table 4'],
+  );
+  assert.deepEqual(
+    tablesToAddForAutoSeat(25, ['Table 1', 'Table 2', 'Table 3'], { skipFour: true }).map((t) => t.label),
+    ['Table 5', 'Table 6', 'Table 7'],
+  );
+  assert.equal(tablesToAddForAutoSeat(10_000, []).length, 60, 'a runaway import is capped like a draft');
+  assert.equal(autoArrangeNewTableKey('Table 4'), 'new:Table 4');
+});
+
+test('auto-arrange toast: never says everyone has a seat while anyone is still without one', () => {
+  const still = autoArrangeSummary({ tables: 3, tablesAdded: 0, booths: 0, boothWhere: 'behind the tables', seated: 0, unseated: 66 });
+  assert.doesNotMatch(still, /Everyone/);
+  assert.match(still, /66 guests who haven't declined still have no seat/);
+  const one = autoArrangeSummary({ tables: 3, tablesAdded: 0, booths: 0, boothWhere: '', seated: 2, unseated: 1 });
+  assert.match(one, /1 guest who hasn't declined still has no seat/);
+
+  const grew = autoArrangeSummary({ tables: 10, tablesAdded: 7, booths: 0, boothWhere: 'behind the tables', seated: 66, unseated: 0 });
+  assert.equal(
+    grew,
+    "Auto-arranged: 10 tables in priority order (7 added so everyone fits), 66 guests seated. Everyone who hasn't declined now has a seat.",
+  );
+  const done = autoArrangeSummary({ tables: 3, tablesAdded: 0, booths: 2, boothWhere: 'on the perimeter', seated: 0, unseated: 0 });
+  assert.equal(
+    done,
+    "Auto-arranged: 3 tables in priority order and 2 booths on the perimeter. Everyone who hasn't declined already has a seat.",
+  );
 });

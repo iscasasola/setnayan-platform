@@ -57,12 +57,24 @@ test('ONE Filter ▾ at every width over the SAME four dropdowns; the add box be
   assert.match(PAGE.slice(PAGE.indexOf('data-guests-add-fab') - 200, PAGE.indexOf('data-guests-add-fab')), /lg:hidden/);
 });
 
-test('Show ▾ is behind ⋯ (the same pick), and the phone has one counts line, not the meters', () => {
+test('phone: ONE answer column picked by a VISIBLE Show ▾ on the counts line; computer: several columns', () => {
+  // ⚖ Owner 2026-10-01: "on the mobile mode. we can pick a column and we will
+  // show the answer for each guest. on desktop we can view multiple columns".
   const ROWS = read('_components', 'guest-list-multiselect.tsx');
-  assert.match(ROWS, /publishPhoneColumn\(\{ column: phoneColumn, available: availableColumns, pick: \(c\) => phonePick\(0, c\) \}\)/, 'the phone column pick is not handed to the ⋯');
-  assert.doesNotMatch(ROWS, /data-roster-phone-column=""/, 'the Show strip sits above the rows again');
-  assert.match(MENU, /usePhoneColumn\(\)/);
-  assert.match(MENU, /onPick=\{\(key\) => show\.pick\(key as RosterColumn\)\}/, 'the ⋯ Show ▾ does not pick');
+  const SHOW = read('_components', 'phone-show-pick.tsx');
+  // The phone keeps exactly ONE slot; the computer's slots follow its width.
+  assert.match(ROWS, /storageKey: 'sn:guest-list-columns:phone:v1',\s*defaults: availableColumns,\s*fixedSlots: 1,/, 'the phone shows more than one answer column');
+  assert.match(ROWS, /desk\.columns\.map\(\(column, slot\) =>/, 'the computer no longer shows several columns');
+  // The pick is published by the list and drawn, visible, on the counts line.
+  assert.match(ROWS, /publishPhoneColumn\(\{ column: phoneColumn, available: availableColumns, pick: \(c\) => phonePick\(0, c\) \}\)/, 'the phone column pick is not handed out');
+  const counts = PAGE.slice(PAGE.indexOf('function RosterCountsLine('));
+  assert.match(counts.slice(0, 2500), /<PhoneShowPick \/>/, 'Show ▾ is not on the counts line');
+  assert.match(SHOW, /lg:hidden" data-roster-phone-show=""/, 'Show ▾ shows on a computer, which has several columns');
+  assert.match(SHOW, /<PickMenu\b/, 'Show ▾ is not the one shipped dropdown');
+  assert.match(SHOW, /onPick=\{\(key\) => show\.pick\(key as RosterColumn\)\}/, 'Show ▾ does not pick');
+  assert.doesNotMatch(MENU, /usePhoneColumn/, 'Show ▾ is buried in the ⋯ again');
+  assert.doesNotMatch(ROWS, /data-roster-phone-column=""/, 'a Show strip sits above the rows again');
+  // One counts line on a phone; the meters are the computer's extra.
   assert.match(PAGE, /<div className="hidden lg:block" data-roster-meters="">/, 'the meters stack above the rows on a phone again');
   assert.match(PAGE, /\{countsLine\}/, 'the phone lost its one counts line');
 });

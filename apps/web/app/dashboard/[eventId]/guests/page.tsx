@@ -108,6 +108,7 @@ import { GuestHelperAccess } from './_components/guest-helper-access';
 import { whoCanReplyBase, type WhoCanReplyDraft } from '@/lib/who-can-reply';
 import { WhoCanReplyAsk } from './_components/who-can-reply-ask';
 import { GuestsPhoneMenu } from './_components/guests-phone-menu';
+import { PhoneShowPick } from './_components/phone-show-pick';
 
 export const metadata = { title: 'Guests' };
 
@@ -1961,7 +1962,7 @@ function RosterCountsLine({
     ...(requests > 0 ? [{ n: requests, word: requests === 1 ? 'request' : 'requests', wine: true }] : []),
   ];
   return (
-    <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-ink/60" data-roster-counts="">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink/60" data-roster-counts="">
       {filtered ? (
         <span className="font-medium text-ink">
           {formatCount(shown)} of {formatCount(stats.total)} shown
@@ -1972,7 +1973,9 @@ function RosterCountsLine({
           <span className={`font-display text-base ${p.wine ? '' : 'text-ink'}`}>{formatCount(p.n)}</span> {p.word}
         </span>
       ))}
-    </p>
+      {/* The phone's one-column pick, visible on this line (owner 2026-10-01). */}
+      <PhoneShowPick />
+    </div>
   );
 }
 

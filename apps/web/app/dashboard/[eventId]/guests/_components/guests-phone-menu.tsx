@@ -21,9 +21,6 @@
 import { useRef, useState } from 'react';
 import { MoreHorizontal, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { ROSTER_COLUMN_LABEL, type RosterColumn } from '@/lib/roster-columns';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { usePhoneColumn } from './phone-column-channel';
 
 export function GuestsPhoneMenu({
   sort,
@@ -35,7 +32,6 @@ export function GuestsPhoneMenu({
   addDoors: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const show = usePhoneColumn();
   const sheetRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheetRef });
 
@@ -84,22 +80,6 @@ export function GuestsPhoneMenu({
               <span className="text-sm text-ink">Sort</span>
               {sort}
             </div>
-            {/* Show ▾ — the phone's one column beside each name (E's pick,
-                remembered per device). Only a phone draws that column. */}
-            {show ? (
-              <div className="flex items-center justify-between gap-3 lg:hidden" data-guests-phone-menu-show="">
-                <span className="text-sm text-ink">Show</span>
-                <PickMenu
-                  compact
-                  label="What each row shows"
-                  value={show.column}
-                  buttonText={ROSTER_COLUMN_LABEL[show.column]}
-                  options={show.available.map((c) => ({ key: c, label: ROSTER_COLUMN_LABEL[c] }))}
-                  onPick={(key) => show.pick(key as RosterColumn)}
-                  dataAttr="data-roster-column-pick"
-                />
-              </div>
-            ) : null}
             {/* A door that goes somewhere closes the sheet behind it (a link to
                 this same page would otherwise leave it open over the result). */}
             <div

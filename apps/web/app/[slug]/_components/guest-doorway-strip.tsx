@@ -112,7 +112,7 @@ function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
     <DoorCard
       href={href}
       icon={<Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-      title="Send a blessing"
+      title="E-Gifts"
       detail={
         words.solemn
           ? `A gift of sympathy — straight to ${words.theOrganizer}.`

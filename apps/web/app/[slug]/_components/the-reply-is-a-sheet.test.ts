@@ -175,12 +175,11 @@ test('a guest who has not answered is asked', () => {
   );
 });
 
-test('a wake never asks anybody whether they will "be with us"', () => {
-  assert.equal(rsvpSheetHeading({ status: 'pending', guestListClosed: false, solemn: false }), 'Will you be with us?');
-  assert.equal(
-    rsvpSheetHeading({ status: 'pending', guestListClosed: false, solemn: true }),
-    'Will you be able to come?',
-  );
+test('the sheet is headed "Your reply" — the form asks the question once, and a wake is never asked to "be with us"', () => {
+  // Audit 2026-09-30: the sheet's heading asked "Will you be with us?" directly
+  // above the form's own "Will you be there?" — one question, asked twice.
+  assert.equal(rsvpSheetHeading({ status: 'pending', guestListClosed: false, solemn: false }), 'Your reply');
+  assert.equal(rsvpSheetHeading({ status: 'pending', guestListClosed: false, solemn: true }), 'Your reply');
   // And an answered guest is never asked the question again, in either register.
   for (const solemn of [true, false]) {
     assert.equal(rsvpSheetHeading({ status: 'attending', guestListClosed: false, solemn }), 'Change your reply');
@@ -236,7 +235,7 @@ async function renderClosed(over: Record<string, unknown> = {}) {
     React.createElement(
       RsvpSheet as never,
       {
-        heading: 'Will you be with us?',
+        heading: 'Your reply',
         privacyLine: 'Only the couple sees your reply.',
         flash: null,
       } as never,
@@ -379,4 +378,10 @@ test('with the bundle dead the reply card is still a reachable section', () => {
   // The trigger is a plain fragment link for the same reason: with no JS it
   // scrolls, with JS it is the signal the sheet listens for.
   assert.ok(BODY_CODE.includes('href="#your-details"'), 'the trigger is no longer a fragment link');
+});
+
+test('the top control says "Close" — it closes the sheet and saves nothing', async () => {
+  const html = await renderClosed();
+  assert.match(html, />Close<\/button>/, 'the control that saves nothing is labelled as if it saves');
+  assert.doesNotMatch(html, />Done<\/button>/);
 });

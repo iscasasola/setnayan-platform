@@ -163,7 +163,7 @@ export function resolveRoomLinks(input: RoomLinksInput): RoomLink[] {
 
   // The money gift. Three gates, all the destination's own.
   if (input.pabuyaRouteEnabled && input.enabledEgiftCount > 0 && input.pabuyaViewerAllowed) {
-    all.push({ key: 'gifts', label: 'Send a gift', href: `${base}/pabuya` });
+    all.push({ key: 'gifts', label: 'E-Gifts', href: `${base}/pabuya` });
   }
 
   // The live hub — only while the event is running or has just finished.

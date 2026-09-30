@@ -270,11 +270,11 @@ test('the two marketing upsells are gated off for a solemn event', () => {
     /words\.solemn \? null : \(\s*<GuestToHostCta/,
     'rsvp-widget.tsx renders the start-free pitch at a wake',
   );
-  // The vendor-save block ("Loved a vendor? Keep them… plan your own
-  // celebration") — withheld whole.
+  // The supplier-save block ("Loved a supplier? Keep them… plan your own
+  // celebration") — withheld whole, and only after the day (audit 2026-09-30).
   assert.match(
     src('_components/site-body.tsx'),
-    /\{!clientWords\.solemn &&\s*\n\s*lifecyclePhase !== 'save_the_date' &&/,
+    /\{!clientWords\.solemn &&\s*\n\s*eventIsBehind &&/,
     'site-body.tsx renders the vendor-save pitch at a wake',
   );
 });

@@ -76,7 +76,7 @@ test(`no file under app/[slug] or lib renders the ${NUMERO_SIGN} numero sign out
 
 test('sanity: the sections the owner named by number render only their title', () => {
   const cases: Array<[file: string, title: string]> = [
-    ['schedule-widget.tsx', 'The programme'],
+    ['schedule-widget.tsx', 'The program'],
     ['dress-code-widget.tsx', 'Dress code'],
     ['entourage-section.tsx', 'The entourage'],
     ['rsvp-widget.tsx', 'Reply'],

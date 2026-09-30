@@ -56,8 +56,8 @@ export function voiceOf(role: string | null | undefined): ColumnVoice {
 const ROLE_LABEL: Record<string, string> = {
   bride_parents: 'Parents of the bride',
   groom_parents: 'Parents of the groom',
-  maid_of_honor: 'Maid of honour',
-  matron_of_honor: 'Matron of honour',
+  maid_of_honor: 'Maid of honor',
+  matron_of_honor: 'Matron of honor',
   best_man: 'Best man',
   best_woman: 'Best woman',
   principal_sponsor: 'Principal sponsor',

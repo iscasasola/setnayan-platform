@@ -18,6 +18,9 @@ import { getClientShell } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
 import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
 import { parseProviderParam, type KnownProvider } from '@/lib/sign-in-door';
+import { loginErrorFromParam } from '@/lib/human-auth-error';
+import { eventSlugFromNext } from '@/lib/sign-in-for-a-guest';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export type LoginSearchParams = {
   error?: string;
@@ -46,10 +49,38 @@ export type LoginView = {
   signupHref: string;
   showOAuth: boolean;
   desktopOAuth: boolean;
+  /** `next` opens an event — the card speaks to a guest, not a planner. */
+  forGuest: boolean;
 };
 
+/**
+ * Does `next` lead back to a real event? Only then is the card a guest's.
+ * A supplier's shop shares the bare root, so the slug alone cannot say — one
+ * read of `events` does. Best-effort: a failed read is the ordinary card.
+ */
+async function nextOpensAnEvent(next: string): Promise<boolean> {
+  const slug = eventSlugFromNext(next);
+  if (!slug) return false;
+  try {
+    const { data } = await createAdminClient()
+      .from('events')
+      .select('event_id')
+      .ilike('slug', slug)
+      .limit(1)
+      .maybeSingle();
+    return Boolean(data);
+  } catch {
+    return false;
+  }
+}
+
 export async function getLoginView(params: LoginSearchParams): Promise<LoginView> {
-  const errorMessage = params.error ? decodeURIComponent(params.error) : null;
+  /* 🔒 NEVER THE URL'S OWN WORDS (guest text audit 2026-09-30). `?error=` is a
+     query param anyone can type, and this card printed whatever read like a
+     sentence — so a link reading "/login?error=Your account is locked, call
+     0917…" rendered a phishing line inside OUR sign-in card. It is mapped to
+     one of a FIXED set of sentences here, before it reaches the render. */
+  const errorMessage = loginErrorFromParam(params.error);
   const provider = errorMessage ? parseProviderParam(params.provider) : null;
   const justSignedUpEmail = params.check_email
     ? decodeURIComponent(params.check_email)
@@ -71,6 +102,7 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
   const shell = await getClientShell();
   const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
   const desktopOAuth = showOAuth && shell === 'desktop';
+  const forGuest = await nextOpensAnEvent(next);
 
   return {
     errorMessage,
@@ -82,5 +114,6 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
     signupHref,
     showOAuth,
     desktopOAuth,
+    forGuest,
   };
 }

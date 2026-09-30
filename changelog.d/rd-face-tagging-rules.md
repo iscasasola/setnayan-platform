@@ -29,8 +29,24 @@ Builds the owner's six 2026-09-30 face-tagging rows (DECISION_LOG) on the RSVP-r
   `accountSeedsForEvent` seeds only listed events. Switch on "Save it to your account"
   (`/join/[id]/connect/confirm`, only when the account has a face and the event is askable)
   and one switch per event in Profile → Privacy. Both ride existing server actions (+0).
-- **R5 (one end-of-event rescan) is NOT built** — there is no server-side face embedder;
-  descriptors are computed only on phones (face-api.js from R2). Options are in the PR body.
+- **Automatic with Papic (owner: "1. automatic").** `resolveFaceMode(..., papicActive)`: face
+  tagging runs on any event whose Papic is active, no admin step; the couple's "off" wins and
+  erases; the admin `mode_a` stays as an override; christening/debut still need the admin.
+  Every server surface (guest/seat camera, booth, matcher, notice, couple card) reads the gate.
+- **R5 — the one end-of-event rescan (owner: "2. a").** `@vladmandic/face-api@1.7.15` (the
+  phones' version, weights from R2) on the server via its non-native Node build +
+  `@tensorflow/tfjs-backend-wasm@4.22.0` (both pinned, server externals, wasm traced).
+  `lib/face-rescan.ts` walks every photo once between the event's end and Papic's close, matches
+  only registered selfies (mode_a + the guest's own Yes + not erased), writes only `photo_tags`,
+  resumes from `papic_face_rescan_progress` (new, service-role only, no face data), ≤120 photos /
+  40 s per slice, job `face-rescan-after-event` (~5 min) on admin + home-page `after()`. The
+  matcher now skips guests without a stored Yes.
+- **The face screen = the Fable design** (`face_registration_2026-09-30_fable.html`): full-screen
+  camera + oval, one tick "I'm 18+ and agree to face tagging", ⓘ sheet ("Got it" only closes),
+  "Take selfie" grey + "Tick to continue", one tap takes and saves; failure stays on the camera
+  with "Couldn't save — no face found / too dark / connection lost / more than one face / face
+  tagging is off here"; saved → toast + Me → "Face tagging · On" (Retake · Turn off).
+  `enrollGuestFace` returns a refusal code so no failure looks like success.
 
 Guards: `lib/face-tagging-rules.test.ts` (new, R1/R4/R6/R7 — executes the lifetime maths, the
 erase against a recording fake, and the matcher's seed query) plus the reworked
@@ -38,5 +54,5 @@ erase against a recording fake, and the matcher's seed query) plus the reworked
 `face-enrolment-age`, `papic-face-mode-gate`, `rsvp-selfie-ref-tenancy`,
 `admin-carries-the-cron-free-jobs`. Every rule sabotaged once and caught.
 
-SPEC IMPACT: DECISION_LOG.md — one implementation row under the 2026-09-30 face rows (what was
-built, the rescan options, and the mode_b narrowing flagged for owner sign-off).
+SPEC IMPACT: DECISION_LOG.md — the implementation row + its addendum (owner answers "1. automatic
+2. a", the face screen per design, the christening/debut and RSVP-trigger calls flagged).

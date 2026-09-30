@@ -131,6 +131,8 @@ export default async function PapicGuestPage({
     (ev as { papic_face_mode?: string | null } | null)?.papic_face_mode,
     (ev as { event_type?: string | null } | null)?.event_type,
     coupleDeclinedFaceTagging,
+    // ⚖ Automatic (owner 2026-09-30): Papic active turns face tagging on.
+    access === 'on',
   );
 
   // The face step now opens HERE, after the photo rules, on the guest's first

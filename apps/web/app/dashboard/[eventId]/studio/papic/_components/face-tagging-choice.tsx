@@ -3,7 +3,8 @@ import { ScanFace } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { SettingRow } from './setting-row';
 import { createClient } from '@/lib/supabase/server';
-import { eventTypeForcesModeB } from '@/lib/papic-face-mode';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { setCoupleFaceTaggingDeclined } from '../face-tagging-actions';
 
 /**
@@ -38,11 +39,11 @@ export async function FaceTaggingChoice({
   eventId: string;
   variant?: 'card' | 'row';
 }) {
+  // The caller's own client checks the row is theirs to read (RLS)…
   const supabase = await createClient();
-
   const { data, error } = await supabase
     .from('events')
-    .select('papic_face_mode, event_type, face_tagging_declined_by_couple')
+    .select('event_id, face_tagging_declined_by_couple')
     .eq('event_id', eventId)
     .maybeSingle();
   if (error) console.error('[supabase-error] app/dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx · from:events.select', error);
@@ -78,18 +79,18 @@ export async function FaceTaggingChoice({
   }
   if (!data) return null;
 
-  const row = data as {
-    papic_face_mode: string | null;
-    event_type: string | null;
-    face_tagging_declined_by_couple: boolean | null;
-  };
+  // …and the ONE gate answers what runs (lib/face-tagging-gate.ts). ⚖ Owner
+  // 2026-09-30 ("automatic"): face tagging is ON by itself wherever the event's
+  // Papic is active — no admin step — so this card now shows on every such
+  // event, not only where an admin once chose mode_a. Christening/debut stay
+  // off until an admin turns them on; with nothing running there is nothing to
+  // switch off, and the card is absent.
+  const tagging = await resolveFaceTagging(createAdminClient(), eventId);
+  if (!tagging.available) return null;
 
-  // Nothing to decline if it was never available. Christening/debut are locked
-  // off regardless, and an event an admin has not enabled has nothing to switch.
-  if (eventTypeForcesModeB(row.event_type)) return null;
-  if (row.papic_face_mode !== 'mode_a') return null;
-
-  const declined = row.face_tagging_declined_by_couple === true;
+  // The couple's own answer, read through THEIR client (RLS) — the same value
+  // the gate read, so the button can never say the opposite of what runs.
+  const declined = (data as { face_tagging_declined_by_couple?: boolean | null }).face_tagging_declined_by_couple === true;
 
   const explanation = declined ? (
     <>
@@ -98,8 +99,9 @@ export async function FaceTaggingChoice({
     </>
   ) : (
     <>
-      Guests who choose to add a selfie get their photos found for them
-      automatically. It is always their choice — nothing is stored unless
+      On automatically because your event has Papic. Guests who say
+      &ldquo;Yes, tag me&rdquo; take one selfie on the day and get their photos
+      found for them. It is always their choice — nothing is stored unless
       they agree — and you can switch it off for your whole event. Switching
       it off erases every guest&rsquo;s selfie; photos already tagged stay
       tagged.

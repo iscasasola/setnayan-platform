@@ -38,6 +38,7 @@ import {
   faceDataDeletableFromMs,
 } from '@/lib/face-data-retention-core';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import { PAPIC_CAPTURE_GRACE_HOURS } from '@/lib/papic-window';
 
 /** Mean Gregorian month, used ONLY to phrase the imported day count in months. */
 const DAYS_PER_MONTH = 30.436875;
@@ -140,8 +141,12 @@ export function faceReceiptLines(input: FaceReceiptInput): FaceReceiptLine[] {
     : `So ${theOrganizer} and their team can recognize you on the guest list. No photo is matched to you by your face.`;
 
   const removes = modeA ? 'the selfie, the vector and the record' : 'the selfie and the record';
+  // ⚖ Owner 2026-09-30: the selfie is erased when the guest signs out or when
+  // the event's Papic closes, whichever is first (lib/face-selfie-erase.ts). The
+  // retention period below is the outer backstop that still runs underneath.
   const howLong =
-    `${faceDataPeriodPhrase(eventWord)}.` +
+    `Until you sign out, or until Papic closes ${PAPIC_CAPTURE_GRACE_HOURS} hours after the ${eventWord} ends — whichever comes first. ` +
+    `At the very latest, ${faceDataPeriodPhrase(eventWord).replace(/^./, (c) => c.toLowerCase())}.` +
     (day ? ` That day is ${day}.` : '') +
     ` Once that day passes, the weekly clean-up removes ${removes}.`;
 

@@ -26,12 +26,27 @@ function clean(v: FormDataEntryValue | null): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
+/**
+ * Why an enrolment did not save — a CODE the face step turns into one short
+ * sentence (lib/face-enroll-refusal.ts). A failure must never look like success
+ * (owner 2026-09-30: a guest ticked, took the selfie, and nothing was saved).
+ */
+export type EnrollRefusal =
+  | 'session'
+  | 'consent'
+  | 'not_on'
+  | 'not_wanted'
+  | 'excluded'
+  | 'minor'
+  | 'bad_photo'
+  | 'save';
+
 export async function enrollGuestFace(
   formData: FormData,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; reason?: EnrollRefusal }> {
   try {
     const session = await readGuestSession();
-    if (!session) return { ok: false };
+    if (!session) return { ok: false, reason: 'session' };
 
     const selfieRef = clean(formData.get('selfie_ref'));
     const consent = clean(formData.get('biometric_consent')) === '1';
@@ -42,7 +57,7 @@ export async function enrollGuestFace(
     // this is ALSO the custom-QR enrol path (a guest who scanned their custom
     // QR carries the session this action reads).
     const ageAffirmed = clean(formData.get('age_affirmation')) === '1';
-    if (!selfieRef || !consent || !ageAffirmed) return { ok: false };
+    if (!selfieRef || !consent || !ageAffirmed) return { ok: false, reason: 'consent' };
 
     const admin = createAdminClient();
     const guestId = session.guest_id;
@@ -55,7 +70,7 @@ export async function enrollGuestFace(
     // derives its key from the SESSION, so the legitimate shape is exactly this
     // guest's own folder.
     if (!parseClientRef(selfieRef, guestSelfiePolicy(eventId, guestId))) {
-      return { ok: false };
+      return { ok: false, reason: 'bad_photo' };
     }
 
     // Minor safeguard (DPIA BV-8, 2026-07-05): never enrol a guest the host has
@@ -71,9 +86,8 @@ export async function enrollGuestFace(
     ]);
     if (fxErr) console.error('[supabase-error] app/papic/face-enroll-actions.ts · from:guests.select', fxErr);
     const guestRow = fx as { face_recognition_excluded: boolean; face_tagging_wanted: boolean | null } | null;
-    if (fxErr || !guestRow || guestRow.face_recognition_excluded === true) {
-      return { ok: false };
-    }
+    if (fxErr || !guestRow) return { ok: false, reason: 'save' };
+    if (guestRow.face_recognition_excluded === true) return { ok: false, reason: 'excluded' };
 
     // 🔒 THE THREE OWNER GATES, SERVER-SIDE (owner 2026-09-30, DECISION_LOG
     // "FACE DATA: THREE OWNER ANSWERS"): *"server-side enrol must check
@@ -87,9 +101,8 @@ export async function enrollGuestFace(
     //     is matched there, so there is nothing a selfie could be for.
     // The client hides the camera in every one of these cases; this is the
     // refusal a crafted or replayed post meets.
-    if (guestRow.face_tagging_wanted !== true || !faceTagging.askable) {
-      return { ok: false };
-    }
+    if (!faceTagging.askable) return { ok: false, reason: 'not_on' };
+    if (guestRow.face_tagging_wanted !== true) return { ok: false, reason: 'not_wanted' };
 
     // Owner 2026-08-05: "under 18 will not allow face tagging." The 18+ tickbox
     // above is the enabler; this is the refusal that does not depend on it —
@@ -97,7 +110,7 @@ export async function enrollGuestFace(
     // overrides it. Both enrolment writers apply it, because a guard on one path
     // is a guard on neither.
     if (await isKnownMinorGuest(admin, eventId, guestId)) {
-      return { ok: false };
+      return { ok: false, reason: 'minor' };
     }
 
     // Provenance only (free-text consent_source) — defaults to the day-of card.
@@ -269,9 +282,9 @@ export async function enrollGuestFace(
     */
     if (!error) await everyCopyIsNowStale(eventId);
 
-    return { ok: !error };
+    return error ? { ok: false, reason: 'save' } : { ok: true };
   } catch {
-    return { ok: false };
+    return { ok: false, reason: 'save' };
   }
 }
 

@@ -51,6 +51,7 @@ import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
+import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
 import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { dayOfFaceCatchShows, type FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { resolveGuestCamera } from '@/lib/papic-limited';
@@ -1367,6 +1368,29 @@ export const loadGuestContext = cache(
       ? null
       : ((wishRow as { face_tagging_wanted?: boolean | null } | null)?.face_tagging_wanted ?? null);
     let needsFaceEnroll = false;
+    // 📸 IS THE FACE SCREEN OPEN RIGHT NOW (owner 2026-09-30 — the selfie is
+    // taken ON THE DAY): askable, and the guest capture window open — the same
+    // resolver the guest camera and the upload route close on. Me's "Face
+    // tagging" row offers the selfie only then. A failed read keeps it shut.
+    let faceStepOpen = false;
+    if (faceTagging.askable) {
+      const { data: gateRow, error: gateErr } = await admin
+        .from('events')
+        .select(GUEST_CAPTURE_GATE_COLUMNS)
+        .eq('event_id', event.event_id)
+        .maybeSingle();
+      if (gateErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:events.select(capture gate)', gateErr);
+      const g = gateRow as { event_date?: string | null; papic_guest_capture_early?: boolean | null; papic_window_start?: string | null; papic_window_end?: string | null } | null;
+      faceStepOpen =
+        !gateErr &&
+        Boolean(g) &&
+        guestCaptureGate({
+          earlyAllowed: g?.papic_guest_capture_early,
+          eventDate: g?.event_date,
+          windowStart: g?.papic_window_start,
+          windowEnd: g?.papic_window_end,
+        }).state === 'open';
+    }
     if (await isDataPrivacyControlActive('face_enrollment')) {
       if (guest.rsvp_status !== 'declined') {
         const { data: liveEnrollment, error: enrollError } = await admin
@@ -1460,6 +1484,8 @@ export const loadGuestContext = cache(
             // "what did the admin set", not "what runs on this event".
             (styleRow as { face_tagging_declined_by_couple?: boolean | null } | null)
               ?.face_tagging_declined_by_couple,
+            // ⚖ Automatic (owner 2026-09-30): this block runs only with Papic on.
+            papicGuestActive,
           ),
         };
       }
@@ -1713,6 +1739,7 @@ export const loadGuestContext = cache(
       seatMap,
       rsvpFaceMode,
       faceTaggingAskable: faceTagging.askable,
+      faceStepOpen,
       eventVendorCredits,
     };
   },

@@ -4,6 +4,9 @@ import { EventCelebrants, type CelebrantActions } from './event-celebrants';
 import { NotYouSwitch } from './not-you-switch';
 import { SaveToAccount } from './save-to-account';
 import { YourGuests } from './your-guests';
+import { FaceTaggingRow } from './face-tagging-row';
+import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import type { FaceTaggingWish } from '@/lib/face-tagging-wish';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
 
 /**
@@ -28,6 +31,7 @@ export function GuestMe({
   name,
   slug,
   hasFaceSelfie = false,
+  faceTagging = null,
   eventId,
   guestId,
   askMeal,
@@ -52,6 +56,15 @@ export function GuestMe({
   /** Whose key this page holds — the bringer, for "Add name" in place. */
   /** The guest holds a face-tagging selfie — Switch erases it, and says so first (owner 2026-09-30). */
   hasFaceSelfie?: boolean;
+  /** Me → "Face tagging" (the approved face-registration design, frame D). Null
+   *  where face tagging is not on offer — no Papic, or switched off (frame F). */
+  faceTagging?: {
+    on: boolean;
+    open: boolean;
+    faceMode: PapicFaceMode;
+    wish: FaceTaggingWish;
+    turnOff: (formData: FormData) => Promise<void>;
+  } | null;
   guestId: string;
   /** The couple's "ask" switches — a plus-one is asked only what they ask. */
   askMeal: boolean;
@@ -93,6 +106,7 @@ export function GuestMe({
         inviteFacts={inviteFacts}
         passCards={passCards}
       />
+      {faceTagging ? <FaceTaggingRow {...faceTagging} /> : null}
       <EventCelebrants
         eventId={eventId}
         celebrants={celebrants}

@@ -124,9 +124,12 @@ for (const rel of [
       src.includes("isDataPrivacyControlActive('face_enrollment')"),
       `${rel}: matcher does not check the 'face_enrollment' data-privacy control.`,
     );
+    // Since 2026-09-30 the EFFECTIVE mode comes from the one gate (automatic
+    // with Papic, the couple's "off" wins) — `resolvePapicFaceMode` is the
+    // admin-only reading and would miss the automatic default.
     assert.ok(
-      src.includes('resolvePapicFaceMode'),
-      `${rel}: matcher does not resolve/enforce papic_face_mode.`,
+      /\(await resolveFaceTagging\(admin, [a-zA-Z.]+\)\)\.mode !== 'mode_a'/.test(src),
+      `${rel}: matcher does not resolve/enforce the effective face mode.`,
     );
   });
 }

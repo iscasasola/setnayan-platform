@@ -24,12 +24,25 @@ import { faceTaggingAskable, papicHasClosed } from '@/lib/face-selfie-lifetime';
  * asking is the worse one. A guest who misses the question on one render sees
  * it on the next.
  */
+export type FaceTagging = {
+  /** What runs on this event — the capture embedder and the matcher obey it. */
+  mode: PapicFaceMode;
+  /** May a guest be asked "Want to be tagged in the photos?" right now. */
+  askable: boolean;
+  /** Face tagging would run here were it not for the couple's own "off". */
+  available: boolean;
+  /** The couple turned it off for their event. */
+  declined: boolean;
+};
+
+const OFF: FaceTagging = { mode: 'mode_b', askable: false, available: false, declined: false };
+
 export async function resolveFaceTagging(
   client: SupabaseClient,
   eventId: string,
-): Promise<{ mode: PapicFaceMode; askable: boolean }> {
+): Promise<FaceTagging> {
   try {
-    if (!eventId) return { mode: 'mode_b', askable: false };
+    if (!eventId) return OFF;
     const [{ data, error }, papicActive] = await Promise.all([
       client
         .from('events')
@@ -41,7 +54,7 @@ export async function resolveFaceTagging(
       eventPapicGuestActive(client, eventId).catch(() => false),
     ]);
     if (error) console.error('[supabase-error] lib/face-tagging-gate.ts · from:events.select', error);
-    if (error || !data) return { mode: 'mode_b', askable: false };
+    if (error || !data) return OFF;
     const row = data as {
       papic_face_mode?: string | null;
       event_type?: string | null;
@@ -50,14 +63,24 @@ export async function resolveFaceTagging(
       event_end_date?: string | null;
       papic_window_end?: string | null;
     };
-    const mode = resolveFaceMode(row.papic_face_mode, row.event_type, row.face_tagging_declined_by_couple);
+    // ⚖ AUTOMATIC (owner 2026-09-30, "automatic"): Papic active turns face
+    // tagging on — no admin step; the couple's "off" still wins.
+    const mode = resolveFaceMode(row.papic_face_mode, row.event_type, row.face_tagging_declined_by_couple, papicActive);
+    // What would run WITHOUT the couple's decline — the couple's own switch is
+    // drawn only where there is something to switch off.
+    const available = resolveFaceMode(row.papic_face_mode, row.event_type, false, papicActive) === 'mode_a';
     const papicClosed = papicHasClosed({
       eventDate: row.event_date,
       eventEndDate: row.event_end_date,
       windowEnd: row.papic_window_end,
     });
-    return { mode, askable: faceTaggingAskable({ papicActive, mode, papicClosed }) };
+    return {
+      mode,
+      askable: faceTaggingAskable({ papicActive, mode, papicClosed }),
+      available,
+      declined: row.face_tagging_declined_by_couple === true,
+    };
   } catch {
-    return { mode: 'mode_b', askable: false };
+    return OFF;
   }
 }

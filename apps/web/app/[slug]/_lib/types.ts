@@ -396,6 +396,9 @@ export type GuestContext =
       /** May this guest be asked "Want to be tagged in the photos?" at all —
        *  false when the couple declined face tagging (`resolveFaceTagging`). */
       faceTaggingAskable: boolean;
+      /** The face screen may open now: askable AND the guest capture window is
+       *  open (the selfie is taken on the day — owner 2026-09-30). */
+      faceStepOpen: boolean;
       eventVendorCredits: VendorCard[];
     };
 

@@ -219,20 +219,19 @@ test('4 · both parents gate the camera’s face step on the wish', () => {
   assert.match(body, /faceTaggingWish=\{guest\.face_tagging_wanted \?\? null\}/, 'the hub’s inline camera does not hand the answer to the face step');
 });
 
-test('4 · the face step asks the one question first, and "No thanks" closes every prompt', () => {
+test('4 · the face screen (design 2026-09-30): nothing for a stored No or off mode_a; the tick + shot IS the Yes', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { DayOfFaceEnroll } = await import('./day-of-face-enroll');
+  const draw = (p: Record<string, unknown>) => renderToStaticMarkup(React.createElement(DayOfFaceEnroll as never, p as never));
+  assert.equal(draw({ faceMode: 'mode_a', wish: false }), '', 'a guest who said No is shown the face screen');
+  assert.equal(draw({ faceMode: 'mode_b', wish: true }), '', 'the face screen shows where no face is matched (no Papic / tagging off)');
+  const screen = draw({ faceMode: 'mode_a', wish: null });
+  assert.match(screen, /Find you in photos\?/, 'the never-answered guest is not asked');
   const step = read('app/[slug]/_components/day-of-face-enroll.tsx');
-  assert.match(step, /wish = null,/, 'a mount that forgets the answer would show the selfie unasked');
-  assert.match(step, /wish === true \? 'selfie' : wish === false \? 'declined' : 'ask'/, 'the face step no longer starts on the question');
-  assert.match(step, /if \(step === 'declined'\) return null;/, 'a "No thanks" is shown something anyway');
-  const from = step.indexOf('const question = (');
-  const ask = from === -1 ? '' : step.slice(from, step.indexOf(');', from));
-  assert.ok(ask.length > 0, 'the question block is gone — read day-of-face-enroll.tsx');
-  assert.match(step, /\{step === 'ask' \? question : \(/, 'the card no longer shows the question first — the selfie shows unasked');
-  assert.doesNotMatch(ask, /<SelfieCapture/, 'the question screen draws the selfie');
-  assert.match(ask, /\{FACE_TAGGING_QUESTION\}/);
-  assert.match(step, /void recordFaceTaggingWish\(yes\)/, 'the day-of answer is not stored — a No would be asked again');
+  // The server enrols only a stored Yes: the tick + shot stores it first.
+  const save = step.slice(step.indexOf('const save = useCallback('));
+  assert.ok(save.indexOf('recordFaceTaggingWish(true)') > -1 && save.indexOf('recordFaceTaggingWish(true)') < save.indexOf('enrollGuestFace(fd)'), 'the Yes is not stored before the save — the server would refuse it');
   const camera = read('app/papic/guest/_components/papic-guest-capture.tsx');
   const mount = camera.slice(camera.indexOf('<DayOfFaceEnroll'), camera.indexOf('/>', camera.indexOf('<DayOfFaceEnroll')));
   assert.match(mount, /wish=\{faceTaggingWish\}/, 'the camera does not pass the answer to its face step');
-  assert.match(mount, /onDecline=\{\(\) => \{\s*setPromptDismissed\(true\);/, 'after "No thanks" the in-camera prompt comes back');
 });

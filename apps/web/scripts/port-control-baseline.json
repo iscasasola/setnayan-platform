@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "7793e3b77",
+  "generatedFromRef": "cebf3d072",
   "routeCount": 439,
   "destinations": 947,
   "actions": 673,
@@ -789,6 +789,7 @@
         "[slug]/_components/everything-else-sheet.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/face-receipt-card.tsx",
+        "[slug]/_components/face-tagging-row.tsx",
         "[slug]/_components/get-inside.tsx",
         "[slug]/_components/guest-account-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
@@ -995,9 +996,9 @@
       "actions": [
         "action",
         "arrivalAction",
-        "submit",
         "toggle",
         "toggleBlur",
+        "turnOff",
         "withdraw"
       ],
       "blocks": [
@@ -1046,6 +1047,7 @@
         "DayEntry",
         "DayOfAnnouncement",
         "DayOfBanner",
+        "DayOfFaceEnroll",
         "Detail",
         "DetailsBigDate",
         "DetailsCard",
@@ -1074,8 +1076,8 @@
         "EventWordsProvider",
         "EverythingElseSheet",
         "FaceDataNotice",
-        "FaceGateResult",
         "FaceReceiptCard",
+        "FaceTaggingRow",
         "FacebookWatchCard",
         "Field",
         "FilmMonogram",
@@ -1201,7 +1203,6 @@
         "PapicGuestCapture",
         "PartHead",
         "PeWaiting",
-        "Phase",
         "PhaseRibbon",
         "Photo",
         "PhotoGallery",

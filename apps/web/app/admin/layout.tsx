@@ -14,6 +14,7 @@ import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
 import { maybeRunVendorDossierRetention } from '@/lib/vendor-dossier-retention';
 import { maybeRunFaceDataRetention } from '@/lib/face-data-retention';
 import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
+import { maybeRunFaceRescan } from '@/lib/face-rescan';
 import { maybeRunVendorIdentityRetention } from '@/lib/vendor-identity-retention';
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
 import { maybeRunPapicNsfwRescreen } from '@/lib/papic-nsfw-rescreen-sweep';
@@ -222,6 +223,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // claim, carried by admin AND public traffic so a quiet console cannot hold a
   // guest's selfie past its close. Never throws.
   after(() => maybeRunPapicCloseSelfieErase().catch(() => {}));
+  // 🔁 The ONE face rescan after an event ends (owner 2026-09-30, "2. a"): every
+  // photo against every registered selfie, before Papic closes. Sliced — a
+  // photo cap + a time budget per ~5-min claim; resumable. Never throws.
+  after(() => maybeRunFaceRescan().catch(() => {}));
   // A supplier's raw identity uploads (RA 10173) — CRON-FREE: admin traffic + a
   // WEEKLY DB claim. Deletes government ID / selfie / bank proof / portfolio 90
   // days after the approve-reject decision. DTI, BIR 2303 and the Mayor's Permit

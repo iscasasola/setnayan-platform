@@ -93,23 +93,31 @@ export function resolveFaceMode(
    * The couple declined face tagging on their own event.
    *
    * ⚠ NARROWS ONLY, and the parameter order says so: this is the LAST word and
-   * it can only ever say no. A couple cannot switch face tagging ON where an
-   * admin has not.
-   *
-   * Optional so every existing caller keeps its meaning — but a caller that
-   * omits it is asking "what did the ADMIN set", not "what runs on this event".
-   * Only `resolvePapicFaceMode` (which reads the column) should be trusted for
-   * the second question.
+   * it can only ever say no.
    */
   coupleDeclined?: boolean | null,
+  /**
+   * ⚖ THE EVENT'S PAPIC IS ACTIVE (owner 2026-09-30, answering PR #6195:
+   * *"automatic"*). Face tagging is ON by itself for any event whose Papic
+   * service is active — no admin step. Server callers pass
+   * `eventPapicGuestActive` (lib/face-tagging-gate.ts does it once for every
+   * server surface); omitted = `false`, i.e. "what did the ADMIN set".
+   *
+   * 🔒 EXCEPT A MINOR-HEAVY EVENT TYPE (christening, debut —
+   * {@link MINOR_HEAVY_EVENT_TYPES}). Those stay OFF until an admin turns them
+   * on deliberately (2026-08-05); "automatic" is not read as overriding the
+   * one safeguard that exists for rooms full of children.
+   */
+  papicActive?: boolean | null,
 ): PapicFaceMode {
   // The couple's decline is still the last word — it can only ever say no.
   if (coupleDeclined === true) return 'mode_b';
-  // Every event type now honours the stored column. A minor-heavy type differs
-  // only in that an admin had to choose it deliberately (the confirmation on
-  // the admin control names the reason), never in whether the choice is
-  // possible at all. Owner ruling 2026-08-05.
-  return storedMode === 'mode_a' ? 'mode_a' : 'mode_b';
+  // The admin's explicit mode_a — the override, and the only way a minor-heavy
+  // type is ever turned on (2026-08-05).
+  if (storedMode === 'mode_a') return 'mode_a';
+  // Automatic: Papic active turns it on (owner 2026-09-30, "automatic").
+  if (papicActive === true && !eventTypeNeedsDeliberateFaceOptIn(eventType)) return 'mode_a';
+  return 'mode_b';
 }
 
 /** Convenience predicate for capture call sites: may this mode run the embedder? */
@@ -150,6 +158,13 @@ export function faceVectorForMode(
  * mode_b). Fail-closed to mode_b on any error or missing row — no event ever
  * embeds faces by accident. `client` is injected so this stays isomorphic-safe
  * and unit-testable (no `server-only` module-scope import).
+ */
+/**
+ * @deprecated SINCE 2026-09-30 THIS IS THE ADMIN-STORED MODE ONLY — it cannot
+ * see whether the event's Papic is active, and Papic-active now turns face
+ * tagging on by itself. Every server surface asks `resolveFaceTagging`
+ * (lib/face-tagging-gate.ts) for the EFFECTIVE mode; `face-tagging-rules.test.ts`
+ * fails if app code calls this again.
  */
 export async function resolvePapicFaceMode(
   client: Pick<SupabaseClient, 'from'>,

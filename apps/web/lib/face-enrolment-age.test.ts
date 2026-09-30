@@ -107,7 +107,7 @@ test('the refusal is ANDed with the attestation, never instead of it', () => {
   const code = strip(read('..', 'app', 'papic', 'face-enroll-actions.ts'));
   assert.match(
     code,
-    /if \(!selfieRef \|\| !consent \|\| !ageAffirmed\) return \{ ok: false \};/,
+    /if \(!selfieRef \|\| !consent \|\| !ageAffirmed\) return \{ ok: false, reason: 'consent' \};/,
     'consent and the 18+ tick must both still apply',
   );
   assert.match(code, /guestRow\.face_recognition_excluded === true/, 'the host exclusion must still apply');

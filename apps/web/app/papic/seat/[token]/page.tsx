@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
-import { resolveFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { PapicSeatCapture } from './_components/papic-seat-capture';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
@@ -114,10 +114,10 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   );
   // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b: a
   // pre-migration DB (column absent → row read null) yields no embedding.
-  const faceMode = resolveFaceMode(
-    (styleRow as { papic_face_mode?: string | null } | null)?.papic_face_mode,
-    (styleRow as { event_type?: string | null } | null)?.event_type,
-  );
+  // The EFFECTIVE mode (lib/face-tagging-gate.ts): automatic when the event's
+  // Papic is active (owner 2026-09-30), the couple's "off" still wins — this
+  // page used to ask only what the admin set, and ignored the couple.
+  const faceMode = (await resolveFaceTagging(admin, seat.event_id as string)).mode;
 
   // Geo-stamp gate (papic_geo_metadata, RA 10173). Resolved server-side so the
   // client only requests a location fix when the owner has activated the control;

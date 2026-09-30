@@ -56,6 +56,7 @@ import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { addCelebrantFromEvent, setFollowByPublicId } from '@/app/dashboard/(account)/people/actions';
+import { withdrawFaceConsent } from './actions';
 import { loadPreviewPerson } from './_lib/preview-person.server';
 import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { AdoptSeatSession } from './_components/adopt-seat-session';
@@ -1549,6 +1550,7 @@ async function InvitationBody({
     seatMap,
     rsvpFaceMode,
     faceTaggingAskable,
+    faceStepOpen,
     eventVendorCredits,
   } = guestContext;
 
@@ -1778,6 +1780,19 @@ async function InvitationBody({
       celebrants={celebrants}
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
+      /* Me → "Face tagging" (face-registration design, frame D): only where
+         face tagging is on offer — no Papic, no row (frame F). */
+      faceTagging={
+        faceTaggingAskable || guest.photo_source === 'selfie'
+          ? {
+              on: guest.photo_source === 'selfie',
+              open: faceStepOpen,
+              faceMode: rsvpFaceMode,
+              wish: guest.face_tagging_wanted ?? null,
+              turnOff: withdrawFaceConsent.bind(null, event.event_id, guest.guest_id),
+            }
+          : null
+      }
     />
     </>
   );

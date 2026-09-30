@@ -20,7 +20,7 @@
  * later of the two means the selfie never outlives a camera and never dies while
  * a camera can still shoot a photo it could have found.
  */
-import { manilaCaptureCloseIso } from '@/lib/papic-window';
+import { manilaCaptureCloseIso, manilaEndOfDayIso } from '@/lib/papic-window';
 import { eventLastDay } from '@/lib/face-data-retention-core';
 
 /**
@@ -55,13 +55,34 @@ export function papicHasClosed(
 }
 
 /**
+ * THE ONE END-OF-EVENT RESCAN'S WINDOW (owner 2026-09-30, "FACE DATA: THREE
+ * OWNER ANSWERS" (3) + "2. a"): it may run once the event has ENDED — the end
+ * of its last Manila day, the same instant the capture close counts twelve
+ * hours from — and must be done before Papic CLOSES, when every selfie it
+ * would match against is erased. Outside that window: never. No readable
+ * clock: never.
+ */
+export function faceRescanWindowOpen(
+  input: Parameters<typeof papicCloseMs>[0],
+  nowMs: number = Date.now(),
+): boolean {
+  const lastDay = eventLastDay(input.eventDate, input.eventEndDate);
+  if (!lastDay || !Number.isFinite(nowMs)) return false;
+  const endedMs = Date.parse(manilaEndOfDayIso(lastDay));
+  if (!Number.isFinite(endedMs) || nowMs <= endedMs) return false;
+  const close = papicCloseMs(input);
+  return close !== null && nowMs <= close;
+}
+
+/**
  * MAY A GUEST BE ASKED "Want to be tagged in the photos?" — and so, behind a
  * Yes, for a selfie? ALL FOUR must hold, and any unreadable input is a no:
  *
  *   1 · the event's Papic service is ACTIVE (owner 2026-09-30) — no Papic, no
  *       question and no face data at all;
- *   2 · face tagging RUNS on the event (`mode === 'mode_a'`) — which already
- *       folds in the couple's "turn it off for my event" (`resolveFaceMode`).
+ *   2 · face tagging RUNS on the event (`mode === 'mode_a'`) — AUTOMATIC
+ *       wherever Papic is active (owner 2026-09-30, "automatic"), and folding
+ *       in the couple's "turn it off for my event" (`resolveFaceMode`).
  *       On a mode_b event no face is matched and NO SELFIE IMAGE IS STORED
  *       (`enrollGuestFace` refuses), so asking there would ask for nothing;
  *   3 · Papic has not CLOSED — after the close the selfie would be erased the

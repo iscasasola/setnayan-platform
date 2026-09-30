@@ -379,6 +379,11 @@ const nextConfig: NextConfig = {
     '/**': [
       './models/nsfw/**/*',
       './models/face-detection/**/*',
+      // The end-of-event face rescan (lib/face-embed-server.ts) runs face-api on
+      // tfjs's WASM backend, which reads its .wasm from `__dirname + name` —
+      // a path nft cannot see statically. Without these the backend falls back
+      // to CPU (slower, same answers); with them it runs ~5x faster.
+      './node_modules/@tensorflow/tfjs-backend-wasm/dist/*.wasm',
       './assets/cipher-fonts/*.ttf',
       './lib/social/fonts/*.ttf',
       // NPC submission PDFs streamed admin-only by
@@ -400,6 +405,11 @@ const nextConfig: NextConfig = {
     '@tensorflow/tfjs',
     'nsfwjs',
     '@tensorflow-models/face-detection',
+    // The server face embedder for the end-of-event rescan (owner 2026-09-30,
+    // "2. a") — pure JS + a .wasm, no native build; external so webpack never
+    // inlines a multi-MB library (the #1258 OOM shape) and it stays server-side.
+    '@vladmandic/face-api',
+    '@tensorflow/tfjs-backend-wasm',
   ],
   // paper.js (Vector Monogram Studio engine) ships a Node entry
   // (paper-full → dist/node/{self,canvas}.js) that `require`s `jsdom` + `canvas`

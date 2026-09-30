@@ -863,8 +863,8 @@ test('the event rail is the one tree — five rows (Stage D)', () => {
     🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
     🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Personalization —
     renamed Details, drawn as the event's name row — stays in the EVENT's own
-    list. Hosts is now a part of the Guest list (`guestListParts`), and its
-    old address lands there; the Guest list row lights on it.
+    list. Hosts folded into the Guest list (its parts row was cut in F2), and
+    its old address lands there; the Guest list row lights on it.
   */
   const rows = groups.flatMap((g) => g.items);
   const personalization = rows.find((i) => i.key === 'personalization');

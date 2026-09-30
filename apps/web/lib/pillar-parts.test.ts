@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { guestListParts, partHref, yourTeamBudgetHref, yourTeamParts } from './pillar-parts';
+import { partHref, yourTeamBudgetHref, yourTeamParts } from './pillar-parts';
+import * as pillarParts from './pillar-parts';
 
 /**
  * ⚖ The pillars' parts, pinned (owner 2026-09-29: "this is what an event
@@ -20,23 +21,21 @@ const read = (...p: string[]) =>
   stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', ...p), 'utf8'));
 const keys = (parts: { key: string }[]) => parts.map((p) => p.key);
 
-// ⚖ The Hosts fold (owner 2026-09-30): Hosts is no longer OFFERED — its pieces
-// moved and `?gview=hosts` redirects to the list. A door that only bounces you
-// back to where you stood is a dead door.
-test('the Guest list holds Guests always, Check-in from the day onward, and no longer offers Hosts', () => {
-  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'plan', current: 'roster' })), ['roster']);
-  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'dayof', current: 'roster' })), ['roster', 'checkin']);
-  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'after', current: 'roster' })), ['roster', 'checkin']);
-});
-
-test('a part on screen is always offered — the picker never shows a value it lacks', () => {
-  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'plan', current: 'checkin' })), ['roster', 'checkin']);
-  assert.deepEqual(keys(guestListParts({ eventId: 'E', phase: 'plan', current: 'hosts' })), ['roster', 'hosts']);
-});
-
-test('every Guest list part stays on the guest list page', () => {
-  const hrefs = guestListParts({ eventId: 'E', phase: 'after', current: 'roster' }).map((p) => p.href);
-  assert.deepEqual(hrefs, ['/dashboard/E/guests', '/dashboard/E/guests?gview=checkin']);
+// ⚖ F2 (owner 2026-09-30, "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS; HOSTS
+// FOLDS INTO THE GUEST LIST" (6)): the Guest list's parts row was cut LAST, once
+// Access and Check-in were columns and Hosts' pieces had moved. No part list is
+// left to offer, and every old part address still lands somewhere true.
+test('the Guest list has no parts row — and its old part addresses land', () => {
+  assert.ok(!('guestListParts' in pillarParts), 'the Guest list parts list is back');
+  assert.ok(!('GUEST_LIST_PART_VIEW' in pillarParts), 'the Guest list part views are back');
+  const page = read('guests', 'page.tsx');
+  assert.doesNotMatch(page, /<PillarPartPicker\b|EventHostsPage|CheckinDeskPage/, 'the Guest list draws a part again');
+  assert.match(page, /if \(search\.gview === 'hosts'\) redirect\(`\/dashboard\/\$\{eventId\}\/hosts`\);/, 'an old Hosts part link dead-ends');
+  assert.match(page, /if \(search\.gview === 'checkin'\) redirect\(`\/dashboard\/\$\{eventId\}\/guests\/checkin`\);/, 'an old Check-in part link does not reach the desk');
+  // The desk is the door crew's own page again, with its own <h1>.
+  const desk = read('guests', 'checkin', 'page.tsx');
+  assert.doesNotMatch(desk, /embedded/, 'the desk still expects to be drawn inside the Guest list');
+  assert.match(desk, /<h1\b/);
 });
 
 test('Your Team holds the team and the Budget, both on the Your Team page', () => {
@@ -63,15 +62,6 @@ test('an old route lands in its part with every param it carried', () => {
     '/dashboard/E/guests?invite_sent=1&token=abc&gview=hosts',
   );
   assert.equal(partHref('/dashboard/E/guests', {}, { gview: 'hosts' }), '/dashboard/E/guests?gview=hosts');
-});
-
-test('the guest list MOUNTS its parts: the picker, the shipped Hosts page and the shipped desk', () => {
-  const page = read('guests', 'page.tsx');
-  assert.equal((page.match(/<PillarPartPicker[\s/>]/g) ?? []).length, 2, 'the picker is missing from a guest list part');
-  assert.match(page, /import EventHostsPage from '\.\.\/hosts\/page'/, 'Hosts is no longer the shipped page');
-  assert.match(page, /import CheckinDeskPage from '\.\/checkin\/page'/, 'Check-in is no longer the shipped desk');
-  assert.match(page, /<EventHostsPage[\s\S]*?gview: GUEST_LIST_PART_VIEW\.hosts/, 'the Hosts part does not tell the page it is embedded — it would redirect into itself');
-  assert.match(page, /<CheckinDeskPage[\s\S]*?gview: GUEST_LIST_PART_VIEW\.checkin/, 'the desk does not know it is inside the guest list');
 });
 
 test('/hosts lands on the Guest list for anybody who can see it, and keeps a helper without it', () => {

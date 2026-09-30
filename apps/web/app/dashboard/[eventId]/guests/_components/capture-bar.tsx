@@ -148,34 +148,51 @@ export function CaptureBar({
             does nothing is the hardest kind of broken to notice. */}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
           <span aria-hidden className="mx-1 h-5 w-px bg-ink/10" />
-          <OpenAddFromPeopleButton
-            ariaLabel="Add from your people"
-            label={<Users className="h-4 w-4" strokeWidth={1.8} aria-hidden />}
-            className={ICON_BTN}
-          />
-          <OpenQuickAddButton
-            ariaLabel="Full add form"
-            label={<ClipboardList className="h-4 w-4" strokeWidth={1.8} aria-hidden />}
-            className={ICON_BTN}
-          />
-          <Link
-            href={`/dashboard/${eventId}/guests/import`}
-            aria-label="Import CSV"
-            title="Import CSV"
-            className={ICON_BTN}
-          >
-            <Upload className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-          </Link>
-          <Link
-            href={`/dashboard/${eventId}/guests/quick`}
-            aria-label="Quick add list"
-            title="Quick add list"
-            className={ICON_BTN}
-          >
-            <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-          </Link>
+          <AddDoors eventId={eventId} />
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The four ways in beside the name box — People · Full form · Import · Quick
+ * add list. ONE list, drawn twice: as icons beside the box (a computer) and as
+ * labelled rows in the phone's ⋯ (the approved simple phone app, frame 2 —
+ * DECISION_LOG 2026-10-01 "THE SIMPLE PHONE APP — APPROVED": setup lives behind
+ * ⋯, the add box becomes the round +). Same openers, same links.
+ */
+export function AddDoors({ eventId, rows = false }: { eventId: string; rows?: boolean }) {
+  const cls = rows
+    ? 'flex min-h-[44px] w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-ink hover:bg-ink/5'
+    : ICON_BTN;
+  const door = (icon: React.ReactNode, words: string) =>
+    rows ? (
+      <>
+        {icon}
+        <span>{words}</span>
+      </>
+    ) : (
+      icon
+    );
+  return (
+    <>
+      <OpenAddFromPeopleButton
+        ariaLabel="Add from your people"
+        label={door(<Users className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Add from your people')}
+        className={cls}
+      />
+      <OpenQuickAddButton
+        ariaLabel="Full add form"
+        label={door(<ClipboardList className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Full add form')}
+        className={cls}
+      />
+      <Link href={`/dashboard/${eventId}/guests/import`} aria-label="Import CSV" title="Import CSV" className={cls}>
+        {door(<Upload className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Import guests from a file')}
+      </Link>
+      <Link href={`/dashboard/${eventId}/guests/quick`} aria-label="Quick add list" title="Quick add list" className={cls}>
+        {door(<ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Quick add list')}
+      </Link>
+    </>
   );
 }

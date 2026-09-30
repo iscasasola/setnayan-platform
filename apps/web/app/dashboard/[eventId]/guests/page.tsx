@@ -1,10 +1,9 @@
 import { eventNoun } from '@/lib/event-noun';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, ArrowRight, Send, LayoutGrid, ListOrdered } from 'lucide-react';
+import { Link2, ArrowRight, Send, LayoutGrid, ListOrdered, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
-import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
@@ -66,7 +65,7 @@ import {
   GuestListMultiselect,
   ROLE_SECTION_ORDER,
 } from './_components/guest-list-multiselect';
-import { CaptureBar } from './_components/capture-bar';
+import { AddDoors, CaptureBar } from './_components/capture-bar';
 import { bringerSeatsFrom } from '@/lib/extra-seats';
 import { FindAddRow } from './_components/find-add-row';
 import { RosterMeters } from './_components/roster-meters';
@@ -92,12 +91,8 @@ import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-part
 import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { PillarPartPicker } from '../_components/pillar-part-picker';
-import { guestListParts, GUEST_LIST_PART_VIEW } from '@/lib/pillar-parts';
 // The Guest list's two other parts are the SHIPPED pages, rendered whole in
 // this page's body (owner 2026-09-29) — never a second copy of either.
-import EventHostsPage from '../hosts/page';
-import CheckinDeskPage from './checkin/page';
 import {
   InspectorColumn,
   InspectorLayout,
@@ -108,8 +103,11 @@ import type { GuestAccessState } from '@/lib/guest-access';
 
 import { MiniTour } from '@/app/_components/mini-tour';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
+import { GuestHelperAccess } from './_components/guest-helper-access';
 import { whoCanReplyBase, type WhoCanReplyDraft } from '@/lib/who-can-reply';
 import { WhoCanReplyAsk } from './_components/who-can-reply-ask';
+import { GuestsPhoneMenu } from './_components/guests-phone-menu';
 
 export const metadata = { title: 'Guests' };
 
@@ -357,88 +355,26 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     f.key === 'all' ? f : { ...f, label: roleGroupLabel(f.key as RoleGroup, roleNames) },
   );
 
+  /*
+    ⚖ THE GUESTS · HOSTS · CHECK-IN PARTS ROW IS GONE (owner 2026-09-30,
+    DECISION_LOG "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS; HOSTS FOLDS INTO
+    THE GUEST LIST" (6) — cut LAST, after Hosts' pieces moved). Access and
+    Check-in are columns of this list now. Old links still land somewhere true:
+      · `?gview=hosts` → `/hosts`, the one router for it: the Guest list for
+        anybody who holds it, a helper's own access view for one who does not;
+      · `?gview=checkin` → the door crew's standalone desk, `/guests/checkin`.
+  */
+  if (search.gview === 'hosts') redirect(`/dashboard/${eventId}/hosts`);
+  if (search.gview === 'checkin') redirect(`/dashboard/${eventId}/guests/checkin`);
+
   // A delegate the host never shared the guest list with reads ZERO guest rows
   // — an RLS refusal and an empty event are the same value — so without this
-  // the page would tell a coordinator the couple has invited nobody. Say what
-  // is true instead. The couple never reach this branch.
+  // the page would tell a coordinator the couple has invited nobody. They land
+  // on their OWN access view instead (`/hosts`, read-only: what they may open,
+  // never a 404 and never a list that looks empty). The couple never reach this.
   const viewer = await fetchEventViewer(supabase, eventId, user.id);
   if (isDelegateWithoutArea(viewer, 'guest_list')) {
-    return <NotSharedWithYou title="Guests" thing="guest list" />;
-  }
-
-  /*
-    ⚖ THE GUEST LIST'S OTHER PARTS — owner 2026-09-29: "this is what an event
-    needs. Guestlist · Your Team · Event Hub Maker · Our Services", with Hosts
-    and Check-in placed inside the Guest list. Each is its SHIPPED page,
-    rendered whole in this body under the part picker (`lib/pillar-parts.ts`);
-    `/hosts` now lands here, `/guests/checkin` still stands on its own for the
-    door crew and the day-of menu row.
-
-    🔑 IT RETURNS BEFORE THE ROSTER'S READS. Hosts and the check-in desk read
-    what they need themselves; the roster's whole fan-out (guests, groups,
-    seats, the floor plan…) would be fetched and thrown away — and the desk
-    re-renders this page on a timer on the day itself (`LiveRefresher`).
-  */
-  const part =
-    search.gview === GUEST_LIST_PART_VIEW.hosts
-      ? 'hosts'
-      : search.gview === GUEST_LIST_PART_VIEW.checkin
-        ? 'checkin'
-        : null;
-  if (part) {
-    const { data: when, error: whenError } = await supabase
-      .from('events')
-      .select('event_date, event_end_date, cleared_at, timezone')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    if (whenError) {
-      // Refused, the event reads as still being planned — the picker then
-      // offers one door fewer (Check-in), never a wrong one.
-      logQueryError('GuestsPage.partPhase', whenError, { eventId }, 'graceful_degrade');
-    }
-    const w = when as {
-      event_date?: string | null;
-      event_end_date?: string | null;
-      cleared_at?: string | null;
-      timezone?: string | null;
-    } | null;
-    const partPhase = getMenuLifecyclePhase(
-      w?.event_date ?? null,
-      w?.cleared_at ?? null,
-      w?.timezone ?? undefined,
-      undefined,
-      w?.event_end_date ?? null,
-    );
-    const partParams = Promise.resolve({ eventId });
-    return (
-      <section className="sn-col space-y-6">
-        <PageMasthead title="Guests" />
-        <PillarPartPicker
-          label="Guest list part"
-          parts={guestListParts({ eventId, phase: partPhase, current: part })}
-          current={part}
-        />
-        {part === 'hosts' ? (
-          <EventHostsPage
-            params={partParams}
-            searchParams={Promise.resolve({
-              invite_sent: search.invite_sent,
-              invite_error: search.invite_error,
-              invite_revoked: search.invite_revoked,
-              grant_updated: search.grant_updated,
-              host_removed: search.host_removed,
-              token: search.token,
-              gview: GUEST_LIST_PART_VIEW.hosts,
-            })}
-          />
-        ) : (
-          <CheckinDeskPage
-            params={partParams}
-            searchParams={Promise.resolve({ gview: GUEST_LIST_PART_VIEW.checkin })}
-          />
-        )}
-      </section>
-    );
+    redirect(`/dashboard/${eventId}/hosts`);
   }
 
   // All reads fire in ONE parallel batch — including the share-invite token,
@@ -891,6 +827,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const inspectedCard = inspectedGuest
     ? await loadGuestCard(supabase, eventId, inspectedGuest.guest_id)
     : null;
+  // A limited helper's grants, colours and record — the Hosts pieces that moved
+  // onto their card (F2). Couple only; one more read, only when a card is open.
+  const inspectedHelper =
+    inspectedGuest && inspectedCard?.canManageAccess
+      ? await loadGuestHelperCard({
+          eventId,
+          guestId: inspectedGuest.guest_id,
+          viewerUserId: user.id,
+          displayName: guestDisplayName(inspectedGuest),
+        })
+      : null;
   // Send invite · Copy message: the event's words + the couple's wording —
   // read once above for the Invite column.
   const inspectedInviteSetup = inspectedGuest ? inviteSetup : null;
@@ -915,6 +862,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         SendInvite={GuestInviteCell}
         TicketThumb={GuestTicketThumb}
         MoreMenu={GuestMoreMenu}
+        helperAccess={
+          inspectedHelper ? (
+            <GuestHelperAccess
+              eventId={eventId}
+              guestId={inspectedGuest.guest_id}
+              firstName={inspectedGuest.first_name}
+              helper={inspectedHelper}
+            />
+          ) : null
+        }
         returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
         errorMessage={
           typeof search.error === 'string'
@@ -1023,6 +980,19 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     label: g.label,
   }));
 
+  // The roster's one row of doors — drawn in the page on a computer and inside
+  // the title's ⋯ on a phone (the same element, placed twice by breakpoint).
+  const rosterTabs = (
+    <RosterTabs
+      eventId={eventId}
+      view={gview}
+      finished={finished}
+      hasJoinLink={Boolean(joinUrl)}
+      shareMenu={joinUrl ? <ShareDropdown joinUrl={joinUrl} eventId={eventId} /> : null}
+      viewSwitch={<GuestsViewSwitcher eventId={eventId} active={gview} search={search} />}
+    />
+  );
+
   const master = (
     /* 🔴 THE SHELL'S TOP NAV COMES BACK ON GUESTS (owner 2026-08-21, two
        screenshots: *"the top nav disappeared also … we still want to have the
@@ -1075,6 +1045,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             <span className="sn-h1-tail">Guests</span>
           )
         }
+        /* ⚖ PHONE: title + ⋯ (owner 2026-10-01, "THE SIMPLE PHONE APP —
+           APPROVED", frame 2). Setup lives behind ⋯, drawn with the SAME
+           controls the computer shows in its rows — see guests-phone-menu.tsx. */
+        actions={
+          <GuestsPhoneMenu
+            sort={<RosterSort sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} current={sort} />}
+            doors={rosterTabs}
+            addDoors={<AddDoors eventId={eventId} rows />}
+          />
+        }
       />
       {/* ⚖ THE MASTHEAD'S DOORS BECAME ONE ROW — owner 2026-09-20: "these row
           can be 1 row". Every door keeps the exact condition it had here
@@ -1098,24 +1078,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           the owner asked for exactly that on 2026-09-20 ("just make this an
           icon on mobile same row as roster wedding march and share the link").
           All of that shipped behind `hidden`. */}
-      {/* The Guest list's parts — Guests · Hosts · Check-in (owner
-          2026-09-29). One dropdown above the roster's own row of doors, so
-          that row keeps the width the owner measured it at. */}
-      <PillarPartPicker
-        label="Guest list part"
-        parts={guestListParts({ eventId, phase, current: 'roster' })}
-        current="roster"
-      />
-      <div>
-        <RosterTabs
-          eventId={eventId}
-          view={gview}
-          finished={finished}
-          hasJoinLink={Boolean(joinUrl)}
-          shareMenu={joinUrl ? <ShareDropdown joinUrl={joinUrl} eventId={eventId} /> : null}
-          viewSwitch={<GuestsViewSwitcher eventId={eventId} active={gview} search={search} />}
-        />
-      </div>
+      {/* On a phone this row is drawn inside the title's ⋯ instead — the SAME
+          `rosterTabs` element, so no door can exist on one and not the other. */}
+      <div className="hidden lg:block" data-roster-doors-row="">{rosterTabs}</div>
 
       {/* ─── THE CELEBRATION HAPPENED: LEAD WITH THE RECORD, NOT THE PLAN ───
            One line, because the page header is one line (owner-locked) and this
@@ -1412,6 +1377,19 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       </div>
       )}
 
+      {/* ⚖ PHONE: the add box becomes the round + (frame 2 of the approved
+          simple phone app). The same quick-add sheet the computer's form door
+          opens; it stands above the bottom bar, below the bulk bar. */}
+      <div
+        className="fixed right-4 z-30 bottom-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+0.75rem)] lg:hidden"
+        data-guests-add-fab=""
+      >
+        <OpenQuickAddButton
+          ariaLabel={finished ? 'Still adding someone? — the list is open' : 'Add a guest'}
+          label={<Plus className="h-6 w-6" strokeWidth={2} aria-hidden />}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-ink text-cream shadow-[0_14px_30px_-12px_rgba(26,26,26,0.6)]"
+        />
+      </div>
       <QuickAddSheet
         eventId={eventId}
         existingGuests={quickAddPool}

@@ -176,6 +176,7 @@ export function GuestCardBody({
   SendInvite,
   TicketThumb,
   MoreMenu,
+  helperAccess,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -208,6 +209,12 @@ export function GuestCardBody({
   TicketThumb?: ComponentType<Parameters<typeof GuestTicketThumb>[0]>;
   /** The ⋯ (Write to NFC · New QR · Unlink). Absent (the Maker) → none; the Guest list has it. */
   MoreMenu?: ComponentType<Parameters<typeof GuestMoreMenu>[0]>;
+  /**
+   * A limited helper's grants, colour domains and activity — the Hosts pieces
+   * that moved under the Access line (build F2, `guest-helper-access.tsx`).
+   * Rendered by the Guest list's card screens; absent (the Maker) → none.
+   */
+  helperAccess?: React.ReactNode;
 }) {
   const {
     guest,
@@ -774,6 +781,7 @@ export function GuestCardBody({
               canManage={canManageAccess}
             />
           ) : null}
+          {helperAccess ?? null}
           {linked === null ? null : (
             <div className="space-y-0.5 pt-1" data-unlink-account="">
               <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Account</span>

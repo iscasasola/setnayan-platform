@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
+import { guestDisplayName } from '@/lib/guests';
+import { GuestHelperAccess } from '../_components/guest-helper-access';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -63,6 +66,10 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   ]);
   if (!data) notFound();
   const { guest } = data;
+  // A limited helper's grants, colours and record (the Hosts fold, F2) — couple only.
+  const helper = data.canManageAccess
+    ? await loadGuestHelperCard({ eventId, guestId, viewerUserId: user.id, displayName: guestDisplayName(guest) })
+    : null;
 
   const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
@@ -133,6 +140,9 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         SendInvite={GuestInviteCell}
         TicketThumb={GuestTicketThumb}
         MoreMenu={GuestMoreMenu}
+        helperAccess={
+          helper ? <GuestHelperAccess eventId={eventId} guestId={guestId} firstName={guest.first_name} helper={helper} /> : null
+        }
         returnTo={`/dashboard/${eventId}/guests/${guestId}`}
         errorMessage={errorMessage}
         inviteFlash={inviteFlash}

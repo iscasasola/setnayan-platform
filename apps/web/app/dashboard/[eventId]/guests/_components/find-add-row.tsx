@@ -46,7 +46,7 @@
  */
 
 import { useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 
 export function FindAddRow({
   filter,
@@ -80,17 +80,23 @@ export function FindAddRow({
     requestAnimationFrame(() => addRef.current?.querySelector('input')?.focus({ preventScroll: true }));
   };
 
+  const [filterOpen, setFilterOpen] = useState(false);
+
   const iconBtn =
     'flex h-11 w-11 items-center justify-center rounded-md border border-ink/15 text-ink/60 hover:bg-ink/5 hover:text-ink';
 
   return (
-    // `items-start`: on a phone the add bar wraps to two lines, and the controls
-    // beside it should sit level with the NAME BOX, not float between lines.
-    // Below `lg` the dropdowns cannot share a 390px line with the add box, so
-    // they WRAP to a line of their own under it (`order-last w-full`) — the same
-    // controls, one line more; at `lg` they sit after the add box.
+    /*
+      ⚖ ON A PHONE THIS ROW IS ONE CONTROL: Filter ▾ (owner 2026-10-01,
+      DECISION_LOG "THE SIMPLE PHONE APP — APPROVED", frame 2 — "one search ·
+      one Filter ▾ (RSVP · Side · Role · Group)"). The search is the top bar's;
+      the add box is the round + (`data-guests-add-fab`, page.tsx); Sort ▾
+      lives behind the title's ⋯ (`guests-phone-menu.tsx`). The four dropdowns
+      are the SAME `RosterFilters`, folded under one Filter ▾ below `lg`.
+      On a computer the row is as it was: add box · the dropdowns · Sort ▾.
+    */
     <div className="flex flex-wrap items-start gap-2 border-b border-ink/[0.07] py-3 lg:flex-nowrap">
-      <div ref={addRef} className={open ? 'min-w-0 grow basis-0' : 'shrink-0'} data-find-add-add="">
+      <div ref={addRef} className={`hidden lg:block ${open ? 'min-w-0 grow basis-0' : 'shrink-0'}`} data-find-add-add="">
         {open ? (
           add
         ) : (
@@ -100,9 +106,23 @@ export function FindAddRow({
         )}
       </div>
 
-      <div className="order-last flex w-full min-w-0 items-start gap-2 lg:order-none lg:w-auto" data-find-add-filter="">
+      <button
+        type="button"
+        onClick={() => setFilterOpen((v) => !v)}
+        aria-expanded={filterOpen}
+        data-find-add-filter-toggle=""
+        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 px-4 text-sm font-medium text-ink hover:bg-ink/5 lg:hidden"
+      >
+        Filter
+        <ChevronDown className={`h-4 w-4 transition-transform ${filterOpen ? 'rotate-180' : ''}`} strokeWidth={1.8} aria-hidden />
+      </button>
+
+      <div
+        className={`order-last w-full min-w-0 items-start gap-2 lg:order-none lg:flex lg:w-auto ${filterOpen ? 'flex' : 'hidden'}`}
+        data-find-add-filter=""
+      >
         <div className="min-w-0 flex-1">{filter}</div>
-        {sort ? <div className="shrink-0">{sort}</div> : null}
+        {sort ? <div className="hidden shrink-0 lg:block">{sort}</div> : null}
       </div>
     </div>
   );

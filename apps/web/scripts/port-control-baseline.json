@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "eee2ffa89",
+  "generatedFromRef": "79a12b091",
   "routeCount": 439,
   "destinations": 944,
   "actions": 674,
-  "blocks": 5277,
+  "blocks": 5280,
   "routes": {
     "/": {
       "files": [
@@ -5765,6 +5765,7 @@
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-checkin-cell.tsx",
+        "dashboard/[eventId]/guests/_components/guest-helper-access.tsx",
         "dashboard/[eventId]/guests/_components/guest-invite-cell.tsx",
         "dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx",
         "dashboard/[eventId]/guests/_components/guest-mind-map.tsx",
@@ -5772,6 +5773,7 @@
         "dashboard/[eventId]/guests/_components/guest-optimistic-store.ts",
         "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
         "dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx",
+        "dashboard/[eventId]/guests/_components/guests-phone-menu.tsx",
         "dashboard/[eventId]/guests/_components/invite-message-setup.ts",
         "dashboard/[eventId]/guests/_components/invited-to-chips.tsx",
         "dashboard/[eventId]/guests/_components/live-search.tsx",
@@ -5790,6 +5792,7 @@
         "dashboard/[eventId]/guests/_components/use-roster-columns.ts",
         "dashboard/[eventId]/guests/_components/view-switcher.tsx",
         "dashboard/[eventId]/guests/_components/walking-order-lines.tsx",
+        "dashboard/[eventId]/guests/_components/who-can-reply-ask.tsx",
         "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/groups-actions.ts",
         "dashboard/[eventId]/guests/inline-actions.ts",
@@ -5824,6 +5827,7 @@
       ],
       "blocks": [
         "AddButton",
+        "AddDoors",
         "AddFromPeopleResult",
         "AddFromPeopleSheet",
         "AddToGroupControl",
@@ -5832,11 +5836,13 @@
         "BringerSeatsContext.Provider",
         "BringerSeatsProvider",
         "CaptureBar",
-        "CheckinDeskPage",
         "ChipTrigger",
         "ColumnPick",
         "ConfirmForm",
         "ContactCell",
+        "CoordinatorColourDomains",
+        "CoordinatorGrantChips",
+        "CoordinatorSeatControls",
         "Ctx",
         "DesktopCanvas",
         "DesktopRow",
@@ -5845,7 +5851,6 @@
         "EditResult",
         "EitherOrRow",
         "EmptyState",
-        "EventHostsPage",
         "Field",
         "File",
         "FindAddRow",
@@ -5863,6 +5868,7 @@
         "GuestCardBody",
         "GuestCardData",
         "GuestCheckinCell",
+        "GuestHelperAccess",
         "GuestInviteCell",
         "GuestListFinalizedContext.Provider",
         "GuestListMultiselect",
@@ -5871,6 +5877,7 @@
         "GuestRole",
         "GuestRow",
         "GuestSide",
+        "GuestsPhoneMenu",
         "GuestsViewSwitcher",
         "HTMLAnchorElement",
         "HTMLButtonElement",
@@ -5910,13 +5917,11 @@
         "NewGroupForm",
         "NewGroupInlineForm",
         "NfcWriteButton",
-        "NotSharedWithYou",
         "OpenAddFromPeopleButton",
         "OpenQuickAddButton",
         "OptionRow",
         "PageMasthead",
         "PickMenu",
-        "PillarPartPicker",
         "PlusBadge",
         "PlusOneChipEditor",
         "PlusOneOverNote",
@@ -5968,7 +5973,8 @@
         "TierHeader",
         "Toggle",
         "UndoToastHost",
-        "WalkingOrderLines"
+        "WalkingOrderLines",
+        "WhoCanReplyAsk"
       ]
     },
     "/dashboard/[eventId]/guests/[guestId]": {
@@ -5986,6 +5992,7 @@
       "blocks": [
         "FormPageSkeleton",
         "GuestCardBody",
+        "GuestHelperAccess",
         "Link",
         "SetGuestAccessResult",
         "UndoToastHost"
@@ -6007,7 +6014,6 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
-        "DeskTitle",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",

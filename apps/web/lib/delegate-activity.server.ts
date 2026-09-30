@@ -26,14 +26,16 @@ export async function fetchDelegateActivity(
   admin: SupabaseClient,
   eventId: string,
   limit: number,
+  /** One person's lines only — their guest card (F2). Absent: everyone's (Overview). */
+  actorUserId?: string,
 ): Promise<{ measured: boolean; lines: DelegateActivityLine[] }> {
-  const { data, error } = await admin
+  let query = admin
     .from('event_action_log')
     .select('id, performed_by_user_id, action_type, action_target_table, notes, payload_json, performed_at')
     .eq('event_id', eventId)
-    .like('action_type', 'delegate_%')
-    .order('performed_at', { ascending: false })
-    .limit(limit);
+    .like('action_type', 'delegate_%');
+  if (actorUserId) query = query.eq('performed_by_user_id', actorUserId);
+  const { data, error } = await query.order('performed_at', { ascending: false }).limit(limit);
   if (error) {
     logQueryError('fetchDelegateActivity.log', error, { event_id: eventId }, 'graceful_degrade');
     return { measured: false, lines: [] };

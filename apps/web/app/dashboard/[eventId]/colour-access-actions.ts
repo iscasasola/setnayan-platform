@@ -127,6 +127,7 @@ export async function setCoordinatorColourDomain(
   // The coordinator's domains are drawn on the hired planner's workspace since
   // the Hosts fold (2026-09-30) — every workspace under Your Team.
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/guests`, 'layout'); // a limited helper's domains sit on their guest card (F2)
   return { status: 'ok' };
 }
 
@@ -236,6 +237,7 @@ export async function rejectColourChange(
   if (env.status !== 'ok') return { status: 'error', message: env.status ?? 'unknown' };
 
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/guests`, 'layout'); // a limited helper's domains sit on their guest card (F2)
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
   return { status: 'ok' };
 }

@@ -35,6 +35,10 @@ export type PlusOneSeat = {
    *  a meal the plus-one gave on their own key (owner 2026-09-29). */
   first: string | null;
   last: string | null;
+  /** The other three name parts (owner 2026-09-30: five parts, everywhere). */
+  prefix: string | null;
+  middle: string | null;
+  suffix: string | null;
   meal: string | null;
   dietary: string | null;
   /** 🔒 The seat's person linked their own account — the name is read-only. */
@@ -121,6 +125,9 @@ export async function plusOneSeatsFor(
       qrToken: name ? ((r.qr_token as string | null) ?? null) : null,
       first: placeholder ? null : ((r.first_name as string | null) ?? null),
       last: placeholder ? null : ((r.last_name as string | null) ?? null),
+      prefix: placeholder ? null : ((r.name_prefix as string | null) ?? null),
+      middle: placeholder ? null : ((r.middle_name as string | null) ?? null),
+      suffix: placeholder ? null : ((r.name_suffix as string | null) ?? null),
       meal: (r.meal_preference as string | null) ?? null,
       dietary: (r.dietary_restrictions as string | null) ?? null,
       linked: linked.has(r.guest_id as string),

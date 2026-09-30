@@ -14,8 +14,15 @@
   is lazy-loaded on the first tap (shared bundle has no room) and portalled to `<body>` — inside the bottom dock
   a fixed sheet is clipped to the bar. The tab is still a real link to the page for a
   middle-click / no-JS tap (`BottomNavItem.onSelect`, flat bar only).
+- **The phone bar is the four — Home · Guests · Your Team · More** (owner 2026-09-30: *"the menu changes also on
+  the mobile view"*; DECISION_LOG "THE PHONE MENU IS THE SAME FOUR"). Picked from the one tree
+  (`PHONE_BAR_ROWS` — the rail's rows minus the Event Hub Maker), so no second list. The Maker's pages light
+  **Home** on the phone; the rail and ☰ keep the "Event Hub Maker" row. "Guest list" → **"Guests"** on the one
+  row (rail, ☰ and bar alike). `customer.bottom-nav.launch` registry slot retired (no tab reads it). The round
+  add button (Add guest) renders on the **Guests page only**; elsewhere the four tabs spread across the bar.
 - **Copy:** page title/masthead, the finished-event card, the event-menu tour and the registry defaults
-  (`customer.sidebar.studio` "More Services", `customer.bottom-nav.studio` "More") follow the new name.
+  (`customer.sidebar.studio` "More Services", `customer.bottom-nav.studio` "More", both `guests` slots "Guests")
+  follow the new names.
 - **Guard:** `app/dashboard/[eventId]/more-services-is-the-one-row-that-opens.test.ts` — exactly one row opens
   (`studio`), its children equal `buildOurServices` order, the layout builds them with that builder, the rail's
   row is an `aria-expanded` button, the phone bar has no sub-rows and its More opens the lazily-loaded chooser.

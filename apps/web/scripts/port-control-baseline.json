@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e964fa7ba",
-  "routeCount": 439,
+  "generatedFromRef": "ce8ffcab5",
+  "routeCount": 440,
   "destinations": 948,
   "actions": 674,
-  "blocks": 5318,
+  "blocks": 5319,
   "routes": {
     "/": {
       "files": [
@@ -9411,6 +9411,16 @@
       "blocks": [
         "BespokeMonogramMark",
         "PahinaMasthead"
+      ]
+    },
+    "/dev/home-lab": {
+      "files": [
+        "dev/home-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "HomeFirstScreen"
       ]
     },
     "/dev/schedule-lab": {

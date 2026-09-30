@@ -1,10 +1,29 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { GUEST_SESSION_COOKIE_NAME } from '@/lib/guest-session';
+import { GUEST_SESSION_COOKIE_NAME, readGuestSession } from '@/lib/guest-session';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eraseFaceTaggingSelfie, eraseFaceTaggingSelfiesForUser } from '@/lib/face-selfie-erase';
 import { RSVP_TERMS_COOKIE } from '@/lib/terms-agreement';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
+
+  // 🧽 SIGNING OUT ERASES THE FACE-TAGGING SELFIE (owner 2026-09-30: *"face
+  // tagging selfie will erase upon log out"*) — at every event whose seat this
+  // account holds, and for the invitation pass this browser carries (it is
+  // cleared below). Read BEFORE the session ends: afterwards nothing names
+  // whose selfie it was. Tags already made stay (lib/face-selfie-erase.ts).
+  // Best-effort — an erase that fails never keeps anyone signed in.
+  const {
+    data: { user: leaving },
+  } = await supabase.auth.getUser();
+  const pass = await readGuestSession().catch(() => null);
+  const admin = createAdminClient();
+  if (leaving) await eraseFaceTaggingSelfiesForUser(admin, leaving.id).catch(() => 0);
+  if (pass?.event_id && pass.guest_id) {
+    await eraseFaceTaggingSelfie(admin, pass.event_id, pass.guest_id).catch(() => null);
+  }
+
   await supabase.auth.signOut();
 
   const response = NextResponse.redirect(new URL('/', request.url), { status: 303 });

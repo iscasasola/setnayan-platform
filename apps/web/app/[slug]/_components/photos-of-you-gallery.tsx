@@ -46,7 +46,13 @@ export function PhotosOfYouGallery({
   eventWord,
   timeZone,
   sceneStyle = null,
+  selfieLine = null,
 }: {
+  /** 🧽 The approved design's line under "Photos of you" (owner 2026-09-30):
+   *  when the selfie is erased, and that tags stay. Handed in as TEXT by the
+   *  server (only for a guest who holds a face-tagging selfie), so this client
+   *  file imports no copy module. */
+  selfieLine?: string | null;
   /** null means the read FAILED. An empty `photos` array means nobody has
    *  tagged this guest yet — a real answer, and the commonest one early in a
    *  day. The two must never render the same words. */
@@ -197,6 +203,12 @@ export function PhotosOfYouGallery({
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-2">{photos.map((p) => tileOf(p))}</div>
       )}
+
+      {selfieLine ? (
+        <p data-selfie-lifetime="" className="sn-gal-soft mt-3 text-xs">
+          {selfieLine}
+        </p>
+      ) : null}
 
       {photos.length > 0 ? (
         <p className="sn-gal-soft mt-3 text-sm">

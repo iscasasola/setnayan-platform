@@ -16,6 +16,7 @@ import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
+import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { sanitizeRoleAttire, ATTIRE_STYLE_LABEL, type RoleAttireRule } from '@/lib/role-dress-code';
 import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { ROLE_GROUP_LABELS, roleGroupLabel } from '@/lib/role-groups';
@@ -51,6 +52,7 @@ import { printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
+import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
 
 /**
@@ -181,6 +183,8 @@ async function readEntourage(
   eventId: string,
   /** The couple's role words — the print says "Bride's Crew" where they do. */
   names?: RoleNames,
+  /** The event's Name style (owner 2026-09-30) — the card prints the names in it. */
+  style?: NameStyle,
 ): Promise<{ groups: ReturnType<typeof buildEntourage>; passedAway: ReadonlySet<string> }> {
   const { data, error } = await admin
     .from('guests')
@@ -199,7 +203,7 @@ async function readEntourage(
   const passedAway = new Set(rows.filter((r) => r.passed_away === true && r.guest_id).map((r) => r.guest_id as string));
   // The couple's own section order, read on ITS OWN (the loader's rule: an
   // unreadable preference prints the built-in order, never breaks the card).
-  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names), passedAway };
+  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names, style), passedAway };
 }
 
 function attireLines(raw: unknown, names?: RoleNames): Array<{ label: string; line: string }> {
@@ -550,7 +554,7 @@ async function readPrintSetInputs(admin: SupabaseClient, eventId: string, event:
   const stored = parsePrintDetails(event.print_details);
   const [blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu] = await Promise.all([
     readBlocks(admin, eventId),
-    readEntourage(admin, eventId, readRoleNames(event.role_names)),
+    readEntourage(admin, eventId, readRoleNames(event.role_names), stored.nameStyle),
     resolveStdFinalizedVenues(admin, eventId),
     event.slug ? resolveEventOwnerSlug(admin, eventId).catch(() => null) : Promise.resolve(null),
     readGiftLines(admin, eventId),
@@ -609,6 +613,9 @@ export async function loadPrintSet(
   const mark = resolveMonogram(event);
   const [a, b] = splitInitials(mark.text || event.display_name || '');
   const isWedding = (event.event_type ?? 'wedding') === 'wedding';
+  // 🕊 A wake's printed card is never "The celebration of" (audit 2026-09-30) —
+  // it takes the post-event cover's own words ("In loving memory", frontKicker).
+  const solemn = isWedding ? false : (await eventWordsFor(event.event_type)).solemn;
 
   const images: PrintImages = {};
   // 🖼 The Our Story poster's own photo (owner 2026-09-29, OWNER ANSWERS (1)) —
@@ -642,7 +649,7 @@ export async function loadPrintSet(
 
   const data: PrintSetData = {
     names: coupleNames(event.display_name),
-    eyebrow: isWedding ? 'The wedding of' : 'The celebration of',
+    eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'The celebration of',
     dateLabel: printedDate(event.event_date),
     ceremonyTime: blockTime(ceremony),
     ceremonyVenue: ceremony?.location?.trim() || venues.ceremony || event.std_film_ceremony_name?.trim() || null,
@@ -730,7 +737,7 @@ export async function loadGuestPasses(
     logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');
     return { passes: [], images: {}, measured: false };
   }
-  type G = PassCardRow & { guest_id: string; first_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null };
+  type G = PassCardRow & { guest_id: string; first_name: string | null; middle_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null };
   const listed = ((data ?? []) as unknown as G[]).filter((g) => g.qr_token);
   const all = opts.ticketsOnly
     ? filterPassCardRows(listed, (g) => ({
@@ -761,12 +768,12 @@ export async function loadGuestPasses(
   const images: PrintImages = {};
   const passes: PrintPass[] = [];
   let n = 0;
+  // 🔤 The event's Name style (owner 2026-09-30) — the ticket's ONE name rule,
+  // shared with the Digital ticket (`passCardGuestName`) — `ticketName`.
+  const style = nameStyleOfPrintDetails(set.event.print_details);
   for (const g of guests) {
     n += 1;
-    const name =
-      [g.name_prefix, g.first_name, g.last_name, g.name_suffix].filter((s) => s && s.trim()).join(' ').trim() ||
-      g.display_name?.trim() ||
-      'Guest';
+    const name = ticketName(g, style);
     const ref = `qr-${g.guest_id}`;
     try {
       const png = await renderInvitationQrPng({

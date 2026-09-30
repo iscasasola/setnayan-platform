@@ -44,7 +44,7 @@ test('🔒 the reply asks who is linked BEFORE it writes a plus-one’s name', (
 test('🔒 the host’s guest card leaves a linked plus-one’s name out of the write', () => {
   const a = read('app/dashboard/[eventId]/guests/[guestId]/actions.ts');
   assert.match(a, /\.\.\.\(nameLocked \? \{\} : \{ first_name, last_name, name_prefix, middle_name, name_suffix, display_name \}\)/);
-  const fn = a.slice(a.indexOf('async function plusOneNameLocked('));
+  const fn = a.slice(a.indexOf('async function linkedNameLocked('));
   assert.match(fn, /if \(error\) return true;/, 'an unread row unlocks the name');
   assert.match(fn, /if \(mErr\) \{[^}]*return true;/, "an unread membership still locks the name — and says why");
 });
@@ -57,8 +57,9 @@ test('both screens show it read-only: "Linked to their account", no name boxes',
   assert.match(locked, /LINKED_NAME_WORDS/);
   assert.doesNotMatch(locked, /plus_one_first_name_|plus_one_last_name_/, 'the locked name still posts');
   const card = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
-  const c = card.slice(card.indexOf('{nameLinked ? ('), card.indexOf(') : (', card.indexOf('{nameLinked ? (')));
-  assert.match(c, /LINKED_NAME_WORDS/);
+  const c = card.slice(card.indexOf('{nameLocked ? ('), card.indexOf(') : (', card.indexOf('{nameLocked ? (')));
+  assert.match(c, /nameLockWords/);
+  assert.match(card, /: nameLinked \? LINKED_NAME_WORDS : null;/, 'a linked plus-one lost its "Linked to their account" words');
   assert.doesNotMatch(c, /<Field\b/, 'the host can still type over a linked name');
   for (const f of ['app/[slug]/_lib/loaders.ts', 'app/[slug]/_lib/plus-one-seats.server.ts']) {
     assert.match(read(f), /linked: linked\.has\(r\.guest_id as string\)/, `${f} does not carry who is linked`);

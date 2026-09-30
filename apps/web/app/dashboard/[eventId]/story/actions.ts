@@ -23,15 +23,23 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { scanEditorial } from '@/lib/editorial-scan';
 import {
   EDITORIAL_ORDERABLE_KEYS,
-  readCustomColumns,
   sectionOrderToPersist,
-  type CustomColumn,
   EDITORIAL_SECTION_KEYS,
   type ChapterOverride,
   type EditorialSections,
   type Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import {
+  STORY_PRO_EXTRA_KEYS,
+  sanitizeChapterOverrides,
+  sanitizeCustomColumns,
+  sanitizeReviews,
+  storyProExtrasOf,
+  type StoryProExtraKey,
+} from '@/lib/story-pro-extras';
+import { readHubDraft, saveHubDraftPatch } from '@/lib/hub-draft-store';
+import type { PostEventDraft } from '@/lib/post-event-draft';
 import { editorialAllowsEventType } from '@/lib/editorial-event-types';
 import { sanitizeStoryTheme } from '@/lib/story-theme';
 import { createClient } from '@/lib/supabase/server';
@@ -118,45 +126,6 @@ export type EditorialEditorInput = {
   lastWord?: string;
 };
 
-/** Cap the persisted per-moment story so a runaway paste can't bloat draft_json.
- *  The editor soft-caps at ~400 chars with a counter; this is the hard ceiling. */
-const CHAPTER_WRITEUP_MAX = 600;
-/** Cap the moment name. Comfortably past the longest canonical moment. */
-const CHAPTER_TITLE_MAX = 80;
-
-/**
- * Sanitize + cap the client's chapterOverrides before persisting.
- *
- * The client sends an override row per chapter ONLY when the couple has made any
- * change (rename / write-up / hide / reorder) — and because the loader front-loads
- * overridden chapters in array order, a reorder REQUIRES the full ordered set (a
- * bare `{ leadId }` row holds a chapter's position without renaming it). So this
- * KEEPS bare rows (they carry order), dedupes by leadId, and trims + caps text.
- * When the couple has made no changes at all the client sends `[]` and the key is
- * deleted (no override row → pure auto behaviour). Malformed rows are dropped.
- */
-function sanitizeChapterOverrides(input: ChapterOverride[]): ChapterOverride[] {
-  if (!Array.isArray(input)) return [];
-  const out: ChapterOverride[] = [];
-  const seen = new Set<string>();
-  for (const raw of input) {
-    const leadId = typeof raw?.leadId === 'string' ? raw.leadId.trim() : '';
-    if (!leadId || seen.has(leadId)) continue;
-    const title = typeof raw.title === 'string' ? raw.title.trim().slice(0, CHAPTER_TITLE_MAX) : '';
-    const writeUp =
-      typeof raw.writeUp === 'string' ? raw.writeUp.trim().slice(0, CHAPTER_WRITEUP_MAX) : '';
-    const hidden = raw.hidden === true;
-    seen.add(leadId);
-    out.push({
-      leadId,
-      ...(title ? { title } : {}),
-      ...(writeUp ? { writeUp } : {}),
-      ...(hidden ? { hidden: true } : {}),
-    });
-  }
-  return out;
-}
-
 /** HARD cap on couple-uploaded editorial gallery photos (FREE). Enforced here
  *  server-side (the editor also soft-caps); refs beyond this are truncated. */
 const GALLERY_UPLOADS_MAX = 30;
@@ -188,13 +157,6 @@ function sanitizeGalleryUploads(input: unknown): string[] {
   return out;
 }
 
-/** Cap the manual guest-wishes list. */
-const REVIEWS_MAX = 12;
-/** Cap a single wish quote (mirrors the editor's soft cap; hard ceiling here). */
-const REVIEW_QUOTE_MAX = 280;
-const REVIEW_AUTHOR_MAX = 80;
-const REVIEW_ROLE_MAX = 40;
-
 /**
  * Sanitize + cap the client's section ORDER before persisting (PRO). Keep only
  * KNOWN orderable keys (EDITORIAL_ORDERABLE_KEYS), deduped, in the client's order.
@@ -203,18 +165,6 @@ const REVIEW_ROLE_MAX = 40;
  * order identical-after-clean to the canonical default → `null` (delete the key,
  * revert to default). Never trusts the client.
  */
-/**
- * Validate the couple's own columns before they are stored.
- *
- * Delegates to the SAME reader the render path uses, by handing it the shape it
- * expects. One definition of "what is a legal column", not two — a second copy
- * here would be a second answer, and the two would drift the first time a limit
- * moved.
- */
-function sanitizeCustomColumns(input: unknown): CustomColumn[] {
-  return readCustomColumns({ customColumns: input });
-}
-
 /**
  * The order to persist. Delegates to the pure `sectionOrderToPersist` so the
  * rule lives in ONE place and can be tested — a `'use server'` module exports
@@ -225,32 +175,6 @@ function sanitizeSectionOrder(
   customIds: readonly string[] = [],
 ): string[] | null {
   return sectionOrderToPersist(input, EDITORIAL_ORDERABLE_KEYS, customIds);
-}
-
-/**
- * Sanitize + cap the client's manual guest-wishes (PRO). Trim each field, cap
- * lengths, DROP rows with an empty quote (a wish with no words), coerce stars to
- * 1–5 or null, and cap the list at REVIEWS_MAX. Anything non-array → []. Author is
- * kept even if blank-ish? No — a wish needs a quote; author may be blank (the
- * public render already requires BOTH quote+author, so a blank author simply
- * won't render, but we persist what the couple typed rather than silently drop).
- */
-function sanitizeReviews(input: Review[]): Review[] {
-  if (!Array.isArray(input)) return [];
-  const out: Review[] = [];
-  for (const raw of input) {
-    if (out.length >= REVIEWS_MAX) break;
-    const quote = typeof raw?.quote === 'string' ? raw.quote.trim().slice(0, REVIEW_QUOTE_MAX) : '';
-    if (!quote) continue; // a wish with no words is dropped
-    const author =
-      typeof raw.author === 'string' ? raw.author.trim().slice(0, REVIEW_AUTHOR_MAX) : '';
-    const roleRaw = typeof raw.role === 'string' ? raw.role.trim().slice(0, REVIEW_ROLE_MAX) : '';
-    const starsNum = Number(raw.stars);
-    const stars =
-      Number.isFinite(starsNum) && starsNum >= 1 ? Math.min(5, Math.round(starsNum)) : null;
-    out.push({ author, role: roleRaw || null, quote, stars });
-  }
-  return out;
 }
 
 /** A stored timestamp/date read back as itself, or null. Never a coerced ''. */
@@ -348,7 +272,7 @@ async function freezeTheSeating(
 export async function saveEditorial(
   eventId: string,
   input: EditorialEditorInput,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; heldForPro?: StoryProExtraKey[] } | { ok: false; error: string }> {
   const userId = await hostUserId(eventId);
   if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
 
@@ -435,12 +359,13 @@ export async function saveEditorial(
   // ── Editorial PRO authorship (server-side enforcement — never trust client) ──
   // The "Editor's Desk" — per-chapter curation (chapterOverrides), section order,
   // and the manual guest-wishes list — is PRO. Word fields + section toggles above
-  // stay FREE (today's editor). When the couple is NOT PRO we STRIP these three
-  // keys from the incoming input BEFORE merge, so a hand-crafted request can't
-  // author them — but we do NOT delete any values already saved on `base` (a
-  // formerly-PRO couple keeps their existing overrides/order/wishes; we just
-  // decline NEW ones). `draft` starts as a spread of `base`, so leaving a key
-  // untouched preserves it. (isPro resolved once at the top of this action.)
+  // stay FREE (today's editor). When the couple is NOT PRO these three keys never
+  // reach the LIVE story, so a hand-crafted request can't author them there — and
+  // we do NOT delete any values already saved on `base` (a formerly-PRO couple
+  // keeps their existing overrides/wishes). What they wrote goes to the Event
+  // Hub draft instead (the block after this one), to be asked for at Apply.
+  // `draft` starts as a spread of `base`, so leaving a key untouched preserves
+  // it. (isPro resolved once at the top of this action.)
   if (isPro) {
     // "As the Day Unfolded" per-chapter curation. Persist the ordered, sanitized
     // set; an empty result deletes the key so the chapters revert to pure auto.
@@ -458,18 +383,50 @@ export async function saveEditorial(
     if (reviews.length) draft.reviews = reviews;
     else delete draft.reviews;
   }
-  // else: not PRO — leave draft.chapterOverrides / draft.customColumns /
-  // draft.reviews exactly as they were on `base` (spread into `draft` already).
+  /* 💎 NOT PRO — TRIED FREE, ASKED AT APPLY (owner 2026-09-28/29, "try first,
+     pay at Apply"). The live story keeps exactly what it had (`draft` is a
+     spread of `base`), so a hand-crafted request still cannot author a Pro
+     extra on the page guests read. What the couple wrote is kept in the Event
+     Hub DRAFT instead (`lib/post-event-draft.ts`), where the Maker's Apply sheet
+     names it and asks for Pro — never dropped on the floor. Only an extra that
+     differs from live, or one the draft already holds, is written, so a plain
+     save of the words never starts a draft. */
+  const heldForPro: StoryProExtraKey[] = [];
+  let heldPatch: PostEventDraft | null = null;
+  if (!isPro) {
+    const live = storyProExtrasOf(base);
+    const tried = {
+      chapterOverrides: sanitizeChapterOverrides(input.chapterOverrides),
+      customColumns: sanitizeCustomColumns(input.customColumns),
+      reviews: sanitizeReviews(input.reviews),
+    };
+    let drafted: PostEventDraft = {};
+    try {
+      drafted = (await readHubDraft(await createClient(), eventId))?.editorial ?? {};
+    } catch {
+      return { ok: false, error: 'Could not save. Please try again.' };
+    }
+    const patch: Record<string, unknown> = {};
+    for (const key of STORY_PRO_EXTRA_KEYS) {
+      const differs = JSON.stringify(tried[key]) !== JSON.stringify(live[key]);
+      if (differs || drafted[key] !== undefined) patch[key] = tried[key];
+      if (differs) heldForPro.push(key);
+    }
+    if (Object.keys(patch).length > 0) heldPatch = patch as PostEventDraft;
+  }
 
   // Section order is FREE (owner E4, 2026-09-25; controller ruling 2026-09-29:
   // "the story page's reorder is FREE too" — it matches the Event Hub Maker,
   // where moving a scene is never Pro). The order may only name the columns
   // the story HOLDS after the block above — a free couple cannot author a
   // column by naming it in the order. null → delete (revert to default order).
-  const sectionOrder = sanitizeSectionOrder(
-    input.sectionOrder,
-    sanitizeCustomColumns(draft.customColumns).map((c) => c.id),
-  );
+  /* A column the couple is TRYING (held for Pro, above) keeps its place in the
+     order too — harmless on live, where the page admits a `custom:<id>` key
+     only when its column exists — so after Apply it lands where they put it. */
+  const sectionOrder = sanitizeSectionOrder(input.sectionOrder, [
+    ...sanitizeCustomColumns(draft.customColumns).map((c) => c.id),
+    ...(heldPatch?.customColumns?.map((c) => c.id) ?? []),
+  ]);
   if (sectionOrder) draft.sectionOrder = sectionOrder;
   else delete draft.sectionOrder;
 
@@ -584,6 +541,18 @@ export async function saveEditorial(
   );
   if (error) return { ok: false, error: 'Could not save. Please try again.' };
 
+  // 💎 The extras tried without Pro — into the Event Hub draft, never live.
+  if (heldPatch) {
+    try {
+      await saveHubDraftPatch(eventId, { editorial: heldPatch });
+    } catch {
+      return {
+        ok: false,
+        error: 'Your story saved, but the Event Hub Pro touches could not be kept. Please save again.',
+      };
+    }
+  }
+
   /*
     THE HOST'S LAST WORD — through the CALLER'S OWN SESSION, not the admin
     client sitting in scope two lines up. `event_editorial` has no couple-facing
@@ -667,7 +636,7 @@ export async function saveEditorial(
     after(() => scanEditorial(eid));
   }
 
-  return { ok: true };
+  return heldForPro.length > 0 ? { ok: true, heldForPro } : { ok: true };
 }
 
 /**
@@ -708,7 +677,7 @@ export async function saveEditorial(
 export async function setStoryShowcase(
   eventId: string,
   optIn: boolean,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; heldForPro?: StoryProExtraKey[] } | { ok: false; error: string }> {
   const userId = await hostUserId(eventId);
   if (!userId)
     return { ok: false, error: 'You don’t have access to this celebration.' };

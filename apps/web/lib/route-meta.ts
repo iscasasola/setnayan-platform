@@ -204,7 +204,7 @@ export const routeMeta = {
       musicCreator: { icon: Music, label: 'Music Creator' },
       pakanta: { icon: Music, label: 'Music Maker' },
       panood: {
-        index: { icon: Tv, label: 'Live Studio' },
+        index: { icon: Tv, label: 'Live Watch' },
         broadcast: { icon: Tv, label: 'Open broadcaster preview' },
       },
       papic: { icon: Camera, label: 'Papic' },

@@ -435,12 +435,15 @@ test('find your seat · 🪪 the place card is a name card: the FORMAL name in t
       h(YourSeatBlock, {
         ...SEAT,
         sceneStyle: 'place-card',
-        formalName: placeCardName(guest),
+        formalName: placeCardName(guest, 'middle-initial'),
         nameStyle: { fontFamily: 'var(--font-names-test)' },
       } as never),
     ),
   );
   assert.match(card, /<p data-place-card-name=""[^>]*style="font-family:var\(--font-names-test\)"[^>]*>Mr\. Manuel C\. Casasola<\/p>/, 'the formal name, in the Names look');
+  // …in the event's Name style (owner 2026-09-30): Surname first on the card itself.
+  const sf = decode(html(h(YourSeatBlock, { ...SEAT, sceneStyle: 'place-card', formalName: placeCardName(guest, 'surname-first') } as never)));
+  assert.match(sf, />Mr\. Casasola, Manuel C\.<\/p>/, 'the card does not print the event’s Name style');
   assert.ok(card.includes('Table 7'), 'and the table');
   // A guest with only a first name gets NO name on the card — never "Manuel" alone.
   const bare = decode(
@@ -448,10 +451,11 @@ test('find your seat · 🪪 the place card is a name card: the FORMAL name in t
   );
   assert.doesNotMatch(bare, /Manuel/, 'a bare first name reached the place card');
   assert.ok(bare.includes('Table 7'), 'the card still carries its table');
-  // The site passes the name from the guest row's formal parts (`placeCardName(guest)`).
+  // The site passes the name from the guest row's formal parts, in the event's Name style.
   const { readFileSync } = await import('node:fs');
   const site = readFileSync(new URL('./site-body.tsx', import.meta.url), 'utf8');
-  assert.match(site, /formalName=\{placeCardName\(guest\)\}/, 'the page no longer hands the card the formal name');
+  assert.match(site, /formalName=\{placeCardName\(guest, eventNameStyle\)\}/, 'the page no longer hands the card the formal name in the event’s style');
+  assert.match(site, /const eventNameStyle =[\s\S]{0,120}loadEventNameStyle\(/, 'the page no longer reads the event’s Name style');
 });
 
 // ── PHOTOS YOU ADD · EACH GUEST'S OWN PHOTOS ─────────────────────────────────

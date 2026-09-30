@@ -51,7 +51,6 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 /* ⚡ Loads when Details › RSVP is opened — never with the Maker (`details-lazy.tsx`). */
 import { MakerRsvpSettings, MakerRsvpStage } from './_components/details-lazy';
-import { GuestPassCardLink } from '../guests/_components/guest-pass-card-link';
 import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
 import CoupleSeatingPage from '../seating/page';
@@ -603,7 +602,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   const services: Service[] = [
     {
       key: 'panood',
-      name: 'Live Studio — livestream',
+      name: 'Live Watch — livestream',
       blurb: eventHasHappened
         ? 'This one runs during the celebration.'
         : 'Bring everyone who could not make it into the room.',
@@ -1153,7 +1152,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                 returnTo={`/dashboard/${eventId}/launch?tool=details&item=invitation`}
                 errorMessage={null}
                 inviteFlash={null}
-                PassCardLink={GuestPassCardLink}
               />
             ) : null,
           };

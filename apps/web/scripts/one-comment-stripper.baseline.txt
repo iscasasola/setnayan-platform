@@ -247,7 +247,6 @@ apps/web/lib/stored-asset-render.test.ts
 apps/web/lib/studio-apps.test.ts
 apps/web/lib/suggested-never-applied.test.ts
 apps/web/lib/supabase/middleware-has-a-deadline.test.ts
-apps/web/lib/team-summary-chip.test.ts
 apps/web/lib/the-banner-does-not-promise-an-email.test.ts
 apps/web/lib/the-bill-has-somewhere-to-be-paid.test.ts
 apps/web/lib/the-chips-move-the-calendar.test.ts

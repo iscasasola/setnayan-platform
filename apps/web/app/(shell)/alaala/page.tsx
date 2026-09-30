@@ -63,7 +63,7 @@ const PAGE_TITLE = 'Memories — A New Way to Remember · Setnayan';
  *  correct WITH the brand — which is why this strips it here and nowhere else. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION =
-  'Memories brings together everything you create on Setnayan — Papic, Live Studio, your Event Hub, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
+  'Memories brings together everything you create on Setnayan — Papic, Live Watch, your Event Hub, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 /*
@@ -117,7 +117,7 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'Brings together Papic, Live Studio, your Event Hub, your 3D plan, and your monogram',
+    'Brings together Papic, Live Watch, your Event Hub, your 3D plan, and your monogram',
     'A living memory you can relive, share, and keep — not a folder of files',
     'Guests join from your event link — nothing to download',
     'Works for every kind of event, not just weddings',
@@ -131,7 +131,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is Memories?',
-    a: 'Memories is everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Live Studio), your event page (Event Hub), your 3D plan (3D Plan), and your monogram (Logo Maker) — gathered into one living memory you can return to any time.',
+    a: 'Memories is everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Live Watch), your event page (Event Hub), your 3D plan (3D Plan), and your monogram (Logo Maker) — gathered into one living memory you can return to any time.',
   },
   {
     q: 'Is it free?',
@@ -172,7 +172,7 @@ const PILLARS: { role: string; name: string; desc: string; href: string }[] = [
   },
   {
     role: 'Presence',
-    name: 'Live Studio',
+    name: 'Live Watch',
     desc: 'Everyone who couldn’t be there, in the room with you — live, as it happens.',
     href: '/panood',
   },
@@ -238,7 +238,7 @@ export default function AlaalaLandingPage() {
           <RevealBand stagger={0.08} y={14}>
             <p data-reveal-item className={`mx-auto mt-4 max-w-xl text-base sm:text-lg ${DOORWAY_TONE.muted}`}>
               Albums freeze a day into a few still frames. Memories holds what it was really like — moving,
-              many-voiced, alive. Everything you make on Setnayan — Papic, Live Studio, your Event Hub, your plan, your
+              many-voiced, alive. Everything you make on Setnayan — Papic, Live Watch, your Event Hub, your plan, your
               mark — woven into one living memory you can open any time.
             </p>
             <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
@@ -263,7 +263,7 @@ export default function AlaalaLandingPage() {
         <section className="mt-14 flex flex-col items-center" aria-label="A living memory">
           <AlaalaOrb className="h-[260px] w-[260px] sm:h-[320px] sm:w-[320px]" />
           <p className={`mt-6 max-w-md text-center text-sm ${DOORWAY_TONE.muted}`}>
-            Papic, Live Studio, Event Hub, 3D Plan, Logo Maker — woven into one. Memories that move.
+            Papic, Live Watch, Event Hub, 3D Plan, Logo Maker — woven into one. Memories that move.
           </p>
         </section>
 

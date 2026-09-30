@@ -38,6 +38,8 @@
  * "{link}" or "$&" is printed as typed and never expands into anything.
  */
 
+import type { NameStyle } from '@/lib/name-style';
+
 /** Who is sending: the couple/hosts ("our Event Hub"), or a guest passing a
  *  plus-one their own key ("the Event Hub"). */
 export type InviteVoice = 'hosts' | 'guest';
@@ -54,6 +56,12 @@ export type InviteEventFacts = {
   eventDate?: string | null;
   /** `events.event_date_precision` — only a DAY is written as a date. */
   datePrecision?: string | null;
+  /**
+   * 🔤 The event's Name style (`events.print_details.name_style`, owner
+   * 2026-09-30) — the caller composes `formalName` in it:
+   * `guestFullName(guest, facts.nameStyle)`. A Display name is still as given.
+   */
+  nameStyle?: NameStyle;
 };
 
 export type GuestInviteContext = InviteEventFacts & {

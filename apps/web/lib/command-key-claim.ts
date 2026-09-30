@@ -7,7 +7,7 @@
  *   home-command-bar.tsx      the shared top bar's palette (from 2026-08-14)
  *   admin-command-palette.tsx every /admin page (108 of them)
  *   ugat-console.tsx          /admin/ugat
- *   guests-search.tsx         /dashboard/[eventId]/guests
+ *   guests-top-search.tsx     the top bar on /dashboard/[eventId]/guests
  *
  * Until the top bar was shared, the first of those mounted on ONE route, and
  * its own docblock said so: *"This component only ever mounts on the launcher

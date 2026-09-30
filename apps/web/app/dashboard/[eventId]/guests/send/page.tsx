@@ -14,7 +14,11 @@ import { SendRun } from './_components/send-run';
 
 export const metadata = { title: 'Send invites one by one' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  /** `?ids=a,b,c` — the Guest list's "Invite selected": only the ticked guests, in that order. */
+  searchParams?: Promise<{ ids?: string }>;
+};
 
 /**
  * SEND INVITES ONE BY ONE (owner 2026-09-29, controller brief item 4).
@@ -32,8 +36,9 @@ type Props = { params: Promise<{ eventId: string }> };
  * ⚠ A REFUSED READ IS NOT "ALL DONE". `fetchGuestsByEventMeasured` says when it
  * could not read; the run then says so instead of congratulating the couple.
  */
-export default async function SendInvitesPage({ params }: Props) {
+export default async function SendInvitesPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const picked = ((await searchParams)?.ids ?? '').split(',').filter((id) => isUuid(id));
   if (!isUuid(eventId)) notFound();
 
   const user = await getCurrentUser();
@@ -54,11 +59,16 @@ export default async function SendInvitesPage({ params }: Props) {
   const invitationBase = await fetchInvitationBase(eventId, setup.slug);
 
   // The couple do not invite themselves.
+  // "Invite selected" (owner 2026-09-30, the Fable rows): the ticked guests
+  // only, one share sheet each, in the order they were ticked.
+  const order = new Map(picked.map((id, i) => [id, i] as const));
   const guests: SendInviteGuest[] = rows
     .filter((g) => g.role !== 'bride' && g.role !== 'groom')
+    .filter((g) => picked.length === 0 || order.has(g.guest_id))
+    .sort((a, b) => (order.get(a.guest_id) ?? 0) - (order.get(b.guest_id) ?? 0))
     .map((g) => ({
       guestId: g.guest_id,
-      formalName: guestFullName(g),
+      formalName: guestFullName(g, setup.facts.nameStyle),
       firstName: g.first_name,
       fullName: guestDisplayName(g),
       inviteUrl: invitationBase && g.qr_token ? `${invitationBase}?invite=${g.qr_token}` : null,

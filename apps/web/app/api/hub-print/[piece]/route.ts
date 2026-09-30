@@ -40,6 +40,7 @@ import {
   type PrintSetKey,
 } from '@/lib/print-pieces';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { NAME_STYLES, nameStyleFrom } from '@/lib/name-style';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { formatCount } from '@/lib/format-number';
 import { previewCacheControl } from '@/lib/print-preview-cache';
@@ -79,6 +80,8 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
  *   the "Kindly reply" CHOICE (a host / the coordinator, or manual words). The
  *   Maker's Words panel posts it and says "Saves immediately". Parents come from
  *   the Guest list and gifts from E-Gifts — never typed here.
+ * POST /api/hub-print/name-style — `style=full|middle-initial|surname-first`,
+ *   the event's Name style (`print_details.name_style`, lib/name-style.ts).
  *
  * 🔒 THE GATE IS HERE, NOT A HIDDEN BUTTON. A free event asking for a PRO-THEMED
  * `print` or `passes` gets 403, whatever the page did or did not render.
@@ -377,7 +380,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
  */
 export async function POST(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece } = await ctx.params;
-  if (piece !== 'words' && piece !== 'menu' && piece !== 'pass-design' && piece !== 'poster-photo') return new NextResponse('Not found.', { status: 404 });
+  if (piece !== 'words' && piece !== 'menu' && piece !== 'pass-design' && piece !== 'poster-photo' && piece !== 'name-style') return new NextResponse('Not found.', { status: 404 });
 
   // A form post from another site carries no Origin of ours.
   const origin = req.headers.get('origin');
@@ -414,6 +417,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
       .update({ print_details: serializePrintDetails({ ...stored, passDesign: passCardDesignFrom(asked) }) })
       .eq('event_id', eventId);
     if (error) logQueryError('hub-print.pass-design', error, { event_id: eventId }, 'graceful_degrade');
+    return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
+  }
+
+  // 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE
+  // PICKS A NAME STYLE") — Full · Middle initial · Surname first, the Maker's
+  // Details › Names dropdown. Saved at once, like the pass card's look; live,
+  // never drafted (a ticket or a printed card is drawn from what is stored).
+  // Everything else in `print_details` is carried over untouched. Answers JSON.
+  if (piece === 'name-style') {
+    const asked = String(form.get('style') ?? '');
+    if (!(NAME_STYLES as readonly string[]).includes(asked)) return NextResponse.json({ ok: false }, { status: 400 });
+    const { error } = await admin
+      .from('events')
+      .update({ print_details: serializePrintDetails({ ...stored, nameStyle: nameStyleFrom(asked) }) })
+      .eq('event_id', eventId);
+    if (error) logQueryError('hub-print.name-style', error, { event_id: eventId }, 'graceful_degrade');
     return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
   }
 
@@ -511,7 +530,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   // …and so is the invite message (`invite_message`, the guest list's Send
   // invite wording) and the pass card's look (the Prints panel's) — neither
   // is this form's.
-  const details = { ...parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include }), inviteMessage: stored.inviteMessage, passDesign: stored.passDesign, menu: stored.menu };
+  //
+  // 🔑 CARRY EVERYTHING THIS FORM DOES NOT OWN — by spreading what is stored
+  // FIRST, never by naming each key: the list of carried keys (menu, message,
+  // pass look) had already missed the poster's own photo, so a words save put
+  // the A3 poster back to the theme's picture, silently. The words form owns
+  // three things — the opening line, the reply line, the include toggles.
+  const words = parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include });
+  const details = { ...stored, openingLine: words.openingLine, rsvp: words.rsvp, include: words.include };
 
   const { error } = await admin
     .from('events')

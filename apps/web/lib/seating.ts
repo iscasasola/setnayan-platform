@@ -7,6 +7,7 @@ import { boothBrandedAtEvent, fetchEventBrandedBoothVendorIds } from './vendor-3
 // for every tier classifier so un-threaded callers behave exactly as before;
 // the RoleSet type is imported type-only so there is no runtime import cycle.
 import { WEDDING_ROLE_SET, type RoleSet } from './role-sets';
+import { formatCount } from './format-number';
 import {
   ROLE_SEATING_SETS,
   parseRoleSeating,
@@ -1728,6 +1729,105 @@ export function nextTableName(existing: ReadonlyArray<string | null | undefined>
   let n = 1;
   while (used.has(n)) n += 1;
   return `Table ${n}`;
+}
+
+// ---------------------------------------------------------------------------
+// AUTO ARRANGE ADDS TABLES (owner 2026-09-30 · "it did not add tables").
+// Auto Arrange used to seat into whatever tables the room already had and then
+// stop — 100 guests who hadn't declined, 16 chairs, and a toast that said
+// "Everyone who hasn't declined already has a seat." Now, before seating, it
+// counts the chairs it can fill against the guests it must seat and ADDS the
+// room's default table (the same Round (10 seats) the add-table form and
+// "Build my seating" start from) until everyone fits. Existing tables are
+// kept, hand-seated guests never move, the sweetheart is never counted as room.
+// One counting rule, shared by the editor (to lay the new tables out with the
+// rest) and the server action (which decides, from fresh data, what to create).
+// ---------------------------------------------------------------------------
+
+export type AutoSeatRoom = {
+  // Guests auto-seat will try to seat: not declined, not seated, not the couple.
+  toSeat: number;
+  // Open chairs auto-seat may fill (sweetheart excluded, deleted chairs excluded).
+  freeSeats: number;
+  // Guests with no chair to go to (0 when the room holds everyone).
+  shortfall: number;
+};
+
+// Mirrors computeAutoSeat's own bookkeeping exactly (its `eligible` filter and
+// its per-table `freeCount`), so "room" here is the room the seater will see.
+export function autoSeatRoom(
+  tables: ReadonlyArray<Pick<EventTableRow, 'table_id' | 'table_type' | 'capacity' | 'removed_seats'>>,
+  guests: ReadonlyArray<Pick<AutoSeatGuest, 'guest_id' | 'role' | 'rsvp_status'>>,
+  assignments: ReadonlyArray<Pick<SeatAssignmentRow, 'guest_id' | 'table_id'>>,
+  roleSet: RoleSet = WEDDING_ROLE_SET,
+): AutoSeatRoom {
+  const seated = new Set(assignments.map((a) => a.guest_id));
+  const toSeat = guests.filter(
+    (g) => g.rsvp_status !== 'declined' && !seated.has(g.guest_id) && !roleSet.coupleRoles.has(g.role),
+  ).length;
+  const taken = new Map<string, number>();
+  for (const a of assignments) taken.set(a.table_id, (taken.get(a.table_id) ?? 0) + 1);
+  let freeSeats = 0;
+  for (const t of tables) {
+    if (t.table_type === 'sweetheart_2') continue;
+    freeSeats += Math.max(0, effectiveCapacity(t.capacity, t.removed_seats) - (taken.get(t.table_id) ?? 0));
+  }
+  return { toSeat, freeSeats, shortfall: Math.max(0, toSeat - freeSeats) };
+}
+
+// The tables to add so a shortfall of N guests fits: ceil(N / 10) Round (10
+// seats), named by nextTableName (so they continue the room's "Table N"
+// numbering and fill any gap), skipping ones-digit-4 numbers for a Chinese
+// wedding. Same runaway cap as a generated draft.
+export function tablesToAddForAutoSeat(
+  shortfall: number,
+  existingLabels: ReadonlyArray<string | null | undefined>,
+  options?: { skipFour?: boolean },
+): RecommendedTable[] {
+  if (!(shortfall > 0)) return [];
+  const count = Math.min(DRAFT_MAX_ROUND_TABLES, Math.ceil(shortfall / DRAFT_ROUND_SEATS));
+  const taken: Array<string | null | undefined> = [...existingLabels];
+  const out: RecommendedTable[] = [];
+  while (out.length < count) {
+    const label = nextTableName(taken);
+    taken.push(label);
+    if (options?.skipFour && tableNumberEndsInFour(label)) continue;
+    out.push({ type: DRAFT_ROUND_TYPE, capacity: DRAFT_ROUND_SEATS, label });
+  }
+  return out;
+}
+
+// The key the editor sends a new table's laid-out position under (the table
+// has no id until the server creates it). Labels are unique among the added
+// tables, so the label IS the join key.
+export function autoArrangeNewTableKey(label: string): string {
+  return `new:${label}`;
+}
+
+// What the Auto Arrange toast says — one pure sentence builder so the claim
+// "everyone has a seat" can only be made when the count says so.
+export function autoArrangeSummary(r: {
+  tables: number;
+  tablesAdded: number;
+  booths: number;
+  boothWhere: string;
+  seated: number;
+  unseated: number;
+}): string {
+  const plural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
+  const added = r.tablesAdded > 0 ? ` (${formatCount(r.tablesAdded)} added so everyone fits)` : '';
+  const head = `Auto-arranged: ${plural(r.tables, 'table')} in priority order${added}`;
+  const body =
+    r.seated > 0
+      ? `${r.booths > 0 ? `, ${plural(r.booths, 'booth')} ${r.boothWhere}` : ''}, ${plural(r.seated, 'guest')} seated.`
+      : `${r.booths > 0 ? ` and ${plural(r.booths, 'booth')} ${r.boothWhere}` : ''}.`;
+  const tail =
+    r.unseated > 0
+      ? ` ${plural(r.unseated, 'guest')} who ${r.unseated === 1 ? "hasn't" : "haven't"} declined still ${r.unseated === 1 ? 'has' : 'have'} no seat — add a table or free a chair.`
+      : r.seated > 0
+        ? " Everyone who hasn't declined now has a seat."
+        : " Everyone who hasn't declined already has a seat.";
+  return head + body + tail;
 }
 
 // ---------------------------------------------------------------------------

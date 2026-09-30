@@ -56,10 +56,12 @@ const HUB_KEY = 'launch';
    all of them take the longer word — and the bare word is now a RETIRED label
    here, in exactly the sense "Launch" and "Services" already were. */
 // ✏️ 2026-09-25: the controller is the Event Hub Maker (owner, label change only).
-const HUB_LABEL = 'Event Hub Maker';
+// ✏️ 2026-10-01: "Hub" — on the rail AND the bar (owner, "Home - Guests -
+//   Suppliers - Hub - More"). Still never the bare guest word "Event Hub".
+const HUB_LABEL = 'Hub';
 /* ✏️ 2026-09-29: on the PHONE bar only, the owner's short word — "Maker"
    ("accept it. Maker and Services"). The rail and ☰ keep HUB_LABEL. */
-const PHONE_HUB_LABEL = 'Maker';
+const PHONE_HUB_LABEL = 'Hub';
 const wordFor = (surface: 'phone' | 'rail') => (surface === 'phone' ? PHONE_HUB_LABEL : HUB_LABEL);
 const PHASES = ['plan', 'dayof', 'after'] as const;
 

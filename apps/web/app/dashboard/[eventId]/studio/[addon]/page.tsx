@@ -28,7 +28,7 @@ const ADD_ON_META: Record<
   },
   panood: {
     iteration: 'Iteration 0011',
-    title: 'Live Studio',
+    title: 'Live Watch',
     blurb:
       'Cloudflare Stream Live SFU → YouTube RTMP relay. Web broadcaster + camera operator. AI Video Highlight · AI Edited Highlight.',
   },

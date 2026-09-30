@@ -31,17 +31,17 @@ test('select-all marks the selection, and unticking a few keeps it marked', () =
 const src = (f: string) =>
   stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', f), 'utf8'));
 
-test('the name chips render only for a hand-built selection', () => {
+test('the bulk bar carries no wall of name chips — the ticked rows are the list', () => {
+  // ⤷ 2026-09-30 (the Fable rows' ledger): "No name chips — the ticked rows are
+  // the list." The owner's 2026-09-21 complaint (a wall of chips after select-all)
+  // is answered for every selection now, not only select-all.
   const bar = src('guest-list-multiselect.tsx');
-  const chips = bar.indexOf('from the selection`}');
-  assert.ok(chips > -1, 'the chip list is gone — this guard is pointing at nothing');
-  const gate = bar.lastIndexOf('{viaAll ? null : (', chips);
-  assert.ok(gate > -1 && chips - gate < 2000, 'the chips render after select-all again');
+  assert.doesNotMatch(bar, /from the selection`\}/, 'the name chips are back on the bar');
 });
 
 test('the header box clears ANY selection, and select-all goes through selectAllInView', () => {
   const bar = src('guest-list-multiselect.tsx');
   assert.match(bar, /const toggleAll = \(\) =>\s*selectedIds\.length > 0 \? guestSelection\.clear\(\) : guestSelection\.selectAllInView\(allIds\);/);
-  const mobile = src('mobile-guest-carousel.tsx');
-  assert.match(mobile, /allSelected \|\| someSelected\s*\? guestSelection\.clear\(\)\s*: guestSelection\.selectAllInView\(allVisibleIds\)/);
+  // The phone's "Select all N" lives on the bulk bar now (frame C), same door.
+  assert.match(bar, /onClick=\{\(\) => guestSelection\.selectAllInView\(allIds\)\}/);
 });

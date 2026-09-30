@@ -165,9 +165,9 @@ function routeFiles(file: string, depth = 4, seen = new Set<string>()): string[]
     // route's heading.
     //
     // ⚖ …and never into ANOTHER ROUTE'S `page.tsx`. Since 2026-09-29 a pillar
-    // page renders a sibling route whole as one of its PARTS (the Guest list
-    // draws `hosts/page.tsx` at `?gview=hosts`, Your Team draws
-    // `budget/page.tsx` at `?part=budget` — lib/pillar-parts.ts). A part is
+    // page renders a sibling route whole as one of its PARTS (Your Team draws
+    // `budget/page.tsx` at `?part=budget` — lib/pillar-parts.ts; the Guest
+    // list drew the desk and Hosts this way until F2 cut its parts row). A part is
     // reached only by picking it, exactly like a non-default tab, and "only
     // the DEFAULT tab counts" (below): following the import would demand the
     // roster's skeleton reserve the Hosts page's buttons on a load that never

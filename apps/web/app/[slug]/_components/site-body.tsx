@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, isValidElement } from 'react';
 import Link from 'next/link';
 import { resolveArrivalAction } from '@/lib/arrival-action';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
@@ -17,7 +17,8 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 import { PLATE } from '../_lib/measures';
 import { guestRoleLabel } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { loadEventRoleNames } from '../_lib/loaders';
+import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
+import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
@@ -94,6 +95,22 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { type StdBackground } from '@/lib/std-backgrounds';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { OurStory } from './our-story';
+import { HubShell } from './hub/hub-shell';
+import { DayDirections } from './day-directions';
+import {
+  HUB_TAB_ATTR,
+  activeHubTab,
+  directionsLead,
+  hubTabFor,
+  hubTabsOn,
+  inPageTabs,
+} from '../_lib/hub-tabs';
+import type { NavSlot } from '../_lib/site-nav';
+import { SITE_WELCOME_ANCHOR } from '../_lib/site-menu';
+import { venueNowMs } from '@/lib/schedule';
+import { widgetByType, widgetShouldRender } from '@/lib/invitation-widgets';
+import { welcomePartsOnTheDay } from '@/lib/invitation-welcome';
+import { PUBLIC_WIDGET_ALLOWLIST } from '@/lib/public-widget-allowlist';
 
 /* The dayOfPhase → NavPhase mapping moved into `_lib/site-nav.ts` as
    `navPhaseFor`, because it needed a SECOND input (whether the page is showing
@@ -110,6 +127,7 @@ import { fallbackSeedFromPublicId } from '@/lib/wax-seal/types';
 import { LiveWallBlock } from './live-wall-block';
 import { SongRequestCard } from './song-request-card';
 import { songRequestCardShows, type SongRequestDoor } from '@/lib/guest-song-request-rule';
+import { SELFIE_LIFETIME_LINE, SIGN_OUT_ERASES_SELFIE } from '@/lib/face-selfie-lifetime';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
 import { YourSeatBlock } from './your-seat-block';
 import { SeatDoorLine } from './seat-door-line';
@@ -188,6 +206,7 @@ import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
+import { GetTickets } from './get-tickets';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
@@ -389,6 +408,9 @@ type SiteBodyProps = {
    *  (the Host controls bar, "Manage", the Live hub pill) never returns. Inert
    *  outside the canvas. */
   canvasGuestBars?: boolean;
+  /** 🎟 "Get tickets" — `publicTicketUrl(...)` (lib/ticket-url.ts): the
+   *  organizer's own ticket page, or null unless the event is Public. */
+  ticketUrl?: string | null;
   /** 🖼 The Maker's made-once Hero page (`?only=hero`) — draw that ONE scene.
    *  Resolved by `canvasOnlyScene`, which is null off the host canvas. */
   canvasOnly?: CanvasOnlyScene | null;
@@ -431,6 +453,20 @@ type SiteBodyProps = {
    *  window; null everywhere else, which renders no card. See
    *  lib/guest-song-request.ts. */
   songRequestDoor?: SongRequestDoor;
+  /**
+   * 📱 EACH TAB ITS OWN PAGE (owner 2026-09-30) — the address's `?tab=`, raw.
+   * On the Invitation and The Day the page draws every tab's content once and
+   * shows this one (`_lib/hub-tabs.ts`); an unknown or absent value is the first
+   * tab. Inert on every page that is still one scroll.
+   */
+  activeTab?: string | null;
+  /**
+   * 👤 THE GUEST'S ME, handed in by page.tsx when the page is tabs — the same
+   * section GuestHubBar draws below the page otherwise (`GuestMeSection`). On a
+   * tabbed page it is a tab like the others, so it sits INSIDE the page's column
+   * rather than under its closing footer. Null everywhere else.
+   */
+  meSection?: React.ReactNode;
 };
 
 export async function SiteBody({
@@ -469,6 +505,7 @@ export async function SiteBody({
   editorialDraft = null,
   editorBridge = false,
   canvasGuestBars = false,
+  ticketUrl = null,
   canvasOnly = null,
   themeTile = false,
   makerWayBack = null,
@@ -477,6 +514,8 @@ export async function SiteBody({
   supplierDesk = null,
   chaptersOnThisDay = [],
   entourage = [],
+  activeTab = null,
+  meSection = null,
 }: SiteBodyProps) {
   // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
   // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
@@ -524,6 +563,11 @@ export async function SiteBody({
   // Crew"). Read once per request (cached loader), graceful: an unreadable
   // value is the usual words. Handed to every widget that names a reader's role.
   const roleNames = await loadEventRoleNames(createAdminClient(), event.event_id);
+  // 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30) — the Place card prints the
+  // guest's name in it. Read only where a guest's own page is drawn (the one
+  // tree with a Place card); graceful: unreadable is Full.
+  const eventNameStyle =
+    identity.kind === 'anonymous' ? DEFAULT_NAME_STYLE : await loadEventNameStyle(createAdminClient(), event.event_id);
   // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25, Event Hub Maker
   // Details panel) — read once here for both mounts below (the reply card and
   // the song-request card). An absent key is ON, so an event that never opens
@@ -777,8 +821,6 @@ export async function SiteBody({
     // lazy finalize write on the couple's own roster.
     guestListClosed: guestListIsClosed({
       lockedAt: event.guest_count_locked_at,
-      editDeadline: event.guest_list_edit_deadline,
-      eventDate: event.event_date,
     }),
     /* 🧩 In the Maker an EMPTY scene keeps its place (owner 2026-09-27): the
        plan fails open on content there, and the dispatcher draws the scene's
@@ -935,6 +977,103 @@ export async function SiteBody({
     // the field. Without the date this notice comes back after the wedding.
     eventDate: event.event_date,
   });
+
+  /* ── 📱 EACH MENU TAB IS ITS OWN FULL PAGE (owner 2026-09-30, verbatim: *"so
+     this is not a 1 page scroll jumping to different marks. this is each menu
+     gets their own full page scroll"*). DECISION_LOG "EACH MENU TAB IS ITS OWN
+     FULL PAGE", "THE GUEST MENUS, NAMED", "THE DAY'S MENU HAS FIVE".
+
+     On the Invitation (Welcome · Details · Our Love Story · Me) and The Day
+     (Live · Welcome · Camera · Gallery · Me) every tab's content is drawn ONCE,
+     here, in a group marked `data-hub-tab`; all but the tab in the address are
+     `hidden`, and the hub shell's page frame (`hub/hub-shell.tsx`, the day-of
+     hub's own shell — never a second one) shows one at a time. Each group asks
+     for the tab it belongs to and `hubTabFor` files it on the nearest tab this
+     reader's bar HAS, so nothing the long page showed is ever stranded on a tab
+     nobody can open. Off these two stages, in the Maker's canvas, or with no
+     bar, `group()` returns its content untouched — those pages are
+     byte-identical to before. */
+  const tabsOn = hubTabsOn({
+    stage: pageStage,
+    bodyNormal: plan.body === 'normal',
+    barDrawn:
+      siteMenuEnabled({ flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED, isSample: Boolean(event.is_sample) }) &&
+      showGuestBars,
+    makerCanvas: isMakerCanvas || canvasOnly !== null,
+  });
+  /** The Day's first tab, or the Invitation's — where the masthead lives. */
+  const leadTab = pageStage === 'event' ? 'live' : 'home';
+  /** A group with nothing in it draws no box — an empty box would still take
+   *  its place in the page's rhythm (a fragment of conditions that all failed). */
+  const nothingIn = (node: React.ReactNode): boolean =>
+    node === null ||
+    node === undefined ||
+    node === false ||
+    (Array.isArray(node) && node.every(nothingIn)) ||
+    (isValidElement(node) && node.type === Fragment && nothingIn((node.props as { children?: React.ReactNode }).children));
+  const pageTabsFor = (bar: readonly NavSlot[]) => {
+    const inPage = tabsOn ? inPageTabs(bar) : [];
+    const on = inPage.length > 0;
+    const active = activeHubTab(activeTab, inPage);
+    /** One tab's content. `chapters` keeps the §6 scroll reveal on its children
+     *  (the group itself is never hidden by it — it IS the page's first screen
+     *  whenever it is shown). */
+    const group = (
+      want: string,
+      node: React.ReactNode,
+      opts: { chapters?: boolean; className?: string; id?: string } = {},
+    ) => {
+      if (!on || nothingIn(node)) return on ? null : node;
+      const tab = hubTabFor(want, inPage);
+      return (
+        <div
+          id={opts.id}
+          {...{ [HUB_TAB_ATTR]: tab }}
+          hidden={tab !== active ? true : undefined}
+          {...(opts.chapters ? { 'data-pahina-first-screen': '', 'data-pahina-chapters': '' } : {})}
+          className={`${opts.className ?? ''} empty:hidden`.trim()}
+        >
+          {node}
+        </div>
+      );
+    };
+    /** The same marks, for a block that draws its own root (a component
+     *  outside both trees). Empty on a page that is one scroll. */
+    const attrs = (want: string): { [HUB_TAB_ATTR]?: string; hidden?: boolean } => {
+      if (!on) return {};
+      const tab = hubTabFor(want, inPage);
+      return { [HUB_TAB_ATTR]: tab, ...(tab !== active ? { hidden: true } : {}) };
+    };
+    return { on, active, group, attrs, bar };
+  };
+  /* The tabs the tree below resolved for its reader — set by whichever tree
+     renders (they are evaluated in JSX order, before the blocks after them that
+     read it: the doorway strip, "Everything else", the stories). */
+  let pageTabs = pageTabsFor([]);
+  /* 🧭 THE DAY'S WELCOME reads the couple's scenes whatever the day's own list
+     says (`welcomePartsOnTheDay`): the dress code and the reminders are made on
+     the Invitation, and a guest on the day still dresses by one and reads the
+     other. Switched off by the couple → not shown. */
+  const dayWelcomeFacts = {
+    bodyNormal: plan.body === 'normal' && pageStage === 'event',
+    dressCodeOn: widgetShouldRender(widgetByType(widgets, 'dress_code')),
+    remindersOn: widgetShouldRender(widgetByType(widgets, 'what_to_bring')),
+    reminders: event.what_to_bring,
+    giftHref: doorways.pabuya,
+    maker: isMakerCanvas,
+  };
+  const dayRemindersRow = widgetShouldRender(widgetByType(widgets, 'what_to_bring'))
+    ? widgetByType(widgets, 'what_to_bring')
+    : null;
+  /* 🗺 THE DAY'S LIVE LEADS WITH DIRECTIONS until the programme begins
+     (`directionsLead`). Only venues this reader may see — `event.venues` is
+     already withheld per viewer by page.tsx. */
+  const eventTzForDay = eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude);
+  const directionsOnTop =
+    pageStage === 'event' &&
+    dayOfPhase === 'live' &&
+    (event.venues?.length ?? 0) > 0 &&
+    directionsLead({ firstStartAt: scheduleBlocks[0]?.start_at ?? null, venueNowMs: venueNowMs(eventTzForDay) });
 
   /**
    * The 3-way phased body — the single computation site for the editorial
@@ -1158,6 +1297,11 @@ export async function SiteBody({
       maker: isMakerCanvas,
     });
     const detailsScenes = scenesLeftForDetails(plan.publicSafeWidgets, welcome);
+    // 📱 On a tabbed page the "Our love story" scene is Our Love Story's page,
+    // not a Details section (owner 2026-09-30: each tab its own page). One
+    // scene, one tab: it moves, it is never drawn twice.
+    const storyScene = tabsOn ? (detailsScenes.find((w) => w.widget_type === 'our_love_story') ?? null) : null;
+    const detailsSceneList = storyScene ? detailsScenes.filter((w) => w !== storyScene) : detailsScenes;
     // 📖 THE LOVE STORY ONCE (guest text audit 2026-09-30): the "Our love story"
     // scene and the prose `OurStory` below both drew it, so a guest read the
     // couple's story twice in a row. When the scene is on the page, it IS the
@@ -1167,7 +1311,7 @@ export async function SiteBody({
       ? (plan.publicSafeWidgets.find((w) => w.widget_type === 'what_to_bring') ?? null)
       : null;
     const menuSections = {
-      details: bodyRenders && (plan.openBrowse || detailsScenes.length > 0),
+      details: bodyRenders && (plan.openBrowse || detailsSceneList.length > 0),
       // 🔴 THE OWNER SAW THIS ONE: a Story tab on a seven-year-old's birthday.
       // The love story is wedding-by-nature — it asks how the two of them met,
       // and a type with no two people has no answer.
@@ -1188,9 +1332,9 @@ export async function SiteBody({
     // Details branches render the identical set (no duplication).
     // 🎬 Scroll · Scrub per section — the same scenes as the guest tree, so a
     // stranger following the link sees the page the couple arranged.
-    const publicWidgetNodes = (
-      <HubScenes widgets={detailsScenes} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
-      {detailsScenes.map((widget) => (
+    const sceneNodes = (list: typeof detailsScenes) => (
+      <HubScenes widgets={list} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+      {list.map((widget) => (
       /* One node per widget still (HubScenes pairs by position): the marker
          and the section travel together in one fragment. */
       <Fragment key={widget.widget_id}>
@@ -1221,6 +1365,7 @@ export async function SiteBody({
       ))}
       </HubScenes>
     );
+    const publicWidgetNodes = sceneNodes(detailsSceneList);
     // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
     // guest at the venue without a session cookie still sees "happening now".
     const dayOfBadge =
@@ -1234,6 +1379,88 @@ export async function SiteBody({
           {clientWords.solemn ? 'Thank you for being here' : 'Thank you for celebrating'}
         </p>
       ) : null;
+
+    /* 🏠 THE DAY'S WELCOME, for a reader without a key: the couple's reminders
+       and E-Gifts (a stranger has no look to dress by), and the seat finder
+       for whoever may use it. */
+    // 🔒 The reminders reach a reader without a key only as the page's own
+    // anonymous fence would let them: a public-safe type, not set to "guests
+    // only" (`lib/public-widget-allowlist.ts`, `openBrowseWidgetVisibleTo`).
+    const dayRemindersPublic =
+      PUBLIC_WIDGET_ALLOWLIST.includes('what_to_bring') && dayRemindersRow?.audience !== 'guests_only';
+    const dayWelcome = welcomePartsOnTheDay({
+      ...dayWelcomeFacts,
+      identified: false,
+      remindersOn: dayWelcomeFacts.remindersOn && dayRemindersPublic,
+    });
+    const findSeatShown = Boolean(
+      insideAllowed && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished,
+    );
+    const anonBar = resolveSiteNav({
+        /*
+          🔴 WHO IS ACTUALLY LOOKING — this was the literal `{ kind: 'public' }`.
+
+          The owner opened his own wedding page while signed in and the
+          bar's last tab said **"Join"** — a stranger's invitation to add
+          themselves to the guest list — while the owner ribbon two
+          hundred lines above said "YOUR LIVE SITE". Two mechanisms on one
+          screen, at one moment, disagreeing about who the reader is. He
+          asked: *"story and join seems incorrect. is that correct?"* It
+          was not.
+
+          🔑 AND `resolveSiteNav` HAD THE ANSWER ALL ALONG. It carries a
+          whole `isCouple` arm — "Manage", and the camera unconditionally
+          because it is their wedding — that NO CALL SITE COULD EVER
+          REACH: the only two callers passed these literals. Unreachable
+          code that reads as shipped behaviour, which is this page's
+          recurring disease in one line.
+
+          ⚠ THE VENDOR ARM IS STILL UNREACHABLE AND I HAVE NOT FAKED IT.
+          `{ kind: 'vendor' }` needs `kits`, and nothing on this page
+          resolves them — `VendorCapability` carries the booking, not the
+          specialisations. Passing `kits: []` would hand every booked
+          supplier the label "Tools" on no evidence. A supplier still gets
+          the public bar here; that is a known, stated gap, not a silent
+          one, and it belongs to the supplier lane.
+        */
+        /* 🧭 In the Maker's canvas the bar is the one a GUEST holding their
+           key sees (owner 2026-09-26: "show the actual guest bar for that
+           stage") — Home · Details · RSVP · Story · Me on the Invitation.
+           Since 2026-09-27 a stranger's bar is only Home · Details · Story,
+           which is not the bar the couple is designing for. */
+        viewer: ownerCapability && !isEditorCanvas ? { kind: 'couple' } : isEditorCanvas ? { kind: 'guest' } : { kind: 'public' },
+        phase: navPhase,
+        hostAllowsCamera: hostCameraOpen,
+        anyChapterPublic: menuSections.gallery,
+        hasStory: menuSections.story,
+        hasDetails: menuSections.details,
+        hasSchedule: plan.publicSafeWidgets.some((w) => w.widget_type === 'schedule'),
+        liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
+        // 📖 After the day: Film and Suppliers, only where the recap drew them.
+        postEvent: recapBar,
+        destinations: {
+          film: openUpHash('film'),
+          suppliers: `#${POST_EVENT_SUPPLIERS_ANCHOR}`,
+          // Carries the event so the guest camera's refusal screen can
+          // send an unrecognised visitor BACK TO THIS INVITATION instead
+          // of to Setnayan's homepage — which was the only way off it.
+          camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
+          watch: `/${event.slug}/hub`,
+          join: `/${event.slug}/invite`,
+        },
+        stageSlots: STAGE_BAR[pageStage].slots,
+        // 🏠 The day's Welcome, when this reader has one (the reminders, E-Gifts,
+        // the seat finder) — a tab with nothing behind it is not drawn.
+        hasWelcome: dayWelcome.length > 0 || findSeatShown,
+        // 📱 Each tab its own page, on the Invitation and The Day.
+        tabbed: tabsOn,
+    });
+    const tabs = pageTabsFor(anonBar);
+    pageTabs = tabs;
+    const { group } = tabs;
+    /** On the day the page's sections are Live's — except a supplier's, whose
+     *  "Cues" tab IS the day's details. */
+    const scenesTab = pageStage === 'event' && vendorCapability === null ? 'live' : 'details';
 
     return (
       <>
@@ -1262,6 +1489,9 @@ export async function SiteBody({
             2s self-heal each drop `.pahina-js` and every section is instantly
             visible and static. */}
         <article data-pahina-chapters>
+        {/* 📱 THE FIRST TAB'S TOP — the Invitation's Welcome, The Day's Live
+            (`group`, a no-op on a page that is one scroll). */}
+        {group(leadTab, <>
         {/* Menu-shell anchor targets (PR6). aria-hidden zero-height markers so
             the fixed SiteMenuBar's in-page links land on the right sections. */}
         <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
@@ -1302,10 +1532,12 @@ export async function SiteBody({
             mediaCaption={venueLine}
           />
         ) : null}
+        </>, { chapters: true })}
         {phasedBody(() => (
           <>
             {/* `data-pahina-first-screen`: this chapter IS the first screen (the
                 masthead), so the scroll reveal never hides it — see globals.css. */}
+            {group(leadTab, (
             <div data-pahina-first-screen="" className="space-y-6 text-center">
               {!hasHeroMedia ? makerMark('f:hero') : null}
               {!hasHeroMedia ? (
@@ -1329,6 +1561,11 @@ export async function SiteBody({
                   }
                 />
               ) : null}
+              {/* 🎟 A PUBLIC event's "Get tickets" (owner 2026-09-29) — above the
+                  door, for everyone who reads the general details, the host's
+                  own view included, so they see what their visitors get. The
+                  organizer sells the tickets; this only links to their page. */}
+              <GetTickets url={ticketUrl} />
               {viewerIsHost ? (
                 /* THE HOST'S OWN PAGE. Wins over every `reason` variant below:
                    a stale or absent guest cookie says nothing about somebody
@@ -1369,6 +1606,7 @@ export async function SiteBody({
                 </div>
               )}
             </div>
+            ), { chapters: true })}
 
             {/* Public event-day bar (owner 2026-06-28) — gives the no-guest /
                 host-preview view the same bottom chrome a real guest sees, so the
@@ -1390,7 +1628,9 @@ export async function SiteBody({
               candidCameraActive={insideAllowed && publicCandidCameraActive}
               photosHref={insideAllowed ? publicAlbumHref : null}
               hubHref={
-                insideAllowed && (dayOfPhase === 'live' || dayOfPhase === 'post')
+                /* 📱 A page whose tabs ARE the day (Live · Welcome · Camera ·
+                   Gallery · Me) needs no door to a second hub. */
+                !tabs.on && insideAllowed && (dayOfPhase === 'live' || dayOfPhase === 'post')
                   ? `/${event.slug}/hub`
                   : null
               }
@@ -1406,7 +1646,9 @@ export async function SiteBody({
                 once guests may see their seats — the one rule
                 (lib/guests-may-see-seats.ts, via `doorwayFacts.seatingPublished`),
                 never a door to a "not yet" page. */}
-            {insideAllowed && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished ? (
+            {/* 🏠 The day's Welcome begins here — the seat finder is its table. */}
+            {pageStage === 'event' ? group('home', <div id={SITE_WELCOME_ANCHOR} aria-hidden className="scroll-mt-6" />) : null}
+            {group('home', <>{insideAllowed && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished ? (
             <div className="mt-8 text-center">
               <Link
                 href={`/${event.slug}/find-seat`}
@@ -1416,7 +1658,7 @@ export async function SiteBody({
                 Find your seat
               </Link>
             </div>
-            ) : null}
+            ) : null}</>)}
 
             {/* Panood Watch-Live — anonymous path FIRST: the remote relatives
                 clicking the shared link from Messenger are exactly the cookie-less
@@ -1480,7 +1722,9 @@ export async function SiteBody({
               const wallShown = Boolean(
                 insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && (liveWall || liveWallUnreadable),
               );
-              return liveHubArranged && (playerShown || wallShown) ? (
+              // 📱 Live is the stream (and the couple's arrangement of stream and
+              // wall); on its own the wall is the Gallery's — everyone's photos.
+              return liveHubArranged && (playerShown || wallShown) ? group('live', (
                 <div className="mt-10">
                   <LiveHubArrangement
                     sceneStyle={liveHubStyle}
@@ -1488,10 +1732,10 @@ export async function SiteBody({
                     wall={wallShown ? wallPart : null}
                   />
                 </div>
-              ) : (
+              )) : (
                 <>
-                  {playerPart}
-                  {wallPart}
+                  {tabs.on ? (playerShown ? group('live', playerPart) : null) : playerPart}
+                  {tabs.on ? (wallShown ? group('gallery', wallPart) : null) : wallPart}
                 </>
               );
             })()}
@@ -1520,7 +1764,7 @@ export async function SiteBody({
             {/* 🏠 WELCOME — after the reply, before Details (owner 2026-09-30).
                 A stranger meets Reminders and E-Gifts here; the Maker's canvas
                 draws all three places, each after its navigator marker. */}
-            {welcome.length > 0 ? (
+            {welcome.length > 0 ? group('home', (
               <div className="mt-12">
                 <GuestWelcome
                   parts={welcome}
@@ -1551,8 +1795,37 @@ export async function SiteBody({
                   maker={isMakerCanvas}
                 />
               </div>
-            ) : null}
-            {plan.openBrowse ? (
+            )) : null}
+            {/* 🏠 THE DAY'S WELCOME (owner 2026-09-30, "THE DAY'S MENU HAS
+                FIVE") — for a reader without a key, the couple's Reminders and
+                E-Gifts. Never on the Maker's canvas (`welcomePartsOnTheDay`). */}
+            {dayWelcome.length > 0 ? group('home', (
+              <div className="mt-12">
+                <GuestWelcome
+                  parts={dayWelcome}
+                  words={clientWords}
+                  look={null}
+                  reminders={
+                    dayRemindersRow ? (
+                      <PublicHideableWidget
+                        widget={dayRemindersRow}
+                        canvasMediaUrls={canvasMediaUrls}
+                        hubTheme={sceneTheme}
+                        ownClipPlays={isMakerCanvas}
+                        guestView={!isMakerCanvas}
+                        event={event}
+                        words={clientWords}
+                        scheduleBlocks={scheduleBlocks}
+                        isLive={dayOfPhase === 'live'}
+                        ourPhotoUrls={ourPhotoUrls}
+                      />
+                    ) : null
+                  }
+                  giftHref={doorways.pabuya}
+                />
+              </div>
+            )) : null}
+            {group(scenesTab, plan.openBrowse ? (
               // Open-browse Details — always present so the tab is never dead:
               // event-level facts (the anonymous event_details variant — §5.10),
               // the public widgets, then a teaser plate when nothing is filled.
@@ -1570,15 +1843,15 @@ export async function SiteBody({
                   )}
                 />
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
-                {detailsScenes.length === 0 ? (
+                {detailsSceneList.length === 0 ? (
                   <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                 ) : null}
               </section>
-            ) : detailsScenes.length > 0 ? (
+            ) : detailsSceneList.length > 0 ? (
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
               </section>
-            ) : null}
+            ) : null)}
 
             {/* THE ENTOURAGE — under Details, never a sixth tab (owner ruling
                 2026-09-14). Its own anchor so the couple can link straight at
@@ -1589,7 +1862,7 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null}
+            {group(scenesTab, stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null)}
 
             {/* 🎨 THE DAY'S OWN PARTS — the Maker's canvas only, never a guest:
                 a stand-in for each part a guest meets as their own (their
@@ -1615,6 +1888,14 @@ export async function SiteBody({
                 branches), so this naturally stays off the post-event Editorial.
                 Under open-browse a teaser plate stands in when there's no story so
                 the Story tab never lands on nothing. */}
+            {group('story', <>
+            {/* 📱 On a tabbed page the "Our love story" scene is this tab's own
+                page (it left Details above), in the couple's scene look. */}
+            {storyScene ? (
+              <div id={SITE_MENU_ANCHORS.story} className="sn-hub-cards mt-12 space-y-4 scroll-mt-6">
+                {sceneNodes([storyScene])}
+              </div>
+            ) : null}
             <div id={storySceneShown ? undefined : SITE_MENU_ANCHORS.story} className="scroll-mt-6">
               {storySceneShown ? null : event.love_story ? (
                 <OurStory loveStory={event.love_story} variant="full" />
@@ -1622,12 +1903,13 @@ export async function SiteBody({
                 <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />
               ) : null}
             </div>
+            </>)}
           </>
         ))}
         {/* Me tab — under open-browse a cookie-less visitor gets designed
             find-mode (§1.1); otherwise the account/claim affordance lives in the
             fixed PublicEventDayBar and this marker just gives the tab a landing. */}
-        {plan.openBrowse && viewerIsHost ? (
+        {group('me', <>{plan.openBrowse && viewerIsHost ? (
           /* The host half of the Me tab. `FindModeCard` asks "Have an
              invitation?" and offers "Open my invitation" — a dead end for the
              person who ISSUES the invitations, and the tab must still land
@@ -1652,7 +1934,7 @@ export async function SiteBody({
           </section>
         ) : (
           <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" />
-        )}
+        )}</>)}
         {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
             anchors. Flag-dark (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for
             the sample event. Coexists with PublicEventDayBar until PR11 retires
@@ -1668,60 +1950,6 @@ export async function SiteBody({
              Maker's canvas only — the navigator's tabs (`data-maker-bar`), so
              the two can never disagree (owner 2026-09-26: *"this depends on
              what menu they are looking at"*). */
-          const anonBar = resolveSiteNav({
-              /*
-                🔴 WHO IS ACTUALLY LOOKING — this was the literal `{ kind: 'public' }`.
-
-                The owner opened his own wedding page while signed in and the
-                bar's last tab said **"Join"** — a stranger's invitation to add
-                themselves to the guest list — while the owner ribbon two
-                hundred lines above said "YOUR LIVE SITE". Two mechanisms on one
-                screen, at one moment, disagreeing about who the reader is. He
-                asked: *"story and join seems incorrect. is that correct?"* It
-                was not.
-
-                🔑 AND `resolveSiteNav` HAD THE ANSWER ALL ALONG. It carries a
-                whole `isCouple` arm — "Manage", and the camera unconditionally
-                because it is their wedding — that NO CALL SITE COULD EVER
-                REACH: the only two callers passed these literals. Unreachable
-                code that reads as shipped behaviour, which is this page's
-                recurring disease in one line.
-
-                ⚠ THE VENDOR ARM IS STILL UNREACHABLE AND I HAVE NOT FAKED IT.
-                `{ kind: 'vendor' }` needs `kits`, and nothing on this page
-                resolves them — `VendorCapability` carries the booking, not the
-                specialisations. Passing `kits: []` would hand every booked
-                supplier the label "Tools" on no evidence. A supplier still gets
-                the public bar here; that is a known, stated gap, not a silent
-                one, and it belongs to the supplier lane.
-              */
-              /* 🧭 In the Maker's canvas the bar is the one a GUEST holding their
-                 key sees (owner 2026-09-26: "show the actual guest bar for that
-                 stage") — Home · Details · RSVP · Story · Me on the Invitation.
-                 Since 2026-09-27 a stranger's bar is only Home · Details · Story,
-                 which is not the bar the couple is designing for. */
-              viewer: ownerCapability && !isEditorCanvas ? { kind: 'couple' } : isEditorCanvas ? { kind: 'guest' } : { kind: 'public' },
-              phase: navPhase,
-              hostAllowsCamera: hostCameraOpen,
-              anyChapterPublic: menuSections.gallery,
-              hasStory: menuSections.story,
-              hasDetails: menuSections.details,
-              hasSchedule: plan.publicSafeWidgets.some((w) => w.widget_type === 'schedule'),
-              liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
-              // 📖 After the day: Film and Suppliers, only where the recap drew them.
-              postEvent: recapBar,
-              destinations: {
-                film: openUpHash('film'),
-                suppliers: `#${POST_EVENT_SUPPLIERS_ANCHOR}`,
-                // Carries the event so the guest camera's refusal screen can
-                // send an unrecognised visitor BACK TO THIS INVITATION instead
-                // of to Setnayan's homepage — which was the only way off it.
-                camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
-                watch: `/${event.slug}/hub`,
-                join: `/${event.slug}/invite`,
-              },
-              stageSlots: STAGE_BAR[pageStage].slots,
-          });
           return (
             <>
               {isMakerCanvas && menuOn ? (
@@ -1732,6 +1960,9 @@ export async function SiteBody({
             slots={anonBar}
           />
         ) : null}
+        {/* 📱 Each tab its own page — the hub shell's page frame shows one tab
+            at a time and keeps its address (`hub/hub-shell.tsx`). */}
+        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={anonBar} /> : null}
             </>
           );
         })()}
@@ -1838,6 +2069,10 @@ export async function SiteBody({
       maker: false,
     });
     const detailsScenes = scenesLeftForDetails(plan.hideableInOrder, welcome);
+    // 📱 On a tabbed page the "Our love story" scene is Our Love Story's page —
+    // see the stranger's tree above. It moves; it is never drawn twice.
+    const storyScene = tabsOn ? (detailsScenes.find((w) => w.widget_type === 'our_love_story') ?? null) : null;
+    const detailsSceneList = storyScene ? detailsScenes.filter((w) => w !== storyScene) : detailsScenes;
     // 📖 The love story once — see the stranger's tree above.
     const storySceneShown = detailsScenes.some((w) => w.widget_type === 'our_love_story');
     // The day is behind us: the post-event window, the recap body, or a date
@@ -1850,7 +2085,7 @@ export async function SiteBody({
       ? (plan.hideableInOrder.find((w) => w.widget_type === 'what_to_bring') ?? null)
       : null;
     const menuSections = {
-      details: guestBodyRenders && detailsScenes.length > 0,
+      details: guestBodyRenders && detailsSceneList.length > 0,
       story: guestBodyRenders && Boolean(event.love_story),
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
@@ -1934,6 +2169,99 @@ export async function SiteBody({
       </section>
     ) : null;
 
+    /* 🏠 THE DAY'S WELCOME (owner 2026-09-30, "THE DAY'S MENU HAS FIVE"):
+       this guest's table (the seat block, drawn above), their look, the
+       couple's reminders and E-Gifts. */
+    const dayWelcome = welcomePartsOnTheDay({ ...dayWelcomeFacts, identified: !isMakerCanvas });
+    /* Same resolver, guest viewer. The camera destination keeps the shipped
+       precedence — a guest's OWN roll first, then the couple's shared camera,
+       the same order GuestHubBar already uses; neither open ⇒ the resolver
+       LOCKS the slot rather than hiding it. */
+    const guestBar = resolveSiteNav({
+      viewer: { kind: 'guest' },
+      phase: navPhase,
+      stageSlots: STAGE_BAR[pageStage].slots,
+      // `papicGuest` is the guest's own roll (an object), not a flag —
+      // coerce it, or the resolver receives a truthy non-boolean.
+      hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,
+      anyChapterPublic: menuSections.gallery,
+      hasStory: menuSections.story,
+      hasDetails: menuSections.details,
+      hasSchedule: plan.hideableInOrder.some((w) => w.widget_type === 'schedule'),
+      liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
+      // 🏠 The day's Welcome — their table, their look, the reminders, E-Gifts.
+      hasWelcome: dayWelcome.length > 0 || Boolean(seatMap) || seatPassActive,
+      // 📱 Each tab its own page, on the Invitation and The Day.
+      tabbed: tabsOn,
+      // 📖 After the day: Film and Suppliers, only where the recap drew them.
+      postEvent: recapBar,
+      destinations: {
+        film: openUpHash('film'),
+        suppliers: `#${POST_EVENT_SUPPLIERS_ANCHOR}`,
+        camera: papicGuest
+          ? `/papic/me/${guest.qr_token}`
+          : hostCameraOpen
+            ? // Same reason as the anonymous tree: carry the event so a
+              // refusal can hand them back their invitation.
+              `/papic/guest?from=${event.slug}`
+            : null,
+        watch: `/${event.slug}/hub`,
+        join: `/${event.slug}/invite`,
+      },
+    });
+    const tabs = pageTabsFor(guestBar);
+    pageTabs = tabs;
+    const { group } = tabs;
+    const signOut = (
+      <section className="border-t border-ink/10 pt-6 text-center text-xs text-ink/50">
+        <form action={`/${event.slug}/sign-out`} method="post">
+          {/* 🧽 Said BEFORE the tap (owner 2026-09-30): the sign-out route
+              erases the face-tagging selfie; tags stay. */}
+          {guest.photo_source === 'selfie' ? (
+            <p data-sign-out-erases-selfie="" className="mb-2">{SIGN_OUT_ERASES_SELFIE}</p>
+          ) : null}
+          <button type="submit" className="underline-offset-4 hover:underline">
+            Sign out of this invitation
+          </button>
+        </form>
+      </section>
+    );
+    /** On the day the page's sections are Live's (owner 2026-09-30). */
+    const scenesTab = pageStage === 'event' ? 'live' : 'details';
+    /** One of the couple's scenes, as this guest reads it — for Details, and on
+     *  a tabbed page for the love story scene on its own tab. */
+    const renderScene = (widget: (typeof detailsScenes)[number]) => (
+    <HideableWidgetRender
+      key={widget.widget_id}
+      widget={widget}
+      /* 🏠 This guest's own look is on Welcome; Details keeps everyone's. */
+      dressCodeGeneral={welcome.includes('look')}
+      stage={pageStage}
+      canvasMediaUrls={canvasMediaUrls}
+      hubTheme={sceneTheme}
+      ownClipPlays={isMakerCanvas}
+      guestView={!isMakerCanvas}
+      event={event}
+      roleNames={roleNames}
+      guest={guest}
+      sideLabel={sideLabel}
+      scheduleBlocks={scheduleBlocks}
+      isLive={isLive}
+      scheduleEstimated={
+        isGuestNowTriggerEnabled() &&
+        (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
+      }
+      isLimitedPlusOne={isLimitedPlusOne}
+      ourPhotoUrls={ourPhotoUrls}
+      words={clientWords}
+      hostPitch={account ? hostPitchShows(account) : false}
+      /* 🚶 "You walk 5th, with …" under the dress code's "You are <role>" —
+         from the SAME built entourage the section below prints (owner
+         2026-09-29). Never on the Maker canvas (no guest reads it there). */
+      marchPlace={isMakerCanvas ? null : marchPlaceOf(entourage, guest?.guest_id)}
+    />
+    );
+
     return (
       <>
         {/* THE COORDINATOR'S ANNOUNCEMENT — first thing a guest sees during the
@@ -1955,6 +2283,9 @@ export async function SiteBody({
             selector would hide THEIR children too, with no observer scoped to
             reveal them. */}
         <article data-pahina-chapters className="space-y-12">
+          {/* 📱 THE FIRST TAB'S TOP — the Invitation's Welcome, The Day's Live
+              (`group`: a no-op on a page that is one scroll). */}
+          {group(leadTab, <>
           {/* Menu-shell anchor target (PR6) — top-of-page "Home" landing. Gated
               on menuOn so the flag-off DOM is untouched. */}
           {menuOn ? (
@@ -2038,6 +2369,9 @@ export async function SiteBody({
             action={arrivalAction}
             landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')}
           />
+          </>, { chapters: true, className: 'space-y-12' })}
+
+          {group('home', <>
 
           {/* ── THE PAGE OPENS ON THE MARK (owner 2026-09-20).
               Until now an identified guest met a box about THEMSELVES — "Hi
@@ -2120,11 +2454,13 @@ export async function SiteBody({
               arrived={guestHubData.arrived}
               sceneStyle={fixedStyle('find_your_seat')}
               /* 🪪 The Place card is a name card: the guest's FORMAL name, in the
-                 hero's Names look (owner 2026-09-30) — never a bare first name. */
-              formalName={placeCardName(guest)}
+                 event's Name style and the hero's Names look (owner 2026-09-30)
+                 — never a bare first name. */
+              formalName={placeCardName(guest, eventNameStyle)}
               nameStyle={hubElementInlineStyle(heroCanvas.elements?.names)}
             />
           ) : null}
+          </>, { chapters: true, className: 'space-y-12' })}
 
           {/* Increment C (flag-dark): after the wedding, the body below the
               hero is replaced by the editorial stand-in. The hero (above) +
@@ -2136,7 +2472,10 @@ export async function SiteBody({
               {/* Greeting — always-on per the editor contract; gated here so V1.1
                   can decouple if a host wants the wedding page to skip the
                   personalized welcome. */}
-              {dayOfLead.greetingStepsBack ? null : greetingBlock}
+              {/* 🗺 THE DAY'S LIVE LEADS WITH DIRECTIONS until the programme
+                  begins (owner 2026-09-30, "THE DAY'S MENU HAS FIVE"). */}
+              {directionsOnTop ? group('live', <DayDirections venues={event.venues ?? []} />, { chapters: true, className: 'space-y-12' }) : null}
+              {group(leadTab, <>{dayOfLead.greetingStepsBack ? null : greetingBlock}</>, { chapters: true, className: 'space-y-12' })}
 
               {/* Task #13 — day-of-mode promotes the schedule block to the top of
                   the article so a guest at the venue sees "happening now" before
@@ -2149,7 +2488,7 @@ export async function SiteBody({
                   when the couple's links resolve, so no `isLive` gate here. */}
               {/* 🎨 Theatre / Wall first draw the player AND the wall here, together;
                   style A keeps the wall in its own place further down. */}
-              {liveHubArranged && (watchLive || (isLive && liveWall)) ? (
+              {group('live', liveHubArranged && (watchLive || (isLive && liveWall)) ? (
                 <LiveHubArrangement
                   sceneStyle={liveHubStyle}
                   player={watchLive ? <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} /> : null}
@@ -2167,14 +2506,14 @@ export async function SiteBody({
                 />
               ) : watchLive ? (
                 <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} />
-              ) : null}
+              ) : null, { chapters: true, className: 'space-y-12' })}
 
               {/* Pahina §7 · functional-color exile STARTS HERE: the day-of
                   promotion used to wrap the whole widget in an app-green box.
                   The emphasis now lives inside the programme rail — the live
                   row carries an accent left rule + veil wash + "Happening now"
                   tag. Same promotion, same gating, no green on a wedding page. */}
-              {isLive && scheduleBlocks.length > 0 ? (
+              {group('live', isLive && scheduleBlocks.length > 0 ? (
                 <section aria-label="Day-of schedule">
                   <ScheduleWidget
                     blocks={scheduleBlocks}
@@ -2183,23 +2522,27 @@ export async function SiteBody({
                     eventType={event.event_type}
                   />
                 </section>
-              ) : null}
+              ) : null, { chapters: true, className: 'space-y-12' })}
 
 
               {/* Chinese (Tsinoy) tea-ceremony card — static, guest-safe tradition copy
                   (no roster / no PII). Mirrors the public + identified-guest paths for
                   parity; gates on isChineseWedding (primary OR secondary rite). */}
-              {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
+              {group(pageStage === 'event' ? 'live' : 'details', isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null, { chapters: true, className: 'space-y-12' })}
 
               {/* Live Photo Wall mirror — the venue wall on the guest's own phone
                   while the celebration runs (owner 2026-06-12: the wall + live
                   gallery belong ON the on-the-day page). Renders only when the
                   event owns LIVE_WALL and the live window is on; polls for fresh
                   tiles while the tab is visible. */}
-              {isLive && liveWall ? (
+              {/* 📱 On its own the wall is the Gallery's — everyone's photos. (A
+                  couple's Theatre / Wall first arrangement keeps it on Live, with
+                  the stream, above; the Gallery then does not draw it twice.) */}
+              {group('gallery', isLive && liveWall && !(tabs.on && liveHubArranged) ? (
                 <>
-                  {/* Menu-shell "Gallery" anchor (PR6) — lands on the live wall. */}
-                  {menuOn ? (
+                  {/* Menu-shell "Gallery" anchor (PR6) — lands on the live wall.
+                      On a tabbed page the Gallery group itself carries it. */}
+                  {menuOn && !tabs.on ? (
                     <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
                   ) : null}
                   {liveHubArranged ? null : (
@@ -2212,7 +2555,7 @@ export async function SiteBody({
                     />
                   )}
                 </>
-              ) : null}
+              ) : null, { chapters: true, className: 'space-y-12', id: SITE_MENU_ANCHORS.gallery })}
 
               {/* Ask the band for a song (SUP-52) — the guest's end of the song
                   desk. Live window only, and only when a booked act can READ
@@ -2220,9 +2563,9 @@ export async function SiteBody({
                   would say "sent" to nobody. Also folded into the couple's
                   "What do you ask your guests?" toggle (owner 2026-09-25) — its
                   own open/paused window stays a separate, second gate. */}
-              {rsvpAsk.song_request && songRequestCardShows({ isLive, door: songRequestDoor }) ? (
+              {group('live', rsvpAsk.song_request && songRequestCardShows({ isLive, door: songRequestDoor }) ? (
                 <SongRequestCard paused={songRequestDoor === 'paused'} />
-              ) : null}
+              ) : null, { chapters: true, className: 'space-y-12' })}
 
               {/* ⛔ NO STATIC "ADD YOUR FACE" CARD ON THE EVENT HUB — owner,
                   2026-09-21: "so many text. we want the event hub to be
@@ -2241,7 +2584,7 @@ export async function SiteBody({
                   the standalone /papic/guest route (still live as the QR-scan fallback +
                   the floating CTA). papicGuest is non-null only behind the active gate +
                   an unblocked guest, resolved on the page. */}
-              {papicGuest ? (
+              {group('live', papicGuest ? (
                 <PapicGuestCapture
                   /* Inside the hub: the terms / blocked / no-camera states are
                      ONLY the small card — no full-page frame (owner 2026-09-30,
@@ -2261,7 +2604,7 @@ export async function SiteBody({
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}
                 />
-              ) : null}
+              ) : null, { chapters: true, className: 'space-y-12' })}
 
               {/* Per-guest LIVE gallery — "photos of you, so far". The personalized
                   half of the on-the-day gallery pair (the wall mirror above is the
@@ -2283,9 +2626,9 @@ export async function SiteBody({
                   On the day it renders HERE, behind what the guest needs in the
                   room. Off the day it renders in its ordinary place above.
                   One block, two slots — never both. */}
-              {dayOfLead.greetingStepsBack ? greetingBlock : null}
+              {group(leadTab, <>{dayOfLead.greetingStepsBack ? greetingBlock : null}</>, { chapters: true, className: 'space-y-12' })}
 
-              {isLive || isPost ? (
+              {group('gallery', <>{isLive || isPost ? (
                 <PhotosOfYouGallery
                   gallery={guestLiveGallery}
                   eventId={event.event_id}
@@ -2296,8 +2639,9 @@ export async function SiteBody({
                   eventWord={clientWords.eventWord}
                   timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                   sceneStyle={fixedStyle('photos_of_you')}
+                  selfieLine={guest.photo_source === 'selfie' ? SELFIE_LIFETIME_LINE : null}
                 />
-              ) : null}
+              ) : null}</>, { chapters: true, className: 'space-y-12' })}
 
               {/* (The "Keep this event for good" note that stood here folded into the
                   one account card near the top, which says the same thing while
@@ -2316,7 +2660,7 @@ export async function SiteBody({
                   people for a day that had not happened, and asked guests to
                   shop in the middle of an invitation. And "supplier", never
                   "vendor", on a guest's screen. */}
-              {!clientWords.solemn &&
+              {group('home', <>{!clientWords.solemn &&
               eventIsBehind &&
               eventVendorCredits.length > 0 ? (
                 <section
@@ -2391,7 +2735,7 @@ export async function SiteBody({
                     ))}
                   </ul>
                 </section>
-              ) : null}
+              ) : null}</>, { chapters: true, className: 'space-y-12' })}
 
 
               {/* RSVP — always-on per the editor contract. The wedding's
@@ -2427,7 +2771,7 @@ export async function SiteBody({
                   regression the reskin-never-drop rule forbids. Nothing they
                   could do before is lost; it is one tap away instead of one
                   scroll away. */}
-              {plan.rsvpShouldRender ? (
+              {group('home', <>{plan.rsvpShouldRender ? (
                 <section className="space-y-4">
                   {/* 🎫 NO "YOUR KEEPSAKE" FOR A GUEST WHO IS COMING (owner
                       2026-09-30). It restated the name, the seat, where and when —
@@ -2492,12 +2836,13 @@ export async function SiteBody({
                   </a>
                   )}
                 </section>
-              ) : null}
+              ) : null}</>, { chapters: true, className: 'space-y-12' })}
 
               {/* 🏠 WELCOME — after the reply: this guest's look · Reminders ·
                   E-Gifts (owner 2026-09-30). One self-contained section; what
                   it holds is `welcomeParts`' answer above, nothing decided here.
                   Guarded by `lib/welcome-is-the-guests-own.test.ts`. */}
+              {tabs.on && welcome.length === 0 ? null : group('home', (
               <GuestWelcome
                 parts={welcome}
                 words={clientWords}
@@ -2530,10 +2875,51 @@ export async function SiteBody({
                 }
                 giftHref={doorways.pabuya}
               />
+              ), { chapters: true, className: 'space-y-12' })}
 
-              {guest.photo_source === 'selfie' ? (
+              {/* 🏠 THE DAY'S WELCOME (owner 2026-09-30, "THE DAY'S MENU HAS
+                  FIVE"): after their table (the seat block above), this guest's
+                  look, the couple's Reminders and E-Gifts — the Invitation's
+                  Welcome, on the day. `welcomePartsOnTheDay` decides; nothing
+                  empty is drawn. */}
+              {group('home', dayWelcome.length > 0 ? (
+                <GuestWelcome
+                  parts={dayWelcome}
+                  words={clientWords}
+                  look={{
+                    config: event.dress_code_config ?? null,
+                    ceremonyType: event.ceremony_type ?? null,
+                    genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
+                    guestRole: guest.role ?? null,
+                    march: marchPlaceOf(entourage, guest.guest_id),
+                    rolePalette: event.role_palette,
+                  }}
+                  reminders={
+                    dayRemindersRow ? (
+                      <HideableWidgetRender
+                        widget={dayRemindersRow}
+                        canvasMediaUrls={canvasMediaUrls}
+                        hubTheme={sceneTheme}
+                        ownClipPlays={isMakerCanvas}
+                        guestView={!isMakerCanvas}
+                        event={event}
+                        guest={guest}
+                        sideLabel={sideLabel}
+                        scheduleBlocks={scheduleBlocks}
+                        isLive={isLive}
+                        isLimitedPlusOne={isLimitedPlusOne}
+                        ourPhotoUrls={ourPhotoUrls}
+                        words={clientWords}
+                      />
+                    ) : null
+                  }
+                  giftHref={doorways.pabuya}
+                />
+              ) : null, { chapters: true, className: 'space-y-12' })}
+
+              {group('home', guest.photo_source === 'selfie' ? (
                 <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
-              ) : null}
+              ) : null, { chapters: true, className: 'space-y-12' })}
 
               {/* The scan-trail switch — UNGATED on purpose. Every recognised
                   guest leaves a scan trail whether or not they ever gave a
@@ -2548,7 +2934,9 @@ export async function SiteBody({
                   opt-out is the guest's right under RA 10173, so it may move
                   but never vanish: with the sheet it renders there, below. */}
               {plan.rsvpShouldRender ? null : (
+                group('home', (
                 <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
+                ), { chapters: true, className: 'space-y-12' })
               )}
 
               {/* Hideable widgets render here in display_order. The host
@@ -2559,52 +2947,24 @@ export async function SiteBody({
               {/* Menu-shell "Details" anchor (PR6) — the couple's detail widgets
                   (schedule · dress code · FAQ · registry · …). Present only when
                   at least one such widget rendered, matching menuSections.details. */}
-              {menuOn && detailsScenes.length > 0 ? (
+              {menuOn && !tabs.on && detailsSceneList.length > 0 ? (
                 <span id={SITE_MENU_ANCHORS.details} aria-hidden className="sr-only" />
               ) : null}
               {/* 🪑 "Your seat · Table 3 →" — the Details scene's seat line (owner
                   2026-09-27, "FIND YOUR SEAT, REDESIGNED" (4): no new bar slot;
                   Details carries it, Me repeats it). Same two facts the pass
                   card's link asks: this kind seats people, the plan is posted. */}
-              {seatPassActive && !isMakerCanvas ? (
+              {/* 📱 …and on a tabbed page it is the guest's own Welcome's: their table. */}
+              {group('home', <>{seatPassActive && !isMakerCanvas ? (
                 <SeatDoorLine slug={event.slug ?? ''} tableLabel={guestHubData.tableLabel} />
-              ) : null}
+              ) : null}</>, { chapters: true, className: 'space-y-12' })}
               {/* 🎬 Scroll · Scrub per section (owner 2026-09-24). Byte-identical
                   children unless a section scrubs AND the event owns Event Hub
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
+              {group(scenesTab, <>
               <div className="sn-hub-cards space-y-4">
-              <HubScenes widgets={detailsScenes} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
-              {detailsScenes.map((widget) => (
-                <HideableWidgetRender
-                  key={widget.widget_id}
-                  widget={widget}
-                  /* 🏠 This guest's own look is on Welcome; Details keeps everyone's. */
-                  dressCodeGeneral={welcome.includes('look')}
-                  stage={pageStage}
-                  canvasMediaUrls={canvasMediaUrls}
-                  hubTheme={sceneTheme}
-                  ownClipPlays={isMakerCanvas}
-                  guestView={!isMakerCanvas}
-                  event={event}
-                  roleNames={roleNames}
-                  guest={guest}
-                  sideLabel={sideLabel}
-                  scheduleBlocks={scheduleBlocks}
-                  isLive={isLive}
-                  scheduleEstimated={
-                    isGuestNowTriggerEnabled() &&
-                    (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
-                  }
-                  isLimitedPlusOne={isLimitedPlusOne}
-                  ourPhotoUrls={ourPhotoUrls}
-                  words={clientWords}
-                  hostPitch={account ? hostPitchShows(account) : false}
-                  /* 🚶 "You walk 5th, with …" under the dress code's "You are <role>" —
-                     from the SAME built entourage the section below prints (owner
-                     2026-09-29). Never on the Maker canvas (no guest reads it there). */
-                  marchPlace={isMakerCanvas ? null : marchPlaceOf(entourage, guest?.guest_id)}
-                />
-              ))}
+              <HubScenes widgets={detailsSceneList} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+              {detailsSceneList.map(renderScene)}
               </HubScenes>
               </div>
 
@@ -2616,15 +2976,16 @@ export async function SiteBody({
 
                   No `previewHref` here either — see the anonymous mount above. */}
               {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null}
+              </>, { chapters: true, className: 'space-y-12', id: pageStage === 'event' ? undefined : SITE_MENU_ANCHORS.details })}
 
-              {isLimitedPlusOne ? (
+              {group('home', isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
                   You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
                   gallery — ask them to share. In-app features like Shutter
                   require a full Setnayan account, which {clientWords.theOrganizer} hasn&rsquo;t
                   enabled for +1s on this {clientWords.eventWord}.
                 </section>
-              ) : null}
+              ) : null, { chapters: true, className: 'space-y-12' })}
 
               {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                   The normal body only renders pre-event (STD + editorial are separate
@@ -2632,13 +2993,27 @@ export async function SiteBody({
               {/* Menu-shell "Story" anchor (PR6) — present only when a love story
                   exists (OurStory renders nothing otherwise), matching
                   menuSections.story. */}
-              {menuOn && event.love_story && !storySceneShown ? (
+              {menuOn && !tabs.on && event.love_story && !storySceneShown ? (
                 <span id={SITE_MENU_ANCHORS.story} aria-hidden className="sr-only" />
               ) : null}
+              {/* 📱 On a tabbed page this is Our Love Story's own page: the
+                  couple's scene of it (moved off Details above), or the prose
+                  when there is no scene. One page, drawn once. */}
+              {group('story', <>
+              {storyScene ? (
+                <div className="sn-hub-cards space-y-4">
+                  {/* No stage marks: a tabbed page is never the Save the Date the autoplay walks. */}
+                  <HubScenes widgets={[storyScene]} scrubAllowed={proWatermarkHidden}>
+                    {[storyScene].map(renderScene)}
+                  </HubScenes>
+                </div>
+              ) : null}
               {storySceneShown ? null : <OurStory loveStory={event.love_story} variant="full" />}
+              </>, { chapters: true, className: 'space-y-12', id: SITE_MENU_ANCHORS.story })}
               {/* Guest Columns (BUILD ① · GUEST_COLUMNS_ENABLED, default OFF) — the
                   guest's one column for the couple's paper + the approved columns.
                   Guest-session tree only (cookie holders); flag off → renders null. */}
+              {group('home', (
               <GuestColumnCard
                 eventId={event.event_id}
                 guestId={guest.guest_id}
@@ -2646,6 +3021,7 @@ export async function SiteBody({
                 eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                 eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
               />
+              ), { chapters: true, className: 'space-y-12' })}
             </>
           ), memento ? (
             /* Design §11, After Event column: the reply-card ticket returns as
@@ -2669,15 +3045,14 @@ export async function SiteBody({
               PR11: GuestHubBar renders the real `#site-me` section under the
               same `menuOn` condition, so this marker would now be a second
               element with the same id — and the first one wins. Removed. */}
-          {/* Footer with sign-out */}
-          <section className="border-t border-ink/10 pt-6 text-center text-xs text-ink/50">
-            <form action={`/${event.slug}/sign-out`} method="post">
-              <button type="submit" className="underline-offset-4 hover:underline">
-                Sign out of this invitation
-              </button>
-            </form>
-          </section>
+          {/* Footer with sign-out — on a tabbed page it is Me's (below). */}
+          {tabs.on ? null : signOut}
         </article>
+        {/* 👤 ME, ON A TABBED PAGE (owner 2026-09-30: *"Me = the Digital
+            ticket"*) — the guest's own section, handed in by page.tsx, then the
+            sign-out. A SIBLING of the chapters article, like the reply sheet
+            below, so nothing inside it sits under the §6 reveal's transform. */}
+        {tabs.on ? group('me', <div className="space-y-12">{meSection}{signOut}</div>) : null}
         {/* ── THE REPLY SHEET (canvas board 2 · rsvp-sheet.tsx) ─────────────
             🪤 A SIBLING OF THE ARTICLE, NEVER A CHILD OF IT — measured in a
             browser, not reasoned. The §6 reveal puts a `transform` on every
@@ -2718,10 +3093,13 @@ export async function SiteBody({
                 eventId={event.event_id}
                 eventPublicId={event.public_id}
                 faceMode={faceMode}
-                /* The tag question (and the selfie only after its Yes) is put to
-                   no guest when the couple declined face tagging (owner
-                   2026-09-29 — lib/face-tagging-wish.ts). */
-                offerSelfie={faceTaggingAskable}
+                /* 🏷 THE QUESTION ONLY — never the camera (owner 2026-09-30,
+                   "THE TAGGING QUESTION IS ASKED AT RSVP; THE SELFIE IS TAKEN
+                   ON THE DAY"). This card used to draw the selfie and enrol a
+                   face weeks early; the day-of catch takes it now. Asked only
+                   where Papic is active and open and face tagging runs
+                   (`resolveFaceTagging`, lib/face-tagging-gate.ts). */
+                askTagging={faceTaggingAskable}
                 flash={rsvpFlash}
                 replyLocked={plan.guestListClosed}
                 profileDetails={profileDetails}
@@ -2766,36 +3144,12 @@ export async function SiteBody({
             LOCKS the slot rather than hiding it. */}
         {menuOn && showGuestBars ? (
           <SiteMenuBar
-            slots={resolveSiteNav({
-              viewer: { kind: 'guest' },
-              phase: navPhase,
-              stageSlots: STAGE_BAR[pageStage].slots,
-              // `papicGuest` is the guest's own roll (an object), not a flag —
-              // coerce it, or the resolver receives a truthy non-boolean.
-              hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,
-              anyChapterPublic: menuSections.gallery,
-              hasStory: menuSections.story,
-              hasDetails: menuSections.details,
-              hasSchedule: plan.hideableInOrder.some((w) => w.widget_type === 'schedule'),
-              liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
-              // 📖 After the day: Film and Suppliers, only where the recap drew them.
-              postEvent: recapBar,
-              destinations: {
-                film: openUpHash('film'),
-                suppliers: `#${POST_EVENT_SUPPLIERS_ANCHOR}`,
-                camera: papicGuest
-                  ? `/papic/me/${guest.qr_token}`
-                  : hostCameraOpen
-                    ? // Same reason as the anonymous tree: carry the event so a
-                      // refusal can hand them back their invitation.
-                      `/papic/guest?from=${event.slug}`
-                    : null,
-                watch: `/${event.slug}/hub`,
-                join: `/${event.slug}/invite`,
-              },
-            })}
+            slots={guestBar}
           />
         ) : null}
+        {/* 📱 Each tab its own page — the hub shell's page frame shows one tab
+            at a time and keeps its address (`hub/hub-shell.tsx`). */}
+        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={guestBar} /> : null}
       </>
     );
   };
@@ -2977,6 +3331,9 @@ export async function SiteBody({
           guest came for at that moment. */}
       {plan.fullBleed || isEditorCanvas ? null : (
         <GuestDoorwayStrip words={clientWords}
+          /* 📱 On a tabbed page these doors are the Welcome's (the 3D room is
+             "find your table"; the gift door is the Welcome's already). */
+          tabAttrs={pageTabs.attrs('home')}
           venueWalk={doorways.venueWalk}
           /* 🏠 On the Invitation the gift door is on the Welcome page instead
              (owner 2026-09-30) — one door per page, never two. */
@@ -2997,6 +3354,7 @@ export async function SiteBody({
           `_lib/everything-else-rows.ts` for what each row is gated on. */}
       {plan.fullBleed || isEditorCanvas ? null : (
         <EverythingElseSheet
+          tabAttrs={pageTabs.attrs('home')}
           rows={resolveEverythingElseRows({
             slug: event.slug,
             viewerKind: identity.kind,
@@ -3035,7 +3393,7 @@ export async function SiteBody({
           guest cookie they do not carry), so gating this inside the guest tree
           would hide it from most of the people it is for. */}
       {chaptersOnThisDay.length > 0 && !isEditorCanvas ? (
-        <section className={`mx-auto mt-10 w-full ${PLATE} px-4`}>
+        <section {...pageTabs.attrs('home')} className={`mx-auto mt-10 w-full ${PLATE} px-4`}>
           <h2 className="m-serif text-lg text-ink">Stories about this day</h2>
           <p className="mt-1 text-[13px] text-ink/60">
             Written by the people who were here.

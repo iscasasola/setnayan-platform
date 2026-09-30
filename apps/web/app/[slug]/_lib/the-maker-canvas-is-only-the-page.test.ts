@@ -61,6 +61,9 @@ test('RENDERED: the Host controls bar renders nothing without a model', async ()
 const CHROME: Array<{ name: string; file: 'body' | 'page'; mount: RegExp; gated: RegExp; count: number }> = [
   { name: 'Host controls bar', file: 'body', mount: /<OwnerRibbon\b/g, gated: /<OwnerRibbon model=\{isEditorCanvas \? null : ownerRibbon\}/g, count: 1 },
   { name: 'bottom tab bar (Home · Details · … · Manage)', file: 'body', mount: /<SiteMenuBar\b/g, gated: /\{menuOn && showGuestBars \? \(\s*<SiteMenuBar\b/g, count: 2 },
+  // 📱 Each tab its own page (owner 2026-09-30): the hub shell's page frame rides
+  // with the bar it serves — never in the canvas, which is one scroll of scenes.
+  { name: 'tab pages (hub shell page frame)', file: 'body', mount: /<HubShell\b/g, gated: /\{menuOn && showGuestBars && tabs\.on \? <HubShell\b/g, count: 2 },
   { name: 'Live hub pill / event-day bar', file: 'body', mount: /<PublicEventDayBar\b/g, gated: /\{isEditorCanvas \? null : \(\s*<PublicEventDayBar\b/g, count: 1 },
   { name: 'floating music button', file: 'body', mount: /<BackgroundMusic\b/g, gated: /&& !isEditorCanvas \? <BackgroundMusic\b/g, count: 1 },
   { name: 'guest doorway strip', file: 'body', mount: /<GuestDoorwayStrip\b/g, gated: /\{plan\.fullBleed \|\| isEditorCanvas \? null : \(\s*<GuestDoorwayStrip\b/g, count: 1 },

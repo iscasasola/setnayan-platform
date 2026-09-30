@@ -5,7 +5,6 @@ import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns,
 import { plusOneSeats } from '@/lib/guests';
 import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING } from '@/lib/seat-name-words';
 import { after } from 'next/server';
-import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
 import { revalidatePath } from 'next/cache';
 
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
@@ -17,12 +16,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { guestDetailsChanged } from './_lib/guest-details-changed';
 import { createClient } from '@/lib/supabase/server';
-import { VECTOR_MODEL } from '@/lib/face-embed-core';
-import {
-  FACE_CONSENT_COPY_VERSION,
-  resolvePapicFaceMode,
-  faceVectorForMode,
-} from '@/lib/papic-face-mode';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-arrival';
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
@@ -48,9 +41,8 @@ import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { SONG_ARTIST_MAX, SONG_TITLE_MAX } from '@/lib/guest-song-request-rule';
 import { cookies, headers } from 'next/headers';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
-import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
-import { FACE_TAGGING_FIELD, SELFIE_DELETE_FIELD, parseFaceTaggingAnswer } from '@/lib/face-tagging-wish';
+import { FACE_TAGGING_FIELD, SELFIE_DELETE_FIELD, parseFaceTaggingAnswer, stripInviteFaceFields } from '@/lib/face-tagging-wish';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_VALUES: MealPreference[] = [
@@ -241,6 +233,12 @@ export async function submitRsvp(
     redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : '/');
   }
 
+  // 📵 No reply carries a face (owner 2026-09-30): every selfie field a crafted
+  // post could carry is dropped before anything reads the form. The answer
+  // (`face_tagging`) and "No thanks — delete my selfie" (`delete_selfie`, which
+  // only ever REMOVES face data) pass through.
+  stripInviteFaceFields(formData);
+
   /*
     ☑ "YOUR CHECKLIST" — ONE TICK (owner 2026-09-26: ticks saved to the GUEST,
     private to them, and the save must reuse an existing guest save action — +0
@@ -354,8 +352,6 @@ export async function submitRsvp(
     .maybeSingle();
   const replyLocked = guestListIsClosed({
     lockedAt: evRsvp?.guest_count_locked_at,
-    editDeadline: evRsvp?.guest_list_edit_deadline,
-    eventDate: evRsvp?.event_date,
   });
   // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25) — re-read here,
   // never trusted from the form: the widget only decides what RENDERS, this
@@ -532,40 +528,18 @@ export async function submitRsvp(
     await applyReconcileForEvent(admin, eventId);
   }
 
-  // Persist the RSVP selfie + face-recognition enrollment (owner directive
-  // 2026-06-05). Gated on EXPLICIT biometric consent (RA 10173): no consent →
-  // no photo, no enrollment. Best-effort + non-fatal — a selfie/enrollment
-  // failure must NEVER roll back the RSVP that already succeeded above.
-  // ── 🔴 SEC-1: the selfie ref is GUEST-SUPPLIED, so it is pinned before use ──
-  //
-  // `guestSelfiePolicy` already existed for exactly this flow and was already
-  // wired in `papic/face-enroll-actions.ts` — but NOT here, on the RSVP path. Same
-  // column, same renderers, one writer guarded and one not.
-  //
-  // Why that mattered: this write uses the ADMIN client (RLS cannot help), and
-  // `guests.photo_url` is resolved through `displayUrlForStoredAsset` on at least
-  // five surfaces — the guest list, both seating views, the 3D plan and the guest
-  // avatar. So a crafted RSVP post naming
-  // `r2://setnayan-vendor-verification/vendors/X/verification/dti.pdf` (or another
-  // event's selfie, or a payment screenshot in thread-files) would be stored as
-  // that guest's avatar and SIGNED for the couple — a cross-tenant read out of a
-  // private bucket, through a form any invited guest can submit. The consent and
-  // age booleans gating the block below are themselves client-supplied, so they
-  // are no obstacle.
-  //
-  // A ref that fails the policy is treated as ABSENT rather than fatal: this
-  // file's own rule is that a selfie problem must never roll back an RSVP that
-  // already succeeded, and `null` simply skips the enrollment block below.
+  // 📵 THE REPLY TAKES NO FACE — ANY REPLY (owner 2026-09-30, DECISION_LOG
+  // "THE TAGGING QUESTION IS ASKED AT RSVP; THE SELFIE IS TAKEN ON THE DAY").
+  // This action used to enrol a selfie posted with the Event Hub card (source
+  // 'rsvp_selfie'), weeks before the day and whether or not Papic was on. The
+  // selfie is now taken ONLY by the day-of catch (`enrollGuestFace`), which
+  // checks the guest's Yes, Papic and the couple's switch. Face fields a
+  // crafted post still carries were stripped at the top of this action.
   // ── "WANT TO BE TAGGED IN THE PHOTOS?" (owner 2026-09-29) ──────────────────
   // The guest's own answer, stored so the day-of catch can honour it: a "No
   // thanks" is never asked again, and only a guest who never answered is asked
   // the one question on the day (lib/face-tagging-wish.ts). Absent (the
   // question was not on this form) → whatever is stored stays.
-  //
-  // 🔒 A "NO" ALSO REFUSES THE SELFIE BELOW, whatever else arrived. The selfie
-  // is hidden by CSS after a "No", and a hidden input still POSTS — a guest who
-  // took a selfie, ticked both boxes and then tapped "No thanks" must not be
-  // enrolled by the leftovers. This only ever NARROWS the consent gate.
   let taggingWish = parseFaceTaggingAnswer(formData.get(FACE_TAGGING_FIELD));
   // 🗑 "NO THANKS" AFTER A SELFIE (owner 2026-09-29, OWNER ANSWERS (3)): with a
   // live enrollment, a "No" deletes the selfie and the automatic tags — but ONLY
@@ -591,122 +565,6 @@ export async function submitRsvp(
       .eq('guest_id', guestId)
       .eq('event_id', eventId);
     if (wishErr) console.error('[supabase-error] app/[slug]/actions.ts · from:guests.update(face_tagging_wanted)', wishErr);
-  }
-  const selfieRefRaw = clean(formData.get('selfie_ref'));
-  const selfieRef =
-    selfieRefRaw && parseClientRef(selfieRefRaw, guestSelfiePolicy(eventId, guestId))
-      ? selfieRefRaw
-      : null;
-  const biometricConsent = clean(formData.get('biometric_consent')) === '1';
-  // Adults-only gate (RA 10173 · NPC — minors scoped OUT of biometric
-  // enrollment for V1). The client blocks capture until both boxes are ticked;
-  // this is the server-side backstop so a crafted POST can't enroll without the
-  // 18+ affirmation. No age is stored — this is a boolean attestation only.
-  const ageAffirmed = clean(formData.get('age_affirmation')) === '1';
-  // Minor safeguard (DPIA BV-8, 2026-07-05): a host can mark a guest excluded
-  // from face recognition (typically a minor). Never enrol an excluded guest,
-  // regardless of the consent checkbox.
-  const { data: fx } = await admin
-    .from('guests')
-    .select('face_recognition_excluded')
-    .eq('guest_id', guestId)
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const faceExcluded = (fx as { face_recognition_excluded: boolean } | null)?.face_recognition_excluded === true;
-  // Owner 2026-08-05: "under 18 will not allow face tagging." The attestation is
-  // the enabler; this is the refusal that does not depend on it. Where the guest
-  // list already records a birth date showing a child, no tickbox overrides it.
-  const knownMinor = await isKnownMinorGuest(admin, eventId, guestId);
-  if (selfieRef && biometricConsent && ageAffirmed && !faceExcluded && !knownMinor && taggingWish !== false) {
-    try {
-      // Selfie is the highest-priority display photo — it always wins over a
-      // Gmail avatar / couple upload.
-      await admin
-        .from('guests')
-        .update({
-          photo_url: selfieRef,
-          photo_source: 'selfie',
-          photo_updated_at: new Date().toISOString(),
-          photo_consent: true,
-        })
-        .eq('guest_id', guestId)
-        .eq('event_id', eventId);
-
-      // Advisory quality meta from the in-browser gate (may be absent if the
-      // gate couldn't run — that's fine, we enroll without it).
-      let qualityScore: number | null = null;
-      let qualityMeta: Record<string, unknown> = {};
-      const rawQuality = clean(formData.get('selfie_quality'));
-      if (rawQuality) {
-        try {
-          const parsed = JSON.parse(rawQuality) as {
-            score?: number | null;
-          } & Record<string, unknown>;
-          if (typeof parsed.score === 'number') qualityScore = parsed.score;
-          qualityMeta = parsed;
-        } catch {
-          // malformed quality blob — enroll without it
-        }
-      }
-
-      // Optional on-device face descriptor (dlib via face-api.js) — the guest's
-      // face fingerprint for gallery auto-tagging. Absent until the embedder +
-      // a hosted model are live → enroll image-only exactly as before.
-      let faceVector: number[] | null = null;
-      const rawVector = clean(formData.get('selfie_vector'));
-      if (rawVector) {
-        try {
-          const v = JSON.parse(rawVector) as unknown;
-          if (
-            Array.isArray(v) &&
-            v.length > 0 &&
-            v.every((n) => typeof n === 'number' && Number.isFinite(n))
-          ) {
-            faceVector = v as number[];
-          }
-        } catch {
-          // malformed vector — enroll without it
-        }
-      }
-
-      // BIOMETRIC WRITE GUARD (One-Pool spec §3.4). Resolve the EFFECTIVE face
-      // mode server-side (christening/debut forced to mode_b; fail-closed) and
-      // HARD-NULL the descriptor unless this is an explicit mode_a event — so a
-      // crafted POST carrying `selfie_vector` on a mode_b / forced-mode_b event
-      // can NEVER persist a biometric. The selfie image + consent row below are
-      // still written (profile photo / day-of features are preserved); only the
-      // vector is dropped. This is the write that makes the migration's
-      // "no face descriptor … stored" guarantee true at the DB boundary.
-      const faceMode = await resolvePapicFaceMode(admin, eventId);
-      const stored = faceVectorForMode(faceMode, faceVector, VECTOR_MODEL);
-
-      // Upsert: the partial unique index allows only one non-revoked enrollment
-      // per (event, guest), so retire any live row before inserting the fresh
-      // one (re-RSVP with a new selfie supersedes the old).
-      await admin
-        .from('guest_face_enrollments')
-        .update({ revoked_at: new Date().toISOString() })
-        .eq('event_id', eventId)
-        .eq('guest_id', guestId)
-        .is('revoked_at', null);
-
-      await admin.from('guest_face_enrollments').insert({
-        event_id: eventId,
-        guest_id: guestId,
-        asset_url: selfieRef,
-        source: 'rsvp_selfie',
-        quality_score: qualityScore,
-        quality_meta: qualityMeta,
-        face_vector: stored.face_vector,
-        vector_model: stored.vector_model,
-        consent_at: new Date().toISOString(),
-        consent_source: 'rsvp',
-        // Consent evidence (One-Pool spec §3.3): pin WHAT disclosure was shown.
-        consent_copy_version: FACE_CONSENT_COPY_VERSION,
-      });
-    } catch {
-      // Selfie/enrollment failure never blocks the RSVP.
-    }
   }
 
   const { data: ev } = await admin

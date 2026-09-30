@@ -122,9 +122,12 @@ test('EVERY phone sticky on this route clears the bar by reading its height', ()
     it reads as covered. So this asserts the RULE across both files, and any
     third phone sticky added here has to satisfy it too.
   */
+  // ⤷ 2026-09-30 (Fix E): the phone-only head (`mobile-guest-carousel.tsx`)
+  // was deleted — the ONE roster head renders at every width — so every
+  // sticky left on this route is in `page.tsx` or the list itself.
   const files: Array<[string, string]> = [
     ['page.tsx', read('page.tsx')],
-    ['_components/mobile-guest-carousel.tsx', read('_components', 'mobile-guest-carousel.tsx')],
+    ['_components/guest-list-multiselect.tsx', read('_components', 'guest-list-multiselect.tsx')],
   ];
   for (const [name, src] of files) {
     const stickies = src.match(/sticky top-\[[^\]]*\]/g) ?? [];
@@ -143,11 +146,10 @@ test('EVERY phone sticky on this route clears the bar by reading its height', ()
       );
     }
   }
-  assert.ok(
-    files.every(([, src]) => /sticky top-\[calc\(var\(--fd-bar,0px\)/.test(src)),
-    'One of the two phone stickies stopped existing — if it was deliberately ' +
-      'removed, delete its half of this guard in the same commit.',
-  );
+  // ⤷ 2026-09-30 (Fix E): the phone head's own sticky left WITH the phone
+  // head — it was deliberately removed (one head at every width, not pinned on
+  // either, so a phone keeps its screen for the rows). The rule above still
+  // binds any sticky that comes back.
 });
 
 test('the add row and the facet bar draw no frame of their own', () => {

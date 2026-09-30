@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 
-import { PABUYA_TEMPLATES, PABUYA_MESSAGE_MAX } from '@/lib/pabuya-message';
+import { PABUYA_TEMPLATES, PABUYA_MESSAGE_MAX, type PabuyaTemplate } from '@/lib/pabuya-message';
 import { savePabuyaMessage } from '../actions';
 
 /**
@@ -23,9 +23,12 @@ import { savePabuyaMessage } from '../actions';
 export function PabuyaMessageEditor({
   eventId,
   initialMessage,
+  templates = PABUYA_TEMPLATES,
 }: {
   eventId: string;
   initialMessage: string | null;
+  /** The starting points for this event's type (`pabuyaTemplatesFor`). Absent ⇒ the owner's five. */
+  templates?: readonly PabuyaTemplate[];
 }) {
   const [text, setText] = useState(initialMessage ?? '');
   const [saved, setSaved] = useState<string | null>(initialMessage);
@@ -59,7 +62,7 @@ export function PabuyaMessageEditor({
       </header>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {PABUYA_TEMPLATES.map((t) => (
+        {templates.map((t) => (
           <button
             key={t.key}
             type="button"

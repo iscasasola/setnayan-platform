@@ -14,6 +14,7 @@ import type { MarchSectionData, MarchSlotData } from './details-march';
 import { isCouple, roleLabel, type EntourageGroup } from '@/lib/entourage';
 import { joinersFor, swapsFor } from '@/lib/march-moves';
 import { readYourEventFacts } from './details-your-event-facts';
+import { loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 
 /**
  * Everything Details › Your event reads, for the couple's own Maker (Details
@@ -43,9 +44,11 @@ export async function loadYourEvent({
   /** Open Date on "Help me choose" (`?date=help` — where /find-date lands). */
   helpFirst?: boolean;
 }): Promise<YourEventInput | null> {
-  const [base, confirmedVendorCount] = await Promise.all([
+  const [base, confirmedVendorCount, nameStyle] = await Promise.all([
     readYourEventFacts({ admin, eventId, parentCount, hostCount }),
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
+    // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
+    loadEventNameStyle(admin, eventId),
   ]);
   if (!base) return null;
   const { row, words, kind, precision, bookings, groups, venues, people, chinese, namesWritable } = base;
@@ -130,6 +133,7 @@ export async function loadYourEvent({
           // person the page is named for — so the hint names the places instead.
           hint: `Guests read it on your ${words.eventWord} page, on every print and on every pass.`,
         },
+    nameStyle,
     names:
       namesWritable && people
         ? { people, initial: [a, b], keep: { region: row.region ?? '', feel: row.mood_feel_key ?? '' }, wholeForm: null }

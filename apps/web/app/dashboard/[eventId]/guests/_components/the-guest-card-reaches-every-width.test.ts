@@ -46,7 +46,6 @@ const read = (f: string) => readFileSync(join(HERE, f), 'utf8');
 
 /** Code only — the mount assertions must not be satisfied by prose. */
 const LIST = stripComments(read('guest-list-multiselect.tsx'));
-const TRIGGER = stripComments(read('guest-drawer.tsx'));
 const ROSTER = stripComments(readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8'));
 const INSPECTOR = stripComments(
   readFileSync(
@@ -71,10 +70,7 @@ test('the roster asks for the phone sheet — that is what puts the card on a ph
 test('a trigger selects at EVERY width, not only on desktop', () => {
   // 🪤 The old bug shape, inverted: `!isXl` alone sent a phone to a route. Both
   // the row name and the eye must consult the sheet flag as well.
-  assert.ok(
-    /isXl \|\| ctx\.sheet/.test(TRIGGER),
-    'the eye still bails below xl — on a phone it would do nothing at all',
-  );
+  // (The eye — `guest-drawer.tsx` — left on 2026-09-30; the name is the trigger.)
   const selects = INSPECTOR.match(/isXl \|\| ctx\.sheet/g) ?? [];
   assert.equal(
     selects.length,
@@ -91,10 +87,9 @@ test('the phone row still reaches the card, through the name', () => {
     /<InspectorTrigger/.test(LIST),
     'the roster no longer uses the inspector trigger at all',
   );
-  const mounts = LIST.match(/<QuickViewButton/g) ?? [];
-  assert.equal(
-    mounts.length,
-    1,
-    `expected one <QuickViewButton> mount, found ${mounts.length}`,
-  );
+  // ⤷ 2026-09-30 (the Fable rows, frame F): the eye left — "Click anywhere on
+  // the row → the card on the right. No separate eye." The row's click goes
+  // through the name's own trigger, so there is still exactly one way in.
+  assert.equal((LIST.match(/<QuickViewButton/g) ?? []).length, 0, 'the eye is back');
+  assert.match(LIST, /querySelector<HTMLAnchorElement>\('a\.sn-guest-namelink'\)\?\.click\(\)/, 'a click on the row no longer opens the card');
 });

@@ -473,6 +473,7 @@ async function PersonalPass({
           hasAnimatedMonogram={hasAnimatedMonogram}
           hasPakanta={hasPakanta}
           arrived={arrived}
+          solemn={words.solemn}
         />
 
         <GuestPushPrompt />

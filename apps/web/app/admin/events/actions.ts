@@ -228,9 +228,9 @@ async function snapshotEventForAudit(
  * `face_recognition_excluded`. No tick, no vector — regardless of mode. What
  * mode_a changes is whether a CONSENTING adult's descriptor is kept.
  *
- * Christening and debut events stay forced to mode_b by
- * `FORCE_MODE_B_EVENT_TYPES` no matter what this writes — the guardian-consent
- * workflow does not exist, and that gate is not this action's to open.
+ * Every event type, christening and debut included, honours what this writes
+ * (owner 2026-10-01, "ELEVEN OWNER ANSWERS" #8); the couple's own decline
+ * still overrides it.
  */
 export async function setEventFaceMode(formData: FormData): Promise<void> {
   await requireAdmin();

@@ -8,8 +8,9 @@
  * list as well and not just names."*
  *
  * ── ONE LIST, NOT THREE TABS ──────────────────────────────────────────────
- * The candidates come from three places — another event you organise, your
- * People page, a samahan you are in — and they arrive already merged, sorted
+ * The candidates come from two places — your People page (connections and your
+ * beloved) and a samahan you are in; never a guest of another event (owner
+ * 2026-09-30) — and they arrive already merged, sorted
  * and de-duplicated. Tabbing them would make the host answer "where do I know
  * Ana from?" before they can look for Ana, which is the wrong question in the
  * wrong order. The `from` line under each name answers it after the fact.
@@ -19,11 +20,17 @@
  * from not having them, and a host who cannot find their own tita starts
  * typing her in a second time.
  *
- * ── THE ONE-WORD NAME GETS A BOX, NOT A GUESS ─────────────────────────────
- * `guests.last_name` is NOT NULL and some sources store a whole name in one
- * string. Where that string is a single word the row grows a small "Last name"
- * field, and Add stays disabled until it is filled. `person-name-split.ts`
- * refuses to invent the missing half; this is where the product asks for it.
+ * ── ADDING NEVER WAITS ON A QUESTION ──────────────────────────────────────
+ * ⚖ Owner, 2026-09-30: *"we should not ask if they are my connected people.
+ * again, we only add our connect people."* These are people the host already
+ * knows, so the sheet asks NOTHING about them. There used to be a "Last name"
+ * box under a one-word name that held the Add button shut until it was filled,
+ * and it UNMOUNTED on the first keystroke (its own condition was "no surname
+ * typed yet"), which is how a guest was saved as "buanhogclaire B". The box is
+ * gone. The server takes the best name it has (the account's real name when
+ * the connection allows it: `visible_connection_names`), and a name that is
+ * truly one word goes on with the guest list's missing-surname mark, '—', to
+ * be fixed later on the guest card. No row can hold the others back.
  *
  * Opened by a CustomEvent, same as `quick-add-sheet.tsx` — one sheet, several
  * triggers, no context or portal plumbing between them.
@@ -40,6 +47,7 @@ import {
   samahanGroupsIn,
 } from '@/lib/people-you-can-invite-core';
 import { SIDE_LABELS, type GuestSide } from '@/lib/guests';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {
   addGuestsFromPeople,
   listPeopleYouCanInvite,
@@ -103,10 +111,7 @@ export function AddFromPeopleSheet({
   const [readFailed, setReadFailed] = useState(false);
   const [query, setQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
-  // "Show me the ones that need a last name" — see the note at `missingSurname`.
-  const [onlyBlocking, setOnlyBlocking] = useState(false);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
-  const [lastNames, setLastNames] = useState<Record<string, string>>({});
   const [side, setSide] = useState<GuestSide>(defaultSide);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -124,7 +129,6 @@ export function AddFromPeopleSheet({
       setError(null);
       setQuery('');
       setActiveGroup(null);
-      setOnlyBlocking(false);
       setPicked({});
       setSide(defaultSide);
       /*
@@ -150,7 +154,6 @@ export function AddFromPeopleSheet({
       setRows(null);
       setReadFailed(false);
       setPartial(false);
-      setLastNames({});
     };
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
@@ -179,37 +182,6 @@ export function AddFromPeopleSheet({
     [picked],
   );
 
-  // Add stays shut while a chosen one-word name still has no surname — the
-  // server refuses it anyway, and finding that out after pressing Add is worse.
-  //
-  // 🚨 THAT RULE BECAME A DEAD END THE DAY ONE TAP COULD PICK TWELVE PEOPLE.
-  // It is computed over EVERY loaded row, but the only control that can satisfy
-  // it — the "Last name" box — renders inside the visible list. So: press the
-  // barkada chip, choose all twelve, clear the chip, and the three one-word
-  // names are picked, off screen, and holding Add shut with nothing on the
-  // screen naming them. Closing the sheet is the only escape and it discards
-  // the whole selection. Samahan rows are exactly the population this bites:
-  // they are built from one display-name string, and a group-chat handle is one
-  // word far more often than a guest-list entry is.
-  //
-  // So the count is stated, and `onlyBlocking` below brings those rows back —
-  // past the chip and past the search, because that is where they went.
-  const missingSurname = useMemo(
-    () =>
-      pickedKeys.filter((k) => {
-        const row = (rows ?? []).find((r) => r.key === k);
-        if (!row) return false;
-        return !row.lastName && !(lastNames[k] ?? '').trim();
-      }),
-    [pickedKeys, rows, lastNames],
-  );
-
-  // The blocking view empties itself: fill the last surname and you are back
-  // with everybody, rather than staring at a list with nothing in it.
-  useEffect(() => {
-    if (onlyBlocking && missingSurname.length === 0) setOnlyBlocking(false);
-  }, [onlyBlocking, missingSurname]);
-
   const visible = useMemo(() => {
     // ⚖ TWO FILTERS, NOT ONE STRING. The chip is an EXACT membership test and
     // the box is free text; stuffing the samahan's name into the box (which is
@@ -218,13 +190,8 @@ export function AddFromPeopleSheet({
     // group, or with an event they were also a guest at, was silently left out.
     // Both rules live in the pure core; neither is copied here.
     const inGroup = (rows ?? []).filter((r) => !activeGroup || isInSamahan(r, activeGroup));
-    const matching = inGroup.filter((r) => matchesInvitableQuery(r, query));
-    // 🔑 THE ONE FILTER THAT IGNORES THE OTHER TWO. The rows that block Add can
-    // be anywhere in the list — including outside the chip or the search that is
-    // on — so "show me those" has to reach past both, or it cannot show them.
-    if (!onlyBlocking) return matching;
-    return (rows ?? []).filter((r) => missingSurname.includes(r.key));
-  }, [rows, query, activeGroup, onlyBlocking, missingSurname]);
+    return inGroup.filter((r) => matchesInvitableQuery(r, query));
+  }, [rows, query, activeGroup]);
 
   // ── ADDING A WHOLE SAMAHAN ────────────────────────────────────────────────
   // A barkada already reaches this sheet one name at a time (the `samahan`
@@ -247,12 +214,13 @@ export function AddFromPeopleSheet({
     addableShown.length > 0 && addableShown.every((r) => picked[r.key]);
 
   const submit = () => {
-    if (pickedKeys.length === 0 || missingSurname.length > 0 || pending) return;
+    // Nothing but an empty pick or a press already in flight holds Add back.
+    if (pickedKeys.length === 0 || pending) return;
     setError(null);
     startTransition(async () => {
       const res = await addGuestsFromPeople(
         eventId,
-        pickedKeys.map((k) => ({ key: k, lastName: lastNames[k] })),
+        pickedKeys.map((k) => ({ key: k })),
         side,
       );
       if (!res.ok) {
@@ -288,8 +256,8 @@ export function AddFromPeopleSheet({
             Add from your people
           </h2>
           <p className="mt-1 text-sm text-ink/60">
-            Everyone Setnayan already knows for you — your other events, your
-            People page, and your groups.
+            The people you are connected to — your people, your beloved, and
+            your group.
           </p>
         </div>
         <button
@@ -341,44 +309,23 @@ export function AddFromPeopleSheet({
       ) : null}
 
       {showSides ? (
+        /* ⚖ A set of choices is ONE dropdown, never a pill row (owner). Hidden
+           entirely on an event with no sides: a birthday is never asked. */
         <div className="mt-3 flex items-center gap-2">
           <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
             Side
           </span>
-          {SIDES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setSide(s)}
-              aria-pressed={side === s}
-              className={`rounded-full border px-3 py-1 text-sm ${
-                side === s
-                  ? 'border-mulberry/60 bg-mulberry/10 text-mulberry-700'
-                  : 'border-ink/15 text-ink/70 hover:border-ink/30'
-              }`}
-            >
-              {SIDE_LABELS[s]}
-            </button>
-          ))}
+          <PickMenu
+            label="Which side they are on"
+            value={side}
+            options={SIDES.map((s) => ({ key: s, label: SIDE_LABELS[s] }))}
+            onPick={(key) => setSide(key as GuestSide)}
+          />
         </div>
       ) : null}
 
-      {onlyBlocking ? (
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
-          <span className="text-[11px] text-ink/60">
-            Showing only the picks that still need a last name.
-          </span>
-          <button
-            type="button"
-            onClick={() => setOnlyBlocking(false)}
-            className="text-sm font-medium text-mulberry-700 underline underline-offset-4"
-          >
-            Show everyone again
-          </button>
-        </div>
-      ) : null}
 
-      {!loading && !onlyBlocking && addableShown.length > 1 ? (
+      {!loading && addableShown.length > 1 ? (
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
           <button
             type="button"
@@ -432,7 +379,6 @@ export function AddFromPeopleSheet({
 
         {visible.map((r) => {
           const isPicked = !!picked[r.key];
-          const needsSurname = isPicked && !r.lastName && !(lastNames[r.key] ?? '').trim();
           return (
             <div key={r.key} className="rounded-lg px-1 py-1">
               <label
@@ -461,23 +407,6 @@ export function AddFromPeopleSheet({
                   <Users aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />
                 ) : null}
               </label>
-              {needsSurname ? (
-                <div className="pb-2 pl-9 pr-2">
-                  <input
-                    value={lastNames[r.key] ?? ''}
-                    onChange={(e) =>
-                      setLastNames((m) => ({ ...m, [r.key]: e.target.value }))
-                    }
-                    placeholder="Last name"
-                    aria-label={`Last name for ${r.name}`}
-                    className="input-field w-full text-sm"
-                    autoComplete="off"
-                  />
-                  <p className="mt-1 text-xs text-ink/50">
-                    We only know one name for them, and a guest list needs both.
-                  </p>
-                </div>
-              ) : null}
             </div>
           );
         })}
@@ -497,26 +426,12 @@ export function AddFromPeopleSheet({
 
       <div className="mt-5 flex items-center justify-between gap-3">
         <span className="text-sm text-ink/55">
-          {pickedKeys.length === 0 ? (
-            'Nobody picked'
-          ) : missingSurname.length > 0 ? (
-            // Name the blockage and hand over the way to clear it. A disabled
-            // button with no explanation is the same as a broken one.
-            <button
-              type="button"
-              onClick={() => setOnlyBlocking(true)}
-              className="text-left text-sm text-mulberry-700 underline underline-offset-4"
-            >
-              {missingSurname.length} of your {pickedKeys.length} need a last name — show them
-            </button>
-          ) : (
-            `${pickedKeys.length} picked`
-          )}
+          {pickedKeys.length === 0 ? 'Nobody picked' : `${pickedKeys.length} picked`}
         </span>
         <button
           type="button"
           onClick={submit}
-          disabled={pickedKeys.length === 0 || missingSurname.length > 0 || pending}
+          disabled={pickedKeys.length === 0 || pending}
           className="button-primary disabled:opacity-50"
         >
           {pending

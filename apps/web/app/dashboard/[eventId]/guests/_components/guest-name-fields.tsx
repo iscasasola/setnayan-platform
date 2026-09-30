@@ -12,6 +12,7 @@ import {
 } from '@/lib/guests';
 import { findDuplicates, TAG } from '@/lib/guest-dedupe';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { PrefixSelect } from '@/app/_components/formal-name-inputs';
 
 // Slim projection of a guest — only what the matcher needs + what the
 // warning row renders. The server page maps GuestRow down to this so the
@@ -100,16 +101,10 @@ export function GuestNameFields({
           <label className="block text-sm font-medium text-ink" htmlFor="name_prefix">
             Prefix
           </label>
-          <input
-            className="input-field"
-            id="name_prefix"
-            name="name_prefix"
-            type="text"
-            autoComplete="off"
-            placeholder="Atty."
-            value={prefix}
-            onChange={(e) => setPrefix(e.target.value)}
-          />
+          {/* 🪪 The guest side's Prefix dropdown (owner 2026-09-30). The
+              splitter still fills it — an unlisted title it finds stays as its
+              own option. */}
+          <PrefixSelect id="name_prefix" value={prefix} onChange={(e) => setPrefix(e.target.value)} />
         </div>
         <div className="space-y-1.5 sm:col-span-3">
           <label className="block text-sm font-medium text-ink" htmlFor="first_name">

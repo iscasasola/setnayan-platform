@@ -29,6 +29,7 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 import { DEFAULT_PASS_CARD_DESIGN, passCardDesignFrom, type PassCardDesign } from '@/lib/pass-card';
+import { DEFAULT_NAME_STYLE, nameStyleFrom, type NameStyle } from '@/lib/name-style';
 
 /** 72 PDF points to the inch. */
 export const PT_PER_IN = 72;
@@ -652,6 +653,15 @@ export type StoredPrintDetails = {
    * the panel warns when they are too few for A3 paper (`posterPhotoTooSmall`).
    */
   posterPhoto?: PosterPhoto | null;
+  /**
+   * 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE PICKS
+   * A NAME STYLE") — Full · Middle initial · Surname first, stored as
+   * `name_style`. Event-wide words with no other home, like the invite message:
+   * the entourage, the tickets, the printed cards, the name lists and `{name}`
+   * all print through it (`lib/name-style.ts`). Absent reads as Full = today.
+   * Saved by the Maker's Details › Names dropdown (`POST /api/hub-print/name-style`).
+   */
+  nameStyle?: NameStyle;
 };
 
 export type PosterPhoto = { ref: string; w: number | null; h: number | null };
@@ -782,7 +792,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * absent or broken value is nothing — never an invented opening line.
  */
 export function parsePrintDetails(raw: unknown): StoredPrintDetails {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [], inviteMessage: null, passDesign: DEFAULT_PASS_CARD_DESIGN };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [], inviteMessage: null, passDesign: DEFAULT_PASS_CARD_DESIGN, nameStyle: DEFAULT_NAME_STYLE };
   const r = raw as Record<string, unknown>;
   let rsvp: RsvpChoice | null = null;
   const c = r.rsvp && typeof r.rsvp === 'object' ? (r.rsvp as Record<string, unknown>) : null;
@@ -800,6 +810,7 @@ export function parsePrintDetails(raw: unknown): StoredPrintDetails {
     inviteMessage: sanitizeInviteTemplate(r.invite_message),
     passDesign: passCardDesignFrom(r.pass_design),
     posterPhoto: parsePosterPhoto(r.poster_photo),
+    nameStyle: nameStyleFrom(r.name_style),
   };
 }
 
@@ -813,24 +824,13 @@ export function serializePrintDetails(d: StoredPrintDetails): Record<string, unk
     invite_message: d.inviteMessage,
     pass_design: d.passDesign ?? DEFAULT_PASS_CARD_DESIGN,
     poster_photo: d.posterPhoto ? { ref: d.posterPhoto.ref, w: d.posterPhoto.w, h: d.posterPhoto.h } : null,
+    name_style: d.nameStyle ?? DEFAULT_NAME_STYLE,
   };
 }
 
-/**
- * OPENING-LINE TEMPLATES — owner 2026-09-25: *"Opening line, yes you can place it
- * there but provide a template as well"*, on the pattern the E-Gifts page already
- * uses for its message (`PABUYA_TEMPLATES`): a template FILLS THE BOX; what is
- * saved is always the couple's text, so improving a template's wording later
- * never rewrites anybody's card.
- */
-export type OpeningLineTemplate = { key: string; name: string; body: string };
-export const OPENING_LINE_TEMPLATES: readonly OpeningLineTemplate[] = [
-  { key: 'faith', name: 'Faith', body: 'With thanksgiving to God and with the blessing of our parents,' },
-  { key: 'formal', name: 'Formal', body: 'Together with their families, request the honour of your presence at their marriage' },
-  { key: 'warm', name: 'Warm', body: 'With joyful hearts, we invite you to celebrate the beginning of our forever' },
-  { key: 'filipino', name: 'Filipino', body: 'Sa biyaya ng Diyos at sa basbas ng aming mga magulang, kami ay nag-aanyaya' },
-  { key: 'simple', name: 'Simple', body: 'Please join us as we begin our life together' },
-];
+/* The opening-line templates live in `lib/opening-lines.ts` (tap-to-type's
+   Wording ▾ offers them too, without loading this file) — re-exported here. */
+export { OPENING_LINE_TEMPLATES, type OpeningLineTemplate } from './opening-lines';
 
 /**
  * A parent's printed name. 🕯 A parent the couple marked "Passed away" on the

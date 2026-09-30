@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useTransition, type ReactNode } from 'react';
+import { Suspense, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { sanitizeName } from '@/lib/match-criteria';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
@@ -14,6 +14,7 @@ import { PickMenu, type PickOption } from '../../website/editor/_components/pick
 import { FileUpload } from '@/app/_components/file-upload';
 import type { VenueChoice, VenueSlotKey } from '@/lib/event-venues';
 import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
+import { NAME_STYLE_CHOICES, type NameStyle } from '@/lib/name-style';
 
 /**
  * DETAILS › YOUR EVENT — the editors (Details part 2a; owner 2026-09-28,
@@ -128,6 +129,78 @@ export function NamesEditor({
       {row(people[1], b, setB)}
       <SaveRow pending={pending} saved={saved} error={error} onSave={save} />
       <HubSavesImmediately />
+    </section>
+  );
+}
+
+/**
+ * 🔤 NAME STYLE ▾ — how every FORMAL surface prints a guest's name (owner
+ * 2026-09-30, DECISION_LOG "THE COUPLE PICKS A NAME STYLE"): Full "Mr. Manuel
+ * Cortez Casasola" (the default) · Middle initial "Mr. Manuel C. Casasola" ·
+ * Surname first "Mr. Casasola, Manuel C.". ONE event-wide PickMenu (a set of
+ * choices is a dropdown), under the Names, in place.
+ *
+ * 💾 Saved at once through the prints' own door (`POST /api/hub-print/name-style`
+ * → `events.print_details.name_style`) — the pass card look's pattern: shown
+ * AT ONCE, the latest pick held in a ref so two quick picks never save out of
+ * order, and a failure puts back only the latest. Then the Maker's pictures
+ * redraw (`requestMakerRefresh`) — the invitation and the ticket beside it are
+ * drawn in the style.
+ */
+export function NameStylePicker({ eventId, saved }: { eventId: string; saved: NameStyle }) {
+  const [shown, setShown] = useState<NameStyle>(saved);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const latest = useRef<NameStyle>(saved);
+  const stored = useRef<NameStyle>(saved);
+
+  const pick = (key: string) => {
+    const style = NAME_STYLE_CHOICES.find((c) => c.key === key)?.key;
+    if (!style || style === latest.current) return;
+    latest.current = style;
+    setShown(style);
+    setError(null);
+    start(async () => {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('style', style);
+      const ok = await fetch('/api/hub-print/name-style', { method: 'POST', body: fd, headers: { accept: 'application/json' } })
+        .then((r) => r.ok)
+        .catch(() => false);
+      if (ok) {
+        stored.current = style;
+        requestMakerRefresh();
+        return;
+      }
+      if (latest.current === style) {
+        latest.current = stored.current;
+        setShown(stored.current);
+        setError('That name style did not save — please try again.');
+      }
+    });
+  };
+
+  const example = NAME_STYLE_CHOICES.find((c) => c.key === shown)?.example ?? '';
+  return (
+    <section data-name-style={shown} aria-busy={pending || undefined} className="flex flex-col gap-1.5 border-t border-ink/10 pt-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-[13px] font-semibold text-ink">Name style</span>
+        <PickMenu
+          label="Name style"
+          value={shown}
+          options={NAME_STYLE_CHOICES.map((c): PickOption => ({ key: c.key, label: c.label }))}
+          onPick={pick}
+          dataAttr="data-name-style-pick"
+        />
+      </div>
+      <p className="text-xs text-ink/65">
+        {example} — on the entourage, tickets, printed cards and name lists. A Display name prints as you typed it.
+      </p>
+      {error ? (
+        <p role="alert" className="text-[12.5px] text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
     </section>
   );
 }

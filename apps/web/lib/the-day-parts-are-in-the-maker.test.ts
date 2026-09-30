@@ -48,8 +48,11 @@ test('1 · the day’s parts are listed where guests meet them, right after the 
   const day = makerStageList(input('event')).shown.map((t) => t.key);
   const at = day.indexOf('f:entourage');
   assert.ok(at >= 0, 'the fixture draws the entourage');
-  assert.deepEqual(day.slice(at + 1, at + 5), ['f:announcements', 'f:find_your_seat', 'f:live_hub', 'f:photos_of_you']);
-  assert.deepEqual(makerDayPartsOn('event'), ['announcements', 'find_your_seat', 'live_hub', 'photos_of_you'], 'the canvas draws the same list');
+  // 📱 In the order of The Day's tabs (owner 2026-09-30): Live's live hub, the
+  // Welcome's table, the Gallery's photos — so the navigator's headers fall
+  // between them (`lib/maker-navigator-tabs.ts`).
+  assert.deepEqual(day.slice(at + 1, at + 5), ['f:announcements', 'f:live_hub', 'f:find_your_seat', 'f:photos_of_you']);
+  assert.deepEqual(makerDayPartsOn('event'), ['announcements', 'live_hub', 'find_your_seat', 'photos_of_you'], 'the canvas draws the same list');
 
   const inv = makerStageList(input('rsvp')).shown.map((t) => t.key);
   assert.deepEqual(inv.filter((k) => ['f:announcements', 'f:find_your_seat', 'f:live_hub', 'f:photos_of_you'].includes(k)), ['f:announcements']);

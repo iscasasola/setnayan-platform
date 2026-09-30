@@ -236,8 +236,9 @@ test('I · the Fable frames: the couple as the brand line, the ✓ pill, "We’l
   assert.match(ENTER, /const ownHeadline = landingHeadline\(status, words\.solemn\);/);
   assert.match(ENTER, /data-landing-done=""/, 'the "✓ You replied" pill is gone');
   assert.match(ENTER, /\{ownMessage \?\? LANDING_WORDS\.missedSub\}/, 'the No card lost "Thank you for letting us know."');
-  // Frame 1 — "Please reply by …", the same date the reply page shows.
-  assert.match(ENTER, /resolveReplyBy\(\{/);
+  // Frame 1 — "Please reply by …", the same date the reply page shows: only a
+  // host-set date still ahead (guestReplyBy, controller 2026-09-30).
+  assert.match(ENTER, /guestReplyBy\(\{/);
   assert.equal(landingDayLabel('2027-02-13', 'day', { year: true }), 'February 13, 2027');
   // Frames 1 · 6 — the words of the one way in.
   const { arrivalDestinationWords } = await import('@/lib/invite-destination');

@@ -64,9 +64,10 @@ import {
   type WordsItemKey,
 } from '@/lib/maker-details-items';
 import { LOVE_STORY_CHAPTERS, LOVE_STORY_CHAPTER_LABEL } from '@/lib/love-story-moments';
-import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
+import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import { updateOurStory } from '../../website/our-story/actions';
+import { InMakerLiveStoryPanel } from '../../website/our-story/_components/in-maker-return-to';
 
 // ⚡ Opened on a tap — the Look editors load with the Details pieces (`details-lazy.tsx`).
 import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-lazy';
@@ -336,16 +337,22 @@ export function detailsFactEditors(input: {
       </div>
     ),
     /* ── The Love Story's words — the Story row's own panel (its chapters, their
-       moments and their questions), `updateOurStory`, drafted. ── */
+       moments and their questions), drafted as they are typed. ── */
     ...(input.loveStory
       ? {
           'love-story': (
-            <StoryPanel
-              action={updateOurStory.bind(null, eventId)}
-              eventId={eventId}
-              story={input.loveStory.story}
-              ownsPro={input.loveStory.ownsPro}
-            />
+            /* ⚡ In the Maker every answer saves as it is typed and is on the
+               scrapbook at once (`love-story-live.tsx`, handed down by the
+               Maker) — no Save button, no render. Without the Maker around it
+               (the dev lab) the Story row's own form, as it was. */
+            <InMakerLiveStoryPanel panel={{ eventId, story: input.loveStory.story, ownsPro: input.loveStory.ownsPro }}>
+              <StoryPanel
+                action={updateOurStory.bind(null, eventId)}
+                eventId={eventId}
+                story={input.loveStory.story}
+                ownsPro={input.loveStory.ownsPro}
+              />
+            </InMakerLiveStoryPanel>
           ),
         }
       : {}),
@@ -542,7 +549,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     download: <PrintSetBody input={prints} />,
     /* ── Words: how each one reads. The print-only two show the card they
        print on — tap the words on it to edit them on the right. ── */
-    'special-message': <WordsCard text={specialMessage} note="How it reads on your Event Hub." />,
+    'special-message': <WordsCard text={specialMessage} note="How it reads on your Event Hub." live="special_message" />,
     'thank-you': <WordsCard text={pabuyaMessage} note="Your guests read this on your E-Gifts page." />,
     'opening-line': <PrintPieceBody input={prints} piece="invitation" priority={initialItem === 'opening-line'} menu={menu} tappable />,
     'kindly-reply': <PrintPieceBody input={prints} piece="details" priority={initialItem === 'kindly-reply'} menu={menu} tappable />,
@@ -1040,8 +1047,23 @@ function KindlyReplyField({
 }
 
 /** A Words item's picture: the words as guests read them, or an honest empty line. */
-function WordsCard({ text, note }: { text: string | null; note: string }) {
+function WordsCard({ text, note, live }: { text: string | null; note: string; live?: string }) {
   const words = text?.trim() ?? '';
+  if (live) {
+    /* ⚡ Its editor types INTO this card as it saves (`special-message-field.tsx`):
+       both lines are always drawn, one hidden, so the words can arrive. */
+    return (
+      <section data-details-words-card="" data-live-words={live} className="flex flex-col items-center gap-3 rounded-md bg-white/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
+        <p data-live-words-text="" hidden={!words} className="max-w-prose whitespace-pre-line font-serif text-xl leading-relaxed text-ink">
+          {words}
+        </p>
+        <p data-live-words-empty="" hidden={Boolean(words)} className="text-sm text-ink/60">
+          Not written yet — type it on the right.
+        </p>
+        <p className="text-xs text-ink/55">{note}</p>
+      </section>
+    );
+  }
   return (
     <section data-details-words-card="" className="flex flex-col items-center gap-3 rounded-md bg-white/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
       {words ? (

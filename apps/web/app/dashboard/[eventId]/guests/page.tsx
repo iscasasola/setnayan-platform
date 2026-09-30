@@ -81,7 +81,6 @@ import {
 } from './_components/add-from-people-sheet';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { RosterFilters, RosterSort } from './_components/roster-controls';
-import { eventHasSides } from '@/lib/guest-side-question';
 import {
   OpenQuickAddButton,
   QuickAddSheet,
@@ -1353,7 +1352,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               // The column slots: Check-in from the event day; no Side on a birthday.
               checkins={checkins}
               checkinOpen={checkinOpen}
-              hasSides={hasSides}
               // From the FULL roster, before any filter (frame G, 2026-09-29).
               seatsByBringer={bringerSeatsFrom(guests)}
               // The Account column and the bulk bar's Set table ▾.

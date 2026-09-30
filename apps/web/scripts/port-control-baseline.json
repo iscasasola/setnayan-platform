@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "004383126",
+  "generatedFromRef": "54398d3ab",
   "routeCount": 439,
-  "destinations": 949,
+  "destinations": 948,
   "actions": 672,
-  "blocks": 5223,
+  "blocks": 5230,
   "routes": {
     "/": {
       "files": [
@@ -1048,6 +1048,7 @@
         "FindInThisDay",
         "FindModeCard",
         "Flap",
+        "FormalNameInputs",
         "FourFlapEnvelope",
         "Fragment",
         "FromTheCouple",
@@ -1706,6 +1707,7 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "FormalNameInputs",
         "FromRow",
         "Link",
         "PlusOneDoor",
@@ -5718,7 +5720,6 @@
         "dashboard/[eventId]/guests/role-name-actions.ts"
       ],
       "destinations": [
-        "/api/website/qr/guest/[seg]",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/[seg]",
         "/dashboard/[seg]/guests/checkin",
@@ -5784,6 +5785,7 @@
         "GuestAccessTagContext.Provider",
         "GuestCardBody",
         "GuestCardData",
+        "GuestInviteCell",
         "GuestListFinalizedContext.Provider",
         "GuestListMultiselect",
         "GuestMindMap",
@@ -5827,6 +5829,7 @@
         "MarchCell",
         "MarchResult",
         "Meter",
+        "MiniTour",
         "MobileGuestCarousel",
         "MobileListRow",
         "MobileSelfJoinCard",
@@ -5870,6 +5873,7 @@
         "RosterMeters",
         "RosterTabs",
         "RowAvatar",
+        "RowInvite",
         "RsvpChipEditor",
         "RsvpText",
         "Said",
@@ -9479,6 +9483,8 @@
         "DoorShell",
         "FormFlash",
         "FormPageSkeleton",
+        "FormalName",
+        "FormalNameInputs",
         "InvalidTokenScreen",
         "JoinFlow",
         "JoinShell",

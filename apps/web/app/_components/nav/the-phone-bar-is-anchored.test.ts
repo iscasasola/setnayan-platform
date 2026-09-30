@@ -11,7 +11,8 @@
  *       cell it has no tab for, and drops refused tabs itself.
  *   2 · TWO PILLS stacked over the page: the moment strip floated as its own
  *       pill above the bar's pill, content showing between and under them.
- *       → the strip and the bar render in ONE docked container.
+ *       → the bar renders in ONE docked container. (Stage D, 2026-09-29,
+ *       retired the strip and deleted `sub-nav.tsx`; the dock holds the bar.)
  *   3 · NOT ANCHORED: the bar floated 12px above the safe area, 14px in from
  *       each edge, so the page showed beneath it. → the dock is flush to the
  *       bottom edge, edge to edge, and pads the home-indicator inset itself.
@@ -30,7 +31,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { Home, Camera, Compass, Users, Globe } from 'lucide-react';
 
 import { BottomDock, BottomNav, barItemsForShell } from './bottom-nav';
-import { SubNav } from './sub-nav';
 import type { BottomNavItem } from './types';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -96,23 +96,10 @@ test('🕳 in the store shell a refused tab is DROPPED before the grid is sized 
   assert.equal(g.cells, 4);
 });
 
-/* ══ 2 · ONE DOCK: THE STRIP AND THE BAR TOGETHER ═══════════════════════ */
-
-const STRIP_ITEMS = [
-  { key: 'guests', label: 'Guests', icon: Users },
-  { key: 'hosts', label: 'Hosts', icon: Users },
-  { key: 'launch', label: 'Event Hub Controller', icon: Globe },
-];
+/* ══ 2 · ONE DOCK ═══════════════════════════════════════════════════════ */
 
 function docked(): string {
-  return renderToStaticMarkup(
-    createElement(
-      BottomDock,
-      null,
-      createElement(SubNav, { items: STRIP_ITEMS, activeKey: 'launch', onSelect: () => {} }),
-      createElement(BottomNav, { items: PLAN }),
-    ),
-  );
+  return renderToStaticMarkup(createElement(BottomDock, null, createElement(BottomNav, { items: PLAN })));
 }
 
 /** The opening tag of the first element carrying `marker`. */
@@ -123,24 +110,17 @@ function tagWith(html: string, marker: string): string {
   return html.slice(open, html.indexOf('>', i) + 1);
 }
 
-test('⚓ the moment strip and the bar render inside ONE docked container, strip on top', () => {
+test('⚓ the bar renders inside ONE docked container and is not its own pill', () => {
   const html = docked();
   const docks = html.match(/data-bottom-dock="true"/g) ?? [];
   assert.equal(docks.length, 1, `${docks.length} docks — a bar that wrapped itself again inside a dock, or none`);
+  assert.ok(html.indexOf('aria-label="Primary navigation"') > html.indexOf('data-bottom-dock'), 'the bar is outside the dock');
 
-  const dockAt = html.indexOf('data-bottom-dock');
-  const stripAt = html.indexOf('role="tablist"');
-  const barAt = html.indexOf('aria-label="Primary navigation"');
-  assert.ok(stripAt > dockAt && barAt > dockAt, 'the strip or the bar is outside the dock');
-  assert.ok(stripAt < barAt, 'the strip must sit ABOVE the bar — first in the dock');
-
-  // Neither row positions itself: the DOCK is the one fixed box. A `fixed`
-  // row is a second floating pill, which is the defect.
-  for (const marker of ['role="tablist"', 'aria-label="Primary navigation"']) {
-    const tag = tagWith(html, marker);
-    assert.doesNotMatch(tag, /\bfixed\b/, `${marker} positions itself: ${tag}`);
-    assert.doesNotMatch(tag, /\brounded-full\b/, `${marker} is still drawn as its own pill: ${tag}`);
-  }
+  // The bar does not position itself: the DOCK is the one fixed box. A
+  // `fixed` row is a second floating pill, which is the defect.
+  const tag = tagWith(html, 'aria-label="Primary navigation"');
+  assert.doesNotMatch(tag, /\bfixed\b/, `the bar positions itself: ${tag}`);
+  assert.doesNotMatch(tag, /\brounded-full\b/, `the bar is still drawn as its own pill: ${tag}`);
 });
 
 test('⚓ a bar mounted WITHOUT a dock docks itself (vendor and admin bars are anchored too)', () => {
@@ -166,10 +146,10 @@ test('⚓ the dock is flush to the bottom edge, edge to edge, and pads the home 
 
 /* ══ 4 · LABELS FIT ══════════════════════════════════════════════════════ */
 
-test('✂ a bar or strip label wraps onto a second line, never an ellipsis', () => {
+test('✂ a bar label wraps onto a second line, never an ellipsis', () => {
   const html = docked();
   const labelTags = [...html.matchAll(/<span class="([^"]*)"[^>]*>Event Hub Controller<\/span>/g)];
-  assert.equal(labelTags.length, 2, `expected the label in the strip AND the bar, saw ${labelTags.length}`);
+  assert.equal(labelTags.length, 1, `expected the label in the bar, saw ${labelTags.length}`);
   for (const [, cls] of labelTags) {
     assert.match(cls!, /\bline-clamp-2\b/, `a label is not allowed a second line: ${cls}`);
     assert.doesNotMatch(cls!, /\btruncate\b|\bwhitespace-nowrap\b/, `a label still truncates: ${cls}`);

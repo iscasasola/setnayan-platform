@@ -64,7 +64,7 @@ function clustersFor(groups: readonly EntourageGroup[], side: SideKey): Cluster[
   for (const g of groups) {
     for (const p of peopleOf(g)) {
       if (sideOfRole(p.role) !== side) continue;
-      const label = roleLabel(p.role) ?? g.label;
+      const label = roleLabel(p.role, g.names) ?? g.label;
       const last = out[out.length - 1];
       if (last && last.label === label) last.names.push(p.name);
       else out.push({ label, names: [p.name] });
@@ -144,7 +144,7 @@ export function marchLines(groups: readonly EntourageGroup[]): MarchLine[] {
     g.rows.forEach((row, i) => {
       const people = row.filter((p): p is EntouragePerson => p !== null);
       if (people.length === 0) return;
-      const roles = [...new Set(people.map((p) => roleLabel(p.role) ?? g.label))];
+      const roles = [...new Set(people.map((p) => roleLabel(p.role, g.names) ?? g.label))];
       out.push({
         key: `${g.key}-${i}`,
         names: people.map((p) => p.name).join(' & '),

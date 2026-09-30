@@ -375,17 +375,18 @@ async function reply(sceneStyle: string | null, over: Record<string, unknown> = 
 }
 const fieldNames = (s: string) => [...s.matchAll(/ name="([^"]+)"/g)].map((m) => m[1]).sort();
 
-test('rsvp · the question and the ticket keep the same fields, the same three answers and the terms line', async () => {
+test('rsvp · the question and the ticket keep the same fields, the same two answers and the terms line', async () => {
   const card = await reply(null);
   assert.match(card, /pahina-perforation/, 'no style is the reply card');
   for (const id of ['question', 'ticket']) {
     const out = await reply(id);
     assert.match(out, new RegExp(`data-scene-style="${id}"`), `${id} is drawn`);
     assert.deepEqual(fieldNames(out), fieldNames(card), `${id}: the form's fields changed`);
-    for (const v of ['attending', 'maybe', 'declined']) {
+    for (const v of ['attending', 'declined']) {
       assert.equal((out.match(new RegExp(`name="rsvp_status" value="${v}"`, 'g')) ?? []).length, 1, `${id}: answer ${v}`);
     }
-    for (const label of ['Joyfully accepts', 'Undecided, for now', 'Regretfully declines']) assert.ok(out.includes(label), `${id}: ${label}`);
+    for (const label of ['Joyfully accepts', 'Regretfully declines']) assert.ok(out.includes(label), `${id}: ${label}`);
+    assert.doesNotMatch(out, /Undecided/, `${id}: a guest is never offered maybe`);
     assert.match(out, /<fieldset data-rsvp-step/, `${id}: the answers are still a step the one-at-a-time walker finds`);
     assert.equal(/Privacy Notice/.test(out), /Privacy Notice/.test(card), `${id}: the Privacy Notice line`);
     assert.match(out, /attending-reveal|selfie-reveal/, `${id}: "yes" still reveals the rest`);

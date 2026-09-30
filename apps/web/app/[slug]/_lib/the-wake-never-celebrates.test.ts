@@ -396,3 +396,136 @@ test('all three challenge call sites are still wired — deleting one is visible
       'change this number deliberately.',
   );
 });
+
+// ── 10 · PART 2 — THE LEAKS THE 2026-09-30 AUDIT FOUND ──────────────────────
+//
+// `EVENT_TYPE_RELIGION_AUDIT_2026-09-30.md`, the wake rows: a checked-in guest
+// got a party-popper and "So glad you made it."; the printed card said "The
+// celebration of"; onboarding offered "Wake of the Year" and "Papic is live on
+// this wake"; the host's gift page was "The digital money dance" with
+// newlywed templates; the guest gift door wore a gift-box. Each fix below keeps
+// the celebratory arm literally in place — a wedding is untouched.
+
+const APP = resolve(TREE, '..');
+const LIB = resolve(APP, '..', 'lib');
+const appSrc = (rel: string) => stripComments(readFileSync(join(APP, rel), 'utf8'));
+const libSrc = (rel: string) => stripComments(readFileSync(join(LIB, rel), 'utf8'));
+
+test('🎉 the arrival greeting is quiet at a wake — and unchanged everywhere else', async () => {
+  const React = (await import('react')).default;
+  (globalThis as { React?: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { ArrivalGreeting } = await import('../_components/arrival-greeting');
+  const { EventWordsProvider, WORDS_AS_SHIPPED } = await import('../_components/event-words-provider');
+  const h = React.createElement;
+  const wake = eventWordsFromProfile(WAKE_PROFILE);
+
+  const quiet = renderToStaticMarkup(
+    h(EventWordsProvider, { words: wake }, h(ArrivalGreeting, { tableLabel: 'Table 5' })),
+  );
+  assert.ok(quiet.includes('Thank you for being here.'), 'the wake has no quiet arrival line');
+  assert.ok(quiet.includes('Table 5'), 'the quiet arm dropped the table');
+  assert.doesNotMatch(quiet, /So glad|party-popper|sn-arrival-bloom|sn-arrival-ring|champagne/,
+    'a wake’s checked-in guest still gets the popper, the bloom or the champagne halo');
+
+  // No provider (every render test today) and a wedding's provider both keep
+  // the shipped greeting, popper and bloom included.
+  for (const tree of [
+    h(ArrivalGreeting, { tableLabel: 'Table 5' }),
+    h(EventWordsProvider, { words: WORDS_AS_SHIPPED }, h(ArrivalGreeting, { tableLabel: 'Table 5' })),
+  ]) {
+    const party = renderToStaticMarkup(tree);
+    assert.ok(party.includes('So glad you made it.'));
+    assert.match(party, /sn-arrival-bloom/);
+    assert.match(party, /party-popper/);
+  }
+});
+
+test('🖨 the printed card reads "In loving memory of" at a wake — the cover’s own words', () => {
+  const print = libSrc('print-set.server.ts');
+  assert.ok(
+    print.includes("eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'The celebration of',"),
+    'print-set.server.ts lost one of the three eyebrow arms',
+  );
+  assert.match(print, /const solemn = isWedding \? false : \(await eventWordsFor\(event\.event_type\)\)\.solemn;/,
+    'the printed eyebrow no longer reads the register from the event type');
+  // One phrase for one moment: the post-event cover's solemn kicker is the
+  // source; the printed card is that phrase + "of".
+  const kicker = /if \(f\.solemn\) return '([^']+)';/.exec(
+    appSrc('[slug]/_components/editorial/post-event-scene-views.tsx'),
+  );
+  assert.ok(kicker, 'the post-event cover lost its solemn kicker — this cross-check is blind');
+  assert.equal(`${kicker[1]} of`, 'In loving memory of', 'the print and the cover say two different things');
+});
+
+test('🗂 onboarding: no "Wake of the Year", no cheerful services framing at a wake', () => {
+  const gen = appSrc('onboarding/[type]/_components/generic-onboarding.tsx');
+  assert.ok(
+    gen.includes("placeholder={register === 'solemn' ? `e.g. ${label} for Lola Rosa` : `e.g. ${label} of the Year`}"),
+    'the name placeholder has lost an arm',
+  );
+  assert.ok(
+    gen.includes("{register === 'solemn' ? 'A place to keep the photos.' : 'Your memories are already being kept.'}"),
+    'the services title has lost an arm',
+  );
+  assert.match(gen, /<ServicesStep[\s\S]{0,200}?solemn=\{register === 'solemn'\}/,
+    'the generic flow no longer tells the services step it is a wake');
+
+  const step = appSrc('onboarding/_shared/services-step.tsx');
+  assert.match(step, /solemn = false,\n\}: \{/, 'the services step’s solemn prop must default to false — every other mount stays as shipped');
+  // Each cheerful line survives, but only as the non-solemn arm of a `solemn ?` branch.
+  const branches: Array<[string, string]> = [
+    ['Set up for you', 'Included · already on'],
+    ['Every photo family and friends share, kept in one place.', 'Store every photo as you prepare — right through to your {eventWord}.'],
+    ['Photo sharing is ready whenever you need it', 'Papic is live on this {eventWord}.'],
+  ];
+  for (const [quiet, cheerful] of branches) {
+    const q = step.indexOf(quiet);
+    const c = step.indexOf(cheerful);
+    assert.ok(q > 0 && c > 0, `services-step.tsx lost an arm: ${q < 0 ? quiet : cheerful}`);
+    const gate = step.lastIndexOf('{solemn ? (', q);
+    assert.ok(gate > 0 && q - gate < 400 && c > q, `"${cheerful}" is no longer behind the solemn gate`);
+  }
+});
+
+test('💸 the host’s gift page: money dance for a wedding, sympathy for a wake, E-Gifts for the rest', async () => {
+  const page = appSrc('dashboard/[eventId]/pabuya/page.tsx');
+  assert.match(
+    page,
+    /words\.solemn\s*\?\s*'Gifts of sympathy'\s*:\s*words\.eventWord === 'wedding'\s*\?\s*'The digital money dance'\s*:\s*'E-Gifts'/,
+    'the host gift page title has lost an arm',
+  );
+  assert.match(page, /templates=\{pabuyaTemplatesFor\(words\)\}/, 'the page hands the editor the wedding templates whatever the type');
+
+  const { pabuyaTemplatesFor, SYMPATHY_TEMPLATES, NEUTRAL_TEMPLATES } = await import('@/lib/pabuya-templates-for');
+  const { PABUYA_TEMPLATES } = await import('@/lib/pabuya-message');
+  assert.equal(pabuyaTemplatesFor(eventWordsFromProfile(WEDDING_PROFILE)), PABUYA_TEMPLATES, 'a wedding lost the owner’s five');
+  assert.equal(pabuyaTemplatesFor(eventWordsFromProfile(WAKE_PROFILE)), SYMPATHY_TEMPLATES);
+  assert.equal(pabuyaTemplatesFor(eventWordsFromProfile(GENERIC_PROFILE)), NEUTRAL_TEMPLATES);
+  const newlywed = /new home|life together|dance|married|newly|our wedding|forever/i;
+  for (const t of [...SYMPATHY_TEMPLATES, ...NEUTRAL_TEMPLATES]) {
+    assert.doesNotMatch(t.body, newlywed, `"${t.name}" is newlywed-shaped`);
+    assert.doesNotMatch(t.body.slice(0, 60).toLowerCase(), /^(we would love to receive|send|give us|please give)/,
+      `"${t.name}" opens with the ask`);
+  }
+  for (const t of SYMPATHY_TEMPLATES) {
+    assert.doesNotMatch(t.body, /celebrat|enjoy|party|!/i, `"${t.name}" is cheerful at a wake`);
+  }
+});
+
+test('🎁 the guest gift door keeps its one name but not the gift-box at a wake', () => {
+  const strip = appSrc('[slug]/_components/guest-doorway-strip.tsx');
+  assert.match(strip, /title="E-Gifts"/, 'the one-name rule: the door is still called E-Gifts');
+  assert.match(strip, /icon=\{words\.solemn \? <Heart aria-hidden[^>]*\/> : <Gift aria-hidden/,
+    'the wake’s gift door wears the gift-box again');
+});
+
+test('🕊 the wake has its own picker photo, sized like its siblings', async () => {
+  const sharp = (await import('sharp')).default;
+  const file = join(APP, '..', 'public', 'event-types', 'wake.webp');
+  const meta = await sharp(file).metadata();
+  assert.equal(meta.format, 'webp');
+  assert.equal(`${meta.width}x${meta.height}`, '880x1100', 'every sibling tile is 880×1100');
+  const bytes = readFileSync(file).length;
+  assert.ok(bytes > 20_000 && bytes < 90_000, `wake.webp is ${bytes} B — siblings sit at 33–77 KB`);
+});

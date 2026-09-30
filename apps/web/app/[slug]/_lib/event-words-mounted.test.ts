@@ -41,6 +41,7 @@ const CONSUMERS = [
   'guest-column-form.tsx',
   'day-of-face-enroll.tsx',
   'live-wall-block.tsx',
+  'arrival-greeting.tsx',
 ];
 
 /**

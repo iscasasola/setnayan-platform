@@ -1,6 +1,6 @@
 import type { EventWords } from '../_lib/event-words';
 import Link from 'next/link';
-import { ArrowRight, Boxes, Gift, Radio } from 'lucide-react';
+import { ArrowRight, Boxes, Gift, Heart, Radio } from 'lucide-react';
 
 /**
  * GuestDoorwayStrip — the two finished guest pages, and the one sentence about
@@ -111,7 +111,7 @@ function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
   return (
     <DoorCard
       href={href}
-      icon={<Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+      icon={words.solemn ? <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} /> : <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
       title="E-Gifts"
       detail={
         words.solemn

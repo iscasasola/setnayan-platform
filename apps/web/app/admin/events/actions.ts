@@ -243,13 +243,13 @@ export async function setEventFaceMode(formData: FormData): Promise<void> {
   const eventId = String(formData.get('event_id') ?? '').trim();
   // Where to land afterwards: the per-event admin page, or the Events list.
   // Only these two — never a posted URL.
-  const back = (outcome: 'saved' | 'error', code: string): never =>
+  const redirectBack = (outcome: 'saved' | 'error', code: string): never =>
     redirect(
       formData.get('from') === 'event' && eventId
         ? `/admin/events/${encodeURIComponent(eventId)}?${outcome}=${code}`
         : `/admin/accounts?tab=events&${outcome}=${code}`,
     );
-  if (!eventId) back('error', 'missing_event');
+  if (!eventId) redirectBack('error', 'missing_event');
 
   const admin = createAdminClient();
 
@@ -271,9 +271,9 @@ export async function setEventFaceMode(formData: FormData): Promise<void> {
       .maybeSingle();
     if (beforeError) {
       logQueryError('setEventFaceMode:reopen:before', beforeError);
-      back('error', 'reopen_read_failed');
+      redirectBack('error', 'reopen_read_failed');
     }
-    if (!before) back('error', 'reopen_not_found');
+    if (!before) redirectBack('error', 'reopen_not_found');
 
     const patch = guestListReopenPatch();
     const { data: after, error: updateError } = await admin
@@ -283,9 +283,9 @@ export async function setEventFaceMode(formData: FormData): Promise<void> {
       .select('guest_count_locked_at, final_pax, guest_list_edit_deadline');
     if (updateError) {
       logQueryError('setEventFaceMode:reopen', updateError);
-      back('error', 'reopen_failed');
+      redirectBack('error', 'reopen_failed');
     }
-    if (!reopenLanded(after, patch)) back('error', 'reopen_not_applied');
+    if (!reopenLanded(after, patch)) redirectBack('error', 'reopen_not_applied');
 
     // Non-fatal by the same contract as deleteEvent: the list IS reopened by
     // now, so a failed audit write is shouted, not turned into an error page.
@@ -304,7 +304,7 @@ export async function setEventFaceMode(formData: FormData): Promise<void> {
     }
 
     revalidatePath(`/admin/events/${eventId}`);
-    back('saved', 'guest_list_reopened');
+    redirectBack('saved', 'guest_list_reopened');
   }
 
   const raw = String(formData.get('face_mode') ?? '').trim();
@@ -322,14 +322,14 @@ export async function setEventFaceMode(formData: FormData): Promise<void> {
     .select('papic_face_mode');
   if (error) {
     logQueryError('setEventFaceMode', error);
-    back('error', 'face_mode_failed');
+    redirectBack('error', 'face_mode_failed');
   }
   if (updated?.length !== 1 || updated[0]?.papic_face_mode !== mode) {
-    back('error', 'face_mode_not_applied');
+    redirectBack('error', 'face_mode_not_applied');
   }
 
   revalidatePath('/admin/accounts');
   revalidatePath('/admin/events');
   revalidatePath(`/admin/events/${eventId}`);
-  back('saved', mode === 'mode_a' ? 'face_mode_on' : 'face_mode_off');
+  redirectBack('saved', mode === 'mode_a' ? 'face_mode_on' : 'face_mode_off');
 }

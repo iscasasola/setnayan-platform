@@ -49,6 +49,7 @@ import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
 import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
 import { EventDashboard } from './_components/event-dashboard';
+import { MiniTour } from '@/app/_components/mini-tour';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
 import { papicNudgeShouldShow } from '@/lib/papic-home-tile';
@@ -719,6 +720,9 @@ export default async function EventHomePage({
 
   return (
     <>
+      {/* 🧭 The event menu's first-visit tour (Stage D, owner 2026-09-29) —
+          the five places, once, on Home; waits for the couple welcome. */}
+      <MiniTour tourKey="customer_event_menu_v1" storeShell={storeShell} after="couple_welcome_v1" />
       {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration —
           its own window is T-3d..T+1d and it never asked whether the day had
           been and gone. It is TOLD, from the one resolver, rather than given a

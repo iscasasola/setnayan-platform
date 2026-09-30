@@ -120,6 +120,14 @@ test('2 · Apply for a free couple writes only free changes — every Pro effect
       assert.equal(item.pro, false, `Apply published the Pro column ${item.column}`);
       continue;
     }
+    if (item.kind === 'editorial') {
+      assert.equal(item.pro, false, `Apply published a Pro Post Event look (${item.item.field})`);
+      continue;
+    }
+    if (item.kind === 'fixed-style') {
+      assert.equal(item.pro, false, 'a fixed part\'s Style pick is free');
+      continue;
+    }
     if (item.field === 'canvas') {
       const row = LIVE.widgets.find((w) => w.widget_id === item.widgetId)!;
       const live = ((row.config_json as { canvas?: HubSectionCanvas } | null)?.canvas ?? {}) as HubSectionCanvas;
@@ -191,9 +199,12 @@ test('3 · one source: no Pro effect named for an owning couple, and none once t
   const plan = planHubDraftApply(triedDraft(), LIVE, false);
   const effects = hubDraftProEffects(triedDraft(), LIVE, false);
   for (const item of plan.refused) {
-    const key = item.kind === 'event' ? `event:${item.column}` : item.widgetType;
+    if (item.kind === 'fixed-style') continue; // free — never refused
+    const key = item.kind === 'event' ? `event:${item.column}` : item.kind === 'editorial' ? 'pe:' : item.widgetType;
     assert.ok(
-      effects.some((e) => (item.kind === 'event' ? e.id === key : e.id.includes(`:${key}`) || e.id === `show:${key}`)),
+      effects.some((e) =>
+        item.kind === 'event' ? e.id === key : item.kind === 'editorial' ? e.id.startsWith(key) : e.id.includes(`:${key}`) || e.id === `show:${key}`,
+      ),
       `the plan holds ${key} but the sheet does not name it`,
     );
   }

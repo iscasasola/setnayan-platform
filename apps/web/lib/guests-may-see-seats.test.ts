@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from './strip-comments';
-import { guestsMaySeeSeats, seatDayHasCome } from './guests-may-see-seats';
+import { guestsMaySeeSeats, seatDayHasCome, ticketShowsTable } from './guests-may-see-seats';
 import { arrivalDestinationWords } from './invite-destination';
 
 const WEB = join(__dirname, '..');
@@ -104,16 +104,30 @@ const READERS = [
   'app/[slug]/_lib/loaders.ts',
   'app/[slug]/_lib/your-own-day.server.ts',
   'lib/print-set.server.ts',
+  'lib/pass-card.server.ts',
   'lib/guest-reminder-emails.ts',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx',
 ];
 
-// 🎟 `lib/pass-card.server.ts` left READERS in the 2026-09-30 train: the Digital
-// ticket reads NO seat plan at all (no table on any ticket — TICKET_SHOWS_TABLE),
-// which is stronger than asking the rule. Held here and by the-pass-card-is-a-card.
-test('the ticket kit reads no seat plan at all', () => {
+// 🎟 THE TICKET GAINS THE SEAT ON THE DAY (owner 2026-09-30): the Digital
+// ticket's kit reads the seat plan ONLY behind the ticket's half of the rule —
+// the day, never the couple's "show early" switch.
+test('the ticket kit reads the seat plan only behind the day rule', () => {
   const code = stripComments(src('lib/pass-card.server.ts'));
-  assert.doesNotMatch(code, /event_seat_assignments|event_floor_plan/, 'the ticket reads the seat plan again — ask guestsMaySeeSeatsFor');
+  const gate = code.indexOf('guestsMaySeeSeatsFor(admin, eventId, { ticket: true })');
+  const read = code.indexOf("from('event_seat_assignments')");
+  assert.ok(gate > -1, 'the ticket kit reads seats without asking the day rule');
+  assert.ok(read > gate, 'the ticket kit reads seats BEFORE asking the day rule');
+  assert.equal(code.split("from('event_seat_assignments')").length - 1, 1, 'a second seat read in the ticket kit');
+  assert.doesNotMatch(code, /event_floor_plan/, 'the ticket kit reads the "show early" switch — the ticket follows the day only');
+});
+
+test('ticketShowsTable is the DAY half only — the early switch never puts a table on a ticket', () => {
+  const day = { eventDate: '2027-03-13', eventDatePrecision: 'day' };
+  const eve = new Date('2027-03-12T15:00:00Z');
+  assert.equal(guestsMaySeeSeats({ ...day, shownEarlyAt: '2027-03-01T00:00:00Z' }, eve), true, 'the switch opens the live pages early');
+  assert.equal(ticketShowsTable(day, eve), false, 'the switch put a table on the ticket before the day');
+  assert.equal(ticketShowsTable(day, new Date('2027-03-12T16:00:00Z')), true);
 });
 
 test('every guest-facing seat reader asks guestsMaySeeSeatsFor', () => {

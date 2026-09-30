@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { CalendarClock, MapPin, ScanLine } from 'lucide-react';
 import { VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event-venues';
+import { DetailsBigDate, DetailsCard } from './event-details-styles';
 
 /**
  * Open-browse empty / find-mode plates (OPEN-BROWSE PR8 — council verdict
@@ -129,8 +130,15 @@ export function PublicEventDetails({
   venueName,
   venueAddress,
   venues,
+  dateIso = null,
+  sceneStyle = null,
 }: {
   dateLabel: string | null;
+  /** `events.event_date` — the date the label is formatted from. Read by the
+   *  `big-date` and `card` styles, which write it their own way. */
+  dateIso?: string | null;
+  /** 🎨 `plate` (this, the default) · `big-date` · `card` — `event-details-styles.tsx`. */
+  sceneStyle?: string | null;
   venueName: string | null;
   venueAddress: string | null;
   /** 🏛💒 Ceremony + reception (`lib/event-venues.ts`, already withheld by the
@@ -147,6 +155,8 @@ export function PublicEventDetails({
       ? [{ role: 'both', name: venueName, address: venueAddress, latitude: null, longitude: null }]
       : [];
   if (!dateLabel && places.length === 0) return null;
+  if (sceneStyle === 'big-date') return <DetailsBigDate dateIso={dateIso} dateLabel={dateLabel} places={places} />;
+  if (sceneStyle === 'card') return <DetailsCard dateIso={dateIso} dateLabel={dateLabel} places={places} />;
   // Pahina (design 2026-07-25 §7): over a recessed paper-deep plate with the
   // printed inner hairline frame; WHEN / WHERE read as gild mono keys and the
   // venue name is set in the display face. Facts and gating unchanged — still

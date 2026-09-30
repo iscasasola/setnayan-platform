@@ -16,6 +16,7 @@ import { roleGroupOf } from '@/lib/role-groups';
 import { nearestColorName } from '@/lib/color-names';
 import { roleLabel } from '@/lib/entourage';
 import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
+import { DressCodeLine, DressCodePalette } from './dress-code-styles';
 
 /*
  * 🧵 THE SILK CHIP, VISIBLE ON ANY GROUND. `.pahina-swatch` shades a chip with
@@ -106,6 +107,7 @@ export function DressCodeWidget({
   roleNames = null,
   hideWhenEmpty = false,
   part = 'all',
+  sceneStyle = null,
 }: {
   /**
    * 🏠 WHICH HALF (owner 2026-09-30, DECISION_LOG "THE INVITATION'S HOME IS THE
@@ -138,6 +140,12 @@ export function DressCodeWidget({
   roleNames?: RoleNames | null;
   ceremonyType?: string | null;
   genderSeparation?: string | null;
+  /**
+   * 🎨 `colours-and-roles` (this, the default) · `palette` · `line`
+   * (`dress-code-styles.tsx`). Arranges the GENERAL view only: a guest the
+   * page knows still sees just their own role's panel, in every style.
+   */
+  sceneStyle?: string | null;
 }) {
   // The couple's walima seating posture, surfaced to guests so they know what to
   // expect at the reception. Muslim-only; 'none' (default) shows nothing. Neutral
@@ -330,6 +338,13 @@ export function DressCodeWidget({
     ceremonyType === 'inc' ? MODEST_GUIDANCE.inc : ceremonyType === 'muslim' ? MODEST_GUIDANCE.muslim : null;
   const shownTitle = title || (!description && modest ? modest.heading : 'Dress with us');
   const shownDescription = description || (!title && modest ? modest.body : '');
+
+  // 🚶 A guest with a place in the march keeps the shipped card — its march line
+  // ("you walk 5th") is theirs alone, and the general styles draw no such line.
+  if (!mine && !march && (sceneStyle === 'palette' || sceneStyle === 'line')) {
+    const general = { title: shownTitle, description: shownDescription, palette, rows: everyone.rows, dos, donts, genderNote };
+    return sceneStyle === 'palette' ? <DressCodePalette {...general} /> : <DressCodeLine {...general} />;
+  }
 
   return (
     <section className="space-y-5">

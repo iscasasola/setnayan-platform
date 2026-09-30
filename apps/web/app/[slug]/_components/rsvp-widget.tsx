@@ -24,6 +24,7 @@ import { TERMS_FIELD } from '@/lib/terms-agreement';
 import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
 import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
+import { RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader } from './rsvp-styles';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 
@@ -38,6 +39,7 @@ export function RsvpWidget({
   words,
   doorAction,
   offerSelfie = true,
+  askTagging = false,
   hostPitch = false,
   ask = {},
   gate = null,
@@ -45,6 +47,7 @@ export function RsvpWidget({
   oneAtATime = false,
   previewEveryQuestion = false,
   answerWords = null,
+  sceneStyle = null,
 }: {
   /**
    * 📝 The couple's own YES / NO wording (the RSVP stage, owner 2026-09-30 —
@@ -52,6 +55,13 @@ export function RsvpWidget({
    * post `attending` / `declined`. Absent = today's wording.
    */
   answerWords?: RsvpWords | null;
+  /**
+   * 🎨 THE SCENE'S STYLE (owner 2026-09-29): `reply-card` (this card, the
+   * default) · `question` · `ticket` (`rsvp-styles.tsx`). A style changes the
+   * header and the look of the answers ONLY — same questions, same
+   * order, same action, the one-at-a-time switch and the Privacy Notice kept.
+   */
+  sceneStyle?: string | null;
   /**
    * The Maker's RSVP canvas (a host looking at the SAMPLE guest): every
    * switched-on question is shown, none waiting on an "attending" tap — so
@@ -170,6 +180,13 @@ export function RsvpWidget({
    */
   offerSelfie?: boolean;
   /**
+   * 🏷 THE QUESTION WITHOUT THE CAMERA — the INVITATION's reply page (owner
+   * 2026-09-30, "go"): with `offerSelfie={false}`, still ask "Want to be tagged
+   * in the photos?" and save the answer; the selfie is taken on the day, only
+   * from a guest who said Yes (`dayOfFaceCatchShows`).
+   */
+  askTagging?: boolean;
+  /**
    * The invitation is already linked to their account — only then may the
    * "planning your own celebration?" line show (`hostPitchShows`). Before the
    * link it was one more account prompt in front of the one that matters.
@@ -286,11 +303,12 @@ export function RsvpWidget({
   // "Want to be tagged in the photos?" — defaulted from the guest's stored
   // answer, never pre-set otherwise (a default would be an answer nobody gave).
   const taggingWish = guest.face_tagging_wanted ?? null;
+  const questionOnly = !offerSelfie && askTagging;
   const tagThenSelfie = (
     <>
       <fieldset data-rsvp-step data-face-tagging-choice className="space-y-2">
         <legend className="mb-1 font-serif text-xl text-ink">{FACE_TAGGING_QUESTION}</legend>
-        <p className="pb-1 text-xs text-ink/60">{faceTaggingHint(faceMode, words.theOrganizer)}</p>
+        <p className="pb-1 text-xs text-ink/60">{faceTaggingHint(faceMode, words.theOrganizer, { onTheDay: questionOnly })}</p>
         {(
           [
             { key: 'yes', label: FACE_TAGGING_YES, on: taggingWish === true },
@@ -315,11 +333,32 @@ export function RsvpWidget({
             2026-09-29, OWNER ANSWERS (3)) — only for a guest who has one. */}
         {guest.photo_source === 'selfie' ? <SelfieNoThanksConfirm /> : null}
       </fieldset>
-      <div data-rsvp-step className="tag-yes-reveal">
-        <SelfieCapture faceMode={faceMode} />
-      </div>
+      {/* 📵 The invitation draws no camera: the selfie waits for the day. */}
+      {questionOnly ? null : (
+        <div data-rsvp-step className="tag-yes-reveal">
+          <SelfieCapture faceMode={faceMode} />
+        </div>
+      )}
     </>
   );
+  /* 🎨 The scene's style — only the header and the answers' look change. */
+  const answerStyle = sceneStyle === 'question' || sceneStyle === 'ticket' ? sceneStyle : 'reply-card';
+  const admitCount = 1 + (guest.plus_one_allowed ? plusOneSeats(guest) : 0);
+  // The celebratory labels are the spec's reply-card wording and stay
+  // byte-identical. A wake cannot ask anyone to "joyfully accept" — its labels
+  // answer the only question a mourner is being asked. ONE list, drawn by every
+  // style, so no style can offer a different answer.
+  const answerOptions = words.solemn
+    ? ([
+        { key: 'attending', label: 'Will be there' },
+        { key: 'declined', label: 'Unable to come' },
+      ] as const)
+    : ([
+        { key: 'attending', label: 'Joyfully accepts' },
+        { key: 'declined', label: 'Regretfully declines' },
+      ] as const);
+  // 📝 The couple's own YES / NO words (the RSVP stage) — every style says them.
+  const answerShown = answerOptions.map((o) => ({ ...o, label: answerWords?.[o.key] ?? o.label }));
 
   return (
     <form action={action} className="rsvp-form space-y-6">
@@ -352,7 +391,21 @@ export function RsvpWidget({
 
       {/* On the invite arrival's Reply door the door IS the card — its eyebrow,
           the guest's name and the rail already say what this is. */}
-      {onDoor ? null : (
+      {onDoor ? null : answerStyle === 'question' ? (
+        <RsvpQuestionHeader
+          firstName={guest.first_name}
+          question={words.solemn ? 'Will you be with us?' : 'Will you be there?'}
+          admitCount={admitCount}
+          pill={<RsvpPill status={guest.rsvp_status} />}
+        />
+      ) : answerStyle === 'ticket' ? (
+        <RsvpTicketHeader
+          guestName={knownName || `${guest.first_name} ${guest.last_name}`.trim()}
+          stubNumber={stubNo(guest.guest_id)}
+          admitCount={admitCount}
+          pill={<RsvpPill status={guest.rsvp_status} />}
+        />
+      ) : (
         <>
           {/* THE REPLY CARD (design 2026-07-25 §7) — the only thing on the page that
               is a card in real life, so it is the only thing still shaped like one:
@@ -416,27 +469,29 @@ export function RsvpWidget({
       {replyLocked ? (
         <LockedAnswer status={guest.rsvp_status} />
       ) : (
+        answerStyle === 'question' || answerStyle === 'ticket' ? (
+          <RsvpStyledAnswers
+            sceneStyle={answerStyle}
+            legend={words.solemn ? 'Will you be with us?' : 'Will you be there?'}
+            options={answerShown}
+            current={guest.rsvp_status}
+            required={termsOnSend || guest.rsvp_status === 'maybe'}
+            legendShown={onDoor}
+          />
+        ) : (
         <fieldset data-rsvp-step className="space-y-2">
-          <legend className="mb-2 font-serif text-xl text-ink">
-            {words.solemn ? 'Will you be with us?' : 'Will you be there?'}
+          {/* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
+              "Your reply" over "Will you celebrate with us?". */}
+          <legend className="mb-3">
+            <span className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
+            <span className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">
+              {words.solemn ? 'Will you be with us?' : 'Will you celebrate with us?'}
+            </span>
           </legend>
-          {(
-            // The celebratory labels are the spec's reply-card wording and stay
-            // byte-identical. A wake cannot ask anyone to "joyfully accept" —
-            // its labels answer the only question a mourner is being asked.
-            words.solemn
-              ? ([
-                  { key: 'attending', label: 'Will be there' },
-                  { key: 'declined', label: 'Unable to come' },
-                ] as const)
-              : ([
-                  { key: 'attending', label: 'Joyfully accepts' },
-                  { key: 'declined', label: 'Regretfully declines' },
-                ] as const)
-          ).map((option) => (
+          {answerOptions.map((option) => (
             <label
               key={option.key}
-              className="flex min-h-12 cursor-pointer items-center rounded-full bg-ink/[0.05] px-5 font-pahina text-base italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
+              className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
             >
               <input
                 type="radio"
@@ -453,6 +508,7 @@ export function RsvpWidget({
             </label>
           ))}
         </fieldset>
+        )
       )}
 
       {/* ⚠ THE SELFIE IS REVEALED BY `:has(rsvp_status=attending:checked)`. With
@@ -466,7 +522,7 @@ export function RsvpWidget({
           the selfie is drawn — the selfie. "No thanks" leaves it undrawn, so
           the walker skips it and nothing more is asked. Nobody is shown the
           selfie without choosing it: with no answer ticked it stays hidden. */}
-      {!offerSelfie ? null : replyLocked ? (
+      {!offerSelfie && !questionOnly ? null : replyLocked ? (
         guest.rsvp_status === 'attending' ? (
           <div className="space-y-6">{tagThenSelfie}</div>
         ) : null
@@ -679,7 +735,7 @@ export function RsvpWidget({
         <div className="space-y-5">
           <TermsTick />
           <SubmitButton className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
-            Send
+            Send my reply
           </SubmitButton>
         </div>
       ) : (

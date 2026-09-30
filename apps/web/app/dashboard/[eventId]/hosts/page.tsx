@@ -137,9 +137,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   if (legacyError) {
     logQueryError('HostsPage.legacy', legacyError, { eventId }, 'graceful_degrade');
   }
-  const isCouple =
+  const viewerIsCouple =
     (legacy as { member_type: string } | null)?.member_type === 'couple';
-  if (isCouple) isHost = true;
+  if (viewerIsCouple) isHost = true;
   if (!isHost) redirect('/dashboard');
 
   // ── THE GUEST LIST'S HOSTS PART (owner 2026-09-29) ──────────────────────
@@ -351,7 +351,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   // 2026-09-30: "Claire Buanhog is not a coordinator" — she is the Bride).
   // `seatIsFullCohost` mirrors the SQL split, so the screen and the gate agree.
   let colourGrantees: CoordinatorColourGrantee[] = [];
-  if (isCouple && accepted.length > 0) {
+  if (viewerIsCouple && accepted.length > 0) {
     const [{ data: colourGrantRows, error: colourGrantErr }, { data: colourChangeRows, error: colourChangeErr }] =
       await Promise.all([
         admin
@@ -530,7 +530,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           2026-09-11) — for a marketplace-linked (Setnayan) coordinator that
           column holds their own account email, copied in by a package lock,
           never a business contact they chose to share. */}
-      {isCouple && promotableOffPlatform.length > 0 ? (
+      {viewerIsCouple && promotableOffPlatform.length > 0 ? (
         <section className="space-y-3 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5">
           <header className="space-y-1">
             <p className="sn-eye">
@@ -583,7 +583,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           moment their downpayment is marked (unless the data-privacy consent
           gate is active); this is the couple's in-app way to reach them
           meanwhile. */}
-      {isCouple && promotableOnPlatform.length > 0 ? (
+      {viewerIsCouple && promotableOnPlatform.length > 0 ? (
         <section className="space-y-3 rounded-2xl border border-ink/10 bg-ink/[0.02] p-5">
           <header className="space-y-1">
             <p className="sn-eye">Your coordinator is on Setnayan</p>
@@ -698,7 +698,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                     </code>
                   ) : null}
                   {/* Only a host may revoke — the action's gate is `couple`. */}
-                  {isCouple ? (
+                  {viewerIsCouple ? (
                   <form action={revokeHostInvite}>
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="moderator_id" value={row.moderator_id} />
@@ -793,7 +793,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                           })
                         : '—'}
                     </p>
-                    {isCouple && row.user_id !== user.id ? (
+                    {viewerIsCouple && row.user_id !== user.id ? (
                       fullCohost ? (
                         <CohostSeatControls
                           eventId={eventId}
@@ -827,7 +827,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       />
 
       {/* Delegate activity — "your coordinator did X" (couple-visible). */}
-      {isCouple && activity.length > 0 ? (
+      {viewerIsCouple && activity.length > 0 ? (
         <section className="sn-tile space-y-3 p-5">
           <header className="space-y-1">
             <p className="sn-eye">
@@ -885,7 +885,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           person picks a guest's Access on their card, and it goes live once that
           guest has said yes and signed in. Hired planners still come in through
           "Promote your coordinator" above, with the RA 10173 consent step. */}
-      {isCouple ? (
+      {viewerIsCouple ? (
       <section className="sn-tile space-y-3 p-5 sm:p-6" data-cohosts-from-guest-list>
         <p className="sn-eye">Add a co-host</p>
         <h2 className="text-xl font-semibold tracking-tight">Co-hosts come from your guest list</h2>

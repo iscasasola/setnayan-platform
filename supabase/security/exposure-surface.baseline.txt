@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6545
+# facts: 6547
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     565
-#   col       4777
+#   col       4779
 #   policy    940
 #   view      8
 #   func      251
@@ -1457,6 +1457,7 @@ col	public.event_floor_plan.ghost_booths_dismissed	anon=- authenticated=SIU
 col	public.event_floor_plan.ghost_booths_enabled	anon=- authenticated=SIU
 col	public.event_floor_plan.priority_order	anon=- authenticated=SIU
 col	public.event_floor_plan.published_at	anon=- authenticated=SIU
+col	public.event_floor_plan.role_seating	anon=- authenticated=SIU
 col	public.event_floor_plan.service_entrance_enabled	anon=- authenticated=SIU
 col	public.event_floor_plan.service_entrance_x	anon=- authenticated=SIU
 col	public.event_floor_plan.service_entrance_y	anon=- authenticated=SIU
@@ -2403,6 +2404,7 @@ col	public.guests.address	anon=SIU authenticated=SIU
 col	public.guests.attire	anon=SIU authenticated=SIU
 col	public.guests.avatar_config	anon=SIU authenticated=SIU
 col	public.guests.avatar_updated_at	anon=SIU authenticated=SIU
+col	public.guests.couple_with_guest_id	anon=SIU authenticated=SIU
 col	public.guests.created_at	anon=SIU authenticated=SIU
 col	public.guests.custom_tags	anon=SIU authenticated=SIU
 col	public.guests.deleted_at	anon=SIU authenticated=SIU

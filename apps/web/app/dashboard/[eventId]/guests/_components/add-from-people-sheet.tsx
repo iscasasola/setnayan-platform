@@ -257,7 +257,7 @@ export function AddFromPeopleSheet({
           </h2>
           <p className="mt-1 text-sm text-ink/60">
             The people you are connected to — your people, your beloved, and
-            your samahan.
+            your group.
           </p>
         </div>
         <button

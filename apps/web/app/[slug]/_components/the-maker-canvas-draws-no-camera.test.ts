@@ -35,6 +35,8 @@ test('the canvas render hands the guest identity no Papic camera', () => {
 test('the hub mounts the camera only behind papicGuest', () => {
   const at = BODY.indexOf('<PapicGuestCapture');
   assert.ok(at > 0, 'the hub no longer mounts the camera — update this guard');
-  assert.match(BODY.slice(Math.max(0, at - 80), at), /\{papicGuest \? \(\s*$/);
+  // On a tabbed page (#6197) the mount sits inside its tab's `group('live', …)`;
+  // the gate is the same `papicGuest ? (` either way.
+  assert.match(BODY.slice(Math.max(0, at - 80), at), /\{(?:group\('[a-z]+', )?papicGuest \? \(\s*$/);
   assert.equal(BODY.split('<PapicGuestCapture').length - 1, 1, 'a second mount would need its own canvas gate');
 });

@@ -798,7 +798,7 @@ export function GuestCardBody({
       {/* ── ACCESS — co-host · limited helper (owner 2026-09-28: co-hosts come
           from the guest list). Its own action, so it sits OUTSIDE the autosave
           form, like the invitation block — a nested <form> is invalid HTML.
-          A refused read (access === null) shows nothing, never "Guest only". */}
+          A refused read (access === null) shows nothing, never "None". */}
       {access ? (
         <Section title="Access">
           <div className="px-0.5">

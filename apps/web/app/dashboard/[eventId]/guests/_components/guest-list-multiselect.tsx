@@ -27,6 +27,8 @@ import {
 } from '@/app/_components/inspector/inspector-column';
 import { SeatChip } from './seat-chip';
 import { GuestInviteCell } from './guest-invite-cell';
+import { GuestAccessCell } from './guest-access-cell';
+import type { GuestAccessState } from '@/lib/guest-access';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
@@ -444,6 +446,11 @@ function DesktopRow({
           <RoleTexts guest={guest} palette={palette} />
         </RoleChipEditor>
       </td>
+      {/* The Access column (owner 2026-09-28) — the card's Access line, in a
+          row's width. One guest at a time; the bulk picker was retired. */}
+      <td className="px-3 py-2.5">
+        <RowAccess eventId={eventId} guest={guest} size="row" />
+      </td>
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-1.5">
           <GroupChipList
@@ -589,7 +596,7 @@ function SelfJoinDesktopRow({
           </div>
         </div>
       </td>
-      <td colSpan={7} className="px-3 py-3">
+      <td colSpan={8} className="px-3 py-3">
         <div className="flex flex-wrap items-center justify-end gap-2">
           <form action={keepGuestAction.bind(null, eventId)} className="inline-flex">
             <input type="hidden" name="guest_id" value={guest.guest_id} />
@@ -671,8 +678,16 @@ type Props = {
   recentlyApplied?: boolean;
   /** The guest list is finalized — extra seats stop being editable (owner 2026-09-21). */
   listFinalized?: boolean;
-  /** guest_id → "Co-host" / "Limited helper" (· waiting…) from the live seats. */
-  accessTagByGuest?: Record<string, string>;
+  /**
+   * guest_id → the guest's Access (None · Co-host · Limited helper, live or
+   * waiting) from the live seats — `loadGuestAccessMap`, ONE read by the page.
+   * A guest absent from it (a refused read) gets no Access cell at all, never
+   * a false "None". The Access column draws and changes it (owner 2026-09-28).
+   */
+  accessByGuest?: Readonly<Record<string, GuestAccessState>>;
+  /** The viewer is a co-host (`couple` member) — the only one who may change
+   *  Access; the action refuses everyone else, so the column offers no dropdown. */
+  canManageAccess?: boolean;
   /**
    * Every guest's extra seats, from the FULL roster (`bringerSeatsFrom`, built
    * in page.tsx before any filter): "+3 (2 named)", "+2 · TBA", and the
@@ -734,7 +749,38 @@ function RowInvite({
   );
 }
 
+/**
+ * One row's Access control — the card's Access line in a row's width
+ * (`guest-access-cell.tsx`), reading the state the page loaded once. A guest
+ * the read did not answer for gets nothing: a refused read must not render as
+ * "None" on every co-host.
+ */
+function RowAccess({
+  eventId,
+  guest,
+  size,
+}: {
+  eventId: string;
+  guest: GuestRow;
+  size: 'row' | 'phone';
+}) {
+  const { byGuest, canManage } = useContext(GuestAccessContext);
+  const state = byGuest[guest.guest_id];
+  if (!state) return null;
+  return (
+    <GuestAccessCell
+      eventId={eventId}
+      guestId={guest.guest_id}
+      firstName={guest.first_name}
+      state={state}
+      canManage={canManage}
+      size={size}
+    />
+  );
+}
+
 const NO_SEATS: Readonly<Record<string, readonly BringerSeat[]>> = {};
+const NO_ACCESS: Readonly<Record<string, GuestAccessState>> = {};
 
 export function GuestListMultiselect({
   eventId,
@@ -753,7 +799,8 @@ export function GuestListMultiselect({
   recentlyDeleted,
   recentlyApplied,
   listFinalized = false,
-  accessTagByGuest = {},
+  accessByGuest = NO_ACCESS,
+  canManageAccess = false,
   seatsByBringer = NO_SEATS,
   invite = null,
 }: Props) {
@@ -780,6 +827,12 @@ export function GuestListMultiselect({
   // Which visible rows are unlisted self-joiners → render the blush needs-you
   // variant instead of the normal editable row.
   const selfJoinSet = useMemo(() => new Set(selfJoinIds), [selfJoinIds]);
+  // The Access column's one context value — a fresh object per render would
+  // re-render every row's cell on every keystroke in the search box.
+  const accessCtx = useMemo(
+    () => ({ byGuest: accessByGuest, canManage: canManageAccess }),
+    [accessByGuest, canManageAccess],
+  );
   // Selection lives in the shared external store so the mobile carousel's
   // Customize panel (a sibling component) shows the live count / select-all
   // and the desktop SelectionBar stay in lockstep (owner directive
@@ -992,7 +1045,7 @@ export function GuestListMultiselect({
 
   return (
     <GuestListFinalizedContext.Provider value={listFinalized}>
-    <GuestAccessTagContext.Provider value={accessTagByGuest}>
+    <GuestAccessContext.Provider value={accessCtx}>
     <BringerSeatsProvider seats={seatsByBringer}>
     <div className="space-y-4">
       {/* Floating bulk-action bar — DESKTOP ONLY (lg+). On phones + tablets
@@ -1161,6 +1214,16 @@ export function GuestListMultiselect({
               <ArrangeTh column="name" grouping={grouping} sort={sort} className="px-3 py-2.5 font-semibold" />
               <ArrangeTh column="side" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
               <ArrangeTh column="role" grouping={grouping} sort={sort} className="w-[12%] px-3 py-2.5 font-semibold" />
+              {/* ⚖ THE ACCESS COLUMN (owner 2026-09-28: co-hosts come from the
+                  guest list — None · Co-host · Limited helper, one dropdown per
+                  guest). Beside Role, where its "+Co-host" tag used to trail.
+                  A FIXED width like Invite: one dropdown of known size, the
+                  longest word ("Limited helper") just fitting at 13px. It is
+                  taken from Name — see the Invite note and the pixel budget in
+                  the-header-fits-its-own-cell.test.ts. */}
+              <th className="w-[148px] overflow-hidden px-3 py-2.5 font-semibold">
+                <span className="block truncate">Access</span>
+              </th>
               <ArrangeTh column="group" grouping={grouping} sort={sort} className="w-[10%] px-3 py-2.5 font-semibold" />
               <ArrangeTh column="rsvp" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
               <ArrangeTh column="seat" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
@@ -1187,7 +1250,7 @@ export function GuestListMultiselect({
                 {sec.label ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
                     >
                       <TierHeader
@@ -1313,7 +1376,7 @@ export function GuestListMultiselect({
       </div>
     </div>
     </BringerSeatsProvider>
-    </GuestAccessTagContext.Provider>
+    </GuestAccessContext.Provider>
     </GuestListFinalizedContext.Provider>
   );
 }
@@ -1984,6 +2047,9 @@ function MobileListRow({
           >
             <RoleTexts guest={guest} palette={palette} />
           </RoleChipEditor>
+          {/* Access — the desktop row's Access column, on the phone: the same
+              dropdown, chip-sized for the one sub-line. */}
+          <RowAccess eventId={eventId} guest={guest} size="phone" />
           <GroupChipList
             eventId={eventId}
             guestId={guest.guest_id}
@@ -2403,15 +2469,19 @@ function RsvpText({ status }: { status: RsvpStatus }) {
   );
 }
 
-/** guest_id → "Co-host" / "Limited helper" (· waiting…) — TRUE by construction,
- *  derived from the live seat (owner 2026-09-28 "make it true"); absent = none. */
-const GuestAccessTagContext = createContext<Record<string, string>>({});
+/** guest_id → the guest's Access — TRUE by construction, derived from the live
+ *  seat (owner 2026-09-28 "make it true"); absent = the read did not answer.
+ *  Drawn by the Access column (`RowAccess`), which replaced the "+Co-host" tag
+ *  that used to trail the role (2026-09-30). */
+const GuestAccessContext = createContext<{
+  byGuest: Readonly<Record<string, GuestAccessState>>;
+  canManage: boolean;
+}>({ byGuest: NO_ACCESS, canManage: false });
 
 function RoleTexts({ guest, palette }: { guest: GuestRow; palette: RolePalette }) {
   const roleNames = useRoleNames();
   const primary = roleTextStyle(guest.role, palette);
   const extras = guest.extra_roles ?? [];
-  const accessTag = useContext(GuestAccessTagContext)[guest.guest_id];
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
       <span className={`text-xs font-medium ${primary.textClass ?? ''}`} style={primary.style ?? undefined}>
@@ -2430,15 +2500,6 @@ function RoleTexts({ guest, palette }: { guest: GuestRow; palette: RolePalette }
           </span>
         );
       })}
-      {accessTag ? (
-        <span
-          title={accessTag}
-          className="text-[10px] font-medium text-success-800"
-          data-guest-access-tag
-        >
-          +{accessTag}
-        </span>
-      ) : null}
     </span>
   );
 }

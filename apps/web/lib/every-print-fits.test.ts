@@ -428,7 +428,8 @@ test('GUARD: the menu is never printed blank, and a Details save never erases it
   const route = stripComments(readFileSync(join(WEB, 'app/api/hub-print/[piece]/route.ts'), 'utf8'));
   assert.match(route, /piece === 'menu' && !hasMenu\)[\s\S]{0,40}status: 409|piece === 'menu' && !hasMenu\) \{\s*return new NextResponse\([^)]*\{ status: 409 \}/, 'an empty menu is refused as a print');
   assert.match(route, /PRINT_SET_KEYS\.filter\(\(k\) => k !== 'menu' \|\| hasMenu\)/, 'the whole set leaves an empty menu out');
-  assert.match(route, /menu: stored\.menu \}/, 'the Details (words) save carries the stored menu over');
+  // The words save starts from everything stored — the menu included (2026-09-30).
+  assert.match(route, /const details = \{\s*\.\.\.stored,/, 'the Details (words) save carries the stored menu over');
   assert.match(route, /if \(!current\) \{[\s\S]{0,160}return NextResponse\.redirect/, 'an unreadable print_details is never overwritten blind');
   const maker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
   assert.match(maker, /\{menuEmpty(?: \|\| storyMissing)? \? null : \(/, 'the Maker offers no download for an empty menu');

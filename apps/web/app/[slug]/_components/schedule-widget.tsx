@@ -17,6 +17,7 @@ import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { pickTriggerNowNext, type RunOfShowBlock } from '@/lib/run-of-show';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { formatCount } from '@/lib/format-number';
+import { ScheduleClockFace, ScheduleOneChapter, type ScheduleMomentView } from './schedule-styles';
 
 type Props = {
   blocks: ScheduleBlockRow[];
@@ -42,6 +43,13 @@ type Props = {
   eventType?: string | null;
   /** Hub card: the first three moments, then "All N moments". Before the day only. */
   compact?: boolean;
+  /**
+   * 🎨 THE SCENE'S STYLE (owner 2026-09-29): `programme-rail` (this, the
+   * default) · `one-per-screen` · `clock-face` (`schedule-styles.tsx` — the
+   * Post Event's names, one value across stages). Every style is drawn from
+   * the now/next computed below; only the list changes.
+   */
+  sceneStyle?: string | null;
 };
 
 /**
@@ -62,6 +70,7 @@ export function ScheduleWidget({
   estimated = false,
   eventType = null,
   compact = false,
+  sceneStyle = null,
 }: Props) {
   const [now, setNow] = useState<Date | null>(null);
   // 🗂 THE DAY AS A CARD (owner 2026-09-21, canvas "3 · Scrolled, replied"):
@@ -208,9 +217,47 @@ export function ScheduleWidget({
   const firstStart = ordered[0]?.start_at ?? null;
   const showUpNext =
     triggerPick !== null || (now !== null && firstStart !== null && isOnEventDay(firstStart, eventTz, nowMs));
+  /** A block's kind in the event type's words, or null when it only repeats the
+   *  title (`scheduleKickerFor`) — ONE call, used by every style. */
+  const kindOf = (b: ScheduleBlockRow): string | null => scheduleKickerFor(b.block_type, b.label, eventType);
+  const timeLabelOf = (b: ScheduleBlockRow): string => {
+    // The viewer's own clock only when it differs from the venue's (`inViewerClock`,
+    // below) — the same rule the rail follows.
+    const viewer = inViewerClock ? formatViewerTimeRange(b.start_at, b.end_at, eventTz) : null;
+    return viewer ?? formatBlockTimeRange(b.start_at, b.end_at);
+  };
+  const styled = sceneStyle === 'one-per-screen' || sceneStyle === 'clock-face';
+  const moments: ScheduleMomentView[] = styled
+    ? ordered.map((b) => {
+        const d = new Date(b.start_at);
+        return {
+          id: b.block_id,
+          timeLabel: timeLabelOf(b),
+          kindLabel: kindOf(b),
+          label: b.label,
+          location: b.location ?? null,
+          notes: b.notes ?? null,
+          // The stored value is the naive event-local wall clock (see toInstant).
+          minuteOfDay: Number.isNaN(d.getTime()) ? null : d.getUTCHours() * 60 + d.getUTCMinutes(),
+        };
+      })
+    : [];
+  // The dial's hand: the event-local time now, drawn only once the day has begun.
+  const handMinute = (() => {
+    if (sceneStyle !== 'clock-face' || !now || !programBegun) return null;
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: eventTz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
+    const h = Number(parts.find((p) => p.type === 'hour')?.value);
+    const m = Number(parts.find((p) => p.type === 'minute')?.value);
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+  })();
+  const dialCentre = (() => {
+    const first = ordered[0] ? new Date(ordered[0].start_at) : null;
+    if (!first || Number.isNaN(first.getTime())) return null;
+    return first.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  })();
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4" data-scene-style={styled ? sceneStyle! : undefined}>
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <p className="pahina-eyebrow">
@@ -255,6 +302,18 @@ export function ScheduleWidget({
       {showRunOfShow && eventId ? (
         <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} compact />
       ) : null}
+      {sceneStyle === 'one-per-screen' ? (
+        <ScheduleOneChapter moments={moments} currentIndex={currentIndex} upNextIndex={showUpNext ? upNextIndex : -1} />
+      ) : sceneStyle === 'clock-face' ? (
+        <ScheduleClockFace
+          moments={moments}
+          currentIndex={currentIndex}
+          upNextIndex={showUpNext ? upNextIndex : -1}
+          handMinute={handMinute}
+          centreLine={dialCentre}
+        />
+      ) : (
+        <>
       {/* Programme rail (Pahina §7): a mono gild time column baseline-aligned to
           the entries, separated by hairlines instead of stacked boxes. The live
           row is marked by an accent left rule + veil wash + a pulsing "· Now"
@@ -268,7 +327,7 @@ export function ScheduleWidget({
         {(compact && !showAll ? ordered.slice(0, COMPACT_MOMENTS) : ordered).map((b, i) => {
           const isNow = i === currentIndex;
           const isNext = showUpNext && i === upNextIndex;
-          const kicker = scheduleKickerFor(b.block_type, b.label, eventType);
+          const kicker = kindOf(b);
           return (
             <li
               key={b.block_id}
@@ -335,6 +394,8 @@ export function ScheduleWidget({
           <span aria-hidden>{showAll ? '↑' : '→'}</span>
         </button>
       ) : null}
+        </>
+      )}
     </section>
   );
 }

@@ -6,7 +6,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ArrowUpRight, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { hubProEffectLine, unlockAndApplyHref, type HubProEffectView } from '@/lib/hub-pro-effects';
+import { hubProEffectLine, unlockAndApplyHref, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 
 /**
  * 💎 THE APPLY SHEET — Apply is where Event Hub Pro is asked for.

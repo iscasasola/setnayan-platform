@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1489
-# tables: 401
-# columns: 5012
-# notnull: 3048
+# ledger: 1529
+# tables: 406
+# columns: 5047
+# notnull: 3071
 [ledger]
 20260512000000
 20260513000000
@@ -1498,9 +1498,49 @@
 20271241532112
 20271241619056
 20271242482874
+20271242571950
 20271242648512
+20271242789193
 20271243019419
+20271243181043
 20271243295861
+20271243462207
+20271244104614
+20271244152236
+20271244482831
+20271245297061
+20271245395425
+20271245494068
+20271245678627
+20271245782629
+20271246169682
+20271247112792
+20271247699024
+20271247886587
+20271247938209
+20271248809664
+20271249183421
+20271249784825
+20271249835872
+20271249859363
+20271250747828
+20271250752713
+20271250830175
+20271250928531
+20271251336140
+20271251630856
+20271252186265
+20271252896804
+20271252997367
+20271253740454
+20271253758764
+20271253806528
+20271253824781
+20271253896753
+20271254054934
+20271254506023
+20271254512668
+20271255305468
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2489,6 +2529,7 @@ event_moderators.accepted_at
 event_moderators.created_at
 event_moderators.display_label
 event_moderators.event_id
+event_moderators.guest_id
 event_moderators.invitation_email
 event_moderators.invitation_expires_at
 event_moderators.invitation_phone
@@ -2672,6 +2713,11 @@ event_shot_list_items.label
 event_shot_list_items.position
 event_shot_list_items.updated_at
 event_shot_list_items.vendor_profile_id
+event_site_drafts.applied_snapshot
+event_site_drafts.created_at
+event_site_drafts.draft_json
+event_site_drafts.event_id
+event_site_drafts.updated_at
 event_software_activations_v2.created_at
 event_software_activations_v2.event_id
 event_software_activations_v2.id
@@ -2991,6 +3037,7 @@ events.ceremony_sub_type
 events.ceremony_type
 events.ceremony_type_locked_at
 events.ceremony_type_locked_by
+events.ceremony_venue_address
 events.ceremony_venue_setting
 events.cleared_at
 events.cleared_by_user_id
@@ -3004,6 +3051,7 @@ events.concierge_trial_started_by_user_id
 events.concierge_trial_used_at
 events.concierge_unlock_source
 events.concierge_unlock_via_vendor_profile_id
+events.couple_media_bytes
 events.created_at
 events.date_candidates
 events.date_forced_by_lock_of
@@ -3130,14 +3178,18 @@ events.photos_released_at
 events.planning_mode
 events.pool_gallery_open
 events.previous_event_id
+events.print_details
 events.public_id
 events.recap_social_optout_at
 events.reception_design
 events.recur_cadence
 events.recurs
 events.region
+events.reveal_stages
 events.roadmap_completed
+events.role_names
 events.role_palette
+events.rsvp_ask_config
 events.rsvp_backdrop
 events.scheduled_launch_at
 events.seating_autoplace_enabled
@@ -3157,6 +3209,8 @@ events.site_bg_music_enabled
 events.site_bg_music_r2_key
 events.site_bg_music_source
 events.site_button_color
+events.site_font_key
+events.site_magic_traveller
 events.slug
 events.special_message
 events.std_background
@@ -3285,6 +3339,10 @@ guest_checkins.checkin_id
 guest_checkins.event_id
 guest_checkins.guest_id
 guest_checkins.method
+guest_checklist_ticks.event_id
+guest_checklist_ticks.guest_id
+guest_checklist_ticks.ticks
+guest_checklist_ticks.updated_at
 guest_claims.claim_attempts
 guest_claims.claim_id
 guest_claims.claimer_email
@@ -3378,6 +3436,12 @@ guest_qr_rotations.guest_id
 guest_qr_rotations.old_token_sha256
 guest_qr_rotations.reason
 guest_qr_rotations.rotation_id
+guest_reminder_email_log.event_date
+guest_reminder_email_log.event_id
+guest_reminder_email_log.guest_id
+guest_reminder_email_log.milestone_days
+guest_reminder_email_log.resend_id
+guest_reminder_email_log.sent_at
 guest_saved_vendors.id
 guest_saved_vendors.saved_at
 guest_saved_vendors.source_event_id
@@ -3405,6 +3469,7 @@ guests.entry_source
 guests.event_id
 guests.extra_roles
 guests.face_recognition_excluded
+guests.face_tagging_wanted
 guests.faceblock_enabled
 guests.first_name
 guests.group_category
@@ -3421,6 +3486,7 @@ guests.name_prefix
 guests.name_suffix
 guests.notes
 guests.pair_with_guest_id
+guests.passed_away
 guests.person_id
 guests.photo_consent
 guests.photo_set_by_user_id
@@ -3539,6 +3605,10 @@ invitation_widgets.tier
 invitation_widgets.updated_at
 invitation_widgets.widget_id
 invitation_widgets.widget_type
+invite_mutes.created_at
+invite_mutes.id
+invite_mutes.muted_user_id
+invite_mutes.user_id
 journal_vendor_spotlights.admin_approved_at
 journal_vendor_spotlights.blog_slug
 journal_vendor_spotlights.created_at
@@ -4632,6 +4702,7 @@ platform_settings.gcash_qr_payload
 platform_settings.gcash_qr_url
 platform_settings.google_drive_oauth_client_id
 platform_settings.google_drive_oauth_redirect_uri
+platform_settings.google_picker_api_key
 platform_settings.id
 platform_settings.ig_user_id
 platform_settings.lead_hold_sweep_last_run_at
@@ -5128,6 +5199,10 @@ user_reports.reviewed_by
 user_reports.status
 user_reports.target_id
 user_reports.target_type
+user_unfollows.created_at
+user_unfollows.followed_user_id
+user_unfollows.follower_user_id
+user_unfollows.id
 users.account_type
 users.address_normalized
 users.anon_sweep_skipped_at
@@ -7280,6 +7355,10 @@ event_shot_list_items.label
 event_shot_list_items.position
 event_shot_list_items.updated_at
 event_shot_list_items.vendor_profile_id
+event_site_drafts.created_at
+event_site_drafts.draft_json
+event_site_drafts.event_id
+event_site_drafts.updated_at
 event_software_activations_v2.event_id
 event_software_activations_v2.id
 event_software_activations_v2.service_code
@@ -7430,6 +7509,7 @@ events.adaptive_pricing_mode
 events.archived
 events.auspicious_reasons
 events.concierge_status
+events.couple_media_bytes
 events.created_at
 events.date_status
 events.dismissed_room_suggestions
@@ -7568,6 +7648,10 @@ guest_checkins.checkin_id
 guest_checkins.event_id
 guest_checkins.guest_id
 guest_checkins.method
+guest_checklist_ticks.event_id
+guest_checklist_ticks.guest_id
+guest_checklist_ticks.ticks
+guest_checklist_ticks.updated_at
 guest_claims.claim_attempts
 guest_claims.claim_id
 guest_claims.claimer_name
@@ -7633,6 +7717,11 @@ guest_qr_rotations.event_id
 guest_qr_rotations.guest_id
 guest_qr_rotations.old_token_sha256
 guest_qr_rotations.rotation_id
+guest_reminder_email_log.event_date
+guest_reminder_email_log.event_id
+guest_reminder_email_log.guest_id
+guest_reminder_email_log.milestone_days
+guest_reminder_email_log.sent_at
 guest_saved_vendors.id
 guest_saved_vendors.saved_at
 guest_saved_vendors.user_id
@@ -7656,6 +7745,7 @@ guests.guest_id
 guests.id
 guests.invited_to_blocks
 guests.last_name
+guests.passed_away
 guests.photo_consent
 guests.plus_one_allowed
 guests.plus_one_count
@@ -7725,6 +7815,10 @@ invitation_widgets.tier
 invitation_widgets.updated_at
 invitation_widgets.widget_id
 invitation_widgets.widget_type
+invite_mutes.created_at
+invite_mutes.id
+invite_mutes.muted_user_id
+invite_mutes.user_id
 journal_vendor_spotlights.blog_slug
 journal_vendor_spotlights.created_at
 journal_vendor_spotlights.is_sponsored
@@ -8720,6 +8814,10 @@ user_reports.report_id
 user_reports.status
 user_reports.target_id
 user_reports.target_type
+user_unfollows.created_at
+user_unfollows.followed_user_id
+user_unfollows.follower_user_id
+user_unfollows.id
 users.account_type
 users.concierge_abuse_strike_count
 users.concierge_banned

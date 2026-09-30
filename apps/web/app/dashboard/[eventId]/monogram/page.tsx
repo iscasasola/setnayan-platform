@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser } from '@/lib/auth';
+import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
+import { detailsItemHref } from '@/lib/maker-details-items';
 import { resolveMonogram } from '@/lib/monogram';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { VectorStudio } from './studio';
@@ -107,6 +109,20 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   // Wedding enables it → no redirect (byte-identical). Degrades to WEDDING_PROFILE.
   const profile = await resolveProfileByEvent(eventId);
   if (!surfaceEnabled(profile, 'monogram')) redirect(`/dashboard/${eventId}`);
+
+  /*
+    🛠 THE LOGO'S HOME IS DETAILS › LOGO (Stage D, owner 2026-09-29 — the Logo
+    Maker's menu row is gone; "old URLs must land in Details"). The couple of
+    an event WITH an Event Hub lands on the item — the same rule the Schedule
+    and Mood Board pages use (`detailsIsTheDoor` → `makerHasWork`). Anybody
+    else (a coordinator, a kind with no Event Hub) keeps this page exactly as
+    it was, so the redirect can never bounce a viewer into a Maker with
+    nothing for them. The Animated Monogram's motion is Details › Logo's
+    Motion (Event Hub Pro, paid at Apply) — `TOOL_HOMES['animated-monogram']`.
+  */
+  if (await detailsIsTheDoor(supabase, eventId, user.id)) {
+    redirect(detailsItemHref(eventId, 'logo'));
+  }
 
   const monogram = resolveMonogram(event);
 

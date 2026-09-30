@@ -50,6 +50,8 @@ export function anchorOfTile(tileKey: string): (typeof PAGE_ANCHOR_ORDER)[number
   // page's first tab, anchor `home` — not under Details.
   if (tileKey === 'f:look' || tileKey === 'f:gifts' || tileKey === 'w:what_to_bring') return 'home';
   if (tileKey === 'f:entourage' || tileKey.startsWith('w:')) return 'details';
+  // 🎨 The day's own parts stand right after the entourage (`MAKER_DAY_PARTS`).
+  if (['f:announcements', 'f:find_your_seat', 'f:live_hub', 'f:photos_of_you'].includes(tileKey)) return 'details';
   // f:film · f:hero · f:editorial · p:<post event scene>
   return 'home';
 }

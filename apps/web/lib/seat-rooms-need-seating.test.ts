@@ -14,7 +14,7 @@
  * exist". So this guard bills SEVEN sites — four readers, three writers — and a
  * deletion at any one of them is red.
  *
- * 🪤 SEAT PLAN IS GATED BY `seatingEnabled`, NOT `hideKeys`. Until 2026-09-24
+ * 🪤 THE SEAT PLAN'S CLAIM IS GATED BY `seatingEnabled`, NOT `hideKeys`. Until 2026-09-24
  * that was forced (hideKeys never reached the day-of roster); the one tree now
  * applies hideKeys everywhere, but seating is a SURFACE, not a menu key, and
  * the layout resolves it once. The nav assertions pin the real mechanism.
@@ -81,40 +81,57 @@ test('the seating room itself refuses a kind with no seating surface', () => {
   assert.ok(/redirect\(/.test(src), 'the seating room must redirect, not render.');
 });
 
-/* 🔄 2026-09-24 (event menu by moment). The day-of "Seats" TAB is gone —
-   Papic took its slot — and "Seat plan" is now ONE row of the one tree, in
-   The day, drawn by the rail, the ☰ drawer and the phone's moment strip in
-   every phase. The rail used to ignore this gate entirely; now all three read
-   the same row, so the gate is pinned by its effect on every surface. */
-test('the Seat plan row is gated on seatingEnabled, on every surface and phase', () => {
+/* 🔄 2026-09-24 (event menu by moment) → train n (2026-09-29): the Seat plan
+   was ONE row of the one tree; its Details home (Details › Your event › Seat
+   plan) is on main now, so the row is gone on every surface and its page is
+   CLAIMED instead — by the Event Hub Maker, or by Our Services where there is
+   no Maker. The gate moved with it: a kind that seats nobody has no row that
+   claims /seating (its /seating redirects home), pinned by its effect. */
+test('the Seat plan page is claimed only where the kind seats people, on every surface and phase', () => {
   const src = code('lib/customer-menu.ts');
   assert.equal(
     times(src, 'ctx.seatingEnabled !== false'),
     1,
-    'The Seat plan row lost its seatingEnabled gate — it now links to a room ' +
-      'that redirects. (Exactly one: a second copy is a second answer.)',
+    'The /seating claim lost its seatingEnabled gate — a row now lights for a ' +
+      'room that redirects. (Exactly one: a second copy is a second answer.)',
   );
+  const claims = (rows: { href: string; matchPrefix?: string; alsoMatch?: string[] }[]) =>
+    rows.flatMap((r) => [r.href, r.matchPrefix ?? '', ...(r.alsoMatch ?? [])]);
   for (const phase of ['plan', 'dayof', 'after'] as const) {
-    const off = buildEventMenuSections('E', { phase, seatingEnabled: false }).flatMap((x) => x.rows);
-    assert.ok(!off.some((r) => r.key === 'seat'), `${phase}: Seat plan shows for a kind with no seating`);
-    const rail = buildCustomerNavGroups('E', { phase, seatingEnabled: false }).flatMap((g) => g.items);
-    assert.ok(!rail.some((i) => i.key === 'seat'), `${phase}: the RAIL shows Seat plan for a kind with no seating`);
-    // ⚠ UNDEFINED MEANS SHOW — a caller not taught the field keeps the row.
-    const untaught = buildEventMenuSections('E', { phase }).flatMap((x) => x.rows);
-    assert.ok(untaught.some((r) => r.key === 'seat'), `${phase}: an untaught caller lost Seat plan`);
+    for (const websiteEnabled of [true, false]) {
+      const off = buildEventMenuSections('E', { phase, seatingEnabled: false, websiteEnabled }).flatMap((x) => x.rows);
+      assert.ok(!off.some((r) => r.key === 'seat'), `${phase}: a Seat plan row came back`);
+      assert.ok(
+        !claims(off).includes('/dashboard/E/seating'),
+        `${phase}: a row claims /seating for a kind with no seating`,
+      );
+      const rail = buildCustomerNavGroups('E', { phase, seatingEnabled: false, websiteEnabled }).flatMap((g) => g.items);
+      assert.ok(!rail.some((i) => i.key === 'seat'), `${phase}: the RAIL shows Seat plan`);
+      // ⚠ UNDEFINED MEANS SEATING — a caller not taught the field keeps the claim,
+      // on the Maker where there is one, else on Our Services.
+      const untaught = buildEventMenuSections('E', { phase, websiteEnabled }).flatMap((x) => x.rows);
+      const holder = untaught.find((r) => (r.alsoMatch ?? []).includes('/dashboard/E/seating'));
+      assert.equal(
+        holder?.key,
+        websiteEnabled ? 'launch' : 'studio',
+        `${phase}/${websiteEnabled ? 'maker' : 'no maker'}: /seating is not held by the right row`,
+      );
+    }
   }
 });
 
-test('layout resolves seatingEnabled and hands it to both navs', () => {
+test('layout resolves seatingEnabled and hands it to the bar and the rail', () => {
   const src = code('app/dashboard/[eventId]/layout.tsx');
   assert.ok(
     times(src, "surfaceEnabled(profile, 'seating')") === 1,
     'layout.tsx no longer resolves seatingEnabled.',
   );
+  // 🔄 Stage D (2026-09-29): the section sub-nav is retired — the phone has
+  // ONE bar, whose Maker (or Services) tab lights the Seat plan's page (train
+  // n). Exactly one phone mount must be told the gate.
   assert.ok(
-    times(src, 'seatingEnabled={seatingEnabled}') === 2,
-    'seatingEnabled must reach BOTH the bottom nav and the section sub-nav — ' +
-      'the moment strip draws Seat plan on the phone.',
+    times(src, 'seatingEnabled={seatingEnabled}') === 1,
+    'seatingEnabled must reach the bottom bar — it decides whether /seating lights a tab.',
   );
   const inputs = src.slice(src.indexOf('const eventRailInputs'));
   assert.ok(

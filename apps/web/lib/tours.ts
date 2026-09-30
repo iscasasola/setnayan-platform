@@ -111,6 +111,7 @@ export type TourKey =
   | 'customer_people_v1'
   | 'customer_guest_invite_v1'
   | 'customer_apply_pro_v1'
+  | 'customer_event_menu_v1'
   | 'discover_upcoming_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
@@ -140,6 +141,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_people_v1',
   'customer_guest_invite_v1',
   'customer_apply_pro_v1',
+  'customer_event_menu_v1',
   'discover_upcoming_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
@@ -488,18 +490,18 @@ export const TOURS: Record<TourKey, TourDefinition> = {
      app-store shell drops it. */
   customer_post_event_v1: {
     key: 'customer_post_event_v1',
-    label: 'Post Event — your story, written for you',
-    blurb: 'How the story after the day is written from what happened, scene by scene.',
+    label: 'Post Event — your story after the day, scene by scene',
+    blurb: 'How the story after the day is made of scenes you can style, arrange and add to — written for you from what happened.',
     slides: [
       {
         Icon: BookOpen,
-        title: 'Your story after the day, written for you',
-        body: 'After the day, the Event Hub Maker wrote Post Event from what happened &mdash; the chapters of your day, the gallery, the film, the wishes. There was nothing to type, and every scene says what filled it.',
+        title: 'Post Event is its own scenes',
+        body: 'The story after your day is not one block: the front page, the road to the day, the numbers, each chapter, the gallery, the notes, your thank-you &mdash; each is its own scene here. After the day they are written for you from what happened; there is nothing to type.',
       },
       {
         Icon: EyeOff,
-        title: 'Nothing to show? The scene is skipped',
-        body: 'A part of the day with nothing in it yet &mdash; no reviews, no Live Photo Wall &mdash; is marked <b>Skipped</b>, and your guests never meet an empty box. It appears on its own when something arrives.',
+        title: 'Nothing there yet? It says so',
+        body: 'Before your day, a scene that fills itself from the day is marked <b>Not yet</b> and says what will fill it. After the day, one with nothing in it is <b>Skipped</b>. Your guests never meet an empty box.',
       },
       {
         Icon: Maximize2,
@@ -508,8 +510,18 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Sparkles,
-        title: 'Free — and yours to change',
-        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A Pro theme and your own photos come with Event Hub Pro.',
+        title: 'Free — and yours to change, right here',
+        body: 'Tap a scene to pick its <b>Style</b>, hide it, or move it earlier or later &mdash; all free, all in your draft until you press <b>Apply</b>. Tap any part to change its words.',
+      },
+      {
+        Icon: Users,
+        title: 'Your guests’ bar after the day',
+        body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Gallery · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
+      },
+      {
+        Icon: Wand2,
+        title: 'Add scenes made for after the day',
+        body: 'Press <b>+ Add a scene</b> on Post Event for twelve scenes made for the story after the day &mdash; The Toast, Before &amp; After, By Our Count, Since Then and more. Each is &#9670; Event Hub Pro: try one in your draft now, and Pro is asked for when you press <b>Apply</b>. A Pro theme, a part&rsquo;s own font and your own photos come with Pro too.',
         sells: true,
       },
     ],
@@ -854,6 +866,44 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Heart,
         title: 'Following needs no request',
         body: 'Follow anyone with a public profile. Say yes to an event and you follow its hosts on your own. Only you can see who follows you, and you can unfollow any time &mdash; even someone you’re connected with.',
+      },
+    ],
+  },
+  /* 🧭 THE EVENT MENU — FIVE PLACES (Stage D, owner 2026-09-29: "Home · Guest
+     list · Your Team · Event Hub Maker · Our Services"; "on mobile mode … we
+     want it to be simple and easy to manage"; 2026-09-25: every feature gets a
+     first-visit tour). Mounted on the event's Home (`[eventId]/page.tsx`),
+     after the couple welcome, so the two never stack. Words fit every event
+     type — no "wedding", no "couple". No price is named, so nothing here sells. */
+  customer_event_menu_v1: {
+    key: 'customer_event_menu_v1',
+    label: 'Your event menu',
+    blurb: 'The five places that hold everything for an event — the same on phone and laptop.',
+    slides: [
+      {
+        Icon: Sparkles,
+        title: 'Five places for your whole event',
+        body: 'Home, Guest list, Your Team, Event Hub Maker and Our Services. The same five sit at the bottom of your phone and down the side of your laptop.',
+      },
+      {
+        Icon: Users,
+        title: 'Guest list',
+        body: 'Your guests, your hosts and, on the day, check-in. Switch between them from the menu at the top of the page.',
+      },
+      {
+        Icon: Briefcase,
+        title: 'Your Team',
+        body: 'The suppliers you book and your budget, in one place.',
+      },
+      {
+        Icon: Wand2,
+        title: 'Event Hub Maker',
+        body: 'Your Event Hub, the invitation and every print. Names, date, schedule, mood board and logo are all in its Details.',
+      },
+      {
+        Icon: Camera,
+        title: 'Our Services',
+        body: 'Papic, Live Studio, Gallery, Patiktok, Music Maker and Setnayan AI &mdash; add the ones you want for your day.',
       },
     ],
   },

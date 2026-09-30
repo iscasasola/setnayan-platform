@@ -52,6 +52,9 @@ const HUB_HREF = `${BASE}/launch`;
    the dashboard screen is NOT called by the guest site's bare name — is
    unchanged; only the qualified name moved. */
 const CONTROLLER = 'Event Hub Maker';
+/* ✏️ 2026-09-29: the PHONE bar's short word for the same row (owner: "Maker
+   and Services"). Still never the bare guest word — that is what this file holds. */
+const PHONE_CONTROLLER = 'Maker';
 const GUEST_WORD = 'Event Hub';
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
@@ -76,8 +79,8 @@ function read(rel: string): string {
  */
 const code = (rel: string) => stripComments(read(rel));
 
-/** Every row the phone shows in a phase — top-level tabs AND docked sub-nav
- *  children, because a second name one tap down is still a second name.
+/** Every row the phone shows in a phase — its tabs (the docked sub-nav that
+ *  used to add a second level is retired, Stage D).
  *  `plan` is the DEFAULT (no `phase` argument), exactly as layout.tsx calls it
  *  for an event that has not happened yet. */
 function phoneRows(phase: (typeof PHASES)[number]) {
@@ -85,10 +88,8 @@ function phoneRows(phase: (typeof PHASES)[number]) {
     websiteEnabled: true,
     ...(phase === 'plan' ? {} : { phase }),
   });
-  return [
-    ...tree.map((m) => ({ label: m.label, href: m.href })),
-    ...tree.flatMap((m) => (m.children ?? []).map((c) => ({ label: c.label, href: c.href ?? '' }))),
-  ];
+  // Stage D (2026-09-29): nothing docks under a tab any more.
+  return tree.map((m) => ({ label: m.label, href: m.href }));
 }
 
 /** Every row the desktop rail shows in a phase, across all its sections. */
@@ -121,7 +122,7 @@ test('every dashboard row that opens the maker is called "Event Hub Maker"', () 
       );
       assert.equal(
         hits[0]!.label,
-        CONTROLLER,
+        surface === 'phone' ? PHONE_CONTROLLER : CONTROLLER,
         `${surface}/${phase} calls the controller "${hits[0]!.label}". ` +
           `The dashboard row is the CONTROLLER; "${GUEST_WORD}" is what a guest opens.`,
       );
@@ -157,12 +158,15 @@ test('no dashboard row anywhere is labelled with the bare guest word', () => {
 
 test('both live registry slots default to the controller name', () => {
   const bySlot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s]));
-  for (const key of ['customer.sidebar.launch', 'customer.bottom-nav.launch']) {
+  for (const [key, word] of [
+    ['customer.sidebar.launch', CONTROLLER],
+    ['customer.bottom-nav.launch', PHONE_CONTROLLER],
+  ] as const) {
     const slot = bySlot.get(key);
     assert.ok(slot, `${key} is missing from NAV_SLOT_DEFAULTS`);
     assert.equal(
       slot!.label,
-      CONTROLLER,
+      word,
       `${key} defaults to "${slot!.label}" — /admin/menus would offer the couple's ` +
         'controller under the guest site\'s name.',
     );

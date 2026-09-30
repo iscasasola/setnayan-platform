@@ -125,7 +125,7 @@ export function arrivalDestinationWords(
       return {
         blurb:
           'It is happening today — your seat, your QR and everything shared with guests are waiting on the page.',
-        cta: 'Open the day',
+        cta: 'Open the event',
       };
     case 'story':
       return {
@@ -139,7 +139,7 @@ export function arrivalDestinationWords(
           // 🪑 No "your seat" before the day — seats open on the day itself
           // (owner 2026-09-30: "seat plan is only on the day"). `day_of` keeps it.
           'Your invitation is ready — your QR and everything shared with guests are waiting on it.',
-        cta: 'Open your invitation',
+        cta: 'Open the invitation',
       };
   }
 }

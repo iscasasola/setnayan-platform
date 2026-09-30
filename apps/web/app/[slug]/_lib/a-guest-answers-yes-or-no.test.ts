@@ -91,34 +91,50 @@ const valueOf = (tag: string) => tag.match(/value="([^"]*)"/)?.[1];
 
 // ═══ 1 · THE CARD ═════════════════════════════════════════════════════════
 
-for (const oneAtATime of [false, true]) {
-  for (const solemn of [false, true]) {
-    const layout = `${oneAtATime ? 'one-question-per-screen' : 'scroll'} · ${solemn ? 'solemn' : 'celebratory'}`;
-    test(`1 · the RSVP card offers exactly two answers — ${layout}`, async () => {
-      const html = await renderCard({ oneAtATime, words: { ...WORDS, solemn } });
-      const radios = answers(html);
-      assert.deepEqual(radios.map(valueOf), ['attending', 'declined'], `answers drawn: ${radios.join(' ')}`);
-      assert.doesNotMatch(html, /Undecided/, 'the middle answer is still worded on the card');
-      if (!solemn) {
-        assert.match(html, /Joyfully accepts/);
-        assert.match(html, /Regretfully declines/);
-      }
-    });
+/* 🎨 The RSVP scene's styles (reply card · question · ticket) are ONE answer
+   list drawn three ways — so the two-answer rule is held in every style. */
+const RSVP_STYLES = [null, 'question', 'ticket'] as const;
+
+for (const sceneStyle of RSVP_STYLES) {
+  for (const oneAtATime of [false, true]) {
+    for (const solemn of [false, true]) {
+      const layout = `${sceneStyle ?? 'reply-card'} · ${oneAtATime ? 'one-question-per-screen' : 'scroll'} · ${solemn ? 'solemn' : 'celebratory'}`;
+      test(`1 · the RSVP card offers exactly two answers — ${layout}`, async () => {
+        const html = await renderCard({ oneAtATime, sceneStyle, words: { ...WORDS, solemn } });
+        const radios = answers(html);
+        assert.deepEqual(radios.map(valueOf), ['attending', 'declined'], `answers drawn: ${radios.join(' ')}`);
+        assert.doesNotMatch(html, /Undecided/, 'the middle answer is still worded on the card');
+        if (!solemn) {
+          assert.match(html, /Joyfully accepts/);
+          assert.match(html, /Regretfully declines/);
+        }
+      });
+    }
   }
+
+  test(`1 · the couple's own YES / NO words show in the ${sceneStyle ?? 'reply-card'} style`, async () => {
+    const html = await renderCard({ sceneStyle, answerWords: { attending: 'Count me in', declined: 'Sadly not' } });
+    assert.match(html, /Count me in/);
+    assert.match(html, /Sadly not/);
+    assert.doesNotMatch(html, /Joyfully accepts/, 'the usual word still shows beside the couple’s own');
+    assert.deepEqual(answers(html).map(valueOf), ['attending', 'declined'], 'renaming an answer changed what it posts');
+  });
 }
 
 // ═══ 2 · A GUEST ALREADY SAVED AS MAYBE ═══════════════════════════════════
 
-for (const oneAtATime of [false, true]) {
-  test(`2 · an existing 'maybe' row still loads — two answers, none preselected, answer required (${oneAtATime ? 'one-at-a-time' : 'scroll'})`, async () => {
-    const html = await renderCard({ oneAtATime }, { rsvp_status: 'maybe' });
-    const radios = answers(html);
-    assert.deepEqual(radios.map(valueOf), ['attending', 'declined']);
-    for (const r of radios) {
-      assert.doesNotMatch(r, /checked/, `a 'maybe' guest had an answer preselected: ${r}`);
-      assert.match(r, /required/, `a 'maybe' guest could Save with no answer and be dropped: ${r}`);
-    }
-  });
+for (const sceneStyle of RSVP_STYLES) {
+  for (const oneAtATime of [false, true]) {
+    test(`2 · an existing 'maybe' row still loads — two answers, none preselected, answer required (${sceneStyle ?? 'reply-card'} · ${oneAtATime ? 'one-at-a-time' : 'scroll'})`, async () => {
+      const html = await renderCard({ oneAtATime, sceneStyle }, { rsvp_status: 'maybe' });
+      const radios = answers(html);
+      assert.deepEqual(radios.map(valueOf), ['attending', 'declined']);
+      for (const r of radios) {
+        assert.doesNotMatch(r, /checked/, `a 'maybe' guest had an answer preselected: ${r}`);
+        assert.match(r, /required/, `a 'maybe' guest could Save with no answer and be dropped: ${r}`);
+      }
+    });
+  }
 }
 
 test('2 · a guest who already answered yes still sees it preselected (the required rule is maybe-only)', async () => {

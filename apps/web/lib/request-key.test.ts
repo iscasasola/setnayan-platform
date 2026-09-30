@@ -119,7 +119,8 @@ test('🔒 the pending ticket is drawn only while pending, and the card says so'
   assert.match(layout, /fitLine\(ops, 'Request pending',/);
   assert.match(layout, /const facts = pass\.pending \? \[/, 'a pending ticket still prints Table / Arrive');
   const server = read('lib/pass-card.server.ts');
-  assert.match(server, /seat: null, arrive: null, party: 0, bringing: null, pending: opts\.pending/);
+  // 2026-09-30: the seat number goes too — the ticket carries it on the day.
+  assert.match(server, /seat: null, seatNumber: null, arrive: null, party: 0, bringing: null, pending: opts\.pending/);
 });
 
 test('🔒 the door scanner asks the server LIVE on every scan, and check-in itself refuses a request', () => {

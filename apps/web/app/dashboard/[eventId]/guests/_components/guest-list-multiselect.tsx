@@ -26,6 +26,9 @@ import {
   useInspectorContext,
 } from '@/app/_components/inspector/inspector-column';
 import { SeatChip } from './seat-chip';
+import { GuestInviteCell } from './guest-invite-cell';
+import type { InviteEventFacts } from '@/lib/guest-invite-message';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   BringerSeatsProvider,
   PlusOneOverNote,
@@ -300,10 +303,12 @@ function DesktopRow({
   bulkRoleSections,
   seat,
   partnerNameById,
+  invite,
 }: {
   guest: GuestRow;
   eventId: string;
   palette: RolePalette;
+  invite: GuestInviteSetup | null;
   displayUrl?: string;
   selected: boolean;
   onToggle: () => void;
@@ -525,6 +530,11 @@ function DesktopRow({
           ) : null}
         </span>
       </td>
+      {/* The Invite column (owner 2026-09-30) — the card's Send invite, in a
+          row's width. Empty for the couple and a guest marked Passed away. */}
+      <td className="px-3 py-2.5">
+        <RowInvite eventId={eventId} guest={guest} invite={invite} size="row" />
+      </td>
     </tr>
   );
 }
@@ -579,7 +589,7 @@ function SelfJoinDesktopRow({
           </div>
         </div>
       </td>
-      <td colSpan={6} className="px-3 py-3">
+      <td colSpan={7} className="px-3 py-3">
         <div className="flex flex-wrap items-center justify-end gap-2">
           <form action={keepGuestAction.bind(null, eventId)} className="inline-flex">
             <input type="hidden" name="guest_id" value={guest.guest_id} />
@@ -669,7 +679,60 @@ type Props = {
    * "3 named · 1 allowed" warning (owner 2026-09-29, frame G).
    */
   seatsByBringer?: Readonly<Record<string, readonly BringerSeat[]>>;
+  /**
+   * The Invite column (owner 2026-09-30) — what every row's `GuestInviteCell`
+   * needs that is not the guest: the base each guest's own link is built from,
+   * and the event's words (`loadInviteSetup`, read ONCE by the page). null →
+   * no link can be built, so every row says "—" rather than a control that
+   * would copy a message with no link in it.
+   */
+  invite?: GuestInviteSetup | null;
 };
+
+/** The page's one read for the Invite column — see `Props.invite`. */
+export type GuestInviteSetup = {
+  base: string;
+  facts: InviteEventFacts;
+  template: string | null;
+};
+
+/**
+ * One row's Invite control — or nothing. The SAME rule as the guest card's
+ * Send invite (`guest-card-body.tsx`): the couple do not invite themselves, and
+ * nothing is offered for a guest marked Passed away.
+ */
+function RowInvite({
+  eventId,
+  guest,
+  invite,
+  size,
+}: {
+  eventId: string;
+  guest: GuestRow;
+  invite: GuestInviteSetup | null;
+  size: 'row' | 'phone';
+}) {
+  if (guest.role === 'bride' || guest.role === 'groom' || guest.passed_away) return null;
+  if (!invite) {
+    return size === 'row' ? <span className="text-xs text-ink/40">—</span> : null;
+  }
+  return (
+    <GuestInviteCell
+      eventId={eventId}
+      size={size}
+      guest={{
+        guestId: guest.guest_id,
+        formalName: guestFullName(guest),
+        firstName: guest.first_name,
+        fullName: guestDisplayName(guest),
+        inviteUrl: guest.qr_token ? `${invite.base}?invite=${guest.qr_token}` : null,
+        sentAt: guest.invitation_sent_at,
+      }}
+      facts={invite.facts}
+      template={invite.template}
+    />
+  );
+}
 
 const NO_SEATS: Readonly<Record<string, readonly BringerSeat[]>> = {};
 
@@ -692,6 +755,7 @@ export function GuestListMultiselect({
   listFinalized = false,
   accessTagByGuest = {},
   seatsByBringer = NO_SEATS,
+  invite = null,
 }: Props) {
   // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5). Reused as
   // the role-editor popover's option groups (P2).
@@ -1103,6 +1167,18 @@ export function GuestListMultiselect({
               <th className="w-[9%] overflow-hidden px-3 py-2.5 font-semibold">
                 <span className="block truncate">Contact</span>
               </th>
+              {/* ⚖ THE INVITE COLUMN (owner 2026-09-30). A FIXED width, not a
+                  percentage: it holds one button of known size, and every
+                  percentage is taken from Name (see the width note above). The
+                  (i) says in one line what the first-visit tour says in four. */}
+              <th className="w-[104px] px-3 py-2.5 font-semibold">
+                <InfoTip label="Invite" align="end" ariaLabel="How Invite works">
+                  <span className="block normal-case tracking-normal font-normal">
+                    Each guest has their own ticket. Tap Invite to send the message and their
+                    ticket together — on a computer, copy the message, then the ticket, and paste both.
+                  </span>
+                </InfoTip>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1111,7 +1187,7 @@ export function GuestListMultiselect({
                 {sec.label ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
                     >
                       <TierHeader
@@ -1151,6 +1227,7 @@ export function GuestListMultiselect({
                         bulkRoleSections={bulkRoleSections}
                         seat={seatByGuest[guest.guest_id]}
                         partnerNameById={partnerNameById}
+                        invite={invite}
                       />
                     ),
                   )}
@@ -1225,6 +1302,7 @@ export function GuestListMultiselect({
                       currentGroupId={currentGroupId}
                       bulkRoleSections={bulkRoleSections}
                       seat={seatByGuest[guest.guest_id]}
+                      invite={invite}
                     />
                   ),
                 )}
@@ -1816,9 +1894,11 @@ function MobileListRow({
   currentGroupId,
   bulkRoleSections,
   seat,
+  invite,
 }: {
   guest: GuestRow;
   eventId: string;
+  invite: GuestInviteSetup | null;
   displayUrl?: string;
   selectMode: boolean;
   selected: boolean;
@@ -1944,6 +2024,9 @@ function MobileListRow({
           plain
           plusControl={<PlusOneChipEditor eventId={eventId} guest={guest} />}
         />
+        {/* Invite — the desktop row's Invite column, on the phone (owner
+            2026-09-30). One tap: the share sheet, message and QR together. */}
+        <RowInvite eventId={eventId} guest={guest} invite={invite} size="phone" />
       </div>
     </div>
   );

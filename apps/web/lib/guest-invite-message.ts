@@ -75,8 +75,11 @@ export type GuestInviteContext = InviteEventFacts & {
   /** The couple's reworded text (placeholders {name} {event} {date} {link}); null/blank = ours. */
   template?: string | null;
   voice?: InviteVoice;
-  /** The share sheet is attaching the QR image to this message. Default wording only. */
-  qrAttached?: boolean;
+  /**
+   * The share sheet is attaching the guest's DIGITAL TICKET (the pass-card PNG,
+   * `PASS_CARD_ROUTE`) to this message. Default wording only.
+   */
+  ticketAttached?: boolean;
   /** For the "same year → no year" rule; tests pass a fixed date. */
   now?: Date;
 };
@@ -151,20 +154,26 @@ export function inviteEventPhrase(facts: InviteEventFacts, voice: InviteVoice = 
  * OUR wording. What the couple sees in the editor before they change anything,
  * and what every guest gets until they do.
  *
- * ⚖ THE QR LINE IS TRUE IN BOTH PATHS. On a phone whose share sheet takes a
- * file, the QR image travels with the message and the line says "(attached)";
- * everywhere else (a copy, a desktop, a share sheet that refuses files) nothing
- * is attached, so the line says where the QR IS — on the page the link opens.
+ * ⚖ THE TICKET LINE IS TRUE IN BOTH PATHS. On a phone whose share sheet takes
+ * a file, the guest's Digital ticket travels with the message and the line says
+ * "(attached)"; everywhere else (a copy, a share sheet that refuses files)
+ * nothing is attached, so the line says where the ticket IS — on the page the
+ * link opens.
+ *
+ * 🎫 IT IS THE TICKET, NOT THE QR (owner 2026-09-30: *"so what will show is not
+ * QR Code. it will be the Digital Ticket"* · *"we do not copy the QR Code, we
+ * copy the Digital Ticket"*). The QR is ON the ticket; the guest is handed the
+ * ticket.
  */
 export function defaultInviteTemplate(opts: {
   solemn?: boolean;
   voice?: InviteVoice;
-  qrAttached?: boolean;
+  ticketAttached?: boolean;
 } = {}): string {
   const hub = opts.voice === 'guest' ? 'the Event Hub' : 'our Event Hub';
-  const qr = opts.qrAttached
-    ? `Here${APOS}s your QR code for the event (attached). Save it — it opens ${hub} anytime, and it${APOS}s your ticket at the door.`
-    : `Your QR code for the event is on that page too. Save it — it opens ${hub} anytime, and it${APOS}s your ticket at the door.`;
+  const qr = opts.ticketAttached
+    ? `Here${APOS}s your ticket for the event (attached) — it opens ${hub} anytime, and it${APOS}s your pass at the door.`
+    : `Your ticket for the event is on that page too — it opens ${hub} anytime, and it${APOS}s your pass at the door.`;
   const keep = `This link is just for you, so please don${APOS}t forward it.`;
   if (opts.solemn) {
     return [
@@ -250,7 +259,7 @@ export function buildGuestInviteMessage(ctx: GuestInviteContext): string | null 
   const voice = ctx.voice ?? 'hosts';
   const own = voice === 'hosts' ? sanitizeInviteTemplate(ctx.template) : null;
   const template =
-    own ?? defaultInviteTemplate({ solemn: ctx.solemn, voice, qrAttached: ctx.qrAttached });
+    own ?? defaultInviteTemplate({ solemn: ctx.solemn, voice, ticketAttached: ctx.ticketAttached });
   const out = fill(template, {
     name: greetingName(ctx),
     event: inviteEventPhrase(ctx, voice),
@@ -296,12 +305,12 @@ export function buildGroupInviteMessage(
  * WHICH WAY "SEND INVITE" GOES on this device — pure, so the three paths are
  * tested rather than trusted:
  *
- *   'files' — a share sheet that takes a file, and the QR is in hand: the
- *             message AND the QR image go together.
- *   'text'  — a share sheet, but no file (not supported, or the QR is not
- *             fetched yet): the message alone; its link's page shows the QR.
+ *   'files' — a share sheet that takes a file, and the ticket is in hand: the
+ *             message AND the Digital ticket go together.
+ *   'text'  — a share sheet, but no file (not supported, or the ticket is not
+ *             fetched yet): the message alone; its link's page shows the ticket.
  *   'copy'  — no share sheet (most desktops): the message is copied, and
- *             Download QR + Mark as sent are offered beside it.
+ *             Download ticket + Mark as sent are offered beside it.
  */
 export type InviteSendPath = 'files' | 'text' | 'copy';
 export function inviteSendPath(device: { share: boolean; filesOk: boolean }): InviteSendPath {

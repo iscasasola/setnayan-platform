@@ -124,14 +124,15 @@ test('Event type › Profile: a refused profile read disables Save', () => {
   assert.match(s, /<SubmitButton\s+disabled=\{profileReadFailed\}/);
   assert.match(s, /!profileData && !profileReadFailed \? 'No profile row yet/, '"No profile row yet" must not print over a refused read');
   // A refused vocab read is not a 404.
-  assert.match(s, /if \(vocabError\) return <ProfileReadFailed \/>;\s*if \(!vocab\) notFound\(\);/);
+  assert.match(s, /if \(vocabError\) \{\s*logQueryError\([\s\S]{0,160}?\);\s*return <ProfileReadFailed \/>;\s*\}\s*if \(!vocab\) notFound\(\);/);
 });
 
 test('Event type › Onboarding: a refused override read never mounts the editor', () => {
   const s = src('app/admin/event-types/[eventType]/onboarding/page.tsx');
   assert.match(s, /\{ data: rowData, error: rowError \}/);
-  follows(s, 'if (rowError) return <OnboardingReadFailed />;', '<OnboardingEditor', 4000, 'the editor must not mount after a refused read');
-  assert.match(s, /if \(vocabError\) return <OnboardingReadFailed \/>;\s*if \(!vocab\) notFound\(\);/);
+  assert.match(s, /if \(rowError\) \{\s*logQueryError\([\s\S]{0,160}?\);\s*return <OnboardingReadFailed \/>;/);
+  follows(s, 'if (rowError) {', '<OnboardingEditor', 4000, 'the editor must not mount after a refused read');
+  assert.match(s, /if \(vocabError\) \{\s*logQueryError\([\s\S]{0,160}?\);\s*return <OnboardingReadFailed \/>;\s*\}\s*if \(!vocab\) notFound\(\);/);
 });
 
 test('Budget Planner: a refused engine-config read disables "Save settings"', () => {
@@ -168,7 +169,7 @@ test('Secrets: unread presence is "unknown", unread rotations replace the alarm 
 test('getSecretPresenceMapMeasured reports a refused read instead of an all-false map', () => {
   const s = src('lib/integration-config.ts');
   assert.match(s, /const \{ data, error \} = await admin\s*\.from\('platform_integration_secrets'\)/);
-  assert.match(s, /if \(error\) return \{ map, readFailed: true \};/);
+  assert.match(s, /if \(error\) \{\s*logQueryError\([\s\S]{0,120}?\);\s*return \{ map, readFailed: true \};/);
   // The old entry point is a thin wrapper, so both answer from one read.
   assert.match(s, /return \(await getSecretPresenceMapMeasured\(\)\)\.map;/);
 });

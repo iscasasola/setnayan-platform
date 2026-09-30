@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { decryptToken } from '@/lib/encryption';
 import {
   SECRET_INTEGRATIONS,
@@ -242,7 +243,10 @@ export async function getSecretPresenceMapMeasured(): Promise<{
       .select('*')
       .eq('id', 1)
       .maybeSingle();
-    if (error) return { map, readFailed: true };
+    if (error) {
+      logQueryError('getSecretPresenceMapMeasured', error, {}, 'graceful_degrade');
+      return { map, readFailed: true };
+    }
     const row = data as Record<string, unknown> | null;
     if (row) {
       for (const col of ALL_SECRET_COLUMNS) map[col] = Boolean(row[col]);

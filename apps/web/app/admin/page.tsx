@@ -9,6 +9,7 @@ import { WhatYouChange, EditingIsOnTheComputer } from './_components/what-you-ch
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
@@ -307,6 +308,9 @@ export default async function AdminOverview() {
     .select('audit_log_id, action, target_id, reason, actor_user_id, created_at')
     .order('created_at', { ascending: false })
     .limit(8);
+  if (auditError) {
+    logQueryError('AdminOverview (admin_audit_log)', auditError, {}, 'graceful_degrade');
+  }
   const activity = (auditRows ?? []) as Array<{
     audit_log_id: string;
     action: string;

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { upsertEventTypeProfile } from '../../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -83,7 +84,10 @@ export default async function EventTypeProfilePage({
     .eq('event_type', eventType)
     .maybeSingle();
   // A refused read is not "no such event type" — say so instead of a 404.
-  if (vocabError) return <ProfileReadFailed />;
+  if (vocabError) {
+    logQueryError('EventTypeProfilePage (vocab)', vocabError, { eventType }, 'graceful_degrade');
+    return <ProfileReadFailed />;
+  }
   if (!vocab) notFound();
 
   /* 🚨 A REFUSED PROFILE READ PREFILLED THE BUILT-IN DEFAULTS AND ARMED SAVE
@@ -97,6 +101,9 @@ export default async function EventTypeProfilePage({
     .eq('event_type', eventType)
     .maybeSingle<ProfileRow>();
   const profileReadFailed = Boolean(profileError);
+  if (profileError) {
+    logQueryError('EventTypeProfilePage (profile)', profileError, { eventType }, 'graceful_degrade');
+  }
 
   const t = (profileData?.terminology ?? {}) as Record<string, unknown>;
   const isWedding = eventType === 'wedding';

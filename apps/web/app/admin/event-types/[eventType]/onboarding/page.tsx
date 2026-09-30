@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveOnboardingSpec, type OnboardingOverrideRow } from '@/lib/onboarding/onboarding-spec';
 import { getOnboardingTiles } from '@/lib/onboarding-refinements';
@@ -71,7 +72,10 @@ export default async function EventTypeOnboardingPage({
     .eq('event_type', eventType)
     .maybeSingle();
   // A refused read is not "no such event type" — say so instead of a 404.
-  if (vocabError) return <OnboardingReadFailed />;
+  if (vocabError) {
+    logQueryError('EventTypeOnboardingPage (vocab)', vocabError, { eventType }, 'graceful_degrade');
+    return <OnboardingReadFailed />;
+  }
   if (!vocab) notFound();
 
   const okMsg = sp.ok ? decodeURIComponent(sp.ok) : null;
@@ -112,7 +116,10 @@ export default async function EventTypeOnboardingPage({
      (admin audit 2026-09-30, row 34), captioned "Showing the built-in
      defaults." — and one Save wrote them over the custom content. The editor
      is not mounted on a refusal; the notice is the page. */
-  if (rowError) return <OnboardingReadFailed />;
+  if (rowError) {
+    logQueryError('EventTypeOnboardingPage (override)', rowError, { eventType }, 'graceful_degrade');
+    return <OnboardingReadFailed />;
+  }
 
   const hasOverride = !!rowData;
   // The register rides along so HQ edits a wake against the copy a bereaved

@@ -226,7 +226,13 @@ export default async function PabuyaPublicPage({
                 Filipino wake — "with gentler wording than a wedding's digital
                 money dance". Pinning cash is the dance's own gesture, so the
                 solemn arm replaces the sentence, not a word in it. */}
-            {words.solemn ? 'A gift of sympathy' : 'The pabuya · digital money dance'}
+            {/* 💃 The money dance is a WEDDING tradition (2026-09-30); every
+                other celebratory type gets the plain eyebrow. */}
+            {words.solemn
+              ? 'A gift of sympathy'
+              : words.eventWord === 'wedding'
+                ? 'The pabuya · digital money dance'
+                : 'Send a gift'}
           </p>
           <h1 className="mt-2 font-display text-3xl font-medium italic sm:text-4xl">
             E-Gifts for {hostName}
@@ -237,9 +243,14 @@ export default async function PabuyaPublicPage({
                 A quiet way to help {words.theOrganizer} — wherever you are in
                 the world.{howToSend ? ` ${howToSend}` : ''}
               </>
-            ) : (
+            ) : words.eventWord === 'wedding' ? (
               <>
                 Pin your cash on {words.theOrganizer} — wherever you are in the
+                world.{howToSend ? ` ${howToSend}` : ''}
+              </>
+            ) : (
+              <>
+                Send a gift to {words.theOrganizer} — wherever you are in the
                 world.{howToSend ? ` ${howToSend}` : ''}
               </>
             )}

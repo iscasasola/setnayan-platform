@@ -114,9 +114,14 @@ function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
       icon={<Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
       title="E-Gifts"
       detail={
+        // 💃 The money dance is a WEDDING tradition (2026-09-30) — a debut's or
+        // a graduation's guest read it on this card. Every other celebratory
+        // type gets the plain line; the wake keeps its own.
         words.solemn
           ? `A gift of sympathy — straight to ${words.theOrganizer}.`
-          : `The digital money dance — straight to ${words.theOrganizer}.`
+          : words.eventWord === 'wedding'
+            ? `The digital money dance — straight to ${words.theOrganizer}.`
+            : `Send a gift straight to ${words.theOrganizer}.`
       }
     />
   );

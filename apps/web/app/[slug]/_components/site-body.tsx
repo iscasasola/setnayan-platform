@@ -1761,8 +1761,14 @@ export async function SiteBody({
       faceTaggingAskable,
     } = g;
 
-    const sideLabel =
-      guest.side === 'both'
+    // 🔒 A SIDE EXISTS ONLY WHERE TWO PEOPLE DO (2026-09-30). "Bride's side /
+    // Groom's side / Both sides" was built for every event type, so a debut's
+    // guest read "Side: Both sides". `side_labels` in lib/wedding-only-parts.ts
+    // has always said which types may show it; nothing read it. Null = no side
+    // rendered anywhere on this guest's page.
+    const sideLabel: string | null = !weddingOnly.side_labels
+      ? null
+      : guest.side === 'both'
         ? 'Both sides'
         : guest.side === 'bride'
           ? "Bride's side"
@@ -1916,8 +1922,14 @@ export async function SiteBody({
             </>
           ) : null}
           . You&rsquo;re joining us as{' '}
-          <span className="font-medium text-ink">{guestRoleLabel(guest.role, roleNames)}</span> ·{' '}
-          <span className="text-ink/80">{sideLabel}</span>.
+          <span className="font-medium text-ink">{guestRoleLabel(guest.role, roleNames)}</span>
+          {sideLabel ? (
+            <>
+              {' '}·{' '}
+              <span className="text-ink/80">{sideLabel}</span>
+            </>
+          ) : null}
+          .
         </p>
       </section>
     ) : null;

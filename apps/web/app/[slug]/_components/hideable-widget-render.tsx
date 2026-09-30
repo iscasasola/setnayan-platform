@@ -57,7 +57,8 @@ type HideableWidgetProps = {
    *  rather than re-resolved per widget. */
   words: EventWords;
   guest: GuestRow;
-  sideLabel: string;
+  /** Null on an event type without sides — no side is rendered at all. */
+  sideLabel: string | null;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
   /** RSVP-season "Estimated program" label on the schedule widget (owner
@@ -181,7 +182,7 @@ function HideableWidgetBody({
               </>
             )}
             <Detail label="Your role" value={guestRoleLabel(guest.role, roleNames)} />
-            <Detail label="Side" value={sideLabel} />
+            {sideLabel ? <Detail label="Side" value={sideLabel} /> : null}
           </dl>
         </section>
       );

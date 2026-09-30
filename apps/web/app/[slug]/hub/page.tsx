@@ -733,7 +733,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
                   "with gentler wording than a wedding's digital money dance". */}
               {words.solemn
                 ? <>A gift of sympathy — straight to {words.theOrganizer}.</>
-                : <>The digital money dance — straight to {words.theOrganizer}.</>}
+                : words.eventWord === 'wedding'
+                  ? <>The digital money dance — straight to {words.theOrganizer}.</>
+                  : <>Send a gift straight to {words.theOrganizer}.</>}
             </span>
             {/* DELTA · which rails wait behind the door. Names only, from the
                 closed vocabulary in egift-kinds.ts — never the couple's own

@@ -143,13 +143,17 @@ test('the photos sentence does not outrun the feature', () => {
 
 // ═══ 4 · no face tagging on the invite — and none taken from the Event Hub ══
 
-test('the Reply door asks this card NOT to offer the selfie', () => {
+test('the Reply door asks the tagging QUESTION only — the face waits for the day', () => {
+  // Owner 2026-09-11: "face tagging happens on the day, not on the invite" —
+  // kept for face DATA; owner 2026-09-30 ("go"): the question and its answer
+  // move to the invitation. Rendered and stripped in the-selfie-waits-for-a-yes.
   const mount = between(REPLY, '<RsvpWidget', '/>', 'the RsvpWidget mount on the Reply door');
   assert.match(
     mount,
-    /offerSelfie=\{false\}/,
-    'the invite arrival is asking for a face again — owner: face tagging happens on the day, not on the invite',
+    /offerSelfie=\{faceTagging\.askable \? 'question' : false\}/,
+    'the invite arrival offers the selfie itself again — the face is taken on the day, never on the invite',
   );
+  assert.doesNotMatch(mount, /offerSelfie=\{true\}|offerSelfie\s/, 'the invite arrival draws the camera');
 });
 
 test('the Event Hub card keeps its selfie — the prop defaults ON, and no hub mount turns it off', () => {

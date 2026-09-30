@@ -20,6 +20,8 @@ import type { GuestAccessState } from '@/lib/guest-access';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { readSeatAccount } from '@/lib/seat-unlink';
+import { accountNamesByGuest } from '@/lib/linked-profile-names';
+import { withProfileName } from '@/lib/formal-name';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -93,6 +95,13 @@ export type GuestCardData = {
    * when the viewer is not a couple member — the read is another account's.
    */
   linkedAccount: { email: string | null; memberType: string } | null;
+  /**
+   * 👤 The row is linked to an account whose PROFILE holds a formal name (owner
+   * 2026-09-30): `guest` already wears that name, read-only, and `isYou` says the
+   * viewer is that person (so the card says "Edit on your profile ›"). Null → the
+   * row's own name, as the couple typed it.
+   */
+  profileName: { isYou: boolean } | null;
   /** The couple's own words for roles (`events.role_names`, owner 2026-09-30). `{}` = the usual words. */
   roleNames: RoleNames;
 };
@@ -102,8 +111,16 @@ export async function loadGuestCard(
   eventId: string,
   guestId: string,
 ): Promise<GuestCardData | null> {
-  const guest = await fetchGuestById(supabase, eventId, guestId);
-  if (!guest) return null;
+  const stored = await fetchGuestById(supabase, eventId, guestId);
+  if (!stored) return null;
+  // 👤 Linked to an account with a formal name → the card wears the profile's
+  // name, exactly as the list does (lib/linked-profile-names.ts).
+  const [profileNames, viewerId] = await Promise.all([
+    accountNamesByGuest(supabase, eventId),
+    supabase.auth.getUser().then((r) => r.data.user?.id ?? null),
+  ]);
+  const guest = withProfileName(stored, profileNames);
+  const linkedProfile = profileNames[guestId];
 
   // Hide bride/groom from the role dropdown if someone else already has
   // them — DB partial unique indexes enforce this regardless, but the UI
@@ -209,15 +226,12 @@ export async function loadGuestCard(
   const [accessMap, canManageAccess] = await Promise.all([
     loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return false;
+      if (!viewerId) return false;
       const { data: me, error: meError } = await supabase
         .from('event_members')
         .select('member_type')
         .eq('event_id', eventId)
-        .eq('user_id', user.id)
+        .eq('user_id', viewerId)
         .eq('member_type', 'couple')
         .maybeSingle();
       // Refused → no dropdown (fail closed: showing a control the action would
@@ -264,5 +278,6 @@ export async function loadGuestCard(
         })()
       : false,
     linkedAccount,
+    profileName: linkedProfile ? { isYou: linkedProfile.userId === viewerId } : null,
   };
 }

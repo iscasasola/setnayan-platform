@@ -57,7 +57,7 @@ import {
   FORMAL_NAME_FIELDS,
   FORMAL_NAME_LABELS,
   FORMAL_NAME_PART_MAX,
-  isFormalNameEmpty,
+  normalizeNamePart,
   type FormalName,
 } from '@/lib/formal-name';
 import { formalNameFromGuestList } from '@/lib/formal-name-from-guest-list';
@@ -174,17 +174,24 @@ export default async function ProfilePage({ searchParams }: Props) {
     if (url) photoDisplayMap[profile.profile_photo_url] = url;
   }
 
-  /* THE FORMAL NAME (owner 2026-09-21). Saved parts win. When the profile has
-     never been filled, the name a host already typed on a guest row that is
-     linked to THIS account pre-fills the form — shown, not saved, until the
-     person presses Save. See lib/formal-name-from-guest-list.ts. */
+  /* THE FORMAL NAME (owner 2026-09-21). The boxes show what is SAVED — never a
+     name somebody else typed. When a guest row linked to THIS account carries
+     parts the profile lacks, ONE line offers it: "Use 'Mr. Manuel Cortez
+     Casasola' from Ana & Miguel's list" (owner 2026-09-30, "one tap, never
+     silent"). The tap fills only the EMPTY parts — `updatePersonalInfo` writes
+     only the fields a form carries. See lib/formal-name-from-guest-list.ts. */
   const savedFormalName = Object.fromEntries(
     FORMAL_NAME_FIELDS.map((f) => [f, (profile?.[f] as string | null | undefined) ?? null]),
   ) as FormalName;
-  const formalNameSuggestion = isFormalNameEmpty(savedFormalName)
+  const formalNameShown = savedFormalName;
+  const formalNameSuggestion = FORMAL_NAME_FIELDS.some((f) => !normalizeNamePart(savedFormalName[f]))
     ? await formalNameFromGuestList(user.id)
     : null;
-  const formalNameShown = formalNameSuggestion?.name ?? savedFormalName;
+  const formalNameFill = formalNameSuggestion
+    ? FORMAL_NAME_FIELDS.filter((f) => !normalizeNamePart(savedFormalName[f]) && formalNameSuggestion.name[f])
+    : [];
+  const formalNameOffer =
+    formalNameSuggestion && formalNameFill.length > 0 ? composeFormalName(formalNameSuggestion.name) : null;
 
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
   const remindersOn = (profile?.reminders_enabled ?? true) as boolean;
@@ -533,17 +540,20 @@ export default async function ProfilePage({ searchParams }: Props) {
                 </Field>
               ))}
             </div>
-            {formalNameSuggestion ? (
-              <p className="flex items-center gap-2 text-xs text-ink/70">
+            {formalNameOffer ? (
+              /* 🪪 ONE TAP, NEVER SILENT. The inputs and the button belong to
+                 the small form below (`form=`), not to this one, so the tap
+                 posts only the empty parts it fills. */
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink/70" data-use-event-name="">
                 <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-terracotta" />
+                {formalNameFill.map((f) => (
+                  <input key={f} type="hidden" form="use-event-name" name={f} value={formalNameSuggestion?.name[f] ?? ''} />
+                ))}
+                <button type="submit" form="use-event-name" className="font-medium text-terracotta-700 underline underline-offset-2">
+                  Use “{formalNameOffer}”
+                </button>
                 <span>
-                  Filled in from{' '}
-                  {formalNameSuggestion.eventTitle ? (
-                    <span className="font-medium">{formalNameSuggestion.eventTitle}</span>
-                  ) : (
-                    'a guest list you are on'
-                  )}
-                  . Check it, then press Save to keep it.
+                  from {formalNameSuggestion?.eventTitle ? `${formalNameSuggestion.eventTitle}’s list` : 'a guest list you are on'}
                 </span>
               </p>
             ) : null}
@@ -578,6 +588,13 @@ export default async function ProfilePage({ searchParams }: Props) {
           </div>
         </div>
       </form>
+      {/* The one-tap "Use '<name>'" line's own form — its inputs sit in the
+          Full name box above and point here with `form="use-event-name"`. */}
+      {formalNameOffer ? (
+        <form id="use-event-name" action={updatePersonalInfo} className="hidden">
+          <input type="hidden" name="tab" value="profile" />
+        </form>
+      ) : null}
     </>
   );
 

@@ -64,6 +64,8 @@ import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
+import { accountNamesByGuest } from '@/lib/linked-profile-names';
+import { withProfileName } from '@/lib/formal-name';
 import {
   GuestListMultiselect,
   ROLE_SECTION_ORDER,
@@ -526,7 +528,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // NOT empty. Every count, meter and zero-state below is computed from
   // `guests`, so without this flag each of them states a fact about somebody's
   // wedding that nobody actually measured.
-  const guests = guestsRead.rows;
+  // 👤 A row linked to an account wears that profile's formal name (owner
+  // 2026-09-30) — overlaid HERE, once, so the list, the search and the open card
+  // read the same name. lib/linked-profile-names.ts holds the gate.
+  const profileNames = await accountNamesByGuest(supabase, eventId);
+  const guests = guestsRead.rows.map((g) => withProfileName(g, profileNames));
   const guestsMeasured = guestsRead.measured;
   // Self-join reconcile queue — the ids feed the inline blush roster rows; the
   // count still drives the /guests/claims banner + the mobile carousel badge.
@@ -833,7 +839,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
      account falls back to that account's photo — the couple's own upload still
      wins. Resolved through the SAME resolver, because the stored value is an
      `r2://` ref, not a URL. */
-  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId);
+  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId, user.id);
   const accountRefUrls = await guestPhotoDisplayUrls(
     Object.values(accountRefByGuest).map((ref) => ({ photo_url: ref })),
   );

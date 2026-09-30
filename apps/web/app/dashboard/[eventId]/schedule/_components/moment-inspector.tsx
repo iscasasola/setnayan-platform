@@ -15,7 +15,7 @@
  * is read-only, the steppers and actions are gone.
  */
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { ArrowUpDown, Send, Trash2, X } from 'lucide-react';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor } from '@/lib/schedule';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
@@ -104,6 +104,16 @@ export function MomentInspector({
 
   /** What did not save, in the couple's words — said, and put back. */
   const [failed, setFailed] = useState<string | null>(null);
+  const labelBox = useRef<HTMLInputElement>(null);
+  const locationBox = useRef<HTMLInputElement>(null);
+  const notesBox = useRef<HTMLTextAreaElement>(null);
+  /* A refused save put the rail back to what last saved — the boxes follow it. */
+  useEffect(() => {
+    if (save !== 'error') return;
+    if (labelBox.current) labelBox.current.value = m.label;
+    if (locationBox.current) locationBox.current.value = m.location ?? '';
+    if (notesBox.current) notesBox.current.value = m.notes ?? '';
+  }, [save, m.label, m.location, m.notes]);
   function run(
     ids: string[],
     action: () => Promise<unknown>,
@@ -263,6 +273,7 @@ export function MomentInspector({
 
       <input
         type="text"
+        ref={labelBox}
         aria-label="What happens"
         defaultValue={m.label}
         readOnly={readOnly}
@@ -513,6 +524,7 @@ export function MomentInspector({
         <Eyebrow>Where</Eyebrow>
         <input
           type="text"
+          ref={locationBox}
           defaultValue={m.location ?? ''}
           readOnly={readOnly}
           maxLength={200}
@@ -527,6 +539,7 @@ export function MomentInspector({
         <Eyebrow>Notes</Eyebrow>
         <textarea
           rows={2}
+          ref={notesBox}
           defaultValue={m.notes ?? ''}
           readOnly={readOnly}
           placeholder={readOnly ? '' : 'What only the team needs to know'}

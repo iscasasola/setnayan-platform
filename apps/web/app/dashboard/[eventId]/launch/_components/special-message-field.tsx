@@ -105,9 +105,10 @@ export function SpecialMessageField({
       setSaid(`Your message did not save, so it is back as it was. ${res.error || 'Please try again.'}`);
     })();
   };
+  const stayPut = eventId ? (e: React.FormEvent) => e.preventDefault() : undefined;
   return (
     /* In the Maker every keystroke is already saving — the form never posts the old way there. */
-    <form action={action} data-details-special="" className="flex flex-col gap-2" onSubmit={eventId ? (e) => e.preventDefault() : undefined}>
+    <form action={action} data-details-special="" className="flex flex-col gap-2" onSubmit={stayPut}>
       <HubDraftField />
       <input type="hidden" name="return_to" value={back} />
       <textarea

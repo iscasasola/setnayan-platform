@@ -11,7 +11,7 @@
  * quotes no amount at all:
  *
  *   Tier A  Wedding
- *   Tier B  Debut · Corporate · Gala Night
+ *   Tier B  Debut · Corporate · Gala Night · Concert · Open house · Grand opening
  *   Tier C  Christening · Birthday · Celebration · Travel · Anniversary ·
  *           Graduation · Reunion          ← also where an UNASSIGNED kind lands
  *   Tier D  Tournament · Gender reveal · Date · Hangout
@@ -71,14 +71,14 @@ export const AI_TIER_BY_EVENT_TYPE: Readonly<Record<string, AiPriceTier>> = {
   // Whether the assisted planner should offer itself for a funeral at all, or
   // at a different rung, is flagged as an open owner decision.
   wake: 'C',
-  // ⚠ THE DEFAULT MADE EXPLICIT, NOT A PRICE DECISION — the same footing as
-  // `wake` above. The owner approved these three types on 2026-09-29 and has
-  // not banded them: their `event_type_vocab.ai_price_tier` is seeded NULL
-  // (migration 20271255436935), which /admin/pricing shows as "no band yet",
-  // and setnayan_ai_price_tier() resolves NULL to 'C' exactly as this does.
-  concert: 'C',
-  open_house: 'C',
-  grand_opening: 'C',
+  // Priced LIKE CORPORATE — owner, 2026-09-29 (DECISION_LOG "PUBLIC EVENTS
+  // (PR #6159) — TWO OWNER ANSWERS": "yes like corporate"). Migration
+  // 20271255436935 copies corporate's `event_type_vocab.ai_price_tier` into
+  // each row; this is the fallback for an unreadable read, so it follows
+  // `corporate` above.
+  concert: 'B',
+  open_house: 'B',
+  grand_opening: 'B',
 };
 
 /**

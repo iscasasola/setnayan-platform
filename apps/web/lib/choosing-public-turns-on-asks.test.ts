@@ -12,9 +12,11 @@
  *      couple set rides through; public → public changes nothing;
  *   2. the Maker draft follows, so an older draft cannot switch it back off at
  *      Apply;
- *   3. 🔒 EVERY writer that can move an event to 'public' asks the decision —
- *      found by scanning the tree for the write, not by listing files, so a new
- *      writer cannot be added beside it and forgotten.
+ *   3. 🔒 the host's EXPLICIT switch asks the decision, and the Save-the-Date
+ *      launch — which also writes 'public' — must NOT (owner 2026-09-29,
+ *      DECISION_LOG "PUBLIC EVENTS (PR #6159) — TWO OWNER ANSWERS": "no").
+ *      Found by scanning the tree for the write, so a new writer is classified
+ *      rather than forgotten.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -103,26 +105,42 @@ function sources(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-test('🔒 every writer that can make an event PUBLIC asks the decision', () => {
-  /* A write of `landing_page_visibility` whose value is 'public', or is a
+test('🔒 the explicit switch to Public asks the decision — the Save-the-Date launch never does', () => {
+  /* Every write of `landing_page_visibility` whose value is 'public' or a
      variable (the privacy action's validated choice). An INSERT's initial
      visibility (`initialLandingVisibility`) is 'unlisted' or 'private' by its own
-     test, never 'public', so it is not a switch INTO public. */
+     test, never 'public'. Each writer found must be one of the two below — a new
+     one fails here until someone decides which it is. */
+  const EXPLICIT_SWITCH = join('app', 'dashboard', '[eventId]', 'website', 'privacy', 'actions.ts');
+  const STD_LAUNCH = join('lib', 'launch-save-the-date.ts');
   const writers: string[] = [];
   for (const file of [...sources(join(WEB, 'app')), ...sources(join(WEB, 'lib'))]) {
     const src = stripComments(readFileSync(file, 'utf8'));
     if (!/\.update\(/.test(src)) continue;
     if (!/landing_page_visibility:\s*('public'|visibility\b)/.test(src)) continue;
     writers.push(relative(WEB, file));
-    assert.match(
-      src,
-      /rsvpAskConfigOnGoingPublic\(/,
-      `${relative(WEB, file)} can switch an event to public without turning on "Ask to join"`,
-    );
   }
-  // The scan must actually find the two known writers — an empty scan proves nothing.
-  assert.ok(writers.includes(join('app', 'dashboard', '[eventId]', 'website', 'privacy', 'actions.ts')), writers.join(', '));
-  assert.ok(writers.includes(join('lib', 'launch-save-the-date.ts')), writers.join(', '));
+  // The scan must actually find both known writers — an empty scan proves nothing.
+  assert.deepEqual(writers.sort(), [EXPLICIT_SWITCH, STD_LAUNCH].sort(),
+    `a writer that can make an event public is unclassified: ${writers.join(', ')}`);
+
+  const action = stripComments(readFileSync(join(WEB, EXPLICIT_SWITCH), 'utf8'));
+  assert.match(action, /rsvpAskConfigOnGoingPublic\(/,
+    'the explicit switch to Public no longer turns on "Anyone, I approve"');
+
+  /* ⚖ "no" (owner 2026-09-29): launching a Save-the-Date leaves the RSVP
+     setting exactly as it was — it neither reads nor writes it. */
+  const launch = stripComments(readFileSync(join(WEB, STD_LAUNCH), 'utf8'));
+  assert.doesNotMatch(launch, /rsvp_ask_config|rsvpAskConfigOnGoingPublic|whoCanRsvp/,
+    'the Save-the-Date launch must leave rsvp_ask_config untouched');
+  for (const caller of [
+    join('app', 'dashboard', '[eventId]', 'studio', 'save-the-date', 'actions.ts'),
+    join('app', '[slug]', 'page.tsx'),
+  ]) {
+    const src = stripComments(readFileSync(join(WEB, caller), 'utf8'));
+    assert.doesNotMatch(src, /carryAskToJoinIntoDraft/,
+      `${caller} carries "Ask to join" into the draft on a Save-the-Date launch`);
+  }
 });
 
 test('🔒 the Maker panel tells the host, on the switch, that requests turn on', () => {

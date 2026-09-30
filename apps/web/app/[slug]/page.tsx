@@ -68,7 +68,6 @@ import {
   isScheduledLaunchDue,
   publishSaveTheDate,
 } from '@/lib/launch-save-the-date';
-import { carryAskToJoinIntoDraft } from '@/lib/going-public.server';
 import { publicTicketUrl } from '@/lib/ticket-url';
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
@@ -755,8 +754,6 @@ async function InvitationBody({
     after(async () => {
       try {
         const published = await publishSaveTheDate(admin, event.event_id);
-        // Going public turned on "Ask to join" — the Maker draft follows it.
-        if (published?.askToJoinTurnedOn) await carryAskToJoinIntoDraft(admin, event.event_id);
         if (published?.slug) revalidatePath(`/${published.slug}`);
         await fanOutSaveTheDateEmails(event.event_id);
       } catch {

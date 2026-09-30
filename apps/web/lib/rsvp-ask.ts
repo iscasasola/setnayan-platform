@@ -180,6 +180,12 @@ export function anyoneMayAskToJoin(raw: unknown): boolean {
  *   · already "Anyone, I approve" — nothing to write.
  * Every other key the couple set rides through untouched (the same sanitizer
  * the Maker's RSVP page and the join door read).
+ *
+ * ⚖ ONLY THE HOST'S EXPLICIT SWITCH asks this (`updateLandingPageVisibility`,
+ * the privacy page and the Maker's panel). LAUNCHING A SAVE-THE-DATE also makes
+ * the page public, and it does NOT — owner 2026-09-29 (DECISION_LOG "PUBLIC
+ * EVENTS (PR #6159) — TWO OWNER ANSWERS": "no"): sending a Save-the-Date is not
+ * announcing a public event, so the launch leaves "Who can RSVP?" as it was.
  */
 export function rsvpAskConfigOnGoingPublic(input: {
   previousVisibility: string | null | undefined;

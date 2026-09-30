@@ -6,7 +6,7 @@
  * file reads THAT migration for the keys (never a hand-typed list beside it) and
  * holds every code map a new kind must reach:
  *   · a checklist label   — else it renders "Wedding checklist";
- *   · an AI band          — the DEFAULT made explicit ('C'), never a new price;
+ *   · an AI band          — corporate's (owner 2026-09-29: "yes like corporate");
  *   · host roles          — else the picker offers "Maid of honor";
  *   · Papic eligibility   — "offer Papic everywhere" (owner 2026-08-01);
  *   · the llms.txt list   — the public description of what ships.
@@ -47,15 +47,15 @@ test('every new kind has its own checklist chrome — never "Wedding checklist"'
   }
 });
 
-test('every new kind is banded C in code, and the band is left UNCHOSEN in the database', () => {
+test('every new kind is priced like corporate — its AI band, read from corporate\'s row', () => {
+  // Owner 2026-09-29 (DECISION_LOG "PUBLIC EVENTS (PR #6159) — TWO OWNER
+  // ANSWERS"): "yes like corporate".
   for (const k of mintedKeys()) {
-    assert.equal(AI_TIER_BY_EVENT_TYPE[k], 'C', `${k} must carry the default band, not a new price`);
+    assert.equal(AI_TIER_BY_EVENT_TYPE[k], AI_TIER_BY_EVENT_TYPE.corporate, `${k} is not in corporate's AI band`);
   }
-  // NULL = "no band chosen" — /admin/pricing asks the owner; setnayan_ai_price_tier()
-  // resolves it to 'C', the same as the code map, so nothing is priced by guesswork.
   const sql = typesMigration();
-  assert.match(sql, /description, ai_price_tier\)\s*SELECT [^;]*v\.description, NULL/,
-    'the vocab rows must seed ai_price_tier NULL');
+  assert.match(sql, /v\.description, corp\.ai_price_tier/, 'the vocab rows must copy corporate\'s band');
+  assert.match(sql, /SELECT ai_price_tier FROM public\.event_type_vocab WHERE event_type = 'corporate'\) corp/);
 });
 
 test('every new kind offers organiser roles, never the wedding cast', () => {
@@ -74,12 +74,12 @@ test('every new kind is offered Papic, and is named in llms.txt', () => {
   }
 });
 
-test('the Papic sizing row is the DEFAULT row, copied — no per-head figure is invented', () => {
+test('the Papic sizing row is CORPORATE\'s row, copied — no per-head figure is invented', () => {
   const sql = typesMigration();
   const pool = sql.slice(sql.indexOf('INSERT INTO public.papic_event_pool_config'));
   assert.match(pool, /d\.points_per_guest, d\.floor_points, d\.recommend_floor_points, d\.ceiling_points/,
-    'every sizing number must come from the default row');
-  assert.match(pool, /WHERE d\.config_key = 'default'/);
+    'every sizing number must come from corporate\'s row');
+  assert.match(pool, /WHERE d\.config_key = 'corporate'/, 'priced like corporate (owner 2026-09-29)');
 });
 
 test('🔎 "competition" finds a Tournament — a search word, not a new type', () => {

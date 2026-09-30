@@ -31,7 +31,6 @@ import {
 } from '@/lib/r2-client-ref';
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { publishSaveTheDate } from '@/lib/launch-save-the-date';
-import { carryAskToJoinIntoDraft } from '@/lib/going-public.server';
 import { LOOK_PRO_REQUIRED, combineChanges, refChange, type LookChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
 
@@ -533,9 +532,6 @@ export async function launchSaveTheDate(
   // pending scheduled_launch_at, so "Launch now" cleanly overrides a schedule.
   const published = await publishSaveTheDate(supabase, eventId);
   if (!published) return { ok: false, error: 'db-error' };
-  // Going public turned on "Ask to join" — carry it into the Maker draft, so a
-  // draft saved earlier cannot switch it back off at Apply (lib/going-public.ts).
-  if (published.askToJoinTurnedOn) await carryAskToJoinIntoDraft(supabase, eventId);
   // Flip the PUBLIC page out of its cached private state — the dashboard-only
   // revalidate() helper below never touches /[slug], so without this the page
   // could keep serving the lock screen after launch.

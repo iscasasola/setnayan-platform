@@ -1,6 +1,5 @@
 import { normalizeVisibility, openToStrangers, type EventVisibility } from '@/lib/event-visibility';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { rsvpAskConfigOnGoingPublic } from '@/lib/rsvp-ask';
 
 /**
  * Save-the-Date launch helpers — the single source of truth for "what it means
@@ -70,40 +69,20 @@ export function resolveEffectiveVisibility(
 export async function publishSaveTheDate(
   client: SupabaseClient,
   eventId: string,
-): Promise<{ slug: string | null; askToJoinTurnedOn: boolean } | null> {
-  // 🌐 LAUNCHING IS GOING PUBLIC, SO IT TURNS ON "ASK TO JOIN" TOO (owner
-  // 2026-09-29, DECISION_LOG "DISCOVER BUILD — TWO LAST ANSWERS"): only on the
-  // move INTO public — a re-launch of an already-public page never re-forces a
-  // choice the couple has since changed. The prior state is read first; a read
-  // that fails launches the page exactly as before and leaves requests alone.
-  const { data: before, error: beforeError } = await client
-    .from('events')
-    .select('landing_page_visibility, rsvp_ask_config')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (beforeError) console.error('[supabase-error] lib/launch-save-the-date.ts · from:events.select', beforeError);
-  const askNext =
-    beforeError || !before
-      ? null
-      : rsvpAskConfigOnGoingPublic({
-          previousVisibility: (before as { landing_page_visibility: string | null }).landing_page_visibility,
-          nextVisibility: 'public',
-          rawConfig: (before as { rsvp_ask_config: unknown }).rsvp_ask_config,
-        });
+): Promise<{ slug: string | null } | null> {
   const { data, error } = await client
     .from('events')
     .update({
       landing_page_visibility: 'public',
       std_launched_at: new Date().toISOString(),
       scheduled_launch_at: null,
-      ...(askNext ? { rsvp_ask_config: askNext } : {}),
     })
     .eq('event_id', eventId)
     .select('slug')
     .single();
   if (error) console.error('[supabase-error] lib/launch-save-the-date.ts · from:events.update', error);
   if (error || !data) return null;
-  return { slug: (data.slug as string | null) ?? null, askToJoinTurnedOn: askNext !== null };
+  return { slug: (data.slug as string | null) ?? null };
 }
 
 /**

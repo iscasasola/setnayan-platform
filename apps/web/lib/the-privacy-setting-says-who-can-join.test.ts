@@ -163,8 +163,13 @@ test('🌐 Public says requests are ON by default — because choosing it turns 
      the visibility action still turns it on. Both halves are asserted. */
   const src = read(...PRIVACY);
   const blurb = unescape(blurbFor(src, 'public'));
-  assert.match(blurb, /Choosing Public turns on "Anyone, I approve"/,
+  assert.match(blurb, /Choosing Public here turns on "Anyone, I approve"/,
     'the Public blurb must say choosing it turns requests on');
+  /* ⚖ Owner 2026-09-29 ("no"): a Save-the-Date launch also makes the page
+     public and does NOT turn requests on — the blurb must not let a couple who
+     launched believe strangers can now ask. */
+  assert.match(blurb, /launching a Save-the-Date does not/,
+    'the Public blurb must say a Save-the-Date launch leaves requests as they were');
   assert.match(blurb, /turn requests off/i, 'and that the couple can turn them off again');
   for (const value of ['unlisted', 'invited_accounts']) {
     assert.doesNotMatch(unescape(blurbFor(src, value)), /turns on "Anyone, I approve"/,

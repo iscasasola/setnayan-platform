@@ -314,7 +314,7 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     key: 'oauth-refresh',
     kind: 'operational',
     gapMs: 60 * 60 * 1000,
-    what: 'Renewal of the Google connections (YouTube, Drive, Live Studio)',
+    what: 'Renewal of the Google connections (YouTube, Drive, Live Watch)',
     reportsCount: true,
   },
   {

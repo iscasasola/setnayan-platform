@@ -24,7 +24,7 @@ import { PanoodControlRoom } from './control-room';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 
-export const metadata = { title: 'Live Studio control room' };
+export const metadata = { title: 'Live Watch control room' };
 
 // Iteration 0011 — Live Studio multicam CONTROL ROOM (PR4).
 //
@@ -210,7 +210,7 @@ function UpgradeBanner({ eventId }: { eventId: string }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-terracotta/25 bg-terracotta/5 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-2.5">
-        <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Studio')} size="md" className="mt-0.5" />
+        <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Watch')} size="md" className="mt-0.5" />
         <p className="text-sm text-ink/75">
           <span className="font-semibold text-ink">Preview mode.</span> Connect every camera and
           test your whole setup free — the Setnayan mark stays on screen until you unlock Live
@@ -222,7 +222,7 @@ function UpgradeBanner({ eventId }: { eventId: string }) {
         className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full bg-terracotta-700 px-4 py-2 text-xs font-semibold text-cream hover:opacity-90 sm:self-auto"
       >
         <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Unlock Live Studio
+        Unlock Live Watch
       </Link>
     </div>
   );

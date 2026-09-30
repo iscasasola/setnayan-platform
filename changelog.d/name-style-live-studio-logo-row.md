@@ -1,4 +1,4 @@
-## 2026-09-30 · feat(names): the couple picks a Name style · Prefix is one dropdown everywhere · Panood reads "Live Studio"
+## 2026-09-30 · feat(names): the couple picks a Name style · Prefix is one dropdown everywhere · the live stream reads "Live Watch"
 
 Owner-approved (DECISION_LOG "THE COUPLE PICKS A NAME STYLE", "NO CASUAL
 GREETINGS", "EVERY NAME IS THE SAME FIVE FIELDS", "THREE OF THE CONTROLLER'S
@@ -47,9 +47,18 @@ profile and the sign-up profile step now draw the guest side's dropdown
 (`PrefixSelect`, `NAME_PREFIX_CHOICES`); a stored prefix outside the list stays
 as its own option.
 
-**Live Studio** — the host-facing name for Panood: the /panood product page,
-the broadcast errors and the (inactive) SKU display names. "Watch Live" stays
-on the guest's watch page. `RETIRED_NAMES` now records Panood → Live Studio.
+**Live Watch** — the live-streaming service's plain name (owner 2026-09-30,
+verbatim: *"Live Watch seem better"*; it was "Live Studio" for one day). Every
+place a couple, guest or admin reads it: the /panood product page, the
+controller and setup pages, errors, the (inactive) SKU display names, tours,
+help, the legal pages, llms.txt and the Tagalog pages — 76 files, words only.
+`RETIRED_NAMES` now holds Panood → Live Watch AND Live Studio → Live Watch, so
+the screen scan fails on either. Code keys, routes and SKU codes (`panood`,
+`live-studio`, `LIVE_STUDIO`) are unchanged; "Watch Live" stays on the guest's
+watch page. Left on purpose: `lib/our-services.ts` (#6202 rewrites it — marked
+in-flight in the scan), `lib/llms-txt-guard-input.ts` (the mirror of prod's
+catalogue titles, which still say "Live Studio" until the catalogue is renamed
+in admin).
 
 **Logo Maker row** — no change needed: on `main` the Logo Maker is already a
 door inside the Event Hub Maker (Details › Logo; `STUDIO_ABSORBED.palogo`,

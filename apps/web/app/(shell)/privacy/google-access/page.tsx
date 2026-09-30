@@ -74,7 +74,7 @@ export default function GoogleAccessPage() {
         </p>
         <ul className="ml-5 list-disc space-y-1">
           <li>
-            <strong>YouTube</strong> — so Live Studio can set up the live
+            <strong>YouTube</strong> — so Live Watch can set up the live
             broadcast of a ceremony and put the player on the event page.
           </li>
           <li>
@@ -92,7 +92,7 @@ export default function GoogleAccessPage() {
 
       <LegalSection title="YouTube — broadcasting the ceremony">
         <p>
-          Live Studio is an optional paid feature that streams a ceremony live so
+          Live Watch is an optional paid feature that streams a ceremony live so
           family working abroad can watch it happen. Setnayan asks for exactly
           one Google permission:
         </p>
@@ -168,7 +168,7 @@ export default function GoogleAccessPage() {
       <LegalSection title="Disconnecting">
         <p>
           Either route works, and either is immediate. In Setnayan, open the page
-          for the feature — Live Studio, or the photo page for your event — and
+          for the feature — Live Watch, or the photo page for your event — and
           use its Disconnect button. Or revoke Setnayan from your{' '}
           <a
             href="https://myaccount.google.com/permissions"

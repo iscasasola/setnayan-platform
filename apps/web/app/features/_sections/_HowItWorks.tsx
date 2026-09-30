@@ -93,7 +93,7 @@ const COPY: Record<
         where: [
           'Guest list, invitation site, suppliers, budget, seating, mood board',
           'Day-of mode from T-1h to T+8h with table + schedule + photo wall',
-          'Add-ons (photo delivery, Live Studio, Papic, supplies marketplace, more)',
+          'Add-ons (photo delivery, Live Watch, Papic, supplies marketplace, more)',
         ],
       },
       {
@@ -188,7 +188,7 @@ const COPY: Record<
         where: [
           'Guest list, invitation site, suppliers, budget, seating, mood board',
           'Day-of mode from T-1h to T+8h — table + schedule + photo wall',
-          'Add-ons (photo delivery, Live Studio, Papic, supplies marketplace, at iba pa)',
+          'Add-ons (photo delivery, Live Watch, Papic, supplies marketplace, at iba pa)',
         ],
       },
       {

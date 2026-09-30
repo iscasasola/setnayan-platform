@@ -238,10 +238,10 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'panood',
-    name: 'Live Studio',
+    name: 'Live Watch',
     href: '/panood',
     description:
-      'Live Studio brings the people who can’t be in the room into your day — live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it: they watch your wedding as it happens, right on your own Event Hub. Presence across distance, for everyone you love.',
+      'Live Watch brings the people who can’t be in the room into your day — live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it: they watch your wedding as it happens, right on your own Event Hub. Presence across distance, for everyone you love.',
     railLine: 'Brings the people who can’t be in the room into your day — live.',
     demo: {
       id: 'panood-demo',

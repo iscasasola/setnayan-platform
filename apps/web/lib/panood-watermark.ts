@@ -234,14 +234,14 @@ export const WATERMARK_COPY: Record<WatermarkReason, { badge: string; detail: st
   // missing key is a runtime `undefined.badge`. It renders only if a caller shows the badge strip
   // on a retired decision — the copy says nothing about an overlay, because there isn't one.
   retired: {
-    badge: 'Live Studio',
+    badge: 'Live Watch',
     detail:
-      'A free broadcast carries the “Powered by Setnayan” bar. Unlock Live Studio to put all your cameras on air with your own monogram and lower third.',
+      'A free broadcast carries the “Powered by Setnayan” bar. Unlock Live Watch to put all your cameras on air with your own monogram and lower third.',
   },
   unpaid: {
     badge: 'Preview',
     detail:
-      'Connect every camera and test your whole setup free. Unlock Live Studio to broadcast without the Setnayan overlay.',
+      'Connect every camera and test your whole setup free. Unlock Live Watch to broadcast without the Setnayan overlay.',
   },
   'awaiting-go-live': {
     badge: 'Ready',

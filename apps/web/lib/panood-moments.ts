@@ -192,7 +192,7 @@ export async function fetchPanoodMoments(
       );
       return [];
     }
-    throw new Error(`Failed to read Live Studio moments: ${error.message}`);
+    throw new Error(`Failed to read Live Watch moments: ${error.message}`);
   }
 
   return (data ?? []) as PanoodMomentRow[];

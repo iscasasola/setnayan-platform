@@ -43,12 +43,12 @@
  * 1.8 GB RSS against an 8.66 GB footprint):
  *
  *   config                                          compile   wall     peak
- *   Vercel-as-is: maps ON, 12288, one process       14.7 min  16.5 min see changelog
+ *   Vercel-as-is: maps ON, 12288, one process       14.7 min  16.5 min (not sampled in compile; >= 9.64 GB after)
  *   maps OFF, 12288, one process                     6.8 min   8.3 min 12.35 GB
  *   maps OFF, 12288, webpackBuildWorker              ~5 min    6.1 min 12.45 GB
  *   maps OFF,  6144, webpackBuildWorker              ~5 min    6.1 min  9.46 GB
  *   maps OFF,  4096, webpackBuildWorker              FATAL "JavaScript heap out of memory"
- *   maps OFF,  8192, webpackBuildWorker  ← SHIPPED   5.0 min   6.9 min 10.01 GB
+ *   maps OFF,  8192, webpackBuildWorker  ← SHIPPED   5.0-5.2   6.9-7.0  9.75-10.01 GB (two runs)
  *
  * "maps ON" = what Vercel ran: SENTRY_AUTH_TOKEN set, SENTRY_PROJECT not, so
  * Sentry built ~2,100 source maps per deploy and uploaded none

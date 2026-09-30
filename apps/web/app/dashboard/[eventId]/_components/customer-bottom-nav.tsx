@@ -23,7 +23,6 @@
  * treatment is reused verbatim. Mobile-only (`lg:hidden`).
  */
 
-import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
@@ -34,8 +33,11 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { buildCustomerMenuTree, type EventMenuChild, type EventStudioRow } from '@/lib/customer-menu';
 
-// The "More" chooser — fetched on the first tap, never in the shared bundle.
-const MoreServicesSheet = dynamic(() => import('./more-services-sheet'), { ssr: false });
+/* The "More" chooser — fetched on the first tap with a plain `import()`, never
+   in the first load. ⚠ NOT `next/dynamic`: that pulled next's loadable runtime
+   (~4 KB raw) into this event-layout chunk and put the Maker 0.5 KB over its
+   505 KB ceiling (measured 2026-10-01 against origin/main dc916d040). */
+type MoreSheet = typeof import('./more-services-sheet').default;
 import { customerGuestsBadge } from '@/lib/nav-badges';
 
 export function CustomerBottomNav({
@@ -120,7 +122,7 @@ export function CustomerBottomNav({
   services?: ReadonlyArray<EventMenuChild>;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const [moreLoaded, setMoreLoaded] = useState(false);
+  const [MoreServicesSheet, setSheet] = useState<MoreSheet | null>(null);
   const tree = buildCustomerMenuTree(eventId, { phase, hideKeys, seatingEnabled, websiteEnabled, studioRows, storeShell, services });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
@@ -154,22 +156,22 @@ export function CustomerBottomNav({
         ...(m.key === 'studio' && services?.length
           ? {
               onSelect: () => {
-                setMoreLoaded(true);
                 setMoreOpen(true);
+                if (!MoreServicesSheet) void import('./more-services-sheet').then((x) => setSheet(() => x.default));
               },
             }
           : {}),
       },
     ];
   });
-  const moreTab = items.find((i) => i.key === 'studio');
 
   return (
     <>
       <BottomNav items={items} />
-      {moreLoaded && moreTab && services?.length ? (
+      {/* Mounted only while open — fetched on the first tap, nothing before. */}
+      {moreOpen && MoreServicesSheet && services?.length ? (
         <MoreServicesSheet
-          open={moreOpen}
+          open
           onClose={() => setMoreOpen(false)}
           title="More Services"
           services={services}

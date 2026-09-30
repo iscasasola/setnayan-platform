@@ -62,6 +62,7 @@ import { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { NavItem } from '@/app/_components/nav/types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import type { EventMenuChild, EventStudioRow } from '@/lib/customer-menu';
 import { EventMonogram } from '@/app/_components/event-monogram';
@@ -293,28 +294,17 @@ export function EventRailContext({
                         aria-controls="fd-more-services"
                         onClick={() => setOpen(!open)}
                       >
-                        <span className="fd-gi" aria-hidden="true">
-                          <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-                        </span>
-                        <span className="fd-label-text">{item.label}</span>
-                        <span className="fd-icon-caption">{item.label}</span>
+                        {rowInner(Icon, item.label)}
                         <span className="fd-mchev" aria-hidden="true" />
                       </button>
                       <ul id="fd-more-services" hidden={!open} aria-label={item.label}>
-                        {item.children.map((c) => {
-                          const CIcon = c.icon;
-                          return (
-                            <li key={c.key}>
-                              <Link href={c.href} className="fd-row fd-mrow fd-mchild">
-                                <span className="fd-gi" aria-hidden="true">
-                                  <CIcon className="h-[16px] w-[16px]" strokeWidth={1.75} aria-hidden />
-                                </span>
-                                <span className="fd-label-text">{c.label}</span>
-                                <span className="fd-icon-caption">{c.label}</span>
-                              </Link>
-                            </li>
-                          );
-                        })}
+                        {item.children.map((c) => (
+                          <li key={c.key}>
+                            <Link href={c.href} className="fd-row fd-mrow fd-mchild">
+                              {rowInner(c.icon, c.label)}
+                            </Link>
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   );
@@ -331,13 +321,7 @@ export function EventRailContext({
                     data-on={on ? 'true' : 'false'}
                     aria-current={on ? 'page' : undefined}
                   >
-                    <span className="fd-gi" aria-hidden="true">
-                      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-                    </span>
-                    <span className="fd-label-text">
-                      {item.label}
-                    </span>
-                    <span className="fd-icon-caption">{item.label}</span>
+                    {rowInner(Icon, item.label)}
                     {item.badge ? (
                       <>
                         <span className="fd-ct fd-mono">{formatCount(item.badge.count)}</span>
@@ -353,6 +337,19 @@ export function EventRailContext({
           )}
         </div>
       ))}
+    </>
+  );
+}
+
+/** One rail row's icon, word and 72px-strip caption — shared by every row. */
+function rowInner(Icon: NavItem['icon'], label: string) {
+  return (
+    <>
+      <span className="fd-gi" aria-hidden="true">
+        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+      </span>
+      <span className="fd-label-text">{label}</span>
+      <span className="fd-icon-caption">{label}</span>
     </>
   );
 }

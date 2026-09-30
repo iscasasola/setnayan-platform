@@ -129,9 +129,12 @@ test('5 · the phone bar has no sub-rows — its "More" tab opens the chooser sh
   assert.ok(!/<BottomNav[^>]*menus=/.test(nav), 'the bar is an accordion again');
   assert.match(nav, /m\.key === 'studio' && services\?\.length/, 'More does not open the chooser');
   assert.match(nav, /onSelect:/);
-  // Lazy: the sheet (and the shared Sheet it uses) never ride the shared bundle.
-  assert.match(nav, /dynamic\(\(\) => import\('\.\/more-services-sheet'\)/);
+  // Lazy: the sheet (and the shared Sheet it uses) never ride the first load —
+  // a plain `import()` on the first tap. NOT `next/dynamic`, whose loadable
+  // runtime cost the Maker 0.5 KB over its ceiling (measured 2026-10-01).
+  assert.match(nav, /import\('\.\/more-services-sheet'\)\.then/);
   assert.ok(!/from '\.\/more-services-sheet'/.test(nav), 'the chooser is imported eagerly');
+  assert.ok(!/from 'next\/dynamic'/.test(nav), 'next/dynamic is back in the event layout chunk');
   // The sheet draws exactly what it is handed.
   const sheet = read('_components/more-services-sheet.tsx');
   assert.match(sheet, /services\.map\(/);

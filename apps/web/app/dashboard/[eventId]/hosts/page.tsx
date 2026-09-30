@@ -160,6 +160,13 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       redirect(partHref(`/dashboard/${eventId}/guests`, search, { gview: GUEST_LIST_PART_VIEW.hosts }));
     }
   }
+  // 🔑 MAY THIS VIEWER SEE A GUEST'S NAME? The seats below are named by their
+  // guest rows. Embedded, the guest list's own gate already answered — a
+  // delegate without `guest_list` never reaches the part (guests/page.tsx
+  // returns NotSharedWithYou first). Standalone, the redirect above leaves
+  // exactly one kind of viewer on this page: that delegate. So the guest read
+  // is conditioned on the door, and a seat they may not name shows "—".
+  const mayNameSeatGuests = embedded;
 
   const admin = createAdminClient();
   // Event name + moderator rows both key off eventId and don't depend on each
@@ -258,7 +265,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   // the same rule the guest list draws its lock from).
   const seatGuestIds = all.map((r) => r.guest_id).filter((id): id is string => !!id);
   const guestById: Record<string, SeatGuest> = {};
-  if (seatGuestIds.length > 0) {
+  if (seatGuestIds.length > 0 && mayNameSeatGuests) {
     // The canonical guest column list (`lint:dup-rule` holds every guests read
     // to it) — this page uses the name parts and the role.
     const { data: guestRows, error: guestRowsError } = await admin

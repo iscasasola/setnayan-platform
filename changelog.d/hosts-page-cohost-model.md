@@ -13,8 +13,10 @@ Access control where the model says it lives.
   `DEFAULT now()`, stamped on seats nobody has joined — measured on prod). A seat
   picked from the guest list carries no invitation token, so it was never listed
   as "Waiting to join" under the sentence that described it; it is now, by the
-  guest's name (one batched `guests` read through `ENTOURAGE_COLUMNS`), with a
-  door to the card where its Access is set. Anchors: `const accepted = all.filter((r) => r.user_id)`,
+  guest's name (one batched `guests` read through `ENTOURAGE_COLUMNS`,
+  conditioned on the viewer being allowed the guest list — `mayNameSeatGuests`,
+  held by `lib/event-viewer.test.ts`), with a door to the card where its Access
+  is set. Anchors: `const accepted = all.filter((r) => r.user_id)`,
   `data-waiting-guest-seat`.
 - A seat is named by the guest list's Access word — new `seatAccessWord` in
   `lib/guest-access.ts` (Co-host · Limited helper; the hired planner keeps its own

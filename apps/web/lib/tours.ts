@@ -21,6 +21,7 @@ import {
   EyeOff,
   Heart,
   Images,
+  Laptop,
   ClipboardList,
   LayoutPanelLeft,
   Maximize2,
@@ -107,6 +108,7 @@ export type TourKey =
   | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
   | 'customer_people_v1'
+  | 'customer_guest_invite_v1'
   | 'customer_apply_pro_v1'
   | 'discover_upcoming_v1'
   | 'admin_users_v1'
@@ -135,6 +137,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_add_scene_v1',
   'customer_hero_designs_v1',
   'customer_people_v1',
+  'customer_guest_invite_v1',
   'customer_apply_pro_v1',
   'discover_upcoming_v1',
   'admin_users_v1',
@@ -800,6 +803,37 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   },
   // People, one place, one picker (owner 2026-09-28, the People redesign —
   // slides ①②③ on frame B of people-redesign.html).
+  /* 📨 THE GUEST LIST'S INVITE COLUMN (owner 2026-09-30: *"the personal QR is
+     found on the guest list … and instructions on how to use it"*). Mounted on
+     the Guest list (`guests/page.tsx`). No "email": Setnayan sends guests
+     nothing — every invite leaves from the couple's own phone. */
+  customer_guest_invite_v1: {
+    key: 'customer_guest_invite_v1',
+    label: 'Guest list — Invite',
+    blurb: 'Sending each guest their own message and QR from the Invite column.',
+    slides: [
+      {
+        Icon: QrCode,
+        title: 'Each guest has their own QR',
+        body: 'Every guest on your list has a personal QR and link. It opens their own invitation, with their name on it.',
+      },
+      {
+        Icon: Send,
+        title: 'Tap Invite to send it',
+        body: 'Pick Messenger, Viber or any app &mdash; the message and their QR go together. The row then shows it was sent.',
+      },
+      {
+        Icon: Laptop,
+        title: 'On a computer',
+        body: 'Tap Invite, then <b>Copy message</b> and <b>Copy QR</b>, and paste both into the chat. Tap <b>Mark as sent</b> when it is on its way.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Replies update here by themselves',
+        body: 'When a guest answers or gets their ticket, this list changes on its own. Nothing to type in.',
+      },
+    ],
+  },
   customer_people_v1: {
     key: 'customer_people_v1',
     label: 'Your people',

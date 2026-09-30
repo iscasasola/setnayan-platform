@@ -92,6 +92,21 @@ test('the declared column widths cannot exceed the table', () => {
   assert.ok(pcts.length > 0);
 });
 
+test('a fixed-pixel column has a budget too, so it cannot eat Name by another unit', () => {
+  // 🪤 THE PERCENTAGE CEILING ABOVE CANNOT SEE A PIXEL WIDTH. The Invite column
+  // (owner 2026-09-30) is `w-[104px]` — one button of known size — and the
+  // checkbox is `w-10` (40px). Both come out of Name exactly as a percentage
+  // does, so without this budget a `w-[400px]` column would sail past the 55%
+  // check above. 144px = the checkbox + the Invite button; a new fixed column
+  // must come with a reason to raise it.
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  const px = [...head.matchAll(/\bw-\[(\d+)px\]/g)].map((m) => Number(m[1]));
+  const rem = [...head.matchAll(/\bw-(\d+)\b/g)].map((m) => Number(m[1]) * 4);
+  assert.ok(px.length + rem.length >= 2, `found ${px.length + rem.length} fixed widths — this guard is blind`);
+  const total = [...px, ...rem].reduce((a, b) => a + b, 0);
+  assert.ok(total <= 144, `fixed-pixel columns claim ${total}px (${[...px, ...rem].join(' + ')}) — Name keeps the leftover`);
+});
+
 test('the header and every body cell share ONE horizontal padding', () => {
   // ⛔ Trimming a header to px-2 buys 8px and puts it 4px left of every cell
   // beneath it. Space comes out of the width, never out of the padding.

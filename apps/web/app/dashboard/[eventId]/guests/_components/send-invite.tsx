@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
-import { Check, Copy, Download, Send, Undo2 } from 'lucide-react';
+import { Check, Copy, Download, QrCode, Send, Undo2 } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
+import { saveImageToDevice } from '@/lib/save-to-device';
+import { Popover } from './overlay-primitives';
 import {
   buildGuestInviteMessage,
   defaultInviteTemplate,
@@ -92,6 +94,80 @@ function useQrFile(guestId: string, name: string, enabled: boolean): File | null
     };
   }, [guestId, name, enabled]);
   return file;
+}
+
+/**
+ * THE ONE SHARE — the phone's sheet with the message and, where the sheet takes
+ * a file, the guest's QR. Shared by `SendInviteActions` (the guest card and the
+ * one-by-one run) and `GuestInviteCell` (the Guest list's Invite column), so a
+ * row and a card can never send two different things.
+ *
+ *   'shared' — an app took it: the couple's send, stamp Sent ✓.
+ *   'closed' — they closed the sheet: not a failure, nothing was sent.
+ *   'copy'   — no sheet, or it refused (a webview without file sharing, a
+ *              spent activation): fall back to copying, which always works.
+ */
+export async function shareInvite(
+  file: File | null,
+  message: (qrAttached: boolean) => string,
+): Promise<'shared' | 'closed' | 'copy'> {
+  const nav = typeof navigator !== 'undefined' ? (navigator as ShareNav) : null;
+  const path = inviteSendPath({
+    share: typeof nav?.share === 'function',
+    filesOk: Boolean(file && nav?.canShare?.({ files: [file] })),
+  });
+  if (!nav || path === 'copy') return 'copy';
+  try {
+    await nav.share(
+      path === 'files' && file ? { files: [file], text: message(true) } : { text: message(false) },
+    );
+    return 'shared';
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') return 'closed';
+    return 'copy';
+  }
+}
+
+/**
+ * COPY QR — the guest's QR PNG onto the clipboard as an IMAGE, so it pastes
+ * straight into Messenger or Viber on a computer (owner 2026-09-30: *"copy a
+ * message with the link and the photo with it"*).
+ *
+ * 🪤 THE BLOB IS HANDED OVER AS A PROMISE. Safari refuses `clipboard.write`
+ * once the click's activation is spent, and an `await fetch()` before it
+ * spends it; `ClipboardItem` accepts the pending blob, which keeps the write
+ * inside the click.
+ *
+ * A browser that refuses an image on the clipboard (older Firefox, some
+ * in-app browsers) gets the PNG as a file instead — the same save the card's
+ * Download QR uses (`saveImageToDevice`), so it never opens a new page.
+ */
+export async function copyQrImage(
+  guestId: string,
+  name: string,
+): Promise<'copied' | 'saved' | 'failed'> {
+  const url = `/api/website/qr/guest/${guestId}`;
+  try {
+    if (typeof ClipboardItem !== 'undefined' && typeof navigator.clipboard?.write === 'function') {
+      const png = fetch(url, { credentials: 'same-origin' })
+        .then((r) => {
+          if (!r.ok) throw new Error(`qr ${r.status}`);
+          return r.blob();
+        })
+        .then((b) => (b.type === 'image/png' ? b : new Blob([b], { type: 'image/png' })));
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+      return 'copied';
+    }
+  } catch {
+    /* Refused — save the file instead, below. */
+  }
+  const saved = await saveImageToDevice(url, qrFileName(name));
+  return saved === 'failed' ? 'failed' : 'saved';
+}
+
+/** A phone or tablet — a finger, not a mouse. SSR-safe: false on the server. */
+function isTouchDevice(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true;
 }
 
 type Said =
@@ -185,26 +261,11 @@ export function SendInviteActions({
   }
 
   async function send() {
-    const nav = typeof navigator !== 'undefined' ? (navigator as ShareNav) : null;
-    const path = inviteSendPath({
-      share: typeof nav?.share === 'function',
-      filesOk: Boolean(file && nav?.canShare?.({ files: [file] })),
-    });
-    if (nav && path !== 'copy') {
-      try {
-        await nav.share(
-          path === 'files' && file ? { files: [file], text: message(true) } : { text: message(false) },
-        );
-        // The phone handed it to an app — that is the couple's send.
-        mark(true);
-        return;
-      } catch (err) {
-        // They closed the sheet — not a failure, and nothing was sent.
-        if ((err as { name?: string })?.name === 'AbortError') return;
-        // Any other refusal (a webview without file sharing, a spent
-        // activation) falls through to the copy, which always works.
-      }
-    }
+    const out = await shareInvite(file, message);
+    // The phone handed it to an app — that is the couple's send.
+    if (out === 'shared') return mark(true);
+    // They closed the sheet — not a failure, and nothing was sent.
+    if (out === 'closed') return;
     await copyText('copied-desktop');
   }
 
@@ -476,5 +537,265 @@ export function GuestSendInvite({
         </details>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * THE GUEST LIST'S INVITE COLUMN — one compact control per guest row (owner
+ * 2026-09-30: *"the personal QR is found on the guest list. and we would want
+ * the table to have that column to copy a message with the link and the photo
+ * with it. and instructions on how to use it"*).
+ *
+ * 🔑 NOT A SECOND SENDER. It is the card's Send invite in a row's width: the
+ * same message (`buildGuestInviteMessage`), the same QR file fetched ahead of
+ * the tap (`useQrFile`), the same share (`shareInvite`), and the same ONE
+ * writer for Sent ✓ (`setGuestInvitationSent`, which revalidates this page and
+ * the Invitation page, so "Not sent yet (N)" falls).
+ *
+ *   · A PHONE — one tap opens the share sheet with the message AND the QR.
+ *     An app taking it is the couple's send → Sent ✓. Closing it sends nothing.
+ *   · A COMPUTER — Copy message, then Copy QR, and paste both. 🔑 A COPY IS
+ *     NOT A SEND (the card's rule), so it offers "Mark as sent", never stamps.
+ *
+ * 🪤 THE QR IS FETCHED ONLY FOR A ROW ON SCREEN, AND ONLY ON A PHONE. The card
+ * fetches on mount because there is one card; a list of 180 rows fetching 180
+ * PNGs on arrival is a cost nobody asked for. A row that has been seen keeps
+ * its file, so a tap never waits on the network (iOS spends the tap's
+ * activation on any `await` before `navigator.share`).
+ */
+export function GuestInviteCell({
+  eventId,
+  guest,
+  facts,
+  template,
+  size = 'row',
+}: {
+  eventId: string;
+  guest: SendInviteGuest;
+  facts: InviteEventFacts;
+  template: string | null;
+  /** 'phone' draws the icon-led pill the phone's list row has room for. */
+  size?: 'row' | 'phone';
+}) {
+  const [sentAt, setSentAt] = useState<string | null>(guest.sentAt);
+  const [open, setOpen] = useState(false);
+  const [said, setSaid] = useState<
+    | { kind: 'message' }
+    | { kind: 'qr' }
+    | { kind: 'qr-saved' }
+    | { kind: 'manual'; text: string }
+    | { kind: 'error'; text: string }
+    | null
+  >(null);
+  const [pending, startTransition] = useTransition();
+  const [onScreen, setOnScreen] = useState(false);
+  const ref = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
+
+  useEffect(() => setSentAt(guest.sentAt), [guest.sentAt]);
+
+  // Seen once → fetch once. Only a touch device will share the file.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || onScreen || !isTouchDevice() || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setOnScreen(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '200px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [onScreen]);
+  const file = useQrFile(guest.guestId, guest.fullName, Boolean(guest.inviteUrl) && onScreen);
+
+  if (!guest.inviteUrl) {
+    return (
+      <span
+        className="text-xs text-ink/40"
+        title={`${first} has no personal link yet. Re-issue their QR on the Invitation page.`}
+        data-guest-invite-cell="no-link"
+      >
+        —
+      </span>
+    );
+  }
+
+  const message = (qrAttached: boolean) =>
+    buildGuestInviteMessage({
+      ...facts,
+      formalName: guest.formalName,
+      firstName: guest.firstName,
+      guestName: guest.fullName,
+      inviteUrl: guest.inviteUrl ?? '',
+      template,
+      qrAttached,
+    }) ?? '';
+
+  function mark(sent: boolean) {
+    startTransition(async () => {
+      const res = await setGuestInvitationSent(eventId, guest.guestId, sent);
+      if (res.ok) {
+        setSentAt(res.sentAt);
+        setSaid(null);
+      } else {
+        setSaid({
+          kind: 'error',
+          text: sent ? 'We couldn’t save that it was sent. Try again.' : 'We couldn’t undo that just now. Try again.',
+        });
+      }
+    });
+  }
+
+  async function invite() {
+    setSaid(null);
+    // A phone: the share sheet, message + QR together. A computer: the panel —
+    // its share sheet (Mail, AirDrop) is not where Messenger and Viber live.
+    if (isTouchDevice()) {
+      const out = await shareInvite(file, message);
+      if (out === 'shared') return mark(true);
+      if (out === 'closed') return;
+    }
+    setOpen(true);
+  }
+
+  async function copyMessage() {
+    const text = message(false);
+    try {
+      await navigator.clipboard.writeText(text);
+      setSaid({ kind: 'message' });
+    } catch {
+      setSaid({ kind: 'manual', text });
+    }
+  }
+
+  async function copyQr() {
+    const out = await copyQrImage(guest.guestId, guest.fullName);
+    setSaid(
+      out === 'copied'
+        ? { kind: 'qr' }
+        : out === 'saved'
+          ? { kind: 'qr-saved' }
+          : { kind: 'error', text: 'We couldn’t get the QR just now. Try again.' },
+    );
+  }
+
+  const small =
+    'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-full border border-ink/20 bg-cream px-3 text-[13px] font-medium text-ink disabled:opacity-60';
+  const sentDay = sentAt
+    ? new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })
+    : null;
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        onClick={invite}
+        disabled={pending}
+        aria-haspopup="dialog"
+        aria-label={sentAt ? `Invite ${guest.fullName} — sent ${sentDay}` : `Invite ${guest.fullName}`}
+        title={sentAt ? `Sent ${sentDay}` : undefined}
+        data-guest-invite-cell=""
+        data-sent={sentAt ? 'true' : undefined}
+        className={`relative z-20 inline-flex min-h-[44px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full font-medium transition-colors disabled:opacity-60 ${
+          size === 'phone' ? 'px-2 text-xs' : 'px-2.5 text-[13px]'
+        } ${
+          sentAt
+            ? 'text-ink/60 hover:bg-ink/5 hover:text-ink'
+            : 'text-terracotta-700 hover:bg-terracotta/[0.06]'
+        }`}
+      >
+        {sentAt ? (
+          <Check aria-hidden className="h-3.5 w-3.5 text-success-600" strokeWidth={2.25} />
+        ) : (
+          <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
+        )}
+        Invite
+      </button>
+      {open ? (
+        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={272} role="dialog" labelledById={titleId}>
+          <div className="space-y-2 p-1.5" data-guest-invite-panel="">
+            <p id={titleId} className="text-sm font-medium text-ink">
+              Invite {first}
+            </p>
+            <div className="flex gap-1.5">
+              <button type="button" onClick={copyMessage} className={small} data-guest-invite-copy="">
+                {said?.kind === 'message' ? (
+                  <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2.25} />
+                ) : (
+                  <Copy aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                )}
+                {said?.kind === 'message' ? 'Copied ✓' : 'Copy message'}
+              </button>
+              <button type="button" onClick={copyQr} className={small} data-guest-invite-copy-qr="">
+                {said?.kind === 'qr' ? (
+                  <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2.25} />
+                ) : (
+                  <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                )}
+                {said?.kind === 'qr' ? 'Copied ✓' : 'Copy QR'}
+              </button>
+            </div>
+            <p className="text-xs leading-relaxed text-ink/60">Paste the message, then paste the QR.</p>
+            <div aria-live="polite" className="space-y-1.5">
+              {said?.kind === 'qr-saved' ? (
+                <p className="text-xs text-ink/75">Your browser saved the QR as a file instead — attach it to the message.</p>
+              ) : null}
+              {said?.kind === 'manual' ? (
+                <>
+                  <p className="text-xs text-ink/75">The copy was blocked — select the message and copy it.</p>
+                  <textarea
+                    readOnly
+                    value={said.text}
+                    rows={5}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="w-full rounded-lg border border-ink/15 bg-white p-2 text-xs leading-relaxed text-ink"
+                  />
+                </>
+              ) : null}
+              {said?.kind === 'error' ? (
+                <p role="alert" className="text-xs text-danger-700">
+                  {said.text}
+                </p>
+              ) : null}
+            </div>
+            <div className="border-t border-ink/[0.06] pt-1.5">
+              {sentAt ? (
+                <p className="flex items-center gap-1.5 text-[13px] text-ink" data-guest-invite-sent="">
+                  <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2.25} />
+                  <span className="font-medium">Sent ✓</span>
+                  <span className="text-ink/55">{sentDay}</span>
+                  <button
+                    type="button"
+                    onClick={() => mark(false)}
+                    disabled={pending}
+                    className="ml-auto inline-flex min-h-[44px] items-center gap-1 rounded-full px-2 text-[13px] font-medium text-ink/70 hover:text-ink disabled:opacity-60"
+                  >
+                    <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    Undo
+                  </button>
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => mark(true)}
+                  disabled={pending}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-full bg-mulberry px-4 text-[13px] font-medium text-cream disabled:opacity-60"
+                  data-guest-invite-mark=""
+                >
+                  <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  {pending ? 'Saving…' : 'Mark as sent'}
+                </button>
+              )}
+            </div>
+          </div>
+        </Popover>
+      ) : null}
+    </>
   );
 }

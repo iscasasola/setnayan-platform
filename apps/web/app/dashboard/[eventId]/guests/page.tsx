@@ -111,6 +111,8 @@ import { formatCount } from '@/lib/format-number';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
 import { accessTag } from '@/lib/guest-access';
 
+import { MiniTour } from '@/app/_components/mini-tour';
+
 export const metadata = { title: 'Guests' };
 
 // The `?inspect=` selection param is read by the inspector shell (useSearchParams);
@@ -816,10 +818,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // re-filtering/sorting never re-signs; signing runs in parallel per the
   // displayUrlForStoredAsset doc guidance.
   // The base every guest's own invitation link (and NFC tag) is built from.
-  const invitationBase = await fetchInvitationBase(
-    eventId,
-    (eventRow.data as { slug?: string | null } | null)?.slug ?? null,
-  );
+  // …and, beside it, the event's words for every row's Invite (owner
+  // 2026-09-30: the Invite column). ONE read for the whole list — the same one
+  // the open card below reuses, so a row and the card can never word it apart.
+  const [invitationBase, inviteSetup] = await Promise.all([
+    fetchInvitationBase(eventId, (eventRow.data as { slug?: string | null } | null)?.slug ?? null),
+    loadInviteSetup(supabase, eventId),
+  ]);
 
   const photoDisplayUrls = await guestPhotoDisplayUrls(guests);
 
@@ -856,13 +861,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
      `loadGuestCard` is the one extra round trip a selection costs; it is only
      paid when a guest is actually open. */
-  const [inspectedCard, inspectedInviteSetup] = inspectedGuest
-    ? await Promise.all([
-        loadGuestCard(supabase, eventId, inspectedGuest.guest_id),
-        // Send invite · Copy message: the event's words + the couple's wording.
-        loadInviteSetup(supabase, eventId),
-      ])
-    : [null, null];
+  const inspectedCard = inspectedGuest
+    ? await loadGuestCard(supabase, eventId, inspectedGuest.guest_id)
+    : null;
+  // Send invite · Copy message: the event's words + the couple's wording —
+  // read once above for the Invite column.
+  const inspectedInviteSetup = inspectedGuest ? inviteSetup : null;
   const inspectorBody = inspectedGuest && inspectedCard ? (
     <InspectorColumn
       eyebrow="Guest"
@@ -1341,6 +1345,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               accessTagByGuest={accessTagByGuest}
               // From the FULL roster, before any filter (frame G, 2026-09-29).
               seatsByBringer={bringerSeatsFrom(guests)}
+              // The Invite column (owner 2026-09-30): every guest's own link +
+              // the event's words, read once. No base → no link → "—".
+              invite={
+                invitationBase
+                  ? { base: invitationBase, facts: inviteSetup.facts, template: inviteSetup.template }
+                  : null
+              }
               photoDisplayUrls={photoDisplayUrls}
               accountFaceByGuest={accountFaceByGuest}
               grouping={grouping}
@@ -1393,6 +1404,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           InspectorLayout at every width. */}
       <UndoToastHost />
 
+      {/* How the Invite column works, once, on the first visit (owner
+          2026-09-30: "and instructions on how to use it"; 2026-09-25: every
+          feature gets a first-visit tour — the shipped MiniTour, never a new
+          mechanism). */}
+      <MiniTour tourKey="customer_guest_invite_v1" />
     </section>
   );
 

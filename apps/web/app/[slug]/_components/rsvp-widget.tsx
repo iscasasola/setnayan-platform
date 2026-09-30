@@ -417,8 +417,13 @@ export function RsvpWidget({
         <LockedAnswer status={guest.rsvp_status} />
       ) : (
         <fieldset data-rsvp-step className="space-y-2">
-          <legend className="mb-2 font-serif text-xl text-ink">
-            {words.solemn ? 'Will you be with us?' : 'Will you be there?'}
+          {/* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
+              "Your reply" over "Will you celebrate with us?". */}
+          <legend className="mb-3">
+            <span className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
+            <span className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">
+              {words.solemn ? 'Will you be with us?' : 'Will you celebrate with us?'}
+            </span>
           </legend>
           {(
             // The celebratory labels are the spec's reply-card wording and stay
@@ -436,7 +441,7 @@ export function RsvpWidget({
           ).map((option) => (
             <label
               key={option.key}
-              className="flex min-h-12 cursor-pointer items-center rounded-full bg-ink/[0.05] px-5 font-pahina text-base italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
+              className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
             >
               <input
                 type="radio"
@@ -679,7 +684,7 @@ export function RsvpWidget({
         <div className="space-y-5">
           <TermsTick />
           <SubmitButton className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
-            Send
+            Send my reply
           </SubmitButton>
         </div>
       ) : (

@@ -47,9 +47,24 @@ export const LANDING_WORDS = {
   missedSub: 'Thank you for letting us know.',
   openInSafari: 'Open in Safari',
   openInApp: 'Open in the Setnayan app',
-  openInBrowser: 'Open in Chrome',
-  inAppNote: 'You’re inside Messenger’s browser — replying works here.',
+
+  /** Frame 1b — the thin bar of ours inside Messenger / Instagram / Facebook. */
+  inAppSafari: 'Open in Safari to save your ticket',
+  inAppChrome: 'Open in Chrome to save your ticket',
+  replied: 'You replied — see you there',
+  repliedSolemn: 'You replied — thank you',
 } as const;
+
+/**
+ * The heading after a reply when the couple wrote none of their own (the
+ * Maker's RSVP stage, "After they submit" / "When they decline"): the Fable
+ * frames' own words — "You replied — see you there" (frame 3) and "We'll miss
+ * you." (frame 4). `thankYouWords` puts the couple's words in their place.
+ */
+export function landingHeadline(status: string, solemn = false): string {
+  if (status === 'declined') return LANDING_WORDS.missed;
+  return solemn ? LANDING_WORDS.repliedSolemn : LANDING_WORDS.replied;
+}
 
 // ─── Reply and ticket ───────────────────────────────────────────────────────
 
@@ -152,18 +167,16 @@ export function landingMessage(input: InviteEventFacts & {
 export function howToUseLines(input: {
   /** `ticketShowsTable` — the event's day has begun in Manila. */
   seatDay: boolean;
-  /** "March 13" — the day, as `formatInviteDate` writes it; null when not a real day. */
+  /** "March 13" — the day, as `landingDayLabel` writes it; null when not a real day. */
   dateLabel: string | null;
   /** "Table 7" — only on the day, only when they have one. */
   table?: string | null;
-}): [string, string, string] {
+}): string[] {
+  // Frame 6 — on the day: the door, then the table.
   if (input.seatDay) {
-    return [
-      'Save it to your photos.',
-      'Show it at the door.',
-      input.table ? `Find ${input.table} in the reception.` : 'Your seat shows on it once you’re placed.',
-    ];
+    return ['Show this at the door.', input.table ? `Find ${input.table} in the reception.` : 'Your seat shows on it once you’re placed.'];
   }
+  // Frame 3 — before the day: three lines, the seat promised for the day.
   return [
     'Save it to your photos.',
     'Show it at the door.',
@@ -171,14 +184,18 @@ export function howToUseLines(input: {
   ];
 }
 
-/** "March 13" — the day, month and date only (the prototype's line); null without a real day. Read as text, in UTC, so it never slides a day. */
-export function landingDayLabel(eventDate: string | null | undefined, precision: string | null | undefined): string | null {
+/** "March 13" (or "February 13, 2027" with `year`) — the prototype's lines; null without a real day. Read as text, in UTC, so it never slides a day. */
+export function landingDayLabel(
+  eventDate: string | null | undefined,
+  precision: string | null | undefined,
+  opts: { year?: boolean } = {},
+): string | null {
   if (precision !== 'day') return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(eventDate ?? '');
   if (!m) return null;
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
   if (Number.isNaN(d.getTime()) || d.getUTCMonth() !== Number(m[2]) - 1) return null;
-  return d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', ...(opts.year ? { year: 'numeric' } : {}) });
 }
 
 // ─── The pop-up: a new or changed ticket, once per version ─────────────────

@@ -214,7 +214,8 @@ test('2 · the Terms tick is on the Send step: unticked, required, one name', as
   assert.match(tick, /name="terms_agreed"/);
   assert.match(tick, /required/);
   assert.doesNotMatch(tick, /checked/, 'the Terms tick is pre-ticked — that is not an agreement');
-  assert.match(html, />Send</, 'the one button is not "Send"');
+  // The Fable frame 2c's words (owner 2026-09-30): "Send my reply".
+  assert.match(html, />Send my reply</, 'the one button is not "Send my reply"');
 });
 
 test('2 · 🔒 the door action refuses an unticked Send, carries the tick in a server cookie, and never lets Send email a sign-in link', () => {

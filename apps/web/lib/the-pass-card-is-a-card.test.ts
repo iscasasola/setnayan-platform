@@ -244,7 +244,8 @@ test('an unknown table is OMITTED — never "Table TBA"', () => {
     const look = printLookFor('house');
     const withTable = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, PASS, design);
     const without = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, { ...PASS, seat: null }, design);
-    assert.equal(withTable.ops.length - without.ops.length, 2, `${design}: the TABLE label and value are the only ink that goes`);
+    // The Fable ticket (Classic) draws the day's seat as ONE pill in the party line's place.
+    assert.equal(withTable.ops.length - without.ops.length, design === 'classic' ? 1 : 2, `${design}: the table's own ink is the only ink that goes`);
   }
 });
 

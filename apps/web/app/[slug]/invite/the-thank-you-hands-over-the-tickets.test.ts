@@ -47,7 +47,7 @@ test('1 · the landing page draws their Digital ticket only when they have one, 
   assert.ok(at > -1, 'the ticket section moved — re-point this guard');
   const block = ENTER.slice(at, ENTER.indexOf('<YourGuests', at));
   assert.match(block, /<TicketPicture src=\{PASS_CARD_ROUTE\}/, 'the ticket is no longer the route’s own picture');
-  assert.match(block, /<SavePassCardButton hrefs=\{\[PASS_CARD_ROUTE\]\}/, 'the ticket lost its Save');
+  assert.match(block, /<SavePassCardButton\s+hrefs=\{\[PASS_CARD_ROUTE\]\}/, 'the ticket lost its Save');
   assert.match(block, /Your \{PASS_CARD_WORDS\.digitalTicket\}/);
   assert.match(block, /<InviteQrPanel\b/, 'a guest with no ticket lost their QR');
   // Order: ticket → guests → link → save.

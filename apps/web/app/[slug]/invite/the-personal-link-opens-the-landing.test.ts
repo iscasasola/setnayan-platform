@@ -35,6 +35,7 @@ import {
   howToUseLines,
   inAppHandoff,
   landingDayLabel,
+  landingHeadline,
   landingMessage,
   landingReplyOf,
   landingTicketOf,
@@ -112,7 +113,7 @@ test('D · the ticket: faded before a Yes, full after, none after a No', () => {
   assert.equal(landingTicketOf({ reply: 'yes', eligibility: 'none' }), 'other');
   // Wiring: faded carries "Reply to confirm your ticket"; full carries Save.
   const faded = ENTER.slice(ENTER.indexOf('data-landing-ticket="faded"'), ENTER.indexOf("ticket === 'none' ? null"));
-  assert.match(faded, /opacity-35 grayscale/, 'the unconfirmed ticket is not faded');
+  assert.match(faded, /opacity-\[0\.42\] grayscale/, 'the unconfirmed ticket is not faded (Fable frame 1: 42 %, grey)');
   assert.match(faded, /\{LANDING_WORDS\.replyToConfirm\}/);
   assert.doesNotMatch(faded, /SavePassCardButton/, 'an unconfirmed ticket can be saved');
   const full = ENTER.slice(ENTER.indexOf('data-landing-ticket="full"'), ENTER.indexOf('data-landing-ticket="faded"'));
@@ -134,7 +135,8 @@ test('E · the seat shows only from 00:00 Manila on the event date', () => {
     'Show it at the door.',
     'On March 13 it will also show your seat.',
   ], 'a table was named before the day');
-  assert.equal(howToUseLines({ seatDay: true, dateLabel: 'March 13', table: 'Table 7' })[2], 'Find Table 7 in the reception.');
+  // Frame 6 — on the day, two lines: the door, then the table.
+  assert.deepEqual(howToUseLines({ seatDay: true, dateLabel: 'March 13', table: 'Table 7' }), ['Show this at the door.', 'Find Table 7 in the reception.']);
   // The page reads the seat only on the day.
   assert.match(ENTER, /const ownSeat = canvas \|\| !seatDay \? null : /, 'the landing page reads a seat before the day');
 });
@@ -195,7 +197,7 @@ test('G · the in-app bar appears ONLY inside Messenger / Facebook / Instagram',
   const { InAppBar } = await import('../_components/in-app-bar');
   assert.equal(renderToStaticMarkup(React.createElement(InAppBar, { handoff: inAppHandoff(UA.iosSafari, LINK) })), '');
   const ios = renderToStaticMarkup(React.createElement(InAppBar, { handoff: inAppHandoff(UA.iosMessenger, LINK) }));
-  assert.match(ios, />Open in Safari</);
+  assert.match(ios, />Open in Safari to save your ticket</);
   assert.match(ios, />Open in the Setnayan app</);
   const androidBar = renderToStaticMarkup(React.createElement(InAppBar, { handoff: inAppHandoff(UA.androidFacebook, LINK) }));
   assert.match(androidBar, /href="intent:\/\//);
@@ -223,4 +225,30 @@ test('H · the couple’s message: their words, the name exactly as given, no li
   assert.equal(theirs, 'Mabuhay Mr. Manuel Cortez Casasola! Join us for Ana & Miguel’s wedding.', 'the couple’s own words were not used, or the ask stayed after a reply');
   assert.doesNotMatch(theirs, /\{link\}|https?:/, 'the landing message carries a link');
   assert.match(ENTER, /formalName: guestFullName\(\{\s*display_name: guest\.display_name/, 'the name is not the name as given');
+});
+
+// ═══ I · the approved Fable look ════════════════════════════════════════════
+
+test('I · the Fable frames: the couple as the brand line, the ✓ pill, "We’ll miss you.", the bar above the page, the day’s words', async () => {
+  // Frames 3 · 4 — the headings when the couple wrote none of their own.
+  assert.equal(landingHeadline('attending'), 'You replied — see you there');
+  assert.equal(landingHeadline('declined'), 'We’ll miss you.');
+  assert.match(ENTER, /const ownHeadline = landingHeadline\(status, words\.solemn\);/);
+  assert.match(ENTER, /data-landing-done=""/, 'the "✓ You replied" pill is gone');
+  assert.match(ENTER, /\{ownMessage \?\? LANDING_WORDS\.missedSub\}/, 'the No card lost "Thank you for letting us know."');
+  // Frame 1 — "Please reply by …", the same date the reply page shows.
+  assert.match(ENTER, /resolveReplyBy\(\{/);
+  assert.equal(landingDayLabel('2027-02-13', 'day', { year: true }), 'February 13, 2027');
+  // Frames 1 · 6 — the words of the one way in.
+  const { arrivalDestinationWords } = await import('@/lib/invite-destination');
+  assert.equal(arrivalDestinationWords('invitation').cta, 'Open the invitation');
+  assert.equal(arrivalDestinationWords('day_of').cta, 'Open the event');
+  // Frame 6 — "· Today" beside the couple on the day.
+  assert.match(ENTER, /\{hosts\} <span className="text-mulberry">· Today<\/span>/);
+  // Frame 1b — the thin bar sits ABOVE the page, outside the card.
+  assert.ok(ENTER.indexOf('<InAppBar handoff={inApp} />') < ENTER.indexOf('<DoorShell'), 'the in-app bar moved inside the page');
+  // The ticket on the page IS the saved picture — the Fable ticket (Classic), one drawing.
+  const LAYOUT = stripComments(readFileSync(join(APP, '..', 'lib', 'print-layout.ts'), 'utf8'));
+  assert.match(LAYOUT, /function cardFootFacts\(data: PrintSetData, pass: PrintPass\): CardFacts \{/, 'the Fable foot row (DATE · ARRIVE) is gone');
+  assert.match(LAYOUT, /\{ label: 'Date', value: date \}/);
 });

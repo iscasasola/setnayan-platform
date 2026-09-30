@@ -4,7 +4,6 @@ import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { joinDoorMeta } from '@/lib/join-door-meta';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { arrivalDestinationFor, arrivalDestinationWords } from '@/lib/invite-destination';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -18,7 +17,7 @@ import { readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.s
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { eventWordsFor } from '../../_lib/event-words';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
-import { thankYouHeadline, thankYouWords, replySummary } from '../../_lib/thank-you-words';
+import { thankYouWords } from '../../_lib/thank-you-words';
 import { SaveToAccount } from '../../_components/save-to-account';
 import { YourGuests } from '../../_components/your-guests';
 import { InviteQrPanel } from '../_components/invite-qr-panel';
@@ -27,7 +26,8 @@ import { passCardEligibilityFor, plusOnePassCardIds, readTicketSeats } from '@/l
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
-import { readRsvpWords, rsvpAnswerWord } from '@/lib/rsvp-ask';
+import { readRsvpWords, resolveReplyBy } from '@/lib/rsvp-ask';
+import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
@@ -45,6 +45,7 @@ import {
   howToUseLines,
   inAppHandoff,
   landingDayLabel,
+  landingHeadline,
   landingMessage,
   landingReplyOf,
   landingTicketOf,
@@ -109,7 +110,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
       // already carry display_name · monogram_text · monogram_color · the two
       // SVGs · role_palette): the pass drawn below wears the event's look —
       // lib/qr-look.server.ts.
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -282,25 +283,13 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      the headline is today's and there is no extra message. Words only — the
      status, the tickets and the counts never read them. */
   const rsvpWords = readRsvpWords(event.rsvp_ask_config);
-  const ownHeadline = thankYouHeadline({
-    status,
-    firstName: (guest.display_name as string | null)?.trim() || (guest.first_name as string | null),
-    eventDate: event.event_date as string | null,
-    solemn: words.solemn,
-  });
+  // The Fable defaults (frames 3 · 4): "You replied — see you there" · "We'll miss you."
+  const ownHeadline = landingHeadline(status, words.solemn);
   const firstName = ((guest.display_name as string | null)?.trim() || (guest.first_name as string | null) || '').split(/\s+/)[0] ?? '';
   const theirWords = thankYouWords({ status, words: rsvpWords, ownHeadline, name: firstName });
   const wordKeys = theirWords.keys;
   const ownMessage = theirWords.message;
   const headline = theirWords.heading;
-  const summary = replySummary({
-    status,
-    seats: 1 + guestsToSend.length,
-    meal: guest.meal_preference as string | null,
-    solemn: words.solemn,
-    answerWord:
-      status === 'attending' || status === 'declined' ? rsvpAnswerWord(rsvpWords, status, words.solemn) : null,
-  });
   const nothingToSave = account.kind === 'linked' || account.kind === 'held_elsewhere';
 
   /* 🔓 "YOU'RE IN!" (frame D) — a requester whose request the couple accepted
@@ -366,227 +355,277 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   );
 
   const unreplied = reply === 'unreplied' && !canvas;
-  const eyebrow = justIn ? REQUEST_WORDS.inTitle : unreplied ? 'Your invitation' : 'Thank you';
-  const title = justIn ? headline.replace(/!$/, '') : unreplied ? hosts : headline;
-  const sub = justIn ? REQUEST_WORDS.inSub(hosts, null) : unreplied ? undefined : summary;
+  // "Please reply by …" (frame 1) — the SAME date the reply page and the Maker's
+  // RSVP page show (`resolveReplyBy`), never once the list is final.
+  const replyBy =
+    unreplied &&
+    !guestListIsClosed({
+      lockedAt: (event as { guest_count_locked_at?: string | null }).guest_count_locked_at ?? null,
+      editDeadline: (event as { guest_list_edit_deadline?: string | null }).guest_list_edit_deadline ?? null,
+      eventDate: event.event_date as string | null,
+    })
+      ? resolveReplyBy({
+          deadline: (event as { guest_list_edit_deadline?: string | null }).guest_list_edit_deadline ?? null,
+          eventDate: event.event_date as string | null,
+        })
+      : null;
+  const replyByLabel = replyBy ? landingDayLabel(replyBy.date, 'day', { year: true }) : null;
+  // The "brand" line of every Fable frame is the couple — DoorShell's title, the
+  // line each theme skin styles as the names. On the day: "· Today" (frame 6).
+  const title = seatDay ? (
+    <>
+      {hosts} <span className="text-mulberry">· Today</span>
+    </>
+  ) : (
+    hosts
+  );
+  const soft = 'inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-white/80 px-4 text-sm font-medium text-ink/80 shadow-sm ring-1 ring-ink/10'; // no-card-ok: a pressable pill
 
   return (
-    <DoorShell
-      eyebrow={eyebrow}
-      title={title}
-      sub={sub}
-      meta={joinDoorMeta({
-        event_date: event.event_date as string | null,
-        event_date_precision: event.event_date_precision as string | null,
-        venue_name: event.venue_name as string | null,
-      })}
-      skin={look.skin}
-    >
-      {/* 🎟 A NEW OR CHANGED TICKET POPS UP FIRST, WITH SAVE — once per version. */}
-      {ticket === 'full' && !canvas ? (
-        <TicketPopup
-          guestId={guest.guest_id as string}
-          fingerprint={fingerprint}
-          fresh={justIn}
-          src={PASS_CARD_ROUTE}
-          name={guestName}
-          safariHref={safariSave}
-        />
-      ) : null}
+    <>
+      {/* 1b · INSIDE MESSENGER — a thin bar of ours at the very top, never over the page. */}
       <InAppBar handoff={inApp} />
-      {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
+      <DoorShell eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : undefined} skin={look.skin}>
+        {/* 🎟 5 · A NEW OR CHANGED TICKET POPS UP FIRST, WITH SAVE — once per version. */}
+        {ticket === 'full' && !canvas ? (
+          <TicketPopup
+            guestId={guest.guest_id as string}
+            fingerprint={fingerprint}
+            fresh={justIn}
+            src={PASS_CARD_ROUTE}
+            name={guestName}
+            safariHref={safariSave}
+          />
+        ) : null}
+        {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
+        {canvas && wordKeys ? (
+          <RsvpCanvasBridge inertButtons />
+        ) : null}
 
-      {/* 1 · THE COUPLE'S MESSAGE — name as given. Before a reply: their own
-          words (the message they send); after: their "After they submit" /
-          "When they decline" words, when they wrote some. */}
-      <div data-landing="message" className="space-y-2">
+        {/* 1 · THE COUPLE'S MESSAGE — name as given (frame 1). After a Yes, the
+            "✓ You replied" pill carries the couple's "After they submit" words
+            (frame 3); after a No, the card carries "When they decline" (frame 4). */}
+        <div data-landing="message" className="space-y-3">
+          {unreplied ? (
+            <div className="sn-glass-bare rounded-2xl bg-white/95 px-[18px] py-4 text-[15px] leading-relaxed text-ink shadow-sm" data-landing-message="">
+              <p>{message}</p>
+              <p className="mt-2.5 font-serif text-base italic text-mulberry">— {hosts}</p>
+            </div>
+          ) : reply === 'no' ? (
+            <div className="sn-glass-bare rounded-2xl bg-white/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">
+              <p
+                className="font-serif text-[34px] font-medium leading-tight text-ink"
+                data-landing-heading=""
+                data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.heading) : undefined}
+                data-rsvp-default={canvas ? ownHeadline : undefined}
+                data-rsvp-name={canvas ? firstName : undefined}
+              >
+                {headline}
+              </p>
+              <p
+                className="mt-2 text-sm text-ink/60"
+                data-thank-you-message=""
+                data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
+                data-rsvp-name={canvas ? firstName : undefined}
+              >
+                {ownMessage ?? LANDING_WORDS.missedSub}
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="text-center">
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F1EA] px-3.5 py-1.5 text-xs font-medium text-[#2F6B4F]"
+                  data-landing-done=""
+                >
+                  ✓{' '}
+                  <span
+                    data-landing-heading=""
+                    data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.heading) : undefined}
+                    data-rsvp-default={canvas ? ownHeadline : undefined}
+                    data-rsvp-name={canvas ? firstName : undefined}
+                  >
+                    {headline}
+                  </span>
+                </span>
+              </p>
+              {ownMessage || (canvas && wordKeys) ? (
+                <p
+                  className="text-center text-base leading-relaxed text-ink/80"
+                  data-thank-you-message=""
+                  data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
+                  data-rsvp-word-optional={canvas ? '' : undefined}
+                  data-rsvp-name={canvas ? firstName : undefined}
+                  hidden={!ownMessage || undefined}
+                >
+                  {ownMessage}
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
+
+        {/* 2 · REPLY TO THE INVITATION — the one main button, only until they
+            reply (then a small "Change my reply" stays at the foot). */}
         {unreplied ? (
-          <div className="sn-glass-bare rounded-2xl p-4 text-base leading-relaxed text-ink/85 shadow-sm" data-landing-message="">
-            <p>{message}</p>
-            <p className="mt-2 text-xs text-ink/60">— {hosts}</p>
+          <div data-landing="reply">
+            <Link className="button-primary w-full" href={inviteReplyPath(home)} data-landing-reply="">
+              {LANDING_WORDS.reply}
+            </Link>
+            {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/55">Please reply by {replyByLabel}</p> : null}
           </div>
         ) : null}
-        {/* 📝 The couple's message under the heading — on the canvas always drawn
-            (hidden while empty) so typing shows it; the heading itself is the
-            door's title, reached through the proxy below. */}
-        {canvas && wordKeys ? (
-          <>
-            <RsvpCanvasBridge inertButtons />
-            <i hidden data-rsvp-word-proxy={rsvpWordBridgeKey(wordKeys.heading)} data-rsvp-target="[data-door-header] h1" data-rsvp-default={ownHeadline} data-rsvp-name={firstName} />
-          </>
-        ) : null}
-        {ownMessage || (canvas && wordKeys) ? (
-          <p
-            className="text-base leading-relaxed text-ink/80"
-            data-thank-you-message=""
-            data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
-            data-rsvp-word-optional={canvas ? '' : undefined}
-            data-rsvp-name={canvas ? firstName : undefined}
-            hidden={!ownMessage || undefined}
-          >
-            {ownMessage}
-          </p>
-        ) : null}
-        {reply === 'no' && !ownMessage && !canvas ? (
-          <p className="text-sm text-ink/70">{LANDING_WORDS.missedSub}</p>
-        ) : null}
-      </div>
 
-      {/* 2 · REPLY TO THE INVITATION — the one main button, only until they
-          reply (then a small "Change my reply" stays at the foot). */}
-      {unreplied ? (
-        <div data-landing="reply">
-          <Link className="button-primary w-full" href={inviteReplyPath(home)} data-landing-reply="">
-            {LANDING_WORDS.reply}
-          </Link>
-        </div>
-      ) : null}
+        {unlisted && !justIn ? (
+          <DoorNotice>
+            You weren&rsquo;t on the original list, so we&rsquo;ve let the hosts know — they&rsquo;ll
+            confirm you shortly.
+          </DoorNotice>
+        ) : null}
 
-      {unlisted && !justIn ? (
-        <DoorNotice>
-          You weren&rsquo;t on the original list, so we&rsquo;ve let the hosts know — they&rsquo;ll
-          confirm you shortly.
-        </DoorNotice>
-      ) : null}
-
-      {/* 3 · 🎟 THE DIGITAL TICKET — faded until a Yes, full with "Save my
-          ticket" after, none after a No (lib/guest-landing.ts `landingTicketOf`).
-          The picture is the route's own PNG — the file Save hands over. A seat
-          with no ticket at all keeps the plain QR panel, as before. */}
-      {ticket === 'full' ? (
-        <section aria-labelledby="your-ticket" className="space-y-3 text-center" data-landing="ticket" data-landing-ticket="full">
-          <h2 id="your-ticket" className="sr-only">
-            Your {PASS_CARD_WORDS.digitalTicket}
-          </h2>
-          <TicketPicture src={PASS_CARD_ROUTE} alt={ticketLabel} fallback={ticketFallback} />
-          <div className="flex justify-center">
+        {/* 3 · 🎟 THE DIGITAL TICKET — the Fable 3 : 4 ticket (the route's own
+            PNG, the file Save hands over): faded with "Reply to confirm your
+            ticket" until a Yes, full with "Save my ticket" after, none after a
+            No (`landingTicketOf`). A seat with no ticket keeps the QR panel. */}
+        {ticket === 'full' ? (
+          <section aria-labelledby="your-ticket" className="space-y-4 text-center" data-landing="ticket" data-landing-ticket="full">
+            <h2 id="your-ticket" className="sr-only">
+              Your {PASS_CARD_WORDS.digitalTicket}
+            </h2>
+            <div className="mx-auto w-[min(260px,100%)] overflow-hidden rounded-2xl shadow-[0_24px_48px_-26px_rgba(30,34,41,0.45)]">
+              <TicketPicture src={PASS_CARD_ROUTE} alt={ticketLabel} fallback={ticketFallback} />
+            </div>
             {safariSave ? (
               <a href={safariSave} className="button-primary w-full" data-landing-save="safari">
                 {LANDING_WORDS.saveInSafari}
               </a>
             ) : (
-              <SavePassCardButton hrefs={[PASS_CARD_ROUTE]} label={justIn ? REQUEST_WORDS.saveUpdated : LANDING_WORDS.saveTicket} />
+              <SavePassCardButton
+                hrefs={[PASS_CARD_ROUTE]}
+                label={justIn ? REQUEST_WORDS.saveUpdated : LANDING_WORDS.saveTicket}
+                variant="primary"
+              />
             )}
+            {justIn ? <p className="text-xs text-ink/60">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
+          </section>
+        ) : ticket === 'faded' ? (
+          <section aria-labelledby="your-ticket" className="relative text-center" data-landing="ticket" data-landing-ticket="faded">
+            <h2 id="your-ticket" className="sr-only">
+              Your {PASS_CARD_WORDS.digitalTicket}
+            </h2>
+            <div aria-hidden="true" className="pointer-events-none mx-auto w-[min(260px,100%)] select-none overflow-hidden rounded-2xl opacity-[0.42] grayscale">
+              <TicketPicture src={PASS_CARD_ROUTE} alt="" fallback={null} />
+            </div>
+            <Link
+              href={inviteReplyPath(home)}
+              className="absolute left-1/2 top-[62%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-cream px-4 py-2.5 text-[13px] font-medium text-mulberry shadow-md ring-[1.5px] ring-mulberry"
+            >
+              {LANDING_WORDS.replyToConfirm}
+            </Link>
+          </section>
+        ) : ticket === 'none' ? null : passCard === 'awaiting' ? (
+          <p className="text-sm text-ink/70" data-landing="ticket">{passCardLine(passCard)}</p>
+        ) : (
+          <div data-landing="ticket">
+            <InviteQrPanel
+              qrSvg={qrSvg}
+              invitationUrl={invitationUrl}
+              guestName={guestName}
+              eventWord={words.eventWord}
+            />
           </div>
-          {justIn ? <p className="text-xs text-ink/60">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
-        </section>
-      ) : ticket === 'faded' ? (
-        <section aria-labelledby="your-ticket" className="relative text-center" data-landing="ticket" data-landing-ticket="faded">
-          <h2 id="your-ticket" className="sr-only">
-            Your {PASS_CARD_WORDS.digitalTicket}
-          </h2>
-          <div aria-hidden="true" className="pointer-events-none select-none opacity-35 grayscale">
-            <TicketPicture src={PASS_CARD_ROUTE} alt="" fallback={null} />
-          </div>
-          <Link
-            href={inviteReplyPath(home)}
-            className="absolute inset-x-4 top-1/3 rounded-lg border-2 border-mulberry bg-cream px-3 py-2 text-sm font-medium text-mulberry"
-          >
-            {LANDING_WORDS.replyToConfirm}
-          </Link>
-        </section>
-      ) : ticket === 'none' ? null : passCard === 'awaiting' ? (
-        <p className="text-sm text-ink/70" data-landing="ticket">{passCardLine(passCard)}</p>
-      ) : (
-        <div data-landing="ticket">
-          <InviteQrPanel
-            qrSvg={qrSvg}
-            invitationUrl={invitationUrl}
-            guestName={guestName}
-            eventWord={words.eventWord}
+        )}
+
+        {/* 4 · YOUR GUESTS · Send their invite — each named plus-one's own key. */}
+        <div data-landing="guests">
+          <YourGuests
+            guests={guestsToSend}
+            eventName={(event.display_name as string | null) ?? words.eventWord}
+            addNamesHref={`${inviteReplyPath(home)}#plus-ones`}
+            inviteFacts={{
+              hostsName: (event.display_name as string | null) ?? null,
+              eventWord: words.eventWord,
+              solemn: words.solemn,
+              eventDate: (event.event_date as string | null) ?? null,
+              datePrecision: (event.event_date_precision as string | null) ?? null,
+            }}
+            passCards={ticket === 'full' ? passCards : null}
+            ticketRows={{ ownName: guestName }}
           />
         </div>
-      )}
 
-      {/* 4 · YOUR GUESTS · Send their invite — each named plus-one's own key. */}
-      <div data-landing="guests">
-        <YourGuests
-          guests={guestsToSend}
-          eventName={(event.display_name as string | null) ?? words.eventWord}
-          addNamesHref={`${inviteReplyPath(home)}#plus-ones`}
-          inviteFacts={{
-            hostsName: (event.display_name as string | null) ?? null,
-            eventWord: words.eventWord,
-            solemn: words.solemn,
-            eventDate: (event.event_date as string | null) ?? null,
-            datePrecision: (event.event_date_precision as string | null) ?? null,
-          }}
-          passCards={ticket === 'full' ? passCards : null}
-          ticketRows={{ ownName: guestName }}
-        />
-      </div>
+        {/* 5 · HOW TO USE IT — on the day, the seat. */}
+        {ticket === 'full' || ticket === 'faded' ? (
+          <section data-landing="how" aria-labelledby="how-to-use" className="border-t border-ink/10 pt-3.5">
+            <h2 id="how-to-use" className="text-xs font-semibold uppercase tracking-[0.22em] text-ink/70">
+              {LANDING_WORDS.howTitle}
+            </h2>
+            <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-sm leading-relaxed text-ink/75 marker:font-serif marker:font-semibold marker:text-mulberry">
+              {howTo.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
 
-      {/* 5 · HOW TO USE IT — three lines; on the day, the seat. */}
-      {ticket === 'full' || ticket === 'faded' ? (
-        <section data-landing="how" aria-labelledby="how-to-use" className="border-t border-ink/10 pt-3">
-          <h2 id="how-to-use" className="text-xs font-semibold uppercase tracking-[0.18em] text-mulberry">
-            {LANDING_WORDS.howTitle}
-          </h2>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-ink/80">
-            {howTo.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
-
-      {/* 6 · OPEN THE INVITATION — Welcome · Details · Our Love Story · Me. The
-          words are the phase's own (`arrivalDestinationFor`). Before a reply it
-          opens past the reply gate (frame 1: the invitation is theirs to read). */}
-      <div data-landing="open" className="space-y-2">
-        <p className="text-sm text-ink/70">{destinationWords.blurb}</p>
-        {unreplied ? (
-          <p className="text-center">
-            <Link className="inline-flex min-h-[44px] items-center text-sm text-ink/80 underline underline-offset-4" href={openBeforeReplyHref(home)}>
+        {/* 6 · OPEN THE INVITATION — Welcome · Details · Our Love Story · Me;
+            "Open the event" on the day. The phase's own words
+            (`arrivalDestinationFor`). Before a reply it is the small link past
+            the reply gate (frame 1); after, the soft button (frames 3 · 4 · 6). */}
+        <div data-landing="open">
+          {unreplied ? (
+            <p className="text-center">
+              <Link className="inline-flex min-h-[44px] items-center text-sm font-medium text-mulberry underline underline-offset-4" href={openBeforeReplyHref(home)}>
+                {destinationWords.cta}
+              </Link>
+            </p>
+          ) : (
+            <Link className={soft} href={`/${home}`}>
               {destinationWords.cta}
             </Link>
+          )}
+        </div>
+
+        {/* The reply is done: a small "Change my reply" stays (frame 3), or
+            "Changed your plans?" after a No (frame 4). */}
+        {changeWords ? (
+          <p className="text-center">
+            <Link
+              className="inline-flex min-h-[44px] items-center text-sm font-medium text-mulberry underline underline-offset-4"
+              href={inviteReplyPath(home)}
+              data-landing-change=""
+            >
+              {changeWords}
+            </Link>
           </p>
+        ) : null}
+
+        {/* Kept below the Fable frames: their own link (📵 nothing is emailed —
+            owner 2026-09-29), and the one account button (owner 2026-09-26). */}
+        <CopyMyLink link={invitationUrl} />
+
+        {nothingToSave ? (
+          <SaveToAccount
+            state={account}
+            eventId={event.event_id as string}
+            slug={home}
+            personalLink={invitationUrl}
+            userAgent={userAgent}
+            termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
+          />
         ) : (
-          <Link className="button-primary w-full" href={`/${home}`}>
-            {destinationWords.cta}
-          </Link>
+          <SaveToAccount
+            state={account}
+            eventId={event.event_id as string}
+            slug={home}
+            personalLink={invitationUrl}
+            userAgent={userAgent}
+            termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
+            termsMissing={search.keep === 'terms'}
+            carries="your name, mobile, meal and your guests come along"
+          />
         )}
-      </div>
-
-      {/* "Copy my link" — their own link is their way back and their ticket at
-          the door too (📵 nothing is emailed — owner 2026-09-29). */}
-      <CopyMyLink link={invitationUrl} />
-
-      {nothingToSave ? (
-        <SaveToAccount
-          state={account}
-          eventId={event.event_id as string}
-          slug={home}
-          personalLink={invitationUrl}
-          userAgent={userAgent}
-          termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-        />
-      ) : (
-        <SaveToAccount
-          state={account}
-          eventId={event.event_id as string}
-          slug={home}
-          personalLink={invitationUrl}
-          userAgent={userAgent}
-          termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-          termsMissing={search.keep === 'terms'}
-          carries="your name, mobile, meal and your guests come along"
-        />
-      )}
-
-      {/* The reply is done: a small "Change my reply" stays (frame 3), or
-          "Changed your plans?" after a No (frame 4). */}
-      {changeWords ? (
-        <p className="text-center">
-          <Link
-            className="inline-flex min-h-[44px] items-center text-sm text-ink/70 underline underline-offset-4"
-            href={inviteReplyPath(home)}
-            data-landing-change=""
-          >
-            {changeWords}
-          </Link>
-        </p>
-      ) : null}
-    </DoorShell>
+      </DoorShell>
+    </>
   );
 }

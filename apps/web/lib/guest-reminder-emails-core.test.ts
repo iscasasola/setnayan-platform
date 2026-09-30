@@ -133,7 +133,7 @@ test('ONLY THE UNTICKED ITEMS are listed — a ticked one never comes back', () 
 
 test('an unticked line carries the fact; the motif line sends them to the swatches, never hex codes', () => {
   assert.equal(pendingLine(ITEMS[0]!), 'What to wear — Filipiniana formal');
-  assert.equal(pendingLine(ITEMS[1]!), 'Motif colours — 2 colours, see them on your page');
+  assert.equal(pendingLine(ITEMS[1]!), 'Motif colors — 2 colors, see them on your page');
   assert.doesNotMatch(pendingLine(ITEMS[1]!), /#[0-9A-Fa-f]{6}/);
   assert.equal(pendingLine(ITEMS[2]!), 'Arrive by 2:30 PM — San Agustin Church');
   assert.equal(pendingLine(ITEMS[4]!), 'Your QR pass saved');
@@ -185,7 +185,7 @@ test('the email: reply-by FIRST, then only what is still to do, then the guest�
   const reply = mail.text.indexOf('Reply by Wednesday, November 18, 2026');
   const list = mail.text.indexOf('Still to do on your checklist:');
   assert.ok(reply > 0 && list > reply, 'the reply ask comes before the list');
-  assert.match(mail.text, /• Motif colours — 2 colours, see them on your page/);
+  assert.match(mail.text, /• Motif colors — 2 colors, see them on your page/);
   assert.match(mail.text, /• Arrive by 2:30 PM — San Agustin Church/);
   assert.match(mail.text, /• Your table — Table 4/);
   assert.doesNotMatch(mail.text, /What to wear/, 'ticked — not listed');

@@ -137,7 +137,7 @@ export function faceReceiptLines(input: FaceReceiptInput): FaceReceiptLine[] {
 
   const why = modeA
     ? `Only to find you in photos taken at this ${eventWord}, including photos other guests take on their own phones, so those photos can reach you.`
-    : `So ${theOrganizer} and their team can recognise you on the guest list. No photo is matched to you by your face.`;
+    : `So ${theOrganizer} and their team can recognize you on the guest list. No photo is matched to you by your face.`;
 
   const removes = modeA ? 'the selfie, the vector and the record' : 'the selfie and the record';
   const howLong =

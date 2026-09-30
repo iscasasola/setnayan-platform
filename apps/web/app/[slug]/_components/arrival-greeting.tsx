@@ -28,15 +28,13 @@
 import { PartyPopper } from 'lucide-react';
 
 type Props = {
-  /** Guest's first name for the personal greeting. */
-  firstName: string;
   /** The resolved table label (group label preferred), e.g. "Table 5". */
   tableLabel: string;
 };
 
-export function ArrivalGreeting({ firstName, tableLabel }: Props) {
-  // Trim + guard: an empty/whitespace name falls back to a warm generic.
-  const name = firstName.trim();
+export function ArrivalGreeting({ tableLabel }: Props) {
+  // 🎩 No "Welcome, <first name>" — no casual greetings on a guest's screen
+  // (owner, DECISION_LOG 2026-09-30). The warmth is in the words, not a first name.
   return (
     <div className="sn-arrival-bloom relative flex flex-col items-center">
       {/* Soft champagne halo that blooms out behind the icon, then fades. */}
@@ -51,7 +49,7 @@ export function ArrivalGreeting({ firstName, tableLabel }: Props) {
         You&rsquo;ve arrived
       </p>
       <h2 className="relative mt-1.5 font-serif text-2xl italic leading-tight tracking-tight text-ink sm:text-3xl">
-        {name ? `Welcome, ${name}.` : 'Welcome — so glad you made it.'}
+        So glad you made it.
       </h2>
       <p className="relative mt-1.5 text-sm text-ink/70">
         You&rsquo;re checked in &mdash; you&rsquo;re at{' '}

@@ -504,7 +504,7 @@ export function SelfieCapture({
               including photos other guests take on their own phones
             </span>{' '}
             — so those photos can be delivered to me. This event only, and I can
-            withdraw anytime in my settings.{' '}
+            withdraw anytime on my invitation.{' '}
             <span className="text-ink/45">
               (Philippine Data Privacy Act, RA 10173.)
             </span>
@@ -513,12 +513,12 @@ export function SelfieCapture({
           <span>
             I agree to add{' '}
             <span className="font-medium">my photo to this event&rsquo;s guest list</span>
-            , so {w.theOrganizer} and their team can recognise me.{' '}
+            , so {w.theOrganizer} and their team can recognize me.{' '}
             <span className="font-medium">
               No facial recognition runs at this event
             </span>{' '}
             — photos reach me when someone scans my QR or tags me. I can remove my
-            photo anytime in my settings.{' '}
+            photo anytime on my invitation.{' '}
             <span className="text-ink/45">
               (Philippine Data Privacy Act, RA 10173.)
             </span>

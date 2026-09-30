@@ -44,10 +44,10 @@ export const STAGE_BAR: Readonly<Record<LifecyclePhase, StageBar>> = {
   },
   rsvp: {
     label: PUBLIC_STAGE_LABELS.rsvp,
-    // Get the reply: Home · Details · Story · RSVP — and RSVP becomes Me once
-    // the guest has answered (`resolveSiteNav`). A stranger's bar is cut
-    // further by the resolver's own rules (Home · Details · Story).
-    slots: ['home', 'details', 'story', 'rsvp', 'me'],
+    // Get the reply: Welcome · Details · Our Love Story · Me — four, always
+    // (owner 2026-09-30: "RSVP does not have 4 tabs under" — no RSVP tab). A
+    // stranger's bar is cut further by the resolver's own rules.
+    slots: ['home', 'details', 'story', 'me'],
   },
   event: {
     label: PUBLIC_STAGE_LABELS.event,

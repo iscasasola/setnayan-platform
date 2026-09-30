@@ -78,11 +78,10 @@ export function guestBarForStage(stage: LifecyclePhase) {
     hasStory: true,
     hasDetails: true,
     hasSchedule: true,
-    replied: true,
     liveBroadcast: false,
     // Present so no page is drawn LOCKED for want of an address; where each
     // one goes is the guest page's business, never the Maker's.
-    destinations: { camera: '/camera', watch: '/watch', join: '/join', rsvp: '/reply' },
+    destinations: { camera: '/camera', watch: '/watch', join: '/join' },
     stageSlots: STAGE_BAR[stage].slots,
   });
 }

@@ -294,9 +294,11 @@ test('3 · the thank-you says the right thing, and reads the date as text', () =
   assert.equal(dayOrdinal('2026-12-11'), '11th');
   assert.equal(dayOrdinal(null), null);
   assert.equal(
-    thankYouHeadline({ status: 'attending', firstName: 'Ana Reyes', eventDate: '2026-12-18', solemn: false }),
-    'See you on the 18th, Ana!',
+    thankYouHeadline({ status: 'attending', eventDate: '2026-12-18', solemn: false }),
+    'See you on the 18th!',
   );
+  // No first name on a guest's screen — no casual greetings (owner, DECISION_LOG 2026-09-30).
+  assert.equal(thankYouHeadline({ status: 'declined', eventDate: null, solemn: false }), 'Thank you — you’ll be missed');
   assert.equal(replySummary({ status: 'attending', seats: 3, meal: 'fish', solemn: false }), 'Joyfully accepts · 3 seats · Fish');
 });
 
@@ -333,7 +335,9 @@ test('5 · the stranger gets ONE button — "Get inside" — and a signed-in non
     React.createElement(GetInside, { slug: 'ana', eventId: 'e-1', signedInNotListed: false, theOrganizer: 'the couple' }),
   );
   assert.match(door, /Get inside/);
-  assert.match(door, /Scan your QR · Tap NFC · Sign in/);
+  // It names only what opens underneath — no "Scan", no "Tap NFC" (audit 2026-09-30).
+  assert.match(door, /Upload your QR · Sign in/);
+  assert.doesNotMatch(door, /Tap NFC|Scan your QR/);
   assert.match(door, /href="\/login\?next=%2Fana"/);
   // "Ask to join" only on "Anyone, I approve" (owner 2026-09-27) — the closed
   // list is pinned in the-poster-qr-opens-the-event.test.ts.

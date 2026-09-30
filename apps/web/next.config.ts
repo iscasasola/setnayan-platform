@@ -384,6 +384,9 @@ const nextConfig: NextConfig = {
       // a path nft cannot see statically. Without these the backend falls back
       // to CPU (slower, same answers); with them it runs ~5x faster.
       './node_modules/@tensorflow/tfjs-backend-wasm/dist/*.wasm',
+      // …and the same files at pnpm's real path, which is what `__dirname`
+      // resolves to at runtime (the path above is a symlink into it).
+      '../../node_modules/.pnpm/@tensorflow+tfjs-backend-wasm@*/node_modules/@tensorflow/tfjs-backend-wasm/dist/*.wasm',
       './assets/cipher-fonts/*.ttf',
       './lib/social/fonts/*.ttf',
       // NPC submission PDFs streamed admin-only by

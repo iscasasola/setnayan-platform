@@ -94,6 +94,7 @@ export function SelfieCapture({
   const [details, setDetails] = useState(false);
   const [live, setLive] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   // The whole screen is a modal over the page (Escape = ×, the page behind it
   // cannot scroll); the ⓘ sheet is a modal over the screen.
   const screenRef = useRef<HTMLDivElement>(null);
@@ -128,7 +129,10 @@ export function SelfieCapture({
         }
         setLive(true);
       } catch {
-        if (!cancelled) onFail('camera blocked');
+        if (!cancelled) {
+          setBlocked(true);
+          onFail('camera blocked');
+        }
       }
     })();
     return () => {
@@ -221,14 +225,14 @@ export function SelfieCapture({
         autoPlay
         className="absolute inset-0 h-full w-full -scale-x-100 object-cover"
       />
-      {!live ? (
+      {!live && !blocked ? (
         <div className="absolute inset-0 flex items-center justify-center">
           <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/50" strokeWidth={2} />
         </div>
       ) : null}
       {/* The soft oval to stand in. Decorative. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center pb-40">
-        <div className="h-[46%] max-h-80 w-[62%] max-w-60 rounded-[50%] border border-cream/70 shadow-[0_0_0_9999px_rgba(29,23,25,0.45)]" />
+        <div className="aspect-[3/4] w-[58%] max-w-[13.5rem] rounded-[50%] border border-cream/70 shadow-[0_0_0_9999px_rgba(29,23,25,0.45)]" />
       </div>
 
       {/* Top: × and the title (frame A). */}

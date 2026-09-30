@@ -28,6 +28,9 @@ import { FACE_STEP_SAVED, faceStepFailureWords } from '@/lib/face-enroll-refusal
 // stored Yes. × is "not now": the answer stays as it was. A stored "No thanks"
 // renders nothing.
 
+/** The words SelfieCapture reports when the camera cannot open. */
+const CAMERA_BLOCKED = 'camera blocked';
+
 /** How long the saved toast stays before the parent is told (frame D). */
 const SAVED_TOAST_MS = 2500;
 
@@ -55,6 +58,8 @@ export function DayOfFaceEnroll({
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  // A blocked camera is retried by opening the camera again (a fresh screen).
+  const [attempt, setAttempt] = useState(0);
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -124,8 +129,15 @@ export function DayOfFaceEnroll({
     >
       <span aria-hidden className="font-bold">!</span>
       <span className="min-w-0 flex-1">
-        Couldn&rsquo;t save — {failure}.{' '}
-        <button type="button" onClick={() => setFailure(null)} className="font-medium underline underline-offset-2">
+        {failure === CAMERA_BLOCKED ? 'Camera blocked — allow it, then' : <>Couldn&rsquo;t save — {failure}.</>}{' '}
+        <button
+          type="button"
+          onClick={() => {
+            if (failure === CAMERA_BLOCKED) setAttempt((n) => n + 1);
+            setFailure(null);
+          }}
+          className="font-medium underline underline-offset-2"
+        >
           Try again
         </button>
       </span>
@@ -134,6 +146,7 @@ export function DayOfFaceEnroll({
 
   return (
     <SelfieCapture
+      key={attempt}
       faceMode={faceMode}
       onShot={save}
       onFail={fail}

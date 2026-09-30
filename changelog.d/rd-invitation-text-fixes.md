@@ -8,7 +8,7 @@
 - **Entourage:** beside ONE name, "Father / Mother / Parent of the Bride/Groom" (from the typed title), never "Parents of…". US spelling on guest pages: Maid/Matron of Honor, colors, program, recognize, favorite.
 - **Love story:** drawn once (the scene OR the prose — the "Our Love Story" tab's anchor moves onto the scene when it is the one drawn); never fills the "met" year with the proposal year; never lowercases a first word that may be a name.
 - **E-Gifts:** one term on every door and the page; the page names only the methods the couple set up (no "handle").
-- **RSVP:** the sheet's top control says "Close"; the heading is "Your reply"; reply-by uses the event date's formatter; "Open your invitation".
+- **RSVP:** the sheet's top control says "Close"; the heading is "Your reply"; reply-by uses the event date's formatter; "Open your invitation and your QR" (the link still names the QR, as `the-last-door-hands-over-the-qr` requires).
 - **Failures:** a blurry QR photo gets its own message; "Add name" shows the real reason (`seatNameFailure`, `lib/seat-name-words.ts`) — never "check your connection" for a save the server refused; selfie consent no longer says "in my settings" to a guest with no account.
 - **Suppliers who made this day:** only after the day, and "supplier", never "vendor".
 - **No roadmap:** removed "Shutter ships with the Setnayan native app (Phase 2)".

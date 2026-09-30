@@ -230,7 +230,9 @@ export function ScheduleWidget({
             </p>
           ) : null}
           {inViewerClock ? (
-            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50" data-your-time="">
+            /* Plain small text, not the protected 0.66rem eyebrow — it is a
+               note about the times, not a section name. */
+            <p className="text-xs text-ink/55" data-your-time="">
               Times shown in your time
             </p>
           ) : null}

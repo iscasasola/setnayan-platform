@@ -254,7 +254,10 @@ test('the way onward names the QR — a bare "continue" is what being stuck felt
   assert.notEqual(j, -1, 'the answered-guest block no longer closes with a DoorNotice — update this test');
   const block = REPLY.slice(i, j).replace(/\s+/g, ' ');
   assert.match(block, /your QR/i, 'the link does not say it leads to their QR');
-  assert.match(block, /\{words\.eventWord\}/, 'the link does not name the event in the couple’s own word');
+  // Guest text audit 2026-09-30: "Go to your QR and open the {eventWord}" became
+  // "Open your invitation and your QR" — it names the destination the guest
+  // knows (their invitation) and still names the QR.
+  assert.match(block, /Open your invitation/, 'the link does not name where it goes');
 });
 
 test('the 2026-09-10 redirect is NOT weakened, and no reveal is replayed', () => {

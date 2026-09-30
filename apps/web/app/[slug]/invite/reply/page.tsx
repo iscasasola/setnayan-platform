@@ -317,7 +317,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
                 className="font-medium text-link underline-offset-2 hover:underline"
                 href={inviteEnterPath(home)}
               >
-                Open your invitation
+                Open your invitation and your QR
               </Link>
               {replyLocked ? null : <> &mdash; or change your answer below.</>}
             </DoorNotice>

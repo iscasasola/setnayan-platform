@@ -31,6 +31,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const SEND = 'app/dashboard/[eventId]/guests/_components/send-invite.tsx';
 const WRITER = 'app/dashboard/[eventId]/invitation/actions.ts';
 const PRINT_ROUTE = 'app/api/hub-print/[piece]/route.ts';
+const CELL = 'app/dashboard/[eventId]/guests/_components/guest-invite-cell.tsx';
 
 /** The body of `function <name>(…) {…}` in `src`, brace-matched. */
 function body(src: string, name: string): string {
@@ -94,8 +95,8 @@ test('⓷ a copy is not a send; a closed share sheet stamps nothing', () => {
   const sharedAt = share.indexOf("return 'shared'");
   assert.ok(shareAt > 0 && sharedAt > shareAt, 'Sent ✓ is stamped before the phone handed the message over');
   assert.match(share, /'AbortError'\)\s*return 'closed';/, 'closing the share sheet must not read as a send');
-  for (const caller of ['send', 'invite']) {
-    const b = body(src, caller);
+  for (const [file, caller] of [[SEND, 'send'], [CELL, 'invite']] as const) {
+    const b = body(read(file), caller);
     assert.match(b, /if \(out === 'shared'\) return mark\(true\);/, `${caller}() stamps on something other than a completed share`);
     assert.match(b, /if \(out === 'closed'\) return;/, `${caller}() treats a closed sheet as something to act on`);
     assert.equal((b.match(/\bmark\(true\)/g) ?? []).length, 1, `${caller}() stamps Sent ✓ on more than one path`);
@@ -108,7 +109,7 @@ test('⓸ the QR image is fetched before the tap, never between the tap and navi
   const src = read(SEND);
   assert.doesNotMatch(body(src, 'send'), /\bfetch\(/, 'a fetch inside send() can spend iOS’s user activation');
   assert.doesNotMatch(body(src, 'shareInvite'), /\bfetch\(/, 'a fetch inside shareInvite() can spend iOS’s user activation');
-  assert.doesNotMatch(body(src, 'invite'), /\bfetch\(/, 'a fetch inside the Invite column’s tap can spend iOS’s user activation');
+  assert.doesNotMatch(body(read(CELL), 'invite'), /\bfetch\(/, 'a fetch inside the Invite column’s tap can spend iOS’s user activation');
   assert.match(body(src, 'useTicketFile'), /useEffect\([\s\S]*fetch\(ticketUrl\(guestId\)/);
 });
 
@@ -118,7 +119,9 @@ test('⓺ what travels is the Digital ticket, never the bare QR (owner 2026-09-3
   const src = read(SEND);
   assert.match(body(src, 'ticketUrl'), /\$\{PASS_CARD_ROUTE\}\?guest=/, 'the shared file is not the pass-card (ticket) route');
   assert.doesNotMatch(src, /\/api\/website\/qr\/guest\//, 'send-invite.tsx still fetches the bare QR PNG');
-  assert.match(body(src, 'copyTicketImage'), /ticketUrl\(guestId\)/);
+  const cell = read(CELL);
+  assert.match(body(cell, 'copyTicketImage'), /ticketUrl\(guestId\)/);
+  assert.doesNotMatch(cell, /\/api\/website\/qr\/guest\//, 'the Invite column still copies the bare QR PNG');
 });
 
 test('⓹ the couple’s wording survives the Details and Menu saves that share its jsonb', () => {

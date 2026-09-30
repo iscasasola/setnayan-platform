@@ -10,7 +10,8 @@
  *      and the header declares the column, so the table stays one cell per head.
  *   2. The couple's own rows and a guest marked Passed away get NO control:
  *      the same rule the card's Send invite keeps (`guest-card-body.tsx`).
- *   3. It is NOT a second sender. The cell lives in `send-invite.tsx` and goes
+ *   3. It is NOT a second sender. The cell (`guest-invite-cell.tsx`, its own
+ *      file only to stay out of the Maker's first load) imports and goes
  *      through the SAME share (`shareInvite`), the same Digital ticket file (`useTicketFile`),
  *      the same message builder and the ONE Sent ✓ writer — and the card's
  *      `SendInviteActions` goes through that same `shareInvite`, so the two
@@ -34,6 +35,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (...p: string[]) => stripComments(readFileSync(join(HERE, ...p), 'utf8'));
 const ROSTER = read('guest-list-multiselect.tsx');
 const SEND = read('send-invite.tsx');
+const CELL = read('guest-invite-cell.tsx');
 const PAGE = read('..', 'page.tsx');
 
 /** The BODY of a named function (walks past the destructured params first). */
@@ -76,14 +78,24 @@ test('the couple and a guest marked Passed away get no Invite — the card’s o
 });
 
 test('the cell is the card’s Send invite in a row’s width, not a second sender', () => {
-  assert.match(ROSTER, /import \{ GuestInviteCell \} from '\.\/send-invite';/);
-  const cell = bodyOf(SEND, 'GuestInviteCell');
+  assert.match(ROSTER, /import \{ GuestInviteCell \} from '\.\/guest-invite-cell';/);
+  // Its deciding pieces come FROM send-invite.tsx — the column only draws.
+  assert.match(CELL, /import \{[^}]*\bshareInvite\b[^}]*\buseTicketFile\b[^}]*\} from '\.\/send-invite';/);
+  assert.doesNotMatch(CELL, /\bnav(igator)?\.share\(/, 'the column calls the share sheet itself instead of shareInvite');
+  const cell = bodyOf(CELL, 'GuestInviteCell');
   for (const piece of ['shareInvite(', 'useTicketFile(', 'buildGuestInviteMessage(', 'setGuestInvitationSent(', 'copyTicketImage(']) {
     assert.ok(cell.includes(piece), `GuestInviteCell no longer calls ${piece} — it has grown its own path`);
   }
   // …and the card goes through the SAME share, so the two cannot send different things.
   assert.ok(bodyOf(SEND, 'SendInviteActions').includes('shareInvite('), 'the card’s Send invite has its own share again');
   assert.equal((SEND.match(/\bnav\.share\(/g) ?? []).length, 1, 'more than one navigator.share call in send-invite.tsx');
+});
+
+test('the column stays OUT of send-invite.tsx, which the Maker loads first', () => {
+  // launch/page.tsx → guests/claims/page.tsx → SendInviteActions puts
+  // send-invite.tsx in the Maker's first load, under a measured JS ceiling.
+  assert.doesNotMatch(SEND, /function GuestInviteCell\(|from '\.\/overlay-primitives'|from '\.\/guest-invite-cell'/,
+    'the Guest list’s column moved back into send-invite.tsx — the Maker pays for it');
 });
 
 test('the page reads the words once, hands them to the list, and mounts the tour', () => {
@@ -97,7 +109,7 @@ test('the page reads the words once, hands them to the list, and mounts the tour
 
 test('the column hands over the Digital ticket, not the QR — and says so', () => {
   // Owner 2026-09-30: "we do not copy the QR Code, we copy the Digital Ticket".
-  const cell = bodyOf(SEND, 'GuestInviteCell');
+  const cell = bodyOf(CELL, 'GuestInviteCell');
   assert.match(cell, /Copy ticket/);
   assert.match(cell, /Paste the message, then paste the ticket\./);
   assert.doesNotMatch(cell, /Copy QR|paste the QR/);
@@ -111,6 +123,6 @@ test('the column hands over the Digital ticket, not the QR — and says so', () 
 test('nothing a couple reads says "email" — Setnayan sends guests nothing', () => {
   const tour = TOURS.customer_guest_invite_v1.slides.map((s) => `${s.title} ${s.body}`).join(' ');
   assert.doesNotMatch(tour, /e-?mail/i);
-  const strings = [...bodyOf(SEND, 'GuestInviteCell').matchAll(/>([^<>{}]+)</g)].map((m) => m[1]).join(' ');
+  const strings = [...bodyOf(CELL, 'GuestInviteCell').matchAll(/>([^<>{}]+)</g)].map((m) => m[1]).join(' ');
   assert.doesNotMatch(strings, /e-?mail/i);
 });

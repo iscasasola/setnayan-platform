@@ -26,7 +26,7 @@ import {
   useInspectorContext,
 } from '@/app/_components/inspector/inspector-column';
 import { SeatChip } from './seat-chip';
-import { GuestInviteCell } from './send-invite';
+import { GuestInviteCell } from './guest-invite-cell';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
 import { InfoTip } from '@/app/_components/info-tip';
 import {

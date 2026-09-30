@@ -17,6 +17,15 @@ this one records only what the fold itself had to decide.
 - **Maker RSVP stage** (#6176) on top of no-maybe (#6167) and no-email (#6157).
 - **Server-action budget**: #6176's dev-only lab's four exports became one bound
   `labRsvp(kind, …)` — 1225 of 1225, ceiling unchanged.
-- Port-control + dup-rule baselines regenerated once, after the fold.
+- **Maker first-load budget** (511.0KB → 503.2KB of 505, ceiling unchanged): the
+  element sheet, the scene's bound-fact box and the Look pages' Details editors now
+  load on a tap from the existing `maker-details` chunk (details-lazy.tsx, idle-prefetched).
+- **Production build**: #6170's role-name read in `EditorialContent` skips curated
+  samples (no event row; /realstories prerendered without a service key).
+- **db suite**: #6176's Maker sample guest carried `entry_source='guest_list'` — now
+  `host_seeded`; exposure baseline regenerated for #6170's deliberate
+  `GRANT SELECT (role_names) ON events TO authenticated`.
+- Guards re-pointed where one folded PR moved another's anchor (property kept each time).
+- Port-control, dup-rule and exposure baselines regenerated once, after the fold.
 
 SPEC IMPACT: None (each folded PR carries its own).

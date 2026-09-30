@@ -23,8 +23,17 @@ Builds the three approved designs — `prototypes/guest_card_invite_simple_2026-
 - Requests are never rows between guests: one strip under the title → the Requests page.
 - "Invite" that shared the one event link is now **Share the link**. "Nobody matches" builds its sentence from the filters; the truly empty list reads "No guests yet — Start with the two of you…" with + Add a guest · Paste a list.
 
+**The full-width Guest list (owner update 2026-09-30, DECISION_LOG "THE GUEST LIST USES THE FULL WIDTH…" and "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS…") — built on #6191**
+- Merges #6191 (the Access column `GuestAccessCell`, the Hosts row out of the menu, the colour-access fix) and keeps its cell and actions as they are.
+- The list fills the width beside the side menu (`sn-col max-w-none`). Name first and widest, then as many column SLOTS as fit — 160px each, Name keeps ≥260px: about 4 at 1280px, 6 at 1600, 8+ at 2000+, re-measured on resize (`ResizeObserver`).
+- EVERY slot header is ONE `PickMenu`: Invite · RSVP · Access · Check-in (from the event day) · Seat · Side · Role · Groups · +N · Account · Contact. Picking a column already shown swaps the two — never one twice. Default order left → right: Invite first while anyone is unsent, then RSVP; Check-in leads from the event day; no Side on a birthday (`lib/roster-columns.ts`, pure and executed by its guard).
+- The picks are remembered per device (`localStorage`, every touch inside try/catch; the defaults stand without it). The phone is the same component with ONE slot beside the name ("Showing ▾"), drawn under the dashed line where Invite sat.
+- One cell per column everywhere (`RosterCell`): Access = #6191's `GuestAccessCell`; Check-in = the desk's own `checkInGuest` / `undoCheckIn` (`guest-checkin-cell.tsx`, a tap shows at once and saves in the background); Invite = the #6185 control; Contact = the mobile as tap-to-call only (no email) — billed as ONE `tel:` in Rule 1's `GUEST_CONTACT_BILL` under the owner's 2026-09-14 scope. The page reads `guest_checkins` once, only from the event day; a refused read says "—".
+- Not in this PR (F2): the top-bar guest search, Hosts pieces on the card, removing the Guests · Hosts · Check-in row.
+
 **Guards**
-- New: `the-fable-card-and-rows.test.ts` (14 rules; each sabotaged once and seen RED).
+- New: `the-fable-card-and-rows.test.ts` (16 rules; each sabotaged once and seen RED — the column slots: swap, Check-in only from the day, Invite leads, storage in try/catch, header is a dropdown, the phone's slot uses the same cell, full width; plus the lines-up colSpan, the slot width, no mailto, one tel:, the Access cell — 12 sabotages, 12 RED).
+- Re-pointed for the slots: header widths (percentages → counted slots, executed at every width 1000–2800px), roster lines up (one `<th>`/`<td>` per slot from the same list, `colSpan={2 + desk.columns.length}`), Invite/Access column guards (through `RosterCell`), phone parity (row + its cells), contact (one `tel:`, never an email).
 - Re-pointed to the approved design (their protective rule kept): the QR strip, the drawer QR (now the ticket), the QR-download sweep, passed-away, face helper, walking pair (now: never on the list), unpair, honest reads, Rule 1 contact bill (now empty), +N picker, role words, unlink, the Invite step, the pass card, gold bill, swipe gate, shell-bar sticky, one breakpoint, select-all, compact row, phone parity, one colour per row, header widths (px budget 144 → 208 for the ⋯, % 55 → 50 for Name), roster lines up (caught a real bug: a section row spanning 10 of 9 columns).
 - Deleted with their last callers: `guest-detail-body.tsx`, `guest-save-links.tsx`, `guest-pass-card-link.tsx`, `guest-drawer.tsx`, `GuestSendInvite`.
 

@@ -64,11 +64,14 @@ test('the table SCROLLS rather than clipping its own columns', () => {
   );
 });
 
-test('the contact column left the row — the mobile stays on the card', () => {
-  // ⤷ 2026-09-30 (the Fable rows' ledger): "Contact (call / email icons) is
-  // dropped from the row — no email to guests; the mobile stays on the card."
-  // (The owner-scoped Rule 1 exemption for these links is retired with them —
-  // `no-door-out-of-the-app`'s GUEST_CONTACT_BILL is empty.)
-  assert.doesNotMatch(SRC, /<Phone aria-hidden|<Mail aria-hidden|href=\{`tel:|href=\{`mailto:/, 'a contact control is back on the row');
+test('Contact is the mobile, one tap to call — never an email', () => {
+  // ⤷ 2026-09-30: the Fable rows dropped the call + email icons ("no email to
+  // guests"); the full-width list brought Contact back as a column a header can
+  // pick. What it may be: the mobile, ONE tel: link, inside ContactCell.
+  assert.doesNotMatch(SRC, /<Mail aria-hidden|href=\{`mailto:|mailto:/, 'an email link is on the roster — no email to guests');
+  assert.equal((SRC.match(/href=\{`tel:/g) ?? []).length, 1, 'the roster computes more (or fewer) than one tel: link');
+  const cell = SRC.slice(SRC.indexOf('function ContactCell('), SRC.indexOf('function RowAccess('));
+  assert.match(cell, /href=\{`tel:/, 'the tel: link lives outside the Contact column');
+  assert.doesNotMatch(cell, /email/, 'the Contact column reads the email');
   assert.ok(!/\{guest\.email \?\? guest\.mobile \?\? '—'\}/.test(SRC), 'the raw contact string must not come back');
 });

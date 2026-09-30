@@ -207,11 +207,23 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate:
  * Exact in both directions, like the other bills: a new file fails, and a file
  * that stops computing one fails until its line is deleted.
  */
-// ⤷ 2026-09-30: EMPTY. The roster's contact column (the one billed line) left
-// the row in the approved Fable redesign — "Contact (call / email icons) is
-// dropped from the row — no email to guests; the mobile stays on the card".
-// The map stays so a future exemption is still an owner's line, not a hole.
-const GUEST_CONTACT_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([]);
+// ⤷ 2026-09-30: the approved Fable rows dropped the roster's call + email icons
+// ("no email to guests"); the same day the owner's full-width list brought
+// Contact back as a column a header can PICK — the mobile only, one tel:.
+const GUEST_CONTACT_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
+  [
+    'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx',
+    {
+      count: 1,
+      why:
+        'The roster Contact column (owner 2026-09-30, a column any header can pick): one ' +
+        'tel: for a GUEST of this event, not a shop — never a mailto:, no email to guests. ' +
+        'Owner 2026-09-14 scoped Rule 1 to allow it "only for the couple and if coordinator ' +
+        'is given access" — and this file renders only inside /dashboard/[eventId]/guests, ' +
+        'which is already gated by guest_list access.',
+    },
+  ],
+]);
 
 const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [

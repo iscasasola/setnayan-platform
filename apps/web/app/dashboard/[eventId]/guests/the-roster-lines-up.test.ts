@@ -104,8 +104,16 @@ test('the header still declares exactly one column per cell in a row', () => {
   const headerCells = (HEAD.match(/<(?:th|ArrangeTh)[\s>]/g) ?? []).length;
   const bodyCells = (component('DesktopRow').match(/<td[ >]/g) ?? []).length;
   assert.equal(bodyCells, headerCells, `${bodyCells} body cells against ${headerCells} headers`);
+  // ⤷ 2026-09-30, the full-width list: after ☐ and Name, the header draws ONE
+  // <th> per slot and the row ONE <td> per slot — from the SAME list, or a
+  // header would sit over the wrong column the moment a slot is picked.
+  assert.match(HEAD, /desk\.columns\.map\(/, 'the header no longer draws one cell per slot');
+  assert.match(component('DesktopRow'), /columns\.map\(\(column\) => \(\s*<td\b/, 'the row no longer draws one cell per slot');
+  assert.match(SRC, /<DesktopRow\b[\s\S]*?columns=\{desk\.columns\}/, 'the rows are handed a different column list from the header');
   // …and every full-width row (a section heading) spans exactly that many.
-  for (const m of SRC.matchAll(/colSpan=\{(\d+)\}/g)) {
-    assert.equal(Number(m[1]), headerCells, `a full-width row spans ${m[1]} of ${headerCells} columns`);
+  const spans = [...SRC.matchAll(/colSpan=\{([^}]+)\}/g)].map((m) => m[1]!.trim());
+  assert.ok(spans.length >= 1, 'no full-width row found — this guard is blind');
+  for (const span of spans) {
+    assert.equal(span, '2 + desk.columns.length', `a full-width row spans {${span}}, not ☐ + Name + every slot`);
   }
 });

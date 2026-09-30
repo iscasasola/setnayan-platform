@@ -61,10 +61,13 @@ function bodyOf(src: string, name: string): string {
 }
 
 test('both row shapes draw the Invite control, and the header declares its column', () => {
+  // Since 2026-09-30 (the full-width list) every cell comes through ONE switch,
+  // RosterCell, which both row shapes draw.
   for (const row of ['DesktopRow', 'MobileListRow']) {
-    const n = (bodyOf(ROSTER, row).match(/<RowInvite\b/g) ?? []).length;
-    assert.equal(n, 1, `${row} draws ${n} Invite controls — every guest row needs exactly one`);
+    assert.match(bodyOf(ROSTER, row), /<RosterCell\b/, `${row} no longer draws its cells through RosterCell`);
   }
+  const n = (bodyOf(ROSTER, 'RosterCell').match(/<RowInvite\b/g) ?? []).length;
+  assert.equal(n, 1, `RosterCell draws ${n} Invite controls — the Invite column needs exactly one`);
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
   assert.match(head, /<InfoTip\s+label="Invite"/, 'the table has no Invite column header with its (i)');
 });

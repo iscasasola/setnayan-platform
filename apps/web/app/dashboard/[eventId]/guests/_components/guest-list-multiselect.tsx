@@ -16,6 +16,16 @@ import {
 import { SeatChip } from './seat-chip';
 import { GuestInviteCell } from './guest-invite-cell';
 import { GuestMoreMenu } from './guest-ticket-parts';
+import { GuestAccessCell } from './guest-access-cell';
+import { GuestCheckinCell } from './guest-checkin-cell';
+import { useRosterColumns } from './use-roster-columns';
+import type { GuestAccessState } from '@/lib/guest-access';
+import {
+  defaultRosterColumns,
+  ROSTER_COLUMN_LABEL,
+  SLOT_PX,
+  type RosterColumn,
+} from '@/lib/roster-columns';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
@@ -270,48 +280,31 @@ function RowAvatar({
 }
 
 // Desktop table row (owner 2026-06-05 "row/table style"; redrawn 2026-09-30 to
-// the approved Fable rows): ☐ · Name · Side·Role · Group · RSVP · +N · Table ·
-// Account · Invite. The Contact column (call / email icons) left the row — no
-// email to guests; the mobile stays on the card. The eye "Quick view" left too:
-// a click anywhere on the row opens the card on the right. And a walking pair
-// is not on the list at all — the Maker's Wedding March owns the processional.
+// the approved Fable rows, then to the full width): ☐ · Name · then one cell per
+// COLUMN SLOT — as many as the screen fits, each showing what its header's
+// dropdown picked (`lib/roster-columns.ts`). The eye "Quick view" left: a click
+// anywhere on the row opens the card on the right. And a walking pair is not on
+// the list at all — the Maker's Wedding March owns the processional.
 function DesktopRow({
   guest,
-  eventId,
-  palette,
   displayUrl,
   selected,
   onToggle,
-  groupIds,
-  groups,
-  groupsById,
-  currentGroupId,
-  bulkRoleSections,
-  seat,
   nameById,
-  invite,
-  linked,
+  columns,
+  facts,
 }: {
   guest: GuestRow;
-  eventId: string;
-  palette: RolePalette;
-  invite: GuestInviteSetup | null;
   displayUrl?: string;
   selected: boolean;
   onToggle: () => void;
-  groupIds: string[];
-  groups: GuestGroupWithCount[];
-  groupsById: Record<string, GuestGroupWithCount>;
   /** guest_id → display name, built ONCE from the roster — "+1 of <bringer>". */
   nameById: Record<string, string>;
-  currentGroupId: string | null;
-  bulkRoleSections: RoleSection[];
-  // Reactive seat state (Living Roster P3) — undefined only if a guest slips the
-  // server-built map (defensively degrades to the suggested/dash path).
-  seat?: { placed: string | null; suggested: string | null };
-  /** An account holds this invitation; null = not measured (the column says nothing). */
-  linked: boolean | null;
+  /** What each slot shows, left → right. */
+  columns: readonly RosterColumn[];
+  facts: RowFacts;
 }) {
+  const { eventId } = facts;
   // Desktop inspector selection (Inspector P2): the open row wears the gild wash
   // with a bar on its left (owner 2026-09-30, frame F — the same colour as a
   // ticked row, because both mean "this row is in hand").
@@ -321,7 +314,6 @@ function DesktopRow({
   const extraSeats = useBringerSeats(guest.guest_id);
   const seatLabel = usePlaceholderLabel(guest.guest_id);
   const shownName = seatLabel ?? guestFullName(guest) ?? guestDisplayName(guest);
-  const isHost = HOST_ROLES.has(guest.role);
   const bringer = guest.plus_one_of_guest_id ? (nameById[guest.plus_one_of_guest_id] ?? null) : null;
   const openRef = useRef<HTMLTableRowElement>(null);
   return (
@@ -390,58 +382,99 @@ function DesktopRow({
           seats={extraSeats}
         />
       </td>
-      {/* Side · Role — ONE column: the side bold, the role under it. */}
-      <td className="px-3 py-2.5">
-        <SideChipEditor eventId={eventId} guest={guest}>
-          <SideText side={guest.side} />
-        </SideChipEditor>
-        <div className="mt-0.5">
-          <RoleChipEditor eventId={eventId} guest={guest} roleSections={bulkRoleSections}>
-            <RoleTexts guest={guest} palette={palette} />
-          </RoleChipEditor>
-        </div>
-      </td>
-      <td className="px-3 py-2.5">
-        <div className="flex items-center gap-1.5">
-          <GroupChipList
-            eventId={eventId}
-            guestId={guest.guest_id}
-            groupIds={groupIds}
-            groupsById={groupsById}
-            currentGroupId={currentGroupId}
-            compact
-            plain
-          />
-          <AddToGroupControl eventId={eventId} guest={guest} groups={groups} memberGroupIds={groupIds} />
-        </div>
-      </td>
-      <td className="px-3 py-2.5">
-        {guest.passed_away ? (
-          <span className="text-xs text-ink/40">—</span>
-        ) : (
-          <RsvpChipEditor eventId={eventId} guest={guest} seatedTableLabel={seat?.placed ?? null}>
-            <RsvpText status={guest.rsvp_status} host={isHost} />
-          </RsvpChipEditor>
-        )}
-      </td>
-      {/* +N — the host's number; a dash when there is nothing to say. */}
-      <td className="px-3 py-2.5">
-        {isHost || guest.rsvp_status === 'declined' || guest.passed_away ? (
-          <span className="text-xs text-ink/40">—</span>
-        ) : (
-          <div className="space-y-0.5">
-            <PlusOneChipEditor eventId={eventId} guest={guest} />
-            {/* "+3 (2 named)" — how many of the seats already have a name. */}
-            {extraSeats.some((s) => s.named) ? (
-              <p className="whitespace-nowrap text-[11px] text-ink/55">
-                <PlusOneSeatsSummary count={plusOneSeats(guest)} seats={extraSeats} />
-              </p>
-            ) : null}
-          </div>
-        )}
-      </td>
-      {/* Table — placed · suggested until placed · a dash when none or not coming. */}
-      <td className="px-3 py-2.5">
+      {columns.map((column) => (
+        <td key={column} className="px-3 py-2.5" data-roster-cell={column}>
+          <RosterCell column={column} guest={guest} facts={facts} size="row" />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+/**
+ * What every row's cells need that is not the guest — built ONCE per render of
+ * the list, so a row never re-derives a lookup a hundred rows share.
+ */
+type RowFacts = {
+  eventId: string;
+  palette: RolePalette;
+  invite: GuestInviteSetup | null;
+  groups: GuestGroupWithCount[];
+  groupsById: Record<string, GuestGroupWithCount>;
+  groupMemberships: Record<string, string[]>;
+  currentGroupId: string | null;
+  bulkRoleSections: RoleSection[];
+  seatByGuest: Record<string, { placed: string | null; suggested: string | null }>;
+  /** An account holds this invitation; null = not measured. */
+  linkedOf: (guestId: string) => boolean | null;
+  /** guest_id → when they arrived; null = not read (before the day) or refused. */
+  checkins: Readonly<Record<string, string>> | null;
+};
+
+const DASH = <span className="text-xs text-ink/40">—</span>;
+
+/**
+ * ONE CELL, ANY COLUMN — the same control for a column wherever it is drawn
+ * (owner 2026-09-30: "each cell uses the same control everywhere"): the desktop
+ * row's slots and the phone row's one slot both come through here, so a column
+ * cannot mean one thing on a computer and another on a phone.
+ *
+ *   · Invite  — `GuestInviteCell` (Invite · ⋯ + status); the hosts read Host.
+ *   · RSVP    — the reply pill, ONE dropdown.
+ *   · Access  — `GuestAccessCell` (#6191), the card's Access line.
+ *   · Check-in — `GuestCheckinCell`, the desk's own actions.
+ *   · Seat · Side · Role · Groups · +N — the shipped chip editors.
+ *   · Account — Linked / Not linked, "—" when nobody measured.
+ *   · Contact — the mobile as tap-to-call. Never an email (no email to guests).
+ */
+function RosterCell({
+  column,
+  guest,
+  facts,
+  size,
+}: {
+  column: RosterColumn;
+  guest: GuestRow;
+  facts: RowFacts;
+  size: 'row' | 'phone';
+}) {
+  const { eventId } = facts;
+  const isHost = HOST_ROLES.has(guest.role);
+  const extraSeats = useBringerSeats(guest.guest_id);
+  const seat = facts.seatByGuest[guest.guest_id];
+  const linked = facts.linkedOf(guest.guest_id);
+  switch (column) {
+    case 'invite':
+      // Invite · ⋯ with the status under it. The bride's row says Host — they
+      // are the hosts, nothing to send.
+      if (isHost) return <span className="text-xs font-medium text-ink/55">Host</span>;
+      if (guest.passed_away) return <span className="text-xs text-ink/45">Remembered</span>;
+      return <RowInvite eventId={eventId} guest={guest} invite={facts.invite} size={size} linked={linked} />;
+    case 'rsvp':
+      if (guest.passed_away) return DASH;
+      return (
+        <RsvpChipEditor eventId={eventId} guest={guest} seatedTableLabel={seat?.placed ?? null}>
+          <RsvpText status={guest.rsvp_status} host={isHost} />
+        </RsvpChipEditor>
+      );
+    case 'access':
+      return <RowAccess eventId={eventId} guest={guest} size={size} />;
+    case 'checkin': {
+      // A request nobody accepted admits nobody (the desk refuses it too); a
+      // refused read says "—", never "Check in" for everybody.
+      if (guest.passed_away || guest.entry_source === REQUEST_ENTRY_SOURCE || facts.checkins === null) return DASH;
+      return (
+        <GuestCheckinCell
+          eventId={eventId}
+          guestId={guest.guest_id}
+          name={guestDisplayName(guest)}
+          checkedInAt={facts.checkins[guest.guest_id] ?? null}
+        />
+      );
+    }
+    case 'seat':
+      // Placed · suggested until placed · a dash when none or not coming.
+      return (
         <SeatChip
           placed={seat?.placed ?? null}
           suggested={seat?.suggested ?? null}
@@ -449,28 +482,141 @@ function DesktopRow({
           plusOnes={0}
           plain
         />
-      </td>
-      <td className="px-3 py-2.5 text-xs">
-        {linked === null ? (
-          <span className="text-ink/40">—</span>
-        ) : linked ? (
-          <span className="font-medium text-success-800">Linked</span>
-        ) : (
-          <span className="text-ink/55">Not linked</span>
-        )}
-      </td>
-      {/* Invite · ⋯ with the status under it (owner 2026-09-30). The bride's
-          row says Host — they are the hosts, nothing to send. */}
-      <td className="px-3 py-2.5">
-        {isHost ? (
-          <span className="text-xs font-medium text-ink/55">Host</span>
-        ) : guest.passed_away ? (
-          <span className="text-xs text-ink/45">Remembered</span>
-        ) : (
-          <RowInvite eventId={eventId} guest={guest} invite={invite} size="row" linked={linked} />
-        )}
-      </td>
-    </tr>
+      );
+    case 'side':
+      return (
+        <SideChipEditor eventId={eventId} guest={guest}>
+          <SideText side={guest.side} />
+        </SideChipEditor>
+      );
+    case 'role':
+      return (
+        <RoleChipEditor eventId={eventId} guest={guest} roleSections={facts.bulkRoleSections}>
+          <RoleTexts guest={guest} palette={facts.palette} />
+        </RoleChipEditor>
+      );
+    case 'groups': {
+      const groupIds = facts.groupMemberships[guest.guest_id] ?? [];
+      return (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <GroupChipList
+            eventId={eventId}
+            guestId={guest.guest_id}
+            groupIds={groupIds}
+            groupsById={facts.groupsById}
+            currentGroupId={facts.currentGroupId}
+            compact
+            plain
+          />
+          <AddToGroupControl eventId={eventId} guest={guest} groups={facts.groups} memberGroupIds={groupIds} />
+        </div>
+      );
+    }
+    case 'plus':
+      // +N — the host's number; a dash when there is nothing to say.
+      if (isHost || guest.rsvp_status === 'declined' || guest.passed_away) return DASH;
+      return (
+        <div className="space-y-0.5">
+          <PlusOneChipEditor eventId={eventId} guest={guest} />
+          {/* "+3 (2 named)" — how many of the seats already have a name. */}
+          {extraSeats.some((s) => s.named) ? (
+            <p className="whitespace-nowrap text-[11px] text-ink/55">
+              <PlusOneSeatsSummary count={plusOneSeats(guest)} seats={extraSeats} />
+            </p>
+          ) : null}
+        </div>
+      );
+    case 'account':
+      if (linked === null) return DASH;
+      return linked ? (
+        <span className="text-xs font-medium text-success-800">Linked</span>
+      ) : (
+        <span className="text-xs text-ink/55">Not linked</span>
+      );
+    case 'contact':
+      return <ContactCell mobile={guest.mobile} name={guestDisplayName(guest)} />;
+  }
+}
+
+/**
+ * The Contact column — the guest's mobile, one tap to call. Rule 1 allows a
+ * guest's contact "only for the couple and if coordinator is given access"
+ * (owner 2026-09-14), and this list renders only behind guest_list access —
+ * billed in `no-door-out-of-the-app.test.ts`. No email: nothing on this list
+ * writes to a guest by email (owner 2026-09-30).
+ */
+function ContactCell({ mobile, name }: { mobile: string | null; name: string }) {
+  const number = mobile?.trim();
+  if (!number) return DASH;
+  return (
+    <a
+      href={`tel:${number.replace(/[^\d+]/g, '')}`}
+      aria-label={`Call ${name}`}
+      className="inline-flex min-h-[36px] items-center whitespace-nowrap text-xs text-ink/70 underline-offset-4 hover:text-ink hover:underline"
+    >
+      {number}
+    </a>
+  );
+}
+
+/**
+ * One row's Access control — the card's Access line in a row's width
+ * (`guest-access-cell.tsx`), reading the state the page loaded once. A guest
+ * the read did not answer for gets "—": a refused read must not render as
+ * "None" on every co-host.
+ */
+function RowAccess({
+  eventId,
+  guest,
+  size,
+}: {
+  eventId: string;
+  guest: GuestRow;
+  size: 'row' | 'phone';
+}) {
+  const { byGuest, canManage } = useContext(GuestAccessContext);
+  const state = byGuest[guest.guest_id];
+  if (!state) return DASH;
+  return (
+    <GuestAccessCell
+      eventId={eventId}
+      guestId={guest.guest_id}
+      firstName={guest.first_name}
+      state={state}
+      canManage={canManage}
+      size={size}
+    />
+  );
+}
+
+/**
+ * A slot's header — ONE dropdown choosing what the column shows (owner
+ * 2026-09-30: "allow dropdown to each column like mobile mode"). Picking a
+ * column already shown elsewhere swaps the two, so nothing shows twice.
+ */
+function ColumnPick({
+  slot,
+  column,
+  available,
+  onPick,
+  label,
+}: {
+  slot: number;
+  column: RosterColumn;
+  available: readonly RosterColumn[];
+  onPick: (slot: number, column: RosterColumn) => void;
+  label: string;
+}) {
+  return (
+    <PickMenu
+      compact
+      label={label}
+      value={column}
+      buttonText={ROSTER_COLUMN_LABEL[column]}
+      options={available.map((c) => ({ key: c, label: ROSTER_COLUMN_LABEL[c] }))}
+      onPick={(key) => onPick(slot, key as RosterColumn)}
+      dataAttr="data-roster-column-pick"
+    />
   );
 }
 
@@ -529,8 +675,26 @@ type Props = {
   recentlyApplied?: boolean;
   /** The guest list is finalized — extra seats stop being editable (owner 2026-09-21). */
   listFinalized?: boolean;
-  /** guest_id → "Co-host" / "Limited helper" (· waiting…) from the live seats. */
-  accessTagByGuest?: Record<string, string>;
+  /**
+   * guest_id → the guest's Access (None · Co-host · Limited helper, live or
+   * waiting) from the live seats — `loadGuestAccessMap`, ONE read by the page.
+   * A guest absent from it (a refused read) gets no Access cell at all, never
+   * a false "None". The Access column draws and changes it (owner 2026-09-28).
+   */
+  accessByGuest?: Readonly<Record<string, GuestAccessState>>;
+  /** The viewer is a co-host (`couple` member) — the only one who may change
+   *  Access; the action refuses everyone else, so the column offers no dropdown. */
+  canManageAccess?: boolean;
+  /**
+   * The Check-in column (owner 2026-09-30) — guest_id → when they arrived.
+   * Only read from the event day (`checkinOpen`); null when the read was
+   * refused, and the column then says "—" rather than "Check in" for everybody.
+   */
+  checkins?: Readonly<Record<string, string>> | null;
+  /** The event day or after — Check-in is a column choice, and leads. */
+  checkinOpen?: boolean;
+  /** A birthday has no sides — no Side column to offer. */
+  hasSides?: boolean;
   /**
    * Every guest's extra seats, from the FULL roster (`bringerSeatsFrom`, built
    * in page.tsx before any filter): "+3 (2 named)", "+2 · TBA", and the
@@ -608,6 +772,7 @@ function RowInvite({
 }
 
 const NO_SEATS: Readonly<Record<string, readonly BringerSeat[]>> = {};
+const NO_ACCESS: Readonly<Record<string, GuestAccessState>> = {};
 
 /** The hosts' rows — no Invite, the reply reads Always. The RSVP and role LOCKS stay in their editors. */
 const HOST_ROLES: ReadonlySet<string> = new Set(['bride', 'groom']);
@@ -630,14 +795,17 @@ export function GuestListMultiselect({
   recentlyDeleted,
   recentlyApplied,
   listFinalized = false,
-  accessTagByGuest = {},
+  accessByGuest = NO_ACCESS,
+  canManageAccess = false,
+  checkins = null,
+  checkinOpen = false,
+  hasSides = true,
   seatsByBringer = NO_SEATS,
   invite = null,
   linkedGuestIds = null,
   tables = [],
 }: Props) {
   const linkedSet = useMemo(() => (linkedGuestIds ? new Set(linkedGuestIds) : null), [linkedGuestIds]);
-  const linkedOf = (id: string): boolean | null => (linkedSet ? linkedSet.has(id) : null);
   // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5). Reused as
   // the role-editor popover's option groups (P2).
   /**
@@ -655,7 +823,7 @@ export function GuestListMultiselect({
   const faceFor = (g: GuestRow): string | undefined =>
     photoDisplayUrls[g.photo_url ?? ''] ?? accountFaceByGuest[g.guest_id];
 
-  const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
+  const bulkRoleSections = useMemo(() => bulkRoleSectionsFor(roleSetKey), [roleSetKey]);
   // The couple's words for roles (owner 2026-09-30) — headings are drawn in them.
   const roleNames = useRoleNames();
   // Which visible rows are unlisted self-joiners → render the blush needs-you
@@ -693,6 +861,42 @@ export function GuestListMultiselect({
     for (const g of rosterGuests) map[g.guest_id] = guestDisplayName(g);
     return map;
   }, [rosterGuests]);
+
+  // The Access column's one context value — a fresh object per render would
+  // re-render every row's cell on every keystroke in the search box.
+  const accessCtx = useMemo(
+    () => ({ byGuest: accessByGuest, canManage: canManageAccess }),
+    [accessByGuest, canManageAccess],
+  );
+
+  // ── THE COLUMN SLOTS (owner 2026-09-30, "THE GUEST LIST USES THE FULL
+  // WIDTH"): which columns this list can show, in their default order — Invite
+  // leads while anybody is still to be sent theirs; from the event day
+  // Check-in leads. The desktop fits as many as its width allows; the phone
+  // shows ONE beside the name. Each device remembers its own picks.
+  const anyUnsent = useMemo(
+    () =>
+      rosterGuests.some(
+        (g) =>
+          !HOST_ROLES.has(g.role) &&
+          !g.passed_away &&
+          g.entry_source !== REQUEST_ENTRY_SOURCE &&
+          !g.invitation_sent_at &&
+          g.rsvp_status !== 'declined',
+      ),
+    [rosterGuests],
+  );
+  const availableColumns = useMemo(
+    () => defaultRosterColumns({ anyUnsent, checkinOpen, hasSides }),
+    [anyUnsent, checkinOpen, hasSides],
+  );
+  const desk = useRosterColumns({ storageKey: 'sn:guest-list-columns:v1', defaults: availableColumns });
+  const phone = useRosterColumns({
+    storageKey: 'sn:guest-list-columns:phone:v1',
+    defaults: availableColumns,
+    fixedSlots: 1,
+  });
+  const phoneColumn = phone.columns[0] ?? 'invite';
 
   // Collapsed section keys (redesign Phase 1) — client-only, resets on reload.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -749,6 +953,36 @@ export function GuestListMultiselect({
   const groupsById = useMemo(
     () => Object.fromEntries(groups.map((g) => [g.group_id, g])),
     [groups],
+  );
+
+  const facts: RowFacts = useMemo(
+    () => ({
+      eventId,
+      palette,
+      invite,
+      groups,
+      groupsById,
+      groupMemberships,
+      currentGroupId,
+      bulkRoleSections,
+      seatByGuest,
+      linkedOf: (id: string) => (linkedSet ? linkedSet.has(id) : null),
+      checkins: checkinOpen ? checkins : null,
+    }),
+    [
+      eventId,
+      palette,
+      invite,
+      groups,
+      groupsById,
+      groupMemberships,
+      currentGroupId,
+      bulkRoleSections,
+      seatByGuest,
+      linkedSet,
+      checkinOpen,
+      checkins,
+    ],
   );
 
   /*
@@ -884,7 +1118,7 @@ export function GuestListMultiselect({
 
   return (
     <GuestListFinalizedContext.Provider value={listFinalized}>
-    <GuestAccessTagContext.Provider value={accessTagByGuest}>
+    <GuestAccessContext.Provider value={accessCtx}>
     <BringerSeatsProvider seats={seatsByBringer}>
     <div className="space-y-4">
       {/* The bulk bar — every width, floating at the bottom (owner 2026-09-30,
@@ -929,7 +1163,9 @@ export function GuestListMultiselect({
            sentence always meant. `overflow-x-auto` is belt-and-braces: at any
            width the table now SCROLLS instead of stacking cells on each
            other. */
+        ref={desk.ref}
         className="hidden overflow-x-auto rounded-tile border lg:block"
+        data-roster-slots={desk.columns.length}
         style={{
           background: 'var(--sn-glass-bg)',
           borderColor: 'var(--sn-glass-line)',
@@ -973,30 +1209,43 @@ export function GuestListMultiselect({
                   />
                 </label>
               </th>
-              {/* ⚖ Owner 2026-09-30 (the Fable rows, frame F): the columns are
-                  ☐ · Name · Side · Role · Group · RSVP · +N · Table · Account ·
-                  Invite, and the header is WORDS only — its group-by ticks and
-                  sort arrows are gone; Sort ▾ above the list is the one place
-                  for order. Name keeps whatever the fixed columns leave, and
-                  every header cell clips its own word (`overflow-hidden`), so no
-                  label can widen the table. One padding, header and body. */}
+              {/* ⚖ Owner 2026-09-30: Name first and widest, then as many
+                  column SLOTS as the width fits, each header ONE dropdown
+                  choosing what that column shows (no column twice — picking
+                  one already shown swaps the two). Words only: Sort ▾ above the
+                  list is the one place for order. Every header cell clips its
+                  own word (`overflow-hidden`), so no label can widen the table. */}
               <th className="overflow-hidden px-3 py-2.5 font-semibold"><span className="block truncate">Name</span></th>
-              <th className="w-[12%] overflow-hidden px-3 py-2.5 font-semibold"><span className="block truncate">Side · Role</span></th>
-              <th className="w-[10%] overflow-hidden px-3 py-2.5 font-semibold"><span className="block truncate">Group</span></th>
-              <th className="w-[9%] overflow-hidden px-3 py-2.5 font-semibold"><span className="block truncate">RSVP</span></th>
-              <th className="w-[5%] overflow-hidden px-3 py-2.5 font-semibold"><span className="block truncate">+N</span></th>
-              <th className="w-[7%] overflow-hidden px-3 py-2.5 font-semibold"><span className="block truncate">Table</span></th>
-              <th className="w-[7%] overflow-hidden px-3 py-2.5 font-semibold"><span className="block truncate">Account</span></th>
-              {/* ⚖ THE INVITE COLUMN (owner 2026-09-30): Invite · ⋯ with the
-                  status under it. A FIXED width — it holds controls of known size. */}
-              <th className="w-[168px] px-3 py-2.5 font-semibold">
-                <InfoTip label="Invite" align="end" ariaLabel="How Invite works">
-                  <span className="block normal-case tracking-normal font-normal">
-                    Each guest has their own ticket. Invite sends the message, their link and their
-                    ticket together. On a computer: copy the message, then copy the ticket.
+              {desk.columns.map((column, slot) => (
+                <th
+                  key={column}
+                  /* Every slot is SLOT_PX wide — the same number the slot
+                     count is computed from, so Name always keeps the rest.
+                     The dropdown's list is portalled, so clipping the cell
+                     never clips the menu. */
+                  style={{ width: SLOT_PX }}
+                  className="overflow-hidden px-3 py-2 font-semibold normal-case tracking-normal"
+                  data-roster-slot={slot}
+                >
+                  <span className="flex items-center gap-1">
+                    <ColumnPick
+                      slot={slot}
+                      column={column}
+                      available={availableColumns}
+                      onPick={desk.pick}
+                      label={`Column ${slot + 1} shows`}
+                    />
+                    {column === 'invite' ? (
+                      <InfoTip label="Invite" labelClassName="sr-only" align="end" ariaLabel="How Invite works">
+                        <span className="block normal-case tracking-normal font-normal">
+                          Each guest has their own ticket. Invite sends the message, their link and their
+                          ticket together. On a computer: copy the message, then copy the ticket.
+                        </span>
+                      </InfoTip>
+                    ) : null}
                   </span>
-                </InfoTip>
-              </th>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -1005,7 +1254,7 @@ export function GuestListMultiselect({
                 {sec.label ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={2 + desk.columns.length}
                       className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
                     >
                       <TierHeader
@@ -1025,20 +1274,12 @@ export function GuestListMultiselect({
                   <DesktopRow
                     key={guest.guest_id}
                     guest={guest}
-                    eventId={eventId}
-                    palette={palette}
                     displayUrl={faceFor(guest)}
                     selected={selectedSet.has(guest.guest_id)}
                     onToggle={() => guestSelection.toggle(guest.guest_id)}
-                    groupIds={groupMemberships[guest.guest_id] ?? []}
-                    groups={groups}
-                    groupsById={groupsById}
-                    currentGroupId={currentGroupId}
-                    bulkRoleSections={bulkRoleSections}
-                    seat={seatByGuest[guest.guest_id]}
                     nameById={nameById}
-                    invite={invite}
-                    linked={linkedOf(guest.guest_id)}
+                    columns={desk.columns}
+                    facts={facts}
                   />
                 ))}
               </Fragment>
@@ -1057,6 +1298,22 @@ export function GuestListMultiselect({
           2026-06-03 directive. See the table's note above for why this is not
           `sm:hidden` any more. */}
       <div className="space-y-5 lg:hidden">
+        {/* The phone's ONE column beside the name (owner 2026-09-30: "the
+            same component with ONE column slot + Name") — its header is the
+            same dropdown the computer's columns have, remembered per device. */}
+        <div className="flex items-center justify-between gap-2 px-1 text-xs text-ink/55" data-roster-phone-column="">
+          <span>Name</span>
+          <span className="inline-flex items-center gap-1.5">
+            Showing
+            <ColumnPick
+              slot={0}
+              column={phoneColumn}
+              available={availableColumns}
+              onPick={phone.pick}
+              label="What each row shows"
+            />
+          </span>
+        </div>
         {sections.map((sec) => (
           <section key={sec.key}>
             {sec.label ? (
@@ -1100,9 +1357,10 @@ export function GuestListMultiselect({
                     currentGroupId={currentGroupId}
                     bulkRoleSections={bulkRoleSections}
                     seat={seatByGuest[guest.guest_id]}
-                    invite={invite}
                     nameById={nameById}
-                    linked={linkedOf(guest.guest_id)}
+                    linked={facts.linkedOf(guest.guest_id)}
+                    column={phoneColumn}
+                    facts={facts}
                   />
                 ))}
               </ul>
@@ -1112,7 +1370,7 @@ export function GuestListMultiselect({
       </div>
     </div>
     </BringerSeatsProvider>
-    </GuestAccessTagContext.Provider>
+    </GuestAccessContext.Provider>
     </GuestListFinalizedContext.Provider>
   );
 }
@@ -1472,13 +1730,13 @@ function MobileListRow({
   currentGroupId,
   bulkRoleSections,
   seat,
-  invite,
   nameById,
   linked,
+  column,
+  facts,
 }: {
   guest: GuestRow;
   eventId: string;
-  invite: GuestInviteSetup | null;
   displayUrl?: string;
   selectMode: boolean;
   selected: boolean;
@@ -1494,6 +1752,9 @@ function MobileListRow({
   nameById: Record<string, string>;
   /** An account holds this invitation; null = not measured. */
   linked: boolean | null;
+  /** The phone's one column slot — drawn under the dashed line. */
+  column: RosterColumn;
+  facts: RowFacts;
 }) {
   const isHost = HOST_ROLES.has(guest.role);
   // The couple can never be removed (the server refuses them), and select mode
@@ -1616,26 +1877,27 @@ function MobileListRow({
           )}
         </div>
         <div className="shrink-0">
-          {guest.passed_away ? null : (
+          {/* The reply pill — unless the one column already IS the reply. */}
+          {guest.passed_away || column === 'rsvp' ? null : (
             <RsvpChipEditor eventId={eventId} guest={guest} seatedTableLabel={seat?.placed ?? null}>
               <RsvpText status={guest.rsvp_status} host={isHost} />
             </RsvpChipEditor>
           )}
         </div>
       </div>
-      {/* Under the dashed line: Invite · ⋯ and the status (frame A). While
-          picking rows it hides, so a row is just a thing to tick. */}
+      {/* Under the dashed line: the ONE column this phone shows — Invite · ⋯
+          and the status by default (frame A), or whatever the "Showing"
+          dropdown picked, through the same cell the computer's columns use.
+          While picking rows it hides, so a row is just a thing to tick. */}
       {selectMode ? null : (
-        <div className="mt-2.5 border-t border-dashed border-ink/15 pt-2.5">
-          {isHost ? (
+        <div className="mt-2.5 border-t border-dashed border-ink/15 pt-2.5" data-roster-cell={column}>
+          {column === 'invite' && isHost ? (
             <p className="flex items-center justify-between text-xs text-ink/55">
               <span className="font-medium">Host</span>
               {linked === null ? null : <span>{linked ? 'Linked' : 'Not linked'}</span>}
             </p>
-          ) : guest.passed_away ? (
-            <p className="text-xs text-ink/45">Remembered</p>
           ) : (
-            <RowInvite eventId={eventId} guest={guest} invite={invite} size="phone" linked={linked} />
+            <RosterCell column={column} guest={guest} facts={facts} size="phone" />
           )}
         </div>
       )}
@@ -1943,15 +2205,19 @@ function RsvpText({ status, host = false }: { status: RsvpStatus; host?: boolean
   );
 }
 
-/** guest_id → "Co-host" / "Limited helper" (· waiting…) — TRUE by construction,
- *  derived from the live seat (owner 2026-09-28 "make it true"); absent = none. */
-const GuestAccessTagContext = createContext<Record<string, string>>({});
+/** guest_id → the guest's Access — TRUE by construction, derived from the live
+ *  seat (owner 2026-09-28 "make it true"); absent = the read did not answer.
+ *  Drawn by the Access column (`RowAccess`), which replaced the "+Co-host" tag
+ *  that used to trail the role (2026-09-30). */
+const GuestAccessContext = createContext<{
+  byGuest: Readonly<Record<string, GuestAccessState>>;
+  canManage: boolean;
+}>({ byGuest: NO_ACCESS, canManage: false });
 
 function RoleTexts({ guest, palette }: { guest: GuestRow; palette: RolePalette }) {
   const roleNames = useRoleNames();
   const primary = roleTextStyle(guest.role, palette);
   const extras = guest.extra_roles ?? [];
-  const accessTag = useContext(GuestAccessTagContext)[guest.guest_id];
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
       <span className={`text-xs font-medium ${primary.textClass ?? ''}`} style={primary.style ?? undefined}>
@@ -1970,15 +2236,6 @@ function RoleTexts({ guest, palette }: { guest: GuestRow; palette: RolePalette }
           </span>
         );
       })}
-      {accessTag ? (
-        <span
-          title={accessTag}
-          className="text-[10px] font-medium text-success-800"
-          data-guest-access-tag
-        >
-          +{accessTag}
-        </span>
-      ) : null}
     </span>
   );
 }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
+import { CHECK_PX, NAME_PX, ROSTER_COLUMNS, SLOT_PX, rosterSlotCount } from '@/lib/roster-columns';
 
 /**
  * ⚖ Owner 2026-09-21, on the shipped header: *"text is improper. and it does
@@ -67,51 +68,40 @@ function headerCells(): string[] {
   return [...head.matchAll(/<(?:ArrangeTh|th)\b[\s\S]*?\/?>/g)].map((m) => m[0]);
 }
 
-test('the declared column widths cannot exceed the table', () => {
-  // 🪤 A percentage total over 100 does not "just overflow a bit" — it makes
-  // the whole table wider than its scroller, so the LAST column is the one
-  // that disappears, and the page reads as not stretching to fit.
-  const pcts = [...ROSTER.matchAll(/w-\[(\d+)%\]/g)]
-    .map((m) => Number(m[1]))
-    .slice(0, 6); // the six fixed roster columns + Contact live together
+test('Name keeps the leftover — the slots are counted from the width, never declared past it', () => {
+  // ⤷ 2026-09-30, REWRITTEN FOR THE FULL-WIDTH LIST (owner: "number of columns
+  // to show depends on the width of the screen"). The property this file has
+  // always protected is that NAME KEEPS THE LEFTOVER. It used to be held by a
+  // ceiling on the declared percentages; now there are no percentages at all —
+  // every slot is SLOT_PX wide, and the NUMBER of slots is computed from the
+  // list's measured width so that the checkbox, Name's floor and the slots
+  // always fit. Executed here, not read: at every width a desktop can have,
+  // what the slots claim leaves Name at least NAME_PX.
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
-  const declared = [...head.matchAll(/w-\[(\d+)%\]/g)].map((m) => Number(m[1]));
-  assert.ok(declared.length >= 6, `found ${declared.length} declared widths — this guard is blind`);
-  const total = declared.reduce((a, b) => a + b, 0);
-  // 🪤 THE FIRST THRESHOLD HERE WAS 95% AND CAUGHT NOTHING. A sabotage that
-  // ballooned Role to 52% — leaving Name a tenth of the table — sailed
-  // through, because "under 100" is not the property that matters. The
-  // property is that NAME KEEPS THE LEFTOVER (see the width note in the
-  // roster), and 55% is the loosest ceiling that still enforces it: the six
-  // claim 50% today, so there is room to adjust one without a rewrite, and no
-  // room to quietly eat the column a couple actually reads.
-  assert.ok(
-    total <= 55,
-    `the fixed columns claim ${total}% (declared: ${declared.join(' + ')}), leaving Name ${100 - total}% minus a 40px checkbox — Name carries the longest value in the row and must keep the leftover`,
-  );
-  assert.ok(pcts.length > 0);
+  assert.doesNotMatch(head, /w-\[\d+%\]/, 'a header declares a percentage width again — the slots are counted, not declared');
+  assert.match(head, /style=\{\{ width: SLOT_PX \}\}/, 'a slot header is not SLOT_PX wide — the count and the layout would disagree');
+  for (let width = 1000; width <= 2800; width += 40) {
+    const slots = rosterSlotCount(width, ROSTER_COLUMNS.length);
+    const left = width - CHECK_PX - slots * SLOT_PX;
+    if (slots > 1) assert.ok(left >= NAME_PX, `at ${width}px, ${slots} slots leave Name ${left}px (< ${NAME_PX})`);
+  }
+  // The owner's own numbers: about 4 at a 1280px list, 6 at 1600, 8+ at 2000+.
+  assert.ok(rosterSlotCount(960, 11) >= 4 && rosterSlotCount(960, 11) <= 5, 'a 1280px screen (≈960px of list) should show about 4');
+  assert.ok(rosterSlotCount(1300, 11) >= 6, 'a 1600px screen (≈1300px of list) should show about 6');
+  assert.ok(rosterSlotCount(1700, 11) >= 8, 'a 2000px screen (≈1700px of list) should show 8+');
 });
 
 test('a fixed-pixel column has a budget too, so it cannot eat Name by another unit', () => {
-  // 🪤 THE PERCENTAGE CEILING ABOVE CANNOT SEE A PIXEL WIDTH. The Invite column
-  // (owner 2026-09-30) is `w-[104px]` — one button of known size — and the
-  // checkbox is `w-10` (40px). Both come out of Name exactly as a percentage
-  // does, so without this budget a `w-[400px]` column would sail past the 55%
-  // check above. 144px = the checkbox + the Invite button; a new fixed column
-  // must come with a reason to raise it.
+  // The checkbox is the one fixed width left in the header's classes; the slots
+  // are sized by SLOT_PX (above). Anything else fixed would come out of Name
+  // with nothing counting it.
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
-  // Only the CELLS' own classes — the checkbox inside the first one is `w-4`.
   const cellClasses = [...head.matchAll(/<(?:th|ArrangeTh)\b[^>]*?className="([^"]*)"/g)].map((m) => m[1]!).join(' ');
   const px = [...cellClasses.matchAll(/\bw-\[(\d+)px\]/g)].map((m) => Number(m[1]));
   const rem = [...cellClasses.matchAll(/\bw-(\d+)\b/g)].map((m) => Number(m[1]) * 4);
-  assert.ok(px.length + rem.length >= 2, `found ${px.length + rem.length} fixed widths — this guard is blind`);
+  assert.ok(px.length + rem.length >= 1, `found ${px.length + rem.length} fixed widths — this guard is blind`);
   const total = [...px, ...rem].reduce((a, b) => a + b, 0);
-  // ⤷ 2026-09-30, RAISED 144 → 208 WITH ITS REASON (the Fable rows): the Invite
-  // column holds a PAIR now — Invite and its ⋯ (Write to NFC · New QR · Unlink)
-  // — and the ⋯ is a 44px tap target. 208 = the 40px checkbox + 168px for the
-  // pair and its padding. The percentage columns gave the difference back to
-  // Name at the same time (55% → 50%).
-  assert.ok(total <= 208, `fixed-pixel columns claim ${total}px (${[...px, ...rem].join(' + ')}) — Name keeps the leftover`);
+  assert.ok(total <= CHECK_PX, `fixed-pixel columns claim ${total}px (${[...px, ...rem].join(' + ')}) — only the ${CHECK_PX}px checkbox is counted`);
 });
 
 test('the header and every body cell share ONE horizontal padding', () => {
@@ -153,8 +143,11 @@ test('the checkbox and the sort arrow never shrink instead of the label', () => 
 });
 
 test('every header cell still declares a scope, so the table stays readable aloud', () => {
+  // ☐ · Name · and ONE slot header drawn per column (`desk.columns.map`).
   const cells = headerCells();
-  assert.ok(cells.length >= 7, `found ${cells.length} header cells — this guard is blind`);
+  assert.ok(cells.length >= 3, `found ${cells.length} header cells — this guard is blind`);
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  assert.match(head, /desk\.columns\.map\(\(column, slot\) => \(\s*<th\b/, 'the slot headers are no longer one <th> per column');
 });
 
 test('no header cell can widen the table — the floor under every width above', () => {

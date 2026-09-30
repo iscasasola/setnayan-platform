@@ -951,7 +951,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   ) : null;
   // The Account column — which guests an account holds. Refused → null, and the
   // column says "—" rather than "Not linked" for everybody.
-  const linkedGuestIds = await readLinkedGuestIds(supabase, eventId);
+  // The Check-in column (owner 2026-09-30) — only from the event day, when it
+  // is a column at all. Refused → null, and the column says "—".
+  const checkinOpen = phase !== 'plan';
+  const [linkedGuestIds, checkins] = await Promise.all([
+    readLinkedGuestIds(supabase, eventId),
+    checkinOpen ? readCheckins(supabase, eventId) : Promise.resolve(null),
+  ]);
 
   // Roster lens-swap key (Glass PR-3) — a stable digest of the active filter
   // dimensions. When any facet changes the key changes, remounting the roster
@@ -1011,7 +1017,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
        ⚠ Vendors keeps its own `.shell-topbar` hide. That one is a full-screen
        takeover and it is scoped `@media (max-width:1023px)`; it is not this. */
-    <section className="sn-col space-y-6">
+    <section className="sn-col max-w-none space-y-6" data-roster-full-width="">
 
       {/* The floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
           (nav-surfaces follow-up to #1470): the global journey bottom nav is now
@@ -1355,6 +1361,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               // Only a co-host changes Access — the same `couple` gate the
               // card and `setGuestAccess` use; a helper reads the word.
               canManageAccess={viewer.isCouple}
+              // The column slots: Check-in from the event day; no Side on a birthday.
+              checkins={checkins}
+              checkinOpen={checkinOpen}
+              hasSides={hasSides}
               // From the FULL roster, before any filter (frame G, 2026-09-29).
               seatsByBringer={bringerSeatsFrom(guests)}
               // The Account column and the bulk bar's Set table ▾.
@@ -1972,6 +1982,28 @@ async function readLinkedGuestIds(
     return null;
   }
   return [...new Set(((data ?? []) as { guest_id: string | null }[]).map((r) => r.guest_id).filter((id): id is string => Boolean(id)))];
+}
+
+/**
+ * When each guest arrived (`guest_checkins`) — the Check-in column. Read AS THE
+ * CALLER, the same read the check-in desk makes. A refusal returns null, and
+ * the column says "—" rather than offering "Check in" to guests already inside.
+ */
+async function readCheckins(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+): Promise<Record<string, string> | null> {
+  const { data, error } = await supabase
+    .from('guest_checkins')
+    .select('guest_id, checked_in_at')
+    .eq('event_id', eventId);
+  if (error) {
+    logQueryError('GuestsPage.checkins', error, { eventId }, 'graceful_degrade');
+    return null;
+  }
+  return Object.fromEntries(
+    ((data ?? []) as { guest_id: string; checked_in_at: string }[]).map((r) => [r.guest_id, r.checked_in_at]),
+  );
 }
 
 /**

@@ -27,6 +27,13 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { plusOnesUnderBringers } from '@/lib/plus-ones-under-bringers';
+import {
+  defaultRosterColumns,
+  pickRosterColumn,
+  resolveRosterColumns,
+  ROSTER_COLUMNS,
+  rosterSlotCount,
+} from '@/lib/roster-columns';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (...p: string[]) => stripComments(readFileSync(join(HERE, ...p), 'utf8'));
@@ -37,6 +44,16 @@ const ROWS = read('guest-list-multiselect.tsx');
 const CHIPS = read('chip-editors.tsx');
 const PHONE = read('mobile-guest-carousel.tsx');
 const PAGE = read('..', 'page.tsx');
+const COLS = ['invite', 'rsvp', 'access', 'checkin', 'seat', 'side', 'role', 'groups', 'plus', 'account', 'contact'] as const;
+
+/** A function's source from its name to the next top-level function. */
+function bodyOfFn(src: string, name: string): string {
+  const a = src.indexOf(`function ${name}(`);
+  assert.notEqual(a, -1, `${name} is gone — this guard is blind`);
+  const b = src.indexOf('\nfunction ', a + 10);
+  return src.slice(a, b === -1 ? undefined : b);
+}
+
 const ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'actions.ts'), 'utf8'));
 
 // ── THE CARD ────────────────────────────────────────────────────────────────
@@ -132,14 +149,67 @@ test('rows: "walks with" and Pair are gone from the list', () => {
   assert.doesNotMatch(ROWS, /walks with|<PartnerLine|pairSelectedGuests|unpairGuestAction|Pair these 2/);
 });
 
-test('rows: the Contact column and the eye left; Account and Invite · ⋯ are there', () => {
+test('rows: the eye left; every column is a slot whose header is ONE dropdown — Name first', () => {
+  // ⤷ 2026-09-30, the full-width list (DECISION_LOG "THE GUEST LIST USES THE
+  // FULL WIDTH…"): Name first, then as many slots as fit, each header a
+  // PickMenu choosing Invite · RSVP · Access · Check-in · Seat · Side · Role ·
+  // Groups · +N · Account · Contact.
   const head = ROWS.slice(ROWS.indexOf('<thead'), ROWS.indexOf('</thead>'));
-  for (const col of ['Name', 'Side · Role', 'Group', 'RSVP', '+N', 'Table', 'Account']) {
-    assert.ok(head.includes(`>${col}<`), `the ${col} column is gone`);
-  }
-  assert.doesNotMatch(head, /Contact|ArrangeTh/, 'the old header is back');
-  assert.doesNotMatch(ROWS, /QuickViewButton|href=\{`tel:|href=\{`mailto:/);
+  assert.ok(head.includes('>Name<'), 'Name is no longer the first column');
+  assert.match(head, /desk\.columns\.map\(\(column, slot\) =>[\s\S]*?<ColumnPick\b/, 'a slot header is not a dropdown');
+  assert.doesNotMatch(head, /ArrangeTh/, 'the old sort/group header is back');
+  assert.match(bodyOfFn(ROWS, 'ColumnPick'), /<PickMenu\b/, 'the slot header is not the shipped PickMenu');
+  assert.doesNotMatch(ROWS, /QuickViewButton|mailto:/);
   assert.match(ROWS, /<GuestMoreMenu\b/, 'a row has no ⋯');
+  // One switch draws every column, on both widths.
+  const cell = bodyOfFn(ROWS, 'RosterCell');
+  for (const c of COLS) assert.match(cell, new RegExp(`case '${c}':`), `RosterCell cannot draw ${c}`);
+  assert.match(cell, /<GuestAccessCell|<RowAccess\b/, 'Access is not the #6191 cell');
+  assert.match(cell, /<GuestCheckinCell\b/, 'Check-in is not the desk’s cell');
+  assert.match(read('guest-checkin-cell.tsx'), /import \{ checkInGuest, undoCheckIn \} from '\.\.\/checkin\/actions';/, 'Check-in grew its own writer');
+  assert.match(bodyOfFn(ROWS, 'MobileListRow'), /<RosterCell column=\{column\}/, 'the phone does not draw its ONE slot through the same cell');
+  assert.match(ROWS, /fixedSlots: 1/, 'the phone shows more than one slot');
+});
+
+test('columns: no column twice, Invite leads while anyone is unsent, Check-in only from the day (executed)', () => {
+  assert.deepEqual([...ROSTER_COLUMNS], [...COLS], 'the column vocabulary changed');
+  const plan = defaultRosterColumns({ anyUnsent: true, checkinOpen: false, hasSides: true });
+  assert.equal(plan[0], 'invite');
+  assert.equal(plan[1], 'rsvp');
+  assert.ok(!plan.includes('checkin'), 'Check-in is offered before the event day');
+  const sent = defaultRosterColumns({ anyUnsent: false, checkinOpen: false, hasSides: true });
+  assert.deepEqual(sent.slice(0, 2), ['rsvp', 'invite'], 'once everyone is sent, the answers lead');
+  const day = defaultRosterColumns({ anyUnsent: true, checkinOpen: true, hasSides: true });
+  assert.equal(day[0], 'checkin', 'Check-in does not come forward on the day');
+  assert.ok(!defaultRosterColumns({ anyUnsent: true, checkinOpen: false, hasSides: false }).includes('side'), 'a birthday is offered Side');
+  // Picking a column already shown SWAPS — never two of one.
+  const shown = resolveRosterColumns(null, plan, 4);
+  assert.deepEqual(shown, ['invite', 'rsvp', 'access', 'seat']);
+  const swapped = pickRosterColumn(shown, 0, 'seat');
+  assert.deepEqual(swapped, ['seat', 'rsvp', 'access', 'invite']);
+  assert.equal(new Set(swapped).size, swapped.length);
+  // A remembered list is cleaned: unknown, unavailable and doubled entries go.
+  assert.deepEqual(resolveRosterColumns(['checkin', 'rsvp', 'rsvp', 'nope', 7], plan, 3), ['rsvp', 'invite', 'access']);
+  // More width, more slots: about 4 · 6 · 8+.
+  assert.equal(rosterSlotCount(960, COLS.length), 4);
+  assert.equal(rosterSlotCount(1300, COLS.length), 6);
+  assert.ok(rosterSlotCount(1700, COLS.length) >= 8);
+  assert.equal(rosterSlotCount(200, COLS.length), 1, 'a squeezed list still shows one column');
+});
+
+test('columns: remembered per device — every storage touch is inside try/catch', () => {
+  const hook = read('use-roster-columns.ts');
+  const touches = hook.match(/window\.localStorage\.\w+\(/g) ?? [];
+  assert.equal(touches.length, 2, 'the hook reads/writes storage more or less than once each');
+  for (const t of ['window.localStorage.getItem(', 'window.localStorage.setItem(']) {
+    const at = hook.indexOf(t);
+    const tryAt = hook.lastIndexOf('try {', at);
+    const catchAt = hook.indexOf('catch', tryAt);
+    assert.ok(tryAt !== -1 && catchAt > at, `${t} is not inside try/catch`);
+  }
+  assert.match(hook, /new ResizeObserver\(/, 'the slot count no longer follows the width');
+  assert.match(PAGE, /data-roster-full-width=""/, 'the Guest list no longer spans the full width');
+  assert.match(PAGE, /sn-col max-w-none/, 'the Guest list is narrowed to the reading column again');
 });
 
 test('rows: requests are never rows between guests — one strip leads to the Requests page', () => {

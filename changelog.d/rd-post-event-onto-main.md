@@ -13,7 +13,10 @@ release wins on guest pages:
 - **Letters (Messages scene)** and the **entourage's Two sides / March styles** use the
   couple's own role names. The existing `role-names-reach-every-screen` sweep caught the
   entourage styles printing the usual words.
-- **Entourage** — main's by-role Secondary Sponsors layout plus the train's styles.
+- **Entourage** — main's by-role Secondary Sponsors layout plus the train's styles. In
+  "Two sides", a **best woman** now stands on the best man's side. Before this, she had no
+  side (main's `best-woman-stands-where-the-best-man-stands` sweep caught it). Sabotage
+  check: removing her turns the style test red.
 - **PickMenu** — the Page ▾ dropdown's icon plus a Style's hint and small preview.
 - **Maker fixed parts** — Welcome's look and E-Gifts plus the day's own parts (seat, photos,
   announcements, live hub). A canvas write from a fixed part's Style row goes through main's

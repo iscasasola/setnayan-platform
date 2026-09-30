@@ -316,6 +316,10 @@ test('entourage · two sides puts each role on its side and keeps the side-less 
   for (const n of ['Mia Villanueva', 'Cora Bautista', 'Joy Lim']) assert.ok(left.includes(n), `${n} on the first side`);
   for (const n of ['Paolo Reyes', 'Hugo Cruz', 'Marco Tan']) assert.ok(right.includes(n) && !left.includes(n), `${n} on the second side`);
   assert.ok(out.includes('Ben Ocampo & Rica Flores'), 'a candle pair stays a pair, on no side');
+  // `best_woman` stands where the best man stands — on the second side.
+  const withBestWoman = [{ key: 'honor', label: 'Maid of Honor & Best Woman', rows: [[person('b1', 'Lara Diaz', 'maid_of_honor'), person('b2', 'Nina Uy', 'best_woman')]] }];
+  const bw = decode(html(h(EntourageSection, { groups: withBestWoman, sceneStyle: 'two-sides' } as never)));
+  assert.ok(bw.slice(bw.indexOf('data-entourage-side="1"')).includes('Nina Uy'), 'the best woman stands on the best man’s side');
   const oneSided = [GROUPS[2]!];
   assert.doesNotMatch(
     html(h(EntourageSection, { groups: oneSided, sceneStyle: 'two-sides' } as never)),

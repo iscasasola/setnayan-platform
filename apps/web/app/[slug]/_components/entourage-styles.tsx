@@ -42,6 +42,8 @@ const SIDE_OF_ROLE: Readonly<Record<string, SideKey>> = {
   groom_parents: 1,
   groom_immediate_family: 1,
   best_man: 1,
+  // `best_woman` stands where the best man stands (lib/entourage.ts, main 2026-09-30).
+  best_woman: 1,
   groomsman: 1,
   principal_sponsor_ninong: 1,
 };

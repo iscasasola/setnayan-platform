@@ -83,7 +83,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const { data: guest } = await admin
     .from('guests')
     .select(
-      'guest_id, first_name, last_name, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions',
+      'guest_id, name_prefix, first_name, middle_name, last_name, name_suffix, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions',
     )
     .eq('guest_id', session.guest_id)
     .eq('event_id', event.event_id)
@@ -110,6 +110,9 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const row: PlusOneRow = {
     first_name: (guest.first_name as string | null) ?? null,
     last_name: (guest.last_name as string | null) ?? null,
+    name_prefix: (guest.name_prefix as string | null) ?? null,
+    middle_name: (guest.middle_name as string | null) ?? null,
+    name_suffix: (guest.name_suffix as string | null) ?? null,
     plus_one_name_confirmed_at: (guest.plus_one_name_confirmed_at as string | null) ?? null,
     meal_preference: (guest.meal_preference as string | null) ?? null,
     dietary_restrictions: (guest.dietary_restrictions as string | null) ?? null,

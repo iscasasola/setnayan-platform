@@ -26,6 +26,7 @@
  * Pure — no I/O — so the rules can carry a unit suite.
  */
 import { classifyClaimMatch, MAX_NAME_LENGTH, type SeedCandidate } from '@/lib/guest-claim-core';
+import { formalNameFromForm, type FormalName } from '@/lib/formal-name';
 import { MEAL_LABELS, type MealPreference, type RsvpStatus } from '@/lib/guests';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { formatCount } from '@/lib/format-number';
@@ -49,7 +50,15 @@ export const REQUEST_MAX_SEATS = 5;
 const MEALS = Object.keys(MEAL_LABELS) as MealPreference[];
 
 export type RequestAnswers = {
+  /** "First Last" — what a match is suggested on and what the couple is told. */
   name: string;
+  /**
+   * The five name parts as typed (owner 2026-09-30: *"Prefix · First · Middle ·
+   * Last · Suffix, to stay consistent"*). NULL when the form posted only the
+   * one `name` box (the signed-in "Open my invitation" door, an older page) —
+   * the request row then splits `name` with the shared parser, as before.
+   */
+  parts: FormalName | null;
   rsvp_status: 'attending' | 'declined';
   seats: number;
   meal_preference: MealPreference;
@@ -75,7 +84,13 @@ export function readRequestAnswers(
   ask: RsvpAskConfig,
   accountEmail: string | null = null,
 ): { ok: true; value: RequestAnswers } | { ok: false; error: string } {
-  const name = text(fd, 'name', MAX_NAME_LENGTH);
+  // The five boxes when the form drew them (`first_name` posted), else the one.
+  const typedParts = fd.get('first_name') !== null ? formalNameFromForm(fd) : null;
+  // 🔒 First + Last are the required pair — refused here, not only by `required`.
+  if (typedParts && (!typedParts.first_name || !typedParts.last_name)) return { ok: false, error: 'missing_name' };
+  const name = typedParts
+    ? `${typedParts.first_name} ${typedParts.last_name}`.slice(0, MAX_NAME_LENGTH)
+    : text(fd, 'name', MAX_NAME_LENGTH);
   if (!name) return { ok: false, error: 'missing_name' };
 
   const answer = text(fd, 'rsvp_status', 16);
@@ -106,7 +121,7 @@ export function readRequestAnswers(
 
   return {
     ok: true,
-    value: { name, rsvp_status: picked.value, seats, meal_preference, dietary_restrictions, guest_note, email, mobile },
+    value: { name, parts: typedParts, rsvp_status: picked.value, seats, meal_preference, dietary_restrictions, guest_note, email, mobile },
   };
 }
 

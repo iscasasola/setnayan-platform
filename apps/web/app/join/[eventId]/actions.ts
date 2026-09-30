@@ -269,16 +269,30 @@ async function createJoinRequest(
 
   // 2. A new request row. One shared name parser (lib/person-name-parse.ts);
   //    last_name is NOT NULL, so a mononym keeps the '—' placeholder.
+  //    Typed in the five boxes (owner 2026-09-30: *"Prefix · First · Middle ·
+  //    Last · Suffix"*), the parts are stored AS TYPED — no parser second-guesses
+  //    what the person split themselves.
   const parsed = parsePersonName(answers.name);
+  const nameColumns = answers.parts
+    ? {
+        first_name: answers.parts.first_name as string,
+        last_name: answers.parts.last_name as string,
+        name_prefix: answers.parts.name_prefix,
+        middle_name: answers.parts.middle_name,
+        name_suffix: answers.parts.name_suffix,
+      }
+    : {
+        first_name: parsed.firstName || answers.name,
+        last_name: parsed.lastName || '—',
+        ...(parsed.prefix ? { name_prefix: parsed.prefix } : {}),
+        ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
+        ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
+      };
   const { data: inserted, error } = await admin
     .from('guests')
     .insert({
       event_id: eventId,
-      first_name: parsed.firstName || answers.name,
-      last_name: parsed.lastName || '—',
-      ...(parsed.prefix ? { name_prefix: parsed.prefix } : {}),
-      ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
-      ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
+      ...nameColumns,
       side: 'both',
       group_category: 'other',
       role: args.role,

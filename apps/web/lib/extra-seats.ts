@@ -1,3 +1,5 @@
+import { normalizeNamePart } from '@/lib/formal-name';
+
 /**
  * extra-seats.ts — how many seat rows a guest's "+N" should have.
  *
@@ -127,6 +129,15 @@ export type SeatNameInput = {
   seatId: string | null;
   first: string;
   last: string;
+  /**
+   * The other three name parts (owner 2026-09-30: *"Prefix · First · Middle ·
+   * Last · Suffix, to stay consistent"*). PRESENT only when the reply drew the
+   * box — a reply rendered before the five boxes posts none, and leaves the
+   * stored part alone; posted blank is NULL, which clears it.
+   */
+  prefix?: string | null;
+  middle?: string | null;
+  suffix?: string | null;
   meal?: string;
   dietary?: string | null;
 };
@@ -148,7 +159,12 @@ export function readSeatNames(form: { get(name: string): FormDataEntryValue | nu
     const details: Pick<SeatNameInput, 'meal' | 'dietary'> = {};
     if (form.get(`plus_one_meal_${i}`) !== null) details.meal = text(`plus_one_meal_${i}`) || 'no_preference';
     if (form.get(`plus_one_dietary_${i}`) !== null) details.dietary = text(`plus_one_dietary_${i}`).slice(0, 500) || null;
-    if (first || last) out.push({ seatId, first, last, ...details });
+    // The name's other parts ride with the name — never on a details-only seat.
+    const parts: SeatNameParts = {};
+    if (form.get(`plus_one_name_prefix_${i}`) !== null) parts.prefix = normalizeNamePart(form.get(`plus_one_name_prefix_${i}`));
+    if (form.get(`plus_one_middle_name_${i}`) !== null) parts.middle = normalizeNamePart(form.get(`plus_one_middle_name_${i}`));
+    if (form.get(`plus_one_name_suffix_${i}`) !== null) parts.suffix = normalizeNamePart(form.get(`plus_one_name_suffix_${i}`));
+    if (first || last) out.push({ seatId, first, last, ...parts, ...details });
     // ⚖ A blank name on a seat that already EXISTS still saves its meal and
     // dietary (the caterer cooks for "+2 TBA" too) — and never touches its
     // name: clearing a name is not a removal (removing a guest is the host's).
@@ -163,10 +179,12 @@ export function readSeatNames(form: { get(name: string): FormDataEntryValue | nu
 }
 
 type SeatDetails = Pick<SeatNameInput, 'meal' | 'dietary'>;
+/** Prefix / middle / suffix — present only when the reply posted them. */
+export type SeatNameParts = Pick<SeatNameInput, 'prefix' | 'middle' | 'suffix'>;
 
 export type SeatNameOp =
-  | ({ kind: 'name'; seatId: string; first: string; last: string } & SeatDetails)
-  | ({ kind: 'create'; first: string; last: string } & SeatDetails)
+  | ({ kind: 'name'; seatId: string; first: string; last: string } & SeatNameParts & SeatDetails)
+  | ({ kind: 'create'; first: string; last: string } & SeatNameParts & SeatDetails)
   /** No name given: only the seat's meal / dietary move; its name is untouched. */
   | ({ kind: 'details'; seatId: string } & SeatDetails);
 
@@ -176,6 +194,32 @@ function detailsOf(n: SeatNameInput): SeatDetails {
   if (n.meal !== undefined) d.meal = n.meal;
   if (n.dietary !== undefined) d.dietary = n.dietary;
   return d;
+}
+
+/** The name parts a box carried, only those it posted. */
+function partsOf(n: SeatNameInput): SeatNameParts {
+  const p: SeatNameParts = {};
+  if (n.prefix !== undefined) p.prefix = n.prefix;
+  if (n.middle !== undefined) p.middle = n.middle;
+  if (n.suffix !== undefined) p.suffix = n.suffix;
+  return p;
+}
+
+/**
+ * The guest-row columns a seat's name op writes for the three optional parts —
+ * `name_prefix` / `middle_name` / `name_suffix`, the Guest list's own columns —
+ * and only the ones the reply posted.
+ */
+export function seatNamePartColumns(op: SeatNameParts): {
+  name_prefix?: string | null;
+  middle_name?: string | null;
+  name_suffix?: string | null;
+} {
+  return {
+    ...(op.prefix !== undefined ? { name_prefix: op.prefix } : {}),
+    ...(op.middle !== undefined ? { middle_name: op.middle } : {}),
+    ...(op.suffix !== undefined ? { name_suffix: op.suffix } : {}),
+  };
 }
 
 /**
@@ -216,10 +260,10 @@ export function planSeatNames(
     const target = own ?? open.find((s) => !used.has(s.guest_id))?.guest_id ?? null;
     if (target) {
       used.add(target);
-      ops.push({ kind: 'name', seatId: target, first: n.first, last: n.last, ...detailsOf(n) });
+      ops.push({ kind: 'name', seatId: target, first: n.first, last: n.last, ...partsOf(n), ...detailsOf(n) });
     } else if (seats.length + created < allowed) {
       created += 1;
-      ops.push({ kind: 'create', first: n.first, last: n.last, ...detailsOf(n) });
+      ops.push({ kind: 'create', first: n.first, last: n.last, ...partsOf(n), ...detailsOf(n) });
     }
     // else: every seat is spoken for and no more may be made — the name is not saved.
   }

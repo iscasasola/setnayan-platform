@@ -1,5 +1,6 @@
 /**
- * our-services.ts — the six cards on an event's Our Services page.
+ * our-services.ts — the five cards on an event's More Services page ("Our
+ * Services" until 2026-09-30).
  *
  * Owner, 2026-09-29 (DECISION_LOG "WHAT AN EVENT NEEDS — THE EVENT MENU
  * BECOMES FOUR PILLARS (+ HOME)"): *"Our Services (Papic, Live Studio,
@@ -30,6 +31,7 @@
  */
 import { Images, type LucideIcon } from 'lucide-react';
 import { addOnHref, appStoreDetailHref, type AddOnEntry } from './add-ons-catalog';
+import type { EventMenuChild, EventMenuIconName } from './customer-menu';
 
 export type OurServiceState =
   | 'added'
@@ -306,6 +308,36 @@ export function buildOurServices(input: OurServicesInput): OurService[] {
     s.key === 'papic' ? (catalogueCard(s, input) ?? galleryCard(input)) : catalogueCard(s, input),
   );
   return cards.filter((c): c is OurService => c != null);
+}
+
+/** Each card's icon, as a NAME from the menu's own vocabulary
+ *  (`EVENT_MENU_ICONS`) — the same glyphs these products wore as rail rows. */
+const MENU_ICON: Readonly<Record<string, EventMenuIconName>> = {
+  'setnayan-ai': 'ai',
+  papic: 'papic',
+  'live-studio': 'live',
+  'music-maker': 'pakanta',
+  patiktok: 'patiktok',
+  gallery: 'galleries',
+};
+
+/**
+ * 📂 THE MORE SERVICES ROW'S CHILDREN (owner 2026-09-30: *"the sidebar will
+ * expand and collapse to show these"*) — the built cards, in their order, as
+ * plain menu data. A card with no door (coming soon, or its day has passed)
+ * opens the More Services page, where its dimmed card says why.
+ * Called in `layout.tsx`; the rail and the phone's "More" chooser draw it.
+ */
+export function ourServicesMenuChildren(
+  cards: readonly OurService[],
+  pageHref: string,
+): EventMenuChild[] {
+  return cards.map((c) => ({
+    key: c.key,
+    label: c.name,
+    href: c.href ?? pageHref,
+    icon: MENU_ICON[c.key] ?? 'product',
+  }));
 }
 
 /*

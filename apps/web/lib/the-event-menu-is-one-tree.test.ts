@@ -100,7 +100,7 @@ function rail(profile: EventTypeProfile, phase: 'plan' | 'dayof' | 'after' = 'pl
 
 /* ══ 1 · THE OWNER'S LIST ═════════════════════════════════════════════════ */
 
-const OUR_SERVICES = SUITE_NAV_ON ? 'Our Services' : 'Studio';
+const OUR_SERVICES = SUITE_NAV_ON ? 'More Services' : 'Studio';
 
 test('the rail is the owner’s five — nothing more — in every phase', () => {
   /*
@@ -140,7 +140,7 @@ const FIVE = [
 /** The phone bar's words — two short forms (owner 2026-09-29: "Maker and Services"). */
 const BAR_FIVE = [
   ['home', 'Home'], ['guests', 'Guest list'], ['explore', 'Your Team'],
-  ['launch', 'Maker'], ['studio', SUITE_NAV_ON ? 'Services' : 'Studio'],
+  ['launch', 'Maker'], ['studio', SUITE_NAV_ON ? 'More' : 'Studio'],
 ] as const;
 const BARS = { plan: BAR_FIVE, dayof: BAR_FIVE, after: BAR_FIVE } as const;
 

@@ -5,12 +5,13 @@
  * owner 2026-09-29: *"on mobile mode. we do not want that sub bottom nav
  * anymore. we want it to be simple and easy to manage"*).
  *
- *     Home · Guest list · Your Team · Event Hub Maker · Our Services
+ *     Home · Guest list · Your Team · Maker · More
  *
  * The same five in every phase, picked out of the one tree in
  * `lib/customer-menu.ts` (`buildCustomerMenuTree`) — the desktop rail draws
  * the same rows under the same words. Nothing docks above this bar; a
- * pillar's parts are chosen inside its page.
+ * pillar's parts are chosen inside its page. "More" opens a small chooser
+ * sheet with the five services (owner 2026-09-30) — never a sub-row.
  *
  * NAV REGISTRY: `navSlots` (`customer.bottom-nav.<key>`) overlays the
  * admin-managed label + icon on each tab; a slot marked hidden drops its tab.
@@ -21,6 +22,8 @@
  * treatment is reused verbatim. Mobile-only (`lg:hidden`).
  */
 
+import dynamic from 'next/dynamic';
+import { useState } from 'react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -28,7 +31,10 @@ import type { LucideIcon } from 'lucide-react';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { buildCustomerMenuTree, type EventStudioRow } from '@/lib/customer-menu';
+import { buildCustomerMenuTree, type EventMenuChild, type EventStudioRow } from '@/lib/customer-menu';
+
+// The "More" chooser — fetched on the first tap, never in the shared bundle.
+const MoreServicesSheet = dynamic(() => import('./more-services-sheet'), { ssr: false });
 import { customerGuestsBadge } from '@/lib/nav-badges';
 
 export function CustomerBottomNav({
@@ -41,6 +47,7 @@ export function CustomerBottomNav({
   websiteEnabled,
   studioRows,
   storeShell,
+  services,
 }: {
   eventId: string;
   phase?: MenuLifecyclePhase;
@@ -89,7 +96,7 @@ export function CustomerBottomNav({
   /**
    * The event's Studio products as PLAIN DATA (key · href · name) — no longer
    * tabs, but the one tree claims each product's pages for the tab that holds
-   * it (Our Services, or the Maker for Mood Board / Logo), so a product page
+   * it (More Services, or the Maker for Mood Board / Logo), so a product page
    * still lights a tab. Without this list those pages light nothing.
    *
    * 🛑 Strings only. This is a `'use client'` component fed by a server
@@ -103,7 +110,16 @@ export function CustomerBottomNav({
    * blank slot in the grid (the Papic slot the owner saw on 2026-09-25).
    */
   storeShell?: boolean;
+  /**
+   * 📂 The five under More Services (owner 2026-09-30) — plain data built in
+   * layout.tsx (`ourServicesMenuChildren`). The bar NEVER draws them as a sub-
+   * row: its "More" tab opens a chooser sheet with them. Empty → the tab just
+   * opens the More Services page.
+   */
+  services?: ReadonlyArray<EventMenuChild>;
 }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreLoaded, setMoreLoaded] = useState(false);
   const tree = buildCustomerMenuTree(eventId, { phase, hideKeys, seatingEnabled, websiteEnabled, studioRows, storeShell });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
@@ -134,9 +150,30 @@ export function CustomerBottomNav({
         activeMatch: m.activeMatch,
         activeMatchExact: m.activeMatchExact,
         ...(badge ? { badge } : {}),
+        ...(m.key === 'studio' && services?.length
+          ? {
+              onSelect: () => {
+                setMoreLoaded(true);
+                setMoreOpen(true);
+              },
+            }
+          : {}),
       },
     ];
   });
+  const moreTab = items.find((i) => i.key === 'studio');
 
-  return <BottomNav items={items} />;
+  return (
+    <>
+      <BottomNav items={items} />
+      {moreLoaded && moreTab && services?.length ? (
+        <MoreServicesSheet
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          title="More Services"
+          services={services}
+        />
+      ) : null}
+    </>
+  );
 }

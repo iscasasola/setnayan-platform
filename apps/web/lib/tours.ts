@@ -883,7 +883,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Five places for your whole event',
-        body: 'Home, Guest list, Your Team, Event Hub Maker and Our Services. The same five sit at the bottom of your phone and down the side of your laptop.',
+        body: 'Home, Guest list, Your Team, Event Hub Maker and More Services. The same five sit at the bottom of your phone and down the side of your laptop.',
       },
       {
         Icon: Users,
@@ -902,8 +902,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Camera,
-        title: 'Our Services',
-        body: 'Papic, Live Watch, Gallery, Patiktok, Music Maker and Setnayan AI &mdash; add the ones you want for your day.',
+        title: 'More Services',
+        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok &mdash; open the row to see all five, and add the ones you want for your day.',
       },
     ],
   },

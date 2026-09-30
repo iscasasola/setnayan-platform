@@ -16,6 +16,15 @@ import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { railToolsSignedIn } from '@/lib/studio-rail';
 import type { EventStudioRow } from '@/lib/customer-menu';
+import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
+import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
+import { eventActiveSkus } from '@/lib/entitlements';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
+import { PAPIC_INCLUSIVE_SKUS } from '@/lib/papic-seats';
+import { buildOurServices, ourServicesMenuChildren } from '@/lib/our-services';
+import { studioHubHref } from '@/lib/studio-hub';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { EventRailContext } from './_components/event-rail-context';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
@@ -175,7 +184,7 @@ export default async function EventLayout({ children, params }: Props) {
   const eventRead = (async () => {
     try {
       const fullSelect =
-        'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date';
+        'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id';
       const fullRes = await supabase
         .from('events')
         .select(fullSelect)
@@ -279,6 +288,22 @@ export default async function EventLayout({ children, params }: Props) {
     `StoreShellLinkGuard` after load, leaving a blank slot in the bar.
   */
   const storeShellRead = isStoreShellRequest();
+  /*
+    📂 MORE SERVICES' FIVE (owner 2026-09-30) — the row opens to the SAME cards
+    the More Services page draws, so the two reads that decide WHICH cards and
+    WHERE each opens are the page's own: what this event owns (a paid day-of
+    service stays open after the day) and whether Setnayan AI is sellable for
+    this kind. Both fail soft to "nothing owned" / "not sellable".
+  */
+  const ownedRead = eventActiveSkus(createAdminClient(), eventId).catch(() => ({
+    active: new Set<string>(),
+    pending: new Set<string>(),
+  }));
+  const aiPriceRead = eventRead.then((res) =>
+    res.data
+      ? resolveSetnayanAiDisplayPricePhp(supabase, (res.data.event_type as string | null) ?? 'wedding').catch(() => 0)
+      : 0,
+  );
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -292,6 +317,8 @@ export default async function EventLayout({ children, params }: Props) {
     referralEnabled,
     navSlots,
     storeShell,
+    owned,
+    aiPricePhp,
   ] = await Promise.all([
     shellRead,
     eventRead,
@@ -303,6 +330,8 @@ export default async function EventLayout({ children, params }: Props) {
     referralEnabledRead,
     navSlotsRead,
     storeShellRead,
+    ownedRead,
+    aiPriceRead,
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -407,6 +436,32 @@ export default async function EventLayout({ children, params }: Props) {
   */
   const studioRows: EventStudioRow[] = railToolsSignedIn({ eventId, count: 1, profile }).map(
     (t) => ({ key: t.key, href: t.href, name: t.name }),
+  );
+
+  /*
+    📂 THE FIVE UNDER MORE SERVICES (owner 2026-09-30: *"the sidebar will
+    expand and collapse to show these"*). `buildOurServices` with the More
+    Services page's own gates — the ONE builder, so the rail can never list a
+    service the page does not, or in another order. Prices are not read here:
+    a menu row names a service, it never prices it. Plain data only (the
+    icon is a NAME) — this crosses into two client components.
+  */
+  const communityId = (event as { community_id?: string | null }).community_id ?? null;
+  const services = ourServicesMenuChildren(
+    buildOurServices({
+      eventId,
+      catalogue: ADD_ONS,
+      owned,
+      prices: new Map(),
+      offered: (a) =>
+        !(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)) &&
+        addOnOfferedForEvent(a, profile, communityId),
+      sellableNow: (e) => addOnSellableNow(e, phase === 'after' ? 'after' : 'plan'),
+      aiSellable: aiPricePhp > 0,
+      papicOwnedBy: PAPIC_INCLUSIVE_SKUS,
+      refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p),
+    }),
+    studioHubHref(eventId),
   );
 
   const tr = makeT(locale);
@@ -529,6 +584,7 @@ export default async function EventLayout({ children, params }: Props) {
     seatingEnabled,
     studioRows,
     storeShell,
+    services,
   };
 
   return (
@@ -702,14 +758,14 @@ export default async function EventLayout({ children, params }: Props) {
         Stage D 2026-09-29: *"on mobile mode. we do not want that sub bottom nav
         anymore. we want it to be simple and easy to manage"*). The phone's
         bottom chrome is the five pillars — Home · Guest list · Your Team ·
-        Event Hub Maker · Our Services — anchored flush to the bottom edge, and
+        Event Hub Maker · More Services — anchored flush to the bottom edge, and
         NOTHING docks above it: the section sub-nav / moment strip that used
         to ride on top is retired, and each pillar picks its own parts inside
         its page. The dock is `lg:hidden`; the rail is the menu from 1024 up.
         `the-phone-has-one-bottom-bar.test.ts` fails if a second row returns.
       */}
       <BottomDock>
-        <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} />
+        <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} services={services} />
       </BottomDock>
       {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of
           the dock, never a 7th tab. Sits in the BAR's row at the right end

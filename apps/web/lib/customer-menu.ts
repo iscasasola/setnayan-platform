@@ -11,7 +11,7 @@
  * "ON PHONES, NO SUB BOTTOM NAV — ONE SIMPLE BOTTOM BAR"; plan
  * `EVENT_HUB_BUILD_PLAN_2026-09-28.md` § "Stage D".
  *
- *     Home · Guest list · Your Team · Event Hub Maker · Our Services
+ *     Home · Guest list · Your Team · Event Hub Maker · More Services
  *
  * The SAME five rows on the desktop rail, in the ☰ drawer and on the phone's
  * one bottom bar, in every phase (plan · day-of · after) and for every event
@@ -21,8 +21,9 @@
  *   Guest list      → Guests · Hosts · Check-in   (`lib/pillar-parts.ts`)
  *   Your Team       → Your team · Budget           (`lib/pillar-parts.ts`)
  *   Event Hub Maker → Details (Schedule · Mood Board · Logo · …) + the stages
- *   Our Services    → Papic · Live Studio · Gallery (Editorial) · Patiktok ·
- *                     Music Maker · Setnayan AI (SAI)   (`lib/our-services.ts`)
+ *   More Services   → Setnayan AI · Papic · Live Studio · Music Maker ·
+ *                     Patiktok — the ONE row that opens (2026-09-30)
+ *                     (`lib/our-services.ts`)
  *
  * 🔑 A ROW THAT LEFT THE MENU STILL LIGHTS ITS HOME. Each pillar CLAIMS the
  * pages it now holds (`alsoMatch`), so `/budget` lights Your Team, `/hosts`
@@ -141,7 +142,19 @@ export type EventMenuRow = {
    * does. Plain strings: this crosses no boundary as anything else.
    */
   alsoMatch?: string[];
+  /**
+   * 📂 THE ONE ROW THAT OPENS (owner 2026-09-30, DECISION_LOG "THE SIDEBAR ROW
+   * 'MORE SERVICES' EXPANDS TO THE FIVE"): only `studio` ever carries these —
+   * the five `buildOurServices` cards, computed server-side and handed in as
+   * `ctx.services`. Every other row stays a plain leaf (the 2026-07-15 lock).
+   * `the-event-menu-is-one-tree.test.ts` holds "exactly one row has children".
+   */
+  children?: readonly EventMenuChild[];
 };
+
+/** One of the five services under More Services — PLAIN DATA (an icon NAME,
+ *  never a component: this crosses the server→client boundary). */
+export type EventMenuChild = { key: string; label: string; href: string; icon: EventMenuIconName };
 
 /** `event` = the event's name row (Event settings) · `pillars` = the five. */
 export type EventMenuSectionKey = 'event' | 'pillars';
@@ -186,6 +199,14 @@ export type EventMenuCtx = {
    * `storeShellRefusesMenuRow` below. Undefined → the web: nothing is dropped.
    */
   storeShell?: boolean;
+  /**
+   * The five services under the More Services row (Setnayan AI · Papic · Live
+   * Studio · Music Maker · Patiktok), built in `layout.tsx` by
+   * `buildOurServices` → `ourServicesMenuChildren` — the SAME cards the More
+   * Services page draws. Computed there so this module never pulls the add-on
+   * catalogue into a client bundle. Undefined → the row has no children.
+   */
+  services?: ReadonlyArray<EventMenuChild>;
 };
 
 /**
@@ -310,16 +331,21 @@ export function buildEventMenuSections(
     });
   }
 
-  // OUR SERVICES — the Suite page is this pillar ("Suite becomes this page").
+  // MORE SERVICES — the Suite page is this pillar ("Suite becomes this page").
   // It holds Galleries (its Gallery card) and, below, every product page no
   // other row holds. Where there is no Maker, it also holds the pages the
   // Maker would have (its page keeps those tools — `toolHasGoneHome`).
+  // "Our Services" → "More Services" (owner 2026-09-30: *"it cannot be our
+  // services since we have the guestlist, your team and event hub maker on the
+  // sidebar which is also our services"*). 🔒 The KEY stays `studio`.
   const hub = studioHubHref(eventId);
+  const services = ctx.services ?? [];
   put({
     key: 'studio',
-    label: SUITE_NAV_ON ? 'Our Services' : 'Studio',
+    label: SUITE_NAV_ON ? 'More Services' : 'Studio',
     href: hub,
     icon: 'suite',
+    ...(services.length ? { children: services.map((c) => ({ ...c })) } : {}),
     alsoMatch: [
       `${base}/suite`,
       `${base}/studio`,
@@ -370,26 +396,31 @@ export function eventMenuRows(sections: EventMenuSection[]): EventMenuRow[] {
  * Owner, on the one bar: *"accept it. Maker and Services"*. On the PHONE
  * bottom bar only, two tabs wear a short form of their row's name — five
  * full names do not fit a 375px bar on one line. The desktop rail and the ☰
- * drawer keep the full names ("Event Hub Maker", "Our Services"), and so does
+ * drawer keep the full names ("Event Hub Maker", "More Services"), and so does
  * the tour. This map is the ONE place a phone word may differ from its row;
  * `the-phone-has-one-bottom-bar.test.ts` fails on any other difference.
  * (Where the Suite flag is off the row says "Studio", and so does the tab.)
  */
 export const PHONE_BAR_SHORT: Readonly<Partial<Record<CustomerMenuKey, string>>> = {
   launch: 'Maker',
-  ...(SUITE_NAV_ON ? { studio: 'Services' } : {}),
+  // "More" (owner 2026-09-30) — the rail and ☰ say "More Services".
+  ...(SUITE_NAV_ON ? { studio: 'More' } : {}),
 };
 
 /**
  * THE PHONE'S ONE BOTTOM BAR — the five pillars, picked out of the one tree,
  * the same in every phase:
  *
- *     Home · Guest list · Your Team · Event Hub Maker · Our Services
+ *     Home · Guest list · Your Team · Event Hub Maker · More Services
  *
  * Every label and href comes from `buildEventMenuSections`, so a tab and its ☰
  * row can never say two words for one page — except the two short words in
- * `PHONE_BAR_SHORT` (Maker · Services), which the owner chose for the bar. A
+ * `PHONE_BAR_SHORT` (Maker · More), which the owner chose for the bar. A
  * tab lights across every page its row claims — every rail row IS a tab now.
+ *
+ * 📂 THE BAR HAS NO SUB-ROWS. More Services' five children are the rail's;
+ * on the phone the "More" tab opens a chooser sheet with the same five
+ * (`CustomerBottomNav` → `more-services-sheet.tsx`, owner 2026-09-30).
  *
  * 🔑 NOTHING DOCKS ABOVE IT. There is no section sub-nav and no moment strip
  * any more (owner 2026-09-29, "we do not want that sub bottom nav anymore");

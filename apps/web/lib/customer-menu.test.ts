@@ -27,7 +27,7 @@ test('the bar is the owner’s five, in the owner’s order, in every phase', ()
     // The phone bar's short words (owner 2026-09-29: "Maker and Services").
     assert.deepEqual(
       tree.map((m) => m.label),
-      ['Home', 'Guest list', 'Your Team', 'Maker', SUITE_NAV_ON ? 'Services' : 'Studio'],
+      ['Home', 'Guest list', 'Your Team', 'Maker', SUITE_NAV_ON ? 'More' : 'Studio'],
     );
   }
 });

@@ -25,13 +25,18 @@
  * bottom bar reads too. Stage D (owner 2026-09-29):
  *
  *   (name row)  → Details (Event settings)
- *   (the five)  → Home · Guest list · Your Team · Event Hub Maker · Our Services
- *   (interim)   → Seat plan, until its Details home ships
+ *   (the five)  → Home · Guest list · Your Team · Event Hub Maker · More Services
  *
  * 🔒 EVERY ROW IS A PLAIN LEAF — "solid menu with no submenus" (owner-locked
- * 2026-07-15). `NavItem.children` is deliberately NOT rendered here. A
- * pillar's parts live inside its page (Guest list · Your Team pick theirs from
- * one dropdown; Our Services is a page of cards; the Maker has Details).
+ * 2026-07-15) — WITH ONE EXCEPTION, BY THE OWNER, 2026-09-30: the More
+ * Services row (key `studio`) expands and collapses to its five services
+ * (*"the sidebar will expand and collapse to show these"*; DECISION_LOG "THE
+ * SIDEBAR ROW 'MORE SERVICES' EXPANDS TO THE FIVE"). Tapping it only opens or
+ * closes it — no navigation — and the open/closed state is remembered on this
+ * device. `NavItem.children` is rendered for THAT ROW ONLY; every other row
+ * stays a leaf, and a pillar's parts live inside its page (Guest list · Your
+ * Team pick theirs from one dropdown; the Maker has Details).
+ * `the-event-menu-is-one-tree.test.ts` holds "exactly one row opens".
  *
  * ─── WHICH ROW IS LIT — DECIDED ABOVE, READ HERE (2026-08-23) ────────────
  * This component no longer resolves anything. The shell draws the Studio group
@@ -53,11 +58,12 @@
  */
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import type { EventStudioRow } from '@/lib/customer-menu';
+import type { EventMenuChild, EventStudioRow } from '@/lib/customer-menu';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { applyRegistry } from './customer-sidebar';
@@ -77,6 +83,7 @@ export function EventRailContext({
   seatingEnabled,
   studioRows,
   storeShell,
+  services,
 }: {
   eventId: string;
   /** Already resolved server-side, and never blank — see the layout's
@@ -130,6 +137,9 @@ export function EventRailContext({
    *  door `lib/store-shell.ts` refuses (`storeShellRefusesMenuRow`). This is
    *  the ☰ drawer on a phone, so it must not offer "Not available in the app". */
   storeShell?: boolean;
+  /** The five under More Services — plain data built in layout.tsx
+   *  (`ourServicesMenuChildren`). See `EventMenuCtx.services`. */
+  services?: ReadonlyArray<EventMenuChild>;
 }) {
   /*
     THE SAME BUILDER AND THE SAME REGISTRY OVERLAY THE SIDEBAR USES.
@@ -156,16 +166,17 @@ export function EventRailContext({
       seatingEnabled,
       studioRows,
       storeShell,
+      services,
     }),
     navSlots,
   );
 
   /*
-    ─── OUR SERVICES IS A ROW OF THE FIVE (Stage D, 2026-09-29) ─────────────
-    The shop of Setnayan's own services — Papic, Live Studio, Gallery,
-    Patiktok, Music Maker, Setnayan AI — is ONE row, "Our Services" (the
-    `studio` key, the /suite page). The products are cards on that page, not
-    rows here; their pages light this row.
+    ─── MORE SERVICES IS A ROW OF THE FIVE (Stage D 2026-09-29; renamed and
+    opened 2026-09-30) ────────────────────────────────────────────────────
+    The shop of Setnayan's own services is ONE row, "More Services" (the
+    `studio` key). It opens to the five — Setnayan AI · Papic · Live Studio ·
+    Music Maker · Patiktok — and their pages light this row.
 
     The event's Details row is not drawn as a row: it IS the event's name row
     (the `event` group), so the place you are in opens its own facts.
@@ -192,6 +203,7 @@ export function EventRailContext({
     this removes, and it would look like a safety net while doing it.
   */
   const activeKey = useRailActiveKey();
+  const moreOpen = useRememberedOpen();
 
   return (
     <>
@@ -267,6 +279,45 @@ export function EventRailContext({
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const on = activeKey === item.key;
+                // 📂 The one row that opens (owner 2026-09-30) — `studio` only.
+                if (item.key === 'studio' && item.children?.length) {
+                  const [open, setOpen] = moreOpen;
+                  return (
+                    <div key={item.key}>
+                      <button
+                        type="button"
+                        className="fd-row fd-mrow"
+                        data-on={on ? 'true' : 'false'}
+                        aria-expanded={open}
+                        aria-controls="fd-more-services"
+                        onClick={() => setOpen(!open)}
+                      >
+                        <span className="fd-gi" aria-hidden="true">
+                          <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+                        </span>
+                        <span className="fd-label-text">{item.label}</span>
+                        <span className="fd-icon-caption">{item.label}</span>
+                        <span className="fd-mchev" aria-hidden="true" />
+                      </button>
+                      <ul id="fd-more-services" hidden={!open} aria-label={item.label}>
+                        {item.children.map((c) => {
+                          const CIcon = c.icon;
+                          return (
+                            <li key={c.key}>
+                              <Link href={c.href} className="fd-row fd-mrow fd-mchild">
+                                <span className="fd-gi" aria-hidden="true">
+                                  <CIcon className="h-[16px] w-[16px]" strokeWidth={1.75} aria-hidden />
+                                </span>
+                                <span className="fd-label-text">{c.label}</span>
+                                <span className="fd-icon-caption">{c.label}</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                }
                 return (
                   <Link
                     key={item.key}
@@ -303,4 +354,25 @@ export function EventRailContext({
       ))}
     </>
   );
+}
+
+/** More Services' open/closed, remembered on this device (owner 2026-09-30).
+ *  Opens by default; storage can throw (private mode) and is then ignored. */
+const MORE_KEY = 'setnayan:rail:more-services';
+function useRememberedOpen(): [boolean, (v: boolean) => void] {
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(MORE_KEY) === '0') setOpen(false);
+    } catch {}
+  }, []);
+  return [
+    open,
+    (v) => {
+      setOpen(v);
+      try {
+        localStorage.setItem(MORE_KEY, v ? '1' : '0');
+      } catch {}
+    },
+  ];
 }

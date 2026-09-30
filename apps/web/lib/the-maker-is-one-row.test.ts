@@ -35,7 +35,7 @@ for (const phase of ['plan', 'dayof', 'after'] as const) {
   });
 }
 
-test('with no Event Hub for this kind, the Logo Maker and Editorial light Our Services', () => {
+test('with no Event Hub for this kind, the Logo Maker and Editorial light More Services', () => {
   /*
     🔄 Stage D (2026-09-29): the menu is five rows, so no product keeps a row
     of its own. Where there is no Maker to hold the Logo Maker and Editorial,

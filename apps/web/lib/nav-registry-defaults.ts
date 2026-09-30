@@ -400,7 +400,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 2,
   },
-  // OUR SERVICES — the fifth tab (Stage D, owner 2026-09-29). Re-added: it was
+  // MORE SERVICES (was Our Services) — the fifth tab (Stage D, owner 2026-09-29). Re-added: it was
   // retired 2026-09-24 when Papic took the slot; Papic is a card on this page
   // now. KEY `studio`, matching the menu key customer-bottom-nav.tsx looks up.
   {
@@ -408,9 +408,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
-    // The phone bar's short word (owner 2026-09-29: "Maker and Services") —
-    // the rail slot `customer.sidebar.studio` keeps "Our Services".
-    label: SUITE_NAV_ON ? "Services" : "Studio",
+    // The phone bar's short word — "More" (owner 2026-09-30); the rail slot
+    // `customer.sidebar.studio` says "More Services".
+    label: SUITE_NAV_ON ? "More" : "Studio",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",
@@ -423,8 +423,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     area: "customer-sidebar",
     // Flag-gated Suite doorway (see SUITE_NAV_ON above) — key stays stable.
     route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
-    // "Suite" → "Our Services" 2026-09-29 (label only; key + route unchanged).
-    label: SUITE_NAV_ON ? "Our Services" : "Studio",
+    // "Suite" → "Our Services" 2026-09-29 → "More Services" 2026-09-30 (label
+    // only; key + route unchanged).
+    label: SUITE_NAV_ON ? "More Services" : "Studio",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",

@@ -10,7 +10,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -58,9 +58,10 @@ test('ONE Filter ▾ at every width over the SAME four dropdowns; ONE + in the h
   assert.match(PAGE, /data-guests-phone-title="">[\s\S]{0,260}\{addPlus\}\s*\{moreMenu\}/, 'the phone header has no + beside ⋯');
   assert.match(PAGE, /more=\{\s*<div className="flex items-center gap-2">\s*\{addPlus\}\s*\{moreMenu\}/, 'the computer header has no + beside ⋯');
   assert.doesNotMatch(read('_components', 'add-guest-sheet.tsx'), /\bfixed right-|\bbottom-\[/, 'the + became a floating button');
-  // The layout's own floating "Add guest" stands down on this page.
-  const navFab = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', '_components', 'customer-nav-fab.tsx'), 'utf8'));
-  assert.match(navFab, /pathname === `\/dashboard\/\$\{eventId\}\/guests`\) return null;/, 'the floating "Add guest" still covers the Guests page');
+  // The layout's own floating "Add guest" is gone everywhere (#6205 deleted
+  // customer-nav-fab.tsx — the-phone-has-one-bottom-bar.test.ts holds that), so
+  // nothing floats over the Guests page either.
+  assert.ok(!existsSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', '_components', 'customer-nav-fab.tsx')), 'the floating "Add guest" is back over the Guests page');
   // The sheet: the name box first (the shipped CaptureBar, Enter adds), then the other ways as rows.
   assert.match(PAGE, /<AddGuestSheet\s+nameBox=\{<CaptureBar eventId=\{eventId\}[^}]*\} withDoors=\{false\} placeholder="Type a name…" \/>\}\s+doors=\{<AddDoors eventId=\{eventId\} rows \/>\}/, 'the add sheet is not the name box + the other ways');
   assert.equal((PAGE.match(/<CaptureBar\b/g) ?? []).length, 1, 'a second capture bar (header) is back');

@@ -100,7 +100,7 @@ function rail(profile: EventTypeProfile, phase: 'plan' | 'dayof' | 'after' = 'pl
 
 /* ══ 1 · THE OWNER'S LIST ═════════════════════════════════════════════════ */
 
-const OUR_SERVICES = SUITE_NAV_ON ? 'Our Services' : 'Studio';
+const OUR_SERVICES = SUITE_NAV_ON ? 'More Services' : 'Studio';
 
 test('the rail is the owner’s five — nothing more — in every phase', () => {
   /*
@@ -113,7 +113,7 @@ test('the rail is the owner’s five — nothing more — in every phase', () =>
     const labels = ['Events', ...rail(WEDDING, phase).flatMap((g) => g.items.map((i) => i.label))];
     assert.deepEqual(
       labels,
-      ['Events', 'Details', 'Home', 'Guest list', 'Your Team', 'Event Hub Maker', OUR_SERVICES],
+      ['Events', 'Details', 'Home', 'Guests', 'Suppliers', 'Hub', OUR_SERVICES],
       `${phase}: ${labels.join(' · ')}`,
     );
   }
@@ -134,13 +134,14 @@ test('the rows that left are gone from every phase — their homes hold them', (
 
 /** The rail's (and ☰'s) words — the full names. */
 const FIVE = [
-  ['home', 'Home'], ['guests', 'Guest list'], ['explore', 'Your Team'],
-  ['launch', 'Event Hub Maker'], ['studio', OUR_SERVICES],
+  ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
+  ['launch', 'Hub'], ['studio', OUR_SERVICES],
 ] as const;
-/** The phone bar's words — two short forms (owner 2026-09-29: "Maker and Services"). */
+/** The phone bar's words — the rail's, save "More" (owner 2026-10-01: "Home -
+ *  Guests - Suppliers - Hub - More"). */
 const BAR_FIVE = [
-  ['home', 'Home'], ['guests', 'Guest list'], ['explore', 'Your Team'],
-  ['launch', 'Maker'], ['studio', SUITE_NAV_ON ? 'Services' : 'Studio'],
+  ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
+  ['launch', 'Hub'], ['studio', SUITE_NAV_ON ? 'More' : 'Studio'],
 ] as const;
 const BARS = { plan: BAR_FIVE, dayof: BAR_FIVE, after: BAR_FIVE } as const;
 
@@ -159,7 +160,7 @@ for (const phase of ['plan', 'dayof', 'after'] as const) {
       const path = tab.href.split('?')[0];
       const row = rows.find((r) => r.href === path);
       assert.ok(row, `${phase}: the ${tab.key} tab opens ${path}, which no ☰ row opens`);
-      // One page, one word — save the owner's two short bar words, which live
+      // One page, one word — save the owner's one short bar word (More), which lives
       // in ONE map (`PHONE_BAR_SHORT`) and nowhere else.
       const expected = PHONE_BAR_SHORT[tab.key] ?? row!.label;
       assert.equal(tab.label, expected, `${phase}: one page, two words (${row!.label} / ${tab.label})`);

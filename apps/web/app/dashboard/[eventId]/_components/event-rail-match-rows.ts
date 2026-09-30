@@ -39,7 +39,7 @@ import { SIDEBAR_SLOT_KEYS } from './customer-nav-slot-keys';
 import type { RailMatchRow } from '@/app/_components/frontdoor/rail-active';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import type { EventStudioRow } from '@/lib/customer-menu';
+import type { EventMenuChild, EventStudioRow } from '@/lib/customer-menu';
 
 /**
  * Everything the event menu needs to exist. Built ONCE in `layout.tsx` and
@@ -67,6 +67,9 @@ export type EventRailInputs = {
    *  Carried HERE so the rail's rows and the rows it lights are built from the
    *  same filtered tree — a refused row is neither drawn nor matched. */
   storeShell?: boolean;
+  /** The five under More Services — plain data (`ourServicesMenuChildren`).
+   *  Drawn by the rail; matching ignores them (the parent row lights). */
+  services?: ReadonlyArray<EventMenuChild>;
 };
 
 /**

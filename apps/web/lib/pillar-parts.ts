@@ -59,7 +59,7 @@ export function yourTeamParts({
   budgetEnabled: boolean;
 }): PillarPart<YourTeamPartKey>[] {
   const parts: PillarPart<YourTeamPartKey>[] = [
-    { key: 'team', label: 'Your team', href: `/dashboard/${eventId}/vendors` },
+    { key: 'team', label: 'Suppliers', href: `/dashboard/${eventId}/vendors` },
   ];
   if (budgetEnabled) parts.push({ key: 'budget', label: 'Budget', href: yourTeamBudgetHref(eventId) });
   return parts;

@@ -141,7 +141,7 @@ import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
 // second copy of it (owner 2026-09-29).
 import BudgetPage from '../budget/page';
 
-export const metadata = { title: 'Vendors' };
+export const metadata = { title: 'Suppliers' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -231,7 +231,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   if (sp.part === YOUR_TEAM_BUDGET_PART) {
     return (
       <section className="sn-col space-y-6">
-        <PageMasthead title="Your Team" />
+        <PageMasthead title="Suppliers" />
         <PillarPartPicker label="Your Team part" parts={teamParts} current="budget" />
         <BudgetPage
           params={Promise.resolve({ eventId })}

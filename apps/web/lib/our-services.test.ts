@@ -189,7 +189,7 @@ const PAGE = read(SUITE_DIR, 'page.tsx');
 const GRID = read(SUITE_DIR, '_components', 'our-services-grid.tsx');
 
 test('the Suite route IS Our Services: six cards first, as CollectionCards', () => {
-  assert.match(PAGE, /metadata = \{ title: 'Our Services' \}/);
+  assert.match(PAGE, /metadata = \{ title: 'More Services' \}/);
   assert.match(PAGE, /buildOurServices\(\{/);
   assert.match(PAGE, /offered: surfaceOk,/, 'the cards must use the Suite’s own offered gate');
   assert.match(PAGE, /prices: priceMap,/, 'the cards must read the catalogue prices');

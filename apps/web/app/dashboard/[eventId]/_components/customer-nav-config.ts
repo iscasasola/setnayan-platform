@@ -12,8 +12,7 @@
  *
  *   event    (no heading) → Details — drawn as the event's NAME row
  *   pillars  (no heading) → Home · Guest list · Your Team · Event Hub Maker ·
- *                           Our Services
- *   interim  (no heading) → Seat plan — until its Details home ships
+ *                           More Services (opens to its five — 2026-09-30)
  *
  * WHERE THE OLD ROWS WENT (each page still lights the row that holds it):
  *   · Hosts · Check-in              → Guest list's parts
@@ -21,12 +20,13 @@
  *   · Schedule · Mood Board · Logo  → the Event Hub Maker (Details)
  *   · Editorial                     → the Maker's Post Event (Gallery on Our
  *                                     Services where there is no Maker)
- *   · Papic · Galleries · Live Studio · Patiktok · Music Maker · Setnayan AI
- *                                   → Our Services cards
+ *   · Setnayan AI · Papic · Live Studio · Music Maker · Patiktok
+ *                                   → More Services' five children
  *   · Refer a couple                → the account menu (top bar)
  *
  * 🔒 EVERY ROW IS A PLAIN LEAF — "solid menu with no submenus" (owner-locked
- * 2026-07-15). 🔒 EVERY KEY IS UNCHANGED (`home` · `guests` · `explore` ·
+ * 2026-07-15) — except More Services (`studio`), which the owner opened on
+ * 2026-09-30 to its five services. 🔒 EVERY KEY IS UNCHANGED (`home` · `guests` · `explore` ·
  * `launch` · `studio` · `personalization` · `seat`): `SIDEBAR_SLOT_KEYS`, the
  * hideKeys gate and `eventRailMatchRows` all key off them, and none of them
  * throws when a key stops matching.
@@ -45,6 +45,7 @@ import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import {
   buildEventMenuSections,
   EVENT_MENU_ICONS,
+  type EventMenuChild,
   type EventStudioRow,
 } from '@/lib/customer-menu';
 
@@ -73,6 +74,8 @@ export function buildCustomerNavGroups(
     /** The App Store / Play Store shell — refused rows are dropped by the one
      *  tree (`storeShellRefusesMenuRow`), on the rail and ☰ drawer too. */
     storeShell?: boolean;
+    /** The five under More Services (`EventMenuCtx.services`). */
+    services?: ReadonlyArray<EventMenuChild>;
   },
 ): NavGroup[] {
   // The Guest list head-count badge, built ONCE by the shared helper that the
@@ -87,6 +90,7 @@ export function buildCustomerNavGroups(
     seatingEnabled: opts?.seatingEnabled,
     studioRows: opts?.studioRows,
     storeShell: opts?.storeShell,
+    services: opts?.services,
   }).map((section) => ({
     key: section.key,
     label: section.label,
@@ -102,6 +106,17 @@ export function buildCustomerNavGroups(
       matchPrefix: r.matchPrefix ?? r.href,
       ...(r.alsoMatch?.length ? { alsoMatch: r.alsoMatch } : {}),
       ...(r.key === 'guests' && guestsBadge ? { badge: guestsBadge } : {}),
+      // 📂 Only More Services carries children (owner 2026-09-30).
+      ...(r.children?.length
+        ? {
+            children: r.children.map((c): NavItem => ({
+              key: c.key,
+              label: c.label,
+              href: c.href,
+              icon: EVENT_MENU_ICONS[c.icon],
+            })),
+          }
+        : {}),
     })),
   }));
 }

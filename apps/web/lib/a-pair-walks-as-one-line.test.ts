@@ -138,6 +138,7 @@ const ROSTER = readFileSync(
   join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-list-multiselect.tsx'),
   'utf8',
 );
+const COLUMNS_SRC = readFileSync(join(process.cwd(), 'lib', 'roster-columns.ts'), 'utf8');
 
 test('⚖ the roster never collapses a pair, and removes no column', () => {
   /*
@@ -151,8 +152,15 @@ test('⚖ the roster never collapses a pair, and removes no column', () => {
   // control), so counting literal `<th` tags reported "down to 2 columns" while
   // all eight were on screen — this assertion went red on a merge, not on a
   // removal. Matched at a tag boundary so `<ArrangeThing` could not count.
-  const columns = (head.match(/<(?:th|ArrangeTh)[\s>]/g) ?? []).length;
+  // ⤷ 2026-09-30, the full-width list: after ☐ and Name the header draws one
+  // cell per SLOT, and every column stays one a slot can show — so "removes no
+  // column" is now: the whole vocabulary is still offered, and the header draws
+  // a cell for every slot.
+  assert.match(head, /desk\.columns\.map\(/, 'the header no longer draws a cell per slot');
+  const vocab = /export const ROSTER_COLUMNS = \[([\s\S]*?)\] as const/.exec(COLUMNS_SRC)?.[1] ?? '';
+  const columns = (vocab.match(/'[a-z]+'/g) ?? []).length;
   assert.ok(columns >= 8, `the roster is down to ${columns} columns`);
+  for (const c of ['rsvp', 'seat', 'contact']) assert.ok(vocab.includes(`'${c}'`), `the ${c} column is gone`);
 
   // Rows are emitted per GUEST, never per pair: no mount is conditioned on a
   // partner, and nothing skips a row because somebody else already showed it.

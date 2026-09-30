@@ -10,6 +10,6 @@ Owner, 2026-09-30: *"editing Our Story and the Programme … so hard to edit …
 - **Sweep (part b):** Details › Words › Special message now saves as it is typed too (held, batched, on Details' card and the tapped scene at once). The remaining Maker edit paths that still ask for a whole-Maker render are LISTED in `the-love-story-and-programme-are-instant.test.ts` (`STILL_REFRESHES` — may only shrink) and in the PR body.
 - Dev lab: `/dev/schedule-lab?maker=1` draws the rail as the Maker does (quiet writes, the inspector in a slot) and records every write's time on `window.__labWrites`.
 
-Guard: `lib/the-love-story-and-programme-are-instant.test.ts` (A–G). Budgets: see PR body (no ceiling raised).
+Guard: `lib/the-love-story-and-programme-are-instant.test.ts` (A–G). Budgets (next build vs origin/main built the same way): Maker first load 501.7 → 503.7 KB / 505; shared 206,830 → 206,823 bytes / 206,848; server actions 1225 / 1225. No ceiling raised.
 
 SPEC IMPACT: None — implements the 2026-09-30 DECISION_LOG rows "EVERYTHING REBUILT IN THE MAKER IS INSTANT BY DESIGN", "THE MAKER RE-PLAN — SPEED FIRST…" and "✂ THE MAKER RE-PLAN IS CUT TO ITS CORE"; nothing on the cut list is built. The controller records the AS BUILT row.

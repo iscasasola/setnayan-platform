@@ -13,12 +13,17 @@
  * against the prototype's own nine moments, three supplier requests and roles.
  */
 
+import { useEffect, useState } from 'react';
 import { notFound } from 'next/navigation';
-import dynamic from 'next/dynamic';
+import ScheduleLabClient from './schedule-lab-client';
 
-const ScheduleLabClient = dynamic(() => import('./schedule-lab-client'), { ssr: false });
-
+/* Drawn after mount (the lab reads the clock and the address) — what
+   `dynamic(…, { ssr: false })` did, without an async chunk: every async chunk,
+   even a dev lab's, is an entry in the webpack runtime every page downloads
+   (the shared bundle has no bytes to spare — 2026-09-30). */
 export default function ScheduleLabPage() {
   if (process.env.NODE_ENV === 'production') notFound();
-  return <ScheduleLabClient />;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? <ScheduleLabClient /> : null;
 }

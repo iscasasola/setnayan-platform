@@ -339,7 +339,9 @@ export function ScheduleWidget({
               }`}
             >
               <div className="min-w-0">
-                <p className="font-mono text-[0.7rem] uppercase leading-relaxed tracking-[0.14em] text-gild">
+                {/* `data-schedule-*`: the Maker's canvas lays a moment's new name, time
+                    and place here as they are typed (`applySchedulePreview`). */}
+                <p data-schedule-time="" className="font-mono text-[0.7rem] uppercase leading-relaxed tracking-[0.14em] text-gild">
                   {(() => {
                     // Viewer-local only after mount (now != null) so SSR (server tz)
                     // and the first client render agree — no hydration flip.
@@ -364,13 +366,13 @@ export function ScheduleWidget({
                     {kicker}
                   </p>
                 ) : null}
-                <p className={`${kicker ? 'mt-1 ' : ''}font-pahina text-xl font-light leading-snug text-ink`}>
+                <p data-schedule-label="" className={`${kicker ? 'mt-1 ' : ''}font-pahina text-xl font-light leading-snug text-ink`}>
                   {b.label}
                 </p>
                 {b.location ? (
                   <p className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-ink/65">
                     <MapPin aria-hidden className="h-3.5 w-3.5 text-gild" strokeWidth={1.5} />
-                    {b.location}
+                    <span data-schedule-location="">{b.location}</span>
                   </p>
                 ) : null}
                 {b.notes ? (

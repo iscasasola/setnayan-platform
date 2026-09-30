@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f51107ee3",
+  "generatedFromRef": "15f34554d",
   "routeCount": 439,
   "destinations": 946,
-  "actions": 673,
-  "blocks": 5309,
+  "actions": 674,
+  "blocks": 5317,
   "routes": {
     "/": {
       "files": [
@@ -6449,6 +6449,7 @@
         "Icon",
         "IconBtn",
         "Image",
+        "InMakerLiveStoryPanel",
         "InfoTip",
         "ItemPieces",
         "K",
@@ -6957,6 +6958,7 @@
         "dashboard/[eventId]/schedule/_components/ros-p2.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-focus.ts",
         "dashboard/[eventId]/schedule/_components/schedule-lazy.tsx",
+        "dashboard/[eventId]/schedule/_components/schedule-live.ts",
         "dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx",
         "dashboard/[eventId]/schedule/_components/tell-the-host.tsx",
         "dashboard/[eventId]/schedule/_components/travel-itinerary.tsx",
@@ -7015,6 +7017,7 @@
         "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLTextAreaElement",
         "HostQuestions",
         "HostQuestionsUnread",
         "Icon",
@@ -9172,6 +9175,7 @@
         "dashboard/[eventId]/website/our-story/_components/in-maker-return-to.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-book.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-chapters-panel.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-live.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-open.ts",
         "dashboard/[eventId]/website/our-story/_components/love-story-pro-line.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-status.ts",
@@ -9191,6 +9195,7 @@
       ],
       "actions": [
         "action",
+        "keep",
         "updateAction"
       ],
       "blocks": [
@@ -9202,12 +9207,16 @@
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLFormElement",
         "HubDraftField",
+        "InMakerLiveBook",
         "InMakerReturnTo",
         "InfoTip",
         "Link",
+        "Live",
         "LoveStoryBook",
         "LoveStoryChapter",
+        "LoveStoryChaptersPanel",
         "LoveStoryOpenAsk",
         "LoveStoryProLine",
         "MilestonesField",
@@ -9218,6 +9227,7 @@
         "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",
+        "RefusalLine",
         "StoryChapterFields",
         "StoryFields",
         "SubmitButton",
@@ -9407,6 +9417,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "A",
         "DayActions",
         "DayMoment",
         "DayRole",

@@ -11,7 +11,8 @@
   lock (`event-rail-context.tsx` header updated).
 - **Phone:** the bottom bar says **"More"** and stays flat — no sub-rows. Tapping it opens a small bottom sheet
   (the shared `<Sheet>`) with the five and their icons; tap outside, ✕, Esc or a swipe down closes it. The sheet
-  is lazy-loaded on the first tap (shared bundle has no room). The tab is still a real link to the page for a
+  is lazy-loaded on the first tap (shared bundle has no room) and portalled to `<body>` — inside the bottom dock
+  a fixed sheet is clipped to the bar. The tab is still a real link to the page for a
   middle-click / no-JS tap (`BottomNavItem.onSelect`, flat bar only).
 - **Copy:** page title/masthead, the finished-event card, the event-menu tour and the registry defaults
   (`customer.sidebar.studio` "More Services", `customer.bottom-nav.studio` "More") follow the new name.
@@ -19,6 +20,8 @@
   (`studio`), its children equal `buildOurServices` order, the layout builds them with that builder, the rail's
   row is an `aria-expanded` button, the phone bar has no sub-rows and its More opens the lazily-loaded chooser.
   Sabotaged once (a second row with children) → test 1 red.
+- **Measured:** shared bundle 202.0 KB / 202 KB (within), Maker 2.3 KB headroom, server actions 1225 / 1225
+  (unchanged — none added).
 - Stacked on #6202 (`claude/serene-planck-shg2bn`, the five-card order).
 
 SPEC IMPACT: DECISION_LOG — the 2026-09-30 "MORE SERVICES EXPANDS TO THE FIVE" row already records items 1–4;

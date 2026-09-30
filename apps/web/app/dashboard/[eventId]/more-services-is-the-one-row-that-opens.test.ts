@@ -136,4 +136,8 @@ test('5 · the phone bar has no sub-rows — its "More" tab opens the chooser sh
   const sheet = read('_components/more-services-sheet.tsx');
   assert.match(sheet, /services\.map\(/);
   assert.match(sheet, /<Sheet /);
+  // Portalled to <body>: inside <BottomDock> a fixed sheet is clipped to the
+  // bar (measured 2026-09-30 — only the scrim's blur showed).
+  assert.match(sheet, /createPortal\(/);
+  assert.match(sheet, /document\.body,?\s*\)/);
 });

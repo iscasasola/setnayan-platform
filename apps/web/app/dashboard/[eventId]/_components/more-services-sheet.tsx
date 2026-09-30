@@ -18,6 +18,7 @@
 
 import Link from 'next/link';
 import { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Sheet } from '@/app/_components/sheet';
 import { EVENT_MENU_ICONS, type EventMenuChild } from '@/lib/customer-menu';
 
@@ -33,7 +34,12 @@ export default function MoreServicesSheet({
   services: ReadonlyArray<EventMenuChild>;
 }) {
   const startY = useRef<number | null>(null);
-  return (
+  /* 🔑 PORTALLED TO <body>. This mounts inside `<BottomDock>`, whose own
+     compositing (backdrop blur / transform) makes it the containing block for
+     `position: fixed` — the sheet was drawn INSIDE the 64px bar, clipped, with
+     only the scrim's blur showing. Loaded with `ssr: false`, so `document`
+     always exists here. */
+  return createPortal(
     <Sheet open={open} onClose={onClose} labelledById="more-services-title" rise>
       <div
         data-more-services-sheet=""
@@ -73,6 +79,7 @@ export default function MoreServicesSheet({
           })}
         </ul>
       </div>
-    </Sheet>
+    </Sheet>,
+    document.body,
   );
 }

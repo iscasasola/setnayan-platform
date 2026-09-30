@@ -57,8 +57,8 @@ own row, while other hosts still need the opt-in.
 | `53171ce74` | fix(hosts): the seat-name guest read is gated on the viewer being allowed to see guests (`lib/event-viewer.test.ts`). |
 
 Checks run: tsc clean · lint clean · `lint:port-controls` and `lint:dup-rule` clean · full unit suite
-on `3dbd2b51d` 20,787 pass / 0 fail. A full-suite run on `53171ce74` was still in progress when this
-was written (0 failures in the first 16.5k tests).
+on `3dbd2b51d` 20,787 pass / 0 fail · full unit suite on `53171ce74` (all five commits)
+**20,799 pass / 0 fail / 3 skipped**. Not run here: `test:db` (no migration touched), Playwright.
 
 ## Designed, not built on this branch — the handoff session decides how
 

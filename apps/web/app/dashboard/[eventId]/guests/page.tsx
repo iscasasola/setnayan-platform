@@ -109,6 +109,7 @@ import { whoCanReplyBase, type WhoCanReplyDraft } from '@/lib/who-can-reply';
 import { WhoCanReplyAsk } from './_components/who-can-reply-ask';
 import { GuestsPhoneMenu } from './_components/guests-phone-menu';
 import { PhoneShowPick } from './_components/phone-show-pick';
+import { quickAddTips } from '@/lib/quick-add-tips';
 import { AddGuestSheet, OpenAddGuestButton } from './_components/add-guest-sheet';
 
 export const metadata = { title: 'Guests' };
@@ -1405,6 +1406,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       <AddGuestSheet
         nameBox={<CaptureBar eventId={eventId} defaultSide={teamFilter === 'all' ? 'both' : teamFilter} withDoors={false} />}
         doors={<AddDoors eventId={eventId} rows />}
+        tips={quickAddTips({ hasSides, offeredRoles: resolveRoleSet(guestRoleSetKey).offeredRoles })}
       />
       <QuickAddSheet
         eventId={eventId}

@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { ChevronDown, Plus, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
 const OPEN_EVENT = 'setnayan:add-guest-open';
@@ -40,7 +40,16 @@ export function OpenAddGuestButton({ label }: { label: string }) {
   );
 }
 
-export function AddGuestSheet({ nameBox, doors }: { nameBox: React.ReactNode; doors: React.ReactNode }) {
+export function AddGuestSheet({
+  nameBox,
+  doors,
+  tips,
+}: {
+  nameBox: React.ReactNode;
+  doors: React.ReactNode;
+  /** One example line + the Tips ▾ fold (`lib/quick-add-tips.ts`). */
+  tips?: { example: string; tips: string[] };
+}) {
   const [open, setOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheetRef });
@@ -89,6 +98,25 @@ export function AddGuestSheet({ nameBox, doors }: { nameBox: React.ReactNode; do
           </button>
         </div>
         <div data-add-guest-name="">{nameBox}</div>
+        {/* ⚖ What the name box understands (owner 2026-10-01): ONE example line
+            that fits this event, and one fold — never a wall of text. The words
+            come from `lib/quick-add-tips.ts`, each read by the shipped parser. */}
+        {tips ? (
+          <div className="-mt-2 space-y-1.5" data-add-guest-tips="">
+            <p className="text-xs text-ink/55">{tips.example}</p>
+            <details className="group text-xs text-ink/60">
+              <summary className="inline-flex cursor-pointer list-none items-center gap-1 font-medium text-ink/70">
+                Tips
+                <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" strokeWidth={1.8} aria-hidden />
+              </summary>
+              <ul className="mt-1.5 space-y-1">
+                {tips.tips.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </details>
+          </div>
+        ) : null}
         {/* Every other way in opens its own sheet or page — this one steps aside. */}
         <div
           className="space-y-0.5 border-t border-ink/10 pt-3"

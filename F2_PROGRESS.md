@@ -47,6 +47,7 @@ guest inside the top third at 390×844. Desktop keeps its header row but the SAM
 - The + lives in the HEADER beside ⋯ at both widths — NO floating button (DECISION_LOG "THE BOTTOM BAR IS HOME · GUESTS · SUPPLIERS · HUB · MORE"); `CustomerNavFab` returns null on /guests.
 - Phone Show ▾ visible on the counts line; desktop shows several columns.
 - Every person is their own row (never merge a pair).
+- Add sheet tips (lib/quick-add-tips.ts): one example + one Tips ▾. NOT added: the "one name per line in Quick add list" tip and tips on the Quick add list page — that page is first-name/last-name fields, not parsed lines, so both would be untrue (flagged to controller).
 
 ## Checks as of e692506fb+ (2026-10-01)
 - Local: full typecheck clean; full unit suite 20,995 pass / 1 fail → the one failure (numbers-carry-commas flagged the name `guestsMenu`) fixed by renaming to `moreMenu`; CI guard scripts all pass; port-controls OK.

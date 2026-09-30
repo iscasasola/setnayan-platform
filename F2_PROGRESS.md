@@ -42,10 +42,11 @@ guest inside the top third at 390×844. Desktop keeps its header row but the SAM
   frame 2 puts search on the title line — we keep it in the shell top bar (F brief).
 
 ## HANDOFF 2026-10-01 (account move) — next account starts here
-- Head: see `git log -1`. PR #6215 DRAFT (base rd/guest-card-and-rows-redesign), label do-not-auto-merge, auto-merge not armed. Never merge.
+- Head: see `git log -1`. PR #6215 READY (was draft) (base rd/guest-card-and-rows-redesign), label do-not-auto-merge, auto-merge not armed. Never merge.
 - CI at handoff (latest ci runs): 3d2a739d8 in_progress ; de7d0fd5d in_progress ; f658cd034 completed cancelled. Read `gh pr checks 6215`; fix whatever is red. Last fully green CI pieces seen: production build + bundle-size (202.0 KB shared, within cap) on 9dda59e84.
 - DONE since handoff: full unit suite 21,002 pass / 0 fail; add-sheet screenshots refreshed with Tips open (scratchpad f2/lab-390-add-sheet.png, lab-desktop-add-sheet.png); the sheet's box now says just "Type a name…" (one example, under it).
-- NEXT: (1) wait for CI on the head, then `gh pr ready 6215` (keep do-not-auto-merge, auto-merge off); (2) — (was: refresh the add-sheet screenshots with the Tips fold open (script: scratchpad f2/shot3.mjs; harness app/dev/f2-guests-lab — local only, git-excluded; dev server launch.json `f2` :3481; take heavy lock `f2`); (3) re-run the full unit suite once (last full run: 20,995 pass, the 1 failure fixed).
+- DONE: CI all green on 44bf99118 (typecheck + lint + unit + DB replay + every guard, production build, bundle-size, e2e, lighthouse); PR #6215 marked READY for review 2026-10-01 (base rd/guest-card-and-rows-redesign, label do-not-auto-merge, auto-merge confirmed OFF). Merge is the controller's call — never merge from a builder.
+- NEXT: nothing on the build list; (2) — (was: refresh the add-sheet screenshots with the Tips fold open (script: scratchpad f2/shot3.mjs; harness app/dev/f2-guests-lab — local only, git-excluded; dev server launch.json `f2` :3481; take heavy lock `f2`); (3) re-run the full unit suite once (last full run: 20,995 pass, the 1 failure fixed).
 - Open flags for the owner: "Who can reply?" goes live at next Event Hub Apply (only writer is the Maker draft); no "scan" add path exists; no "one name per line" Quick add list tip (that page is first/last name fields, not parsed lines).
 
 ## Owner rulings 2026-10-01 (in this build)

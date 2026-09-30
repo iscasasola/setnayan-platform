@@ -190,7 +190,10 @@ export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
   // `/dashboard/[eventId]/vendors` (a couple's marketplace shortlist — no
   // prices of its own) and `/vendor-dashboard/subscription` (already refused
   // by WEB_ONLY_FEATURE_ROUTE below) — this is the public price ladder.
-  '/vendors',
+  // (Moved from /vendors 2026-09-30. No link may name the old address —
+  // `lib/the-supplier-page-lives-at-for-suppliers.test.ts` — so it needs no
+  // entry of its own here.)
+  '/for-suppliers',
 ]);
 
 /**

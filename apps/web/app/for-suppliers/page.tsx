@@ -1,5 +1,12 @@
 /**
- * /vendors — "Built to grow your business — free."
+ * /for-suppliers — "Built to grow your business — free."
+ *
+ * 🔀 MOVED 2026-09-30 from /vendors (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C":
+ * "supplier sign-up moves /vendors → /for-suppliers with a permanent forward from
+ * the old address"). `/vendors` and `/for-vendors` are 308s here in
+ * next.config.ts; the old marketplace SUBPATHS `/vendors/*` keep their own 308
+ * to /explore in middleware.ts. Component names below still say "Vendor" —
+ * code names are frozen; only what a person reads says "supplier".
  *
  * Rebuilt 2026-07-05 to the owner-approved prototype (vendors_page_v2_final.html):
  * a free-forward, grow-with-us narrative → the tier ladder → a "for those who
@@ -72,11 +79,11 @@ export async function generateMetadata() {
   return {
     title,
     description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. Free to join. ${supplierCommissionShort()} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d.`,
-    alternates: { canonical: '/vendors' },
+    alternates: { canonical: '/for-suppliers' },
     openGraph: {
       title,
       description: `Run your whole business here free · ${supplierCommissionShort()} · your own clients always free. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d.`,
-      url: '/vendors',
+      url: '/for-suppliers',
       type: 'website',
       siteName: 'Setnayan',
     },
@@ -109,8 +116,8 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       },
       {
         '@type': 'WebPage',
-        '@id': `${SITE_URL}/vendors#webpage`,
-        url: `${SITE_URL}/vendors`,
+        '@id': `${SITE_URL}/for-suppliers#webpage`,
+        url: `${SITE_URL}/for-suppliers`,
         name: `Setnayan for suppliers · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`,
         isPartOf: { '@id': `${SITE_URL}/#website` },
         about: { '@id': `${SITE_URL}/#organization` },
@@ -122,7 +129,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       },
       {
         '@type': 'Offer',
-        '@id': `${SITE_URL}/vendors#solo-vendor-subscription`,
+        '@id': `${SITE_URL}/for-suppliers#solo-vendor-subscription`,
         name: 'Solo Supplier (28-day prepaid block)',
         description:
           `1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. ${supplierCommissionPromise()}`,
@@ -141,7 +148,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       },
       {
         '@type': 'Offer',
-        '@id': `${SITE_URL}/vendors#pro-vendor-subscription`,
+        '@id': `${SITE_URL}/for-suppliers#pro-vendor-subscription`,
         name: 'Pro Supplier (28-day prepaid block)',
         description:
           '3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · Demand Radar · category benchmarks. 28-day prepaid blocks.',
@@ -160,7 +167,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       },
       {
         '@type': 'Offer',
-        '@id': `${SITE_URL}/vendors#enterprise-subscription`,
+        '@id': `${SITE_URL}/for-suppliers#enterprise-subscription`,
         name: 'Enterprise Supplier (28-day prepaid block)',
         description:
           'All marketplace categories · up to 10 team accounts + multi-admin · flagship page + video films · reach up to 100 km. 28-day prepaid blocks.',
@@ -179,10 +186,10 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       },
       {
         '@type': 'BreadcrumbList',
-        '@id': `${SITE_URL}/vendors#breadcrumb`,
+        '@id': `${SITE_URL}/for-suppliers#breadcrumb`,
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
-          { '@type': 'ListItem', position: 2, name: 'For Suppliers', item: `${SITE_URL}/vendors` },
+          { '@type': 'ListItem', position: 2, name: 'For Suppliers', item: `${SITE_URL}/for-suppliers` },
         ],
       },
     ],

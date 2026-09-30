@@ -55,7 +55,7 @@ export type RowActionState = { ok: boolean; message: string | null };
 
 function revalidateCatalogSurfaces() {
   revalidatePath('/pricing');
-  revalidatePath('/vendors');
+  revalidatePath('/for-suppliers');
   revalidatePath('/admin/pricing');
 }
 

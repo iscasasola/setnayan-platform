@@ -1,7 +1,8 @@
 /**
  * The one renderer behind every /suppliers landing page — nationwide
- * (`/suppliers/[event]/[category]`) and per city
- * (`/suppliers/[event]/[category]/[city]`). See `lib/supplier-landing.ts` for
+ * (`/suppliers/[event]/[category]`), per city and per region (both
+ * `/suppliers/[event]/[category]/[city]`; the last segment is a city key or a
+ * region page slug such as `metro-manila`). See `lib/supplier-landing.ts` for
  * what the pages are and why the gate exists.
  *
  * ⚠ NO `loading.tsx` MAY LIVE UNDER /suppliers. A loading boundary streams and
@@ -26,13 +27,16 @@ import { buildServiceCardFaces } from '@/lib/service-card-faces';
 import { loadLandingCards, type LandingSource } from '@/lib/supplier-landing-data';
 import {
   cardsForPage,
-  cityName,
   eventKeyFromSlug,
   isCityKey,
   isIndexable,
   pagePath,
+  placeName,
   priceSummaries,
   qualifyingPages,
+  regionFromPageSlug,
+  regionOfCity,
+  samePlace,
   shopCount,
   tileFromSlug,
   type BasisSummary,
@@ -65,14 +69,19 @@ async function resolve(params: LandingParams): Promise<Resolved | null> {
   if (!event || !tile) return null;
   if (!source.tileServesEvent(tile, event)) return null;
   if (source.taxonomy.hiddenCategories[tile]) return null;
-  const city = params.city ?? null;
-  if (city !== null && !isCityKey(city)) return null;
+  // The last segment is a city key or a region page slug — never both, since
+  // `supplier-landing.test.ts` keeps the two vocabularies apart.
+  const place = params.city ?? null;
+  const city = place !== null && isCityKey(place) ? place : null;
+  const region = place !== null && city === null ? regionFromPageSlug(place) : null;
+  if (place !== null && city === null && region === null) return null;
+  const page: PageKey = { event, tile, city, region };
   return {
-    page: { event, tile, city },
+    page,
     source,
     eventLabel: source.eventLabel.get(event) ?? event,
     tileLabel: source.taxonomy.tileLabel[tile] ?? tile,
-    place: city ? cityName(city) : 'the Philippines',
+    place: placeName(page),
   };
 }
 
@@ -143,13 +152,30 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
   const path = pagePath(page, source.taxonomy.tileSlug);
   const tileSlug = source.taxonomy.tileSlug;
   const qualifying = qualifyingPages(source.cards, source.tileServesEvent);
-  const otherCities = qualifying.filter(
-    (p) => p.event === page.event && p.tile === page.tile && p.city !== null && p.city !== page.city,
-  );
+  // 🔑 ONLY QUALIFYING PAGES ARE LINKED — a page below the gate is noindex, and
+  // a link to it would hand a crawler the thin page the gate exists to hide.
+  // On a region page its own cities come first; on a city page, its region.
+  const inThisRegion = (p: PageKey) =>
+    page.region ? p.city !== null && regionOfCity(p.city) === page.region : false;
+  const otherPlaces = qualifying
+    .filter(
+      (p) =>
+        p.event === page.event &&
+        p.tile === page.tile &&
+        (p.city !== null || (p.region ?? null) !== null) &&
+        !samePlace(p, page),
+    )
+    .sort((a, b) => Number(inThisRegion(b)) - Number(inThisRegion(a)));
   const otherTiles = qualifying.filter(
-    (p) => p.event === page.event && p.city === page.city && p.tile !== page.tile,
+    (p) => p.event === page.event && samePlace(p, page) && p.tile !== page.tile,
   );
-  const nationwide = page.city ? { ...page, city: null } : null;
+  const nationwide = page.city || page.region ? { ...page, city: null, region: null } : null;
+  // A city page's region, as a breadcrumb — only when that region page passes
+  // the gate (the same "not linked" rule as the list below).
+  const cityRegion = page.city ? regionOfCity(page.city) : null;
+  const regionCrumb = cityRegion
+    ? (qualifying.find((p) => p.event === page.event && p.tile === page.tile && p.region === cityRegion) ?? null)
+    : null;
   const eventLower = eventLabel.toLowerCase();
   const tileLower = tileLabel.toLowerCase();
 
@@ -180,7 +206,10 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
           ...(nationwide
             ? [{ '@type': 'ListItem', position: 3, name: `${eventLabel} ${tileLabel}`, item: `${SITE_URL}${pagePath(nationwide, tileSlug)}` }]
             : []),
-          { '@type': 'ListItem', position: nationwide ? 4 : 3, name: title, item: url },
+          ...(regionCrumb
+            ? [{ '@type': 'ListItem', position: 4, name: `${eventLabel} ${tileLabel} in ${placeName(regionCrumb)}`, item: `${SITE_URL}${pagePath(regionCrumb, tileSlug)}` }]
+            : []),
+          { '@type': 'ListItem', position: 3 + (nationwide ? 1 : 0) + (regionCrumb ? 1 : 0), name: title, item: url },
         ],
       },
       {
@@ -243,6 +272,14 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
               {' · '}
               <Link href={pagePath(nationwide, tileSlug)} className="underline-offset-4 hover:underline">
                 {eventLabel} {tileLabel}
+              </Link>
+            </>
+          ) : null}
+          {regionCrumb ? (
+            <>
+              {' · '}
+              <Link href={pagePath(regionCrumb, tileSlug)} className="underline-offset-4 hover:underline">
+                {placeName(regionCrumb)}
               </Link>
             </>
           ) : null}
@@ -315,15 +352,15 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
           </>
         )}
 
-        {otherCities.length > 0 || otherTiles.length > 0 ? (
+        {otherPlaces.length > 0 || otherTiles.length > 0 ? (
           <section aria-labelledby="nearby" className="mt-12 max-w-3xl">
             <h2 id="nearby" className="text-lg font-semibold">Also on Setnayan</h2>
             <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-base">
-              {[...otherCities, ...otherTiles].slice(0, 24).map((p) => (
+              {[...otherPlaces, ...otherTiles].slice(0, 24).map((p) => (
                 <li key={pagePath(p, tileSlug)}>
                   <Link href={pagePath(p, tileSlug)} className="underline underline-offset-4">
                     {source.eventLabel.get(p.event) ?? p.event} {source.taxonomy.tileLabel[p.tile] ?? p.tile} in{' '}
-                    {p.city ? cityName(p.city) : 'the Philippines'}
+                    {placeName(p)}
                   </Link>
                 </li>
               ))}
@@ -340,7 +377,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
           <p className="mt-3">
             <Link href="/signup" className="font-medium text-ink underline underline-offset-4">Start planning free</Link>
             {' · '}
-            <Link href="/vendors" className="text-ink/70 underline underline-offset-4">Are you a supplier? List your services</Link>
+            <Link href="/for-suppliers" className="text-ink/70 underline underline-offset-4">Are you a supplier? List your services</Link>
           </p>
         </section>
       </div>

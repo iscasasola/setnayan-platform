@@ -106,7 +106,7 @@ export function OverlayShell({
 
 /**
  * Cross-tier vendor benefit count — computed at build time from the canonical
- * data so the Vendors-popup line-link ("See all N vendor benefits →") never goes
+ * data so the Vendors-popup line-link ("See all N supplier benefits →") never goes
  * stale. Sums the full /vendors matrix the link points at:
  *   • named benefits across every tier (VENDOR_TIER_SECTIONS)   — 84 today
  *   • Custom-only dials (VENDOR_CUSTOM_TIER.benefits)           —  9 today
@@ -318,8 +318,8 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
       </div>
       <div className="hr-gline">
         <span className="hr-gline-t">Want to upgrade your business?</span>
-        <Link className="hr-gline-a" href="/vendors" onClick={onClose}>
-          See all {TOTAL_VENDOR_BENEFIT_LABEL} vendor benefits{' '}
+        <Link className="hr-gline-a" href="/for-suppliers" onClick={onClose}>
+          See all {TOTAL_VENDOR_BENEFIT_LABEL} supplier benefits{' '}
           <span className="hr-gline-arw">→</span>
         </Link>
       </div>

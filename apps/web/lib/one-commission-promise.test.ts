@@ -43,10 +43,10 @@ const count = (s: string, re: RegExp) => (s.match(new RegExp(re.source, 'g')) ??
  * in their own already-correct prose.
  */
 const SUPPLIER_SURFACES = [
-  'app/vendors/_components/vendor-grow-hero.tsx',
-  'app/vendors/_components/vendor-tier-matrix.tsx',
-  'app/vendors/_components/vendor-tier-deltas.tsx',
-  'app/vendors/_components/vendor-grow-sections.tsx',
+  'app/for-suppliers/_components/vendor-grow-hero.tsx',
+  'app/for-suppliers/_components/vendor-tier-matrix.tsx',
+  'app/for-suppliers/_components/vendor-tier-deltas.tsx',
+  'app/for-suppliers/_components/vendor-grow-sections.tsx',
   'app/vendor/claim/[token]/page.tsx',
   'app/_components/home/HomeOverlays.tsx',
   'app/_components/home/vendor-benefits.ts',
@@ -61,7 +61,7 @@ const SUPPLIER_SURFACES = [
   // four days after the fee went live, because the page itself (as opposed to
   // its `_components/`) was never on this list; llms.txt said "no per-lead fee,
   // no listing fee, 0% commission" in five places and never once named the fee.
-  'app/vendors/page.tsx',
+  'app/for-suppliers/page.tsx',
   'lib/llms-txt.ts',
 ];
 

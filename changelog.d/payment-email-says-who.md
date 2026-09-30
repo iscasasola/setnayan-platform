@@ -15,18 +15,19 @@ the host, event type, event name, and the services availed when we receive an em
   order on the payments desk, not the homepage. The order id is the only identifier in the URL.
 - A fact that cannot be read is said ("Could not read — open the order"), never dropped. If the order
   itself cannot be read, the old one-line alert still sends and says so.
-- Admin emails wear an admin footer: "Setnayan HQ · Filipino celebration planning + verified
-  suppliers" / "You're receiving this because you're a Setnayan admin." — not the Papic-gallery line
-  every branded email inherited. The morning digest gets the same footer.
+- Admin emails wear an admin footer: "Setnayan HQ · Plan, share and relive every celebration" /
+  "You're receiving this because you're a Setnayan admin." — not the Papic-gallery line every branded
+  email inherited. The morning digest gets the same footer.
 - Mechanism: `emitNotification` takes an optional `email` (paragraphs, sections, CTA label,
   `audience: 'admin'`); `renderBrandedEmail` renders `sections` as labelled tables and swaps the footer
-  for `audience: 'admin'`. Customer emails are unchanged.
+  for `audience: 'admin'`. Customer emails keep their layout; only their tagline changes (below).
 - Guard: `lib/admin-payment-alert-says-who.test.ts` renders the real email from a fixture.
 
-- **Customer email footer (owner "yes", 2026-09-30):** the tagline under every branded customer email is
-  now "Setnayan · Filipino celebration planning + verified suppliers" (was "Filipino wedding planning +
-  verified vendors"). `anniversary-emails.test.ts` pins the new line and holds "wedding"/"vendor" out
-  of it. The site SEO titles in `app/layout.tsx` are unchanged (not part of the decision).
+- **Customer email footer (owner picked option "1", 2026-09-30):** the tagline under every branded
+  customer email is now "Setnayan · Plan, share and relive every celebration" (was "Filipino wedding
+  planning + verified vendors"). `anniversary-emails.test.ts` pins the new line and holds
+  "wedding"/"vendor" out of it. The site SEO titles in `app/layout.tsx` are unchanged (not part of the
+  decision).
 
-SPEC IMPACT: `DECISION_LOG.md` row 2026-09-30 "THE EMAIL FOOTER SAYS CELEBRATION AND SUPPLIERS"
-(owner "yes" to the controller's recommendation) — the customer email tagline.
+SPEC IMPACT: `DECISION_LOG.md` row 2026-09-30 "THE EMAIL FOOTER: PLAN, SHARE AND RELIVE EVERY
+CELEBRATION" (owner picked option "1") — the customer and admin email taglines.

@@ -86,8 +86,8 @@ const base = { coupleName: 'Maria & Jose', eventName: 'Maria & Jose', ctaHref: '
  * `renderBrandedEmail` closes every branded email with the company tagline.
  * It used to read *"Setnayan · Filipino wedding planning + verified vendors"*,
  * and this file pardoned it as a positioning call that was the owner's to make.
- * ✅ MADE, 2026-09-30 — the owner said "yes" to *"Setnayan · Filipino
- * celebration planning + verified suppliers"* (DECISION_LOG row that date).
+ * ✅ MADE, 2026-09-30 — the owner picked *"Setnayan · Plan, share and relive
+ * every celebration"* (DECISION_LOG row that date).
  *
  * The line is still split out of the scan below (it is chrome, not this
  * module's copy), and it is still PINNED: the bill test checks the rendered
@@ -99,7 +99,7 @@ const base = { coupleName: 'Maria & Jose', eventName: 'Maria & Jose', ctaHref: '
  * email, directly beneath each email's own true reason line. That is shared
  * chrome across many senders, so it is reported rather than changed here.
  */
-const SHARED_CHROME_LINE = 'Setnayan · Filipino celebration planning + verified suppliers';
+const SHARED_CHROME_LINE = 'Setnayan · Plan, share and relive every celebration';
 
 /** Every rendered surface of the email as one string — subject, text, html. */
 const rendered = (e: { subject: string; text: string; html: string } | null): string =>

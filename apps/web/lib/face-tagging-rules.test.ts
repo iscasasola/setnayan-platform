@@ -303,13 +303,18 @@ test('R7 · "Save it to your account" draws the switch only for a face to reuse,
 
 // ═══ AUTOMATIC — Papic active turns face tagging on (owner 2026-09-30, "1. automatic") ═
 
-test('AUTO · Papic active → mode_a with no admin step; the couple’s "off" still wins; a christening still needs the admin', async () => {
+test('AUTO · Papic active → mode_a with no admin step, on EVERY event type; the couple’s "off" still wins', async () => {
+  // 2026-10-01, DECISION_LOG "ELEVEN OWNER ANSWERS" #8: christening and debut
+  // included — "on by default but they can always turn it off".
   const { resolveFaceMode } = await import('./papic-face-mode');
   assert.equal(resolveFaceMode(null, 'wedding', false, true), 'mode_a', 'Papic is active and face tagging did not turn on by itself');
   assert.equal(resolveFaceMode('mode_b', 'birthday', null, true), 'mode_a', 'an untouched mode_b column still blocks the automatic default');
   assert.equal(resolveFaceMode(null, 'wedding', false, false), 'mode_b', 'face tagging runs without Papic');
   assert.equal(resolveFaceMode(null, 'wedding', true, true), 'mode_b', 'the couple’s "off" no longer wins over the automatic default');
-  assert.equal(resolveFaceMode(null, 'christening', false, true), 'mode_b', 'a room full of children is face-tagged with no deliberate admin step');
+  for (const type of ['christening', 'debut']) {
+    assert.equal(resolveFaceMode(null, type, false, true), 'mode_a', `${type} is still held off until an admin acts (retired 2026-10-01 #8)`);
+    assert.equal(resolveFaceMode(null, type, true, true), 'mode_b', `the host’s "off" no longer wins on a ${type}`);
+  }
   assert.equal(resolveFaceMode('mode_a', 'christening', false, false), 'mode_a', 'the admin override was lost');
 });
 

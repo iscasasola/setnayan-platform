@@ -233,6 +233,11 @@ const TONE_SITES: Array<[string, string, string]> = [
     'A gift of sympathy — straight to ${words.theOrganizer}.',
   ],
   [
+    'seat/_components/arrival-bloom.tsx',
+    "'So glad you made it!'",
+    "'Thank you for being here.'",
+  ],
+  [
     'pabuya/page.tsx',
     "'The pabuya · digital money dance'",
     "'A gift of sympathy'",
@@ -257,7 +262,7 @@ test('every tone site keeps its celebratory literal AND carries its solemn arm',
   }
   assert.deepEqual(failures, [], failures.join('\n'));
   // Pin the count: deleting a row to go green must itself be visible.
-  assert.equal(TONE_SITES.length, 14, 'a pinned tone site was removed from this bill');
+  assert.equal(TONE_SITES.length, 15, 'a pinned tone site was removed from this bill');
 });
 
 // ── 6 · NO PITCH ON A MEMORIAL PAGE ─────────────────────────────────────────
@@ -528,4 +533,22 @@ test('🕊 the wake has its own picker photo, sized like its siblings', async ()
   assert.equal(`${meta.width}x${meta.height}`, '880x1100', 'every sibling tile is 880×1100');
   const bytes = readFileSync(file).length;
   assert.ok(bytes > 20_000 && bytes < 90_000, `wake.webp is ${bytes} B — siblings sit at 33–77 KB`);
+});
+
+test('the seat pass does not bloom at a wake, and the page hands it the register', () => {
+  // 2026-10-01: "So glad you made it!" and the arrival bloom leaked into a wake.
+  const bloom = src('seat/_components/arrival-bloom.tsx');
+  assert.match(
+    bloom,
+    /arrived \? \(solemn \? 'Thank you for being here\.' : 'So glad you made it!'\)/,
+    'the arrival line is not branched on the register',
+  );
+  assert.match(bloom, /className=\{solemn \? undefined : 'seatpass-bloom'\}/, 'the wrapper blooms at a wake');
+  assert.match(bloom, /hasAnimatedMonogram && !solemn \?/, 'the animated monogram blooms at a wake');
+  assert.match(bloom, /\{solemn \? null : \(\s*<button/, 'the replay-the-bloom button shows at a wake');
+  assert.match(
+    src('seat/page.tsx'),
+    /<ArrivalBloom[\s\S]{0,600}?solemn=\{words\.solemn\}/,
+    'the seat page never tells the bloom it is at a wake',
+  );
 });

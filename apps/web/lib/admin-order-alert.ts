@@ -23,6 +23,8 @@
  * and references live in the body only.
  */
 
+import { formatPhp } from '@/lib/php';
+
 export type AlertPerson = { name: string; email: string | null };
 
 export type AdminOrderAlertFacts = {
@@ -66,11 +68,6 @@ export type AdminOrderAlert = {
   /** Relative deep link to this order on the payments desk. */
   relatedUrl: string;
 };
-
-/** Whole pesos, for subjects and titles: "₱245". */
-export function pesoWhole(n: number): string {
-  return '₱' + new Intl.NumberFormat('en-PH').format(Math.round(n));
-}
 
 /** Pesos and centavos, for the bill: "₱245.00". */
 export function pesoExact(n: number): string {
@@ -200,10 +197,10 @@ export function buildPaymentLoggedAlert(facts: AdminOrderAlertFacts): AdminOrder
     facts.paidBy?.name ??
     (Array.isArray(facts.hosts) && facts.hosts[0] ? facts.hosts[0].name : 'A customer');
   const ev = eventPhrase(facts);
-  const title = `Payment logged · ${pesoWhole(amount)} · ${who} — confirm it`;
+  const title = `Payment logged · ${formatPhp(amount)} · ${who} — confirm it`;
   return {
     title,
-    body: `${payer} says they have paid ${pesoWhole(amount)} via ${how}${
+    body: `${payer} says they have paid ${formatPhp(amount)} via ${how}${
       ev ? ` for ${ev}` : ''
     }. Ref ${facts.referenceCode}. Check it against the account and confirm.`,
     paragraphs: [
@@ -226,10 +223,10 @@ export function buildOrderSubmittedAlert(
   const amount = facts.totalPhp;
   const who = whoPhrase(facts);
   const label = description.trim().slice(0, 80) || 'A new order';
-  const title = `New order awaiting reconciliation · ${pesoWhole(amount)} · ${who}`;
+  const title = `New order awaiting reconciliation · ${formatPhp(amount)} · ${who}`;
   return {
     title,
-    body: `${label} — ${pesoWhole(amount)} is awaiting payment confirmation. Reconcile once it lands. Ref ${facts.referenceCode}.`,
+    body: `${label} — ${formatPhp(amount)} is awaiting payment confirmation. Reconcile once it lands. Ref ${facts.referenceCode}.`,
     paragraphs: [
       `${label} — ${pesoExact(amount)} is awaiting payment confirmation.`,
       'Reconcile once it lands.',

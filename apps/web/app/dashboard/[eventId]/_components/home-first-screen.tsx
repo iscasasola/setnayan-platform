@@ -1,0 +1,125 @@
+import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
+import type { HomeNext } from '@/lib/home-first-screen';
+
+/**
+ * 📱 THE HOME'S FIRST SCREEN — owner-APPROVED 2026-10-01 ("THE SIMPLE PHONE APP
+ * — APPROVED", frame 1 "Home"). A server component, and deliberately nothing
+ * else: every figure arrives already read and already worded
+ * (`lib/home-first-screen.ts`), so this file adds no client weight and no read.
+ *
+ *   ONE Next card (one button) → Edit your Event Hub (always) → days to go ·
+ *   coming · no reply → Paid / Still owing → "See all" (the rest of Home).
+ *
+ * 🔒 ON A PHONE IT FILLS THE SCREEN, so nothing else sits above the fold: the
+ * wrapper is at least one screen tall minus the top bar and the measured dock
+ * (`--sn-bottomdock-h`), with "See all" at its foot. From `lg` up the height
+ * is released — desktop shows the same things first, then more below.
+ *
+ * ⚠ `money === null` means the viewer may not see the budget (a delegate
+ * without budget access): the line is ABSENT, not "—". A money read that
+ * failed arrives as the string "—" and is drawn.
+ */
+export type HomeFirstScreenProps = {
+  eventId: string;
+  cover: { eyebrow: string; name: string };
+  next: HomeNext;
+  days: { value: string; label: string };
+  coming: string;
+  noReply: string;
+  /** True when the no-reply figure is a measured number above zero. */
+  noReplyWaiting: boolean;
+  money: { paid: string; owing: string } | null;
+};
+
+export function HomeFirstScreen({
+  eventId,
+  cover,
+  next,
+  days,
+  coming,
+  noReply,
+  noReplyWaiting,
+  money,
+}: HomeFirstScreenProps) {
+  return (
+    <section
+      data-home-first-screen
+      aria-label="Home"
+      className="mx-auto flex w-full max-w-xl flex-col gap-3 max-lg:min-h-[calc(100svh-var(--sn-bottomdock-h,5.5rem)-5rem)]"
+    >
+      <div className="rounded-2xl bg-mulberry px-4 py-3 text-cream">
+        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-cream/75">{cover.eyebrow}</p>
+        <p className="font-display text-[22px] leading-tight">{cover.name}</p>
+      </div>
+
+      {/* ① THE ONE NEXT CARD — exactly one, with exactly one button. */}
+      <div data-home-next={next.kind} className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.05] p-4">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">Next</p>
+        <h2 className="mt-1 font-display text-[24px] leading-tight text-ink">{next.title}</h2>
+        <p className="mt-1 text-sm text-ink/65">{next.body}</p>
+        <Link
+          href={next.href}
+          className="sn-press mt-3 flex w-full items-center justify-center rounded-full bg-ink px-5 py-3.5 text-[15px] font-semibold text-cream transition hover:bg-ink/90"
+        >
+          {next.action}
+        </Link>
+      </div>
+
+      {/* ② ALWAYS THERE — the Maker's front door (it left the bar, owner 2026-10-01). */}
+      <div className="relative">
+        <span className="absolute -top-2 right-4 rounded-full bg-cream px-2 font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta-700 ring-1 ring-terracotta/30">
+          Recommended
+        </span>
+        <Link
+          href={`/dashboard/${eventId}/launch`}
+          data-home-edit-hub
+          className="sn-press flex w-full items-center justify-center rounded-full border border-ink/80 bg-transparent px-5 py-3.5 font-display text-[17px] text-ink transition hover:bg-ink/5"
+        >
+          Edit your Event Hub
+        </Link>
+      </div>
+
+      {/* ③ THREE NUMBERS — "—" when unread, never 0. */}
+      <div className="grid grid-cols-3 gap-2" data-home-numbers>
+        <div className="rounded-xl border border-ink/10 bg-white/60 px-2 py-3 text-center">
+          <p className="font-display text-[26px] leading-none text-ink">{days.value}</p>
+          <p className="mt-1 text-[11.5px] text-ink/55">{days.label}</p>
+        </div>
+        <div className="rounded-xl border border-ink/10 bg-white/60 px-2 py-3 text-center">
+          <p className="font-display text-[26px] leading-none text-ink">{coming}</p>
+          <p className="mt-1 text-[11.5px] text-ink/55">coming</p>
+        </div>
+        <div className="rounded-xl border border-ink/10 bg-white/60 px-2 py-3 text-center">
+          <p className={`font-display text-[26px] leading-none ${noReplyWaiting ? 'text-terracotta-700' : 'text-ink'}`}>{noReply}</p>
+          <p className="mt-1 text-[11.5px] text-ink/55">no reply</p>
+        </div>
+      </div>
+
+      {money ? (
+        <Link
+          href={`/dashboard/${eventId}/budget`}
+          data-home-money
+          className="flex items-end justify-between rounded-xl border border-ink/10 bg-white/60 px-4 py-3"
+        >
+          <span className="text-[12.5px] text-ink/60">
+            Paid
+            <span className="block font-display text-[20px] text-ink">{money.paid}</span>
+          </span>
+          <span className="text-right text-[12.5px] text-ink/60">
+            Still owing
+            <span className="block font-display text-[20px] text-terracotta-700">{money.owing}</span>
+          </span>
+        </Link>
+      ) : null}
+
+      <a
+        href="#home-all"
+        className="mt-auto inline-flex items-center justify-center gap-1 self-center py-2 text-[13px] font-medium text-ink/55 hover:text-ink lg:hidden"
+      >
+        See all
+        <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2} />
+      </a>
+    </section>
+  );
+}

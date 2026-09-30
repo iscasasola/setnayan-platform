@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
 import { notFound, redirect } from 'next/navigation';
@@ -11,7 +10,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { sweepExpiredConcierge } from '@/lib/concierge';
-import { fetchGuestsByEvent } from '@/lib/guests';
+import { computeGuestStats, fetchGuestsByEventMeasured } from '@/lib/guests';
+import { buildBudgetLiveSummary, fetchBudgetSnapshot } from '@/lib/budget';
+import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
+import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
+import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
+import { resolveBudgetVisibility } from '@/lib/budget-visibility';
+import { glanceCount, glanceDays, glanceMoney, pickHomeNext } from '@/lib/home-first-screen';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { loadAfterSummary, type AfterSummary } from '@/lib/after-summary';
@@ -44,11 +49,12 @@ import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
-import { DetailsGuideHomeCard } from './_components/details-guide-home-card';
+import { readHomeGuide } from './_components/details-guide-home-card';
+import { HomeFirstScreen } from './_components/home-first-screen';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
 import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
-import { EventDashboard } from './_components/event-dashboard';
+import { EventDashboard, daysUntil } from './_components/event-dashboard';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
@@ -158,7 +164,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active';
+      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -207,22 +213,52 @@ export default async function EventHomePage({
   // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
   // RUN — one stray `await` puts a full database trip back in front of the page.
 
-  // Guests — read ONLY by the Muslim-track NikahEssentialsCard (wali / witness /
-  // imam role tallies), which itself renders only when isNikahEvent. So the
-  // fetch is gated on isNikahEvent — every non-Muslim event skips the query
-  // entirely. Fail-soft to [] so a guest-query hiccup never blocks Home.
-  // (EventDashboard re-fetches its own guests for the at-a-glance stats.)
-  const guestsRead = isNikahEvent
-    ? fetchGuestsByEvent(supabase, eventId).catch((err: unknown) => {
+  // Guests — read by Home's first screen (📱 "coming" · "no reply", owner-
+  // APPROVED 2026-10-01) and by the Muslim-track NikahEssentialsCard (wali /
+  // witness / imam role tallies). MEASURED: a refused read reports
+  // `measured: false`, and the numbers print "—" — never "0 coming" to a couple
+  // with 180 names (`lib/guests-read-is-honest.test.ts`). A throw degrades the
+  // same way. The same counts the dashboard's attending tile and its "haven't
+  // replied yet" line already use (`computeGuestStats`).
+  const guestsRead = fetchGuestsByEventMeasured(supabase, eventId).catch((err: unknown) => {
+    logQueryError(
+      'EventHome (fetchGuestsByEventMeasured threw)',
+      err instanceof Error ? err : new Error(String(err)),
+      { event_id: eventId, user_id: user.id },
+      'graceful_degrade',
+    );
+    return { rows: [], measured: false } as Awaited<ReturnType<typeof fetchGuestsByEventMeasured>>;
+  });
+
+  // 📱 Paid / Still owing — the SAME figures the Budget page's Paid/Owed tiles
+  // print (`budgetLiveSummaryMoney` over `buildBudgetLiveSummary`, the one core
+  // BA2 allows a couple-facing surface to use), asked only of a viewer the
+  // budget is shared with (`resolveBudgetVisibility`, before any money read —
+  // a refusal that still queries the money is a refusal on the screen only).
+  // `fetchBudgetSnapshot` THROWS on any refused read, so `null` below is
+  // "not measured" and prints "—", never ₱0. `hidden` = not shared: no line.
+  const moneyRead = (async (): Promise<{ paid: number; owing: number } | null | 'hidden'> => {
+    const access = await resolveBudgetVisibility(supabase, eventId, user.id).catch(() => null);
+    if (!access?.mayRead) return 'hidden';
+    const truth = isBudgetTruthEnabled();
+    const [snapshot, money] = await Promise.all([
+      fetchBudgetSnapshot(supabase, eventId).catch((err: unknown) => {
         logQueryError(
-          'EventHome (fetchGuestsByEvent threw)',
+          'EventHome (fetchBudgetSnapshot threw)',
           err instanceof Error ? err : new Error(String(err)),
           { event_id: eventId, user_id: user.id },
           'graceful_degrade',
         );
-        return [] as Awaited<ReturnType<typeof fetchGuestsByEvent>>;
-      })
-    : Promise.resolve([] as Awaited<ReturnType<typeof fetchGuestsByEvent>>);
+        return null;
+      }),
+      truth
+        ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
+        : Promise.resolve<EventMoney | null>(null),
+    ]);
+    if (!snapshot) return null;
+    const live = budgetLiveSummaryMoney({ enabled: truth, money, legacy: buildBudgetLiveSummary(snapshot) });
+    return { paid: live.paid, owing: live.remaining };
+  })();
 
   // Day-of mode (iteration 0031): inside the day-of window, load the schedule
   // + seating + same-day data for the live grid that takes over above
@@ -543,9 +579,15 @@ export default async function EventHomePage({
   // purchase pitch is withheld. See lib/store-shell.ts.
   const storeShellRead = isStoreShellRequest();
 
+  // 🪜 The guided "What's left" (Details part 5) — the FIRST candidate for the
+  // one Next card. Authorised by the viewer's role, so it chains on that read.
+  const homeGuideRead = papicViewerRead.then(({ viewerMemberType }) =>
+    readHomeGuide({ eventId, memberType: viewerMemberType }).catch(() => null),
+  );
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
-    guests,
+    { rows: guests, measured: guestsMeasured },
     afterSummary,
     {
       dayOfBlocks,
@@ -559,6 +601,8 @@ export default async function EventHomePage({
     { canViewPapicCounts, papicNudgeVisible, viewerMemberType },
     { aiOffer, aiOfferSettings },
     storeShell,
+    homeGuide,
+    moneyNow,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -567,21 +611,67 @@ export default async function EventHomePage({
     papicViewerRead,
     aiOfferRead,
     storeShellRead,
+    homeGuideRead,
+    moneyRead,
   ]);
+
+  /*
+    📱 HOME'S FIRST SCREEN (owner-APPROVED 2026-10-01, "THE SIMPLE PHONE APP —
+    APPROVED"): the nudges below collapse into ONE Next card — the first that
+    applies, in the order this page already stacked them (`HOME_NEXT_ORDER`).
+    The one it picks is not drawn again below; every other one stays exactly
+    where it was, one scroll down ("See all").
+  */
+  const aiOfferShown = Boolean(aiOffer && aiOfferSettings && !storeShell);
+  const homeNext = pickHomeNext({
+    eventId,
+    guide: homeGuide,
+    hasDate: Boolean(event.event_date),
+    noun: eventNoun(event.event_type as string | null),
+    papicReady: Boolean(event.event_date && papicNudgeVisible),
+    aiOffer: aiOfferShown,
+  });
+  const rawPrecision = (event as { event_date_precision?: string | null }).event_date_precision;
+  const homeDaysOut =
+    rawPrecision === 'month' || rawPrecision === 'year'
+      ? null
+      : daysUntil(
+          (event.event_date as string | null) ?? null,
+          (event as { timezone?: string | null }).timezone ?? undefined,
+        );
+  const homeStats = computeGuestStats(guests);
+  const homeTypeLabel = ((event.event_type as string | null) ?? 'wedding')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const homeDateLabel = event.event_date ? formatEventDate(event.event_date as string) || null : null;
+  const homeFirstScreen = (
+    <HomeFirstScreen
+      eventId={eventId}
+      cover={{
+        eyebrow: homeDateLabel ? `${homeTypeLabel} · ${homeDateLabel}` : homeTypeLabel,
+        name: ((event as { display_name?: string | null }).display_name ?? '').trim() || `Your ${homeTypeLabel}`,
+      }}
+      next={homeNext}
+      days={glanceDays(homeDaysOut)}
+      coming={glanceCount(homeStats.attending, guestsMeasured)}
+      noReply={glanceCount(homeStats.pending, guestsMeasured)}
+      noReplyWaiting={guestsMeasured && homeStats.pending > 0}
+      money={
+        moneyNow === 'hidden'
+          ? null
+          : { paid: glanceMoney(moneyNow?.paid ?? null), owing: glanceMoney(moneyNow?.owing ?? null) }
+      }
+    />
+  );
 
   // Home-injected overlays — the cultural / set-date cards that the dashboard
   // doesn't cover. Passed to <EventDashboard> as `slotAfterBento` so they land
   // between the At-a-glance bento and the journey rail.
-  /* 🪜 "Round N · x of y · Continue" — the Event Hub's guided flow (Details
-     part 5), for whom Details is. Streamed: its reads never hold Home. */
-  const guideMemberType = viewerMemberType;
+  /* 🪜 The guided flow's "Round N · x of y · Continue" is no longer a tile
+     here: it is first in `HOME_NEXT_ORDER`, so whenever it exists it IS the
+     Next card on the first screen (📱 2026-10-01). */
   const overlays = (
     <>
-      {guideMemberType === 'couple' ? (
-        <Suspense fallback={null}>
-          <DetailsGuideHomeCard eventId={eventId} memberType={guideMemberType} />
-        </Suspense>
-      ) : null}
       {/* The five essentials of your Nikah — the signature card for the Muslim
        *  wedding track. Shows ONLY for muslim weddings (primary ceremony OR a
        *  mixed ceremony with a muslim leg). Turns the five validity pillars of
@@ -608,7 +698,7 @@ export default async function EventHomePage({
        *  later so the date-gated public website lifecycle (Save-the-Date / Event
        *  / Editorial) can launch. Renders ONLY when no date is set; dismissible
        *  per-event; links to the existing /date-selection governed surface. */}
-      {!event.event_date ? (
+      {!event.event_date && homeNext.kind !== 'date' ? (
         <SetDateNudge eventId={eventId} eventType={event.event_type as string | null} />
       ) : null}
 
@@ -624,7 +714,7 @@ export default async function EventHomePage({
        *  goes first because the whole date-gated public-site lifecycle waits on
        *  it — so a date-less event is asked for the date, and meets Papic once
        *  that is settled. */}
-      {event.event_date && papicNudgeVisible ? (
+      {event.event_date && papicNudgeVisible && homeNext.kind !== 'papic' ? (
         <PapicReadyNudge eventId={eventId} />
       ) : null}
 
@@ -716,7 +806,7 @@ export default async function EventHomePage({
   );
 
   const hasOverlays =
-    guideMemberType === 'couple' || isNikahEvent || !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer);
+    isNikahEvent || !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer) || papicNudgeVisible;
 
   return (
     <>
@@ -836,19 +926,26 @@ export default async function EventHomePage({
           </details>
         </>
       ) : (
-        /* The dashboard — hero → at-a-glance bento → [overlays] → journey rail →
+        /* 📱 The first screen (Next · Edit your Event Hub · the numbers), then
+         *  the dashboard — hero → at-a-glance bento → [overlays] → journey rail →
          *  decisions → around-your-event, plus the AI extras (Sai briefing,
          *  What's-next, Sai on watch) when Setnayan AI is active for the viewer
-         *  (or `?sai=preview` for internal accounts). */
-        <EventDashboard
-          eventId={eventId}
-          saiPreviewParam={search.sai}
-          inspectId={search.inspect}
-          slotAfterBento={hasOverlays ? overlays : undefined}
-          dayOfActive={dayOfActive}
-          lifecyclePhase={lifecyclePhase}
-          canViewPapicCounts={canViewPapicCounts}
-        />
+         *  (or `?sai=preview` for internal accounts). On a phone the first
+         *  screen fills the screen; "See all" lands on `#home-all`. */
+        <>
+          {homeFirstScreen}
+          <div id="home-all" className="scroll-mt-20 pt-6">
+            <EventDashboard
+              eventId={eventId}
+              saiPreviewParam={search.sai}
+              inspectId={search.inspect}
+              slotAfterBento={hasOverlays ? overlays : undefined}
+              dayOfActive={dayOfActive}
+              lifecyclePhase={lifecyclePhase}
+              canViewPapicCounts={canViewPapicCounts}
+            />
+          </div>
+        </>
       )}
     </>
   );

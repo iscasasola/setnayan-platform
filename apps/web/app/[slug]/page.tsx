@@ -75,7 +75,9 @@ import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { GuestHubBar } from './_components/guest-hub-bar';
+import { GuestHubBar, GuestMeSection } from './_components/guest-hub-bar';
+import { hubTabsOn } from './_lib/hub-tabs';
+import { pageStageFor } from './_lib/stage-bar';
 import { GuestTicket } from './_components/guest-ticket';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import {
@@ -176,6 +178,9 @@ type Props = {
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
     save?: string;
     rsvp?: string;
+    // 📱 `?tab=<key>` — each menu tab is its own page with its own address
+    // (owner 2026-09-30, `_lib/hub-tabs.ts`); SiteBody shows that tab first.
+    tab?: string;
     // 🚪 `?from=landing` — "Open the invitation" on the guest's landing page,
     // before a reply: past the reply gate (lib/guest-landing.ts). Inert elsewhere.
     from?: string;
@@ -1284,6 +1289,8 @@ async function InvitationBody({
     hostCameraOpen,
     phasesEnabled,
     lifecyclePhase,
+    // 📱 The tab in the address — the page opens on it (`_lib/hub-tabs.ts`).
+    activeTab: typeof search.tab === 'string' ? search.tab : null,
     stdFilm,
     stdBackground,
     stdBackgroundUrl,
@@ -1795,6 +1802,25 @@ async function InvitationBody({
     </>
   );
 
+  /* 📱 EACH TAB ITS OWN PAGE (owner 2026-09-30) — on the Invitation and The
+     Day a guest's page is tabs, and Me is one of them: the SAME section
+     GuestHubBar draws under a page that is one scroll (`GuestMeSection`), drawn
+     by the page body INSIDE the page instead. Decided by the one rule the body
+     itself uses (`hubTabsOn`); a stage that is tabbed always has the ordinary
+     body (only the Save the Date and Post Event stages change it), and a guest
+     is never the Maker's canvas, whose guest bars are the only ones switched off. */
+  const menuOnHere = siteMenuEnabled({
+    flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
+    isSample: Boolean(event.is_sample),
+  });
+  const guestPageTabbed = hubTabsOn({
+    stage: pageStageFor({ phasesEnabled, lifecyclePhase, dayOfPhase }),
+    bodyNormal: true,
+    barDrawn: menuOnHere,
+    makerCanvas: isEditorCanvas,
+  });
+  const galleryCountHere = guestLiveGallery?.total ?? 0;
+
   const venueOpen = venueIsOpen({
     rsvpStatus: guest.rsvp_status,
     eventDate: event.event_date,
@@ -1831,6 +1857,11 @@ async function InvitationBody({
           didntReply: keyGate.kind === 'inside' && keyGate.didntReply,
           checklist,
         })}
+        meSection={
+          guestPageTabbed ? (
+            <GuestMeSection meSlot={meSlot} galleryHref={`/papic/me/${guest.qr_token}`} galleryCount={galleryCountHere} asTab />
+          ) : null
+        }
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar
           (My QR · Camera · Photos) + top-right account affordance. Replaces the
@@ -1846,9 +1877,10 @@ async function InvitationBody({
         cameraReady={guestRollCameraReady}
         papicGuestActive={papicGuestActive}
         hasAccount={Boolean(viewerAccount)}
-        galleryCount={guestLiveGallery?.total ?? 0}
+        galleryCount={galleryCountHere}
         hubHref={
-          dayOfPhase === 'live' || dayOfPhase === 'post'
+          // 📱 A page whose tabs ARE the day needs no door to a second hub.
+          !guestPageTabbed && (dayOfPhase === 'live' || dayOfPhase === 'post')
             ? `/${event.slug}/hub`
             : null
         }
@@ -1858,11 +1890,9 @@ async function InvitationBody({
         // Resolved from the SAME two inputs as the menu itself (site-body.tsx),
         // so the bar this component gives up and the bar that replaces it can
         // never disagree — and neither can the two owners of `#site-me`.
-        menuOn={siteMenuEnabled({
-          flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
-          isSample: Boolean(event.is_sample),
-        })}
-        meSlot={meSlot}
+        menuOn={menuOnHere}
+        meSlot={guestPageTabbed ? null : meSlot}
+        meInPage={guestPageTabbed}
       />
       )}
       {/* A signed-in guest recognised by their SEAT (no cookie for this event)

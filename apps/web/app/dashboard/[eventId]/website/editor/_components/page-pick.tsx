@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, CalendarClock, Camera, Home, Images, Info, Radio, User, type LucideIcon } from 'lucide-react';
+import { Activity, BookOpen, CalendarClock, Camera, Home, Images, Info, Radio, User, type LucideIcon } from 'lucide-react';
 import type { MakerGuestPage } from '@/lib/maker-guest-pages';
 import type { NavSlotKey } from '@/app/[slug]/_lib/site-nav';
 import { PickMenu } from './pick-menu';
@@ -17,6 +17,7 @@ import { PickMenu } from './pick-menu';
  * pickable: the navigator then says what they are.
  */
 export const GUEST_PAGE_ICON: Readonly<Partial<Record<NavSlotKey, LucideIcon>>> = {
+  live: Activity,
   home: Home,
   details: Info,
   schedule: CalendarClock,

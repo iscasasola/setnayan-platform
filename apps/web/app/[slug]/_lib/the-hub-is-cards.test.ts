@@ -31,15 +31,18 @@ test('both pages wrap the hub sections in the card wrapper', () => {
   // of whatever the map produces when no section scrubs.
   assert.match(
     body,
-    // (Details draws what the Welcome page left it — `detailsScenes`, owner 2026-09-30.)
-    /<div className="sn-hub-cards space-y-4">\s*<HubScenes widgets=\{detailsScenes\}[^>]*>\s*\{detailsScenes\.map/,
+    // (Details draws what the Welcome page left it — `detailsScenes`, owner
+    // 2026-09-30 — less the love story scene when that is a tab of its own:
+    // `detailsSceneList`, 📱 each tab its own page.)
+    /<div className="sn-hub-cards space-y-4">\s*<HubScenes widgets=\{detailsSceneList\}[^>]*>\s*\{detailsSceneList\.map/,
     "the guest's hub",
   );
   assert.match(
     body,
-    /const publicWidgetNodes = \(\s*<HubScenes widgets=\{detailsScenes\}/,
+    /const sceneNodes = \(list: typeof detailsScenes\) => \(\s*<HubScenes widgets=\{list\}/,
     "the stranger's hub goes through the same scenes",
   );
+  assert.match(body, /const publicWidgetNodes = sceneNodes\(detailsSceneList\);/);
 });
 
 test('the card look is one CSS block', () => {

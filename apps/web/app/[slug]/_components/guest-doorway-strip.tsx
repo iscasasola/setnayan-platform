@@ -43,9 +43,14 @@ export function GuestDoorwayStrip({
   personalised,
   dateLabel,
   words,
+  tabAttrs = {},
 }: {
   /** The event type's own words. */
   words: EventWords;
+  /** 📱 Which tab of a tabbed page these doors are on (`site-body.tsx`
+   *  `pageTabs.attrs`) — `data-hub-tab`, and `hidden` off that tab. Empty on a
+   *  page that is one scroll. */
+  tabAttrs?: { 'data-hub-tab'?: string; hidden?: boolean };
   /** `/[slug]/venue`, or null → do not draw. */
   venueWalk: string | null;
   /** `/[slug]/pabuya`, or null → do not draw. */
@@ -61,6 +66,7 @@ export function GuestDoorwayStrip({
 
   return (
     <aside
+      {...tabAttrs}
       className="mx-auto mt-6 w-full max-w-3xl space-y-3 px-4"
       aria-label="More for guests"
     >

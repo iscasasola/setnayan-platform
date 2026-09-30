@@ -43,7 +43,7 @@ test('Your Team holds the team and the Budget, both on the Your Team page', () =
   assert.deepEqual(
     yourTeamParts({ eventId: 'E', budgetEnabled: true }).map((p) => [p.key, p.label, p.href]),
     [
-      ['team', 'Your team', '/dashboard/E/vendors'],
+      ['team', 'Suppliers', '/dashboard/E/vendors'],
       ['budget', 'Budget', '/dashboard/E/vendors?part=budget'],
     ],
   );

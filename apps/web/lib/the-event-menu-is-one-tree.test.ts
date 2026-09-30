@@ -113,7 +113,7 @@ test('the rail is the owner’s five — nothing more — in every phase', () =>
     const labels = ['Events', ...rail(WEDDING, phase).flatMap((g) => g.items.map((i) => i.label))];
     assert.deepEqual(
       labels,
-      ['Events', 'Details', 'Home', 'Guests', 'Your Team', 'Event Hub Maker', OUR_SERVICES],
+      ['Events', 'Details', 'Home', 'Guests', 'Suppliers', 'Hub', OUR_SERVICES],
       `${phase}: ${labels.join(' · ')}`,
     );
   }
@@ -134,19 +134,19 @@ test('the rows that left are gone from every phase — their homes hold them', (
 
 /** The rail's (and ☰'s) words — the full names. */
 const FIVE = [
-  ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Your Team'],
-  ['launch', 'Event Hub Maker'], ['studio', OUR_SERVICES],
+  ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
+  ['launch', 'Hub'], ['studio', OUR_SERVICES],
 ] as const;
-/** The phone bar's words — the four (owner 2026-09-30: "the menu changes also
- *  on the mobile view"): the rail's rows minus the Maker, one short word. */
-const BAR_FOUR = [
-  ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Your Team'],
-  ['studio', SUITE_NAV_ON ? 'More' : 'Studio'],
+/** The phone bar's words — the rail's, save "More" (owner 2026-10-01: "Home -
+ *  Guests - Suppliers - Hub - More"). */
+const BAR_FIVE = [
+  ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
+  ['launch', 'Hub'], ['studio', SUITE_NAV_ON ? 'More' : 'Studio'],
 ] as const;
-const BARS = { plan: BAR_FOUR, dayof: BAR_FOUR, after: BAR_FOUR } as const;
+const BARS = { plan: BAR_FIVE, dayof: BAR_FIVE, after: BAR_FIVE } as const;
 
 for (const phase of ['plan', 'dayof', 'after'] as const) {
-  test(`the ${phase} phone bar is the owner's four, in the tree's own words`, () => {
+  test(`the ${phase} phone bar is the owner's five, in the tree's own words`, () => {
     const bar = buildCustomerMenuTree(EVENT_ID, {
       phase,
       websiteEnabled: true,
@@ -160,7 +160,7 @@ for (const phase of ['plan', 'dayof', 'after'] as const) {
       const path = tab.href.split('?')[0];
       const row = rows.find((r) => r.href === path);
       assert.ok(row, `${phase}: the ${tab.key} tab opens ${path}, which no ☰ row opens`);
-      // One page, one word — save the owner's one short bar word, which lives
+      // One page, one word — save the owner's one short bar word (More), which lives
       // in ONE map (`PHONE_BAR_SHORT`) and nowhere else.
       const expected = PHONE_BAR_SHORT[tab.key] ?? row!.label;
       assert.equal(tab.label, expected, `${phase}: one page, two words (${row!.label} / ${tab.label})`);
@@ -192,7 +192,7 @@ test('the bar\'s registry defaults say the tree\'s words — the bar overlays th
   for (const retired of [
     'customer.bottom-nav.seats', 'customer.bottom-nav.now', 'customer.bottom-nav.checkin',
     'customer.bottom-nav.papic', 'customer.bottom-nav.schedule', 'customer.bottom-nav.review',
-    'customer.bottom-nav.galleries', 'customer.bottom-nav.launch',
+    'customer.bottom-nav.galleries',
   ]) {
     assert.ok(!bySlot.has(retired), `${retired} is still offered for a tab that no longer renders`);
   }
@@ -320,12 +320,11 @@ test('the 3D pages light the Event Hub Maker on the rail, exactly as /seating do
   }
 });
 
-test('the 3D pages light Home on the phone (the Maker has no tab), as /seating does', () => {
+test('the 3D pages light the Maker tab on the phone, as /seating does', () => {
   const bar = buildCustomerMenuTree(EVENT_ID, {
     websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
   });
-  assert.ok(!bar.some((m) => m.key === 'launch'), 'the Maker is a phone tab again');
-  const maker = bar.find((m) => m.key === 'home')!.activeMatch as string[];
+  const maker = bar.find((m) => m.key === 'launch')!.activeMatch as string[];
   for (const p of ['/seating', '/seating/lab', '/plan3d']) {
     assert.ok(maker.includes(`${BASE}${p}`), `${p} lights no tab on the phone`);
   }

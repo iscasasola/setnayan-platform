@@ -5,10 +5,10 @@
  * owner 2026-09-29: *"on mobile mode. we do not want that sub bottom nav
  * anymore. we want it to be simple and easy to manage"*).
  *
- *     Home · Guests · Your Team · More
+ *     Home · Guests · Suppliers · Hub · More
  *
- * The same four in every phase (owner 2026-09-30: "the menu changes also on
- * the mobile view"; the Event Hub Maker is reached from Home), picked out of the one tree in
+ * The same five in every phase (owner 2026-10-01, DECISION_LOG "THE BOTTOM BAR
+ * IS HOME · GUESTS · SUPPLIERS · HUB · MORE"), in the rail's own words, picked out of the one tree in
  * `lib/customer-menu.ts` (`buildCustomerMenuTree`) — the desktop rail draws
  * the same rows under the same words. Nothing docks above this bar; a
  * pillar's parts are chosen inside its page. "More" opens a small chooser
@@ -150,7 +150,6 @@ export function CustomerBottomNav({
         href: m.href,
         activeMatch: m.activeMatch,
         activeMatchExact: m.activeMatchExact,
-        ...(m.activeMatchAlsoExact ? { activeMatchAlsoExact: m.activeMatchAlsoExact } : {}),
         ...(badge ? { badge } : {}),
         ...(m.key === 'studio' && services?.length
           ? {

@@ -52,8 +52,13 @@ const HUB_HREF = `${BASE}/launch`;
    the dashboard screen is NOT called by the guest site's bare name — is
    unchanged; only the qualified name moved. */
 const CONTROLLER = 'Event Hub Maker';
-/* ✏️ 2026-09-30: the phone bar has no Maker tab any more (the four — owner,
-   "the menu changes also on the mobile view"), so there is no phone word. */
+/* ✏️ 2026-10-01: the MENU row's word is "Hub" on the rail and the bar (owner,
+   "Home - Guests - Suppliers - Hub - More"). The page itself keeps the full
+   "Event Hub Maker" (its own title, asserted below). Neither is the bare
+   guest word — which is all this file holds. */
+const MENU_WORD = 'Hub';
+/* ✏️ 2026-09-29: the PHONE bar's short word for the same row (owner: "Maker
+   and Services"). Still never the bare guest word — that is what this file holds. */
 const GUEST_WORD = 'Event Hub';
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
@@ -113,24 +118,19 @@ test('every dashboard row that opens the maker is called "Event Hub Maker"', () 
       const hits = (rows as Array<{ href?: string; label?: string }>).filter(
         (r) => r.href === HUB_HREF,
       );
-      // 2026-09-30: the phone bar is the four — the Maker has NO tab there
-      // (owner, "the menu changes also on the mobile view"); it is reached
-      // from Home. So the phone holds zero rows for it, the rail exactly one.
-      const want = surface === 'phone' ? 0 : 1;
       assert.equal(
         hits.length,
-        want,
+        1,
         `${surface}/${phase} has ${hits.length} rows pointing at ${HUB_HREF} — ` +
-          `the ruling is ${want} on this surface per phase.`,
+          'the ruling is ONE row per surface per phase.',
       );
-      checked += 1;
-      if (want === 0) continue;
       assert.equal(
         hits[0]!.label,
-        CONTROLLER,
+        MENU_WORD,
         `${surface}/${phase} calls the controller "${hits[0]!.label}". ` +
           `The dashboard row is the CONTROLLER; "${GUEST_WORD}" is what a guest opens.`,
       );
+      checked += 1;
     }
   }
   // Six windows (2 surfaces × 3 phases). A builder that quietly stopped
@@ -160,10 +160,12 @@ test('no dashboard row anywhere is labelled with the bare guest word', () => {
   );
 });
 
-test('the live registry slot defaults to the controller name (the phone slot retired 2026-09-30)', () => {
+test('both live registry slots default to the controller name', () => {
   const bySlot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s]));
-  assert.ok(!bySlot.has('customer.bottom-nav.launch'), 'a registry slot for a phone tab that no longer renders');
-  for (const [key, word] of [['customer.sidebar.launch', CONTROLLER]] as const) {
+  for (const [key, word] of [
+    ['customer.sidebar.launch', MENU_WORD],
+    ['customer.bottom-nav.launch', MENU_WORD],
+  ] as const) {
     const slot = bySlot.get(key);
     assert.ok(slot, `${key} is missing from NAV_SLOT_DEFAULTS`);
     assert.equal(

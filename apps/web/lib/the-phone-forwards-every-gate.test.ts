@@ -121,28 +121,20 @@ test('🔴 every phone/dock menu caller forwards every gate the builder reads', 
 
 /* ══ 2 · THE ROW ITSELF, THROUGH THE GATE THE CALLER NOW SENDS ════════════ */
 
-test('🔒 the Hub gate still gates the phone — Home holds the Maker only where there is one', async () => {
-  /* 2026-09-30: the Maker has no phone TAB (the four — owner, "the menu changes
-     also on the mobile view"); its pages light Home. So the gate now decides
-     what Home lights: the Maker's pages when enabled, nothing of it when not. */
+test('🔒 the plan-phase Hub row is present when enabled and absent when not', async () => {
   const { buildCustomerMenuTree } = await import('./customer-menu');
-  const home = (websiteEnabled: boolean) =>
-    ([] as string[]).concat(
-      buildCustomerMenuTree('EVT123', { websiteEnabled }).find((m) => m.key === 'home')!.activeMatch,
-    );
   const keys = (websiteEnabled: boolean) =>
     buildCustomerMenuTree('EVT123', { websiteEnabled }).map((m) => m.key as string);
 
-  assert.ok(!keys(true).includes('launch'), 'the phone bar grew a Maker tab again');
   assert.ok(
-    home(true).includes('/dashboard/EVT123/launch'),
-    'with the surface enabled, standing in the Maker lights no phone tab',
+    keys(true).includes('launch'),
+    'the phone bar has no Event Hub Maker tab even with the surface enabled',
   );
   // And the gate is a real gate, not decoration — otherwise forwarding it would
   // be pointless and this whole file would be guarding nothing.
   assert.ok(
-    !home(false).includes('/dashboard/EVT123/launch'),
-    'the gate does not gate: an event with no website surface still has the Maker lit from Home',
+    !keys(false).includes('launch'),
+    'the gate does not gate: an event with no website surface is still offered the Hub',
   );
 });
 

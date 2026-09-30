@@ -35,7 +35,6 @@ import {
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { CustomerNavFab } from './_components/customer-nav-fab';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
@@ -767,12 +766,15 @@ export default async function EventLayout({ children, params }: Props) {
       <BottomDock>
         <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} services={services} />
       </BottomDock>
-      {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of
-          the dock, never a 7th tab. Sits in the BAR's row at the right end
-          (centred on `--sn-bottomnav-h`), with the bar's tabs pulled in to
-          make room (globals.css `html[data-sn-fab]`). Hidden in the After
-          phase. */}
-      <CustomerNavFab eventId={eventId} phase={phase} />
+      {/*
+        ⛔ NO FLOATING BUTTON OVER OR IN THE BAR (owner 2026-10-01: *"this will
+        be gone, correct? we only have our simple bottom nav?"*; DECISION_LOG
+        "THE BOTTOM BAR IS HOME · GUESTS · SUPPLIERS · HUB · MORE"). The couple's
+        NAV-2 "Add guest" satellite (`CustomerNavFab`) is deleted, not hidden —
+        the Guests page's + lives in its own header. Do not restore it for
+        "consistency" with the admin doorway; the vendor doorway lost its FAB
+        the same way (2026-09-22).
+      */}
     </>
   );
 }

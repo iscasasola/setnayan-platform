@@ -79,8 +79,6 @@ export type CustomerMenu = {
    *  plus the claims of any rail row that has no tab of its own. */
   activeMatch: string | string[];
   activeMatchExact?: boolean;
-  /** Extra EXACT-only paths (Home's own page while it also holds the Maker's). */
-  activeMatchAlsoExact?: string[];
 };
 
 export type CustomerMenuCtx = EventMenuCtx & {
@@ -298,31 +296,35 @@ export function buildEventMenuSections(
   // (`guestListParts`), and the pages about the same people light it.
   put({
     key: 'guests',
-    // "Guests" (owner 2026-09-30: *"Home, Guests, Your Team, More Services"*)
-    // — "Guest list" 2026-09-29 → 2026-09-30. Rail, ☰ and phone bar alike.
+    // "Guests" (owner 2026-09-30/10-01) — "Guest list" 2026-09-29 → 2026-09-30.
+    // Rail, ☰ and phone bar alike.
     label: 'Guests',
     href: `${base}/guests`,
     icon: 'guests',
     alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`],
   });
 
-  // YOUR TEAM — suppliers + Budget (`yourTeamParts`). The old /budget page
-  // lands on the part; its standalone address still lights this row.
+  // SUPPLIERS — suppliers + Budget (`yourTeamParts`). "Your Team" until
+  // 2026-10-01 (owner: "Home - Guests - Suppliers - Hub - More"). The old
+  // /budget page lands on the part; its standalone address still lights this row.
   put({
     key: 'explore',
-    label: 'Your Team',
+    label: 'Suppliers',
     href: `${base}/vendors`,
     icon: 'team',
     alsoMatch: [`${base}/budget`],
   });
 
-  // EVENT HUB MAKER — one row, one word, every phase (key `launch`, 2026-09-02).
+  // HUB — the Event Hub Maker, one row, one word, every phase (key `launch`,
+  // 2026-09-02). "Event Hub Maker" until 2026-10-01, when the owner named the
+  // menu "Home - Guests - Suppliers - Hub - More" for the bar AND the rail. Never
+  // the bare "Event Hub" — that is the GUEST site.
   // `matchPrefix` claims the /website family; `/story` is its Post Event;
   // `/schedule` is Details › Schedule (the page lands there for the couple).
   if (maker) {
     put({
       key: 'launch',
-      label: 'Event Hub Maker',
+      label: 'Hub',
       href: `${base}/launch`,
       icon: 'hub',
       matchPrefix: `${base}/website`,
@@ -396,53 +398,37 @@ export function eventMenuRows(sections: EventMenuSection[]): EventMenuRow[] {
 }
 
 /**
- * ─── THE PHONE BAR'S SHORT WORDS (owner 2026-09-29) ─────────────────────
- * Owner, on the one bar: *"accept it. Maker and Services"*. On the PHONE
- * bottom bar only, two tabs wear a short form of their row's name — five
- * full names do not fit a 375px bar on one line. The desktop rail and the ☰
- * drawer keep the full names ("Event Hub Maker", "More Services"), and so does
- * the tour. This map is the ONE place a phone word may differ from its row;
+ * ─── THE PHONE BAR'S ONE SHORT WORD ─────────────────────────────────────
+ * The bar and the rail say the SAME words in the same order (owner
+ * 2026-10-01, DECISION_LOG "THE BOTTOM BAR IS HOME · GUESTS · SUPPLIERS · HUB
+ * · MORE") — save one: the rail's "More Services" row is "More" on the bar.
+ * This map is the ONE place a phone word may differ from its row;
  * `the-phone-has-one-bottom-bar.test.ts` fails on any other difference.
  * (Where the Suite flag is off the row says "Studio", and so does the tab.)
  */
 export const PHONE_BAR_SHORT: Readonly<Partial<Record<CustomerMenuKey, string>>> = {
-  // "More" (owner 2026-09-30) — the rail and ☰ say "More Services". The
-  // Maker's short word left with its tab (it is not on the bar any more).
   ...(SUITE_NAV_ON ? { studio: 'More' } : {}),
 };
 
 /**
- * 📱 THE PHONE BAR IS THE FOUR (owner 2026-09-30: *"the menu changes also on
- * the mobile view"*; DECISION_LOG "THE PHONE MENU IS THE SAME FOUR"):
+ * THE PHONE'S ONE BOTTOM BAR — the five, picked out of the one tree, the same
+ * in every phase (owner 2026-10-01):
  *
- *     Home · Guests · Your Team · More
- *
- * picked from the SAME tree as the rail — every row but the Event Hub Maker,
- * which is reached from Home and its own entry points on a phone. Its pages
- * (the Maker, /website, /story, /schedule, the seat plan) light HOME, the tab
- * they are reached from, so the bar never says "you are nowhere".
- */
-export const PHONE_BAR_ROWS = ['home', 'guests', 'explore', 'studio'] as const;
-
-/**
- * THE PHONE'S ONE BOTTOM BAR — the four (`PHONE_BAR_ROWS`), picked out of
- * the one tree, the same in every phase:
- *
- *     Home · Guests · Your Team · More
+ *     Home · Guests · Suppliers · Hub · More
  *
  * Every label and href comes from `buildEventMenuSections`, so a tab and its ☰
- * row can never say two words for one page — except the one short word in
- * `PHONE_BAR_SHORT` (More), which the owner chose for the bar. A tab lights
- * across every page its row claims; Home also holds the Maker's pages.
+ * row can never say two words for one page — except "More" (`PHONE_BAR_SHORT`).
+ * A tab lights across every page its row claims.
  *
  * 📂 THE BAR HAS NO SUB-ROWS. More Services' five children are the rail's;
  * on the phone the "More" tab opens a chooser sheet with the same five
  * (`CustomerBottomNav` → `more-services-sheet.tsx`, owner 2026-09-30).
  *
- * 🔑 NOTHING DOCKS ABOVE IT. There is no section sub-nav and no moment strip
- * any more (owner 2026-09-29, "we do not want that sub bottom nav anymore");
- * a pillar's parts are picked INSIDE its page. `the-phone-has-one-bottom-bar
- * .test.ts` holds that.
+ * 🔑 NOTHING DOCKS ABOVE IT, AND NOTHING FLOATS IN IT. No section sub-nav, no
+ * moment strip (owner 2026-09-29), and no round button over the bar (owner
+ * 2026-10-01: *"this will be gone, correct? we only have our simple bottom
+ * nav?"*) — a pillar's parts and actions live INSIDE its page.
+ * `the-phone-has-one-bottom-bar.test.ts` holds that.
  */
 export function buildCustomerMenuTree(
   eventId: string,
@@ -453,36 +439,21 @@ export function buildCustomerMenuTree(
   const all = eventMenuRows(buildEventMenuSections(eventId, ctx));
   const byKey = new Map(all.map((r) => [r.key, r]));
 
-  // The Maker's pages have no tab of their own on the phone — Home holds them.
-  const maker = byKey.get('launch');
-  const makerClaims = maker ? [...new Set(eventMenuRowClaims(maker))] : [];
-
-  return PHONE_BAR_ROWS.flatMap((key): CustomerMenu[] => {
+  return PILLAR_ROWS.flatMap((key): CustomerMenu[] => {
     const r = byKey.get(key);
     if (!r) return [];
     const label = PHONE_BAR_SHORT[key] ?? r.label;
     if (key === 'home') {
-      // The checklist is the Home page's own "View your full checklist". Both
-      // are EXACT (every event route shares `${base}/`); the Maker's pages
-      // light Home by prefix.
       return [
-        makerClaims.length
-          ? {
-              key,
-              label,
-              icon: EVENT_MENU_ICONS[r.icon],
-              href: r.href,
-              activeMatch: makerClaims,
-              activeMatchAlsoExact: [base, `${base}/checklist`],
-            }
-          : {
-              key,
-              label,
-              icon: EVENT_MENU_ICONS[r.icon],
-              href: r.href,
-              activeMatch: [base, `${base}/checklist`],
-              activeMatchExact: true,
-            },
+        {
+          key,
+          label,
+          icon: EVENT_MENU_ICONS[r.icon],
+          href: r.href,
+          // The checklist is the Home page's own "View your full checklist".
+          activeMatch: [base, `${base}/checklist`],
+          activeMatchExact: true,
+        },
       ];
     }
     return [
@@ -490,7 +461,7 @@ export function buildCustomerMenuTree(
         key,
         label,
         icon: EVENT_MENU_ICONS[r.icon],
-        // After the day, Your Team opens on the suppliers who worked it, each
+        // After the day, Suppliers opens on the suppliers who worked it, each
         // with its review chip — the SHIPPED deep link (2026-06-12).
         href: key === 'explore' && phase === 'after' ? `${r.href}?tab=build` : r.href,
         activeMatch: [...new Set(eventMenuRowClaims(r))],

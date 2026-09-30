@@ -25,7 +25,7 @@
  * bottom bar reads too. Stage D (owner 2026-09-29):
  *
  *   (name row)  → Details (Event settings)
- *   (the five)  → Home · Guest list · Your Team · Event Hub Maker · More Services
+ *   (the five)  → Home · Guests · Suppliers · Hub · More Services (2026-10-01)
  *
  * 🔒 EVERY ROW IS A PLAIN LEAF — "solid menu with no submenus" (owner-locked
  * 2026-07-15) — WITH ONE EXCEPTION, BY THE OWNER, 2026-09-30: the More

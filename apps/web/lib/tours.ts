@@ -878,12 +878,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_event_menu_v1: {
     key: 'customer_event_menu_v1',
     label: 'Your event menu',
-    blurb: 'The places that hold everything for an event, on your phone and your laptop.',
+    blurb: 'The five places that hold everything for an event — the same on phone and laptop.',
     slides: [
       {
         Icon: Sparkles,
-        title: 'Your whole event, in a few places',
-        body: 'Home, Guests, Your Team, Event Hub Maker and More Services sit down the side of your laptop. On your phone the bar at the bottom holds Home, Guests, Your Team and More &mdash; the Event Hub Maker opens from Home.',
+        title: 'Five places for your whole event',
+        body: 'Home, Guests, Suppliers, Hub and More. The same five sit at the bottom of your phone and down the side of your laptop.',
       },
       {
         Icon: Users,
@@ -892,18 +892,18 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Briefcase,
-        title: 'Your Team',
+        title: 'Suppliers',
         body: 'The suppliers you book and your budget, in one place.',
       },
       {
         Icon: Wand2,
-        title: 'Event Hub Maker',
-        body: 'Your Event Hub, the invitation and every print. Names, date, schedule, mood board and logo are all in its Details.',
+        title: 'Hub',
+        body: 'Where you make your Event Hub, the invitation and every print. Names, date, schedule, mood board and logo are all in its Details.',
       },
       {
         Icon: Camera,
         title: 'More Services',
-        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok &mdash; open the row to see all five, and add the ones you want for your day.',
+        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok &mdash; tap More to see all five, and add the ones you want for your day.',
       },
     ],
   },

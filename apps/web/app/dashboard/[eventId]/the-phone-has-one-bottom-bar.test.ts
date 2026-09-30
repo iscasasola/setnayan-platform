@@ -15,11 +15,9 @@
  *       `app/dashboard/[eventId]` mounts a <SubNav>, a <BottomNav> or a
  *       <BottomDock> of its own — a page-level strip is the same second row by
  *       another door. And the retired section sub-nav stays deleted.
- *   3 · THE BAR DOES NOT REARRANGE ITSELF. The same four tabs, same words,
- *       same order, in plan · day-of · after — the SAME rows the desktop rail
- *       draws, minus the Event Hub Maker (owner 2026-09-30: reached from Home).
- *   6 · THE ROUND ADD BUTTON IS GUESTS' OWN — it shows on the Guests page
- *       only (owner 2026-09-30).
+ *   3 · THE BAR DOES NOT REARRANGE ITSELF. The same five tabs, same words,
+ *       same order, in plan · day-of · after — and the SAME five rows the
+ *       desktop rail draws, so the phone and the laptop are one menu.
  *
  * Sabotage-checked: re-mounting a `<SubNav …/>` inside the dock, adding a
  * `<BottomNav` to a page, or letting the day-of bar swap a tab each turns this
@@ -87,46 +85,45 @@ test('2 · no page in the event tree mounts a second bar, and the sub-nav stays 
   );
 });
 
-test('3 · the same four tabs in every phase — the rail\'s rows, minus the Maker', () => {
-  /* Owner 2026-09-30, "the menu changes also on the mobile view": the bar is
-     Home · Guests · Your Team · More — the rail's rows in the rail's words
-     (bar the one short word), with the Event Hub Maker reached from Home. */
+test('3 · the same five tabs in every phase, and the same five rows on the rail', () => {
   const ctx = { websiteEnabled: true, seatingEnabled: true } as const;
   const bars = (['plan', 'dayof', 'after'] as const).map((phase) =>
     buildCustomerMenuTree(EVENT_ID, { ...ctx, phase }).map((m) => `${m.key}:${m.label}`),
   );
-  assert.equal(bars[0]!.length, 4, `the bar has ${bars[0]!.length} tabs: ${bars[0]!.join(' · ')}`);
+  assert.equal(bars[0]!.length, 5, `the bar has ${bars[0]!.length} tabs: ${bars[0]!.join(' · ')}`);
   assert.deepEqual(bars[1], bars[0], 'the day-of bar rearranged itself');
   assert.deepEqual(bars[2], bars[0], 'the after bar rearranged itself');
   // Same rows, same order — and the same word, except the owner's one short
-  // bar word, which comes from the one map and nowhere else.
+  // bar words, which come from the one map and nowhere else.
   const rail = buildCustomerNavGroups(EVENT_ID, ctx)
     .find((g) => g.key === 'pillars')!
-    .items.filter((i) => i.key !== 'launch')
-    .map((i) => `${i.key}:${PHONE_BAR_SHORT[i.key as CustomerMenuKey] ?? i.label}`);
+    .items.map((i) => `${i.key}:${PHONE_BAR_SHORT[i.key as CustomerMenuKey] ?? i.label}`);
   assert.deepEqual(bars[0], rail, 'the phone and the laptop disagree about the menu');
 });
 
-test('4 · the phone says "Guests" and "More"; the rail and ☰ say "Guests" and "More Services"', () => {
+test('4 · Home · Guests · Suppliers · Hub · More — the rail says the same, save "More Services"', () => {
   /*
-    Owner, 2026-09-30: the row became "More Services" and its tab "More";
-    "Guest list" became "Guests" everywhere, and the Maker left the bar. Asserted on BOTH sides, because each half fails silently: a
+    Owner, 2026-10-01 (DECISION_LOG "THE BOTTOM BAR IS HOME · GUESTS ·
+    SUPPLIERS · HUB · MORE"): the bar and the rail wear the same words; the one
+    short bar word is "More" for the rail's expanding "More Services" row. Asserted on BOTH sides, because each half fails silently: a
     short word leaking onto the rail renders fine, and so does a full name
     wrapping to two lines on a 375px bar.
   */
   const ctx = { websiteEnabled: true, seatingEnabled: true } as const;
   const services = SUITE_NAV_ON;
   const bar = buildCustomerMenuTree(EVENT_ID, ctx).map((m) => m.label);
-  assert.deepEqual(bar, ['Home', 'Guests', 'Your Team', services ? 'More' : 'Studio']);
+  assert.deepEqual(bar, ['Home', 'Guests', 'Suppliers', 'Hub', services ? 'More' : 'Studio']);
   const rail = buildCustomerNavGroups(EVENT_ID, ctx)
     .find((g) => g.key === 'pillars')!
     .items.map((i) => i.label);
-  assert.deepEqual(rail, ['Home', 'Guests', 'Your Team', 'Event Hub Maker', services ? 'More Services' : 'Studio']);
+  assert.deepEqual(rail, ['Home', 'Guests', 'Suppliers', 'Hub', services ? 'More Services' : 'Studio']);
   // The registry defaults are what the bar and the rail actually overlay first.
   const slot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s.label]));
-  assert.equal(slot.get('customer.sidebar.launch'), 'Event Hub Maker');
+  assert.equal(slot.get('customer.bottom-nav.launch'), 'Hub');
+  assert.equal(slot.get('customer.sidebar.launch'), 'Hub');
+  assert.equal(slot.get('customer.bottom-nav.explore'), 'Suppliers');
+  assert.equal(slot.get('customer.sidebar.explore'), 'Suppliers');
   assert.equal(slot.get('customer.bottom-nav.guests'), 'Guests');
-  assert.equal(slot.get('customer.sidebar.guests'), 'Guests');
   if (services) {
     assert.equal(slot.get('customer.bottom-nav.studio'), 'More');
     assert.equal(slot.get('customer.sidebar.studio'), 'More Services');
@@ -139,14 +136,14 @@ test('5 · the day-of "Planning" pill is gone from the top bar (owner: "remove i
   assert.ok(!/>\s*Planning\s*</.test(src), 'the event top bar says "Planning" again');
 });
 
-test('6 · the round add button shows on the Guests page only (owner 2026-09-30)', () => {
-  const fab = stripComments(readFileSync(join(HERE, '_components', 'customer-nav-fab.tsx'), 'utf8'));
-  assert.match(
-    fab,
-    /if \(pathname !== `\/dashboard\/\$\{eventId\}\/guests`\) return null;/,
-    'the round add button shows beyond the Guests page again',
+test('6 · nothing floats over the bar — the couple has no round button (owner 2026-10-01)', () => {
+  /* Owner, pointing at the round "Add guest" button in the live bar: "this
+     will be gone, correct? we only have our simple bottom nav?". The dock
+     holds the bar alone (test 1); this holds the sibling slot beside it. */
+  const src = stripComments(readFileSync(LAYOUT, 'utf8'));
+  assert.ok(!/NavFab/.test(src), 'the event layout mounts a floating button beside the bar again');
+  assert.ok(
+    !existsSync(join(HERE, '_components', 'customer-nav-fab.tsx')),
+    'customer-nav-fab.tsx is back — deleted on 2026-10-01, not merely unmounted',
   );
-  // It is gated BEFORE it mounts, so `data-sn-fab` (which pulls the tabs in)
-  // is only set where the button is.
-  assert.ok(fab.indexOf('return null') < fab.indexOf('<NavFab'), 'the gate sits after the mount');
 });

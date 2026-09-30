@@ -202,7 +202,7 @@ export function ServicesTakeover({
           breadcrumb component and the masthead's own docblock says so. */}
       {replan ? (
         <PageMasthead
-          title="Your Team"
+          title="Suppliers"
         />
       ) : null}
 

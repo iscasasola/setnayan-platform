@@ -135,11 +135,29 @@ export function TypeBar(p: TypeBarProps) {
 
   const words = (canvas: HubSectionCanvas) => canvas.elements?.[el]?.word ?? session.auto ?? '';
 
-  /** ONE write path for every change the bar makes: on the Maker's copy now, saved behind. */
-  const commit = (next: HubSectionCanvas, what: string) => {
+  /**
+   * ⚡ ON THE CANVAS — every frame the Maker holds shows `next` now: the part's
+   * words (or its fact in its format) and, when it changed, its show/hide.
+   * `typedIn` is the frame the words were typed in: the browser already drew
+   * them there, and writing them again would move the caret — so it is skipped.
+   */
+  const lay = (before: HubSectionCanvas, next: HubSectionCanvas, typedIn: MessageEventSource | null) => {
+    const messages: unknown[] = [{ source: 'setnayan-editor', t: 'typeText', key: session.key, el, text: shownWords(next) }];
+    if (Boolean(before.elements?.[el]?.hidden) !== Boolean(next.elements?.[el]?.hidden)) {
+      messages.push(elementPreview(session.key, el, before, next, false));
+    }
+    for (const m of messages) {
+      if (typedIn) props.current.post(m, typedIn);
+      else props.current.broadcast(m);
+    }
+  };
+
+  /** ONE write path for every change the bar makes: drawn on the canvas, on the Maker's copy, then saved behind. */
+  const commit = (next: HubSectionCanvas, what: string, typedIn: MessageEventSource | null = null) => {
     const { heroCanvas, draftAction, eventId } = props.current;
     const before = draftedCanvasOr('hero', heroCanvas);
     if (canvasFingerprint(before) === canvasFingerprint(next)) return;
+    lay(before, next, typedIn);
     noteDraftedCanvas('hero', next, heroCanvas);
     props.current.onSaving('hero', next);
     setError(null);
@@ -166,8 +184,7 @@ export function TypeBar(p: TypeBarProps) {
       const back = saved.current;
       noteDraftedCanvas('hero', back, props.current.heroCanvas);
       props.current.onSaving('hero', back);
-      props.current.broadcast(elementPreview(session.key, el, next, back, false));
-      props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: session.key, el, text: shownWords(back) });
+      lay(next, back, null);
       const text = refusedChoiceWords(el, what, res.error || null);
       setError(text);
       announceMakerSave({ state: 'error', text });
@@ -201,7 +218,6 @@ export function TypeBar(p: TypeBarProps) {
   useEffect(() => {
     if (!isTypeCaretPart(el) || session.text === lastText.current) return;
     lastText.current = session.text;
-    props.current.post({ source: 'setnayan-editor', t: 'typeText', key: session.key, el, text: session.text }, session.source);
     const before = draftedCanvasOr('hero', props.current.heroCanvas);
     const { elements, refused } = withTypedWords(before.elements, el, session.text, session.auto);
     refusedRef.current = refused;
@@ -212,7 +228,7 @@ export function TypeBar(p: TypeBarProps) {
     const next: HubSectionCanvas = { ...before };
     if (elements) next.elements = elements;
     else delete next.elements;
-    commit(next, 'word');
+    commit(next, 'word', session.source);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.text]);
 
@@ -228,7 +244,6 @@ export function TypeBar(p: TypeBarProps) {
     if (elements) next.elements = elements;
     else delete next.elements;
     lastText.current = line;
-    props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: session.key, el, text: line });
     commit(next, 'word');
   };
   const pickFormat = (format: string) => {
@@ -237,8 +252,6 @@ export function TypeBar(p: TypeBarProps) {
     const next: HubSectionCanvas = { ...before };
     if (elements) next.elements = elements;
     else delete next.elements;
-    const text = formatWords(el, format, session);
-    if (text) props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: session.key, el, text });
     commit(next, 'format');
   };
   const toggleHidden = () => {
@@ -247,7 +260,6 @@ export function TypeBar(p: TypeBarProps) {
     const next: HubSectionCanvas = { ...before };
     if (elements) next.elements = elements;
     else delete next.elements;
-    props.current.broadcast(elementPreview(session.key, el, before, next, false));
     commit(next, 'hidden');
   };
 

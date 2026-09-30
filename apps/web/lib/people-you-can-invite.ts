@@ -28,15 +28,17 @@ import {
  * picker fed only from that page would have opened empty for the person who
  * asked for it, and read as broken rather than as new.
  *
- * It is also not what a host means. THREE lists in this product already hold
- * somebody's name, and all three are the same sentence — "Setnayan knows this
+ * Two lists hold somebody the host is CONNECTED to — "Setnayan knows this
  * person, and they are mine":
  *
- *   · `event`   — a guest of ANOTHER event you organise. 40 rows in prod, the
- *                 only non-empty source today, and the obvious one: the same
- *                 tita is at the graduation and the anniversary.
- *   · `people`  — your connections and your alaga, the People page proper.
+ *   · `people`  — your connections and your alaga (your beloved: dependents
+ *                 and valuables), the People page proper.
  *   · `samahan` — co-members of a samahan you are in.
+ *
+ * ⛔ A third, `event` (guests of ANOTHER event you organise), was offered from
+ * 2026-08-21 and REMOVED 2026-09-30 by the owner: *"i should only see the
+ * people that are connected to me. not the guest from events."* Being on some
+ * other couple's list is not a connection. Do not bring it back.
  *
  * They merge into ONE list because that is what the host is looking for; the
  * `from` line on each row is what keeps them honestly different.
@@ -54,18 +56,11 @@ import {
  * other shop's correction requests (2026-08-12) and the same one
  * `your-people.ts` was written around.
  *
- * So the event source scopes itself EXPLICITLY: the event ids come from a
- * `user_id = me AND member_type = 'couple'` read first, and the guest query is
- * `.in('event_id', thoseIds)`. RLS stays as defence in depth and is never the
- * fence. **Do not "simplify" this by dropping the `.in()`.**
+ * The only `guests` read left here is THIS event's own list (`.eq('event_id',
+ * eventId)`, for "already here"). No other guest query belongs in this file —
+ * `add-from-people-is-scoped.test.ts` fails if one comes back.
  *
  * ── WHAT TRAVELS WITH A ROW, AND WHAT DELIBERATELY DOES NOT ───────────────
- * `email` is carried ONLY on an `event` row, because that address is the
- * host's own record — they typed it, on their own guest list. It matters: the
- * `guests` BEFORE-INSERT trigger resolves `person_id` from the email, so
- * re-inviting somebody by email relinks them to the same person node instead
- * of minting a stranger.
- *
  * `people` and `samahan` rows carry **NO email**. The roster never exposes one
  * to the client, `proposeSamahanConnection`'s own note says *"emails never
  * leave the server"*, and a co-member's address is not the host's to hold just
@@ -123,86 +118,20 @@ export async function getPeopleYouCanInvite(
   /*
     Collected in SOURCE-PRIORITY ORDER and merged at the end by
     `assembleInvitable`, which owns de-duplication, the email rule and the
-    sort. The order below is the priority: `event` first, because its row is
-    the richest we can offer — a real first/last split and, sometimes, the
-    address that relinks the same person node.
+    sort. The order below is the priority.
   */
   const candidates: InvitableCandidate[] = [];
   const push = (c: InvitableCandidate) => candidates.push(c);
 
-  // ── 1 · people you have already invited to your OTHER events ───────────
-  {
-    const { data: mine, error: mineError } = await supabase
-      .from('event_members')
-      .select('event_id')
-      .eq('user_id', userId)
-      .eq('member_type', 'couple');
-    if (mineError) {
-      logQueryError('getPeopleYouCanInvite.myEvents', mineError, { userId }, 'graceful_degrade');
-      partial = true;
-    }
-    const myEventIds = [...new Set(
-      ((mine ?? []) as Array<{ event_id: string }>).map((r) => r.event_id),
-    )].filter((id) => id && id !== eventId);
+  // ⛔ NO GUESTS FROM YOUR OTHER EVENTS (owner 2026-09-30: *"when adding
+  // people. i should only see the people that are connected to me. not the
+  // guest from events. only connected people, samahan … and my beloved"*).
+  // The `event` source (2026-08-21) filled this sheet with every guest of every
+  // other event the host organises — 34 "Maria & Jose" names in front of the
+  // one person they actually know. A guest of another event is on THAT couple's
+  // list, not in the host's people; only a connection makes them theirs.
 
-    if (myEventIds.length > 0) {
-      const [titles, rows] = await Promise.all([
-        /*
-          🪤 `events` HAS NO `title`. The first cut of this read asked for one,
-          and the repo's own column scan caught it before it shipped. PostgREST
-          rejects the WHOLE query with 42703 rather than throwing, so `.data`
-          would have been null, `titleById` empty, and EVERY row in the picker
-          would have said "another event" — a feature that looks finished and
-          silently never worked. The event's name is `display_name`, same
-          column `chat-actions.ts` reads.
-        */
-        supabase.from('events').select('event_id, display_name').in('event_id', myEventIds),
-        supabase
-          .from('guests')
-          .select('guest_id, first_name, last_name, email, event_id')
-          // 🔒 THE EXPLICIT SCOPE. Never remove — see the RLS note above.
-          .in('event_id', myEventIds)
-          .is('deleted_at', null)
-          .order('last_name', { ascending: true })
-          .limit(500),
-      ]);
-      if (titles.error) {
-        logQueryError('getPeopleYouCanInvite.titles', titles.error, {}, 'graceful_degrade');
-        partial = true;
-      }
-      if (rows.error) {
-        logQueryError('getPeopleYouCanInvite.guests', rows.error, {}, 'graceful_degrade');
-        partial = true;
-      }
-      const titleById = new Map(
-        (
-          (titles.data ?? []) as Array<{ event_id: string; display_name: string | null }>
-        ).map((e) => [e.event_id, (e.display_name ?? '').trim() || 'another event']),
-      );
-      for (const g of (rows.data ?? []) as Array<{
-        guest_id: string;
-        first_name: string | null;
-        last_name: string | null;
-        email: string | null;
-        event_id: string;
-      }>) {
-        const first = (g.first_name ?? '').trim();
-        const last = (g.last_name ?? '').trim();
-        if (!first && !last) continue;
-        push({
-          key: `event:${g.guest_id}`,
-          firstName: first,
-          lastName: last,
-          name: `${first} ${last}`.trim(),
-          source: 'event',
-          from: titleById.get(g.event_id) ?? 'another event',
-          email: (g.email ?? '').trim() || null,
-        });
-      }
-    }
-  }
-
-  // ── 2 · your people — connections + alaga ──────────────────────────────
+  // ── 1 · your people — connections + alaga (your beloved) ───────────────
   // `getPeopleRoster` owns the flags, the name-visibility rule and its own
   // graceful degradation; this only reshapes what it returns.
   {
@@ -227,7 +156,7 @@ export async function getPeopleYouCanInvite(
     }
   }
 
-  // ── 3 · co-members of your samahan ─────────────────────────────────────
+  // ── 2 · co-members of your samahan ─────────────────────────────────────
   {
     let admin;
     try {

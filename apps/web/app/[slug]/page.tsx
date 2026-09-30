@@ -1844,7 +1844,12 @@ async function InvitationBody({
           needsFaceEnroll,
           guestHubData,
           seatMap,
-          papicGuest,
+          // 📷 NO CAMERA IN THE MAKER'S CANVAS (owner 2026-09-30: "we do not
+          // need camera on event hub maker because it just fix details and
+          // design"). The inline Papic camera turns itself on at mount, so every
+          // canvas frame the Maker loaded or re-keyed asked the browser for the
+          // camera and microphone again — Safari's prompt, on every edit.
+          papicGuest: isEditorCanvas ? null : papicGuest,
           showClaimAccountCta: !viewerAccount,
           account,
           accountlessPhotosClosed,

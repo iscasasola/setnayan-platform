@@ -527,8 +527,12 @@ export default async function SuitePage({ params }: Props) {
       // `addOnSellableNow` last: a day-of service on a finished event is not a
       // thing to "set up next", and recommending it would lead straight to a
       // card whose buy path is closed.
+      // `utility` = a retired standalone card (Event → the Event Hub Maker,
+      // Photo Delivery → Papic). The lists below already drop them; the lead
+      // must too, or it recommends a card that has gone home.
       return e
         ? e.status !== 'coming_soon' &&
+            e.studioGroup !== 'utility' &&
             notOurs(e) &&
             surfaceOk(e) &&
             addOnSellableNow(e, lifecyclePhase)

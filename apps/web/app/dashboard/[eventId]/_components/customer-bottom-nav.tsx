@@ -120,7 +120,7 @@ export function CustomerBottomNav({
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreLoaded, setMoreLoaded] = useState(false);
-  const tree = buildCustomerMenuTree(eventId, { phase, hideKeys, seatingEnabled, websiteEnabled, studioRows, storeShell });
+  const tree = buildCustomerMenuTree(eventId, { phase, hideKeys, seatingEnabled, websiteEnabled, studioRows, storeShell, services });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
     // Registry overrides (label + icon) — every tab has its

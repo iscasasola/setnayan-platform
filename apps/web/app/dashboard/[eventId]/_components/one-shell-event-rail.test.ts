@@ -265,14 +265,22 @@ test('Budget is never a main room — owner 2026-07-10 (a part of Your Team sinc
   );
 });
 
-test('every rail row is a plain leaf — "solid menu with no submenus" (2026-07-15)', () => {
+test('every rail row but More Services is a plain leaf — "solid menu with no submenus" (2026-07-15)', () => {
+  /* 📂 The owner's ONE exception (2026-09-30, DECISION_LOG "THE SIDEBAR ROW
+     'MORE SERVICES' EXPANDS TO THE FIVE"): the `studio` row opens to its five.
+     Every `item.children` read must sit inside that one branch — the branch
+     opens with the `studio` key check and ends at the leaf's `return (`. */
   const src = code(readFileSync(RAIL, 'utf8'));
+  const start = src.indexOf("if (item.key === 'studio' && item.children?.length)");
+  assert.ok(start >= 0, 'the More Services branch is gone — or it is no longer keyed to `studio`');
+  const end = src.indexOf('return (', src.indexOf('</ul>', start));
+  const outside = src.slice(0, start) + src.slice(end);
   assert.doesNotMatch(
-    src,
+    outside,
     /\bitem\.children\b/,
-    'The rail renders NavItem.children, which reverses the owner lock of ' +
-      '2026-07-15 ("solid menu with no submenus") silently, while looking like ' +
-      'a nicety. Sub-navigation lives inside each page.',
+    'The rail renders NavItem.children for a row other than More Services, which ' +
+      'reverses the owner lock of 2026-07-15 ("solid menu with no submenus") ' +
+      'silently, while looking like a nicety. Sub-navigation lives inside each page.',
   );
 });
 

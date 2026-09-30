@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "92c9b989a",
-  "routeCount": 439,
-  "destinations": 942,
+  "generatedFromRef": "95cff00cd",
+  "routeCount": 440,
+  "destinations": 944,
   "actions": 675,
-  "blocks": 5306,
+  "blocks": 5308,
   "routes": {
     "/": {
       "files": [
@@ -5112,6 +5112,7 @@
         "dashboard/[eventId]/_components/event-rail-match-rows.ts",
         "dashboard/[eventId]/_components/expand-card.tsx",
         "dashboard/[eventId]/_components/feature-us-card.tsx",
+        "dashboard/[eventId]/_components/home-first-screen.tsx",
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
         "dashboard/[eventId]/_components/more-services-sheet.tsx",
         "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
@@ -5155,6 +5156,7 @@
         "/dashboard/[seg]/date-selection",
         "/dashboard/[seg]/guests/tea-ceremony",
         "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/launch?tool=details&guide=1",
         "/dashboard/[seg]/live",
         "/dashboard/[seg]/messages",
@@ -5162,6 +5164,7 @@
         "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/studio/papic",
+        "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
         "/dashboard/[seg]/website/dress-code",
@@ -5225,7 +5228,6 @@
         "DayOfModeBanner",
         "DayOfModeGrid",
         "DeleteResult",
-        "DetailsGuideHomeCard",
         "DirectPayBody",
         "DirectPayTrigger",
         "EffectToggle",
@@ -5233,6 +5235,7 @@
         "EventDashboard",
         "EventDayPrepCta",
         "EventMenuChild",
+        "EventMoney",
         "EventMonogram",
         "EventRailContext",
         "EventScene",
@@ -5254,6 +5257,8 @@
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLTextAreaElement",
+        "HomeFirstScreen",
+        "HomeGuide",
         "Icon",
         "Image",
         "ImpactResult",
@@ -5342,7 +5347,6 @@
         "SupplierConnectPanel",
         "SupplierInviteView",
         "SupplierReachLinks",
-        "Suspense",
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "UpcomingItem",
@@ -9396,6 +9400,16 @@
       "blocks": [
         "BespokeMonogramMark",
         "PahinaMasthead"
+      ]
+    },
+    "/dev/home-lab": {
+      "files": [
+        "dev/home-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "HomeFirstScreen"
       ]
     },
     "/dev/schedule-lab": {

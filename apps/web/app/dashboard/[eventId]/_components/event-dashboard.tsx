@@ -165,7 +165,7 @@ const CONFIRMED_VENDOR_SET = new Set([
  * lib/day-of-mode.ts precisely because a bare Date parse already broke a
  * countdown once; it is asked here rather than re-derived.
  */
-function daysUntil(eventDate: string | null, tz?: string): number | null {
+export function daysUntil(eventDate: string | null, tz?: string): number | null {
   if (!eventDate) return null;
   const eventMs = eventDateToEpoch(eventDate, tz);
   if (!Number.isFinite(eventMs)) return null;

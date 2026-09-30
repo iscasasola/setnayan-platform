@@ -26,9 +26,9 @@
  * joiner's three words. Nothing here is Pro (`HUB_ELEMENT_PRO_FIELDS` is font
  * and motion only).
  *
- * Pure. The canvas (`type-in-place-canvas.ts`, inside the guest page's editing
- * bridge) and the Maker's bar (`type-in-place.tsx`) both read it, so it imports
- * only what both already carry.
+ * Pure. The Maker's bar (`type-in-place.tsx`) reads it; the guest page's
+ * editing bridge reads only the names in `hub-part-words.ts`, so none of this
+ * (the formatters, the opening lines) reaches a guest's page.
  */
 import {
   HUB_JOINER_WORDS,

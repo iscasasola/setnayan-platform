@@ -185,12 +185,26 @@ export function TypeBar(p: TypeBarProps) {
   /* ✍ EVERY KEYSTROKE (the canvas already shows it): the other pane gets the
      words, and the write waits for the pause. */
   const lastText = useRef(p.start.text);
+  /* Words the sanitizer refused are on the page but not in the draft: when the
+     bar goes, the page goes back to the words that ARE saved — never looking
+     like success. */
+  const refusedRef = useRef(false);
+  useEffect(
+    () => () => {
+      if (!refusedRef.current) return;
+      const back = draftedCanvasOr('hero', props.current.heroCanvas);
+      props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: p.start.key, el, text: words(back) });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   useEffect(() => {
     if (!isTypeCaretPart(el) || session.text === lastText.current) return;
     lastText.current = session.text;
     props.current.post({ source: 'setnayan-editor', t: 'typeText', key: session.key, el, text: session.text }, session.source);
     const before = draftedCanvasOr('hero', props.current.heroCanvas);
     const { elements, refused } = withTypedWords(before.elements, el, session.text, session.auto);
+    refusedRef.current = refused;
     if (refused) {
       setError(`${HUB_ELEMENT_LABEL[el]}: those words cannot be used here — keep it to one short line of words.`);
       return;

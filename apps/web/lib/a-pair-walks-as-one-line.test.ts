@@ -168,12 +168,14 @@ test('⚖ the roster never collapses a pair, and removes no column', () => {
     !/pair_with_guest_id[^\n]*\?[^\n]*null\s*:\s*<DesktopRow/.test(ROSTER),
     'a roster row is now conditional on pairing',
   );
-  /* ⤷ 2026-09-30 (DECISION_LOG "WALKING TOGETHER IS NOT BEING A COUPLE"):
-     "walks with" is set ONLY in the Maker's Wedding March and never appears on
-     the Guest list, the guest card or the rows. Pinned the other way round now —
-     the pair must NOT come back to the list, where it read as "a couple". */
-  assert.doesNotMatch(ROSTER, /<PartnerLine[\s/>]|walks with/, 'the roster shows "walks with" again');
-  assert.doesNotMatch(ROSTER, /\b(pairSelectedGuests|unpairGuestAction)\b/, 'the roster pairs or unpairs again');
+  /* ⚖ SUPERSEDED 2026-09-30 (DECISION_LOG "WALKING TOGETHER IS NOT BEING A
+     COUPLE"): the roster used to show "walks with <name>" + Unpair under each
+     paired guest. "Walks with" now lives ONLY in the Maker's Wedding March —
+     no row shows it and no row edits it. Asserted on the comment-stripped
+     source so this note cannot convict itself. */
+  const code = stripComments(ROSTER);
+  assert.doesNotMatch(code, /<PartnerLine[\s/>]|walks with/, 'a Guest list row shows "walks with" again');
+  assert.doesNotMatch(code, /\b(?:unpairGuestAction|pairSelectedGuests)\b/, 'a Guest list row edits a pairing again');
 });
 
 // ── the two orderings stay two orderings ───────────────────────────────────

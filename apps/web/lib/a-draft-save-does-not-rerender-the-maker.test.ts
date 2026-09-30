@@ -107,7 +107,8 @@ test('every hubDraftAction caller in the Maker refreshes ONCE, through makerSave
   for (const f of [
     'app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx',
     'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx',
-    'app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx',
+    // The scene inspector's save is `useSceneCanvas`, in its own module since train n.
+    'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts',
     'app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx',
     'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx',

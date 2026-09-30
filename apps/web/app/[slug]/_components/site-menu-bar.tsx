@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Home, Info, BookOpen, Camera, Images, Radio, User, Lock, CalendarClock } from 'lucide-react';
+import { Home, Info, BookOpen, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users } from 'lucide-react';
 import type { NavSlot } from '../_lib/site-nav';
 
 /**
@@ -88,6 +88,9 @@ const ICONS: Record<NavSlot['key'], typeof Home> = {
   details: Info,
   schedule: CalendarClock,
   story: BookOpen,
+  // 📖 After the day (owner 2026-09-25, E1): the replay and films, and the team.
+  film: Film,
+  suppliers: Users,
   camera: Camera,
   watch: Radio,
   gallery: Images,

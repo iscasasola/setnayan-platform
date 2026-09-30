@@ -35,11 +35,20 @@ for (const phase of ['plan', 'dayof', 'after'] as const) {
   });
 }
 
-test('with no Event Hub for this kind, the Logo Maker and Editorial keep their own rows', () => {
+test('with no Event Hub for this kind, the Logo Maker and Editorial light Our Services', () => {
+  /*
+    🔄 Stage D (2026-09-29): the menu is five rows, so no product keeps a row
+    of its own. Where there is no Maker to hold the Logo Maker and Editorial,
+    their pages light Our Services — the page that keeps a tool "where there is
+    no Maker" (`toolHasGoneHome`) — never nothing.
+  */
   const rows = eventMenuRows(
     buildEventMenuSections(EVENT_ID, { phase: 'after', websiteEnabled: false, studioRows: STUDIO }),
   );
   assert.ok(!rows.some((r) => r.key === 'launch'));
-  assert.ok(rows.some((r) => r.key === 'palogo'), 'never absorbed into a row that is not there');
-  assert.ok(rows.some((r) => r.key === 'editorial'));
+  assert.ok(!rows.some((r) => r.key === 'palogo' || r.key === 'editorial'), 'a product is a row again');
+  const services = eventMenuRowClaims(rows.find((r) => r.key === 'studio')!);
+  for (const p of ['/monogram', '/story']) {
+    assert.ok(services.includes(`${BASE}${p}`), `${p} lights nothing where there is no Maker`);
+  }
 });

@@ -1,3 +1,5 @@
+import { WhatToBringGiftLine, WhatToBringList } from './what-to-bring-styles';
+
 /**
  * Reminders — the couple's own lines for their guests ("Arrive by 2:30",
  * "Bring your ticket", "Wear flat shoes for the garden"). Stored where it always
@@ -9,9 +11,18 @@
  * reuses this scene rather than adding a store). It sits on the Invitation's
  * Welcome page now (`lib/invitation-welcome.ts`), not under Details.
  */
-export function WhatToBringWidget({ text }: { text: string | null }) {
+export function WhatToBringWidget({
+  text,
+  sceneStyle = null,
+}: {
+  text: string | null;
+  /** 🎨 `note` (this, the default) · `list` · `gift-line` — `what-to-bring-styles.tsx`. */
+  sceneStyle?: string | null;
+}) {
   const msg = (text ?? '').trim();
   if (!msg) return null;
+  if (sceneStyle === 'list') return <WhatToBringList text={msg} />;
+  if (sceneStyle === 'gift-line') return <WhatToBringGiftLine text={msg} />;
   // Pahina (design 2026-07-25 §7): the second "Good to know" plate — same
   // grammar as SpecialMessageWidget, likewise unnumbered.
   return (

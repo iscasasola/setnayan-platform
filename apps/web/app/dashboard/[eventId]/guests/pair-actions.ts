@@ -1,123 +1,104 @@
 'use server';
 
 /**
- * pair-actions.ts — pairing two guests from the guest list.
+ * pair-actions.ts — who walks beside whom, and whether those two are a couple.
  *
  * Filipino entourages walk in pairs: groomsman↔bridesmaid, ninong↔ninang. The
  * column for it (`guests.pair_with_guest_id`) has existed since the first
- * guests migration in May 2026 and, until now, NOTHING read or wrote it.
+ * guests migration in May 2026.
  *
- * Both writes go through the `pair_guests` / `unpair_guest` SQL functions
- * rather than issuing two UPDATEs from here. That is not ceremony: a pair is
+ * ⚖ OWNER 2026-09-29/30 — "walks with" LIVES ONLY IN THE MAKER'S WEDDING MARCH.
+ * The Guest list keeps people; its rows and the guest card neither show nor
+ * edit a pairing (DECISION_LOG "WALKING TOGETHER IS NOT BEING A COUPLE"). The
+ * Guest list's "Pair these 2" writer that lived here is gone for that reason —
+ * pairs are made in the march (`march-actions.ts` join / swap).
+ *
+ * Every pair write goes through the `pair_guests` / `unpair_guest` SQL
+ * functions rather than two UPDATEs from here. That is not ceremony: a pair is
  * MUTUAL, so two round-trips leave a window where A points at B and B points
- * at nobody — and if the second one fails, the list shows a pair that only
- * half exists. The functions write both halves in one statement, under the
- * caller's own RLS (SECURITY INVOKER), so a partial pair cannot be observed or
- * persisted.
+ * at nobody. The functions write both halves in one statement, under the
+ * caller's own RLS (SECURITY INVOKER), so a partial pair cannot be persisted.
  */
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { entourageGroupOfRole } from '@/lib/entourage';
+import { MARCH_READ_FAILED, MARCH_STALE, MARCH_WRITE_FAILED, revalidateMarch } from '@/lib/entourage-write';
+import type { MarchResult } from '@/lib/march-result';
 
 function backToList(eventId: string, params: Record<string, string>): string {
   const q = new URLSearchParams(params);
   return `/dashboard/${eventId}/guests?${q.toString()}`;
 }
 
-function parseGuestIds(formData: FormData): string[] {
-  const repeated = formData
-    .getAll('guest_ids[]')
-    .map((v) => String(v).trim())
-    .filter(Boolean);
-  if (repeated.length > 0) return repeated;
-  const single = formData.get('guest_ids');
-  return single
-    ? String(single)
-        .split(',')
-        .map((v) => v.trim())
-        .filter(Boolean)
-    : [];
-}
-
 /**
- * Pair the two selected guests.
+ * "They're a couple" — the Wedding March's tick on ONE walking pair.
  *
- * Deliberately requires EXACTLY two. "Pair these 3" has no meaning, and
- * silently pairing the first two of a larger selection would be a guess about
- * which two the host meant.
+ * ⚖ OWNER 2026-09-30: *"sometimes the principal sponsor are not couples. Or the
+ * entourage are also not couples."* Walking together prints both full names
+ * ("Dr. Eduardo Bautista & Ms. Carmen Reyes"); only a real couple prints the
+ * short form ("Hon. Ricardo & Mrs. Jessica Villahermosa"). This is how the
+ * hosts say two walkers ARE a couple. (A +1 is a couple already — see
+ * `isCouple` in lib/entourage.ts — and needs no tick.)
+ *
+ * 🔑 +0 EXPORTED ACTIONS: this took the export slot of the Guest list's retired
+ * "Pair these 2" writer (`lint-server-action-budget.mjs`).
+ *
+ * WRITE SHAPE. `couple_with_guest_id` is read as MUTUAL, so the order of the
+ * two writes below cannot make a false couple: until BOTH halves point at each
+ * other the line prints full names — the safe reading. Clearing is one
+ * statement. Every write asks for the rows it touched, because a zero-row
+ * UPDATE (RLS refused, the guest removed meanwhile) is otherwise success-shaped.
  */
-export async function pairSelectedGuests(
+export async function setWalkingPairCouple(
   eventId: string,
-  formData: FormData,
-): Promise<void> {
-  const guestIds = parseGuestIds(formData);
-
-  if (guestIds.length !== 2) {
-    redirect(
-      backToList(eventId, {
-        error: encodeURIComponent('Select exactly two guests to pair them.'),
-      }),
-    );
-  }
-  const [a, b] = guestIds as [string, string];
-  if (a === b) {
-    redirect(
-      backToList(eventId, {
-        error: encodeURIComponent('A guest cannot be paired with themselves.'),
-      }),
-    );
-  }
-
+  aId: string,
+  bId: string,
+  couple: boolean,
+): Promise<MarchResult> {
+  if (!aId || !bId || aId === bId) return { ok: false, reason: 'Pick the two people who walk together.' };
   const supabase = await createClient();
 
-  /*
-    ⚖ OWNER 2026-09-20: "a pair may not span two printed groups — refuse with a
-    reason." A line lives inside ONE group, because that is the unit the
-    invitation prints and the unit `entourage_order` numbers. A bridesmaid
-    paired to a ring bearer has no line to be in: whichever group you looked at,
-    half the pair would be missing from it. Refusing with the reason is the
-    honest answer; silently pairing them and printing two singles is not.
-
-    A role that does not print at all (a plain guest) is NOT refused here —
-    pairing is also just "these two arrive together", and the roster shows that
-    perfectly well. Only a pair that straddles two PRINTED groups is impossible.
-  */
-  const { data: bothRows, error: readErr } = await supabase
+  // READ fresh — they must still walk together, or the tick means nothing.
+  const { data, error: readErr } = await supabase
     .from('guests')
-    .select('guest_id, role')
+    .select('guest_id, pair_with_guest_id')
     .eq('event_id', eventId)
-    .in('guest_id', [a, b]);
-  if (readErr) {
-    redirect(backToList(eventId, { error: encodeURIComponent(readErr.message) }));
-  }
-  const groups = ((bothRows ?? []) as Array<{ guest_id: string; role: string | null }>)
-    .map((r) => (r.role ? entourageGroupOfRole(r.role) : null))
-    .filter((g): g is string => Boolean(g));
-  if (groups.length === 2 && groups[0] !== groups[1]) {
-    redirect(
-      backToList(eventId, {
-        error: encodeURIComponent(
-          'Those two walk in different parts of the entourage, so they cannot share a line. ' +
-            'Give them the same role group first, or leave them unpaired.',
-        ),
-      }),
-    );
+    .is('deleted_at', null)
+    .in('guest_id', [aId, bId]);
+  if (readErr) return { ok: false, reason: MARCH_READ_FAILED };
+  const rows = (data ?? []) as Array<{ guest_id: string; pair_with_guest_id: string | null }>;
+  const a = rows.find((r) => r.guest_id === aId);
+  const b = rows.find((r) => r.guest_id === bId);
+  if (!a || !b || a.pair_with_guest_id !== bId || b.pair_with_guest_id !== aId) {
+    return { ok: false, reason: MARCH_STALE };
   }
 
-  const { error } = await supabase.rpc('pair_guests', {
-    p_event_id: eventId,
-    p_guest_a: a,
-    p_guest_b: b,
-  });
-
-  if (error) {
-    redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
+  if (!couple) {
+    const { data: cleared, error } = await supabase
+      .from('guests')
+      .update({ couple_with_guest_id: null })
+      .eq('event_id', eventId)
+      .in('guest_id', [aId, bId])
+      .select('guest_id');
+    if (error || (cleared ?? []).length !== 2) return { ok: false, reason: MARCH_WRITE_FAILED };
+  } else {
+    for (const [self, other] of [
+      [aId, bId],
+      [bId, aId],
+    ] as const) {
+      const { data: set, error } = await supabase
+        .from('guests')
+        .update({ couple_with_guest_id: other })
+        .eq('event_id', eventId)
+        .eq('guest_id', self)
+        .select('guest_id');
+      if (error || (set ?? []).length !== 1) return { ok: false, reason: MARCH_WRITE_FAILED };
+    }
   }
 
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(backToList(eventId, { paired: '2' }));
+  await revalidateMarch(eventId);
+  return { ok: true, written: 2 };
 }
 
 /**

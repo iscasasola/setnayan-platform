@@ -7,6 +7,13 @@ import { boothBrandedAtEvent, fetchEventBrandedBoothVendorIds } from './vendor-3
 // for every tier classifier so un-threaded callers behave exactly as before;
 // the RoleSet type is imported type-only so there is no runtime import cycle.
 import { WEDDING_ROLE_SET, type RoleSet } from './role-sets';
+import {
+  ROLE_SEATING_SETS,
+  parseRoleSeating,
+  roleSeatingChoice,
+  roleSeatingSetOf,
+  type RoleSeating,
+} from './role-seating';
 
 // ===========================================================================
 // INVARIANT — Seat-plan coordinate contract (v2, 2026-07-16)
@@ -290,6 +297,9 @@ export type FloorPlanRow = {
   // (who fills the stage-closest tables first). null = the locked default
   // (defaultPriorityOrder()), which reproduces the historical hardcoded fill.
   priority_order: PriorityOrder | null;
+  // Auto-seat per-role choice (owner 2026-09-30): role set → 'together' |
+  // 'group'. {} = every set sits together (the owner's default).
+  role_seating: RoleSeating;
   // Host choice for guest PHOTOS in the public 3D venue walk (owner 2026-07-03):
   // 'table' (default) = own tablemates only · 'all' = every seated face · 'none'
   // = no photos. Photos are always token-gated in the RPC; this sets the reach.
@@ -329,6 +339,7 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   venue_length_m: null,
   published_at: null,
   priority_order: null,
+  role_seating: {},
   venue_photo_visibility: 'table',
 };
 
@@ -339,7 +350,7 @@ export async function fetchFloorPlan(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,venue_photo_visibility',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,venue_photo_visibility',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -396,6 +407,7 @@ export async function fetchFloorPlan(
     venue_length_m: data.venue_length_m === null ? null : Number(data.venue_length_m),
     published_at: (data as { published_at?: string | null }).published_at ?? null,
     priority_order: parsePriorityOrder((data as { priority_order?: unknown }).priority_order),
+    role_seating: parseRoleSeating((data as { role_seating?: unknown }).role_seating),
     venue_photo_visibility: ((): 'table' | 'all' | 'none' => {
       const v = (data as { venue_photo_visibility?: unknown }).venue_photo_visibility;
       return v === 'all' || v === 'none' || v === 'table' ? v : D.venue_photo_visibility;
@@ -831,6 +843,9 @@ export type AutoSeatGuest = {
   // Explicit per-guest tier override (guests.seating_priority, 1–4). null /
   // undefined = derive from role + group_category via roleTier().
   seating_priority?: number | null;
+  // Entourage pair (guests.pair_with_guest_id) — a seated-together role set
+  // brings its members' pairs to the same table, beside them.
+  pair_with_guest_id?: string | null;
 };
 
 export type AutoSeatRow = { guest_id: string; table_id: string; seat_number: number };
@@ -964,6 +979,9 @@ export function computeAutoSeat(
   // overflow to the nearest table by floor coordinates; FALSE reverts to the
   // classic stage-ranked fill (the couple's per-event opt-out).
   groupAdjacency: boolean = true,
+  // Owner 2026-09-30: per role set, 'together' (default) or 'group'. null =
+  // every set sits together — the owner's rule.
+  roleSeating: RoleSeating | null = null,
 ): AutoSeatRow[] {
   const assignedGuestIds = new Set(assignments.map((a) => a.guest_id));
 
@@ -1001,68 +1019,136 @@ export function computeAutoSeat(
       !roleSet.coupleRoles.has(g.role),
   );
 
-  // Order within each tier: cluster a custom group's members together, and
-  // keep a guest's plus-one adjacent to its primary. Contiguous order → the
-  // sequential fill below drops a group onto the same/neighbouring tables.
-  const byTier: Record<1 | 2 | 3 | 4, AutoSeatGuest[]> = { 1: [], 2: [], 3: [], 4: [] };
-  for (const g of eligible) byTier[tierOf(g, roleSet)].push(g);
-
-  const nameKey = (g: AutoSeatGuest) => `${g.last_name} ${g.first_name}`.toLowerCase();
-  const ordered: AutoSeatGuest[] = [];
-  // Fill tiers in the couple's chosen priority order (highest first → fills the
-  // stage-closest tables first). Default order = 1→2→3→4.
+  // ── WHO SITS TOGETHER (owner 2026-09-30 · DECISION_LOG "AUTO-SEAT: SPONSORS
+  // TOGETHER, BOTH FAMILIES TOGETHER, THEN GROUPS" + "THE COUPLE CHOOSES, PER
+  // ROLE"). Guests are seated as UNITS, never one by one:
+  //   1. a ROLE SET the couple left on "Sit together" (principal sponsors + their
+  //      pairs, BOTH families' immediate family, the crews, …) is ONE unit;
+  //   2. everyone else is a unit per primary custom group;
+  //   3. a guest in no group is a unit of one.
+  // A plus-one always rides in their bringer's unit, right after them, so they
+  // sit beside each other. A unit takes ONE table where it fits (the stage-
+  // nearest that does); when it outnumbers every table it takes the FEWEST
+  // NEIGHBOURING tables (grown outward from one anchor by floor distance) —
+  // never scattered. Units fill in the couple's priority order (a unit ranks by
+  // its most important member's tier), so VIP-near-the-stage weighting carries
+  // through. Guests already seated (by hand or a prior
+  // run) are never moved; a unit whose members are already seated somewhere
+  // grows from THAT table instead.
   const rank = resolvePriorityRank(priorityOrder);
-  const tierSequence = ([1, 2, 3, 4] as const).slice().sort((a, b) => rank[a] - rank[b]);
-  for (const tier of tierSequence) {
-    const list = byTier[tier];
-    const plusOnesBy = new Map<string, AutoSeatGuest[]>();
-    const primaries: AutoSeatGuest[] = [];
-    for (const g of list) {
-      if (g.plus_one_of_guest_id) {
-        const arr = plusOnesBy.get(g.plus_one_of_guest_id) ?? [];
-        arr.push(g);
-        plusOnesBy.set(g.plus_one_of_guest_id, arr);
-      } else {
-        primaries.push(g);
-      }
-    }
+  const nameKey = (g: AutoSeatGuest) => `${g.last_name} ${g.first_name}`.toLowerCase();
+  const eligibleIds = new Set(eligible.map((g) => g.guest_id));
+  const byId = new Map(guests.map((g) => [g.guest_id, g] as const));
+  const baseKeyOf = (g: AutoSeatGuest): string => {
+    const set = roleSeatingSetOf(g.role);
+    if (set && roleSeatingChoice(roleSeating, set) === 'together') return `role:${set}`;
+    if (g.group_id) return `group:${g.group_id}`;
+    return `solo:${g.guest_id}`;
+  };
 
-    // Bucket primaries by custom group; an ungrouped guest is its own singleton
-    // bucket, so the cluster sort below leaves them in pure name order (matches
-    // the prior behaviour). Each bucket is name-sorted internally, and buckets
-    // are ordered by their first member's name — deterministic across runs.
-    const clusters = new Map<string, AutoSeatGuest[]>();
-    for (const g of primaries) {
-      const key = g.group_id ?? `__solo__${g.guest_id}`;
-      const arr = clusters.get(key) ?? [];
+  // Plus-ones ride with an ELIGIBLE bringer; one whose bringer is already seated
+  // is a unit of their own anchored at the bringer's table ("beside"); one whose
+  // bringer is gone (declined / removed) is seated like any other guest.
+  const plusOnesBy = new Map<string, AutoSeatGuest[]>();
+  const primaries: AutoSeatGuest[] = [];
+  const keyOf = new Map<string, string>();
+  for (const g of eligible) {
+    const bringer = g.plus_one_of_guest_id;
+    if (bringer && eligibleIds.has(bringer)) {
+      const arr = plusOnesBy.get(bringer) ?? [];
       arr.push(g);
-      clusters.set(key, arr);
-    }
-    const orderedClusters = [...clusters.values()]
-      .map((members) => members.sort((a, b) => nameKey(a).localeCompare(nameKey(b))))
-      .sort((a, b) => nameKey(a[0]!).localeCompare(nameKey(b[0]!)));
-
-    for (const cluster of orderedClusters) {
-      for (const g of cluster) {
-        ordered.push(g);
-        for (const p of plusOnesBy.get(g.guest_id) ?? []) ordered.push(p);
-      }
-    }
-    // Plus-ones whose primary isn't in this tier still get seated here.
-    for (const [primaryId, arr] of plusOnesBy) {
-      if (!list.some((g) => g.guest_id === primaryId && !g.plus_one_of_guest_id)) {
-        for (const p of arr) ordered.push(p);
-      }
+      plusOnesBy.set(bringer, arr);
+    } else if (bringer && assignedGuestIds.has(bringer)) {
+      keyOf.set(g.guest_id, `beside:${bringer}`);
+      primaries.push(g);
+    } else {
+      keyOf.set(g.guest_id, baseKeyOf(g));
+      primaries.push(g);
     }
   }
+  // A seated-together role set brings its members' PAIRS (a sponsor's spouse
+  // listed as a plain guest) to the same table.
+  const primaryIds = new Set(primaries.map((g) => g.guest_id));
+  for (const g of primaries) {
+    const k = keyOf.get(g.guest_id)!;
+    const partner = g.pair_with_guest_id;
+    if (!k.startsWith('role:') || !partner || !primaryIds.has(partner)) continue;
+    if (!keyOf.get(partner)!.startsWith('role:')) keyOf.set(partner, k);
+  }
 
-  // Smart seat-plan · Phase 6 — group-overflow ADJACENCY. A custom group's first
-  // member takes the stage-nearest free table (VIP weighting preserved); when the
-  // group overflows that table, the rest spill onto the table nearest BY FLOOR
-  // COORDINATES to the group's anchor — not the next stage-ranked table, which can
-  // be across the room. Ungrouped guests keep the pure stage-ranked fill, so this
-  // is a strict superset (no behaviour change without custom groups). Deterministic:
-  // ties break on pool (stage) order.
+  type Unit = { key: string; chunks: AutoSeatGuest[][]; size: number; rank: number; setOrder: number; name: string };
+  const unitMembers = new Map<string, AutoSeatGuest[]>();
+  for (const g of primaries) {
+    const k = keyOf.get(g.guest_id)!;
+    const arr = unitMembers.get(k) ?? [];
+    arr.push(g);
+    unitMembers.set(k, arr);
+  }
+  const units: Unit[] = [];
+  for (const [key, members] of unitMembers) {
+    members.sort((a, b) => nameKey(a).localeCompare(nameKey(b)));
+    // Chunks = what must share a table: a guest + their plus-ones (+ their pair
+    // partner and the partner's plus-ones, when both are in this unit).
+    const inUnit = new Set(members.map((m) => m.guest_id));
+    const done = new Set<string>();
+    const chunks: AutoSeatGuest[][] = [];
+    for (const m of members) {
+      if (done.has(m.guest_id)) continue;
+      const chunk: AutoSeatGuest[] = [];
+      const take = (x: AutoSeatGuest) => {
+        done.add(x.guest_id);
+        chunk.push(x, ...(plusOnesBy.get(x.guest_id) ?? []));
+      };
+      take(m);
+      const p = m.pair_with_guest_id;
+      const partner = p && inUnit.has(p) && !done.has(p) ? byId.get(p) : undefined;
+      if (partner) take(partner);
+      chunks.push(chunk);
+    }
+    const set = key.startsWith('role:') ? key.slice(5) : null;
+    units.push({
+      key,
+      chunks,
+      size: chunks.reduce((n, c) => n + c.length, 0),
+      rank: Math.min(...members.map((m) => rank[tierOf(m, roleSet)])),
+      setOrder: set ? ROLE_SEATING_SETS.findIndex((s) => s.key === set) : ROLE_SEATING_SETS.length,
+      name: nameKey(members[0]!),
+    });
+  }
+  units.sort((a, b) => a.rank - b.rank || a.setOrder - b.setOrder || a.name.localeCompare(b.name));
+
+  // Where each unit's already-seated members sit — the table it grows from.
+  const tableOfGuest = new Map(assignments.map((a) => [a.guest_id, a.table_id] as const));
+  const seatedCountByKey = new Map<string, Map<string, number>>();
+  for (const a of assignments) {
+    const g = byId.get(a.guest_id);
+    if (!g) continue;
+    const k = baseKeyOf(g);
+    const m = seatedCountByKey.get(k) ?? new Map<string, number>();
+    m.set(a.table_id, (m.get(a.table_id) ?? 0) + 1);
+    seatedCountByKey.set(k, m);
+  }
+  const stageIndex = new Map(pool.map((t, i) => [t.table_id, i] as const));
+  const anchorFor = (key: string): EventTableRow | undefined => {
+    if (key.startsWith('beside:')) {
+      const tid = tableOfGuest.get(key.slice(7));
+      return pool.find((t) => t.table_id === tid);
+    }
+    const counts = seatedCountByKey.get(key);
+    if (!counts) return undefined;
+    return pool
+      .filter((t) => counts.has(t.table_id))
+      .sort(
+        (a, b) =>
+          counts.get(b.table_id)! - counts.get(a.table_id)! ||
+          stageIndex.get(a.table_id)! - stageIndex.get(b.table_id)!,
+      )[0];
+  };
+
+  // Tables in fill order around an anchor: the anchor, then its physical
+  // neighbours by floor distance (ties → stage order). With the couple's
+  // adjacency opt-out, a GROUP spills in plain stage order instead; a role set
+  // always stays in one neighbourhood (the owner's "never scattered").
   const pointById = new Map<string, { x: number; y: number }>();
   tables.forEach((t, i) => pointById.set(t.table_id, tablePoint(t, i, tables.length)));
   const dist2 = (a: { x: number; y: number }, b: { x: number; y: number }) => {
@@ -1070,38 +1156,71 @@ export function computeAutoSeat(
     const dy = a.y - b.y;
     return dx * dx + dy * dy;
   };
-  const groupAnchor = new Map<string, string>();
+  const free = (t: EventTableRow) => freeCount.get(t.table_id) ?? 0;
+  const around = (anchor: EventTableRow, byDistance: boolean): EventTableRow[] => {
+    if (!byDistance) return [anchor, ...pool.filter((t) => t !== anchor)];
+    const ap = pointById.get(anchor.table_id)!;
+    return pool
+      .slice()
+      .sort(
+        (a, b) =>
+          (a === anchor ? -1 : 0) - (b === anchor ? -1 : 0) ||
+          dist2(pointById.get(a.table_id)!, ap) - dist2(pointById.get(b.table_id)!, ap) ||
+          stageIndex.get(a.table_id)! - stageIndex.get(b.table_id)!,
+      );
+  };
+  // The first tables (in `order`) with room, until they seat `size`.
+  const cover = (order: EventTableRow[], size: number): EventTableRow[] => {
+    const out: EventTableRow[] = [];
+    let room = 0;
+    for (const t of order) {
+      if (room >= size) break;
+      if (free(t) <= 0) continue;
+      out.push(t);
+      room += free(t);
+    }
+    return out;
+  };
+  const tablesFor = (unit: Unit): EventTableRow[] => {
+    const byDistance = unit.key.startsWith('role:') || unit.key.startsWith('beside:') || groupAdjacency;
+    const anchor = anchorFor(unit.key);
+    if (anchor) return cover(around(anchor, byDistance), unit.size);
+    // One table where it fits — the stage-nearest that does.
+    const whole = pool.find((t) => free(t) >= unit.size);
+    if (whole) return [whole];
+    // Otherwise the FEWEST neighbouring tables: try every anchor, keep the
+    // smallest cluster (ties → the stage-nearest anchor).
+    let best: EventTableRow[] = [];
+    for (const a of pool) {
+      if (free(a) <= 0) continue;
+      const c = cover(around(a, byDistance), unit.size);
+      if (best.length === 0 || c.length < best.length) best = c;
+      if (!byDistance) break; // stage order from the first open table IS the classic fill
+    }
+    return best;
+  };
 
   const result: AutoSeatRow[] = [];
-  for (const g of ordered) {
-    let table: EventTableRow | undefined;
-    const anchorId = groupAdjacency && g.group_id ? groupAnchor.get(g.group_id) : undefined;
-    if (anchorId) {
-      // Nearest free table to the group's anchor (the anchor itself while it has
-      // room, then its physical neighbours). Ties fall back to stage order.
-      const anchorPt = pointById.get(anchorId);
-      let bestD = Infinity;
-      for (const t of pool) {
-        if ((freeCount.get(t.table_id) ?? 0) <= 0) continue;
-        const d = anchorPt ? dist2(pointById.get(t.table_id)!, anchorPt) : 0;
-        if (d < bestD) {
-          bestD = d;
-          table = t;
-        }
-      }
-    }
-    if (!table) table = pool.find((t) => (freeCount.get(t.table_id) ?? 0) > 0);
-    if (!table) break; // pool exhausted — remaining guests stay unseated
+  const seatAt = (g: AutoSeatGuest, table: EventTableRow) => {
     const occ = occupied.get(table.table_id)!;
     let seat = 0;
     while (occ.has(seat)) seat++;
     occ.add(seat);
-    freeCount.set(table.table_id, (freeCount.get(table.table_id) ?? 0) - 1);
-    // Anchor the group on the first table one of its members lands on.
-    if (g.group_id && !groupAnchor.has(g.group_id)) {
-      groupAnchor.set(g.group_id, table.table_id);
-    }
+    freeCount.set(table.table_id, free(table) - 1);
     result.push({ guest_id: g.guest_id, table_id: table.table_id, seat_number: seat });
+  };
+  for (const unit of units) {
+    const cluster = tablesFor(unit);
+    if (cluster.length === 0) break; // room is full — the rest stay unseated
+    for (const chunk of unit.chunks) {
+      // A chunk (guest + plus-ones + pair) shares a table whenever one has room.
+      const home = cluster.find((t) => free(t) >= chunk.length);
+      for (const g of chunk) {
+        const t = home ?? cluster.find((x) => free(x) > 0) ?? around(cluster[0]!, true).find((x) => free(x) > 0);
+        if (!t) break;
+        seatAt(g, t);
+      }
+    }
   }
   return result;
 }
@@ -1140,6 +1259,8 @@ export type SolveInput = {
   roleSet?: RoleSet;
   // Phase 6 (gap G8): group-overflow adjacency, threaded to the warm start.
   groupAdjacency?: boolean;
+  // Owner 2026-09-30: per-role "sit together" / "sit with their group".
+  roleSeating?: RoleSeating | null;
 };
 
 export type SolveResult = {
@@ -1163,10 +1284,11 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
     groupMembers = new Map<string, string[]>(),
     roleSet = WEDDING_ROLE_SET,
     groupAdjacency = true,
+    roleSeating = null,
   } = input;
 
   // Warm start (priority + stage aware; ignores constraints). No rules → done.
-  const warm = computeAutoSeat(tables, guests, assignments, stage, priorityOrder, roleSet, groupAdjacency);
+  const warm = computeAutoSeat(tables, guests, assignments, stage, priorityOrder, roleSet, groupAdjacency, roleSeating);
   const totalRules = constraints.length;
   if (totalRules === 0) {
     return { assignments: warm, violations: [], satisfiedCount: 0, totalRules: 0 };
@@ -1424,6 +1546,8 @@ export type ReconcileInput = {
   reseatGuestIds?: Iterable<string>;
   /** Phase 6 (gap G8): group-overflow adjacency; default TRUE. */
   groupAdjacency?: boolean;
+  /** Owner 2026-09-30: per-role "sit together" / "sit with their group". */
+  roleSeating?: RoleSeating | null;
 };
 
 export type ReconcileResult = {
@@ -1441,6 +1565,7 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
     stage = STAGE_POINT,
     roleSet = WEDDING_ROLE_SET,
     groupAdjacency = true,
+    roleSeating = null,
   } = input;
   const constraints = input.constraints ?? [];
   const reseat = new Set(input.reseatGuestIds ?? []);
@@ -1470,8 +1595,9 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
           groupMembers: input.groupMembers,
           roleSet,
           groupAdjacency,
+          roleSeating,
         }).assignments
-      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet, groupAdjacency);
+      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet, groupAdjacency, roleSeating);
 
   const placedIds = new Set(placed.map((r) => r.guest_id));
   const takenSeat = new Set(placed.map((r) => `${r.table_id}#${r.seat_number}`));

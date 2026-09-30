@@ -28,9 +28,12 @@ const PILL_TONE: Record<TeamRowTone, string> = {
   no: 'bg-danger-50 text-danger-700',
 };
 
-/** The row's one action — a quiet mulberry word with a chevron, as drawn. */
+/** The row's one action — a quiet mulberry word with a chevron, as drawn. A full
+ *  44px tap target (the app's own button floor), pulled into the row's padding
+ *  with a negative margin so the word stays compact and every row's action —
+ *  link or the lock button — sits at the same height. */
 const GO_CLASS =
-  'inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-1 text-[12.5px] font-semibold text-mulberry transition hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry';
+  'inline-flex min-h-[44px] shrink-0 items-center whitespace-nowrap rounded-md -my-2.5 px-1.5 text-[12.5px] font-semibold text-mulberry transition hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry';
 
 export type TeamRowsState =
   | { kind: 'unreadable'; retryHref: string }
@@ -44,7 +47,7 @@ export function TeamRows({ eventId, state }: { eventId: string; state: TeamRowsS
         <p className="mt-1 text-[12.5px] text-ink/60">
           This is a loading problem, not an empty team.
         </p>
-        <Link href={state.retryHref} className={`${GO_CLASS} mt-2 -ml-1.5`}>
+        <Link href={state.retryHref} className={`${GO_CLASS} mt-3 -ml-1.5`}>
           Try again ›
         </Link>
       </div>
@@ -131,7 +134,10 @@ function RowAction({ eventId, row }: { eventId: string; row: TeamRow }) {
         label="Lock ›"
         pendingLabel="Locking…"
         className={GO_CLASS}
-        wrapperClassName="shrink-0 text-right"
+        // A column flex, not a block: a block wrapper adds a line-box strut that
+        // made the Lock row taller than its Pay/Nudge siblings, and the button's
+        // own "Verifying" / error lines still stack beneath it.
+        wrapperClassName="flex shrink-0 flex-col items-end"
         isVerified={row.isVerified}
         source="your_team_row"
       />

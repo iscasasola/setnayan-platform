@@ -120,7 +120,8 @@ export type TeamRow = {
 
 const GROUP_ORDER: Record<TeamRowGroup, number> = { booked: 0, asked: 1, deciding: 2, waiting: 3 };
 
-/** Two letters for the logo square when there is no logo ("Lumina Studio" → "LS"). */
+/** Two letters for the logo square when there is no logo — first and last word
+ *  ("Lumina Studio" → "LS", "Kusina ni Tita" → "KT", as the prototype draws them). */
 export function initialsOf(name: string): string {
   const words = name
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
@@ -128,7 +129,7 @@ export function initialsOf(name: string): string {
     .filter(Boolean);
   if (words.length === 0) return '·';
   if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
-  return (words[0]![0]! + words[1]![0]!).toUpperCase();
+  return (words[0]![0]! + words[words.length - 1]![0]!).toUpperCase();
 }
 
 function threadHref(eventId: string, threadId: string | null): string | null {

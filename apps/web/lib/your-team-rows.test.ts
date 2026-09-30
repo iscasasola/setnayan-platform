@@ -192,6 +192,7 @@ test('BOOKED suppliers come first, then asked, deciding, waiting — stable with
 
 test('initials for the logo square', () => {
   assert.equal(initialsOf('Lumina Studio'), 'LS');
+  assert.equal(initialsOf('Kusina ni Tita'), 'KT');
   assert.equal(initialsOf('DJ'), 'DJ');
   assert.equal(initialsOf('  '), '·');
 });

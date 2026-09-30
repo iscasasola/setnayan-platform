@@ -24,6 +24,7 @@ import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { middleInitials, nameStyleOfPrintDetails, styledName, ticketName, type NameStyle } from '@/lib/name-style';
 import { guestFullName } from '@/lib/guests';
+import { placeCardName } from '@/lib/formal-name';
 import { buildEntourage, lineNames, plainGuestNames, type EntourageGuestRow } from '@/lib/entourage';
 import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
 
@@ -101,6 +102,14 @@ test('a ticket prints the style — Full means full, tickets included', () => {
   assert.equal(ticketName(MANUEL, 'surname-first'), 'Mr. Casasola, Manuel C.');
   assert.equal(ticketName({ display_name: 'Tita Baby' }, 'surname-first'), 'Tita Baby');
   assert.equal(ticketName({}, 'middle-initial'), 'Guest', 'never a blank card');
+});
+
+test('the Place card prints the event’s style — one-letter initial, suffix with the surname, never a bare first name', () => {
+  const dlc = { ...MANUEL, middle_name: 'de la Cruz' };
+  assert.equal(placeCardName(dlc, 'full'), 'Mr. Manuel de la Cruz Casasola');
+  assert.equal(placeCardName(dlc, 'middle-initial'), 'Mr. Manuel D. Casasola');
+  assert.equal(placeCardName({ ...MANUEL, name_suffix: 'II' }, 'surname-first'), 'Mr. Casasola II, Manuel C.');
+  assert.equal(placeCardName({ name_prefix: 'Mr.', first_name: 'Manuel' }, 'surname-first'), null);
 });
 
 // ── 2 · THE PRINTED LISTS ──────────────────────────────────────────────────
@@ -219,6 +228,7 @@ const STYLE_AT: Record<string, number> = {
   passCardGuestName: 1,
   ticketName: 1,
   guestFullName: 1,
+  placeCardName: 1,
 };
 
 /**
@@ -246,6 +256,7 @@ test('every formal surface hands its name builder the event’s Name style', () 
     'plainGuestNames@app/[slug]/everyone/page.tsx',
     'printedCardName@app/dashboard/[eventId]/invitation/print/page.tsx',
     'ticketName@lib/print-set.server.ts',
+    'placeCardName@app/[slug]/_components/site-body.tsx',
   ]) {
     assert.ok(reached.has(must), `${must} — a formal surface the scan no longer finds`);
   }

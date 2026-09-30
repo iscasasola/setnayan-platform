@@ -24,6 +24,11 @@ name the couple typed is printed as given in every style.
   the printed Entourage + Invitation cards; the name list on /everyone; the
   printed per-guest cards; the Digital ticket and the Printed ticket batch; the
   couple's invite message `{name}` (every couple-side caller).
+- The Place card (Find your seat › Place card, #6187) prints the guest's name in
+  the event's Name style: `placeCardName(guest, style)` is `styledName` behind
+  its "never a bare first name" rule, and the hub page reads the style
+  (`loadEventNameStyle`) only on a guest's own page. Its old per-word initials
+  ("M. C.") give way to the one-letter rule.
 - Full means full everywhere, tickets included: the Digital and Printed ticket
   now print "Mr. Manuel Cortez Casasola" (they used to drop the middle name).
 - Pair lines: Middle initial shares the surname ("Mr. Manuel C. & Mrs. Rosa L.

@@ -76,18 +76,22 @@ test('the @tag is the slug with its @', () => {
 });
 
 // ── 🪪 THE PLACE CARD NAME (owner 2026-09-30) ────────────────────────────────
-test('placeCardName · prefix, first, middle INITIAL, last — "Mr. Manuel C. Casasola"', () => {
-  assert.equal(
-    placeCardName({ name_prefix: 'Mr.', first_name: 'Manuel', middle_name: 'Cruz', last_name: 'Casasola' }),
-    'Mr. Manuel C. Casasola',
-  );
+test('placeCardName · the event’s Name style — Full · Middle initial (ONE letter) · Surname first', () => {
+  const manuel = { name_prefix: 'Mr.', first_name: 'Manuel', middle_name: 'Cruz', last_name: 'Casasola' };
+  // Owner "ok" 2026-09-30 (DECISION_LOG "THE COUPLE PICKS A NAME STYLE" addendum).
+  assert.equal(placeCardName(manuel), 'Mr. Manuel Cruz Casasola', 'no style is Full, the event default');
+  assert.equal(placeCardName(manuel, 'full'), 'Mr. Manuel Cruz Casasola');
+  assert.equal(placeCardName(manuel, 'middle-initial'), 'Mr. Manuel C. Casasola');
+  assert.equal(placeCardName({ ...manuel, name_suffix: 'II' }, 'surname-first'), 'Mr. Casasola II, Manuel C.');
   // An initial already typed stays one initial; a suffix keeps its place.
   assert.equal(
-    placeCardName({ name_prefix: 'Mr.', first_name: 'Indalecio', middle_name: 'S.', last_name: 'Casasola', name_suffix: 'II' }),
+    placeCardName({ name_prefix: 'Mr.', first_name: 'Indalecio', middle_name: 'S.', last_name: 'Casasola', name_suffix: 'II' }, 'middle-initial'),
     'Mr. Indalecio S. Casasola II',
   );
-  // Two middle names → two initials; no prefix → none printed.
-  assert.equal(placeCardName({ first_name: 'Ana', middle_name: 'maria clara', last_name: 'Reyes' }), 'Ana M. C. Reyes');
+  // Several middle words → ONE letter, the first; no prefix → none printed.
+  assert.equal(placeCardName({ first_name: 'Ana', middle_name: 'maria clara', last_name: 'Reyes' }, 'middle-initial'), 'Ana M. Reyes');
+  assert.equal(placeCardName({ first_name: 'Ana', middle_name: 'de la Cruz', last_name: 'Reyes' }, 'middle-initial'), 'Ana D. Reyes');
+  assert.equal(placeCardName({ first_name: 'Ana', last_name: 'Reyes' }, 'surname-first'), 'Reyes, Ana');
   assert.equal(placeCardName({ first_name: 'Ana', last_name: 'Reyes' }), 'Ana Reyes');
 });
 
@@ -95,4 +99,8 @@ test('placeCardName · never a bare first name — no last name, no card name', 
   assert.equal(placeCardName({ name_prefix: 'Ms.', first_name: 'Ana' }), null);
   assert.equal(placeCardName({ first_name: 'Ana', last_name: '  ' }), null);
   assert.equal(placeCardName({ last_name: 'Reyes' }), null);
+  // …in every style.
+  for (const style of ['full', 'middle-initial', 'surname-first'] as const) {
+    assert.equal(placeCardName({ name_prefix: 'Mr.', first_name: 'Manuel' }, style), null);
+  }
 });

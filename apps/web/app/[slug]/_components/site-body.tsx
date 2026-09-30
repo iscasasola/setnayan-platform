@@ -17,7 +17,8 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 import { PLATE } from '../_lib/measures';
 import { guestRoleLabel } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { loadEventRoleNames } from '../_lib/loaders';
+import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
+import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
@@ -524,6 +525,11 @@ export async function SiteBody({
   // Crew"). Read once per request (cached loader), graceful: an unreadable
   // value is the usual words. Handed to every widget that names a reader's role.
   const roleNames = await loadEventRoleNames(createAdminClient(), event.event_id);
+  // 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30) — the Place card prints the
+  // guest's name in it. Read only where a guest's own page is drawn (the one
+  // tree with a Place card); graceful: unreadable is Full.
+  const eventNameStyle =
+    identity.kind === 'anonymous' ? DEFAULT_NAME_STYLE : await loadEventNameStyle(createAdminClient(), event.event_id);
   // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25, Event Hub Maker
   // Details panel) — read once here for both mounts below (the reply card and
   // the song-request card). An absent key is ON, so an event that never opens
@@ -2108,8 +2114,9 @@ export async function SiteBody({
               arrived={guestHubData.arrived}
               sceneStyle={fixedStyle('find_your_seat')}
               /* 🪪 The Place card is a name card: the guest's FORMAL name, in the
-                 hero's Names look (owner 2026-09-30) — never a bare first name. */
-              formalName={placeCardName(guest)}
+                 event's Name style and the hero's Names look (owner 2026-09-30)
+                 — never a bare first name. */
+              formalName={placeCardName(guest, eventNameStyle)}
               nameStyle={hubElementInlineStyle(heroCanvas.elements?.names)}
             />
           ) : null}

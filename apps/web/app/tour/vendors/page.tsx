@@ -264,7 +264,7 @@ export default async function TourVendorsPage() {
       </nav>
 
       <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-        <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Find your team next.</h2>
+        <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Find your suppliers next.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
           Start your own wedding on Setnayan and let the AI shortlist for you — free, in minutes.
           Set na &rsquo;yan.

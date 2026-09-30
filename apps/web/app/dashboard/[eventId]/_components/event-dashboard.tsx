@@ -2982,7 +2982,7 @@ export async function EventDashboard({
             {marketplaceEnabled ? (
             <ExpandCard
               cardClassName="sn-tile"
-              title="Your team"
+              title="Suppliers"
               badge={
                 /* Event-type-scoped: the "of 21" denominator is the wedding
                  *  plan-group count — wrong for a debut/christening/corporate

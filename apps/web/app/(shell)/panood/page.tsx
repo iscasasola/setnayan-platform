@@ -33,7 +33,7 @@ import { PanoodFilm } from './_panood-film';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Live Studio — Live-Stream Your Wedding · Setnayan';
+const PAGE_TITLE = 'Live Watch — Live-Stream Your Wedding · Setnayan';
 /** The document title ONLY. `metadata.title` is rendered through the root
  *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
  *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
@@ -75,7 +75,7 @@ export const metadata = {
     'watch wedding online',
     'wedding live stream app',
     'stream wedding to family abroad',
-    'Live Studio',
+    'Live Watch',
     'Setnayan',
   ],
   openGraph: {
@@ -83,7 +83,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/panood',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Live Studio — live-stream your wedding' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Live Watch — live-stream your wedding' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -98,7 +98,7 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Live Studio — Wedding Live Stream',
+  name: 'Live Watch — Wedding Live Stream',
   url: `${SITE_URL}/panood`,
   applicationCategory: 'MultimediaApplication',
   operatingSystem: 'Any (web browser)',
@@ -123,7 +123,7 @@ const FAQ = [
     // only inside the YouTube answer further down, which is not where somebody deciding
     // whether this product fits them will look.
     q: 'What do I need on the day?',
-    a: 'Your guests’ phones are the cameras — they join by scanning your QR, with nothing to install. You will also need one Windows or Mac laptop at the celebration, running free streaming software (OBS) next to the Live Studio control room: that laptop is what actually sends the picture to YouTube. A phone or tablet on its own cannot do it, and neither can a web browser. Most couples hand the laptop to a friend or a coordinator, not a paid crew.',
+    a: 'Your guests’ phones are the cameras — they join by scanning your QR, with nothing to install. You will also need one Windows or Mac laptop at the celebration, running free streaming software (OBS) next to the Live Watch control room: that laptop is what actually sends the picture to YouTube. A phone or tablet on its own cannot do it, and neither can a web browser. Most couples hand the laptop to a friend or a coordinator, not a paid crew.',
   },
   {
     // 🎵 SECOND, immediately after the laptop, because it is the same KIND of fact —
@@ -146,7 +146,7 @@ const FAQ = [
   },
   {
     q: 'What if a lot of people watch at once?',
-    a: 'It doesn’t matter. Live Studio handles ten viewers or ten thousand the same way — invite your whole barangay and everyone abroad without a second thought.',
+    a: 'It doesn’t matter. Live Watch handles ten viewers or ten thousand the same way — invite your whole barangay and everyone abroad without a second thought.',
   },
   {
     q: 'Can we keep the recording?',
@@ -154,11 +154,11 @@ const FAQ = [
   },
   {
     q: 'Does it replace our videographer?',
-    a: 'No. Live Studio is about presence in the moment — letting people who can’t be there feel like they are. Your videographer still makes the keepsake film; Live Studio makes sure no one misses the day itself.',
+    a: 'No. Live Watch is about presence in the moment — letting people who can’t be there feel like they are. Your videographer still makes the keepsake film; Live Watch makes sure no one misses the day itself.',
   },
   {
     q: 'How does the stream actually work?',
-    a: 'Live Studio broadcasts through YouTube. Setnayan sets the broadcast up and embeds it on your Event Hub, always unlisted — it never appears in YouTube search, and only people with your Event Hub or the link can watch. It runs on your own YouTube channel when you connect one, or on a Setnayan channel where we supply it. Your own streaming software, like OBS, sends the video to YouTube; Setnayan does not carry the video itself. How we handle the Google data involved is set out at setnayan.com/privacy.',
+    a: 'Live Watch broadcasts through YouTube. Setnayan sets the broadcast up and embeds it on your Event Hub, always unlisted — it never appears in YouTube search, and only people with your Event Hub or the link can watch. It runs on your own YouTube channel when you connect one, or on a Setnayan channel where we supply it. Your own streaming software, like OBS, sends the video to YouTube; Setnayan does not carry the video itself. How we handle the Google data involved is set out at setnayan.com/privacy.',
   },
 ];
 
@@ -175,7 +175,7 @@ const FAQ_LD = {
 const STEPS = [
   {
     t: 'Turn it on for your day',
-    d: 'Live Studio lives inside your Setnayan wedding. Switch it on for the day, and a live broadcast appears right on your own Event Hub — nothing for your guests to set up.',
+    d: 'Live Watch lives inside your Setnayan wedding. Switch it on for the day, and a live broadcast appears right on your own Event Hub — nothing for your guests to set up.',
   },
   {
     t: 'Everyone who can’t be there, watches',
@@ -210,7 +210,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'On your Event Hub',
     t: 'A broadcast where your guests already are',
-    d: 'Switch Live Studio on for the day and a live broadcast appears right on your own Event Hub. No private link for anyone to lose — nothing for your guests to set up.',
+    d: 'Switch Live Watch on for the day and a live broadcast appears right on your own Event Hub. No private link for anyone to lose — nothing for your guests to set up.',
     media: { kind: 'photo', src: '/demo/maria-jose/ceremony.webp', alt: 'A couple kneeling before a candlelit altar in a stone church' },
   },
   {
@@ -228,7 +228,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Ten or ten thousand',
     t: 'Invite the whole barangay and everyone abroad',
-    d: 'Live Studio handles ten viewers or ten thousand the same way, and it costs the same either way.',
+    d: 'Live Watch handles ten viewers or ten thousand the same way, and it costs the same either way.',
     media: { kind: 'photo', src: '/demo/maria-jose/reception.webp', alt: 'A long reception table set with candles under strings of lights' },
   },
   {
@@ -240,7 +240,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Not a replacement',
     t: 'Your videographer still makes the film',
-    d: 'Live Studio is about presence in the moment — letting people who can’t be there feel like they are. Your videographer still makes the keepsake film; Live Studio makes sure no one misses the day itself.',
+    d: 'Live Watch is about presence in the moment — letting people who can’t be there feel like they are. Your videographer still makes the keepsake film; Live Watch makes sure no one misses the day itself.',
     media: { kind: 'photo', src: '/demo/maria-jose/hero.webp', alt: 'A couple embracing on a hillside path at sunset, a lake and a volcano behind them' },
   },
 ];
@@ -252,19 +252,19 @@ export default function PanoodLandingPage() {
       title={'Everyone you love, in the room — even from afar.'}
       primary={{ href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
-      productName="Watch Live"
+      productName="Live Watch"
       studioKey="panood"
       steps={STEPS}
-      differentiator={{ heading: 'Presence, not just a link', lede: 'A live stream shouldn’t feel like homework. Live Studio lives where your guests already are — your wedding.', rows: VS }}
+      differentiator={{ heading: 'Presence, not just a link', lede: 'A live stream shouldn’t feel like homework. Live Watch lives where your guests already are — your wedding.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Let everyone be there', body: 'Live Studio lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and website. Start planning free, and add Live Studio when you’re ready.', href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
+      closing={{ heading: 'Let everyone be there', body: 'Live Watch lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and website. Start planning free, and add Live Watch when you’re ready.', href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
       // Kept deliberately, and kept AFTER the questions: this is the
       // YouTube-API-Services disclosure an OAuth reviewer looks for. The 2026-06-29
       // "never name YouTube" rule was REVERSED for exactly this paragraph.
       epilogue={
         <p className={`mt-5 text-center text-sm ${DOORWAY_TONE.muted}`}>
-          Live Studio uses YouTube API Services. How we handle the Google data
+          Live Watch uses YouTube API Services. How we handle the Google data
           involved is set out in our{' '}
           <Link href="/privacy" className="underline underline-offset-4">
             privacy policy
@@ -279,7 +279,7 @@ export default function PanoodLandingPage() {
           product. Scoped to exactly what that recording can show — cutting
           between two camera feeds on the shipped controller — not the guest's
           Event Hub view, which this film does not capture. */}
-      <section className="mx-auto mt-16 max-w-2xl" aria-label="The Live Studio control room">
+      <section className="mx-auto mt-16 max-w-2xl" aria-label="The Live Watch control room">
         <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
           The control room itself
         </p>
@@ -295,7 +295,7 @@ export default function PanoodLandingPage() {
         </div>
       </section>
       <SpotlightSection
-        productName="Live Studio"
+        productName="Live Watch"
         heading="What turning it on gives you"
         lede="Presence for the people who can’t be in the room — and nothing for them to set up."
         items={SPOTLIGHTS}

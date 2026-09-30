@@ -89,6 +89,10 @@ const FIELD_LABELS: Record<string, string> = {
   name_suffix: 'Name',
   display_name: 'Display name',
   seniority_rank: 'Tea-ceremony order',
+  extra_roles: 'Also serves as',
+  group_ids: 'Groups',
+  table_id: 'Table',
+  passed_away: 'Passed away',
 };
 
 /** Field → its posted value(s), compared as JSON so a multi-valued field cannot
@@ -148,6 +152,11 @@ function restoreInputs(form: HTMLFormElement, snap: FormData): void {
       // Covers hidden carriers (relation, seniority_rank on non-Chinese rites)
       // as well as every visible text field and select.
       el.value = (snap.get(name) as string) ?? '';
+      // A dropdown's hidden input (`FormPick`) tells its button to re-read it,
+      // so the undo reaches the screen and not only the row.
+      if (el instanceof HTMLInputElement && el.dataset.formPick !== undefined) {
+        el.dispatchEvent(new Event('sn-restore'));
+      }
     }
   }
 }

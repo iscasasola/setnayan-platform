@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eraseEventFaceTaggingSelfies } from '@/lib/face-selfie-erase';
 
 /**
  * The couple turns face tagging off — or back on — for their own event.
@@ -47,12 +48,23 @@ export async function setCoupleFaceTaggingDeclined(formData: FormData): Promise<
 
   if (!membership) redirect(back);
 
-  const { error } = await createAdminClient()
+  const admin = createAdminClient();
+  const { error } = await admin
     .from('events')
     .update({ face_tagging_declined_by_couple: declined })
     .eq('event_id', eventId);
 
   if (error) redirect(`${back}?faceTagging=error`);
+
+  // 🧽 OFF ERASES, IT DOES NOT PAUSE (owner 2026-09-30, DECISION_LOG "FACE
+  // DATA: THREE OWNER ANSWERS": *"the couple turning tagging off erases (not
+  // just pauses)"*). Every guest's face-tagging selfie at this event goes — the
+  // image, the vector, the selfie-as-avatar — through the same narrow erase as
+  // sign-out; tags already made stay (a tag is not face data). Turning it back
+  // on restores nothing: guests who want tagging give a new selfie on the day.
+  // After the flag write, so no enrolment can land between the erase and the
+  // switch (`enrollGuestFace` reads the switch through `resolveFaceTagging`).
+  if (declined) await eraseEventFaceTaggingSelfies(admin, eventId);
 
   revalidatePath(back);
   redirect(`${back}?faceTagging=${declined ? 'off' : 'on'}`);

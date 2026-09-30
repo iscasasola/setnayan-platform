@@ -47,10 +47,15 @@ const MAX_PICKS_PER_ADD = 200;
 export type PeoplePick = {
   /** The `key` from `getPeopleYouCanInvite` — the only handle the client holds. */
   key: string;
-  /** Supplied by the host ONLY for a one-word name the source could not split.
-   *  Ignored whenever the server already knows a surname. */
-  lastName?: string;
 };
+
+/**
+ * The guest list's mark for "no surname known": `guests.last_name` is NOT NULL,
+ * and this is the same placeholder the self-join path has always stored for a
+ * one-word name (app/join/[eventId]/actions.ts). The host fixes it on the guest
+ * card; the add never waits for it.
+ */
+const NO_SURNAME_MARK = '—';
 
 export type AddFromPeopleResult =
   | { ok: true; added: number; failed: number; firstError: string | null }
@@ -111,17 +116,19 @@ export async function addGuestsFromPeople(
       firstError ??= 'Some of those were already on your list.';
       continue;
     }
-    // The surname the SOURCE knows always wins; the typed one is only ever the
-    // missing half of a one-word name.
-    const last = person.lastName || (pick.lastName ?? '').trim();
-    if (!last) {
-      failed += 1;
-      firstError ??= `${person.name} needs a last name.`;
-      continue;
-    }
+    /*
+      ⚖ Owner, 2026-09-30: *"we should not ask if they are my connected people.
+      again, we only add our connect people."* The host is never asked for a
+      surname here. The source's own split wins; a name that is truly one word
+      goes on with the missing-surname mark, and nothing is refused for it.
+      When the mark is used the name parts are passed EXPLICITLY (all empty),
+      which tells quickAddGuest not to re-parse "Ana —" into something else.
+    */
+    const knownLast = (person.lastName ?? '').trim();
     const res = await quickAddGuest(eventId, {
-      first_name: person.firstName,
-      last_name: last,
+      first_name: person.firstName || person.name,
+      last_name: knownLast || NO_SURNAME_MARK,
+      ...(knownLast ? {} : { name_prefix: null, middle_name: null, name_suffix: null }),
       side,
       role: 'guest',
       email: person.email,

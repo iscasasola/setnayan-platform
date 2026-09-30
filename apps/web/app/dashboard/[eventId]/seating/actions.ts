@@ -17,6 +17,8 @@ import { parseRoleSeating, type RoleSeating } from '@/lib/role-seating';
 import {
   BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
+  autoArrangeNewTableKey,
+  autoSeatRoom,
   chainableShapes,
   computeAutoLayout,
   computeAutoSeat,
@@ -35,6 +37,7 @@ import {
   shapeHintFor,
   solveSeatPlan,
   tableGeometry,
+  tablesToAddForAutoSeat,
   validateChainJointM,
   type AutoSeatGuest,
   type BoothType,
@@ -2022,13 +2025,22 @@ export async function setGuestSeatingPriority(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// One-click Auto Arrange: persist the client-computed table layout + booth
-// anchors, then run the deterministic role-tier auto-seat against the NEW
-// positions so "nearest the stage" means the layout that was just made.
-// Seating stays idempotent (already-seated guests never move).
+// One-click Auto Arrange: ADD tables when the guests who haven't declined need
+// more chairs than the room holds (owner 2026-09-30 · "it did not add tables"),
+// persist the client-computed table layout + booth anchors, then run the
+// deterministic role-tier auto-seat against the NEW positions so "nearest the
+// stage" means the layout that was just made. Seating stays idempotent
+// (already-seated guests never move) and existing tables are never removed.
 export async function autoArrange(
   formData: FormData,
-): Promise<{ seated: number; totalRules: number; satisfiedRules: number; unsatisfiedRules: number }> {
+): Promise<{
+  seated: number;
+  tablesAdded: number;
+  unseated: number;
+  totalRules: number;
+  satisfiedRules: number;
+  unsatisfiedRules: number;
+}> {
   const eventId = formData.get('event_id');
   const positionsRaw = formData.get('positions');
   if (typeof eventId !== 'string' || eventId.length === 0 || typeof positionsRaw !== 'string') {
@@ -2065,18 +2077,60 @@ export async function autoArrange(
   const lockId = lockIdFrom(formData);
   await assertSeatingLockHeld(supabase, eventId, lockId);
 
-  const [tables, assignments, guests, floorPlan, memberships, constraints] = await Promise.all([
-    fetchTables(supabase, eventId),
-    fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
-    fetchSeatingConstraints(supabase, eventId),
-  ]);
+  const [existingTables, assignments, guests, floorPlan, memberships, constraints, roleSet, eventRow] =
+    await Promise.all([
+      fetchTables(supabase, eventId),
+      fetchAssignments(supabase, eventId),
+      fetchGuestsByEvent(supabase, eventId),
+      fetchFloorPlan(supabase, eventId),
+      fetchGroupMembershipsByEvent(supabase, eventId),
+      fetchSeatingConstraints(supabase, eventId),
+      // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
+      resolveRoleSetForEvent(eventId),
+      supabase
+        .from('events')
+        .select('ceremony_type, secondary_ceremony_type')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+
+  // Room first: when the guests who haven't declined outnumber the open chairs,
+  // add the room's default table until they fit — decided HERE from fresh data
+  // (the editor's count only lays the new tables out). Each new table takes the
+  // position the editor laid out for it under autoArrangeNewTableKey(label); a
+  // table the editor didn't foresee lands unplaced (null), never stacked.
+  const toAdd = tablesToAddForAutoSeat(
+    autoSeatRoom(existingTables, guests, assignments, roleSet).shortfall,
+    existingTables.map((t) => t.table_label),
+    { skipFour: isChineseWedding(eventRow.data ?? null) },
+  );
+  let tables = existingTables;
+  if (toAdd.length > 0) {
+    const maxSort = existingTables.reduce((m, t) => Math.max(m, t.sort_order), -1);
+    const { error: addErr } = await supabase.from('event_tables').insert(
+      toAdd.map((t, i) => {
+        const p = positions[autoArrangeNewTableKey(t.label)] as { x?: unknown; y?: unknown } | undefined;
+        const x = Number(p?.x);
+        const y = Number(p?.y);
+        const placed = p !== undefined && Number.isFinite(x) && Number.isFinite(y);
+        return {
+          event_id: eventId,
+          table_label: t.label,
+          table_type: t.type,
+          capacity: t.capacity,
+          sort_order: maxSort + 1 + i,
+          x_pos: placed ? Math.max(0, Math.min(100, x)) : null,
+          y_pos: placed ? Math.max(0, Math.min(100, y)) : null,
+        };
+      }),
+    );
+    if (addErr) throw new Error(addErr.message);
+    tables = await fetchTables(supabase, eventId);
+  }
 
   // Persist positions — only for tables that really belong to this event, with
   // clamped finite coordinates. Unknown ids in the payload are ignored.
-  const tableIds = new Set(tables.map((t) => t.table_id));
+  const tableIds = new Set(existingTables.map((t) => t.table_id));
   const cleanPos: Record<string, { x: number; y: number }> = {};
   for (const [id, p] of Object.entries(positions)) {
     if (!tableIds.has(id)) continue;
@@ -2127,8 +2181,6 @@ export async function autoArrange(
   // seater. Both consume the same stage + priority; the solver adds graceful
   // keep-apart separation. No rules → identical to the priority-only path.
   const stage = { x: floorPlan.stage_x, y: floorPlan.stage_y };
-  // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
-  const roleSet = await resolveRoleSetForEvent(eventId);
   const groupAdjacency = await fetchGroupAdjacency(supabase, eventId);
   const solved =
     constraints.length > 0
@@ -2162,9 +2214,13 @@ export async function autoArrange(
 
   await refreshSeatingLock(supabase, lockId);
   revalidatePath(`/dashboard/${eventId}/seating`);
-  // Surface keep-apart outcome so the editor can show "honored X/Y rules".
+  // Surface keep-apart outcome so the editor can show "honored X/Y rules", and
+  // the TRUE count still without a chair — the toast may only say "everyone
+  // has a seat" when this is 0.
   return {
     seated: rows.length,
+    tablesAdded: toAdd.length,
+    unseated: Math.max(0, autoSeatRoom(tables, guests, assignments, roleSet).toSeat - rows.length),
     totalRules: solved?.totalRules ?? 0,
     satisfiedRules: solved?.satisfiedCount ?? 0,
     unsatisfiedRules: solved?.violations.length ?? 0,

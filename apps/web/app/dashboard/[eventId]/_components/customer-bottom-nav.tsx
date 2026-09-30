@@ -5,12 +5,14 @@
  * owner 2026-09-29: *"on mobile mode. we do not want that sub bottom nav
  * anymore. we want it to be simple and easy to manage"*).
  *
- *     Home · Guest list · Your Team · Event Hub Maker · Our Services
+ *     Home · Guests · Suppliers · Hub · More
  *
- * The same five in every phase, picked out of the one tree in
+ * The same five in every phase (owner 2026-10-01, DECISION_LOG "THE BOTTOM BAR
+ * IS HOME · GUESTS · SUPPLIERS · HUB · MORE"), in the rail's own words, picked out of the one tree in
  * `lib/customer-menu.ts` (`buildCustomerMenuTree`) — the desktop rail draws
  * the same rows under the same words. Nothing docks above this bar; a
- * pillar's parts are chosen inside its page.
+ * pillar's parts are chosen inside its page. "More" opens a small chooser
+ * sheet with the five services (owner 2026-09-30) — never a sub-row.
  *
  * NAV REGISTRY: `navSlots` (`customer.bottom-nav.<key>`) overlays the
  * admin-managed label + icon on each tab; a slot marked hidden drops its tab.
@@ -21,6 +23,7 @@
  * treatment is reused verbatim. Mobile-only (`lg:hidden`).
  */
 
+import { useState } from 'react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -28,7 +31,13 @@ import type { LucideIcon } from 'lucide-react';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { buildCustomerMenuTree, type EventStudioRow } from '@/lib/customer-menu';
+import { buildCustomerMenuTree, type EventMenuChild, type EventStudioRow } from '@/lib/customer-menu';
+
+/* The "More" chooser — fetched on the first tap with a plain `import()`, never
+   in the first load. ⚠ NOT `next/dynamic`: that pulled next's loadable runtime
+   (~4 KB raw) into this event-layout chunk and put the Maker 0.5 KB over its
+   505 KB ceiling (measured 2026-10-01 against origin/main dc916d040). */
+type MoreSheet = typeof import('./more-services-sheet').default;
 import { customerGuestsBadge } from '@/lib/nav-badges';
 
 export function CustomerBottomNav({
@@ -41,6 +50,7 @@ export function CustomerBottomNav({
   websiteEnabled,
   studioRows,
   storeShell,
+  services,
 }: {
   eventId: string;
   phase?: MenuLifecyclePhase;
@@ -89,7 +99,7 @@ export function CustomerBottomNav({
   /**
    * The event's Studio products as PLAIN DATA (key · href · name) — no longer
    * tabs, but the one tree claims each product's pages for the tab that holds
-   * it (Our Services, or the Maker for Mood Board / Logo), so a product page
+   * it (More Services, or the Maker for Mood Board / Logo), so a product page
    * still lights a tab. Without this list those pages light nothing.
    *
    * 🛑 Strings only. This is a `'use client'` component fed by a server
@@ -103,8 +113,17 @@ export function CustomerBottomNav({
    * blank slot in the grid (the Papic slot the owner saw on 2026-09-25).
    */
   storeShell?: boolean;
+  /**
+   * 📂 The five under More Services (owner 2026-09-30) — plain data built in
+   * layout.tsx (`ourServicesMenuChildren`). The bar NEVER draws them as a sub-
+   * row: its "More" tab opens a chooser sheet with them. Empty → the tab just
+   * opens the More Services page.
+   */
+  services?: ReadonlyArray<EventMenuChild>;
 }) {
-  const tree = buildCustomerMenuTree(eventId, { phase, hideKeys, seatingEnabled, websiteEnabled, studioRows, storeShell });
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [MoreServicesSheet, setSheet] = useState<MoreSheet | null>(null);
+  const tree = buildCustomerMenuTree(eventId, { phase, hideKeys, seatingEnabled, websiteEnabled, studioRows, storeShell, services });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
     // Registry overrides (label + icon) — every tab has its
@@ -134,9 +153,30 @@ export function CustomerBottomNav({
         activeMatch: m.activeMatch,
         activeMatchExact: m.activeMatchExact,
         ...(badge ? { badge } : {}),
+        ...(m.key === 'studio' && services?.length
+          ? {
+              onSelect: () => {
+                setMoreOpen(true);
+                if (!MoreServicesSheet) void import('./more-services-sheet').then((x) => setSheet(() => x.default));
+              },
+            }
+          : {}),
       },
     ];
   });
 
-  return <BottomNav items={items} />;
+  return (
+    <>
+      <BottomNav items={items} />
+      {/* Mounted only while open — fetched on the first tap, nothing before. */}
+      {moreOpen && MoreServicesSheet && services?.length ? (
+        <MoreServicesSheet
+          open
+          onClose={() => setMoreOpen(false)}
+          title="More Services"
+          services={services}
+        />
+      ) : null}
+    </>
+  );
 }

@@ -8,13 +8,11 @@
  * guest, a select-all checkbox + live count surface in the carousel, and an
  * "Assign" button opens a bottom sheet (Side / Role / Group + create-new).
  *
- * The checkboxes live in `GuestListMultiselect` (the scrolling list) while
- * the count / select-all / Assign live in `MobileGuestCarousel` (the fixed
- * lower-third). Those are sibling components with no common React ancestor
- * we want to thread state through, so selection is a tiny module-level
- * external store both subscribe to via `useSyncExternalStore`. Desktop's
- * floating SelectionBar reads the same store, so all three surfaces stay in
- * lockstep with a single source of truth.
+ * ⤷ 2026-09-30: the phone-only head that held the count / select-all /
+ * Assign is gone — a long press on a row starts selecting and the ONE bulk bar
+ * (in `GuestListMultiselect`) holds the count and the actions at every width.
+ * The store stays a tiny module-level external store (`useSyncExternalStore`)
+ * so the rows, the header checkbox and the bulk bar share one source of truth.
  *
  * `selectMode` gates whether the MOBILE cards show their checkbox (clean by
  * default; checkboxes appear only after "Select"). The desktop table keeps

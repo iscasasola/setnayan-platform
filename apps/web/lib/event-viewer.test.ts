@@ -96,6 +96,8 @@ function stripComments(raw: string): string {
  * 🔑 TWO SHAPES COUNT, AND ONLY COUNTING ONE IS HOW A GUARD GOES BLIND.
  *   1. PAGE-LEVEL — it asks and returns `<NotSharedWithYou>` instead of a screen
  *      built from an empty list.
+ *   1b. PAGE-LEVEL, BY REDIRECT — it asks and sends that viewer to their own
+ *      access view (`/hosts`) before any read (the Guest list, since F2).
  *   2. READ-LEVEL — it asks and conditions the guest read itself on the answer.
  *      The right shape when the page has a job beyond the guest list: the
  *      stories still render, they just lose their bylines.
@@ -111,6 +113,15 @@ function guardsItsGuestRead(src: string): boolean {
   const asks = src.includes('isDelegateWithoutArea(') && src.includes("'guest_list'");
   if (!asks) return false;
   if (src.includes('<NotSharedWithYou')) return true;
+  /*
+    ⤷ 2026-10-01 (F2, the Hosts fold): a third page-level shape — the page SENDS
+    that viewer to their own access view before any read. Counted only when the
+    redirect is the whole body of the `if` on the guest-list question, so a
+    redirect elsewhere on the page cannot pass for it.
+  */
+  if (/if \(isDelegateWithoutArea\(viewer, 'guest_list'\)\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/hosts`\);\s*\}/.test(stripComments(src))) {
+    return true;
+  }
 
   /*
     ⚠ THE HELPERS COUNT AS READS TOO. A page that reaches the guest list through

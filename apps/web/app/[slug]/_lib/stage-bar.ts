@@ -51,10 +51,12 @@ export const STAGE_BAR: Readonly<Record<LifecyclePhase, StageBar>> = {
   },
   event: {
     label: PUBLIC_STAGE_LABELS.event,
-    // Be here now: Now · Schedule · Camera · Gallery · Me (owner: "yes").
-    // Watch takes the Schedule's place while a broadcast is running, and
-    // `details` stays for a booked supplier's "Cues" tab on the day.
-    slots: ['home', 'schedule', 'watch', 'camera', 'gallery', 'details', 'me'],
+    // Be here now: Live · Welcome · Camera · Gallery · Me (owner 2026-09-30,
+    // verbatim: *"Live - Welcome - Camera - Gallery - Me"* — DECISION_LOG "THE
+    // DAY'S MENU HAS FIVE"). Live carries what was Now, Schedule and Watch;
+    // Welcome (`home`) is the guest's own page on the day. `details` stays for a
+    // booked supplier's "Cues" tab on the day.
+    slots: ['live', 'home', 'camera', 'gallery', 'details', 'me'],
   },
   editorial: {
     label: PUBLIC_STAGE_LABELS.editorial,

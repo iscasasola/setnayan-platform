@@ -164,11 +164,23 @@ test('the wake is UNASSIGNED, and still prices at the middle band', async () => 
   assert.equal(u[0]!.t, 'C', 'and so must a type nobody has added — SEC-5 depends on it');
 });
 
-test('exactly sixteen kinds carry a deliberate band', async () => {
+test('exactly nineteen kinds carry a deliberate band', async () => {
+  // Sixteen banded on 2026-08-28, plus concert · open_house · grand_opening on
+  // 2026-09-29, banded LIKE CORPORATE by the owner ("yes like corporate",
+  // DECISION_LOG "PUBLIC EVENTS (PR #6159) — TWO OWNER ANSWERS"). The wake is
+  // still the one kind with no band chosen.
   const { rows } = await db.query<{ n: string }>(
     `SELECT count(*) AS n FROM public.event_type_vocab WHERE ai_price_tier IS NOT NULL`,
   );
-  assert.equal(Number(rows[0]!.n), 16);
+  assert.equal(Number(rows[0]!.n), 19);
+  const { rows: liked } = await db.query<{ event_type: string; same: boolean }>(
+    `SELECT v.event_type, v.ai_price_tier = c.ai_price_tier AS same
+       FROM public.event_type_vocab v
+       JOIN public.event_type_vocab c ON c.event_type = 'corporate'
+      WHERE v.event_type IN ('concert','open_house','grand_opening')`,
+  );
+  assert.equal(liked.length, 3);
+  assert.ok(liked.every((r) => r.same), 'the three public kinds are priced like corporate');
 });
 
 test('SETNAYAN_AI_RENEW never gains a sign-up price', async () => {

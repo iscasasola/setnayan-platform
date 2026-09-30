@@ -75,11 +75,20 @@ test('1 · nothing empty: no reminders written → no Reminders; no gift method 
   assert.deepEqual(welcomeParts({ ...SET, identified: false }), ['reminders', 'gifts']);
 });
 
-test('1 · Welcome is the Invitation’s — not the Save the Date, the Day or after it', () => {
+test('1 · Welcome (this rule) is the Invitation’s — not the Save the Date, the Day or after it', () => {
   for (const stage of ['save_the_date', 'event', 'editorial'] as const) {
     assert.deepEqual(welcomeParts({ ...SET, stage }), [], stage);
+  }
+  for (const stage of ['save_the_date', 'editorial'] as const) {
     assert.equal(welcomeCarriesGifts({ ...SET, stage }), false, `${stage}: the gift door stays at the foot`);
   }
+  // 📱 The Day has a Welcome of its own (owner 2026-09-30, "THE DAY'S MENU HAS
+  // FIVE") — `welcomePartsOnTheDay`, `each-tab-is-its-own-page.test.ts` — and it
+  // carries the gift door, so the foot strip stands down on the day too. Never
+  // for the Maker's canvas, which does not draw the day's Welcome.
+  assert.equal(welcomeCarriesGifts({ ...SET, stage: 'event' }), true, 'event: the day’s Welcome carries E-Gifts');
+  assert.equal(welcomeCarriesGifts({ ...SET, stage: 'event', maker: true }), false, 'event: never in the Maker’s canvas');
+  assert.equal(welcomeCarriesGifts({ ...SET, stage: 'event', giftHref: null }), false, 'event: no door, nothing carried');
   assert.deepEqual(welcomeParts({ ...SET, bodyNormal: false }), []);
 });
 
@@ -184,12 +193,19 @@ test('2 · the Maker sees each place, after its navigator marker', async () => {
 
 test('3 · both trees mount the one Welcome section and ask the one rule', () => {
   const BODY = read('app/[slug]/_components/site-body.tsx');
-  assert.equal(BODY.match(/<GuestWelcome\b/g)?.length, 2, 'the guest tree AND the stranger’s tree (the Maker’s canvas)');
+  // Two trees × (the Invitation's Welcome + the Day's Welcome, 📱 owner
+  // 2026-09-30 "THE DAY'S MENU HAS FIVE") — one component, four mounts.
+  assert.equal(BODY.match(/<GuestWelcome\b/g)?.length, 4, 'the guest tree AND the stranger’s tree (the Maker’s canvas), the Invitation and the Day');
   assert.equal(BODY.match(/const welcome = welcomeParts\(\{/g)?.length, 2);
   // Details draws what Welcome left it, in both trees
   assert.equal(BODY.match(/const detailsScenes = scenesLeftForDetails\(/g)?.length, 2);
-  assert.match(BODY, /\{detailsScenes\.map\(\(widget\) => \(\s*<HideableWidgetRender/);
-  assert.match(BODY, /\{detailsScenes\.map\(\(widget\) => \(\s*\/\*[\s\S]*?<PublicHideableWidget|\{detailsScenes\.map\(\(widget\) => \(\s*<Fragment/);
+  // (📱 each scene is drawn by one function per tree, so the love story scene
+  // can take its own tab on a tabbed page — the list it draws is still
+  // Welcome's leftovers: `detailsSceneList` is `detailsScenes` less that scene.)
+  assert.match(BODY, /const renderScene = \(widget: \(typeof detailsScenes\)\[number\]\) => \(\s*<HideableWidgetRender/);
+  assert.match(BODY, /\{detailsSceneList\.map\(renderScene\)\}/);
+  assert.match(BODY, /const detailsSceneList = storyScene \? detailsScenes\.filter\(\(w\) => w !== storyScene\) : detailsScenes;/);
+  assert.match(BODY, /\{list\.map\(\(widget\) => \(\s*\/\*[\s\S]*?<PublicHideableWidget|\{list\.map\(\(widget\) => \(\s*<Fragment/);
   // this guest's own look is on Welcome, so Details shows everyone's
   assert.match(BODY, /dressCodeGeneral=\{welcome\.includes\('look'\)\}/);
   // the gift door is drawn once: the foot strip stands down when Welcome carries it

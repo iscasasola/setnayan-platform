@@ -243,6 +243,10 @@ export type EventRow = {
   // Unknown + sanitised at use via lib/rsvp-ask.ts; an absent key means "still
   // asked", so an event that never opens the panel is unchanged.
   rsvp_ask_config?: unknown;
+  // "Where to get tickets" — the organizer's own ticket page (events.ticket_url,
+  // owner 2026-09-29). Drawn only while the event is Public, and only through
+  // `publicTicketUrl` (lib/ticket-url.ts), which re-reads it through the parser.
+  ticket_url?: string | null;
   // Host-curated gift / registry note (Increment A.3). TEXT column shipped
   // 20260918000000; edited at /dashboard/[eventId]/website/what-to-bring.
   // Blank → WhatToBringWidget renders nothing (section hides).
@@ -396,6 +400,9 @@ export type GuestContext =
       /** May this guest be asked "Want to be tagged in the photos?" at all —
        *  false when the couple declined face tagging (`resolveFaceTagging`). */
       faceTaggingAskable: boolean;
+      /** The face screen may open now: askable AND the guest capture window is
+       *  open (the selfie is taken on the day — owner 2026-09-30). */
+      faceStepOpen: boolean;
       eventVendorCredits: VendorCard[];
     };
 

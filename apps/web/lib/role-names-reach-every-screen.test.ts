@@ -152,7 +152,6 @@ const SHOWS_THE_USUAL_WORD_ON_PURPOSE: Array<[file: string, line: string, why: s
   ['app/dashboard/[eventId]/guests/page.tsx', ': ROLE_GROUP_LABELS[grp];', 'a SORT KEY — renamed only where the heading is drawn'],
   ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', ': ROLE_GROUP_LABELS[grp];', 'the same SORT KEY on the client — the heading is re-said by sectionHeadingInTheirWords'],
   ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', "label: grp === 'guest' ? 'Guests' : ROLE_GROUP_LABELS[grp],", 'the honoree heading — bride/groom/celebrant, never renamed'],
-  ['app/dashboard/[eventId]/guests/_components/active-filters.tsx', "&& ROLE_GROUP_LABELS[view])", 'an existence check; the chip text itself uses roleGroupLabel'],
 ];
 
 test('every screen that shows a role word is handed the couple’s words', () => {
@@ -214,5 +213,6 @@ test('every page that draws the guest list’s client pieces mounts the words fo
   assert.match(body, /const roleNames = await loadEventRoleNames\(/);
   assert.equal((body.match(/roleNames=\{roleNames\}/g) ?? []).length, 2, 'both widget dispatchers get the words');
   const loaders = readFileSync(join(APP, 'app/[slug]/_lib/loaders.ts'), 'utf8');
-  assert.match(loaders, /await loadEventRoleNames\(admin, eventId\),\n\s*\);/, 'the invitation’s entourage is built with the words');
+  // The words are buildEntourage's third argument (the Name style, owner 2026-09-30, may follow).
+  assert.match(loaders, /await loadEntourageSectionOrder\(admin, eventId\),\n\s*await loadEventRoleNames\(admin, eventId\),\n/, 'the invitation’s entourage is built with the words');
 });

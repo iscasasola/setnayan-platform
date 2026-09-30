@@ -92,12 +92,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid software — Setnayan AI (a one-time purchase with access through your event date), the Live Studio multi-camera control room, Papic top-ups, Event Hub PRO and more — is priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
+        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid software — Setnayan AI (a one-time purchase with access through your event date), the Live Watch multi-camera control room, Papic top-ups, Event Hub PRO and more — is priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
         title: 'Does Setnayan take commission on supplier bookings?',
-        body: `No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money. Suppliers pay 0% commission on every tier too. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/pricing. Setnayan's revenue is software couples choose to buy (Setnayan AI, Papic, Live Studio, Event Hub PRO and more), supplier plans, and that booking fee.`,
+        body: `No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money. Suppliers pay 0% commission on every tier too. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/pricing. Setnayan's revenue is software couples choose to buy (Setnayan AI, Papic, Live Watch, Event Hub PRO and more), supplier plans, and that booking fee.`,
       },
       {
         slug: 'what-is-todays-focus',
@@ -141,7 +141,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'what-is-panood',
-        title: 'What is Live Studio?',
+        title: 'What is Live Watch?',
         body: 'Live streaming for your wedding, embedded directly on your Event Hub — one unlock covers the whole event, unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
@@ -225,7 +225,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-if-the-venue-has-no-signal',
         title: 'What happens if the wedding venue has no signal?',
-        body: 'Your photos are safe. Papic saves every shot on the phone that took it and sends it by itself once the signal comes back, so a dropped connection never loses a photo. Your guest list, RSVPs and seat plan are all settled before the day. Live Studio is the one part that needs a working connection, because a livestream travels over the internet as it happens — check the venue’s signal or Wi-Fi before the day.',
+        body: 'Your photos are safe. Papic saves every shot on the phone that took it and sends it by itself once the signal comes back, so a dropped connection never loses a photo. Your guest list, RSVPs and seat plan are all settled before the day. Live Watch is the one part that needs a working connection, because a livestream travels over the internet as it happens — check the venue’s signal or Wi-Fi before the day.',
       },
       {
         slug: 'guests-without-smartphones',
@@ -613,14 +613,14 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   },
   {
     key: 'live-studio',
-    label: 'Live Studio — streaming your day',
+    label: 'Live Watch — streaming your day',
     roles: ['couple'],
     articles: [
       {
         slug: 'is-my-youtube-ready-to-live-stream',
         title: 'Is my YouTube channel ready to live stream? (check this first)',
         body:
-          'Live Studio sends your celebration to YOUR OWN YouTube channel, so that channel has to be switched on for live streaming before the day. The first time you turn it on, YouTube takes about 24 hours to activate it. Nobody can speed that up — not us, not YouTube support — so do this now, even if your celebration is a year away. It costs nothing and it never expires.\n\n' +
+          'Live Watch sends your celebration to YOUR OWN YouTube channel, so that channel has to be switched on for live streaming before the day. The first time you turn it on, YouTube takes about 24 hours to activate it. Nobody can speed that up — not us, not YouTube support — so do this now, even if your celebration is a year away. It costs nothing and it never expires.\n\n' +
           'HOW TO CHECK, in under a minute:\n' +
           '1. Sign in to YouTube on the account whose channel you want to stream on. If you have more than one channel, make sure you are on the right one — check the profile picture in the top corner.\n' +
           '2. Go to https://www.youtube.com/features\n' +
@@ -629,7 +629,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
           '1. On that same page, click to enable it. YouTube will ask you to verify your channel with a phone number — you get a code by text or voice call and type it in. This is free.\n' +
           '2. After verifying, live streaming usually switches on within about 24 hours. Check the same page again the next day.\n' +
           '3. You also need to have had no live-streaming restrictions on the channel in the last 90 days, and to be at least 16 years old.\n\n' +
-          'ABOUT THE "50 SUBSCRIBERS" RULE YOU MAY HAVE READ ABOUT: it is real, but it only applies to going live from the YouTube phone app. Live Studio streams from a computer, which has no subscriber requirement at all. A brand-new channel with zero subscribers can stream your celebration.',
+          'ABOUT THE "50 SUBSCRIBERS" RULE YOU MAY HAVE READ ABOUT: it is real, but it only applies to going live from the YouTube phone app. Live Watch streams from a computer, which has no subscriber requirement at all. A brand-new channel with zero subscribers can stream your celebration.',
       },
       {
         slug: 'create-your-youtube-live-link',
@@ -644,7 +644,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
           '6. You now see two things you need to keep apart:\n' +
           '   - The STREAM URL and STREAM KEY. These go into your streaming software. The stream key is a password for your channel — never share it, never paste it into Setnayan or anywhere else.\n' +
           '   - The WATCH LINK, from the Share button. It looks like youtube.com/watch?v=... This is the one you paste into Setnayan.\n' +
-          '7. Open your dashboard, go to Studio, then Live Studio, and paste the watch link into the "How guests watch" box. Your celebration page will show a Watch Live player during the day.\n\n' +
+          '7. Open your dashboard, go to Studio, then Live Watch, and paste the watch link into the "How guests watch" box. Your celebration page will show a Watch Live player during the day.\n\n' +
           'The short version: the stream key goes to your streaming software, and the watch link goes to Setnayan. Getting those two the wrong way round is the one mistake worth being careful about.',
       },
       {

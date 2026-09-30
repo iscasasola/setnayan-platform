@@ -1,73 +1,36 @@
 /**
- * Is the guest list closed? — the ONE place that answers it (2026-08-20).
+ * Is the guest list closed? — the ONE place that answers it.
  *
- * The guest count finalizes at the couple's guest-list edit deadline (owner
- * decision ⑥ of Adaptive Pax Pricing, DECISION_LOG 2026-06-13): after it the
- * binding count is frozen, `guard_guest_edits_when_locked` refuses count
- * changes, and the couple's roster shows "Guest list finalized".
+ * ⚖ OWNER RULING 2026-09-30 (DECISION_LOG): *"i must click a finalize to
+ * finalize it."* The guest list is closed ONLY when the host pressed Finalize.
+ * No date closes it — not the reply-by date, not "14 days before the event",
+ * not the event day itself. Until the host presses Finalize, guests can reply
+ * and the host can add, change and remove names.
  *
- * 🔑 TWO THINGS ANSWER THIS QUESTION AND THEY DISAGREE FOR A WHILE.
- * `events.guest_count_locked_at` is the STAMP, and the stamp is written
- * lazily — `ensureFinalized` (lib/pax.ts) writes it the next time somebody on
- * the couple's side opens a page that asks. So between the deadline passing
- * and that visit, the stamp is still NULL while the list is, in fact, closed.
- * A guest-facing surface that reads only the stamp keeps taking replies for
- * days after the door shut, and stops at a moment no one chose — whenever the
- * couple happened to open their roster.
+ * 🔑 WHY THE DATE RULE HAD TO GO, MEASURED. Until this date, the list closed
+ * itself at `guest_list_edit_deadline` or, when none was set, at
+ * `event_date − 14 days`. A birthday created ON its own day ("Birthday
+ * Salubong ni Ate", 2026-09-30) had a deadline 14 days in the past from the
+ * moment it existed: the first Guest list visit stamped it finalized, every
+ * add was refused by `guard_guest_edits_when_locked`, and the host's "Add from
+ * your people" came back empty on the night of the party. Every stamp in
+ * production had come from that date rule, and all four were stamps nobody had
+ * asked for.
  *
- * So: the DEADLINE decides whether the list is closed, and the stamp is an
- * accelerator (once stamped it is closed, full stop, and it never un-closes
- * even if the couple later moves the deadline out).
+ * So `events.guest_count_locked_at` is now the host's own act, written only by
+ * `finalizeGuestList` (lib/pax.ts), after a confirm, and cleared again by
+ * `reopenGuestList`. `guest_list_edit_deadline` stays as the reply-by date the
+ * invitation PRINTS. It asks guests to reply by then and closes nothing.
  *
- * Pure by design — no DB, no React, no server-only imports — so both the
- * public event hub and the server-side finalize path derive from it instead of
- * re-typing the same date arithmetic. `ensureFinalized` used to own this math
- * privately; it now calls in here, so the two can never drift.
+ * Pure by design (no DB, no React, no server-only imports), so the public event
+ * hub, the reply path and the roster all derive from it and cannot drift.
  */
 
 /**
- * Fallback gap between the event and the guest-list deadline when the couple
- * never set one explicitly. Provisional; the explicit column always wins.
+ * Whether the guest list is closed right now: the host finalized it, which
+ * means the stamp is written. There is deliberately no date input, because a
+ * date that could close the list is exactly the defect this replaced.
  */
-export const FINALIZE_LEAD_DAYS = 14;
-
-/**
- * The instant the guest list stops taking changes, in epoch ms — the END of
- * the deadline DAY, parsed as UTC so the door shuts at the same instant no
- * matter what timezone the server is in.
- *
- * `null` = there is no deadline at all (no explicit date AND no event date),
- * so the list never closes on its own.
- */
-export function guestListDeadlineEndMs(
-  editDeadline: string | null | undefined,
-  eventDate: string | null | undefined,
-): number | null {
-  if (editDeadline) {
-    const ms = Date.parse(`${editDeadline}T23:59:59Z`);
-    return Number.isNaN(ms) ? null : ms;
-  }
-  if (eventDate) {
-    const d = new Date(`${eventDate}T23:59:59Z`);
-    if (Number.isNaN(d.getTime())) return null;
-    d.setUTCDate(d.getUTCDate() - FINALIZE_LEAD_DAYS);
-    return d.getTime();
-  }
-  return null;
-}
-
-/**
- * Whether the guest list is closed right now: already stamped, or the deadline
- * has passed. `nowMs` is injectable so tests never depend on the wall clock.
- */
-export function guestListIsClosed(input: {
-  lockedAt: string | null | undefined;
-  editDeadline: string | null | undefined;
-  eventDate: string | null | undefined;
-  nowMs?: number;
-}): boolean {
-  if (input.lockedAt) return true;
-  const end = guestListDeadlineEndMs(input.editDeadline, input.eventDate);
-  if (end == null) return false;
-  return (input.nowMs ?? Date.now()) > end;
+export function guestListIsClosed(input: { lockedAt: string | null | undefined }): boolean {
+  return Boolean(input.lockedAt);
 }

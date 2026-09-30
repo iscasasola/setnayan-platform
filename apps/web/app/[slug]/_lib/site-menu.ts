@@ -21,6 +21,15 @@ export const SITE_MENU_ANCHORS = {
 
 export type SiteMenuTabKey = keyof typeof SITE_MENU_ANCHORS;
 
+/**
+ * 🏠 THE DAY'S WELCOME — where the day's Welcome tab lands on a page that is
+ * still one scroll (the Maker's canvas, a menu switched off). Not a key of its
+ * own: the tab is `home`, the guest's own page, as on the Invitation (owner
+ * 2026-09-30, "THE DAY'S MENU HAS FIVE"); on the day `home` is simply not at the
+ * top of the page, because Live is.
+ */
+export const SITE_WELCOME_ANCHOR = 'site-welcome';
+
 export type SiteMenuTab = {
   key: SiteMenuTabKey;
   /** Human label — Home · Details · Story · Gallery · Me. */

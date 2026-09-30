@@ -271,6 +271,40 @@ export function anyoneMayAskToJoin(raw: unknown): boolean {
   return readWhoCanRsvp(raw) === 'anyone';
 }
 
+/**
+ * 🌐 CHOOSING PUBLIC TURNS ON "ASK TO JOIN" (owner 2026-09-29, DECISION_LOG
+ * "DISCOVER BUILD — TWO LAST ANSWERS", item 1: *"yes to both"*). An event listed
+ * on Discover with no way to ask is a dead end — the default "Only my Guest
+ * List" shows a stranger nothing to press.
+ *
+ * So the MOMENT visibility moves INTO `public` from anything else, "Who can
+ * RSVP?" becomes "Anyone, I approve". Returns the config to write, or `null`
+ * when nothing must change:
+ *   · not a transition into public (public → public, or to any other value) —
+ *     the host may have turned requests OFF after going public, and a later
+ *     save must never re-force it;
+ *   · already "Anyone, I approve" — nothing to write.
+ * Every other key the couple set rides through untouched (the same sanitizer
+ * the Maker's RSVP page and the join door read).
+ *
+ * ⚖ ONLY THE HOST'S EXPLICIT SWITCH asks this (`updateLandingPageVisibility`,
+ * the privacy page and the Maker's panel). LAUNCHING A SAVE-THE-DATE also makes
+ * the page public, and it does NOT — owner 2026-09-29 (DECISION_LOG "PUBLIC
+ * EVENTS (PR #6159) — TWO OWNER ANSWERS": "no"): sending a Save-the-Date is not
+ * announcing a public event, so the launch leaves "Who can RSVP?" as it was.
+ */
+export function rsvpAskConfigOnGoingPublic(input: {
+  previousVisibility: string | null | undefined;
+  nextVisibility: string;
+  rawConfig: unknown;
+}): RsvpAskConfig | null {
+  if (input.nextVisibility !== 'public') return null;
+  if (input.previousVisibility === 'public') return null;
+  const current = sanitizeRsvpAskConfig(input.rawConfig);
+  if (current.whoCanRsvp === 'anyone') return null;
+  return { ...current, whoCanRsvp: 'anyone' };
+}
+
 /** "Ask one question at a time" — absent reads as OFF (one scrolling page). */
 export function readOneAtATime(raw: unknown): boolean {
   return sanitizeRsvpAskConfig(raw).oneAtATime === true;
@@ -291,10 +325,50 @@ export const ONE_AT_A_TIME_TIP =
 export const WHO_CAN_RSVP_TIP =
   '“Anyone, I approve” lets people without a key ask to join. They wait in Requests until you Keep, Link or Remove them — nobody gets inside on a name alone.';
 
+/**
+ * THE REPLY-BY LINE A GUEST SEES — the invitation, the reply page and the
+ * reminder email all ask HERE, never `resolveReplyBy`.
+ *
+ * ⚖ Controller decision 2026-09-30, from the owner's same-day birthday: the
+ * invitation printed "Please reply by <a date 30 days before the party>" on an
+ * event created that morning. A guest may only ever be told a date the HOST
+ * SET, and only while it is still ahead of them. So:
+ *   · no host-set date (`guest_list_edit_deadline` NULL)  → no line at all
+ *     (the 30-day default is a SUGGESTION in the Maker, never a printed fact);
+ *   · a host-set date that has passed                       → no line at all;
+ *   · a host-set date today or later                        → that date.
+ * `today` is the event-local `YYYY-MM-DD`; pass `todayYmd()` unless a caller
+ * already has the event's zone.
+ */
+export function guestReplyBy(input: {
+  deadline: string | null | undefined;
+  today: string;
+}): { date: string } | null {
+  const set = (input.deadline ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}/.test(set)) return null;
+  const date = set.slice(0, 10);
+  if (date < input.today) return null;
+  return { date };
+}
+
+/** Today as `YYYY-MM-DD` in `timeZone` (default Asia/Manila — V1 is PH-first). */
+export function todayYmd(timeZone?: string | null, now: Date = new Date()): string {
+  const fmt = (tz: string) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  try {
+    return fmt((timeZone ?? '').trim() || 'Asia/Manila');
+  } catch {
+    return fmt('Asia/Manila');
+  }
+}
+
 /** How far before the day the reply-by date falls when the couple never set one. */
 export const DEFAULT_REPLY_BY_DAYS = 30;
 
 /**
+ * ⚠ HOST-SIDE ONLY (the Maker's editor). A guest-facing surface uses
+ * `guestReplyBy` above, which never prints the default or a passed date.
+ *
  * THE REPLY-BY DATE (brief item 4). The couple's own `guest_list_edit_deadline`
  * always wins and is never overwritten; only when it is unset does the default
  * — 30 days before the event — stand in, marked `isDefault` so the screen can

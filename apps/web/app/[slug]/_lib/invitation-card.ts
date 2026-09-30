@@ -13,11 +13,16 @@ import type { EventWords } from './event-words';
 import { formatBlockTimeRange } from '@/lib/schedule';
 import { SITE_MENU_ANCHORS } from './site-menu';
 import { HUB_LINK_DEFAULT_WORDS } from '@/lib/element-style';
+import { HUB_CARD_EYEBROWS } from '@/lib/hub-part-words';
 
 export type InvitationCard = {
   eyebrow: string;
   line: string | null;
   timeLabel: string | null;
+  /** 🗓 The first moment's start as stored and its own title — what Format ▾
+   *  writes the time from (`formatHubTime`); `timeLabel` is today's words. */
+  timeAt: string | null;
+  timeTitle: string | null;
   hubHref: string;
   hubLabel: string;
 };
@@ -42,7 +47,7 @@ export type InvitationCard = {
  * the masthead has always rendered.
  */
 export function mastheadEyebrow(words: Pick<EventWords, 'solemn'>): string | null {
-  return words.solemn ? null : 'You are invited';
+  return words.solemn ? null : HUB_CARD_EYEBROWS.one;
 }
 
 export function invitationCard(input: {
@@ -55,7 +60,7 @@ export function invitationCard(input: {
   const { words } = input;
   if (words.solemn) return null;
   return {
-    eyebrow: words.twoPeople ? 'Together with their families' : 'You are invited',
+    eyebrow: words.twoPeople ? HUB_CARD_EYEBROWS.twoPeople : HUB_CARD_EYEBROWS.one,
     line: words.twoPeople
       ? `invite you to celebrate their ${words.eventWord}`
       : 'invites you to celebrate',
@@ -66,6 +71,8 @@ export function invitationCard(input: {
     // so it wears that moment's own title — "Guests arrive 2:30 PM" — from the
     // data, never a word we invent. No title → "Starts 2:30 PM".
     timeLabel: firstMomentLine(input.firstStartAt, input.firstLabel),
+    timeAt: input.firstStartAt ?? null,
+    timeTitle: input.firstLabel ?? null,
     hubHref: `#${SITE_MENU_ANCHORS.details}`,
     // The couple may put their own words in its place (the `link` part).
     hubLabel: HUB_LINK_DEFAULT_WORDS,

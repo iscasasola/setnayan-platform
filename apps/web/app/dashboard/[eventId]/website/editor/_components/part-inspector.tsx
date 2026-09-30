@@ -32,7 +32,8 @@ import {
   hasTextStyle,
   hubSpacingLabel,
   sanitizeHubJoinerWord,
-  sanitizeHubPartLine,
+  sanitizeHubElementWord,
+  HUB_PART_SENTENCE_MAX,
   stepHubElementSize,
   stepHubSpacing,
   type HubElementAlign,
@@ -162,7 +163,7 @@ export function PartTextTab({
     <div data-part-tab="text">
       {has('word') && el === 'joiner' ? <JoinerRow word={style.word ?? null} onWord={(w) => choose('word', w)} /> : null}
       {has('word') && el !== 'joiner' ? (
-        <PartWordsRow word={style.word ?? null} hint={HUB_PART_WORDS_HINT[el] ?? ''} onWord={(w) => choose('word', w)} />
+        <PartWordsRow el={el} word={style.word ?? null} hint={HUB_PART_WORDS_HINT[el] ?? ''} onWord={(w) => choose('word', w)} />
       ) : null}
 
       {has('font') && !hideFont ? (
@@ -396,11 +397,12 @@ function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string |
  * part draws while it is empty. Cleared, it goes back to that (an absence, the
  * joiner's rule); taking the part off the page is Arrange → Hidden.
  */
-function PartWordsRow({ word, hint, onWord }: { word: string | null; hint: string; onWord: (w: string | null) => void }) {
+function PartWordsRow({ el, word, hint, onWord }: { el: HubElementKey; word: string | null; hint: string; onWord: (w: string | null) => void }) {
   const [text, setText] = useState(word ?? '');
   useEffect(() => setText(word ?? ''), [word]);
   const blank = text.trim().length === 0;
-  const ok = blank ? null : sanitizeHubPartLine(text);
+  // The part's own rule — a line (the link, the caption) or a sentence (the eyebrow, the invitation line).
+  const ok = blank ? null : sanitizeHubElementWord(text, el);
   const changed = (ok ?? null) !== word;
   return (
     <form
@@ -417,7 +419,7 @@ function PartWordsRow({ word, hint, onWord }: { word: string | null; hint: strin
       <input
         id="part-own-words"
         value={text}
-        maxLength={HUB_PART_LINE_MAX}
+        maxLength={el === 'eyebrow' || el === 'line' ? HUB_PART_SENTENCE_MAX : HUB_PART_LINE_MAX}
         onChange={(e) => setText(e.target.value)}
         placeholder={hint}
         className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"

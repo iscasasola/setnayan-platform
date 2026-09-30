@@ -863,8 +863,8 @@ test('the event rail is the one tree — five rows (Stage D)', () => {
     🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
     🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Personalization —
     renamed Details, drawn as the event's name row — stays in the EVENT's own
-    list. Hosts is now a part of the Guest list (`guestListParts`), and its
-    old address lands there; the Guest list row lights on it.
+    list. Hosts folded into the Guest list (its parts row was cut in F2), and
+    its old address lands there; the Guest list row lights on it.
   */
   const rows = groups.flatMap((g) => g.items);
   const personalization = rows.find((i) => i.key === 'personalization');
@@ -938,9 +938,11 @@ test('the Marketplace row is the one the mobile tabs also carry', () => {
     .flatMap((g) => g.items)
     .find((i) => i.key === 'explore');
   assert.equal(market?.href, '/dashboard/EVT123/vendors');
-  // EVENT-scoped row → "Your Team". The account row (/explore) says "Suppliers"
-  // and is asserted separately; the two must NOT be interchangeable.
-  assert.equal(market?.label, 'Your Team');
+  // EVENT-scoped row → "Suppliers" (owner 2026-10-01, "Home - Guests -
+  // Suppliers - Hub - More"; "Your Team" before). The account row (/explore)
+  // also says "Suppliers" — inside an event the rail FOCUSES on the event and
+  // draws no account rows (2026-09-21), so the two never sit side by side.
+  assert.equal(market?.label, 'Suppliers');
 });
 
 // ── 5 · CREATING A TRIP IS NEVER REFUSED ────────────────────────────────────

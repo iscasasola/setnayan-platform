@@ -622,8 +622,8 @@
  * the strip, the labels and the device cannot be one number. The fallback is
  * the bar's design height, for the first paint before the dock is measured.
  *
- * A pill that still floats ABOVE the dock — <TeamSummaryChip> on the Your Team
- * root, which flags `teamchip-docked` — adds its own room on top. The strip no
+ * (The floating team chip that flagged `teamchip-docked` was retired 2026-10-01:
+ * nothing floats at the bottom of the phone any more.) The strip no
  * longer needs a class of its own (`subnav-docked` used to add 8.5rem): it is
  * inside the dock, so the dock's height already counts it. Mobile-only — the
  * dock is lg:hidden, so desktop cancels all of it below.
@@ -631,8 +631,7 @@
 [data-shell-main] {
   padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 1.5rem);
 }
-html.guests-subnav-docked [data-shell-main],
-html.teamchip-docked [data-shell-main] {
+html.guests-subnav-docked [data-shell-main] {
   padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 5.5rem);
 }
 
@@ -669,8 +668,7 @@ html.teamchip-docked [data-shell-main] {
 }
 @media (min-width: 1024px) {
   [data-shell-main],
-  html.guests-subnav-docked [data-shell-main],
-  html.teamchip-docked [data-shell-main] {
+  html.guests-subnav-docked [data-shell-main] {
     padding-bottom: 0;
   }
 }
@@ -2713,13 +2711,20 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     transform: none;
   }
 }
+/* 🪤 `backwards`, NEVER `both`/`forwards` (Fix E, 2026-09-30). A transform
+ * animated to `none` and FILLED forwards ends as translateY(0) — an identity
+ * matrix, which still makes this element the containing block of every
+ * `position: fixed` inside it. The roster's bulk bar is fixed to the screen
+ * bottom; held by a filled wrapper it sat at the bottom of the whole LIST
+ * instead, off-screen on a phone. `backwards` shows the same motion and leaves
+ * no transform behind. (`the-bulk-bar-is-pinned-to-the-screen.test.ts`) */
 .gl-settle {
-  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 /* A hair of stagger so the roster settles just after the facet bar,
  * reading as one connected motion rather than two independent pops. */
 .gl-settle-delayed {
-  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
   animation-delay: 0.05s;
 }
 
@@ -4643,7 +4648,9 @@ html.dark {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
-.sn-lens-swap { animation: sn-lens-swap var(--sn-dur-elem) var(--sn-ease-out) both; }
+/* `backwards`, not `both`: a filled end transform traps `position: fixed`
+ * descendants (see `.gl-settle`). */
+.sn-lens-swap { animation: sn-lens-swap var(--sn-dur-elem) var(--sn-ease-out) backwards; }
 
 /* Selected-row affordance — the master row that owns the open inspector. */
 [data-inspector-selected='true'] {
@@ -7010,4 +7017,43 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   .fd.fd {
     --fd-rail: env(viewport-segment-left 1 0);
   }
+}
+
+/* ── .sn-switch — a yes/no answer drawn as a switch (owner 2026-09-30, the
+   Fable guest card: "Yes/No = toggles"). A real checkbox underneath, so it posts
+   `on` like any box, works with the keyboard and a screen reader, and the
+   autosave's undo can click it back. */
+.sn-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.625rem;
+  border-radius: 9999px;
+  background: rgb(26 26 26 / 0.18);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.sn-switch::after {
+  content: '';
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: #fffdf8;
+  box-shadow: 0 1px 3px rgb(26 26 26 / 0.3);
+  transition: transform 0.2s ease;
+}
+.sn-switch:checked {
+  background: #4f6b4a;
+}
+.sn-switch:checked::after {
+  transform: translateX(1.125rem);
+}
+.sn-switch:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }

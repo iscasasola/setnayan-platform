@@ -38,7 +38,6 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import {
   guestRoleLabel,
   ROLE_LABELS,
-  RSVP_LABELS,
   SIDE_LABELS,
   PLUS_ONE_CHOICES,
   guestDisplayName,
@@ -326,6 +325,15 @@ export function SideChipEditor({
  */
 export const GuestListFinalizedContext = createContext(false);
 
+/**
+ * Does THIS event have sides at all? (owner 2026-09-30: "why is there groom and
+ * bride's side for a simple event"). Provided by GuestListMultiselect from the
+ * event-type profile (`eventHasSides`), read by every row, header, bulk form and
+ * arrange menu below it. Defaults to TRUE so a surface mounted outside the
+ * provider keeps the wedding behaviour it always had.
+ */
+export const GuestListHasSidesContext = createContext(true);
+
 export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: GuestRow }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -407,14 +415,16 @@ export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: 
 
 // ── RSVP ─────────────────────────────────────────────────────────────────────
 
-const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'declined', 'maybe'];
-// One-tap mobile cycle (prototype RSVP_NEXT, :283) — skips 'maybe' (reachable
-// via the desktop popover).
-const RSVP_CYCLE: Record<RsvpStatus, RsvpStatus> = {
-  attending: 'pending',
-  pending: 'declined',
-  declined: 'attending',
-  maybe: 'attending',
+// Attending · No reply · Not coming (owner 2026-09-30, the Fable rows: "Tap the
+// pill → one dropdown; no cycling"). Maybe is listed only for a guest who still
+// holds it, so opening the list never rewrites an answer by itself.
+const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'declined'];
+/** The row's words for an answer — the approved list says "No reply" / "Not coming". */
+export const ROW_RSVP_WORDS: Record<RsvpStatus, string> = {
+  attending: 'Attending',
+  pending: 'No reply',
+  declined: 'Not coming',
+  maybe: 'Maybe',
 };
 
 /** True when this guest's RSVP is locked to Attending (the couple). */
@@ -426,14 +436,11 @@ export function RsvpChipEditor({
   eventId,
   guest,
   children,
-  mobileCycle = false,
   seatedTableLabel = null,
 }: {
   eventId: string;
   guest: GuestRow;
   children: ReactNode;
-  /** Mobile one-tap: clicking advances attending→pending→declined→attending. */
-  mobileCycle?: boolean;
   /** The guest's current seated table label (Living Roster P3) — folded into
    *  the decline undo toast ("Seat T3 freed") when a decline frees a real seat. */
   seatedTableLabel?: string | null;
@@ -497,7 +504,7 @@ export function RsvpChipEditor({
       const freedLabel = freed ? (freed.table_label ?? seatedTableLabel) : null;
       const seatNote = freed && freedLabel ? ` · Seat ${freedLabel} freed` : '';
       pushUndo({
-        label: `${name} · Declined${seatNote}`,
+        label: `${name} · Not coming${seatNote}`,
         undo: async () => {
           const back = {
             kind: 'setField' as const,
@@ -526,7 +533,7 @@ export function RsvpChipEditor({
     commit({
       override: { rsvp_status: value },
       priorOverride: { rsvp_status: guest.rsvp_status },
-      label: `${name} · ${RSVP_LABELS[value]}`,
+      label: `${name} · ${ROW_RSVP_WORDS[value]}`,
       run: () => setGuestRsvp(eventId, guest.guest_id, value),
       undoRun: () => setGuestRsvp(eventId, guest.guest_id, guest.rsvp_status),
       settledOverride: (res) => {
@@ -536,19 +543,6 @@ export function RsvpChipEditor({
     });
   };
 
-  if (mobileCycle) {
-    return (
-      <button
-        type="button"
-        onClick={() => pick(RSVP_CYCLE[guest.rsvp_status])}
-        aria-label={`Advance ${name}’s RSVP`}
-        className="inline-flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-      >
-        {children}
-      </button>
-    );
-  }
-
   return (
     <>
       <ChipTrigger triggerRef={ref} onOpen={() => setOpen(true)} label={`Change ${name}’s RSVP`}>
@@ -556,9 +550,9 @@ export function RsvpChipEditor({
       </ChipTrigger>
       {open ? (
         <Popover anchorRef={ref} onClose={() => setOpen(false)} width={180}>
-          {RSVP_OPTIONS.map((s) => (
+          {[...RSVP_OPTIONS, ...(guest.rsvp_status === 'maybe' ? (['maybe'] as const) : [])].map((s) => (
             <OptionRow key={s} onClick={() => pick(s)} active={guest.rsvp_status === s}>
-              {RSVP_LABELS[s]}
+              {ROW_RSVP_WORDS[s]}
             </OptionRow>
           ))}
         </Popover>

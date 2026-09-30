@@ -81,9 +81,10 @@ export function OurLoveStoryWidget({
             data-love-template={s.template}
             className="max-w-prose border-l border-ink/12 pl-5"
           >
-            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
-              {s.when ? `${s.when} · ` : ''}
-              {s.chapterLabel}
+            {/* `data-love-*`: the Maker's canvas lays a moment's words here as they
+                are typed (`applyLoveStoryPreview`, lib/maker-live-preview.ts). */}
+            <p data-love-when="" className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+              {`${s.when ? `${s.when} · ` : ''}${s.chapterLabel}`}
             </p>
             {photos.length > 0 ? (
               <div className={`mt-3 grid gap-2 ${photos.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
@@ -93,8 +94,10 @@ export function OurLoveStoryWidget({
                 ))}
               </div>
             ) : null}
-            <p className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">{s.line}</p>
-            {s.place ? <p className="mt-1 text-sm leading-relaxed text-ink/65">{s.place}</p> : null}
+            <p data-love-line="" className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">{s.line}</p>
+            <p data-love-place="" hidden={!s.place} className="mt-1 text-sm leading-relaxed text-ink/65">
+              {s.place ?? ''}
+            </p>
           </article>
         );
       })}

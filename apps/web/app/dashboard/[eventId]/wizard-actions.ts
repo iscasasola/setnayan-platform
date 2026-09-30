@@ -1284,7 +1284,7 @@ export async function listMoodboardSlots(eventId: string): Promise<
 // These 4 actions back the 3 new DIY-tier cards landed in this PR:
 //
 //   - setEstimatedPax           → SetEstimatedPaxCard (Card 02)
-//   - setEstimatedBudget        → SetEstimatedBudgetCard (Card 03)
+//   - (setEstimatedBudget — deleted 2026-09-30, unreferenced)
 //   - addToAddACategory         → AddACategoryCard (Card 09) · adds a pick
 //   - removeFromAddACategory    → AddACategoryCard (Card 09) · removes a pick
 //
@@ -1350,67 +1350,10 @@ async function setEstimatedPax(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
-/**
- * Card 03 (DIY) · Save working budget.
- *
- * Takes a peso value from the client, converts to centavos at the
- * boundary, persists to existing events.estimated_budget_centavos
- * column (already wired into BudgetCountdownHeader +
- * ShortlistBudgetCard surfaces · no new schema). Stamps wizard_state
- * .set_estimated_budget.completed_at so the resolver advances to
- * Card 04 on the next render.
- *
- * PHP centavos convention matches service_catalog.price_centavos
- * storage shape platform-wide.
- */
-export async function setEstimatedBudget(formData: FormData): Promise<void> {
-  const eventIdRaw = formData.get('event_id');
-  const pesosRaw = formData.get('pesos');
-
-  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
-    throw new Error('event_id required');
-  }
-  if (typeof pesosRaw !== 'string') {
-    throw new Error('Pick a budget before saving');
-  }
-  const pesos = Number.parseFloat(pesosRaw);
-  if (!Number.isFinite(pesos) || pesos < 1000 || pesos > 99_999_999) {
-    throw new Error('Budget must be between ₱1,000 and ₱99,999,999');
-  }
-  const centavos = Math.round(pesos * 100);
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: priorRow, error: priorErr } = await supabase
-    .from('events_host')
-    .select('wizard_state')
-    .eq('event_id', eventIdRaw)
-    .maybeSingle();
-  if (priorErr) throw new Error(priorErr.message);
-  if (!priorRow) throw new Error('Event not found');
-
-  const priorWizardState = parseWizardState(priorRow.wizard_state);
-  const newWizardState = setTaskComplete(
-    priorWizardState,
-    'set_estimated_budget',
-    { centavos },
-  );
-
-  const { error: updateErr } = await supabase
-    .from('events')
-    .update({
-      estimated_budget_centavos: centavos,
-      wizard_state: newWizardState,
-    })
-    .eq('event_id', eventIdRaw);
-  if (updateErr) throw new Error(updateErr.message);
-
-  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
-}
+// Card 03's `setEstimatedBudget` was deleted 2026-09-30: nothing imported it
+// (its card is gone), and each exported server action is one Vercel route under
+// a hard ceiling (scripts/lint-server-action-budget.mjs). Its slot went to the
+// guest list's Finalize / Reopen (guests/finalize-actions.ts).
 
 /**
  * Card 09 (DIY) · Add a canonical_service to the host's Add A Category

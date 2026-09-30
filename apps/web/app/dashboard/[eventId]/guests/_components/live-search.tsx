@@ -28,12 +28,14 @@ export function LiveSearch({
   initialValue,
   placeholder,
   className,
+  onValueChange,
 }: {
   initialValue: string;
   placeholder: string;
-  /** Extra classes for the box. The desktop search uses it to make room for an
-   *  icon inside; the phone carousel passes nothing and renders as before. */
+  /** Extra classes for the box — the top bar's guest search sizes it to the bar. */
   className?: string;
+  /** Told every keystroke — the top bar's escape row carries what was typed. */
+  onValueChange?: (value: string) => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -48,8 +50,10 @@ export function LiveSearch({
   // an external param change.
   useEffect(() => {
     setValue(initialValue);
+    onValueChange?.(initialValue);
     // initialValue is derived from URL params upstream so this effect
     // re-runs on any URL change that affects q.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValue]);
 
   const pushNextUrl = useCallback(
@@ -80,6 +84,7 @@ export function LiveSearch({
       onChange={(e) => {
         const next = e.target.value;
         setValue(next);
+        onValueChange?.(next);
         if (timerRef.current) clearTimeout(timerRef.current);
         if (!next.trim()) {
           // Clear-to-empty fires immediately so the reset feels snappy

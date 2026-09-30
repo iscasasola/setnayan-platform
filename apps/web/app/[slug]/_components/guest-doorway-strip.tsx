@@ -1,6 +1,6 @@
-import type { EventWords } from '../_lib/event-words';
+import { giftIsMoneyDance, type EventWords } from '../_lib/event-words';
 import Link from 'next/link';
-import { ArrowRight, Boxes, Gift, Radio } from 'lucide-react';
+import { ArrowRight, Boxes, Gift, Heart, Radio } from 'lucide-react';
 
 /**
  * GuestDoorwayStrip — the two finished guest pages, and the one sentence about
@@ -43,9 +43,14 @@ export function GuestDoorwayStrip({
   personalised,
   dateLabel,
   words,
+  tabAttrs = {},
 }: {
   /** The event type's own words. */
   words: EventWords;
+  /** 📱 Which tab of a tabbed page these doors are on (`site-body.tsx`
+   *  `pageTabs.attrs`) — `data-hub-tab`, and `hidden` off that tab. Empty on a
+   *  page that is one scroll. */
+  tabAttrs?: { 'data-hub-tab'?: string; hidden?: boolean };
   /** `/[slug]/venue`, or null → do not draw. */
   venueWalk: string | null;
   /** `/[slug]/pabuya`, or null → do not draw. */
@@ -61,6 +66,7 @@ export function GuestDoorwayStrip({
 
   return (
     <aside
+      {...tabAttrs}
       className="mx-auto mt-6 w-full max-w-3xl space-y-3 px-4"
       aria-label="More for guests"
     >
@@ -111,12 +117,17 @@ function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
   return (
     <DoorCard
       href={href}
-      icon={<Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+      icon={words.solemn ? <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} /> : <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
       title="E-Gifts"
       detail={
+        // 💃 The money dance is a WEDDING tradition (2026-09-30) — a debut's or
+        // a graduation's guest read it on this card. giftIsMoneyDance decides;
+        // every other celebratory type gets the plain line; the wake keeps its own.
         words.solemn
           ? `A gift of sympathy — straight to ${words.theOrganizer}.`
-          : `The digital money dance — straight to ${words.theOrganizer}.`
+          : giftIsMoneyDance(words)
+            ? `The digital money dance — straight to ${words.theOrganizer}.`
+            : `Send E-Gifts straight to ${words.theOrganizer}.`
       }
     />
   );

@@ -4,6 +4,7 @@ import {
   logQueryError,
 } from '@/lib/supabase/error-detect';
 import { roleNameOne, type RoleNames } from '@/lib/role-names';
+import { styledName, type NameStyle } from '@/lib/name-style';
 
 export type GuestRole =
   | 'guest'
@@ -890,6 +891,11 @@ export function guestDisplayName(
  *
  * Returns null when there is nothing usable, so a caller can drop the row
  * rather than print an empty line where a person should be.
+ *
+ * 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE PICKS
+ * A NAME STYLE"): `style` prints the parts as Full · Middle initial · Surname
+ * first (`lib/name-style.ts`). Omitted = Full = the line this printed before.
+ * A Display name still wins in every style — it is printed as given.
  */
 export function guestFullName(guest: {
   /* ⚠ EVERY PART IS `string | null | undefined`, AND NOT `Partial<Pick<GuestRow,…>>`.
@@ -904,23 +910,13 @@ export function guestFullName(guest: {
   middle_name?: string | null;
   last_name?: string | null;
   name_suffix?: string | null;
-}): string | null {
+}, style?: NameStyle): string | null {
   const chosen = guest.display_name?.trim();
   if (chosen) return chosen;
   /* Order is the printed order, and every part is optional EXCEPT that at least
-     one must survive. A lone stray space between two absent parts is what the
-     filter is for — `${a} ${b}` with both empty is the bug this avoids. */
-  const whole = [
-    guest.name_prefix,
-    guest.first_name,
-    guest.middle_name,
-    guest.last_name,
-    guest.name_suffix,
-  ]
-    .map((part) => (part ?? '').trim())
-    .filter(Boolean)
-    .join(' ');
-  return whole || null;
+     one must survive — `styledName` skips a blank part, so `${a} ${b}` with
+     both empty (a lone stray space) can never print. */
+  return styledName(guest, style);
 }
 
 /**
@@ -946,8 +942,8 @@ export function guestFullName(guest: {
  * QR code, which is worse than printing the compact name — a card nobody can
  * hand to anybody.
  */
-export function printedCardName(guest: GuestRow): string {
-  return guestFullName(guest) ?? guestDisplayName(guest);
+export function printedCardName(guest: GuestRow, style?: NameStyle): string {
+  return guestFullName(guest, style) ?? guestDisplayName(guest);
 }
 
 export function guestInitials(guest: GuestRow): string {

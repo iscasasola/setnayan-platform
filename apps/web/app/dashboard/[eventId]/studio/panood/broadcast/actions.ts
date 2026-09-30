@@ -185,7 +185,7 @@ export async function setLive(
     if (!allowed) {
       return {
         error:
-          'Your 24-hour broadcast window has ended. Unlock Live Studio again for this event day to go back on air.',
+          'Your 24-hour broadcast window has ended. Unlock Live Watch again for this event day to go back on air.',
       };
     }
   }

@@ -87,6 +87,10 @@ import {
   defaultPriorityOrder,
   defaultTablePosition,
   effectiveCapacity,
+  autoArrangeNewTableKey,
+  autoArrangeSummary,
+  autoSeatRoom,
+  tablesToAddForAutoSeat,
   groupTablesIntoUnits,
   guestTier,
   removedSeatSet,
@@ -1187,6 +1191,33 @@ export function SeatingEditor({
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
     const fp = boothFp();
+    // Owner 2026-09-30 ("it did not add tables"): when the guests who haven't
+    // declined need more chairs than the room holds, Auto Arrange ADDS the
+    // room's default table until everyone fits. The server decides (fresh data);
+    // here the same count adds placeholder rows so the new tables are laid out
+    // in the stage-out rings WITH the rest, sent under autoArrangeNewTableKey.
+    const maxSort = tables.reduce((m, t) => Math.max(m, t.sort_order), -1);
+    const added: EventTableRow[] = tablesToAddForAutoSeat(
+      autoSeatRoom(
+        tables,
+        guests,
+        guests.flatMap((g) => (g.seated_table_id ? [{ guest_id: g.guest_id, table_id: g.seated_table_id }] : [])),
+        roleSet,
+      ).shortfall,
+      tables.map((t) => t.table_label),
+      { skipFour: chineseTradition },
+    ).map((t, i) => ({
+      table_id: autoArrangeNewTableKey(t.label),
+      public_id: '',
+      event_id: eventId,
+      table_label: t.label,
+      table_type: t.type,
+      capacity: t.capacity,
+      sort_order: maxSort + 1 + i,
+      x_pos: null,
+      y_pos: null,
+    }));
+    const arranging = added.length > 0 ? [...tables, ...added] : tables;
     // Council verdict § 5: Auto Arrange is now a VERIFIED metric solver over the
     // same oracle — every placed slot passes checkPlacement (no silent stacking).
     // Booths become hard no-go zones; the metric walkway drives the gaps.
@@ -1200,7 +1231,7 @@ export function SeatingEditor({
           }))
         : [];
     const solved = solveAutoLayout({
-      tables,
+      tables: arranging,
       floorPlan: {
         ...fp,
         dance_enabled: dance.enabled,
@@ -1226,10 +1257,10 @@ export function SeatingEditor({
     // existing spiral rather than a fake parked coordinate.
     const overflow = solved.unplaced.filter((id) => !layout[id]);
     for (const id of overflow) {
-      const t = tables.find((x) => x.table_id === id);
+      const t = arranging.find((x) => x.table_id === id);
       if (!t) continue;
-      const i = tables.indexOf(t);
-      const base = positions[id] ?? defaultGrid(i, tables.length, !venueScaled);
+      const i = arranging.indexOf(t);
+      const base = positions[id] ?? defaultGrid(i, arranging.length, !venueScaled);
       layout[id] = nearestFree(base.x, base.y, t, rect, (o) => layout[o.table_id] ?? null);
     }
     // Sized room → hug the walls; free venue → a row behind the tables.
@@ -1237,7 +1268,7 @@ export function SeatingEditor({
       ? boothPerimeterSlots(fp, booths.length)
       : freeBoothSlots(
           { x: stage.x, y: stage.y },
-          tables.map((t, i) => layout[t.table_id] ?? positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled)),
+          arranging.map((t, i) => layout[t.table_id] ?? positions[t.table_id] ?? defaultGrid(i, arranging.length, !venueScaled)),
           booths.length,
         );
     const nextBooths = booths.map((b, i) => ({
@@ -1274,14 +1305,22 @@ export function SeatingEditor({
       const fitCount = Object.keys(solved.placed).length;
       const overflowNote =
         overflow.length > 0
-          ? ` ⚠ ${overflow.length} table${overflow.length === 1 ? "" : "s"} couldn't fit cleanly at the ${aisleM.toFixed(1)} m walkway (${formatCount(fitCount)} of ${formatCount(tables.length)} fit)${
+          ? ` ⚠ ${overflow.length} table${overflow.length === 1 ? "" : "s"} couldn't fit cleanly at the ${aisleM.toFixed(1)} m walkway (${formatCount(fitCount)} of ${formatCount(arranging.length)} fit)${
               solved.altPlacedAtFloor > fitCount ? ` — at 0.6 m (Tight) ${solved.altPlacedAtFloor} fit` : ''
             }. Try a narrower walkway, fewer tables, or a bigger room.`
           : '';
+      // The counts come from the SERVER (tables it added, guests it could not
+      // seat) — never from this client's guess — so the toast cannot claim
+      // "everyone has a seat" while anyone is still without one.
       setNotice(
-        (res.seated > 0
-          ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}, ${formatCount(res.seated)} guest${res.seated === 1 ? '' : 's'} seated.`
-          : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone who hasn't declined already has a seat.`) +
+        autoArrangeSummary({
+          tables: tables.length + res.tablesAdded,
+          tablesAdded: res.tablesAdded,
+          booths: nextBooths.length,
+          boothWhere,
+          seated: res.seated,
+          unseated: res.unseated,
+        }) +
           keepApartNote +
           overflowNote,
       );
@@ -7511,7 +7550,8 @@ export function SeatingEditor({
               <li>
                 <span className="font-semibold text-ink/85">1 · Tables</span> — laid out in a grid
                 fanning from the stage; head &amp; family tables land nearest it. The dance floor
-                stays clear.
+                stays clear. If your guests need more seats than your tables hold, Round (10 seats)
+                tables are added until everyone fits.
               </li>
               <li>
                 <span className="font-semibold text-ink/85">2 · Booths</span> —{' '}

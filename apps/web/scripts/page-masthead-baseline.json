@@ -3,7 +3,6 @@
   "app/dashboard/[eventId]/_components/day-of-mode/whats-happening-card.tsx",
   "app/dashboard/[eventId]/budget/_components/budget-setter.tsx",
   "app/dashboard/[eventId]/budget/page.tsx",
-  "app/dashboard/[eventId]/hosts/page.tsx",
   "app/dashboard/[eventId]/invitation/page.tsx",
   "app/dashboard/[eventId]/launch/page.tsx",
   "app/dashboard/[eventId]/orders/[orderId]/page.tsx",

@@ -26,6 +26,9 @@ import { venueNowMs } from '@/lib/schedule';
 import { wallDateKey } from '@/lib/schedule-rail';
 
 const PLAN_DATE = '2026-12-18';
+const LAB_SLOT = 'schedule-lab-inspector';
+/** A quiet write's "no render": the stand-in stops before it changes the fixtures. */
+const QUIET = Symbol('quiet');
 
 const SUPPLIERS: DaySupplier[] = [
   { vendor_id: 'v-gaia', vendor_name: 'Gaia Florals' },
@@ -134,6 +137,12 @@ export default function ScheduleLabClient() {
   const [when, setWhen] = useState<'plan' | 'live'>('plan');
   const [refuse, setRefuse] = useState(false);
   const [log, setLog] = useState<string[]>([]);
+  /* ⚡ `?maker=1` — the rail as the Event Hub Maker draws it (Details › Schedule,
+     2026-09-30): its inspector in a slot beside it, every write QUIET. A quiet
+     write brings back no render, so here the fixtures are NOT changed by a save
+     (the rail must show the edit on its own); each write is recorded on
+     `window.__labWrites` with its time, to measure edit → save. */
+  const [maker] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('maker') === '1');
 
   const venueNow = new Date(venueNowMs());
   const todayKey = wallDateKey(venueNow.toISOString());
@@ -160,8 +169,21 @@ export default function ScheduleLabClient() {
         throw new Error('refused by the lab');
       }
       say(`✓ ${name} · ${shown}`);
+      const w = window as unknown as { __labWrites?: Array<{ at: number; name: string; shown: string }> };
+      (w.__labWrites ??= []).push({ at: performance.now(), name, shown });
+      /* A quiet Maker write answers with no render: the fixtures stay as they were. */
+      if (maker) throw QUIET;
     };
-    return {
+    const quietly =
+      <A extends (fd: FormData) => Promise<unknown>>(fn: A) =>
+      async (fd: FormData) => {
+        try {
+          return await fn(fd);
+        } catch (e) {
+          if (e !== QUIET) throw e;
+        }
+      };
+    const all: DayActions = {
       async updateScheduleBlock(fd) {
         await gate('updateScheduleBlock', fd);
         const id = str(fd, 'block_id');
@@ -261,8 +283,9 @@ export default function ScheduleLabClient() {
         setRequests((r) => (r ?? seedRequests(dateKey)).filter((x) => x.suggestion_id !== id));
       },
     };
+    return Object.fromEntries(Object.entries(all).map(([k, fn]) => [k, quietly(fn)])) as DayActions;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refuse, dateKey]);
+  }, [refuse, dateKey, maker]);
 
   const strip = moments
     .filter((m) => m.parent_block_id === null)
@@ -312,6 +335,7 @@ export default function ScheduleLabClient() {
 
       <ScheduleDay
         key={`${role}-${when}`}
+        inspectorSlot={maker ? LAB_SLOT : null}
         actions={actions}
         eventId="lab"
         eventType="wedding"
@@ -328,6 +352,8 @@ export default function ScheduleLabClient() {
         emcee={null}
         hostPanel={<p className="text-[13px] text-ink/60">Your booked host&rsquo;s segments, questions and a note to them sit here.</p>}
       />
+
+      {maker ? <aside id={LAB_SLOT} data-lab-slot="" className="rounded-xl bg-white/60 p-2" /> : null}
 
       {log.length > 0 ? (
         <ol className="space-y-0.5 font-mono text-[11px] text-ink/55">

@@ -30,6 +30,7 @@ import {
   type RsvpStatus,
   PLUS_ONE_CHOICES,
   plusOneSeats,
+  guestFullName,
 } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
@@ -303,6 +304,7 @@ export function GuestCardBody({
                 eventId={eventId}
                 guest={{
                   guestId: guest.guest_id,
+                  formalName: guestFullName(guest),
                   firstName: guest.first_name,
                   fullName: guestDisplayName(guest),
                   inviteUrl: guest.qr_token ? `${invitationBase}?invite=${guest.qr_token}` : null,

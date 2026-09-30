@@ -45,3 +45,23 @@ SPEC IMPACT: None. This applies the owner's 2026-09-30 wording to the shipped
 five-part name. Profile and Guest list Prefix are still free text, so the
 guest-side dropdown is the only place Prefix is a choice. That is flagged for
 the owner.
+
+## 2026-09-30 · fix(invite): the couple's invite message says the guest's name as given
+
+Owner, verbatim: *"we want the copy to indicate the name as given. to them"*.
+`{name}` in "Send invite" / "Copy message" / the share sheet
+(`lib/guest-invite-message.ts`) is now `guestFullName`: the couple's own
+Display name when they set one, otherwise the five parts composed ("Mr. Manuel
+Cortez Casasola Jr."). It is never a first name alone. Every couple-side caller
+passes it: the guest card (list and guest page), "Send invites one by one", the
+Invitation page (both layouts), and an accepted request. `SendInviteGuest.formalName`
+is required, so a new caller cannot leave it out. The rest of the wording, "Hi"
+included, is unchanged. The editor's placeholder hint now reads "their name, as
+on your Guest list".
+
+Guarded by `apps/web/lib/the-invite-says-the-name-as-given.test.ts`.
+
+Not changed: a guest's own "Send their invite" to their plus-one (the 'guest'
+voice) still greets the seat's first name.
+
+SPEC IMPACT: None.

@@ -164,11 +164,37 @@ reuses the desktop control:
 Each commit: tsc, lint, `lint:port-controls`, `lint:dup-rule`, then the FULL unit suite from
 `apps/web` (bracketed paths run zero tests).
 
-## Open owner questions
+## Owner answers (2026-09-30, verbatim, then how they read against the plan)
 
-1. Once Hosts is gone, the only list of who holds access is the Overview's Hosts card. Is that enough,
-   or should the guest list get a "Hosts" filter (rows with Access ≠ None)?
-2. On the phone, RSVP stops being always visible on every card once one column is picked. Is that
-   intended?
-3. If prod still has legacy email co-host seats or pending non-planner email invites: keep them under
-   the roster until they expire or are removed, or let them expire with no door?
+**Q1: who holds access, once Hosts is gone.** Owner: *"the next immediate host added. when no more
+host. then no more control. it will just be archive files that people can track in the future for
+reference."*
+
+Read as follows. Confirm with the owner if a build needs finer detail.
+- **On the guest list, co-hosts and helpers come right after the Bride & Groom.** The list of who holds
+  access is the roster itself, in a hosts group directly under the couple. No separate Hosts page and
+  no filter.
+- **When someone stops being a host (Access → None), all their control ends at once.** There is no
+  leftover grant, area or colour switch.
+- **What they did stays as a read-only archive.** Their delegate activity and colour changes remain
+  on record, for anyone to look back on later. Nothing is deleted with the seat, and nothing in it can
+  be acted on.
+
+This replaces the plan's "Overview's Hosts card is the only list". The Overview feed from §3 is still
+fine as a summary.
+
+**Q2: RSVP on the phone.** Owner: *"yes"*. One picked column per card is intended, even though RSVP
+is no longer always visible.
+
+**Q3: legacy email co-hosts / pending non-planner email invites.** Owner: *"yes they need to be
+reinvited"*, then *"unless they are already linked"*.
+- **Legacy seat whose person is already linked to a guest on this event's list:** carry it over.
+  Attach the seat to that guest row (set `guest_id`), so it shows in the Access column with the level
+  it already has. No re-invite.
+- **Legacy seat or pending email invite with no linked guest:** it does not carry over. There is no
+  `LegacyHostSeats` block. The couple re-invites them by adding them to the guest list and setting
+  their Access.
+- **Measure prod first** with the legacy-seat query in §3. "Already linked" means the seat's `user_id`
+  has an `event_members` row on this event with a non-null `guest_id`.
+- **Doing the carry-over is a data change**, so it ships as a migration through the pipeline, never
+  as a direct prod write.

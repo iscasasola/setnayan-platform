@@ -350,7 +350,7 @@ test('the shops heading is derived from the shared composer, not hardcoded', () 
   assert.ok(
     arms.some((a) => /trending/i.test(a)) &&
       arms.some((a) => /first/i.test(a)) &&
-      arms.includes("'Shops'"),
+      arms.some((a) => a === "'Shops'"),
     `expected a Trending arm, a "first shops" arm and a plain "Shops" arm, saw: ${arms.join(', ')}`,
   );
 });

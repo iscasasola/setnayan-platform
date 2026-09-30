@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "004383126",
+  "generatedFromRef": "bffcac8c",
   "routeCount": 439,
   "destinations": 949,
   "actions": 672,
-  "blocks": 5223,
+  "blocks": 5230,
   "routes": {
     "/": {
       "files": [
@@ -803,6 +803,7 @@
         "[slug]/_components/hub-scene-runs.tsx",
         "[slug]/_components/hub-scenes.tsx",
         "[slug]/_components/hub/hub-shell.tsx",
+        "[slug]/_components/in-app-bar.tsx",
         "[slug]/_components/invitation-shell.tsx",
         "[slug]/_components/invitation-skeleton.tsx",
         "[slug]/_components/live-wall-block.tsx",
@@ -890,6 +891,7 @@
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/ticket-picture.tsx",
+        "[slug]/_components/ticket-popup.tsx",
         "[slug]/_components/ticket-row.tsx",
         "[slug]/_components/tier-comparison-widget.tsx",
         "[slug]/_components/upload-your-qr.tsx",
@@ -1048,6 +1050,7 @@
         "FindInThisDay",
         "FindModeCard",
         "Flap",
+        "FormalNameInputs",
         "FourFlapEnvelope",
         "Fragment",
         "FromTheCouple",
@@ -1484,11 +1487,14 @@
         "CopyMyLink",
         "DoorNotice",
         "DoorShell",
+        "InAppBar",
         "InviteQrPanel",
         "Link",
         "RsvpCanvasBridge",
+        "SavePassCardButton",
         "SaveToAccount",
-        "TicketRow",
+        "TicketPicture",
+        "TicketPopup",
         "YourGuests"
       ]
     },
@@ -1706,6 +1712,7 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "FormalNameInputs",
         "FromRow",
         "Link",
         "PlusOneDoor",
@@ -9479,6 +9486,8 @@
         "DoorShell",
         "FormFlash",
         "FormPageSkeleton",
+        "FormalName",
+        "FormalNameInputs",
         "InvalidTokenScreen",
         "JoinFlow",
         "JoinShell",

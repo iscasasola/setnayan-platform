@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestSession } from '@/lib/guest-session';
 import { resolveRenamedEventSlug } from '@/lib/slug-forwarding';
+import { inviteEnterPath } from '@/lib/invite-arrival';
 import { recordScan } from '@/lib/scan-trail';
 import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { PLUS_ONE_WELCOMED_COOKIE, plusOneWelcomeDue } from '@/lib/plus-one-welcome';
@@ -197,5 +198,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/${event.slug}/welcome`, url.origin));
   }
 
-  return NextResponse.redirect(target);
+  /* 🚪 THE PERSONAL LINK OPENS THE GUEST'S OWN LANDING PAGE (owner 2026-09-30,
+     DECISION_LOG row of that name): the couple's message, "Reply to the
+     invitation" until they reply, their Digital ticket, their guests, how to
+     use it, and "Open the invitation". Built from `event.slug` — the
+     database's own spelling, never the query's. */
+  return NextResponse.redirect(new URL(inviteEnterPath(event.slug), url.origin));
 }

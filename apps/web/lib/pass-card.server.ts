@@ -12,6 +12,7 @@ import { loadPrintSet, printOwnsPro, type LoadedPrintSet } from '@/lib/print-set
 import { renderPassCardPng } from '@/lib/pass-card-render';
 import { renderInvitationQrPng } from '@/lib/qr';
 import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   filterPassCardRows,
@@ -144,7 +145,12 @@ export type PassCardKit = {
   arrive: string | null;
   /** bringer guest_id → how many NAMED companions they bring who are coming. */
   party: Map<string, number>;
+  /** 🎟 guest_id → their table and seat — filled ON THE DAY only (`readTicketSeats`). */
+  seats: Map<string, TicketSeat>;
 };
+
+/** One guest's place, as a ticket prints it: "Table 7" (or the table's own name) and the seat number. */
+export type TicketSeat = { seat: string | null; seatNumber: string | null };
 
 /**
  * The event's half of every card. The theme is the couple's own — unless it is
@@ -164,10 +170,11 @@ export async function loadPassCardKit(
     set = await loadPrintSet(eventId, { mode: 'screen', withEventQr: false, previewTheme: CLASSIC_PRINT_THEME });
     if (!set) return null;
   }
-  const [words, arrive, party] = await Promise.all([
+  const [words, arrive, party, seats] = await Promise.all([
     eventWordsForEvent(eventId).catch(() => null),
     readArriveLabel(admin, eventId),
     readPartyCounts(admin, eventId, opts.seatsFor),
+    readTicketSeats(admin, eventId),
   ]);
   const eyebrow = words ? (words.solemn ? 'In memory of' : `The ${words.eventWord} of`) : set.data.eyebrow;
   const eventWord = words ? words.eventWord.charAt(0).toUpperCase() + words.eventWord.slice(1) : undefined;
@@ -182,7 +189,37 @@ export async function loadPassCardKit(
     qrLook: { ...set.qrLook, dark: '#111111', light: '#FFFFFF' },
     data: { ...set.data, eyebrow, eventWord, details: { ...set.data.details, guestNames: true, setnayanMark: !ownsPro } },
   };
-  return { set, arrive, party };
+  return { set, arrive, party, seats };
+}
+
+/**
+ * 🎟 THE SEATS A TICKET CARRIES — ON THE DAY ONLY (owner 2026-09-30, verbatim:
+ * *"their digital Ticket will also update on the date of the event with the
+ * seat number"*). Before 00:00 Manila on the event's date this reads NOTHING —
+ * the ticket's half of the one seat rule (`guestsMaySeeSeatsFor(…, { ticket:
+ * true })` → `ticketShowsTable`), never the couple's "show early" switch. A
+ * failed read is an empty map: a ticket with no table is true; a wrong one is not.
+ */
+export async function readTicketSeats(admin: SupabaseClient, eventId: string): Promise<Map<string, TicketSeat>> {
+  const out = new Map<string, TicketSeat>();
+  if (!(await guestsMaySeeSeatsFor(admin, eventId, { ticket: true }))) return out;
+  const [{ data: seats, error }, { data: tables, error: tErr }] = await Promise.all([
+    admin.from('event_seat_assignments').select('guest_id, table_id, seat_number').eq('event_id', eventId),
+    admin.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
+  ]);
+  if (error || tErr) {
+    logQueryError('pass-card.seats', error ?? tErr, { event_id: eventId }, 'graceful_degrade');
+    return out;
+  }
+  const label = new Map(((tables ?? []) as Array<{ table_id: string; table_label: string | null }>).map((t) => [t.table_id, t.table_label]));
+  for (const s of (seats ?? []) as Array<{ guest_id: string; table_id: string; seat_number: number | null }>) {
+    const l = label.get(s.table_id)?.trim() || null;
+    out.set(s.guest_id, {
+      seat: l ? (/^\d+$/.test(l) ? `Table ${l}` : l) : null,
+      seatNumber: s.seat_number != null ? String(s.seat_number) : null,
+    });
+  }
+  return out;
 }
 
 async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<string | null> {
@@ -236,10 +273,10 @@ async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerId
 export function passCardPass(kit: PassCardKit, g: PassCardGuest, qrRef: string | null): PrintPass {
   return {
     name: passCardGuestName(g),
-    // 🪑 NO TABLE ON THE DIGITAL TICKET (owner 2026-09-30: "no seat plan on the
-    // digital ticket for the moment"). The ticket is a saved picture; a table
-    // the couple moves later would sit on it wrong. Find my seat has the live one.
-    seat: null,
+    // 🪑 THE TABLE ON THE DAY (owner 2026-09-30, "THE TICKET GAINS THE SEAT ON
+    // THE DAY"): `kit.seats` is empty before 00:00 Manila on the event's date.
+    seat: kit.seats.get(g.guest_id)?.seat ?? null,
+    seatNumber: kit.seats.get(g.guest_id)?.seatNumber ?? null,
     qrRef,
     serial: null,
     arrive: kit.arrive,
@@ -310,7 +347,7 @@ export async function renderPassCardFor(
   // 🔓 A pending request's ticket (frame B): no facts, the band, and always the
   // Classic card — the one layout that draws the band.
   const pass = opts.pending
-    ? { ...passCardPass(kit, g, ref), seat: null, arrive: null, party: 0, bringing: null, pending: opts.pending }
+    ? { ...passCardPass(kit, g, ref), seat: null, seatNumber: null, arrive: null, party: 0, bringing: null, pending: opts.pending }
     : passCardPass(kit, g, ref);
   const doc = layoutPassCard({ look: set.look, data: set.data, mode: 'screen', foil: false }, pass, opts.pending ? 'classic' : design);
   return renderPassCardPng(doc, { ...set.images, [ref]: { bytes: new Uint8Array(qr), mime: 'image/png' } });

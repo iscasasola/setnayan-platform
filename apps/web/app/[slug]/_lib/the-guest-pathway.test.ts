@@ -104,9 +104,12 @@ test('1 · WIRING: the event page redirects a key with missing answers to the RS
     PAGE,
     // A plus-one is gated by `plusOneGate` instead — their own door, the
     // minimum four (owner 2026-09-29) — never the full reply.
-    /if \(!isPlusOne && keyGate\.kind === 'ask' && !isEditorCanvas && !ownerCapability\) \{\s*redirect\(inviteReplyPath/,
-    'the gate must spare only the Maker canvas, the event’s own host, and a plus-one (who has their own door)',
+    /if \(!isPlusOne && keyGate\.kind === 'ask' && !isEditorCanvas && !ownerCapability && !openedFromLanding\) \{\s*redirect\(inviteReplyPath/,
+    'the gate must spare only the Maker canvas, the event’s own host, a plus-one (who has their own door), and the landing page’s "Open the invitation"',
   );
+  // 🚪 The one exemption is the landing page's own link (owner 2026-09-30,
+  // frame 1) — an exact value, never "any `from`".
+  assert.match(PAGE, /const openedFromLanding = search\[LANDING_OPEN_PARAM\] === LANDING_OPEN_VALUE;/);
   assert.match(PAGE, /didntReply: keyGate\.kind === 'inside' && keyGate\.didntReply/, 'the "Didn\'t reply" mark no longer reaches the page');
   assert.match(BODY, /\{g\.didntReply \? \(/, 'the "Didn\'t reply · you\'re in" chip is not drawn');
 });
@@ -259,10 +262,13 @@ test('3 · the method is chosen by the DEVICE, never shown as a choice', () => {
   assert.equal(saveMethodFor(ANDROID, { apple: false, google: false }), 'link', 'no provider must fall back to the guest’s own link, never an email');
 });
 
-test('3 · WIRING: the thank-you mounts ONE Save, "Your guests", and a small "Not now"', () => {
+test('3 · WIRING: the landing page mounts ONE Save, "Your guests", and ONE way into the invitation', () => {
   assert.match(ENTER, /<SaveToAccount\b/);
   assert.match(ENTER, /<YourGuests\b/);
-  assert.match(ENTER, />\s*Not now\s*</);
+  // 2026-09-30: "Open the invitation" (the phase's own words) replaced the
+  // thank-you's "Not now" — the landing page has one way in, not two.
+  assert.equal(ENTER.split('{destinationWords.cta}').length - 1, 2, 'one open link before a reply, one button after — never both');
+  assert.doesNotMatch(ENTER, />\s*Not now\s*</, 'a second way into the invitation came back');
   // Each plus-one's link is built from THEIR OWN key by the one url speller.
   assert.match(ENTER, /buildInvitationUrl\(\{ \.\.\.qrParams, qrToken: s\.qrToken \}\)/);
 });

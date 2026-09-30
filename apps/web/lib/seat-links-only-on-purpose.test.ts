@@ -169,7 +169,7 @@ test('4 · the Link picker never lists a couple seat (executed)', () => {
   ];
   assert.deepEqual(unlinkedCandidates(rows, new Set()).map((r) => r.guest_id), ['c']);
   // The page reads the role — without it the filter has nothing to decide on.
-  assert.match(code('app/dashboard/[eventId]/guests/claims/page.tsx'), /\.select\('guest_id, first_name, last_name, display_name, role, extra_roles'\)/);
+  assert.match(code('app/dashboard/[eventId]/guests/claims/page.tsx'), /\.select\('guest_id, first_name, last_name, display_name, role, extra_roles(?:, [a-z_, ]+)?'\)/);
 });
 
 // ── 5 · ASKED BEFORE IT BINDS ──────────────────────────────────────────────

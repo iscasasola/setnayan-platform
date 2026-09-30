@@ -17,7 +17,7 @@ import { rsvpGate } from '@/lib/guest-one-path';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
 import { hubDoorSkin } from '../_components/hub-door-skin';
-import { readRsvpWords, resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { guestReplyBy, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
@@ -235,14 +235,14 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
      IS an answer to stand on — a guest the key gate sent here has not got one. */
   const hasAnswered = gate.kind === 'inside' && ((guest.rsvp_status as string | null) ?? 'pending') !== 'pending';
 
-  // "Reply by" — the SAME date the couple sees on the Maker's RSVP page
-  // (`resolveReplyBy`, lib/rsvp-ask.ts: their own deadline, else 30 days before
-  // — owner 2026-09-26 "yes to all" (d)). Never shown once the list is locked.
+  // "Reply by" — only a date the HOST set that is still ahead (`guestReplyBy`,
+  // lib/rsvp-ask.ts; controller 2026-09-30: never the 30-day default, never a
+  // passed date). Never shown once the list is locked.
   const replyBy = replyLocked
     ? null
-    : resolveReplyBy({
+    : guestReplyBy({
         deadline: event.guest_list_edit_deadline as string | null,
-        eventDate: event.event_date as string | null,
+        today: todayYmd(),
       });
   // ONE date formatter on this page (guest text audit 2026-09-30): the event
   // date above reads "Friday, December 18, 2026" (`formatEventDateWithPrecision`

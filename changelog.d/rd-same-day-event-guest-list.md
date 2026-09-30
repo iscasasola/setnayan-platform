@@ -23,6 +23,10 @@ finalized", and "Add from your people" added nobody.
   name goes on with the missing-surname mark `—`. The side choice is one PickMenu. Migration `20271257194736`: a
   connected person whose node has no name is named from their account (first + last, then display name). The
   WHERE fence is byte-identical.
+- **A guest never reads a passed or default reply-by date** (controller decision). New `guestReplyBy` in
+  `lib/rsvp-ask.ts` returns a date only when the host SET one and it is today or later. The invitation, the reply
+  page and the reminder email use it; `resolveReplyBy` (with its 30-day default) is left for the host's Maker only.
+  Guard: `lib/a-guest-never-reads-a-passed-reply-by.test.ts`.
 - Empty Guest list copy: "No guests yet. Start by adding your first guest."
 - Deleted the unreferenced `setEstimatedBudget` action to keep the server-action budget at its ceiling.
 - Guards (each sabotaged red, then restored): `lib/guest-list-closed.test.ts`,

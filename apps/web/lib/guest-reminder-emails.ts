@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
 import { PASSED_AWAY, type GuestRole } from '@/lib/guests';
-import { readGuestReminders, resolveReplyBy } from '@/lib/rsvp-ask';
+import { guestReplyBy, readGuestReminders } from '@/lib/rsvp-ask';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { hasReplied } from '@/lib/venue-disclosure';
 import { buildInvitationUrl } from '@/lib/qr';
@@ -259,7 +259,8 @@ async function remindOneEvent(
   const listClosed = guestListIsClosed({
     lockedAt: ev.guest_count_locked_at,
   });
-  const replyBy = resolveReplyBy({ deadline: ev.guest_list_edit_deadline, eventDate: ev.event_date });
+  // Only a date the host set, still ahead (controller 2026-09-30) — never the default.
+  const replyBy = guestReplyBy({ deadline: ev.guest_list_edit_deadline, today });
 
   let sent = 0;
   for (const g of guests) {

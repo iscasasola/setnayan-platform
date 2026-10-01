@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e6bdfb29c",
-  "routeCount": 440,
-  "destinations": 944,
-  "actions": 675,
-  "blocks": 5311,
+  "generatedFromRef": "1b516db6",
+  "routeCount": 441,
+  "destinations": 951,
+  "actions": 676,
+  "blocks": 5332,
   "routes": {
     "/": {
       "files": [
@@ -793,6 +793,7 @@
         "[slug]/_components/face-receipt-card.tsx",
         "[slug]/_components/face-tagging-row.tsx",
         "[slug]/_components/get-inside.tsx",
+        "[slug]/_components/get-tickets.tsx",
         "[slug]/_components/guest-account-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-checklist.tsx",
@@ -916,6 +917,7 @@
         "[slug]/_components/ticket-popup.tsx",
         "[slug]/_components/ticket-row.tsx",
         "[slug]/_components/tier-comparison-widget.tsx",
+        "[slug]/_components/type-in-place-canvas.ts",
         "[slug]/_components/upload-your-qr.tsx",
         "[slug]/_components/vendor-doorway.tsx",
         "[slug]/_components/venue-styles.tsx",
@@ -1097,6 +1099,7 @@
         "GalleryPreview",
         "Gap",
         "GetInside",
+        "GetTickets",
         "GiftDoorCard",
         "GlowBlob",
         "GracefulFallback",
@@ -1998,6 +2001,7 @@
       ],
       "destinations": [
         "/admin/demo-vendors/inquiries",
+        "/admin/events/[seg]",
         "/admin/users/[seg]",
         "/admin/vendors/[seg]/edit",
         "/admin/vendors/[seg]/plan",
@@ -2684,6 +2688,7 @@
         "Link",
         "OnboardingEditor",
         "OnboardingOverrideRow",
+        "OnboardingReadFailed",
         "PageMasthead",
         "SubmitButton",
         "TypeQuestion"
@@ -2702,6 +2707,7 @@
       "blocks": [
         "Link",
         "PageMasthead",
+        "ProfileReadFailed",
         "ProfileRow",
         "SubmitButton"
       ]
@@ -2716,6 +2722,25 @@
       "actions": [],
       "blocks": [
         "EventDeleteSnapshot"
+      ]
+    },
+    "/admin/events/[eventId]": {
+      "files": [
+        "admin/events/[eventId]/page.tsx"
+      ],
+      "destinations": [
+        "/admin/accounts?tab=events",
+        "/admin/users/[seg]"
+      ],
+      "actions": [
+        "setEventFaceMode"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "ConsoleTable",
+        "Link",
+        "PageMasthead",
+        "SubmitButton"
       ]
     },
     "/admin/force-majeure": {
@@ -3237,6 +3262,7 @@
         "PaymentsList",
         "PlatformChip",
         "ProofImage",
+        "ReadFailedNotice",
         "ReceiptReadCard",
         "RefundForm",
         "Stat",
@@ -4077,6 +4103,7 @@
       "destinations": [
         "/admin/concierge-abuse",
         "/admin/disputes",
+        "/admin/events/[seg]",
         "/admin/help",
         "/admin/payments",
         "/admin/user-reports",
@@ -5290,6 +5317,8 @@
         "Money",
         "MoreServicesSheet",
         "MoreSheet",
+        "MoreSheetRow",
+        "NextCard",
         "NikahEssentialsCard",
         "OpenWalletButton",
         "OverviewDecisionInspector",
@@ -8922,6 +8951,7 @@
         "dashboard/[eventId]/website/editor/_components/sections-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/text-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/tools-resize.tsx",
+        "dashboard/[eventId]/website/editor/_components/type-in-place.tsx",
         "dashboard/[eventId]/website/editor/_components/unlock-label.ts",
         "dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts",
         "dashboard/[eventId]/website/editor/actions.ts",
@@ -9080,6 +9110,9 @@
         "Thumb",
         "TileHead",
         "ToolsResizeHandle",
+        "TypeBar",
+        "TypeSession",
+        "TypeStart",
         "V",
         "VisibilityPanel",
         "Window",
@@ -9396,13 +9429,17 @@
     "/dev/hero-lab": {
       "files": [
         "dev/hero-lab/mark.ts",
-        "dev/hero-lab/page.tsx"
+        "dev/hero-lab/page.tsx",
+        "dev/hero-lab/type-lab.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
         "BespokeMonogramMark",
-        "PahinaMasthead"
+        "HTMLDivElement",
+        "HTMLElement",
+        "PahinaMasthead",
+        "TypeLab"
       ]
     },
     "/dev/home-lab": {
@@ -10906,6 +10943,7 @@
         "vendor-dashboard/_components/qr-section.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/spotlight-award-banner.tsx",
+        "vendor-dashboard/_components/supplier-today-first-screen.tsx",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
         "vendor-dashboard/_components/vendor-nav-destinations.ts",
@@ -10928,17 +10966,19 @@
         "/vendor-dashboard",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients",
+        "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
+        "/vendor-dashboard/customers?lane=waiting",
         "/vendor-dashboard/earnings",
         "/vendor-dashboard/locked-qr",
-        "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/more",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
-        "/vendor-dashboard/performance",
+        "/vendor-dashboard/payday",
         "/vendor-dashboard/proposals",
         "/vendor-dashboard/reviews",
         "/vendor-dashboard/shop",
@@ -10976,7 +11016,6 @@
         "BranchPinMap",
         "BranchRow",
         "CardShell",
-        "CashFlowTile",
         "Collapsible",
         "ComingSoon",
         "Connected",
@@ -10985,9 +11024,7 @@
         "CountUp",
         "DeleteRequestBody",
         "DisputeBody",
-        "EarnedTile",
         "EmptyCard",
-        "EnergyKpi",
         "EventLockedByFee",
         "FeedCard",
         "FieldSaveResult",
@@ -11008,6 +11045,10 @@
         "MediaTile",
         "MeetingBody",
         "MessageBody",
+        "MiniTour",
+        "MoreSheet",
+        "MoreSheetComp",
+        "NextCard",
         "NotConnected",
         "NothingToAnswerFeed",
         "OngoingTasks",
@@ -11016,7 +11057,6 @@
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "Pips",
-        "ProgressRing",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
         "QrActions",
@@ -11033,16 +11073,15 @@
         "State",
         "StepRow",
         "SubmitButton",
+        "SupplierTodayFirstScreen",
         "SyncResult",
         "TrackRecordRow",
         "UnreadBellBadge",
         "UpcomingSchedules",
         "VendorBottomNav",
         "VendorDealFacts",
-        "VendorEnergyStats",
         "VendorFirstSteps",
         "VendorRailContext",
-        "VendorTodayFocal",
         "WhatsNewFeed"
       ]
     },
@@ -11228,6 +11267,7 @@
         "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients/[seg]?tab=details",
+        "/vendor-dashboard/customers?open=availability",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [
@@ -11539,6 +11579,7 @@
       "files": [
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
+        "vendor-dashboard/customers/_components/customers-pick.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
@@ -11561,6 +11602,7 @@
         "CustomerSectionBody",
         "CustomersCalendar",
         "CustomersFilterBar",
+        "CustomersPick",
         "CustomersPipeline",
         "CustomersRoster",
         "FeatureAccordion",
@@ -11568,7 +11610,9 @@
         "Link",
         "ListPager",
         "MessagesSurface",
+        "MiniTour",
         "PaydaySurface",
+        "PickMenu",
         "ProposalsSurface",
         "R",
         "RosterRow",
@@ -11883,7 +11927,9 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "GridPageSkeleton"
+        "Icon",
+        "Link",
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/notifications": {

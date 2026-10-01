@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * vendor-nav-destinations.ts — THE five, once.
+ * vendor-nav-destinations.ts — THE four, once.
  *
  * ─── 🔴 THIS FILE IS CLIENT-ONLY, AND THAT IS NOT A STYLE CHOICE ──────────
  * It calls `navIconComponent`, which lives in a `'use client'` module and
@@ -139,7 +139,7 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
   },
 ] as const;
 
-/** The five wrapped as the single labelled group the old sidebar rendered. */
+/** The four wrapped as the single labelled group the old sidebar rendered. */
 export function vendorNavGroups(): NavGroup[] {
   return [{ key: 'shell-business', label: 'Menu', items: [...VENDOR_DESTINATIONS] }];
 }

@@ -80,6 +80,7 @@ import {
   owedToYouPhp,
 } from '@/lib/supplier-today';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
+import { formatPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -546,6 +547,31 @@ export default async function VendorOverviewPage({
           </div>
         ) : null}
       </header>
+
+      {/*
+        YOUR MONEY — the two figures the old "Today at" tile and cash-flow ring
+        carried, kept one scroll down (owner rule for this redraw: nothing
+        removed). Each opens the ledger it summarises; "—" when a read failed,
+        never ₱0.
+      */}
+      {earnings ? (
+        <div className="mb-6 grid grid-cols-2 gap-2" data-today-money>
+          <Link href="/vendor-dashboard/earnings" className="sn-glass-bare sn-press rounded-xl px-3 py-3">
+            <span className="block text-[11.5px] text-ink/55">Earned this year</span>
+            <span className="block font-display text-[20px] leading-tight text-ink">
+              {earnings.earningsMeasured ? formatPhp(earnings.earnedThisYearPhp) : '—'}
+            </span>
+          </Link>
+          <Link href="/vendor-dashboard/payday" className="sn-glass-bare sn-press rounded-xl px-3 py-3">
+            <span className="block text-[11.5px] text-ink/55">Confirmed of booked</span>
+            <span className="block font-display text-[20px] leading-tight text-ink">
+              {earnings.paydayMeasured
+                ? `${formatPhp(earnings.confirmedPhp)} / ${formatPhp(earnings.expectedPhp)}`
+                : '—'}
+            </span>
+          </Link>
+        </div>
+      ) : null}
 
       {/* Why couples can't find you. Mutually exclusive with the rail below by
           construction — `shopFindability` returns the silent state whenever the

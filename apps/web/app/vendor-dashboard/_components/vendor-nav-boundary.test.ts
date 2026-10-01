@@ -181,3 +181,31 @@ test('both vendor nav surfaces read the registry slot map', () => {
     );
   }
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE BAR OF FOUR, AND MORE FROM ONE LIST — owner-APPROVED 2026-10-01
+   (DECISION_LOG "THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED
+   ANSWERS", answer 1: Messages lives in More; the bar is Today · Customers ·
+   Shop · More; Insights + Event Hub + Messages in More).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('the phone bar is Today · Customers · Shop · More — four keys, that order', () => {
+  const src = code(read(join(HERE, 'vendor-bottom-nav.tsx')));
+  const list = src.slice(src.indexOf('VENDOR_BOTTOM_NAV_ITEMS'), src.indexOf('export function VendorBottomNav'));
+  const keys = [...list.matchAll(/^\s{4}key: '([^']+)'/gm)].map((m) => m[1]);
+  assert.deepEqual(keys, ['profile', 'customers', 'shop', 'more']);
+});
+
+test('More’s rows are written ONCE — the sheet and the /more page both read lib/vendor-more-rows.ts', () => {
+  const bar = code(read(join(HERE, 'vendor-bottom-nav.tsx')));
+  const page = code(read(join(HERE, '..', 'more', 'page.tsx')));
+  assert.match(bar, /vendorMoreRows\(/, 'the bar’s More sheet builds its own rows');
+  assert.match(page, /vendorMoreRows\(/, 'the /more page builds its own rows');
+  const rows = code(read(join(WEB_ROOT, 'lib', 'vendor-more-rows.ts')));
+  for (const key of ['messages', 'performance', 'on-the-day']) {
+    assert.match(rows, new RegExp(`key: '${key}'`), `${key} is not a More row — owner answer 1 says it lives in More`);
+  }
+  // A plain module: the /more page is a server component and must read the values.
+  assert.equal(declaresUseClient(read(join(WEB_ROOT, 'lib', 'vendor-more-rows.ts'))), false);
+  assert.doesNotMatch(rows, /\bnavIconComponent\b/, 'More rows resolve a nav icon — that call is client-only');
+});

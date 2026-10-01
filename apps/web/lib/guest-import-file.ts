@@ -139,7 +139,7 @@ function groupFromCell(v: string): GuestGroupCategory | null {
   return null;
 }
 
-/** A role cell matches its key (`best_man`) or its usual word ("Best Man"). */
+/** A role cell matches its key (`bridesmaid`) or its usual word ("Bridesmaid"). */
 function roleFromCell(v: string, offered: readonly string[]): GuestRole | null {
   const n = norm(v);
   for (const role of offered) {

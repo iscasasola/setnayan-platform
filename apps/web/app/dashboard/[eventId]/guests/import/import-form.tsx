@@ -44,7 +44,7 @@ export function GuestImportForm({ action }: { action: Action }) {
     const rest = rows.filter((r) => r.status !== 'look');
     return (
       <section className="space-y-4" aria-live="polite">
-        <div className="rounded-lg border border-ink/10 bg-cream p-4">
+        <div>
           <h2 className="text-base font-semibold text-ink">
             We found {plural(found + counts.look, 'guest', 'guests')}
             {counts.look ? ` · ${counts.look} need${counts.look === 1 ? 's' : ''} a look` : ''}
@@ -56,9 +56,9 @@ export function GuestImportForm({ action }: { action: Action }) {
         {look.length ? (
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-terracotta-700">Need a look — not added</h3>
-            <ul className="divide-y divide-ink/10 rounded-lg border border-terracotta/30">
+            <ul className="divide-y divide-terracotta/20">
               {look.map((r) => (
-                <li key={r.line} className="px-3 py-2 text-sm">
+                <li key={r.line} className="py-2 text-sm">
                   <span className="font-medium text-ink">Row {r.line} · {r.name}</span>
                   <span className="block text-ink/70">{r.reason}</span>
                 </li>
@@ -69,9 +69,9 @@ export function GuestImportForm({ action }: { action: Action }) {
         ) : null}
 
         {rest.length ? (
-          <ul className="divide-y divide-ink/10 rounded-lg border border-ink/10">
+          <ul className="divide-y divide-ink/10">
             {rest.map((r) => (
-              <li key={r.line} className="flex items-baseline justify-between gap-3 px-3 py-2 text-sm">
+              <li key={r.line} className="flex items-baseline justify-between gap-3 py-2 text-sm">
                 <span className="min-w-0 truncate text-ink">{r.name}</span>
                 <span className="shrink-0 text-xs text-ink/55">
                   {r.status === 'new' ? 'New' : r.status === 'changed' ? `Update: ${(r.changes ?? []).join(', ')}` : 'No change'}
@@ -102,7 +102,7 @@ export function GuestImportForm({ action }: { action: Action }) {
   }
 
   return (
-    <form action={run} className="space-y-3 rounded-lg border border-ink/10 bg-cream p-4">
+    <form action={run} className="space-y-3">
       <h2 className="text-base font-semibold text-ink">2 · Upload it</h2>
       <p className="text-sm text-ink/70">
         Save your list as CSV, then upload it. Excel: File › Save As › CSV · Numbers: File › Export To › CSV ·

@@ -4,6 +4,9 @@ import { EventCelebrants, type CelebrantActions } from './event-celebrants';
 import { NotYouSwitch } from './not-you-switch';
 import { SaveToAccount } from './save-to-account';
 import { YourGuests } from './your-guests';
+import { FaceTaggingRow } from './face-tagging-row';
+import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import type { FaceTaggingWish } from '@/lib/face-tagging-wish';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
 
 /**
@@ -27,6 +30,8 @@ import type { InviteEventFacts } from '@/lib/guest-invite-message';
 export function GuestMe({
   name,
   slug,
+  hasFaceSelfie = false,
+  faceTagging = null,
   eventId,
   guestId,
   askMeal,
@@ -37,7 +42,7 @@ export function GuestMe({
   passes,
   passCards = null,
   account,
-  hasEmail,
+  personalLink,
   userAgent,
   termsCarried,
   inviteFacts,
@@ -49,6 +54,17 @@ export function GuestMe({
   slug: string;
   eventId: string;
   /** Whose key this page holds — the bringer, for "Add name" in place. */
+  /** The guest holds a face-tagging selfie — Switch erases it, and says so first (owner 2026-09-30). */
+  hasFaceSelfie?: boolean;
+  /** Me → "Face tagging" (the approved face-registration design, frame D). Null
+   *  where face tagging is not on offer — no Papic, or switched off (frame F). */
+  faceTagging?: {
+    on: boolean;
+    open: boolean;
+    faceMode: PapicFaceMode;
+    wish: FaceTaggingWish;
+    turnOff: (formData: FormData) => Promise<void>;
+  } | null;
   guestId: string;
   /** The couple's "ask" switches — a plus-one is asked only what they ask. */
   askMeal: boolean;
@@ -62,7 +78,8 @@ export function GuestMe({
    *  named plus-one's who is coming. Null: they have no card yet. */
   passCards?: { own: string; plusOnes: Readonly<Record<string, string>> } | null;
   account: GuestAccountState | null;
-  hasEmail: boolean;
+  /** This guest's own invitation link — handed over where no provider can sign in. */
+  personalLink: string | null;
   userAgent: string | null;
   termsCarried: boolean;
   /** The event's words for "Send their invite". */
@@ -78,7 +95,7 @@ export function GuestMe({
     <div className="space-y-6" data-guest-me>
       <div>
         <p className="font-serif text-2xl leading-tight text-ink">{name}</p>
-        <NotYouSwitch slug={slug} />
+        <NotYouSwitch slug={slug} erasesSelfie={hasFaceSelfie} />
       </div>
       <YourGuests
         guests={guests}
@@ -89,6 +106,7 @@ export function GuestMe({
         inviteFacts={inviteFacts}
         passCards={passCards}
       />
+      {faceTagging ? <FaceTaggingRow {...faceTagging} /> : null}
       <EventCelebrants
         eventId={eventId}
         celebrants={celebrants}
@@ -100,7 +118,7 @@ export function GuestMe({
           state={account}
           eventId={eventId}
           slug={slug}
-          hasEmail={hasEmail}
+          personalLink={personalLink}
           userAgent={userAgent}
           termsCarried={termsCarried}
         />

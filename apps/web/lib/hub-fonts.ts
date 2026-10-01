@@ -84,7 +84,7 @@ export const HUB_FONT_KEYS = [
 ] as const;
 export type HubFontKey = (typeof HUB_FONT_KEYS)[number];
 
-/** The dropdown's shelves, in the order they are shown. */
+/** The catalogue's kinds — the order the dropdown's "All fonts" shelf lists them in. */
 export const HUB_FONT_GROUPS = ['Serif', 'Script', 'Sans', 'Display'] as const;
 export type HubFontGroup = (typeof HUB_FONT_GROUPS)[number];
 
@@ -151,7 +151,8 @@ export const HUB_FONTS: readonly HubFont[] = [
 ];
 
 /**
- * ⭐ THE FIVE MOST-USED FACES ON THE EVENT HUB — shown first in the dropdown.
+ * ⭐ THE FIVE MOST-USED FACES ON THE EVENT HUB — the dropdown's "Most used"
+ * shelf, under the couple's own "Recently used" (`hubFontShelves`).
  *
  * Owner, 2026-09-27: *"place on top the top 5 most used fonts on the website.
  * so it is easy for them to manage."*
@@ -166,24 +167,11 @@ export const HUB_FONTS: readonly HubFont[] = [
  */
 export const HUB_FONTS_MOST_USED: readonly HubFontKey[] = ['cormorant', 'cormorantsc', 'jost', 'quicksand', 'outfit'];
 
-/** The group heading the five sit under. */
-export const HUB_FONTS_MOST_USED_GROUP = 'Most used';
-
-/**
- * The dropdown's order: the five most used first, then every other face on its
- * shelf. ⛔ A face appears ONCE — the five are not repeated below.
+/*
+ * The dropdown's order — Recently used · Most used · All fonts, each face once —
+ * is `hubFontShelves` (`lib/hub-font-shelves.ts`), drawn by the one font
+ * dropdown every picker in the editor uses (`font-pick.tsx`, owner 2026-09-29).
  */
-export function hubFontsForPicker(): Array<HubFont & { pickGroup: string }> {
-  const top = new Set<string>(HUB_FONTS_MOST_USED);
-  const out: Array<HubFont & { pickGroup: string }> = HUB_FONTS_MOST_USED.map((k) => ({
-    ...HUB_FONT_BY_KEY[k],
-    pickGroup: HUB_FONTS_MOST_USED_GROUP,
-  }));
-  for (const g of HUB_FONT_GROUPS) {
-    for (const f of HUB_FONTS) if (f.group === g && !top.has(f.key)) out.push({ ...f, pickGroup: g });
-  }
-  return out;
-}
 
 export const HUB_FONT_BY_KEY: Readonly<Record<HubFontKey, HubFont>> = Object.freeze(
   Object.fromEntries(HUB_FONTS.map((f) => [f.key, f])) as Record<HubFontKey, HubFont>,

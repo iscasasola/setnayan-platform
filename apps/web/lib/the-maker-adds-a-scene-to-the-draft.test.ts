@@ -97,7 +97,7 @@ test('D · the added scene is hidden from guests live, and shown only through th
   const live = { events: {}, widgets: [liveAdded] };
   const { items, orphans } = classifyHubDraft(draft, live);
   assert.deepEqual(orphans, []);
-  const show = items.find((i) => i.kind === 'widget' && i.field === 'is_visible');
+  const show = items.find((i): i is Extract<typeof i, { kind: 'widget' }> => i.kind === 'widget' && i.field === 'is_visible');
   assert.ok(show && show.value === true, 'Apply must write is_visible: true for the added scene');
   const isShow = (i: { kind: string; widgetType?: string; field?: string; value?: unknown }) =>
     i.kind === 'widget' && i.widgetType === 'custom_1' && i.field === 'is_visible' && i.value === true;
@@ -238,7 +238,8 @@ test('T · the toolbar ＋ is not "coming next" any more — it opens the same d
     }
   }
   console.log(`[add-a-scene] "+ Add a scene" sheets, all drafted: ${adds}`);
-  assert.equal(adds, 2);
+  // 3 since 2026-09-29: Post Event's own "+" (its twelve presets) is the third.
+  assert.equal(adds, 3);
 });
 
 test('the stage rule: a scene of their own may be added on every stage today (one function to re-point)', () => {

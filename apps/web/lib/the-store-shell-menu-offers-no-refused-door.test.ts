@@ -17,17 +17,20 @@
  *
  * ── WHAT THIS HOLDS ─────────────────────────────────────────────────────────
  * Every event menu — the rail and ☰ drawer (`buildCustomerNavGroups`), the
- * bottom bar (`buildCustomerMenuTree`), the moment strip
- * (`eventMomentForPath` → `eventMomentChildren`) and the tree they all read
+ * one bottom bar (`buildCustomerMenuTree`) and the tree they both read
  * (`buildEventMenuSections`) — is walked in every phase, with the real Studio
  * rows a wedding gets, and EVERY href is checked against the SAME refusal
  * middleware applies (`isStoreShellWebOnlyPath`). The refused list is never
  * restated here, so a product added to it tomorrow is covered the day it is.
  *
- * 🪞 BOTH WAYS. With `storeShell: false` the same walk MUST find refused doors
- * (Papic, Setnayan AI…) — otherwise the store-shell half would be passing on a
- * tree that never contained anything to refuse, which is a guard that cannot
- * go red.
+ * 🔄 STAGE D (2026-09-29) CHANGED WHY IT HOLDS. The menu is five rows and no
+ * product is a row any more — Papic and Setnayan AI are cards on Our Services,
+ * which filters its own cards in the shell. The strip that offered "Setnayan
+ * AI" is retired. So refused products now reach the menu only as CLAIMS (the
+ * pages that light Our Services), never as doors — and this pins exactly that:
+ * the premise (refused products ARE in the list the menu is handed, and ARE
+ * claimed), then the assertion (no door, web or shell, is refused), then the
+ * bar (the same five in the shell as on the web — nothing to re-spread).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,8 +39,7 @@ import {
   buildCustomerMenuTree,
   buildEventMenuSections,
   eventMenuRowClaims,
-  eventMomentChildren,
-  eventMomentForPath,
+  eventMenuRows,
   storeShellRefusesMenuRow,
   type EventStudioRow,
 } from './customer-menu';
@@ -72,68 +74,53 @@ function everyDoor(phase: (typeof PHASES)[number], storeShell: boolean): Door[] 
     for (const i of g.items) doors.push({ menu: 'rail/☰', label: i.label, href: i.href });
   }
 
-  for (const m of buildCustomerMenuTree(EVENT_ID, { ...ctx, dayOfOpen: true })) {
+  for (const m of buildCustomerMenuTree(EVENT_ID, ctx)) {
     doors.push({ menu: 'bar', label: m.label, href: m.href });
-    for (const c of m.children ?? []) {
-      if (c.href) doors.push({ menu: 'bar child', label: c.label, href: c.href });
-    }
-  }
-
-  // The strip, from EVERY page any row claims — that is every page it can dock on.
-  for (const s of sections) {
-    for (const r of s.rows) {
-      for (const at of eventMenuRowClaims(r)) {
-        const moment = eventMomentForPath(at, sections);
-        for (const c of eventMomentChildren(at, moment)) {
-          if (c.href) doors.push({ menu: `strip@${at}`, label: c.label, href: c.href });
-        }
-      }
-    }
   }
   return doors;
 }
 
 const refusedAmong = (doors: Door[]) => doors.filter((d) => isStoreShellWebOnlyPath(path(d.href)));
 
-/* ══ 0 · THE PREMISE — the walk reaches refused doors when nothing filters ══ */
+/* ══ 0 · THE PREMISE — refused products ARE handed to the menu ══════════ */
 
-test('🪞 on the web, the same walk DOES offer refused doors (so the next test can fail)', () => {
+test('🪞 the menu is handed refused products, and claims their pages — so the next test can fail', () => {
+  const refusedProducts = STUDIO_ROWS.filter((r) => isStoreShellWebOnlyPath(path(r.href)));
+  assert.ok(
+    refusedProducts.some((r) => r.key === 'papic'),
+    'the wedding product list no longer contains a refused product (Papic) — this guard would be ' +
+      'walking a menu with nothing to refuse',
+  );
   for (const phase of PHASES) {
-    const refused = refusedAmong(everyDoor(phase, false));
-    const labels = new Set(refused.map((d) => d.label));
+    const claims = eventMenuRows(
+      buildEventMenuSections(EVENT_ID, { phase, websiteEnabled: true, seatingEnabled: true, studioRows: STUDIO_ROWS }),
+    ).flatMap(eventMenuRowClaims);
     assert.ok(
-      labels.has('Papic'),
-      `${phase}: the web menus no longer offer Papic at all — this guard would be walking a ` +
-        `tree with nothing to refuse. Found refused: ${[...labels].join(', ') || '(none)'}`,
-    );
-    assert.ok(
-      refused.some((d) => d.menu === 'bar'),
-      `${phase}: no refused door reaches the BAR on the web — the blank-slot case is no longer exercised`,
-    );
-    assert.ok(
-      refused.some((d) => d.menu.startsWith('strip@')),
-      `${phase}: no refused door reaches a moment STRIP on the web — the Setnayan-AI-on-the-Suite case is no longer exercised`,
+      claims.some((c) => isStoreShellWebOnlyPath(c)),
+      `${phase}: no refused page is even CLAIMED — the premise changed; re-read this guard`,
     );
   }
 });
 
 /* ══ 1 · THE ASSERTION ═══════════════════════════════════════════════════ */
 
-test('🍎 in the store shell, no event menu offers a door the app would refuse', () => {
+test('🍎 no event menu offers a door the app would refuse — in the shell, and on the web too', () => {
   for (const phase of PHASES) {
-    const offenders = refusedAmong(everyDoor(phase, true)).map(
-      (d) => `${d.menu}: "${d.label}" → ${d.href}`,
-    );
-    assert.deepEqual(
-      [...new Set(offenders)],
-      [],
-      `${phase}: the store shell would draw these, and each one lands on "Not available in the ` +
-        'app" (or, on the bar, leaves a blank slot once the link guard hides it):',
-    );
+    for (const shell of [true, false]) {
+      const offenders = refusedAmong(everyDoor(phase, shell)).map(
+        (d) => `${d.menu}: "${d.label}" → ${d.href}`,
+      );
+      assert.deepEqual(
+        [...new Set(offenders)],
+        [],
+        `${phase}${shell ? ' (store shell)' : ''}: these doors land on "Not available in the app" ` +
+          '(or, on the bar, leave a blank slot once the link guard hides it):',
+      );
+    }
   }
 });
 
-test('🍎 the store-shell bar RE-SPREADS: fewer tabs, none blank, none repeated', () => {
+test('🍎 the store-shell bar is the same five as the web — none blank, none repeated', () => {
   for (const phase of PHASES) {
     const web = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO_ROWS });
     const app = buildCustomerMenuTree(EVENT_ID, {
@@ -142,9 +129,8 @@ test('🍎 the store-shell bar RE-SPREADS: fewer tabs, none blank, none repeated
       studioRows: STUDIO_ROWS,
       storeShell: true,
     });
-    assert.equal(app.length, web.length - 1, `${phase}: the app bar should be the web bar minus Papic`);
-    assert.ok(!app.some((m) => m.key === 'papic'), `${phase}: Papic is still a tab in the store shell`);
-    assert.ok(app.length >= 3, `${phase}: only ${app.length} tab(s) left — something else was dropped`);
+    assert.deepEqual(app.map((m) => m.key), web.map((m) => m.key), `${phase}: the app bar lost a pillar`);
+    assert.equal(app.length, 5, `${phase}: ${app.length} tab(s) in the store shell`);
     for (const m of app) {
       assert.ok(m.label.trim().length > 0 && m.href.length > 0, `${phase}: a tab with no label or href`);
     }

@@ -1,7 +1,30 @@
 'use client';
 
 /**
- * find-add-row.tsx — search and add, sharing one row.
+ * find-add-row.tsx — the Guest list's one row: Filter ▾, then Sort and ⋯.
+ *
+ * ⚖ 2026-10-01 (later the same day) · ADD LEFT THIS ROW TOO. Owner: "okay keep it
+ * similar" — the computer adds with the SAME round + as the phone; its sheet
+ * (`add-guest-sheet.tsx`) holds the name box this row used to lead with.
+ *
+ * ⚖ 2026-10-01 · THE SEARCH HALF LEFT FOR THE TOP BAR. Owner 2026-09-30
+ * (DECISION_LOG "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS; … THE TOP BAR
+ * SEARCHES GUESTS"): *"i thought we had a build that will make the search on
+ * the top to do the search? so the text box on people will only be add?"* →
+ * *"ok"*; INTERACTION_RULES § 4, "The page itself only has 'Add'". The shared
+ * top bar drives `?q=` on this page now (`guests-top-search.tsx`), so this row
+ * lost its search box, its magnifier and the fold/expand between the two
+ * halves. What stays, on purpose:
+ *   · the add box is OPEN — before the event there is nothing else for the row
+ *     to be, so an empty list (and every other) opens on Add;
+ *   · AFTER the event the add box waits behind "+" with words that say the list
+ *     is still open (the receded add path below);
+ *   · the filter dropdowns and Sort ▾ — Filter is not search.
+ *
+ * The history below is the row's first shape; its focus trap (focus must not
+ * scroll the page) still applies to the "+" that remains.
+ *
+ * ── THE FIRST SHAPE (2026-09-20) ──────────────────────────────────────────
  *
  * ⚖ Owner 2026-09-20: *"search and filter in 1 row. Quick add and the full
  * form and csv and people on one row?"* → *"or maybe a magnifying icon to show
@@ -22,126 +45,54 @@
  * one row. And capture-first survives where it matters most: an EMPTY list
  * opens on Add, because there is nobody yet to find.
  *
- * ── HOW IT STAYS HONEST ────────────────────────────────────────────────────
- * 🔑 BOTH SIDES STAY MOUNTED. Collapsing a side never unmounts it, so a half-
- *    typed name survives a glance at search, and a search survives a detour to
- *    add. Switching is layout, never lost state.
- * 🔑 WHICHEVER SIDE GETS FOCUS EXPANDS. One rule covers every way in: the icon
- *    tap, Tab from the keyboard, and the search box's own ⌘K shortcut, which
- *    otherwise would focus a field folded to 40px and invisible.
- * 🪤 THE FILTER BUTTON IS BETWEEN THE HALVES, NOT INSIDE ONE. A side has to
- *    clip (`overflow-hidden`) to animate its width — and the filter panel drops
- *    DOWN from its button. Inside a clipping side, the panel (and the group
- *    rename/delete menu inside it) would be cut off.
- * 🪤 THE FOLDED SIDE IS NOT `aria-hidden`. It was, in the first cut — which
- *    hid a still-FOCUSABLE text box from screen readers, a known trap. `inert`
- *    would fix that and break ⌘K (a programmatic focus on an inert field is
- *    refused). So the fold is purely visual: a screen reader always has both
- *    boxes, and there is no mode for it to discover.
- * Motion is width, via `flex-grow`, and stops for `prefers-reduced-motion`.
+ * (Its fold/expand between a search half and an add half, and the traps that
+ * came with it, left with the search half on 2026-10-01 — see above.)
  */
 
-import { useRef, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
-
-type Mode = 'find' | 'add';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 export function FindAddRow({
-  search,
   filter,
-  add,
-  startAdding,
-  addLabel = 'Add a guest',
+  sort,
+  more,
 }: {
-  /** The always-live search box (URL-driven). */
-  search: React.ReactNode;
-  /** The filter-and-sort popover button. Shown in Find only. */
+  /** The filter dropdowns. */
   filter: React.ReactNode;
-  /** The quick-add bar with its four doors. */
-  add: React.ReactNode;
-  /** Open on Add — true for an empty list, where there is nobody to find. */
-  startAdding: boolean;
-  /** What the folded "+" is called. After the event it must SAY the list is
-   *  still open — a bare "+" is reachable but tells a host nothing. */
-  addLabel?: string;
+  /** Sort ▾ — in the row on a computer; behind ⋯ on a phone. */
+  sort?: React.ReactNode;
+  /** The ⋯ at the end of the row (Sort · the doors · the add doors). */
+  more?: React.ReactNode;
 }) {
-  const [mode, setMode] = useState<Mode>(startAdding ? 'add' : 'find');
-  const findRef = useRef<HTMLDivElement>(null);
-  const addRef = useRef<HTMLDivElement>(null);
-
-  const open = (next: Mode) => {
-    setMode(next);
-    // After the width starts to move, put the cursor where the host is going.
-    // 🪤 `preventScroll`, measured: a plain focus() scrolls the page to bring
-    // the box into view, and with this row tucked under the sticky top bar it
-    // moved the page 8px — the owner's "the table nudge[s] down a bit when
-    // pressed". The host has just CLICKED this row, so it is already on
-    // screen; nothing should move but the width.
-    requestAnimationFrame(() =>
-      (next === 'find' ? findRef : addRef).current
-        ?.querySelector('input')
-        ?.focus({ preventScroll: true }),
-    );
-  };
-
-  const side = (active: boolean) =>
-    `relative min-w-0 overflow-hidden transition-[flex-grow] duration-300 ease-out motion-reduce:transition-none ${
-      active ? 'grow basis-0' : 'grow-0 basis-11'
-    }`;
-  // 🪤 A FOLDED SIDE MUST NOT SIZE THE ROW. Both sides stay mounted, so a
-  // folded side's content still has a height — and the add bar, squeezed into
-  // 40px, wraps into a tall stack that made the FIND row tall too. Folded, the
-  // content leaves the flow (`absolute`) at a sane width, invisible and clipped
-  // by its side; only the side in use decides how tall the row is.
-  const content = (active: boolean) =>
-    `transition-opacity duration-200 motion-reduce:transition-none ${
-      active
-        ? 'relative opacity-100'
-        : 'pointer-events-none absolute left-0 top-0 w-[min(40rem,85vw)] opacity-0'
-    }`;
-  // 🪤 IN FLOW, AND SIZED — never `absolute inset-0`. The first cut stretched
-  // this button over the folded side; once that side's content left the flow
-  // (see `content` above) the side had nothing to give it height, collapsed to
-  // 0px, and took the button with it. Find lost its "+", Add lost its search —
-  // and with them the only way to switch. A fixed 40×40 in the flow is what
-  // gives the folded side its size now.
-  const iconBtn =
-    'flex h-11 w-11 items-center justify-center rounded-md border border-ink/15 text-ink/60 hover:bg-ink/5 hover:text-ink';
+  const [filterOpen, setFilterOpen] = useState(false);
 
   return (
-    // `items-start`: on a phone the add bar wraps to two lines, and the search
-    // button should sit beside the NAME BOX, not float between the lines.
-    <div className="flex items-start gap-2 border-b border-ink/[0.07] py-3">
-      <div
-        ref={findRef}
-        className={side(mode === 'find')}
-        onFocusCapture={() => mode !== 'find' && setMode('find')}
+    /*
+      ⚖ ONE Filter ▾ AT EVERY WIDTH (owner 2026-10-01, DECISION_LOG "THE SIMPLE
+      PHONE APP — APPROVED", frame 2 — "one search · one Filter ▾ (RSVP · Side ·
+      Role · Group)"; desktop keeps its row with the SAME controls). The four
+      dropdowns are the SAME `RosterFilters`, opened by the one Filter ▾ onto a
+      line of their own. The search is the top bar's. ADD IS NOT HERE ANY MORE:
+      owner 2026-10-01 "okay keep it similar" — one round + at every width
+      (`add-guest-sheet.tsx`), whose sheet holds the name box and the other ways.
+    */
+    <div className="flex flex-wrap items-start gap-2 border-b border-ink/[0.07] py-2 lg:py-3">
+      <button
+        type="button"
+        onClick={() => setFilterOpen((v) => !v)}
+        aria-expanded={filterOpen}
+        data-find-add-filter-toggle=""
+        className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-4 text-sm font-medium text-ink hover:bg-ink/5"
       >
-        <div className={content(mode === 'find')}>
-          {search}
-        </div>
-        {mode !== 'find' ? (
-          <button type="button" onClick={() => open('find')} aria-label="Search and filter" className={iconBtn}>
-            <Search className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-          </button>
-        ) : null}
-      </div>
+        Filter
+        <ChevronDown className={`h-4 w-4 transition-transform ${filterOpen ? 'rotate-180' : ''}`} strokeWidth={1.8} aria-hidden />
+      </button>
+      {sort ? <div className="hidden shrink-0 lg:block">{sort}</div> : null}
+      {/* The computer's ⋯; a phone draws the same ⋯ beside its title. */}
+      {more ? <div className="ml-auto hidden shrink-0 lg:block">{more}</div> : null}
 
-      {mode === 'find' ? filter : null}
-
-      <div
-        ref={addRef}
-        className={side(mode === 'add')}
-        onFocusCapture={() => mode !== 'add' && setMode('add')}
-      >
-        <div className={content(mode === 'add')}>
-          {add}
-        </div>
-        {mode !== 'add' ? (
-          <button type="button" onClick={() => open('add')} aria-label={addLabel} title={addLabel} className={iconBtn}>
-            <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-          </button>
-        ) : null}
+      <div className={`order-last w-full min-w-0 ${filterOpen ? 'block' : 'hidden'}`} data-find-add-filter="">
+        {filter}
       </div>
     </div>
   );

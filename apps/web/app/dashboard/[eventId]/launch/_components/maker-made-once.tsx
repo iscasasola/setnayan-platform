@@ -356,6 +356,19 @@ export async function readMakerRevealStages(eventId: string): Promise<readonly R
    LOGO
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * 🔤 The faces the logo's text layers are set in — the SAME opening the Logo
+ * panel below draws (drafted over live, `makerLogoOpening`), read through the
+ * same per-request `loadMadeOnce`, so it costs no second read. For the font
+ * dropdowns' "In use" (`hubFontsInUse`). A logo that could not be read counts
+ * no faces (the dropdowns then mark fewer, never a guessed one).
+ */
+export async function readMakerLogoFonts(eventId: string): Promise<string[]> {
+  const m = await loadMadeOnce(eventId);
+  if (!m.ok) return [];
+  return makerLogoOpening(m.drafted).layers.flatMap((l) => (l.kind === 'text' && l.font ? [l.font] : []));
+}
+
 export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId: string; storeShell?: boolean }) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="logo" />;

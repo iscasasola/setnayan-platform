@@ -41,7 +41,12 @@ test('dress code: INC and Muslim modest-dress guidance still shows to guests', (
 test('both doors pass the guest view, and only the Maker canvas keeps the placeholders', () => {
   const body = readFileSync(join(__dirname, '..', '_components', 'site-body.tsx'), 'utf8');
   const passes = body.match(/guestView=\{!isMakerCanvas\}/g) ?? [];
-  assert.equal(passes.length, 2, `the guest door and the stranger door both pass it (found ${passes.length})`);
+  // Each door passes it three times: its Details scenes, its Reminders on the
+  // Invitation's Welcome page (owner 2026-09-30 — `lib/invitation-welcome.ts`),
+  // and its Reminders on the Day's Welcome (📱 "THE DAY'S MENU HAS FIVE",
+  // `welcomePartsOnTheDay`). No other value is ever passed.
+  assert.equal(passes.length, 6, `the guest door and the stranger door both pass it, Details and both Welcomes (found ${passes.length})`);
+  assert.equal((body.match(/guestView=\{/g) ?? []).length, passes.length, 'every scene the page draws is told whether a guest is looking');
   for (const door of ['hideable-widget-render.tsx', 'public-hideable-widget.tsx']) {
     const src = readFileSync(join(__dirname, '..', '_components', door), 'utf8');
     assert.equal((src.match(/hideWhenEmpty=\{guestView\}/g) ?? []).length, 2, `${door}: dress code + photo moments`);

@@ -135,6 +135,14 @@ export type GenericOnboardingPayload = {
    * the free pool grant and the free dedicated camera.
    */
   servicesSelection?: unknown;
+  /**
+   * The setup cards' answers (G1, `lib/onboarding/setup-answers.ts`).
+   * ⚠ UNTRUSTED and typed `unknown` for the same reason as
+   * `servicesSelection`: the commit re-reads every key against the type's own
+   * view (`sanitizeSetupAnswers`) before anything is written. Absent = the
+   * engine did not run (a type its seed has not admitted).
+   */
+  setup?: unknown;
 };
 
 export type GenericCommitResult =

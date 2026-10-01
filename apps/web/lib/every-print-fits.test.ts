@@ -321,17 +321,22 @@ test('the Entourage prints EVERY name — cale-ice-sized, on the fewest sides, n
     const data = heavy(paired);
     const people = data.entourage.flatMap(peopleOf);
     assert.ok(people.length >= 85, `the fixture is cale-ice sized (${people.length})`);
-    // Every person is on a printed line, once — straight or flowed.
+    // Every person is on a printed line, once — straight or flowed. A `pair`
+    // line (owner 2026-09-30, option 1: a paired Ninong & Ninang share ONE
+    // line) carries two people in its one `c`.
+    let lineCount = 0;
     for (const flow of [false, true]) {
-      const printed = data.entourage.flatMap((g) => printedEntourageLines(g, flow).flatMap((l) => [l.l, l.r, l.c])).filter(Boolean);
-      assert.equal(printed.length, people.length, `flow=${flow}: ${printed.length} lines for ${people.length} people`);
+      const lines = data.entourage.flatMap((g) => printedEntourageLines(g, flow));
+      const printed = lines.reduce((n, l) => n + [l.l, l.r, l.c].filter(Boolean).length + (l.pair ? 1 : 0), 0);
+      assert.equal(printed, people.length, `flow=${flow}: ${printed} names for ${people.length} people`);
+      if (!flow) lineCount = lines.reduce((n, l) => n + [l.l, l.r, l.c].filter(Boolean).length, 0);
     }
     const look = printLookFor('abaca'); // the owner's card: 5 × 7, deckle cut
     const docs = layoutPieceDocs('entourage', { look, data, mode: 'print', foil: false, format: 'inv-5x7' });
     assert.ok(docs.length >= 1 && docs.length <= 2, `${docs.length} sides for one wedding`);
     // One ink path per printed line, at least one per person (a long name may wrap to two).
     const inked = docs.reduce((a, d) => a + d.ops.filter((o) => o.t === 'path' && o.fill === look.ink).length, 0);
-    assert.ok(inked >= people.length, `${inked} name lines drawn for ${people.length} people — somebody was dropped`);
+    assert.ok(inked >= lineCount, `${inked} name lines drawn for ${lineCount} printed names — somebody was dropped`);
   }
   assert.equal(PRINT_MIN_BODY_PT, 6);
 });
@@ -423,7 +428,8 @@ test('GUARD: the menu is never printed blank, and a Details save never erases it
   const route = stripComments(readFileSync(join(WEB, 'app/api/hub-print/[piece]/route.ts'), 'utf8'));
   assert.match(route, /piece === 'menu' && !hasMenu\)[\s\S]{0,40}status: 409|piece === 'menu' && !hasMenu\) \{\s*return new NextResponse\([^)]*\{ status: 409 \}/, 'an empty menu is refused as a print');
   assert.match(route, /PRINT_SET_KEYS\.filter\(\(k\) => k !== 'menu' \|\| hasMenu\)/, 'the whole set leaves an empty menu out');
-  assert.match(route, /menu: stored\.menu \}/, 'the Details (words) save carries the stored menu over');
+  // The words save starts from everything stored — the menu included (2026-09-30).
+  assert.match(route, /const details = \{\s*\.\.\.stored,/, 'the Details (words) save carries the stored menu over');
   assert.match(route, /if \(!current\) \{[\s\S]{0,160}return NextResponse\.redirect/, 'an unreadable print_details is never overwritten blind');
   const maker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
   assert.match(maker, /\{menuEmpty(?: \|\| storyMissing)? \? null : \(/, 'the Maker offers no download for an empty menu');

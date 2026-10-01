@@ -508,6 +508,51 @@
   border-radius: 0 3px 3px 0;
   background: var(--fd-gold);
 }
+/* 📂 MORE SERVICES OPENS (owner 2026-09-30) — the one event-menu row with
+   children. Its five sit indented under it; the chevron turns when open.
+   Before the icon-strip block below on purpose: at 72px `.fd-row`'s own
+   padding wins and the chevron is hidden there. */
+/* 🧭 THE FIVE READ AS INSIDE MORE SERVICES (owner 2026-10-01, DECISION_LOG
+   "THE SIDEBAR'S MORE SERVICES OPENS AS A VISIBLE SUB-MENU"): ONE tinted group
+   with a thin gold line down its left edge, smaller icons and a smaller word,
+   so the rail never reads as eleven top-level places. The tint is derived from
+   the rail's own tokens, not a new hex. The inset margin is wide-rail only —
+   see the `min-width:1280px, max-width:1023.98px` block below — because the
+   72px strip has no room to give away. */
+.fd-msub {
+  list-style: none;
+  margin: 2px 0 6px;
+  padding: 3px 0;
+  background: color-mix(in srgb, var(--fd-wash) 38%, var(--fd-cream));
+  border-left: 2px solid var(--fd-gold);
+  border-radius: 0 var(--m-r-sm) var(--m-r-sm) 0;
+}
+.fd-msub .fd-gi svg {
+  width: 15px;
+  height: 15px;
+}
+.fd-mchild {
+  padding-left: 10px;
+  font-size: 13px;
+}
+@media (min-width: 1280px), (max-width: 1023.98px) {
+  .fd-msub {
+    margin-left: 14px;
+  }
+}
+.fd-mchev {
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  opacity: 0.55;
+  transform: rotate(-45deg);
+  transition: transform var(--sn-dur-control) var(--sn-ease);
+}
+.fd-row[aria-expanded='true'] .fd-mchev {
+  transform: rotate(45deg);
+}
 /* ── THE ICON SLOT — ONE BOX, EVERY ROW, EVERY CHROME ─────────────────────
    It used to be a TEXT slot (`text-align:center` over a 15px glyph) with a
    separate `display:block; margin:0 auto` rule bolted on for SVGs and scoped
@@ -1318,6 +1363,7 @@ h2.fd-sechead,
      and Alaala counts on the account rows, so the rail stays consistent with
      itself rather than growing an exception.) */
   .fd-rctx,
+  .fd-mchev,
   .fd-signin-prompt p,
   .fd-notice,
   .fd-smallprint {
@@ -1356,9 +1402,12 @@ h2.fd-sechead,
     font-size: 10px;
     line-height: 1.2;
     color: var(--fd-m1);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    /* WRAPS, NEVER TRUNCATES (owner 2026-10-01: "More Serv…", "Setnayan …",
+       "Music Ma…"). Two short words fit on two lines; an ellipsis made three
+       destinations read as broken. The row grows to the caption — its 60px is
+       a floor. */
+    white-space: normal;
+    overflow-wrap: anywhere;
     max-width: 100%;
   }
 }
@@ -1448,7 +1497,8 @@ h2.fd-sechead,
      `display: none` lives in a LATER block in this same file, so at equal
      specificity a bare selector here would lose to it and change nothing. */
   .fd-rail .fd-toolline,
-  .fd-rail .fd-toolplay {
+  .fd-rail .fd-toolplay,
+  .fd-rail .fd-mchev {
     display: revert;
   }
   /* And the other half of the same bug: the strip also flattens `.fd-row-2l`
@@ -1474,6 +1524,10 @@ h2.fd-sechead,
   }
   .fd-row .fd-icon-caption {
     display: none;
+  }
+  .fd-rail .fd-mchild {
+    padding-left: 10px;
+    font-size: 13px;
   }
   .fd-scrim {
     position: fixed;
@@ -1611,6 +1665,103 @@ h2.fd-sechead,
   font-size: 22px;
   letter-spacing: 0.06em;
   color: var(--fd-gold);
+}
+
+/* ── DISCOVER · THE EVENT CARD (2026-09-29) ───────────────────────────────
+   Ported from `prototypes/discover_upcoming_2026-09-29.html` — the page's own
+   `.fd-item` grammar with a date plate over the cover, the event's mark as a
+   typographic hero (no hero image is read: a public event's photo is the
+   host's to show on their own page), and exactly one action.
+
+   🔑 `.fd-act` IS RAISED ABOVE THE TITLE'S STRETCH, the same stacking rule as
+   `.fd-chan`. Drop its z-index and "Ask to join" still looks like a button and
+   presses the card instead. */
+.fd-up .fd-thumb-event,
+.fd-thumb-event {
+  background: linear-gradient(160deg, #efe6d6, #dccdb4);
+}
+.fd-mono-cover {
+  font: 500 34px 'Cormorant Garamond', Georgia, serif;
+  letter-spacing: 0.06em;
+  color: var(--fd-gold);
+  text-transform: none;
+}
+.fd-date {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--fd-ink);
+  border-radius: var(--m-r-xs);
+  padding: 3px 7px;
+  font: 700 10.5px var(--fd-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px rgba(30, 26, 18, 0.15);
+}
+.fd-rel {
+  color: var(--fd-m1);
+}
+.fd-act {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  position: relative;
+  z-index: 2;
+}
+/* 44px tall — the locked tap floor; the drawing's 36px was a desktop mock. */
+.fd-ask {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--m-r-full);
+  background: var(--fd-ink);
+  color: #fff;
+  font-weight: 650;
+  font-size: 12.5px;
+  border: 0;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.fd-ask.quiet {
+  background: #f0ede6;
+  color: var(--fd-ink);
+  font-weight: 600;
+  cursor: default;
+}
+button.fd-ask.quiet {
+  cursor: pointer;
+}
+.fd-ask:focus-visible {
+  outline: 2px solid var(--fd-link);
+  outline-offset: 2px;
+}
+.fd-act-note {
+  font-size: 11px;
+  color: var(--fd-m1);
+}
+/* People to follow: no cover — the face (or initials) IS the card. */
+.fd-person .fd-imeta {
+  padding-top: 0;
+  align-items: flex-start;
+}
+.fd-ava-lg {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  font-size: 13px;
+  overflow: hidden;
+}
+.fd-ava-lg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 /* A story told in writing leads with its opening line, not with an empty box.
@@ -1863,6 +2014,22 @@ h2.fd-sechead,
      it. */
   justify-content: center;
   padding: 10px 12px 0;
+}
+
+/* 🅰 THE MARK FITS WHOLE (owner 2026-10-01: *"logo shrink and adjust so it
+   complete"* — the M of "A & M" was cut at the edge).
+
+   MEASURED (headless Chromium, the four type-only lockups, A & M in a serif):
+   the svg itself never overflowed the slot, but each lockup's viewBox is cropped
+   TIGHT to its glyphs, so a wide capital's outer serif lands up to ~4px outside
+   it — and an svg clips to its viewBox. `overflow: visible` lets the ink finish
+   instead of being sliced; `max-width: 100%` keeps the box inside the slot on
+   a narrow strip, where `shrink-0` on the mark would otherwise let a wide lockup
+   push past it. The viewBox is untouched, so the lockup still scales whole. */
+.fd[data-chrome='app'] .fd-rctx-mark svg {
+  overflow: visible;
+  max-width: 100%;
+  height: auto;
 }
 
 .fd[data-chrome='app'] .fd-rctx {

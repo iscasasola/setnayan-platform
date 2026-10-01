@@ -22,11 +22,15 @@ import { saveInviteMessage } from '../send/actions';
  *
  * ── WHAT EACH BUTTON DOES, AND WHY IT IS THIS ─────────────────────────────
  *   · SEND INVITE — the phone's share sheet (Messenger · Viber · Messages):
- *       ⓵ the message AND the guest's QR as an image, where the sheet takes a
- *         file (`navigator.canShare({ files })`);
- *       ⓶ the message alone where it does not — the link's page shows their QR;
+ *       ⓵ the message AND the guest's DIGITAL TICKET (the pass-card PNG, in the
+ *         couple's chosen ticket style), where the sheet takes a file
+ *         (`navigator.canShare({ files })`);
+ *       ⓶ the message alone where it does not — the link's page shows their ticket;
  *       ⓷ no share sheet at all (most desktops): the message is COPIED, and
- *         Download QR + Mark as sent are offered beside it.
+ *         Download ticket + Mark as sent are offered beside it.
+ *     🎫 THE TICKET, NOT THE QR (owner 2026-09-30: *"so what will show is not QR
+ *     Code. it will be the Digital Ticket"* · *"we do not copy the QR Code, we
+ *     copy the Digital Ticket"*). The QR is on the ticket.
  *     A share the phone completed stamps Sent ✓ (`invitation_sent_at`, through
  *     the ONE writer in `invitation/actions.ts`). Closing the sheet is not a
  *     failure and stamps nothing.
@@ -34,11 +38,14 @@ import { saveInviteMessage } from '../send/actions';
  *     paste into Messenger/Viber themselves. 🔑 A COPY IS NOT A SEND, so it
  *     never stamps by itself; it OFFERS "Mark as sent".
  *
- * 🪤 THE QR FILE IS FETCHED BEFORE THE TAP. iOS Safari refuses a share that is
- * not inside the tap's user activation, and an `await fetch()` between the tap
- * and `navigator.share` can spend it. So the PNG (the same route Download uses,
- * `/api/website/qr/guest/<id>`) is fetched on mount, and the tap shares what
- * is already in hand. If it is not ready, the text-only share still works.
+ * 🪤 THE TICKET FILE IS FETCHED BEFORE THE TAP. iOS Safari refuses a share that
+ * is not inside the tap's user activation, and an `await fetch()` between the
+ * tap and `navigator.share` can spend it. So the PNG (the same route the
+ * guest's "Save my ticket" and the card's "Download ticket (PNG)" use,
+ * `PASS_CARD_ROUTE?guest=<id>`) is fetched ahead, and the tap shares what is
+ * already in hand. If it is not ready — or the guest has no ticket (they
+ * replied they can't come) — the text-only share still works, and its wording
+ * says the ticket is on the page the link opens.
  *
  * ⛔ WE SEND NOTHING. No SMS (V1), no email, no delivery on the couple's
  * behalf — every message leaves from the couple's own phone.
@@ -46,6 +53,13 @@ import { saveInviteMessage } from '../send/actions';
 
 export type SendInviteGuest = {
   guestId: string;
+  /**
+   * The message's `{name}` — the guest's name exactly as the couple entered it
+   * (`guestFullName`: their Display name, else the five parts composed; owner
+   * 2026-09-30 *"the name as given. to them"*). REQUIRED so no caller can build
+   * a message that shortens it to a first name by leaving it out.
+   */
+  formalName: string | null;
   firstName: string | null;
   fullName: string;
   /** The guest's OWN invitation link, or null when they have no QR token yet. */
@@ -57,12 +71,27 @@ type ShareNav = Navigator & {
   canShare?: (data: { files?: File[]; text?: string }) => boolean;
 };
 
-function qrFileName(name: string): string {
-  return `qr-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase().replace(/^-+|-+$/g, '') || 'guest'}.png`;
+/**
+ * The route one guest's Digital ticket is drawn at — the couple's chosen style.
+ * `PASS_CARD_ROUTE` in `lib/pass-card.ts`, spelled here rather than imported:
+ * this file is in the Maker's and the shared first load, and importing that
+ * module for one string pulled it into a new shared chunk (measured — the
+ * shared-bundle ceiling sits at 0.0KB headroom). A guard holds the two equal.
+ */
+export const TICKET_ROUTE = '/api/guest/pass-card';
+
+export function ticketUrl(guestId: string): string {
+  return `${TICKET_ROUTE}?guest=${encodeURIComponent(guestId)}`;
 }
 
-/** The guest's QR as a File, fetched ahead of the tap (see the 🪤 above). */
-function useQrFile(guestId: string, name: string, enabled: boolean): File | null {
+/** The ticket's file name — "Maria-Santos-ticket.png"; the route's own header wins when it sends one. */
+export function ticketFileName(name: string): string {
+  const who = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+  return `${who || 'Guest'}-ticket.png`;
+}
+
+/** The guest's Digital ticket as a File, fetched ahead of the tap (see the 🪤 above). */
+export function useTicketFile(guestId: string, name: string, enabled: boolean): File | null {
   const [file, setFile] = useState<File | null>(null);
   useEffect(() => {
     setFile(null);
@@ -71,14 +100,19 @@ function useQrFile(guestId: string, name: string, enabled: boolean): File | null
     // Only a device that can share files needs the bytes.
     if (!nav || typeof nav.share !== 'function' || typeof nav.canShare !== 'function') return;
     let alive = true;
-    fetch(`/api/website/qr/guest/${guestId}`, { credentials: 'same-origin' })
-      .then((r) => (r.ok ? r.blob() : null))
-      .then((blob) => {
-        if (!alive || !blob) return;
-        setFile(new File([blob], qrFileName(name), { type: blob.type || 'image/png' }));
+    fetch(ticketUrl(guestId), { credentials: 'same-origin' })
+      .then(async (r) => {
+        if (!r.ok) return null;
+        // The route names the file the way "Save my ticket" does — use that.
+        const said = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1];
+        return { blob: await r.blob(), fileName: said || name };
+      })
+      .then((got) => {
+        if (!alive || !got) return;
+        setFile(new File([got.blob], got.fileName, { type: got.blob.type || 'image/png' }));
       })
       .catch(() => {
-        /* No file → the text-only share, which still carries the link. */
+        /* No ticket → the text-only share, which still carries the link. */
       });
     return () => {
       alive = false;
@@ -87,9 +121,41 @@ function useQrFile(guestId: string, name: string, enabled: boolean): File | null
   return file;
 }
 
+/**
+ * THE ONE SHARE — the phone's sheet with the message and, where the sheet takes
+ * a file, the guest's Digital ticket. Shared by `SendInviteActions` (the guest card and the
+ * one-by-one run) and `GuestInviteCell` (the Guest list's Invite column), so a
+ * row and a card can never send two different things.
+ *
+ *   'shared' — an app took it: the couple's send, stamp Sent ✓.
+ *   'closed' — they closed the sheet: not a failure, nothing was sent.
+ *   'copy'   — no sheet, or it refused (a webview without file sharing, a
+ *              spent activation): fall back to copying, which always works.
+ */
+export async function shareInvite(
+  file: File | null,
+  message: (ticketAttached: boolean) => string,
+): Promise<'shared' | 'closed' | 'copy'> {
+  const nav = typeof navigator !== 'undefined' ? (navigator as ShareNav) : null;
+  const path = inviteSendPath({
+    share: typeof nav?.share === 'function',
+    filesOk: Boolean(file && nav?.canShare?.({ files: [file] })),
+  });
+  if (!nav || path === 'copy') return 'copy';
+  try {
+    await nav.share(
+      path === 'files' && file ? { files: [file], text: message(true) } : { text: message(false) },
+    );
+    return 'shared';
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') return 'closed';
+    return 'copy';
+  }
+}
+
 type Said =
   | { kind: 'copied' } // Copy message — offers Mark as sent
-  | { kind: 'copied-desktop' } // Send invite with no share sheet — copy + Download QR + Mark as sent
+  | { kind: 'copied-desktop' } // Send invite with no share sheet — copy + Download ticket + Mark as sent
   | { kind: 'manual'; text: string } // clipboard blocked — the text, selectable
   | { kind: 'error'; text: string };
 
@@ -117,7 +183,7 @@ export function SendInviteActions({
   const [pending, startTransition] = useTransition();
   const manualRef = useRef<HTMLTextAreaElement>(null);
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
-  const file = useQrFile(guest.guestId, guest.fullName, Boolean(guest.inviteUrl));
+  const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName), Boolean(guest.inviteUrl));
 
   useEffect(() => {
     setSentAt(guest.sentAt);
@@ -137,14 +203,15 @@ export function SendInviteActions({
     );
   }
 
-  const message = (qrAttached: boolean) =>
+  const message = (ticketAttached: boolean) =>
     buildGuestInviteMessage({
       ...facts,
+      formalName: guest.formalName,
       firstName: guest.firstName,
       guestName: guest.fullName,
       inviteUrl: guest.inviteUrl ?? '',
       template,
-      qrAttached,
+      ticketAttached,
     }) ?? '';
 
   function mark(sent: boolean) {
@@ -177,26 +244,11 @@ export function SendInviteActions({
   }
 
   async function send() {
-    const nav = typeof navigator !== 'undefined' ? (navigator as ShareNav) : null;
-    const path = inviteSendPath({
-      share: typeof nav?.share === 'function',
-      filesOk: Boolean(file && nav?.canShare?.({ files: [file] })),
-    });
-    if (nav && path !== 'copy') {
-      try {
-        await nav.share(
-          path === 'files' && file ? { files: [file], text: message(true) } : { text: message(false) },
-        );
-        // The phone handed it to an app — that is the couple's send.
-        mark(true);
-        return;
-      } catch (err) {
-        // They closed the sheet — not a failure, and nothing was sent.
-        if ((err as { name?: string })?.name === 'AbortError') return;
-        // Any other refusal (a webview without file sharing, a spent
-        // activation) falls through to the copy, which always works.
-      }
-    }
+    const out = await shareInvite(file, message);
+    // The phone handed it to an app — that is the couple's send.
+    if (out === 'shared') return mark(true);
+    // They closed the sheet — not a failure, and nothing was sent.
+    if (out === 'closed') return;
     await copyText('copied-desktop');
   }
 
@@ -257,20 +309,20 @@ export function SendInviteActions({
           <div className="space-y-1.5 text-[13px] text-ink/75">
             <p>
               {said.kind === 'copied-desktop'
-                ? `Message copied — paste it to ${first} in Messenger or Viber, and add their QR.`
+                ? `Message copied — paste it to ${first} in Messenger or Viber, and add their ticket.`
                 : `Copied — paste it to ${first} in Messenger or Viber.`}
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {said.kind === 'copied-desktop' ? (
                 <SaveFileLink
-                  href={`/api/website/qr/guest/${guest.guestId}`}
-                  filename={qrFileName(guest.fullName)}
+                  href={ticketUrl(guest.guestId)}
+                  filename={ticketFileName(guest.fullName)}
                   className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 text-sm font-medium text-ink/80"
                 >
                   {(state) => (
                     <>
                       <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                      {state === 'saving' ? 'Saving…' : 'Download QR'}
+                      {state === 'saving' ? 'Saving…' : 'Download ticket'}
                     </>
                   )}
                 </SaveFileLink>
@@ -353,6 +405,7 @@ export function InviteMessageEditor({
 
   const preview = buildGuestInviteMessage({
     ...facts,
+    formalName: sample ? sample.formalName : 'Ms. Maria Santos',
     firstName: sample?.firstName ?? 'Maria',
     guestName: sample?.fullName ?? 'Maria',
     inviteUrl: sample?.inviteUrl ?? 'https://www.setnayan.com/…',
@@ -430,42 +483,9 @@ export function InviteMessageEditor({
   );
 }
 
-/**
- * The guest card's block: Send invite · Copy message, and — in place, never a
- * link elsewhere (owner 2026-09-28) — the message's wording, folded.
+/*
+ * The guest card's own Send invite · Copy message block (`GuestSendInvite`) is
+ * gone (owner 2026-09-30, the Fable guest card): the card now draws the SAME
+ * Invite · ⋯ pair as a Guest list row (`GuestInviteCell`, guest-invite-cell.tsx),
+ * and the message's wording is changed once, on the one-by-one page.
  */
-export function GuestSendInvite({
-  eventId,
-  guest,
-  facts,
-  template: initialTemplate,
-}: {
-  eventId: string;
-  guest: SendInviteGuest;
-  facts: InviteEventFacts;
-  template: string | null;
-}) {
-  const [template, setTemplate] = useState(initialTemplate);
-  useEffect(() => setTemplate(initialTemplate), [initialTemplate]);
-  return (
-    <div className="mt-3 space-y-3 border-t border-ink/[0.06] pt-3" data-guest-send-invite="">
-      <SendInviteActions eventId={eventId} guest={guest} facts={facts} template={template} />
-      {guest.inviteUrl ? (
-        <details className="group">
-          <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center text-[13px] font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline">
-            Change the message
-          </summary>
-          <div className="pt-2">
-            <InviteMessageEditor
-              eventId={eventId}
-              facts={facts}
-              template={template}
-              sample={guest}
-              onSaved={setTemplate}
-            />
-          </div>
-        </details>
-      ) : null}
-    </div>
-  );
-}

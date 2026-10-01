@@ -359,7 +359,7 @@ export const LINKED_ROUTES = [
   '/explore/compare',
   '/v/',
   '/pricing',
-  '/vendors',
+  '/for-suppliers',
   '/setnayan-ai',
   '/our-story',
   '/features',
@@ -425,6 +425,9 @@ export const LIVE_EVENT_TYPES: readonly string[] = [
   'simple events',
   'dates',
   'hangouts',
+  'concerts',
+  'open houses',
+  'grand openings',
   'wakes',
 ] as const;
 
@@ -473,7 +476,7 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
 
   return `# Setnayan
 
-> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first life-events platform: one place for a Filipino household to plan each occasion, capture it, and keep it for life. Every event type Setnayan offers is LIVE and open today — ${liveEventTypesPhrase()}. Weddings are the deepest, most complete surface; the same planning, capture, and memory rails run all of them. Built and operated entirely in the Philippines. A Filipino celebration is never one family's — it belongs to the whole group, the ninong and ninang, the titos and titas, everyone who showed up. So Setnayan's signature is a capture and memory layer built for all of them: Papic (guests' phones become a coordinated photo-and-video crew, with auto-tagged galleries and per-guest personal highlight reels), Live Studio livestream on the event page, the Setnayan AI planner, and a custom Music Maker song — gathered into one living memory (Memories) the couple keeps, and that every guest goes home with their own piece of. Free planning workspace; 0% commission on vendor bookings; transparent PHP pricing.
+> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first life-events platform: one place for a Filipino household to plan each occasion, capture it, and keep it for life. Every event type Setnayan offers is LIVE and open today — ${liveEventTypesPhrase()}. Weddings are the deepest, most complete surface; the same planning, capture, and memory rails run all of them. Built and operated entirely in the Philippines. A Filipino celebration is never one family's — it belongs to the whole group, the ninong and ninang, the titos and titas, everyone who showed up. So Setnayan's signature is a capture and memory layer built for all of them: Papic (guests' phones become a coordinated photo-and-video crew, with auto-tagged galleries and per-guest personal highlight reels), Live Watch livestream on the event page, the Setnayan AI planner, and a custom Music Maker song — gathered into one living memory (Memories) the couple keeps, and that every guest goes home with their own piece of. Free planning workspace; 0% commission on vendor bookings; transparent PHP pricing.
 
 ## What Setnayan does
 
@@ -493,11 +496,11 @@ What is LIVE today: every event type listed above; an event automatically becomi
 - [Vendor Marketplace](${url('/explore')}) — Browse verified Filipino event vendors. Filterable by category and city; compare shortlisted vendors at [/explore/compare](${url('/explore/compare')}).
 - [Vendor Public Profiles](${url('/v/')}) — Each vendor has a profile at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and tier badge.
 - [Pricing](${url('/pricing')}) — Planning tiers, customer software SKUs, and vendor subscriptions.
-- [List Your Business](${url('/vendors')}) — Vendor acquisition. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
+- [List Your Business](${url('/for-suppliers')}) — Vendor acquisition. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
 - [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
-- Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
+- Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
 - [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
@@ -523,8 +526,8 @@ What is LIVE today: every event type listed above; an event automatically becomi
 Pricing in PHP. All sales final on digital deliverables.
 
 - **Setnayan AI** — from ${peso(ladder[3]!.php)} to ${aiA} one-time depending on event type (see ladder above). Vendor matchmaking plus the guided planning workspace.
-- **Live Studio** — ${R('LIVE_STUDIO')} once per event, unlimited streams. Multi-camera control room, livestream embedded on the event page. A single-camera stream is free; rehearsal with up to 12 cameras is free, broadcasting one is the paid step.
-- **Live Studio — hosted channel** — ${R('LIVE_STUDIO_HOSTED_CHANNEL')} per day, optional, on top of Live Studio. For couples with no livestream channel of their own: Setnayan supplies and runs the YouTube channel the broadcast goes to. Charged for each day it is used, because a Setnayan channel is a scarce resource — unlike the software unlock, which costs nothing to run twice. Your own channel is the default and costs nothing extra.
+- **Live Watch** — ${R('LIVE_STUDIO')} once per event, unlimited streams. Multi-camera control room, livestream embedded on the event page. A single-camera stream is free; rehearsal with up to 12 cameras is free, broadcasting one is the paid step.
+- **Live Watch — hosted channel** — ${R('LIVE_STUDIO_HOSTED_CHANNEL')} per day, optional, on top of Live Watch. For couples with no livestream channel of their own: Setnayan supplies and runs the YouTube channel the broadcast goes to. Charged for each day it is used, because a Setnayan channel is a scarce resource — unlike the software unlock, which costs nothing to run twice. Your own channel is the default and costs nothing extra.
 - **Music Maker** — ${R('PAKANTA')}. Custom Filipino-style song written for the couple.
 - **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones and can make their own avatar.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
@@ -573,7 +576,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 Event Hub with unlimited RSVP is free; premium touches come with Event Hub PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
 - **What is Setnayan AI?** The assisted-planning tier. One-time, access until the event date, priced by how much planning load the event type carries — a wedding at ${aiA} down to ${peso(ladder[3]!.php)} for a casual outing.
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free on your first celebration, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has credits nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.
-- **What is Live Studio?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
+- **What is Live Watch?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
 - **What is Music Maker?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos, refunds, or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith vendor compatibility tagging.

@@ -12,8 +12,11 @@ import { getCurrentUser } from '@/lib/auth';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import { planFaceSelfieDelete } from '@/lib/face-data-retention-core';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
+import { unlinkSeatFromAccount } from '@/lib/seat-unlink';
+import { setGuestInvitationSent } from '../../invitation/actions';
 import {
   INVITED_TO_BLOCKS,
+  SINGLETON_GUEST_ROLES,
   singletonRoleDuplicateMessage,
   singletonRoleFromIndexError,
   type GuestGroupCategory,
@@ -26,6 +29,7 @@ import {
 } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { FORMAL_NAME_FIELDS, profileFormalName } from '@/lib/formal-name';
 import { resolveSubmittedSide } from '@/lib/guest-side-question';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -76,6 +80,113 @@ function parseInvitedToBlocks(formData: FormData): InvitedToBlock[] {
 }
 
 /**
+ * The card's Groups checkmark dropdown → this guest's memberships, as a DIFF:
+ * only the groups that changed are written, and only groups of THIS event are
+ * touched (`guest_group_memberships` has no event_id, so a bare group id from
+ * the form is checked against the event's own groups first — the same gate
+ * `addGuestToGroup` keeps). Best-effort per row, like the bulk group actions:
+ * the rest of the card's save has already landed.
+ */
+async function syncCardGroups(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  guestId: string,
+  pickedIds: string[],
+): Promise<void> {
+  const { data: eventGroups, error: groupsErr } = await supabase
+    .from('guest_groups')
+    .select('group_id')
+    .eq('event_id', eventId);
+  if (groupsErr) {
+    console.error('updateGuest: groups read failed — memberships left as they were', eventId, guestId, groupsErr.message);
+    return;
+  }
+  const ours = new Set((eventGroups ?? []).map((g) => g.group_id as string));
+  const want = new Set(pickedIds.filter((id) => ours.has(id)));
+  const { data: rows, error: rowsErr } = await supabase
+    .from('guest_group_memberships')
+    .select('group_id')
+    .eq('guest_id', guestId);
+  if (rowsErr) {
+    console.error('updateGuest: memberships read failed — left as they were', eventId, guestId, rowsErr.message);
+    return;
+  }
+  const have = new Set((rows ?? []).map((r) => r.group_id as string).filter((id) => ours.has(id)));
+  const add = [...want].filter((id) => !have.has(id));
+  const drop = [...have].filter((id) => !want.has(id));
+  if (add.length > 0) {
+    const { error } = await supabase
+      .from('guest_group_memberships')
+      .upsert(add.map((group_id) => ({ group_id, guest_id: guestId })), {
+        onConflict: 'group_id,guest_id',
+        ignoreDuplicates: true,
+      });
+    if (error) console.error('updateGuest: group add failed', eventId, guestId, error.message);
+  }
+  if (drop.length > 0) {
+    const { error } = await supabase
+      .from('guest_group_memberships')
+      .delete()
+      .eq('guest_id', guestId)
+      .in('group_id', drop);
+    if (error) console.error('updateGuest: group remove failed', eventId, guestId, error.message);
+  }
+}
+
+/**
+ * The card's Table dropdown → this guest's seat. Written ONLY when the table
+ * actually changed: the card autosaves every field on every pause, and
+ * re-writing an unchanged seat would throw away the chair number the seat plan
+ * chose. A move keeps no chair (the plan places them at the new table); "Not
+ * seated" frees it. The table must be one of THIS event's (RLS on the seat row
+ * scopes the event, not the table — `restoreGuestRsvpAndSeat` keeps the same
+ * check).
+ */
+async function syncCardTable(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  guestId: string,
+  tableId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: current, error: readErr } = await supabase
+    .from('event_seat_assignments')
+    .select('table_id')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .maybeSingle();
+  // Unread is left alone — moving a seat we could not see is worse than not moving it.
+  if (readErr) return { ok: false, error: 'seat_failed' };
+  const now = (current?.table_id as string | null | undefined) ?? '';
+  if (now === tableId) return { ok: true };
+  if (!tableId) {
+    const { error } = await supabase
+      .from('event_seat_assignments')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId);
+    return error ? { ok: false, error: 'seat_failed' } : { ok: true };
+  }
+  const { data: table } = await supabase
+    .from('event_tables')
+    .select('event_id')
+    .eq('table_id', tableId)
+    .maybeSingle();
+  if (!table || table.event_id !== eventId) return { ok: false, error: 'seat_failed' };
+  const { error } = await supabase
+    .from('event_seat_assignments')
+    .upsert(
+      { event_id: eventId, guest_id: guestId, table_id: tableId, seat_number: null },
+      { onConflict: 'event_id,guest_id' },
+    );
+  return error ? { ok: false, error: 'seat_failed' } : { ok: true };
+}
+
+/**
+ * ✉ Since 2026-09-30 (owner, the Fable guest card: "no email to guests") this is
+ * offered ONLY on the bride's and groom's own rows — the one way the partner's
+ * couple seat can be claimed by their account (`sentByCouple`, below;
+ * lib/seat-link-approval.ts). No guest row offers it.
+ *
  * Host-initiated email invite (Invite/Join v2). The couple emails this guest a
  * passwordless sign-in link; on click the event is connected to their Setnayan
  * account (via connectEventForUser's email-match). Reuses the exact same
@@ -121,7 +232,10 @@ export async function inviteGuestByEmailAction(eventId: string, guestId: string)
     return redirect(`${backTo}?invite=no_email`);
   }
 
-  const { ok } = await sendEventAccountMagicLink({ eventId, guestId, email });
+  // `sentByCouple`: this is the couple's own door, so the return is signed — the
+  // one way a couple seat (the partner's own bride / groom row) can be kept by
+  // the account this address belongs to (lib/seat-link-approval.ts).
+  const { ok } = await sendEventAccountMagicLink({ eventId, guestId, email, sentByCouple: true });
   revalidatePath(backTo);
   return redirect(`${backTo}?invite=${ok ? 'sent' : 'failed'}`);
 }
@@ -203,6 +317,22 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // custom_tags values are preserved (the column simply doesn't appear
   // in the .update() call below so it's left untouched).
   const invited_to_blocks = parseInvitedToBlocks(formData);
+  /*
+   * ✓ THREE FIELDS THE CARD NOW EDITS IN PLACE (owner 2026-09-30, the Fable
+   * guest card: "Also serves as" and Groups as checkmark dropdowns, the Table a
+   * dropdown right on the card). A multi-choice posts ONE comma-joined value
+   * (`extra_roles`, `group_ids`), so the autosave's undo — which restores one
+   * value per named input — puts it back whole. Each travels with a `*_posted` marker, because
+   * a multi-choice with nothing ticked posts NOTHING — without the marker "the
+   * host unticked every group" and "this form has no Groups control" (the
+   * standalone route before this change, a stale tab) would be the same absence,
+   * and the second would wipe every membership. No marker → the field is left
+   * exactly as it is.
+   */
+  const extraRolesPosted = clean(formData.get('extra_roles_posted')) === '1';
+  const groupsPosted = clean(formData.get('groups_posted')) === '1';
+  const tablePosted = clean(formData.get('table_posted')) === '1';
+  const postedTableId = clean(formData.get('table_id'));
 
   /**
    * AUTOSAVE (2026-09-22). The guest card has no Save button — it posts this
@@ -257,6 +387,21 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   if (meal_preference && !MEAL_VALUES.includes(meal_preference)) {
     return redirect(`${backTo}?error=invalid_meal`);
   }
+  // "Also serves as" — offered roles only, never the primary role twice, and
+  // never a one-per-event role (the `guests_extra_roles_no_singletons` CHECK
+  // would refuse the whole save; dropping it here keeps the rest of the save).
+  const extra_roles: GuestRole[] = extraRolesPosted
+    ? [
+        ...new Set(
+          clean(formData.get('extra_roles'))
+            .split(',')
+            .map((v) => v.trim() as GuestRole)
+            .filter(
+              (r) => r !== role && roleSet.offeredRoles.includes(r) && !SINGLETON_GUEST_ROLES.includes(r),
+            ),
+        ),
+      ]
+    : [];
 
   const supabase = await createClient();
   // A finalized list refuses a seat change BEFORE anything on this form is
@@ -320,15 +465,17 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     : answerChanged
       ? new Date().toISOString()
       : ((prevGuest?.rsvp_responded_at as string | null) ?? null);
+  /* 🔒 A LINKED PERSON KEEPS THEIR OWN NAME — a plus-one who linked (owner
+     2026-09-29, DECISION_LOG "OWNER ANSWERS — TEN OPEN QUESTIONS" (10): *"if
+     connected to an account, cannot change anymore"*), or any row whose linked
+     account's profile holds a formal name (owner 2026-09-30). The host sees it
+     read-only ("From their account"); this is the refusal behind that
+     screen — the name keys are left OUT of the write, so what is stored stays. */
+  const nameLocked = await linkedNameLocked(createAdminClient(), eventId, guestId);
   const { data: updatedRows, error } = await supabase
     .from('guests')
     .update({
-      first_name,
-      last_name,
-      name_prefix,
-      middle_name,
-      name_suffix,
-      display_name,
+      ...(nameLocked ? {} : { first_name, last_name, name_prefix, middle_name, name_suffix, display_name }),
       side: resolvedSide,
       group_category,
       role,
@@ -347,6 +494,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       ...plusOneWrite,
       notes,
       invited_to_blocks,
+      ...(extraRolesPosted ? { extra_roles } : {}),
       rsvp_responded_at,
       updated_at: new Date().toISOString(),
     })
@@ -583,11 +731,29 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   ) {
     await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
   }
+  // ✓ Groups and Table, as picked on the card (see the `*_posted` note above).
+  if (groupsPosted) {
+    await syncCardGroups(
+      supabase,
+      eventId,
+      guestId,
+      clean(formData.get('group_ids'))
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean),
+    );
+  }
+  if (tablePosted && !passed_away && effectiveRsvp !== 'declined') {
+    const seated = await syncCardTable(supabase, eventId, guestId, postedTableId);
+    if (!seated.ok) return redirect(`${backTo}?error=${encodeURIComponent(seated.error)}`);
+  }
+
   // ⚖ "+ will have seats beside the person invited" — one seat row per extra
   // seat, seated beside this guest (a no-op when the number did not change).
   await syncExtraSeats(supabase, eventId, guestId);
 
   revalidatePath(`/dashboard/${eventId}/guests`);
+  if (tablePosted) revalidatePath(`/dashboard/${eventId}/seating`);
   revalidatePath(backTo);
 
   /*
@@ -811,6 +977,47 @@ async function giveSpotToSomeoneElse(eventId: string, guestId: string, newName: 
 }
 
 /**
+ * UNLINK — the seat stays, the wrong account lets go of it. Couple rows too:
+ * that is how the owner takes his own groom row back (2026-09-30).
+ */
+/**
+ * ▦ NEW QR — the card's ⋯ › New QR, after "Make a new QR for …?" (frame E).
+ * The old QR and link stop working; the guest, their reply, their seat and the
+ * account holding the row all stay. Only the key moves — through the audited
+ * `rotate_guest_qr_token` RPC every rotation uses (its 3-per-24h limit
+ * included). Then the Sent ✓ goes back to "Not sent", through the column's ONE
+ * writer, because what they were sent no longer opens: "Send them the new one".
+ */
+async function newGuestQr(eventId: string, guestId: string, requestedReturn: string): Promise<void> {
+  const back =
+    requestedReturn.startsWith(`/dashboard/${eventId}/guests`) && !requestedReturn.startsWith('//')
+      ? requestedReturn
+      : `/dashboard/${eventId}/guests/${guestId}`;
+  const join = back.includes('?') ? '&' : '?';
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('rotate_guest_qr_token', { p_guest_id: guestId });
+  const rotated = data as { ok?: boolean; reason?: string } | null;
+  if (error || !rotated?.ok) {
+    redirect(`${back}${join}error=${rotated?.reason === 'rate_limited' ? 'new_qr_rate_limited' : 'new_qr_failed'}`);
+  }
+  await setGuestInvitationSent(eventId, guestId, false);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  revalidatePath(`/dashboard/${eventId}/invitation`);
+  redirect(`${back}${join}new_qr=1`);
+}
+
+async function unlinkSeatAccount(eventId: string, guestId: string): Promise<void> {
+  const supabase = await createClient();
+  const result = await unlinkSeatFromAccount(supabase, { eventId, guestId });
+  revalidatePath(`/dashboard/${eventId}/guests/${guestId}`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  if (!result.ok) {
+    redirect(`/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(`unlink_${result.reason}`)}`);
+  }
+  redirect(`/dashboard/${eventId}/guests/${guestId}?unlinked=1`);
+}
+
+/**
  * RELEASE A CLAIMED SEAT — the couple's undo for a forwarded invitation.
  *
  * Owner ruling 2026-08-06: *"the couple has full control of their guests."*
@@ -849,6 +1056,13 @@ export async function releaseGuestClaim(
   // that also hands the seat to a named new person. See giveSpotToSomeoneElse.
   const swapName = String(formData.get('swap_name') ?? '').trim().slice(0, 120);
   if (swapName) return giveSpotToSomeoneElse(eventId, guestId, swapName);
+  // 🔗 "This invitation is linked to <account> — Unlink" (2026-09-30) rides this
+  // door too (+0 exports): rotate the key, delete that ONE guest membership,
+  // undo only what that account wrote. lib/seat-unlink.ts.
+  if (formData.get('unlink_account') === '1') return unlinkSeatAccount(eventId, guestId);
+  // ▦ "New QR" from the card's ⋯ (owner 2026-09-30, frame E): rides this door
+  // too (+0 exports) — rotate the key ONLY; the guest stays linked.
+  if (formData.get('new_qr') === '1') return newGuestQr(eventId, guestId, String(formData.get('return_to') ?? ''));
 
   // Authorisation is RLS, exactly as softDeleteGuest does it: read the guest
   // through the SESSION client first. A caller who is not a host of this event
@@ -898,4 +1112,51 @@ export async function releaseGuestClaim(
   revalidatePath(`/dashboard/${eventId}/guests/${guestId}`);
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(`/dashboard/${eventId}/guests/${guestId}?released=1`);
+}
+
+/**
+ * Is this row's name the linked person's to keep? Two cases lock it:
+ *   · a plus-one whose person linked their OWN account (owner 2026-09-29);
+ *   · any row linked to an account whose PROFILE holds a formal name (owner
+ *     2026-09-30) — the card shows that profile name read-only, and this is the
+ *     refusal behind that screen.
+ * Unread is treated as locked — refusing a rename is recoverable, overwriting a
+ * person's own name is not.
+ */
+async function linkedNameLocked(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  guestId: string,
+): Promise<boolean> {
+  const { data: row, error } = await admin
+    .from('guests')
+    .select('plus_one_of_guest_id')
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error) return true;
+  const { data: member, error: mErr } = await admin
+    .from('event_members')
+    .select('user_id')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .limit(1)
+    .maybeSingle();
+  if (mErr) {
+    console.error('linkedNameLocked: event_members read failed — treating as locked', eventId, guestId, mErr.message);
+    return true;
+  }
+  if (!member) return false;
+  if (row?.plus_one_of_guest_id) return true;
+  if (!member.user_id) return false;
+  const { data: profile, error: pErr } = await admin
+    .from('users')
+    .select(FORMAL_NAME_FIELDS.join(', '))
+    .eq('user_id', member.user_id as string)
+    .maybeSingle();
+  if (pErr) {
+    console.error('linkedNameLocked: users read failed — treating as locked', eventId, guestId, pErr.message);
+    return true;
+  }
+  return Boolean(profile && profileFormalName(profile as unknown as Record<string, string | null>));
 }

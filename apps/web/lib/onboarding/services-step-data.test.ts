@@ -291,8 +291,17 @@ test('every render site is guarded on the view being present', () => {
   assert.match(shell, /id === 'services_step' && !SERVICES_STEP_ENABLED/);
 
   // generic wizard: the screen is ABSENT from the array, not skipped inside it.
+  // The list itself is built in ONE place since G1 (`genericFlowScreens`,
+  // lib/onboarding/flow-config.ts — engine on or off); the wizard hands it
+  // whether the view exists.
   const generic = read('app/onboarding/[type]/_components/generic-onboarding.tsx');
-  assert.match(generic, /\.\.\.\(servicesStepView \? \['services'\] : \[\]\)/);
+  assert.match(generic, /services: Boolean\(servicesStepView\)/);
+  const flowConfig = read('lib/onboarding/flow-config.ts');
+  assert.equal(
+    (flowConfig.match(/\.\.\.\(input\.services \? \['services'\] : \[\]\)/g) ?? []).length,
+    2,
+    'both branches of genericFlowScreens (engine on and off) must drop the services screen when its view is absent',
+  );
   assert.match(generic, /screen === 'services' && servicesStepView/);
 
   // simple page: one conditional card, no wizard involved. Since 2026-08-11 it

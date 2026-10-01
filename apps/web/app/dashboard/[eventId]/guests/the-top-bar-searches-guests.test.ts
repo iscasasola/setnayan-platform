@@ -1,0 +1,77 @@
+/**
+ * the-top-bar-searches-guests.test.ts — ON THE GUEST LIST THE TOP BAR SEARCHES
+ * THIS EVENT'S GUESTS, AND THE PAGE'S OWN ROW IS ADD ONLY.
+ *
+ * Owner 2026-09-30 (DECISION_LOG "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS;
+ * HOSTS FOLDS INTO THE GUEST LIST; THE TOP BAR SEARCHES GUESTS"): *"i thought we
+ * had a build that will make the search on the top to do the search? so the text
+ * box on people will only be add?"* → *"ok"*. INTERACTION_RULES § 4: "The top bar
+ * searches the place you're in … The page itself only has 'Add'."
+ *
+ * Two ways this breaks, both silent: a search box creeps back into the page's
+ * row (two searches, one page — the July failure `capture-bar.tsx` records), or
+ * the top bar stops driving `?q=` here and quietly opens the palette over your
+ * own events again, so typing a guest's name finds nothing.
+ *
+ * Source scan, comment-stripped: the docblocks below name every string.
+ */
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
+import { resolveSearchScope } from '@/lib/search-scope';
+
+const APP = join(process.cwd(), 'app');
+const GUESTS = join(APP, 'dashboard', '[eventId]', 'guests');
+const LAUNCHER = join(APP, 'dashboard', '(launcher)', '_components');
+const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
+
+test('the Guest list page row has no search box — Filter, Sort and ⋯ only', () => {
+  const row = read(join(GUESTS, '_components', 'find-add-row.tsx'));
+  const page = read(join(GUESTS, 'page.tsx'));
+  for (const [where, src] of [['find-add-row.tsx', row], ['guests/page.tsx', page]] as const) {
+    assert.doesNotMatch(src, /<LiveSearch\b|<GuestsSearch\b|type="search"|role="search"/, `${where} draws a search box again — search is the top bar's`);
+  }
+  assert.doesNotMatch(row, /\bsearch\s*[:?]/, 'FindAddRow grew a `search` slot again');
+  assert.ok(!existsSync(join(GUESTS, '_components', 'guests-search.tsx')), 'the page-level search box is back');
+  // The filters are what the row IS (Add is the round + since 2026-10-01).
+  assert.match(row, /data-find-add-filter=""/);
+});
+
+test('the top bar resolves to the guests scope on the list — and drives ?q= there', () => {
+  assert.equal(resolveSearchScope('/dashboard/S89E-ABCDEFGHJK/guests').key, 'guests');
+  const bar = read(join(LAUNCHER, 'home-command-bar.tsx'));
+  assert.match(
+    bar,
+    /if \(scope\.key === 'guests'\) return <GuestsTopSearch scope=\{scope\} \/>;/,
+    'the shared bar no longer hands the Guest list its guest search',
+  );
+  const top = read(join(LAUNCHER, 'guests-top-search.tsx'));
+  // The ?q= writer is the roster's own, verbatim — not a second one.
+  assert.match(top, /<LiveSearch\b/, 'the top bar guest search stopped using the roster\'s ?q= writer');
+  assert.match(top, /useSearchParams\(\)\.get\('q'\)/, 'landing on /guests?q=… no longer shows the query in the bar');
+  // The way out keeps what was typed.
+  assert.match(top, /marketplaceEscapeItem\(typed, scope\)/, 'the escape row out of the narrowed box is gone');
+  // ⌘K comes back to the top bar.
+  assert.match(top, /useEffect\(\(\) => claimCommandKey\(\), \[\]\)/, 'the top bar guest search does not claim ⌘K');
+});
+
+test('nothing on the Guest list page claims ⌘K any more — the top bar owns it', () => {
+  const offenders: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, name.name);
+      if (name.isDirectory()) {
+        // Child routes (a guest card, the desk) are their own pages.
+        if (dir === GUESTS && name.name !== '_components') continue;
+        walk(p);
+      } else if (/\.tsx?$/.test(name.name) && !/\.test\.ts$/.test(name.name)) {
+        if (/claimCommandKey\(/.test(read(p))) offenders.push(p);
+      }
+    }
+  };
+  walk(GUESTS);
+  assert.deepEqual(offenders, [], 'a Guest list component claims ⌘K — two owners on one page');
+});

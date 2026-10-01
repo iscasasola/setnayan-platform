@@ -142,7 +142,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
         <Video aria-hidden className="mx-auto mt-3 h-7 w-7 text-[var(--m-mulberry)]" strokeWidth={1.75} />
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Become a live camera</h1>
         <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
-          This is a live demo of the Setnayan Live Studio control room — no
+          This is a live demo of the Setnayan Live Watch control room — no
           sign-up, no real event. Your phone&rsquo;s camera and sound stream
           straight to the control room on your computer.{' '}
           <strong>Live only — nothing recorded:</strong> no video or audio is
@@ -190,7 +190,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Both cameras are taken</h1>
         <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
           This demo session already has its two cameras. Open a fresh demo from
-          the Live Studio tile on the homepage to start your own.
+          the Live Watch tile on the homepage to start your own.
         </p>
       </>
     );
@@ -201,7 +201,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
       <>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">This demo link expired</h1>
         <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
-          Demo codes are fresh every time — open a new one from the Live Studio
+          Demo codes are fresh every time — open a new one from the Live Watch
           tile on the Setnayan homepage.
         </p>
       </>

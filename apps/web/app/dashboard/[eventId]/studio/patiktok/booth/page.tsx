@@ -23,7 +23,8 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { savePatiktokBoothTemplates } from '../actions';
 import { BoothCapture } from '../_components/booth-capture';
-import { resolveFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { formatCalendarDate } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
@@ -86,10 +87,10 @@ export default async function PatiktokBoothDashboard({
   }
   // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b; forced to
   // mode_b for christening/debut. Gates the booth pre-fill embedder below.
-  const faceMode = resolveFaceMode(
-    (event as { papic_face_mode?: string | null } | null)?.papic_face_mode,
-    (event as { event_type?: string | null } | null)?.event_type,
-  );
+  // The EFFECTIVE mode (lib/face-tagging-gate.ts): automatic when the event's
+  // Papic is active (owner 2026-09-30), the couple's "off" still wins — this
+  // page used to ask only what the admin set, and ignored the couple.
+  const faceMode = (await resolveFaceTagging(createAdminClient(), eventId)).mode;
 
   // Count today's submissions for soft-cap check. The spec's soft cap is
   // per-booth per-day; here we use "submissions enqueued in the last 24 h"

@@ -19,6 +19,8 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
+import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
+import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
@@ -154,6 +156,14 @@ export async function commitOnboardingEvent(
     return { ok: false, error: 'server_config_error' };
   }
 
+  // 🎟 The setup cards (G1). Read ONLY for a type its seed has admitted to the
+  // engine, and re-read key by key against that type's own view — the theme
+  // fence, the reply default and the rows offered come from the profile, never
+  // from the wire.
+  const setup = profile.onboardingEngine
+    ? sanitizeSetupAnswers(payload.setup, setupViewForProfile(profile))
+    : null;
+
   const displayName =
     payload.displayName?.trim() ||
     `Our ${profile.terminology.eventWord || 'Event'}`;
@@ -171,6 +181,7 @@ export async function commitOnboardingEvent(
       isAnonymous: Boolean(user.is_anonymous),
       experienceEnabled: experienceQuizEnabled(),
       homeSignalsEnabled: await isDataPrivacyControlActive('home_activity_signals'),
+      setup,
     },
   );
 

@@ -139,7 +139,8 @@ test('DEFAULT (no ask prop, or {}): every field the widget has always asked is s
     assert.match(html, /id="dietary_restrictions"/);
     assert.match(html, /id="guest_note"/);
     assert.match(html, /id="contact_mobile"/);
-    assert.match(html, /id="contact_email"/);
+    // 📵 No email box (owner 2026-09-29, "NO EMAIL TO GUESTS").
+    assert.doesNotMatch(html, /id="contact_email"/);
     // plus_one_allowed=true on the fixture guest — the box must render.
     assert.match(html, /Who are you bringing/);
   }
@@ -179,14 +180,15 @@ test('note off removes the note textarea — nothing else moves', async () => {
   assert.match(on, /id="guest_note"/);
   assert.doesNotMatch(off, /id="guest_note"/);
   // The neighbouring contact boxes are untouched by the note toggle.
-  assert.match(off, /id="contact_email"/);
+  assert.match(off, /id="contact_display_name"/);
   assert.match(off, /id="contact_mobile"/);
 });
 
-test('mobile off removes ONLY the mobile box — email always stays (it is also the sign-in address)', async () => {
+test('mobile off removes ONLY the mobile box — the name box stays, and there is never an email box', async () => {
   const html = await render({ mobile: false });
   assert.doesNotMatch(html, /id="contact_mobile"/);
-  assert.match(html, /id="contact_email"/);
+  assert.match(html, /id="contact_display_name"/);
+  assert.doesNotMatch(html, /id="contact_email"/);
 });
 
 test('plus_ones off hides the name box even for a guest the host already allowed one', async () => {
@@ -206,7 +208,10 @@ test('song_request asks a song ON the reply card too, behind the same switch (ow
   // nothing before the day — "a switch that does nothing is a lie". The card
   // now asks one song question of its own, drawn only while the switch is on.
   const w = read('_components', 'rsvp-widget.tsx');
-  assert.match(w, /const askSong = rsvpAsks\(ask, 'song_request'\);/);
+  // 🗳 #6176: `asked` is the switch, widened ONLY on the Maker's canvas
+  // (`previewEveryQuestion`), which draws every question to show / hide it.
+  assert.match(w, /const asked = \(field: RsvpAskField\) => previewEveryQuestion \|\| rsvpAsks\(ask, field\);/);
+  assert.match(w, /const askSong = asked\('song_request'\);/);
   assert.match(w, /\{askSong && !replyLocked \? \(/);
 });
 

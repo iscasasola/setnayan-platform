@@ -107,7 +107,7 @@ export function GuestChecklist({
               <span className="min-w-0 flex-1">
                 <span className="block font-serif text-lg leading-snug text-ink">{item.title}</span>
                 {item.swatches && item.swatches.length > 0 ? (
-                  <span className="mt-1.5 flex gap-2" aria-label="Motif colours">
+                  <span className="mt-1.5 flex gap-2" aria-label="Motif colors">
                     {item.swatches.map((hex) => (
                       <span
                         key={hex}

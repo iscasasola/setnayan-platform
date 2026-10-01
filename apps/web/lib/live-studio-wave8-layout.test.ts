@@ -285,7 +285,7 @@ test('WAVE 8 — removing the chrome did not strand the operator', () => {
   const src = read(CONTROLLER);
   // The sidebar, bottom nav and account plaque were every route back. The status
   // strip's exit link is now the only one, so it must be labelled and reachable.
-  assert.match(src, /aria-label="Leave the controller — back to Live Studio"/);
+  assert.match(src, /aria-label="Leave the controller — back to Live Watch"/);
   assert.match(src, /href=\{detailHref\}/);
 });
 

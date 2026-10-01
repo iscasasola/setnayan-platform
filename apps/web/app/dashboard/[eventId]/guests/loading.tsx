@@ -1,7 +1,8 @@
 import { GridPageSkeleton } from '@/components/skeletons';
 
 /**
- * NO HEADER BUTTONS ARE RESERVED, because the page's header no longer has any.
+ * NO HEADER BUTTONS ARE RESERVED, because the page's header no longer has any
+ * (the ⋯ rides at the end of the Add · Filter row since F2, not in the header).
  *
  * ⚖ Owner 2026-09-20: the masthead's doors ("Invite guests", "Arrange the
  * room", the Wedding March, Share, Check-in) became ONE ROW of tabs under the

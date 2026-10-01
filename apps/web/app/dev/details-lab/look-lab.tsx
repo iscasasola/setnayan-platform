@@ -4,6 +4,8 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { MakerContext, type MakerLookPages, type MakerState } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { DetailsPieceButton } from '@/app/dashboard/[eventId]/launch/_components/details-go';
+import { FontPick } from '@/app/dashboard/[eventId]/website/editor/_components/font-pick';
+import type { HubFontKey } from '@/lib/hub-fonts';
 
 /**
  * `/dev/details-lab?look=1` — the Look items (Details part 3) on fixtures. The
@@ -20,6 +22,21 @@ function Stand({ name, tall = false }: { name: string; tall?: boolean }) {
     >
       {name}
     </div>
+  );
+}
+
+function LabFontPick() {
+  const [font, setFont] = useState<HubFontKey | null>(null);
+  return (
+    <FontPick
+      eventId="lab"
+      label="Font"
+      dataAttr="data-element-font"
+      value={font}
+      lead="Event Hub font"
+      onPick={setFont}
+      className="min-h-11 w-full justify-between border border-ink/15"
+    />
   );
 }
 
@@ -48,6 +65,8 @@ export function LookLab({ children }: { children: ReactNode }) {
         </>
       ),
       heroParts: null,
+      /* Classic's faces + a couple's part font, as the page would register them. */
+      fontsInUse: ['cormorant', 'cormorantsc', 'playfair'],
       revealStages: ['save_the_date', 'rsvp'],
       publicLandingUrl: '/dev/hero-lab',
     }),
@@ -76,5 +95,15 @@ export function LookLab({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `noop` is a fresh arrow each render; it does nothing
     [detailsItem, lookPages],
   );
-  return <MakerContext.Provider value={value}>{children}</MakerContext.Provider>;
+  return (
+    <MakerContext.Provider value={value}>
+      {/* 🔤 The REAL font dropdown (`FontPick`) above the page, visible at 375 /
+          390 and on a desk, so its shelves, sticky headings and "In use" can be
+          checked — "In use" here is the fixture above, not a page. */}
+      <div className="px-4 py-3" data-lab-font-pick="">
+        <LabFontPick />
+      </div>
+      {children}
+    </MakerContext.Provider>
+  );
 }

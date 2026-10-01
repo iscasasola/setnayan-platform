@@ -41,6 +41,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { SCHEDULE_FOCUS_EVENT, takeQueuedScheduleFocus } from './schedule-focus';
+import { quietDayActions } from './schedule-live';
 import { InSlot, pickDetailsPiece } from '../../launch/_components/details-piece';
 import { CalendarClock, Check, Eye, EyeOff, MessageSquare, Mic, MoveVertical, Plus } from 'lucide-react';
 import { useIsDesktop } from '@/lib/use-responsive';
@@ -154,8 +155,18 @@ export function ScheduleDay({
   hostPanel: ReactNode | null;
 }) {
   const canEdit = role !== 'view';
+  /* ⚡ IN THE MAKER EVERY EDIT IS QUIET (`schedule-live.ts`): written with no
+     revalidate — so no whole render of the Maker comes back with it — shown on
+     the rail at once, laid on the stage canvases, and a removed moment leaves
+     the rail as soon as its delete lands. The standalone page is unchanged. */
+  const live = inspectorSlot !== null;
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  const dayActions = useMemo(
+    () => (live ? quietDayActions(actions, (id) => setGone((g) => new Set(g).add(id))) : actions),
+    [actions, live],
+  );
   const { bulkRetimeScheduleBlocks, loadScheduleTemplate, toggleBlockVisibility, updateScheduleBlock } =
-    actions;
+    dayActions;
   const isDesktop = useIsDesktop();
   const hourPx = isDesktop ? 68 : 64;
 
@@ -170,9 +181,14 @@ export function ScheduleDay({
   const [, startTransition] = useTransition();
   const [now, setNow] = useState<{ key: string; min: number } | null>(null);
 
+  /** What each moment's last SAVED change was — a refused save goes back to it, not to an older render. */
+  const confirmed = useRef<Record<string, Partial<DayMoment>>>({});
   // A fresh server answer supersedes every optimistic guess.
   useEffect(() => {
+    overridesRef.current = {};
     setOverrides({});
+    setGone(new Set());
+    confirmed.current = {};
   }, [moments]);
 
   /* 🧩 In Details the moment picked on the rail is the navigator's piece too. */
@@ -215,8 +231,11 @@ export function ScheduleDay({
   }, [isEventDay]);
 
   const merged = useMemo(
-    () => moments.map((m) => ({ ...m, ...(overrides[m.block_id] ?? {}) })),
-    [moments, overrides],
+    () =>
+      moments
+        .filter((m) => !gone.has(m.block_id) && !(m.parent_block_id && gone.has(m.parent_block_id)))
+        .map((m) => ({ ...m, ...(overrides[m.block_id] ?? {}) })),
+    [moments, overrides, gone],
   );
   const topLevel = useMemo(() => merged.filter((m) => m.parent_block_id === null), [merged]);
   const partsOf = useMemo(() => {
@@ -243,23 +262,35 @@ export function ScheduleDay({
     merged.some((m) => m.responsible_vendor_ids.includes(s.vendor_id)),
   );
 
+  const overridesRef = useRef(overrides);
   function override(id: string, patch: Partial<DayMoment>) {
-    setOverrides((o) => ({ ...o, [id]: { ...(o[id] ?? {}), ...patch } }));
+    const next = { ...overridesRef.current, [id]: { ...(overridesRef.current[id] ?? {}), ...patch } };
+    overridesRef.current = next;
+    setOverrides(next);
+  }
+  /** A change that DID save — what a later refusal goes back to (no render follows a Maker save). */
+  function confirm(id: string, patch: Partial<DayMoment>) {
+    confirmed.current[id] = { ...(confirmed.current[id] ?? {}), ...patch };
   }
   function revert(ids: string[]) {
-    setOverrides((o) => {
-      const next = { ...o };
-      for (const id of ids) delete next[id];
-      return next;
-    });
+    const next = { ...overridesRef.current };
+    for (const id of ids) {
+      const kept = confirmed.current[id];
+      if (kept) next[id] = { ...kept };
+      else delete next[id];
+    }
+    overridesRef.current = next;
+    setOverrides(next);
   }
 
   /** Run a write; on a refusal, undo the guess and say so. */
   function write(ids: string[], run: () => Promise<unknown>) {
     setNotice(null);
+    const guessed = ids.map((id) => [id, overridesRef.current[id]] as const);
     startTransition(async () => {
       try {
         await run();
+        for (const [id, patch] of guessed) if (patch) confirm(id, patch);
       } catch {
         revert(ids);
         setNotice(COULD_NOT_SAVE);
@@ -441,6 +472,8 @@ export function ScheduleDay({
                 onDeleted={() => setSelectedId(null)}
                 onOverride={override}
                 onRevert={revert}
+                onConfirm={confirm}
+                live={live}
               />
             ) : (
               <Glance
@@ -456,7 +489,7 @@ export function ScheduleDay({
             );
 
   return (
-    <DayActionsContext.Provider value={actions}>
+    <DayActionsContext.Provider value={dayActions}>
     <div className="space-y-3" data-schedule-day="">
       {/* THE DAY'S TOOLS — one row; names live in aria-label/title, the
           explanation lives behind the ⓘ, never in a paragraph above the rail. */}
@@ -900,6 +933,8 @@ export function ScheduleDay({
             onDeleted={() => setSelectedId(null)}
             onOverride={override}
             onRevert={revert}
+            onConfirm={confirm}
+            live={live}
           />
         </div>
       ) : null}

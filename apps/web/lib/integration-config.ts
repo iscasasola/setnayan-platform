@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { decryptToken } from '@/lib/encryption';
 import {
   SECRET_INTEGRATIONS,
@@ -216,23 +217,44 @@ export async function resolveOpenAiKey(): Promise<string | null> {
  * UNCACHED; all-false on any error (DB unreachable / table absent).
  */
 export async function getSecretPresenceMap(): Promise<Record<string, boolean>> {
+  return (await getSecretPresenceMapMeasured()).map;
+}
+
+/**
+ * Same map, plus whether the read actually happened.
+ *
+ * 🚨 ALL-FALSE WAS BOTH "NOTHING SET" AND "COULDN'T LOOK" (admin audit
+ * 2026-09-30, row 35). Supabase resolves `{ error }` rather than throwing, so
+ * the old catch never even fired: a refused read left every secret "unset",
+ * and the Integrations / Secrets screens then invited the owner to re-enter —
+ * or clear — keys that were there all along. `readFailed` lets a screen say
+ * "couldn't load" and keep its Save buttons off.
+ */
+export async function getSecretPresenceMapMeasured(): Promise<{
+  map: Record<string, boolean>;
+  readFailed: boolean;
+}> {
   const map: Record<string, boolean> = {};
   for (const col of ALL_SECRET_COLUMNS) map[col] = false;
   try {
     const admin = createAdminClient();
-    const { data } = await admin
+    const { data, error } = await admin
       .from('platform_integration_secrets')
       .select('*')
       .eq('id', 1)
       .maybeSingle();
+    if (error) {
+      logQueryError('getSecretPresenceMapMeasured', error, {}, 'graceful_degrade');
+      return { map, readFailed: true };
+    }
     const row = data as Record<string, unknown> | null;
     if (row) {
       for (const col of ALL_SECRET_COLUMNS) map[col] = Boolean(row[col]);
     }
   } catch {
-    // leave all-false
+    return { map, readFailed: true };
   }
-  return map;
+  return { map, readFailed: false };
 }
 
 // ── OAuth client config (PR3) ───────────────────────────────────────────────

@@ -31,8 +31,10 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 /** Every surface with a QR "download" control on the Guest list or its drawer. */
 const GUEST_LIST_QR_SURFACES = [
   'app/dashboard/[eventId]/guests/_components/roster-tabs.tsx', // the tab row (its QR sheet moved to Details, 2026-09-29)
-  'app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx', // the drawer's own QR
-  'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', // mounts the drawer body
+  // ⤷ 2026-09-30: the card's own QR left (owner, the Fable guest card); the
+  // card saves the guest's Digital ticket instead — `Save ticket`, below.
+  'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', // the guest card
+  'app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx', // the card's ticket · Save ticket
   'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx', // Guest list's Share tab join-link QR
   'app/_components/qr-actions.tsx', // the shared Download · NFC · Copy strip
   'app/_components/save-file-link.tsx', // the mechanism itself
@@ -47,11 +49,10 @@ test('no QR download control on the Guest list or its drawer navigates instead o
 });
 
 test('the Guest list + drawer QR downloads all go through SaveFileLink, not a bare <a download>', () => {
-  // roster-tabs.tsx and guest-detail-body.tsx are SERVER components, so they
-  // mount the client wrappers in guest-save-links.tsx (checked below) instead
-  // of SaveFileLink itself — see the next test for why.
+  // The guest card's Save ticket is a client component, so it mounts
+  // SaveFileLink itself (the sweep below keeps every mount client-side).
   const MUST_USE_SAVE_FILE_LINK = [
-    'app/dashboard/[eventId]/guests/_components/guest-save-links.tsx',
+    'app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx',
     'app/_components/qr-actions.tsx',
   ];
   for (const rel of MUST_USE_SAVE_FILE_LINK) {
@@ -64,16 +65,14 @@ test('the Guest list + drawer QR downloads all go through SaveFileLink, not a ba
   }
 });
 
-test('the Guest list and the drawer mount the client wrappers, not SaveFileLink directly', () => {
-  const WRAPPED: Array<[string, string]> = [
-    // (roster-tabs.tsx's QR-sheet door left the Guest list on 2026-09-29 — its home is Details › For the day.)
-    ['app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx', '<GuestQrDownloadLink'],
-  ];
-  for (const [rel, tag] of WRAPPED) {
-    const src = stripComments(read(rel));
-    assert.ok(src.includes("from './guest-save-links'"), `${rel} no longer imports the guest-save-links wrappers`);
-    assert.ok(src.includes(tag), `${rel} no longer mounts ${tag}`);
-  }
+test('the guest card saves the ticket with ONE button, through SaveFileLink', () => {
+  // ⤷ 2026-09-30 (owner, frame F): "One button: Save ticket … so there is no
+  // separate Download QR any more." The server card draws no save control of
+  // its own — the client ticket view does.
+  const card = stripComments(read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'));
+  assert.doesNotMatch(card, /Download QR|<SaveFileLink/, 'the card grew its own download again');
+  const parts = stripComments(read('app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx'));
+  assert.match(parts, /<SaveFileLink[\s\S]{0,400}Save ticket/, 'the full ticket view has no Save ticket');
 });
 
 /*

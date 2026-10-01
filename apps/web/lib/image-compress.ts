@@ -19,6 +19,8 @@
  * `compressVideoForWeb`.
  */
 
+import { IMAGE_MAX_EDGE } from './image-max-edge';
+
 export type ImageCompressOptions = {
   /**
    * Longest-edge ceiling in CSS pixels. An image larger than this on either
@@ -32,7 +34,7 @@ export type ImageCompressOptions = {
 };
 
 const DEFAULTS: Required<ImageCompressOptions> = {
-  maxEdge: 2000,
+  maxEdge: IMAGE_MAX_EDGE,
   quality: 0.82,
 };
 

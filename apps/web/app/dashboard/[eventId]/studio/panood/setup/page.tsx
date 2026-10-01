@@ -51,7 +51,7 @@ import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-c
 import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Live Studio setup' };
+export const metadata = { title: 'Live Watch setup' };
 
 // Iteration 0011 — Live Studio couple-facing setup + broadcaster admin surface.
 //
@@ -271,7 +271,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Live Studio
+        Back to Live Watch
       </Link>
 
       <PageMasthead
@@ -438,7 +438,7 @@ function YoutubeConnect({
           Connect your YouTube channel
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Connect a channel and Live Studio broadcasts to <em>your</em> YouTube channel —
+          Connect a channel and Live Watch broadcasts to <em>your</em> YouTube channel —
           your family controls who subscribes, the recording is yours, and the watch URL
           stays on your channel. (For events where Setnayan supplies the channel, there is
           nothing to connect here and the recording sits on a Setnayan channel instead.) We
@@ -651,7 +651,7 @@ function SetupStatus({ eventId }: { eventId: string }) {
             Step 2 · what you get
           </p>
           <h2 id="setup-status-heading" className="text-xl font-semibold tracking-tight">
-            Your Live Studio broadcast
+            Your Live Watch broadcast
           </h2>
         </div>
         {/* Single-cam live broadcast is FREE for any host (owner model
@@ -712,7 +712,7 @@ function SetupStatus({ eventId }: { eventId: string }) {
             href={`/dashboard/${eventId}/studio/panood`}
             className="text-terracotta hover:underline"
           >
-            Live Studio page
+            Live Watch page
           </Link>
           .
         </p>
@@ -806,7 +806,7 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
           Going live with one camera from your own phone or OBS is free. The Setnayan
           multicam control room is the paid upgrade: one broadcaster who switches between
           several phone cameras, marks highlights, and cuts to standby — each camera a
-          phone running the Live Studio operator web client, no install. Open the control room
+          phone running the Live Watch operator web client, no install. Open the control room
           below to set it up.
         </p>
       </div>

@@ -180,6 +180,13 @@ export type BottomNavItem = {
    */
   activeMatchAlsoExact?: string[];
   badge?: NavBadge;
+  /**
+   * Opens a chooser instead of navigating (the couple's "More" tab, owner
+   * 2026-09-30). The tab stays a real link to `href` — a middle-click or a
+   * no-JS tap still lands on the page — but a plain tap calls this instead.
+   * Flat bar only.
+   */
+  onSelect?: () => void;
 };
 
 /**

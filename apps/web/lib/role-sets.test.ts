@@ -6,20 +6,25 @@ import {
   MUSLIM_ROLE_SET,
   GENERIC_ROLE_SET,
   SIMPLE_ROLE_SET,
+  BIRTHDAY_ROLE_SET,
+  HANGOUT_ROLE_SET,
   resolveRoleSet,
 } from './role-sets';
 import { roleTier, ROLE_TIER_LABELS } from './seating';
 import { SINGLETON_GUEST_ROLES } from './guests';
 
 // --- resolveRoleSet routing ------------------------------------------------
-test('resolveRoleSet routes wedding → wedding, muslim → muslim, simple → simple, everything else → generic', () => {
+test('resolveRoleSet routes wedding → wedding, muslim → muslim, simple → simple, birthday → birthday, hangout → hangout, everything else → generic', () => {
   assert.equal(resolveRoleSet('wedding'), WEDDING_ROLE_SET);
   assert.equal(resolveRoleSet('wedding_muslim'), MUSLIM_ROLE_SET);
   assert.equal(resolveRoleSet('generic'), GENERIC_ROLE_SET);
   assert.equal(resolveRoleSet('simple'), SIMPLE_ROLE_SET);
   assert.equal(resolveRoleSet(null), GENERIC_ROLE_SET);
   assert.equal(resolveRoleSet(undefined), GENERIC_ROLE_SET);
-  assert.equal(resolveRoleSet('birthday'), GENERIC_ROLE_SET); // no row yet → generic
+  // G1 (migration 20271258536791): birthday and hangout/date have their own sets now.
+  assert.equal(resolveRoleSet('birthday'), BIRTHDAY_ROLE_SET);
+  assert.equal(resolveRoleSet('hangout'), HANGOUT_ROLE_SET);
+  assert.equal(resolveRoleSet('debut'), GENERIC_ROLE_SET); // no row yet → generic
 });
 
 // --- MUSLIM_ROLE_SET: Nikah cast, no Catholic sponsors ---------------------
@@ -115,10 +120,22 @@ test('WEDDING_ROLE_SET reproduces the pre-0053 wedding role data', () => {
   // across all other weddings." Measured that day: 0 live rows still held it.
   const SANCTIONED_RETIREMENTS = ['principal_sponsor'] as const;
 
+  // ⚖ …and on 2026-09-30 the owner added the best man's alternative: "We can
+  // pick either best man or best woman and maid or matron of honor." It stands
+  // where the best man stands — tier 2, beside him — so it is checked against
+  // HIM below rather than against the sponsors' tier-1 rule.
+  const SANCTIONED_ALTERNATIVES = [['best_woman', 'best_man']] as const;
+
   assert.equal(
     WEDDING_ROLE_SET.offeredRoles.length,
-    24 + SANCTIONED_ADDITIONS.length - SANCTIONED_RETIREMENTS.length,
+    24 + SANCTIONED_ADDITIONS.length + SANCTIONED_ALTERNATIVES.length - SANCTIONED_RETIREMENTS.length,
   );
+  for (const [alt, of] of SANCTIONED_ALTERNATIVES) {
+    assert.ok(WEDDING_ROLE_SET.offeredRoles.includes(alt), `${alt} must be offered`);
+    assert.equal(WEDDING_ROLE_SET.selfClaimableRoles.includes(alt), WEDDING_ROLE_SET.selfClaimableRoles.includes(of));
+    assert.equal(WEDDING_ROLE_SET.tier2Roles.has(alt), WEDDING_ROLE_SET.tier2Roles.has(of));
+    assert.equal(WEDDING_ROLE_SET.offeredRoles.indexOf(alt), WEDDING_ROLE_SET.offeredRoles.indexOf(of) + 1);
+  }
   assert.equal(WEDDING_ROLE_SET.offeredRoles[0], 'guest');
   assert.ok(WEDDING_ROLE_SET.offeredRoles.includes('bride'));
   assert.ok(WEDDING_ROLE_SET.offeredRoles.includes('groom'));
@@ -157,7 +174,7 @@ test('WEDDING_ROLE_SET reproduces the pre-0053 wedding role data', () => {
   // Self-claim: excludes couple + the 4 VIP-family roles.
   assert.equal(
     WEDDING_ROLE_SET.selfClaimableRoles.length,
-    18 + SANCTIONED_ADDITIONS.length - SANCTIONED_RETIREMENTS.length,
+    18 + SANCTIONED_ADDITIONS.length + SANCTIONED_ALTERNATIVES.length - SANCTIONED_RETIREMENTS.length,
   );
   for (const excluded of [
     'bride',
@@ -223,7 +240,8 @@ test('roleTier with the generic set tiers host/vip→1, family→3, rest→4', (
   it.
 */
 test('⚖ the honour attendants are NOT one-per-event — owner ruling, not an oversight', () => {
-  for (const role of ['best_man', 'maid_of_honor', 'matron_of_honor'] as const) {
+  // best_woman joins them (owner 2026-09-30) — the same ruling covers her.
+  for (const role of ['best_man', 'best_woman', 'maid_of_honor', 'matron_of_honor'] as const) {
     assert.ok(
       !SINGLETON_GUEST_ROLES.includes(role),
       `${role} was made one-per-event. The owner ruled on 2026-09-14 that a couple may have as many as they want ` +

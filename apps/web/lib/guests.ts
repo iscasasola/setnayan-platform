@@ -3,6 +3,8 @@ import {
   isMissingRelationError,
   logQueryError,
 } from '@/lib/supabase/error-detect';
+import { roleNameOne, type RoleNames } from '@/lib/role-names';
+import { styledName, type NameStyle } from '@/lib/name-style';
 
 export type GuestRole =
   | 'guest'
@@ -21,6 +23,13 @@ export type GuestRole =
   | 'maid_of_honor'
   | 'matron_of_honor'
   | 'best_man'
+  // ⚖ OWNER 2026-09-30: *"We can pick either best man or best woman and maid or
+  // matron of honor."* The groom's honour attendant may be a woman. Same place
+  // in the march, same (groom's) side, same colour family as `best_man` — only
+  // the word changes. Enum value added via migration 20271253806528
+  // (guest_role_add_best_woman). NOT exclusive with best_man: nothing forbids
+  // both, exactly as a maid AND a matron of honour may both stand.
+  | 'best_woman'
   | 'bridesmaid'
   | 'groomsman'
   | 'principal_sponsor'
@@ -119,6 +128,9 @@ const ATTIRE_BY_ROLE: Partial<Record<GuestRole, GuestAttire>> = {
   flower_girl: 'gown',
   groom: 'suit',
   best_man: 'suit',
+  // She stands where the best man stands and dresses as a woman does — the one
+  // role whose attire is the reason it exists.
+  best_woman: 'gown',
   groomsman: 'suit',
   ring_bearer: 'suit',
   bible_bearer: 'suit',
@@ -296,6 +308,7 @@ const INNER_CIRCLE_ROLES: ReadonlySet<GuestRole> = new Set([
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
+  'best_woman',
   'bridesmaid',
   'groomsman',
   // 🔴 ALL THREE, AND THE TWO NEW ONES WERE MISSING FOR A DAY.
@@ -378,6 +391,7 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   maid_of_honor: 'Maid of Honor',
   matron_of_honor: 'Matron of Honor',
   best_man: 'Best Man',
+  best_woman: 'Best Woman',
   bridesmaid: 'Bridesmaid',
   groomsman: 'Groomsman',
   principal_sponsor: 'Principal Sponsor',
@@ -405,6 +419,32 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   imam: 'Imam / Qadi (Officiant)',
   wakil: "Wakil (Groom's Proxy)",
 };
+
+/**
+ * THE WORD A HOST OR GUEST READS FOR A ROLE ON THIS EVENT.
+ *
+ * ⚖ Owner 2026-09-30: a couple may rename any entourage role for their event
+ * (Bridesmaid → "Bride's Crew"). `names` is `events.role_names`, sanitised
+ * (`lib/role-names.ts`); omitted or empty → the usual word from `ROLE_LABELS`.
+ *
+ * 🔑 Use this, not `ROLE_LABELS[role]`, anywhere a role is SHOWN for a known
+ * event. `ROLE_LABELS` stays the usual word — the fallback, and the right
+ * answer where there is no event (a vocabulary list, an error about a role).
+ * `role-names-reach-every-screen.test.ts` holds the sweep.
+ */
+export function guestRoleLabel(role: GuestRole, names?: RoleNames | null): string {
+  return roleNameOne(role, names) ?? ROLE_LABELS[role];
+}
+
+/**
+ * The same word, for a PICKER: a renamed role also says what it is underneath
+ * — "Bride's Crew (Bridesmaid)" — so a host choosing from a list can still tell
+ * which role their word stands for. Everywhere else shows the word alone.
+ */
+export function guestRolePickLabel(role: GuestRole, names?: RoleNames | null): string {
+  const mine = roleNameOne(role, names);
+  return mine && mine !== ROLE_LABELS[role] ? `${mine} (${ROLE_LABELS[role]})` : ROLE_LABELS[role];
+}
 
 // --- Singleton-role messaging (one source for every guest write path) -------
 // bride/groom + the Muslim Nikah singletons (wali/imam/wakil) are one-per-event,
@@ -851,6 +891,11 @@ export function guestDisplayName(
  *
  * Returns null when there is nothing usable, so a caller can drop the row
  * rather than print an empty line where a person should be.
+ *
+ * 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE PICKS
+ * A NAME STYLE"): `style` prints the parts as Full · Middle initial · Surname
+ * first (`lib/name-style.ts`). Omitted = Full = the line this printed before.
+ * A Display name still wins in every style — it is printed as given.
  */
 export function guestFullName(guest: {
   /* ⚠ EVERY PART IS `string | null | undefined`, AND NOT `Partial<Pick<GuestRow,…>>`.
@@ -865,23 +910,13 @@ export function guestFullName(guest: {
   middle_name?: string | null;
   last_name?: string | null;
   name_suffix?: string | null;
-}): string | null {
+}, style?: NameStyle): string | null {
   const chosen = guest.display_name?.trim();
   if (chosen) return chosen;
   /* Order is the printed order, and every part is optional EXCEPT that at least
-     one must survive. A lone stray space between two absent parts is what the
-     filter is for — `${a} ${b}` with both empty is the bug this avoids. */
-  const whole = [
-    guest.name_prefix,
-    guest.first_name,
-    guest.middle_name,
-    guest.last_name,
-    guest.name_suffix,
-  ]
-    .map((part) => (part ?? '').trim())
-    .filter(Boolean)
-    .join(' ');
-  return whole || null;
+     one must survive — `styledName` skips a blank part, so `${a} ${b}` with
+     both empty (a lone stray space) can never print. */
+  return styledName(guest, style);
 }
 
 /**
@@ -907,8 +942,8 @@ export function guestFullName(guest: {
  * QR code, which is worse than printing the compact name — a card nobody can
  * hand to anybody.
  */
-export function printedCardName(guest: GuestRow): string {
-  return guestFullName(guest) ?? guestDisplayName(guest);
+export function printedCardName(guest: GuestRow, style?: NameStyle): string {
+  return guestFullName(guest, style) ?? guestDisplayName(guest);
 }
 
 export function guestInitials(guest: GuestRow): string {

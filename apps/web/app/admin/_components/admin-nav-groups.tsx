@@ -410,7 +410,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         ? [
             {
               key: 'live-studio-channels',
-              label: 'Live Studio channels',
+              label: 'Live Watch channels',
               href: '/admin/live-studio-channels',
               icon: RadioTower,
               matchPrefix: '/admin/live-studio-channels',

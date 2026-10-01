@@ -1,0 +1,327 @@
+/**
+ * /for-suppliers — "Built to grow your business — free."
+ *
+ * 🔀 MOVED 2026-09-30 from /vendors (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C":
+ * "supplier sign-up moves /vendors → /for-suppliers with a permanent forward from
+ * the old address"). `/vendors` and `/for-vendors` are 308s here in
+ * next.config.ts; the old marketplace SUBPATHS `/vendors/*` keep their own 308
+ * to /explore in middleware.ts. Component names below still say "Vendor" —
+ * code names are frozen; only what a person reads says "supplier".
+ *
+ * Rebuilt 2026-07-05 to the owner-approved prototype (vendors_page_v2_final.html):
+ * a free-forward, grow-with-us narrative → the tier ladder → a "for those who
+ * need more" Custom callout → CTA. The ladder now LEADS with per-plan DELTAS
+ * (what each plan adds, once) and keeps the ~90-row matrix behind a disclosure
+ * inside the same section. The persistent glass nav +
+ * footer are global site-chrome (SiteChrome) — this page renders neither.
+ *
+ * Narrative flow (top→bottom):
+ *   photographic hero → thesis strip (₱0 · 0% commission + booking fee · first-5-free) →
+ *   run-your-business-here-free hub → Setnayan AI (dark signature: sells for
+ *   you + 3 nudge steps + phone mock + flywheel callout) →
+ *   never-spend-a-peso-that-doesn't-grow-you → free website that ranks (SEO/GEO)
+ *   → analytics + only-inquiries-that-matter → trust earned not bought →
+ *   no-fakes → reach that compounds → the tools → get paid your way →
+ *   tier DELTAS (Free·Verified / Solo / Pro / Enterprise / Custom), with the
+ *   full 5-column matrix collapsed behind "Compare every tier side by side"
+ *   → Custom "for those who need more" → CTA.
+ *
+ * PRICE SOURCING (owner-locked "prices based on the admin page, not hardcoded"):
+ *   Every vendor tier price comes from getVendorPrices() (live vendor_billing_
+ *   catalog). force-dynamic keeps it always-live. The narrative sections speak
+ *   the "free" thesis and render NO number; the matrix column price tags are the
+ *   DB-resolved labels. ⚠ Custom's "from" floor USED to read that it was "the
+ *   shared VENDOR_CUSTOM_TIER constant (composed per plan, not a DB SKU)". That
+ *   was wrong: `vendor_custom_base` is an active catalog row and is where the
+ *   number came from. It now reads the catalog like every other price, as does
+ *   the branch dial — neither is typed anywhere.
+ *
+ * The matrix is DATA-DRIVEN (VENDOR_TIER_SECTIONS + TIER_CAPS via
+ * VendorTierMatrix) — the ~90 rows are built from the canonical arrays, never
+ * hand-hardcoded in JSX. Front-end only: no checkout / entitlement / DB change.
+ */
+
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
+import { VendorGrowHero } from './_components/vendor-grow-hero';
+import {
+  VendorGrowThesis,
+  VendorGrowHub,
+  VendorGrowAI,
+  VendorGrowFairPay,
+  VendorGrowWebsite,
+  VendorGrowAnalytics,
+  VendorGrowTrust,
+  VendorGrowNoFakes,
+  VendorGrowReach,
+  VendorGrowTools,
+  VendorGrowGetPaid,
+  VendorGrowCTA,
+  VendorGrowStyles,
+} from './_components/vendor-grow-sections';
+import { VendorTierMatrix } from './_components/vendor-tier-matrix';
+import { VendorTierDeltas } from './_components/vendor-tier-deltas';
+import { RevealOnView } from './_components/for-vendors-motion';
+import { getVendorPrices } from '@/lib/v2-catalog';
+import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+
+// Per-request rendering (owner 2026-06-08 "make sure these prices are based on
+// the admin page and not hardcoded"): the vendor tier prices read the live
+// catalog DB via getVendorPrices(). force-dynamic = always-live prices + the CI
+// build skips the createAdminClient throw (the /pricing pattern).
+export const dynamic = 'force-dynamic';
+
+// DB-driven metadata — the tier prices come from getVendorPrices().
+export async function generateMetadata() {
+  const p = await getVendorPrices();
+  const title = `Setnayan for Suppliers · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`;
+  return {
+    title,
+    description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. Free to join. ${supplierCommissionShort()} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d.`,
+    alternates: { canonical: '/for-suppliers' },
+    openGraph: {
+      title,
+      description: `Run your whole business here free · ${supplierCommissionShort()} · your own clients always free. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d.`,
+      url: '/for-suppliers',
+      type: 'website',
+      siteName: 'Setnayan',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: `Built to grow your business — free. ${supplierCommissionShort()}. Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly}/28d.`,
+    },
+  };
+}
+
+const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
+  /\/$/,
+  '',
+);
+
+// Schema.org pricing — vendor tier Offers (Solo / Pro / Enterprise · prices
+// from the live catalog, never hardcoded).
+function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        '@id': `${SITE_URL}/#organization`,
+        name: 'Setnayan',
+        url: `${SITE_URL}/`,
+        logo: `${SITE_URL}/icon-512.svg`,
+        areaServed: { '@type': 'Country', name: 'Philippines' },
+      },
+      {
+        '@type': 'WebPage',
+        '@id': `${SITE_URL}/for-suppliers#webpage`,
+        url: `${SITE_URL}/for-suppliers`,
+        name: `Setnayan for suppliers · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`,
+        isPartOf: { '@id': `${SITE_URL}/#website` },
+        about: { '@id': `${SITE_URL}/#organization` },
+        audience: {
+          '@type': 'BusinessAudience',
+          audienceType: 'Wedding & event service suppliers in the Philippines',
+          geographicArea: { '@type': 'Country', name: 'Philippines' },
+        },
+      },
+      {
+        '@type': 'Offer',
+        '@id': `${SITE_URL}/for-suppliers#solo-vendor-subscription`,
+        name: 'Solo Supplier (28-day prepaid block)',
+        description:
+          `1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. ${supplierCommissionPromise()}`,
+        price: String(p.num.soloMonthly),
+        priceCurrency: 'PHP',
+        priceSpecification: {
+          '@type': 'UnitPriceSpecification',
+          price: String(p.num.soloMonthly),
+          priceCurrency: 'PHP',
+          billingDuration: 'P28D',
+          unitText: '28-DAY BLOCK',
+        },
+        availability: 'https://schema.org/InStock',
+        seller: { '@id': `${SITE_URL}/#organization` },
+        url: `${SITE_URL}/open-shop`,
+      },
+      {
+        '@type': 'Offer',
+        '@id': `${SITE_URL}/for-suppliers#pro-vendor-subscription`,
+        name: 'Pro Supplier (28-day prepaid block)',
+        description:
+          '3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · Demand Radar · category benchmarks. 28-day prepaid blocks.',
+        price: String(p.num.proMonthly),
+        priceCurrency: 'PHP',
+        priceSpecification: {
+          '@type': 'UnitPriceSpecification',
+          price: String(p.num.proMonthly),
+          priceCurrency: 'PHP',
+          billingDuration: 'P28D',
+          unitText: '28-DAY BLOCK',
+        },
+        availability: 'https://schema.org/InStock',
+        seller: { '@id': `${SITE_URL}/#organization` },
+        url: `${SITE_URL}/open-shop`,
+      },
+      {
+        '@type': 'Offer',
+        '@id': `${SITE_URL}/for-suppliers#enterprise-subscription`,
+        name: 'Enterprise Supplier (28-day prepaid block)',
+        description:
+          'All marketplace categories · up to 10 team accounts + multi-admin · flagship page + video films · reach up to 100 km. 28-day prepaid blocks.',
+        price: String(p.num.enterpriseMonthly),
+        priceCurrency: 'PHP',
+        priceSpecification: {
+          '@type': 'UnitPriceSpecification',
+          price: String(p.num.enterpriseMonthly),
+          priceCurrency: 'PHP',
+          billingDuration: 'P28D',
+          unitText: '28-DAY BLOCK',
+        },
+        availability: 'https://schema.org/InStock',
+        seller: { '@id': `${SITE_URL}/#organization` },
+        url: `${SITE_URL}/open-shop`,
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${SITE_URL}/for-suppliers#breadcrumb`,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+          { '@type': 'ListItem', position: 2, name: 'For Suppliers', item: `${SITE_URL}/for-suppliers` },
+        ],
+      },
+    ],
+  };
+}
+
+export default async function ForVendorsPage() {
+  const p = await getVendorPrices();
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(forVendorsJsonLd(p)) }}
+      />
+      <main className="m-surface min-h-dvh">
+        <VendorGrowHero />
+        <VendorGrowThesis />
+        <RevealOnView>
+          <VendorGrowHub />
+        </RevealOnView>
+        <VendorGrowAI />
+        <RevealOnView>
+          <VendorGrowFairPay />
+        </RevealOnView>
+        <RevealOnView>
+          <VendorGrowWebsite />
+        </RevealOnView>
+        <RevealOnView>
+          <VendorGrowAnalytics />
+        </RevealOnView>
+        <RevealOnView>
+          <VendorGrowTrust />
+        </RevealOnView>
+        <VendorGrowNoFakes />
+        <RevealOnView>
+          <VendorGrowReach />
+        </RevealOnView>
+        <RevealOnView>
+          <VendorGrowTools />
+        </RevealOnView>
+        <RevealOnView>
+          <VendorGrowGetPaid />
+        </RevealOnView>
+        {/* THE TIER LADDER, AS DELTAS — each plan says what it ADDS, once.
+            The ~90-row × 5-column MATRIX is still here, behind a disclosure
+            inside this same section, because a grid is what the owner asked for
+            on 2026-07-04 and a vendor comparing two specific plans wants one.
+            What changed is which of the two a person reads first: the matrix
+            restated every benefit in every column above it, ~360 of ~450 cells
+            being restatement of the ~90 that carry information.
+
+            Both are built from the SAME canonical data (VENDOR_TIER_SECTIONS +
+            TIER_CAPS + VENDOR_CUSTOM_TIER), and every price — including Custom's
+            "from" floor and the branch dial, which used to be typed into the
+            shared constant — reads the live catalog via getVendorPrices. */}
+        <RevealOnView>
+          <VendorTierDeltas
+            prices={{
+              soloMonthly: p.soloMonthly,
+              proMonthly: p.proMonthly,
+              enterpriseMonthly: p.enterpriseMonthly,
+              customFrom: p.customFrom,
+              branch: p.branch,
+            }}
+            matrix={
+              <VendorTierMatrix
+                prices={{
+                  soloMonthly: p.soloMonthly,
+                  proMonthly: p.proMonthly,
+                  enterpriseMonthly: p.enterpriseMonthly,
+                  customFrom: p.customFrom,
+                  branch: p.branch,
+                }}
+              />
+            }
+          />
+        </RevealOnView>
+        {/*
+          THE RETURN LEG — added 2026-09-22 at the owner's instruction.
+
+          `/pricing` has carried a "Vendor? See the free business offering +
+          your plans" pointer at `/vendors` for a long time. Nothing pointed
+          back. So a supplier reading their own plans here had no route to the
+          couple-facing catalogue — the prices their clients actually see, and
+          the software a couple buys — and the two pricing surfaces were a
+          one-way street.
+
+          🔑 IT NAMES WHOSE PRICES ARE ON THE OTHER SIDE. "See pricing" would
+          read, on this page, as "see MY pricing", which is the page the
+          supplier is already on. The whole value of the link is that it leads
+          somewhere different.
+
+          Mirrors the /pricing pointer's own shape deliberately — same card,
+          same ghost button, same arrow — so the pair reads as one crossing
+          rather than two unrelated boxes.
+        */}
+        <section style={{ borderTop: '1px solid var(--m-hair)' }}>
+          <div
+            style={{
+              maxWidth: 1120,
+              margin: '0 auto',
+              padding: '40px 16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                borderRadius: 'var(--m-r-lg)',
+                border: '1px solid var(--m-hair)',
+                background: 'var(--m-cream)',
+                padding: 20,
+              }}
+              className="sn-vendors-pricing-pointer"
+            >
+              <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--m-ink)', margin: 0 }}>
+                Planning your own celebration, or want to see what couples pay?
+              </p>
+              <Link
+                href="/pricing"
+                className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 text-sm"
+              >
+                Couple pricing
+                <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              </Link>
+            </div>
+          </div>
+        </section>
+        <VendorGrowCTA />
+        <VendorGrowStyles />
+      </main>
+    </>
+  );
+}

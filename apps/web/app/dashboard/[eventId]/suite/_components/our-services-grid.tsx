@@ -22,7 +22,7 @@ import type { OurService } from '@/lib/our-services';
 export function OurServicesGrid({ services }: { services: readonly OurService[] }) {
   if (services.length === 0) return null;
   return (
-    <section aria-label="Our Services" data-our-services className="space-y-3">
+    <section aria-label="More Services" data-our-services className="space-y-3">
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {services.map((s, i) => (
           <li key={s.key} data-our-service={s.key} className="flex flex-col gap-1.5">
@@ -47,21 +47,22 @@ export function OurServicesGrid({ services }: { services: readonly OurService[] 
                 }}
               />
             </div>
-            {s.part ? (
+            {s.parts.map((part) => (
               <Link
-                href={s.part.href}
-                data-our-service-part={s.part.name}
+                key={part.key}
+                href={part.href}
+                data-our-service-part={part.name}
                 className="sn-press flex min-h-[44px] items-center gap-2 rounded-xl bg-ink/[0.04] px-3 py-2 text-left"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[12.5px] font-bold text-ink">
-                    {s.part.name}
+                    {part.name}
                   </span>
-                  <span className="block truncate text-[11px] text-ink/55">{s.part.line}</span>
+                  <span className="block truncate text-[11px] text-ink/55">{part.line}</span>
                 </span>
                 <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />
               </Link>
-            ) : null}
+            ))}
           </li>
         ))}
       </ul>

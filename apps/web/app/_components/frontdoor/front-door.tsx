@@ -13,6 +13,9 @@ import { FrontDoorShell } from './front-door-shell';
 import { FrontDoorAnchor } from './front-door-anchor';
 import { FrontDoorFeed } from './front-door-feed';
 import { FrontDoorResults } from './front-door-results';
+import { DiscoverEventShelves, PeopleToFollowShelf } from './front-door-discover';
+import { loadDiscover } from '@/lib/discover-events';
+import { MiniTour } from '@/app/_components/mini-tour';
 import { SignedInCluster } from './signed-in-cluster';
 import { resolveCommandItems } from './command-data';
 import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
@@ -29,7 +32,12 @@ import { togetherRailItems } from '@/lib/free-tools-rail';
 import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
 
 export async function FrontDoor({ q }: { q?: string }) {
-  const [account, data, studioEvent, commandItems] = await Promise.all([
+  /*
+    A SEARCH REPLACES THE FEED (below), so Discover's shelves are read only
+    when the feed is what renders — a typed query pays nothing for them.
+  */
+  const searchQuery = (q ?? '').trim();
+  const [account, data, studioEvent, commandItems, discover] = await Promise.all([
     resolveRailAccount(),
     loadFrontDoorData(),
     /*
@@ -47,6 +55,13 @@ export async function FrontDoor({ q }: { q?: string }) {
       above), the same price the other five trees have paid since 2026-08-14.
     */
     resolveCommandItems(),
+    /*
+      DISCOVER'S NEW SHELVES (DECISION_LOG 2026-09-29). Each degrades on its
+      own and says "couldn't load" rather than "none" — see the module. Signed
+      out it is the world layer and People to follow; signed in, the viewer's
+      own people come first.
+    */
+    searchQuery ? null : loadDiscover(),
   ]);
 
   /*
@@ -57,9 +72,9 @@ export async function FrontDoor({ q }: { q?: string }) {
 
     ⚠ A whitespace-only `?q=` is not a search. The address bar is a real
     interface here: `?q=` arrives from the palette, from the public box, and
-    from anybody's paste.
+    from anybody's paste. (`searchQuery` is trimmed once, at the top, because
+    the Discover read there is skipped on the same test.)
   */
-  const searchQuery = (q ?? '').trim();
 
   return (
     <FrontDoorShell
@@ -166,7 +181,17 @@ export async function FrontDoor({ q }: { q?: string }) {
           commandItems={commandItems}
         />
       ) : (
-        <FrontDoorFeed data={data} />
+        <>
+          <FrontDoorFeed
+            data={data}
+            beforeShops={discover ? <DiscoverEventShelves discover={discover} /> : null}
+            afterShops={discover ? <PeopleToFollowShelf discover={discover} /> : null}
+          />
+          {/* First visit only — the shipped MiniTour (owner rule 2026-09-25:
+              every feature gets a first-visit tour). It renders nothing for a
+              stranger or for anyone who has seen it. */}
+          {account.signedIn ? <MiniTour tourKey="discover_upcoming_v1" /> : null}
+        </>
       )}
     </FrontDoorShell>
   );

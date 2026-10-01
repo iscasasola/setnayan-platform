@@ -105,6 +105,8 @@ const SINGLE: Record<string, FigureKind> = {
   // A reader's own guest-list role (the dress-code scene's "You are …"): a
   // ninang is one woman, not the sponsors' pair.
   matron_of_honor: 'gown',
+  // Colours with the best man (palette key `best_man`), dresses as a woman.
+  best_woman: 'gown',
   bridesmaid: 'gown',
   groomsman: 'suit',
   principal_sponsor_ninang: 'gown',

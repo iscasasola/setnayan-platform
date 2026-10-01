@@ -184,6 +184,8 @@ const CONVERTED = [
   'website-media/media-table.tsx',
   // The learned-memory screen, 2026-08-26 — the assistant's own table.
   'search-memory/search-memory-table.tsx',
+  // The per-event admin page, 2026-09-30 — its per-guest face list.
+  'events/[eventId]/page.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════

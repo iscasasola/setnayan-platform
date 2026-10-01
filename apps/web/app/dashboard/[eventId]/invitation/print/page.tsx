@@ -1,10 +1,12 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchGuestsByEvent, printedCardName, ROLE_LABELS } from '@/lib/guests';
+import { fetchGuestsByEvent, guestRoleLabel, printedCardName } from '@/lib/guests';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { nameStyleOfPrintDetails } from '@/lib/name-style';
 
 export const metadata = { title: 'Print sheet' };
 export const dynamic = 'force-dynamic';
@@ -15,6 +17,8 @@ export default async function PrintSheetPage({ params }: Props) {
   const { eventId } = await params;
 
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30) — printed on each card.
+  const roleNames = await loadRoleNames(supabase, eventId, 'PrintSheetPage.roleNames');
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -23,12 +27,14 @@ export default async function PrintSheetPage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     // The CANONICAL monogram list + the QR look's two columns (lib/qr-look.server.ts).
-    .select(`event_id, display_name, event_date, slug, ${QR_LOOK_COLUMNS}`)
+    // + `print_details` for the event's Name style (owner 2026-09-30).
+    .select(`event_id, display_name, event_date, slug, print_details, ${QR_LOOK_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
 
   const slug = event.slug ?? eventId;
+  const nameStyle = nameStyleOfPrintDetails((event as { print_details?: unknown }).print_details);
   const guests = await fetchGuestsByEvent(supabase, eventId);
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
@@ -72,8 +78,8 @@ export default async function PrintSheetPage({ params }: Props) {
                   dashboard table on `../invitation/page.tsx` — that is a
                   management row, where the compact name is correct and a title
                   would be noise. */}
-              <p className="print-name">{printedCardName(guest)}</p>
-              <p className="print-role">{ROLE_LABELS[guest.role]}</p>
+              <p className="print-name">{printedCardName(guest, nameStyle)}</p>
+              <p className="print-role">{guestRoleLabel(guest.role, roleNames)}</p>
               <p className="print-footer">{event.display_name}</p>
             </div>
           </article>

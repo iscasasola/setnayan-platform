@@ -77,6 +77,9 @@ test('the live-shop gate is the real one, not the legacy is_published', () => {
   assert.deepEqual(LIVE_SHOP_GATE, {
     public_visibility: 'verified',
     verification_state: 'verified',
+    // 2026-09-30: a demo shop is never a live shop (DECISION_LOG 2026-09-29
+    // "LANE 2 §2C" (1)). SABOTAGE: drop this line from the gate → RED.
+    is_demo: false,
   });
   // Measured in prod 2026-09-08: both shops are public_visibility='verified'
   // while one is is_published=false. Counting the legacy way reports 1 where

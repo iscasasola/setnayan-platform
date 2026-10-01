@@ -17,7 +17,7 @@
  *
  * THE RULE, owner-locked 2026-09-20: signing up is signing up as a person.
  * `?as=vendor` — set only by the deliberate "Register your business" doors
- * (`/vendors`, `/open-shop`, `/vendor/claim/[token]`, the front door) — is the
+ * (`/for-suppliers`, `/open-shop`, `/vendor/claim/[token]`, the front door) — is the
  * ONE way to arrive as a vendor. Everything else, including a bare `/signup`
  * typed into the address bar, is a customer. The chooser is gone from the
  * screen entirely, because with this rule there is nothing left for it to ask.

@@ -9,18 +9,19 @@ import { extractPosterFrame } from '../../../_components/std-media-picker';
 import { hubDraftAction } from '../../hub-draft-actions';
 import { CALMER_CLIP_SCRIM, measureFrame, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
-import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, themeBackgroundName, type InviteThemeId } from '@/lib/invite-themes';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
   HUB_MEDIA_MOTIONS,
   HUB_MEDIA_MOTION_LABEL,
-  isHubMainChoice,
   isHubMainFollow,
   isHubMainOwn,
   type HubMainGround,
   type HubMainOwn,
 } from '@/lib/hub-canvas';
+import { mainGroundChoice } from '@/lib/main-ground-choice';
+import { IMAGE_MAX_EDGE } from '@/lib/image-max-edge';
 import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
 import { ClipTile, PhotoTile, type SceneUpload } from './scene-background-row';
 import { PickMenu } from './pick-menu';
@@ -279,13 +280,7 @@ export function MainBackgroundPanel({
      CHOICE"): the theme's own · same as my hero · upload media · none. Nothing
      stored = the hero when there is a hero photo (it is being measured), else
      the theme's own — so the theme's loop is a CHOICE, never forced. */
-  const choice: 'theme' | 'hero' | 'media' | 'none' = isHubMainChoice(current)
-    ? current.ground
-    : own || choosingMedia
-      ? 'media'
-      : follow || (!current && hero.photoRef)
-        ? 'hero'
-        : 'theme';
+  const choice = mainGroundChoice({ current, choosingMedia, followsHero: Boolean(follow), heroPhotoRef: hero.photoRef });
   const proMark = makerProMark({ owns: ownsPro, storeShell: false });
 
   const adaptive = useMemo(() => (tint ? resolveAdaptiveTheme(theme, tint) : null), [tint, theme]);
@@ -410,7 +405,7 @@ export function MainBackgroundPanel({
       <div className="flex flex-col gap-1.5" role="group" aria-label="What is behind every scene">
         <Choice
           on={choice === 'theme'}
-          label={`${theme.name}’s own background`}
+          label={themeBackgroundName(themeId)}
           thumb={themeStillUrl}
           disabled={pending}
           data={{ 'data-main-ground-source': 'theme' }}
@@ -520,6 +515,13 @@ export function MainBackgroundPanel({
             disabled={pending}
             label="Upload a photo or clip"
           />
+          {/* 📐 The owner asked for the best size (2026-10-01). The photo fills
+              the screen and is cropped to it, and 99% of guests are on a phone —
+              so upright, and at least the size the upload keeps. */}
+          <p className="text-[12px] text-ink/60" data-main-ground-tip="">
+            Best: an upright (portrait) photo, {IMAGE_MAX_EDGE.toLocaleString('en-US')} pixels or more on its long side — it fills a
+            phone screen sharp. Keep faces near the middle; the edges are cropped. Clips up to {MAKER_MAX_CLIP_SECONDS} seconds.
+          </p>
           {reading ? <p className="text-[12px] text-ink/60">Reading its colours…</p> : null}
           {own?.kind === 'photo' ? (
             <div className="flex items-center gap-2" data-main-ground-motion="">

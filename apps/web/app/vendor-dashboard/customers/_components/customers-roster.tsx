@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ChevronRight, Search } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { MoreHorizontal, Plus, Search } from 'lucide-react';
 import {
   CUSTOMER_LANES,
   waitingDays,
@@ -25,16 +26,23 @@ import { formatCount } from '@/lib/format-number';
  * 🔑 THE LANES COME FROM ONE PURE DERIVATION (`lib/vendor-customer-pipeline.ts`)
  * so this file decides nothing about who is booked. It draws.
  *
- * ── THE CHIPS ARE A FILTER, NOT A PLACE ────────────────────────────────────
- * `?lane=` narrows the same list; it never routes anywhere. The drawing's own
- * note is the rule: "one list of customers, two ways of looking at it — nothing
- * lives in two rooms."
+ * ── FILTER ▾ AND SHOW ▾ — ONE DROPDOWN EACH (owner-APPROVED 2026-10-01) ──
+ * DECISION_LOG "THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED
+ * ANSWERS", frame 2: title · round + · ⋯ · search · Filter ▾ · a counts line ·
+ * Show ▾ · rows (name · event · status pill · one next-step button). The lane
+ * chip row this replaced was five pills — the interaction rule is "3+ choices →
+ * ONE dropdown". Both dropdowns are the shipped `PickMenu`, handed in by the
+ * page as SLOTS (`filter`, `show`) so this file stays a server component that a
+ * unit test can render.
  *
- * ── A LANE WITH NOTHING IN IT STILL SHOWS ITS CHIP ─────────────────────────
- * With a zero on it. A chip that disappears when empty makes a shop wonder
- * whether the feature exists; a chip reading "Waiting 0" is a shop being told
- * it owes nobody an answer, which is the single most useful thing this page can
- * say on a quiet day.
+ * `?lane=` still narrows the same list; it never routes anywhere — "one list of
+ * customers, two ways of looking at it — nothing lives in two rooms."
+ *
+ * ── EVERY LANE STILL HAS ITS COUNT ─────────────────────────────────────────
+ * The counts line names the waiting count first, always — "0 waiting on you"
+ * is a shop being told it owes nobody an answer, the single most useful thing
+ * this page can say on a quiet day — and the Filter ▾ options carry every
+ * lane's count, zero included.
  */
 
 const LANE_LABEL: Record<CustomerLane, string> = {
@@ -79,6 +87,50 @@ export type RosterRow = PipelineCustomer & {
   /** Right-hand money note, already computed by the page. */
   note: { text: string; tone: string } | null;
 };
+
+/** The counts line's words — "3 waiting on you · 5 talking · 12 booked". */
+const LANE_SHORT: Record<CustomerLane, string> = {
+  waiting: 'waiting on you',
+  holding: 'holding',
+  talking: 'talking',
+  booked: 'booked',
+  finished: 'done',
+};
+
+/** What the right-hand column shows on a phone (`?show=`). From `lg` up, all three. */
+export type RosterShow = 'next' | 'money' | 'date';
+export const ROSTER_SHOW: readonly RosterShow[] = ['next', 'money', 'date'];
+export const ROSTER_SHOW_LABEL: Record<RosterShow, string> = {
+  next: 'Next step',
+  money: 'Money',
+  date: 'Days to go',
+};
+
+/**
+ * The words on a row's one next-step button. It goes where the row goes
+ * (`hrefFor`) — it OPENS the place the step is taken, it never takes it: a
+ * booking ask is answered on the customer card, with the fee shown before Agree.
+ */
+function nextStepLabel(r: RosterRow): string {
+  if (r.waitingKind === 'inquiry') return 'Reply';
+  if (r.waitingKind === 'booking_ask') return 'Answer';
+  if (r.lane === 'holding') return 'Follow up';
+  if (r.lane === 'talking') return 'Send a quote';
+  if (r.lane === 'booked') return 'See the day';
+  return 'Open';
+}
+
+/** "today" · "in 12 days" · "3 days ago" — whole Manila days, never a guess. */
+function daysToGo(iso: string | null, nowMs: number): string | null {
+  if (!iso) return null;
+  const today = new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 10);
+  const diff = Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  if (!Number.isFinite(diff)) return null;
+  if (diff === 0) return 'today';
+  if (diff === 1) return 'tomorrow';
+  if (diff > 1) return `in ${formatCount(diff)} days`;
+  return `${formatCount(-diff)} day${diff === -1 ? '' : 's'} ago`;
+}
 
 function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -165,23 +217,21 @@ export function CustomersRoster({
   incomplete,
   pagerKeepParams,
   searchKeepParams,
-  activeLane,
   counts,
   nowMs,
-  /** Preserved on every chip link so a filter never drops the visible month. */
-  keepParams,
   /**
    * How many people the shop is holding on each date — computed across ALL
    * customers, not just the ones on screen, so filtering to a lane cannot make
    * a clash disappear.
    */
   holdingPerDate,
+  show = 'next',
+  filter = null,
+  showPick = null,
 }: {
   rows: RosterRow[];
-  activeLane: CustomerLane | null;
   counts: Record<CustomerLane, number>;
   nowMs: number;
-  keepParams: string;
   holdingPerDate: Map<string, number>;
   /**
    * The page being shown. `rows` IS `paged.items` — the page slices, the
@@ -198,10 +248,15 @@ export function CustomersRoster({
   pagerKeepParams: string;
   /** Every param but `page` and `q`, carried by the search box as hidden fields. */
   searchKeepParams: string;
+  /** Which column a phone row shows on its right (`?show=`). */
+  show?: RosterShow;
+  /** The page's Filter ▾ (a `PickMenu`) — a slot, so this file stays server-rendered. */
+  filter?: ReactNode;
+  /** The page's Show ▾ (a `PickMenu`). */
+  showPick?: ReactNode;
 }) {
   const now = new Date(nowMs);
   const total = CUSTOMER_LANES.reduce((n, l) => n + counts[l], 0);
-  const waitingCount = counts.waiting;
   /*
     Sorted soonest-date-first, so the date a shop has to resolve NEXT is the one
     it reads first — and capped, because a warning that becomes a wall of dates
@@ -212,26 +267,120 @@ export function CustomersRoster({
     .sort((a, b) => a[0].localeCompare(b[0]))
     .slice(0, 4);
 
-  const chipHref = (lane: CustomerLane | null) => {
-    const q = new URLSearchParams(keepParams);
-    if (lane) q.set('lane', lane);
-    else q.delete('lane');
-    const s = q.toString();
-    return s ? `?${s}#customers` : '#customers';
-  };
+  /*
+    THE COUNTS LINE — "3 waiting on you · 5 talking · 12 booked". Waiting is
+    always said, zero included; the other lanes only when they hold someone.
+  */
+  const countsLine =
+    total === 0
+      ? ''
+      : CUSTOMER_LANES.filter((l) => l === 'waiting' || counts[l] > 0)
+          .map((l) => `${formatCount(counts[l])} ${LANE_SHORT[l]}`)
+          .join(' · ');
+
+  /** On a phone only the chosen column shows; from `lg` up, all of them. */
+  const colClass = (c: RosterShow) =>
+    c === show ? 'shrink-0 text-right font-mono text-xs' : 'hidden shrink-0 text-right font-mono text-xs lg:block';
 
   return (
-    <div id="customers">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+    <div id="customers" className="scroll-mt-24">
+      {/*
+        TITLE · round + · ⋯ — the + is the SHIPPED "Import an outside client"
+        form in the Clients section (owner answer 3: "+ on Customers adds an
+        outside client"); `?add=outside` opens it. Nothing new takes the client.
+      */}
+      <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="sn-sec">Customers</h2>
-        <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          {waitingCount > 0
-            ? `${formatCount(waitingCount)} waiting on you`
-            : total > 0
-              ? 'nobody waiting on you'
-              : ''}
-        </p>
+        <div className="flex items-center gap-2">
+          <Link
+            href="?open=clients&add=outside#import-outside"
+            scroll={false}
+            data-customers-add
+            aria-label="Add an outside client"
+            className="sn-press inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink text-cream"
+          >
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+          {/*
+            ⋯ — the tools that used to sit as five folds and a "Book of
+            business" link. Every one is still on the page, below; these are the
+            doors. A <details>, so it opens with no script. No <li> on purpose:
+            a row of this roster is an <li>.
+          */}
+          <details className="relative" data-customers-more>
+            <summary
+              aria-label="More customer tools"
+              className="sn-press flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full border border-ink/15 [&::-webkit-details-marker]:hidden"
+            >
+              <MoreHorizontal aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </summary>
+            <div className="sn-glass-bare absolute right-0 z-20 mt-2 flex w-60 flex-col rounded-xl p-1.5 text-sm shadow-lg">
+              <Link href="?open=clients#customer-tools" scroll={false} className="rounded-lg px-3 py-2 hover:bg-ink/5">
+                Book of business
+              </Link>
+              <Link href="?open=messages#customer-tools" scroll={false} className="rounded-lg px-3 py-2 hover:bg-ink/5">
+                Messages
+              </Link>
+              <Link href="#calendar" className="rounded-lg px-3 py-2 hover:bg-ink/5">
+                Calendar
+              </Link>
+              <Link href="?open=availability#customer-tools" scroll={false} className="rounded-lg px-3 py-2 hover:bg-ink/5">
+                Availability &amp; capacity
+              </Link>
+              <Link href="?open=proposals#customer-tools" scroll={false} className="rounded-lg px-3 py-2 hover:bg-ink/5">
+                Proposals
+              </Link>
+              <Link href="?open=contracts#customer-tools" scroll={false} className="rounded-lg px-3 py-2 hover:bg-ink/5">
+                Contracts
+              </Link>
+            </div>
+          </details>
+        </div>
       </div>
+
+      {/*
+        NAME SEARCH + Filter ▾ — a plain GET form, so the search works before any
+        script loads and the result is a link a shop can come back to. It resets
+        to page 1 (the `page` param is not carried) and keeps the lane, month and
+        open section.
+      */}
+      {total > 0 ? (
+        <div className="mb-2 flex items-center gap-2">
+          <form method="get" action="#customers" role="search" className="flex min-w-0 flex-1 gap-2">
+            {[...new URLSearchParams(searchKeepParams).entries()].map(([k, v]) => (
+              <input key={k} type="hidden" name={k} value={v} />
+            ))}
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">Search customers by name</span>
+              <Search
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                strokeWidth={1.75}
+                style={{ color: 'var(--m-slate-2)' }}
+              />
+              <input
+                type="search"
+                name="q"
+                defaultValue={query}
+                maxLength={80}
+                placeholder="Search a customer"
+                className="w-full rounded-full border py-2 pl-9 pr-3 text-sm"
+                style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)', color: 'var(--m-ink)' }}
+              />
+            </label>
+          </form>
+          {filter}
+        </div>
+      ) : null}
+
+      {total > 0 ? (
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="min-w-0 text-sm" style={{ color: 'var(--m-slate-2)' }} data-customers-counts>
+            {countsLine}
+          </p>
+          <div className="shrink-0 lg:hidden">{showPick}</div>
+        </div>
+      ) : null}
 
       {/*
         THE EXPOSURE LINE — the thing the owner said nothing shows.
@@ -266,80 +415,6 @@ export function CustomersRoster({
         </div>
       ) : null}
 
-      <div className="mb-3 flex flex-wrap gap-2">
-        <Link
-          href={chipHref(null)}
-          scroll={false}
-          aria-current={activeLane === null ? 'true' : undefined}
-          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
-          style={
-            activeLane === null
-              ? { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
-              : { background: 'transparent', color: 'var(--m-slate)', borderColor: 'var(--m-line)' }
-          }
-        >
-          Everyone <span className="font-mono">{formatCount(total)}</span>
-        </Link>
-        {CUSTOMER_LANES.map((lane) => {
-          const on = activeLane === lane;
-          const tone = LANE_CHIP[lane];
-          return (
-            <Link
-              key={lane}
-              href={chipHref(lane)}
-              scroll={false}
-              aria-current={on ? 'true' : undefined}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
-              style={
-                on
-                  ? { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
-                  : { background: tone.bg, color: tone.fg, borderColor: tone.border }
-              }
-            >
-              {LANE_LABEL[lane]} <span className="font-mono">{formatCount(counts[lane])}</span>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/*
-        NAME SEARCH — a plain GET form, so it works before any script loads and
-        the result is a link a shop can come back to. It resets to page 1 (the
-        `page` param is not carried) and keeps the lane, month and open section.
-      */}
-      {total > 0 ? (
-        <form method="get" action="#customers" role="search" className="mb-3 flex gap-2">
-          {[...new URLSearchParams(searchKeepParams).entries()].map(([k, v]) => (
-            <input key={k} type="hidden" name={k} value={v} />
-          ))}
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">Search customers by name</span>
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
-              strokeWidth={1.75}
-              style={{ color: 'var(--m-slate-2)' }}
-            />
-            <input
-              type="search"
-              name="q"
-              defaultValue={query}
-              maxLength={80}
-              placeholder="Search by couple or event name"
-              className="w-full rounded-full border py-1.5 pl-9 pr-3 text-sm"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)', color: 'var(--m-ink)' }}
-            />
-          </label>
-          <button
-            type="submit"
-            className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold"
-            style={{ background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }}
-          >
-            Search
-          </button>
-        </form>
-      ) : null}
-
       {rows.length === 0 && query.trim() && total > 0 ? (
         <ShopEmpty>
           No customer here matches &ldquo;{query.trim()}&rdquo;.{' '}
@@ -354,7 +429,7 @@ export function CustomersRoster({
         <ShopEmpty>
           {total === 0
             ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
-            : 'Nobody in this list right now. Press Everyone to see the rest.'}
+            : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.'}
         </ShopEmpty>
       ) : (
         <div className="sn-tile p-2 sm:p-2.5">
@@ -364,6 +439,8 @@ export function CustomersRoster({
               const href = hrefFor(r);
               const age = ageLabel(r, nowMs);
               const fuse = fuseLabel(r, now);
+              const nextNote = [age, fuse].filter(Boolean).join(' · ');
+              const togo = daysToGo(r.eventDate, nowMs);
               const inner = (
                 <>
                   <span
@@ -403,25 +480,32 @@ export function CustomersRoster({
                       className="mt-0.5 block truncate font-mono text-xs"
                       style={{ color: 'var(--m-slate-2)' }}
                     >
-                      {[fmtDate(r.eventDate), r.place, age, fuse].filter(Boolean).join(' · ')}
+                      {[fmtDate(r.eventDate), r.place].filter(Boolean).join(' · ')}
                     </span>
+                    {/*
+                      THE ONE NEXT-STEP BUTTON. Drawn inside the row's own link
+                      (one tap target, no link inside a link) — it names where
+                      the row goes.
+                    */}
+                    {href ? (
+                      <span
+                        data-row-next
+                        className="mt-1.5 inline-flex items-center rounded-full bg-ink px-3 py-1 text-xs font-semibold text-cream"
+                      >
+                        {nextStepLabel(r)}
+                      </span>
+                    ) : null}
                   </span>
-                  {r.note ? (
-                    <span
-                      className="shrink-0 text-right font-mono text-xs"
-                      style={{ color: r.note.tone }}
-                    >
-                      {r.note.text}
-                    </span>
-                  ) : null}
-                  {href ? (
-                    <ChevronRight
-                      aria-hidden
-                      className="h-4 w-4 shrink-0"
-                      strokeWidth={1.75}
-                      style={{ color: 'var(--m-slate-2)' }}
-                    />
-                  ) : null}
+                  {/* Show ▾ — one column on a phone, all three from lg up. */}
+                  <span className={colClass('next')} style={{ color: 'var(--m-slate-2)' }}>
+                    {nextNote || '—'}
+                  </span>
+                  <span className={colClass('money')} style={{ color: r.note?.tone ?? 'var(--m-slate-2)' }}>
+                    {r.note?.text ?? '—'}
+                  </span>
+                  <span className={colClass('date')} style={{ color: 'var(--m-slate-2)' }}>
+                    {togo ?? '—'}
+                  </span>
                 </>
               );
               return (

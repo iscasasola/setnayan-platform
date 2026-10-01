@@ -18,7 +18,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
-  fetchPlatformSettings,
+  fetchPlatformSettingsMeasured,
   fetchVendorValidateContacts,
 } from '@/lib/platform-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
@@ -62,7 +62,11 @@ export async function SettingsSurface({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
   const admin = createAdminClient();
-  const settings = await fetchPlatformSettings(admin);
+  // 🔒 MEASURED, NOT FALLBACK (2026-09-30). A refused read seeds the business
+  // identity + digest forms with FALLBACK blanks/defaults; Save would write
+  // them over the real values printed on every receipt. Disable Save instead.
+  const { settings, readFailed: settingsReadFailed } =
+    await fetchPlatformSettingsMeasured(admin);
   // Soft probe (degrades to defaults pre-migration 20270503417266).
   const validateContacts = await fetchVendorValidateContacts(admin);
   // Loader appearance (owner 2026-07-05; degrades to DEFAULT pre-migration
@@ -110,6 +114,14 @@ export async function SettingsSurface({ searchParams }: Props) {
       {search.loader_saved ? (
         <FormFlash tone="success">
           Loading animation updated. It applies on the next navigation.
+        </FormFlash>
+      ) : null}
+
+      {settingsReadFailed ? (
+        <FormFlash tone="error">
+          Couldn&rsquo;t load the saved settings — refresh to try again. Saving
+          is off until they load, so blank fields can&rsquo;t overwrite the real
+          ones.
         </FormFlash>
       ) : null}
 
@@ -229,6 +241,7 @@ export async function SettingsSurface({ searchParams }: Props) {
           <SubmitButton
             className="button-primary inline-flex items-center gap-2"
             pendingLabel="Saving…"
+            disabled={settingsReadFailed}
           >
             Save business identity
           </SubmitButton>
@@ -357,6 +370,7 @@ export async function SettingsSurface({ searchParams }: Props) {
             <SubmitButton
               className="button-primary inline-flex items-center gap-2"
               pendingLabel="Saving…"
+              disabled={settingsReadFailed}
             >
               Save
             </SubmitButton>

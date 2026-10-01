@@ -23,6 +23,26 @@ import { join } from 'node:path';
 import React from 'react';
 import { stripComments } from './strip-comments';
 import { resolveSiteBodyPlan } from './site-body-plan';
+import { WELCOME_PART_SCENE, scenesLeftForDetails, welcomeParts } from './invitation-welcome';
+
+/**
+ * 🏠 THE PAGE'S OWN ORDER (owner 2026-09-30, `lib/invitation-welcome.ts`): the
+ * Invitation's Welcome page draws its scene (Reminders) after the reply and
+ * BEFORE Details, so the page is the Welcome scenes first, then the plan's list
+ * without them — asked through the same helpers the page and the navigator use.
+ */
+function pageSceneOrder<T extends { widget_type: string }>(stage: LifecyclePhase, body: string, planned: readonly T[]): T[] {
+  const welcome = welcomeParts({
+    stage, bodyNormal: body === 'normal', scenes: planned.map((w) => w.widget_type),
+    identified: false, reminders: null, giftHref: null, maker: true,
+  });
+  const first = welcome.flatMap((p) => {
+    const t = WELCOME_PART_SCENE[p];
+    const w = p === 'reminders' && t ? planned.find((x) => x.widget_type === t) : undefined;
+    return w ? [w] : [];
+  });
+  return [...first, ...scenesLeftForDetails(planned, welcome)];
+}
 import {
   WIDGET_TYPES,
   type InvitationWidgetRow,
@@ -108,7 +128,7 @@ test('1 · for EVERY stage, the scene tiles are the plan’s own list, in the pl
       content: {},
     });
     const tiles = list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
-    const planIds = plan.publicSafeWidgets.map((w) => w.widget_id);
+    const planIds = pageSceneOrder(stage, plan.body, plan.publicSafeWidgets).map((w) => w.widget_id);
     // Same order: the tiles are a subsequence of the plan, never a reshuffle.
     let at = -1;
     for (const id of tiles) {
@@ -138,9 +158,11 @@ test('2 · the owner’s page, stage by stage — fixed sections included, in th
   // …and each guest's own parts are drawn in place after the names, as "Your
   // guest" (owner 2026-09-27): the greeting, the pass, the RSVP — whichever the
   // page gives a guest on that stage.
+  // 🏠 …then the Invitation's Welcome page (owner 2026-09-30): the guest's
+  // look, the Reminders (which leave Details for it) and E-Gifts.
   assert.deepEqual(keys('rsvp'), [
-    'f:hero', 'f:greeting', 'f:pass', 'f:rsvp', 'w:countdown', 'w:special_message', 'w:our_love_story', 'w:schedule',
-    'w:venue_map', 'w:dress_code', 'w:what_to_bring', 'f:entourage',
+    'f:hero', 'f:greeting', 'f:pass', 'f:rsvp', 'f:look', 'w:what_to_bring', 'f:gifts',
+    'w:countdown', 'w:special_message', 'w:our_love_story', 'w:schedule', 'w:venue_map', 'w:dress_code', 'f:entourage',
   ]);
   assert.deepEqual(keys('event'), ['f:hero', 'f:pass', 'w:schedule', 'w:venue_map', 'w:photo_moments', 'f:entourage']);
   assert.deepEqual(keys('editorial'), [
@@ -148,7 +170,7 @@ test('2 · the owner’s page, stage by stage — fixed sections included, in th
   ]);
   const empties = (stage: LifecyclePhase) =>
     makerStageList({ ...OWNER, stage }).shown.flatMap((t) => (t.kind === 'scene' && t.empty ? [t.type] : []));
-  assert.deepEqual(empties('rsvp'), ['special_message', 'our_love_story', 'what_to_bring']);
+  assert.deepEqual(empties('rsvp'), ['what_to_bring', 'special_message', 'our_love_story']);
 });
 
 test('2b · the navigator is NOT the same twelve on every stage', () => {
@@ -203,7 +225,8 @@ test('4 · a reorder moves the navigator exactly as it moves the page', () => {
   moved.splice(moved.indexOf('schedule'), 0, 'venue_map');
   const list = makerStageList({ ...OWNER, widgets: rows(moved), stage: 'rsvp' });
   const scenes = list.shown.flatMap((t) => (t.kind === 'scene' ? [t.type] : []));
-  assert.deepEqual(scenes.slice(3, 5), ['schedule', 'venue_map'], 'the stage keeps its own order');
+  // (Reminders leads — it is on the Welcome page, before Details.)
+  assert.deepEqual(scenes.slice(4, 6), ['schedule', 'venue_map'], 'the stage keeps its own order');
   assert.deepEqual(scenes.filter((t) => t.startsWith('custom_')), ['custom_2', 'custom_1'], 'the couple’s own scenes keep theirs');
   // …and the page draws the same order (the navigator IS the plan).
   const plan = resolveSiteBodyPlan({
@@ -211,7 +234,7 @@ test('4 · a reorder moves the navigator exactly as it moves the page', () => {
     hasHeroMedia: false, hasBgMusic: false, liveMediaPublic: false,
     widgets: widgetsGuestsMeet(rows(moved), 'rsvp'), openBrowse: false, content: {},
   });
-  const drawn = plan.publicSafeWidgets.map((w) => w.widget_type);
+  const drawn = pageSceneOrder('rsvp', plan.body, plan.publicSafeWidgets).map((w) => w.widget_type);
   assert.deepEqual(scenes, drawn.filter((t) => scenes.includes(t)));
 });
 

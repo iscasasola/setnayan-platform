@@ -1,4 +1,5 @@
 import type { GuestRole } from './guests';
+import { roleNameMany, type RoleNames } from './role-names';
 
 export type RoleGroup =
   // The non-wedding honoree. Its own group rather than 'couple', because
@@ -62,6 +63,9 @@ const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   matron_of_honor: 'bridesmaids',
   bridesmaid: 'bridesmaids',
   best_man: 'groomsmen',
+  // ⚖ Owner 2026-09-30 — the groom's honour attendant may be a woman; she
+  // leads the groom's side exactly as the best man does.
+  best_woman: 'groomsmen',
   groomsman: 'groomsmen',
   principal_sponsor: 'principal_sponsors',
   principal_sponsor_ninong: 'principal_sponsors',
@@ -90,6 +94,41 @@ const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   imam: 'muslim_principals',
   wakil: 'muslim_principals',
 };
+
+/**
+ * The role whose word a group is NAMED after — the group heading "Bridesmaids"
+ * is the plural of "Bridesmaid". When the couple renames that role (owner
+ * 2026-09-30: "for us we picked Bride's Crew"), the group heading follows.
+ * Groups named for a CATEGORY ("Principal Sponsors", "Officiants & Readers")
+ * are not here and keep their heading whatever their roles are called.
+ */
+const GROUP_NAMED_AFTER: Partial<Record<RoleGroup, GuestRole>> = {
+  bridesmaids: 'bridesmaid',
+  groomsmen: 'groomsman',
+};
+
+/** A group's heading in this couple's words — `ROLE_GROUP_LABELS` when they renamed nothing. */
+export function roleGroupLabel(group: RoleGroup, names?: RoleNames | null): string {
+  const role = GROUP_NAMED_AFTER[group];
+  return (role ? roleNameMany(role, names) : null) ?? ROLE_GROUP_LABELS[group];
+}
+
+/**
+ * A heading that was built from `ROLE_GROUP_LABELS` (a roster section, a
+ * picker's section), re-said in this couple's words. Anything that is not one
+ * of those labels comes back untouched.
+ *
+ * 🔑 FOR DRAWING ONLY. Roster sections are KEYED and ORDERED by the usual label
+ * (`ROLE_SECTION_ORDER`); translating the key would re-sort a renamed section.
+ * So the key keeps the usual word and only the heading a host reads changes.
+ */
+export function sectionHeadingInTheirWords(label: string, names?: RoleNames | null): string {
+  if (!names) return label;
+  for (const group of Object.keys(GROUP_NAMED_AFTER) as RoleGroup[]) {
+    if (ROLE_GROUP_LABELS[group] === label) return roleGroupLabel(group, names);
+  }
+  return label;
+}
 
 export function roleGroupOf(role: GuestRole): RoleGroup | 'guest' {
   return ROLE_TO_GROUP[role];
@@ -130,6 +169,7 @@ export const ROLE_IMPORTANCE: readonly GuestRole[] = [
   // and the row order inside a section comes from the roles' order here — so
   // these five lines are what put the honour attendant in the first row.
   'best_man',
+  'best_woman',
   'groomsman',
   'maid_of_honor',
   'matron_of_honor',

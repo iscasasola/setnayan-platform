@@ -1,0 +1,323 @@
+<title>Guest List Access Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the Setnayan app frame (top bar + rail + page), one screen per tab, built from the shipped copy. */
+:root {
+  --bg: #f5f3ee; --panel: #ffffff; --ink: #1f1c18; --muted: #6f685e; --faint: #a39b8f;
+  --line: #e7e2d8; --accent: #8a6326; --accent-soft: #f4ecdd; --bride: #b27d3f; --groom: #4d6579;
+  --new: #2f7a55; --new-soft: #e3f1e9; --gone: #a4452e; --gone-soft: #f6e4de;
+  --sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #171512; --panel: #201d19; --ink: #efe9df; --muted: #b3ab9f; --faint: #7d766c;
+  --line: #36312a; --accent: #d7a95c; --accent-soft: #2e271c; --bride: #d39c5c; --groom: #8fa9bf;
+  --new: #6fc398; --new-soft: #1b2f24; --gone: #e08a73; --gone-soft: #35211b; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #171512; --panel: #201d19; --ink: #efe9df; --muted: #b3ab9f; --faint: #7d766c;
+  --line: #36312a; --accent: #d7a95c; --accent-soft: #2e271c; --bride: #d39c5c; --groom: #8fa9bf;
+  --new: #6fc398; --new-soft: #1b2f24; --gone: #e08a73; --gone-soft: #35211b; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.45; padding-inline: 16px; padding-block: 20px 48px; }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 18px; }
+h1 { font-size: 22px; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 68ch; }
+.eye { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.status { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+.pill.built { color: var(--new); border-color: color-mix(in srgb, var(--new) 40%, transparent); background: var(--new-soft); }
+.pill.wip { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: var(--accent-soft); }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.tabs button { font: inherit; background: none; border: 0; padding: 10px 14px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--accent); font-weight: 600; }
+.tabs button:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+.note b { color: var(--ink); font-weight: 600; }
+.new-tag { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--new); background: var(--new-soft); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 2px; }
+.gone-tag { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--gone); background: var(--gone-soft); border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
+
+/* app frame */
+.frame { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.brand { font-weight: 700; letter-spacing: .18em; font-size: 12px; }
+.tsearch { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--accent); border-radius: 999px; padding: 6px 12px; background: var(--bg); position: relative; }
+.tsearch input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: var(--ink); outline: none; }
+.tsearch input::placeholder { color: var(--faint); }
+.kbd { font-family: var(--mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+.callout { position: absolute; top: calc(100% + 6px); left: 12px; font-size: 12px; color: var(--new); background: var(--new-soft); padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+.avatar-sm { width: 28px; height: 28px; border-radius: 50%; background: var(--groom); color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 600; flex: none; }
+.body { display: grid; grid-template-columns: 190px minmax(0, 1fr); }
+.rail { border-right: 1px solid var(--line); padding: 14px 10px; display: grid; align-content: start; gap: 2px; font-size: 14px; }
+.rail a { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 8px; }
+.rail a.on { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.rail .sec { margin-top: 10px; padding: 0 10px 2px; }
+.page { padding: 18px 20px 24px; min-width: 0; display: grid; gap: 14px; align-content: start; }
+.parts { display: flex; gap: 18px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.parts span { padding: 0 0 8px; color: var(--muted); }
+.parts span.on { color: var(--ink); border-bottom: 2px solid var(--accent); font-weight: 600; }
+.addrow { display: flex; gap: 8px; align-items: stretch; margin-top: 16px; }
+.addbox { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--panel); }
+.addbox input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: var(--ink); outline: none; }
+.addbox input::placeholder { color: var(--faint); }
+.tool { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 8px; padding: 0 10px; font: inherit; font-size: 13px; cursor: default; white-space: nowrap; display: grid; place-items: center; }
+.plus { color: var(--accent); font-weight: 700; }
+.icons { display: flex; gap: 10px; color: var(--faint); font-size: 13px; }
+
+.tablewrap { border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 860px; font-size: 14px; }
+th { text-align: left; font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 12px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th.newcol { color: var(--new); background: var(--new-soft); }
+td { padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.newcol { background: color-mix(in srgb, var(--new-soft) 45%, transparent); }
+tr.grp td { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+.who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.av { width: 34px; height: 34px; border-radius: 50%; color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 600; flex: none; }
+.av.b { background: var(--bride); } .av.g { background: var(--groom); }
+.name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub { font-size: 12px; color: var(--muted); }
+.rsvp::before { content: "● "; font-size: 9px; vertical-align: 2px; }
+.rsvp.yes::before { color: var(--new); } .rsvp.pend::before { color: var(--faint); }
+.access-fixed { font-size: 13px; color: var(--ink); cursor: help; border-bottom: 1px dotted var(--faint); }
+.access-sel { font: inherit; font-size: 13px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+.waiting { display: block; font-size: 11px; color: var(--muted); }
+.saved { font-size: 11px; color: var(--new); display: block; }
+.empty { text-align: center; color: var(--muted); padding: 22px; }
+
+/* phone */
+.phones { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+.phone { width: 340px; max-width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 28px; overflow: hidden; }
+.phone .topbar { padding: 12px; }
+.phone .page { padding: 14px; }
+.card-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.chip { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
+.chip.co { color: var(--new); border-color: color-mix(in srgb, var(--new) 40%, transparent); }
+
+/* hosts part */
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.box { border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; align-content: start; background: var(--panel); }
+.box h3 { margin: 0; font-size: 15px; }
+.hrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.hrow .r { font-size: 12px; color: var(--muted); }
+.strike { text-decoration: line-through; color: var(--faint); }
+.menu { display: grid; gap: 2px; font-size: 14px; }
+.menu div { padding: 6px 10px; border-radius: 8px; color: var(--muted); }
+.menu .gone { color: var(--gone); background: var(--gone-soft); text-decoration: line-through; }
+.menu .on { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+@media (max-width: 760px) {
+  .body { grid-template-columns: 1fr; } .rail { display: none; }
+  .cols { grid-template-columns: 1fr; }
+  .brand { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eye">Setnayan · Guest list · 30 Sep 2026</div>
+    <h1>Guest list: Access column, search in the top bar, Add-only row</h1>
+    <p class="lede">A clickable mock built from the guest list's real copy. Type in the top bar to filter the guests, change someone's Access, or type a name in the add box and press Enter. Nothing here touches your event.</p>
+  </header>
+  <div class="status">
+    <span class="pill built">Built: Access column</span>
+    <span class="pill built">Built: Hosts row leaves the menu</span>
+    <span class="pill built">Built: Hosts part fixes</span>
+    <span class="pill wip">In progress: top bar searches guests · row is Add only</span>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="desk" id="t-desk">Guest list · desktop</button>
+    <button role="tab" aria-selected="false" data-tab="phone" id="t-phone">Guest list · phone</button>
+    <button role="tab" aria-selected="false" data-tab="hosts" id="t-hosts">Hosts part</button>
+    <button role="tab" aria-selected="false" data-tab="menu" id="t-menu">Side menu</button>
+  </div>
+
+  <!-- DESKTOP -->
+  <section data-panel="desk" class="wrap" style="gap:12px">
+    <div class="frame">
+      <div class="topbar">
+        <span class="brand">SETNAYAN</span>
+        <label class="tsearch">
+          <span aria-hidden="true">⌕</span>
+          <input id="q-desk" type="search" placeholder="Search guests" aria-label="Search guests">
+          <span class="kbd">⌘K</span>
+          <span class="callout">Was “Search your events”. On the guest list it searches this event’s guests.</span>
+        </label>
+        <span class="avatar-sm">IC</span>
+      </div>
+      <div class="body">
+        <nav class="rail" aria-label="Event menu">
+          <a>Details</a><a>Overview</a><a>Galleries</a>
+          <span class="eye sec">Book</span><a>Your Team</a><a>Budget</a>
+          <span class="eye sec">Invite</span><a class="on">Guests</a><a>Event Hub Maker</a>
+          <span class="eye sec">The day</span><a>Schedule</a><a>Seat plan</a>
+        </nav>
+        <div class="page">
+          <div class="parts"><span class="on">Guests</span><span>Hosts</span><span>Check-in</span></div>
+          <div>
+            <div class="addrow">
+              <label class="addbox">
+                <span class="plus" aria-hidden="true">+</span>
+                <input id="add-desk" placeholder="Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter" aria-label="Add a guest">
+                <span class="icons" aria-hidden="true"><span title="From your people">👥</span><span title="Quick add list">☰</span><span title="Import CSV">⬆</span></span>
+              </label>
+              <span class="tool">Filter</span>
+            </div>
+            <p class="note" style="margin:6px 0 0"><span>The row is <b>Add only</b> now. The search half and its fold/expand are gone; Filter stays.</span></p>
+          </div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr>
+                <th>Name</th><th>Side</th><th>Role</th><th class="newcol">Access<span class="new-tag">new</span></th><th>RSVP</th><th>Seat</th><th>Invite</th>
+              </tr></thead>
+              <tbody id="rows-desk"></tbody>
+            </table>
+          </div>
+          <p class="note"><span>Role no longer carries the small <span class="strike">+Co-host</span> tag; the Access column says it instead. Hover a fixed word to see why it can’t change.</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHONE -->
+  <section data-panel="phone" hidden>
+    <div class="phones">
+      <div class="phone">
+        <div class="topbar">
+          <label class="tsearch">
+            <span aria-hidden="true">⌕</span>
+            <input id="q-phone" type="search" placeholder="Guests" aria-label="Search guests">
+          </label>
+          <span class="avatar-sm">IC</span>
+        </div>
+        <div class="page">
+          <label class="addbox">
+            <span class="plus" aria-hidden="true">+</span>
+            <input id="add-phone" placeholder="Type a name → Enter" aria-label="Add a guest">
+          </label>
+          <p class="note" style="margin:0"><span>The phone’s own “Search names, roles…” box goes. Search lives in the top bar, the same as desktop.</span></p>
+          <div id="rows-phone"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOSTS PART -->
+  <section data-panel="hosts" hidden>
+    <div class="cols">
+      <div class="box">
+        <div class="eye">Before</div>
+        <h3>Current hosts · 3</h3>
+        <div class="hrow"><div><b>Claire Buanhog</b><div class="r">Bride · joined Sep 28</div></div><div class="r">Budget · off · Photos · off</div></div>
+        <div class="hrow"><div><b>—</b><div class="r">Viewer (read-only)</div></div><div class="r">Remove · “No longer availing their services”</div></div>
+        <div class="hrow"><div><b>Tita Nena</b><div class="r">Viewer (read-only)</div></div><div class="r">Areas · Budget · Photos</div></div>
+        <div class="eye" style="margin-top:6px">Colour access</div>
+        <div class="hrow"><div><b>Claire Buanhog</b><div class="r">Bride · joined Sep 28</div></div><div class="r">0 of 4 on</div></div>
+      </div>
+      <div class="box">
+        <div class="eye" style="color:var(--new)">Now</div>
+        <h3>Current hosts · 2</h3>
+        <div class="hrow"><div><b>Claire Buanhog</b><div class="r">Co-host · joined Sep 28</div></div><div class="r">The same access to this event as you.<br>A celebrant stays a co-host.</div></div>
+        <div class="hrow"><div><b>Tita Nena</b><div class="r">Limited helper · joined Sep 29</div></div><div class="r">Areas · Budget · Photos</div></div>
+        <div class="eye" style="margin-top:6px">Waiting</div>
+        <div class="hrow"><div><b>Mrs. Milagros Buanhog</b><div class="r">Co-host · waiting for them to join</div></div><div class="r" style="color:var(--accent)">Change on their guest card</div></div>
+        <div class="eye" style="margin-top:6px">Colour access</div>
+        <div class="hrow"><div><b>Tita Nena</b><div class="r">Limited helper · joined Sep 29</div></div><div class="r">0 of 4 on</div></div>
+        <p class="note" style="margin:0"><span>Claire is gone from Colour access: she already holds every colour as the other half of the couple. Only helpers and a hired planner get the four switches.</span></p>
+      </div>
+    </div>
+    <p class="note"><span>The names Tita Nena and Mrs. Milagros are examples to show each kind of row. Your real hosts appear on the live page.</span></p>
+  </section>
+
+  <!-- MENU -->
+  <section data-panel="menu" hidden>
+    <div class="cols">
+      <div class="box">
+        <div class="eye">Before</div>
+        <div class="menu"><div>Your Team</div><div>Budget</div><div>Guests</div><div>Hosts</div><div>Event Hub Maker</div></div>
+      </div>
+      <div class="box">
+        <div class="eye" style="color:var(--new)">Now</div>
+        <div class="menu"><div>Your Team</div><div>Budget</div><div class="on">Guests</div><div class="gone">Hosts</div><div>Event Hub Maker</div></div>
+        <p class="note" style="margin:0"><span>Hosts stays one tap away as a part of the guest list (Guests · Hosts · Check-in). Opening an old <b>/hosts</b> link still lights up Guests.</span></p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const guests = [
+  { g: 'Bride & Groom', n: 'Ms. Claire Estoras Buanhog', i: 'CB', side: 'b', role: 'Bride', access: 'co_host', lock: 'celebrant', rsvp: 'yes', seat: '~Table 3' },
+  { g: 'Bride & Groom', n: 'Mr. Indalecio Sadalan Casasola', i: 'IC', side: 'g', role: 'Groom', access: 'co_host', lock: 'creator', rsvp: 'yes', seat: '~Table 3' },
+  { g: 'VIP · Immediate family', n: 'Mrs. Milagros Buanhog', i: 'MB', side: 'b', role: "Bride's Parents", access: 'co_host', waiting: true, rsvp: 'pend', seat: '~Table 3' },
+  { g: 'VIP · Immediate family', n: 'Mr. Peregrino R. Buanhog', i: 'PB', side: 'b', role: "Bride's Parents", access: 'none', rsvp: 'pend', seat: '~Table 3' },
+  { g: 'VIP · Immediate family', n: 'Atty. Eufrocina M. Sadalan-Casasola', i: 'ES', side: 'g', role: "Groom's Parents", access: 'none', rsvp: 'pend', seat: '~Table 3' },
+  { g: 'VIP · Immediate family', n: 'Ms. Juanita Sadalan', i: 'JS', side: 'g', role: "Groom's Immediate Family", access: 'limited_helper', rsvp: 'pend', seat: '~Table 3' },
+  { g: 'VIP · Immediate family', n: 'Ms. Maxima Sadalan', i: 'MS', side: 'g', role: "Groom's Immediate Family", access: 'none', rsvp: 'pend', seat: '~Table 3' },
+];
+const LABEL = { none: 'None', co_host: 'Co-host', limited_helper: 'Limited helper' };
+const LOCK_NOTE = { creator: 'You created this event. Your access never changes.', celebrant: 'A celebrant stays a co-host.' };
+let query = '';
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const match = (x) => !query || (x.n + ' ' + x.role + ' ' + x.g).toLowerCase().includes(query.toLowerCase());
+
+function accessCell(x, idx) {
+  if (x.lock) return `<span class="access-fixed" title="${esc(LOCK_NOTE[x.lock])}">${LABEL[x.access]}</span>`;
+  const opts = Object.keys(LABEL).map((k) => `<option value="${k}" ${k === x.access ? 'selected' : ''}>${LABEL[k]}</option>`).join('');
+  return `<select class="access-sel" data-idx="${idx}" aria-label="${esc(x.n.split(' ').slice(1,2).join(''))}'s access to this event">${opts}</select>` +
+    (x.waiting && x.access !== 'none' ? '<span class="waiting">waiting for them to join</span>' : '') +
+    (x.saved ? '<span class="saved">Saved</span>' : '');
+}
+
+function render() {
+  const d = document.getElementById('rows-desk');
+  const p = document.getElementById('rows-phone');
+  let html = '', ph = '', last = '';
+  guests.forEach((x, idx) => {
+    if (!match(x)) return;
+    if (x.g !== last) { html += `<tr class="grp"><td colspan="7">${esc(x.g)}</td></tr>`; last = x.g; }
+    html += `<tr>
+      <td><div class="who"><span class="av ${x.side}">${x.i}</span><span class="name">${esc(x.n)}</span></div></td>
+      <td class="sub">${x.side === 'b' ? "Bride's" : "Groom's"}</td>
+      <td>${esc(x.role)}</td>
+      <td class="newcol">${accessCell(x, idx)}</td>
+      <td><span class="rsvp ${x.rsvp}">${x.rsvp === 'yes' ? 'Attending' : 'Pending'}</span></td>
+      <td class="sub">${x.seat}</td>
+      <td style="color:var(--accent)">${x.rsvp === 'yes' ? '' : 'Invite'}</td></tr>`;
+    const chip = x.access === 'none' ? '' : `<span class="chip ${x.access === 'co_host' ? 'co' : ''}">${LABEL[x.access]}${x.waiting ? ' · waiting' : ''}</span>`;
+    ph += `<div class="card-row"><span class="av ${x.side}">${x.i}</span><div style="min-width:0;flex:1"><div class="name">${esc(x.n)}</div><div class="sub">${esc(x.role)} ${chip}</div></div></div>`;
+  });
+  const none = query ? `No guest matches “${esc(query)}”. The top bar can widen to your events with what you typed.` : 'No guests yet.';
+  d.innerHTML = html || `<tr><td colspan="7" class="empty">${none}</td></tr>`;
+  p.innerHTML = ph || `<p class="empty">${none}</p>`;
+}
+
+document.addEventListener('change', (e) => {
+  const s = e.target.closest('.access-sel'); if (!s) return;
+  const x = guests[+s.dataset.idx];
+  x.access = s.value; x.waiting = s.value !== 'none'; x.saved = true;
+  render();
+  setTimeout(() => { x.saved = false; render(); }, 1400);
+});
+['q-desk', 'q-phone'].forEach((id) => document.getElementById(id).addEventListener('input', (e) => {
+  query = e.target.value;
+  ['q-desk', 'q-phone'].forEach((o) => { if (o !== id) document.getElementById(o).value = query; });
+  render();
+}));
+['add-desk', 'add-phone'].forEach((id) => document.getElementById(id).addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || !e.target.value.trim()) return;
+  const n = e.target.value.trim().replace(/\s*[+#].*$/, '');
+  const parts = n.split(/\s+/);
+  guests.push({ g: 'Just added', n, i: (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase(), side: /groom/i.test(e.target.value) ? 'g' : 'b', role: 'Guest', access: 'none', rsvp: 'pend', seat: '—' });
+  e.target.value = '';
+  render();
+}));
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); document.getElementById('q-desk').focus(); }
+});
+document.querySelectorAll('[role="tab"]').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('[role="tab"]').forEach((o) => o.setAttribute('aria-selected', o === b ? 'true' : 'false'));
+  document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.tab; });
+}));
+render();
+</script>

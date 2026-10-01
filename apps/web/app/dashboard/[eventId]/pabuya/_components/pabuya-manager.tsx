@@ -615,7 +615,7 @@ export function PabuyaManager({
                 Pabuya
               </p>
               <p className="mt-1 font-display text-xl italic text-ink">
-                {coupleName ? `A blessing for ${coupleName}` : `A blessing for ${theOrganizer}`}
+                {coupleName ? `E-Gifts for ${coupleName}` : `E-Gifts for ${theOrganizer}`}
               </p>
             </div>
             <PabuyaCardList

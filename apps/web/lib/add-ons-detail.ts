@@ -346,7 +346,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
 // voice rule). Roam has no bespoke /studio page, so it uses this App Store detail.
 if (liveStudioRoamEnabled()) {
   ADD_ON_DETAILS['live-studio-roam'] = {
-    eyebrow: 'Live Studio',
+    eyebrow: 'Live Watch',
     heroTitle: 'Stream it live — your way.',
     tagline:
       'Direct a Main Stage between your cameras with a tap, or let the people you love pick their own view — the vows, the dance floor, the whole room — live.',

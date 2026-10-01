@@ -1,5 +1,9 @@
 /**
- * THE GUEST REMINDER EMAILS ARE WIRED, LOCKED, SWITCHABLE AND REGISTERED.
+ * THE GUEST REMINDER EMAILS ARE WIRED, LOCKED AND REGISTERED — AND OFF.
+ *
+ * 📵 2026-09-29: switched OFF for guests (owner, "No email. Either use the qr and
+ * link only"); the couple's switch and its tour are gone. The job stays
+ * registered and returns at once, so turning it back on is one constant.
  *
  * The sender (`lib/guest-reminder-emails.ts`) is `server-only`, so this half
  * reads its SOURCE the way `nothing-was-refreshing-the-google-grants.test.ts`
@@ -11,8 +15,8 @@
  *   · the job is in `PERIODIC_JOBS` AND called through `runClaimedJob` with the
  *     registry's own gap — a key with no call site is a job nobody runs;
  *   · the lock is INSERTED BEFORE the send — the order is the idempotency;
- *   · the couple's switch is read from the live config before any guest is
- *     touched, and the Maker's RSVP page binds ONE switch to that key;
+ *   · the sender is OFF (`GUEST_REMINDER_EMAILS_ON`) and the Maker no longer
+ *     offers a switch that would send nothing;
  *   · nobody is emailed without a key (the mail must link THEIR page), and the
  *     link is spelt by the ONE speller (`buildInvitationUrl`);
  *   · the migration's PRIMARY KEY is (guest, milestone, event date), RLS is on
@@ -26,8 +30,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
 import { GUEST_REMINDER_GAP_MS, findPeriodicJob } from './periodic-job-registry';
-import { GUEST_REMINDERS_TIP } from './rsvp-ask';
 import { TOURS, TOUR_KEYS } from './tours';
+import { GUEST_REMINDER_EMAILS_ON } from './guest-reminder-emails-core';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -131,27 +135,23 @@ test('no SMS — email only, via the one sendEmail', () => {
   assert.match(SENDER, /kind: 'guest-reminder'/, 'the delivery log names the sender');
 });
 
-test('the Maker’s RSVP page binds ONE switch to the key the sender reads', () => {
-  assert.match(SETTINGS, /data-rsvp-setting="guest-reminders"/);
-  assert.match(SETTINGS, /save\(\{ guestReminders: v \}\)/);
-  assert.match(SETTINGS, /readGuestReminders\(local\)/);
-  assert.equal((SETTINGS.match(/guestReminders: v/g) ?? []).length, 1, 'exactly one switch writes the key');
-  // Owner copy rules: the guest's page is never a "website" — in the COPY the
-  // couple reads (the section and its tip), not in an import path.
-  const start = SETTINGS.indexOf('data-rsvp-setting="guest-reminders"');
-  const end = SETTINGS.indexOf('data-rsvp-setting="requests"');
-  assert.ok(start > 0 && end > start, 'the reminders section sits before Requests');
-  assert.doesNotMatch(SETTINGS.slice(start, end), /\bwebsite\b|\bsite\b|\bvendor/i);
-  assert.doesNotMatch(GUEST_REMINDERS_TIP, /\bwebsite\b|\bsite\b|\bvendor|\bSMS\b/i);
+// 📵 OWNER 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS — THE QR AND THE LINK DO
+// EVERYTHING" item 5: the guest reminder emails are switched OFF for guests, and
+// the couple's switch is gone with them (a switch that sends nothing is a lie).
+test('📵 guest reminder emails are OFF — the sender returns before it reads anything', () => {
+  assert.equal(GUEST_REMINDER_EMAILS_ON, false, 'guest reminder emails were switched back on');
+  const body = SENDER.slice(SENDER.indexOf('export async function runGuestReminderEmails'));
+  const first = body.indexOf('if (!GUEST_REMINDER_EMAILS_ON) return');
+  assert.ok(first > -1, 'the sender no longer checks the off switch');
+  assert.ok(first < body.indexOf('createAdminClient()'), 'the sender reads events before the off switch');
+  assert.ok(first < body.indexOf('isEmailConfigured()'), 'the off switch is checked after the mailer');
 });
 
-test('the reminder switch gets its first-visit tour, mounted on the RSVP page and never on the Maker’s first visit', () => {
-  assert.ok(TOUR_KEYS.includes('customer_guest_reminders_v1'));
-  assert.equal(TOURS.customer_guest_reminders_v1.slides.length, 2);
-  assert.match(LAUNCH, /\{!firstVisit \? <MiniTour tourKey="customer_guest_reminders_v1" storeShell=\{storeShell\} \/> : null\}/);
-  const tourAt = LAUNCH.indexOf('tourKey="customer_guest_reminders_v1"');
-  const settingsAt = LAUNCH.indexOf('<MakerRsvpSettings');
-  assert.ok(tourAt > 0 && settingsAt > tourAt, 'the tour sits inside the RSVP page’s controls');
+test('📵 the couple is no longer offered a "Reminder emails" switch, nor its tour', () => {
+  assert.doesNotMatch(SETTINGS, /data-rsvp-setting="guest-reminders"|guestReminders: v/, 'the dead switch is back in the Maker');
+  assert.ok(!(TOUR_KEYS as readonly string[]).includes('customer_guest_reminders_v1'), 'the retired tour is back');
+  assert.ok(!('customer_guest_reminders_v1' in TOURS));
+  assert.doesNotMatch(LAUNCH, /customer_guest_reminders_v1/);
 });
 
 test('the migration: PK (guest, milestone, event date) · CHECK 30/7/1 · RLS on · revoked from anon AND authenticated · no signed-in policy (service role only)', () => {

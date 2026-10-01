@@ -14,6 +14,11 @@ import {
   type EventDeleteSnapshot,
 } from '@/lib/admin-event-delete-audit';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import {
+  GUEST_LIST_REOPEN_ACTION,
+  guestListReopenPatch,
+  reopenLanded,
+} from '@/lib/admin-reopen-guest-list';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -228,30 +233,104 @@ async function snapshotEventForAudit(
  * `face_recognition_excluded`. No tick, no vector — regardless of mode. What
  * mode_a changes is whether a CONSENTING adult's descriptor is kept.
  *
- * Christening and debut events stay forced to mode_b by
- * `FORCE_MODE_B_EVENT_TYPES` no matter what this writes — the guardian-consent
- * workflow does not exist, and that gate is not this action's to open.
+ * Every event type, christening and debut included, honours what this writes
+ * (owner 2026-10-01, "ELEVEN OWNER ANSWERS" #8); the couple's own decline
+ * still overrides it.
  */
 export async function setEventFaceMode(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const { adminUserId } = await requireAdmin();
 
   const eventId = String(formData.get('event_id') ?? '').trim();
+  // Where to land afterwards: the per-event admin page, or the Events list.
+  // Only these two — never a posted URL.
+  const redirectBack = (outcome: 'saved' | 'error', code: string): never =>
+    redirect(
+      formData.get('from') === 'event' && eventId
+        ? `/admin/events/${encodeURIComponent(eventId)}?${outcome}=${code}`
+        : `/admin/accounts?tab=events&${outcome}=${code}`,
+    );
+  if (!eventId) redirectBack('error', 'missing_event');
+
+  const admin = createAdminClient();
+
+  /*
+    🔓 REOPEN A FINALIZED GUEST LIST — a second intent on this action, because
+    the server-action budget is at its ceiling and a new export would breach it.
+
+    Clears the stamp and the frozen count — the same two columns the host's own
+    Reopen clears (lib/admin-reopen-guest-list.ts). Only the host's Finalize
+    closes a list now, so no date is moved. Through the
+    service-role client, which is what `guard_pax_finalize_columns` permits and
+    what `guard_guest_edits_when_locked` exempts. The row is `.select()`ed back
+    so "saved" is only ever said about a write that landed.
+  */
+  if (formData.get('intent') === 'reopen_guest_list') {
+    const { data: before, error: beforeError } = await admin
+      .from('events')
+      .select('guest_count_locked_at, final_pax')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (beforeError) {
+      logQueryError('setEventFaceMode:reopen:before', beforeError);
+      redirectBack('error', 'reopen_read_failed');
+    }
+    if (!before) redirectBack('error', 'reopen_not_found');
+
+    const patch = guestListReopenPatch();
+    const { data: after, error: updateError } = await admin
+      .from('events')
+      .update(patch)
+      .eq('event_id', eventId)
+      .select('guest_count_locked_at, final_pax');
+    if (updateError) {
+      logQueryError('setEventFaceMode:reopen', updateError);
+      redirectBack('error', 'reopen_failed');
+    }
+    if (!reopenLanded(after)) redirectBack('error', 'reopen_not_applied');
+
+    // Non-fatal by the same contract as deleteEvent: the list IS reopened by
+    // now, so a failed audit write is shouted, not turned into an error page.
+    const { error: auditError } = await admin.from('admin_audit_log').insert({
+      action: GUEST_LIST_REOPEN_ACTION,
+      target_table: 'events',
+      target_id: eventId,
+      actor_user_id: adminUserId,
+      before_json: before,
+      after_json: patch,
+    });
+    if (auditError) {
+      console.error(
+        `[admin-reopen-guest-list] AUDIT WRITE FAILED for ${eventId} — the list is reopened and unrecorded: ${auditError.message}`,
+      );
+    }
+
+    revalidatePath(`/admin/events/${eventId}`);
+    redirectBack('saved', 'guest_list_reopened');
+  }
+
   const raw = String(formData.get('face_mode') ?? '').trim();
-  if (!eventId) return;
   // Only the two real modes are writable, and anything unrecognised falls to
   // mode_b — the safe side. Never trust a posted string into a biometric gate.
   const mode: PapicFaceMode = raw === 'mode_a' ? 'mode_a' : 'mode_b';
 
-  const admin = createAdminClient();
-  const { error } = await admin
+  // `.select()` the row back: an update that matched nothing resolves with no
+  // error, and this used to return silently either way — so a switch that did
+  // not move looked exactly like one that did.
+  const { data: updated, error } = await admin
     .from('events')
     .update({ papic_face_mode: mode })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('papic_face_mode');
   if (error) {
     logQueryError('setEventFaceMode', error);
-    return;
+    redirectBack('error', 'face_mode_failed');
+  }
+  if (updated?.length !== 1 || updated[0]?.papic_face_mode !== mode) {
+    redirectBack('error', 'face_mode_not_applied');
   }
 
   revalidatePath('/admin/accounts');
   revalidatePath('/admin/events');
+  revalidatePath(`/admin/events/${eventId}`);
+  redirectBack('saved', mode === 'mode_a' ? 'face_mode_on' : 'face_mode_off');
 }

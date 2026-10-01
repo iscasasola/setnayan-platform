@@ -52,6 +52,7 @@ export async function loadInviteSetup(
   // `resolveProfile` degrades itself (wedding → WEDDING_PROFILE, anything else
   // → the generic 'host'/'event' words), so this never throws a page.
   const profile = await resolveProfile(row?.event_type ?? 'wedding');
+  const stored = parsePrintDetails(row?.print_details ?? null);
   return {
     facts: {
       hostsName: row?.display_name ?? null,
@@ -59,8 +60,10 @@ export async function loadInviteSetup(
       solemn: profile.terminology.register === 'solemn',
       eventDate: row?.event_date ?? null,
       datePrecision: row?.event_date_precision ?? null,
+      // 🔤 The event's Name style — `{name}` is composed in it (owner 2026-09-30).
+      nameStyle: stored.nameStyle,
     },
-    template: parsePrintDetails(row?.print_details ?? null).inviteMessage,
+    template: stored.inviteMessage,
     slug: row?.slug ?? null,
   };
 }

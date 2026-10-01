@@ -1,5 +1,6 @@
 'use server';
 
+import { readVenueChoices, VENUE_CHOICES_KEY, type VenueChoice, type VenueSlotKey } from '@/lib/event-venues';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
@@ -174,6 +175,14 @@ export async function saveAllStdContent(
      *  (events.site_bg_music_*) — the STD film reuses the couple's site song.
      *  undefined = no change; a string = set + enable. */
     siteMusicKey?: string | null;
+    /**
+     * 🏛📷 ONE VENUE CARD'S CHOICE (owner 2026-09-30, "use supplier details. or
+     * input your data" · the venue's photo from the supplier, or uploaded) —
+     * written into the Venue scene's own `config_json.venue[slot]`
+     * (`lib/event-venues.ts` `readVenueChoices`), every sibling key kept. No
+     * new action: Details › Venues already saves through this one.
+     */
+    venueChoice?: { slot: VenueSlotKey; choice: VenueChoice };
   },
 ): Promise<{ ok: boolean; error?: string }> {
   if (!eventId) return { ok: false, error: 'missing-event' };
@@ -434,6 +443,35 @@ export async function saveAllStdContent(
 
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
   if (error) return { ok: false, error: 'db-error' };
+
+  if (data.venueChoice) {
+    const slot = data.venueChoice.slot;
+    if (slot !== 'ceremony' && slot !== 'reception') return { ok: false, error: 'bad-venue-choice' };
+    // Sanitized by the SAME reader the guest page uses: an own photo outside
+    // this event's own upload folder is dropped, never stored.
+    const choice = readVenueChoices({ [VENUE_CHOICES_KEY]: { [slot]: data.venueChoice.choice } }, eventId)[slot] ?? {};
+    const { data: w, error: we } = await supabase
+      .from('invitation_widgets')
+      .select('widget_id, config_json')
+      .eq('event_id', eventId)
+      .eq('widget_type', 'venue_map')
+      .maybeSingle();
+    if (we) return { ok: false, error: 'db-error' };
+    if (!w) return { ok: false, error: 'no-venue-scene' };
+    const config =
+      w.config_json && typeof w.config_json === 'object' && !Array.isArray(w.config_json)
+        ? (w.config_json as Record<string, unknown>)
+        : {};
+    const bag = config[VENUE_CHOICES_KEY];
+    const venue = bag && typeof bag === 'object' && !Array.isArray(bag) ? (bag as Record<string, unknown>) : {};
+    // A zero-row UPDATE is success-shaped (RLS refuses silently): ask for the row back.
+    const { data: wrote, error: ue } = await supabase
+      .from('invitation_widgets')
+      .update({ config_json: { ...config, [VENUE_CHOICES_KEY]: { ...venue, [slot]: choice } } })
+      .eq('widget_id', w.widget_id)
+      .select('widget_id');
+    if (ue || !wrote?.length) return { ok: false, error: 'db-error' };
+  }
 
   // Backfill the canonical wedding date from the Save-the-Date date when the
   // event has none yet. The public page's lifecycle phase reads

@@ -250,8 +250,8 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
   },
   {
     type: 'what_to_bring',
-    label: 'What to bring',
-    description: 'Gifts, registry, or a kind no-gift note for your guests.',
+    label: 'Reminders',
+    description: 'Things to remember — arrive by, what to bring, what to wear on your feet.',
     is_always_on: false,
     editor_subroute: 'what-to-bring',
   },

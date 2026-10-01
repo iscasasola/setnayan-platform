@@ -43,12 +43,39 @@ import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
 import { CUSTOM_SECTION_TYPES, isCustomSectionType, customSectionEditorLabel } from './custom-sections';
 import type { WeddingOnlyParts } from './wedding-only-parts';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
-import type { OpenUpKind, PostEventListRow, PostEventSceneStatus } from './post-event-scenes';
+import {
+  postEventSceneDrawn,
+  type OpenUpKind,
+  type PostEventListRow,
+  type PostEventSceneStatus,
+  type PostEventSectionSwitch,
+} from './post-event-scenes';
+import { postEventRunKey } from './post-event-draft';
+import { sanitizeHubCanvas } from './hub-canvas';
 import type { SceneTemplateId } from './scene-templates';
 import { stageShowsEntourage } from './stage-scenes';
+import { welcomeParts } from './invitation-welcome';
 
 /** The sections that are always in their place on a stage — never dragged. */
-export type MakerFixedKey = 'film' | 'editorial' | 'hero' | 'greeting' | 'pass' | 'rsvp' | 'entourage' | 'story';
+export type MakerFixedKey =
+  | 'film'
+  | 'editorial'
+  | 'hero'
+  | 'greeting'
+  | 'pass'
+  | 'rsvp'
+  /* 🏠 The Invitation's Welcome page (owner 2026-09-30 — `lib/invitation-welcome.ts`). */
+  | 'look'
+  | 'gifts'
+  | 'entourage'
+  | 'story'
+  /* 🎨 The day's own parts (owner 2026-09-29, "every scene … three styles"):
+     each guest meets their own, so the Maker draws a stand-in and offers its
+     Style — the key is the part's registry type (`lib/fixed-scene-styles.ts`). */
+  | 'find_your_seat'
+  | 'photos_of_you'
+  | 'announcements'
+  | 'live_hub';
 
 export type MakerTile =
   | {
@@ -101,6 +128,10 @@ export type MakerTile =
       note: string | null;
       open: OpenUpKind | null;
       pinned: boolean;
+      /** The story switch that shows / hides it (null = it cannot be hidden from here). */
+      switchKey: PostEventSectionSwitch | null;
+      /** 🎬 The run block it moves with (`postEventRunKey`) — null when its place is fixed. */
+      runKey: string | null;
     };
 
 export type MakerFolded = {
@@ -140,7 +171,7 @@ export type MakerStageList = {
 export const MAKER_SCENE_LABEL: Partial<Record<WidgetType, string>> = {
   hero: 'Names & date',
   greeting: 'Personal greeting',
-  qr_card: "Guest's QR pass",
+  qr_card: "Guest's ticket",
   tier_comparison: 'Two ways to celebrate',
 };
 
@@ -152,11 +183,38 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
      with "Your guest" — never sample content — so the couple sees where each
      guest's own part sits on the page. */
   greeting: { label: 'Personal greeting', why: 'Each guest sees their own — their name, and how they are joining you.' },
-  pass: { label: "Guest's QR pass", why: 'Each guest sees their own pass and QR code.' },
+  pass: { label: "Guest's ticket", why: 'Each guest sees their own Digital ticket and QR code.' },
   rsvp: { label: 'RSVP', why: 'Each guest replies from their own link.' },
+  look: { label: "Guest's look", why: 'Each guest sees what they wear — their role, their colours, your Do’s & Don’ts.' },
+  gifts: { label: 'E-Gifts', why: 'Every guest sees your E-Gifts here once a gift method is on.' },
   entourage: { label: 'The entourage', why: 'Always here on this stage, after your sections — it lists everyone with a role.' },
   story: { label: 'Our story', why: 'Always here on this stage, after the entourage — written from your love story.' },
+  find_your_seat: { label: 'Find your seat', why: 'Each guest sees their own table here, once your seating plan is published.' },
+  photos_of_you: { label: "Each guest's own photos", why: 'Each guest sees the photos they are in, as they are taken.' },
+  announcements: { label: 'Announcements', why: 'Your messages to guests appear at the top of the page once you send one.' },
+  live_hub: { label: 'Live hub', why: 'Your live stream and live photo wall, when you have them on the day.' },
 };
+
+/**
+ * 🎨 THE DAY'S OWN PARTS — on the stages where guests meet them. Listed after
+ * the entourage, in the order the Maker's canvas draws their stand-ins
+ * (`maker-fixed-parts.tsx`), so the navigator and the canvas stay one list.
+ */
+export const MAKER_DAY_PARTS: ReadonlyArray<{ key: MakerFixedKey; stages: readonly LifecyclePhase[] }> = [
+  { key: 'announcements', stages: ['rsvp', 'event'] },
+  /* 📱 In the order of The Day's tabs (owner 2026-09-30, Live · Welcome ·
+     Camera · Gallery · Me): the live hub is Live's, the guest's table is their
+     Welcome's, their photos are the Gallery's — so the navigator's tab headers
+     fall between them, never across them (`lib/maker-navigator-tabs.ts`). */
+  { key: 'live_hub', stages: ['event'] },
+  { key: 'find_your_seat', stages: ['event'] },
+  { key: 'photos_of_you', stages: ['event'] },
+];
+
+/** The day's parts this stage lists — the canvas draws exactly these, in this order. */
+export function makerDayPartsOn(stage: LifecyclePhase): MakerFixedKey[] {
+  return MAKER_DAY_PARTS.filter((p) => p.stages.includes(stage)).map((p) => p.key);
+}
 
 /**
  * 🔒 WHERE A FIXED SECTION IS EDITED (owner 2026-09-25: *"if not editable then
@@ -188,21 +246,46 @@ export const MAKER_TOOL_EDITOR_NAME: Record<NonNullable<(typeof MAKER_FIXED_TOOL
 };
 
 /** For a fixed section with no Maker tool: what fills it, and the page that changes it. */
-export const MAKER_FIXED_SOURCE: Partial<Record<MakerFixedKey, { text: string; page: 'guests'; link: string }>> = {
+export type MakerFixedSourcePage = 'guests' | 'studio/mood-board' | 'pabuya' | 'seating' | 'galleries' | 'schedule' | 'live';
+export const MAKER_FIXED_SOURCE: Partial<
+  Record<MakerFixedKey, { text: string; page: MakerFixedSourcePage; link: string; from: string }>
+> = {
   entourage: {
-    text: 'Nothing to edit here. It comes from your guest list — the roles you give people there.',
+    // 🎨 Its STYLE is picked in this panel (2026-09-29); only its names come from elsewhere.
+    text: 'The names come from your guest list — the roles you give people there.',
     page: 'guests',
     link: 'Open your guest list',
+    from: 'your guest list',
   },
+  look: {
+    text: 'Each guest sees their own look — from your Mood Board and your dress code.',
+    page: 'studio/mood-board',
+    link: 'Open your Mood Board',
+    from: 'your Mood Board',
+  },
+  gifts: {
+    text: 'Guests see the ways to send you a gift that you switch on.',
+    page: 'pabuya',
+    link: 'Open E-Gifts',
+    from: 'your E-Gifts',
+  },
+  /* 🎨 The day's own parts: their Style is picked in the panel; what fills them
+     comes from here. */
+  find_your_seat: { text: 'Each table comes from your seating plan.', page: 'seating', link: 'Open your seating plan', from: 'your seating plan' },
+  photos_of_you: { text: 'Filled from the photos taken on the day.', page: 'galleries', link: 'Open your galleries', from: 'the photos taken on the day' },
+  announcements: { text: 'You send them from your schedule on the day.', page: 'schedule', link: 'Open your schedule', from: 'your schedule' },
+  live_hub: { text: 'Filled from your live stream and your live photo wall.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
   greeting: {
     text: 'Each guest sees their own greeting — written from your guest list.',
     page: 'guests',
     link: 'Open your guest list',
+    from: 'your guest list',
   },
   pass: {
-    text: 'Each guest sees their own pass and QR — made from your guest list.',
+    text: 'Each guest sees their own Digital ticket and QR — made from your guest list.',
     page: 'guests',
     link: 'Open your guest list',
+    from: 'your guest list',
   },
 };
 
@@ -253,7 +336,7 @@ const EMPTY_REASON: Partial<Record<WidgetType, string>> = {
   schedule: 'Empty — add the moments of your day in Schedule.',
   venue_map: 'Empty — add your venue.',
   special_message: 'Empty — write your message.',
-  what_to_bring: 'Empty — add what guests should bring.',
+  what_to_bring: 'Empty — add reminders for your guests.',
   our_photos: 'Empty — add your photos.',
   our_love_story: 'Empty — add your story.',
   countdown: 'Needs your date.',
@@ -278,10 +361,23 @@ export type MakerStageInput = {
   /** The countdown retires once the day arrives. */
   countdownPast?: boolean;
   /**
+   * 🎨 List the day's own parts (`MAKER_DAY_PARTS`) — true from the Maker, whose
+   * canvas draws their stand-ins in the same place. Absent = not listed.
+   */
+  dayParts?: boolean;
+  /**
    * 📖 Post Event's compiled scenes, in the page's order
    * (`postEventSceneList`). Absent/empty → the one "story after the day" tile.
    */
   postEvent?: readonly PostEventListRow[] | null;
+  /**
+   * 🎨 Whether a Post Event scene has styles in the registry (so a waiting one is
+   * drawn on the couple's canvas). Handed in by the server-side caller
+   * (`maker-navigator-data.ts` → `resolvePostEventStyle`) so this file — which
+   * the Maker's client also imports — never loads the style registry.
+   * Absent = no scene is styled.
+   */
+  postEventStyled?: (sceneKey: string) => boolean;
 };
 
 /**
@@ -290,14 +386,19 @@ export type MakerStageInput = {
  * marker, and Before the day sits on the cover's page. A scene the page does
  * not draw has no anchor — the tile still says what it is and why.
  */
-function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
+function postEventTiles(rows: readonly PostEventListRow[], styled: (sceneKey: string) => boolean = () => false): MakerTile[] {
   return rows.map((r) => {
-    const drawn = r.status === 'auto' && !r.hidden;
-    const anchorScene = r.block === 'chapters' ? 'ch-1' : r.key === 'before' ? 'cover' : r.key;
+    const drawn = postEventSceneDrawn(r.status, r.hidden);
+    // 🛤 The Road to the Day is its own scene (with its own marker) since 2026-09-29.
+    const anchorScene = r.block === 'chapters' ? 'ch-1' : r.key;
+    /* 🕰 A waiting scene drawn in its style ALSO stands on the couple's canvas —
+       its layout with the line that says what fills it (never for a guest) —
+       so its tile scrolls there too. */
+    const onCanvas = drawn || (r.status === 'waiting' && !r.hidden && styled(r.key));
     return {
       kind: 'post-event',
       key: `p:${r.key}`,
-      anchor: drawn ? (`p:${anchorScene}` as const) : null,
+      anchor: onCanvas ? (`p:${anchorScene}` as const) : null,
       scene: r.key,
       label: r.name,
       status: r.status,
@@ -309,6 +410,8 @@ function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
       note: r.note,
       open: r.open,
       pinned: r.pin !== null,
+      switchKey: r.switch,
+      runKey: postEventRunKey(r.key),
     };
   });
 }
@@ -372,11 +475,20 @@ function emptyOf(w: InvitationWidgetRow, input: MakerStageInput): string | undef
  * so neither the Maker's canvas nor this list shows it. Post Event keeps it —
  * that is a separate owner decision. ONE rule, read by the page and this list.
  */
-export function widgetsGuestsMeet<T extends { widget_type: string }>(widgets: readonly T[], stage: LifecyclePhase): T[] {
+export function widgetsGuestsMeet<T extends { widget_type: string; config_json?: unknown }>(
+  widgets: readonly T[],
+  stage: LifecyclePhase,
+): T[] {
   // 🗂 Since "EACH STAGE DOES ONE JOB" (owner 2026-09-27) the pitch is on NO
   // stage — Post Event included (`STAGE_SCENES`, `lib/stage-scenes.ts`).
-  void stage;
-  return widgets.filter((w) => w.widget_type !== 'tier_comparison');
+  // 🎞 A scene seeded from one of Post Event's presets can only be written
+  // AFTER something happened (strategy §5) — it is on Post Event and nowhere
+  // else, though it is one of the six the couple's own scenes share.
+  return widgets.filter(
+    (w) =>
+      w.widget_type !== 'tier_comparison' &&
+      (stage === 'editorial' || !isCustomSectionType(w.widget_type) || !sanitizeHubCanvas(w.config_json).postEventPreset),
+  );
 }
 
 export function makerStageList(input: MakerStageInput): MakerStageList {
@@ -413,7 +525,7 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   // 📖 Post Event (Maker Phase 8): the story's own scenes, when the compiled
   // list was handed in — otherwise the one tile that stands for all of it.
   if (plan.body === 'editorial') {
-    if (input.postEvent && input.postEvent.length > 0) shown.push(...postEventTiles(input.postEvent));
+    if (input.postEvent && input.postEvent.length > 0) shown.push(...postEventTiles(input.postEvent, input.postEventStyled));
     else shown.push(fixed('editorial'));
   }
   if (plan.body === 'save_the_date') shown.push(fixed('film'));
@@ -426,23 +538,53 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   if (plan.qrCardShouldRender) shown.push(fixed('pass'));
   if (plan.rsvpShouldRender) shown.push(fixed('rsvp'));
 
+  // 🏠 THE WELCOME PAGE — after the reply, before Details, in the order the
+  // canvas draws it (`GuestWelcome`, asked through the SAME `welcomeParts`):
+  // the guest's look · Reminders (the `what_to_bring` scene, which leaves
+  // Details for it) · E-Gifts.
+  const drawable = plan.publicSafeWidgets.filter((w) => whyNotDrawn(w, input) === null);
+  const welcome = welcomeParts({
+    stage,
+    bodyNormal: plan.body === 'normal',
+    scenes: drawable.map((w) => w.widget_type),
+    identified: false,
+    reminders: null,
+    giftHref: null,
+    maker: true,
+  });
   const drawn = new Set<string>();
-  for (const w of plan.publicSafeWidgets) {
-    if (whyNotDrawn(w, input) !== null) continue;
+  const sceneTile = (w: InvitationWidgetRow): MakerTile => {
     drawn.add(w.widget_id);
     const empty = emptyOf(w, input);
-    shown.push({
+    return {
       kind: 'scene',
       key: `w:${w.widget_type}`,
       widgetId: w.widget_id,
       type: w.widget_type,
       label: makerSceneLabel(w.widget_type),
       ...(empty ? { empty } : {}),
-    });
+    };
+  };
+  for (const part of welcome) {
+    if (part === 'look') shown.push(fixed('look'));
+    else if (part === 'gifts') shown.push(fixed('gifts'));
+    else {
+      const row = drawable.find((w) => w.widget_type === 'what_to_bring');
+      if (row) shown.push(sceneTile(row));
+    }
+  }
+
+  for (const w of drawable) {
+    if (!drawn.has(w.widget_id)) shown.push(sceneTile(w));
   }
   // The entourage is not the Save the Date's job (`STAGE_FIXED`).
   if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));
-  if (input.storyRenders) shown.push(fixed('story'));
+  // 🎨 The day's own parts, where the normal body draws them (their stand-ins sit
+  // right after the entourage on the Maker's canvas).
+  if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage)) shown.push(fixed(k));
+  // 📖 The page draws the love story ONCE (site-body `storySceneShown`): with the
+  // "Our love story" scene on the page, the prose section is not drawn.
+  if (input.storyRenders && !drawable.some((w) => w.widget_type === 'our_love_story')) shown.push(fixed('story'));
 
   // ── The fold: every other section, with the reason this stage leaves it out.
   const folded: MakerFolded[] = [];

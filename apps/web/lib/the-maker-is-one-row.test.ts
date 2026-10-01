@@ -18,13 +18,14 @@ const STUDIO = [
 ];
 
 for (const phase of ['plan', 'dayof', 'after'] as const) {
-  test(`${phase}: one Event Hub Maker row holds the Logo Maker and Editorial`, () => {
+  test(`${phase}: one Hub row (the Event Hub Maker) holds the Logo Maker and Editorial`, () => {
     const rows = eventMenuRows(
       buildEventMenuSections(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO }),
     );
     const makers = rows.filter((r) => r.href === `${BASE}/launch`);
     assert.equal(makers.length, 1, 'one row');
-    assert.equal(makers[0]!.label, 'Event Hub Maker');
+    // The menu word is "Hub" (owner 2026-10-01); the page is the Event Hub Maker.
+    assert.equal(makers[0]!.label, 'Hub');
     assert.equal(makers[0]!.key, 'launch', 'the key is frozen — label change only');
     assert.ok(!rows.some((r) => r.key === 'palogo'), 'the Logo Maker is a door in the Maker, not a row');
     assert.ok(!rows.some((r) => r.key === 'editorial'), 'Editorial is a door in the Maker, not a row');
@@ -35,11 +36,20 @@ for (const phase of ['plan', 'dayof', 'after'] as const) {
   });
 }
 
-test('with no Event Hub for this kind, the Logo Maker and Editorial keep their own rows', () => {
+test('with no Event Hub for this kind, the Logo Maker and Editorial light More Services', () => {
+  /*
+    🔄 Stage D (2026-09-29): the menu is five rows, so no product keeps a row
+    of its own. Where there is no Maker to hold the Logo Maker and Editorial,
+    their pages light Our Services — the page that keeps a tool "where there is
+    no Maker" (`toolHasGoneHome`) — never nothing.
+  */
   const rows = eventMenuRows(
     buildEventMenuSections(EVENT_ID, { phase: 'after', websiteEnabled: false, studioRows: STUDIO }),
   );
   assert.ok(!rows.some((r) => r.key === 'launch'));
-  assert.ok(rows.some((r) => r.key === 'palogo'), 'never absorbed into a row that is not there');
-  assert.ok(rows.some((r) => r.key === 'editorial'));
+  assert.ok(!rows.some((r) => r.key === 'palogo' || r.key === 'editorial'), 'a product is a row again');
+  const services = eventMenuRowClaims(rows.find((r) => r.key === 'studio')!);
+  for (const p of ['/monogram', '/story']) {
+    assert.ok(services.includes(`${BASE}${p}`), `${p} lights nothing where there is no Maker`);
+  }
 });

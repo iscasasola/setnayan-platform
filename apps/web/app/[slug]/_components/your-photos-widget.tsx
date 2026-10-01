@@ -72,9 +72,6 @@ export function YourPhotosWidget({
             You can also add your own photos and videos through Shutter, our in-app camera.
             Tag up to 5 guests per post — {words.theOrganizer} is tagged for you automatically.
           </p>
-          <p className="sn-gal-soft mt-3 text-xs italic">
-            Shutter ships with the Setnayan native app (Phase 2).
-          </p>
         </div>
       )}
 

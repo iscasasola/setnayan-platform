@@ -21,7 +21,7 @@ export default async function LiveScreenPage() {
       <main className="flex min-h-screen flex-col items-center justify-center bg-[#17160F] px-6 text-center text-[#F5EFE6]">
         <h1 className="text-4xl font-semibold tracking-tight">This screen was disconnected</h1>
         <p className="mt-4 max-w-xl text-lg text-[#F5EFE6]/70">
-          It was removed from the Live Studio controller, or given a new code. Ask for the new code to connect it
+          It was removed from the Live Watch controller, or given a new code. Ask for the new code to connect it
           again.
         </p>
         <form action={forgetLiveScreen} className="mt-8">

@@ -144,7 +144,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           // With none, the plain bench is the honest destination.
           href={summary.suppliers === 0 ? `${base}/vendors` : `${base}/vendors?tab=build`}
           Icon={Compass}
-          title="Your Team"
+          title="Suppliers"
           cta={summary.suppliers === 0 ? 'Open the marketplace' : 'Open your suppliers'}
         >
           <Figure value={summary.suppliers} unit="supplier" />
@@ -175,7 +175,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           </span>
         </Card>
 
-        <Card href={`${base}/suite`} Icon={Sparkles} title="Our Services" cta="Open Our Services">
+        <Card href={`${base}/suite`} Icon={Sparkles} title="More Services" cta="Open More Services">
           <Figure value={summary.services} unit="service" />
           <span className="mt-0.5 block text-[12.5px] text-ink/55">
             What you had switched on for this one.

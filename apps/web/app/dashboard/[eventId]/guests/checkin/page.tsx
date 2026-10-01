@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Gift, QrCode } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { loadRoleNames } from '@/lib/role-names.server';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { eventHasSides } from '@/lib/guest-side-question';
 import { RoleNamesProvider } from '../_components/role-names-context';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../../_components/not-shared-with-you';
@@ -151,6 +153,8 @@ export default async function CheckinDeskPage({ params }: Props) {
   }));
 
   const expected = guests.filter((g) => g.rsvpStatus === 'attending').length;
+  // A birthday's door crew never reads "Both sides" (the profile's role set).
+  const hasSides = eventHasSides(await resolveRoleSetForEvent(eventId));
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
@@ -188,7 +192,13 @@ export default async function CheckinDeskPage({ params }: Props) {
       </header>
 
       <RoleNamesProvider names={roleNames}>
-        <CheckinDesk eventId={eventId} guests={guests} initialCheckins={checkins} expected={expected} />
+        <CheckinDesk
+          eventId={eventId}
+          guests={guests}
+          initialCheckins={checkins}
+          expected={expected}
+          hasSides={hasSides}
+        />
       </RoleNamesProvider>
 
       {/* Day-of: silently re-pull the roster so a live reseat updates each

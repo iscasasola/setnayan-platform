@@ -40,7 +40,7 @@ export const PUBLIC_SITE_PAGES: PublicSitePage[] = [
   {
     key: 'save_the_date',
     name: PUBLIC_STAGE_LABELS.save_the_date,
-    blurb: 'The first look — your monogram, the date, and a countdown. Announces the day and asks nothing of guests yet.',
+    blurb: 'The first look — your names, the date, and a countdown. Announces the day and asks nothing of guests yet.',
     phaseParam: 'save_the_date',
     Icon: CalendarHeart,
   },
@@ -54,7 +54,7 @@ export const PUBLIC_SITE_PAGES: PublicSitePage[] = [
   {
     key: 'event',
     name: PUBLIC_STAGE_LABELS.event,
-    blurb: 'The live wedding-day surface — schedule, each guest’s seat, the photo wall, and the livestream.',
+    blurb: 'The live page on the day — schedule, each guest’s seat, the photo wall, and the livestream.',
     phaseParam: 'event',
     Icon: Radio,
   },

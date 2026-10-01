@@ -18,6 +18,7 @@ import {
 } from '@/lib/event-anchor';
 import { DetailsForm } from './_components/details-form';
 import { GovernedFields } from './_components/governed-fields';
+import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { PaxSettingsCard } from './_components/pax-settings-card';
 import { PutAwayCard } from './_components/put-away-card';
 
@@ -269,6 +270,7 @@ export default async function PersonalizationPage({
           pax={pax}
           dateDisplay={dateDoc}
           dateValue={dateValue}
+          activeCeremonies={await fetchActiveCeremonyTypes(supabase)}
         />
       </div>
 

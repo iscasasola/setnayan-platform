@@ -49,6 +49,7 @@ import {
   type MeaningfulDateKind,
   type DateSuggestion,
 } from '@/lib/auspicious-date';
+import { ceremonyChoicesFor } from '@/lib/ceremony-choices';
 
 type Props = {
   eventId: string;
@@ -62,6 +63,8 @@ type Props = {
   secondaryCeremonyType?: string | null;
   initialMeaningfulDates: MeaningfulDate[];
   backHref: string;
+  /** The live rites (`fetchActiveCeremonyTypes`); null = the read failed → all. */
+  activeCeremonies?: readonly string[] | null;
 };
 
 type MeaningfulDateDraft = {
@@ -168,7 +171,10 @@ export function FourQuestionFlow({
   secondaryCeremonyType = null,
   initialMeaningfulDates,
   backHref,
+  activeCeremonies = null,
 }: Props) {
+  // The launch gate (lib/ceremony-choices.ts): a coming-soon rite is not offered.
+  const offered = new Set<string>(ceremonyChoicesFor(CEREMONY_ORDER, activeCeremonies, initialCeremonyType));
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 'suggestions'>(1);
   const [ceremonyChoice, setCeremonyChoice] = useState<CeremonyType | 'undecided' | null>(
     initialCeremonyType,
@@ -335,7 +341,11 @@ export function FourQuestionFlow({
           subtitle="This shapes the small cultural touchpoints we'll surface — feel free to skip if you're still deciding."
         >
           <RadioGroup
-            options={CEREMONY_OPTIONS.map((o) => ({ value: o.value, label: o.label, hint: o.hint }))}
+            options={CEREMONY_OPTIONS.filter((o) => o.value === 'undecided' || offered.has(o.value)).map((o) => ({
+              value: o.value,
+              label: o.label,
+              hint: o.hint,
+            }))}
             selected={ceremonyChoice}
             onChange={(v) => setCeremonyChoice(v as CeremonyType | 'undecided')}
             name="ceremony_type"

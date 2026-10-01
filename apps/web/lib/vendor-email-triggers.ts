@@ -470,7 +470,7 @@ export async function sendVendorSlowResponseEmail(
 }
 
 // ---------------------------------------------------------------------------
-// 8. Featured in a Real Wedding Story → credited vendor
+// 8. Featured in a Real Story → credited vendor
 // ---------------------------------------------------------------------------
 
 /**
@@ -491,14 +491,14 @@ export async function sendVendorFeaturedInStoryEmail(
   const text = [
     `Hi ${contact.businessName},`,
     ``,
-    `Good news — ${coupleLabel}'s wedding, which you worked on, has been`,
-    `featured on Setnayan's Real Wedding Stories. Your work is credited in the`,
-    `story, in front of every couple browsing for inspiration.`,
+    `Good news — ${coupleLabel}'s event, which you worked on, has been`,
+    `featured on Setnayan's Real Stories. Your work is credited in the`,
+    `story, in front of everyone browsing for inspiration.`,
     ``,
     `See the story (and your credit):`,
     storyUrl,
     ``,
-    `Share it with your own audience — a featured wedding is a great proof point.`,
+    `Share it with your own audience — a featured event is a great proof point.`,
     ``,
     `—`,
     `Set na 'yan.`,
@@ -507,7 +507,7 @@ export async function sendVendorFeaturedInStoryEmail(
 
   return sendEmail({
     to: contact.email,
-    subject: `Your work is featured in a Setnayan Real Wedding Story`,
+    subject: `Your work is featured in a Setnayan Real Story`,
     text,
   });
 }

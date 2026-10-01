@@ -88,7 +88,9 @@ export const FAITH_REGISTRY: readonly FaithRegistryEntry[] = [
     faithCol: 'Muslim',
     label: 'Muslim',
     desc: 'A Nikah ceremony.',
-    react: 'Maligayang bati. We’ll quietly pre-set halal catering and your Nikah customs.',
+    // Promised "we'll quietly pre-set halal catering" — nothing pre-set it (audit
+    // 2026-09-30 §3, P6a). Says only what happens: Halal is a catering pick.
+    react: 'Maligayang bati. Your Nikah customs come first — pick Halal under catering and we’ll keep it on your plan.',
     photoImg: 'wed_muslim',
     photoCap: 'A Muslim wedding',
     defaultSoon: false,
@@ -98,7 +100,9 @@ export const FAITH_REGISTRY: readonly FaithRegistryEntry[] = [
     faithCol: 'INC',
     label: 'INC',
     desc: 'Iglesia ni Cristo.',
-    react: 'We’ll respect every INC protocol — your reception comes pre-set alcohol-free.',
+    // Promised "pre-set alcohol-free" — nothing set it. What IS true (P6a): the
+    // ceremony's own day starts with no cocktail hour and no dancing.
+    react: 'We’ll respect every INC protocol — your day’s schedule starts with no cocktail hour and no dancing.',
     photoImg: 'wed_inc',
     photoCap: 'An INC wedding',
     defaultSoon: false,

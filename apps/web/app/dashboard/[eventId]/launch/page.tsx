@@ -60,6 +60,7 @@ import { resolveMoments } from '@/lib/love-story-moments';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
+import { makerTourSlideViews } from './_components/maker-tour-slides';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { completeTour } from '@/lib/tour-actions';
 import WebsiteEditorPage from '../website/editor/page';
@@ -1533,7 +1534,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       storeShell={storeShell}
       /* ⛔ The tour's Pro slide: no figure in the store shell (it drops the
          slide), and only the catalogue's figure anywhere else. */
-      priceLabel={storeShell ? null : proPriceLabel}
+      tourSlides={makerTourSlideViews({ storeShell, priceLabel: storeShell ? null : proPriceLabel })}
       firstVisit={firstVisit}
       completeTourAction={completeTour}
       renderStamp={String(Date.now())}

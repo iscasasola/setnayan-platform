@@ -35,6 +35,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
+import { guidedTourView } from '@/app/_components/guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { anyoneMayAskToJoin, readRsvpWords, resolveRsvpAsk } from '@/lib/rsvp-ask';
@@ -3133,7 +3134,7 @@ export async function SiteBody({
             `?preview=draft`). Seen live 2026-09-27: "You're invited · STEP 1
             OF 3" mounted inside the Maker's RSVP-page preview and covered it.
             Decided here, on the server — the couple is not a guest arriving. */}
-        {isEditorCanvas ? null : <GuestGuidedTour tourKey="guest_welcome_v1" />}
+        {isEditorCanvas ? null : <GuestGuidedTour tourKey="guest_welcome_v1" tour={guidedTourView('guest_welcome_v1')} />}
         {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
             anchors, SAME structure as anonymousTree. Flag-dark
             (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for the sample event.

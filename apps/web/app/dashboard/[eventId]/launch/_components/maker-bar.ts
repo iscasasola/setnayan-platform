@@ -1,6 +1,6 @@
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { TOURS, type TourKey } from '@/lib/tours';
+import type { TourKey } from '@/lib/tours';
 import { RSVP_STAGE_KEY, RSVP_STAGE_LABEL } from '@/lib/rsvp-stage-shared';
 import { DETAILS_FIRST_PRINT, isPrintsItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import type { MakerDevice } from './maker-context';
@@ -104,23 +104,10 @@ export const MAKER_SNAP_NOTE =
 
 export const MAKER_TOUR_KEY: TourKey = 'customer_event_hub_maker_v1';
 
-/**
- * The tour slides this viewer is shown — pure, so a test can hold both rules.
- *
- *   · In the app-store shell a slide that SELLS is dropped outright (App Review
- *     3.1.1: no digital price and no paid pitch inside the app).
- *   · Elsewhere its `{price}` token becomes " — ₱X, once" from the live
- *     catalogue, or nothing at all when the catalogue did not answer. A
- *     remembered number is never printed.
- */
-export function makerTourSlides(input: { storeShell: boolean; priceLabel: string | null }) {
-  return TOURS[MAKER_TOUR_KEY].slides
-    .filter((s) => !(input.storeShell && s.sells))
-    .map((s) => ({
-      ...s,
-      body: s.body.replace('{price}', input.priceLabel ? ` &mdash; ${input.priceLabel}, once` : ''),
-    }));
-}
+/* The tour's SLIDES are built on the server — `maker-tour-slides.tsx`, never
+   here: this file is imported by the client shell, and importing `lib/tours.ts`
+   from it put every tour's words in the Maker's first load (the diet,
+   2026-10-01). 🛡 lib/tours-stay-on-the-server.test.ts. */
 
 export function isStagePhase(value: unknown): value is LifecyclePhase {
   return typeof value === 'string' && (PUBLIC_STAGE_ORDER as readonly string[]).includes(value);

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Check, Monitor, MonitorSmartphone, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
+import type { TourSlideView } from '@/app/_components/tour-slide-view';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsDesktop } from '@/lib/use-responsive';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -108,7 +109,7 @@ export function MakerShell({
   initialSelection = null,
   opensOnGuide = false,
   storeShell,
-  priceLabel,
+  tourSlides,
   firstVisit,
   completeTourAction,
   renderStamp,
@@ -144,8 +145,8 @@ export function MakerShell({
    */
   opensOnGuide?: boolean;
   storeShell: boolean;
-  /** The live catalogue price of Event Hub Pro, formatted; null when unread. */
-  priceLabel: string | null;
+  /** The tour's slides, drawn on the server (`maker-tour-slides.tsx`) — the store-shell and price rules live there. */
+  tourSlides: TourSlideView[];
   firstVisit: boolean;
   completeTourAction: (tourKey: TourKey) => Promise<void>;
   renderStamp: string;
@@ -629,8 +630,7 @@ export function MakerShell({
 
         {tour ? (
           <MakerTour
-            storeShell={storeShell}
-            priceLabel={priceLabel}
+            slides={tourSlides}
             record={tour === 'first'}
             completeAction={completeTourAction}
             onClose={() => setTour(null)}

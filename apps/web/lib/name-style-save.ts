@@ -1,20 +1,19 @@
 /**
- * name-style-save.ts — 🔤 the ONE way a Maker control saves the event's Name
- * style: the prints' own door (`POST /api/hub-print/name-style` →
- * `events.print_details.name_style`, `app/api/hub-print/[piece]/route.ts`).
- * Details' Name style ▾ (`NameStylePicker`) and the hero names' Wording ▾
- * (`type-in-place.tsx`) both call it — one setting, never a second.
+ * name-style-save.ts — 🔤 how a Maker control SAVES the event's Name style: into
+ * the Event Hub DRAFT, never the live row (owner 2026-10-01, DECISION_LOG "IN
+ * THE EVENT HUB MAKER, NOTHING TAKES EFFECT UNTIL APPLY — THE NAME STYLE
+ * INCLUDED"). The patch is the one `hubDraftAction` (intent=save) takes: the
+ * draft's `events.print_details` holds `{ name_style }` and nothing else
+ * (`HUB_DRAFT_FACT_COLUMNS`); Apply merges it into the prints' settings blob
+ * (`events.print_details.name_style`, lib/name-style.ts) — the ONE setting the
+ * prints read, never a second.
  *
- * Resolves true when it saved; false on any refusal or a lost connection
- * (the caller puts the last saved style back and says so).
+ * Details' Name style ▾ (`NameStylePicker`) and the hero names' Wording ▾
+ * (`type-in-place.tsx`) both build their patch here. Pure: no I/O.
  */
+import type { HubDraftPatch } from './hub-draft';
 import type { NameStyle } from './name-style';
 
-export function saveNameStyle(eventId: string, style: NameStyle): Promise<boolean> {
-  const fd = new FormData();
-  fd.set('event_id', eventId);
-  fd.set('style', style);
-  return fetch('/api/hub-print/name-style', { method: 'POST', body: fd, headers: { accept: 'application/json' } })
-    .then((r) => r.ok)
-    .catch(() => false);
+export function nameStyleDraftPatch(style: NameStyle): HubDraftPatch {
+  return { events: { print_details: { name_style: style } } };
 }

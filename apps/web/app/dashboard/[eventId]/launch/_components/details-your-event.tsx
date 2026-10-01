@@ -15,8 +15,10 @@ import { FileUpload } from '@/app/_components/file-upload';
 import type { VenueChoice, VenueSlotKey } from '@/lib/event-venues';
 import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { NAME_STYLE_CHOICES, type NameStyle } from '@/lib/name-style';
-import { saveNameStyle } from '@/lib/name-style-save';
+import { nameStyleDraftPatch } from '@/lib/name-style-save';
 import { coupleNameColumns } from '@/lib/typed-names';
+import type { DateClash } from '@/lib/date-fits-booked';
+import { DateClashNote } from './details-date-clash';
 
 /**
  * DETAILS › YOUR EVENT — the editors (Details part 2a; owner 2026-09-28,
@@ -60,12 +62,16 @@ const DRAFTED = 'Saved — guests see it when you Apply';
  * every Maker pick use). The Maker then draws once with the draft laid on.
  * Resolves null when saved, else the reason in words.
  */
-async function draftFacts(eventId: string, events: Record<string, unknown>): Promise<string | null> {
+async function draftFactsFull(eventId: string, events: Record<string, unknown>): Promise<{ error: string; clash?: DateClash[] } | null> {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify({ events }));
   const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
-  return r.ok ? null : r.error || 'That did not save. Nothing changed — please try again.';
+  if (r.ok) return null;
+  return { error: r.error || 'That did not save. Nothing changed — please try again.', ...('clash' in r && r.clash ? { clash: r.clash } : {}) };
+}
+async function draftFacts(eventId: string, events: Record<string, unknown>): Promise<string | null> {
+  return (await draftFactsFull(eventId, events))?.error ?? null;
 }
 
 // ── NAMES ─────────────────────────────────────────────────────────────────────
@@ -152,12 +158,14 @@ export function NamesEditor({
  * Surname first "Mr. Casasola, Manuel C.". ONE event-wide PickMenu (a set of
  * choices is a dropdown), under the Names, in place.
  *
- * 💾 Saved at once through the prints' own door (`POST /api/hub-print/name-style`
- * → `events.print_details.name_style`) — the pass card look's pattern: shown
- * AT ONCE, the latest pick held in a ref so two quick picks never save out of
- * order, and a failure puts back only the latest. Then the Maker's pictures
- * redraw (`requestMakerRefresh`) — the invitation and the ticket beside it are
- * drawn in the style.
+ * ✍ A PICK WAITS FOR APPLY (owner 2026-10-01, "in event hub maker will only
+ * take effect when pressed apply"): shown AT ONCE here, held in the Event Hub
+ * DRAFT (`draftFacts` → `events.print_details` as `{ name_style }` only), and
+ * written to the prints' one setting (`print_details.name_style`) when the
+ * couple presses Apply. The latest pick is held in a ref so two quick picks
+ * never save out of order, and a failure puts back only the latest. Then the
+ * Maker's pictures redraw — the invitation and the ticket beside it are drawn
+ * in the style.
  */
 export function NameStylePicker({ eventId, saved }: { eventId: string; saved: NameStyle }) {
   const [shown, setShown] = useState<NameStyle>(saved);
@@ -173,10 +181,14 @@ export function NameStylePicker({ eventId, saved }: { eventId: string; saved: Na
     setShown(style);
     setError(null);
     start(async () => {
-      const ok = await saveNameStyle(eventId, style);
-      if (ok) {
+      let refused: string | null;
+      try {
+        refused = await draftFacts(eventId, nameStyleDraftPatch(style).events ?? {});
+      } catch {
+        refused = 'That did not save. Nothing changed — please try again.';
+      }
+      if (refused === null) {
         stored.current = style;
-        requestMakerRefresh();
         return;
       }
       if (latest.current === style) {
@@ -201,7 +213,7 @@ export function NameStylePicker({ eventId, saved }: { eventId: string; saved: Na
         />
       </div>
       <p className="text-xs text-ink/65">
-        {example} — on the entourage, tickets, printed cards and name lists. A Display name prints as you typed it.
+        {example} — on the entourage, tickets, printed cards and name lists. A Display name prints as you typed it. Guests see a new style when you Apply.
       </p>
       {error ? (
         <p role="alert" className="text-[12.5px] text-terracotta-700">
@@ -295,9 +307,45 @@ export function DateEditor({
   const setMode = (m: 'have' | 'help') => setDate({ mode: m });
   const [proposal, setProposal] = useState<{ field: 'date'; value: string; n: number } | null>(null);
   const [monthError, setMonthError] = useState<string | null>(null);
+  /* 🗓 A day or month a BOOKED supplier cannot do is refused at the pick — it
+     never reaches the draft — and the supplier is named with one way to ask
+     them (owner 2026-10-01). `note` is a pick that was kept. */
+  const [clash, setClash] = useState<{ reason: string; list: readonly DateClash[] } | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
+  /**
+   * A date to the draft. Null when saved; else the reason in words — and when a
+   * booked supplier clashes, `clashed` is true and the supplier note below says
+   * it (with who and where to ask), so a caller does not say it twice.
+   */
+  const draftDate = async (events: Record<string, unknown>): Promise<{ error: string; clashed: boolean } | null> => {
+    setClash(null);
+    setNote(null);
+    const refused = await draftFactsFull(eventId, events);
+    if (!refused) return null;
+    if (refused.clash?.length) setClash({ reason: refused.error, list: refused.clash });
+    return { error: refused.error, clashed: Boolean(refused.clash?.length) };
+  };
+
   const pickDay = (dateKey: string) => {
+    setClash(null);
+    setNote(null);
+    setMonthError(null);
+    // Booked suppliers hold the date row (read-only): the pick goes to the draft
+    // itself, where a clash is refused with its reason — never silently dropped.
+    if (governed.confirmedVendorCount > 0) {
+      start(async () => {
+        try {
+          const refused = await draftDate({ event_date: dateKey, event_date_precision: 'day' });
+          if (!refused) setNote('Saved to your draft — a booked supplier still has to agree before it can go live.');
+          else if (!refused.clashed) setMonthError(refused.error);
+        } catch {
+          setMonthError('That day did not save. Please try again.');
+        }
+      });
+      return;
+    }
     setMode('have');
     setProposal((p) => ({ field: 'date', value: dateKey, n: (p?.n ?? 0) + 1 }));
   };
@@ -306,16 +354,17 @@ export function DateEditor({
     setMonthError(null);
     start(async () => {
       try {
-        // Drafted — Apply asks the date's gates (a booked supplier, a past month).
-        const refused = await draftFacts(eventId, { event_date: `${m}-01`, event_date_precision: 'month' });
-        if (refused) setMonthError(refused);
+        // Drafted — a month a booked supplier cannot do is refused here, with the
+        // reason; Apply asks the date's other gates (a past month, a held date).
+        const refused = await draftDate({ event_date: `${m}-01`, event_date_precision: 'month' });
+        if (refused && !refused.clashed) setMonthError(refused.error);
       } catch {
         setMonthError('That month did not save. Please try again.');
       }
     });
   };
   /** The governed row's day → the draft (after its booked-supplier preview). */
-  const saveDay = (value: string) => draftFacts(eventId, { event_date: value, event_date_precision: 'day' });
+  const saveDay = async (value: string) => (await draftDate({ event_date: value, event_date_precision: 'day' }))?.error ?? null;
 
   return (
     <section data-details-date="" className="flex flex-col gap-3">
@@ -355,6 +404,12 @@ export function DateEditor({
           {nudge}
         </Suspense>
       )}
+      {clash ? <DateClashNote clash={clash} /> : null}
+      {note ? (
+        <p className="text-xs text-ink/65" data-date-note="">
+          {note}
+        </p>
+      ) : null}
       <p className="text-[11.5px] text-ink/60">Guests see a new date when you Apply.</p>
     </section>
   );

@@ -23,6 +23,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { parsePrintDetails, serializePrintDetails } from '../../lib/print-pieces';
 import {
   HUB_DRAFT_FACT_COLUMNS,
   emptyHubDraft,
@@ -39,7 +40,8 @@ const F = { couple: '', guest: '', eventId: '' };
 const BEFORE = { display_name: 'Ana & Miguel', bride_name: 'Ana Reyes', groom_name: 'Miguel Santos', event_date: '2031-03-13', event_date_precision: 'day' };
 const TYPED = { display_name: 'Ana Reyes & Miguel', event_date: '2031-04-17', event_date_precision: 'day' };
 // As PostgREST hands them to Apply: a date is its ISO text, never a JS Date.
-const FACTS = HUB_DRAFT_FACT_COLUMNS.map((c) => (c === 'event_date' ? 'event_date::text AS event_date' : c)).join(', ');
+// (`print_details` — the Name style — is proved in its own test below.)
+const FACTS = HUB_DRAFT_FACT_COLUMNS.filter((c) => c !== 'print_details').map((c) => (c === 'event_date' ? 'event_date::text AS event_date' : c)).join(', ');
 
 async function reset(): Promise<void> {
   await db.exec(`RESET ROLE`).catch(() => {});
@@ -145,4 +147,42 @@ test('2 · APPLY writes the drafted names and date ONCE, through the couple’s 
   // Once: against the new live row the same draft has nothing left to write.
   const again = planHubDraftApply(draft, { events: { ...liveState.events, ...patch }, widgets: [] }, false);
   assert.equal(again.apply.length + again.refused.length, 0, 'Apply would write the same names twice');
+});
+
+test('3 · the NAME STYLE waits for Apply too — a save leaves print_details alone; Apply merges the one key, once', async () => {
+  const printDetails = async () => (await db.query<{ p: unknown }>(`SELECT print_details AS p FROM public.events WHERE event_id = $1`, [F.eventId])).rows[0]!.p;
+  // The prints' own words are already there — Apply must carry them untouched.
+  await db.query(`UPDATE public.events SET print_details = $2::jsonb WHERE event_id = $1`, [
+    F.eventId,
+    JSON.stringify(serializePrintDetails({ ...parsePrintDetails(await printDetails()), openingLine: 'Together with their families' })),
+  ]);
+  const before = await printDetails();
+  assert.equal(parsePrintDetails(before).nameStyle, 'full', 'anti-vacuity: the style starts as Full');
+
+  const styled = mergeHubDraft(emptyHubDraft(), { events: { print_details: { name_style: 'surname-first', opening_line: 'SNEAKED IN' } as never } });
+  assert.deepEqual(styled.events.print_details, { name_style: 'surname-first' }, 'the draft holds the Name style and no other key of the blob');
+  const w = await as(
+    F.couple,
+    `INSERT INTO public.event_site_drafts (event_id, draft_json) VALUES ($1, $2::jsonb)
+     ON CONFLICT (event_id) DO UPDATE SET draft_json = EXCLUDED.draft_json RETURNING event_id`,
+    [F.eventId, JSON.stringify(styled)],
+  );
+  assert.equal(w.err, null, w.err ?? '');
+  assert.deepEqual(await printDetails(), before, 'picking a Name style reached the live prints setting before Apply');
+
+  // Apply: the plan holds exactly one free change; the write MERGES the style into the blob as it stands.
+  const plan = planHubDraftApply(styled, { events: { print_details: before }, widgets: [] }, false);
+  assert.equal(plan.refused.length, 0, 'a name style is never Pro');
+  assert.deepEqual(plan.apply.map((i) => (i.kind === 'event' ? i.column : i.kind)), ['print_details']);
+  const item = plan.apply[0]!;
+  const asked = (item as { value: Record<string, unknown> }).value.name_style;
+  await db.query(`UPDATE public.events SET print_details = $2::jsonb WHERE event_id = $1`, [
+    F.eventId,
+    JSON.stringify(serializePrintDetails({ ...parsePrintDetails(await printDetails()), nameStyle: asked as 'surname-first' })),
+  ]);
+  const after = parsePrintDetails(await printDetails());
+  assert.equal(after.nameStyle, 'surname-first', 'the guests and the prints now read the picked style');
+  assert.equal(after.openingLine, 'Together with their families', 'Apply left the prints’ other words untouched');
+  const again = planHubDraftApply(styled, { events: { print_details: await printDetails() }, widgets: [] }, false);
+  assert.equal(again.apply.length + again.refused.length, 0, 'Apply would write the style twice');
 });

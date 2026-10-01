@@ -76,7 +76,7 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'The words were drawn on the canvas as they were typed (`useSceneWordsBox`); this is the save behind them, held (`onSaving`).',
   'launch/_components/soft-post.tsx › onSubmit':
     'A plain Details form: what the couple typed IS the visible change; the post saves it without leaving the page.',
-  'launch/_components/details-your-event.tsx › draftFacts':
+  'launch/_components/details-your-event.tsx › draftFactsFull':
     'Details › Names, Name and Date (owner 2026-10-01, "wait for apply"): what the couple typed or picked IS the visible change (the inputs’ own state); Save drafts it, and the canvas redraws with the draft in the one render after it.',
   'website/editor/_components/main-background-panel.tsx › <effect>':
     'Not a tap — the Main background reads the hero photo’s colours by itself and saves them.',

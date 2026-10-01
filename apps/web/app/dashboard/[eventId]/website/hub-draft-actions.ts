@@ -52,6 +52,9 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
+import { nameStyleFrom } from '@/lib/name-style';
+import { datePickClash } from '@/lib/date-clash.server';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
@@ -144,6 +147,26 @@ export async function hubDraftAction(
       /* ⚡ The bar is read BESIDE the write (from the same merge, which is pure),
          so asking for it adds no round trip after the save. */
       const wantsBar = formData.get(HUB_DRAFT_BAR_FIELD) === '1';
+      /* 🗓 A DAY OR MONTH A BOOKED SUPPLIER CANNOT DO IS NEVER ACCEPTED INTO THE
+         DRAFT (owner 2026-10-01, "refused at the pick"): asked here, in the one
+         door every date goes through (typed, picked, month), with the shipped
+         availability read (`datePickClash`) — never a second check. The
+         supplier's name and where to ask them to move or unlock go back with
+         the refusal. Apply's `eventDateRefusal` stays as the backstop. */
+      const asksDate = Boolean(patch.events && ('event_date' in patch.events || 'event_date_precision' in patch.events));
+      const mergedDate = asksDate ? mergeHubDraft(current, patch).events : null;
+      if (mergedDate && typeof mergedDate.event_date === 'string') {
+        const { data: liveDate } = await supabase.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
+        const asked = await datePickClash({
+          supabase,
+          admin: createAdminClient(),
+          eventId,
+          date: mergedDate.event_date,
+          precision: eventDatePrecisionOf(mergedDate.event_date_precision ?? liveDate?.event_date_precision) ?? 'day',
+          live: { date: (liveDate?.event_date as string | null | undefined) ?? null, precision: liveDate?.event_date_precision },
+        });
+        if (asked) return { ok: false, intent, error: asked.reason, clash: asked.clash };
+      }
       const [, bar] = await Promise.all([
         writeHubDraft(supabase, eventId, mergeHubDraft(current, patch)),
         wantsBar ? hubDraftBarAfterSave(supabase, eventId, mergeHubDraft(current, patch)) : Promise.resolve(null),
@@ -407,6 +430,17 @@ export async function hubDraftAction(
        it — after the host check (top) and the Pro gate (`planHubDraftApply`). */
     const qrWrite = 'style_preferences' in eventsPatch ? (eventsPatch.style_preferences as Record<string, unknown>) : undefined;
     delete eventsPatch.style_preferences;
+    /* 🔤 THE NAME STYLE LEAVES THE SESSION UPDATE TOO. The draft holds
+       `{ name_style }` only; `print_details` also carries the prints' opening
+       line, menu, pass card look and poster photo, so the style is MERGED into
+       the blob as it stands at write time — through the admin client, exactly
+       as its live writer (`POST /api/hub-print/name-style`) always wrote it
+       (`authenticated` holds no UPDATE grant on the column) — after the host
+       check (top) and with every other key carried untouched. */
+    const nameStyleWrite = 'print_details' in eventsPatch
+      ? nameStyleFrom((eventsPatch.print_details as Record<string, unknown> | null)?.name_style)
+      : undefined;
+    delete eventsPatch.print_details;
     /* 🎵 The song's companions, as `updateSiteChrome` stamps them: where it came
        from, and off when there is no song to play. */
     if ('site_bg_music_r2_key' in eventsPatch) {
@@ -496,6 +530,26 @@ export async function hubDraftAction(
         .eq('event_id', eventId)
         .select('event_id');
       if (qrErr || !Array.isArray(qrRows) || qrRows.length === 0) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+    if (nameStyleWrite !== undefined) {
+      const admin = createAdminClient();
+      const { data: pdRow, error: pdErr } = await admin
+        .from('events')
+        .select('print_details')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (pdErr || !pdRow) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      const stored = parsePrintDetails(pdRow.print_details);
+      const { data: pdRows, error: pdWriteErr } = await admin
+        .from('events')
+        .update({ print_details: serializePrintDetails({ ...stored, nameStyle: nameStyleWrite }) })
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (pdWriteErr || !Array.isArray(pdRows) || pdRows.length === 0) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }

@@ -97,11 +97,16 @@ export async function resolveFlag(
 
   const { data } = await admin
     .from('event_editorial')
-    .select('scan_flags')
+    .select('scan_flags, scan_status')
     .eq('editorial_id', editorialId)
     .maybeSingle();
 
   if (!data) throw new Error('Editorial not found');
+  // Row 37: the server refuses too — a scan that has not finished has no flags
+  // to be "all resolved", whatever a stale page posted.
+  if (data.scan_status === 'pending' || data.scan_status === 'scanning') {
+    throw new Error('The scan has not finished yet — re-scan, then unlock.');
+  }
 
   const flags = (data.scan_flags as ScanFlag[]).map(f => {
     if (f.id !== flagId) return f;
@@ -127,11 +132,16 @@ export async function unlockForCouple(editorialId: string) {
 
   const { data } = await admin
     .from('event_editorial')
-    .select('scan_flags')
+    .select('scan_flags, scan_status')
     .eq('editorial_id', editorialId)
     .maybeSingle();
 
   if (!data) throw new Error('Editorial not found');
+  // Row 37: the server refuses too — a scan that has not finished has no flags
+  // to be "all resolved", whatever a stale page posted.
+  if (data.scan_status === 'pending' || data.scan_status === 'scanning') {
+    throw new Error('The scan has not finished yet — re-scan, then unlock.');
+  }
 
   const flags = data.scan_flags as ScanFlag[];
   const unresolvedRed = flags.filter(

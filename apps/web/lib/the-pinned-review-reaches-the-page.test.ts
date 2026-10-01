@@ -43,7 +43,10 @@ test('the shop page fetches the pin when it is outside the window, scoped to thi
   const fetches = [...page.matchAll(/fetchReviewForVendorWithCouple\(\s*admin,\s*vendor\.vendor_profile_id,\s*pinnedReviewId,?\s*\)/g)].length;
   assert.equal(fetches, 1, `the out-of-window pin fetch is missing (found ${fetches})`);
   assert.match(page, /const orderedReviews = pinReviewFirst\(reviews, pinnedReviewId, pinnedOutsideWindow\);/);
-  assert.match(page, /const pinnedReviewId = premiumLayout \? microsite\.pinnedReviewId : null;/, 'the pin must stay a Pro perk');
+  // A Pro perk, asked through the owner's paywall switch (2026-09-30): off →
+  // every shop's pin renders (the editor let them save it); on → Pro only.
+  assert.match(page, /const pinnedReviewId = proPicksRender \? microsite\.pinnedReviewId : null;/, 'the pin must stay a Pro perk');
+  assert.match(page, /const proPicksRender = !vendorPaywallApplies\(premiumLayout\);/, 'the Pro perk must ask the switch');
   assert.match(page, /reviews=\{orderedReviews\}/, 'the review list stopped rendering the ordered set');
 });
 

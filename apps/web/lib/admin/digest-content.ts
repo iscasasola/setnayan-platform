@@ -106,3 +106,57 @@ export function buildDigestEmail(
 
   return { subject, text, html };
 }
+
+// ── The last send, as the owner reads it (admin audit 2026-09-30 row 38) ────
+
+/** `email_deliveries.kind` for every digest email — what the reader asks for. */
+export const DIGEST_EMAIL_KIND = 'admin_digest';
+
+/**
+ * Digests sent before 2026-10-01 were logged with no kind ('other'); their
+ * subject is the only thing that names them. Both subjects built above start
+ * with this.
+ */
+export const DIGEST_SUBJECT_PREFIX = 'Setnayan HQ · ';
+
+export type DigestSendRow = {
+  created_at: string;
+  outcome: 'accepted' | 'send_failed' | 'not_configured';
+  error: string | null;
+};
+
+export type LastDigest =
+  /** The delivery log could not be read — say so; never "never sent". */
+  | { state: 'unread' }
+  /** The log was read and holds no digest email at all. */
+  | { state: 'never' }
+  | { state: 'sent'; at: string }
+  | { state: 'failed'; at: string; reason: string; lastSentAt: string | null };
+
+/** The emails of one morning's send land within seconds of each other. */
+const ONE_SEND_MS = 10 * 60 * 1000;
+
+/**
+ * What the newest digest send did. `rows` is newest first, as read from
+ * email_deliveries; `null` means the read failed. A send went out when ANY of
+ * that morning's emails was accepted; it failed when none was.
+ */
+export function summarizeDigestSends(rows: DigestSendRow[] | null): LastDigest {
+  if (rows === null) return { state: 'unread' };
+  const newest = rows[0];
+  if (!newest) return { state: 'never' };
+  const newestMs = Date.parse(newest.created_at);
+  const batch = rows.filter((r) => Math.abs(newestMs - Date.parse(r.created_at)) <= ONE_SEND_MS);
+  const ok = batch.find((r) => r.outcome === 'accepted');
+  if (ok) return { state: 'sent', at: ok.created_at };
+  const lastOk = rows.find((r) => r.outcome === 'accepted') ?? null;
+  return {
+    state: 'failed',
+    at: newest.created_at,
+    reason:
+      newest.outcome === 'not_configured'
+        ? 'email is not set up (no Resend key)'
+        : newest.error?.trim() || 'the email service refused it',
+    lastSentAt: lastOk ? lastOk.created_at : null,
+  };
+}

@@ -156,7 +156,11 @@ test('the map shows only with coordinates — and there is no decorative band at
   // read as a picture that never loaded. The venue's own photo takes its place
   // when there is one (`the-venue-card-shows-the-suppliers-photo.test.ts`).
   const src = code(WIDGET);
-  assert.match(src, /hasCoords \? \(\s*<VendorLocationMap/, 'the map must branch on having coordinates');
+  // `&& ownMap` (2026-10-01, VENUE STYLES APPROVED — "Map: One map for both / No
+  // map"): the card's own map also stands down when the couple chose No map, or
+  // when one map above the cards already holds every pin. Coordinates are still
+  // the FIRST condition — no pin, no map, whatever the switch says.
+  assert.match(src, /hasCoords(?: && ownMap)? \? \(\s*<VendorLocationMap/, 'the map must branch on having coordinates');
   assert.doesNotMatch(src, /bg-gradient-to/, 'an empty tinted band came back — with no photo the card is text only');
 });
 

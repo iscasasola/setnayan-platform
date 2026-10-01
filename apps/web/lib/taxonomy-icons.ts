@@ -139,6 +139,7 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   lights_sound: Lightbulb,
   dance_floor: Disc3,
   outdoor: TreePine,
+  chairs_tents: Armchair,
   fireworks: Sparkles,
   led_wall: MonitorPlay,
   digital_services: Laptop,

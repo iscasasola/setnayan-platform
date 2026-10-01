@@ -93,6 +93,14 @@ export type RenderTemplate = {
    * 'Setnayan' mark; Guest Stories passes its own ('Stories · Setnayan').
    */
   footerLabel?: string;
+  /**
+   * A light PREVIEW mark burned into every frame (Patiktok, unpaid — owner
+   * 2026-09-29: "yes use for free. but pay to save and share"). Set, the reel is
+   * watchable but a screen recording of it is visibly not the product. Absent,
+   * the frame is untouched — every other caller (thank-you, guest stories,
+   * creator teaser) never sets it.
+   */
+  watermark?: string;
 };
 
 export type RenderResult = {
@@ -777,6 +785,37 @@ function drawOverlay(ctx: CanvasRenderingContext2D, template: RenderTemplate) {
     ctx.fillStyle = c;
     ctx.fillRect(i * tickW, OUT_H - 8, tickW, 8);
   });
+  if (template.watermark) drawWatermark(ctx, template.watermark);
+}
+
+/**
+ * The PREVIEW mark: the word tiled on a diagonal at low opacity across the
+ * whole frame (so no crop removes it), plus one legible band near the top.
+ * Light enough to watch through; present in every frame of the file.
+ */
+export function drawWatermark(ctx: CanvasRenderingContext2D, text: string) {
+  ctx.save();
+  ctx.translate(OUT_W / 2, OUT_H / 2);
+  ctx.rotate(-Math.PI / 6);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '700 64px ui-sans-serif, system-ui, -apple-system, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  for (let y = -OUT_H; y <= OUT_H; y += 300) {
+    for (let x = -OUT_W; x <= OUT_W; x += 760) {
+      ctx.fillText(text, x + ((y / 300) % 2 === 0 ? 0 : 380), y);
+    }
+  }
+  ctx.restore();
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, 60, OUT_W, 72);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.font = '600 34px ui-monospace, SFMono-Regular, monospace';
+  ctx.fillText(text, OUT_W / 2, 96, OUT_W - 80);
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------------------

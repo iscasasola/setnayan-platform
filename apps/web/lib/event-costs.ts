@@ -59,7 +59,10 @@
  */
 
 import { OTHER_BUCKET, bucketLabel } from './budget-truth';
-import { PLAN_GROUPS, planGroupsForEventType } from './wedding-plan-groups';
+import { PLAN_GROUPS } from './wedding-plan-groups';
+// Default (unknown) scope on purpose: a filing list must never drop a category
+// a cost may already carry — only the code floor (farewell cards) applies.
+import { planGroupsForEventType } from './plan-groups-by-event-type';
 import type { VendorCategory } from './vendors';
 
 /** Matches `event_costs.label`'s CHECK, and `event_vendor_line_items.label`. */

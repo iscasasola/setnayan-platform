@@ -227,33 +227,81 @@ test('schedule · one chapter per screen and the clock face draw every moment, a
 
 const EVENT = { venues: VENUES, venue_withheld: false, venue_name: null, venue_address: null, venue_latitude: null, venue_longitude: null };
 
-test('venue map · one map carries a numbered pin per located venue and a row each with directions', async () => {
+// 🏛 VENUE STYLES APPROVED (owner 2026-09-30, `prototypes/venue_styles_2026-09-30_fable.html`):
+// Photo card (the default, today's look) · Full photo · The journey, plus the Map switch.
+const PHOTO = 'https://media.example/venue.jpg';
+
+test('venue · full photo puts the name on the photo, the address and directions on the plate; no photo = a text card', async () => {
   const { VenueWidget } = await import('./venue-widget');
-  const one = decode(html(h(VenueWidget, { event: EVENT, sceneStyle: 'one-map' } as never)));
-  assertStyled(one, 'one-map', 'one map');
-  assert.match(one, /data-venue-map-pins="2"/, 'both venues on the one map');
-  assert.match(one, /tile\.openstreetmap\.org/);
-  assert.match(one, /© OpenStreetMap/, 'the map is credited');
-  for (const v of VENUES) assert.ok(one.includes(v.name));
-  assert.doesNotMatch(one, /min between|by car/, 'no drive time — nothing measures one');
-  const full = decode(html(h(VenueWidget, { event: EVENT, sceneStyle: 'full-map' } as never)));
-  assertStyled(full, 'full-map', 'full map');
-  for (const v of VENUES) assert.ok(full.includes(v.name));
+  const ev = { ...EVENT, venues: [{ ...VENUES[0]!, photoUrl: PHOTO }, VENUES[1]!] };
+  const out = decode(html(h(VenueWidget, { event: ev, sceneStyle: 'full-photo' } as never)));
+  assertStyled(out, 'full-photo', 'full photo');
+  for (const v of VENUES) {
+    assert.ok(out.includes(v.name), `${v.name} is named`);
+    assert.ok(out.includes(v.address), `${v.address} is printed`);
+  }
+  assert.match(out, /<figcaption[^>]*text-white[^>]*>[\s\S]*Our Lady of Lourdes Parish[\s\S]*<\/figcaption>/, 'the name sits ON the photo');
+  assert.match(out, /rgba\(20,22,26,\.9\) 100%/, 'over a fixed dark gradient, 90 % ink at the baseline');
+  assert.equal(out.split('data-venue-photo=').length - 1, 1, 'no photo, no band — the reception is a text card');
+  assert.equal(out.split('class="pahina-plate').length - 1, 2, 'each venue keeps a plate for its words');
+  assert.match(out, /data-venue-map-pins="2"/, 'one map for both, by default');
 });
 
-test('venue map · a WITHHELD venue gives no map pin and no directions in any style, and says so once', async () => {
+test('venue · the journey: one map with both pins joined, each stop its time from the run of show and ONE Directions dropdown', async () => {
+  const { VenueWidget } = await import('./venue-widget');
+  const out = decode(html(h(VenueWidget, { event: EVENT, sceneStyle: 'journey', blocks: BLOCKS } as never)));
+  assertStyled(out, 'journey', 'journey');
+  assert.match(out, /data-venue-map-pins="2"/, 'both venues on the one map');
+  assert.match(out, /data-venue-route=""/, 'the stops are joined');
+  assert.match(out, /© OpenStreetMap/, 'the map is credited');
+  for (const v of VENUES) assert.ok(out.includes(v.name));
+  assert.equal(out.split('data-venue-directions=').length - 1, 2, 'one Directions dropdown per stop');
+  assert.match(out, /<summary[^>]*>Directions/, 'the dropdown says what it is');
+  for (const app of [/maps\.google|google\.com\/maps/, /waze/, /maps\.apple/]) assert.match(out, app);
+  assert.doesNotMatch(out, /label="Get directions"|Get directions/, 'never three buttons in the journey');
+  const { formatBlockTimeRange } = await import('@/lib/schedule');
+  assert.ok(out.includes(formatBlockTimeRange(BLOCKS[0]!.start_at, null)), 'the ceremony stop shows the ceremony block time');
+  assert.ok(out.includes(formatBlockTimeRange(BLOCKS[2]!.start_at, null)), 'the reception stop shows the reception block time');
+  assert.doesNotMatch(out, /min drive|min between|by car/, 'no drive time — nothing measures one');
+  const bare = decode(html(h(VenueWidget, { event: EVENT, sceneStyle: 'journey' } as never)));
+  assert.ok(!bare.includes(formatBlockTimeRange(BLOCKS[0]!.start_at, null)), 'no run of show, no invented time');
+});
+
+test('venue · photo card (the default) with two located venues draws ONE map for both; one venue keeps its own map', async () => {
+  const { VenueWidget } = await import('./venue-widget');
+  const two = decode(html(h(VenueWidget, { event: EVENT } as never)));
+  assert.match(two, /data-venue-map-pins="2"/, 'one map holds both pins');
+  assert.doesNotMatch(two, /openstreetmap\.org\/export\/embed/, 'and no map per card');
+  const one = decode(html(h(VenueWidget, { event: { ...EVENT, venues: [VENUES[0]!] } } as never)));
+  assert.doesNotMatch(one, /data-venue-map-pins/, 'one place: no shared map …');
+  assert.match(one, /openstreetmap\.org\/export\/embed/, '… its own map stays in its card, as shipped');
+});
+
+test('venue · "No map" draws no map in any style', async () => {
+  const { VenueWidget } = await import('./venue-widget');
+  for (const sceneStyle of [null, 'photo-card', 'full-photo', 'journey']) {
+    for (const venues of [VENUES, [VENUES[0]!]]) {
+      const out = decode(html(h(VenueWidget, { event: { ...EVENT, venues }, sceneStyle, map: 'none', blocks: BLOCKS } as never)));
+      assert.doesNotMatch(out, /data-venue-map-pins|openstreetmap\.org\/export\/embed|tile\.openstreetmap/, `${sceneStyle} drew a map with "No map"`);
+      for (const v of venues) assert.ok(out.includes(v.name), `${sceneStyle}: ${v.name} still named`);
+    }
+  }
+});
+
+test('venue · a WITHHELD venue gives no map pin and no directions in any style, and says so once', async () => {
   const { VenueWidget } = await import('./venue-widget');
   const { VENUE_WITHHELD_LINE } = await import('@/lib/venue-disclosure');
   const withheld = {
     ...EVENT,
     venue_withheld: true,
-    venues: VENUES.map((v) => ({ ...v, latitude: null, longitude: null })),
+    venues: VENUES.map((v) => ({ ...v, address: null, latitude: null, longitude: null, photoUrl: PHOTO })),
   };
-  for (const id of ['one-map', 'full-map']) {
-    const out = decode(html(h(VenueWidget, { event: withheld, sceneStyle: id } as never)));
-    assert.doesNotMatch(out, /Get directions|maps\.google|waze|maps\.apple/i, `${id} handed out directions to a withheld venue`);
-    assert.doesNotMatch(out, /data-venue-map-pins/, `${id} drew a pin for a withheld venue`);
+  for (const id of ['photo-card', 'full-photo', 'journey']) {
+    const out = decode(html(h(VenueWidget, { event: withheld, sceneStyle: id, blocks: BLOCKS } as never)));
+    assert.doesNotMatch(out, /Get directions|>Directions|maps\.google|google\.com\/maps|waze\.com|maps\.apple/, `${id} handed out directions to a withheld venue`);
+    assert.doesNotMatch(out, /data-venue-map-pins|openstreetmap\.org\/export/, `${id} drew a pin for a withheld venue`);
     assert.equal(out.split(decode(VENUE_WITHHELD_LINE)).length - 1, 1, `${id}: the withheld line, once`);
+    for (const v of VENUES) assert.ok(out.includes(v.name), `${id}: the name stays before the reply`);
   }
 });
 

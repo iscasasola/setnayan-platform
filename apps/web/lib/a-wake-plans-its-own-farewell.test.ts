@@ -29,11 +29,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  PLAN_GROUPS,
-  planGroupsForEventType,
-  planGroupForCategory,
-} from './wedding-plan-groups';
+import { PLAN_GROUPS, planGroupForCategory } from './wedding-plan-groups';
+import { planGroupsForEventType } from './plan-groups-by-event-type';
 
 const FAREWELL_IDS = ['farewell_home', 'farewell_cremation', 'farewell_memorial_park'] as const;
 

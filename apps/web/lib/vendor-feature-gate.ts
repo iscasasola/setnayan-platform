@@ -31,6 +31,43 @@ export function isVendorFeatureGateEnabled(): boolean {
 }
 
 /**
+ * 💳 THE ONE QUESTION EVERY SUPPLIER UPSELL ASKS — "does the plan paywall apply
+ * to this shop for this feature, right now?"
+ *
+ * `hasIt` is the shop's MEASURED entitlement (its tier's cap, a promo, a paid
+ * add-on). The answer is `true` only when the switch is ON **and** the shop
+ * lacks the feature. While `VENDOR_TIER_FEATURE_GATE` is off (production today)
+ * it is `false` for everyone — no "Upgrade", no ◆ mark, no refusal, no sentence
+ * claiming the shop is hidden. That is the whole contract of the switch; a
+ * surface that checks the tier WITHOUT asking here is a paywall the owner cannot
+ * turn off (Creators was exactly that until 2026-09-30).
+ *
+ * When it answers `true`, a surface stays TRY-FIRST: the supplier may browse,
+ * preview and draft; the ◆ mark is information, and only the final action
+ * (Save / Send / Add / Run) asks for the plan.
+ *
+ * Server-only in practice: the switch is a server env var, so a client
+ * component must receive this answer as a prop, never compute it.
+ * Held by `app/vendor-dashboard/upsells-obey-the-switch.test.ts`.
+ */
+export function vendorPaywallApplies(hasIt: boolean): boolean {
+  return !hasIt && isVendorFeatureGateEnabled();
+}
+
+/**
+ * The allowance a shop gets for a COUNTED feature (team seats, waitlist places)
+ * once the paywall question above is asked. A plan that includes the feature
+ * keeps its own number, always. A plan whose number is 0 — i.e. the feature is
+ * simply not in it — gets `entryAllowance` while the switch is off, because a
+ * 0 there IS the paywall. `entryAllowance` is read from the tier table by the
+ * caller (the smallest plan that includes the feature), never typed in.
+ */
+export function vendorAllowance(planAllowance: number, entryAllowance: number): number {
+  if (planAllowance > 0) return planAllowance;
+  return vendorPaywallApplies(false) ? planAllowance : entryAllowance;
+}
+
+/**
  * Resolve a vendor's EFFECTIVE feature tier. Base is `tier_state` (deliberately
  * NOT part of the shared `FULL_VENDOR_PROFILE_SELECT` — keeps the gate additive —
  * so read with a targeted single-column query on the PK). Defaults to `free`.

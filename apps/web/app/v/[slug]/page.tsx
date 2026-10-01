@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { marketplaceTenureLine } from '@/lib/marketplace-tenure';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
@@ -1217,7 +1218,18 @@ export async function renderVendorBySlug({
   // links already handed out); routing keeps resolving it.
   const viewerTierCaps = tierCaps(effectiveTierState);
   const premiumLayout = viewerTierCaps.customWebsiteName;
-  const canPersonalizePage = micrositeCan(effectiveTierState).canPersonalize;
+  // 💳 The CONTENT a supplier picks in the My Shop editor renders when the
+  // editor let them save it — the one flag-aware question
+  // (lib/vendor-feature-gate.ts). While VENDOR_TIER_FEATURE_GATE is off every
+  // shop may save About · accent · sections · featured services · hero photo ·
+  // pinned review, so every shop's picks render; a save the page then ignored
+  // would be a success that changed nothing. On: exactly the tier rule, so a
+  // downgrade still reverts. The 2-column LAYOUT (`premiumLayout`) and the
+  // Enterprise cinematic hero are plan looks, not picks — untouched.
+  const canPersonalizePage = !vendorPaywallApplies(
+    micrositeCan(effectiveTierState).canPersonalize,
+  );
+  const proPicksRender = !vendorPaywallApplies(premiumLayout);
   // Section toggles are a Solo control → below Solo, ignore the saved hide/show
   // set and fall back to defaults (all baseline sections visible).
   const pageSections = canPersonalizePage ? microsite.sections : {};
@@ -1230,7 +1242,7 @@ export async function renderVendorBySlug({
   );
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
   const heroPhotoUrl =
-    premiumLayout && microsite.heroPhotoKey
+    proPicksRender && microsite.heroPhotoKey
       ? (await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null
       : null;
   // Solo accent — retint the microsite's accent ramp (undefined = default).
@@ -1244,7 +1256,7 @@ export async function renderVendorBySlug({
   // supplier was paying to customise. When the pin is outside the window it is
   // now fetched on its own, scoped to THIS vendor (a stale/foreign id still
   // no-ops). A refused read is logged and the list renders unpinned.
-  const pinnedReviewId = premiumLayout ? microsite.pinnedReviewId : null;
+  const pinnedReviewId = proPicksRender ? microsite.pinnedReviewId : null;
   let pinnedOutsideWindow: (typeof reviews)[number] | null = null;
   if (pinnedReviewId && !reviews.some((r) => r.review_id === pinnedReviewId)) {
     try {

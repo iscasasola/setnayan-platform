@@ -53,7 +53,9 @@ test('Details is the bar’s one made-once item; Logo, Hero and Reveal are items
   // made-once group is Details alone, and the pages moved into it.
   const { MAKER_BAR } = await import(`../${L}/maker-bar`);
   const madeOnce = (MAKER_BAR as Array<{ key: string; group: string }>).filter((i) => i.group === 'made-once').map((i) => i.key);
-  assert.deepEqual(madeOnce, ['details'], 'the bar holds a made-once page besides Details again');
+  // 🖨 2026-09-30 ("THE MAKER RE-PLAN IS CUT TO ITS CORE": Details | stages | Prints): Prints is a DOOR into
+  // Details, open on the prints — it is not a page of its own, and Logo/Hero/Reveal still are not on the bar.
+  assert.deepEqual(madeOnce, ['details', 'prints'], 'the bar holds a made-once page besides Details and the Prints door again');
   for (const key of ['logo', 'hero', 'reveal'] as const) {
     assert.ok(MAKER_PAGE_KEYS.includes(key), `${key} is no longer a made-once page`);
     assert.equal(movedPageItem(key), key, `${key} does not land on its Details item`);

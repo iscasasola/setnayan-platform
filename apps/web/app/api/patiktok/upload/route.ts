@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { R2_BUCKETS, isR2Configured } from '@/lib/r2';
 import { presignUploadUrl } from '@/lib/uploads';
 import { formatCount } from '@/lib/format-number';
+import { patiktokActionAllowed, PATIKTOK_SAVE_REFUSAL } from '@/lib/patiktok-access';
+import { patiktokSaveUnlocked } from '@/lib/patiktok-save-gate';
 
 /** Matches app/admin/recaps/actions.ts — jobId is interpolated into an R2 key. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -131,6 +133,21 @@ export async function POST(req: NextRequest) {
   // arbitrary `*.mp4` key anywhere in the media bucket. Require a UUID, and
   // require the job to actually belong to this event.
   if (kind === 'reel') {
+    // 💎 PAY TO SAVE (owner 2026-09-29: "yes use for free. but pay to save and
+    // share"). A booth CLIP is free — recording is the half anyone may use. The
+    // rendered REEL is the stored, clean copy that leaves the preview, so it is
+    // presigned only for an event holding an admin-approved PATIKTOK_COMPILER.
+    // Checked before anything is minted. Rule: lib/patiktok-access.ts.
+    if (
+      !patiktokActionAllowed('save_reel', {
+        saveUnlocked: await patiktokSaveUnlocked(eventId),
+      })
+    ) {
+      return NextResponse.json(
+        { error: PATIKTOK_SAVE_REFUSAL, needsPurchase: true },
+        { status: 402 },
+      );
+    }
     if (!UUID_RE.test(jobId as string)) return bad('jobId must be a UUID');
     const { data: job } = await supabase
       .from('patiktok_render_jobs')

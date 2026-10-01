@@ -104,9 +104,16 @@ export function ServicesTakeover({
   premium = false,
   teamParts,
   teamSlot,
+  chatSlot,
   initialFindOpen = false,
 }: {
   eventId: string;
+  /**
+   * The chat icon + unread count beside ⋯ (owner-approved 2026-10-01, prototype
+   * `supplier_inbox_and_find` frame 1). Server-rendered by the page — it owns
+   * the unread read — and only PLACED here.
+   */
+  chatSlot?: ReactNode;
   /**
    * The team, as rows — booked first, one next step each (`team-rows.tsx`).
    * Owner-APPROVED 2026-10-01 (prototype frame 4 "Your Team"): on a phone this
@@ -247,21 +254,24 @@ export function ServicesTakeover({
         <p aria-hidden className="font-display text-[28px] leading-none text-ink">
           Suppliers
         </p>
-        <TeamMoreMenu parts={teamParts} replan={replan} />
+        <div className="flex shrink-0 items-center gap-2">
+          {chatSlot}
+          <TeamMoreMenu parts={teamParts} />
+        </div>
       </div>
 
       {teamSlot ? <div data-team-slot="">{teamSlot}</div> : null}
 
-      <button
-        type="button"
+      {/* 2026-10-01 (P3): ONE Find a supplier opens the Find page — only this
+          event type's categories, grouped the way hosts think. The bench and
+          the rest of the find area stay one ⋯ row away (section jumps). */}
+      <Link
+        href={`/dashboard/${eventId}/vendors/categories`}
         data-find-supplier=""
-        aria-expanded={findOpen}
-        aria-controls="team-find-area"
-        onClick={() => goToSection('shortlist')}
         className="mb-6 mt-3.5 inline-flex w-full items-center justify-center rounded-full border-[1.5px] border-ink bg-cream px-4 py-3.5 font-display text-base text-ink transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry lg:w-auto lg:px-8"
       >
         Find a supplier
-      </button>
+      </Link>
 
       <div id="team-find-area" data-find-area={findOpen ? 'open' : 'closed'} className={findOpen ? undefined : 'hidden lg:block'}>
 
@@ -659,7 +669,7 @@ const MENU_ROW_CLASS =
  * (`SectionChips`, unchanged buttons on the unchanged bus). Reusable bookings
  * live in the Picks section they have always been in (dark behind their flag).
  */
-function TeamMoreMenu({ parts, replan }: { parts?: readonly PillarPart[]; replan: boolean }) {
+function TeamMoreMenu({ parts }: { parts?: readonly PillarPart[] }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const close = (e: Event) => {
@@ -677,7 +687,9 @@ function TeamMoreMenu({ parts, replan }: { parts?: readonly PillarPart[]; replan
     };
   }, []);
   const otherParts = (parts ?? []).filter((p) => p.key !== 'team');
-  if (otherParts.length === 0 && !replan) return null;
+  // The section jumps ALWAYS render (they were replan-only): since Find a
+  // supplier opens its own page (P3, 2026-10-01), ⋯ is the phone's door to the
+  // bench, picks, payments and plans below.
   return (
     <details ref={ref} className="relative shrink-0" data-team-more="">
       <summary
@@ -692,7 +704,7 @@ function TeamMoreMenu({ parts, replan }: { parts?: readonly PillarPart[]; replan
             {p.label}
           </Link>
         ))}
-        {replan ? <SectionChips /> : null}
+        <SectionChips />
       </div>
     </details>
   );

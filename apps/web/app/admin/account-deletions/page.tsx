@@ -45,7 +45,25 @@ type UserLite = {
   display_name: string | null;
   account_type: 'customer' | 'vendor' | 'admin';
   is_internal: boolean;
+  /** Set by the erasure. NULL on an approved request = never finished. */
+  deleted_at: string | null;
 };
+
+/** The flash after an action, in words — never the raw status token. */
+const ACTIONED_WORDS: Record<string, string> = {
+  approved: 'Approved — the account was erased.',
+  rejected: 'Rejected — the account stays open.',
+  erased_again: 'Erasure ran again for that account.',
+  already_erased: 'That account was already erased — nothing more to do.',
+};
+
+/**
+ * What approving actually does — from lib/erasure/purge.ts · eraseUserAccount,
+ * which no longer hard-deletes anything (row 31: the old text promised a
+ * cascade that has not happened since 2026-07).
+ */
+const ERASURE_WORDS =
+  'This signs them out everywhere, locks the account, wipes their name, email, phone and photos, and removes their own records. Orders and payments are kept for the books, without their name.';
 
 type Props = {
   searchParams: Promise<{ actioned?: string }>;
@@ -99,7 +117,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
   if (userIds.length > 0) {
     const { data: usersData, error: usersErr } = await admin
       .from('users')
-      .select('user_id,email,display_name,account_type,is_internal')
+      .select('user_id,email,display_name,account_type,is_internal,deleted_at')
       .in('user_id', userIds);
     // A dash in the email column is ALREADY the legitimate value for an account
     // with no email on file, so it cannot also be allowed to mean "the lookup
@@ -133,7 +151,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
           role="status"
           className="mb-6 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
-          Request {actioned}. The queue is updated below.
+          {ACTIONED_WORDS[actioned] ?? 'Done.'} The queue is updated below.
         </p>
       ) : null}
 
@@ -206,11 +224,11 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                   ) : null}
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Approve → hard-delete (email freed for re-signup). */}
+                    {/* Approve → erase (email freed for re-signup). */}
                     <ConfirmForm
                       action={approveAndDelete}
                       title="Approve and delete?"
-                      message={`Approve deletion of ${u?.email ?? 'this account'}? This hard-deletes the account now — the auth identity is gone, related data cascade-deletes, and the email is freed for re-signup. Make sure there are no active events, bookings, or unpaid balances first. Not reversible.`}
+                      message={`Erase ${u?.email ?? 'this account'}? ${ERASURE_WORDS} Their email is freed, so they can sign up again. Make sure there are no active events, bookings or unpaid balances first. This can't be undone.`}
                       confirmLabel="Approve + delete"
                     >
                       <input type="hidden" name="request_id" value={req.request_id} />
@@ -227,7 +245,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                     <ConfirmForm
                       action={approveAndBlacklist}
                       title="Approve, delete and blacklist?"
-                      message={`Approve deletion of ${u?.email ?? 'this account'} AND permanently block this email from re-registering? Use this for abusive accounts. Reverse via Users → Blacklisted → Unblacklist.`}
+                      message={`Erase ${u?.email ?? 'this account'} and block this email from signing up again? ${ERASURE_WORDS} Use this for abusive accounts. The block (not the erasure) can be lifted in Users → Blacklisted.`}
                       confirmLabel="Approve + blacklist"
                     >
                       <input type="hidden" name="request_id" value={req.request_id} />
@@ -334,6 +352,34 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
               header: 'Note',
               hideBelow: 'lg',
               cell: (req) => <span className="text-ink/70">{req.admin_note ?? '—'}</span>,
+            },
+            {
+              header: 'Erased',
+              cell: (req) => {
+                if (req.status !== 'approved') return <span className="text-ink/45">—</span>;
+                // Unread is not "not erased": never offer a re-run on a guess.
+                if (accountsUnresolved) return <span className="text-xs text-warn-900">Couldn&rsquo;t check</span>;
+                const u = usersById.get(req.user_id);
+                if (!u || u.deleted_at) return <span className="text-xs text-ink/70">Yes</span>;
+                return (
+                  <ConfirmForm
+                    action={approveAndDelete}
+                    title="Run erasure again?"
+                    confirmLabel="Run erasure again"
+                    destructive
+                    message={`This request was approved but ${u.email ?? 'the account'} was never erased. ${ERASURE_WORDS} This can't be undone.`}
+                  >
+                    <input type="hidden" name="intent" value="rerun" />
+                    <input type="hidden" name="request_id" value={req.request_id} />
+                    <SubmitButton
+                      className="inline-flex min-h-[44px] items-center rounded-md bg-danger-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-danger-800 disabled:opacity-60"
+                      pendingLabel="Erasing…"
+                    >
+                      Run erasure again
+                    </SubmitButton>
+                  </ConfirmForm>
+                );
+              },
             },
           ]}
         />

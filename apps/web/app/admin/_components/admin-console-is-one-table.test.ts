@@ -186,6 +186,8 @@ const CONVERTED = [
   'search-memory/search-memory-table.tsx',
   // The per-event admin page, 2026-09-30 — its per-guest face list.
   'events/[eventId]/page.tsx',
+  // The per-supplier admin page, 2026-10-01 — its newest payouts.
+  'vendors/[vendorProfileId]/page.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════

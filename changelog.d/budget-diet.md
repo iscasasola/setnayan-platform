@@ -8,7 +8,7 @@ C16. Both ceilings were full: Maker first load 515,448 / 517,120 B, shared clien
   is uploaded. The plugin's own `sourcemaps.disable` is now passed while `sentrySourcemapsCanUpload()` is false, so
   injection comes back by itself the day uploads open. Maker −7,488 B · shared −887 B.
 - **Tours stay on the server** (`app/_components/guided-tour.tsx` → server wrapper + `guided-tour-card.tsx`;
-  `tour-slide-view.tsx`; `maker-tour-slides.tsx`; the guest page's `guest-guided-tour.tsx`). Every tour's words
+  `tour-slide-view.tsx`; `maker-tour-slides.tsx`; the guest page’s `guest-guided-tour.tsx`, mounted by `site-body.tsx` and the two Papic guest pages). Every tour's words
   (`lib/tours.ts`, ~10.5 KB gz) shipped to every page that can show one tour. The server now draws the one tour's
   slides (icons as elements) and the carousels receive only those slides. Callers and markup are unchanged.
   Maker −10.2 KB (with the cut above: −17,683 B).

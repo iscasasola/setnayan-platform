@@ -117,7 +117,7 @@ import { MiniTour } from '@/app/_components/mini-tour';
  * Overview.
  */
 
-export const metadata = { title: 'Today · Vendor' };
+export const metadata = { title: 'Today · Setnayan' };
 
 function AgentHome() {
   return (
@@ -130,7 +130,7 @@ function AgentHome() {
         }
       />
       <div className="sn-tile p-5 text-sm text-ink/65">
-        Need access to something now? Ask your vendor owner to assign you to the
+        Need access to something now? Ask your supplier owner to assign you to the
         services you&apos;ll be managing.
       </div>
     </div>
@@ -239,9 +239,9 @@ export default async function VendorOverviewPage({
         </header>
         <div className="sn-tile p-6">
           <p className="sn-eye">Team access</p>
-          <h2 className="mt-2 text-xl font-semibold text-ink">You&rsquo;re on a vendor team.</h2>
+          <h2 className="mt-2 text-xl font-semibold text-ink">You&rsquo;re on a supplier team.</h2>
           <p className="mt-2 text-sm text-ink/65">
-            You don&rsquo;t own a vendor profile yet. Reach the team owner to be
+            You don&rsquo;t own a supplier profile yet. Reach the team owner to be
             added to bookings + chats, or
             <Link
               href="/signup?as=vendor"
@@ -667,7 +667,7 @@ export default async function VendorOverviewPage({
         />
         <p>
           Answering couples is free — reply to any lead at no cost, anywhere in
-          the Philippines. Accept to see who they are and start the conversation.
+          the Philippines.
         </p>
       </div>
 

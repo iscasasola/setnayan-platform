@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { customerLandingAnchor } from '../customers/anchors';
 
 /**
  * /vendor-dashboard/contracts — folded into a hub (owner 5-page IA, 2026-07-12:
@@ -30,5 +31,7 @@ export default async function RedirectContracts({
   for (const [k, v] of Object.entries(sp)) {
     if (typeof v === 'string' && v.length > 0 && k !== 'tab') qs.set(k, v);
   }
-  redirect(`/vendor-dashboard/customers?${qs.toString()}`);
+  // 🔑 NAMES ITS FOLD. A bare redirect reloaded My Customers at the top — the roster —
+  // for a link that said contracts. The anchors module says where contracts lives.
+  redirect(`/vendor-dashboard/customers?${qs.toString()}${customerLandingAnchor('contracts')}`);
 }

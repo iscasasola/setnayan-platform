@@ -7,7 +7,7 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { vendorMoreRows } from '@/lib/vendor-more-rows';
 
-export const metadata = { title: 'More · Vendor' };
+export const metadata = { title: 'More · Setnayan' };
 
 /**
  * /vendor-dashboard/more — the supplier's "More", as a page.

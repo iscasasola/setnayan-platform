@@ -314,11 +314,21 @@ export type VendorOverviewData = {
   deskIncomplete: boolean;
 };
 
-/** Manila civil day (midnight) as a Date, for date math. */
-function todayManila(): Date {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now;
+/**
+ * Manila civil day (midnight) as a Date, for date math.
+ *
+ * 🔴 THIS USED TO BE `new Date().setHours(0,0,0,0)` — the SERVER's midnight, and
+ * the server runs in UTC. Between 00:00 and 08:00 in Manila the UTC day is still
+ * YESTERDAY, so "today" was a day behind and an event happening that very
+ * morning read as tomorrow: the Today page's "Run the day" card did not appear
+ * until 8 am. The Manila calendar day comes from the one existing helper
+ * (`manilaTodayIso`), then is read back as a local-midnight Date — the SAME
+ * parse `daysUntil` and the upcoming filter give an event's `YYYY-MM-DD`, so the
+ * two sides of every subtraction share one clock whatever zone the server is in.
+ * `now` is injectable so a test can stand on a fixed instant.
+ */
+export function todayManila(now: Date = new Date()): Date {
+  return new Date(`${manilaTodayIso(now)}T00:00:00`);
 }
 
 /** Whole days from today (Manila civil day) to an event date; null if no date. */

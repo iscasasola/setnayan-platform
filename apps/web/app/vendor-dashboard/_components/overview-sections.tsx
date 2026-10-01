@@ -526,21 +526,19 @@ function InquiryBody({
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
 }) {
-  // `card.descriptor` is the neutral anonymized label ("A couple planning a
-  // {type} in {city}") — the inquiry card carries no couple identity pre-accept.
-  // ⚠ `card.place` was printed twice — once inside `descriptor` ("A couple
-  // planning a wedding in Metro Manila") and again as its own item, so the line
-  // read "… in Metro Manila · Dec 18 · Metro Manila · Live Band". Dropped from
-  // the list; the descriptor already says where.
+  // `card.descriptor` is WHO IS ASKING — the event's name ("Cale & Ice"), or
+  // "New customer" only when the event has none. Anonymisation was retired
+  // 2026-09-08 ("we do not need to hide anything, since no more tokens"), so it is
+  // the card's heading now (it was the hard-coded words "New customer" over the
+  // top of the real name), not a meta-line word.
   const meta = metaLine([
-    card.descriptor,
     formatLongDate(card.eventDate),
     card.category,
     card.paxAtInquiry ? `~${formatCount(card.paxAtInquiry)} guests` : null,
   ]);
   return (
     <>
-      <p className="text-sm font-semibold text-ink">New customer</p>
+      <p className="text-sm font-semibold text-ink">{card.descriptor}</p>
       <p className="mt-0.5 font-mono text-xs text-ink/60">
         {meta}
         {/* § 2.4 EXTEND 1 — how long this couple has been waiting for a reply.

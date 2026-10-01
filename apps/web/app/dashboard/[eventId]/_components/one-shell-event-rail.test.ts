@@ -547,7 +547,9 @@ async function paintRail(activeKey: string | null): Promise<string> {
   const { RailActiveKeyProvider } = await import('@/app/_components/frontdoor/rail-active-key');
   return renderToStaticMarkup(
     React.createElement(
-      RailActiveKeyProvider,
+      // `children` goes as the 3rd argument (react/no-children-prop), which the
+      // component's props type cannot see — hence the widening.
+      RailActiveKeyProvider as unknown as React.ComponentType<{ activeKey: string | null }>,
       { activeKey },
       React.createElement(EventRailContext, {
         eventId: EVENT_ID,

@@ -42,6 +42,14 @@ export default async function ImportGuestsPage({ params }: Props) {
           <a href={template.xlsx} download className="button-primary">
             Download for Excel / Numbers
           </a>
+          <a
+            href={template.googleSheets}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-terracotta-700 hover:underline"
+          >
+            Open in Google Sheets
+          </a>
           <a href={template.csv} download className="text-sm font-medium text-terracotta-700 hover:underline">
             CSV
           </a>

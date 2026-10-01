@@ -36,11 +36,16 @@ export const GUEST_TEMPLATES = {
   withSides: {
     xlsx: '/templates/setnayan-guest-list-wedding.xlsx',
     csv: '/templates/setnayan-guest-list-wedding.csv',
+    /** The same sheet in Setnayan's Drive, view-only; `/copy` makes the host their own copy. */
+    googleSheets:
+      'https://docs.google.com/spreadsheets/d/1LxFwJpC3hWfzy1o8Bp8bP9K87QZ0lcgqCWplZAOP0OQ/copy',
   },
   /** Every other event type — no Side column. */
   withoutSides: {
     xlsx: '/templates/setnayan-guest-list.xlsx',
     csv: '/templates/setnayan-guest-list.csv',
+    googleSheets:
+      'https://docs.google.com/spreadsheets/d/1z9GzvcXIvG6hC3PslxOFK4dwmpb7hUgFiZ2A8u0lrTM/copy',
   },
 } as const;
 
@@ -95,11 +100,33 @@ export function canonicalHeader(key: string): string {
   return HEADER_ALIASES[k] ?? k;
 }
 
+/** How far down a file the heading row may sit (a how-to line or two above it). */
+const MAX_LEADING_LINES = 10;
+
+/**
+ * The heading row is the first line with a First name or Last name cell. A
+ * sheet saved as CSV can carry a how-to sentence above it; reading line 1 as
+ * the headings would turn the whole file to garbage. No such line within the
+ * first few → 0, so a file that has none is read exactly as before.
+ */
+function headingLineIndex(lines: readonly string[]): number {
+  for (let i = 0; i < Math.min(lines.length, MAX_LEADING_LINES); i += 1) {
+    // parseCsv keys its rows by the first line's cells; one filler cell keeps the row.
+    const [probe] = parseCsv(`${lines[i]}\nx`);
+    if (probe && Object.keys(probe).some((k) => ['first_name', 'last_name'].includes(canonicalHeader(k)))) {
+      return i;
+    }
+  }
+  return 0;
+}
+
 /** Parse the uploaded text into rows keyed the importer's way. */
 export function readGuestFile(text: string): CsvRow[] {
   // Excel and Numbers both write a UTF-8 byte-order mark at the top of a CSV;
   // left in, it glues itself to the first header and "Prefix" stops matching.
-  const rows = parseCsv(text.replace(/^\uFEFF/, ''));
+  const clean = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  const lines = clean.split('\n');
+  const rows = parseCsv(lines.slice(headingLineIndex(lines)).join('\n'));
   return rows.map((row) => {
     const out: CsvRow = {};
     for (const [k, v] of Object.entries(row)) {

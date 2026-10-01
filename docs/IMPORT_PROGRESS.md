@@ -25,3 +25,4 @@ Guard: apps/web/lib/guest-import-file.test.ts (run from apps/web: `npx tsx --tes
 
 ## CI fix (2026-10-01)
 - Required check "typecheck + lint" failed on one db test, `ugat-both-ends` ("result-dropped-silently": the re-upload `guests.update` in import/actions.ts counted the failure but kept no reason). Fixed by logging the Supabase error with `[supabase-error]` + event/guest ids; the user-facing "skipped" count is unchanged. No baseline touched.
+- Owner follow-up (same branch): "Open in Google Sheets" link beside the download (wedding vs other sheet, same eventHasSides switch); readGuestFile now skips leading lines until the First name / Last name heading row (a sheet saved as CSV with the how-to on top used to read as garbage); both .xlsx regenerated with the how-to on its own "How to" sheet and headings on row 1 of Guests; the generic how-to no longer mentions Side. Test: template CSV with a how-to row on top imports 3 rows.

@@ -46,7 +46,7 @@ test('a wedding (either role set) gets the file WITH Side; other types the gener
 
 test('every template file exists, Side only in the wedding one, and no email column', () => {
   for (const [kind, files] of Object.entries(GUEST_TEMPLATES)) {
-    for (const href of Object.values(files)) {
+    for (const href of [files.xlsx, files.csv]) {
       const file = path.join(WEB, 'public', href);
       assert.ok(existsSync(file), `${href} is linked but not in public/`);
     }
@@ -109,6 +109,33 @@ test('an old raw-key file still imports', () => {
   );
   assert.equal(plan.counts.new, 1);
   assert.equal(plan.rows[0]!.record!.plus_one_count, 1);
+});
+
+test("a sheet saved as CSV with its how-to line on top (Excel's merged A1) still imports its 3 rows", () => {
+  const howTo =
+    '"One guest per row. Only First name and Last name are needed. Pick Group and Role, then save, and upload it in Setnayan (Guests › + › Import from a file)."';
+  for (const files of [GUEST_TEMPLATES.withSides, GUEST_TEMPLATES.withoutSides]) {
+    const body = readFileSync(path.join(WEB, 'public', files.csv), 'utf8');
+    const cols = body.split(/\r?\n/)[0]!.split(',').length;
+    const text = `\uFEFF${howTo}${','.repeat(cols - 1)}\r\n${body.replace(/\n/g, '\r\n')}`;
+    const plan = planGuestImport(readGuestFile(text), ctx([], files === GUEST_TEMPLATES.withSides));
+    assert.deepEqual(plan.counts, { new: 3, changed: 0, same: 0, look: 0 }, `${files.csv}: ${JSON.stringify(plan.rows)}`);
+    assert.equal(plan.rows[0]!.record!.first_name, files === GUEST_TEMPLATES.withSides ? 'Manuel' : 'Ana');
+  }
+});
+
+test('a file with no heading row in its first lines is read as before (line 1 = headings)', () => {
+  const rows = readGuestFile('first_name,last_name\nAnna,Cruz');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.first_name, 'Anna');
+});
+
+test('the page offers Open in Google Sheets from the template, per event type', () => {
+  const src = readFileSync(PAGE, 'utf8');
+  assert.ok(/Open in Google Sheets/.test(src) && /template\.googleSheets/.test(src));
+  assert.match(GUEST_TEMPLATES.withSides.googleSheets, /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[\w-]+\/copy$/);
+  assert.match(GUEST_TEMPLATES.withoutSides.googleSheets, /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[\w-]+\/copy$/);
+  assert.notEqual(GUEST_TEMPLATES.withSides.googleSheets, GUEST_TEMPLATES.withoutSides.googleSheets);
 });
 
 // --- 3. Preview never merges two people ------------------------------------

@@ -207,6 +207,8 @@ export async function findSeatToConnect(
   userId: string,
   userEmail: string | null,
   coupleApproval: string | null = null,
+  /** Marked when a row this account reached for is held by ANOTHER account (`seatHeldElsewhere`). */
+  report?: { heldElsewhere: boolean },
 ): Promise<SeatToConnect | null> {
   try {
     const admin = createAdminClient();
@@ -217,7 +219,9 @@ export async function findSeatToConnect(
         .eq('event_id', eventId)
         .eq('guest_id', guestId)
         .maybeSingle();
-      return Boolean(bound && bound.user_id !== userId);
+      const other = Boolean(bound && bound.user_id !== userId);
+      if (other && report) report.heldElsewhere = true;
+      return other;
     };
     const shape = async (
       row: Record<string, unknown>,
@@ -275,6 +279,27 @@ export async function findSeatToConnect(
   } catch {
     return null;
   }
+}
+
+/**
+ * 🔒 ONE INVITATION, ONE ACCOUNT (owner 2026-10-01): *"if someone tries to sync
+ * it to a different email. they cannot. we will say this event QR is already
+ * assigned to someone."* True when there is NO seat to offer this account here
+ * BECAUSE the one it reached for — this browser's guest pass for this event, or
+ * the row carrying its email — is already held by a DIFFERENT account. The
+ * connect route then lands them on the confirm page, which says so
+ * (`SEAT_HELD_ELSEWHERE`) instead of dropping them on an unexplained home.
+ * Read-only — the same lookup as `findSeatToConnect`, never a second one.
+ */
+export async function seatHeldElsewhere(
+  eventId: string,
+  userId: string,
+  userEmail: string | null,
+  coupleApproval: string | null = null,
+): Promise<boolean> {
+  const report = { heldElsewhere: false };
+  const seat = await findSeatToConnect(eventId, userId, userEmail, coupleApproval, report);
+  return !seat && report.heldElsewhere;
 }
 
 /**

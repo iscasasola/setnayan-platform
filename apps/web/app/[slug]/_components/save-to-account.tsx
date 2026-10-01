@@ -11,7 +11,7 @@ import {
 } from '@/lib/guest-one-path';
 import { INVITE_RETURN } from '@/lib/invite-arrival';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
-import { COUPLE_SEAT_REFUSED, seatConfirmLine } from '@/lib/seat-binding';
+import { COUPLE_SEAT_REFUSED, SEAT_HELD_ELSEWHERE, seatConfirmLine } from '@/lib/seat-binding';
 import { startAccountSaveAction, linkThisSeatAction } from '../actions';
 import { CopyMyLink, OpenInBrowser } from './copy-my-link';
 
@@ -91,10 +91,10 @@ export function SaveToAccount({
   }
   if (state.kind === 'held_elsewhere') {
     return (
-      <p className="text-sm text-ink/70">
-        This invitation is kept in a different Setnayan account. Sign in with that one to see it on any
-        phone.
-      </p>
+      <div className="space-y-1" data-account-state="held_elsewhere">
+        <p className="text-sm font-semibold text-ink">{SEAT_HELD_ELSEWHERE.heading}</p>
+        <p className="text-sm text-ink/70">{SEAT_HELD_ELSEWHERE.line}</p>
+      </div>
     );
   }
   if (state.kind === 'sign_in') {

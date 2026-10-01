@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { GuestAccountState } from '@/lib/guest-one-path';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
-import { COUPLE_SEAT_REFUSED, seatConfirmLine } from '@/lib/seat-binding';
+import { COUPLE_SEAT_REFUSED, SEAT_HELD_ELSEWHERE, seatConfirmLine } from '@/lib/seat-binding';
 import { linkThisSeatAction } from '../actions';
 import { SaveToAccount } from './save-to-account';
 
@@ -94,11 +94,8 @@ export async function GuestAccountCard({
   if (state.kind === 'held_elsewhere') {
     return shell(
       <>
-        <h2 className="text-base font-semibold text-ink">Kept in another account</h2>
-        <p className="mt-1 text-sm text-ink/70">
-          This invitation is linked to a different Setnayan account. Sign in with that one to see
-          it there.
-        </p>
+        <h2 className="text-base font-semibold text-ink">{SEAT_HELD_ELSEWHERE.heading}</h2>
+        <p className="mt-1 text-sm text-ink/70">{SEAT_HELD_ELSEWHERE.line}</p>
       </>,
     );
   }

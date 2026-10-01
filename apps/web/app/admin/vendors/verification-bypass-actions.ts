@@ -105,7 +105,7 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
   // ⚠ Supabase RESOLVES with `{ error }` — a refused read arrives as data:null
   // and would otherwise read exactly like "vendor not found".
   if (readErr) throw new Error(readErr.message);
-  if (!before) throw new Error('Vendor not found.');
+  if (!before) throw new Error('Supplier not found.');
 
   const grantedAt = new Date();
   const expiresAt = bypassExpiryFrom(grantedAt);

@@ -48,7 +48,7 @@ export default async function AdminWebsiteMediaPage() {
           onboarding music, the logo set and the menu icons. Files marked <strong>Left over</strong>{' '}
           are ones nothing on the site points at any more; download a copy, then remove them to free
           up space. Anything we can&rsquo;t check is left alone and can&rsquo;t be deleted here.
-          Guests&rsquo; photos, receipts and vendor documents are not shown on this page and cannot
+          Guests&rsquo; photos, receipts and supplier documents are not shown on this page and cannot
           be touched from it.
         </p>
       </div>

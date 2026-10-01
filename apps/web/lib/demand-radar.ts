@@ -299,15 +299,17 @@ export async function getVendorDemandRadar(
 
 /**
  * Admin-facing radar across ALL markets (the RPC enforces is_console_admin() +
- * min-N). Degrades to the empty radar on error.
+ * min-N). A refused read returns `DEMAND_RADAR_UNREADABLE`, never the empty radar.
  */
 export async function getAdminDemandRadar(
   client: SupabaseClient,
-): Promise<DemandRadar> {
+): Promise<DemandRadar | typeof DEMAND_RADAR_UNREADABLE> {
   const { data, error } = await client.rpc('demand_radar_admin');
   if (error) {
     logQueryError('demand-radar: demand_radar_admin', error);
-    return EMPTY_RADAR;
+    // 🔑 Not EMPTY_RADAR: that renders "Not enough demand data yet" — the same
+    // card a genuinely below-floor market gets — over a read that was refused.
+    return DEMAND_RADAR_UNREADABLE;
   }
   if (!Array.isArray(data)) return EMPTY_RADAR;
   return assembleRadar(data as DemandRadarBucket[]);

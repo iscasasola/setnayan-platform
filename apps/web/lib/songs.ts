@@ -452,10 +452,10 @@ export type AdminSong = {
 };
 
 /** Admin master-catalogue list, searchable by title (all sources/flags shown). */
-export async function fetchSongsAdmin(
+export async function fetchSongsAdminMeasured(
   supabase: SupabaseClient,
   q: string,
-): Promise<AdminSong[]> {
+): Promise<{ ok: boolean; songs: AdminSong[] }> {
   let query = supabase
     .from('songs')
     .select('song_id, title, artist, source, is_curated_pick')
@@ -463,8 +463,20 @@ export async function fetchSongsAdmin(
     .limit(150);
   const safe = q.replace(/[%,()]/g, ' ').trim();
   if (safe) query = query.ilike('title', `%${safe}%`);
-  const { data } = await query;
-  return (data ?? []) as AdminSong[];
+  const { data, error } = await query;
+  if (error) {
+    console.error('[supabase-error] lib/songs.ts · from:songs.select (admin list)', error);
+    return { ok: false, songs: [] };
+  }
+  return { ok: true, songs: (data ?? []) as AdminSong[] };
+}
+
+/** The songs alone, for callers where an empty list on a refused read is safe. */
+export async function fetchSongsAdmin(
+  supabase: SupabaseClient,
+  q: string,
+): Promise<AdminSong[]> {
+  return (await fetchSongsAdminMeasured(supabase, q)).songs;
 }
 
 /**

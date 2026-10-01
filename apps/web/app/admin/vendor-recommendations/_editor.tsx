@@ -138,7 +138,7 @@ export function RecommendationRow({ row }: { row: MapRow }) {
         title="Remove this recommendation?"
         confirmLabel="Remove"
         destructive
-        message="This deletes the leaf → SKU pairing from the map. Vendors on this leaf will no longer see this recommendation. To hide it temporarily instead, untick Active and Save."
+        message="This deletes the leaf → SKU pairing from the map. Suppliers on this leaf will no longer see this recommendation. To hide it temporarily instead, untick Active and Save."
         className="mt-3 border-t border-ink/5 pt-3"
       >
         <input type="hidden" name="id" value={row.id} />
@@ -167,12 +167,12 @@ export function AddRecommendation({
       title="Add this recommendation?"
       confirmLabel="Add to map"
       destructive={false}
-      message="This adds a leaf → SKU pairing to the recommendation map. Keep the map sparse: a SKU should appear for a leaf only when it amplifies that vendor's own deliverable."
+      message="This adds a leaf → SKU pairing to the recommendation map. Keep the map sparse: a SKU should appear for a leaf only when it amplifies that supplier's own deliverable."
       className="rounded-2xl border border-ink/10 bg-paper p-4 sm:p-5"
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="block">
-          <span className={labelCls}>Vendor leaf</span>
+          <span className={labelCls}>Supplier leaf</span>
           <select name="tile_id" required defaultValue="" className="input-field h-10 w-full">
             <option value="" disabled>
               Pick a leaf…
@@ -223,7 +223,7 @@ export function AddRecommendation({
       <label className="mt-4 flex items-center gap-2">
         <input type="checkbox" name="is_opt_in" className="h-4 w-4 rounded border-ink/30" />
         <span className="text-sm text-ink/70">
-          Opt-in — could compete with the vendor&apos;s own service (off by default; vendor must
+          Opt-in — could compete with the supplier&apos;s own service (off by default; supplier must
           turn it on)
         </span>
       </label>

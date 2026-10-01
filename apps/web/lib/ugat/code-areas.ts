@@ -40,10 +40,10 @@ export interface CodeArea {
 export const CODE_AREAS: readonly CodeArea[] = [
   { id: 'admin', label: 'Admin console', prefix: 'apps/web/app/admin/', blurb: 'the internal operations surfaces' },
   { id: 'couple', label: 'Couple dashboard', prefix: 'apps/web/app/dashboard/', blurb: 'the host’s event workspace' },
-  { id: 'vendor', label: 'Vendor dashboard', prefix: 'apps/web/app/vendor-dashboard/', blurb: 'the vendor’s business surfaces' },
+  { id: 'vendor', label: 'Supplier dashboard', prefix: 'apps/web/app/vendor-dashboard/', blurb: 'the supplier’s business surfaces' },
   { id: 'onboarding', label: 'Onboarding', prefix: 'apps/web/app/onboarding/', blurb: 'event creation and first-run' },
   { id: 'api', label: 'API routes', prefix: 'apps/web/app/api/', blurb: 'route handlers and webhooks' },
-  { id: 'vendor-public', label: 'Public vendor page', prefix: 'apps/web/app/v/', blurb: 'the marketplace-facing profile' },
+  { id: 'vendor-public', label: 'Public supplier page', prefix: 'apps/web/app/v/', blurb: 'the marketplace-facing profile' },
   { id: 'components', label: 'Shared components', prefix: 'apps/web/app/_components/', blurb: 'cross-surface UI' },
   // apps/web/components/ is a SECOND shared-UI root that predates app/_components.
   // Missing it put 20.8% of the graph in `other` on the first generation — which

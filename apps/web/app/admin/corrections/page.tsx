@@ -7,7 +7,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import {
   LOCKED_FIELD_LABEL,
-  fetchCorrectionRequests,
+  fetchCorrectionRequestsMeasured,
   type CorrectionRequestStatus,
   type VendorCorrectionRequestRow,
 } from '@/lib/vendor-corrections';
@@ -19,6 +19,8 @@ import {
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../_components/read-failed';
 export const metadata = { title: 'Profile corrections · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -75,20 +77,25 @@ export default async function AdminCorrectionsPage({
   const status = normalizeStatus(search.status ?? 'open');
 
   const admin = createAdminClient();
-  const rows = await fetchCorrectionRequests(admin, { status });
+  const { ok: rowsOk, rows } = await fetchCorrectionRequestsMeasured(admin, { status });
 
   // Resolve vendor business names for the visible page in one batch.
   const vendorIds = Array.from(new Set(rows.map((r) => r.vendor_profile_id)));
   let vendorNames: Record<string, string> = {};
+  let vendorNamesFailed = false;
   if (vendorIds.length > 0) {
-    const { data: vendorData } = await admin
+    const { data: vendorData, error: vendorNamesError } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id,business_name,business_slug')
       .in('vendor_profile_id', vendorIds);
+    if (vendorNamesError) {
+      logQueryError('AdminCorrectionsPage (supplier names)', vendorNamesError);
+      vendorNamesFailed = true;
+    }
     vendorNames = Object.fromEntries(
       (vendorData ?? []).map((v) => [
         v.vendor_profile_id as string,
-        (v.business_name as string | null) || 'Unnamed vendor',
+        (v.business_name as string | null) || 'Unnamed supplier',
       ]),
     );
   }
@@ -104,13 +111,13 @@ export default async function AdminCorrectionsPage({
       ) : null}
       {search.applied === '1' ? (
         <FormFlash tone="success">
-          Correction applied — the vendor&rsquo;s profile now shows the
+          Correction applied — the supplier&rsquo;s profile now shows the
           requested value.
         </FormFlash>
       ) : null}
       {search.declined === '1' ? (
         <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
-          Correction declined — the vendor&rsquo;s profile is unchanged.
+          Correction declined — the supplier&rsquo;s profile is unchanged.
         </p>
       ) : null}
       {search.already_resolved === '1' ? (
@@ -148,9 +155,11 @@ export default async function AdminCorrectionsPage({
         })}
       </nav>
 
-      {rows.length === 0 ? (
+      {!rowsOk ? (
+        <ReadFailed what="the correction requests" />
+      ) : rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
-          No correction requests for this filter. Verified vendors file them
+          No correction requests for this filter. Verified suppliers file them
           from their My Shop profile when a locked detail needs to change.
         </p>
       ) : (
@@ -159,7 +168,7 @@ export default async function AdminCorrectionsPage({
             <li key={r.id}>
               <RequestCard
                 request={r}
-                vendorName={vendorNames[r.vendor_profile_id] ?? 'Unnamed vendor'}
+                vendorName={vendorNames[r.vendor_profile_id] ?? (vendorNamesFailed ? 'Name couldn’t load' : 'Unnamed supplier')}
               />
             </li>
           ))}
@@ -209,7 +218,7 @@ function RequestCard({
 
       {request.note ? (
         <p className="rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/70">
-          <span className="font-medium">Vendor note:</span> {request.note}
+          <span className="font-medium">Supplier note:</span> {request.note}
         </p>
       ) : null}
 
@@ -220,7 +229,7 @@ function RequestCard({
             title="Apply this correction?"
             confirmLabel="Apply to profile"
             destructive={false}
-            message={`Writes "${request.requested_value ?? ''}" to this vendor's ${fieldLabel} — the only edit path for a verified shop's locked details.`}
+            message={`Writes "${request.requested_value ?? ''}" to this supplier's ${fieldLabel} — the only edit path for a verified shop's locked details.`}
           >
             <input type="hidden" name="request_id" value={request.id} />
             <SubmitButton pendingLabel="Applying…" className="button-primary h-9 px-3 text-xs">
@@ -231,7 +240,7 @@ function RequestCard({
             action={declineCorrectionRequest}
             title="Decline this correction?"
             confirmLabel="Decline"
-            message="Leaves the vendor's profile unchanged and closes the request."
+            message="Leaves the supplier's profile unchanged and closes the request."
           >
             <input type="hidden" name="request_id" value={request.id} />
             <SubmitButton

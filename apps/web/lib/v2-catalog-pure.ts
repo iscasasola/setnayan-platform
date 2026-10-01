@@ -234,3 +234,14 @@ export function formatSkuPriceLabel(
   const centavos = computePaxPriceCentavos(sku, pax ?? null);
   return `₱${formatPeso(centavos / 100)}${suffix}`;
 }
+
+/**
+ * The label an admin picker shows for a supplier SKU. Derived from the stored
+ * `offering_type`, never hard-coded to one value: every non-subscription row used
+ * to read "Supplier tokens" — a thing that was retired with the token economy.
+ */
+export function supplierSkuCategory(offeringType: V2VendorSku['offering_type']): string {
+  return offeringType === 'subscription_monthly' || offeringType === 'subscription_annual'
+    ? 'Supplier subscription'
+    : 'Supplier add-on';
+}

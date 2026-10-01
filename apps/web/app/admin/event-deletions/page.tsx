@@ -56,13 +56,14 @@ export default async function EventDeletionsPage() {
     .order('created_at', { ascending: true });
   if (openErr) console.error('[supabase-error] app/admin/event-deletions/page.tsx · from:event_deletion_requests.select', openErr);
 
-  const { data: recentRows } = await admin
+  const { data: recentRows, error: recentErr } = await admin
     .from('event_deletion_requests')
     .select('id, event_name, reason_code, reason, status, created_at')
     .neq('status', 'pending')
     .order('created_at', { ascending: false })
     .limit(30);
 
+  if (recentErr) console.error('[supabase-error] app/admin/event-deletions/page.tsx · from:event_deletion_requests.select (history)', recentErr);
   const open = openErr ? null : (openRows ?? []);
   const recent = recentRows ?? [];
 
@@ -163,7 +164,11 @@ export default async function EventDeletionsPage() {
         Every removal, including the ones nobody had to answer. This is the only
         place these reasons exist.
       </p>
-      {recent.length === 0 ? (
+      {recentErr ? (
+        <p role="alert" className="mt-3 text-[13px] font-semibold text-[color:var(--sn-danger)]">
+          We couldn’t read this history — that is not the same as there being none.
+        </p>
+      ) : recent.length === 0 ? (
         <p className="mt-3 text-[13px] text-ink/50">Nothing yet.</p>
       ) : (
         <ul className="mt-3 grid gap-1.5">

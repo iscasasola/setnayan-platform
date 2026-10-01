@@ -42,10 +42,10 @@ export function InviteVendorForm() {
   return (
     <section className="mb-6 rounded-xl border border-ink/10 bg-cream p-4 sm:p-5">
       <h2 className="text-base font-semibold tracking-tight text-ink">
-        Invite a vendor
+        Invite a supplier
       </h2>
       <p className="mt-1 text-sm text-ink/65">
-        Pre-create a vendor account. The vendor uses your link to sign up and
+        Pre-create a supplier account. The supplier uses your link to sign up and
         continues filling in their profile — no setup work needed on your end.
       </p>
 
@@ -81,7 +81,7 @@ export function InviteVendorForm() {
         }}
       >
         <label className="space-y-1">
-          <span className="block text-xs font-medium text-ink/70">Vendor email</span>
+          <span className="block text-xs font-medium text-ink/70">Supplier email</span>
           <input
             name="email"
             type="email"
@@ -128,7 +128,7 @@ export function InviteVendorForm() {
       {state.kind === 'success' ? (
         <div className="mt-4 rounded-md border border-success-300/60 bg-success-50 p-3">
           <p className="text-sm font-medium text-success-900">
-            Invite link ready — share it with the vendor.
+            Invite link ready — share it with the supplier.
           </p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
             <code className="flex-1 truncate rounded-md border border-success-200 bg-cream px-3 py-2 font-mono text-xs text-ink/80">
@@ -153,9 +153,9 @@ export function InviteVendorForm() {
             </button>
           </div>
           <p className="mt-2 text-xs text-success-900/70">
-            Expires in 90 days. The vendor signs up via this link, and a
-            vendor_profiles row gets created automatically with the business
-            name you entered.
+            Expires in 90 days. The supplier signs up via this link, and their
+            shop is created automatically with the business name you
+            entered.
           </p>
         </div>
       ) : null}

@@ -227,7 +227,7 @@ function emptyStream(key: StreamKey, label: string): MoneyStream {
 async function fetchMonetization(admin: Admin, w: Windows): Promise<Monetization> {
   const streams: Record<StreamKey, MoneyStream> = {
     ai: emptyStream('ai', 'Setnayan AI'),
-    vendor: emptyStream('vendor', 'Vendor subscriptions'),
+    vendor: emptyStream('vendor', 'Supplier subscriptions'),
     other: emptyStream('other', 'All other purchases'),
   };
   let sampled = false;
@@ -544,7 +544,7 @@ export async function fetchAppPerformanceStats(
     monetization: {
       streams: [
         emptyStream('ai', 'Setnayan AI'),
-        emptyStream('vendor', 'Vendor subscriptions'),
+        emptyStream('vendor', 'Supplier subscriptions'),
         emptyStream('other', 'All other purchases'),
       ],
       totalPhp: 0,

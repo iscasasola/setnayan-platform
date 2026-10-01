@@ -326,7 +326,7 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
   },
   {
     file: 'verification-docs/page.tsx',
-    namesItself: 'title="Vendor verification documents"',
+    namesItself: 'title="Supplier verification documents"',
   },
   { file: 'website-media/page.tsx', namesItself: 'title="Website media"' },
   {
@@ -341,7 +341,7 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
   { file: 'demand/page.tsx', namesItself: 'title="Demand Radar"' },
   {
     file: 'vendor-recommendations/page.tsx',
-    namesItself: 'title="Vendor recommendations"',
+    namesItself: 'title="Supplier recommendations"',
   },
   { file: 'help/page.tsx', namesItself: 'title="Help inbox"' },
   { file: 'integrations/page.tsx', namesItself: 'title="Integrations"' },
@@ -360,7 +360,7 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
   { file: 'editorial-review/page.tsx', namesItself: 'title="Editorial review"' },
   {
     file: 'vendors/[vendorProfileId]/edit/page.tsx',
-    namesItself: 'title="Edit unclaimed vendor"',
+    namesItself: 'title="Edit unclaimed supplier"',
   },
 ];
 
@@ -407,7 +407,7 @@ const RECORD_PAGES: Array<{ file: string; keepsVisible: RegExp; why: string }> =
   },
   {
     file: 'vendors/[vendorProfileId]/team/page.tsx',
-    keepsVisible: /business_name \?\? 'Vendor'\} · Team/,
+    keepsVisible: /business_name \?\? 'Supplier'\} · Team/,
     why: 'whose team you are looking at',
   },
   {

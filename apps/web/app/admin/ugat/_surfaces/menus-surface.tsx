@@ -2,7 +2,8 @@
 // re-homed 2026-07-10. actions/_components stay in /admin/menus; the legacy
 // route is now a redirect into /admin/ugat?tab=.
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { getResolvedNavSlots } from '@/lib/nav-registry';
+import { getResolvedNavSlotsMeasured } from '@/lib/nav-registry';
+import { ReadFailed } from '../../_components/read-failed';
 import { NAV_ICON_NAMES } from '@/lib/nav-icons';
 import { MenuRegistryEditor } from '@/app/admin/menus/_components/menu-registry-editor';
 
@@ -14,7 +15,7 @@ import { MenuRegistryEditor } from '@/app/admin/menus/_components/menu-registry-
  */
 
 export async function MenusSurface() {
-  const slots = await getResolvedNavSlots();
+  const { ok: overridesOk, slots } = await getResolvedNavSlotsMeasured();
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -25,12 +26,18 @@ export async function MenusSurface() {
           back, and that a rename here reaches every doorway at once. */}
       <PageMasthead title="Menus & icons" />
       <p className="mb-6 mt-1 max-w-2xl text-sm text-ink/70">
-        The source for the name and icon of every menu across Setnayan — customer, vendor, admin,
+        The source for the name and icon of every menu across Setnayan — customer, supplier, admin,
         and the public site. Rename a menu, pick a Lucide icon, or upload a custom image. Blank a
         name or hit reset to return to the built-in default.
       </p>
 
-      <MenuRegistryEditor slots={slots} iconNames={[...NAV_ICON_NAMES]} />
+      {overridesOk ? (
+        <MenuRegistryEditor slots={slots} iconNames={[...NAV_ICON_NAMES]} />
+      ) : (
+        // The names below would be the built-in defaults, shown as if nobody had
+        // renamed anything — so the editor stays closed until the read works.
+        <ReadFailed what="the saved menu names and icons" />
+      )}
     </div>
   );
 }

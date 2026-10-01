@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../../_components/read-failed';
 import { displayUrlsForPrivateStoredAssets } from '@/lib/uploads';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { ProofImage } from '@/app/_components/proof-image';
@@ -136,10 +138,20 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
   // <img src="r2://…"> is a broken image). Signed through the scoped signer, only
   // from THIS flag's event's own disputes folder (N4 part 3); a legacy public
   // URL passes through as before.
-  const evidenceUrls = await displayUrlsForPrivateStoredAssets(
+  // 🔑 `null` means "signing failed", NOT "no evidence": a dispute the owner is
+  // judging must never read "No evidence attached." because a signer timed out.
+  // Even a signer that answers can return fewer links than the row stores, so
+  // the check is against what the row says is attached.
+  const evidenceStored = (row.evidence_urls ?? []).length;
+  const signedEvidence = await displayUrlsForPrivateStoredAssets(
     row.evidence_urls ?? [],
     disputeEvidencePolicy(row.event_id),
-  ).catch(() => [] as string[]);
+  ).catch((err: unknown) => {
+    logQueryError('AdminForceMajeureDetail (evidence signing)', err);
+    return null;
+  });
+  const evidenceUrls = signedEvidence ?? [];
+  const evidenceUnread = signedEvidence === null || signedEvidence.length < evidenceStored;
 
   // 🔒 The deposit receipt is a PRIVATE file too: a short-lived link scoped to
   // the booking row's own event deposit folder — never the stored value as an
@@ -151,17 +163,20 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
   // Change-Order Trail (Wave 3) — the immutable both-acknowledged add-on/removal
   // log for this booking, so an admin handling the dispute sees every scope/price
   // change and who acknowledged it. Read-only here; admins never raise/resolve.
-  const changeOrders = row.event_vendor_id
-    ? (((
-        await admin
-          .from('vendor_change_orders')
-          .select(
-            'change_order_id, raised_by, title, delta_amount_php, status, acknowledged_at, decline_reason, created_at',
-          )
-          .eq('event_vendor_id', row.event_vendor_id)
-          .order('created_at', { ascending: false })
-      ).data ?? []) as ChangeOrderLookup[])
-    : [];
+  const changeOrdersRes = row.event_vendor_id
+    ? await admin
+        .from('vendor_change_orders')
+        .select(
+          'change_order_id, raised_by, title, delta_amount_php, status, acknowledged_at, decline_reason, created_at',
+        )
+        .eq('event_vendor_id', row.event_vendor_id)
+        .order('created_at', { ascending: false })
+    : null;
+  if (changeOrdersRes?.error) {
+    logQueryError('AdminForceMajeureDetail (change orders)', changeOrdersRes.error);
+  }
+  const changeOrdersUnread = Boolean(changeOrdersRes?.error);
+  const changeOrders = (changeOrdersRes?.data ?? []) as ChangeOrderLookup[];
 
   const isResolved = Boolean(row.resolved_at);
   const countdown = isResolved
@@ -291,11 +306,11 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                 <div className="text-ink/75">
                   {vendor.deposit_acknowledged_at ? (
                     <span className="font-medium text-ink">
-                      Acknowledged by vendor ({vendor.deposit_acknowledged_at.slice(0, 10)})
+                      Acknowledged by supplier ({vendor.deposit_acknowledged_at.slice(0, 10)})
                     </span>
                   ) : (
                     <span className="font-medium text-ink">
-                      Recorded · date held, awaiting vendor confirmation (
+                      Recorded · date held, awaiting supplier confirmation (
                       {vendor.deposit_recorded_at.slice(0, 10)})
                     </span>
                   )}
@@ -325,9 +340,11 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
       {row.event_vendor_id ? (
         <section className="mb-6 space-y-2">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Change orders ({changeOrders.length})
+            Change orders ({changeOrdersUnread ? '—' : changeOrders.length})
           </h2>
-          {changeOrders.length === 0 ? (
+          {changeOrdersUnread ? (
+            <ReadFailed what="this booking’s change orders" />
+          ) : changeOrders.length === 0 ? (
             <p className="rounded-md bg-ink/[0.03] p-4 text-sm italic text-ink/55">
               No change orders on this booking.
             </p>
@@ -390,8 +407,13 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
 
       <section className="mb-6 space-y-2">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Evidence ({evidenceUrls.length})
+          Evidence ({evidenceUnread ? (evidenceStored > 0 ? `${evidenceStored} attached` : '—') : evidenceUrls.length})
         </h2>
+        {evidenceUnread ? (
+          <ReadFailed
+            what={`${evidenceStored > 0 ? `${evidenceStored} attached file${evidenceStored === 1 ? '' : 's'}` : 'the attached files'}${evidenceUrls.length > 0 ? ` — only ${evidenceUrls.length} loaded below` : ''}`}
+          />
+        ) : null}
         {evidenceUrls.length > 0 ? (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {evidenceUrls.map((url, idx) => (
@@ -414,7 +436,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
               </li>
             ))}
           </ul>
-        ) : (
+        ) : evidenceUnread ? null : (
           <p className="rounded-md border border-dashed border-ink/15 px-4 py-3 text-sm text-ink/55">
             No evidence attached.
           </p>

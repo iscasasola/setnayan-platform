@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ReadFailed } from '../../_components/read-failed';
 import {
   fetchV2CustomerCatalog,
   formatPeso,
@@ -49,8 +50,8 @@ type PromoRow = {
 
 const AUDIENCE_LABEL: Record<string, string> = {
   all_couples: 'all couples',
-  all_vendors: 'all verified vendors',
-  new_verified_vendors: 'vendors who register + get verified in the window',
+  all_vendors: 'all verified suppliers',
+  new_verified_vendors: 'suppliers who register + get verified in the window',
   segment: 'segment (not built)',
 };
 
@@ -141,7 +142,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
       <p className="mb-6 text-sm text-ink/70">
         Schedule an announcement that makes services <strong>free during a date
         range</strong> — pick services for <strong>couples</strong>, or a paid
-        tier for <strong>vendors</strong>. While it&rsquo;s live the freebie shows
+        tier for <strong>suppliers</strong>. While it&rsquo;s live the freebie shows
         as included (no code, no checkout) and a banner tells them about it. When
         the window ends, it reverts to paid unless they already bought it.
       </p>
@@ -349,16 +350,16 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
       <form action={createFreeWindow} className="sn-tile mb-8 space-y-4 !p-5">
         <input type="hidden" name="audience_type" value="all_vendors" />
         <h2 className="text-sm font-semibold text-ink">
-          New free window · <span className="text-ink/60">for vendors</span>
+          New free window · <span className="text-ink/60">for suppliers</span>
         </h2>
         <p className="text-xs text-ink/55">
-          Gives <strong>every verified vendor</strong> a paid tier&rsquo;s features for
+          Gives <strong>every verified supplier</strong> a paid tier&rsquo;s features for
           free during the window (a tier upgrade, not a ₱0 plan). Reverts when it
-          ends. Unverified and pending vendors get nothing. For a deal aimed at
-          vendors who register and get verified inside a window, or one each vendor
+          ends. Unverified and pending suppliers get nothing. For a deal aimed at
+          suppliers who register and get verified inside a window, or one each supplier
           keeps for a set number of days, use the Deals section on{' '}
           <Link href="/admin/gifts" className="underline underline-offset-2">Gifts</Link>.
-          Note: while paid vendor billing is still off for launch, all vendors
+          Note: while paid supplier billing is still off for launch, all suppliers
           already have every feature — this only bites once paid tiers go live.
         </p>
 
@@ -369,13 +370,13 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
               name="title"
               required
               maxLength={120}
-              placeholder="Free Pro month for all vendors"
+              placeholder="Free Pro month for all suppliers"
               className="input-field w-full"
             />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-ink/80">
-              Give vendors this tier
+              Give suppliers this tier
             </span>
             <select name="promoted_vendor_tier" required className="input-field w-full">
               <option value="solo">Solo</option>
@@ -416,7 +417,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
               required
               minLength={10}
               maxLength={240}
-              placeholder="e.g. Launch month — every verified vendor tries Pro"
+              placeholder="e.g. Launch month — every verified supplier tries Pro"
               className="input-field w-full"
             />
           </label>
@@ -429,20 +430,24 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
             defaultChecked
             className="h-4 w-4 rounded border-ink/30 text-mulberry focus:ring-mulberry"
           />
-          Show the announcement banner to vendors while it&rsquo;s live
+          Show the announcement banner to suppliers while it&rsquo;s live
         </label>
 
         <div className="flex items-center gap-3 pt-1">
           <SubmitButton className="button-primary text-sm" pendingLabel="Creating…">
-            Create vendor free window
+            Create supplier free window
           </SubmitButton>
-          <span className="text-xs text-ink/50">Audience: all verified vendors.</span>
+          <span className="text-xs text-ink/50">Audience: all verified suppliers.</span>
         </div>
       </form>
 
       {/* Existing windows */}
       <h2 className="mb-3 text-sm font-semibold text-ink">Scheduled &amp; past windows</h2>
-      {rows.length === 0 ? (
+      {error ? (
+        // 🔑 "No free windows yet" over a refused read invites a SECOND live
+        // freebie on top of one that is already running.
+        <ReadFailed what="the scheduled windows — don’t create a new one until this loads" />
+      ) : rows.length === 0 ? (
         <p className="sn-tile !p-5 text-sm text-ink/55">
           No free windows yet. Create one above.
         </p>
@@ -487,7 +492,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {isVendorDealAudience(row.audience_type) ? (
                         <span className="inline-flex rounded-md bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium capitalize text-terracotta-700">
-                          Vendors → {row.promoted_vendor_tier ?? '—'} tier, free
+                          Suppliers → {row.promoted_vendor_tier ?? '—'} tier, free
                         </span>
                       ) : (
                         row.covered_service_keys.map((code) => (

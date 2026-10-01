@@ -128,7 +128,7 @@ export async function GET() {
     '',
     renderTable(activeCustomer),
     '',
-    `## Active vendor SKUs (${activeVendor.length})`,
+    `## Active supplier SKUs (${activeVendor.length})`,
     '',
     renderTable(activeVendor),
     '',

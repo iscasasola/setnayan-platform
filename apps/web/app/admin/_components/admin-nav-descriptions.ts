@@ -28,9 +28,9 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   overview: 'The admin pulse — the at-a-glance snapshot of what needs you across every queue.',
   'work-home':
     'Every act-now queue in one ranked worklist, most-urgent first. Your daily command center.',
-  verify: 'Vendors awaiting the verification badge.',
+  verify: 'Suppliers awaiting the verification badge.',
   'vendor-partnerships':
-    'Vendor-to-vendor partnership claims awaiting two-admin verification.',
+    'Supplier-to-supplier partnership claims awaiting two-admin verification.',
   payments: 'Order payments awaiting reconciliation.',
   /*
     ⚠ NOT A LIVE QUEUE, and the old wording said it was. Owner, asked directly
@@ -46,10 +46,10 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     invented by the description, not by the product. Kept rather than deleted
     because the pre-V2 trail must stay readable during a dispute.
   */
-  payouts: 'Closed trail from before Setnayan stopped handling vendor money — nothing new arrives here.',
-  subscriptions: 'Vendor Pro / Enterprise upgrades awaiting confirmation.',
-  'payment-options': 'Vendor payment destinations awaiting a fraud screen.',
-  disputes: 'Open customer and vendor disputes.',
+  payouts: 'Closed trail from before Setnayan stopped handling supplier money — nothing new arrives here.',
+  subscriptions: 'Supplier Pro / Enterprise upgrades awaiting confirmation.',
+  'payment-options': 'Supplier payment destinations awaiting a fraud screen.',
+  disputes: 'Open customer and supplier disputes.',
   /*
     ⚠ NOTHING IS AWAITING REVIEW HERE. The page's own docblock: *"Read-only by
     design — the parties act on their own surfaces; HQ only observes."* A guest
@@ -75,12 +75,12 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   'event-deletions': 'A couple has asked us to remove a celebration money is holding.',
   'user-reports': 'Reported guest-gallery content awaiting moderation.',
   'repost-watch':
-    'Cross-vendor image matches flagged for review — detect only, never auto-takedown.',
+    'Cross-supplier image matches flagged for review — detect only, never auto-takedown.',
   corrections: 'Verified-shop correction requests to apply or decline.',
   'integrity-watch':
     'Review-fraud and ghost-listing screener — detect and review only.',
   fraud:
-    'Scored vendors from the fake-results hunt — investigate, then dismiss, un-suspend, or confirm a wipe + ban.',
+    'Scored suppliers from the fake-results hunt — investigate, then dismiss, un-suspend, or confirm a wipe + ban.',
   approvals: 'A colleague is waiting on your second sign-off.',
   pakanta: "Each couple's custom-song brief for the music team to write.",
   'editorial-review': 'Wedding editorials awaiting an editorial pass before publish.',
@@ -88,15 +88,15 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
 
   // ── Accounts group (key 'directory') ──────────────────────────────────
   users:
-    'All accounts across customer, vendor, and admin roles. Issue comp grants, reset passwords, suspend.',
+    'All accounts across customer, supplier, and admin roles. Issue comp grants, reset passwords, suspend.',
   'founder-seats':
     'Up to 10 owner-granted founder accounts — all features comped, founder badge.',
   gifts:
-    'Every live comp on one page — vendor tier comps, vendor cohort deals, couple free windows, and user or event comp grants. Search a vendor or user and gift a tier or a service, open a deal for all verified vendors or for vendors who register and get verified in a window, or free a service for any event or for events dated in a range.',
+    'Every live comp on one page — supplier tier comps, supplier cohort deals, couple free windows, and user or event comp grants. Search a supplier or user and gift a tier or a service, open a deal for all verified suppliers or for suppliers who register and get verified in a window, or free a service for any event or for events dated in a range.',
   vendors:
-    'Vendor profiles directory. Edit business details, override visibility, and review tier state.',
+    'Supplier profiles directory. Edit business details, override visibility, and review tier state.',
   'demo-vendors':
-    'Demo / placeholder vendor records used for pilot showcase. Manage seeded entries here.',
+    'Demo / placeholder supplier records used for pilot showcase. Manage seeded entries here.',
   events:
     'All weddings on the platform with host roster, date, and venue. Drill into individual event state.',
   venues:
@@ -122,8 +122,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   'moodboard-library':
     'Curated location and figure imagery for the 3-pillar mood board. Manage palettes and tags.',
   'social-queue':
-    'Ready-to-post couple creations and vendor features, plus take-downs.',
-  'spotlight-awards': 'The vendor Spotlight Awards program — nominate and feature.',
+    'Ready-to-post couple creations and supplier features, plus take-downs.',
+  'spotlight-awards': 'The supplier Spotlight Awards program — nominate and feature.',
   'journal-spotlights': 'Journal Spotlight features — curate and order.',
   'discount-codes': 'Promo and discount codes — create, cap, and expire.',
   referrals: 'The referral program — invites, rewards, and payouts.',
@@ -132,7 +132,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   menus:
     'The single source for the name and icon of every menu across all account types.',
   taxonomy:
-    'Canonical vendor service categories and the sub-category card tree.',
+    'Canonical supplier service categories and the sub-category card tree.',
   onboarding:
     'New-account onboarding settings grouped by type — background music and future per-flow knobs.',
   'wedding-traditions':
@@ -149,9 +149,9 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   growth: 'The growth dashboard — sign-ups, activation, and retention.',
   intelligence: 'Market intelligence — demand signals and category trends.',
   demand:
-    'Demand Radar — all-markets demand: month heat, top regions, hot looks, and event types. The admin view of the vendor Market Intel feature (Pro-and-up).',
+    'Demand Radar — all-markets demand: month heat, top regions, hot looks, and event types. The admin view of the supplier Market Intel feature (Pro-and-up).',
   seo: 'SEO & GEO — nightly llms.txt-vs-catalog drift audit, route/token coverage, and Search Console trend.',
-  funnels: 'Conversion funnels — where couples and vendors drop off.',
+  funnels: 'Conversion funnels — where couples and suppliers drop off.',
   'operations-hiring': 'Operations and hiring metrics — throughput and capacity.',
   'connection-logs': 'Integration and connection logs for debugging.',
   offline: 'The offline reconciliation daemon status and history.',
@@ -160,9 +160,9 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   pricing:
     'The admin-managed retail catalog — every SKU price lives here, never in code.',
   'custom-plans':
-    'Negotiated Custom vendor plans — dial a quote, apply a partner discount, send it for apply-then-pay approval.',
+    'Negotiated Custom supplier plans — dial a quote, apply a partner discount, send it for apply-then-pay approval.',
   'vendor-recommendations':
-    'The vendor-leaf → recommendable-SKU map and its two-way curation review queue.',
+    'The supplier-leaf → recommendable-SKU map and its two-way curation review queue.',
   'price-bands': 'Price bands used across the catalog.',
   'budget-planner': 'The couple budget-planner reference table and defaults.',
   receipts: 'Issued receipts and BIR-facing records.',
@@ -173,7 +173,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   compliance:
     'The RA 10173 / NPC registration facts — PIC identity, DPO designation, breach plan, and sub-processors. Sensitive IDs stay in the database.',
   notifications:
-    'Cross-actor signal reader — customer→vendor and admin signals in one inbox.',
+    'Cross-actor signal reader — customer→supplier and admin signals in one inbox.',
   'demo-mode':
     'Pilot demo-mode toggle. Surfaces seeded showcase data and hides retired SKU surfaces.',
   'my-account':
@@ -239,7 +239,7 @@ export function adaptAdminGroupItems(
  */
 export const ADMIN_NAV_ALIASES: Record<string, string> = {
   payments: 'pending unpaid reconcile proof screenshot gcash bdo receipt money',
-  payouts: 'release transfer send money vendor owed',
+  payouts: 'release transfer send money supplier vendor owed',
   verify: 'pending id identity dti sec documents badge legit',
   disputes: 'complaint refund argument conflict problem',
   fraud: 'scam suspicious fake abuse',
@@ -249,7 +249,7 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   'data-privacy': 'npc privacy dpo consent ra10173 filing',
   approvals: 'pending sign off second admin two admin',
   subscriptions: 'pro plan upgrade billing recurring',
-  gifts: 'comp complimentary free gift grant waive promo giveaway tier credits deal cohort window verified vendors event date range couple',
+  gifts: 'comp complimentary free gift grant waive promo giveaway tier credits deal cohort window verified suppliers vendors event date range couple',
   // 'prices' and 'papic' added 2026-08-26 under this list's own rule — the owner
   // typed "show me the prices of papic" and "take me to the pricing for papic
   // services" and got nothing. Measured why: the plural 'prices' appeared in ZERO
@@ -271,7 +271,7 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   // search phrase") still attach by href and are not repeated here.
   'search-memory': 'learned taught teach correct phrases what has the search box learned ai memory',
   users: 'accounts people customers couples',
-  vendors: 'suppliers shops businesses',
+  vendors: 'suppliers vendors shops businesses',
   venues: 'places locations',
   events: 'weddings bookings',
   help: 'support tickets questions',

@@ -45,7 +45,7 @@ export function DeleteSongButton({ song }: { song: SongLabel }) {
       onClick={(e) => {
         const ok = window.confirm(
           `Delete this song from the catalogue?\n\n${describe(song)}\n\n` +
-            `This cannot be undone. Couples and vendors who already picked it ` +
+            `This cannot be undone. Couples and suppliers who already picked it ` +
             `lose that pick.`,
         );
         if (!ok) e.preventDefault();
@@ -106,7 +106,7 @@ export function MergeSongsFields({ songs }: { songs: SongLabel[] }) {
                 : `Merge these two songs?\n\n` +
                   `DELETE   ${describe(dup!)}\n` +
                   `KEEP     ${describe(canon!)}\n\n` +
-                  `Every couple and vendor who picked the first one will be moved to ` +
+                  `Every couple and supplier who picked the first one will be moved to ` +
                   `the second. This cannot be undone.`,
             );
             if (!ok) e.preventDefault();

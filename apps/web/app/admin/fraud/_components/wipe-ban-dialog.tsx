@@ -65,7 +65,7 @@ export function WipeBanDialog({
                 <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-terracotta-700" aria-hidden="true" />
                 <div>
                   <h2 id={titleId} className="text-base font-bold text-ink">
-                    Wipe + permanently ban this vendor?
+                    Wipe + permanently ban this supplier?
                   </h2>
                   <p className="mt-0.5 text-xs text-ink/60">
                     Irreversible. Requires a SECOND admin to confirm.
@@ -88,9 +88,9 @@ export function WipeBanDialog({
               <div className="space-y-2 rounded-lg bg-terracotta-50/40 p-3 text-xs text-ink/75">
                 <p>Confirming will, once a second admin approves:</p>
                 <ul className="list-disc space-y-1 pl-4">
-                  <li>Void every review + booking this vendor accrued (removed from all public stats).</li>
+                  <li>Void every review + booking this supplier accrued (removed from all public stats).</li>
                   <li>Permanently ban + tombstone the account, hide it from the marketplace.</li>
-                  <li>Open a help-center appeal ticket the vendor can respond to.</li>
+                  <li>Open a help-center appeal ticket the supplier can respond to.</li>
                 </ul>
                 <p className="font-semibold text-terracotta-700">
                   This does NOT execute now — it opens a two-admin request. A different admin must confirm.

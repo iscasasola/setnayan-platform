@@ -26,7 +26,7 @@ import { formatCount } from '@/lib/format-number';
 const SCOPE_ORDER: NavAccountScope[] = ['customer', 'vendor', 'admin', 'public', 'shared'];
 const SCOPE_LABEL: Record<NavAccountScope, string> = {
   customer: 'Customer',
-  vendor: 'Vendor',
+  vendor: 'Supplier',
   admin: 'Admin',
   public: 'Public',
   shared: 'Shared',

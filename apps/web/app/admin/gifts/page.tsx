@@ -51,8 +51,8 @@ type VendorGiftRow =
   | ({ kind: 'window' } & VendorDealRow);
 
 const DEAL_WHO: Record<VendorDealRow['audience_type'], string> = {
-  all_vendors: 'All verified vendors',
-  new_verified_vendors: 'Vendors who register + get verified in the window',
+  all_vendors: 'All verified suppliers',
+  new_verified_vendors: 'Suppliers who register + get verified in the window',
 };
 
 const fmtDay = (iso: string) =>
@@ -268,9 +268,9 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
       <div className="mb-6 space-y-1">
         <p className="text-2xl font-semibold tracking-tight">Gifts</p>
         <p className="text-sm text-ink/60">
-          Every vendor tier comp, vendor cohort deal and user/event comp currently active, in one
-          place. Grants a single named vendor or user account, or opens a deal for all verified
-          vendors or for every vendor who registers and gets verified inside a window.
+          Every supplier tier comp, supplier cohort deal and user/event comp currently active, in one
+          place. Grants a single named supplier or user account, or opens a deal for all verified
+          suppliers or for every supplier who registers and gets verified inside a window.
         </p>
       </div>
 
@@ -303,7 +303,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
       {/* ══════════════════ VENDOR SIDE ══════════════════ */}
       <section className="mb-10">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
-          Vendor tier comps
+          Supplier tier comps
         </h2>
 
         <form className="mb-4 flex gap-2" action="/admin/gifts">
@@ -311,7 +311,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             type="text"
             name="vendor_q"
             defaultValue={vendorQuery}
-            placeholder="Search vendors by business name…"
+            placeholder="Search suppliers by business name…"
             className="flex-1 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
           />
           <SubmitButton className="button-secondary h-10 px-4 text-sm" overlay={false}>
@@ -330,14 +330,14 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                   href={`/admin/gifts?grant_vendor=${v.vendor_profile_id}`}
                   className="text-xs font-medium text-link hover:underline"
                 >
-                  Comp this vendor
+                  Comp this supplier
                 </Link>
               </li>
             ))}
           </ul>
         )}
         {vendorQuery.length >= 2 && vendorResults.length === 0 && !grantVendor && (
-          <p className="mb-4 text-xs text-ink/50">No vendors match &ldquo;{vendorQuery}&rdquo;.</p>
+          <p className="mb-4 text-xs text-ink/50">No suppliers match &ldquo;{vendorQuery}&rdquo;.</p>
         )}
 
         {grantVendor && (
@@ -428,19 +428,19 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           rows={vendorRows}
           readError={vendorRowsReadError}
           readPermitted
-          reads="the comped vendors and vendor deals"
-          label="Comped vendors and deals"
+          reads="the comped suppliers and supplier deals"
+          label="Comped suppliers and deals"
           cap={200}
           minWidth="36rem"
           rowKey={(r) => (r.kind === 'window' ? `window:${r.promo_window_id}` : `vendor:${r.vendor_profile_id}`)}
           empty={{
             Icon: Store,
-            title: 'No vendor is comped onto a paid tier, and no deal is open',
-            blurb: 'Search a vendor above to set a tier, or open a deal below for a cohort.',
+            title: 'No supplier is comped onto a paid tier, and no deal is open',
+            blurb: 'Search a supplier above to set a tier, or open a deal below for a cohort.',
           }}
           columns={[
             {
-              header: 'Vendor',
+              header: 'Supplier',
               cell: (r) =>
                 r.kind === 'window' ? (
                   <span>
@@ -501,7 +501,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           ]}
         />
         <p className="mt-2 text-xs text-ink/40">
-          Every non-free tier here is a comp — self-serve vendor billing doesn&rsquo;t exist yet.
+          Every non-free tier here is a comp — self-serve supplier billing doesn&rsquo;t exist yet.
         </p>
       </section>
 
@@ -516,7 +516,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           UI. This renders the writer that was already wired. */}
       <section className="mb-10">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
-          Vendor cohort deals
+          Supplier cohort deals
         </h2>
 
         {/* 🔑 THE KILL-SWITCH, SAID OUT LOUD. `dealsFlagOn` was computed on this
@@ -529,7 +529,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           <p className="mb-4 flex items-start gap-2 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
             <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
             <span>
-              Vendor deals are <strong>live</strong>. A deal below promotes every vendor it
+              Supplier deals are <strong>live</strong>. A deal below promotes every supplier it
               covers for as long as it runs.
             </span>
           </p>
@@ -537,10 +537,10 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           <p className="mb-4 flex items-start gap-2 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
             <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
             <span>
-              Vendor deals are <strong>switched off</strong> — <code className="font-mono text-[11px]">PROMO_FREE_WINDOWS_ENABLED</code>{' '}
+              Supplier deals are <strong>switched off</strong> — <code className="font-mono text-[11px]">PROMO_FREE_WINDOWS_ENABLED</code>{' '}
               is not set in Vercel. Anything listed above or created below is recorded and
               dated, and promotes <strong>nobody</strong> until the owner flips it. Deals are
-              not retroactive: a vendor who qualifies while it is off gets nothing for that time.
+              not retroactive: a supplier who qualifies while it is off gets nothing for that time.
             </span>
           </p>
         )}
@@ -563,14 +563,14 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             <span className="mb-1 block text-xs font-medium text-ink/70">Who qualifies</span>
             <label className="mr-4 text-sm">
               <input type="radio" name="audience_type" value="all_vendors" defaultChecked />{' '}
-              Every verified vendor
+              Every verified supplier
             </label>
             <label className="text-sm">
               <input type="radio" name="audience_type" value="new_verified_vendors" />{' '}
-              Vendors who register <em>and</em> get verified inside the window
+              Suppliers who register <em>and</em> get verified inside the window
             </label>
             <p className="mt-1 text-xs text-ink/50">
-              Both mean <strong>verified</strong> vendors only — a pending or unverified shop
+              Both mean <strong>verified</strong> suppliers only — a pending or unverified shop
               never qualifies.
             </p>
           </div>
@@ -632,7 +632,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             </div>
             <div>
               <label htmlFor="deal_length" className="block text-xs font-medium text-ink/70 mb-1">
-                Each vendor keeps it <span className="text-ink/50">(days, optional)</span>
+                Each supplier keeps it <span className="text-ink/50">(days, optional)</span>
               </label>
               <input
                 type="number"
@@ -662,11 +662,11 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
               ))}
             </div>
             <p className="mt-1 text-xs text-ink/50">
-              Prices come from the live vendor catalogue, never from code. Only <strong>tier</strong>{' '}
-              plans can be given away: a vendor add-on can never be ₱0 (the catalogue CHECKs
+              Prices come from the live supplier catalogue, never from code. Only <strong>tier</strong>{' '}
+              plans can be given away: a supplier add-on can never be ₱0 (the catalogue CHECKs
               <code className="font-mono text-[11px]"> price_php &gt; 0</code>) and each add-on has its
               own gate, so freeing one is not a thing this deal can do. The highest tier you tick
-              is the one vendors get; the rest are kept on the record so the deal shows what it
+              is the one suppliers get; the rest are kept on the record so the deal shows what it
               waived.
             </p>
           </div>
@@ -689,7 +689,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
               Create deal
             </SubmitButton>
             <label className="text-xs text-ink/60">
-              <input type="checkbox" name="show_banner" /> Show a banner to vendors
+              <input type="checkbox" name="show_banner" /> Show a banner to suppliers
             </label>
           </div>
         </form>
@@ -1102,7 +1102,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                 // all — show the targeted vendor's name instead of '—', which
                 // would otherwise read as a grant nobody can identify.
                 if (!g.user_id && g.vendor_profile_id) {
-                  return `${g.vendor_business_name ?? g.vendor_profile_id} (vendor)`;
+                  return `${g.vendor_business_name ?? g.vendor_profile_id} (supplier)`;
                 }
                 const u = g.user_id ? userById.get(g.user_id) : null;
                 return u?.display_name ?? u?.email ?? g.user_id ?? '—';

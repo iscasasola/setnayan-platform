@@ -61,7 +61,7 @@ export default function AdminError({
         </Link>
       </div>
       <p className="max-w-md text-xs leading-relaxed text-ink/50">
-        Internal surface — this detail view never renders for couples, vendors,
+        Internal surface — this detail view never renders for couples, suppliers,
         or guests (their crashes keep the calm branded page).
       </p>
     </main>

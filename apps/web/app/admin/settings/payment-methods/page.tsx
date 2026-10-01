@@ -362,7 +362,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             <span className="font-semibold">Retired 2026-05-28 V2 cutover —
             read-only historical view.</span> Setnayan Pay is no longer the
             checkout rail. Setnayan is now a software publisher — customer SKUs
-            sell at sticker price with no convenience fee, and vendor bookings
+            sell at sticker price with no convenience fee, and supplier bookings
             settle directly off-platform with 0% commission. The rows below stay
             for audit only; new V2 orders don&apos;t consult this table.
           </p>

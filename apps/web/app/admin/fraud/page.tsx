@@ -191,7 +191,7 @@ export default async function AdminFraudQueuePage() {
     fraud_banned_at: string | null;
   }>) {
     vendorMeta.set(row.vendor_profile_id, {
-      name: row.business_name || '(unnamed vendor)',
+      name: row.business_name || '(unnamed supplier)',
       publicId: row.public_id || row.vendor_profile_id,
       state: deriveVendorFraudState(row),
     });
@@ -237,7 +237,7 @@ export default async function AdminFraudQueuePage() {
             ? 'The evidence behind each signal could not be read, so a card showing no evidence is not a signal raised without any. '
             : ''}
           {vendorsError
-            ? 'Business names could not be read, so vendors appear as identifiers. '
+            ? 'Business names could not be read, so suppliers appear as identifiers. '
             : ''}
           The scores and the count below are still accurate. Do not confirm fraud
           from this state — reload first.
@@ -256,7 +256,7 @@ export default async function AdminFraudQueuePage() {
               ? `The read was refused. Show this to an engineer: ${scoresError.message}`
               : 'The read did not complete.'
           }
-          survived="No vendor was shown, and none was ruled out. This is not a statement that there are no open signals — it is a statement that we do not know."
+          survived="No supplier was shown, and none was ruled out. This is not a statement that there are no open signals — it is a statement that we do not know."
           todo="Reload. If it happens again, assume signals may be open and hand the message above to an engineer — do not treat this screen as a clear queue."
         />
       ) : scores.length === 0 ? (
@@ -264,7 +264,7 @@ export default async function AdminFraudQueuePage() {
           <ShieldCheck className="h-8 w-8 text-success-600" aria-hidden="true" />
           <p className="text-sm font-semibold text-ink">No open fraud signals.</p>
           <p className="text-xs text-ink/70">
-            The hunt is running. Vendors appear here the moment a detector fires. Set na ’yan.
+            The hunt is running. Suppliers appear here the moment a detector fires. Set na ’yan.
           </p>
         </div>
       ) : (
@@ -376,7 +376,7 @@ export default async function AdminFraudQueuePage() {
                     {/* Wipe + ban (two-admin gate, typed confirmation) */}
                     <WipeBanDialog
                       vendorProfileId={s.vendor_profile_id}
-                      businessName={meta?.name && meta.name !== '(unnamed vendor)' ? meta.name : ''}
+                      businessName={meta?.name && meta.name !== '(unnamed supplier)' ? meta.name : ''}
                     />
                   </div>
                 )}
@@ -408,7 +408,7 @@ export default async function AdminFraudQueuePage() {
             Icon: ShieldCheck,
             title: 'Nothing has been enforced yet',
             blurb:
-              'A row lands here each time a signal is dismissed, a vendor is un-suspended, or fraud is confirmed. An empty trail on a platform with no confirmed fraud is the good outcome, not a broken screen.',
+              'A row lands here each time a signal is dismissed, a supplier is un-suspended, or fraud is confirmed. An empty trail on a platform with no confirmed fraud is the good outcome, not a broken screen.',
           }}
           columns={[
             {
@@ -420,7 +420,7 @@ export default async function AdminFraudQueuePage() {
               ),
             },
             {
-              header: 'Vendor',
+              header: 'Supplier',
               cell: (a) => (
                 <span className="text-ink/70">
                   {vendorMeta.get(a.vendor_profile_id)?.name ?? a.vendor_profile_id}

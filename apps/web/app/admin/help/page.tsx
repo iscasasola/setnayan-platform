@@ -100,7 +100,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
 
       {error ? (
         <p className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-          Help inbox couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
+          Help inbox couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
         </p>
       ) : null}
 
@@ -138,7 +138,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
                   {m.submitter_vendor_tier ? (
                     <span
-                      title="Priority support — vendor tier at submission"
+                      title="Priority support — supplier tier at submission"
                       className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
                         TIER_CHIP_TONE[m.submitter_vendor_tier]
                       }`}

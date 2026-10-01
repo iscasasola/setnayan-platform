@@ -37,7 +37,7 @@ const ERRORS: Record<string, string> = {
   nokey: 'Nothing happened — that request carried no file.',
   refs: 'Nothing was deleted. The check for what is still in use could not run, or could not be read all the way to the end, so no file could be proven safe to remove.',
   inuse:
-    'Nothing was deleted. That file is still referenced by a vendor record, or its name is a shape this page does not recognise, or no vendor record could be found pointing at anything at all — which is not proof the file is unused.',
+    'Nothing was deleted. That file is still referenced by a supplier record, or its name is a shape this page does not recognise, or no supplier record could be found pointing at anything at all — which is not proof the file is unused.',
   delete: 'The file could not be deleted. Nothing changed.',
 };
 
@@ -58,7 +58,7 @@ const SHELVES: Record<
   in_use: {
     title: 'In use',
     icon: <ShieldCheck aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />,
-    blurb: 'A vendor record still points at these. They cannot be deleted here.',
+    blurb: 'A supplier record still points at these. They cannot be deleted here.',
   },
   unrecognised: {
     title: 'Not sure',
@@ -95,10 +95,10 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
       {/* The page starts at its content.
           ⚖ The sentence survives whole. These are strangers&apos; government
           IDs and the only control is a permanent delete with no undo. */}
-      <PageMasthead title="Vendor verification documents" />
+      <PageMasthead title="Supplier verification documents" />
       <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
-        What vendors uploaded to prove who they are — government IDs, permits, bank proofs.
-        Each file is checked against every vendor record: if nothing points at it any more,
+        What suppliers uploaded to prove who they are — government IDs, permits, bank proofs.
+        Each file is checked against every supplier record: if nothing points at it any more,
         it is left over and you can remove it. Deleting is permanent and there is no undo.
       </p>
 

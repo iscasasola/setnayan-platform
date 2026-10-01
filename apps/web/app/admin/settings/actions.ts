@@ -30,6 +30,7 @@ import {
   type ReceivingAccount,
 } from '@/lib/payment-channels';
 import { formatCount } from '@/lib/format-number';
+import { logRefusal, plainRefusal } from '@/lib/admin/plain-refusal';
 
 /**
  * Admin settings server actions — V2 publisher posture, split flows.
@@ -142,7 +143,7 @@ export async function saveBusinessIdentity(formData: FormData) {
     .update(payload)
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(error.message)}`);
+    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
   }
 
   // Vendor VALIDATE destinations (migration 20270503417266) — saved in a
@@ -164,7 +165,7 @@ export async function saveBusinessIdentity(formData: FormData) {
   if (validateErr) {
     return redirect(
       `/admin/settings?error=${encodeURIComponent(
-        `Business identity saved, but the VALIDATE contact fields couldn't save (is migration 20270503417266 applied?): ${validateErr.message}`,
+        `Business identity saved, but the VALIDATE contact fields couldn't save. Try again, and tell the developers if it repeats.${logRefusal('AdminSettingsActions (VALIDATE contacts)', validateErr)}`,
       )}`,
     );
   }
@@ -232,7 +233,7 @@ export async function saveLoaderAppearance(formData: FormData) {
     })
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(error.message)}`);
+    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
   }
 
   revalidateTag(LOADER_SETTINGS_TAG);
@@ -358,7 +359,7 @@ async function saveReceivingAccount(
   if (intent === 'account_toggle') {
     const next = list.map((a, i) => (i === at ? { ...a, enabled: formData.get('enabled') === '1' } : a));
     const { error } = await writeAccountList(admin, next);
-    if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+    if (error) return backToPaymentMethods(`error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
     revalidatePath(PAYMENT_METHODS_PATH);
     return backToPaymentMethods('saved=1');
   }
@@ -369,7 +370,7 @@ async function saveReceivingAccount(
     const next = [...list];
     [next[at], next[to]] = [next[to]!, next[at]!];
     const { error } = await writeAccountList(admin, next);
-    if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+    if (error) return backToPaymentMethods(`error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
     revalidatePath(PAYMENT_METHODS_PATH);
     return backToPaymentMethods('saved=1');
   }
@@ -386,7 +387,7 @@ async function saveReceivingAccount(
       admin,
       list.filter((_, i) => i !== at),
     );
-    if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+    if (error) return backToPaymentMethods(`error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
     // The picture goes only AFTER the list stopped pointing at it.
     if (removed.qrUrl) await deletePublicAsset({ publicUrl: removed.qrUrl });
     const { error: auditErr } = await admin.from('admin_audit_log').insert({
@@ -417,7 +418,7 @@ async function saveReceivingAccount(
   if (stored && (stored.label !== label || stored.kind !== kind)) {
     next = list.map((a, i) => (i === at ? { ...a, label, kind } : a));
     const { error } = await writeAccountList(admin, next);
-    if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+    if (error) return backToPaymentMethods(`error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
   }
 
   // ── VENDOR AGREEMENT § 9.1 · where money lands takes two admins ──────────
@@ -447,7 +448,7 @@ async function saveReceivingAccount(
     expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   });
   if (reqErr) {
-    return backToPaymentMethods(`error=${encodeURIComponent(`Could not open the approval: ${reqErr.message}`)}`);
+    return backToPaymentMethods(`error=${encodeURIComponent(`${plainRefusal('AdminSettingsActions (open approval)', reqErr, 'open the approval')}`)}`);
   }
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'payment_account_change_requested',
@@ -543,7 +544,7 @@ export async function savePaymentInstruments(formData: FormData) {
   }
 
   const { error } = await admin.from('platform_settings').update(payload).eq('id', 1);
-  if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+  if (error) return backToPaymentMethods(`error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
 
   revalidatePath(PAYMENT_METHODS_PATH);
   revalidatePath('/receipts', 'layout');
@@ -661,7 +662,7 @@ export async function uploadMerchantQr(formData: FormData) {
     expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   });
   if (reqErr) {
-    return backToPaymentMethods(`error=${encodeURIComponent(`Could not open the approval: ${reqErr.message}`)}`);
+    return backToPaymentMethods(`error=${encodeURIComponent(`${plainRefusal('AdminSettingsActions (open approval)', reqErr, 'open the approval')}`)}`);
   }
 
   const { error: qrAuditErr } = await admin.from('admin_audit_log').insert({
@@ -707,7 +708,7 @@ export async function removeMerchantQr(formData: FormData) {
     list.map((a) => (a.id === kind ? { ...a, qrUrl: null, qrPayload: null } : a)),
     isLegacyRail(kind) ? { [qrColumn(kind)]: null, [qrPayloadColumn(kind)]: null } : {},
   );
-  if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+  if (error) return backToPaymentMethods(`error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
 
   if (existingUrl) {
     await deletePublicAsset({ publicUrl: existingUrl });
@@ -864,7 +865,7 @@ export async function executePaymentAccountChange(
           ? { bdo_account_name: accountName, bdo_account_number: number }
           : {};
     const { error } = await writeAccountList(admin, next, legacy);
-    if (error) throw new Error(`Payment account update failed: ${error.message}`);
+    if (error) throw new Error(plainRefusal('AdminSettingsActions (payment accounts)', error, 'update the payment accounts'));
 
     await recordBothAdmins('payment_account_changed', { account: acc });
     revalidatePath(PAYMENT_METHODS_PATH);
@@ -900,7 +901,7 @@ export async function executePaymentAccountChange(
       .map(patch('bdo', 'bdo_account_name', 'bdo_account_number'));
 
     const { error } = await writeAccountList(admin, next, { ...fields });
-    if (error) throw new Error(`Payment account update failed: ${error.message}`);
+    if (error) throw new Error(plainRefusal('AdminSettingsActions (payment accounts)', error, 'update the payment accounts'));
 
     await recordBothAdmins('payment_account_changed', { fields });
     revalidatePath(PAYMENT_METHODS_PATH);
@@ -922,7 +923,7 @@ export async function executePaymentAccountChange(
         ? { [qrColumn(rail)]: body.url, [qrPayloadColumn(rail)]: body.qr_payload ?? null }
         : {},
     );
-    if (error) throw new Error(`Payment QR update failed: ${error.message}`);
+    if (error) throw new Error(plainRefusal('AdminSettingsActions (payment QR)', error, 'update the payment QR'));
 
     // Clean up the superseded image only AFTER the row points at the new one,
     // so a failure above can never leave the page with no QR at all.
@@ -1040,8 +1041,8 @@ export async function uploadBrandIcon(formData: FormData) {
         : Promise.resolve<string | null>(null),
     ]);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Upload failed';
-    settingsError(`Couldn't save the icon to storage: ${message}`);
+    // The failure's own words go to the log, not to the person.
+    settingsError(plainRefusal('AdminSettingsActions (icon upload)', err, 'save the icon to storage'));
   }
 
   const admin = createAdminClient();
@@ -1067,7 +1068,7 @@ export async function uploadBrandIcon(formData: FormData) {
     })
     .eq('id', 1);
   if (error) {
-    settingsError(error.message);
+    settingsError(plainRefusal('AdminSettingsActions', error));
   }
 
   // Best-effort cleanup of the previous icon set.
@@ -1120,7 +1121,7 @@ export async function removeBrandIcon() {
     })
     .eq('id', 1);
   if (error) {
-    settingsError(error.message);
+    settingsError(plainRefusal('AdminSettingsActions', error));
   }
 
   for (const col of [

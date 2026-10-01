@@ -132,11 +132,11 @@ export default async function AdminOverview() {
       key: 'trust',
       label: 'Trust & supply',
       tiles: [
-        queueTile('verify', 'Vendors to verify', 'Applications awaiting review', '/admin/verify'),
+        queueTile('verify', 'Suppliers to verify', 'Applications awaiting review', '/admin/verify'),
         queueTile(
           'vendor-partnerships',
           'Partnerships',
-          'Vendor-to-vendor claims to verify',
+          'Supplier-to-supplier claims to verify',
           '/admin/vendor-partnerships',
         ),
         {
@@ -155,7 +155,7 @@ export default async function AdminOverview() {
         queueTile(
           'payment-options',
           'Payment options',
-          'Vendor bank/QR links to screen',
+          'Supplier bank/QR links to screen',
           '/admin/payment-options',
         ),
         /* ADDED 2026-08-25. These four queues were given counts on 2026-08-19
@@ -176,11 +176,11 @@ export default async function AdminOverview() {
       label: 'Money to reconcile',
       tiles: [
         queueTile('payments', 'Payments to confirm', 'Awaiting reconciliation', '/admin/payments?filter=pending'),
-        queueTile('payouts', 'Payouts to release', 'Verified T+1 schedule', '/admin/payouts'),
+        queueTile('payouts', 'Old supplier payouts', 'Closed history — nothing new', '/admin/payouts'),
         queueTile(
           'subscriptions',
           'Subscriptions',
-          'Vendor Pro / Enterprise to confirm',
+          'Supplier Pro / Enterprise to confirm',
           '/admin/subscriptions',
         ),
         queueTile('booking-fees', 'Fees to sync', 'Suppliers who have not paid to sync', '/admin/booking-fees'),
@@ -190,7 +190,7 @@ export default async function AdminOverview() {
       key: 'recourse',
       label: 'Recourse',
       tiles: [
-        queueTile('disputes', 'Open disputes', 'Couple ↔ vendor conflicts', '/admin/disputes?status=open'),
+        queueTile('disputes', 'Open disputes', 'Couple ↔ supplier conflicts', '/admin/disputes?status=open'),
         queueTile('force-majeure', 'Force majeure', 'Event-impacting flags', '/admin/force-majeure'),
         queueTile('reviews', 'Review appeals', 'Self-review claims pending', '/admin/reviews?filter=pending'),
         queueTile('concierge-abuse', 'Setnayan AI abuse', 'Trial-cycling flags', '/admin/concierge-abuse'),
@@ -617,7 +617,7 @@ export default async function AdminOverview() {
             href="/admin/fraud"
             icon="shield-check"
             title="Fraud queue"
-            body="Vendor fraud signals + enforcement to review."
+            body="Supplier fraud signals + enforcement to review."
           />
           <Tile
             href="/admin/repost-watch"
@@ -629,7 +629,7 @@ export default async function AdminOverview() {
             href="/admin/pax-changes"
             icon="users"
             title="Pax changes"
-            body="Guest-count-driven vendor cost changes to review."
+            body="Guest-count-driven supplier cost changes to review."
           />
           <Tile
             href="/admin/pakanta"
@@ -649,9 +649,9 @@ export default async function AdminOverview() {
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiStatCard label="All users" value={users} />
         <KpiStatCard label="Couples" value={couples} />
-        <KpiStatCard label="Vendor users" value={vendors} />
+        <KpiStatCard label="Supplier users" value={vendors} />
         <KpiStatCard label="Events" value={events} />
-        <KpiStatCard label="Vendor profiles" value={vendorProfiles} />
+        <KpiStatCard label="Supplier profiles" value={vendorProfiles} />
         <KpiStatCard label="Chat threads" value={threads} />
         <KpiStatCard label="Internal accounts" value={internal} />
         <KpiStatCard label="Team Pool" value={teamPool} />
@@ -708,7 +708,7 @@ export default async function AdminOverview() {
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Tile href="/admin/users" icon="users" title="Users" body="Search, filter, flag team-pool members." />
         <Tile href="/admin/events" icon="calendar" title="Events" body="All events in the system + couple-side stats." />
-        <Tile href="/admin/vendors" icon="briefcase" title="Vendors" body="Every vendor_profile + published status." />
+        <Tile href="/admin/vendors" icon="briefcase" title="Suppliers" body="Every supplier shop and whether it is published." />
         <Tile href="/admin/patiktok" icon="camera" title="Patiktok renders" body="Client-side reel render queue + failures." />
         <Tile href="/admin/integrations" icon="layout-grid" title="Integrations" body="Turn email + integrations on without a redeploy." />
         <Tile href="/admin/secrets" icon="shield-check" title="Secrets & Rotation" body="Every platform key, its age, and how to replace it." />
@@ -716,13 +716,13 @@ export default async function AdminOverview() {
           href="/admin/verify"
           icon="shield-check"
           title="Verification queue"
-          body="Approve registered vendors → flip Coming soon to Verified."
+          body="Approve registered suppliers → flip Coming soon to Verified."
         />
         <Tile
           href="/admin/payouts"
           icon="wallet"
-          title="Vendor payouts"
-          body="Verified T+1 · coming-soon 20/60/20 release schedule + dispute holds."
+          title="Supplier payouts"
+          body="Closed history of older payouts — nothing new arrives here."
         />
         <Tile
           href="/admin/website"
@@ -734,7 +734,7 @@ export default async function AdminOverview() {
           href="/admin/moodboard-library"
           icon="layout-grid"
           title="Moodboard library"
-          body="Upload + tag template photos for Visual preview pillars (0010 · locked 2026-05-21)."
+          body="Upload + tag template photos for Visual preview pillars."
         />
       </section>
     </div>
@@ -763,7 +763,7 @@ const ACTION_PHRASES: Record<string, string> = {
   site_widgets_reorder: 'reordered marketing-site widgets',
   ceremony_type_set: 'set a wedding ceremony type',
   ceremony_type_updated: 'updated a wedding ceremony type',
-  demo_vendors_create_start: 'started creating demo vendors',
+  demo_vendors_create_start: 'started creating demo suppliers',
   user_team_member_toggle: 'changed a team-pool flag',
   approval_request_created: 'requested a two-admin approval',
   approval_execute_failed: 'hit a failed two-admin action',

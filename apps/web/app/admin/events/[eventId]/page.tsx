@@ -252,7 +252,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
         <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-xs text-ink/60">Type</dt>
-            <dd className="text-ink">{(ev.event_type as string | null) ?? 'wedding'}</dd>
+            <dd className="text-ink">{(ev.event_type as string | null) ?? '—'}</dd>
           </div>
           <div>
             <dt className="text-xs text-ink/60">Date</dt>

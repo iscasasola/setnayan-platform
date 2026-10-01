@@ -38,6 +38,8 @@ import {
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../_components/read-failed';
 import { formatCount } from '@/lib/format-number';
 export const metadata = { title: "Setnayan AI enforcement · Admin" };
 
@@ -122,6 +124,21 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
         .limit(100),
     ]);
 
+  // 🔑 A refused read is not an empty queue: "No pending flags. The queue is
+  // clear." over a flag nobody could read is a false all-clear on an
+  // enforcement desk. Each read says for itself whether it failed.
+  const pendingUnread = Boolean(pendingFlagsRes.error);
+  const enforcementUnread = Boolean(enforcementRes.error);
+  const clearedUnread = Boolean(recentClearedRes.error);
+  const confirmedUnread = Boolean(recentConfirmedRes.error);
+  for (const [what, err] of [
+    ['pending flags', pendingFlagsRes.error],
+    ['enforcement list', enforcementRes.error],
+    ['cleared count', recentClearedRes.error],
+    ['confirmed count', recentConfirmedRes.error],
+  ] as const) {
+    if (err) logQueryError(`ConciergeAbusePage (${what})`, err);
+  }
   const pendingFlags = (pendingFlagsRes.data ?? []) as FlagRow[];
   const enforcementUsers = (enforcementRes.data ?? []) as UserBrief[];
 
@@ -166,8 +183,8 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
         </p>
         <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
           <span className="font-semibold">Read-only — retired as a separate concept.</span>{' '}
-          The ₱2,499 Setnayan Concierge SKU was supplanted by the ₱1,499
-          TODAYS_FOCUS one-time SKU on 2026-05-28. Existing flagged users +
+          The Setnayan Concierge product was replaced by the Today’s Focus
+          one-time product on 2026-05-28. Existing flagged users +
           enforcement actions remain valid here for audit + appeal; the V2
           abuse model is being locked separately and will replace this queue
           when it ships.
@@ -183,7 +200,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
               : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
           }`}
         >
-          Pending review ({pendingFlags.length})
+          Pending review ({pendingUnread ? '—' : pendingFlags.length})
         </Link>
         <Link
           href="/admin/concierge-abuse?tab=enforcement"
@@ -193,7 +210,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
               : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
           }`}
         >
-          Enforcement decisions ({enforcementUsers.length})
+          Enforcement decisions ({enforcementUnread ? '—' : enforcementUsers.length})
         </Link>
       </nav>
 
@@ -233,26 +250,32 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Metric
           label="Pending review"
-          value={pendingFlags.length.toString()}
+          value={pendingUnread ? '—' : pendingFlags.length.toString()}
           tone="bg-danger-50 text-danger-900 border-danger-200/60"
           icon={<AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
         />
         <Metric
           label="Cleared (last 7d)"
-          value={clearedCount.toString()}
+          value={clearedUnread ? '—' : clearedCount.toString()}
           tone="bg-success-50 text-success-900 border-success-200/60"
           icon={<ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
         />
         <Metric
           label="Confirmed (last 7d)"
-          value={confirmedCount.toString()}
+          value={confirmedUnread ? '—' : confirmedCount.toString()}
           tone="bg-warn-50 text-warn-900 border-warn-200/60"
           icon={<ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
         />
       </div>
 
       {tab === 'queue' ? (
-        <QueueTab flags={pendingFlags} usersById={usersById} />
+        pendingUnread ? (
+          <ReadFailed what="the pending flags" />
+        ) : (
+          <QueueTab flags={pendingFlags} usersById={usersById} />
+        )
+      ) : enforcementUnread ? (
+        <ReadFailed what="the enforcement list" />
       ) : (
         <EnforcementTab users={enforcementUsers} />
       )}

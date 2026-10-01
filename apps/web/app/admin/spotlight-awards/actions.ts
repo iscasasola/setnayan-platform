@@ -77,7 +77,7 @@ export async function recomputeSpotlightAwards(): Promise<void> {
   const total = summary.written.top_pick + summary.written.most_booked;
   back(
     'ok',
-    `Recompute done · ${summary.poolSize} verified vendors scanned · ` +
+    `Recompute done · ${summary.poolSize} verified suppliers scanned · ` +
       `${formatCount(total)} new award${total === 1 ? '' : 's'} written ` +
       `(${summary.written.top_pick} Top Pick · ${summary.written.most_booked} Most Booked)` +
       (summary.adminPreserved > 0
@@ -137,7 +137,7 @@ export async function addAwardManually(formData: FormData): Promise<void> {
   const awardType = String(formData.get('award_type') ?? '') as SpotlightAwardType;
   const period = String(formData.get('period_month') ?? '') || currentPeriodMonth();
 
-  if (!UUID_RE.test(vendorId)) back('error', 'Enter a valid vendor profile ID (UUID).');
+  if (!UUID_RE.test(vendorId)) back('error', 'Enter a valid supplier profile ID (UUID).');
   if (!AWARD_TYPES.has(awardType)) back('error', 'Invalid award type.');
 
   const admin = createAdminClient();
@@ -148,7 +148,7 @@ export async function addAwardManually(formData: FormData): Promise<void> {
     .select('vendor_profile_id, business_name')
     .eq('vendor_profile_id', vendorId)
     .maybeSingle();
-  if (!vendor) back('error', 'No vendor profile with that ID.');
+  if (!vendor) back('error', 'No supplier profile with that ID.');
 
   const { error } = await admin.from('vendor_spotlight_awards').upsert(
     {

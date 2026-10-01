@@ -356,7 +356,7 @@ export async function PricingSurface(_props: Props) {
         the collision is exactly how the wrong number gets edited.
       */}
       <section className="mt-10">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">Vendor booking fee</h2>
+        <h2 className="mb-1 text-base font-semibold tracking-tight">Supplier booking fee</h2>
         <p className="mb-3 max-w-prose text-sm text-ink/60">
           What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set:
           the rate below the threshold, the threshold itself, and the rate above it. The minimum

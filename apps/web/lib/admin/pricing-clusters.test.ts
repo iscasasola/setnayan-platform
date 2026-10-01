@@ -63,11 +63,11 @@ test('an unknown product still gets a shelf — it never vanishes', () => {
 });
 
 test('vendor plans and vendor add-ons are separated', () => {
-  assert.equal(clusterForVendor('subscription_monthly'), 'Vendor plans');
-  assert.equal(clusterForVendor('subscription_annual'), 'Vendor plans');
-  assert.equal(clusterForVendor('vendor_addon_recurring'), 'Vendor add-ons');
-  assert.equal(clusterForVendor('vendor_addon_metered'), 'Vendor add-ons');
-  assert.equal(clusterForVendor('branch'), 'Vendor add-ons');
+  assert.equal(clusterForVendor('subscription_monthly'), 'Supplier plans');
+  assert.equal(clusterForVendor('subscription_annual'), 'Supplier plans');
+  assert.equal(clusterForVendor('vendor_addon_recurring'), 'Supplier add-ons');
+  assert.equal(clusterForVendor('vendor_addon_metered'), 'Supplier add-ons');
+  assert.equal(clusterForVendor('branch'), 'Supplier add-ons');
 });
 
 test('the ladder is exactly the credit rungs — not everything named Papic', () => {

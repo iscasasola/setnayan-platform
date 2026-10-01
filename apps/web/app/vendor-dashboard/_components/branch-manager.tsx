@@ -17,11 +17,7 @@ import { useRouter } from 'next/navigation';
 import { Building2, MapPin, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
-import {
-  PAY_CHANNEL_LABEL,
-  type OpenRailDetails,
-  type PayChannel,
-} from '@/lib/payment-channels';
+import { type OpenRail, type OpenRailDetails } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from './payments-paused-note';
 import { Collapsible } from './collapsible';
 import { BranchPinMap, type LatLng } from './branch-pin-map';
@@ -127,28 +123,25 @@ export function BranchManager({
             <span className="font-medium">reference code</span> in the transfer note so
             our team can match it (confirmed within 24 hours).
           </p>
-          {!pay.bdoNumber && !pay.gcashNumber ? <PaymentsPausedNote /> : null}
+          {pay.accounts.every((a) => !a.number) ? <PaymentsPausedNote /> : null}
           <dl className="grid gap-2 text-xs sm:grid-cols-2">
-            {pay.bdoNumber ? (
-              <div className="rounded-lg border bg-white p-2.5" style={{ borderColor: 'var(--m-line)' }}>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">BDO</dt>
-                <dd className="mt-0.5 text-ink">
-                  {pay.bdoName ?? 'Setnayan'}
-                  <br />
-                  <span className="font-mono">{pay.bdoNumber}</span>
-                </dd>
-              </div>
-            ) : null}
-            {pay.gcashNumber ? (
-              <div className="rounded-lg border bg-white p-2.5" style={{ borderColor: 'var(--m-line)' }}>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">GCash</dt>
-                <dd className="mt-0.5 text-ink">
-                  {pay.gcashName ?? 'Setnayan'}
-                  <br />
-                  <span className="font-mono">{pay.gcashNumber}</span>
-                </dd>
-              </div>
-            ) : null}
+            {/* Only OPEN accounts arrive here (openRailDetails), in the admin's order. */}
+            {pay.accounts
+              .filter((a) => a.number)
+              .map((a) => (
+                <div
+                  key={a.id}
+                  className="rounded-lg border bg-white p-2.5"
+                  style={{ borderColor: 'var(--m-line)' }}
+                >
+                  <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">{a.label}</dt>
+                  <dd className="mt-0.5 text-ink">
+                    {a.accountName ?? 'Setnayan'}
+                    <br />
+                    <span className="font-mono">{a.number}</span>
+                  </dd>
+                </div>
+              ))}
           </dl>
         </section>
       ) : null}
@@ -193,7 +186,7 @@ function AddBranchForm({
   feePhp: number;
   autoRadiusKm: number;
   initialCenter: LatLng;
-  openRails: readonly PayChannel[];
+  openRails: readonly OpenRail[];
   onDone: () => void;
   toastSuccess: (m: string) => void;
   toastError: (m: string) => void;
@@ -316,13 +309,11 @@ function AddBranchForm({
           <span className="block text-xs font-medium text-ink/70">Pay with</span>
           <select name="channel" className="input-field cursor-pointer">
             {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
-            {(['bdo', 'gcash'] as const)
-              .filter((r) => openRails.includes(r))
-              .map((r) => (
-                <option key={r} value={r}>
-                  {r === 'bdo' ? 'BDO bank transfer' : PAY_CHANNEL_LABEL[r]}
-                </option>
-              ))}
+            {openRails.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label}
+              </option>
+            ))}
           </select>
         </label>
       ) : (

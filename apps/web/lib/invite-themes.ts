@@ -650,55 +650,31 @@ export function themeMediaKey(ref: string): string | null {
 }
 
 /**
- * 🔒 WEDDINGS ONLY, FOR NOW (owner Q7 = A, 2026-09-11 · DECISION_LOG "the seven
- * invite-theme questions"): *"the event types that carry the Save-the-Date film,
- * the same fence the reveal uses. Every other celebration gets House."*
- *
- * The fence guards the PRO themes only. A free theme passes it the way Classic
- * always has — so since 2026-09-29 a birthday may wear Modern or Cyber Neon too
- * (they are free for everyone; the fence was never asked of a free theme).
- *
- * The caller measures it — `resolveWeddingOnlyParts(profile).save_the_date_film`
- * — and hands the answer in, for the same reason `ownsPro` is a boolean and not
- * an event id: a gate that can only ever answer one way is indistinguishable, in
- * the render, from a gate that works.
- *
- * ⛔ IT IS NOT A SECOND OPINION ABOUT THE REVEAL. `lib/invite-reveal.ts` asks
- * whether a reveal may PLAY NOW (a calendar question, on the venue's clock);
- * this asks only whether this KIND of celebration has a Save-the-Date film at
- * all. Same profile answer, two different questions — do not collapse them, and
- * do not restate `cinematicRevealPlays` here.
- *
- * NOT optional. A default of `true` would let a birthday through on the day
- * somebody forgets to pass it, and that failure renders as a working page.
+ * 🎨 EVERY EVENT TYPE MAY WEAR EVERY THEME — Pro ones stay Pro (owner,
+ * 2026-10-01, DECISION_LOG "PRO THEMES OPEN TO EVERY EVENT TYPE (STILL PRO)":
+ * *"both"*). This used to be a wedding-only fence on the Pro themes (Q7 = A,
+ * 2026-09-11, the Save-the-Date-film fence); it is retired. A birthday, a
+ * hangout or a wake can pick any theme; a Pro one still needs Event Hub Pro to
+ * APPLY (◆, and trying it is never blocked). The Save-the-Date FILM itself keeps
+ * its own wedding-only fence (`resolveWeddingOnlyParts`) — that is about a film,
+ * not a look. No theme changed.
  */
-type WeddingFence = {
-  /** `resolveWeddingOnlyParts(profile).save_the_date_film`. */
-  mayShowStdFilm: boolean;
-};
 
-/**
- * Free themes are for everyone — every celebration, with or without the unlock,
- * exactly as Classic always was; a Pro theme needs the unlock AND the fence.
- */
-function themeIsAvailable(
-  theme: InviteTheme,
-  input: { ownsPro: boolean } & WeddingFence,
-): boolean {
+/** A free theme is for everyone; a Pro theme needs the unlock — for any event type. */
+function themeIsAvailable(theme: InviteTheme, input: { ownsPro: boolean }): boolean {
   if (!theme.ready) return false;
   if (theme.tier === 'free') return true;
-  return input.ownsPro && input.mayShowStdFilm;
+  return input.ownsPro;
 }
 
 /**
- * The theme a guest actually sees. House (Classic) unless the couple SAVED a
+ * The theme a guest actually sees. House (Classic) unless the host SAVED a
  * theme — a retired id read as its alias — and, for a Pro theme, the event holds
- * Event Hub Pro right now AND its type may carry the Save-the-Date film. A lapse
- * (of either) falls back to House and the choice is restored when it returns,
- * with no write in between.
+ * Event Hub Pro right now. A lapse falls back to House and the choice is
+ * restored when it returns, with no write in between.
  */
 export function resolveInviteTheme(
-  input: { saved: unknown; ownsPro: boolean } & WeddingFence,
+  input: { saved: unknown; ownsPro: boolean },
 ): InviteThemeId {
   const id = normalizeThemeId(input.saved);
   if (!id) return 'house';
@@ -713,9 +689,9 @@ export function resolveInviteTheme(
  * their feel once, so they are not asked about style twice.
  */
 export function suggestedInviteTheme(
-  input: { saved: unknown; moodFeelKey: unknown; ownsPro: boolean } & WeddingFence,
+  input: { saved: unknown; moodFeelKey: unknown; ownsPro: boolean },
 ): InviteThemeId {
-  // ⚠ THE SAVED VALUE GOES THROUGH THE FENCE TOO — a radio pre-selected on a
+  // ⚠ THE SAVED VALUE GOES THROUGH THE SAME RULE — a radio pre-selected on a
   // theme their guests are not being shown is the picker contradicting the door.
   const saved = normalizeThemeId(input.saved);
   if (saved && themeIsAvailable(INVITE_THEMES[saved], input)) return saved;
@@ -729,17 +705,14 @@ export function suggestedInviteTheme(
 /**
  * 💡 "SUGGESTED FOR YOU" (owner 2026-09-28, verbatim: *"4 keep it"* — DECISION_LOG
  * "DETAILS IS THE ONE FILL-IN AREA…" answer 4): the ONE theme whose feels hold
- * the couple's onboarding feel (`events.mood_feel_key`), among the themes this
- * celebration may wear. A LABEL in the Details gallery — it applies nothing, and
+ * the couple's onboarding feel (`events.mood_feel_key`), among the shipped themes. A LABEL in the Details gallery — it applies nothing, and
  * unlike `suggestedInviteTheme` it never falls back: no feel, or no theme that
  * matches it, is no label. Pro does not hide it: a free couple may try a Pro
  * theme in the draft (Apply asks for Pro).
  */
-export function themeMatchingFeel(feel: unknown, fence: WeddingFence): InviteThemeId | null {
+export function themeMatchingFeel(feel: unknown): InviteThemeId | null {
   if (typeof feel !== 'string' || !feel) return null;
-  const match = HUB_THEMES.find(
-    (t) => t.ready && t.feels.includes(feel) && (t.tier === 'free' || fence.mayShowStdFilm),
-  );
+  const match = HUB_THEMES.find((t) => t.ready && t.feels.includes(feel));
   return match?.id ?? null;
 }
 
@@ -747,12 +720,11 @@ export function themeMatchingFeel(feel: unknown, fence: WeddingFence): InviteThe
  * The themes a couple can pick right now, in the one order (`INVITE_THEME_IDS`:
  * the free three first, then Pro by loop size). Filtered, never re-sorted.
  *
- * The free themes (`FREE_THEMES`) are pickable for every celebration, the way
- * Classic always was. Pro themes are LISTED-BUT-DISABLED for a couple who simply has not bought the
- * unlock — *"never hidden, so a couple knows what they would get"*. They are
- * absent entirely where the event TYPE cannot have them (Q7 = A), and — the
- * caller's job — inside the store shell, where Pro is hidden, not locked.
+ * Every celebration may pick every theme. Pro themes are LISTED-BUT-DISABLED for
+ * a host who simply has not bought the unlock — *"never hidden, so a host knows
+ * what they would get"* — and, the caller's job, hidden inside the store shell,
+ * where Pro is hidden, not locked.
  */
-export function pickableInviteThemes(input: WeddingFence): InviteTheme[] {
-  return HUB_THEMES.filter((t) => t.ready && (t.tier === 'free' || input.mayShowStdFilm));
+export function pickableInviteThemes(): InviteTheme[] {
+  return HUB_THEMES.filter((t) => t.ready);
 }

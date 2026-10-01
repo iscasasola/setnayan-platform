@@ -53,12 +53,12 @@ test('1 · Classic · Modern · Cyber Neon first, then Pro lightest loop to heav
 });
 
 test('2a · the Details picker and the store shell read the one order — filtered, never re-sorted', () => {
-  for (const mayShowStdFilm of [true, false]) {
-    const ids = pickableInviteThemes({ mayShowStdFilm }).map((t) => t.id);
-    assert.deepEqual(ids, ORDER.filter((id) => ids.includes(id)), `pickable order (fence ${mayShowStdFilm})`);
+  {
+    const ids = pickableInviteThemes().map((t) => t.id);
+    assert.deepEqual(ids, ORDER.filter((id) => ids.includes(id)), 'pickable order');
     assert.deepEqual(ids.slice(0, 3), ['house', 'galeriya', 'cyber'], 'the free three are not first');
   }
-  const all = pickableInviteThemes({ mayShowStdFilm: true });
+  const all = pickableInviteThemes();
   for (const [ownsPro, storeShell] of [[false, false], [true, false], [false, true], [true, true]] as const) {
     // Whatever theme is current (a "suggested" or saved one included), nothing moves.
     for (const current of ['house', 'whimsical', 'gatsby']) {

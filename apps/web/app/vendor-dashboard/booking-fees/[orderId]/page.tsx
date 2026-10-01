@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { isChannelOpen } from '@/lib/payment-channels';
+import { openAccounts } from '@/lib/payment-channels';
 import { payPath } from '@/lib/pay-path';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Send } from 'lucide-react';
@@ -87,10 +87,8 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   const feeWords = qrWords(
     everyOpenRailCarriesAmount({
       amountPhp: totals.headlineTotal,
-      rails: [
-        { open: isChannelOpen(settings, 'gcash'), payload: settings.gcash_qr_payload },
-        { open: isChannelOpen(settings, 'bdo'), payload: settings.bdo_qr_payload },
-      ],
+      // Every OPEN receiving account, as /pay will render them.
+      rails: openAccounts(settings).map((a) => ({ open: true, payload: a.qrPayload })),
     }),
     payAmount(totals.headlineTotal),
     { reference: order.reference_code },

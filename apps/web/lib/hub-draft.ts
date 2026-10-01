@@ -1860,8 +1860,6 @@ export type HubDraftRefusal =
   | 'not_your_photo'
   | 'empty_section'
   | 'missing_section'
-  /** 🎨 A Pro theme on a celebration that may not wear one (weddings only, owner Q7 = A). */
-  | 'not_for_this_celebration'
   /** 🗓 A drafted date that has already gone by (`eventDateRefusal` → `in_past`). */
   | 'date_in_past'
   /** 🗓 A drafted date a booked supplier holds (`eventDateRefusal` → `locked` · `widens`). */

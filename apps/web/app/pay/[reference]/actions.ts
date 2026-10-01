@@ -11,6 +11,8 @@ import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { receivingAccounts } from '@/lib/payment-channels';
 
 /**
  * The one proof submission, for every purchase.
@@ -146,7 +148,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     back(
       reference,
       'error',
-      'Add the reference number from your BDO or GCash confirmation — we need it to match your payment.',
+      'Add the reference number from your bank or e-wallet confirmation — we need it to match your payment.',
     );
   }
 
@@ -155,8 +157,17 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   // matching `channel === 'gcash'` / `'bdo'` EXACTLY; anything else scores the
   // payment as ₱0 against the cap, so the meter reads clear while the account
   // fills up. 'GCash'/'BDO' looked nicer and was silently unreadable.
-  const channelRaw = formData.get('channel');
-  const channel = channelRaw === 'bdo' ? 'bdo' : channelRaw === 'gcash' ? 'gcash' : 'bank_transfer';
+  //
+  // 🔑 AND IT IS AN ACCOUNT ID FROM THE LIST (owner 2026-10-01: the receiving
+  // accounts are a list now). Any account Setnayan has — open or since switched
+  // off, because somebody may have paid it before the switch — is recorded by
+  // its id; anything else is the generic 'bank_transfer', never a free string.
+  const channelRaw = String(formData.get('channel') ?? '').trim();
+  const channel = receivingAccounts(await fetchPlatformSettings(supabase)).some(
+    (a) => a.id === channelRaw,
+  )
+    ? channelRaw
+    : 'bank_transfer';
 
   const idempotencyRaw = formData.get('client_idempotency_key');
   const idempotencyKey =

@@ -44,7 +44,10 @@ import {
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-import { getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { fetchPlatformSettingsMeasured, getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { receivingAccounts, type ReceivingAccount } from '@/lib/payment-channels';
+import { canLogPaymentAgainstOrder } from '@/lib/order-promotion-rule';
+import { randomUUID } from 'node:crypto';
 import { computeVatFromBase } from '@/lib/receipts';
 import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -279,6 +282,13 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     }
   }
 
+  // ── RECORD A PAYMENT RECEIVED (owner 2026-10-01) ──────────────────────────
+  // Offered only when the search names EXACTLY ONE order — the number on the
+  // customer's email or our own id — so the money can only land on the order
+  // the admin looked up. A refused read says so; it never hides the form
+  // silently or offers it against a guess.
+  const record = q && filter !== 'orders_needing_quote' ? await fetchRecordTarget(admin, q) : null;
+
   // Pre-resolve every payment-proof screenshot to a short-lived presigned GET
   // URL, keyed by payment_id. Payment proofs live in the PRIVATE thread-files
   // bucket, so the stored `r2://…` ref is NOT publicly readable — it must be
@@ -421,6 +431,8 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           <PlatformChip activePlatform={platformFilter} filter={filter} target="android" label="Android app" />
         </nav>
       ) : null}
+
+      {record ? <RecordPaymentCard record={record} query={qDisplay} /> : null}
 
       {filter === 'orders_needing_quote' ? (
         <OrdersNeedingQuote
@@ -934,6 +946,7 @@ function PaymentsList({
                   */
                   <form action={approvePayment} className="space-y-1">
                     <input type="hidden" name="payment_id" value={p.payment_id} />
+                    <input type="hidden" name="q" value={query} />
                     <input type="hidden" name="promote_order" value="on" />
                     <SubmitButton
                       className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-success-700 px-4 py-1.5 text-sm font-semibold text-cream hover:bg-success-800 disabled:opacity-70"
@@ -956,6 +969,7 @@ function PaymentsList({
                     className="space-y-2"
                   >
                     <input type="hidden" name="payment_id" value={p.payment_id} />
+                    <input type="hidden" name="q" value={query} />
                     <input
                       name="admin_notes"
                       placeholder="Optional note (e.g. bank confirmed at 14:32)"
@@ -1808,5 +1822,140 @@ function ReceiptReadCard({
         </p>
       ) : null}
     </div>
+  );
+}
+
+type RecordTarget =
+  | { kind: 'readFailed' }
+  | {
+      kind: 'order';
+      orderId: string;
+      publicId: string | null;
+      referenceCode: string | null;
+      description: string | null;
+      totalPhp: number | null;
+      status: string;
+      accounts: ReceivingAccount[];
+    };
+
+/**
+ * The ONE order a search names exactly, plus Setnayan's receiving accounts.
+ * `null` = the search names no single order (nothing to offer). A refused read
+ * is its own answer, rendered as such — never as "no such order".
+ */
+async function fetchRecordTarget(
+  admin: ReturnType<typeof createAdminClient>,
+  q: string,
+): Promise<RecordTarget | null> {
+  // ilike WITHOUT wildcards = a case-insensitive EXACT match; `q` is already
+  // narrowed to [A-Za-z0-9@_-], so it cannot re-parse as extra filters.
+  const { data, error } = await admin
+    .from('orders')
+    .select('order_id, public_id, reference_code, description, requested_total_php, confirmed_total_php, status')
+    .or(`public_id.ilike.${q},reference_code.ilike.${q}`)
+    .limit(2);
+  if (error) {
+    logQueryError('admin/payments: record target', error, { q });
+    return { kind: 'readFailed' };
+  }
+  const rows = (data ?? []) as Array<{
+    order_id: string;
+    public_id: string | null;
+    reference_code: string | null;
+    description: string | null;
+    requested_total_php: number | null;
+    confirmed_total_php: number | null;
+    status: string;
+  }>;
+  if (rows.length !== 1) return null;
+  const o = rows[0]!;
+  const { settings, readFailed, accountsReadFailed } = await fetchPlatformSettingsMeasured(admin);
+  if (readFailed || accountsReadFailed) return { kind: 'readFailed' };
+  return {
+    kind: 'order',
+    orderId: o.order_id,
+    publicId: o.public_id,
+    referenceCode: o.reference_code,
+    description: o.description,
+    totalPhp: o.confirmed_total_php ?? o.requested_total_php,
+    status: o.status,
+    accounts: receivingAccounts(settings),
+  };
+}
+
+/**
+ * "Money arrived that nobody logged." Records it in the customer's own shape
+ * and confirms it through the same approval path (approvePayment · intent=record).
+ */
+function RecordPaymentCard({ record, query }: { record: RecordTarget; query: string }) {
+  if (record.kind === 'readFailed') {
+    return (
+      <p role="alert" className="mb-6 rounded-card bg-[var(--sn-warning-soft)] px-4 py-3 text-sm text-ink">
+        Couldn&rsquo;t load this order or our accounts, so recording a payment is off for now. Refresh to try again.
+      </p>
+    );
+  }
+  const label = record.publicId ?? record.referenceCode ?? 'this order';
+  if (!canLogPaymentAgainstOrder(record.status)) {
+    return (
+      <p className="mb-6 px-1 text-sm text-ink/70">
+        {label} is &ldquo;{record.status}&rdquo; and is no longer taking payments.
+      </p>
+    );
+  }
+  return (
+    <section className="mb-6 space-y-3 sn-tile p-4" aria-labelledby="record-payment">
+      <div>
+        <h2 id="record-payment" className="text-sm font-semibold text-ink">
+          Record a payment received
+        </h2>
+        <p className="text-xs text-ink/60">
+          Money arrived for <span className="font-mono">{label}</span>? Record it here and it&rsquo;s confirmed.
+          {record.totalPhp != null ? <> Order total {formatPhp(record.totalPhp)}.</> : null}
+        </p>
+      </div>
+      <form action={approvePayment} className="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="intent" value="record" />
+        <input type="hidden" name="order_id" value={record.orderId} />
+        <input type="hidden" name="q" value={query} />
+        {/* One key per render: a double tap or a retry records ONE payment. */}
+        <input type="hidden" name="client_idempotency_key" value={randomUUID()} />
+        <label className="space-y-1 text-xs text-ink/70">
+          Amount received (₱)
+          <input name="amount_php" required inputMode="decimal" className="input-field font-mono" />
+        </label>
+        <label className="space-y-1 text-xs text-ink/70">
+          Paid into
+          <select name="channel" required className="input-field">
+            {record.accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+                {a.enabled ? '' : ' (off)'}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-xs text-ink/70">
+          Date received
+          <input name="paid_at" type="date" className="input-field" />
+        </label>
+        <label className="space-y-1 text-xs text-ink/70">
+          Bank reference
+          <input name="reference_number" maxLength={64} className="input-field font-mono" />
+        </label>
+        <label className="space-y-1 text-xs text-ink/70 sm:col-span-2">
+          Note
+          <input name="admin_notes" maxLength={500} placeholder="e.g. seen in the BDO app at 14:32" className="input-field" />
+        </label>
+        <div className="sm:col-span-2">
+          <SubmitButton
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-mulberry px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-70"
+            pendingLabel="Recording…"
+          >
+            Record and confirm
+          </SubmitButton>
+        </div>
+      </form>
+    </section>
   );
 }

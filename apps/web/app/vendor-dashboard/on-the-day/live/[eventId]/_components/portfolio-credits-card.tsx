@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef } from 'react';
 import { ShoppingBag } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
+import { type OpenRail } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import {
   buyVendorPapicPortfolioPack,
@@ -48,7 +48,7 @@ export function PortfolioCreditsCard({
   /** openChannels(settings) — the rails the owner has left ON. Empty = payments
    *  paused: the buy form gives way to PaymentsPausedNote (the server action
    *  refuses the same case). */
-  openRails: readonly PayChannel[];
+  openRails: readonly OpenRail[];
 }) {
   const toast = useToast();
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
@@ -90,11 +90,9 @@ export function PortfolioCreditsCard({
             aria-label="Pay with"
           >
             {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
-            {(['bdo', 'gcash'] as const)
-              .filter((r) => openRails.includes(r))
-              .map((r) => (
-                <option key={r} value={r}>
-                  {PAY_CHANNEL_LABEL[r]}
+            {openRails.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
                 </option>
               ))}
           </select>

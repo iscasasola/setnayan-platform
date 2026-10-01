@@ -180,101 +180,39 @@ test('the buy page already names the invite link — and must keep naming it', (
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
-   3 · WEDDINGS ONLY (Q7 = A) — the picker offers it, the action refuses it
+   3 · EVERY EVENT TYPE (DECISION_LOG 2026-10-01 "PRO THEMES OPEN TO EVERY EVENT
+   TYPE (STILL PRO)") — the wedding-only fence (Q7 = A) is retired everywhere
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('the picker MEASURES the fence and hands it down — it is never assumed', () => {
-  // 🪤 RE-ANCHORED 2026-09-28: the picker moved to the Maker's Details page;
-  // the Maker page measures the fence and hands the fenced list down.
+test('the picker is handed every theme — no event-type fence is asked', () => {
+  // The Maker page still reads `mayShowStdFilm` for the Save-the-Date film's own
+  // venue field; the THEME rule takes no event type.
   const page = read(LAUNCH);
-  /*
-    🪤 ANCHORED TO THIS CHAIN, NOT TO THE FILE — the page holds other
-    `.catch(() => false)` reads, and a bare match on the string was once
-    satisfied by a different one.
-  */
-  assert.match(
-    page,
-    /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/,
-    'an unreadable profile must fall to the free door, not open a paid one',
-  );
-  assert.match(page, /pickableInviteThemes\(\{ mayShowStdFilm \}\)/, 'the picker is handed themes without asking the fence');
-  // (Since 2026-09-28 the fenced list is `themes`, handed to Details' gallery as `theme={{ themes: … }}`.)
-  assert.match(page, /const themes = pickableInviteThemes\(\{ mayShowStdFilm \}\);/);
-  assert.match(page, /theme=\{\{\s*themes: themes\.map\(/, 'the answer is measured and then not passed');
+  assert.match(page, /const themes = pickableInviteThemes\(\);/);
+  assert.match(page, /theme=\{\{\s*themes: themes\.map\(/, 'the list is built and then not passed');
+  assert.doesNotMatch(page, /pickableInviteThemes\(\{/, 'the picker is being fenced again');
 });
 
-test('🔒 APPLY refuses a Pro theme there — after the host check, before the write', () => {
-  /*
-    The picker hiding a tile is a courtesy; a crafted draft POST is not. Since
-    2026-09-28 the theme is drafted, and Apply is its one live writer. The order
-    is the claim: host check → Pro gate → wedding fence → write.
-  */
+test('🔒 APPLY still checks the host and the Pro gate before the theme write — and no longer the event type', () => {
   const src = read(APPLY);
   const host = src.indexOf('requireHostMembershipOrThrow(eventId');
-  const fence = src.indexOf('resolveWeddingOnlyParts(');
-  const refusal = src.indexOf("reason: 'not_for_this_celebration'");
   const write = src.indexOf('.update({ invite_theme');
-  assert.ok(host > -1, 'the host check is gone');
-  assert.ok(fence > -1, 'Apply does not ask whether this celebration may have a Pro theme at all');
-  assert.ok(refusal > -1, 'the fence is measured and then not acted on');
-  assert.ok(host < fence, 'the fence runs before the caller is known to host this event');
-  assert.ok(refusal < write, 'a Pro theme could be written onto a celebration that can never show it');
-  assert.match(
-    src,
-    /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/,
-    'a refused profile read must refuse the save — an unmeasured type is not a wedding',
-  );
+  assert.ok(host > -1 && write > host, 'the host check must come before the theme write');
+  assert.doesNotMatch(src, /resolveWeddingOnlyParts|not_for_this_celebration/, 'a birthday is being refused a Pro theme again');
 });
 
-test('the DOOR asks the fence too — the only one that protects an already-saved value', () => {
-  /*
-    The picker refusing and the action refusing both act BEFORE a write. Neither
-    can help a couple who saved Capiz as a wedding and then had the celebration's
-    type changed — the row is already there. This read is the one that turns it
-    back into House with no write, and it is the one a guest actually meets.
-  */
-  /*
-    🪤 RE-ANCHORED 2026-09-22 — THE RESOLUTION MOVED, THE FENCE DID NOT. The
-    Event Hub pages behind the door wear the same theme now, so "which theme is
-    this event wearing" became a two-surface fact and lifted into
-    `app/[slug]/_lib/hub-look.ts`; `load-invite-look.ts` adds only the door's
-    skin on top. Every assertion below is unchanged — they just read the file
-    that now holds the answer, which is what a guard pinned to a LOCATION has to
-    do when the location is the thing that moved.
-
-    ⚠ The door being the surface a guest MEETS is still the point: this read is
-    the only one that can turn an already-saved Capiz back into House when the
-    celebration's type changed after the save, and now it protects the page too.
-  */
+test('the DOOR asks only for Pro — the one rule that protects an already-saved value', () => {
+  // The resolution lives in `app/[slug]/_lib/hub-look.ts` (the invite door and
+  // the Event Hub pages share it). A lapse of Event Hub Pro turns a saved Pro
+  // theme back into House with no write; the event type is not part of it.
   const look = read('app/[slug]/_lib/hub-look.ts');
-  assert.match(look, /resolveWeddingOnlyParts\(p\)\.save_the_date_film/, 'the resolver no longer asks the fence');
-  assert.match(
-    look,
-    /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/,
-    'an unreadable profile opens a paid theme — an unmeasured type is not a wedding',
-  );
-  assert.match(
-    look,
-    /resolveInviteTheme\(\{ saved, ownsPro, mayShowStdFilm \}\)/,
-    'the measurement is taken and then not used',
-  );
-  // …and it costs a House event nothing: both reads sit behind `wantsPro`.
-  // 🪤 RE-ANCHORED 2026-09-25: the two reads moved into `proThemeGate`, a
-  // per-request `cache()` (the guest-tree layout now asks the same question on
-  // every page), so the ternary names the gate and the gate holds the pair.
-  assert.match(
-    look,
-    /wantsPro\s*\?\s*await proThemeGate\(/,
-    'the fence read is no longer skipped for a House event',
-  );
-  assert.match(
-    look,
-    /const proThemeGate = cache\([\s\S]{0,200}Promise\.all\(\[/,
-    'the gate no longer reads the Pro unlock and the fence together',
-  );
+  assert.match(look, /resolveInviteTheme\(\{ saved, ownsPro \}\)/);
+  assert.doesNotMatch(look, /resolveWeddingOnlyParts|proThemeGate/, 'the resolver asks the wedding fence again');
+  // …and it costs a House event nothing: the ownership read sits behind `wantsPro`.
+  assert.match(look, /wantsPro \? await websiteProActiveFor\(event\.event_id\)/);
 });
 
-test('the fence is the reveal’s, not a second copy of it', () => {
+test('the theme rule is not a second copy of the reveal’s timing', () => {
   // 🛑 The reveal's WHEN is one rule (cinematicRevealPlays). Nothing here may
   // restate it: this is the TYPE question, asked of the same profile answer.
   for (const rel of [ACTIONS, PAGE, 'app/[slug]/invite/_lib/load-invite-look.ts', 'app/[slug]/_lib/hub-look.ts']) {

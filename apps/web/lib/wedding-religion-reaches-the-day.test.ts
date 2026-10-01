@@ -31,7 +31,8 @@ import { stripComments } from './strip-comments';
 import { buildChecklistSeed } from './checklist';
 import { ceremonyChoicesFor } from './ceremony-choices';
 import { dressRiteOf } from './chinese-wedding';
-import { FAITH_REGISTRY } from './faith-registry';
+import { ALLOWED_CEREMONY_VALUES, FAITH_REGISTRY } from './faith-registry';
+import { CEREMONY_TYPE_READABLE_LABEL, readableCeremonyType } from './wedding-plan-groups';
 
 const WEB = join(__dirname, '..');
 const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
@@ -98,4 +99,28 @@ test('4 · the faith picker promises nothing nobody does', () => {
 
 test('5 · buildScheduleSeed has a caller again', () => {
   assert.match(read('app/dashboard/[eventId]/schedule/actions.ts'), /const seed = buildScheduleSeed\(/);
+});
+
+test('6 · (follow-up) every readable-rite reader looks at BOTH rite columns, and the sponsors redirect is primary-only on purpose', () => {
+  assert.match(read('app/dashboard/[eventId]/website/dress-code/page.tsx'), /ceremonyMatches\(event, 'inc'\) && isConfigEmpty/);
+  assert.match(read('app/dashboard/[eventId]/website/dress-code/page.tsx'), /ceremony_type, secondary_ceremony_type'\)/);
+  assert.match(read('app/dashboard/[eventId]/guests/_components/guest-card-data.ts'), /isIncWedding = ceremonyMatches\(ceremonyRow, 'inc'\)/);
+  assert.doesNotMatch(read('app/dashboard/[eventId]/website/dress-code/page.tsx'), /ceremony_type === 'inc'/);
+  assert.doesNotMatch(read('app/dashboard/[eventId]/guests/_components/guest-card-data.ts'), /ceremony_type === 'inc'/);
+  // chinese-wedding.ts names the sponsors redirect as the check that must stay primary-only.
+  assert.match(readFileSync(join(WEB, 'lib/chinese-wedding.ts'), 'utf8'), /sponsors-page muslim-primary redirect\) must NOT use this/);
+  assert.match(read('app/dashboard/[eventId]/sponsors/page.tsx'), /event\.ceremony_type === 'muslim' &&/);
+});
+
+test('7 · (follow-up) every rite has a readable label — never the raw key', () => {
+  for (const key of ALLOWED_CEREMONY_VALUES) {
+    const label = readableCeremonyType(key);
+    assert.ok(CEREMONY_TYPE_READABLE_LABEL[key], `${key} has no readable label`);
+    assert.notEqual(label, key, `${key} reads as its raw key`);
+    assert.doesNotMatch(label, /_/, `${key} → "${label}"`);
+    assert.match(label, /^[A-Z]/, `${key} → "${label}" is not a name`);
+  }
+  assert.equal(ALLOWED_CEREMONY_VALUES.length, 18);
+  assert.equal(readableCeremonyType('born_again'), 'Born Again');
+  assert.equal(readableCeremonyType('jw'), 'Jehovah’s Witnesses');
 });

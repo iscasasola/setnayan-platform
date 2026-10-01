@@ -12,6 +12,7 @@ import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import type { PrintImages } from '@/lib/print-layout';
 import { formatCount } from '@/lib/format-number';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,6 +114,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const unitGuests = (u: Unit) =>
     u.members.flatMap((m) => seatedByTable.get(m.table_id) ?? []).sort((x, y) => x.name.localeCompare(y.name));
 
+  const eventWords = await eventWordsForEvent(eventId).catch(() => null);
   // A nameless event's pack says "Our Wedding" only on a wedding.
   const untitled = ((event as { event_type?: string | null }).event_type ?? 'wedding') === 'wedding' ? 'Our Wedding' : 'Our Event';
   const coupleNameEarly = event.monogram_text || event.display_name || untitled;
@@ -197,6 +199,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     })
     .join('');
 
+  // The sign says the event's own word — "our wedding", "our birthday",
+  // "this gathering" for a wake — never a wedding's, whatever the event is.
+  const signSub = eventWords?.solemn
+    ? `Scan to visit this ${eventWords.occasion}`
+    : `Scan to visit our ${eventWords?.eventWord ?? 'event'}`;
   const signs = units
     .map(
       (u) => `
@@ -205,7 +212,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
           <p class="kicker">${esc(coupleName)}</p>
           <h1 class="sign-label">${esc(u.label)}</h1>
           <img class="sign-qr" src="${tableQr.get(u.key)}" alt="QR for ${esc(u.label)}" />
-          <p class="sign-sub">Scan to visit our wedding</p>
+          <p class="sign-sub">${esc(signSub)}</p>
           <p class="sign-foot">${unitGuests(u).length} seated${
             dateStr ? ` · ${esc(dateStr)}` : ''
           }</p>

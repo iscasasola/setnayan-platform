@@ -36,6 +36,7 @@ import {
   tourDoubleBookMessage,
 } from '@/lib/schedule-travel';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
+import { eventWordsForEvent, untitledEventName } from '@/app/[slug]/_lib/event-words';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 
@@ -540,7 +541,7 @@ export async function generateEmceeScript(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [eventRes, blocks, guests, roleNames] = await Promise.all([
+  const [eventRes, blocks, guests, roleNames, eventWords] = await Promise.all([
     supabase
       .from('events')
       .select('display_name, event_date')
@@ -550,12 +551,14 @@ export async function generateEmceeScript(
     fetchGuestsByEvent(supabase, eventId),
     // The couple's own words for roles (owner 2026-09-30) — the roster says them.
     loadRoleNames(supabase, eventId, 'generateEmceeScript.roleNames'),
+    eventWordsForEvent(eventId).catch(() => null),
   ]);
 
   const event = eventRes.data ?? { display_name: null, event_date: null };
   return buildEmceeScript({
     event: {
       displayName: (event as { display_name: string | null }).display_name ?? null,
+      untitledName: untitledEventName(eventWords),
       eventDate: (event as { event_date: string | null }).event_date ?? null,
     },
     blocks,

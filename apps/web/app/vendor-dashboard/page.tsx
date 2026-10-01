@@ -82,7 +82,7 @@ import {
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import { formatPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
-import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { displayServiceLabel } from '@/lib/vendors';
 import { MiniTour } from '@/app/_components/mini-tour';
 
 /**
@@ -426,9 +426,8 @@ export default async function VendorOverviewPage({
   */
   const owedPhp = owedToYouPhp(earnings);
   const firstCategory = (profile.services ?? [])[0] as string | undefined;
-  const categoryWord = firstCategory
-    ? (VENDOR_CATEGORY_LABEL as Record<string, string>)[firstCategory] ?? firstCategory.replace(/_/g, ' ')
-    : 'Your shop';
+  // The shared resolver, never an inline humaniser (`one-word-per-category.test.ts`).
+  const categoryWord = firstCategory ? displayServiceLabel(firstCategory) : 'Your shop';
   const shopState = firstSteps ? 'Not live yet' : findability.findable ? 'Live' : 'Not listed';
   const next = pickSupplierNext({
     answer: needsAnswer[0] ?? null,

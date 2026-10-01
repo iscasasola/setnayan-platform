@@ -1,4 +1,5 @@
 import { skuBackedLiterals, parsePesoLiteral } from '@/lib/public-price-literals';
+import { FEATURE_PAGES, featurePaths } from '@/lib/feature-pages';
 
 /**
  * SEO / GEO health checks — the daily drift + coverage audit that backs
@@ -147,6 +148,13 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/tl',
   '/tl/about',
   '/tl/features',
+  // 2026-10-01 — one page per feature + its Tagalog twin, DERIVED from the one
+  // registry so a new feature page is public here the moment it exists, and a
+  // removed one stops being claimed the moment it goes.
+  ...FEATURE_PAGES.flatMap((f) => {
+    const p = featurePaths(f.slug);
+    return [p.en, p.tl];
+  }),
 ]);
 
 /**

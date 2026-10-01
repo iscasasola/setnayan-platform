@@ -12,6 +12,12 @@
  * un-exported). The same limit had already stopped production for a day on
  * 2026-09-23. This guard makes the budget visible on every PR, BEFORE Vercel.
  *
+ * ⚠ 2026-10-02: THIS BUDGETS ONE TERM, NOT THE LIMIT. The 2026-10-01 night
+ * train sat exactly at this CEILING (the check is `>`) while three net new
+ * dynamic routes took production to 2057 — green here, refused there. The sum Vercel counts is checked from the production build by
+ * check-vercel-route-count.mjs (production build job). This one stays as the
+ * early, source-only warning for the biggest term.
+ *
  * ── THE RULE ────────────────────────────────────────────────────────────────
  * Count exported functions/consts in files whose first statement is
  * "use server" under apps/web/app and apps/web/lib. Fail above CEILING.

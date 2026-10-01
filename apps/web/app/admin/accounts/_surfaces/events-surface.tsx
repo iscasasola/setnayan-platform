@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { CalendarDays, ScanFace, Trash2 } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -385,7 +386,11 @@ export async function EventsSurface({
             header: 'Event',
             cell: (e) => (
               <>
-                <p className="font-medium text-ink">{e.display_name}</p>
+                <p className="font-medium text-ink">
+                  <Link href={`/admin/events/${e.public_id || e.event_id}`} className="underline-offset-2 hover:underline">
+                    {e.display_name}
+                  </Link>
+                </p>
                 {e.archived ? (
                   <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
                     Archived

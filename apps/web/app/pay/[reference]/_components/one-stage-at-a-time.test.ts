@@ -75,13 +75,18 @@ const STUB = join(process.cwd(), '__server_only_stub_pay_stages__.js');
 }
 
 
+// The receiving accounts are a LIST now (owner 2026-10-01); /pay is handed the
+// OPEN ones in order. Two, like the old fixed GCash + BDO pair.
 const RAIL = {
   mintedUrl: 'data:image/png;base64,MINTED',
   staticUrl: 'https://example.test/static.png',
   number: '09171234567',
   name: 'Setnayan',
-  enabled: true,
 };
+const RAILS = [
+  { ...RAIL, id: 'gcash', label: 'GCash', kind: 'ewallet' },
+  { ...RAIL, id: 'bdo', label: 'BDO', kind: 'bank' },
+];
 
 async function paint(stage: PayStage, extra: Record<string, unknown> = {}): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -96,8 +101,7 @@ async function paint(stage: PayStage, extra: Record<string, unknown> = {}): Prom
       amountPhp: 837.5,
       reference: 'SN9B7485DD',
       orderId: 'order-1',
-      gcash: RAIL,
-      bdo: RAIL,
+      rails: RAILS,
       activatesLine: 'It switches on as soon as our team confirms the payment.',
       summary: React.createElement('div', null, 'SUMMARY-MARKER'),
       initialStage: stage,

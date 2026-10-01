@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 326 jobs, 210 of them form-driven, as of 9bf7973bd.
+// that performs it. 326 jobs, 210 of them form-driven, as of 191c647e.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -311,6 +311,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/payments",
     "resolvedPath": "/admin/payments",
     "fields": [
+      "q",
+      "intent",
       "payment_id",
       "admin_notes",
       "promote_order",
@@ -1804,7 +1806,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "kind"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "kind"
+    ],
     "destructive": true
   },
   {
@@ -2601,12 +2605,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/settings",
     "resolvedPath": "/admin/settings",
     "fields": [
-      "bdo_account_name",
-      "bdo_account_number",
-      "gcash_account_name",
-      "gcash_number",
-      "gcash_enabled",
-      "bdo_enabled",
+      "intent",
       "gcash_monthly_cap_php",
       "bdo_monthly_cap_php"
     ],
@@ -3788,7 +3787,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "kind",
       "file"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "kind"
+    ],
     "destructive": false
   },
   {

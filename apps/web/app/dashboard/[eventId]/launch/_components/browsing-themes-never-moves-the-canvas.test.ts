@@ -122,7 +122,7 @@ test('2c · the tile wears the theme through the ONE gate — the fence still an
   assert.match(page, /triedTheme \|\| \(hostDraft && HUB_DRAFT_LOOK_COLUMNS\.some/, 'a tile is not re-dressed');
   const look = read('[slug]/_lib/hub-look.ts');
   assert.match(look, /const ownsPro = owned \|\| event\.theme_try_on === true;/);
-  assert.match(look, /resolveInviteTheme\(\{ saved, ownsPro, mayShowStdFilm \}\)/, 'the fence is no longer asked of a tile');
+  assert.match(look, /resolveInviteTheme\(\{ saved, ownsPro \}\)/, 'a tile is no longer resolved by the one theme rule');
 });
 
 // ═══ 3 · the picker has no path to the canvas ═════════════════════════════

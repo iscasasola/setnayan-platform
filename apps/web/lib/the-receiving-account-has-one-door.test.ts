@@ -174,7 +174,9 @@ test('the rail controls still save WITHOUT an approval', () => {
   // can never re-open an account the owner closed.
   const writerStart = src.indexOf('async function writeAccountList');
   const writer = src.slice(writerStart, src.indexOf('\n}', writerStart));
-  assert.match(writer, /_enabled`\]/, 'writeAccountList stopped mirroring the gcash/bdo switches');
+  for (const sw of ['gcash_enabled', 'bdo_enabled']) {
+    assert.match(writer, new RegExp(`${sw}: mirrored\\(`), `writeAccountList stopped mirroring ${sw}`);
+  }
 
   const capsStart = src.indexOf('export async function savePaymentInstruments');
   const caps = src.slice(capsStart, src.indexOf('\n}', capsStart));

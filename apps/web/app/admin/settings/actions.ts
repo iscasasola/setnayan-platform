@@ -262,16 +262,16 @@ async function writeAccountList(
   list: readonly ReceivingAccount[],
   extra: Record<string, unknown> = {},
 ) {
-  const mirror: Record<string, boolean> = {};
-  for (const legacy of PAY_CHANNELS) {
-    const entry = list.find((a) => a.id === legacy);
-    mirror[`${legacy}_enabled`] = entry ? entry.enabled : false;
-  }
+  // Spelled out by name, not built from `${id}_enabled`: these two columns are
+  // switches, and tests/db/gates-have-handles must be able to see what flips them.
+  const mirrored = (id: (typeof PAY_CHANNELS)[number]) =>
+    list.find((a) => a.id === id)?.enabled ?? false;
   return admin
     .from('platform_settings')
     .update({
       receiving_accounts: serializeReceivingAccounts(list),
-      ...mirror,
+      gcash_enabled: mirrored('gcash'),
+      bdo_enabled: mirrored('bdo'),
       ...extra,
       updated_at: new Date().toISOString(),
     })

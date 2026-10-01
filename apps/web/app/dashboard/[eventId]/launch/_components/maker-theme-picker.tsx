@@ -159,8 +159,8 @@ export function ThemePickProvider({
       else if (lastTap.current !== id) return;
       if (!r.ok) {
         setPicked(before);
-        setOwn(hadOwn);
         setError(r.error);
+        setOwn(hadOwn);
       }
     });
     start(async () => {

@@ -30,7 +30,8 @@ import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { resolveProfile } from '@/lib/event-type-profile';
-import { resolveOnboardingFlow } from '@/lib/onboarding/flow-config';
+import { CREATION_ASKS, resolveOnboardingFlow, resolveSetupSteps } from '@/lib/onboarding/flow-config';
+import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { getOnboardingSpec } from '@/lib/onboarding/onboarding-db';
 import { getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
@@ -86,6 +87,11 @@ export default async function GenericOnboardingPage({
 
   const profile = await resolveProfile(type);
   const flow = resolveOnboardingFlow(profile);
+  // 🎟 THE SETUP ENGINE (G1) — only for a type its seed has admitted
+  // (`profile.onboardingEngine`, migration 20271258536791). Its cards are the
+  // essentials this route did not already ask (`CREATION_ASKS.generic`).
+  const setupView = profile.onboardingEngine ? setupViewForProfile(profile) : null;
+  const setupSteps = setupView ? resolveSetupSteps(setupView, CREATION_ASKS.generic) : [];
 
   // ── VENDOR-FREE GATE (owner 2026-09-25) ─────────────────────────────────
   // `marketplaceEnabled` — not the type's name — decides whether this generic
@@ -248,6 +254,8 @@ export default async function GenericOnboardingPage({
       // Manila today, so the anchor's next return is computed off the server's
       // clock rather than the visitor's device timezone.
       todayISO={manilaToday()}
+      setupView={setupView}
+      setupSteps={setupSteps}
     />
   );
 }

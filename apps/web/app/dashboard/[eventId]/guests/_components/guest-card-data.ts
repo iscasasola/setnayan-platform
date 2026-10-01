@@ -4,10 +4,12 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { eventHasSides } from '@/lib/guest-side-question';
+import { guestGroupsFor } from '@/lib/role-sets';
 import {
   fetchGuestById,
   fetchSingletonRoleHolders,
   INVITED_TO_BLOCKS,
+  type GuestGroupCategory,
   type GuestRole,
   type GuestRow,
   type InvitedToBlock,
@@ -66,6 +68,9 @@ export type GuestCardData = {
   hasSides: boolean;
   /** Roles this event offers, minus the couple's and minus any already taken. */
   availableRoles: GuestRole[];
+  /** The group dropdown's choices — this event type's default groups
+   *  (`guestGroupsFor`), plus the guest's own if the type no longer lists it. */
+  groupOptions: GuestGroupCategory[];
   /** INC weddings cap non-member principal sponsors at one pair (advisory). */
   isIncWedding: boolean;
   /** Chinese primary rite OR a tea ceremony over another rite. */
@@ -304,6 +309,10 @@ export async function loadGuestCard(
     isCouple,
     hasSides,
     availableRoles,
+    groupOptions: [
+      ...guestGroupsFor(roleSet.key),
+      ...(guestGroupsFor(roleSet.key).includes(guest.group_category) ? [] : [guest.group_category]),
+    ],
     isIncWedding,
     showTeaCeremony,
     plusOneStateLabel,

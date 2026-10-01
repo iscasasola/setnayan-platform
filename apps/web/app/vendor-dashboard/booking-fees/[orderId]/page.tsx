@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { openAccounts } from '@/lib/payment-channels';
+import { namesPhrase, openAccounts } from '@/lib/payment-channels';
+import { PaymentChannelName } from '@/app/_components/payment/payment-channel-name';
 import { payPath } from '@/lib/pay-path';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Send } from 'lucide-react';
@@ -265,8 +266,8 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
         <section className="sn-tile space-y-3 p-5">
           <h2 className="sn-eye">Paying this fee</h2>
           <p className="text-sm text-ink/70">
-            {feeWords.pointer} Have your GCash or BDO confirmation to hand — we need its
-            reference number to match your payment.
+            {feeWords.pointer} Have your {namesPhrase(openAccounts(settings).map((a) => a.label), 'bank or e-wallet')}{' '}
+            confirmation to hand — we need its reference number to match your payment.
           </p>
           <Link
             href={payPath(order.reference_code)}
@@ -295,7 +296,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
                   <p className="text-sm">
                     <span className="font-mono font-semibold">{formatPhp(p.amount_php)}</span>
                     <span className="ml-2 text-ink/65">
-                      · {p.channel}
+                      · <PaymentChannelName settings={settings} channel={p.channel} />
                       {p.reference_number ? ` · ref ${p.reference_number}` : ''}
                     </span>
                   </p>

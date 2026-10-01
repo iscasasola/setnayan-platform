@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { VendorCardTitle } from './vendor-card-title';
 import Image from 'next/image';
 import { Pencil, Trash2, BadgeCheck, Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -415,9 +416,10 @@ export async function VendorsSurface({
                         name={v.business_name || 'Vendor'}
                       />
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-ink">
-                          {v.business_name || 'Unnamed'}
-                        </p>
+                        <VendorCardTitle
+                          vendorProfileId={v.vendor_profile_id}
+                          name={v.business_name}
+                        />
                         {v.contact_email ? (
                           <p className="truncate text-[11px] text-ink/55">
                             {v.contact_email}
@@ -568,9 +570,10 @@ export async function VendorsSurface({
                     name={v.business_name || 'Vendor'}
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-ink">
-                      {v.business_name || 'Unnamed'}
-                    </p>
+                    <VendorCardTitle
+                      vendorProfileId={v.vendor_profile_id}
+                      name={v.business_name}
+                    />
                     {v.business_slug ? (
                       <p className="truncate font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                         /v/{v.business_slug}

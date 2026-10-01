@@ -49,6 +49,14 @@ export type AdminOrderAlertFacts = {
   payment: {
     amountPhp: number;
     channel: string;
+    /**
+     * The receiving account's NAME ("Maribank"), read from the accounts list by
+     * the notifier (`channelLabel(settings, id)`). The raw `channel` is an id
+     * ("maribank-7k2q") and must never reach an admin's inbox; this pure file
+     * cannot read the list itself, so it is handed the name. Absent only when
+     * the settings read failed — then the old built-in names apply.
+     */
+    channelName?: string | null;
     bankReference: string | null;
     loggedAtIso: string;
   } | null;
@@ -84,8 +92,14 @@ const CHANNEL_LABEL: Record<string, string> = {
   bpi: 'BPI',
 };
 
-/** "gcash" → "GCash"; an unknown channel is shown as typed. */
-export function channelLabel(channel: string): string {
+/**
+ * "gcash" → "GCash"; an unknown channel is shown as typed. A resolved account
+ * NAME (from the receiving-accounts list) wins over the id — see
+ * `AdminOrderAlertFacts.payment.channelName`.
+ */
+export function channelLabel(channel: string, name?: string | null): string {
+  const named = (name ?? '').trim();
+  if (named) return named;
   const raw = channel.trim();
   if (!raw) return 'a transfer';
   return CHANNEL_LABEL[raw.toLowerCase()] ?? raw;
@@ -172,7 +186,7 @@ function sectionsFor(facts: AdminOrderAlertFacts): AdminOrderAlert['sections'] {
   const pay: Array<{ label: string; value: string; strong?: boolean }> = [];
   if (facts.payment) {
     pay.push({ label: 'Amount logged', value: pesoExact(facts.payment.amountPhp), strong: true });
-    pay.push({ label: 'Method', value: channelLabel(facts.payment.channel) });
+    pay.push({ label: 'Method', value: channelLabel(facts.payment.channel, facts.payment.channelName) });
   }
   pay.push({ label: 'Reference', value: facts.referenceCode });
   if (facts.payment?.bankReference) {
@@ -191,7 +205,7 @@ function sectionsFor(facts: AdminOrderAlertFacts): AdminOrderAlert['sections'] {
 /** "A customer says they have paid…" — now with a name and an event. */
 export function buildPaymentLoggedAlert(facts: AdminOrderAlertFacts): AdminOrderAlert {
   const amount = facts.payment?.amountPhp ?? facts.totalPhp;
-  const how = channelLabel(facts.payment?.channel ?? '');
+  const how = channelLabel(facts.payment?.channel ?? '', facts.payment?.channelName);
   const who = whoPhrase(facts);
   const payer =
     facts.paidBy?.name ??

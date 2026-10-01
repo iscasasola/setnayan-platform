@@ -315,8 +315,8 @@ export async function SettingsSurface({ searchParams }: Props) {
                 />
               </div>
               <p className="mt-1 text-sm text-ink/60">
-                BDO and GCash account details + QR codes the app shows to
-                couples on order detail pages.
+                The receiving accounts (any bank or e-wallet) + QR codes the
+                app shows to couples on order detail pages.
               </p>
             </div>
           </div>

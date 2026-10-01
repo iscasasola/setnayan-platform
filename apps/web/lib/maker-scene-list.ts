@@ -27,7 +27,7 @@
  *
  * Pure: no React, no DB, no cookies — the unit suite runs it directly.
  */
-import { HUB_SETUP_LOCKED_SCENES, lockedLine } from '@/lib/hub-setup-steps';
+import { HUB_SETUP_LOCKED_SCENES, lockedLine } from '@/lib/hub-setup-locks';
 import { resolveSiteBodyPlan } from './site-body-plan';
 import {
   WIDGET_PHASES,

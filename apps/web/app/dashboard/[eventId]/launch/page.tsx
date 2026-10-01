@@ -72,7 +72,7 @@ import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
-import { countSetupGuests, guidedFactsFrom, guidedPresent, hubSetupFactsFrom, type SetupScheduleBlock } from './_components/details-guided-progress';
+import { countSetupGuests, guidedFactsFrom, guidedPresent, hubSetupFactsFrom, setupRoundFor, type SetupScheduleBlock } from './_components/details-guided-progress';
 import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
@@ -1358,18 +1358,19 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           guests: mayReadGuestList ? await countSetupGuests(printAdmin, eventId) : null,
         });
       }
+      const guidedPresentHere = guidedPresent({
+        yourEvent: yourEvent ? { kind: yourEvent.kind, namesWritable: yourEvent.names !== null } : null,
+        storyApplies: detailsItemApplies('love-story', eventContext),
+        hasSlug: Boolean(printEvent.slug),
+        seatPlan: seatPlan !== null,
+      });
       detailsUnfinished = isUnfinished(
         guidedPlanFromFacts({
           ctx: eventContext,
-          present: guidedPresent({
-            yourEvent: yourEvent ? { kind: yourEvent.kind, namesWritable: yourEvent.names !== null } : null,
-            storyApplies: detailsItemApplies('love-story', eventContext),
-            hasSlug: Boolean(printEvent.slug),
-            seatPlan: seatPlan !== null,
-          }),
+          present: guidedPresentHere,
           facts: guided,
           parentsOffered: yourEvent ? parentsOffered(yourEvent.kind) : false,
-          setup: setupFacts,
+          setup: setupRoundFor(setupFacts, guidedPresentHere, eventContext),
         }),
       );
       /* A plain landing on Details — nothing else named — is where the flow opens. */
@@ -1436,10 +1437,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               itemNamed,
               guideNamed: guideAddress !== null,
               // Never on the Maker's very first visit — its own welcome is showing.
-              // 🧭 With the setup first in the flow, its "Before we start" — once.
-              tour: !firstVisit ? (
-                <MiniTour tourKey={setupFacts ? 'customer_hub_setup_v1' : 'customer_details_guided_v1'} storeShell={storeShell} />
-              ) : null,
+              // 🧭 Seeing it also answers the setup's once-offer on Home (`HUB_SETUP_OFFER_TOUR`).
+              tour: !firstVisit ? <MiniTour tourKey="customer_details_guided_v1" storeShell={storeShell} /> : null,
               setup: setupFacts,
               guestsHref: hubSetupGuestsHref(eventId),
             }}

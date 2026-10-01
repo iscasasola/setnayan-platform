@@ -86,8 +86,10 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
     return {
       kind: 'guide',
       title: `Finish your Event Hub — ${formatCount(guide.done)} of ${formatCount(guide.total)}`,
+      /* The offer is frame 0, "Before we start", in one card: what we already
+         have, what is left, what helps — and that none of it is required. */
       body: guide.offer
-        ? `${formatCount(guide.total - guide.done)} short ${guide.total - guide.done === 1 ? 'step finishes' : 'steps finish'} your Event Hub — only what sign-up did not ask. None of it is required.`
+        ? `From sign-up we already have your names, dates, look and how guests get in — we won’t ask again. ${formatCount(guide.total - guide.done)} short ${guide.total - guide.done === 1 ? 'step finishes' : 'steps finish'} your Event Hub; Love Story photos help. None of it is required.`
         : next,
       action: guide.offer ? 'Start' : 'Continue',
       ...(guide.offer ? { offer: true } : {}),

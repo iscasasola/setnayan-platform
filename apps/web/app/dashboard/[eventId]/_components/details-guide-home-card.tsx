@@ -5,6 +5,7 @@ import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile'
 import { makerHasWork } from '@/lib/maker-details-items';
 import { homeProgress, stepTitleOf } from '@/lib/details-guided-flow';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { readGuidedPlan } from '../launch/_components/details-guided-progress';
 
 /**
@@ -52,9 +53,14 @@ export async function readHomeGuide({ eventId, memberType }: { eventId: string; 
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      const { data: row } = await supabase.from('users').select('tour_seen_keys').eq('user_id', user.id).maybeSingle();
-      const seen = ((row as { tour_seen_keys?: unknown } | null)?.tour_seen_keys ?? []) as unknown;
-      offer = !(Array.isArray(seen) && seen.includes(HUB_SETUP_OFFER_TOUR));
+      const { data: row, error } = await supabase.from('users').select('tour_seen_keys').eq('user_id', user.id).maybeSingle();
+      if (error) {
+        // Unread → no offer (the slim card still shows): never an offer the couple already answered.
+        logQueryError('HomeGuide.setupOffer', error, { event_id: eventId }, 'graceful_degrade');
+      } else {
+        const seen = ((row as { tour_seen_keys?: unknown } | null)?.tour_seen_keys ?? []) as unknown;
+        offer = !(Array.isArray(seen) && seen.includes(HUB_SETUP_OFFER_TOUR));
+      }
     }
   }
   return {

@@ -29,6 +29,7 @@ import {
   ONBOARDING_A_FIELDS,
   hubSetupApplies,
   hubSetupProgress,
+  hubSetupRound,
   hubSetupSteps,
   lockedLine,
   unlockLine,
@@ -178,7 +179,7 @@ test('the steps are built from what is missing — open event, locked venues, it
 test('🚪 the Maker\'s What\'s left puts the setup first — the very steps, the very count', () => {
   const facts: HubSetupFacts = { ...FRESH, arrival: true, loveStoryMoments: 2 };
   const steps = hubSetupSteps(facts, ALL_ITEMS);
-  const plan = buildGuidedPlan(items(), WORDS, facts);
+  const plan = buildGuidedPlan(items(), WORDS, hubSetupRound(facts, ALL_ITEMS));
   assert.equal(plan.rounds[0], 0, 'the setup is round 0, first');
   const round0 = [...plan.steps.filter((s) => s.round === 0).map((s) => s.key), ...plan.links.map((l) => l.key)];
   assert.deepEqual(round0, steps.map((s) => s.key), 'the What\'s left is the setup\'s own list');
@@ -210,7 +211,7 @@ test('🚪 only the guests\' names left: the flow opens on the setup\'s Ready sc
     wear: true,
     replyBy: true,
   };
-  const plan = buildGuidedPlan(items((k) => (AFTER_A.has(k) || k === 'venues' || k === 'love-story' ? true : k === 'schedule' ? true : undefined)), WORDS, facts);
+  const plan = buildGuidedPlan(items((k) => (AFTER_A.has(k) || k === 'venues' || k === 'love-story' ? true : k === 'schedule' ? true : undefined)), WORDS, hubSetupRound(facts, ALL_ITEMS));
   assert.deepEqual(firstOpenScreen(plan), { kind: 'ready', round: 0 });
   assert.equal(homeProgress(plan)?.next, 'guests');
   const ready = code(`${D}/launch/_components/details-guide.tsx`);
@@ -231,11 +232,16 @@ test('🚪 the three doors open the SAME address, read through the SAME derivati
   assert.match(launch, /setupFacts = hubSetupFactsFrom\(/);
   // The Maker's decision to open on What's left counts the setup too…
   const decides = launch.slice(launch.indexOf('detailsUnfinished = isUnfinished('), launch.indexOf('const detailsLandsPlain'));
-  assert.match(decides, /setup: setupFacts/, 'the Maker decides to open What\'s left without the setup');
+  assert.match(decides, /setup: setupRoundFor\(setupFacts,/, 'the Maker decides to open What\'s left without the setup');
   // …and Details draws the same plan.
   assert.match(launch, /setup: setupFacts,\s*guestsHref:/);
   assert.match(progress, /setup = hubSetupFactsFrom\(/);
-  assert.match(progress, /guidedPlanFromFacts\(\{[\s\S]*?setup,/);
+  assert.match(progress, /guidedPlanFromFacts\(\{[\s\S]*?setup: setupRoundFor\(setup, present, ctx\)/);
+  // The Maker's Details builds the round over its own navigator rows.
+  assert.match(code(`${D}/launch/_components/maker-details.tsx`), /props\.guide\.setup \? hubSetupRound\(props\.guide\.setup,/);
+  // The step table never rides in the Maker's first load: the plan module takes types only.
+  assert.match(code('lib/details-guided-flow.ts'), /import type \{ HubSetupRound, HubSetupStepKey \} from '@\/lib\/hub-setup-steps'/);
+  assert.ok(!/from '@\/lib\/hub-setup-steps'/.test(code('lib/maker-scene-list.ts')), 'the canvas list pulls the whole step table');
   // Home's card reads the plan the Maker draws (`readGuidedPlan`).
   assert.match(code(`${D}/_components/details-guide-home-card.tsx`), /readGuidedPlan\(/);
 });
@@ -253,9 +259,10 @@ test('🚪 Home\'s card reads "Finish your Event Hub — n of m · Continue", an
   // Later answers the offer through the SHIPPED tour action — no new server action.
   const home = code(`${D}/_components/home-first-screen.tsx`);
   assert.match(home, /completeTour\.bind\(null, HUB_SETUP_OFFER_TOUR\)/);
-  // Start's own first screen in the Maker marks the same key seen.
-  assert.match(code(`${D}/launch/page.tsx`), /setupFacts \? 'customer_hub_setup_v1'/);
-  assert.match(code('lib/tours.ts'), /HUB_SETUP_OFFER_TOUR: TourKey = 'customer_hub_setup_v1'/);
+  // Start opens What's left, whose first-visit tour marks the same key seen.
+  assert.match(code('lib/tours.ts'), /HUB_SETUP_OFFER_TOUR: TourKey = 'customer_details_guided_v1'/);
+  assert.match(code(`${D}/launch/page.tsx`), /<MiniTour tourKey="customer_details_guided_v1"/);
+  assert.match(offer.body, /we won’t ask again/);
 });
 
 // ── (3) THE UNLOCK LABELS ───────────────────────────────────────────────────
@@ -270,7 +277,7 @@ test('🔓 every step names what it unlocks — "Unlocked" once done, and never 
   }
   assert.equal(lockedLine('Love Story'), 'Locked — finish Love Story');
   // The plan carries each step's line; the step heading draws it.
-  const plan = buildGuidedPlan(items(), WORDS, { ...FRESH, arrival: true });
+  const plan = buildGuidedPlan(items(), WORDS, hubSetupRound({ ...FRESH, arrival: true }, ALL_ITEMS));
   assert.equal(plan.steps.find((s) => s.key === 'arrive')?.unlocks, unlockLine(HUB_SETUP_STEPS[0]!, 'done'));
   assert.equal(plan.steps.find((s) => s.key === 'wear')?.unlocks, unlockLine(HUB_SETUP_STEPS[3]!, 'left'));
   assert.match(code(`${D}/launch/_components/details-guide.tsx`), /data-details-guide-unlocks=/);

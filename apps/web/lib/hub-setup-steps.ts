@@ -259,21 +259,31 @@ export function unlockLine(step: Pick<HubSetupStepDef, 'unlocks'>, state: HubSet
   return state === 'done' ? `Unlocked: ${step.unlocks}.` : `Unlocks: ${step.unlocks}.`;
 }
 
-/** The Maker's word for a part still waiting on a step — filled in, never a paywall. */
-export function lockedLine(short: string): string {
-  return `Locked — finish ${short}`;
-}
+export { HUB_SETUP_LOCKED_SCENES, lockedLine } from './hub-setup-locks';
 
 /**
- * The Event Hub scenes a setup step unlocks, as the Maker's canvas names them
- * while they are empty (`makerEmptyPrompt`, `lib/maker-scene-list.ts`). Words
- * fit every event type — the canvas does not know which step list it is in.
+ * THE SETUP ROUND, READY FOR THE PLAN — what `buildGuidedPlan` draws as round 0:
+ * each step with its unlock line already worded, and every item the setup owns
+ * (`claims` — a step not drawn because its fact is in place still owns its
+ * item, so the item never returns to a later round). Built on the SERVER and
+ * handed to the plan, so the step table never rides in the Maker's first load.
  */
-export const HUB_SETUP_LOCKED_SCENES = {
-  schedule: 'your Schedule',
-  venue_map: 'your venues',
-  our_love_story: 'Love Story',
-} as const;
+export type HubSetupRoundStep = Pick<HubSetupStep, 'key' | 'title' | 'shows' | 'item' | 'state'> & { unlocks: string };
+export type HubSetupRound = { steps: HubSetupRoundStep[]; claims: HubSetupItem[] };
+
+export function hubSetupRound(f: HubSetupFacts, items: ReadonlySet<string>): HubSetupRound {
+  return {
+    steps: hubSetupSteps(f, items).map((s) => ({
+      key: s.key,
+      title: s.title,
+      shows: s.shows,
+      item: s.item,
+      state: s.state,
+      unlocks: unlockLine(s, s.state),
+    })),
+    claims: HUB_SETUP_STEPS.flatMap((d) => (d.item && items.has(d.item) ? [d.item] : [])),
+  };
+}
 
 /** Where the guest-names step opens: the Guest list's template import (#6225). */
 export function hubSetupGuestsHref(eventId: string): string {

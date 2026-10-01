@@ -21,8 +21,9 @@ Unlocked: …"); the Maker's empty Love Story, Venue and Schedule scenes read
 "Locked — finish ___".
 
 **Three doors, one set of steps:** offered ONCE right after onboarding — Home's
-Next card reads "Start / Later" (Later posts the shipped `completeTour`; Start's
-"Before we start" tour in the Maker marks the same key) · Home's slim card
+Next card is "Before we start" with Start / Later (Later posts the shipped
+`completeTour`; Start opens What's left, whose first-visit tour marks the same
+key — no new tour, `lib/tours.ts` rides in the Maker's first load) · Home's slim card
 "Finish your Event Hub — n of m · Next: … · then … · Continue" · the Maker's What's
 left. All three open `?tool=details&guide=1`, counted by one derivation
 (`hubSetupFactsFrom`, read by the Maker and by Home).

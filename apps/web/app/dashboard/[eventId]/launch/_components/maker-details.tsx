@@ -92,7 +92,7 @@ import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import type { DetailsGuide } from './details-guide';
 import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
-import type { HubSetupFacts } from '@/lib/hub-setup-steps';
+import { hubSetupRound, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
 import {
   PassCardsPanel,
@@ -466,7 +466,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     ? buildGuidedPlan(
         groups.flatMap((g) => g.items),
         { solemn: eventContext.solemn, parentsOffered: props.yourEvent ? parentsOffered(props.yourEvent.kind) : switches.parents },
-        props.guide.setup ?? null,
+        // 🧭 The setup round over these very rows (built here, on the server).
+        props.guide.setup ? hubSetupRound(props.guide.setup, new Set(groups.flatMap((g) => g.items.map((i) => i.key)))) : null,
       )
     : null;
   const opening = props.guide && plan && props.guide.open && !props.guide.itemNamed && !props.guide.ready ? firstOpenScreen(plan) : null;

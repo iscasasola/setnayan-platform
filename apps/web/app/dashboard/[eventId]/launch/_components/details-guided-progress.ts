@@ -23,7 +23,8 @@ import {
   type GuidedPlan,
 } from '@/lib/details-guided-flow';
 import { readYourEventFacts } from './details-your-event-facts';
-import { hubSetupApplies, type HubSetupFacts } from '@/lib/hub-setup-steps';
+import { hubSetupApplies, hubSetupRound, type HubSetupFacts, type HubSetupRound } from '@/lib/hub-setup-steps';
+import type { DetailsItemContext } from '@/lib/maker-details-items';
 import { readGuestsReply } from '@/lib/rsvp-ask';
 import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { sanitizeRoleAttire } from '@/lib/role-dress-code';
@@ -78,6 +79,16 @@ export function hubSetupFactsFrom(input: {
     replyBy: input.replyBy === undefined ? null : Boolean(input.replyBy),
     guests: input.guests,
   };
+}
+
+/**
+ * The setup round for the plan built from saved facts (`guidedPlanFromFacts`):
+ * over the items this event has — `present`, then the type's own rule — exactly
+ * the items that plan draws.
+ */
+export function setupRoundFor(facts: HubSetupFacts | null, present: ReadonlySet<DetailsItemKey>, ctx: DetailsItemContext): HubSetupRound | null {
+  if (!facts) return null;
+  return hubSetupRound(facts, new Set([...present].filter((k) => detailsItemApplies(k, ctx))));
 }
 
 /** Guests on the list besides the couple themselves (the commit seeds the two of them). */
@@ -276,17 +287,18 @@ export async function readGuidedPlan({
       guests,
     });
   }
+  const present = guidedPresent({
+    yourEvent: ye ? { kind: ye.kind, namesWritable: ye.namesWritable } : null,
+    storyApplies,
+    hasSlug: Boolean(event.slug),
+    seatPlan: detailsItemApplies('seating', ctx),
+  });
   const plan = guidedPlanFromFacts({
     ctx,
-    present: guidedPresent({
-      yourEvent: ye ? { kind: ye.kind, namesWritable: ye.namesWritable } : null,
-      storyApplies,
-      hasSlug: Boolean(event.slug),
-      seatPlan: detailsItemApplies('seating', ctx),
-    }),
+    present,
     facts,
     parentsOffered: ye ? parentsOffered(ye.kind) : false,
-    setup,
+    setup: setupRoundFor(setup, present, ctx),
   });
   /* The once-offer after onboarding ("Start / Later") is for an event the
      setup-card onboarding made — it leaves its answers in

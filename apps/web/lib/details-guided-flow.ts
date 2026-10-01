@@ -53,7 +53,8 @@ import {
 } from '@/lib/maker-details-items';
 import { yourEventDone, yourEventLabel, type YourEventFacts, type YourEventKind } from '@/lib/details-your-event';
 import type { StoredPrintDetails } from '@/lib/print-pieces';
-import { HUB_SETUP_STEPS, hubSetupSteps, unlockLine, type HubSetupFacts, type HubSetupStepKey } from '@/lib/hub-setup-steps';
+/* Types only: the setup's step table is built on the server (`hubSetupRound`) and handed in. */
+import type { HubSetupRound, HubSetupStepKey } from '@/lib/hub-setup-steps';
 
 /**
  * Round 0 is "Finish your Event Hub" — the Event Hub setup (B) that follows the
@@ -261,7 +262,7 @@ export function stepStateOf(dones: ReadonlyArray<boolean | undefined>): GuidedSt
  * celebration has, each with its label and its done). A step with none of its
  * items here is not in the plan.
  */
-export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords, setup: HubSetupFacts | null = null): GuidedPlan {
+export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords, setup: HubSetupRound | null = null): GuidedPlan {
   const roundWords = guidedRoundsFor(words);
   const byKey = new Map(items.map((i) => [i.key as string, i]));
   const steps: GuidedStep[] = [];
@@ -270,16 +271,16 @@ export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords
      item, one at a time; its done is the setup's own fact (what is really in
      place), never the item's row. An item a setup step opens leaves the later
      rounds — one step per item, so the item showing always names its step. */
-  const claimed = new Set<string>();
+  const claimed = new Set<string>(setup?.claims ?? []);
   if (setup) {
-    for (const s of hubSetupSteps(setup, new Set(byKey.keys()))) {
+    for (const s of setup.steps) {
+      if (s.item !== null && !byKey.has(s.item)) continue;
       const state: GuidedStepState = s.state;
-      const unlocks = unlockLine(s, s.state);
+      const unlocks = s.unlocks;
       if (s.item === null) {
         links.push({ key: s.key, round: 0, title: s.title, shows: s.shows, unlocks, state });
         continue;
       }
-      claimed.add(s.item);
       const item = s.item as DetailsItemKey;
       steps.push({
         key: s.key,
@@ -294,9 +295,6 @@ export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords
         unlocks,
       });
     }
-    /* A setup step's item the event no longer needs to be asked (both venues
-       locked) is still the setup's: it never returns to a later round. */
-    for (const def of HUB_SETUP_STEPS) if (def.item && byKey.has(def.item)) claimed.add(def.item);
   }
   for (const def of GUIDED_STEPS) {
     if (setup && def.items.every((k) => claimed.has(k) || !byKey.has(k))) continue;
@@ -565,8 +563,8 @@ export function guidedPlanFromFacts(input: {
   present: ReadonlySet<DetailsItemKey>;
   facts: GuidedDoneFacts;
   parentsOffered: boolean;
-  /** 🧭 The setup's facts (`hubSetupFactsFrom`) — null where the setup is not drawn. */
-  setup?: HubSetupFacts | null;
+  /** 🧭 The setup round, built on the server (`hubSetupRound`) — null where the setup is not drawn. */
+  setup?: HubSetupRound | null;
 }): GuidedPlan {
   const items: GuidedItem[] = [];
   for (const key of input.present) {

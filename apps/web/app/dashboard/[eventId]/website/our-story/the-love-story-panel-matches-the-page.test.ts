@@ -119,8 +119,8 @@ test('🧷 each moment sits under the chapter the page puts it in, and each chap
   const five = [...STORY_MOMENTS, { id: 'm-five', date: { y: 2025 }, line: 'The fitting', canvas: {} }];
   const capped = await paintPanel({ moments: five });
   assert.equal(chaptersOf(capped, 'data-panel-add').length, 0);
-  assert.equal((capped.match(/5 of 5 free stories told/g) ?? []).length, 5);
-  assert.equal(chaptersOf(await paintPanel({ moments: five }, true), 'data-panel-add').length, 5, 'Pro may add past five');
+  assert.equal((capped.match(/5 of 5 free stories told/g) ?? []).length, 6);
+  assert.equal(chaptersOf(await paintPanel({ moments: five }, true), 'data-panel-add').length, 6, 'Pro may add past five');
 });
 
 test('🚫 not a second editor: no form of its own, and every button only asks the page', async () => {

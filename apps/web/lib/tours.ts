@@ -114,7 +114,6 @@ export type TourKey =
   | 'customer_theme_picker_v1'
   | 'customer_print_menu_v1'
   | 'customer_details_guided_v1'
-  | 'customer_hub_setup_v1'
   | 'customer_print_story_poster_v1'
   | 'customer_schedule_v1'
   | 'customer_add_scene_v1'
@@ -154,7 +153,6 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_theme_picker_v1',
   'customer_print_menu_v1',
   'customer_details_guided_v1',
-  'customer_hub_setup_v1',
   'customer_print_story_poster_v1',
   'customer_schedule_v1',
   'customer_add_scene_v1',
@@ -844,36 +842,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     ],
   },
   /*
-    🧭 "FINISH YOUR EVENT HUB" — BEFORE WE START (owner-approved 2026-10-01,
-    `finish_your_event_hub_v2_2026-10-01_fable` frame 0; DECISION_LOG "ASK
-    EVERY FACT ONCE"). Rises once, the first time the setup opens in the
-    Maker's What's left. Its key is ALSO the once-offer's marker on Home
-    (`HUB_SETUP_OFFER_TOUR`): Later there, or this screen seen here, and the
-    offer never comes back — the slim card and What's left stay. Sells nothing.
-  */
-  customer_hub_setup_v1: {
-    key: 'customer_hub_setup_v1',
-    label: 'Finish your Event Hub',
-    blurb: 'A few short steps after sign-up — only what sign-up did not ask. None of it is required.',
-    slides: [
-      {
-        Icon: CheckCircle2,
-        title: 'Before we start',
-        body: 'From sign-up we already have your names, your dates, your look and how guests get in &mdash; we won&rsquo;t ask again. What is left is a few short steps, one at a time. <strong>Skip</strong> any of them; nothing here is required.',
-      },
-      {
-        Icon: Images,
-        title: 'Media that helps',
-        body: 'Love Story photos or short videos &mdash; how you met, when you became a couple, your moments, the engagement &mdash; with the date each was taken. And a photo of your parish once you have picked it.',
-      },
-      {
-        Icon: ClipboardList,
-        title: 'Every step says what it unlocks',
-        body: 'Each step names what filling it in turns on. Until then that part of your Event Hub reads <strong>Locked &mdash; finish&hellip;</strong> &mdash; filled in, never paid. Guests see what is set once you <strong>Apply</strong>.',
-      },
-    ],
-  },
-  /*
     THE OUR STORY POSTER (owner 2026-09-26: *"is it possible to generate a A3
     printable of their stories? so they can print it and frame it?"*). Mounted
     on Details › Our Story poster after the Menu's tour (`after`), so the two
@@ -1234,5 +1202,12 @@ export function getTour(key: TourKey): TourDefinition {
   return TOURS[key];
 }
 
-/** 🧭 The setup's once-offer marker — the "Before we start" tour's own key (see its definition). */
-export const HUB_SETUP_OFFER_TOUR: TourKey = 'customer_hub_setup_v1';
+/**
+ * 🧭 THE ONCE-OFFER'S MARKER — "Finish your Event Hub", offered once right after
+ * onboarding (owner-approved 2026-10-01). It is the What's left first-visit
+ * tour's own key: Start opens What's left, whose tour marks it; Later marks it
+ * on Home (`completeTour`). Either way the offer never comes back — the slim
+ * card and What's left stay. No tour of its own: `lib/tours.ts` rides in the
+ * Maker's first load, so the offer's words live on Home's card instead.
+ */
+export const HUB_SETUP_OFFER_TOUR: TourKey = 'customer_details_guided_v1';

@@ -1890,7 +1890,7 @@ async function fetchRecordTarget(
 function RecordPaymentCard({ record, query }: { record: RecordTarget; query: string }) {
   if (record.kind === 'readFailed') {
     return (
-      <p role="alert" className="mb-6 rounded-card border border-[color:var(--sn-warning)] bg-[var(--sn-warning-soft)] px-4 py-3 text-sm text-ink">
+      <p role="alert" className="mb-6 rounded-card bg-[var(--sn-warning-soft)] px-4 py-3 text-sm text-ink">
         Couldn&rsquo;t load this order or our accounts, so recording a payment is off for now. Refresh to try again.
       </p>
     );
@@ -1898,13 +1898,13 @@ function RecordPaymentCard({ record, query }: { record: RecordTarget; query: str
   const label = record.publicId ?? record.referenceCode ?? 'this order';
   if (!canLogPaymentAgainstOrder(record.status)) {
     return (
-      <p className="mb-6 rounded-card border border-ink/15 bg-white/60 px-4 py-3 text-sm text-ink/70">
+      <p className="mb-6 px-1 text-sm text-ink/70">
         {label} is &ldquo;{record.status}&rdquo; and is no longer taking payments.
       </p>
     );
   }
   return (
-    <section className="mb-6 space-y-3 rounded-card border border-ink/15 bg-white/70 p-4" aria-labelledby="record-payment">
+    <section className="mb-6 space-y-3 sn-tile p-4" aria-labelledby="record-payment">
       <div>
         <h2 id="record-payment" className="text-sm font-semibold text-ink">
           Record a payment received

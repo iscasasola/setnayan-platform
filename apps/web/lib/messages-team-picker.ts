@@ -1,6 +1,6 @@
 /**
  * messages-team-picker.ts — who a couple can start a conversation with from
- * their Messages page: the suppliers already on Your Team.
+ * their Messages page: the suppliers already in the couple's Suppliers list.
  *
  * ─── WHY (2026-09-30, a dead end found by a read-only audit) ──────────────
  * Messages' "Start a new thread" asked for the supplier's email
@@ -24,7 +24,7 @@
  *     copy of the shop's real business name; the bench and the thread list
  *     both show `resolveVendorDisplayName` instead, and so does this list —
  *     or it would reveal a name the rest of the app still hides. A profile we
- *     could not read shows no name at all ("A supplier on your team").
+ *     could not read shows no name at all ("One of your suppliers").
  */
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
@@ -79,7 +79,7 @@ export function teamPicksForMessages(
     // An unread profile, or the resolver's bare 'Vendor' fallback, reads as a
     // plain phrase — the UI says "supplier", never "vendor".
     const resolved = p ? resolveVendorDisplayName(input) : '';
-    const name = resolved && resolved !== 'Vendor' ? resolved : 'A supplier on your team';
+    const name = resolved && resolved !== 'Vendor' ? resolved : 'One of your suppliers';
     picks.push({ vendorId: r.vendor_id, name });
   }
   return picks.sort((a, b) => a.name.localeCompare(b.name));

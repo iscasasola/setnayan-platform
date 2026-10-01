@@ -2,7 +2,7 @@
 
 /**
  * StartThreadPicker — Messages' "Start a conversation": ONE PickMenu of the
- * suppliers on Your Team (owner 2026-09-28: *"any set of choices is a
+ * suppliers in the couple's Suppliers list (owner 2026-09-28: *"any set of choices is a
  * dropdown"*). Picking one opens that supplier's conversation.
  *
  * NOT A SECOND WAY TO OPEN A THREAD. It calls `contactShortlistVendor`, the
@@ -57,7 +57,7 @@ export function StartThreadPicker({ eventId, team }: { eventId: string; team: re
     <div className="space-y-2" data-start-thread-picker>
       <div className="flex flex-wrap items-center gap-2">
         <PickMenu
-          label="Message a supplier on your team"
+          label="Message one of your suppliers"
           value={picked}
           options={team.map((t) => ({ key: t.vendorId, label: t.name }))}
           onPick={open}

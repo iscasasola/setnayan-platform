@@ -38,7 +38,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   const threads = await fetchCoupleThreads(supabase, eventId);
 
   // ── Who the couple can start a conversation with: the suppliers on Your
-  // Team (the same `event_vendors` rows the Your Team page reads). See
+  // Team (the same `event_vendors` rows the Suppliers page reads). See
   // lib/messages-team-picker.ts for why this replaced the email box.
   // 🔴 AN UNREAD TEAM IS NOT AN EMPTY TEAM. A refused read must not tell a
   // couple with five suppliers to "add a supplier first" — `teamReadFailed`
@@ -185,19 +185,19 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         <h2 className="sn-eye mb-3">Start a conversation</h2>
         {teamReadFailed ? (
           <p role="alert" className="text-sm text-ink/70">
-            We couldn&rsquo;t load your team just now &mdash; this does not mean it is
+            We couldn&rsquo;t load your suppliers just now &mdash; this does not mean it is
             empty. Reload in a moment.
           </p>
         ) : team.length > 0 ? (
           <StartThreadPicker eventId={eventId} team={team} />
         ) : (
           <p className="text-sm text-ink/70">
-            Nobody on your team can be messaged yet. Add a supplier from Setnayan to{' '}
+            None of your suppliers can be messaged yet. Add one from Setnayan to{' '}
             <Link
               href={`/dashboard/${eventId}/vendors`}
               className="font-medium text-mulberry underline underline-offset-2"
             >
-              Your Team
+              Suppliers
             </Link>{' '}
             and you can message them from here.
           </p>
@@ -245,7 +245,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
               href={`/dashboard/${eventId}/vendors`}
               className="button-secondary"
             >
-              Open Your Team
+              Open Suppliers
             </Link>
           </div>
         </div>

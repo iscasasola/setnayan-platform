@@ -52,7 +52,7 @@ test('Messages starts a conversation from the team, not from a typed email', () 
     assert.match(before, /search\.prefill_vendor_email \?/, 'the email lookup renders without its arrival');
   }
   // An unread team is not an empty team: the failure reaches the render.
-  assert.match(page, /teamReadFailed \?/, 'a refused team read would read as "nobody on your team"');
+  assert.match(page, /teamReadFailed \?/, 'a refused team read would read as "nobody to message"');
 });
 
 test('the picker is ONE PickMenu that opens the thread through the shipped resolver', () => {
@@ -93,7 +93,7 @@ test('only Setnayan shops, one per shop, under the anonymity-safe name', () => {
   const byId = new Map(picks.map((p) => [p.vendorId, p.name]));
   assert.equal(byId.get('ev1'), 'Screen shopA', 'a hidden shop’s real name leaked into the picker');
   assert.equal(byId.get('ev4'), 'Real Name shopB', 'a revealed shop is not shown by name');
-  assert.equal(byId.get('ev5'), 'A supplier on your team', 'an unread profile shows a name or "Vendor"');
+  assert.equal(byId.get('ev5'), 'One of your suppliers', 'an unread profile shows a name or "Vendor"');
 });
 
 /* ══ 2 · THANK-YOU VIDEO ════════════════════════════════════════════════ */

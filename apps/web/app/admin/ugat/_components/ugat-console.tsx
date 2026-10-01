@@ -1578,6 +1578,7 @@ function TablesView({
     gallery: 'TYPE-GALLERY',
     signoff: 'TYPE-SIGNOFF',
     colourgrant: 'TYPE-COLOURGRANT',
+    march: 'TYPE-MARCH',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

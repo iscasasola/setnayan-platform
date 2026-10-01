@@ -21,8 +21,8 @@ const row = (id: string, first: string, last: string, role: string, extra: Parti
 const ROWS: EntourageGuestRow[] = [
   row('gp', 'Ramon', 'Casasola', 'groom_parents'),
   row('bp', 'Lita', 'Reyes', 'bride_parents'),
-  row('nong', 'Ben', 'Cruz', 'principal_sponsor_ninong', { pair_with_guest_id: 'nang' }),
-  row('nang', 'Nena', 'Cruz', 'principal_sponsor_ninang', { pair_with_guest_id: 'nong' }),
+  row('nong', 'Ben', 'Cruz', 'principal_sponsor_ninong', { march: { walk_no: 0, place_in_walk: 0 } }),
+  row('nang', 'Nena', 'Cruz', 'principal_sponsor_ninang', { march: { walk_no: 0, place_in_walk: 1 } }),
   row('ring', 'Migo', 'Santos', 'ring_bearer'),
 ];
 

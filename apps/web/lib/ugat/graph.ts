@@ -52,7 +52,8 @@ export type UgatEntityType =
   | 'render'
   | 'gallery'
   | 'signoff'
-  | 'colourgrant';
+  | 'colourgrant'
+  | 'march';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -982,6 +983,41 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'held by', to: 'TYPE-VENDORS' },
     ],
   },
+  {
+    /**
+     * THE WEDDING MARCH — its own entity (owner 2026-10-01, DECISION_LOG "THE
+     * WEDDING MARCH IS ITS OWN ENTITY": *"wedding march is a different
+     * entity."*). One row per person who walks; a WALK is the rows sharing a
+     * walk_no, the march's order is walk_no ascending, being alone is being the
+     * only row in your walk.
+     *
+     * 🔑 A WALK IS NOT A COUPLE ("A WALK AND A COUPLE ARE INDEPENDENT"). Nothing
+     * here says two people are a couple, and no march edit writes a guest row
+     * (`march-is-its-own-table.db.test.ts`). Before this node the march rode on
+     * `guests.pair_with_guest_id` + `entourage_order` — both now retired for it.
+     */
+    id: 'TYPE-MARCH',
+    type: 'march',
+    name: 'Wedding March',
+    blurb: 'who walks with whom, in what order — never who is a couple',
+    countKey: 'march',
+    icon: 'link',
+    color: 'var(--ug-e-march)',
+    colorBg: 'var(--ug-e-march-bg)',
+    table: 'march_walks',
+    x: 60,
+    y: 680,
+    fields: [
+      { key: 'pk', name: 'event_id + guest_id', note: 'one row per person per event — a person is in exactly one walk' },
+      { key: 'fk', name: '(event_id, guest_id)', note: 'composite → guests, ON DELETE CASCADE — a walker is always a guest OF THIS EVENT' },
+      { key: '', name: 'walk_no', note: 'the walk AND its place: rows sharing it walk together; unique per walk across the event, not per section' },
+      { key: '', name: 'place_in_walk', note: 'who is named first inside a walk when the section has no columns' },
+    ],
+    edges: [
+      { verb: 'lines up', to: 'TYPE-GUESTS' },
+      { verb: 'processes in', to: 'TYPE-EVENTS' },
+    ],
+  },
 ];
 
 
@@ -1020,6 +1056,12 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'key',
     color: 'var(--ug-e-colourgrant)',
     colorBg: 'var(--ug-e-colourgrant-bg)',
+  },
+  march: {
+    label: 'Wedding March',
+    icon: 'link',
+    color: 'var(--ug-e-march)',
+    colorBg: 'var(--ug-e-march-bg)',
   },
   community: {
     label: 'Group',
@@ -3326,6 +3368,39 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'RLS Pattern B read half on all three (event members read; the granted BOOKING reads its own row via current_vendor_event_vendor_ids; admin all) · no authenticated write policy anywhere · colour_access_caller_is_couple refuses a NULL auth.uid() rather than failing open to a server context · colour_domains_for_category resolves the lane IN SQL so no caller can widen it · colour_domain_covers refuses a target outside the granted domain · event_colour_grants_coordinator_membership_fk CASCADEs from event_members, so removing a delegate revokes their access with no code doing it',
     traps:
       'apply_colour_change READS THE ROW BACK after the UPDATE: MB12’s events_hold_part_finalization_freeze reverts an agreed part’s colour inside the same statement and the UPDATE still reports success, so without the read-back the log would carry a change that never happened. A palette slot is CHANGED and never CREATED (no_such_slot) — that is what lets reject be an in-place restore instead of an array splice. And event_colour_changes.vendor_id is ON DELETE SET NULL with deliberately NO companion CHECK requiring it: SET NULL onto a CHECKed column makes the FK behave like RESTRICT while claiming SET NULL, and deleting the booking would fail with a constraint error nobody could place.',
+  },
+  {
+    /**
+     * The march ↔ the guest list — two entities that must never write each
+     * other (owner 2026-10-01: "guests' own data (+1, partner link, role, side)
+     * is untouched by any march edit and vice versa").
+     *
+     * 🔑 CLAIMED AS ABSENCES TOO. A `couple` column on the march would be the
+     * exact coupling the owner ruled out ("the pair in the wedding march does not
+     * mean they are a couple"); the composite FK is what makes a walker a guest
+     * OF THIS EVENT without trusting every writer to check.
+     */
+    id: 'J49',
+    claims: [
+      { kind: 'table', table: 'march_walks' },
+      { kind: 'column', table: 'march_walks', column: 'walk_no' },
+      { kind: 'column', table: 'march_walks', column: 'place_in_walk' },
+      { kind: 'fk', table: 'march_walks', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'march_walks', column: 'guest_id', references: 'guests' },
+      { kind: 'unique', table: 'march_walks', columns: ['event_id', 'guest_id'] },
+      { kind: 'no_column', table: 'march_walks', column: 'couple_with_guest_id' },
+      { kind: 'no_column', table: 'march_walks', column: 'deleted_at' },
+      { kind: 'column', table: 'guests', column: 'pair_with_guest_id' },
+    ],
+    chain: 2,
+    pair: ['TYPE-MARCH', 'TYPE-GUESTS'],
+    title: 'Wedding March ↔ Guest (a walk is not a couple)',
+    joint: 'march_walks',
+    cardinality: 'One walk row per guest per event; a walk = the rows sharing a walk_no (1, 2 or more people)',
+    implementedBy: 'march_walks — composite FK (event_id, guest_id) → guests ON DELETE CASCADE',
+    writtenBy: 'join_entourage_line · swap_entourage_places · set_entourage_order · unpair_guest — all SECURITY INVOKER, all writing march_walks only (the Maker\u2019s Wedding March + the Guest list\u2019s walking-order panel)',
+    guardedBy: 'RLS on march_walks — the hosts (current_couple_event_ids, never the member-wide current_event_ids) + admin + a guest-list editor; the public invitation reads it with the service role',
+    traps: 'guests is SOFT-deleted, so the CASCADE fires only on a real delete: a removed guest keeps a walk row, and readers drop them because they read through guests WHERE deleted_at IS NULL. guests.pair_with_guest_id + entourage_order still EXIST but are retired for the march — nothing writes them; a reader that still asks them gets frozen 2026-10-01 data.',
   },
 ];
 

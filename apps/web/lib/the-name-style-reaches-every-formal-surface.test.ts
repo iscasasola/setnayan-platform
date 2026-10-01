@@ -115,9 +115,9 @@ test('the Place card prints the event’s style — one-letter initial, suffix w
 // ── 2 · THE PRINTED LISTS ──────────────────────────────────────────────────
 
 const ROWS: EntourageGuestRow[] = [
-  // A real couple (ticked "They're a couple", #6189) — only a couple shares a surname on one line.
-  { guest_id: 'a', pair_with_guest_id: 'b', couple_with_guest_id: 'b', ...MANUEL, role: 'principal_sponsor_ninong' },
-  { guest_id: 'b', pair_with_guest_id: 'a', couple_with_guest_id: 'a', name_prefix: 'Mrs.', first_name: 'Rosa', middle_name: 'Lim', last_name: 'Casasola', role: 'principal_sponsor_ninang' },
+  // A real couple walking together (one walk + a mutual partner link) — the march still prints both full names.
+  { guest_id: 'a', march: { walk_no: 0, place_in_walk: 0 }, couple_with_guest_id: 'b', ...MANUEL, role: 'principal_sponsor_ninong' },
+  { guest_id: 'b', march: { walk_no: 0, place_in_walk: 1 }, couple_with_guest_id: 'a', name_prefix: 'Mrs.', first_name: 'Rosa', middle_name: 'Lim', last_name: 'Casasola', role: 'principal_sponsor_ninang' },
   { guest_id: 'c', display_name: 'Tito Boy', first_name: 'Jose', last_name: 'Reyes', role: 'guest' },
   { guest_id: 'd', name_prefix: 'Ms.', first_name: 'Ana', middle_name: 'Bautista', last_name: 'Cruz', role: 'guest' },
 ];
@@ -132,13 +132,13 @@ test('the entourage is built in the style — sponsors included', () => {
   assert.ok(namesIn('surname-first').includes('Mrs. Casasola, Rosa L.'));
 });
 
-test('a shared-surname pair line follows the style, and Surname first never shares one', () => {
+test('a walking pair’s line follows the style — both full names, never a shared surname (owner 2026-10-01)', () => {
   const line = (style?: NameStyle) => {
     const g = buildEntourage(ROWS, null, null, style).find((x) => x.rows.some((r) => r[0] && r[1]))!;
     return lineNames(g.rows.find((r) => r[0] && r[1])!);
   };
-  assert.match(line('middle-initial'), /^Mr\. Manuel C\. & Mrs\. Rosa L\. Casasola$|^Mrs\. Rosa L\. & Mr\. Manuel C\. Casasola$/);
-  // Both names whole — a shared-surname half ("Mr. Manuel C. & Mrs. Casasola, Rosa L.") is nonsense here.
+  assert.equal(line('middle-initial'), 'Mr. Manuel C. Casasola & Mrs. Rosa L. Casasola');
+  // Both names whole in every style — "A WALK AND A COUPLE ARE INDEPENDENT".
   assert.match(
     line('surname-first'),
     /^Mr\. Casasola, Manuel C\. & Mrs\. Casasola, Rosa L\.$|^Mrs\. Casasola, Rosa L\. & Mr\. Casasola, Manuel C\.$/,

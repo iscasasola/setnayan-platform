@@ -115,6 +115,12 @@ export interface UgatCounts {
    * "how many people hold access"; for that, count distinct subjects.
    */
   colourgrant: number;
+  /**
+   * Wedding March: every walk row — one per person placed in a march, across
+   * every event. Not "how many walks"; for that, count distinct (event_id,
+   * walk_no).
+   */
+  march: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -222,6 +228,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     signoffRows,
     colourGrantRows,
     colourGrantHostRows,
+    marchRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -299,6 +306,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // that no longer stands.
     headCount(admin, 'event_colour_grants', (q) => q.eq('is_active', true)),
     headCount(admin, 'event_colour_grants_coordinator', (q) => q.eq('is_active', true)),
+    // Wedding March: every person placed in a march (one row each).
+    headCount(admin, 'march_walks'),
   ]);
 
   return {
@@ -327,6 +336,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     gallery: libraryRows,
     signoff: signoffRows,
     colourgrant: colourGrantRows + colourGrantHostRows,
+    march: marchRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,

@@ -177,7 +177,7 @@ test('"Leave the other side blank" happens IN PLACE — the Guest list’s own u
   assert.match(unpair, /if \(inPlace\) \{[\s\S]*?return;\s*\}\s*redirect\(backToList\(eventId, \{ unpaired: '1' \}\)\);/);
   // The Maker calls that same action, through the Maker's one refresh.
   const march = read(`${L}details-march.tsx`);
-  assert.match(march, /import \{ setWalkingPairCouple, unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
+  assert.match(march, /import \{ unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
   assert.match(march, /await unpairGuestAction\(eventId, pairIds\[0\]!, 'in-place'\);/);
   assert.match(march, /Leave the other side blank/);
   // …and the Guest list's rows no longer offer it at all (owner 2026-09-30:

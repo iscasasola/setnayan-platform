@@ -1,11 +1,16 @@
 'use server';
 
 /**
- * pair-actions.ts — who walks beside whom, and whether those two are a couple.
+ * pair-actions.ts — somebody steps out of the walk they are in.
  *
- * Filipino entourages walk in pairs: groomsman↔bridesmaid, ninong↔ninang. The
- * column for it (`guests.pair_with_guest_id`) has existed since the first
- * guests migration in May 2026.
+ * Filipino entourages walk in pairs: groomsman↔bridesmaid, ninong↔ninang.
+ *
+ * 🚶 OWNER 2026-10-01 — "THE WEDDING MARCH IS ITS OWN ENTITY": who walks with
+ * whom is `march_walks` (one row per person; a walk = the rows sharing a
+ * walk_no), no longer `guests.pair_with_guest_id`. And "A WALK AND A COUPLE ARE
+ * INDEPENDENT": the march never sets or shows whether two people are a couple,
+ * so the "They're a couple" tick (`setWalkingPairCouple`) is RETIRED — one
+ * exported action fewer toward the `lint-server-action-budget.mjs` ceiling.
  *
  * ⚖ OWNER 2026-09-29/30 — "walks with" LIVES ONLY IN THE MAKER'S WEDDING MARCH.
  * The Guest list keeps people; its rows and the guest card neither show nor
@@ -13,18 +18,13 @@
  * Guest list's "Pair these 2" writer that lived here is gone for that reason —
  * pairs are made in the march (`march-actions.ts` join / swap).
  *
- * Every pair write goes through the `pair_guests` / `unpair_guest` SQL
- * functions rather than two UPDATEs from here. That is not ceremony: a pair is
- * MUTUAL, so two round-trips leave a window where A points at B and B points
- * at nobody. The functions write both halves in one statement, under the
- * caller's own RLS (SECURITY INVOKER), so a partial pair cannot be persisted.
+ * The write is the `unpair_guest` SQL function, under the caller's own RLS
+ * on `march_walks` (SECURITY INVOKER), in one call.
  */
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { MARCH_READ_FAILED, MARCH_STALE, MARCH_WRITE_FAILED, revalidateMarch } from '@/lib/entourage-write';
-import type { MarchResult } from '@/lib/march-result';
 
 function backToList(eventId: string, params: Record<string, string>): string {
   const q = new URLSearchParams(params);
@@ -32,77 +32,9 @@ function backToList(eventId: string, params: Record<string, string>): string {
 }
 
 /**
- * "They're a couple" — the Wedding March's tick on ONE walking pair.
- *
- * ⚖ OWNER 2026-09-30: *"sometimes the principal sponsor are not couples. Or the
- * entourage are also not couples."* Walking together prints both full names
- * ("Dr. Eduardo Bautista & Ms. Carmen Reyes"); only a real couple prints the
- * short form ("Hon. Ricardo & Mrs. Jessica Villahermosa"). This is how the
- * hosts say two walkers ARE a couple. (A +1 is a couple already — see
- * `isCouple` in lib/entourage.ts — and needs no tick.)
- *
- * 🔑 +0 EXPORTED ACTIONS: this took the export slot of the Guest list's retired
- * "Pair these 2" writer (`lint-server-action-budget.mjs`).
- *
- * WRITE SHAPE. `couple_with_guest_id` is read as MUTUAL, so the order of the
- * two writes below cannot make a false couple: until BOTH halves point at each
- * other the line prints full names — the safe reading. Clearing is one
- * statement. Every write asks for the rows it touched, because a zero-row
- * UPDATE (RLS refused, the guest removed meanwhile) is otherwise success-shaped.
- */
-export async function setWalkingPairCouple(
-  eventId: string,
-  aId: string,
-  bId: string,
-  couple: boolean,
-): Promise<MarchResult> {
-  if (!aId || !bId || aId === bId) return { ok: false, reason: 'Pick the two people who walk together.' };
-  const supabase = await createClient();
-
-  // READ fresh — they must still walk together, or the tick means nothing.
-  const { data, error: readErr } = await supabase
-    .from('guests')
-    .select('guest_id, pair_with_guest_id')
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    .in('guest_id', [aId, bId]);
-  if (readErr) return { ok: false, reason: MARCH_READ_FAILED };
-  const rows = (data ?? []) as Array<{ guest_id: string; pair_with_guest_id: string | null }>;
-  const a = rows.find((r) => r.guest_id === aId);
-  const b = rows.find((r) => r.guest_id === bId);
-  if (!a || !b || a.pair_with_guest_id !== bId || b.pair_with_guest_id !== aId) {
-    return { ok: false, reason: MARCH_STALE };
-  }
-
-  if (!couple) {
-    const { data: cleared, error } = await supabase
-      .from('guests')
-      .update({ couple_with_guest_id: null })
-      .eq('event_id', eventId)
-      .in('guest_id', [aId, bId])
-      .select('guest_id');
-    if (error || (cleared ?? []).length !== 2) return { ok: false, reason: MARCH_WRITE_FAILED };
-  } else {
-    for (const [self, other] of [
-      [aId, bId],
-      [bId, aId],
-    ] as const) {
-      const { data: set, error } = await supabase
-        .from('guests')
-        .update({ couple_with_guest_id: other })
-        .eq('event_id', eventId)
-        .eq('guest_id', self)
-        .select('guest_id');
-      if (error || (set ?? []).length !== 1) return { ok: false, reason: MARCH_WRITE_FAILED };
-    }
-  }
-
-  await revalidateMarch(eventId);
-  return { ok: true, written: 2 };
-}
-
-/**
- * Break a guest's pair — clearing BOTH halves, never just the row clicked.
+ * Take a guest out of their walk — they walk alone, right behind it; whoever
+ * they walked with keeps the walk and its place (`unpair_guest`, which writes
+ * `march_walks` only).
  *
  * 🧩 IN PLACE, TOO (owner 2026-09-29 — no link-outs; DECISION_LOG "A TOOL MOVED
  * INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). The Maker's Wedding March

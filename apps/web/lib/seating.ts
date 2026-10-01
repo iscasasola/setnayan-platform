@@ -844,9 +844,13 @@ export type AutoSeatGuest = {
   // Explicit per-guest tier override (guests.seating_priority, 1–4). null /
   // undefined = derive from role + group_category via roleTier().
   seating_priority?: number | null;
-  // Entourage pair (guests.pair_with_guest_id) — a seated-together role set
-  // brings its members' pairs to the same table, beside them.
-  pair_with_guest_id?: string | null;
+  /* ⚖ NO WALKING-PAIR HINT (owner 2026-10-01, "A WALK AND A COUPLE ARE
+     INDEPENDENT" + "THE WEDDING MARCH IS ITS OWN ENTITY"). Who walks beside whom
+     in the march says nothing about who sits beside whom: a sponsor's spouse is
+     their +1 (`plus_one_of_guest_id`, which already rides with them), and the
+     sponsors themselves share a table through the couple's own Rules ▾ ("Sit
+     together" — `role_seating`, the default). The seater reads neither
+     `guests.pair_with_guest_id` nor `march_walks`. */
 };
 
 export type AutoSeatRow = { guest_id: string; table_id: string; seat_number: number };
@@ -1067,16 +1071,6 @@ export function computeAutoSeat(
       primaries.push(g);
     }
   }
-  // A seated-together role set brings its members' PAIRS (a sponsor's spouse
-  // listed as a plain guest) to the same table.
-  const primaryIds = new Set(primaries.map((g) => g.guest_id));
-  for (const g of primaries) {
-    const k = keyOf.get(g.guest_id)!;
-    const partner = g.pair_with_guest_id;
-    if (!k.startsWith('role:') || !partner || !primaryIds.has(partner)) continue;
-    if (!keyOf.get(partner)!.startsWith('role:')) keyOf.set(partner, k);
-  }
-
   type Unit = { key: string; chunks: AutoSeatGuest[][]; size: number; rank: number; setOrder: number; name: string };
   const unitMembers = new Map<string, AutoSeatGuest[]>();
   for (const g of primaries) {
@@ -1088,9 +1082,7 @@ export function computeAutoSeat(
   const units: Unit[] = [];
   for (const [key, members] of unitMembers) {
     members.sort((a, b) => nameKey(a).localeCompare(nameKey(b)));
-    // Chunks = what must share a table: a guest + their plus-ones (+ their pair
-    // partner and the partner's plus-ones, when both are in this unit).
-    const inUnit = new Set(members.map((m) => m.guest_id));
+    // Chunks = what must share a table: a guest + their plus-ones.
     const done = new Set<string>();
     const chunks: AutoSeatGuest[][] = [];
     for (const m of members) {
@@ -1101,9 +1093,6 @@ export function computeAutoSeat(
         chunk.push(x, ...(plusOnesBy.get(x.guest_id) ?? []));
       };
       take(m);
-      const p = m.pair_with_guest_id;
-      const partner = p && inUnit.has(p) && !done.has(p) ? byId.get(p) : undefined;
-      if (partner) take(partner);
       chunks.push(chunk);
     }
     const set = key.startsWith('role:') ? key.slice(5) : null;

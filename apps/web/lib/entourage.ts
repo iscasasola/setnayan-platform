@@ -1,6 +1,6 @@
 import { guestFullName, type GuestRole } from '@/lib/guests';
 import { roleNameMany, roleNameOne, type RoleNames } from '@/lib/role-names';
-import { middleInitials, type NameStyle } from '@/lib/name-style';
+import type { NameStyle } from '@/lib/name-style';
 
 /**
  * THE ENTOURAGE, AS AN INVITATION PRINTS IT.
@@ -51,26 +51,23 @@ export type EntouragePerson = {
   name: string;
   /** The role this appearance is for — a guest with `extra_roles` appears once per role. */
   role: GuestRole;
-  /** Their partner's guest id, when the couple paired them. */
-  pairId: string | null;
+  /**
+   * `march_walks.walk_no` — the WALK this person is in, which is both who they
+   * walk with (everyone sharing the number) and the walk's place in the march
+   * (ascending). Null = an entourage member nobody has placed yet: they walk
+   * alone, after the placed walks, in the role-then-surname default. See
+   * `pairUp` and `orderLines`. (Owner 2026-10-01: the march is its own entity.)
+   */
+  walk: number | null;
+  /** `march_walks.place_in_walk` — who is named first inside a walk when the group has no columns. */
+  place: number;
   /** `guests.plus_one_of_guest_id` — whose +1 this person is. See `isCouple`. */
   plusOneOf?: string | null;
-  /** `guests.couple_with_guest_id` — ticked "They're a couple" in the Wedding March. See `isCouple`. */
+  /** `guests.couple_with_guest_id` — the partner link. See `isCouple`. */
   coupleWith?: string | null;
-  /** `guests.entourage_order` — the LINE's hand-set position, not this person's.
-   *  Both halves of a pair carry the same number; see `orderLines`. */
-  order: number | null;
   /** True when they are invited to the ceremony and nothing else. They still
    *  walk, and print normally; they simply have no chair. */
   ceremonyOnly: boolean;
-  /**
-   * The name split for a COUPLE's shared-surname line (`isCouple`) — `given` is everything
-   * before the surname ("Hon. Ricardo"), `surname` the last name exactly as
-   * entered. Null when the name cannot be split honestly: a hand-typed
-   * `display_name`, no last name, or a suffix ("Jr." would be lost or misplaced
-   * by "Ricardo & Jessica Villahermosa Jr."). See `lineNames`.
-   */
-  split?: { given: string; surname: string } | null;
   /**
    * What an UNPLACED line sorts by — surname, then first name, never a title.
    * From the name parts where the row has them; see `sortKeyOf`.
@@ -523,17 +520,17 @@ export function roleBlocks(group: EntourageGroup): EntourageRoleBlock[] | null {
 }
 
 /**
- * Are the two people on one line a real COUPLE — not merely walking together?
+ * Are two people a real COUPLE? A fact about the PEOPLE, read only from the
+ * guest rows — never from the march.
  *
- * ⚖ OWNER 2026-09-30 (DECISION_LOG "WALKING TOGETHER IS NOT BEING A COUPLE"):
- * *"sometimes the principal sponsor are not couples. Or the entourage are also
- * not couples."* Walking beside someone implies NOTHING about a relationship.
- * A couple is exactly one of:
+ * ⚖ OWNER 2026-09-30 / 2026-10-01 (DECISION_LOG "WALKING TOGETHER IS NOT BEING A
+ * COUPLE" + "A WALK AND A COUPLE ARE INDEPENDENT"): walking beside someone
+ * implies NOTHING about a relationship, and the march editor never sets or shows
+ * it. A couple is exactly one of:
  *   · one is the other's +1 in the Guest list (`plus_one_of_guest_id`);
- *   · the hosts ticked "They're a couple" on that pair in the Maker's Wedding
- *     March — `couple_with_guest_id`, read as MUTUAL (A → B and B → A), so a
- *     tick left over from an earlier pairing can never adopt a new partner.
+ *   · the partner link `couple_with_guest_id`, read as MUTUAL (A → B and B → A).
  * 🔑 A SHARED SURNAME IS NEVER EVIDENCE. Two Reyes sponsors are two people.
+ * ⛔ `lineNames` does not ask this: a march line is both full names, always.
  */
 export function isCouple(
   a: Pick<EntouragePerson, 'id' | 'plusOneOf' | 'coupleWith'> | null | undefined,
@@ -545,29 +542,19 @@ export function isCouple(
 }
 
 /**
- * The names of one printed line, a pair kept together, in the line's own order
+ * The names of one printed line, a walk kept together, in the line's own order
  * (left then right — Ninong then Ninang, bridesmaid then groomsman).
  *
- * ⚖ OWNER 2026-09-30: a walking pair is BOTH FULL NAMES —
- * *"Dr. Eduardo Bautista & Ms. Carmen Reyes"*. The couple-style short form
- * *"Hon. Ricardo & Mrs. Jessica Villahermosa"* is for a real couple ONLY:
- *   · the pair comes from the DATA (`pair_with_guest_id`, via `pairUp`) —
- *     never guessed from a shared surname;
- *   · the surname is said once ONLY when they are a couple (`isCouple`) AND
- *     both surnames match EXACTLY AND both names split cleanly (`split`);
- *     otherwise both full names, joined by " & " — a shared surname alone
- *     NEVER shortens (the Oct 1 release did, and that was the bug);
- *   · titles stay exactly as entered;
- *   · an unpaired person is just their name.
+ * ⚖ OWNER 2026-10-01 (DECISION_LOG "A WALK AND A COUPLE ARE INDEPENDENT"):
+ * *"the pair in the wedding march does not mean they are a couple."* Every march
+ * line shows EACH PERSON'S OWN FULL NAME, couple or not — *"Dr. Eduardo Bautista
+ * & Ms. Carmen Reyes"*, and a married ninong and ninang print as two full names
+ * too. There is no couple short form in the march; titles stay exactly as
+ * entered; someone walking alone is just their name.
  */
 export function lineNames(row: EntourageRow): string {
   const [l, r] = row;
-  if (l && r) {
-    if (isCouple(l, r) && l.split && r.split && l.split.surname === r.split.surname) {
-      return `${l.split.given} & ${r.name}`;
-    }
-    return `${l.name} & ${r.name}`;
-  }
+  if (l && r) return `${l.name} & ${r.name}`;
   return (l ?? r)?.name ?? '';
 }
 
@@ -589,7 +576,13 @@ export function pairsShareALine(group: EntourageGroup): boolean {
  *
  * ⚠ Every name here is load-bearing and each was added after it went missing:
  * the five name parts (a ninong printed without his "Atty."), then `guest_id`
- * and `pair_with_guest_id` (every pair invisible).
+ * and who walks with whom (every pair invisible).
+ *
+ * 🚶 THE MARCH IS ITS OWN TABLE (owner 2026-10-01, "THE WEDDING MARCH IS ITS OWN
+ * ENTITY"). `march:march_walks(…)` embeds the person's ONE walk row through the
+ * composite FK — it REPLACES the retired `pair_with_guest_id` + `entourage_order`
+ * one for one, so every reader that printed pairs before still does. The public
+ * pages read with the service role; a host reads under `march_walks`' own RLS.
  */
 /**
  * ⚠ DO NOT WIDEN THIS FOR ONE READER. `lint:dup-rule` treats this list as the
@@ -602,34 +595,45 @@ export function pairsShareALine(group: EntourageGroup): boolean {
  * `${ENTOURAGE_COLUMNS}, invited_to_blocks`.
  */
 export const ENTOURAGE_COLUMNS =
-  'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, entourage_order';
+  'guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, march:march_walks(walk_no, place_in_walk)';
 
 /**
- * + what `isCouple` reads — asked for by the readers that PRINT a pair line
- * (the invitation's section and the Maker's march via `loadEntourage`, the
- * `/everyone` page, the printed Entourage card):
+ * + what `isCouple` reads — the guest-row facts about who is a couple, asked for
+ * by the readers that print the entourage:
  * `${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`.
  *
  * Deliberately NOT inside `ENTOURAGE_COLUMNS` (see its "DO NOT WIDEN" note) and
- * deliberately not named `*_COLUMNS`. A reader that forgets it degrades the SAFE
- * way — both full names — never the wrong way.
+ * deliberately not named `*_COLUMNS`. The march never reads it (a march line is
+ * both full names, always — `lineNames`).
  */
 export const ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_id';
 
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g.roles]);
 
+/** One `march_walks` row, as a guest read embeds it. */
+export type MarchSpot = { walk_no: number; place_in_walk?: number | null };
+
+/** The walk row of a guest read, whichever shape PostgREST returned it in. */
+export function marchSpotOf(row: Pick<EntourageGuestRow, 'march'>): MarchSpot | null {
+  const m = row.march;
+  const spot = Array.isArray(m) ? (m as readonly MarchSpot[])[0] : (m as MarchSpot | null | undefined);
+  return spot && typeof spot.walk_no === 'number' ? spot : null;
+}
+
 /** One guest row, reduced to what this builder reads. */
 export type EntourageGuestRow = {
   guest_id?: string | null;
-  /** `guests.pair_with_guest_id` — written ONLY through the `pair_guests` /
-   *  `unpair_guest` SQL functions, which write both halves in one statement.
-   *  Never write this column directly: mutuality is not expressible as a row
-   *  constraint, so two round trips leave a half-pair. */
-  pair_with_guest_id?: string | null;
+  /**
+   * The person's ONE row in `march_walks` (embedded by `ENTOURAGE_COLUMNS`),
+   * or null/absent when nobody has placed them. PostgREST hands a one-to-one
+   * embed back as an object; an array is accepted too, so a change in how it
+   * reports the relationship cannot silently unpair the whole march.
+   */
+  march?: MarchSpot | readonly MarchSpot[] | null;
   /** `guests.plus_one_of_guest_id` — see `ENTOURAGE_COUPLE_FIELDS` / `isCouple`. */
   plus_one_of_guest_id?: string | null;
-  /** `guests.couple_with_guest_id` — the Wedding March's "They're a couple" tick. */
+  /** `guests.couple_with_guest_id` — the partner link. See `isCouple`. */
   couple_with_guest_id?: string | null;
   display_name?: string | null;
   name_prefix?: string | null;
@@ -639,10 +643,6 @@ export type EntourageGuestRow = {
   name_suffix?: string | null;
   role?: string | null;
   extra_roles?: readonly string[] | null;
-  /** `guests.entourage_order` — the couple's hand-set position of the LINE this
-   *  person walks in. Both halves of a pair carry the same value; see
-   *  `orderLines`. NULL means never placed by hand. */
-  entourage_order?: number | null;
   /** `guests.invited_to_blocks` — a ceremony-only sponsor still walks. */
   invited_to_blocks?: readonly string[] | null;
 };
@@ -707,8 +707,7 @@ function comparePrinted(a: EntourageGuestRow, b: EntourageGuestRow): number {
     🔑 NULL IS NOT ZERO. Treating an unplaced name as 0 would silently rank it
     ABOVE everyone the couple actually placed.
   */
-  const placed = (r: EntourageGuestRow) =>
-    typeof r.entourage_order === 'number' ? r.entourage_order : null;
+  const placed = (r: EntourageGuestRow) => marchSpotOf(r)?.walk_no ?? null;
   const pa = placed(a);
   const pb = placed(b);
   if (pa !== null && pb !== null && pa !== pb) return pa - pb;
@@ -752,21 +751,23 @@ export function holdersOfRoleInPrintOrder(
  * moved her past other ninangs while he stayed where he was, and the pair came
  * apart on the page that exists to show them together.
  *
- * So the unit of ordering is the LINE: a pair, or a single who walks alone.
- * Both halves of a pair carry the SAME `entourage_order`, which is why this
- * needed no schema change — the column was always able to say this; nothing
- * was ever writing it that way.
+ * So the unit of ordering is the LINE: a walk, or a single who walks alone.
+ * Since 2026-10-01 a line IS a walk (`march_walks`, owner: "the wedding march
+ * is a different entity"): both people share one `walk_no`, and walks print in
+ * `walk_no` order.
  *
- * 🔑 THIS IS NOT THE SEAT PLAN. `entourage_order` is the line in the aisle;
+ * 🔑 THIS IS NOT THE SEAT PLAN. `walk_no` is the line in the aisle;
  * `event_seat_assignments` + `seating_priority` are the chair. Moving a pair up
  * the processional must never move a chair, and nothing here touches one.
  *
- * Hand-placed lines lead, in their own order; the rest fall back to the
- * surname default, exactly as the migration's NULL rule intends.
+ * Placed walks lead, in their own order; anyone with no walk yet falls back to
+ * the role-then-surname default. `ignorePlacement` sorts EVERY line by that
+ * default — what the Reset link hands a section back to (`defaultLineOrder`).
  */
 function orderLines(
   lines: readonly EntourageRow[],
   spec: GroupSpec,
+  ignorePlacement = false,
 ): EntourageRow[] {
   const lead = (ln: EntourageRow) => ln[0] ?? ln[1];
   /*
@@ -783,8 +784,9 @@ function orderLines(
     return at === -1 ? Number.MAX_SAFE_INTEGER : at;
   };
   const placedAt = (ln: EntourageRow): number | null => {
+    if (ignorePlacement) return null;
     for (const half of ln) {
-      if (half && typeof half.order === 'number') return half.order;
+      if (half && typeof half.walk === 'number') return half.walk;
     }
     return null;
   };
@@ -831,6 +833,25 @@ export function entourageLines(
   const spec = GROUPS.find((g) => g.key === groupKey);
   if (!spec) return [];
   return orderLines(pairUp(peopleForSpec(rows, spec, style), spec.sides), spec);
+}
+
+/**
+ * A section's lines in the DEFAULT order — the group's role order, then
+ * surname — whatever their walks say. The Reset link writes this order back as
+ * the section's walk numbers (`clearEntourageOrder`); who walks with whom is
+ * kept, only the order is handed back.
+ */
+export function defaultLineOrder(lines: readonly EntourageRow[], groupKey: string): EntourageRow[] {
+  const spec = GROUPS.find((g) => g.key === groupKey);
+  if (!spec) return [...lines];
+  return orderLines(lines, spec, true);
+}
+
+/** Has the couple arranged this section — does it print in anything but the default order? (Drives Reset.) */
+export function linesAreArranged(lines: readonly EntourageRow[], groupKey: string): boolean {
+  const lead = (ln: EntourageRow) => (ln[0] ?? ln[1])?.id ?? '';
+  const fallback = defaultLineOrder(lines, groupKey);
+  return lines.some((ln, i) => lead(ln) !== lead(fallback[i]!));
 }
 
 /** Every printed group key, in printing order. */
@@ -905,12 +926,11 @@ function peopleForSpec(
         id: row.guest_id ?? null,
         name,
         role,
-        pairId: row.pair_with_guest_id ?? null,
+        walk: marchSpotOf(row)?.walk_no ?? null,
+        place: marchSpotOf(row)?.place_in_walk ?? 0,
         plusOneOf: row.plus_one_of_guest_id ?? null,
         coupleWith: row.couple_with_guest_id ?? null,
-        order: typeof row.entourage_order === 'number' ? row.entourage_order : null,
         ceremonyOnly: isCeremonyOnly(row),
-        split: splitForPairLine(row, style),
         sortKey: sortKeyOf(row, name),
         parentWord: parentWordOf(row),
       });
@@ -940,27 +960,6 @@ function sortKeyOf(row: EntourageGuestRow, printed: string): { last: string; fir
   if (last) return { last, first: row.first_name?.trim() ?? '' };
   const bare = printed.replace(LEADING_TITLE, '').replace(TRAILING_SUFFIX, '').trim();
   return { last: bare || printed, first: '' };
-}
-
-/**
- * See `EntouragePerson.split`.
- *
- * 🔤 THE NAME STYLE DECIDES THE GIVEN HALF. Middle initial → "Hon. Ricardo M.";
- * Surname first puts the surname FIRST, so "Hon. Ricardo M. & Mrs.
- * Villahermosa, Jessica L." would be nonsense — that style never shares a
- * surname and prints both names whole.
- */
-function splitForPairLine(row: EntourageGuestRow, style?: NameStyle): { given: string; surname: string } | null {
-  if (style === 'surname-first') return null;
-  if (row.display_name?.trim()) return null;
-  if (row.name_suffix?.trim()) return null;
-  const surname = row.last_name?.trim();
-  if (!surname) return null;
-  const given = [row.name_prefix, row.first_name, style === 'middle-initial' ? middleInitials(row.middle_name) : row.middle_name]
-    .map((part) => (part ?? '').trim())
-    .filter(Boolean)
-    .join(' ');
-  return given ? { given, surname } : null;
 }
 
 /**
@@ -1048,46 +1047,53 @@ function sideOf(
  *
  * ⚖ OWNER 2026-09-14: *"two columns, paired across. but if the other side is
  * left blank, then keep that line blank."*
+ * ⚖ OWNER 2026-10-01: who walks with whom is the march's own row
+ * (`march_walks`) — the people of this group sharing a `walk` are one line.
  *
- * · A pair whose two halves are BOTH in this group shares one line, each in the
- *   column their role says (or first-then-partner when the group has no sides —
- *   two candle sponsors hold the same role and nothing in it can say which side
- *   anyone is on).
+ * · A walk whose people are in this group shares one line, each in the column
+ *   their role says (or by `place` when the group has no sides — two candle
+ *   sponsors hold the same role and nothing in it can say which side anyone is
+ *   on).
  * · Everyone else keeps their own line, in their own column, with the other
- *   cell empty.
- * · 🔑 A PAIR THAT SPANS TWO GROUPS IS NOT A PAIR ON THE PAGE. Each half prints
- *   in its own group, unpartnered. That is why bridesmaids and groomsmen were
+ *   cell empty — including anyone with no walk yet.
+ * · 🔑 A WALK THAT SPANS TWO GROUPS IS NOT A PAIR ON THE PAGE. Each person
+ *   prints in their own group, alone. That is why bridesmaids and groomsmen were
  *   merged into ONE group: while they were two, every bridesmaid↔groomsman pair
  *   the couple had entered was invisible, and nothing said so.
- * · A half-pair — A points at B, B points at nobody or at someone else — still
- *   prints both people, once each. The SQL functions make that unreachable by
- *   writing both halves in one statement; this is what the page does if one
- *   ever appears anyway, and it is "show everybody", never "drop one".
+ * · A walk of three or more in one group (the table allows it; no move here
+ *   writes it) prints its first two together and the rest alone — "show
+ *   everybody", never "drop one".
  */
 function pairUp(people: readonly EntouragePerson[], sides: GroupSpec['sides']): EntourageRow[] {
-  const byId = new Map<string, EntouragePerson>();
-  for (const p of people) if (p.id) byId.set(p.id, p);
+  const byWalk = new Map<number, EntouragePerson[]>();
+  for (const p of people) {
+    if (typeof p.walk !== 'number') continue;
+    const walkers = byWalk.get(p.walk) ?? [];
+    walkers.push(p);
+    byWalk.set(p.walk, walkers);
+  }
+  for (const walkers of byWalk.values()) walkers.sort((a, b) => a.place - b.place);
 
   const placed = new Set<EntouragePerson>();
   const out: EntourageRow[] = [];
 
   for (const person of people) {
     if (placed.has(person)) continue;
-    const partner = person.pairId ? byId.get(person.pairId) : undefined;
-    /* Mutual only. A dangling pointer prints as two singles rather than
-       silently adopting somebody who is paired elsewhere. */
-    const mutual = partner && partner !== person && partner.pairId === person.id ? partner : null;
+    placed.add(person);
+    const mate =
+      typeof person.walk === 'number'
+        ? byWalk.get(person.walk)!.find((w) => w !== person && !placed.has(w))
+        : undefined;
 
-    if (mutual && !placed.has(mutual)) {
-      placed.add(person);
-      placed.add(mutual);
-      const mine = sideOf(person, sides);
-      if (mine === 1) out.push([mutual, person]);
-      else out.push([person, mutual]);
+    if (mate) {
+      placed.add(mate);
+      const [a, b] = person.place <= mate.place ? [person, mate] : [mate, person];
+      // The left column holds whoever's role says left; with no sides, `place` decides.
+      if (sideOf(a, sides) === 1 && sideOf(b, sides) !== 1) out.push([b, a]);
+      else out.push([a, b]);
       continue;
     }
 
-    placed.add(person);
     out.push(sideOf(person, sides) === 1 ? [null, person] : [person, null]);
   }
   return out;

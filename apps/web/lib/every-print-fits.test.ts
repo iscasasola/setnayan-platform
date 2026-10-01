@@ -50,12 +50,20 @@ const FIRST = ['Teodoro', 'Evangelina', 'Marcelino', 'Rosalinda', 'Bienvenido', 
 const LAST = ['Villaseñor-Castañeda', 'Dimaculangan', 'Macapagal-Arroyo', 'Pangilinan', 'Buenaventura', 'Sumulong', 'Katigbak', 'Evangelista-Ocampo'];
 
 let serial = 0;
+/* 🚶 Owner 2026-10-01: who walks with whom is a `march_walks` row — `pair` names
+   the walk-mate, and both get one walk number. */
+const WALKS = new Map<string, number>();
+const walkOf = (a: string, b: string): number => {
+  const key = [a, b].sort().join('+');
+  if (!WALKS.has(key)) WALKS.set(key, WALKS.size);
+  return WALKS.get(key)!;
+};
 function person(role: string, opts: { titled?: boolean; pair?: string | null; id?: string } = {}): EntourageGuestRow {
   serial += 1;
   const i = serial;
   return {
     guest_id: opts.id ?? `g-${i}`,
-    pair_with_guest_id: opts.pair ?? null,
+    march: opts.pair ? { walk_no: walkOf(opts.id ?? `g-${i}`, opts.pair) } : null,
     name_prefix: opts.titled ? TITLES[i % TITLES.length]! : null,
     first_name: FIRST[i % FIRST.length]!,
     middle_name: `${String.fromCharCode(65 + (i % 26))}.`,

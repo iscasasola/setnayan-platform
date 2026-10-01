@@ -59,6 +59,7 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { HomeFirstScreen } from './_components/home-first-screen';
+import { DateChangeDoorway } from './_components/date-change-doorway';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { NikahEssentialsCard } from './_components/nikah-essentials-card';
 import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
@@ -865,6 +866,10 @@ export default async function EventHomePage({
       {/* Self-hiding: renders nothing unless a coordinator is waiting on an
           answer (owner ruling 2026-07-27 — the host decides what to share). */}
       <AccessRequestsDoorway eventId={eventId} />
+      {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders
+          nothing unless the couple asked booked suppliers to move (owner
+          2026-10-01, the clashing-date flow). Couple-only by RLS. */}
+      <DateChangeDoorway eventId={eventId} />
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
       {dayOfActive ? (
         <DayOfModeGrid

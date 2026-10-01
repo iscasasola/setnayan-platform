@@ -56,6 +56,8 @@ export function deskDisposition(card: WhatsNewCard): DeskDisposition {
     case 'inquiry':
     case 'lock_request':
     case 'delete_request':
+    // Move to <date> · Unlock my service — two buttons, on a 3-day deadline.
+    case 'date_change':
     case 'lock':
     case 'review':
     case 'message':

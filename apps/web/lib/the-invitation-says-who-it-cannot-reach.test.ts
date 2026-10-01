@@ -26,7 +26,7 @@ const PAGE = 'app/dashboard/[eventId]/invitation/page.tsx';
 
 function bulkBody(): string {
   const src = readCode(ACTIONS);
-  const start = src.indexOf('export async function markGuestsInvitationSent');
+  const start = src.indexOf('async function markGuestsInvitationSent');
   assert.ok(start > 0, 'markGuestsInvitationSent not found — this guard is pointed at nothing');
   const next = src.indexOf('\nexport ', start + 10);
   const body = src.slice(start, next > 0 ? next : undefined);

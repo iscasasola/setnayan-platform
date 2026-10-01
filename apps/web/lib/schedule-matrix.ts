@@ -155,12 +155,16 @@ function candidateColumns(start: Date, end: Date, exact: boolean): string[] {
   return keys;
 }
 
-export async function buildScheduleMatrix(args: {
-  admin: SupabaseClient;
-  eventDate: string | null;
-  precision: EventDatePrecision | null;
-  picks: SchedulePick[];
-}): Promise<ScheduleMatrix> {
+export async function buildScheduleMatrix(
+  args: {
+    admin: SupabaseClient;
+    eventDate: string | null;
+    precision: EventDatePrecision | null;
+    picks: SchedulePick[];
+  },
+  /** A caller that DECIDES on the answer throws on an unread calendar (`getBatchVendorAvailableDays`). */
+  opts: { failClosed?: boolean } = {},
+): Promise<ScheduleMatrix> {
   const { admin, eventDate, precision, picks } = args;
 
   const marketplacePicks = picks.filter((p) => p.marketplaceVendorId);
@@ -177,7 +181,7 @@ export async function buildScheduleMatrix(args: {
 
   const profileIds = [...new Set(marketplacePicks.map((p) => p.marketplaceVendorId as string))];
   const availByProfile = profileIds.length
-    ? await getBatchVendorAvailableDays(admin, profileIds, window.start, window.end)
+    ? await getBatchVendorAvailableDays(admin, profileIds, window.start, window.end, opts)
     : new Map<string, Set<string>>();
 
   // Group picks by category, top pick (lowest rank) first.

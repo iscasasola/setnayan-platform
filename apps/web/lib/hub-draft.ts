@@ -1846,7 +1846,14 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
  * draft (`lib/hub-pro-effects.ts`), recomputed from the stored draft — the
  * sheet sends only the effect's id.
  */
-export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo', 'drop'] as const;
+/**
+ * `date_change` — THE CLASHING-DATE FLOW's couple side (owner 2026-10-01): the
+ * one confirm "Ask them to move or unlock?" and Home's withdraw · keep waiting ·
+ * drop that supplier (`action`, `lib/date-change.ts`). It rides this action
+ * rather than a new export (the server-action budget); it never writes the
+ * live page — the date goes live only through `apply`.
+ */
+export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo', 'drop', 'date_change'] as const;
 export type HubDraftIntent = (typeof HUB_DRAFT_INTENTS)[number];
 
 export function isHubDraftIntent(v: unknown): v is HubDraftIntent {
@@ -1879,6 +1886,8 @@ export type HubDraftActionResult =
        * render (`lib/maker-refresh.ts`), so the toolbar's count comes from here.
        */
       bar?: HubDraftBarLive;
+      /** `date_change` only: what happened, in words ("Asked. Your date stays as it is…"). */
+      message?: string;
     }
   | {
       ok: false;

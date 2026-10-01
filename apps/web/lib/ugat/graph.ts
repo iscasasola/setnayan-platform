@@ -3315,6 +3315,48 @@ export const UGAT_JOINTS: UgatJoint[] = [
     traps:
       'apply_colour_change READS THE ROW BACK after the UPDATE: MB12’s events_hold_part_finalization_freeze reverts an agreed part’s colour inside the same statement and the UPDATE still reports success, so without the read-back the log would carry a change that never happened. A palette slot is CHANGED and never CREATED (no_such_slot) — that is what lets reject be an in-place restore instead of an array splice. And event_colour_changes.vendor_id is ON DELETE SET NULL with deliberately NO companion CHECK requiring it: SET NULL onto a CHECKed column makes the FK behave like RESTRICT while claiming SET NULL, and deleting the booking would fail with a constraint error nobody could place.',
   },
+  {
+    /**
+     * 🗓 A CLASHING DATE GOES TO THE SUPPLIER IN CONFLICT (owner 2026-10-01;
+     * migration 20271259875335). The couple's ask to move their date, and each
+     * conflicting booked supplier's answer — Move · Unlock (or the couple's Drop
+     * after 3 days). It moves a BOOKING (J7), never invents a second booking
+     * state: Unlock is the couple's own Undo done for them (status →
+     * considering), and the money goes to the force-majeure admin path with the
+     * booking's own terms on it.
+     */
+    id: 'J49',
+    claims: [
+      { kind: 'table', table: 'event_date_change_requests' },
+      { kind: 'table', table: 'event_date_change_answers' },
+      { kind: 'fk', table: 'event_date_change_requests', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_date_change_answers', column: 'request_id', references: 'event_date_change_requests' },
+      { kind: 'fk', table: 'event_date_change_answers', column: 'event_vendor_id', references: 'event_vendors' },
+      { kind: 'fk', table: 'event_date_change_answers', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'event_date_change_answers', column: 'money_flag_id', references: 'force_majeure_flags' },
+      { kind: 'column', table: 'event_date_change_requests', column: 'proposed_date' },
+      { kind: 'column', table: 'event_date_change_requests', column: 'state' },
+      { kind: 'column', table: 'event_date_change_answers', column: 'answer' },
+      { kind: 'column', table: 'event_date_change_answers', column: 'due_at' },
+      // 🔑 CLAIMED AS AN ABSENCE: the request never carries an amount. Money
+      // follows the booking's own terms (an admin case), never a figure here.
+      { kind: 'no_column', table: 'event_date_change_answers', column: 'refund_php' },
+    ],
+    chain: 7,
+    pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
+    title: 'Event ↔ booked supplier (a date change: Move · Unlock)',
+    joint: 'event_date_change_requests',
+    cardinality:
+      'One OPEN request per event (partial unique index) · one answer row per conflicting booking (a package\'s anchor + cascade rows answer together, keyed by vendor_profile_id)',
+    implementedBy:
+      'event_date_change_requests (the date asked for, who asked, open → withdrawn | applied) + event_date_change_answers (asked → moved | unlocked | dropped, due_at = asked + 3 days). The date itself goes live only through the Maker\'s Apply (dateApplyClearance), and events_booked_dates_follow_the_event moves each held supplier\'s calendar block and pool reservation with it',
+    writtenBy:
+      'three SECURITY DEFINER functions and nothing else — ask_event_date_change (the couple) · answer_event_date_change (the supplier) · settle_event_date_change (the couple: withdraw / wait / drop / applied) — plus the internal date_change_release_booking both Unlock and Drop run. authenticated holds SELECT only',
+    guardedBy:
+      'RLS: couple via current_couple_event_ids() (never current_event_ids(), which returns guests), supplier via current_vendor_ids() / current_vendor_profile_ids(), admin via is_admin() · a-clashing-date-goes-to-the-supplier.db.test.ts',
+    traps:
+      'An unlocked booking is NOT deleted — it walks back to considering and keeps its payment log, because force_majeure_flags.event_vendor_id CASCADEs and the admin case must survive. The case is flag_type \'other\', never \'vendor_cancellation\' (that one counts against the supplier in vendor-activity). A supplier\'s answer is keyed on the vendor_profile_id stamped AT ASK TIME, matched to current_vendor_profile_ids().',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

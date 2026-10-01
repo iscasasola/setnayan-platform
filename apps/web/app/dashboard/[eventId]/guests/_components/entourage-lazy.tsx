@@ -16,8 +16,3 @@ import { SlotButton, SlotRows } from '../../launch/_components/lazy-slot';
  */
 export const WalkingOrderLines = dynamic(() => import(/* webpackChunkName: "maker-details" */ './walking-order-lines').then((m) => m.WalkingOrderLines), { loading: SlotRows });
 export const MarchButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ './march-button').then((m) => m.MarchButton), { loading: SlotButton });
-
-/** The same imports, asked early (the Maker when idle; The march row on hover or focus). */
-export function prefetchEntourage(): Promise<unknown> {
-  return Promise.all([import(/* webpackChunkName: "maker-details" */ './walking-order-lines'), import(/* webpackChunkName: "maker-details" */ './march-button')]);
-}

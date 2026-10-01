@@ -16,9 +16,9 @@ import { Sk, SkLine } from '@/components/skeletons';
  *   · `SlotNone`   — nothing: a navigator piece or a tip that only adds to a row.
  *
  * Every block is decorative; the wrapper carries `aria-busy` so assistive tech
- * hears one "loading", not a dozen. It is almost never seen: the Maker fetches
- * these pieces when it is idle, and a navigator row fetches its own on hover or
- * focus (`prefetchDetails`).
+ * hears one "loading", not a dozen. It is almost never seen: the Maker warms
+ * every piece once it is idle (`maker-tools.tsx`), so a tap draws the real
+ * piece at once; it shows only before that (or with Save-Data on).
  */
 export function SlotFill() {
   return (

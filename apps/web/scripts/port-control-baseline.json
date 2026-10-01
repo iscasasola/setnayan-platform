@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ad8ee2d433",
+  "generatedFromRef": "02878e66",
   "routeCount": 441,
   "destinations": 952,
-  "actions": 677,
-  "blocks": 5356,
+  "actions": 679,
+  "blocks": 5354,
   "routes": {
     "/": {
       "files": [
@@ -1059,7 +1059,6 @@
         "DetailsBigDate",
         "DetailsCard",
         "DialBar",
-        "DirectionsMenu",
         "DoorCard",
         "DoorPanels",
         "DosAndDonts",
@@ -1083,7 +1082,6 @@
         "EventWordsContext.Provider",
         "EventWordsProvider",
         "EverythingElseSheet",
-        "Eyebrow",
         "FaceDataNotice",
         "FaceReceiptCard",
         "FaceTaggingRow",
@@ -1263,7 +1261,6 @@
         "RoadScene",
         "RoamWatchPicker",
         "RoleFigure",
-        "RoleLabel",
         "RoleNames",
         "RoomFreeze",
         "RoomLink",
@@ -1376,9 +1373,10 @@
         "VendorRow",
         "VendorsWeLoved",
         "Venue",
-        "VenueFullPhoto",
-        "VenueJourney",
+        "VenueFullMap",
+        "VenueOneMap",
         "VenuePlate",
+        "VenueRow",
         "VenueWidget",
         "VideosScene",
         "WallBadge",
@@ -3028,7 +3026,6 @@
         "admin/money/page.tsx"
       ],
       "destinations": [
-        "/admin/payments?filter=all&q=[seg]",
         "/admin/receipts",
         "/receipts/[seg]"
       ],
@@ -3269,8 +3266,6 @@
         "ProofImage",
         "ReadFailedNotice",
         "ReceiptReadCard",
-        "RecordPaymentCard",
-        "RecordTarget",
         "RefundForm",
         "Stat",
         "SubmitButton"
@@ -3699,14 +3694,13 @@
         "savePaymentInstruments"
       ],
       "blocks": [
-        "AccountCard",
-        "AccountFields",
         "BackButton",
         "ChannelSwitch",
         "ConsoleTable",
         "Field",
         "FormFlash",
         "PageMasthead",
+        "QrUploadBlock",
         "QrUploadForm",
         "SubmitButton"
       ]
@@ -6677,9 +6671,10 @@
       "destinations": [
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/vendors/categories"
       ],
       "actions": [
+        "returnTo",
         "startThreadByVendorEmail"
       ],
       "blocks": [
@@ -6688,8 +6683,7 @@
         "PageMasthead",
         "SubmitButton",
         "ThreadArchiveToggle",
-        "ThreadListAvatar",
-        "ThreadListCard"
+        "ThreadListAvatar"
       ]
     },
     "/dashboard/[eventId]/messages/[threadId]": {
@@ -8482,6 +8476,7 @@
         "dashboard/[eventId]/vendors/_components/build-locked.tsx",
         "dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx",
         "dashboard/[eventId]/vendors/_components/category-search-overlay.tsx",
+        "dashboard/[eventId]/vendors/_components/chats-door.tsx",
         "dashboard/[eventId]/vendors/_components/contact-shortlist-vendor-button.tsx",
         "dashboard/[eventId]/vendors/_components/lock-milestone.tsx",
         "dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx",
@@ -8513,6 +8508,7 @@
       "destinations": [
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
+        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors/[seg]/review",
@@ -8557,6 +8553,7 @@
         "CategorySearchOverlay",
         "CategorySearchResult",
         "ChangePickButton",
+        "ChatsDoor",
         "ChildRail",
         "CompareSheet",
         "ConnectSupplierModal",
@@ -8808,21 +8805,26 @@
     },
     "/dashboard/[eventId]/vendors/categories": {
       "files": [
-        "dashboard/[eventId]/vendors/categories/_components/unlock-categories-list.tsx",
+        "dashboard/[eventId]/vendors/categories/_components/find-supplier-controls.tsx",
         "dashboard/[eventId]/vendors/categories/loading.tsx",
         "dashboard/[eventId]/vendors/categories/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/vendors",
-        "/signup?next=[seg]"
+        "/dashboard/[seg]/messages",
+        "/dashboard/[seg]/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "base"
+      ],
       "blocks": [
+        "ContactShortlistVendorButton",
+        "FindFilterMenu",
         "Link",
         "ListPageSkeleton",
-        "SaveGateHint",
-        "SaveToContinue",
-        "UnlockCategoriesList"
+        "PageMasthead",
+        "PickMenu",
+        "SaveToBenchButton",
+        "Suspense"
       ]
     },
     "/dashboard/[eventId]/vendors/packages/[bookingId]": {

@@ -41,7 +41,10 @@ const BASELINE: Record<string, number> = {
   // quietly dropped (which is the failure this baseline exists to catch).
   planning: 17,
   feast: 7,
-  design: 26,
+  // 26 → 29 on 2026-10-01: the three Chairs & tents rentals (chair_table_rental ·
+  // tent_canopy_rental · event_lights_rental) — new services, every other
+  // folder unchanged.
+  design: 29,
   program: 20,
   documentary: 12,
   look: 54,
@@ -80,13 +83,14 @@ test('every folder count matches the measured baseline', () => {
   );
 });
 
-test('the countable total is 253 of the 288 taxonomy entries', () => {
+test('the countable total is 256 of the 291 taxonomy entries', () => {
   const total = Object.values(FOLDER_SERVICE_COUNT).reduce((a, b) => a + b, 0);
   assert.equal(
     total,
     // 236 + the 5 put on sale 2026-08-27 + the 12 farewell services added the
-    // same day = 253. Re-derived from the two deltas, not bumped to match.
-    253,
+    // same day = 253, + the 3 Chairs & tents rentals 2026-10-01 = 256.
+    // Re-derived from the deltas, not bumped to match.
+    256,
     'the two exclusions (marketplaceHidden, setnayan) must both still apply',
   );
 });

@@ -56,11 +56,11 @@ import {
 } from './appointments';
 import {
   PLAN_GROUPS,
-  planGroupsForEventType,
   canonicalServiceToPlanGroupId,
   statusOfVendor,
   type PlanGroupId,
 } from './wedding-plan-groups';
+import { fetchPlanGroupScope, planGroupsForEventType } from './plan-groups-by-event-type';
 import { venueNowMs, DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { plannedInstant } from '@/lib/run-of-show';
@@ -684,7 +684,11 @@ async function fetchRecommendedDeadlineItems(
     them from becoming a countdown. The solemn register suppresses countdown
     RENDERING separately; this is the data side of the same promise.
   */
-  return planGroupsForEventType(eventType).filter(
+  // The DB tile scope too (Admin › Event type › Scope categories), so a
+  // birthday is never reminded to book a bridal car. A refused read fails open
+  // to the code floor — never a shorter wedding list.
+  const planGroupScope = await fetchPlanGroupScope(supabase);
+  return planGroupsForEventType(eventType, planGroupScope).filter(
     (g) => g.countsTowardLockable !== false && !lockedGroups.has(g.id),
   )
     .map((g) => {

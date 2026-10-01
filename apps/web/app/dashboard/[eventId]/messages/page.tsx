@@ -1,27 +1,47 @@
+/**
+ * Chats — the couple's inbox, one thread per supplier, Messenger-style
+ * (owner-approved 2026-10-01 — DECISION_LOG "SUPPLIER INBOX + FIND-A-SUPPLIER
+ * DESIGN — APPROVED, WITH BOTH RECOMMENDATIONS"; prototype
+ * `supplier_inbox_and_find_2026-10-01_fable.html` frame 2).
+ *
+ * Rows: logo · supplier name · service · last line · time · unread dot · a quiet
+ * Booked pill; newest first; one search on top; a tap opens the One Chat Box
+ * (`messages/[threadId]`, untouched). Archived stays folded below.
+ *
+ * Nothing new is stored or computed here: the rows are the SAME
+ * `buildCoupleConversationRows` the thread page's left column builds (stage,
+ * last line), the service tag is the same `interestLabeller`, and unread is
+ * `lib/couple-inbox.ts` — the one rule the Suppliers header's badge also reads,
+ * so the badge and the dots cannot disagree.
+ */
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { MessageSquare, Plus } from 'lucide-react';
+import { MessageSquare, Plus, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchCoupleThreads, formatChatTimestamp } from '@/lib/chat';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
-import {
-  ThreadListCard,
-  ThreadListAvatar,
-} from '@/app/_components/chat/thread-list-card';
+import { ThreadListAvatar } from '@/app/_components/chat/thread-list-card';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { buildCoupleConversationRows, matchesSearch, type ConversationRow } from '@/lib/conversation-list';
+import { interestLabeller } from '@/lib/thread-interest-labels.server';
+import { coupleUnreadCount, isActiveInboxThread, readCoupleUnread } from '@/lib/couple-inbox';
 import { startThreadByVendorEmail } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Messages' };
+export const metadata = { title: 'Chats' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{
     error?: string;
     prefill_vendor_email?: string;
+    q?: string;
   }>;
 };
 
@@ -32,200 +52,256 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   if (!user) redirect('/login');
   const supabase = await createClient();
 
+  // Newest first — `fetchCoupleThreads` orders by updated_at desc.
   const threads = await fetchCoupleThreads(supabase, eventId);
+  const threadIds = threads.map((t) => t.thread_id);
+  const returnTo = `/dashboard/${eventId}/messages`;
 
   // Viber-style archive split (Data Retention Schedule 2026-07-11). Archiving
-  // deletes nothing — it just moves a thread out of the active list into the
-  // collapsible "Archived" section; a new message auto-un-archives it.
-  const returnTo = `/dashboard/${eventId}/messages`;
-  // Exclusivity (payment-gated lock): a 'displaced' inquiry — the couple locked
-  // another vendor in this hard-single group — is closed, so fold it into the
-  // Archived section on this side too (never in the active list). Only exists
-  // when the flag is on; inert otherwise.
-  const isDisplaced = (t: (typeof threads)[number]) => t.inquiry_status === 'displaced';
-  // Removed (archive-not-delete): the couple withdrew this inquiry / removed the
-  // vendor. The thread + messages are PRESERVED as the evidence record — it just
-  // folds into "Archived" (re-openable; re-adding the vendor un-archives it).
-  const isRemoved = (t: (typeof threads)[number]) => t.archived_at != null;
-  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t) && !isRemoved(t));
-  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t) || isRemoved(t));
+  // deletes nothing; displaced and removed threads fold into Archived too.
+  // `isActiveInboxThread` is the SAME predicate the header badge counts over.
+  const activeThreads = threads.filter(isActiveInboxThread);
+  const archivedThreads = threads.filter((t) => !isActiveInboxThread(t));
 
-  const renderRow = (t: (typeof threads)[number]) => {
-    // Anonymity-aware thread label per CLAUDE.md 2026-05-30 row.
-    // Free/Verified vendors who haven't yet replied show their
-    // screen_name (Bark format) — paid + revealed + venue vendors
-    // show real business_name. Single resolver call keeps the
-    // Avatar initials + visible label in lock-step.
-    const vendorDisplayName = t.vendor
-      ? resolveVendorDisplayName({
-          business_name: t.vendor.business_name ?? null,
-          name_revealed_at: t.vendor.name_revealed_at ?? null,
-          services: t.vendor.services ?? null,
-          screen_name: t.vendor.screen_name ?? null,
-          // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
-          // lock: a VERIFIED vendor's name is never gated (any tier).
-          isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
-          is_verified: t.vendor.verification_state === 'verified',
-          primary_canonical_service: t.vendor.services?.[0] ?? null,
-          location_city: t.vendor.location_city ?? null,
-        })
-      : 'Vendor';
-    // Hybrid-anonymity logo gate (Data Flow Map audit gap #6): the
-    // vendor's real logo is as identifying as the business name, so it
-    // must stay masked until the SAME predicate that reveals the name
-    // says reveal. Reuse `isVendorNameRevealed` (the single source of
-    // truth behind `resolveVendorDisplayName`) so the logo and the
-    // label can never drift — pre-reveal we pass null and the avatar
-    // falls back to screen-name initials.
-    const vendorNameRevealed = t.vendor
+  const [unread, lastRes, interestRes] = await Promise.all([
+    readCoupleUnread(supabase, user.id, threadIds),
+    threadIds.length > 0
+      ? supabase
+          .from('chat_messages')
+          .select('thread_id, sender_role, body, created_at')
+          .in('thread_id', threadIds)
+          .order('created_at', { ascending: false })
+          .limit(600)
+      : Promise.resolve({ data: [], error: null }),
+    threadIds.length > 0
+      ? supabase
+          .from('thread_service_interests')
+          .select('thread_id, category_key, vendor_service_id, created_at')
+          .in('thread_id', threadIds)
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (lastRes.error) {
+    logQueryError('CoupleMessagesPage.lastMessages', lastRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  const lastMessages = new Map<string, { sender_role: string; body: string | null }>();
+  for (const m of (lastRes.data ?? []) as Array<{ thread_id: string; sender_role: string; body: string | null }>) {
+    if (!lastMessages.has(m.thread_id)) lastMessages.set(m.thread_id, { sender_role: m.sender_role, body: m.body });
+  }
+
+  if (interestRes.error) {
+    logQueryError('CoupleMessagesPage.interests', interestRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  const interests = (interestRes.data ?? []) as Array<{
+    thread_id: string;
+    category_key: string | null;
+    vendor_service_id: string | null;
+  }>;
+  const labelInterest = await interestLabeller(createAdminClient(), interests);
+  const labels = new Map<string, string[]>();
+  for (const i of interests) {
+    if (!labels.has(i.thread_id) && (i.category_key || i.vendor_service_id)) {
+      labels.set(i.thread_id, [labelInterest(i)]);
+    }
+  }
+
+  // 🔒 Anonymity-aware name AND logo (CLAUDE.md 2026-05-30 row · Data Flow Map
+  // audit gap #6): one resolver for the label, the SAME reveal predicate for the
+  // logo, so they can never drift. Pre-reveal the avatar is initials.
+  const displayNames = new Map<string, string>();
+  const logoByVendor = new Map<string, string | null>();
+  for (const t of threads) {
+    const v = t.vendor;
+    const isPaidTier = isTrueNameTier(v?.tier_state ?? null);
+    const isVerified = v?.verification_state === 'verified';
+    displayNames.set(
+      t.vendor_profile_id,
+      v
+        ? resolveVendorDisplayName({
+            business_name: v.business_name ?? null,
+            name_revealed_at: v.name_revealed_at ?? null,
+            services: v.services ?? null,
+            screen_name: v.screen_name ?? null,
+            isPaidTier,
+            is_verified: isVerified,
+            primary_canonical_service: v.services?.[0] ?? null,
+            location_city: v.location_city ?? null,
+          })
+        : 'Supplier',
+    );
+    const revealed = v
       ? isVendorNameRevealed({
-          name_revealed_at: t.vendor.name_revealed_at ?? null,
-          isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
-          is_verified: t.vendor.verification_state === 'verified',
-          services: t.vendor.services ?? null,
+          name_revealed_at: v.name_revealed_at ?? null,
+          isPaidTier,
+          is_verified: isVerified,
+          services: v.services ?? null,
         })
       : false;
-    const vendorLogoUrl = vendorNameRevealed ? t.vendor?.logo_url ?? null : null;
+    logoByVendor.set(t.vendor_profile_id, revealed ? v?.logo_url ?? null : null);
+  }
+
+  const rows = await buildCoupleConversationRows({
+    supabase,
+    eventId,
+    threads: threads.map((t) => ({
+      thread_id: t.thread_id,
+      vendor_profile_id: t.vendor_profile_id,
+      inquiry_status: t.inquiry_status ?? null,
+      updated_at: t.updated_at,
+    })),
+    displayNames,
+    labels,
+    lastMessages,
+    unreadThreadIds: new Set(unread.threadIds),
+    formatTime: formatChatTimestamp,
+  });
+  const rowById = new Map(rows.map((r) => [r.threadId, r]));
+  const vendorOf = new Map(threads.map((t) => [t.thread_id, t.vendor_profile_id]));
+
+  const q = (search.q ?? '').trim().slice(0, 80);
+  const shown = (list: typeof threads) =>
+    list
+      .map((t) => rowById.get(t.thread_id))
+      .filter((r): r is ConversationRow => r != null && matchesSearch(r, q));
+
+  // The SAME count the Suppliers header's badge shows.
+  const unreadCount = coupleUnreadCount(unread, threads);
+
+  const renderRow = (r: ConversationRow, archived: boolean) => {
+    const vendorId = vendorOf.get(r.threadId) ?? '';
+    const booked = r.stage === 'booked' || r.stage === 'completed';
     return (
-      <li key={t.thread_id} className="flex items-stretch gap-2">
-        <div className="min-w-0 flex-1">
-          <ThreadListCard
-            href={`/dashboard/${eventId}/messages/${t.thread_id}`}
-            title={vendorDisplayName}
-            avatar={<ThreadListAvatar logoUrl={vendorLogoUrl} name={vendorDisplayName} />}
-            badge={
-              t.archived_at != null ? (
-                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                  Removed
+      <li key={r.threadId} className="flex items-center gap-1 border-t border-ink/10" data-inbox-row={r.unread ? 'unread' : 'read'}>
+        <Link href={`/dashboard/${eventId}/messages/${r.threadId}`} className="flex min-w-0 flex-1 items-center gap-3 py-3">
+          <ThreadListAvatar logoUrl={logoByVendor.get(vendorId) ?? null} name={r.displayName} />
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline gap-2">
+              <span className={`min-w-0 flex-1 truncate text-[15px] text-ink ${r.unread ? 'font-semibold' : 'font-medium'}`}>
+                {r.displayName}
+              </span>
+              <span className="shrink-0 text-[12px] text-ink/50">{r.timeLabel}</span>
+            </span>
+            <span className="flex items-center gap-2 text-[12.5px] text-ink/55">
+              {r.labels[0] ? <span className="truncate">{r.labels[0]}</span> : null}
+              {booked ? (
+                <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-medium text-ink/60">
+                  Booked
                 </span>
-              ) : t.inquiry_status === 'pending' ? (
-                <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                  Waiting for reply
-                </span>
-              ) : t.inquiry_status === 'accepted' ? (
-                // Accepted (inquiry-accepted-visibility 2026-06-16) — the
-                // vendor took the inquiry, the thread is open + the name is
-                // revealed. Emerald matches the inquiry_accepted notification
-                // tone so the couple reads "this one's live" at a glance.
-                <span className="mt-0.5 inline-block rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-800">
-                  Ready to quote
-                </span>
-              ) : t.inquiry_status === 'declined' ? (
-                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                  Not available
-                </span>
-              ) : t.inquiry_status === 'displaced' ? (
-                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                  You booked another
-                </span>
-              ) : null
-            }
-            timestampLine={<>Last activity {formatChatTimestamp(t.updated_at)}</>}
-          />
-        </div>
-        <ThreadArchiveToggle threadId={t.thread_id} returnTo={returnTo} archived={t.archived} />
+              ) : null}
+            </span>
+            <span className="flex items-center gap-2">
+              <span className={`min-w-0 flex-1 truncate text-[13.5px] ${r.unread ? 'font-semibold text-ink' : 'text-ink/60'}`}>
+                {r.preview}
+              </span>
+              {r.unread ? (
+                <span aria-label="Unread" className="h-2.5 w-2.5 shrink-0 rounded-full bg-mulberry" />
+              ) : null}
+            </span>
+          </span>
+        </Link>
+        <ThreadArchiveToggle threadId={r.threadId} returnTo={returnTo} archived={archived} />
       </li>
     );
   };
 
+  const activeRows = shown(activeThreads);
+  const archivedRows = shown(archivedThreads);
+
   return (
-    <section className="space-y-6">
-      <PageMasthead
-        title="Messages"
-      />
+    <section className="mx-auto w-full max-w-2xl space-y-4">
+      <PageMasthead title="Chats" />
+      <header>
+        <h2 aria-hidden className="font-display text-[28px] leading-none text-ink">
+          Chats
+        </h2>
+        {unreadCount ? (
+          <p className="mt-1 text-[13px] text-ink/60" data-inbox-unread={unreadCount}>
+            {formatCount(unreadCount)} unread
+          </p>
+        ) : null}
+      </header>
 
       {search.error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <p role="alert" className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
           {search.error}
         </p>
       ) : null}
 
-      <section className="sn-tile p-5">
-        <h2 className="sn-eye mb-3">Start a new thread</h2>
-        {search.prefill_vendor_email ? (
-          <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-            Pre-filled from vendor profile · just tap Start thread
-          </p>
-        ) : null}
-        <form
-          action={startThreadByVendorEmail}
-          className="flex flex-col gap-2 sm:flex-row sm:items-stretch"
-        >
-          <input type="hidden" name="event_id" value={eventId} />
-          <input
-            name="vendor_email"
-            type="email"
-            required
-            placeholder="vendor's contact email"
-            defaultValue={search.prefill_vendor_email ?? ''}
-            autoFocus={!!search.prefill_vendor_email}
-            className="input-field flex-1"
-          />
-          <SubmitButton
-            className="button-primary inline-flex items-center justify-center gap-2"
-            pendingLabel="Starting…"
-          >
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Start thread
-          </SubmitButton>
+      {threads.length > 0 ? (
+        <form method="get" action={returnTo} role="search">
+          <label className="flex items-center gap-2 rounded-md border border-ink/15 bg-paper px-3 py-2">
+            <Search className="h-4 w-4 shrink-0 text-ink/45" aria-hidden />
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Search a supplier or a message"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/40"
+            />
+          </label>
         </form>
-        <p className="mt-2 text-xs text-ink/55">
-          Works when the email you have is the one on their Setnayan shop. New thread or
-          resume an existing one — Setnayan keeps one per pair.
-        </p>
-      </section>
+      ) : null}
 
       {threads.length === 0 ? (
-        <div className="sn-row border-dashed p-8 text-center">
-          <MessageSquare
-            aria-hidden
-            className="mx-auto mb-2 h-6 w-6 text-ink/30"
-            strokeWidth={1.5}
-          />
-          <p className="text-sm font-medium text-ink">No conversations yet.</p>
+        <div className="py-10 text-center">
+          <MessageSquare aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
+          <p className="text-sm font-medium text-ink">No chats yet.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-            {/* 🚪 Corrected 2026-09-10. This said the email is "the same one
-                they listed on their Setnayan vendor profile" and "on their
-                card" — neither shows a shop's email any more (owner: "not to let
-                them communicate outside the app"). The way to reach a shop on
-                Setnayan is its Message / Inquire button, which opens the
-                conversation here. */}
-            The easiest way to start is from the shop itself: tap Message on a
-            supplier in your Vendors list, or Inquire on any shop&rsquo;s page — the
-            conversation opens right here.
+            They start from a supplier&rsquo;s page — tap Ask for a quote.
           </p>
           <div className="mt-4">
-            <Link
-              href={`/dashboard/${eventId}/vendors`}
-              className="button-secondary"
-            >
-              Open vendors
+            <Link href={`/dashboard/${eventId}/vendors/categories`} className="button-secondary">
+              Find a supplier
             </Link>
           </div>
         </div>
       ) : (
         <>
-          {activeThreads.length > 0 ? (
-            <ul className="space-y-2">{activeThreads.map(renderRow)}</ul>
+          {activeRows.length > 0 ? (
+            <ul>{activeRows.map((r) => renderRow(r, false))}</ul>
           ) : (
-            <p className="sn-row border-dashed px-4 py-6 text-center text-sm text-ink/60">
-              No active conversations — everything&rsquo;s tucked into Archived below.
+            <p className="py-6 text-center text-sm text-ink/60">
+              {q ? `No chat matches “${q}”.` : 'No active chats — everything’s in Archived below.'}
             </p>
           )}
 
-          {archivedThreads.length > 0 ? (
-            <details className="sn-row mt-4">
-              <summary className="sn-eye cursor-pointer list-none px-4 py-3 hover:text-ink">
-                Archived · <span className="font-mono">{archivedThreads.length}</span>
+          {archivedRows.length > 0 ? (
+            <details>
+              <summary className="cursor-pointer list-none py-3 text-[13px] font-medium text-ink/60 hover:text-ink">
+                Archived · <span className="font-mono">{archivedRows.length}</span>
               </summary>
-              <ul className="space-y-2 px-2 pb-3">{archivedThreads.map(renderRow)}</ul>
+              <ul>{archivedRows.map((r) => renderRow(r, true))}</ul>
             </details>
           ) : null}
         </>
       )}
+
+      {/* The email door, folded to the bottom: it still opens or resumes the
+          one thread per pair, for a supplier whose Setnayan email you have. */}
+      <details open={Boolean(search.prefill_vendor_email)} className="pt-2">
+        <summary className="cursor-pointer list-none py-2 text-[13px] font-medium text-ink/60 hover:text-ink">
+          Start a chat by email
+        </summary>
+        <form action={startThreadByVendorEmail} className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input
+            name="vendor_email"
+            type="email"
+            required
+            placeholder="supplier's Setnayan email"
+            defaultValue={search.prefill_vendor_email ?? ''}
+            autoFocus={!!search.prefill_vendor_email}
+            className="input-field flex-1"
+          />
+          <SubmitButton className="button-primary inline-flex items-center justify-center gap-2" pendingLabel="Starting…">
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Start chat
+          </SubmitButton>
+        </form>
+        <p className="mt-2 text-xs text-ink/55">
+          Works when it&rsquo;s the email on their Setnayan shop. Setnayan keeps one chat per supplier.
+        </p>
+      </details>
     </section>
   );
 }

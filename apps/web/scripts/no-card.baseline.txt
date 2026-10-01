@@ -520,7 +520,6 @@
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx
 4 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx
 28 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx
-2 apps/web/app/dashboard/[eventId]/vendors/categories/_components/unlock-categories-list.tsx
 8 apps/web/app/dashboard/[eventId]/vendors/packages/[bookingId]/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/page.tsx
 1 apps/web/app/dashboard/[eventId]/website/_components/website-pro-lock.tsx

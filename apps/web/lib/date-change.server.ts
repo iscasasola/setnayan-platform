@@ -506,7 +506,12 @@ export async function afterDateApplied({
 }): Promise<void> {
   if (requestId) {
     await safely('applied', async () => {
-      await supabase.rpc('settle_event_date_change', { p_request_id: requestId, p_action: 'applied', p_event_vendor_id: null });
+      const { data, error } = await supabase.rpc('settle_event_date_change', { p_request_id: requestId, p_action: 'applied', p_event_vendor_id: null });
+      // The date is already live; an unclosed request only keeps Home's card up
+      // (it then says every supplier answered) — logged, never thrown.
+      if (error || (data as { ok?: boolean } | null)?.ok !== true) {
+        logQueryError('afterDateApplied.settle', error ?? { message: JSON.stringify(data) }, { requestId }, 'graceful_degrade');
+      }
     });
   }
   await safely('date moved notice', async () => {

@@ -21,6 +21,7 @@
  * budget, and no supplier is asked, dropped or released for money.
  */
 import { formatEventDateWithPrecision, type EventDatePrecision } from './events';
+import { formatCount } from './format-number';
 
 /** Days a supplier has to answer before the couple may choose (safeguard 2). */
 export const DATE_CHANGE_DUE_DAYS = 3;
@@ -156,7 +157,7 @@ export function dateChangeWhen(date: string, precision: EventDatePrecision): str
 
 /** Home's line (owner wording): "Date change: 1 of 2 suppliers answered". */
 export function dateChangeHomeLine(view: Pick<DateChangeView, 'answered' | 'total'>): string {
-  return `Date change: ${view.answered} of ${view.total} supplier${view.total === 1 ? '' : 's'} answered`;
+  return `Date change: ${formatCount(view.answered)} of ${formatCount(view.total)} supplier${view.total === 1 ? '' : 's'} answered`;
 }
 
 /** What one supplier's answer reads as on the couple's Home. */

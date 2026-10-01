@@ -183,7 +183,7 @@ import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { HubScenes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
-import { sceneStyleOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { LiveHubArrangement } from './live-hub-styles';
@@ -2853,6 +2853,7 @@ export async function SiteBody({
                   guestRole: guest.role ?? null,
                   march: marchPlaceOf(entourage, guest.guest_id),
                   rolePalette: event.role_palette,
+                  paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
                 }}
                 reminders={
                   remindersScene ? (

@@ -4,6 +4,7 @@ import type { EventRow } from '../_lib/types';
 import type { GuestRole } from '@/lib/guests';
 import type { MarchPlace } from '@/lib/march-place';
 import type { WelcomePart } from '@/lib/invitation-welcome';
+import type { PaletteLookId } from '@/lib/palette-looks';
 import { DressCodeWidget } from './dress-code-widget';
 import { WelcomeGifts } from './guest-doorway-strip';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from './maker-guest-scenes';
@@ -47,6 +48,8 @@ export type WelcomeLook = {
   guestRole: GuestRole | null;
   march: MarchPlace | null;
   rolePalette: unknown;
+  /** 🎨 The Dress code scene's palette look (`paletteLookOfRow`) — the reader's own colours follow it here too. Absent = Tags. */
+  paletteLook?: PaletteLookId | null;
 };
 
 export function GuestWelcome({
@@ -83,6 +86,7 @@ export function GuestWelcome({
                 guestRole={look.guestRole}
                 march={look.march}
                 rolePalette={look.rolePalette}
+                paletteLook={look.paletteLook ?? null}
                 hideWhenEmpty
               />
             );

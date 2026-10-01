@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  ceremonyMatches,
   isChineseWedding,
   isChineseOverlay,
   type CeremonyOverlayInput,
@@ -553,6 +554,31 @@ const RECEPTION_PARTS: ReadonlyArray<string> = [
   'Closing remarks',
 ];
 
+/**
+ * 🕊 THE RITES WHOSE WEDDING DAY HAS NO COCKTAIL HOUR, NO DANCING AND NO MONEY
+ * DANCE (P6a, audit 2026-09-30 §3 footnote 20). INC receptions are alcohol- and
+ * dance-free (kapayakan); a Nikah walimah is alcohol-free and usually
+ * gender-separated, without a dance set; LDS and SDA receptions are alcohol-
+ * free and modest. Every one of them used to be handed "Cocktail hour" and
+ * "Dancing & open floor" by the same templates as a Catholic party.
+ *
+ * Read on BOTH rite columns (`ceremonyMatches`): a mixed wedding with an INC
+ * side is a dance-free day too — the secondary rite is never dropped.
+ */
+export const DANCE_FREE_RITES: readonly SeedCeremonyType[] = ['inc', 'muslim', 'lds', 'sda'];
+
+/** Does either of this wedding's rites keep its day free of drinks and dancing? */
+export function riteIsDanceFree(event: CeremonyOverlayInput | null | undefined): boolean {
+  return DANCE_FREE_RITES.some((r) => ceremonyMatches(event, r));
+}
+
+/** The block types a dance-free day never seeds (`riteIsDanceFree`). */
+export const DANCE_BLOCK_TYPES: ReadonlySet<ScheduleBlockType> = new Set<ScheduleBlockType>([
+  'cocktails',
+  'dancing',
+  'after_party',
+]);
+
 /** INC (Iglesia ni Cristo) reception spine · honors the Church's
  *  kapayakan (simplicity): a prayer-led, wholesome program WITHOUT the
  *  dance set (first dance / father-daughter / mother-son / money /
@@ -677,7 +703,8 @@ export function buildScheduleSeed(
   // the V1 editor handles via the datetime-local field directly.
   const afterPartyEnd = anchorIso(eventDate, 23, 59);
 
-  const topLevel: ScheduleSeedTopLevel[] = [
+  const danceFree = riteIsDanceFree(overlay ?? { ceremony_type: ceremonyType });
+  const spine: ScheduleSeedTopLevel[] = [
     {
       key: 'ceremony',
       label: 'Ceremony',
@@ -715,6 +742,8 @@ export function buildScheduleSeed(
       is_public: true,
     },
   ];
+  // A dance-free day has no Cocktail Hour and no After Party at all.
+  const topLevel = danceFree ? spine.filter((b) => !DANCE_BLOCK_TYPES.has(b.block_type)) : spine;
 
   // Base spine = the primary ceremony's parts (catholic default). When Chinese
   // is the PRIMARY rite, `ceremonyType` is already 'chinese' and that spine
@@ -772,8 +801,9 @@ export function buildScheduleSeed(
       },
     );
 
-    const receptionParts =
-      ceremonyType === 'inc' ? INC_RECEPTION_PARTS : RECEPTION_PARTS;
+    // The quiet, prayer-led spine for EVERY dance-free rite (either column),
+    // not INC alone — a Muslim, LDS or SDA couple never gets the Money dance.
+    const receptionParts = danceFree ? INC_RECEPTION_PARTS : RECEPTION_PARTS;
     const receptionDurationMs = 5 * 60 * 60 * 1000; // 5 hours
     const receptionStepMs = receptionDurationMs / receptionParts.length;
     const receptionChildren: ScheduleSeedChild[] = receptionParts.map(

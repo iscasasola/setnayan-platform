@@ -8,8 +8,8 @@
  * over rows the couple already authored.
  *
  * Deliberately a sibling of — not a replacement for — the two existing seeds:
- *   • buildScheduleSeed (lib/schedule.ts) — the ceremony-type-aware Card-15
- *     first-open wedding seed (parent/child hierarchy).
+ *   • buildScheduleSeed (lib/schedule.ts) — the ceremony-type-aware wedding
+ *     spine (parent/child hierarchy), offered here as FAITH_TEMPLATE_ID.
  *   • buildRunOfShowSeed (lib/schedule-run-of-show.ts) — the per-type
  *     NON-wedding program, auto-seeded on first schedule open.
  * Templates are the EXPLICIT-choice path: flat top-level skeletons the host
@@ -19,7 +19,15 @@
  * Pure data + pure builders; unit-tested in schedule-templates.test.ts.
  */
 
-import { anchorIso, type ScheduleBlockType } from '@/lib/schedule';
+import {
+  anchorIso,
+  buildScheduleSeed,
+  DANCE_BLOCK_TYPES,
+  riteIsDanceFree,
+  type ScheduleBlockType,
+  type SeedCeremonyType,
+} from '@/lib/schedule';
+import type { CeremonyOverlayInput } from '@/lib/chinese-wedding';
 
 export type ScheduleTemplateRow = {
   label: string;
@@ -99,11 +107,67 @@ export function getScheduleTemplate(id: string): ScheduleTemplate | null {
   return SCHEDULE_TEMPLATES.find((t) => t.id === id) ?? null;
 }
 
-/** Templates offered for an event type (null/unknown type → none — non-wedding
- *  events already auto-seed their per-type program on first open). */
-export function templatesForEventType(eventType: string | null): ScheduleTemplate[] {
+/**
+ * ⛪ THE CEREMONY'S OWN DAY — `buildScheduleSeed` (lib/schedule.ts), revived
+ * (P6a, 2026-10-01). Its per-rite ceremony parts (all 18 rites,
+ * `ceremony-seed-covers-every-faith.db.test.ts`) and the quiet reception spine
+ * had been imported and never called since the first-open seed was deleted
+ * (2026-09-03). It now loads the way every template does — chosen by the host,
+ * into an empty schedule only (`loadScheduleTemplate`) — as the FIRST choice
+ * on a wedding. Its `rows` are the seed's top-level blocks (what the menu
+ * counts); the load writes their parts underneath.
+ */
+export const FAITH_TEMPLATE_ID = 'wedding_ceremony_spine';
+
+function hourMinuteOf(iso: string): { h: number; m: number } {
+  const t = /T(\d{2}):(\d{2})/.exec(iso);
+  return { h: t ? Number(t[1]) : 0, m: t ? Number(t[2]) : 0 };
+}
+
+function faithTemplate(rites: CeremonyOverlayInput | null | undefined): ScheduleTemplate {
+  const seed = buildScheduleSeed((rites?.ceremony_type as SeedCeremonyType | null) ?? null, null, rites ?? null);
+  return {
+    id: FAITH_TEMPLATE_ID,
+    label: 'Your ceremony’s day',
+    description: riteIsDanceFree(rites)
+      ? 'Your rite’s order of the ceremony, then a prayer-led reception — no cocktail hour, no dancing.'
+      : 'Your rite’s order of the ceremony, then the reception — each with its parts ready to reshape.',
+    eventTypes: ['wedding'],
+    rows: seed.topLevel.map((b) => {
+      const start = hourMinuteOf(b.start_at);
+      const end = hourMinuteOf(b.end_at);
+      return {
+        label: b.label,
+        block_type: b.block_type,
+        startHour: start.h,
+        startMinute: start.m,
+        durationMinutes: end.h * 60 + end.m - (start.h * 60 + start.m),
+        is_public: b.is_public,
+      };
+    }),
+  };
+}
+
+/**
+ * Templates offered for an event type (null/unknown type → none — non-wedding
+ * events already auto-seed their per-type program on first open).
+ *
+ * `rites` = the wedding's two rite columns. A dance-free rite on EITHER column
+ * (`riteIsDanceFree` — INC · Muslim · LDS · SDA) gets every template without
+ * its cocktail, dancing and after-party blocks, so no menu choice hands that
+ * couple a "Cocktail hour". The menu and the load read this ONE function, so
+ * the block count shown is the count written.
+ */
+export function templatesForEventType(
+  eventType: string | null,
+  rites?: CeremonyOverlayInput | null,
+): ScheduleTemplate[] {
   if (!eventType) return [];
-  return SCHEDULE_TEMPLATES.filter((t) => t.eventTypes.includes(eventType));
+  const offered = SCHEDULE_TEMPLATES.filter((t) => t.eventTypes.includes(eventType));
+  const shaped = riteIsDanceFree(rites)
+    ? offered.map((t) => ({ ...t, rows: t.rows.filter((r) => !DANCE_BLOCK_TYPES.has(r.block_type)) }))
+    : offered;
+  return eventType === 'wedding' ? [faithTemplate(rites), ...shaped] : shaped;
 }
 
 /** Anchor a wall-clock time to the event date — THE SAME anchor as the seed

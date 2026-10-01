@@ -20,7 +20,7 @@ import { buildEmceeScript } from '@/lib/emcee-script';
 import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
 import { computeRetimePatches } from '@/lib/schedule-ros';
 import {
-  getScheduleTemplate,
+  FAITH_TEMPLATE_ID,
   buildTemplateInsertRows,
   templatesForEventType,
 } from '@/lib/schedule-templates';
@@ -829,19 +829,21 @@ export async function loadScheduleTemplate(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const template = getScheduleTemplate(templateId);
-  if (!template) throw new Error('Unknown template');
-
   const { data: ev, error: evErr } = await supabase
     .from('events')
-    .select('event_type, event_date')
+    .select('event_type, event_date, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
   if (evErr) throw new Error(evErr.message);
   const eventType = (ev?.event_type as string | null | undefined) ?? 'wedding';
-  if (!templatesForEventType(eventType).some((t) => t.id === template.id)) {
-    throw new Error('Template not available for this event type');
-  }
+  const rites = {
+    ceremony_type: (ev?.ceremony_type as string | null | undefined) ?? null,
+    secondary_ceremony_type: (ev?.secondary_ceremony_type as string | null | undefined) ?? null,
+  };
+  // The SAME list the menu drew (rite-shaped: a dance-free rite's templates
+  // carry no cocktail/dancing blocks), so what loads is what was shown.
+  const template = templatesForEventType(eventType, rites).find((t) => t.id === templateId);
+  if (!template) throw new Error('Template not available for this event type');
 
   // The never-overwrite guard: refuse when ANY row exists.
   const { data: existing, error: existingErr } = await supabase
@@ -852,9 +854,38 @@ export async function loadScheduleTemplate(formData: FormData) {
   if (existingErr) throw new Error(existingErr.message);
   if (existing && existing.length > 0) return;
 
+  const eventDate = (ev?.event_date as string | null | undefined) ?? null;
+  if (template.id === FAITH_TEMPLATE_ID) {
+    // ⛪ The ceremony's own day: `buildScheduleSeed`'s two passes — the
+    // top-level blocks, then each one's parts under the ids just returned.
+    const seed = buildScheduleSeed((rites.ceremony_type as SeedCeremonyType | null) ?? null, eventDate, rites);
+    const { data: parents, error: parentErr } = await supabase
+      .from('event_schedule_blocks')
+      .insert(seed.topLevel.map(({ key: _key, ...row }) => ({ ...row, event_id: eventId, parent_block_id: null })))
+      .select('block_id, sort_order');
+    if (parentErr) throw new Error(parentErr.message);
+    const idOf = (key: string) => {
+      const order = seed.topLevel.find((b) => b.key === key)?.sort_order;
+      return (parents ?? []).find((p) => p.sort_order === order)?.block_id as string | undefined;
+    };
+    const children = seed
+      .buildChildren({ ceremony: idOf('ceremony') ?? '', reception: idOf('reception') ?? '' })
+      .flatMap(({ parent_key, ...row }) => {
+        const parent = idOf(parent_key);
+        return parent ? [{ ...row, event_id: eventId, parent_block_id: parent }] : [];
+      });
+    if (children.length > 0) {
+      const { error: childErr } = await supabase.from('event_schedule_blocks').insert(children);
+      if (childErr) throw new Error(childErr.message);
+    }
+    revalidatePath(`/dashboard/${eventId}/schedule`);
+    revalidatePath(`/dashboard/${eventId}`);
+    return;
+  }
+
   const rows = buildTemplateInsertRows(
     template,
-    (ev?.event_date as string | null | undefined) ?? null,
+    eventDate,
   ).map((row) => ({ ...row, event_id: eventId }));
 
   const { error } = await supabase.from('event_schedule_blocks').insert(rows);

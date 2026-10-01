@@ -1,4 +1,4 @@
-// Loading shell mirroring the Add-categories route (unlockable-category list).
+// Loading shell for Find a supplier (the category list).
 import { ListPageSkeleton } from '@/components/skeletons';
 
 export default function Loading() {

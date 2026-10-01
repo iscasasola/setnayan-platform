@@ -116,6 +116,7 @@ import {
 } from '@/lib/build-date-window';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
+import { ChatsDoor } from './_components/chats-door';
 import { TeamRows } from './_components/team-rows';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
@@ -2460,6 +2461,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         <ServicesTakeover
           eventId={eventId}
           initialTab={initialTab}
+          // The chat icon + unread count beside ⋯ → the couple's Chats (P3).
+          chatSlot={<ChatsDoor supabase={supabase} eventId={eventId} userId={user.id} />}
           premium={aiActive}
           teamParts={teamParts}
           teamSlot={teamSlot}

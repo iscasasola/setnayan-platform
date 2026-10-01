@@ -314,3 +314,50 @@ export function supplierCountLabel(n: number | null): string | null {
   if (n <= 0) return 'Joining soon';
   return n === 1 ? '1 supplier' : `${n} suppliers`;
 }
+
+// ── A category → its suppliers: the ONE Filter ▾ ────────────────────────────
+
+/** The Filter ▾ dropdown's choices (frame 7: Area · Price · Rating). */
+export const FIND_FILTERS = [
+  { key: 'area', label: 'Serves your area' },
+  { key: 'price', label: 'Lowest starting price first' },
+  { key: 'rating', label: '4★ and up' },
+] as const;
+export type FindFilterKey = (typeof FIND_FILTERS)[number]['key'];
+
+/** `?f=area,rating` → the picked keys (unknown words dropped). */
+export function parseFindFilter(raw: string | null | undefined): FindFilterKey[] {
+  const known = new Set<string>(FIND_FILTERS.map((f) => f.key));
+  return (raw ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s): s is FindFilterKey => known.has(s));
+}
+
+type FilterableSupplier = {
+  withinRadius: boolean;
+  rating: number | null;
+  startsAtPhp: number | null;
+};
+
+/**
+ * PURE. Apply the picked filters to the search's own ranked list. With nothing
+ * picked the list is returned in the search's order, untouched (the owner-locked
+ * ladder). "Lowest price first" sorts on the STARTING price and keeps unpriced
+ * suppliers last, in ladder order — never dropped.
+ */
+export function applyFindFilter<T extends FilterableSupplier>(
+  rows: readonly T[],
+  picked: readonly FindFilterKey[],
+): T[] {
+  let out = rows.slice();
+  if (picked.includes('area')) out = out.filter((r) => r.withinRadius);
+  if (picked.includes('rating')) out = out.filter((r) => r.rating != null && r.rating >= 4);
+  if (picked.includes('price')) {
+    const priced = out.filter((r) => r.startsAtPhp != null);
+    const unpriced = out.filter((r) => r.startsAtPhp == null);
+    priced.sort((a, b) => (a.startsAtPhp as number) - (b.startsAtPhp as number));
+    out = [...priced, ...unpriced];
+  }
+  return out;
+}

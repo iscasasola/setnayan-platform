@@ -54,8 +54,10 @@ import {
   MakerHeroPanel,
   MakerLogoPanel,
   MakerRevealPanel,
+  readMakerLogoFonts,
   readMakerRevealStages,
 } from '../../launch/_components/maker-made-once';
+import { hubFontsInUse } from '@/lib/hub-font-shelves';
 import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
@@ -125,8 +127,10 @@ import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { ourStoryRenders } from '@/app/[slug]/_components/our-story';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
-import { ENTOURAGE_ROLES } from '@/lib/entourage';
+import { ENTOURAGE_COLUMNS, ENTOURAGE_ROLES } from '@/lib/entourage';
 import { formatEventDate } from '@/lib/events';
+import { nameStyleOfPrintDetails, type NameParts } from '@/lib/name-style';
+import { splitStoredName } from '@/lib/details-your-event';
 
 /* No `metadata` of its own: opened directly this page only forwards, and inside
    the Maker the Maker's page names the tab. Only ONE surface may declare
@@ -184,7 +188,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -520,6 +524,30 @@ export default async function WebsiteEditorPage({
      panel that just saved it. (Locks and grandfathering still read `event`:
      what the couple already HAS live, never what they are trying.) */
   const drafted = overlayHubDraftEvent(event as Record<string, unknown>, hubDraft) as typeof event;
+  /* ✍ THE HERO NAMES' WORDING ▾ (owner 2026-10-01, P7): the event's Name style
+     — the ONE setting the prints read (`print_details.name_style`) — and one
+     person of the couple's own to show each style in: their Guest list row
+     (middle name and all) when there is one, else the first person's name as
+     typed (drafted over live). Read-only; the bar saves through the prints' door. */
+  const { data: couplePeople, error: couplePeopleErr } = await supabase
+    .from('guests')
+    // The entourage's own list (`ENTOURAGE_COLUMNS`) — the name parts the formal surfaces style.
+    .select(ENTOURAGE_COLUMNS)
+    .eq('event_id', eventId)
+    .is('deleted_at', null)
+    .in('role', ['bride', 'celebrant', 'groom'])
+    .limit(3);
+  if (couplePeopleErr) logQueryError('WebsiteEditorPage.couplePeople', couplePeopleErr, { eventId }, 'graceful_degrade');
+  const nameExample: NameParts | null =
+    ['bride', 'celebrant', 'groom']
+      .map((r) => (couplePeople ?? []).find((g) => g.role === r && (g.first_name || g.last_name)))
+      .find(Boolean) ??
+    (() => {
+      const typed =
+        (drafted.bride_name as string | null) || ((drafted.display_name as string | null) ?? '').split(/\s*&\s*/)[0] || '';
+      const { first, last } = splitStoredName(typed);
+      return first || last ? { first_name: first, last_name: last } : null;
+    })();
   /* AP-11 · THE MESSAGE BOX STARTS SOMEWHERE (see the Special message row
      below) — what both boxes that show it open on: the couple's own words
      first, else the starting point (null once words exist, so it can never
@@ -1192,8 +1220,9 @@ export default async function WebsiteEditorPage({
       return { canvas: pal.canvas, ink: pal.ink, accent: pal.accent };
     })(),
     facts: {
-      names: (event.display_name as string | null) ?? null,
-      dateLabel: event.event_date ? formatEventDate(event.event_date as string) : null,
+      // ✍ As the couple is editing them — the names and the date are drafted until Apply.
+      names: (drafted.display_name as string | null) ?? null,
+      dateLabel: drafted.event_date ? formatEventDate(drafted.event_date as string) : null,
       daysToGo: countdownMs === null ? null : Math.max(0, Math.ceil((countdownMs - Date.now()) / 86_400_000)),
       venueName: (event.venue_name as string | null) ?? null,
       venueAddress: (event.venue_address as string | null) ?? null,
@@ -1265,6 +1294,24 @@ export default async function WebsiteEditorPage({
     current: t.id === currentTheme,
   }));
 
+  /* Every scene's canvas as the canvas draws it (the draft over live) — what
+     per-element editing edits, and what the font dropdowns' "In use" reads. */
+  const elementCanvases = {
+    ...Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
+    /* 🎞 Post Event's scenes, as the part sheet sees them: each scene's part
+       looks (`sceneLooks[<scene>].elements`) under its own scope, drafted
+       over live — so a part edited there is held on the canvas like any
+       section's (`element-preview.ts`). */
+    ...(postEvent.ok
+      ? Object.fromEntries(
+          Object.entries(postEvent.arrangement.sceneLooks).map(([key, look]) => [
+            postEventElementScope(key),
+            look.elements ? { elements: look.elements } : {},
+          ]),
+        )
+      : {}),
+  };
+
   return (
     <MakerWork
       eventId={eventId}
@@ -1328,26 +1375,22 @@ export default async function WebsiteEditorPage({
         startingHint: INVITATION_WORDS_HINT,
       }}
       elementEditing={{
-        canvases: {
-          ...Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
-          /* 🎞 Post Event's scenes, as the part sheet sees them: each scene's part
-             looks (`sceneLooks[<scene>].elements`) under its own scope, drafted
-             over live — so a part edited there is held on the canvas like any
-             section's (`element-preview.ts`). */
-          ...(postEvent.ok
-            ? Object.fromEntries(
-                Object.entries(postEvent.arrangement.sceneLooks).map(([key, look]) => [
-                  postEventElementScope(key),
-                  look.elements ? { elements: look.elements } : {},
-                ]),
-              )
-            : {}),
-        },
+        canvases: elementCanvases,
         palette: (() => {
           const pal = INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES]?.palette ?? INVITE_THEMES.house.palette;
           return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };
         })(),
         draftAction: hubDraftAction,
+        /* 🔤 "In use" on every font dropdown (owner 2026-09-29: "actively
+           used") — from the SAME draft over live the canvas draws: the theme's
+           faces, the couple's typeface, every part and letter run above, and
+           the logo's text layers. */
+        fontsInUse: hubFontsInUse({
+          themeFaces: (INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES] ?? INVITE_THEMES.house).fonts,
+          siteFontKey: (drafted as { site_font_key?: string | null }).site_font_key ?? null,
+          canvases: elementCanvases,
+          logoFonts: await readMakerLogoFonts(eventId),
+        }),
       }}
       scenes={scenes}
       navigator={navigator}
@@ -1375,6 +1418,7 @@ export default async function WebsiteEditorPage({
           !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
         heroPhoto: Boolean(heroRef || videoRef),
         fixedStyles,
+        names: { style: nameStyleOfPrintDetails(event.print_details), person: nameExample },
       }}
       rows={rows}
       themes={themes}
@@ -1396,7 +1440,7 @@ export default async function WebsiteEditorPage({
          succeed and otherwise says why. Hidden in the store shell (a Pro
          feature there would be a paid pitch). */
       sceneFacts={{
-        names: (event.display_name as string | null) ?? null,
+        names: (drafted.display_name as string | null) ?? null,
         monogram: resolveMonogram({
           display_name: (event.display_name as string | null) ?? null,
           monogram_text: (event as { monogram_text?: string | null }).monogram_text ?? null,

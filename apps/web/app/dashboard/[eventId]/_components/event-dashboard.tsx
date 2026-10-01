@@ -30,6 +30,7 @@ import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { rsvpSegments, rsvpSummary } from '@/lib/rsvp-segments';
+import { firstScreenRepeats, type FirstScreenAbove } from '@/lib/home-first-screen';
 import { fetchEventUnreadCounts } from '@/lib/event-decisions';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import {
@@ -252,6 +253,7 @@ export async function EventDashboard({
   dayOfActive = false,
   lifecyclePhase = 'plan',
   canViewPapicCounts = false,
+  firstScreenAbove,
 }: {
   eventId: string;
   saiPreviewParam?: string;
@@ -289,6 +291,17 @@ export async function EventDashboard({
     Omitted ⇒ 'plan' ⇒ byte-identical for every existing caller.
   */
   lifecyclePhase?: MenuLifecyclePhase;
+  /**
+   * 🏠 SET ONLY WHEN `<HomeFirstScreen>` IS DRAWN DIRECTLY ABOVE THIS (the Home's
+   * plan branch). Owner 2026-10-01 (DECISION_LOG "HOME ON DESKTOP SHOWS EACH
+   * THING ONCE"): *"instead of changing it I see dupes on the event"* — days to
+   * go, coming / no reply and Paid / Still owing each rendered twice. With this
+   * set, the blocks that restate a first-screen fact are NOT RENDERED (removed,
+   * not hidden behind a breakpoint): see `firstScreenRepeats`
+   * (lib/home-first-screen.ts) for the list. Omitted ⇒ byte-identical to before
+   * — the day-of and after-the-day mounts have no first screen above them.
+   */
+  firstScreenAbove?: FirstScreenAbove;
   /**
    * Is the viewer a COUPLE member of this event? Resolved once by the Home page.
    *
@@ -1376,6 +1389,8 @@ export async function EventDashboard({
     row is resolved FIRST; `null` means the board does not carry it and the
     standalone tile still renders. The fold can never delete today's one thing.
   */
+  // 🏠 What the first screen above already says (only when one is above).
+  const repeats = firstScreenRepeats(firstScreenAbove, openDecisionCount);
   const oneThingRowId = findTodaysOneThingRowId(decisionGroups, topPriorityTask?.id);
   /*
     `flatDecisions` LIVED HERE and is gone (2026-09-22). It existed to feed the
@@ -1883,7 +1898,7 @@ export async function EventDashboard({
     a fact that has expired", and Papic doesn't.
   */
   const miniTiles: ReactNode[] = [];
-  if (stats.total > 0 && !eventHasHappened) {
+  if (stats.total > 0 && !eventHasHappened && !repeats.guests) {
     miniTiles.push(
       <Link
         key="guests"
@@ -1948,7 +1963,7 @@ export async function EventDashboard({
       </Link>,
     );
   }
-  if (committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0) {
+  if (!repeats.money && (committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0)) {
     miniTiles.push(
       <Link
         key="budget"
@@ -2265,6 +2280,10 @@ export async function EventDashboard({
                 </p>
               </div>
               {hasFirmDate ? (
+                /* 🏠 The first screen's "days to go" is this number — drawn once.
+                   A date already past ("N days ago") is NOT on the first screen,
+                   so it stays. */
+                repeats.countdown && (daysOut === null || daysOut >= 0) ? null : (
                 <div className="mt-4 flex items-baseline gap-2">
                   <b
                     className="font-mono text-[46px] font-bold leading-none tracking-[-0.02em]"
@@ -2291,6 +2310,7 @@ export async function EventDashboard({
                         : 'days to go'}
                   </span>
                 </div>
+                )
               ) : (
                 <p className="mt-4 text-[13px]" style={{ color: focalSubColor }}>
                   {event.event_date
@@ -2358,7 +2378,7 @@ export async function EventDashboard({
                     {cockpitModel.briefing.sentence}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {daysOut !== null && daysOut >= 0 ? (
+                    {daysOut !== null && daysOut >= 0 && !repeats.countdown ? (
                       <span
                         className="rounded-full px-3 py-1 text-xs font-semibold"
                         style={focalChipStyle}
@@ -2523,6 +2543,11 @@ export async function EventDashboard({
 
             {/* RIGHT — decisions digest (ACT) + 2×2 live minis (NAVIGATE) */}
             <div className="flex flex-col gap-3.5">
+              {/* 🏠 "Nothing needs a decision" is the first screen's "You are on
+                  track" in other words — the tile leaves when it would only
+                  repeat the Next card. A count above zero is NOT on the first
+                  screen and stays. */}
+              {repeats.needsYou ? null : (
               <div className="sn-tile">
                 <p className="sn-eye">
                   <ListChecks aria-hidden strokeWidth={1.75} />
@@ -2604,7 +2629,7 @@ export async function EventDashboard({
                  *
                  *  And it stops after the celebration: chasing a reply to an invitation
                  *  to a party that is over is the purest version of the owner's complaint. */}
-                {shouldChaseRsvps({
+                {!repeats.rsvpRow && shouldChaseRsvps({
                   eventHasHappened,
                   pending: stats.pending,
                   repliesStarted: rsvpRepliesStarted,
@@ -2628,6 +2653,7 @@ export async function EventDashboard({
                   </Link>
                 ) : null}
               </div>
+              )}
 
               {miniTiles.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3.5">{miniTiles}</div>

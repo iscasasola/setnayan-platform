@@ -182,3 +182,62 @@ export function homeServices(input: {
   ];
   return all.filter((s) => s.key !== input.next);
 }
+
+/*
+  ─── EACH THING ONCE — what the dashboard below the first screen leaves out ───
+
+  Owner, 2026-10-01 (DECISION_LOG "HOME ON DESKTOP SHOWS EACH THING ONCE"), on
+  the TEST wedding's Home after the first screen shipped: *"you updated the Home
+  of that event but instead of changing it I see dupes on the event."* The
+  first screen was ADDED ON TOP of the old tiles, so four facts rendered twice:
+
+   · days to go   — the first-screen number AND the "The wedding day" card's
+                    countdown numeral (and the Sai briefing's "N days to go" chip);
+   · coming / no reply — the three numbers AND the Guests tile AND the
+                    "N guests haven't replied yet" row;
+   · Paid / Still owing — the money line AND the Budget tile;
+   · the Next card AND "Needs you this week" saying the same thing — "You are
+                    on track · nothing is waiting" against "Nothing needs a
+                    decision right now". (With decisions open the tile carries a
+                    COUNT the first screen does not, so it stays.)
+
+  Each is REMOVED (not rendered), never hidden behind a breakpoint: phone and
+  desktop show the same Home, desktop just wider. What the first screen does not
+  say — the Papic tile, the date and venue, % planned, the journey rail, the
+  decisions board — stays.
+
+  Pure and total so a guard can assert it: nothing above ⇒ nothing removed.
+*/
+export type FirstScreenAbove = {
+  /** The kind of the one Next card the first screen drew. */
+  nextKind: HomeNextKind;
+  /** The first screen drew its Paid / Still owing line (the viewer may see the budget). */
+  money: boolean;
+};
+
+export type FirstScreenRepeats = {
+  /** The wedding-day card's days-to-go numeral and the briefing's days chip. */
+  countdown: boolean;
+  /** The Guests tile (coming · no reply). */
+  guests: boolean;
+  /** The "N guests haven't replied yet" row in the decisions tile. */
+  rsvpRow: boolean;
+  /** The Budget tile. */
+  money: boolean;
+  /** The whole "Needs you this week" tile. */
+  needsYou: boolean;
+};
+
+export function firstScreenRepeats(
+  above: FirstScreenAbove | undefined,
+  openDecisionCount: number,
+): FirstScreenRepeats {
+  if (!above) return { countdown: false, guests: false, rsvpRow: false, money: false, needsYou: false };
+  return {
+    countdown: true,
+    guests: true,
+    rsvpRow: true,
+    money: above.money,
+    needsYou: above.nextKind === 'plan' && openDecisionCount === 0,
+  };
+}

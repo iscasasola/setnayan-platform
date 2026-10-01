@@ -552,6 +552,47 @@ export function isEventDateInPast(
   return effective.getTime() < today.getTime();
 }
 
+/** A stored precision, or null when it is not one of the three. */
+export function eventDatePrecisionOf(v: unknown): EventDatePrecision | null {
+  return v === 'year' || v === 'month' || v === 'day' ? v : null;
+}
+
+/**
+ * 🗓 THE DATE'S GATES, AS ONE ANSWER — `updateEventDate`'s rules, read by that
+ * writer AND by the Event Hub's Apply, which writes a date typed into the
+ * Maker's draft (owner 2026-10-01, "wait for apply"). One rule, two doors:
+ *
+ *   · `in_past` — the new date has already gone by at its precision (Task #41);
+ *   · `locked`  — the day moves while a supplier is booked (Task #37);
+ *   · `widens`  — the same day, made LESS precise while a supplier is booked
+ *     (Task #39's refine-only ratchet: year → month → day, never back).
+ *
+ * `confirmedVendorCount` is only asked when `eventDateChangeIsGoverned` says
+ * the change could need it. Null = the change may be written.
+ */
+export type EventDateRefusal = 'in_past' | 'locked' | 'widens';
+
+type DateFact = { date: string | null; precision: unknown };
+
+/** Would moving `prior` → `next` need the booked-supplier count? (A first date never does.) */
+export function eventDateChangeIsGoverned(prior: DateFact, next: { date: string | null; precision: EventDatePrecision }): boolean {
+  if (!prior.date) return false;
+  const priorPrecision = eventDatePrecisionOf(prior.precision) ?? 'year';
+  return next.date !== prior.date || PRECISION_ORDER[next.precision] < PRECISION_ORDER[priorPrecision];
+}
+
+export function eventDateRefusal(
+  prior: DateFact,
+  next: { date: string | null; precision: EventDatePrecision },
+  confirmedVendorCount: number,
+  now: Date = new Date(),
+): EventDateRefusal | null {
+  if (next.date && isEventDateInPast(next.date, next.precision, now)) return 'in_past';
+  if (confirmedVendorCount <= 0 || !eventDateChangeIsGoverned(prior, next)) return null;
+  const dateChanged = next.date !== prior.date;
+  return dateChanged ? 'locked' : 'widens';
+}
+
 /**
  * Vendor statuses that count as a confirmed commitment for the
  * date-edit + ceremony-type-edit gates on event home (iteration 0021

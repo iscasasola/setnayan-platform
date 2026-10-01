@@ -159,33 +159,31 @@ async function renderPage(raw: string, lane?: string) {
       incomplete: false,
       pagerKeepParams: lane ? `lane=${lane}` : '',
       searchKeepParams: '',
-      activeLane: v.activeLane,
       counts: v.laneCounts,
       nowMs: Date.UTC(2026, 8, 20),
-      keepParams: '',
       holdingPerDate: new Map(),
     }),
   );
 }
 
-test('the render draws 20 rows, whole-list chip counts, and "41–60 of 1,000"', async () => {
+test('the render draws 20 rows, the whole-list counts line, and "41–60 of 1,000"', async () => {
   const html = await renderPage('3');
   const rows = (html.match(/<li\b/g) ?? []).length;
   assert.equal(rows, 20, `the roster drew ${rows} rows`);
-  assert.match(html, /Everyone <span class="font-mono">1,000<\/span>/);
-  for (const lane of CUSTOMER_LANES) {
-    assert.ok(
-      html.includes(`<span class="font-mono">${MIX[lane]}</span>`),
-      `the ${lane} chip does not show its total ${MIX[lane]}`,
-    );
-  }
-  assert.ok(html.includes('37 waiting on you'), 'the heading is not the whole-list waiting count');
+  // The counts line (2026-10-01: it replaced the lane chip row — Filter ▾ is
+  // a PickMenu slot the page hands in) counts EVERYONE, not the page.
+  assert.ok(
+    html.includes('37 waiting on you · 63 holding · 500 talking · 300 booked · 100 done'),
+    'the counts line is not the whole-list count of every lane',
+  );
   assert.ok(html.includes('41–60 of 1,000'), 'the pager range is missing');
   assert.ok(html.includes('href="?page=4#customers"'), 'Next does not go to page 4');
   assert.ok(html.includes('href="?page=2#customers"'), 'Prev does not go to page 2');
+  // Every row carries its one next-step button.
+  assert.equal((html.match(/data-row-next/g) ?? []).length, 20, 'a row lost its next-step button');
 });
 
-test('the pager keeps the lane chip; page 1 drops the param', async () => {
+test('the pager keeps the Filter lane; page 1 drops the param', async () => {
   const html = await renderPage('2', 'talking');
   assert.ok(html.includes('href="?lane=talking#customers"'), 'Prev to page 1 lost the lane');
   assert.ok(html.includes('href="?lane=talking&amp;page=3#customers"'), 'Next lost the lane');

@@ -46,7 +46,14 @@ export function typeablePart(part: HTMLElement | null, key: string): HubElementK
  *     rules), or the part itself.
  * A styled letter (`[data-el-run]`) is words, never a target of its own.
  */
-export function typeTargetOf(part: HTMLElement): HTMLElement {
+export function typeTargetOf(part: HTMLElement, hit?: Element | null): HTMLElement {
+  // ✍ The names: the caret goes in the ONE person tapped (the joiner between
+  // them is its own part), else the first.
+  const people = peopleOf(part);
+  if (people.length > 0) {
+    const tapped = hit?.closest?.<HTMLElement>('[data-el-person]');
+    return tapped && people.includes(tapped) ? tapped : people[0]!;
+  }
   const marked = part.querySelector<HTMLElement>('[data-el-words]');
   if (marked) return marked;
   let at: HTMLElement = part;
@@ -60,14 +67,33 @@ export function typeTargetOf(part: HTMLElement): HTMLElement {
   }
 }
 
-/** What the part says now. */
+/** Each person's name in the names part (`[data-el-person]`, stamped by the masthead in the Maker only). */
+function peopleOf(part: HTMLElement): HTMLElement[] {
+  return Array.from(part.querySelectorAll<HTMLElement>('[data-el-person]'));
+}
+
+const words = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+/**
+ * What the part says now. The names say BOTH people, joined the way the page
+ * splits them (" & ", `splitCoupleNames`) — what `events.display_name` holds.
+ */
 export function partWords(part: HTMLElement): string {
-  return (typeTargetOf(part).textContent ?? '').replace(/\s+/g, ' ').trim();
+  const people = peopleOf(part);
+  if (people.length > 0) return people.map(words).filter(Boolean).join(' & ');
+  return words(typeTargetOf(part));
 }
 
 /** Put the part's words back, or new ones in (a Wording ▾ or Format ▾ pick, a refused save). */
 export function setPartWords(part: HTMLElement, text: string): void {
-  typeTargetOf(part).textContent = text;
+  const people = peopleOf(part);
+  if (people.length > 1) {
+    const [first = '', ...rest] = text.split(/\s*&\s*/);
+    people[0]!.textContent = first;
+    people[1]!.textContent = rest.join(' & ');
+    return;
+  }
+  (people[0] ?? typeTargetOf(part)).textContent = text;
 }
 
 function rectOf(el: HTMLElement): TypeRect {
@@ -156,7 +182,7 @@ export function createCanvasTyping(win: Window, post: (message: Record<string, u
     typing: () => session !== null,
     begin(part, key, el, at) {
       if (session) end(false);
-      const target = typeTargetOf(part);
+      const target = typeTargetOf(part, doc.elementFromPoint(at.x, at.y));
       const caret = isTypeCaretPart(el);
       const before = partWords(part);
       const onInput = () => send('input');

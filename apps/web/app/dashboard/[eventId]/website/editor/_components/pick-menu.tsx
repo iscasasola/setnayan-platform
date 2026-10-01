@@ -3,7 +3,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
-import { pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
+import { fontRowClass, groupHeadClass, pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
 /** ONE COMPACT PICKER — its design notes and types: `pick-menu-types.ts`. */
@@ -19,6 +19,7 @@ export function PickMenu({
   buttonText,
   picked,
   compact = false,
+  stickyGroups = false,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PickListPlacement | null>(null);
@@ -147,7 +148,7 @@ export function PickMenu({
                     data-pick-group={run.group}
                     className={ri > 0 ? 'mt-1 border-t border-ink/10 pt-1' : ''}
                   >
-                    <p aria-hidden className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
+                    <p aria-hidden className={groupHeadClass(stickyGroups)}>
                       {run.group}
                     </p>
                     <ul role="none">{run.options.map(renderOption)}</ul>
@@ -179,7 +180,7 @@ export function PickMenu({
 
   function renderOption(o: PickOption) {
     return (
-      <li key={o.key} role="none">
+      <li key={o.key} role="none" className={fontRowClass(o.fontFamily)}>
         <button
           type="button"
           role="option"

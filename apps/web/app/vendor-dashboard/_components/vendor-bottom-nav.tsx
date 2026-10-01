@@ -63,7 +63,8 @@
  * trips Next.js serialization. Symmetric pattern.
  */
 
-import { Home, ShoppingBag, Users, BarChart2, CalendarCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Home, ShoppingBag, Users, MoreHorizontal } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -71,6 +72,17 @@ import type { VendorTeamRole } from '@/lib/vendor-team';
 import { canManageVendor, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-role';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
+import { VENDOR_MORE_MATCH, vendorMoreRows } from '@/lib/vendor-more-rows';
+
+/* The More sheet is the HOST's shipped one (#6205, `more-services-sheet.tsx`).
+   ⚠ IMPORTED STATICALLY, ON PURPOSE — measured 2026-10-01. A lazy `import()`
+   here made webpack split the sheet into a SECOND async chunk for this bar, and
+   every async chunk adds an entry to the shared runtime's chunk map: +20 B gz
+   on a shared bundle with ~20 B of headroom (`scripts/check-bundle-size.mjs`).
+   Static, it rides the supplier layout's own chunk — supplier routes only, no
+   shared bytes. (The host's bar keeps its lazy import: its routes carry the
+   Maker's first-load ceiling; these do not.) */
+import MoreServicesSheet from '@/app/dashboard/[eventId]/_components/more-services-sheet';
 
 const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -136,10 +148,8 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/team',
       '/vendor-dashboard/branches',
       '/vendor-dashboard/subscription',
-      // Overflow + topbar-reached surfaces bucket under Shop so they light a
-      // tab instead of going unlit (there is no dedicated More tab now).
-      '/vendor-dashboard/more',
-      '/vendor-dashboard/notifications',
+      // ⚠ `/more` and `/notifications` moved to the More tab (2026-10-01, the
+      // supplier phone app): there IS a More tab again, and they are its rows.
       // Tax docs RETIRED 2026-05-29 (page redirects to /vendor-dashboard) —
       // kept for bookmark continuity so a stale hit still lights a tab.
       '/vendor-dashboard/tax-documents',
@@ -156,30 +166,21 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     ],
   },
   {
-    // My Performance — analytics destination + its Demand Radar drill-down. The
-    // old /funnel drill-down was folded into Performance (2026-07-02); the
-    // retired route still redirects there, so it stays in activeMatch to keep
-    // the tab lit during that transient hop.
-    key: 'performance',
-    // 'Performance' (11 chars) truncated in this bar's 10px label row —
-    // 'Insights' is the shorter word this codebase already uses for the same
-    // kind of analytics content (see routeMeta.admin.insights).
-    label: 'Insights',
-    href: '/vendor-dashboard/performance',
-    icon: BarChart2,
-    activeMatch: [
-      '/vendor-dashboard/performance',
-      '/vendor-dashboard/demand',
-      '/vendor-dashboard/funnel',
-    ],
-  },
-  {
-    // On the Day — the free, category-conditional day-of console (Phase 7).
-    key: 'onday',
-    label: 'Event Hub',
-    href: '/vendor-dashboard/on-the-day',
-    icon: CalendarCheck,
-    activeMatch: '/vendor-dashboard/on-the-day',
+    // 📱 MORE — owner-APPROVED 2026-10-01 (DECISION_LOG "THE SUPPLIER PHONE APP
+    // — APPROVED, WITH THE THREE RECOMMENDED ANSWERS", answer 1): the bar is
+    // Today · Customers · Shop · More, and Insights + Event Hub + Messages live
+    // in More. The tab OPENS A SHEET (below); its href is the /more page, so the
+    // tab still goes somewhere before the sheet has loaded and on a laptop.
+    //
+    // ⚠ Insights (key 'performance') and Event Hub (key 'onday') LEFT THE BAR.
+    // Their registry slots (`vendor.bottom-nav.performance` · `.onday`) still
+    // name their rows inside More (`lib/vendor-more-rows.ts`), so an admin
+    // rename still reaches them.
+    key: 'more',
+    label: 'More',
+    href: '/vendor-dashboard/more',
+    icon: MoreHorizontal,
+    activeMatch: [...VENDOR_MORE_MATCH],
   },
 ];
 
@@ -194,6 +195,7 @@ export function VendorBottomNav({
   navSlots,
   bookingsBadge,
   threadsBadge,
+  storeShell = false,
 }: {
   role: VendorTeamRole | null;
   navSlots?: Record<string, NavSlotLite>;
@@ -206,7 +208,10 @@ export function VendorBottomNav({
    */
   bookingsBadge?: number | null;
   threadsBadge?: number | null;
+  /** The App Store / Play Store shell — drops the web-only Plan row from More. */
+  storeShell?: boolean;
 }) {
+  const [moreOpen, setMoreOpen] = useState(false);
   // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
   // scoped subset. ⚠ This comment said "Phase 1: Home + More" until 2026-09-22
   // while the SAME FILE says twice, above, that there is no More tab any more —
@@ -237,11 +242,30 @@ export function VendorBottomNav({
   // cannot drop its count. Same helper as the desktop sidebar — one rule for
   // what the number means, in one place.
   const customersBadge = vendorCustomersBadge(bookingsBadge, threadsBadge);
-  const items = customersBadge
+  const badged = customersBadge
     ? labelled.map((item) =>
         item.key === 'customers' ? { ...item, badge: customersBadge } : item,
       )
     : labelled;
 
-  return <BottomNav items={items} />;
+  // More opens the sheet; the rows are the ONE list the /more page also draws.
+  const moreRows = vendorMoreRows({ storeShell, navSlots });
+  const items = badged.map((item) =>
+    item.key === 'more'
+      ? {
+          ...item,
+          onSelect: () => setMoreOpen(true),
+        }
+      : item,
+  );
+
+  return (
+    <>
+      <BottomNav items={items} />
+      {/* Mounted only while open. */}
+      {moreOpen ? (
+        <MoreServicesSheet open onClose={() => setMoreOpen(false)} title="More" services={moreRows} />
+      ) : null}
+    </>
+  );
 }

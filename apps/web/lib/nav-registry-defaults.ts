@@ -1197,7 +1197,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/shop",
-    label: "My Shop",
+    label: "Shop",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "ShoppingBag",
@@ -1210,12 +1210,28 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/customers",
-    label: "My Customers",
+    label: "Customers",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Users",
     customRef: null,
     sortOrder: 1,
+  },
+  {
+    // 📱 The rail's fourth row (2026-10-01, DECISION_LOG "THE SUPPLIER PHONE APP
+    // — APPROVED, WITH THE THREE RECOMMENDED ANSWERS"): the rail reads Today ·
+    // Customers · Shop · More, the phone bar's four words. "My Customers" and
+    // "My Shop" became "Customers" and "Shop" the same day, for the same rule.
+    key: "vendor.sidebar.more",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/more",
+    label: "More",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "MoreHorizontal",
+    customRef: null,
+    sortOrder: 3,
   },
   {
     // Overview tab (key 'home' — the flat item key stays 'profile', mapped to
@@ -1649,6 +1665,22 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "CalendarCheck",
     customRef: null,
     sortOrder: 5,
+  },
+  {
+    // 📱 The bar's fourth tab (2026-10-01, the supplier phone app): Today ·
+    // Customers · Shop · More. It opens the More sheet; Insights (the
+    // `performance` slot above) and Event Hub (`onday`) left the bar for it,
+    // and those two slots now name their rows INSIDE More.
+    key: "vendor.bottom-nav.more",
+    scope: "vendor",
+    area: "vendor-bottom-nav",
+    route: "/vendor-dashboard/more",
+    label: "More",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "MoreHorizontal",
+    customRef: null,
+    sortOrder: 6,
   },
   {
     key: "vendor.topbar.notifications",

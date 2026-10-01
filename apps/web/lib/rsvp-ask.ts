@@ -75,6 +75,16 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
    */
   guestReminders?: boolean;
   /**
+   * 🎟 "WILL GUESTS REPLY?" (owner 2026-09-30, DECISION_LOG "THE RSVP IS
+   * OPTIONAL…" + "HOW 'RSVP OR NOT' IS SET"). Absent = YES — today's flow, so
+   * every existing event is unchanged. Only an explicit `false` means "No reply
+   * needed. They get in with a QR.": the key gate (`rsvpGate`) then lets a guest
+   * holding their key straight in, never stopping them at the reply page.
+   * Set by the event onboarding's "How do guests get in?" card; read only
+   * through `readGuestsReply`.
+   */
+  guestsReply?: boolean;
+  /**
    * 📝 THE RSVP STAGE'S WORDS (owner 2026-09-30, DECISION_LOG "RSVP ANSWERS:
    * THE COUPLE RENAMES…" and "RE-PLAN REVISIONS — RSVP STAGE PARTS"). DISPLAY
    * WORDS ONLY — the stored answer stays `attending` / `declined`, so counts,
@@ -206,6 +216,10 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
       if (typeof value === 'boolean') out.guestReminders = value;
       continue;
     }
+    if (key === 'guestsReply') {
+      if (typeof value === 'boolean') out.guestsReply = value;
+      continue;
+    }
     if (key === 'words') {
       const words = sanitizeRsvpWords(value);
       if (Object.keys(words).length > 0) out.words = words;
@@ -317,6 +331,14 @@ export function readOneAtATime(raw: unknown): boolean {
  */
 export function readGuestReminders(raw: unknown): boolean {
   return sanitizeRsvpAskConfig(raw).guestReminders !== false;
+}
+
+/**
+ * "Will guests reply?" — absent reads as YES (today's flow). Only an explicit
+ * `false` means no reply is needed. The key gate reads THIS, never the blob.
+ */
+export function readGuestsReply(raw: unknown): boolean {
+  return sanitizeRsvpAskConfig(raw).guestsReply !== false;
 }
 
 export const ONE_AT_A_TIME_TIP =

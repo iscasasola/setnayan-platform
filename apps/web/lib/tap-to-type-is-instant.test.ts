@@ -23,11 +23,19 @@
  *      tap (a phone raises its keyboard only then); a typed tap is not a
  *      selection that pops the style sheet; the bar loads with the Details
  *      pieces, never with the Maker.
+ *   6. ✍ NAMES AND DATE WAIT FOR APPLY (owner 2026-10-01, DECISION_LOG "ELEVEN
+ *      OWNER ANSWERS" #1, *"wait for apply"*) — the names are a tap-to-type
+ *      part whose words are `events.display_name`, written to the DRAFT; the
+ *      names' Wording ▾ is exactly the three Name styles, in the couple's own
+ *      name, through the prints' one door; a date typed in Details is drafted
+ *      too, and Apply asks the date's own gates. The schema half (a save leaves
+ *      the events row untouched; Apply writes it once) is
+ *      `tests/db/a-typed-name-and-date-wait-for-apply.db.test.ts`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { HUB_JOINER_WORDS, sanitizeHubElements, type HubElementKey } from './element-style';
 import { HUB_FORMAT_DEFAULT, HUB_DATE_FORMATS, HUB_TIME_FORMATS, formatHubDate } from './hub-date-formats';
@@ -44,6 +52,11 @@ import { OPENING_LINE_TEMPLATES } from './opening-lines';
 import { HUB_CARD_EYEBROWS } from './hub-part-words';
 import { invitationCard } from '../app/[slug]/_lib/invitation-card';
 import { stripComments } from './strip-comments';
+import { HUB_TYPE_FACT_PARTS, isTypeCaretPart } from './hub-part-words';
+import { NAME_STYLES, nameStyleChoicesFor } from './name-style';
+import { coupleNameColumns, typedDisplayName } from './typed-names';
+import { emptyHubDraft, mergeHubDraft, planHubDraftApply, sanitizeHubDraftEventValue, summarizeHubDraft } from './hub-draft';
+import { eventDateRefusal } from './events';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -172,7 +185,9 @@ test('5a · the bar never renders the Maker: every save is held, in the element 
   const bar = read('app/dashboard/[eventId]/website/editor/_components/type-in-place.tsx');
   const saves = bar.match(/makerSave\(/g) ?? [];
   assert.equal(saves.length, 1, 'ONE write path for every change the bar makes');
-  assert.match(bar, /makerSave\(\s*\(\) => makerLatestWrite\(canvasWriteKey\('hero'\)/, 'the element sheet’s queue and key');
+  assert.match(bar, /makerSave\(\s*\(\) => makerLatestWrite\(key, \(\) => saveDraft\(draftAction, eventId, patch\)\)/, 'one queue, the latest write per key');
+  assert.match(bar, /write\(\s*canvasWriteKey\('hero'\),\s*\{ widgets: \{ hero: \{ canvas: next \} \} \},\s*\{ messages: layMessages\(before, next\), typedIn \}/, 'the hero’s canvas: the element sheet’s queue and key, drawn first');
+  assert.match(bar, /\) => \{\s*postToCanvas\(shown\.messages, shown\.typedIn\);[\s\S]*?makerSave\(/, 'the one write path draws on the canvas before it saves');
   assert.match(bar, /requestMakerRefresh,\s*\{ held: true, ok:/, 'held — no Maker render behind it');
   assert.match(bar, /noteDraftedCanvas\('hero', next/, 'the Maker’s own copy, before the write');
   assert.match(bar, /onSaving\('hero', next\)/, 'the canvas hold, before the write');
@@ -212,4 +227,123 @@ test('5c · the bar loads with the Details pieces on the first tap, never with t
   const bar = read('app/dashboard/[eventId]/website/editor/_components/type-in-place.tsx');
   assert.match(bar, /window\.addEventListener\('message', onMessage\)/, 'the bar hears the canvas itself');
   assert.match(bar, /t: 'typeSync'/, 'letters typed while it loaded are asked for, not lost');
+});
+
+/* ═══ 6 · NAMES AND DATE WAIT FOR APPLY ═══ */
+
+const BAR = () => read('app/dashboard/[eventId]/website/editor/_components/type-in-place.tsx');
+const L = 'app/dashboard/[eventId]/launch/_components/';
+
+test('6a · the names are a tap-to-type part — a caret in each person, the words are the event’s names', async () => {
+  assert.ok((HUB_TYPE_PARTS as readonly string[]).includes('names'), 'a tap on the names types');
+  assert.ok(isTypeCaretPart('names'), 'a caret goes in the names');
+  assert.deepEqual([...HUB_TYPE_FACT_PARTS], ['names'], 'the names are a FACT part (the event’s, not the hero’s own words)');
+  assert.ok(!(HUB_TYPE_WORD_PARTS as readonly string[]).includes('names'), 'the names never become a canvas word');
+  // Each person is its own caret target — the joiner between them stays the Joiner's.
+  const maker = await hero({ stampElements: true });
+  assert.match(maker, /data-el-person="0"[^>]*>Ana</);
+  assert.match(maker, /data-el-person="1"[^>]*>Miguel</);
+  assert.doesNotMatch(await hero({}), /data-el-person/, 'a guest’s markup never carries the Maker’s marks');
+  const canvas = read('app/[slug]/_components/type-in-place-canvas.ts');
+  assert.match(canvas, /const target = typeTargetOf\(part, doc\.elementFromPoint\(at\.x, at\.y\)\);/, 'the caret goes in the person tapped');
+  assert.match(canvas, /people\.map\(words\)\.filter\(Boolean\)\.join\(' & '\)/, 'both people, joined the way the page splits them');
+  // What may be typed: a name on each side, no markup, never nothing.
+  assert.equal(typedDisplayName('  Ana   Reyes &  Miguel ', true), 'Ana Reyes & Miguel');
+  assert.equal(typedDisplayName('Ana & ', true), null, 'a side left empty');
+  assert.equal(typedDisplayName('   ', true), null, 'nothing');
+  assert.equal(typedDisplayName('<b>Ana</b>', false), null, 'markup');
+  assert.equal(typedDisplayName('Ana', true), 'Ana', 'one name on a two-person page is still a name');
+});
+
+test('6b · typing the names writes the DRAFT’s events.display_name — the one held write path, never the live row', () => {
+  const bar = BAR();
+  assert.equal((bar.match(/makerSave\(/g) ?? []).length, 1, 'still ONE write path');
+  assert.match(bar, /write\(\s*NAMES_WRITE_KEY,\s*\{ events: \{ display_name: name \} \},\s*\{ messages: \[\{ source: 'setnayan-editor', t: 'typeText', key: session\.key, el, text: name \}\], typedIn: session\.source \}/, 'the names go into the draft’s events — on the other pane first');
+  assert.match(bar, /if \(el === 'names'\) \{\s*typeNames\(session\.text\);\s*return;\s*\}/, 'a keystroke in the names is a names write, not a canvas word');
+  assert.doesNotMatch(bar, /updateEventMatchCriteria|from '\.\.\/\.\.\/\.\.\/actions'|\.from\('events'\)/, 'the bar writes no live row');
+  // The draft keeps what was typed — and refuses what no page may print.
+  const d = mergeHubDraft(emptyHubDraft(), { events: { display_name: 'Ana Reyes & Miguel' } });
+  assert.equal(d.events.display_name, 'Ana Reyes & Miguel');
+  assert.equal(sanitizeHubDraftEventValue('display_name', null), undefined, 'a page is never made nameless');
+  assert.equal(sanitizeHubDraftEventValue('display_name', 'Ana<script>'), undefined);
+  // The draft action's save writes the draft and nothing else.
+  const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
+  const save = action.slice(action.indexOf("if (intent === 'save') {"), action.indexOf("if (intent === 'reset') {"));
+  assert.ok(save.length > 0);
+  assert.match(save, /writeHubDraft\(supabase, eventId, mergeHubDraft\(current, patch\)\)/);
+  assert.doesNotMatch(save, /\.from\(|\.update\(|\.insert\(/, 'a save touched a table other than through the draft store');
+});
+
+test('6c · the names’ Wording ▾ offers EXACTLY the three Name styles, in the couple’s own name — and nothing else', () => {
+  const ana = { first_name: 'Ana', middle_name: 'Santos', last_name: 'Reyes' };
+  const choices = nameStyleChoicesFor(ana);
+  assert.deepEqual(choices.map((c) => c.key), [...NAME_STYLES], 'the three styles, in order, and no fourth');
+  assert.deepEqual(choices.map((c) => c.example), ['Ana Santos Reyes', 'Ana S. Reyes', 'Reyes, Ana S.'], 'each written in the couple’s own name');
+  assert.deepEqual(choices.map((c) => c.label), ['Full', 'Middle initial', 'Surname first']);
+  assert.deepEqual(
+    nameStyleChoicesFor(null).map((c) => c.example),
+    ['Mr. Manuel Cortez Casasola', 'Mr. Manuel C. Casasola', 'Mr. Casasola, Manuel C.'],
+    'no name known yet → the owner’s own example',
+  );
+  const bar = BAR();
+  // ONE PickMenu, built from those three only, saved through the prints' one door.
+  assert.match(bar, /options=\{nameChoices\.map\(\(c\) => \(\{ key: c\.key, label: c\.example, hint: c\.label \}\)\)\}/);
+  assert.match(bar, /const nameChoices = el === 'names' && p\.names \? nameStyleChoicesFor\(p\.names\.person\) : \[\];/);
+  assert.match(bar, /void saveNameStyle\(p\.eventId, picked\)/, 'the prints’ own door — one setting, never a second');
+  assert.doesNotMatch(bar, /fetch\(|name_style/, 'no second writer of the Name style');
+  assert.match(read(`${L}details-your-event.tsx`), /const ok = await saveNameStyle\(eventId, style\);/, 'Details’ Name style ▾ is the same door');
+});
+
+test('6d · a name or date typed in Details › Your event is DRAFTED — the Maker calls no live date or names writer', () => {
+  const editors = read(`${L}details-your-event.tsx`);
+  assert.doesNotMatch(editors, /updateEventDate|updateEventMatchCriteria/, 'a Maker editor still writes the names or the date live');
+  assert.match(editors, /fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\);/);
+  assert.match(editors, /const events = coupleNameColumns\(a, b\);/, 'the Personalization writer’s own composition');
+  assert.match(editors, /draftFacts\(eventId, \{ display_name: typed \}\)/, 'one person’s name');
+  assert.match(editors, /draftFacts\(eventId, \{ event_date: `\$\{m\}-01`, event_date_precision: 'month' \}\)/, 'a month');
+  assert.match(editors, /draftFacts\(eventId, \{ event_date: value, event_date_precision: 'day' \}\)/, 'a day');
+  assert.match(editors, /saveDate=\{saveDay\}/, 'the governed row saves its day into the draft, after its supplier preview');
+  const governed = read('app/dashboard/[eventId]/details/_components/governed-fields.tsx');
+  assert.match(governed, /if \(saveDate\) return saveDate\(value\);/);
+  // No piece of the Maker writes the date or the names live.
+  for (const f of readdirSync(join(WEB, L)).filter((n) => /\.tsx?$/.test(n) && !n.endsWith('.test.ts'))) {
+    assert.doesNotMatch(read(`${L}${f}`), /\bupdateEventDate\(|\bupdateEventMatchCriteria\(/, `${f} writes the date or the names live`);
+  }
+  // The Personalization page's writer and the Maker's draft compose the names ONE way.
+  assert.match(read('app/dashboard/[eventId]/actions.ts'), /const cols = coupleNameColumns\(/);
+  assert.deepEqual(coupleNameColumns({ first: 'Ana', last: 'Reyes' }, { first: 'Miguel', last: 'Santos' }), {
+    bride_name: 'Ana Reyes',
+    groom_name: 'Miguel Santos',
+    display_name: 'Ana & Miguel',
+  });
+  assert.equal('display_name' in coupleNameColumns({ first: '', last: '' }, { first: '', last: '' }), false, 'a blank form never blanks the page’s names');
+});
+
+test('6e · Apply asks the date’s OWN gates — the one rule `updateEventDate` asks', () => {
+  const NOW = new Date(2027, 0, 10);
+  const prior = { date: '2027-03-13', precision: 'day' };
+  assert.equal(eventDateRefusal(prior, { date: '2026-12-31', precision: 'day' }, 0, NOW), 'in_past');
+  assert.equal(eventDateRefusal(prior, { date: '2027-04-17', precision: 'day' }, 0, NOW), null, 'no supplier booked: free to move');
+  assert.equal(eventDateRefusal(prior, { date: '2027-04-17', precision: 'day' }, 2, NOW), 'locked', 'a booked supplier holds the day');
+  assert.equal(eventDateRefusal(prior, { date: '2027-03-13', precision: 'month' }, 2, NOW), 'widens', 'never less precise once booked');
+  assert.equal(eventDateRefusal({ date: null, precision: null }, { date: '2027-04-17', precision: 'day' }, 2, NOW), null, 'a first date is never locked');
+  const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
+  assert.match(action, /const refusal = eventDateRefusal\(priorDate, nextDate, confirmed\);/);
+  assert.match(action, /if \(dateHeld && isDateItem\(item\)\) \{\s*held\.push\(\{ item, reason: dateHeld \}\);\s*continue;\s*\}/, 'a refused date stays in the draft');
+  assert.match(action, /if \(countErr\) return \{ ok: false, intent, error:/, 'an unread supplier count is never "none booked"');
+  assert.match(read('app/dashboard/[eventId]/actions.ts'), /const refusal = eventDateRefusal\(prior, next, count \?\? 0\);/, 'the live writer asks the same rule');
+  // And the plan: a typed date is one free change, applied — never Pro.
+  const draft = mergeHubDraft(emptyHubDraft(), { events: { event_date: '2027-04-17', event_date_precision: 'day' } });
+  const plan = planHubDraftApply(draft, { events: { event_date: '2027-03-13', event_date_precision: 'day' }, widgets: [] }, false);
+  assert.equal(plan.refused.length, 0);
+  assert.deepEqual(plan.apply.map((i) => (i.kind === 'event' ? i.column : i.kind)), ['event_date']);
+});
+
+test('6f · Apply counts a typed fact ONCE — the names are three columns, the date two', () => {
+  const draft = mergeHubDraft(emptyHubDraft(), {
+    events: { display_name: 'Ana & Miguel', bride_name: 'Ana Reyes', groom_name: 'Miguel Santos', event_date: '2027-04-17', event_date_precision: 'month' },
+  });
+  const sum = summarizeHubDraft(draft, { events: {}, widgets: [] }, false);
+  assert.equal(sum.changeCount, 2, 'Your names · Your date');
+  assert.equal(sum.proCount, 0);
 });

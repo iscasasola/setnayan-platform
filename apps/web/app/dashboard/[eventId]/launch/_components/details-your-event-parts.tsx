@@ -59,7 +59,6 @@ export type YourEventInput = {
   names: {
     people: readonly [string, string];
     initial: readonly [{ first: string; last: string }, { first: string; last: string }];
-    keep: { region: string; feel: string };
     /** Where the BaZi section is live, the shipped whole form instead (see the editor's docblock). */
     wholeForm: ReactNode | null;
   } | null;
@@ -175,7 +174,7 @@ export function yourEventParts({
     <OneNameEditor eventId={eventId} initial={input.oneName.initial} hint={input.oneName.hint} />
   ) : input.names ? (
     input.names.wholeForm ?? (
-      <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} keep={input.names.keep} />
+      <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} />
     )
   ) : null;
   const editors: Partial<Record<EventItemKey, ReactNode>> = {

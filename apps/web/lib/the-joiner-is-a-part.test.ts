@@ -36,7 +36,9 @@ async function hero(props: Record<string, unknown>): Promise<string> {
 }
 
 /** The joiner's span, as drawn between the two names. */
-const joinerOf = (html: string) => /<span class="block">Cale<\/span>(<span[^>]*>[^<]*<\/span>)<span class="block">Ice<\/span>/.exec(html)?.[1] ?? null;
+// (In the Maker canvas each person also carries `data-el-person` — tap-to-type's caret target, 2026-10-01.)
+const joinerOf = (html: string) =>
+  /<span(?: data-el-person="0")? class="block">Cale<\/span>(<span[^>]*>[^<]*<\/span>)<span(?: data-el-person="1")? class="block">Ice<\/span>/.exec(html)?.[1] ?? null;
 
 test('a guest sees the couple’s own joiner, styled like any part', async () => {
   for (const word of ['+', '&', 'and', 'at saka']) {

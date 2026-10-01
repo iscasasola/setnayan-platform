@@ -8,6 +8,7 @@ import { loadVenueBookings, resolveEventVenues } from '@/lib/event-venues';
 import { resolveProfile, resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import type { EventDatePrecision } from '@/lib/events';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { HUB_DRAFT_FACT_COLUMNS } from '@/lib/hub-draft';
 
 /**
  * ⚡ THE FACTS, APART FROM THE PAGES THAT DRAW THEM. \`readYourEventFacts\` is read
@@ -66,18 +67,29 @@ export async function readYourEventFacts({
   eventId,
   parentCount,
   hostCount,
+  drafted,
 }: {
   admin: SupabaseClient;
   eventId: string;
   parentCount: number;
   hostCount: number;
+  /**
+   * ✍ The couple's drafted `events` columns (the Event Hub draft). The names and
+   * the date typed in the Maker are drafted until Apply (owner 2026-10-01, "wait
+   * for apply"), so the Maker shows them — and counts them done — as drafted.
+   * Omitted = the live row (what a guest reads).
+   */
+  drafted?: Record<string, unknown>;
 }) {
   const rowRes = await admin.from('events').select(YOUR_EVENT_COLUMNS).eq('event_id', eventId).maybeSingle();
   if (rowRes.error || !rowRes.data) {
     if (rowRes.error) logQueryError('LaunchPage.yourEvent', rowRes.error, { event_id: eventId }, 'graceful_degrade');
     return null;
   }
-  const row = rowRes.data as unknown as Row;
+  const row = { ...(rowRes.data as unknown as Row) };
+  for (const c of HUB_DRAFT_FACT_COLUMNS) {
+    if (drafted && c in drafted) (row as Record<string, unknown>)[c] = drafted[c];
+  }
 
   const [profile, roleSet, bookings, groups] = await Promise.all([
     resolveProfile(row.event_type ?? 'wedding'),

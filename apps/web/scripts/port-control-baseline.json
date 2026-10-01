@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "032a1e5916",
-  "routeCount": 440,
-  "destinations": 948,
+  "generatedFromRef": "8023bb096e",
+  "routeCount": 441,
+  "destinations": 951,
   "actions": 677,
-  "blocks": 5331,
+  "blocks": 5359,
   "routes": {
     "/": {
       "files": [
@@ -4695,8 +4695,8 @@
         "EditorialsTab",
         "EventMonogram",
         "FacebookGlyph",
-        "Icon",
         "Link",
+        "LinkPickMenu",
         "PageMasthead",
         "PhotosTab",
         "SavedVendorCardItem",
@@ -5152,6 +5152,7 @@
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
         "dashboard/[eventId]/_components/pillar-part-picker.tsx",
+        "dashboard/[eventId]/_components/placeholder.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
         "dashboard/[eventId]/_components/reveal-preview.tsx",
@@ -5318,6 +5319,8 @@
         "Money",
         "MoreServicesSheet",
         "MoreSheet",
+        "MoreSheetRow",
+        "NextCard",
         "NikahEssentialsCard",
         "OpenWalletButton",
         "OverviewDecisionInspector",
@@ -5521,9 +5524,11 @@
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
+        "MiniTour",
         "NoFinalizedVendors",
         "OverspendBanner",
         "PageMasthead",
+        "PickMenu",
         "PinnedStat",
         "RecordCostResult",
         "RecordedCostRow",
@@ -5535,7 +5540,6 @@
         "SuggestMilestonesResult",
         "SummaryStat",
         "SupplierInvite",
-        "TiltButton",
         "TiltEditor",
         "TotalCell",
         "UpcomingRow",
@@ -5786,6 +5790,7 @@
         "Icon",
         "Link",
         "ListPageSkeleton",
+        "MiniTour",
         "PageMasthead",
         "RevealList"
       ]
@@ -6632,6 +6637,7 @@
         "Link",
         "LiveWallControls",
         "PageMasthead",
+        "PickMenu",
         "WallMode",
         "WallModeControl"
       ]
@@ -6661,7 +6667,6 @@
     },
     "/dashboard/[eventId]/messages": {
       "files": [
-        "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
         "dashboard/[eventId]/messages/actions.ts",
         "dashboard/[eventId]/messages/loading.tsx",
         "dashboard/[eventId]/messages/page.tsx"
@@ -6678,8 +6683,6 @@
         "FeedPageSkeleton",
         "Link",
         "PageMasthead",
-        "PickMenu",
-        "StartThreadPicker",
         "SubmitButton",
         "ThreadArchiveToggle",
         "ThreadListAvatar",
@@ -7450,11 +7453,18 @@
     },
     "/dashboard/[eventId]/studio/[addon]": {
       "files": [
+        "dashboard/[eventId]/studio/[addon]/loading.tsx",
         "dashboard/[eventId]/studio/[addon]/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/studio"
+      ],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "GridPageSkeleton",
+        "IterationPlaceholder",
+        "Link"
+      ]
     },
     "/dashboard/[eventId]/studio/about/[addon]": {
       "files": [
@@ -7948,6 +7958,7 @@
         "PapicStage",
         "PapicWindowPicker",
         "PaymentUnderReview",
+        "PickMenu",
         "PickerFilters",
         "PoolGalleryCard",
         "PoolGalleryToggle",
@@ -8133,6 +8144,7 @@
         "Icon",
         "InlineCheckoutDrawer",
         "Link",
+        "LinkPickMenu",
         "MediaRecorder",
         "MediaStream",
         "MusicTrackOption",
@@ -8197,7 +8209,7 @@
       ],
       "destinations": [
         "/api/oauth/photo-delivery/start?event_id=[seg]&switch=1",
-        "/dashboard/[seg]/galleries"
+        "/dashboard/[seg]/studio"
       ],
       "actions": [
         "action",
@@ -8350,20 +8362,42 @@
         "SubmitButton"
       ]
     },
+    "/dashboard/[eventId]/studio/supplies-marketplace": {
+      "files": [
+        "dashboard/[eventId]/studio/supplies-marketplace/_components/cart-drawer.tsx",
+        "dashboard/[eventId]/studio/supplies-marketplace/loading.tsx",
+        "dashboard/[eventId]/studio/supplies-marketplace/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio",
+        "/help"
+      ],
+      "actions": [],
+      "blocks": [
+        "CartDrawer",
+        "CategoryChip",
+        "GridPageSkeleton",
+        "HTMLDivElement",
+        "Link",
+        "ProductCard",
+        "StudioBuyHero",
+        "SuppliesMarketplaceBrowser",
+        "SupplyCategoryKey"
+      ]
+    },
     "/dashboard/[eventId]/studio/thank-you": {
       "files": [
         "dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx",
         "dashboard/[eventId]/studio/thank-you/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/studio"
+      ],
       "actions": [],
       "blocks": [
-        "InlineCheckoutDrawer",
+        "Link",
         "PageMasthead",
-        "PaidMark",
         "Phase",
-        "SavePanel",
-        "StudioBuyHero",
         "ThankYouMaker"
       ]
     },
@@ -8577,6 +8611,7 @@
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
+        "PickMenu",
         "PillarPartPicker",
         "PlanBudgetAccordion",
         "PlansRowPick",
@@ -9882,6 +9917,8 @@
         "ServicesStep",
         "ServicesStepSelection",
         "SetnayanAiValue",
+        "SetupAnswers",
+        "SetupCard",
         "SpecialtyFields",
         "Title"
       ]
@@ -9890,6 +9927,8 @@
       "files": [
         "onboarding/simple/_components/papic-step-field-names.ts",
         "onboarding/simple/_components/papic-step-fields.tsx",
+        "onboarding/simple/_components/simple-setup-field.ts",
+        "onboarding/simple/_components/simple-setup-flow.tsx",
         "onboarding/simple/actions.ts",
         "onboarding/simple/page.tsx"
       ],
@@ -9901,10 +9940,15 @@
         "commitSimpleEvent"
       ],
       "blocks": [
+        "HTMLDivElement",
         "Link",
+        "Paced",
         "PapicStepFields",
         "ServicesStep",
         "ServicesStepSelection",
+        "SetupAnswers",
+        "SetupCard",
+        "SimpleSetupFlow",
         "SubmitButton"
       ]
     },
@@ -9968,6 +10012,8 @@
         "ServicesStepSelection",
         "SetnayanAiValue",
         "SetnayanMark",
+        "SetupAnswers",
+        "SetupCard",
         "Sk",
         "SongBankStep",
         "SongPreviewList",
@@ -10227,10 +10273,7 @@
         "papic/decorate/_components/kwento-decorator.tsx",
         "papic/decorate/page.tsx"
       ],
-      "destinations": [
-        "/",
-        "/papic/guest"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "DoorShell",
@@ -10239,8 +10282,8 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "KwentoDecorator",
-        "Link",
-        "PapicStyle"
+        "PapicStyle",
+        "PickMenu"
       ]
     },
     "/papic/demo/[token]": {
@@ -10285,6 +10328,7 @@
         "DayOfFaceEnroll",
         "DoorShell",
         "GridPageSkeleton",
+        "GuestGuidedTour",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -10352,6 +10396,7 @@
         "File",
         "FormPageSkeleton",
         "GuestGallery",
+        "GuestGuidedTour",
         "GuestStoryMaker",
         "GuestStoryPlan",
         "Link",
@@ -10379,14 +10424,10 @@
         "papic/pool/_components/pool-grid.tsx",
         "papic/pool/page.tsx"
       ],
-      "destinations": [
-        "/",
-        "/papic/me/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "DoorShell",
-        "Link",
         "PoolGrid"
       ]
     },
@@ -10704,9 +10745,9 @@
         "Money",
         "OverspendBanner",
         "PaymentSection",
+        "PickMenu",
         "PriceSourceChip",
         "SummaryStat",
-        "TiltButton",
         "TiltEditor",
         "TourBudgetPlanner",
         "TourVendorItemization"
@@ -10937,6 +10978,7 @@
         "vendor-dashboard/_components/qr-section.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/spotlight-award-banner.tsx",
+        "vendor-dashboard/_components/supplier-today-first-screen.tsx",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
         "vendor-dashboard/_components/vendor-nav-destinations.ts",
@@ -10959,17 +11001,19 @@
         "/vendor-dashboard",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients",
+        "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
+        "/vendor-dashboard/customers?lane=waiting",
         "/vendor-dashboard/earnings",
         "/vendor-dashboard/locked-qr",
-        "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/more",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
-        "/vendor-dashboard/performance",
+        "/vendor-dashboard/payday",
         "/vendor-dashboard/proposals",
         "/vendor-dashboard/reviews",
         "/vendor-dashboard/shop",
@@ -11007,7 +11051,6 @@
         "BranchPinMap",
         "BranchRow",
         "CardShell",
-        "CashFlowTile",
         "Collapsible",
         "ComingSoon",
         "Connected",
@@ -11016,9 +11059,7 @@
         "CountUp",
         "DeleteRequestBody",
         "DisputeBody",
-        "EarnedTile",
         "EmptyCard",
-        "EnergyKpi",
         "EventLockedByFee",
         "FeedCard",
         "FieldSaveResult",
@@ -11039,6 +11080,9 @@
         "MediaTile",
         "MeetingBody",
         "MessageBody",
+        "MiniTour",
+        "MoreServicesSheet",
+        "NextCard",
         "NotConnected",
         "NothingToAnswerFeed",
         "OngoingTasks",
@@ -11047,7 +11091,6 @@
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "Pips",
-        "ProgressRing",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
         "QrActions",
@@ -11064,16 +11107,15 @@
         "State",
         "StepRow",
         "SubmitButton",
+        "SupplierTodayFirstScreen",
         "SyncResult",
         "TrackRecordRow",
         "UnreadBellBadge",
         "UpcomingSchedules",
         "VendorBottomNav",
         "VendorDealFacts",
-        "VendorEnergyStats",
         "VendorFirstSteps",
         "VendorRailContext",
-        "VendorTodayFocal",
         "WhatsNewFeed"
       ]
     },
@@ -11259,6 +11301,7 @@
         "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients/[seg]?tab=details",
+        "/vendor-dashboard/customers?open=availability",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [
@@ -11570,6 +11613,7 @@
       "files": [
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
+        "vendor-dashboard/customers/_components/customers-pick.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
@@ -11592,6 +11636,7 @@
         "CustomerSectionBody",
         "CustomersCalendar",
         "CustomersFilterBar",
+        "CustomersPick",
         "CustomersPipeline",
         "CustomersRoster",
         "FeatureAccordion",
@@ -11599,7 +11644,9 @@
         "Link",
         "ListPager",
         "MessagesSurface",
+        "MiniTour",
         "PaydaySurface",
+        "PickMenu",
         "ProposalsSurface",
         "R",
         "RosterRow",
@@ -11914,7 +11961,9 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "GridPageSkeleton"
+        "Icon",
+        "Link",
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/notifications": {

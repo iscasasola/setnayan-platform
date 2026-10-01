@@ -128,7 +128,7 @@ export async function createAdminVendorInvite(
   if (profileErr || !stagedProfile) {
     return {
       status: 'error',
-      message: profileErr?.message ?? 'Could not stage vendor profile.',
+      message: profileErr?.message ?? 'Could not stage supplier profile.',
     };
   }
 
@@ -290,7 +290,7 @@ export async function saveUnclaimedVendorProfile(formData: FormData) {
   if (updateErr) throw new Error(updateErr.message);
   if (!updated || updated.length === 0) {
     throw new Error(
-      'This shop belongs to a vendor, so it can’t be edited here. Ask them to change it in My Shop — or approve a correction request from /admin/corrections.',
+      'This shop belongs to a supplier, so it can’t be edited here. Ask them to change it in My Shop — or approve a correction request from /admin/corrections.',
     );
   }
 
@@ -401,7 +401,7 @@ export async function setVendorTier(formData: FormData): Promise<void> {
     .select('tier_state, tier_expires_at, business_name, public_id')
     .eq('vendor_profile_id', vendorId)
     .maybeSingle();
-  if (!before) throw new Error('Vendor not found.');
+  if (!before) throw new Error('Supplier not found.');
 
   // tier_source='admin_comp' on every write, not just the default — this is
   // the ONLY writer of a non-free tier today (see fetchCompedVendors's
@@ -536,7 +536,7 @@ export async function issueVendorSkuComp(formData: FormData): Promise<void> {
     .select('business_name, public_id')
     .eq('vendor_profile_id', vendorId)
     .maybeSingle();
-  if (!vendor) throw new Error('Vendor not found.');
+  if (!vendor) throw new Error('Supplier not found.');
 
   // One pending comp per vendor+SKU — a second press must not open a second
   // approval that a second admin could grant twice.
@@ -612,7 +612,7 @@ export async function executeVendorSkuComp(
     .select('business_name, public_id, papic_challenge_expires_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (!vendor) throw new Error('Vendor not found.');
+  if (!vendor) throw new Error('Supplier not found.');
 
   const currentExpiry =
     (vendor as { papic_challenge_expires_at?: string | null }).papic_challenge_expires_at ??
@@ -721,7 +721,7 @@ export async function setVendorFoundingSupplier(formData: FormData): Promise<voi
     .eq('vendor_profile_id', vendorId)
     .maybeSingle();
   if (readErr) throw new Error(readErr.message);
-  if (!before) throw new Error('Vendor not found.');
+  if (!before) throw new Error('Supplier not found.');
 
   const { error } = await admin
     .from('vendor_profiles')

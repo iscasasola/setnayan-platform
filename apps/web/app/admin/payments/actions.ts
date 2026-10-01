@@ -787,7 +787,7 @@ export async function approvePaymentCore(args: {
         actorUserId: userId,
       });
     } catch (e) {
-      console.error('vendor payout scheduling failed (non-fatal):', e);
+      console.error('supplier payout scheduling failed (non-fatal):', e);
     }
   }
 

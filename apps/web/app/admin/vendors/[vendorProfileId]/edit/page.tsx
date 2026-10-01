@@ -9,7 +9,7 @@ import { saveUnclaimedVendorProfile } from '../../actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
-  title: 'Edit unclaimed vendor · Admin',
+  title: 'Edit unclaimed supplier · Admin',
   robots: { index: false, follow: false },
 };
 
@@ -87,7 +87,7 @@ export default async function AdminEditUnclaimedVendorPage({
         className="mb-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to vendors
+        Back to suppliers
       </Link>
 
       {/* The page starts at its content — the Back to vendors link above is
@@ -95,10 +95,10 @@ export default async function AdminEditUnclaimedVendorPage({
           ⚖ The sentence survives: you are editing somebody else's shop as a
           TEMPORARY owner, and they take it over the moment they claim it.
           That is the whole basis on which this screen is allowed to exist. */}
-      <PageMasthead title="Edit unclaimed vendor" />
+      <PageMasthead title="Edit unclaimed supplier" />
       <div className="mb-6">
         <p className="text-sm text-ink/70">
-          You&rsquo;re editing this vendor as a temporary owner. The vendor will
+          You&rsquo;re editing this supplier as a temporary owner. The supplier will
           take it over the moment they sign up via the claim link. Publish
           when you want it to appear in the marketplace.
         </p>
@@ -142,7 +142,7 @@ export default async function AdminEditUnclaimedVendorPage({
             type="text"
             maxLength={200}
             defaultValue={profile.tagline ?? ''}
-            placeholder="One sentence that captures what this vendor does well."
+            placeholder="One sentence that captures what this supplier does well."
             className="input-field"
           />
         </Field>

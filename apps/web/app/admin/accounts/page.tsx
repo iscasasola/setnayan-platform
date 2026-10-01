@@ -56,8 +56,8 @@ const TAB_STRIP: {
   legacyHref: string;
 }[] = [
   { key: 'users', label: 'Users', icon: Users, wired: true, legacyHref: '/admin/users' },
-  { key: 'vendors', label: 'Vendors', icon: Briefcase, wired: true, legacyHref: '/admin/vendors' },
-  { key: 'demo-vendors', label: 'Demo vendors', icon: TestTube, wired: true, legacyHref: '/admin/demo-vendors' },
+  { key: 'vendors', label: 'Suppliers', icon: Briefcase, wired: true, legacyHref: '/admin/vendors' },
+  { key: 'demo-vendors', label: 'Demo suppliers', icon: TestTube, wired: true, legacyHref: '/admin/demo-vendors' },
   { key: 'events', label: 'Events', icon: CalendarDays, wired: true, legacyHref: '/admin/events' },
   { key: 'venues', label: 'Venues', icon: MapPin, wired: true, legacyHref: '/admin/venues' },
 ];

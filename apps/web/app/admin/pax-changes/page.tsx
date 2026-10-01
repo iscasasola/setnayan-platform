@@ -131,13 +131,13 @@ export default async function AdminPaxChangesPage() {
         cap={ROW_LIMIT}
         label="Pax-driven cost changes"
         minWidth="47.5rem"
-        note="Read-only. The couple and the vendor each act on their own screen; HQ only observes, so there is deliberately nothing to press here."
+        note="Read-only. The couple and the supplier each act on their own screen; HQ only observes, so there is deliberately nothing to press here."
         rowKey={(r) => String(r.audit_id)}
         empty={{
           Icon: TrendingUp,
           title: 'No pax-driven cost changes yet',
           blurb:
-            'A row lands here the moment a vendor accepts or holds a surcharge after the couple’s guest count moved a booked cost. Nothing to do — it fills itself.',
+            'A row lands here the moment a supplier accepts or holds a surcharge after the couple’s guest count moved a booked cost. Nothing to do — it fills itself.',
         }}
         columns={[
           {
@@ -146,7 +146,7 @@ export default async function AdminPaxChangesPage() {
             cell: (r) => relativeTime(r.created_at),
           },
           {
-            header: 'Vendor · Event',
+            header: 'Supplier · Event',
             cell: (r) => (
               <>
                 <div className="font-medium text-ink">

@@ -12,7 +12,7 @@ import {
 } from './_editor';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-export const metadata = { title: 'Vendor recommendations · Admin' };
+export const metadata = { title: 'Supplier recommendations · Admin' };
 
 /**
  * /admin/vendor-recommendations — the admin-editable "recommend to your couples"
@@ -173,7 +173,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
     for (const v of vendors ?? []) {
       vendorName.set(
         v.vendor_profile_id as string,
-        (v.business_name as string | null) ?? 'A vendor',
+        (v.business_name as string | null) ?? 'A supplier',
       );
     }
   }
@@ -204,7 +204,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
     id: f.id,
     tile_id: f.tile_id,
     leaf_label: leafLabel.get(f.tile_id) ?? f.tile_id,
-    vendor_name: vendorName.get(f.vendor_profile_id) ?? 'A vendor',
+    vendor_name: vendorName.get(f.vendor_profile_id) ?? 'A supplier',
     feedback_type: f.feedback_type,
     service_code: f.service_code,
     sku_title: f.service_code ? skuTitle.get(f.service_code) ?? f.service_code : null,
@@ -220,13 +220,13 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
           ⚖ The sentence survives: it is the editorial rule this whole screen
           exists to enforce — sparse by design, and Opt-in whenever a
           recommendation could compete with the vendor&apos;s own service. */}
-      <PageMasthead title="Vendor recommendations" />
+      <PageMasthead title="Supplier recommendations" />
       <div className="mb-6">
         <p className="max-w-3xl text-sm text-ink/70">
           Recommend only what helps them — a SKU appears for a leaf only when it amplifies that
-          vendor&apos;s own deliverable. Sparse by design. Mark a recommendation{' '}
+          supplier&apos;s own deliverable. Sparse by design. Mark a recommendation{' '}
           <span className="font-medium text-ink">Opt-in</span> when it could compete with the
-          vendor&apos;s own service (it stays hidden until the vendor turns it on).
+          supplier&apos;s own service (it stays hidden until the supplier turns it on).
         </p>
       </div>
 
@@ -275,7 +275,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
       <section className="mb-12">
         <h2 className="mb-1 text-base font-semibold tracking-tight">Add a recommendation</h2>
         <p className="mb-3 text-sm text-ink/60">
-          Pair a vendor leaf with a Setnayan SKU. The pairing is unique — adding an existing one is
+          Pair a supplier leaf with a Setnayan SKU. The pairing is unique — adding an existing one is
           a no-op.
         </p>
         <AddRecommendation leaves={leaves} skus={skus} />
@@ -284,10 +284,10 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
       {/* ─── Pending vendor flags ─────────────────────────────────────── */}
       <section className="mb-10">
         <h2 className="mb-1 text-base font-semibold tracking-tight">
-          Vendor flags ({feedbackRows.length} pending)
+          Supplier flags ({feedbackRows.length} pending)
         </h2>
         <p className="mb-3 text-sm text-ink/60">
-          Vendors flag the map as <span className="font-medium">not a fit</span> or{' '}
+          Suppliers flag the map as <span className="font-medium">not a fit</span> or{' '}
           <span className="font-medium">suggest add</span>. Accepting acts on the map (deactivate /
           add); declining just resolves the flag.
         </p>

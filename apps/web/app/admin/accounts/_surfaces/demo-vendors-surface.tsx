@@ -258,7 +258,7 @@ export async function DemoVendorsSurface() {
         titleNode={
           <span className="flex items-center gap-2">
             <Database aria-hidden className="h-6 w-6 text-ink/70" />
-            Demo Vendors
+            Demo Suppliers
           </span>
         }
         actions={
@@ -267,7 +267,7 @@ export async function DemoVendorsSurface() {
             className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
           >
             <MessageSquare aria-hidden className="h-4 w-4" />
-            Demo inquiries — read &amp; respond as the vendor →
+            Demo inquiries — read &amp; respond as the supplier →
           </Link>
         }
       />
@@ -278,9 +278,9 @@ export async function DemoVendorsSurface() {
       <p className="mb-6 rounded-md border-l-4 border-warn-500 bg-warn-50 px-3 py-2 text-sm text-warn-900">
         <AlertTriangle aria-hidden className="mb-0.5 mr-1 inline-block h-4 w-4" />
         <strong>Hard cleanup deadline:</strong> 2026-12-01 (public launch). All demo
-        vendors must be removed by this date. The{' '}
+        suppliers must be removed by this date. The{' '}
         <code className="font-mono text-[12px]">check-no-demo-in-prod</code> CI guard
-        fails any merge that ships demo vendors past this date unless the{' '}
+        fails any merge that ships demo suppliers past this date unless the{' '}
         <code className="font-mono text-[12px]">ALLOW_DEMO_VENDORS</code> env flag is
         explicitly set.
       </p>
@@ -293,7 +293,7 @@ export async function DemoVendorsSurface() {
             the amber "warn" tone is gone with the local Stat, because a threshold
             crossed by missing data is not a finding. */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiStatCard label="Demo vendors" value={totalDemoVendors} />
+          <KpiStatCard label="Demo suppliers" value={totalDemoVendors} />
           <KpiStatCard label="Batches" value={batches === null ? null : batches.length} />
           <KpiStatCard label="Empty categories" value={gapCount} />
           <KpiStatCard label="Low coverage (<3)" value={lowCoverageCount} />
@@ -320,7 +320,7 @@ export async function DemoVendorsSurface() {
       <section className="mb-8 sn-tile p-4">
         <h2 className="mb-2 text-lg font-semibold">View as a couple</h2>
         <p className="text-sm text-ink/65">
-          Demo vendors are hidden from the public marketplace by default.
+          Demo suppliers are hidden from the public marketplace by default.
           Append{' '}
           <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[12px]">
             ?demo=1
@@ -355,7 +355,7 @@ export async function DemoVendorsSurface() {
           </Link>
         </div>
         <p className="mt-2 text-xs text-ink/55">
-          Demo vendors are hidden from real visitors — they surface in browse
+          Demo suppliers are hidden from real visitors — they surface in browse
           only while demo mode is on (open any page with{' '}
           <code className="rounded bg-ink/5 px-1">?demo=1</code>).{' '}
           {demoMode
@@ -375,9 +375,9 @@ export async function DemoVendorsSurface() {
               buttons would be. */}
           {totalDemoVendors === null ? (
             <p className="text-sm text-ink/70">
-              The demo-vendor count could not be read on this load, so cleanup and
+              The demo-supplier count could not be read on this load, so cleanup and
               regenerate are not offered here. That is deliberate: every control in
-              this panel acts on <em>all</em> demo vendors, and none of them should
+              this panel acts on <em>all</em> demo suppliers, and none of them should
               be pressed against a number we do not have. Reload — if it repeats,
               the read is being refused rather than returning nothing.
             </p>
@@ -423,8 +423,8 @@ export async function DemoVendorsSurface() {
               <>
                 <strong>These counts are floors, not totals.</strong> The batch
                 summary is built by scanning the {BATCH_SCAN_LIMIT.toLocaleString()}{' '}
-                most recent demo vendors, and that scan came back full — so any
-                batch below may hold more vendors than it shows, and an older batch
+                most recent demo suppliers, and that scan came back full — so any
+                batch below may hold more suppliers than it shows, and an older batch
                 may be missing entirely.
               </>
             ) : undefined
@@ -450,7 +450,7 @@ export async function DemoVendorsSurface() {
               ),
             },
             {
-              header: 'Vendors',
+              header: 'Suppliers',
               align: 'right',
               mono: true,
               cell: (b) => (
@@ -485,7 +485,7 @@ export async function DemoVendorsSurface() {
 
       {/* ───────────────────── Per-folder breakdown ───────────────────── */}
       <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold">Vendors per folder</h2>
+        <h2 className="mb-3 text-lg font-semibold">Suppliers per folder</h2>
         {categoryScan === null ? (
           <p className="rounded-md border border-dashed border-ink/15 px-4 py-6 text-sm text-ink/70">
             The scan these counts are built from was refused, so there is nothing
@@ -511,7 +511,7 @@ export async function DemoVendorsSurface() {
 
       {/* ───────────────────── Per-city breakdown ───────────────────── */}
       <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold">Vendors per city</h2>
+        <h2 className="mb-3 text-lg font-semibold">Suppliers per city</h2>
         {cityScan === null ? (
           <p className="rounded-md border border-dashed border-ink/15 px-4 py-6 text-sm text-ink/70">
             The city scan was refused, so this breakdown could not be built. It
@@ -520,7 +520,7 @@ export async function DemoVendorsSurface() {
           </p>
         ) : citySorted.length === 0 ? (
           <p className="rounded-md border border-dashed border-ink/15 px-4 py-6 text-sm text-ink/70">
-            No demo vendor carries a city yet.
+            No demo supplier carries a city yet.
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
@@ -544,7 +544,7 @@ export async function DemoVendorsSurface() {
       <section className="mt-12 rounded-xl border border-dashed border-ink/15 p-4 text-xs text-ink/55">
         <p>
           <strong>Workstream:</strong> Marketplace simulation (owner-approved
-          2026-05-22). This page is PR 1 of 3.
+          2026-05-22).
         </p>
         <ul className="mt-1 list-disc pl-5">
           <li>
@@ -555,7 +555,7 @@ export async function DemoVendorsSurface() {
             <strong>PR 2</strong>: ?demo=1 query-param gate on /vendors browse.
           </li>
           <li>
-            <strong>PR 3</strong>: vendor compare view (2-3 vendors side-by-side).
+            <strong>PR 3</strong>: supplier compare view (2-3 suppliers side-by-side).
           </li>
         </ul>
       </section>

@@ -39,7 +39,7 @@ const ACTION_STATUS: Record<Action, 'dismissed' | 'confirmed_theft' | 'escalated
 const ACTION_NOTE: Record<Action, string> = {
   dismiss: 'Dismissed — no repost / legitimately shared imagery.',
   confirm_theft:
-    'Confirmed repost. Verdict recorded; any takedown is a separate admin action against the vendor.',
+    'Confirmed repost. Verdict recorded; any takedown is a separate admin action against the supplier.',
   escalate: 'Escalated to owner / legal review.',
 };
 
@@ -127,7 +127,7 @@ const QR_ACTION_STATUS: Record<QrAction, 'cleared' | 'removed'> = {
 const QR_ACTION_NOTE: Record<QrAction, string> = {
   clear: 'Cleared — reviewed, not a funnel QR / acceptable.',
   mark_removed:
-    'Vendor removed / replaced the media. Removal itself is a separate, deliberate step with the vendor — this records the outcome.',
+    'Supplier removed / replaced the media. Removal itself is a separate, deliberate step with the supplier — this records the outcome.',
 };
 
 /**

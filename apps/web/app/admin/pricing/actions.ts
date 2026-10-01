@@ -622,7 +622,7 @@ export async function saveVendorRow(
   if (!code) return { ok: false, message: 'Missing SKU code.' };
   const price = Number(formData.get('price'));
   if (!Number.isFinite(price) || price <= 0) {
-    return { ok: false, message: 'Vendor prices must be greater than ₱0.' };
+    return { ok: false, message: 'Supplier prices must be greater than ₱0.' };
   }
   const descRaw = String(formData.get('desc') ?? '').trim();
   const description = descRaw === '' ? null : descRaw;

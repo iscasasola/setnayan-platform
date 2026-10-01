@@ -112,7 +112,7 @@ const SELECT =
  * Defensive: returns [] on ANY error — a pre-migration database (42P01)
  * renders an empty queue instead of crashing the page.
  */
-export async function fetchCorrectionRequests(
+export async function fetchCorrectionRequestsMeasured(
   supabase: SupabaseClient,
   opts: {
     status?: CorrectionRequestStatus | 'all';
@@ -134,7 +134,7 @@ export async function fetchCorrectionRequests(
      */
     vendorProfileId?: string | null;
   } = {},
-): Promise<VendorCorrectionRequestRow[]> {
+): Promise<{ ok: boolean; rows: VendorCorrectionRequestRow[] }> {
   try {
     let query = supabase
       .from('vendor_correction_requests')
@@ -145,11 +145,24 @@ export async function fetchCorrectionRequests(
     if (status !== 'all') query = query.eq('status', status);
     if (opts.vendorProfileId) query = query.eq('vendor_profile_id', opts.vendorProfileId);
     const { data, error } = await query;
-    if (error || !data) return [];
-    return data as VendorCorrectionRequestRow[];
+    if (error || !data) return { ok: false, rows: [] };
+    return { ok: true, rows: data as VendorCorrectionRequestRow[] };
   } catch {
-    return [];
+    return { ok: false, rows: [] };
   }
+}
+
+/**
+ * The rows alone — what the supplier-facing callers want (a refused read there
+ * degrades to "nothing", which is safe for them). The ADMIN queue must call
+ * `fetchCorrectionRequestsMeasured` instead: for it, "[]" over a refused read
+ * reads as "No correction requests", and nobody learns a request is waiting.
+ */
+export async function fetchCorrectionRequests(
+  supabase: SupabaseClient,
+  opts: Parameters<typeof fetchCorrectionRequestsMeasured>[1] = {},
+): Promise<VendorCorrectionRequestRow[]> {
+  return (await fetchCorrectionRequestsMeasured(supabase, opts)).rows;
 }
 
 /**

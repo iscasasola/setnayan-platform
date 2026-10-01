@@ -64,8 +64,8 @@ export function VendorPicker({
   if (result.error || result.options === null) {
     return (
       <p className="mb-4 text-sm text-ink/70">
-        The vendor list could not be read, so there is nobody to choose from
-        here — that is not the same as having no vendors.
+        The supplier list could not be read, so there is nobody to choose from
+        here — that is not the same as having no suppliers.
         {result.error ? ` (${result.error.message})` : ''}
       </p>
     );
@@ -81,7 +81,7 @@ export function VendorPicker({
           htmlFor="vendor"
           className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/70"
         >
-          Vendor
+          Supplier
         </label>
         <select
           id="vendor"
@@ -89,7 +89,7 @@ export function VendorPicker({
           defaultValue={selectedVendorId ?? ''}
           className="input-field h-9 max-w-[22rem] py-0 text-sm"
         >
-          <option value="">Select a vendor…</option>
+          <option value="">Select a supplier…</option>
           {result.options.map((v) => (
             <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
               {v.business_name}
@@ -102,8 +102,8 @@ export function VendorPicker({
       </form>
       {result.truncated ? (
         <p className="mb-4 text-xs text-ink/70">
-          Listing the first {VENDOR_PICKER_CAP.toLocaleString()} vendors by
-          name. There are more — a vendor missing from this list has not been
+          Listing the first {VENDOR_PICKER_CAP.toLocaleString()} suppliers by
+          name. There are more — a supplier missing from this list has not been
           ruled out, it is past the end of it.
         </p>
       ) : null}

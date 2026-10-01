@@ -160,7 +160,7 @@ type EvergreenItemRow = {
 
 const SOURCE_LABEL: Record<SocialSourceType, string> = {
   couple_creation: 'Couple creation',
-  vendor_feature: 'Vendor feature',
+  vendor_feature: 'Supplier feature',
   milestone: 'Milestone',
   announcement: 'Announcement',
   evergreen: 'Evergreen',
@@ -550,7 +550,7 @@ export async function SocialQueueSurface({
         hint="Composed by the sweep + slotted by the cadence governor (≤3/day · ≥3h apart · PH prime windows). Pull stops a post; Post now skips the hold but never the content gate."
         count={scheduledPosts.length}
         loadFailed={Boolean(scheduledErr)}
-        empty="Nothing queued — the sweep composes posts from new consents, vendor verifications, milestones, and the evergreen floor."
+        empty="Nothing queued — the sweep composes posts from new consents, supplier verifications, milestones, and the evergreen floor."
       >
         <ul className="grid gap-3 sm:grid-cols-2">
           {scheduledPosts.map((p) => (
@@ -970,11 +970,11 @@ export async function SocialQueueSurface({
 
       {/* ── New verified vendors ── */}
       <QueueSection
-        title="New verified vendors"
+        title="New verified suppliers"
         hint="Verification celebration features — unnamed for Free, named for Pro+."
         count={vendorQueue.length}
         loadFailed={Boolean(vendorErr)}
-        empty="No vendors waiting — newly verified vendors (who haven't opted out) land here."
+        empty="No suppliers waiting — newly verified suppliers (who haven't opted out) land here."
       >
         <ul className="grid gap-3 sm:grid-cols-2">
           {vendorQueue.map((v) => {
@@ -1008,7 +1008,7 @@ export async function SocialQueueSurface({
                     <div className="min-w-0 space-y-0.5">
                       <p className="truncate text-sm font-semibold text-ink">
                         {proActive
-                          ? v.business_name || 'Unnamed vendor'
+                          ? v.business_name || 'Unnamed supplier'
                           : `A new ${categoryLabel.toLowerCase()} in ${region}`}
                       </p>
                       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
@@ -1748,7 +1748,7 @@ function FlashBanner({ search }: { search: SearchParams }) {
   }
   const success: Array<[keyof SearchParams, string]> = [
     ['posted', 'Marked posted — the card left the queue.'],
-    ['vendor_posted', 'Vendor feature marked posted — they won’t be queued again.'],
+    ['vendor_posted', 'Supplier feature marked posted — they won’t be queued again.'],
     ['taken_down', 'Take-down recorded. Thank you for keeping the 24-hour promise.'],
     ['settings_saved', 'Autopilot settings saved.'],
     ['pulled', 'Post pulled — it will not publish (and the sweep won’t recompose it).'],

@@ -31,27 +31,49 @@ import type {
 
 export const NAV_REGISTRY_TAG = 'nav-registry';
 
-const loadOverrides = unstable_cache(
+/**
+ * 🔑 THE CACHED READ THROWS ON FAILURE — it never returns `{}` for one.
+ * `unstable_cache` stores whatever the function returns, and it was returning
+ * `{}` for a refused read: a transient failure was then cached as "nobody has
+ * renamed anything" until a tag revalidation, and every doorway served the
+ * built-in names while the Menus editor claimed there were no renames. A thrown
+ * error is not cached, so the next request simply asks again.
+ */
+const loadOverridesCached = unstable_cache(
   async (): Promise<Record<string, NavSlotOverrideRow>> => {
-    // Fully defensive: any failure (table not migrated yet, env missing) falls
-    // back to code defaults so the nav always renders.
-    try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
-        .from('nav_slot_override')
-        .select('slot_key,label,icon_kind,lucide_name,custom_url,is_hidden');
-      if (error) console.error('[supabase-error] lib/nav-registry.ts · from:nav_slot_override.select', error);
-      if (error || !data) return {};
-      const map: Record<string, NavSlotOverrideRow> = {};
-      for (const row of data as NavSlotOverrideRow[]) map[row.slot_key] = row;
-      return map;
-    } catch {
-      return {};
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('nav_slot_override')
+      .select('slot_key,label,icon_kind,lucide_name,custom_url,is_hidden');
+    if (error) {
+      console.error('[supabase-error] lib/nav-registry.ts · from:nav_slot_override.select', error);
+      throw new Error('nav_slot_override read refused');
     }
+    const map: Record<string, NavSlotOverrideRow> = {};
+    for (const row of (data ?? []) as NavSlotOverrideRow[]) map[row.slot_key] = row;
+    return map;
   },
   ['nav-slot-overrides'],
   { tags: [NAV_REGISTRY_TAG] },
 );
+
+/** Overrides plus whether they were actually read. `ok: false` = code defaults only. */
+async function loadOverridesMeasured(): Promise<{
+  ok: boolean;
+  overrides: Record<string, NavSlotOverrideRow>;
+}> {
+  // Fully defensive: any failure (table not migrated yet, env missing) falls
+  // back to code defaults so the nav always renders — and SAYS it did.
+  try {
+    return { ok: true, overrides: await loadOverridesCached() };
+  } catch {
+    return { ok: false, overrides: {} };
+  }
+}
+
+async function loadOverrides(): Promise<Record<string, NavSlotOverrideRow>> {
+  return (await loadOverridesMeasured()).overrides;
+}
 
 function defaultIconOf(d: NavSlotDefault): NavIconDescriptor {
   return { kind: d.iconKind, lucideName: d.lucideName, customRef: d.customRef, customUrl: null };
@@ -120,6 +142,22 @@ function bySortOrder(a: ResolvedNavSlot, b: ResolvedNavSlot): number {
 export async function getResolvedNavSlots(): Promise<ResolvedNavSlot[]> {
   const overrides = await loadOverrides();
   return NAV_SLOT_DEFAULTS.map((d) => resolveOne(d, overrides[d.key])).sort(bySortOrder);
+}
+
+/**
+ * The admin Menus editor's read: the same merge, plus whether the overrides were
+ * read at all. When `ok` is false the slots are code defaults, and the editor
+ * must say so instead of presenting them as "no renames yet".
+ */
+export async function getResolvedNavSlotsMeasured(): Promise<{
+  ok: boolean;
+  slots: ResolvedNavSlot[];
+}> {
+  const { ok, overrides } = await loadOverridesMeasured();
+  return {
+    ok,
+    slots: NAV_SLOT_DEFAULTS.map((d) => resolveOne(d, overrides[d.key])).sort(bySortOrder),
+  };
 }
 
 /** Visible slots for one surface (scope+area), hidden ones dropped — for consumers. */

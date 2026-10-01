@@ -17,6 +17,8 @@ import {
 } from '@/app/admin/wedding-traditions/actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../../_components/read-failed';
 
 const RELIGIONS: TraditionGuideKey[] = [
   'catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese', 'mixed',
@@ -34,16 +36,29 @@ const DIMENSIONS = ['officiant', 'ceremonial', 'food', 'custom', 'paperwork'] as
 export async function WeddingTraditionsSurface() {
   await requireAdmin();
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error: rowsError } = await admin
     .from('wedding_tradition_items')
     .select('*')
     .order('ceremony_type', { ascending: true })
     .order('sort_order', { ascending: true });
+  if (rowsError) logQueryError('WeddingTraditionsSurface (wedding_tradition_items)', rowsError);
   const rows = (data ?? []) as TraditionItemRow[];
   const byReligion: Record<string, TraditionItemRow[]> = {};
   for (const r of rows) (byReligion[r.ceremony_type] ??= []).push(r);
 
   const totalRows = rows.length;
+
+  // 🔑 A refused read must not draw "0 items · using code defaults" under every
+  // religion — and must not offer "Load starter content", which would write the
+  // defaults on top of items that exist but could not be read.
+  if (rowsError) {
+    return (
+      <section className="mx-auto w-full max-w-4xl space-y-6">
+        <PageMasthead title="Wedding traditions" />
+        <ReadFailed what="the wedding-tradition items — loading starter content is off until they can be read" />
+      </section>
+    );
+  }
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6">

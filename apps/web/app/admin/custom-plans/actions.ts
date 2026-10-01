@@ -153,7 +153,7 @@ export async function sendCustomQuote(
   await assertAdmin();
 
   const vendorProfileId = String(formData.get('vendor_profile_id') ?? '').trim();
-  if (!vendorProfileId) return err('Pick a vendor org first.');
+  if (!vendorProfileId) return err('Pick a supplier org first.');
   const channelRaw = String(formData.get('channel') ?? '').trim();
   const channel = channelRaw === 'gcash' ? 'gcash' : 'bdo';
 
@@ -165,7 +165,7 @@ export async function sendCustomQuote(
     .select('vendor_profile_id, business_name')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (!vendor) return err('Vendor org not found.');
+  if (!vendor) return err('Supplier org not found.');
   const businessName =
     (vendor as { business_name?: string | null }).business_name ?? 'Custom plan';
 
@@ -322,11 +322,11 @@ export async function activateCustomPlan(
     .from('vendor_profiles')
     .update({ tier_state: 'custom' })
     .eq('vendor_profile_id', vendorProfileId);
-  if (tierErr) return err('Could not set the vendor tier.');
+  if (tierErr) return err('Could not set the supplier tier.');
 
   revalidatePath('/admin/pricing');
   return {
     status: 'activated',
-    message: 'Custom tier is now active for this vendor. The composed ceilings are live.',
+    message: 'Custom tier is now active for this supplier. The composed ceilings are live.',
   };
 }

@@ -59,7 +59,7 @@ function resolutionNote(action: Action, kind: string): string {
     return 'Confirmed implausible under-declaration. Verdict recorded for triage; NO automated penalty — any follow-up is a separate, deliberate admin step.';
   }
   if (action === 'confirm_fraud' && kind === 'inquiry_concentration') {
-    return 'Confirmed linked-account inquiry concentration. Verdict recorded; the targeted vendor is the victim and is never penalized.';
+    return 'Confirmed linked-account inquiry concentration. Verdict recorded; the targeted supplier is the victim and is never penalized.';
   }
   return ACTION_NOTE[action];
 }

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchCustomUnitPrices } from '@/lib/vendor-custom-catalog';
+import { fetchCustomUnitPricesMeasured } from '@/lib/vendor-custom-catalog';
+import { ReadFailed } from '../../_components/read-failed';
 import type {
   CustomComposition,
   CustomDiscount,
@@ -82,6 +83,16 @@ type CustomRequest = {
  * so a price edit flows through with no code change; the composer only overrides
  * them in-memory for the preview + the (server-recomputed) quote.
  */
+const AXIS_LABEL: Record<string, string> = {
+  base: 'the base plan',
+  branch: 'an extra branch',
+  reachNationwide: 'nationwide reach',
+  seat: 'an extra seat',
+  slot: 'an event slot',
+  domain: 'a custom domain',
+  pipelineUnlimited: 'unlimited pipeline',
+};
+
 export async function CustomPlansSurface({ searchParams }: Props) {
   await requireAdmin();
   const { vendor: selectedVendorId = null } = await searchParams;
@@ -89,14 +100,14 @@ export async function CustomPlansSurface({ searchParams }: Props) {
 
   // Vendor orgs (claimed) + their tier, the live catalog unit prices, and the
   // open Custom-plan requests inbox (vendors who asked + quotes still out).
-  const [vendorRes, catalogPrices, requestRes] = await Promise.all([
+  const [vendorRes, measuredPrices, requestRes] = await Promise.all([
     admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name, tier_state')
       .not('user_id', 'is', null)
       .order('business_name', { ascending: true })
       .limit(500),
-    fetchCustomUnitPrices(admin),
+    fetchCustomUnitPricesMeasured(admin),
     admin
       .from('vendor_custom_plans')
       .select(
@@ -106,6 +117,10 @@ export async function CustomPlansSurface({ searchParams }: Props) {
       .order('updated_at', { ascending: false })
       .limit(100),
   ]);
+  const catalogPrices = measuredPrices.prices;
+  // Axes quoted from the code's rate card, not the live catalogue (row missing,
+  // inactive, or unreadable). Said out loud — a literal is not today's price.
+  const fallbackAxes = measuredPrices.fallbackAxes;
   if (vendorRes.error) logQueryError('AdminCustomPlansPage (vendors)', vendorRes.error);
   if (requestRes.error) logQueryError('AdminCustomPlansPage (requests)', requestRes.error);
 
@@ -129,7 +144,7 @@ export async function CustomPlansSurface({ searchParams }: Props) {
     return {
       planId: r.custom_plan_id,
       vendorId: r.vendor_profile_id,
-      vendorName: vp?.business_name ?? '(unnamed vendor)',
+      vendorName: vp?.business_name ?? '(unnamed supplier)',
       tier: vp?.tier_state ?? null,
       status: r.status,
       quoted28: r.quoted_28d_php != null ? Number(r.quoted_28d_php) : null,
@@ -146,7 +161,7 @@ export async function CustomPlansSurface({ searchParams }: Props) {
     }>
   ).map((v) => ({
     id: v.vendor_profile_id,
-    name: v.business_name ?? '(unnamed vendor)',
+    name: v.business_name ?? '(unnamed supplier)',
     tier: v.tier_state ?? null,
   }));
 
@@ -194,7 +209,7 @@ export async function CustomPlansSurface({ searchParams }: Props) {
           will think they are changing the catalog. */}
       <PageMasthead title="Custom plans" />
       <p className="mb-6 max-w-2xl text-sm text-ink/70">
-        Compose a negotiated Custom tier for any vendor org — the SETNAYAN
+        Compose a negotiated Custom tier for any supplier org — the SETNAYAN
         rate card, scoped to one partner, with a discount and a
         composition-first quote you send for apply-then-pay approval. Unit
         prices are read live from{' '}
@@ -218,9 +233,11 @@ export async function CustomPlansSurface({ searchParams }: Props) {
           </h2>
         </div>
 
-        {requests.length === 0 ? (
+        {requestRes.error ? (
+          <ReadFailed what="the Custom plan requests" />
+        ) : requests.length === 0 ? (
           <div className="rounded-lg border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink/50">
-            No open requests. When a vendor composes a Custom plan on their
+            No open requests. When a supplier composes a Custom plan on their
             subscription page, it appears here for you to review and quote.
           </div>
         ) : (
@@ -268,12 +285,27 @@ export async function CustomPlansSurface({ searchParams }: Props) {
         )}
       </section>
 
-      <CustomComposer
+      {fallbackAxes.length > 0 ? (
+        <p
+          role="alert"
+          className="mb-4 rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink"
+        >
+          Not the live catalogue: {fallbackAxes.length === 1 ? 'one price' : `${fallbackAxes.length} prices`} below
+          ({fallbackAxes.map((a) => AXIS_LABEL[a]).join(', ')}) couldn&rsquo;t be read from Pricing and fall back to the
+          signed rate card, so a quote built now may not match what Pricing says.
+        </p>
+      ) : null}
+
+      {vendorRes.error ? (
+        <ReadFailed what="the supplier list, so the composer is hidden (a partial list would let you quote the wrong org)" />
+      ) : null}
+
+      {vendorRes.error ? null : <CustomComposer
         vendors={vendors}
         selectedVendorId={selectedVendorId}
         catalogPrices={catalogPrices}
         loadedPlan={loadedPlan}
-      />
+      />}
     </div>
   );
 }

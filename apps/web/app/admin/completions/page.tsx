@@ -7,6 +7,7 @@ import { forceCompleteVendor, upholdNonDelivery } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { ReadFailed } from '../_components/read-failed';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Completions · Admin' };
@@ -91,7 +92,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const REASON_LABEL: Record<AttentionRow['reason'], string> = {
   disputed: 'Non-delivery dispute',
-  vendor_overdue: 'Vendor never marked complete',
+  vendor_overdue: 'Supplier never marked complete',
   awaiting_confirm: 'Couple hasn’t confirmed',
 };
 
@@ -123,9 +124,12 @@ export default async function AdminCompletionsPage() {
 
   // Resolve event display_name + event_date for the visible rows (one batch).
   const eventIds = Array.from(new Set(scanned.map((r) => r.event_id).filter(Boolean)));
-  const { data: eventData } = eventIds.length
+  const { data: eventData, error: eventError } = eventIds.length
     ? await admin.from('events').select('event_id, display_name, event_date').in('event_id', eventIds)
-    : { data: [] as Array<{ event_id: string; display_name: string | null; event_date: string | null }> };
+    : { data: [] as Array<{ event_id: string; display_name: string | null; event_date: string | null }>, error: null };
+  // 🔑 Without the event date a row cannot be judged overdue, so a refused lookup
+  // silently DROPS every overdue row from the list below. Said out loud instead.
+  if (eventError) logQueryError('AdminCompletionsPage (events)', eventError);
   const eventMap = new Map<string, { name: string; date: string | null }>();
   for (const e of eventData ?? []) {
     eventMap.set((e as { event_id: string }).event_id, {
@@ -139,9 +143,10 @@ export default async function AdminCompletionsPage() {
   const profileIds = Array.from(
     new Set(scanned.map((r) => r.marketplace_vendor_id).filter((v): v is string => Boolean(v))),
   );
-  const { data: profileData } = profileIds.length
+  const { data: profileData, error: profileError } = profileIds.length
     ? await admin.from('vendor_profiles').select('vendor_profile_id, business_name').in('vendor_profile_id', profileIds)
-    : { data: [] as Array<{ vendor_profile_id: string; business_name: string | null }> };
+    : { data: [] as Array<{ vendor_profile_id: string; business_name: string | null }>, error: null };
+  if (profileError) logQueryError('AdminCompletionsPage (supplier names)', profileError);
   const profileMap = new Map<string, string>();
   for (const p of profileData ?? []) {
     const name = ((p as { business_name: string | null }).business_name ?? '').trim();
@@ -184,8 +189,14 @@ export default async function AdminCompletionsPage() {
         <span className="font-semibold">Force-complete</span> unlocks the couple&apos;s review +
         recommendation (use when the service was delivered and the handshake just stalled).{' '}
         <span className="font-semibold">Uphold non-delivery</span> keeps the review closed (use when
-        the vendor genuinely didn&apos;t deliver) and clears the row. Both notify the couple.
+        the supplier genuinely didn&apos;t deliver) and clears the row. Both notify the couple.
       </p>
+
+      {eventError ? (
+        <div className="mb-4">
+          <ReadFailed what="the event dates, so any row that is only overdue by date may be missing from this list" />
+        </div>
+      ) : null}
 
       <ConsoleTable
         rows={evRows === null ? null : attention}
@@ -205,7 +216,7 @@ export default async function AdminCompletionsPage() {
           Icon: Handshake,
           title: 'Nothing needs attention',
           blurb:
-            'No open disputes, and no handshake stuck long enough to need a human. Rows appear here on their own when a vendor never marks a service complete, when a couple never confirms, or when either side disputes.',
+            'No open disputes, and no handshake stuck long enough to need a human. Rows appear here on their own when a supplier never marks a service complete, when a couple never confirms, or when either side disputes.',
         }}
         columns={[
           {
@@ -222,12 +233,12 @@ export default async function AdminCompletionsPage() {
             ),
           },
           {
-            header: 'Vendor',
+            header: 'Supplier',
             cell: (r) => {
               const vendorName =
                 (r.marketplace_vendor_id && profileMap.get(r.marketplace_vendor_id)) ||
                 (r.vendor_name ?? '').trim() ||
-                'Unnamed vendor';
+                'Unnamed supplier';
               return (
                 <>
                   <p className="font-medium text-ink">{vendorName}</p>

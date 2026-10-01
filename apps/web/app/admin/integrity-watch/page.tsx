@@ -83,7 +83,7 @@ type FlagRow = {
 
 /** inquiry_concentration reason labels (detect_inquiry_concentration). */
 const INQUIRY_CONCENTRATION_REASON_LABEL: Record<string, string> = {
-  sock_puppet_concentration: 'Linked accounts targeting one vendor',
+  sock_puppet_concentration: 'Linked accounts targeting one supplier',
 };
 
 type Tab = 'reviews' | 'listings' | 'inquiries' | 'prices';
@@ -193,7 +193,7 @@ function evidenceChips(row: FlagRow): string[] {
       window_days?: number;
     };
     if (id.distinct_accounts)
-      chips.push(`${id.distinct_accounts} linked accounts → this vendor`);
+      chips.push(`${id.distinct_accounts} linked accounts → this supplier`);
     if (id.window_days) chips.push(`within ${id.window_days}d`);
     if (id.cluster_label) chips.push(`cluster ${id.cluster_label}`);
   }
@@ -257,7 +257,7 @@ export default async function AdminIntegrityWatchPage({
   for (const v of vendorData ?? []) {
     vendorName.set(
       v.vendor_profile_id,
-      ((v.business_name as string | null) ?? '').trim() || 'Unnamed vendor',
+      ((v.business_name as string | null) ?? '').trim() || 'Unnamed supplier',
     );
   }
 
@@ -337,10 +337,10 @@ export default async function AdminIntegrityWatchPage({
           shared-device reviewer clusters; <span className="font-medium">Listings</span>{' '}
           flags placeholder / abandoned / duplicate marketplace listings;{' '}
           <span className="font-medium">Inquiries</span> flags a linked identity-cluster
-          spraying one vendor with fake inquiries (the vendor is the victim —
+          spraying one supplier with fake inquiries (the supplier is the victim —
           never penalized). Detect-and-review only — resolving records a verdict; a
           review flag never auto-deletes the review, and a listing is only hidden
-          on an explicit click. Demo vendors are excluded.
+          on an explicit click. Demo suppliers are excluded.
         </p>
       </div>
 
@@ -429,7 +429,7 @@ export default async function AdminIntegrityWatchPage({
         </FormFlash>
       )}
 
-      {rows.length === 0 ? (
+      {listError ? null : rows.length === 0 ? (
         <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
           No flags in this view.
           {tab === 'listings'
@@ -443,7 +443,7 @@ export default async function AdminIntegrityWatchPage({
       ) : (
         <ul className="space-y-4">
           {rows.map((r) => {
-            const name = vendorName.get(r.subject_vendor_id) ?? 'Vendor';
+            const name = vendorName.get(r.subject_vendor_id) ?? 'Supplier';
             const chips = evidenceChips(r);
             return (
               <li
@@ -568,7 +568,7 @@ export default async function AdminIntegrityWatchPage({
                       href={`/admin/vendors/${r.subject_vendor_id}/edit`}
                       className="text-xs font-medium text-ink/55 underline-offset-2 hover:underline"
                     >
-                      Open vendor →
+                      Open supplier →
                     </Link>
                   </div>
                 )}

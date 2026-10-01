@@ -22,6 +22,7 @@ import { resolveDocumentLocation } from '@/lib/verification-checks';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { deadlineAtApproval, permitDeadlineFrom } from '@/lib/verified-badge';
 import { emitNotification } from '@/lib/notification-emit';
+import { plainRefusal } from '@/lib/admin/plain-refusal';
 import {
   DEEP_SEARCH_MODEL,
   DEEP_SEARCH_LITE_MODEL,
@@ -108,8 +109,8 @@ async function transitionVendorVisibility(opts: {
     .eq('vendor_profile_id', opts.vendorProfileId)
     .maybeSingle();
 
-  if (readErr) return { ok: false, error: readErr.message };
-  if (!existing) return { ok: false, error: 'Vendor not found.' };
+  if (readErr) return { ok: false, error: plainRefusal('AdminVerifyActions (readErr)', readErr) };
+  if (!existing) return { ok: false, error: 'Supplier not found.' };
 
   const before = parseVisibility(existing.public_visibility);
   if (before === opts.nextVisibility) {
@@ -159,7 +160,7 @@ async function transitionVendorVisibility(opts: {
     actor_user_id: opts.actor.user_id,
     ...(evidence ? { metadata: { evidence_at_grant: evidence } } : {}),
   });
-  if (auditErr) return { ok: false, error: `audit log failed: ${auditErr.message}` };
+  if (auditErr) return { ok: false, error: plainRefusal('AdminVerifyActions (audit log)', auditErr) };
 
   const updatePayload: Record<string, unknown> = {
     public_visibility: opts.nextVisibility,
@@ -177,7 +178,7 @@ async function transitionVendorVisibility(opts: {
     .from('vendor_profiles')
     .update(updatePayload)
     .eq('vendor_profile_id', opts.vendorProfileId);
-  if (updErr) return { ok: false, error: updErr.message };
+  if (updErr) return { ok: false, error: plainRefusal('AdminVerifyActions (updErr)', updErr) };
 
   // vendor_tier_history audit row — only when verification_state actually
   // moved (matches Step 3 of applyApplicationDecision). No application drove
@@ -197,7 +198,7 @@ async function transitionVendorVisibility(opts: {
           public_visibility: opts.nextVisibility,
         },
       });
-    if (historyErr) return { ok: false, error: historyErr.message };
+    if (historyErr) return { ok: false, error: plainRefusal('AdminVerifyActions (historyErr)', historyErr) };
   }
 
   /*
@@ -342,7 +343,7 @@ export async function verifyVendorExperience(formData: FormData) {
     })
     .eq('vendor_profile_id', vendorProfileId);
   if (error) {
-    redirect(`/admin/verify?error=${encodeURIComponent(error.message)}`);
+    redirect(`/admin/verify?error=${encodeURIComponent(plainRefusal('AdminVerifyActions (redirect)', error))}`);
   }
 
   revalidatePath('/admin/verify');
@@ -394,7 +395,7 @@ export async function applyApplicationDecision(
     )
     .eq('application_id', input.applicationId)
     .maybeSingle();
-  if (appErr) return { ok: false, error: appErr.message };
+  if (appErr) return { ok: false, error: plainRefusal('AdminVerifyActions (appErr)', appErr) };
   if (!app) return { ok: false, error: 'Application not found.' };
 
   const { data: vendor, error: vendorErr } = await admin
@@ -404,8 +405,8 @@ export async function applyApplicationDecision(
     )
     .eq('vendor_profile_id', app.vendor_profile_id)
     .maybeSingle();
-  if (vendorErr) return { ok: false, error: vendorErr.message };
-  if (!vendor) return { ok: false, error: 'Vendor not found.' };
+  if (vendorErr) return { ok: false, error: plainRefusal('AdminVerifyActions (vendorErr)', vendorErr) };
+  if (!vendor) return { ok: false, error: 'Supplier not found.' };
 
   const fromState = parseVerificationState(vendor.verification_state);
   let toState: VerificationState = fromState;
@@ -488,7 +489,7 @@ export async function applyApplicationDecision(
       .from('vendor_verification_applications')
       .update(updatePayload)
       .eq('application_id', app.application_id);
-    if (appUpdErr) return { ok: false, error: appUpdErr.message };
+    if (appUpdErr) return { ok: false, error: plainRefusal('AdminVerifyActions (appUpdErr)', appUpdErr) };
   }
 
   // ---- Step 2: update vendor_profiles tier + side-effects. ----
@@ -503,7 +504,7 @@ export async function applyApplicationDecision(
       .from('vendor_profiles')
       .update(vendorUpdatePayload)
       .eq('vendor_profile_id', vendor.vendor_profile_id);
-    if (vendorUpdErr) return { ok: false, error: vendorUpdErr.message };
+    if (vendorUpdErr) return { ok: false, error: plainRefusal('AdminVerifyActions (vendorUpdErr)', vendorUpdErr) };
   }
 
   // ---- Step 2b: papers approved → a vouch's papers deadline is met. ----
@@ -536,7 +537,7 @@ export async function applyApplicationDecision(
           decision: input.decision,
         },
       });
-    if (historyErr) return { ok: false, error: historyErr.message };
+    if (historyErr) return { ok: false, error: plainRefusal('AdminVerifyActions (historyErr)', historyErr) };
   }
 
   // ---- Step 4: admin_audit_log row. ----
@@ -582,7 +583,7 @@ export async function applyApplicationDecision(
         }
       : {}),
   });
-  if (auditErr) return { ok: false, error: auditErr.message };
+  if (auditErr) return { ok: false, error: plainRefusal('AdminVerifyActions (auditErr)', auditErr) };
 
   // Cross-account signal (Phase B · 2026-06-19): tell the vendor their
   // verification status changed, carrying the decision_reason. Only the three
@@ -746,8 +747,8 @@ async function applyApplicationDecisionForDemote(opts: {
     .select('vendor_profile_id,verification_state,demotion_count')
     .eq('vendor_profile_id', opts.vendorProfileId)
     .maybeSingle();
-  if (vendorErr) return { ok: false, error: vendorErr.message };
-  if (!vendor) return { ok: false, error: 'Vendor not found.' };
+  if (vendorErr) return { ok: false, error: plainRefusal('AdminVerifyActions (vendorErr)', vendorErr) };
+  if (!vendor) return { ok: false, error: 'Supplier not found.' };
 
   const fromState = parseVerificationState(vendor.verification_state);
   if (fromState === 'demoted') {
@@ -763,7 +764,7 @@ async function applyApplicationDecisionForDemote(opts: {
       updated_at: now,
     })
     .eq('vendor_profile_id', opts.vendorProfileId);
-  if (updErr) return { ok: false, error: updErr.message };
+  if (updErr) return { ok: false, error: plainRefusal('AdminVerifyActions (updErr)', updErr) };
 
   // Best-effort tier_history insert — UUIDs that don't match a real row will
   // FK-violate; in that case fall back to a null application_id.
@@ -856,7 +857,7 @@ export async function markVendorContactConfirmed(formData: FormData) {
     p_channel: channel,
   });
   if (error) {
-    redirect(`/admin/verify?error=${encodeURIComponent(error.message)}`);
+    redirect(`/admin/verify?error=${encodeURIComponent(plainRefusal('AdminVerifyActions (redirect)', error))}`);
   }
 
   revalidatePath('/admin/verify');
@@ -883,12 +884,12 @@ export async function runVendorDeepSearchAction(formData: FormData) {
 
   const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId);
   if (!inputs) {
-    redirect(`/admin/verify?error=${encodeURIComponent('Vendor not found.')}`);
+    redirect(`/admin/verify?error=${encodeURIComponent('Supplier not found.')}`);
   }
   if (!inputs.business_name && !inputs.website && !inputs.social_url) {
     redirect(
       `/admin/verify?error=${encodeURIComponent(
-        'Nothing to search — this vendor has no name, website, or social link yet.',
+        'Nothing to search — this supplier has no name, website, or social link yet.',
       )}`,
     );
   }
@@ -911,7 +912,7 @@ export async function runVendorDeepSearchAction(formData: FormData) {
     .single();
   if (insErr || !inserted) {
     redirect(
-      `/admin/verify?error=${encodeURIComponent(insErr?.message ?? 'Could not start deep search.')}`,
+      `/admin/verify?error=${encodeURIComponent(insErr ? plainRefusal('AdminVerifyActions (deep search start)', insErr) : 'Could not start deep search.')}`,
     );
   }
   const dossierId = (inserted as { id: number }).id;
@@ -929,7 +930,8 @@ export async function runVendorDeepSearchAction(formData: FormData) {
       .update({ status: 'failed', error: message.slice(0, 2000), completed_at: new Date().toISOString() })
       .eq('id', dossierId);
     revalidatePath('/admin/verify');
-    redirect(`/admin/verify?error=${encodeURIComponent(message)}`);
+    // The reason is kept on the dossier row; the screen gets a sentence.
+    redirect(`/admin/verify?error=${encodeURIComponent('Deep search failed — the reason is saved with the search. Try again.')}`);
   }
 
   revalidatePath('/admin/verify');
@@ -993,14 +995,14 @@ export async function getDeepSearchChatPromptAction(
   applicationId: string,
 ): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
   await requireAdmin();
-  if (!vendorProfileId) return { ok: false, error: 'Missing vendor.' };
+  if (!vendorProfileId) return { ok: false, error: 'Missing supplier.' };
   const admin = createAdminClient();
   const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId || '');
-  if (!inputs) return { ok: false, error: 'Vendor not found.' };
+  if (!inputs) return { ok: false, error: 'Supplier not found.' };
   if (!inputs.business_name && !inputs.website && !inputs.social_url) {
     return {
       ok: false,
-      error: 'Nothing to search — this vendor has no name, website, or social link yet.',
+      error: 'Nothing to search — this supplier has no name, website, or social link yet.',
     };
   }
   return { ok: true, prompt: buildDeepSearchChatPrompt(inputs) };
@@ -1017,14 +1019,14 @@ export async function getVendorStudyPromptAction(
   applicationId: string,
 ): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
   await requireAdmin();
-  if (!vendorProfileId) return { ok: false, error: 'Missing vendor.' };
+  if (!vendorProfileId) return { ok: false, error: 'Missing supplier.' };
   const admin = createAdminClient();
   const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId || '');
-  if (!inputs) return { ok: false, error: 'Vendor not found.' };
+  if (!inputs) return { ok: false, error: 'Supplier not found.' };
   if (!inputs.business_name && !inputs.website && !inputs.social_url) {
     return {
       ok: false,
-      error: 'Nothing to study — this vendor has no name, website, or social link yet.',
+      error: 'Nothing to study — this supplier has no name, website, or social link yet.',
     };
   }
   return { ok: true, prompt: buildVendorStudyPrompt(inputs) };
@@ -1069,7 +1071,7 @@ export async function saveManualDossierAction(formData: FormData) {
     completed_at: new Date().toISOString(),
   });
   if (insErr) {
-    redirect(`/admin/verify?error=${encodeURIComponent(insErr.message)}`);
+    redirect(`/admin/verify?error=${encodeURIComponent(plainRefusal('AdminVerifyActions (redirect)', insErr))}`);
   }
 
   revalidatePath('/admin/verify');
@@ -1143,7 +1145,7 @@ export async function openApplicationDocument(formData: FormData) {
   // ⚠ Supabase RESOLVES with { error } — a refused read arrives as data:null and
   // would otherwise read exactly like "no such application".
   if (error) {
-    redirect(`/admin/verify?error=${encodeURIComponent(error.message)}`);
+    redirect(`/admin/verify?error=${encodeURIComponent(plainRefusal('AdminVerifyActions (redirect)', error))}`);
   }
   if (!app) {
     redirect('/admin/verify?error=Application+not+found');

@@ -15,7 +15,7 @@ import {
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCount } from '@/lib/format-number';
 export const metadata = {
-  title: 'Vendor team · Admin',
+  title: 'Supplier team · Admin',
   robots: { index: false, follow: false },
 };
 
@@ -71,7 +71,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-10 sm:px-6">
       <Link href="/admin/vendors" className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink">
-        <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> All vendors
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> All suppliers
       </Link>
 
       {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
@@ -83,7 +83,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
           pixels. One heading, in the document, where a screen reader and a
           skip link can find it. */}
       <PageMasthead
-        titleNode={`${(vendor as { business_name: string | null }).business_name ?? 'Vendor'} · Team`}
+        titleNode={`${(vendor as { business_name: string | null }).business_name ?? 'Supplier'} · Team`}
       />
       <div className="space-y-2">
         <div className="flex items-center gap-2">
@@ -92,7 +92,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
           </span>
           <div>
             <p className="text-2xl font-semibold tracking-tight">
-              {(vendor as { business_name: string | null }).business_name ?? 'Vendor'} · Team
+              {(vendor as { business_name: string | null }).business_name ?? 'Supplier'} · Team
             </p>
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
               {(vendor as { public_id: string }).public_id} ·{' '}

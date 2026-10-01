@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import type { ScanFlag } from '@/lib/editorial-scan';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../_components/read-failed';
 import { formatCalendarDate } from '@/lib/events';
 export const metadata = { title: 'Editorial review · Admin' };
 
@@ -11,7 +13,7 @@ export default async function EditorialReviewPage() {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const { data: rows } = await admin
+  const { data: rows, error: rowsError } = await admin
     .from('event_editorial')
     .select(`
       editorial_id, scan_status, scan_flags, scan_completed_at,
@@ -22,6 +24,7 @@ export default async function EditorialReviewPage() {
     .order('scan_completed_at', { ascending: false })
     .limit(100);
 
+  if (rowsError) logQueryError('EditorialReviewPage (event_editorial)', rowsError);
   const flagged = (rows ?? []).filter(r => r.scan_status === 'flagged');
   const cleared = (rows ?? []).filter(r =>
     r.scan_status === 'admin_cleared' || r.scan_status === 'clean' || r.scan_status === 'skipped',
@@ -83,7 +86,11 @@ export default async function EditorialReviewPage() {
         </section>
       )}
 
-      {(rows ?? []).length === 0 && (
+      {rowsError ? (
+        <ReadFailed what="the editorial queue — a red flag could be waiting in it" />
+      ) : null}
+
+      {!rowsError && (rows ?? []).length === 0 && (
         <div className="rounded-lg border border-[--m-ink-border] px-4 py-12 text-center text-sm text-[--m-ink-tertiary]">
           No editorials yet. They appear here once a wedding&apos;s content collection window closes.
         </div>

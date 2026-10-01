@@ -229,7 +229,7 @@ export function OnboardingEditor({
             <span className="text-xs text-ink/45">{questions.length} / 8</span>
           </div>
           <p className="mt-0.5 text-xs text-ink/50">
-            The type-specific moments. Each answer can add vendor categories to the starter plan.
+            The type-specific moments. Each answer can add supplier categories to the starter plan.
           </p>
 
           <div className="mt-4 space-y-4">

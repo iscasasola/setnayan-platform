@@ -317,8 +317,8 @@ export async function ExpensesZone() {
               type="text"
               name="vendor_name"
               required
-              placeholder="Vendor (Suno · Vercel · IPOPHL …)"
-              aria-label="Vendor"
+              placeholder="Supplier (Suno · Vercel · IPOPHL …)"
+              aria-label="Supplier"
               className="input-field h-9 w-full py-0 text-sm"
             />
             <div className="grid grid-cols-2 gap-2">
@@ -389,7 +389,7 @@ export async function ExpensesZone() {
               cell: (r) => <span className="text-ink/70">{r.expensed_on}</span>,
             },
             {
-              header: 'Vendor',
+              header: 'Supplier',
               cell: (r) => <span className="font-medium text-ink">{r.vendor_name}</span>,
             },
             {

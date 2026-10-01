@@ -8,7 +8,7 @@ import { rejectPartnership, createPartnershipHq } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-export const metadata = { title: 'Vendor Partnerships · Admin' };
+export const metadata = { title: 'Supplier Partnerships · Admin' };
 
 type SearchParams = {
   rejected?: string;
@@ -215,7 +215,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
-        title="Vendor Partnerships"
+        title="Supplier Partnerships"
       />
 
       {sp.error ? (
@@ -226,8 +226,8 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
       ) : null}
       {sp.created ? (
         <FormFlash tone="success">
-          Partnership proposed on the vendor&apos;s behalf. It lands in the recommended
-          vendor&apos;s inbox and only goes live once they accept it.
+          Partnership proposed on the supplier&apos;s behalf. It lands in the recommended
+          supplier&apos;s inbox and only goes live once they accept it.
         </FormFlash>
       ) : null}
 
@@ -240,7 +240,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
           <p className="text-xs text-ink/45">
             {proposed.length === 0
               ? 'No proposals awaiting a recipient response.'
-              : 'Awaiting the recommended vendor to accept or decline. Reject to veto.'}
+              : 'Awaiting the recommended supplier to accept or decline. Reject to veto.'}
           </p>
         </div>
 
@@ -252,7 +252,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
                 ? `The read was refused: ${proposedError.message}`
                 : 'The read did not complete.'
             }
-            survived="Nothing loaded, so this is NOT a statement that there are no proposals waiting — it is a statement that we do not know. Any proposal already filed is still live and can still be accepted by the vendor it names."
+            survived="Nothing loaded, so this is NOT a statement that there are no proposals waiting — it is a statement that we do not know. Any proposal already filed is still live and can still be accepted by the supplier it names."
             todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or migration it names is the thing to check."
           />
         ) : proposed.length === 0 ? (
@@ -346,8 +346,8 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
           Add partnership (HQ entry)
         </h2>
         <p className="mb-4 text-xs text-ink/70">
-          Propose a partnership on a vendor&apos;s behalf. It lands in the recommended
-          vendor&apos;s partnerships inbox — the badge only goes live once THEY accept it.
+          Propose a partnership on a supplier&apos;s behalf. It lands in the recommended
+          supplier&apos;s partnerships inbox — the badge only goes live once THEY accept it.
         </p>
 
         {/* An UNREADABLE picker and a truncated one fail the same way — the shop
@@ -371,7 +371,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
 
         {vendorOptions.length >= VENDOR_OPTIONS_LIMIT ? (
           <p className="mb-4 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
-            The vendor lists below stop at the first{' '}
+            The supplier lists below stop at the first{' '}
             {VENDOR_OPTIONS_LIMIT.toLocaleString()} shops by name. A shop past that point cannot
             be picked here yet — it is missing from the list, not missing from Setnayan.
           </p>
@@ -380,13 +380,13 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
         <form action={createPartnershipHq} className="grid gap-4 sm:grid-cols-2">
           {/* Recommending vendor */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-semibold text-ink">Recommending vendor</span>
+            <span className="font-semibold text-ink">Recommending supplier</span>
             <select
               name="recommending_vendor_id"
               required
               className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
             >
-              <option value="">Select vendor…</option>
+              <option value="">Select supplier…</option>
               {vendorOptions.map((v) => (
                 <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
                   {v.business_name}
@@ -397,13 +397,13 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
 
           {/* Recommended vendor */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-semibold text-ink">Recommended vendor</span>
+            <span className="font-semibold text-ink">Recommended supplier</span>
             <select
               name="recommended_vendor_id"
               required
               className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
             >
-              <option value="">Select vendor…</option>
+              <option value="">Select supplier…</option>
               {vendorOptions.map((v) => (
                 <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
                   {v.business_name}
@@ -480,7 +480,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
               pendingLabel="Creating…"
               className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
             >
-              Propose partnership (lands in vendor inbox)
+              Propose partnership (lands in supplier inbox)
             </SubmitButton>
           </div>
         </form>
@@ -518,7 +518,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
             Icon: Handshake,
             title: 'No live partnerships yet',
             blurb:
-              'A partnership only appears here once BOTH vendors have agreed — one proposes above, the other accepts from their own inbox. Until then it sits in Open proposals.',
+              'A partnership only appears here once BOTH suppliers have agreed — one proposes above, the other accepts from their own inbox. Until then it sits in Open proposals.',
           }}
           columns={[
             {

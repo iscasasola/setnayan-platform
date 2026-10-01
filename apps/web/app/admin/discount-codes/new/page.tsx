@@ -11,7 +11,12 @@ import { ChevronLeft } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { VoucherForm, type VoucherFormInitial } from '../_components/voucher-form';
 import { createDiscountCode } from '../actions';
-import { fetchV2CustomerCatalog, fetchV2BundleCatalog, fetchV2VendorCatalog } from '@/lib/v2-catalog';
+import {
+  fetchV2CustomerCatalog,
+  fetchV2BundleCatalog,
+  fetchV2VendorCatalog,
+  supplierSkuCategory,
+} from '@/lib/v2-catalog';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'New discount code · Admin' };
@@ -34,7 +39,7 @@ export default async function NewDiscountCodePage() {
   // create the codes now; they activate when vendor billing surfaces ship.
   // Customer + bundle from #598 stay. Vendor SKUs added here.
   const [customers, bundles, vendors] = await Promise.all([
-    fetchV2CustomerCatalog(),
+    fetchV2CustomerCatalog({ forAdmin: true }),
     fetchV2BundleCatalog(),
     fetchV2VendorCatalog(),
   ]);
@@ -43,7 +48,7 @@ export default async function NewDiscountCodePage() {
   // Pricing held in pesos in V2 (retail_price_php / price_php NUMERIC) —
   // convert to centavos for the form display layer. Category derived from
   // origin table: customers → 'Customer service' · bundles → 'Bundle' ·
-  // vendor subs → 'Vendor subscription' · vendor token packs → 'Vendor tokens'.
+  // supplier subs → 'Supplier subscription' · other supplier SKUs → 'Supplier add-on'.
   const services: ServiceRow[] = [
     ...customers.map((c) => ({
       sku_code: c.service_code,
@@ -60,10 +65,7 @@ export default async function NewDiscountCodePage() {
     ...vendors.map((v) => ({
       sku_code: v.sku_code,
       display_name: v.title,
-      category:
-        v.offering_type === 'subscription_monthly'
-          ? 'Vendor subscription'
-          : 'Vendor tokens',
+      category: supplierSkuCategory(v.offering_type),
       price_centavos: Math.round(v.price_php * 100),
     })),
   ].sort((a, b) =>

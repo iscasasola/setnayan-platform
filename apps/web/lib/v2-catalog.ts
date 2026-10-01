@@ -156,7 +156,9 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
  * Server-side fetch of all customer SKUs from the V2 catalog.
  * Sorted by display priority · token-worthy items first.
  */
-export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
+export async function fetchV2CustomerCatalog(
+  opts: { forAdmin?: boolean } = {},
+): Promise<V2CustomerSku[]> {
   // createAdminClient throws when SUPABASE_SERVICE_ROLE_KEY is unset (CI
   // builds run `next build` with placeholder NEXT_PUBLIC_* env only · no
   // service-role key). Match the documented "return [] on error" semantic
@@ -187,19 +189,27 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   // /pricing until launch"). Exclude it by name while the Roam flag is off — the same
   // idiom as the TODAYS_FOCUS name-exclusion above. When the owner flips the flag, Roam
   // appears on /pricing AND the Studio tile lights up together — one launch switch.
-  if (!liveStudioRoamEnabled()) {
-    query = query
-      .neq('service_code', 'LIVE_STUDIO_ROAM')
-      // The unified Live Studio SKU (owner 2026-07-25; a one-time unlock since LS6,
-      // 2026-09-02) is is_active=TRUE so
-      // its flag-gated buy path resolves a price, but must stay OFF /pricing until
-      // launch — same idiom. When the owner flips the flag, Live Studio appears on
-      // /pricing AND the Studio tile lights up together — one launch switch.
-      .neq('service_code', 'LIVE_STUDIO')
-      // The hosted-channel upsell (owner ruling 2026-09-02) is sold on the SAME
-      // flag-gated buy page as LIVE_STUDIO, so it stays dark on /pricing under the
-      // same switch — never its own, separate launch.
-      .neq('service_code', 'LIVE_STUDIO_HOSTED_CHANNEL');
+  // 🔑 The dark-launch exclusions below keep a SKU off the public /pricing page.
+  // They are not a statement about what an ADMIN may attach a voucher to: with the
+  // Live Studio launch switch off, applying them to the admin discount picker
+  // made a LIVE_STUDIO code impossible to create, and silently DROPPED the key
+  // from an existing code on save. `forAdmin` reads the same active rows without
+  // the dark-launch filter.
+  if (!opts.forAdmin) {
+    if (!liveStudioRoamEnabled()) {
+      query = query
+        .neq('service_code', 'LIVE_STUDIO_ROAM')
+        // The unified Live Studio SKU (owner 2026-07-25; a one-time unlock since LS6,
+        // 2026-09-02) is is_active=TRUE so
+        // its flag-gated buy path resolves a price, but must stay OFF /pricing until
+        // launch — same idiom. When the owner flips the flag, Live Studio appears on
+        // /pricing AND the Studio tile lights up together — one launch switch.
+        .neq('service_code', 'LIVE_STUDIO')
+        // The hosted-channel upsell (owner ruling 2026-09-02) is sold on the SAME
+        // flag-gated buy page as LIVE_STUDIO, so it stays dark on /pricing under the
+        // same switch — never its own, separate launch.
+        .neq('service_code', 'LIVE_STUDIO_HOSTED_CHANNEL');
+    }
   }
 
   const { data, error } = await query.order('service_code', { ascending: true });

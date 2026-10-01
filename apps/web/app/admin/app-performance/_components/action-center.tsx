@@ -34,9 +34,9 @@ type QueueCardDef = { key: string; label: string; todo: string };
 /** Owner-facing card copy per queue (route = /admin/<key> for all of them). */
 const QUEUE_CARDS: QueueCardDef[] = [
   { key: 'payments', label: 'Payments to reconcile', todo: 'Verify BDO/GCash proof and activate the order.' },
-  { key: 'payouts', label: 'Payouts', todo: 'A vendor is waiting for money — settle it.' },
-  { key: 'subscriptions', label: 'Vendor subscriptions', todo: 'Confirm tier payment and activate the cycle.' },
-  { key: 'verify', label: 'Vendor verification', todo: 'Review documents and award the badge.' },
+  { key: 'payouts', label: 'Payouts', todo: 'A supplier is waiting for money — settle it.' },
+  { key: 'subscriptions', label: 'Supplier subscriptions', todo: 'Confirm tier payment and activate the cycle.' },
+  { key: 'verify', label: 'Supplier verification', todo: 'Review documents and award the badge.' },
   { key: 'vendor-partnerships', label: 'Partnerships', todo: 'Second-admin sign-off on the partnership claim.' },
   { key: 'disputes', label: 'Disputes', todo: 'Recourse clock is running — resolve or escalate.' },
   { key: 'force-majeure', label: 'Force majeure', todo: 'An event is impacted — apply the policy.' },
@@ -61,7 +61,7 @@ const MANUAL_WATCHLIST: { label: string; todo: string }[] = [
   { label: 'Resend & Sentry quotas', todo: 'Email sends + error events vs monthly plan.' },
   { label: 'Secrets rotation', todo: 'R2 token · service-role key · API keys on a rotation calendar.' },
   { label: 'Domains & certs', todo: 'setnayan.com · setnayan.ph · app-signing certificates.' },
-  { label: 'Vendor token packs', todo: 'Mint/adjust token packs in Pricing when campaigns need them.' },
+  { label: 'Supplier token packs', todo: 'Mint/adjust token packs in Pricing when campaigns need them.' },
 ];
 
 const STATE_STYLE: Record<

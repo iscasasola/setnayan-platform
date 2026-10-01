@@ -282,21 +282,21 @@ function FlashBanner({
   if (search.app_approved === '1') {
     return (
       <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
-        Application approved — vendor is now verified.
+        Application approved — supplier is now verified.
       </p>
     );
   }
   if (search.app_rejected === '1') {
     return (
       <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
-        Application rejected — vendor was notified with the decision reason.
+        Application rejected — supplier was notified with the decision reason.
       </p>
     );
   }
   if (search.demoted === '1') {
     return (
       <p className="mb-4 rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
-        Vendor demoted — verified-tier perks revoked + 3-stage payout
+        Supplier demoted — verified-tier perks revoked + 3-stage payout
         reinstated for any legacy bookings still routing through Setnayan.
       </p>
     );
@@ -325,21 +325,21 @@ function FlashBanner({
   if (search.approved === '1') {
     return (
       <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
-        Vendor approved — they&rsquo;re now publicly bookable.
+        Supplier approved — they&rsquo;re now publicly bookable.
       </p>
     );
   }
   if (search.rejected === '1') {
     return (
       <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
-        Vendor visibility rejected — they stay in their current state.
+        Supplier visibility rejected — they stay in their current state.
       </p>
     );
   }
   if (search.archived === '1') {
     return (
       <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
-        Vendor archived — they no longer appear in browse.
+        Supplier archived — they no longer appear in browse.
       </p>
     );
   }
@@ -502,13 +502,21 @@ async function ApplicationsSurface({
   }
 
   let vendorMap: Record<string, ApplicationRow['vendor']> = {};
+  // A refused shop-details read leaves every card with a blank name and blank
+  // contacts — and the automatic checks below would then "find" mismatches on a
+  // legitimate shop. So on a refusal the checks are skipped and the screen says so.
+  let vendorReadFailed = false;
   if (vendorIds.length > 0) {
-    const { data: vendorData } = await admin
+    const { data: vendorData, error: vendorErr } = await admin
       .from('vendor_profiles')
       .select(
         'vendor_profile_id,business_name,business_slug,contact_email,contact_phone,location_city,hq_address,verification_state,demotion_count',
       )
       .in('vendor_profile_id', vendorIds);
+    if (vendorErr) {
+      logQueryError('AdminVerifyPage (vendor_profiles)', vendorErr);
+      vendorReadFailed = true;
+    }
     vendorMap = Object.fromEntries(
       (vendorData ?? []).map((v) => [
         v.vendor_profile_id,
@@ -598,7 +606,7 @@ async function ApplicationsSurface({
   const checksMap: Record<string, VerificationChecksReport> = {};
   // SUP-27: the payout-name facts for every shop on screen, in one batch.
   const payoutNames = await readPayoutNameFacts(fullRows.map((r) => r.vendor_profile_id));
-  const checkReports = await Promise.all(
+  const checkReports = vendorReadFailed ? [] : await Promise.all(
     fullRows.map(async (r) => ({
       id: r.application_id,
       report: await buildVerificationChecks({
@@ -636,13 +644,19 @@ async function ApplicationsSurface({
 
       {appErr ? (
         <FormFlash tone="error">
-          Verification applications couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
+          Verification applications couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
+        </FormFlash>
+      ) : null}
+
+      {vendorReadFailed ? (
+        <FormFlash tone="error">
+          Supplier shop details couldn&apos;t load, so names show as blank and the automatic checks were skipped &mdash; a blank is not a mismatch. Refresh to try again.
         </FormFlash>
       ) : null}
 
       {error ? null : null}
 
-      {fullRows.length === 0 && demotedFallback.length === 0 ? (
+      {appErr ? null : fullRows.length === 0 && demotedFallback.length === 0 ? (
         <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           {tabFilter.emptyHint}
         </p>
@@ -712,7 +726,7 @@ function parseApplicationsTab(raw: string | undefined): {
       return {
         statuses: [],
         emptyHint:
-          'No vendors currently demoted. (Demote happens when a verified vendor accumulates 3+ disputes in 30 days.)',
+          'No suppliers currently demoted. (Demote happens when a verified supplier accumulates 3+ disputes in 30 days.)',
       };
     case 'all':
       return {
@@ -795,7 +809,7 @@ function ApplicationCard({
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-ink">
-            {application.vendor.business_name || 'Unnamed vendor'}
+            {application.vendor.business_name || 'Unnamed supplier'}
           </p>
           <p className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             <span>{application.public_id}</span>
@@ -954,7 +968,7 @@ function ApplicationCard({
           ) : (
             <ConfirmForm
               action={verifyVendorExperience}
-              title="Confirm this vendor's experience?"
+              title="Confirm this supplier's experience?"
               confirmLabel="Confirm — matches DTI"
               destructive={false}
               message={`Marks "in business since ${application.vendor.inBusinessSinceYear}" as verified against their DTI registration — a verified experience badge then shows on their card.`}
@@ -1006,7 +1020,7 @@ function ContactConfirmationBlock({
         Contact confirmation
       </p>
       <p className="text-xs text-ink/65">
-        The vendor sends{' '}
+        The supplier sends{' '}
         <span className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px] text-ink">
           {token}
         </span>{' '}
@@ -1087,7 +1101,7 @@ function DeepSearchBlock({
   dossierRow: DossierRow | null;
 }) {
   const adsLinks = adTransparencyLinks(
-    application.vendor.business_name || 'Setnayan vendor',
+    application.vendor.business_name || 'Setnayan supplier',
   );
   const dossier: VendorDossier | null =
     dossierRow?.status === 'complete' ? dossierRow.dossier : null;
@@ -1511,7 +1525,7 @@ function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
     if (count === 0) return null;
     return (
       <p className="ml-7 text-[11px] text-ink/60">
-        {formatCount(count)} photo{count === 1 ? '' : 's'} uploaded — view in the vendor&apos;s shop.
+        {formatCount(count)} photo{count === 1 ? '' : 's'} uploaded — view in the supplier&apos;s shop.
       </p>
     );
   }
@@ -1520,7 +1534,7 @@ function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
 
 /** What every grant does to the shop, said the same way wherever it is offered. */
 const GRANT_CONSEQUENCE =
-  'Approving flips this vendor to Verified — their public listing goes live, the verified badge appears, Pro/Enterprise unlock, and they are notified.';
+  'Approving flips this supplier to Verified — their public listing goes live, the verified badge appears, Pro/Enterprise unlock, and they are notified.';
 
 /**
  * The sentence the grant dialog shows, warning first.
@@ -1641,7 +1655,7 @@ function ActionRow({
               className="block text-xs text-ink/65"
               htmlFor={`reason-${application.application_id}`}
             >
-              Reason (required — surfaces to vendor)
+              Reason (required — surfaces to supplier)
             </label>
             <textarea
               id={`reason-${application.application_id}`}
@@ -1720,7 +1734,7 @@ function DemotedVendorCard({
   return (
     <article className="space-y-2 rounded-xl border border-warn-300/60 bg-warn-50/40 p-4">
       <p className="text-sm font-semibold text-ink">
-        {vendor.business_name || 'Unnamed vendor'}
+        {vendor.business_name || 'Unnamed supplier'}
       </p>
       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
         {vendor.location_city ?? '—'} · demotions: {formatCount(vendor.demotion_count)}
@@ -1729,7 +1743,7 @@ function DemotedVendorCard({
         Re-verification fee:{' '}
         <span className="font-medium">
           {feeLabelForCentavos(reverificationFeeCentavos)}
-        </span>. Vendor has to submit a new{' '}
+        </span>. Supplier has to submit a new{' '}
         <span className="font-medium">post_demotion</span> application to climb
         back.
       </p>
@@ -1821,7 +1835,7 @@ async function VisibilitySurface({
 
       {queryError ? (
         <FormFlash tone="error">
-          Vendor visibility queue couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
+          Supplier visibility queue couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
         </FormFlash>
       ) : null}
 
@@ -2070,7 +2084,7 @@ function VerifyCard({
     <article className="sn-row flex h-full flex-col gap-3 p-4">
       <header className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar logoUrl={logoDisplayUrl} name={vendor.business_name || 'Vendor'} />
+          <Avatar logoUrl={logoDisplayUrl} name={vendor.business_name || 'Supplier'} />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-ink">
               {vendor.business_name || 'Unnamed'}
@@ -2109,7 +2123,7 @@ function VerifyCard({
         {visibility !== 'verified' ? (
           <ConfirmForm
             action={approveVendor}
-            title="Make this vendor public?"
+            title="Make this supplier public?"
             confirmLabel="Approve → Verified"
             destructive={false}
             /* ⚖ WARNS, DOES NOT REFUSE — the owner's ruling to make (see
@@ -2126,7 +2140,7 @@ function VerifyCard({
                   allClear: false,
                 },
               ) ?? 'Every automatic check came back clean.'
-            } This makes the vendor publicly bookable on the marketplace (visibility → Verified) and notifies them.`}
+            } This makes the supplier publicly bookable on the marketplace (visibility → Verified) and notifies them.`}
           >
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
             <SubmitButton pendingLabel="Approving…" className="button-primary h-9 px-3 text-xs">
@@ -2144,9 +2158,9 @@ function VerifyCard({
         {visibility !== 'hidden' ? (
           <ConfirmForm
             action={rejectVendor}
-            title="Hide this vendor?"
+            title="Hide this supplier?"
             confirmLabel="Reject → Hidden"
-            message="This hides the vendor from marketplace browse — couples can no longer find them. Reversible by approving again later."
+            message="This hides the supplier from marketplace browse — couples can no longer find them. Reversible by approving again later."
           >
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
             <input type="hidden" name="reject_to" value="hidden" />
@@ -2158,9 +2172,9 @@ function VerifyCard({
         {visibility !== 'archived' ? (
           <ConfirmForm
             action={archiveVendor}
-            title="Archive this vendor?"
+            title="Archive this supplier?"
             confirmLabel="Archive"
-            message="This archives the vendor — permanently removed from marketplace browse."
+            message="This archives the supplier — permanently removed from marketplace browse."
           >
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
             <SubmitButton

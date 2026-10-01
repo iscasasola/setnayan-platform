@@ -2,6 +2,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { ReadFailed } from '../../_components/read-failed';
 import { FAMILY_DISCOUNT_DEFAULT_PCT } from '@/lib/onboarding-family-discount';
 import {
   saveFamilyDiscount,
@@ -92,6 +93,7 @@ export async function PapicLadderSurface(_props: Props) {
   if (vocabRes.error) logQueryError('AdminPapicLadder (type clamps)', vocabRes.error);
 
   const unreadable = Boolean(tierRes.error || catRes.error);
+  const sizingUnread = Boolean(vocabRes.error || learningRes.error);
 
   // ⚠ The rung SET comes from the tier table + the catalog, never from a list in
   // code — those two are what actually decide which rungs exist and cost what.
@@ -224,24 +226,35 @@ export async function PapicLadderSurface(_props: Props) {
             Prices couldn&apos;t load
           </p>
           <p className="mt-1 text-sm text-danger-900">
-            This screen is showing what it could read, which may be incomplete. Don&apos;t save from
-            here until it loads cleanly.
+            The credit ladder is hidden because it couldn&apos;t be read in full &mdash; saving from
+            a partial read would write the gaps over the real prices. Refresh to try again.
           </p>
         </div>
       )}
 
-      <PapicLadderEditor
-        rows={rows}
-        discountPct={discountPct}
-        saveLadderAction={savePapicLadder}
-        saveDiscountAction={saveFamilyDiscount}
-      />
+      {unreadable ? null : (
+        <PapicLadderEditor
+          rows={rows}
+          discountPct={discountPct}
+          saveLadderAction={savePapicLadder}
+          saveDiscountAction={saveFamilyDiscount}
+        />
+      )}
 
-      <PapicTypeSizingEditor
-        rows={typeSizing}
-        saveAction={savePapicTypeSizing}
-        recomputeAction={recomputePapicPoolLearning}
-      />
+      {/* 🔑 The floor and ceiling default to 0 when their read fails, and Save
+          writes whatever the form holds — so a refused read must not mount the
+          editor at all, or one tap writes 0/0 over the real clamps. */}
+      {sizingUnread ? (
+        <div className="mb-6">
+          <ReadFailed what="the per-event-type sizing (saving is off, because it would write 0 over the real floors and ceilings)" />
+        </div>
+      ) : (
+        <PapicTypeSizingEditor
+          rows={typeSizing}
+          saveAction={savePapicTypeSizing}
+          recomputeAction={recomputePapicPoolLearning}
+        />
+      )}
 
       <PapicRestEditor
         freeCreditsPerEvent={freeCreditsPerEvent}

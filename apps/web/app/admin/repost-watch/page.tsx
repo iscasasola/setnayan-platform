@@ -170,7 +170,7 @@ export default async function AdminRepostWatchPage({
   for (const v of vendorData ?? []) {
     vendorName.set(
       v.vendor_profile_id,
-      ((v.business_name as string | null) ?? '').trim() || 'Unnamed vendor',
+      ((v.business_name as string | null) ?? '').trim() || 'Unnamed supplier',
     );
   }
 
@@ -217,7 +217,7 @@ export default async function AdminRepostWatchPage({
   for (const v of qrVendorData ?? []) {
     qrVendorName.set(
       v.vendor_profile_id,
-      ((v.business_name as string | null) ?? '').trim() || 'Unnamed vendor',
+      ((v.business_name as string | null) ?? '').trim() || 'Unnamed supplier',
     );
   }
   const qrImageEntries = await Promise.all(
@@ -252,11 +252,11 @@ export default async function AdminRepostWatchPage({
       />
       <div className="mb-6">
         <p className="text-sm text-ink/70">
-          Cross-vendor reverse-image matches — a vendor&apos;s newly-uploaded
+          Cross-supplier reverse-image matches — a supplier&apos;s newly-uploaded
           portfolio / service-cover image whose perceptual hash matches an older
-          image owned by a <span className="font-medium">different</span> vendor.
+          image owned by a <span className="font-medium">different</span> supplier.
           Detect-and-review only: resolving a flag records a verdict and never
-          touches the image. Demo vendors and same-vendor matches are excluded.
+          touches the image. Demo suppliers and same-supplier matches are excluded.
           The latest 200 matching the filter, newest first.
         </p>
       </div>
@@ -264,7 +264,7 @@ export default async function AdminRepostWatchPage({
       {(search.rescanned !== undefined) && (
         <div className="mb-4">
           <FormFlash tone="success">
-            Rescan complete — {search.rescanned ?? '0'} real vendor(s),{' '}
+            Rescan complete — {search.rescanned ?? '0'} real supplier(s),{' '}
             {search.refs ?? '0'} image(s) considered;{' '}
             {search.rematched ?? '0'} hashed image(s) re-matched at the current
             threshold. New matches (if any) appear below.
@@ -275,7 +275,7 @@ export default async function AdminRepostWatchPage({
       {(search.qr_vendors !== undefined) && (
         <div className="mb-4">
           <FormFlash tone="success">
-            QR scan complete — {search.qr_vendors ?? '0'} real vendor(s),{' '}
+            QR scan complete — {search.qr_vendors ?? '0'} real supplier(s),{' '}
             {search.qr_refs ?? '0'} image(s) scanned, {search.qr_flagged ?? '0'}{' '}
             new flag(s). {search.qr_videos ?? '0'} showcase video(s) skipped
             (videos are checked at upload time, not in the sweep).
@@ -307,17 +307,17 @@ export default async function AdminRepostWatchPage({
         </FormFlash>
       )}
 
-      {rows.length === 0 ? (
+      {listError ? null : rows.length === 0 ? (
         <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
           No flags in this view. With the founder-only pilot this stays empty
-          until a second real vendor onboards — use “Rescan all” to hash existing
+          until a second real supplier onboards — use “Rescan all” to hash existing
           images.
         </p>
       ) : (
         <ul className="space-y-4">
           {rows.map((r) => {
-            const flaggedName = vendorName.get(r.flagged_vendor_id) ?? 'Vendor';
-            const sourceName = vendorName.get(r.source_vendor_id) ?? 'Vendor';
+            const flaggedName = vendorName.get(r.flagged_vendor_id) ?? 'Supplier';
+            const sourceName = vendorName.get(r.source_vendor_id) ?? 'Supplier';
             const flaggedUrl = imageUrl.get(`flagged-${r.id}`) ?? null;
             const sourceUrl = imageUrl.get(`source-${r.id}`) ?? null;
             return (
@@ -353,7 +353,7 @@ export default async function AdminRepostWatchPage({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={flaggedUrl}
-                          alt="Newly uploaded vendor image"
+                          alt="Newly uploaded supplier image"
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -379,7 +379,7 @@ export default async function AdminRepostWatchPage({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={sourceUrl}
-                          alt="Earlier vendor image"
+                          alt="Earlier supplier image"
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -449,7 +449,7 @@ export default async function AdminRepostWatchPage({
                       href={`/admin/vendors/${r.flagged_vendor_id}/edit`}
                       className="text-xs font-medium text-ink/55 underline-offset-2 hover:underline"
                     >
-                      Open vendor →
+                      Open supplier →
                     </a>
                   </div>
                 )}
@@ -487,8 +487,8 @@ export default async function AdminRepostWatchPage({
           </form>
         </div>
         <p className="mb-4 text-sm text-ink/65">
-          Vendor-website media (portfolio, logo, hero, service photos) containing a
-          QR that targets the vendor&apos;s invite / lock funnel — directly or via a
+          Supplier-website media (portfolio, logo, hero, service photos) containing a
+          QR that targets the supplier&apos;s invite / lock funnel — directly or via a
           link shortener. New uploads are rejected at save time; this sweep covers
           media uploaded before the guard shipped. Review-only: resolving a flag
           never touches the image.
@@ -503,14 +503,14 @@ export default async function AdminRepostWatchPage({
 
         {qrRows.length === 0 ? (
           <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
-            No QR flags. Run “Scan QR codes” to sweep already-uploaded vendor
+            No QR flags. Run “Scan QR codes” to sweep already-uploaded supplier
             media.
           </p>
         ) : (
           <ul className="space-y-4">
             {qrRows.map((r) => {
               const url = qrImageUrl.get(r.id) ?? null;
-              const vendorLabel = qrVendorName.get(r.vendor_profile_id) ?? 'Vendor';
+              const vendorLabel = qrVendorName.get(r.vendor_profile_id) ?? 'Supplier';
               return (
                 <li
                   key={`qr-${r.id}`}
@@ -546,7 +546,7 @@ export default async function AdminRepostWatchPage({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={url}
-                          alt="Flagged vendor media"
+                          alt="Flagged supplier media"
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -616,7 +616,7 @@ export default async function AdminRepostWatchPage({
                         href={`/admin/vendors/${r.vendor_profile_id}/edit`}
                         className="text-xs font-medium text-ink/55 underline-offset-2 hover:underline"
                       >
-                        Open vendor →
+                        Open supplier →
                       </a>
                     </div>
                   )}

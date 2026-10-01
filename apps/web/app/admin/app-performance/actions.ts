@@ -56,7 +56,7 @@ export async function addExpense(formData: FormData): Promise<void> {
   const nextDueOn = str(formData.get('next_due_on'));
   const recursMonthly = formData.get('recurs_monthly') === 'on';
 
-  if (!expensedOn || !vendorName) throw new Error('Date and vendor are required.');
+  if (!expensedOn || !vendorName) throw new Error('Date and supplier are required.');
   if (!EXPENSE_CATEGORIES.some((c) => c.key === category)) {
     throw new Error('Unknown category.');
   }

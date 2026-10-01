@@ -9,6 +9,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAdminDataAccess } from '@/lib/admin-data-access';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isShopLive } from '@/lib/vendor-visibility';
 import { formatCount } from '@/lib/format-number';
 import { formatCentavosPhp } from '@/lib/php';
 import { PAYOUT_STAGE_LABEL, type PayoutStage } from '@/lib/payouts';
@@ -78,7 +79,7 @@ export default async function AdminSupplierPage({ params }: Props) {
   const shopRead = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, public_id, user_id, business_name, business_slug, location_city, is_published, public_visibility, verification_state, tier_state, tier_expires_at, is_demo, created_at',
+      'vendor_profile_id, public_id, user_id, business_name, business_slug, location_city, public_visibility, verification_state, tier_state, tier_expires_at, is_demo, created_at',
     )
     .eq(byPublicId ? 'public_id' : 'vendor_profile_id', id)
     .maybeSingle();
@@ -175,7 +176,9 @@ export default async function AdminSupplierPage({ params }: Props) {
       ),
     },
     { label: 'City', value: (shop.location_city as string | null) || '—' },
-    { label: 'Shows in search', value: shop.is_published ? 'Yes' : 'No' },
+    // One definition of live (lib/vendor-visibility.ts): `is_published` is a
+    // dead column nothing in the approval flow sets.
+    { label: 'Shows in search', value: isShopLive(shop) ? 'Yes' : 'No' },
     { label: 'Demo shop', value: shop.is_demo ? 'Yes — sample data' : 'No' },
     { label: 'Joined', value: fmtDate(shop.created_at as string | null) },
   ];

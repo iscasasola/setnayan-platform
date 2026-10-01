@@ -1,6 +1,6 @@
 ## 2026-10-01 · fix(guest): the guest path's rough edges from a 390 px production walk-through
 
-Six findings from a phone walk-through of the live guest path:
+Seven findings from a phone walk-through of the live guest path:
 
 - **Me has the guest stages' side gutter** — the Me stage was the one guest stage drawn edge to edge (`px-4` inside the `PLATE` column now).
 - **Me opens on the ticket, sheet closed.** `#site-me` is no longer a reply-sheet anchor (it raised "Change your reply" over the ticket on every tap). The arrival action's RSVP / "Change" label, the Home spotlight and a new **"Change your reply"** button on Me all point at the sheet's own `#your-details`.
@@ -8,7 +8,8 @@ Six findings from a phone walk-through of the live guest path:
 - **The intro tour and the guest help say "Yes or No"** (there is no Maybe — DECISION_LOG 2026-09-30).
 - **The camera consent card no longer opens Welcome before the day** — mounted only where the stage's Event Bar has a Camera slot (The Day and after).
 - **Monogram** — the static `MonogramMark` svg no longer clips the M's foot (`overflow: visible`, the rail fix #6227 applied to the root); the save-the-date film's lockup now reserves the room its scale transform paints, so "Save the Date" is no longer behind the divider rule; the Save-to-account button grows with its two-line sub-label and pads it.
+- **The personal-link landing has ONE button before the reply** (DECISION_LOG 2026-10-01): names, greeting card, "Reply to the invitation", and the faded ticket as a bare picture (the "Reply to confirm your ticket" pill is gone). "How to use it", "Open the save the date", "Your link opens this invitation any time" + Copy my link, the Terms tick, "Save to my account" and Your guests are drawn only after a reply, on the same page, once. A plus-one holding a full ticket keeps the full page.
 
-Guard: `app/[slug]/_lib/the-guest-path-rough-edges.test.ts` (render-level for the mobile box and the monogram; executed for the anchors and the stage bar; source reads for the mount decisions). Each assertion sabotage-checked once.
+Guard: `app/[slug]/_lib/the-guest-path-rough-edges.test.ts` and `app/[slug]/invite/the-landing-before-the-reply-has-one-button.test.ts` (renders the pre-reply landing and counts its controls: exactly one) (render-level for the mobile box and the monogram; executed for the anchors and the stage bar; source reads for the mount decisions). Each assertion sabotage-checked once.
 
 SPEC IMPACT: None

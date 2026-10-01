@@ -247,6 +247,7 @@ type Props = {
     saved?: string;
     removed?: string;
     imported?: string;
+    updated?: string;
     skipped?: string;
     duplicates?: string;
     error?: string;
@@ -1684,6 +1685,7 @@ function pickFlash(search: {
   saved?: string;
   removed?: string;
   imported?: string;
+  updated?: string;
   skipped?: string;
   duplicates?: string;
   bulk_assigned?: string;
@@ -1716,7 +1718,9 @@ function pickFlash(search: {
     const n = Number(search.imported);
     const s = Number(search.skipped ?? 0);
     const d = Number(search.duplicates ?? 0);
+    const u = Number(search.updated ?? 0);
     const parts = [`Imported ${formatCount(n)} guest${n === 1 ? '' : 's'}`];
+    if (u > 0) parts.push(`updated ${formatCount(u)}`);
     if (d > 0) parts.push(`skipped ${d} duplicate${d === 1 ? '' : 's'}`);
     if (s > 0) parts.push(`skipped ${s} invalid row${s === 1 ? '' : 's'}`);
     return parts.join(' · ') + '.';

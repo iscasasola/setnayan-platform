@@ -1897,7 +1897,7 @@ export async function SiteBody({
               </div>
             ) : null}
             <div id={storySceneShown ? undefined : SITE_MENU_ANCHORS.story} className="scroll-mt-6">
-              {storySceneShown || !weddingOnly.love_story ? null : event.love_story ? (
+              {storySceneShown ? null : !weddingOnly.love_story ? null : event.love_story ? (
                 <OurStory loveStory={event.love_story} variant="full" />
               ) : plan.openBrowse ? (
                 <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />

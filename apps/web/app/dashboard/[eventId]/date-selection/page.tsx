@@ -39,6 +39,7 @@ import {
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
+import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchEventVendors, displayServiceLabel } from '@/lib/vendors';
 import { fetchChangeLinesByVendor, withAgreedTotalNow } from '@/lib/agreed-total-and-its-changes';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
@@ -377,6 +378,8 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
 
   // Path: 4-question guided flow
   if (path === 'guided') {
+    // The launch gate: only live rites are offered (null = read failed → all).
+    const activeCeremonies = await fetchActiveCeremonyTypes(supabase);
     return (
       <section className="mx-auto max-w-2xl space-y-6">
         {chineseTradition ? <ChineseSpecialistNudge /> : null}
@@ -386,6 +389,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
           secondaryCeremonyType={secondaryCeremonyType}
           initialMeaningfulDates={meaningfulDates}
           backHref={backToChooserHref}
+          activeCeremonies={activeCeremonies}
         />
       </section>
     );

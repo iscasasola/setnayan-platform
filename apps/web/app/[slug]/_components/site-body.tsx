@@ -31,7 +31,7 @@ import { guestChecklistItems } from '../_lib/guest-checklist-facts';
 import { daysUntil } from '@/lib/guest-checklist';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
-import { isChineseWedding } from '@/lib/chinese-wedding';
+import { dressRiteOf, isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
@@ -2849,7 +2849,7 @@ export async function SiteBody({
                 words={clientWords}
                 look={{
                   config: event.dress_code_config ?? null,
-                  ceremonyType: event.ceremony_type ?? null,
+                  ceremonyType: dressRiteOf(event),
                   genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                   guestRole: guest.role ?? null,
                   march: marchPlaceOf(entourage, guest.guest_id),
@@ -2890,7 +2890,7 @@ export async function SiteBody({
                   words={clientWords}
                   look={{
                     config: event.dress_code_config ?? null,
-                    ceremonyType: event.ceremony_type ?? null,
+                    ceremonyType: dressRiteOf(event),
                     genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                     guestRole: guest.role ?? null,
                     march: marchPlaceOf(entourage, guest.guest_id),

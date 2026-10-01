@@ -164,6 +164,42 @@ export function isIncCeremony(ceremonyType: string | null | undefined): boolean 
 }
 
 /**
+ * 🤝 WHICH RITES HAVE NINONG & NINANG (P6a, 2026-10-01 — audit 2026-09-30 §3
+ * "Ninong/Ninang to faiths that don't use them"). Read from the traditions guide
+ * in this repo (`WEDDING_TRADITIONS_GUIDE`, lib/wedding-traditions.ts): the
+ * Catholic and Aglipayan rites name principal + secondary sponsors; Filipino
+ * Christian / Born Again weddings keep them; INC allows ONE non-member pair
+ * (its own task below). A civil rite has two witnesses, a Nikah its wali and
+ * witnesses, and the JW · LDS · SDA · Orthodox · Jewish · Hindu · Sikh ·
+ * Buddhist · Chinese · indigenous rites none of this — so none of them is
+ * seeded "Invite your principal sponsors".
+ *
+ * Unset (null) and the literal 'mixed' stay PERMISSIVE — the
+ * `isChurchCeremony(null)` "don't hide guidance prematurely" posture.
+ */
+const PRINCIPAL_SPONSOR_RITES: ReadonlySet<string> = new Set(['catholic', 'aglipayan', 'christian', 'born_again', 'inc']);
+/** The candle · veil · cord pairs — only where the rite drapes them (not INC: one pair, no entourage). */
+const SECONDARY_SPONSOR_RITES: ReadonlySet<string> = new Set(['catholic', 'aglipayan', 'christian', 'born_again']);
+
+export function usesPrincipalSponsors(ceremonyType: string | null | undefined): boolean {
+  return ceremonyType == null || ceremonyType === 'mixed' || PRINCIPAL_SPONSOR_RITES.has(ceremonyType);
+}
+
+/** The many-pairs ninong/ninang tasks — every sponsor rite except INC (one pair, its own task). */
+export function usesSponsorPairs(ceremonyType: string | null | undefined): boolean {
+  return usesPrincipalSponsors(ceremonyType) && !isIncCeremony(ceremonyType);
+}
+
+export function usesSecondarySponsors(ceremonyType: string | null | undefined): boolean {
+  return ceremonyType == null || ceremonyType === 'mixed' || SECONDARY_SPONSOR_RITES.has(ceremonyType);
+}
+
+/** A civil rite: two witnesses of legal age, not ninong/ninang (the guide's civil entry). */
+export function isCivilCeremony(ceremonyType: string | null | undefined): boolean {
+  return ceremonyType === 'civil';
+}
+
+/**
  * The standard PH-wedding planning checklist, ordered from earliest planning
  * runway (≈12 months out) to the final-week tasks. `dueOffsetDays` places each
  * item on the countdown; the ranking filter reads it to know what's urgent now.
@@ -200,7 +236,9 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'book_florist', title: 'Book your florist / stylist', category: 'vendors', dueOffsetDays: 300 },
   { key: 'hotel_block', title: 'Reserve hotel room blocks for out-of-town guests', category: 'logistics', dueOffsetDays: 290 },
   { key: 'honeymoon_plan', title: 'Start planning your honeymoon (visas, peak-season bookings)', category: 'logistics', dueOffsetDays: 285 },
-  { key: 'invite_sponsors', title: 'Personally invite your principal sponsors (Ninong & Ninang)', category: 'guests', dueOffsetDays: 280, appliesTo: (ct) => !isMuslimCeremony(ct) },
+  { key: 'invite_sponsors', title: 'Personally invite your principal sponsors (Ninong & Ninang)', category: 'guests', dueOffsetDays: 280, appliesTo: usesSponsorPairs },
+  { key: 'inc_invite_sponsor_pair', title: 'Invite your sponsor pair — one Ninong and one Ninang if they are not INC members', category: 'guests', dueOffsetDays: 280, appliesTo: isIncCeremony },
+  { key: 'choose_witnesses', title: 'Choose your two witnesses (of legal age) for the civil ceremony', category: 'guests', dueOffsetDays: 280, appliesTo: isCivilCeremony },
 
   // ══ 9–6 months before — The details take shape ══
   { key: 'book_caterer', title: 'Book your caterer', category: 'vendors', dueOffsetDays: 270 },
@@ -214,7 +252,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'book_coordinator', title: 'Book your coordinator', category: 'vendors', dueOffsetDays: 230 },
   { key: 'book_bridal_car', title: 'Book your bridal car / transportation', category: 'logistics', dueOffsetDays: 225 },
   { key: 'book_groom_attire', title: 'Book groom & groomsmen attire (barong / suit)', category: 'attire', dueOffsetDays: 215 },
-  { key: 'choose_secondary_sponsors', title: 'Choose your secondary sponsors (candle, veil, cord) & bearers', category: 'guests', dueOffsetDays: 205, appliesTo: (ct) => !isMuslimCeremony(ct) },
+  { key: 'choose_secondary_sponsors', title: 'Choose your secondary sponsors (candle, veil, cord) & bearers', category: 'guests', dueOffsetDays: 205, appliesTo: usesSecondarySponsors },
 
   // ══ 6–4 months before — Invitations, fittings & flow ══
   { key: 'attire', title: 'Order wedding attire (gown & suit)', category: 'attire', dueOffsetDays: 180 },
@@ -240,7 +278,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'church_fee', title: 'Pay your church wedding fee / package', category: 'paperwork', dueOffsetDays: 105, appliesTo: isChurchCeremony },
   { key: 'inc_confirm_minister', title: 'Confirm your INC minister and chapel schedule with the lokal', category: 'paperwork', dueOffsetDays: 105, appliesTo: isIncCeremony },
   { key: 'guest_list', title: 'Finalize your guest list', category: 'guests', dueOffsetDays: 90 },
-  { key: 'sponsors', title: 'Confirm your principal sponsors', category: 'guests', dueOffsetDays: 90, appliesTo: (ct) => !isMuslimCeremony(ct) },
+  { key: 'sponsors', title: 'Confirm your principal sponsors', category: 'guests', dueOffsetDays: 90, appliesTo: usesPrincipalSponsors },
   { key: 'second_fitting', title: 'Second gown fitting', category: 'attire', dueOffsetDays: 80 },
   { key: 'menu_tasting', title: 'Do your menu tasting', category: 'vendors', dueOffsetDays: 75 },
   { key: 'party_gifts', title: 'Buy gifts for your wedding party & parents', category: 'design', dueOffsetDays: 70 },
@@ -847,8 +885,9 @@ export type ChecklistSeedRow = Pick<
 export function buildChecklistSeed(
   eventId: string,
   ceremonyType: string | null = null,
+  secondaryCeremonyType: string | null = null,
 ): ChecklistSeedRow[] {
-  return buildSeedRows(eventId, CHECKLIST_TEMPLATE, ceremonyType);
+  return buildSeedRows(eventId, CHECKLIST_TEMPLATE, ceremonyType, secondaryCeremonyType);
 }
 
 /**
@@ -866,10 +905,18 @@ export function buildSeedRows(
   eventId: string,
   template: ReadonlyArray<ChecklistTemplateItem>,
   ceremonyType: string | null = null,
+  secondaryCeremonyType: string | null = null,
 ): ChecklistSeedRow[] {
   const rows: ChecklistSeedRow[] = [];
+  // 🕊 BOTH RITES OF A MIXED WEDDING (P6a): an item belongs when EITHER rite
+  // uses it — a Catholic side keeps Pre-Cana, an INC side brings its lokal
+  // steps. With no secondary this is exactly the one-rite check it always was.
+  const applies = (t: ChecklistTemplateItem) =>
+    !t.appliesTo ||
+    t.appliesTo(ceremonyType) ||
+    (secondaryCeremonyType != null && t.appliesTo(secondaryCeremonyType));
   template.forEach((t, idx) => {
-    if (t.appliesTo && !t.appliesTo(ceremonyType)) return;
+    if (!applies(t)) return;
     rows.push({
       event_id: eventId,
       template_key: t.key,

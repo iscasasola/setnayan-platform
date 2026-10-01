@@ -19,6 +19,7 @@ import type { ReactNode } from 'react';
  * · The list's FULL height — `scrollHeight` ignores the maxHeight cap, so a re-measure never feeds the cap back into itself.
  * · Placed BEFORE paint, twice: first from the button alone (the list is not mounted yet), then with the list's real height, which may flip it above the button. `place` keeps the same object when nothing moved, so this settles after one extra pass. …and focus moves into the list the first time it is actually mounted (on a first open the list only exists after the placement pass, so a focus call in the `[open]` effect below found nothing — measured in the browser).
  * · The CURRENT option first — a selector list would return whichever comes first in the document, i.e. always the top option.
+ * · A FONT ROW (`fontFamily`) is `content-visibility: auto`: a face is fetched when text is laid out in it, and that skips laying out a row that is off the list's screen — so a font row's face downloads only once it scrolls into view.
  * · A labelled GROUP (owner 2026-09-27, the compact Maker bar: "combine them in 1 dropdown" — Stages and Pages in one list). The heading is not an option: no button, so the arrow keys and the first-focus query pass over it; the group is announced by its aria-label, the visible word is aria-hidden.
  */
 
@@ -102,4 +103,6 @@ export type PickMenuProps = {
   /** A chip-sized button (the guest list's phone row, one line of small chips)
    *  — the list it opens is the same. Default: the Maker bar's 40px button. */
   compact?: boolean;
+  /** A long list (the font dropdown's shelves): each group heading stays in view while its options scroll. */
+  stickyGroups?: boolean;
 };

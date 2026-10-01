@@ -30,6 +30,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import * as es from '@/lib/element-style';
+import { HUB_FONTS_MOST_USED } from '@/lib/hub-fonts';
 import { stripComments } from '@/lib/strip-comments';
 import { emptyHubDraft, mergeHubDraft, planHubDraftApply, type HubLiveState } from '@/lib/hub-draft';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
@@ -256,7 +257,7 @@ function serialize(n: FakeNode): string {
 
 /* ── fixtures ────────────────────────────────────────────────────────────── */
 
-const FONT = es.HUB_ELEMENT_FONTS[0]!.key;
+const FONT = HUB_FONTS_MOST_USED[0]!;
 
 function widget(type: string, config: unknown): InvitationWidgetRow {
   return {

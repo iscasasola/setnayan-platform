@@ -87,7 +87,7 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Layout (a scene of their own)', 'scene', ['HUB_ARRANGEMENTS', 'label="Layout"']],
   ['Style a part: Label · Heading · Words', 'scene', ['data-maker-element={k}', 'Open the Hero editor']],
   // ── Part sheet (element-sheet.tsx → part-inspector.tsx) ──
-  ['Font ▾ (Event Hub font, then every face grouped)', 'part', ["'Event Hub font'", 'HUB_ELEMENT_FONTS']],
+  ['Font ▾ (Event Hub font, then the one font dropdown’s shelves)', 'part', ['lead="Event Hub font"', '<FontPick']],
   ['Colour swatches + "+" + "Hard to read here"', 'part', ['<ColourWell', 'Hard to read here']],
   ['Size: S · M · L · XL', 'part', ['label="Size"', 'stepHubElementSize']],
   ['Motion: Plays once / Follows the scroll · In · During · Out · Duration · Delay', 'part', ['HUB_EL_TIMELINE', 'HUB_EL_IN', 'HUB_EL_DURING_WORDS', 'HUB_EL_OUT', 'HUB_EL_DURATION', 'HUB_EL_DELAY']],

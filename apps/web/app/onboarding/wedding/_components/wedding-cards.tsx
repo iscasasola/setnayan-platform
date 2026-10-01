@@ -43,6 +43,8 @@ import {
 } from '@/lib/onboarding/wedding-cards';
 import { CITIES, TOP30, cityByKey, resolvePick } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
+import { WeddingVenues, type VenueSearch } from './wedding-venues';
+import { EMPTY_VENUES } from '@/lib/onboarding/venue-picks';
 import type { OnboardingState } from '../types';
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
@@ -75,9 +77,11 @@ type Props = {
   /** Faiths the admin has switched on (`wedding_type_launch_status`); null = read failed. */
   activeFaiths: string[] | null;
   budgetBands: readonly BudgetBand[];
+  /** The wedding's venue search, handed in by the shell (a server action stays out of this module). */
+  searchVenues: VenueSearch;
 };
 
-export function WeddingCard({ card, state, patch, n, total, activeFaiths, budgetBands }: Props) {
+export function WeddingCard({ card, state, patch, n, total, activeFaiths, budgetBands, searchVenues }: Props) {
   const frame = { skin: 'wedding' as const, n, total, dataCard: card };
 
   if (card === 'w_names') {
@@ -149,7 +153,7 @@ export function WeddingCard({ card, state, patch, n, total, activeFaiths, budget
     );
   }
 
-  if (card === 'w_area') return <AreaCard frame={frame} state={state} patch={patch} />;
+  if (card === 'w_area') return <AreaCard frame={frame} state={state} patch={patch} searchVenues={searchVenues} />;
   if (card === 'w_pax') return <PaxCard frame={frame} state={state} patch={patch} />;
   if (card === 'w_budget') return <BudgetCard frame={frame} state={state} patch={patch} budgetBands={budgetBands} />;
   return <ColoursCard frame={frame} state={state} patch={patch} />;
@@ -158,11 +162,15 @@ export function WeddingCard({ card, state, patch, n, total, activeFaiths, budget
 type FrameProps = { skin: 'wedding'; n: number; total: number; dataCard: string };
 type SubProps = { frame: FrameProps; state: OnboardingState; patch: (p: Partial<OnboardingState>) => void };
 
-function AreaCard({ frame, state, patch }: SubProps) {
+function AreaCard({ frame, state, patch, searchVenues }: SubProps & { searchVenues: VenueSearch }) {
   const [more, setMore] = useState(false);
   const top = TOP30.map((k) => cityByKey(k)).filter((c): c is NonNullable<typeof c> => Boolean(c));
   const rest = CITIES.filter((c) => !TOP30.includes(c.k)).sort((a, b) => a.n.localeCompare(b.n));
   const picked = state.places[0] ?? null;
+  const haveVenue = state.venues.open;
+  // 📍 A couple who already has a venue is not asked the area — it comes from the venue they pick
+  // (DECISION_LOG 2026-10-01). Until a pick gives one, the Area ▾ stays so nobody is stuck.
+  const askArea = !(haveVenue && state.places.length > 0);
   return (
     <SetupFrame
       {...frame}
@@ -170,29 +178,47 @@ function AreaCard({ frame, state, patch }: SubProps) {
       line="The area is enough — it finds you nearby suppliers."
       info="You’ll find your parish and reception with Setnayan. Not booked yet? That’s normal."
     >
-      <PickMenu
-        label="Area"
-        value={picked && cityByKey(picked) ? picked : null}
-        buttonText={picked && !cityByKey(picked) ? 'Another place' : picked ? undefined : 'Pick an area'}
-        options={[
-          ...top.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'Most chosen' })),
-          ...rest.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'All places A–Z' })),
-        ]}
-        onPick={(key) => patch({ places: [key], region: resolvePick(key).rk })}
-        dataAttr="data-wedding-area"
-        stickyGroups
-      />
-      <button type="button" className="mt-3 text-sm text-ink/60 underline" onClick={() => setMore((v) => !v)}>
-        {more ? 'Hide more places' : 'More places ›'}
-      </button>
-      {more ? (
-        <div className="mt-3">
-          <LocationStep
-            value={state.places}
-            onChange={(places) => patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })}
+      {askArea ? (
+        <>
+          <PickMenu
+            label="Area"
+            value={picked && cityByKey(picked) ? picked : null}
+            buttonText={picked && !cityByKey(picked) ? 'Another place' : picked ? undefined : 'Pick an area'}
+            options={[
+              ...top.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'Most chosen' })),
+              ...rest.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'All places A–Z' })),
+            ]}
+            onPick={(key) => patch({ places: [key], region: resolvePick(key).rk })}
+            dataAttr="data-wedding-area"
+            stickyGroups
           />
-        </div>
-      ) : null}
+          <button type="button" className="mt-3 text-sm text-ink/60 underline" onClick={() => setMore((v) => !v)}>
+            {more ? 'Hide more places' : 'More places ›'}
+          </button>
+          {more ? (
+            <div className="mt-3">
+              <LocationStep
+                value={state.places}
+                onChange={(places) => patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })}
+              />
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <p className="text-sm text-ink/60" data-wedding-area-from-venue>
+          Your area comes from your venue.
+        </p>
+      )}
+      <button
+        type="button"
+        className="mt-4 block text-sm text-ink/60 underline"
+        aria-expanded={haveVenue}
+        data-wedding-have-venue
+        onClick={() => patch({ venues: haveVenue ? EMPTY_VENUES : { ...EMPTY_VENUES, open: true } })}
+      >
+        {haveVenue ? 'Just the area for now' : 'We already have our venue ›'}
+      </button>
+      {haveVenue ? <WeddingVenues state={state} patch={patch} search={searchVenues} /> : null}
     </SetupFrame>
   );
 }

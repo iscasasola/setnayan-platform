@@ -27,6 +27,7 @@ const render = async (card: (typeof WEDDING_CARD_IDS)[number], over: Partial<typ
       total: 10,
       activeFaiths: null,
       budgetBands: BUDGET_BANDS_FALLBACK,
+      searchVenues: async () => [],
     }),
   );
 

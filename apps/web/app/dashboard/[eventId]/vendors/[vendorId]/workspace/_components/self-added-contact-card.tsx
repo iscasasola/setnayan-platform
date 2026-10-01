@@ -139,6 +139,11 @@ export function SelfAddedContactCard({
           You added {displayName} yourself, so this is yours to keep up to date. Only you
           can see it.
         </p>
+        {contactPerson || contactNumber ? null : (
+          <p className="text-xs text-ink/55" data-add-contact>
+            No contact yet. Add one so you can reach {displayName}.
+          </p>
+        )}
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">

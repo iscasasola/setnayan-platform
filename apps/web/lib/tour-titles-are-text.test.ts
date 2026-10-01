@@ -8,7 +8,7 @@
  * written the same way by the same hand, rendered correctly** — so the file
  * looked internally consistent and the mistake looked like the house style.
  *
- * 🔑 THE CAUSE IS A SPLIT CONTRACT ON ONE OBJECT. `guided-tour.tsx` renders
+ * 🔑 THE CAUSE IS A SPLIT CONTRACT ON ONE OBJECT. `guided-tour-card.tsx` renders
  * `{current.title}` as React text and `body` through
  * `dangerouslySetInnerHTML`. Same shape, same authoring, opposite escaping,
  * and nothing at the call site or in the type said so until now.
@@ -80,8 +80,9 @@ test('title is still rendered as TEXT and body as HTML — the split this guard 
   // anything and should be deleted rather than left as decoration. If someone
   // makes the BODY plain text, every body entity starts showing literally and
   // this file's whole premise has moved.
+  // The carousel (the client half of GuidedTour since the 2026-10-01 diet).
   const src = readFileSync(
-    resolve(HERE, '..', 'app', '_components', 'guided-tour.tsx'),
+    resolve(HERE, '..', 'app', '_components', 'guided-tour-card.tsx'),
     'utf8',
   ).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 

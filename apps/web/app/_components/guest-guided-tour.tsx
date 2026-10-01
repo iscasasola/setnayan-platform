@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { GuidedTour } from '@/app/_components/guided-tour';
+import { GuidedTourCard } from '@/app/_components/guided-tour-card';
+import type { GuidedTourView } from '@/app/_components/tour-slide-view';
 import type { TourKey } from '@/lib/tours';
 
 const STORAGE_PREFIX = 'setnayan.tour_seen.';
@@ -13,7 +14,11 @@ const STORAGE_PREFIX = 'setnayan.tour_seen.';
 //
 // Mount this inside the per-slug guest landing page. It only renders on
 // the client because localStorage isn't readable on the server.
-export function GuestGuidedTour({ tourKey }: { tourKey: TourKey }) {
+//
+// ⚡ `tour` is drawn by the server (`guidedTourView` in guided-tour.tsx): this
+// file is `'use client'`, and reading `lib/tours.ts` here shipped every tour's
+// words to every guest (the diet, 2026-10-01).
+export function GuestGuidedTour({ tourKey, tour }: { tourKey: TourKey; tour: GuidedTourView }) {
   const [shouldShow, setShouldShow] = useState(false);
 
   useEffect(() => {
@@ -36,5 +41,5 @@ export function GuestGuidedTour({ tourKey }: { tourKey: TourKey }) {
     setShouldShow(false);
   };
 
-  return <GuidedTour tourKey={tourKey} completeAction={markSeen} />;
+  return <GuidedTourCard tourKey={tourKey} {...tour} completeAction={markSeen} />;
 }

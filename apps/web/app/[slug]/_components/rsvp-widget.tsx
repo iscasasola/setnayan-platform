@@ -27,6 +27,17 @@ import { RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader } from './rsvp-
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 
+/**
+ * MAKES THE MOBILE BOX REQUIRED WHILE "ATTENDING" IS PICKED. Inline and
+ * server-rendered on purpose — the form is a server component and the guest
+ * bundle has no headroom for client state — and finding its own form through
+ * `document.currentScript` keeps it a no-op anywhere it is not mounted. With the
+ * script absent (a client-side navigation does not run inline scripts) the
+ * server-side refusal in `submitRsvp` is the backstop.
+ */
+const MOBILE_REQUIRED_JS =
+  "(function(){var s=document.currentScript,f=s&&s.closest('form'),m=f&&f.querySelector('#contact_mobile');if(!m)return;function y(){var r=f.querySelector('input[name=\"rsvp_status\"][value=\"attending\"]');m.required=!!(r&&r.checked)}f.addEventListener('change',y);y()})()";
+
 export function RsvpWidget({
   guest,
   eventId,
@@ -226,17 +237,37 @@ export function RsvpWidget({
   // The key gate found no number on record and the couple asks for one — the
   // page cannot be left without it (owner 2026-09-26: "filled first until they
   // are all answered").
+  //
+  // 📱 …AND IT IS ASKED HERE, IN THE REPLY, FOR ANYONE WHO SAYS YES (owner
+  // walk-through 2026-10-01). The Event Hub's key gate (`rsvpGate`) will not let a
+  // guest in without the number the couple asked for, so a sheet that showed
+  // Mobile unmarked let Save succeed and then bounced the guest to a second
+  // screen ("One more thing") for the very box they had just walked past. Now the
+  // box says it is required the moment "attending" is picked, and the browser
+  // will not send without it. A decline is never asked for one — the gate's own
+  // rule — so the requirement follows the answer (`MOBILE_REQUIRED_JS`), and
+  // `submitRsvp` refuses a yes without it for the clients that skip the script.
+  // Not on the Maker's canvas (nobody answers there), not on a closed list.
+  const mobileRequiredOnYes = askMobile && !replyLocked && !previewEveryQuestion;
   const requireMobile = askMobile && Boolean(gate?.missing.includes('mobile'));
 
   const mobileField = (
-    <Field
-      id="contact_mobile"
-      label="Mobile"
-      autoComplete="tel"
-      required={requireMobile}
-      defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
-      placeholder="+63 …"
-    />
+    <>
+      <Field
+        id="contact_mobile"
+        label="Mobile"
+        mark={mobileRequiredOnYes ? ' (required)' : null}
+        type="tel"
+        autoComplete="tel"
+        required={requireMobile && !mobileRequiredOnYes}
+        defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
+        placeholder="+63 …"
+      />
+      {mobileRequiredOnYes ? (
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered, no client bundle
+        <script dangerouslySetInnerHTML={{ __html: MOBILE_REQUIRED_JS }} />
+      ) : null}
+    </>
   );
   // The contact boxes, declared ONCE so the folded and unfolded arms can never
   // drift apart. Both arms render them, so both POST them.
@@ -355,7 +386,7 @@ export function RsvpWidget({
           rule is dead weight AND its selector text is the only `rsvp_status`
           left in the markup, which reads to any scan like a live control. */}
       {replyLocked ? null : (
-        <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}`}</style>
+        <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}.rsvp-form .attend-mark{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attend-mark{display:inline}`}</style>
       )}
 
       {/* On the invite arrival's Reply door the door IS the card — its eyebrow,
@@ -973,11 +1004,16 @@ function Field({
   autoComplete,
   required = false,
   question = false,
+  mark = null,
 }: {
   /** One question per screen: this label IS the screen's question (its heading). */
   question?: boolean;
   id: string;
   label: string;
+  /** Said after the label only while "attending" is picked (`.attend-mark`) — a
+   *  requirement that follows the answer, drawn by CSS, so the form stays a
+   *  server component. */
+  mark?: string | null;
   defaultValue?: string;
   placeholder?: string;
   /** The key gate's missing answer — the browser will not send the form without it. */
@@ -993,6 +1029,7 @@ function Field({
     <div className="space-y-1.5">
       <label htmlFor={id} className={questionClass(question)}>
         {label}
+        {mark ? <span className="attend-mark">{mark}</span> : null}
       </label>
       <input
         id={id}

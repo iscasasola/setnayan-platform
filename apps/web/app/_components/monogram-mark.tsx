@@ -73,7 +73,11 @@ export function MonogramMark(props: Props) {
     className: className?.replace(/\s+/g, ' ').trim(),
     role: 'img' as const,
     'aria-label': title ?? `${a} & ${b}`,
-    style: { display: 'block' as const },
+    // `overflow: visible` — every viewBox below is cropped TIGHT to its glyphs, so
+    // a wide capital's outer serif (the foot of an M) lands a few px outside it
+    // and an svg clips to its viewBox. The viewBox stays; the ink finishes.
+    // (AnimatedMonogramHero's lockup svg already does this; this one did not.)
+    style: { display: 'block' as const, overflow: 'visible' as const },
   };
 
   // bar — two serif capitals flanking a vertical divider that carries "&".

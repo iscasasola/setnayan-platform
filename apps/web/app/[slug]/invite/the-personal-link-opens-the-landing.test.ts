@@ -111,10 +111,11 @@ test('D · the ticket: faded before a Yes, full after, none after a No', () => {
   // A request still waiting, or no code at all, keeps the page's old answer.
   assert.equal(landingTicketOf({ reply: 'yes', eligibility: 'awaiting' }), 'other');
   assert.equal(landingTicketOf({ reply: 'yes', eligibility: 'none' }), 'other');
-  // Wiring: faded carries "Reply to confirm your ticket"; full carries Save.
+  // Wiring: faded is a bare picture; full carries Save.
   const faded = ENTER.slice(ENTER.indexOf('data-landing-ticket="faded"'), ENTER.indexOf("ticket === 'none' ? null"));
   assert.match(faded, /opacity-\[0\.42\] grayscale/, 'the unconfirmed ticket is not faded (Fable frame 1: 42 %, grey)');
-  assert.match(faded, /\{LANDING_WORDS\.replyToConfirm\}/);
+  // The faded ticket is a PICTURE: no pill, no link of its own (owner 2026-10-01 — one button before the reply).
+  assert.doesNotMatch(faded, /replyToConfirm|<Link|<a\b|<button/, 'the faded ticket carries a control again');
   assert.doesNotMatch(faded, /SavePassCardButton/, 'an unconfirmed ticket can be saved');
   const full = ENTER.slice(ENTER.indexOf('data-landing-ticket="full"'), ENTER.indexOf('data-landing-ticket="faded"'));
   assert.match(full, /LANDING_WORDS\.saveTicket/);

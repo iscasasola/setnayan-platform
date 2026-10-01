@@ -247,7 +247,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: CheckCircle2,
         title: 'RSVP whenever you’re ready',
-        body: 'Tap the RSVP button to say Yes, No, or Maybe. If your invite allows a plus-one, you can name them. You can change your answer up to the couple&rsquo;s cutoff.',
+        body: 'Tap the RSVP button to say Yes or No. If your invite allows a plus-one, you can name them. You can change your answer up to the couple&rsquo;s cutoff.',
       },
       {
         Icon: PartyPopper,

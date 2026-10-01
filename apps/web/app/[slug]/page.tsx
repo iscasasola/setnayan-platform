@@ -1660,6 +1660,13 @@ async function InvitationBody({
               tone: 'error' as const,
               text: 'Please choose whether you will be there — yes or no. Your reply has not been saved yet.',
             }
+        : // A yes without the mobile number the couple asks for — nothing saved
+          // (submitRsvp). The sheet reopens on this, where the box is.
+          search.rsvp === 'mobile'
+          ? {
+              tone: 'error' as const,
+              text: 'Please add your mobile number so we can reach you. Your reply has not been saved yet.',
+            }
         : // The guest list is final, so the going-or-not answer is frozen. Their
           // DETAILS still saved — say which, or a guest reads a warning and
           // assumes their allergy note went nowhere.

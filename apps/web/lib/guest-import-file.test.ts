@@ -199,3 +199,11 @@ test('an empty cell never blanks what is on the list, and RSVP is never overwrit
   const withRsvp = planGuestImport(readGuestFile('first_name,last_name,rsvp_status\nAna,Cruz,declined'), ctx(existing));
   assert.equal(withRsvp.rows[0]!.status, 'same');
 });
+
+test("a role written in the couple's own word is read as that role", () => {
+  const plan = planGuestImport(readGuestFile(HDR + ",Mia,,Sy,,Bride,Friends,Bride's Crew,,\n"), {
+    ...ctx(),
+    roleNames: { bridesmaid: { one: "Bride's Crew" } },
+  });
+  assert.equal(plan.rows[0]!.record?.role, 'bridesmaid');
+});

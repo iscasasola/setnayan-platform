@@ -7,6 +7,7 @@ import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { syncExtraSeats } from '@/lib/extra-seats-sync';
 import { eventHasSides } from '@/lib/guest-side-question';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { loadRoleNames } from '@/lib/role-names.server';
 import {
   MAX_IMPORT_ROWS,
   looksLikeSpreadsheetPackage,
@@ -49,6 +50,7 @@ async function planFor(eventId: string, csv: string) {
     singletonRoles: roleSet.singletonRoles,
     hasSides: eventHasSides(roleSet),
     existing: (existing ?? []) as ExistingGuest[],
+    roleNames: await loadRoleNames(supabase, eventId, 'importGuestsCsv'),
   });
   return { plan, supabase } as const;
 }

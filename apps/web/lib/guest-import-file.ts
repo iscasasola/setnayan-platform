@@ -18,10 +18,11 @@ import { parsePersonName } from './person-name-parse';
 import { norm } from './guest-dedupe';
 import { parsePhPhone } from './ph-phone';
 import { formatCount } from './format-number';
+import type { RoleNames } from './role-names';
 import { SIDELESS_SIDE } from './guest-side-question';
 import {
   GROUP_CATEGORY_LABELS,
-  ROLE_LABELS,
+  guestRoleLabel,
   plusOnesFromCsv,
   type GuestGroupCategory,
   type GuestRole,
@@ -140,11 +141,14 @@ function groupFromCell(v: string): GuestGroupCategory | null {
   return null;
 }
 
-/** A role cell matches its key (`bridesmaid`) or its usual word ("Bridesmaid"). */
-function roleFromCell(v: string, offered: readonly string[]): GuestRole | null {
+/**
+ * A role cell matches its key (`bridesmaid`), its usual word ("Bridesmaid"),
+ * or the couple's own word for it ("Bride's Crew", events.role_names).
+ */
+function roleFromCell(v: string, offered: readonly string[], names?: RoleNames | null): GuestRole | null {
   const n = norm(v);
-  for (const role of offered) {
-    if (norm(role) === n || norm(ROLE_LABELS[role as GuestRole] ?? '') === n) return role as GuestRole;
+  for (const role of offered as readonly GuestRole[]) {
+    if (norm(role) === n || norm(guestRoleLabel(role)) === n || norm(guestRoleLabel(role, names)) === n) return role;
   }
   return null;
 }
@@ -220,6 +224,8 @@ export type ImportContext = {
   singletonRoles: readonly string[];
   hasSides: boolean;
   existing: readonly ExistingGuest[];
+  /** The couple's words for roles (events.role_names) — read AND shown. */
+  roleNames?: RoleNames | null;
 };
 
 const SIDE_LABEL: Record<GuestSide, string> = { bride: "Bride's side", groom: "Groom's side", both: 'Both sides' };
@@ -311,7 +317,7 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
     }
     let role: GuestRole = 'guest';
     if (has('role')) {
-      const r = roleFromCell(cell('role'), ctx.offeredRoles);
+      const r = roleFromCell(cell('role'), ctx.offeredRoles, ctx.roleNames);
       if (!r) return look(`Role "${cell('role')}" isn't one this event uses.`);
       role = r;
     }
@@ -368,7 +374,7 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
     if (ctx.singletonRoles.includes(role) && has('role')) {
       const holder = singletonTaken.get(role);
       if (holder && holder !== match?.guest_id && holder !== `line:${line}`) {
-        return look(`Only one ${ROLE_LABELS[role]} per event — someone already has it.`);
+        return look(`Only one ${guestRoleLabel(role, ctx.roleNames)} per event — someone already has it.`);
       }
       singletonTaken.set(role, match?.guest_id ?? `line:${line}`);
     }

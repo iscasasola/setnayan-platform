@@ -8,7 +8,7 @@ Owner decision: corpus DECISION_LOG.md, 2026-10-01 rows "GUEST IMPORT = A TEMPLA
 | 2. Upload the file (CSV; friendly headers) | CODE DONE — import-form.tsx (client, useActionState) + actions.ts mode=preview; .xlsx refused with 'save as CSV' (no xlsx parser in repo) |
 | 3. Preview before adding | CODE DONE — lib/guest-import-file.ts planGuestImport; one row per row, 'need a look' never merged |
 | 4. Upload again to update | CODE DONE — match first+last(+suffix) or mobile+one name; patch only changed non-empty fields; RSVP never overwritten |
-| Verify | lint + 26 CI guards + touched tests GREEN locally; local tsc OOMs on this Mac → CI typecheck is the gate; full unit suite running; NOT browser-checked (needs a signed-in event) |
+| Verify | lint + 26 CI guards + touched tests GREEN locally; local tsc OOMs on this Mac → CI typecheck is the gate; full unit suite run: 2 sweep failures (numbers-carry-commas, role-names-reach-every-screen) fixed; NOT browser-checked (needs a signed-in event) |
 | Housekeeping: 5 root *_PROGRESS.md deleted | DONE |
 
 Guard: apps/web/lib/guest-import-file.test.ts (run from apps/web: `npx tsx --test lib/guest-import-file.test.ts`).

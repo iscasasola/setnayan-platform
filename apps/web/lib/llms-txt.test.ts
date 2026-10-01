@@ -25,6 +25,7 @@ import {
   RetiredSkuError,
   LINKED_ROUTES,
   UNLISTED_UNTIL_PROVEN,
+  llmsFeatureRoutes,
 } from './llms-txt';
 import { KNOWN_PUBLIC_ROUTES } from './seo/health-checks';
 import { bookingFeeScheduleSummary } from './booking-fee';
@@ -132,7 +133,9 @@ test('every linked route is in the audit KNOWN_PUBLIC_ROUTES set', () => {
 
 test('every link in the rendered body resolves to an allow-listed route', () => {
   const body = renderLlmsTxt(INPUT);
-  const allowed = new Set<string>(LINKED_ROUTES);
+  // The feature pages are linked from the registry (lib/feature-pages), not
+  // the hand-written list — so they are allowed by the same derivation.
+  const allowed = new Set<string>([...LINKED_ROUTES, ...llmsFeatureRoutes()]);
   for (const m of body.matchAll(/https:\/\/www\.setnayan\.com(\/[^\s)\]]*)?/g)) {
     const path = m[1] ?? '/';
     const anchored = path.startsWith('/v/') ? '/v/' : path;

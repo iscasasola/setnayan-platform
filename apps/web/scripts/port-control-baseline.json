@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "231bef05",
-  "routeCount": 442,
-  "destinations": 960,
+  "generatedFromRef": "04722dc8",
+  "routeCount": 443,
+  "destinations": 954,
   "actions": 677,
-  "blocks": 5358,
+  "blocks": 5344,
   "routes": {
     "/": {
       "files": [
@@ -274,6 +274,16 @@
         "Link",
         "SaveVendorButton",
         "VendorHeaderCell"
+      ]
+    },
+    "/(shell)/features/[slug]": {
+      "files": [
+        "(shell)/features/[slug]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "FeaturePageView"
       ]
     },
     "/(shell)/guest-list": {
@@ -714,6 +724,16 @@
         "LegalLayout",
         "LegalSection",
         "Link"
+      ]
+    },
+    "/(shell)/tl/features/[slug]": {
+      "files": [
+        "(shell)/tl/features/[slug]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "FeaturePageView"
       ]
     },
     "/(shell)/web-only": {
@@ -2940,7 +2960,7 @@
         "/admin/integrity-watch?tab=listings",
         "/admin/integrity-watch?tab=prices",
         "/admin/integrity-watch?tab=reviews",
-        "/admin/vendors/[seg]"
+        "/admin/vendors/[seg]/edit"
       ],
       "actions": [
         "rescanAction",
@@ -3490,7 +3510,7 @@
       ],
       "destinations": [
         "/admin/repost-watch?status=[seg]",
-        "/admin/vendors/[seg]"
+        "/admin/vendors/[seg]/edit"
       ],
       "actions": [
         "rescanAllRepostWatch",
@@ -3613,7 +3633,6 @@
         "admin/settings/_components/brand-icon-form.tsx",
         "admin/settings/_components/email-delivery-section.tsx",
         "admin/settings/_components/loader-appearance-card.tsx",
-        "admin/settings/_components/morning-digest-card.tsx",
         "admin/settings/_components/qr-upload-form.tsx",
         "admin/settings/_components/sentry-smoke-test-button.tsx",
         "admin/settings/_components/tin-input.tsx",
@@ -3664,7 +3683,6 @@
         "ListPageSkeleton",
         "LoaderAppearanceCard",
         "LoaderVariant",
-        "MorningDigestCard",
         "NotificationsSurface",
         "PageMasthead",
         "PreviewSwatch",
@@ -4115,8 +4133,7 @@
         "/admin/help",
         "/admin/payments",
         "/admin/user-reports",
-        "/admin/users",
-        "/admin/users/[seg]/export"
+        "/admin/users"
       ],
       "actions": [],
       "blocks": [
@@ -4183,26 +4200,6 @@
       "actions": [],
       "blocks": [
         "AdminInviteResult"
-      ]
-    },
-    "/admin/vendors/[vendorProfileId]": {
-      "files": [
-        "admin/vendors/[vendorProfileId]/page.tsx"
-      ],
-      "destinations": [
-        "/admin/accounts?tab=vendors",
-        "/admin/payouts?filter=all&vendor=[seg]",
-        "/admin/users/[seg]",
-        "/admin/vendors/[seg]/edit",
-        "/admin/vendors/[seg]/plan",
-        "/admin/vendors/[seg]/team",
-        "/admin/verify"
-      ],
-      "actions": [],
-      "blocks": [
-        "ConsoleTable",
-        "Link",
-        "PageMasthead"
       ]
     },
     "/admin/vendors/[vendorProfileId]/edit": {
@@ -9557,51 +9554,38 @@
     "/features": {
       "files": [
         "features/_PageBody.tsx",
-        "features/_sections/_AnchorNav.tsx",
-        "features/_sections/_Communications.tsx",
-        "features/_sections/_Compliance.tsx",
-        "features/_sections/_DayOfApparatus.tsx",
+        "features/_feature-page.tsx",
+        "features/_feature-price.ts",
+        "features/_icons.ts",
+        "features/_sections/_Ecosystem.tsx",
+        "features/_sections/_FeatureGroups.tsx",
         "features/_sections/_FinalCTA.tsx",
         "features/_sections/_Hero.tsx",
         "features/_sections/_HowItWorks.tsx",
-        "features/_sections/_OutsourcingPacing.tsx",
-        "features/_sections/_PlanningToolkit.tsx",
-        "features/_sections/_StickyMobileCTA.tsx",
-        "features/_sections/_VendorsLedger.tsx",
         "features/_sections/_WhySetnayan.tsx",
         "features/page.tsx"
       ],
       "destinations": [
+        "/blog/[seg]",
         "/for-suppliers",
-        "/pricing",
-        "/signup"
+        "/open-shop",
+        "/signup",
+        "/suppliers"
       ],
       "actions": [],
       "blocks": [
-        "BudgetMock",
-        "Communications",
-        "Compliance",
-        "DayOfApparatus",
-        "FeatureRow",
-        "FeaturesAnchorNav",
+        "EcosystemBand",
+        "FeatureGroups",
         "FeaturesHero",
         "FeaturesPageBody",
         "FinalCTA",
-        "GuestListMock",
-        "HTMLAnchorElement",
-        "HTMLElement",
+        "Fragment",
         "HowItWorks",
         "Icon",
+        "Image",
         "Link",
         "LocaleSwitch",
-        "MockShell",
-        "MoodBoardMock",
-        "OutsourcingPacing",
-        "PlanningToolkit",
-        "ScheduleMock",
-        "SeatingMock",
-        "StickyMobileCTA",
-        "VendorsLedger",
+        "OtherIcon",
         "WhySetnayan"
       ]
     },

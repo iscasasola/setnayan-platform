@@ -1,15 +1,10 @@
 import { FeaturesHero } from './_sections/_Hero';
-import { FeaturesAnchorNav } from './_sections/_AnchorNav';
+import { FeatureGroups } from './_sections/_FeatureGroups';
+import { EcosystemBand } from './_sections/_Ecosystem';
 import { WhySetnayan, WHY_FAQ } from './_sections/_WhySetnayan';
 import { HowItWorks } from './_sections/_HowItWorks';
-import { PlanningToolkit } from './_sections/_PlanningToolkit';
-import { Communications } from './_sections/_Communications';
-import { VendorsLedger } from './_sections/_VendorsLedger';
-import { DayOfApparatus } from './_sections/_DayOfApparatus';
-import { OutsourcingPacing } from './_sections/_OutsourcingPacing';
-import { Compliance } from './_sections/_Compliance';
 import { FinalCTA } from './_sections/_FinalCTA';
-import { StickyMobileCTA } from './_sections/_StickyMobileCTA';
+import { featuresHubItemList, SITE_URL } from '@/lib/feature-pages/seo';
 import {
   inLanguageTag,
   localeUrl,
@@ -23,10 +18,6 @@ import {
 // JSON-LD `inLanguage`/`url`. This is the "thin routes" half of the
 // dictionary + thin-routes localization architecture (owner, 2026-06-13).
 
-const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
-  /\/$/,
-  '',
-);
 
 /** EN + Taglish path pair for /features — used by both routes' metadata. */
 export const FEATURES_PATHS: LocalePaths = { en: '/features', tl: '/tl/features' };
@@ -81,6 +72,8 @@ function featuresJsonLd(locale: MarketingLocale) {
           { '@type': 'ListItem', position: 2, name: 'Features', item: url },
         ],
       },
+      // Every feature page, in the hub's order — from the one registry.
+      featuresHubItemList(locale),
     ],
   };
 }
@@ -92,25 +85,22 @@ export function FeaturesPageBody({ locale }: { locale: MarketingLocale }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(featuresJsonLd(locale)) }}
       />
-      <main className="min-h-dvh">
+      <main className="min-h-dvh pb-16">
+        {/* 2026-10-01 — THE HUB (DECISION_LOG "/FEATURES — THE FULL LIST" +
+            "SIDEBAR COLLAPSE + FEATURES PAGE — OWNER ANSWERS"). The six
+            numbered catalogue sections, the anchor-pill nav and the sticky
+            phone CTA are gone: the five groups below are rendered from the one
+            registry (`lib/feature-pages`), each feature linking to its own
+            page. Phone first — the first group starts in the top third. The
+            two framing sections folded in on 2026-09-01 (Why · How) stay,
+            after the map: the frame for a reader who wants it, below the
+            features for the one who came to see them. */}
         <FeaturesHero locale={locale} />
-        <FeaturesAnchorNav locale={locale} />
-        {/* The two framing sections, folded in 2026-09-01 from the retired
-            /why-setnayan and /how-it-works. They come BEFORE the numbered
-            catalogue deliberately: a reader needs the frame and the cast before
-            the inventory. Section NUMBERING was left alone — these are
-            orientation, not catalogue entries, so Sections 1–6 keep their
-            labels and six files stayed shut. */}
+        <FeatureGroups locale={locale} />
+        <EcosystemBand locale={locale} />
         <WhySetnayan locale={locale} />
         <HowItWorks locale={locale} />
-        <PlanningToolkit locale={locale} />
-        <Communications locale={locale} />
-        <VendorsLedger locale={locale} />
-        <DayOfApparatus locale={locale} />
-        <OutsourcingPacing locale={locale} />
-        <Compliance locale={locale} />
         <FinalCTA locale={locale} />
-        <StickyMobileCTA locale={locale} />
       </main>
     </>
   );

@@ -158,7 +158,7 @@ test('the sections exist — the guard cannot silently scan an empty directory',
       'wrong directory reads nothing and passes forever.',
   );
   // The registry must actually carry the pages — an empty registry scans clean.
-  assert.ok(FEATURE_PAGES.length >= 30, `only ${FEATURE_PAGES.length} feature pages in the registry`);
+  assert.ok(FEATURE_PAGES.length >= 18, `only ${FEATURE_PAGES.length} feature pages in the registry`);
 });
 
 test('/features makes no claim the app cannot keep', () => {

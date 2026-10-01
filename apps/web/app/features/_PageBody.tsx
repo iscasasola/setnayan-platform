@@ -89,7 +89,7 @@ export function FeaturesPageBody({ locale }: { locale: MarketingLocale }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(featuresJsonLd(locale)) }}
       />
-      <main className="min-h-dvh bg-cream pb-16">
+      <main className="min-h-dvh pb-16">
         {/* 2026-10-01 — THE HUB (DECISION_LOG "/FEATURES — THE FULL LIST" +
             "SIDEBAR COLLAPSE + FEATURES PAGE — OWNER ANSWERS"). The six
             numbered catalogue sections, the anchor-pill nav and the sticky

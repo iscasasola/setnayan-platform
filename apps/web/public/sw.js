@@ -151,6 +151,7 @@ function isDayOfGuestNavigation(url) {
     'site-editor',
     'suppliers',
     'sitemap-blog.xml',
+    'sitemap-features.xml',
     'sitemap-help.xml',
     'sitemap-static.xml',
     'sitemap-suppliers.xml',

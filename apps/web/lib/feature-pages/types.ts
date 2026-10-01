@@ -23,55 +23,24 @@ export type FeatureGroupKey = 'plan' | 'invite' | 'day' | 'memories' | 'supplier
  * page that does not exist is a TYPE error, not a 404 found by a visitor.
  */
 export const FEATURE_SLUGS = [
-  // Plan it
   'budget',
   'guest-list',
   'seat-plan',
   '3d-plan',
   'schedule',
-  'checklist',
-  'date-picker',
   'mood-board',
-  'traditions-guide',
-  'contracts',
   'marketplace',
   'compare',
   'setnayan-ai',
-  // Invite & gather
   'event-hub',
-  'save-the-date-video',
   'logo-maker',
-  'wedding-march',
-  'e-gifts',
   'music-maker',
   'groups',
-  'helpers',
-  // On the day
-  'door-check-in',
-  'run-the-day',
   'papic',
   'live-watch',
   'patiktok',
-  // Keep the memories
-  'gallery',
   'alaala',
   'real-stories',
-  // For suppliers
-  'supplier-shop',
-  'supplier-services',
-  'supplier-inquiries',
-  'supplier-bookings',
-  'supplier-contracts',
-  'supplier-earnings',
-  'supplier-performance',
-  'supplier-team',
-  'supplier-verified-badge',
-  'supplier-photo-watch',
-  'supplier-real-stories',
-  'supplier-partnerships',
-  'supplier-tax-documents',
-  'supplier-subscriptions',
-  'supplier-papic-challenges',
 ] as const;
 
 export type FeatureSlug = (typeof FEATURE_SLUGS)[number];

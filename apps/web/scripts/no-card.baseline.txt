@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 748 files · 2115 lines
+# 740 files · 2097 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -91,7 +91,6 @@
 1 apps/web/app/(shell)/realstories/page.tsx
 1 apps/web/app/[slug]/_components/day-of-announcement.tsx
 1 apps/web/app/[slug]/_components/day-of-banner.tsx
-2 apps/web/app/[slug]/_components/day-of-face-enroll.tsx
 1 apps/web/app/[slug]/_components/editorial/editorial-content.tsx
 2 apps/web/app/[slug]/_components/empty-states.tsx
 1 apps/web/app/[slug]/_components/face-receipt-card.tsx
@@ -105,7 +104,6 @@
 2 apps/web/app/[slug]/_components/photos-of-you-gallery.tsx
 1 apps/web/app/[slug]/_components/private-landing.tsx
 1 apps/web/app/[slug]/_components/public-event-day-bar.tsx
-4 apps/web/app/[slug]/_components/selfie-capture.tsx
 5 apps/web/app/[slug]/_components/site-body.tsx
 1 apps/web/app/[slug]/_components/site-menu-bar.tsx
 4 apps/web/app/[slug]/_components/song-request-card.tsx
@@ -195,7 +193,7 @@
 2 apps/web/app/admin/moodboard-renders/page.tsx
 1 apps/web/app/admin/operations-hiring/_components/smoke-test-panel.tsx
 1 apps/web/app/admin/page.tsx
-3 apps/web/app/admin/pakanta/page.tsx
+2 apps/web/app/admin/pakanta/page.tsx
 1 apps/web/app/admin/pakanta/pakanta-deliver.tsx
 2 apps/web/app/admin/papic-storage/backfill-tiles-button.tsx
 1 apps/web/app/admin/papic-storage/page.tsx
@@ -360,7 +358,7 @@
 1 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-link.tsx
 5 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx
 2 apps/web/app/dashboard/[eventId]/guests/new/page.tsx
-4 apps/web/app/dashboard/[eventId]/guests/page.tsx
+3 apps/web/app/dashboard/[eventId]/guests/page.tsx
 2 apps/web/app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx
 5 apps/web/app/dashboard/[eventId]/guests/souvenirs/_components/souvenir-desk.tsx
 3 apps/web/app/dashboard/[eventId]/guests/tea-ceremony/page.tsx
@@ -542,13 +540,7 @@
 3 apps/web/app/dashboard/[eventId]/website/widgets/page.tsx
 4 apps/web/app/download/_download-motion.tsx
 1 apps/web/app/download/page.tsx
-1 apps/web/app/features/_sections/_Communications.tsx
-1 apps/web/app/features/_sections/_Compliance.tsx
-1 apps/web/app/features/_sections/_DayOfApparatus.tsx
 2 apps/web/app/features/_sections/_HowItWorks.tsx
-1 apps/web/app/features/_sections/_OutsourcingPacing.tsx
-5 apps/web/app/features/_sections/_PlanningToolkit.tsx
-1 apps/web/app/features/_sections/_VendorsLedger.tsx
 3 apps/web/app/features/_sections/_WhySetnayan.tsx
 3 apps/web/app/help/_components/help-search.tsx
 1 apps/web/app/join/[eventId]/success/page.tsx

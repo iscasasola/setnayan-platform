@@ -34,7 +34,7 @@ export const FEATURE_GROUPS: readonly Readonly<{ key: FeatureGroupKey; name: Bi<
   { key: 'plan', name: { en: 'Plan it', tl: 'Planuhin' } },
   { key: 'invite', name: { en: 'Invite & gather', tl: 'Mag-imbita at magtipon' } },
   { key: 'day', name: { en: 'On the day', tl: 'Sa mismong araw' } },
-  { key: 'memories', name: { en: 'Keep the memories', tl: 'Itago ang mga alaala' } },
+  { key: 'memories', name: { en: 'Keep the memories', tl: 'Itago ang Memories' } },
   { key: 'suppliers', name: { en: 'For suppliers', tl: 'Para sa suppliers' } },
 ];
 
@@ -97,7 +97,7 @@ export const ECOSYSTEM_CHAINS: readonly Readonly<{
       en: 'One guest list feeds the invitation, the seats, the door and the photos.',
       tl: 'Iisang guest list ang pinagkukunan ng imbitasyon, upuan, pinto at mga litrato.',
     },
-    slugs: ['guest-list', 'event-hub', 'seat-plan', 'door-check-in', 'papic', 'gallery', 'alaala'],
+    slugs: ['guest-list', 'event-hub', 'seat-plan', 'papic', 'alaala'],
   },
   {
     name: { en: 'Your suppliers', tl: 'Ang mga supplier mo' },
@@ -105,7 +105,7 @@ export const ECOSYSTEM_CHAINS: readonly Readonly<{
       en: 'Find them, compare them, book them, and track every peso.',
       tl: 'Hanapin, ikumpara, i-book, at bantayan ang bawat piso.',
     },
-    slugs: ['marketplace', 'compare', 'contracts', 'budget', 'setnayan-ai'],
+    slugs: ['marketplace', 'compare', 'budget', 'setnayan-ai'],
   },
   {
     name: { en: 'Your day', tl: 'Ang araw mo' },
@@ -113,14 +113,6 @@ export const ECOSYSTEM_CHAINS: readonly Readonly<{
       en: 'One look and one timeline, carried from the plan to the party.',
       tl: 'Iisang itsura at iisang timeline, mula sa plano hanggang sa handaan.',
     },
-    slugs: ['mood-board', 'logo-maker', 'schedule', 'run-the-day', 'live-watch'],
-  },
-  {
-    name: { en: 'Your shop', tl: 'Ang shop mo' },
-    line: {
-      en: 'For suppliers: from your page to the payday, in one place.',
-      tl: 'Para sa suppliers: mula sa page mo hanggang sa sweldo, nasa isang lugar.',
-    },
-    slugs: ['supplier-shop', 'supplier-inquiries', 'supplier-bookings', 'supplier-contracts', 'supplier-earnings'],
+    slugs: ['mood-board', 'logo-maker', 'schedule', 'live-watch'],
   },
 ];

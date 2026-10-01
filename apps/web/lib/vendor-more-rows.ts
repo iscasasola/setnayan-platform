@@ -128,7 +128,6 @@ export const VENDOR_MORE_MATCH: readonly string[] = [
   '/vendor-dashboard/more',
   '/vendor-dashboard/performance',
   '/vendor-dashboard/demand',
-  '/vendor-dashboard/funnel',
   '/vendor-dashboard/on-the-day',
   '/vendor-dashboard/notifications',
 ];

@@ -1167,7 +1167,7 @@ export function checklistItemHref(
     // Design
     lock_theme: `${base}/studio/mood-board`,
     mood_board: `${base}/studio/mood-board`,
-    choose_favours: `${base}/design`,
+    choose_favours: `${base}/studio`,
     monogram: `${base}/monogram`,
     // Schedule
     schedule: `${base}/schedule`,

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4b0bba7d92",
-  "routeCount": 444,
-  "destinations": 970,
+  "generatedFromRef": "2715782128",
+  "routeCount": 432,
+  "destinations": 968,
   "actions": 683,
-  "blocks": 5404,
+  "blocks": 5395,
   "routes": {
     "/": {
       "files": [
@@ -3028,14 +3028,6 @@
         "SubmitButton"
       ]
     },
-    "/admin/marketing": {
-      "files": [
-        "admin/marketing/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/admin/menus": {
       "files": [
         "admin/menus/_components/menu-registry-editor.tsx",
@@ -3506,14 +3498,6 @@
       "files": [
         "admin/referrals/actions.ts",
         "admin/referrals/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
-    "/admin/refinements": {
-      "files": [
-        "admin/refinements/page.tsx"
       ],
       "destinations": [],
       "actions": [],
@@ -5724,14 +5708,6 @@
         "T"
       ]
     },
-    "/dashboard/[eventId]/design": {
-      "files": [
-        "dashboard/[eventId]/design/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/dashboard/[eventId]/details": {
       "files": [
         "dashboard/[eventId]/details/_components/details-form.tsx",
@@ -5862,14 +5838,6 @@
         "Link",
         "Shell"
       ]
-    },
-    "/dashboard/[eventId]/for-you": {
-      "files": [
-        "dashboard/[eventId]/for-you/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
     },
     "/dashboard/[eventId]/galleries": {
       "files": [
@@ -7567,15 +7535,6 @@
         "AddOnDetailView"
       ]
     },
-    "/dashboard/[eventId]/studio/animated-monogram": {
-      "files": [
-        "dashboard/[eventId]/studio/animated-monogram/loading.tsx",
-        "dashboard/[eventId]/studio/animated-monogram/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/dashboard/[eventId]/studio/editorial-pro": {
       "files": [
         "dashboard/[eventId]/studio/editorial-pro/page.tsx"
@@ -8533,15 +8492,6 @@
         "SuiteVignetteCard"
       ]
     },
-    "/dashboard/[eventId]/today": {
-      "files": [
-        "dashboard/[eventId]/today/loading.tsx",
-        "dashboard/[eventId]/today/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/dashboard/[eventId]/vendors": {
       "files": [
         "dashboard/[eventId]/vendors/_actions/bench-arrangement.ts",
@@ -9254,14 +9204,6 @@
         "WebsiteProLock"
       ]
     },
-    "/dashboard/[eventId]/website/launch": {
-      "files": [
-        "dashboard/[eventId]/website/launch/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/dashboard/[eventId]/website/living-hero": {
       "files": [
         "dashboard/[eventId]/website/living-hero/_components/living-hero-studio.tsx",
@@ -9610,14 +9552,6 @@
         "Value"
       ]
     },
-    "/explore/categories": {
-      "files": [
-        "explore/categories/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/features": {
       "files": [
         "features/_PageBody.tsx",
@@ -9808,20 +9742,6 @@
         "RequestSentScreen",
         "StartOver",
         "SubmitButton"
-      ]
-    },
-    "/join/[eventId]/check-email": {
-      "files": [
-        "join/[eventId]/check-email/page.tsx"
-      ],
-      "destinations": [
-        "/[seg]"
-      ],
-      "actions": [],
-      "blocks": [
-        "DoorNotice",
-        "DoorShell",
-        "Link"
       ]
     },
     "/join/[eventId]/connect/confirm": {
@@ -10606,24 +10526,6 @@
         "Link",
         "PrintButton",
         "SubmitButton"
-      ]
-    },
-    "/prototype/mesh-call": {
-      "files": [
-        "prototype/mesh-call/_components/mesh-room.tsx",
-        "prototype/mesh-call/page.tsx"
-      ],
-      "destinations": [
-        "/prototype/mesh-call?room=[seg]"
-      ],
-      "actions": [],
-      "blocks": [
-        "HTMLVideoElement",
-        "Link",
-        "MeshHandle",
-        "MeshRoom",
-        "MeshRoomState",
-        "PeerTile"
       ]
     },
     "/realstories/[slug]": {
@@ -11833,14 +11735,6 @@
         "WaivedFeeRows"
       ]
     },
-    "/vendor-dashboard/funnel": {
-      "files": [
-        "vendor-dashboard/funnel/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/vendor-dashboard/invite": {
       "files": [
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
@@ -13002,15 +12896,6 @@
         "StepperControl",
         "ToggleControl"
       ]
-    },
-    "/vendor-dashboard/tax-documents": {
-      "files": [
-        "vendor-dashboard/tax-documents/loading.tsx",
-        "vendor-dashboard/tax-documents/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
     },
     "/vendor-dashboard/team": {
       "files": [

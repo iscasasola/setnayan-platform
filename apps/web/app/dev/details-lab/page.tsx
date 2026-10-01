@@ -45,7 +45,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
   const pro = one('pro') === '1';
   const withLook = one('look') === '1';
   const profile = one('type') === 'wake' ? WAKE_PROFILE : one('type') === 'birthday' ? { ...GENERIC_PROFILE, eventType: 'birthday' } : WEDDING_PROFILE;
-  const themes = pickableInviteThemes({ mayShowStdFilm: true });
+  const themes = pickableInviteThemes();
   const stored = parsePrintDetails({ opening_line: 'Together with their families', include: undefined });
   const eventContext = { profile, solemn: profile === WAKE_PROFILE };
   const pabuyaMessage = 'Thank you for joining us — every gift is received with thanks.';
@@ -84,7 +84,6 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
               initial: fresh
                 ? [{ first: '', last: '' }, { first: '', last: '' }]
                 : [{ first: 'Claire', last: 'Buanhog' }, { first: 'Indalecio', last: 'Casasola' }],
-              keep: { region: '', feel: '' },
               wholeForm: null,
             }
           : null,

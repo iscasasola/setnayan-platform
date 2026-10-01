@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "08b13a12",
+  "generatedFromRef": "04722dc8",
   "routeCount": 443,
-  "destinations": 953,
+  "destinations": 954,
   "actions": 677,
-  "blocks": 5340,
+  "blocks": 5344,
   "routes": {
     "/": {
       "files": [
@@ -3046,6 +3046,7 @@
         "admin/money/page.tsx"
       ],
       "destinations": [
+        "/admin/payments?filter=all&q=[seg]",
         "/admin/receipts",
         "/receipts/[seg]"
       ],
@@ -3286,6 +3287,8 @@
         "ProofImage",
         "ReadFailedNotice",
         "ReceiptReadCard",
+        "RecordPaymentCard",
+        "RecordTarget",
         "RefundForm",
         "Stat",
         "SubmitButton"
@@ -3714,13 +3717,14 @@
         "savePaymentInstruments"
       ],
       "blocks": [
+        "AccountCard",
+        "AccountFields",
         "BackButton",
         "ChannelSwitch",
         "ConsoleTable",
         "Field",
         "FormFlash",
         "PageMasthead",
-        "QrUploadBlock",
         "QrUploadForm",
         "SubmitButton"
       ]
@@ -9087,6 +9091,7 @@
         "Measured",
         "MiniTour",
         "MoreExtras",
+        "NameStyle",
         "OpenBrowsePanel",
         "PaidMark",
         "PaletteLookRow",

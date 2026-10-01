@@ -13,8 +13,6 @@ import {
 import { resolveInviteGround } from '@/lib/invite-ground';
 import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
 import { resolveMonogram } from '@/lib/monogram';
-import { resolveProfile } from '@/lib/event-type-profile';
-import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 
 /**
  * hub-look.ts — WHICH THEME THIS EVENT IS WEARING, and the two things every
@@ -67,8 +65,7 @@ export type HubLookEvent = {
    * `_lib/editor-canvas.ts`). Set ONLY by `app/[slug]/page.tsx`, and only after
    * it verified the viewer hosts this event — never a column, never read from
    * a request. It lets a couple SEE a Pro theme on their own page before they
-   * own it: the ownership half of the gate is skipped, the wedding fence is
-   * still asked. Nothing is written; guests never meet it.
+   * own it: the ownership half of the gate is skipped. Nothing is written; guests never meet it.
    */
   theme_try_on?: boolean;
 };
@@ -103,19 +100,6 @@ export const websiteProActiveFor = cache(
     asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId)),
 );
 
-/** The Pro-theme gate's two reads, once per request, keyed on primitives. */
-const proThemeGate = cache(
-  async (eventId: string, eventType: string): Promise<[boolean, boolean]> =>
-    Promise.all([
-      websiteProActiveFor(eventId).catch(() => false),
-      resolveProfile(eventType)
-        .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
-        // A profile that cannot be read is not a wedding. An unmeasured type
-        // must fall to the free door, never open a paid one.
-        .catch(() => false),
-    ]),
-);
-
 /**
  * WHICH theme is live — everything `resolveHubLook` answers except the photo.
  *
@@ -134,15 +118,12 @@ export async function resolveHubTheme(event: HubLookEvent): Promise<Omit<HubLook
   const wanted = normalizeThemeId(saved);
   const wantsPro = wanted !== null && INVITE_THEMES[wanted].tier === 'pro';
 
-  const [owned, mayShowStdFilm] = wantsPro
-    ? await proThemeGate(event.event_id, event.event_type ?? '')
-    : [false, false];
+  const owned = wantsPro ? await websiteProActiveFor(event.event_id).catch(() => false) : false;
   // 🎨 A host's theme tile shows the theme as it WOULD look — ownership is the
-  // purchase question, not the look's; the fence (what this celebration may
-  // wear at all) still answers.
+  // purchase question, not the look's.
   const ownsPro = owned || event.theme_try_on === true;
 
-  const theme = resolveInviteTheme({ saved, ownsPro, mayShowStdFilm });
+  const theme = resolveInviteTheme({ saved, ownsPro });
   const mark = resolveMonogram({
     display_name: event.display_name,
     monogram_text: event.monogram_text ?? null,

@@ -102,8 +102,12 @@ test('the rail is written in the spelling the headroom meter can read', () => {
   // to measure how much room the receiving account has left this month.
   // 'GCash'/'BDO' scored every payment as ₱0 against the cap: the meter read
   // clear while the account filled up.
-  assert.match(actions, /channelRaw === 'bdo' \? 'bdo'/);
-  assert.match(actions, /channelRaw === 'gcash' \? 'gcash'/);
+  //
+  // ✏️ RE-ANCHORED 2026-10-01: the rails became a LIST, so the stored channel
+  // is the account's own id ('gcash', 'bdo', 'maribank-7k2q') — kept only when
+  // it names an account in the list, never a display label.
+  assert.match(actions, /receivingAccounts\(/);
+  assert.match(actions, /a\.id === channelRaw/);
   assert.equal((actions.match(/'GCash'|'BDO'/g) ?? []).length, 0);
 });
 

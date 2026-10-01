@@ -68,18 +68,18 @@ test('1 · Classic, Modern and Cyber Neon are free; Rustic and the rest are Pro'
 /* ══ 2 · PICK — and the guest page wears it ═════════════════════════════════ */
 
 test('2 · a free couple picks Modern and Cyber Neon, and their guests see them — any celebration', () => {
-  for (const mayShowStdFilm of [true, false]) {
-    const pickable = pickableInviteThemes({ mayShowStdFilm }).map((t) => t.id);
+  {
+    const pickable = pickableInviteThemes().map((t) => t.id);
     for (const id of NEWLY_FREE) {
-      assert.ok(pickable.includes(id), `${id} is not pickable (mayShowStdFilm=${mayShowStdFilm})`);
+      assert.ok(pickable.includes(id), `${id} is not pickable`);
       // The one theme rule the guest page, the door and the poster all ask.
-      assert.equal(resolveInviteTheme({ saved: id, ...FREE_COUPLE, mayShowStdFilm }), id, `${id} fell back to Classic`);
+      assert.equal(resolveInviteTheme({ saved: id, ...FREE_COUPLE }), id, `${id} fell back to Classic`);
     }
     // Rustic without the unlock is still Classic on the page.
-    assert.equal(resolveInviteTheme({ saved: 'abaca', ...FREE_COUPLE, mayShowStdFilm }), 'house', 'Rustic leaked without Pro');
+    assert.equal(resolveInviteTheme({ saved: 'abaca', ...FREE_COUPLE }), 'house', 'Rustic leaked without Pro');
   }
   // The onboarding feel "modern" now suggests Modern to a couple without Pro.
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ...FREE_COUPLE, mayShowStdFilm: true }), 'galeriya');
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ...FREE_COUPLE }), 'galeriya');
   // The store shell hides the Pro doors — never a free theme.
   const shown = tilesShown(HUB_THEMES, { ownsPro: false, storeShell: true, current: 'house' }).map((t) => t.id);
   for (const id of NEWLY_FREE) assert.ok(shown.includes(id), `${id} hidden in the store shell`);

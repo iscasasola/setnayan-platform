@@ -86,9 +86,7 @@ export const MAX_BUDGET_PESOS = 100_000_000;
  * defense-in-depth) so the two never drift — mirrors the onboarding
  * name-screen rule in onboarding-shell.tsx.
  */
-export function sanitizeName(raw: string): string {
-  return (raw || '').replace(/[^\p{L}\s'-]/gu, '');
-}
-
-/** Per-field name length cap (matches the form input maxLength). */
-export const MAX_NAME_LEN = 80;
+/* The rule itself lives in `lib/typed-names.ts` (2026-10-01) — import-free, so
+   the Event Hub draft's sanitizer reads the SAME rule without pulling the
+   region list in. Re-exported here for every existing importer. */
+export { sanitizeName, MAX_NAME_LEN } from './typed-names';

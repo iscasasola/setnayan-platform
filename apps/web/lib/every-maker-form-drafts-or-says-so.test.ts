@@ -406,14 +406,10 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<HubSavesImmediately\s*\/>[\s{}]*<PabuyaMessageEditor\b/, 'the thank-you message is the E-Gifts message, written live'],
   // (The Pro QR left this list on 2026-09-29: Shape · Pattern · Colour are
   // DRAFTED now — owner "yes to all 3" — held by the test below.)
-  // Details part 2a · Your event (2026-09-29): the event's facts, each through
-  // its own screen's writer, none with a draft door — names
-  // (updateEventMatchCriteria), the date (GovernedFields → updateEventDate),
-  // the typed venue names (saveAllStdContent) and the march's order (the Guest
-  // list's own island).
-  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-names=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the names write live and must say so'],
-  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-one-name=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'a one-person name writes live and must say so'],
-  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /<\/Suspense>\s*\)\}[\s{}]*<HubSavesImmediately\b/, 'the date writes live and must say so'],
+  // Details part 2a · Your event (2026-09-29): the event's facts — the typed
+  // venue names (saveAllStdContent) and the march's order (the Guest list's own
+  // island) write live. (The names and the date left this list on 2026-10-01:
+  // they are DRAFTED now — owner "wait for apply" — held by the test below.)
   ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-venues=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the venue names write live and must say so'],
   ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-section-controls=\{key\}[^>]*>[\s{}]*<HubSavesImmediately \/>/, 'a march section writes live and must say so'],
   ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-line-controls=[\s\S]*?<HubSavesImmediately \/>[\s{}]*<\/section>/, 'a march line writes live and must say so'],
@@ -432,6 +428,21 @@ test('🔳 the QR look is a DRAFT door now — no live write, no "Saves immediat
     /<QrLookControls\b[^<]*?\/>[\s{}]*<HubSavesImmediately\b/,
     'a drafted control says it saves immediately',
   );
+});
+
+test('✍ the names and the date are DRAFT doors now — no "Saves immediately" beside them, and they say when guests see them', () => {
+  const editors = read('app/dashboard/[eventId]/launch/_components/details-your-event.tsx');
+  for (const [anchor, what] of [
+    [/data-details-names=""[\s\S]*?<\/section>/, 'the names'],
+    [/data-details-one-name=""[\s\S]*?<\/section>/, 'a one-person name'],
+    [/data-details-date=""[\s\S]*?<\/section>/, 'the date'],
+  ] as const) {
+    const block = anchor.exec(editors)?.[0] ?? '';
+    assert.ok(block.length > 0, `${what}: its editor is gone`);
+    assert.doesNotMatch(block, /<HubSavesImmediately\b/, `${what} is drafted but says it saves immediately`);
+  }
+  assert.match(editors, /const DRAFTED = 'Saved — guests see it when you Apply';/);
+  assert.match(editors, /Guests see a new date when you Apply\./);
 });
 
 test('controls that write without a form of their own say "Saves immediately" beside them', () => {

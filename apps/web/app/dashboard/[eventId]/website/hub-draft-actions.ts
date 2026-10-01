@@ -33,7 +33,13 @@
  *             the Apply sheet's ×. Recomputed here from the stored draft.
  *
  * Address, who can view, what guests get and open browsing are NOT drafted —
- * they stay live (the build plan's rule), in `editor/actions.ts`.
+ * they stay live (the build plan's rule), in `editor/actions.ts`. The NAMES
+ * and the DATE typed in the Maker ARE (owner 2026-10-01, "wait for apply";
+ * `HUB_DRAFT_FACT_COLUMNS`), and Apply asks the date's own gates.
+ *
+ * ⛔ A SAVE NEVER TOUCHES `events`: `intent === 'save'` writes the draft row
+ * and nothing else (`tap-to-type-is-instant.test.ts` holds that on source,
+ * `a-typed-name-and-date-wait-for-apply.db.test.ts` on the schema).
  *
  * 🔑 APPLY IS IDEMPOTENT. A key equal to live is not written, and the draft is
  * only trimmed after every write succeeded — so if a write fails half-way the
@@ -46,9 +52,6 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
-import { resolveProfile } from '@/lib/event-type-profile';
-import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { lookProAllows } from '@/lib/hub-look-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -66,6 +69,7 @@ import {
   HUB_DRAFT_TOO_LARGE_MESSAGE,
   HubDraftTooLargeError,
   emptyHubDraft,
+  hubDraftFactOf,
   hubDraftItemLabel,
   hubResetPatch,
   isHubDraftIntent,
@@ -96,6 +100,7 @@ import { storyProExtrasOf } from '@/lib/story-pro-extras';
 import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraft } from '@/lib/fixed-scene-styles';
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { postEventPreset } from '@/lib/post-event-presets';
+import { CONFIRMED_VENDOR_STATUSES, eventDateChangeIsGoverned, eventDatePrecisionOf, eventDateRefusal } from '@/lib/events';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -257,22 +262,6 @@ export async function hubDraftAction(
        pictures, a closed list — owner 2026-09-29, answer 3). */
     const sceneIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix) || isStdLibrarySrc(ref);
 
-    /* 🎨 A DRAFTED PRO THEME ASKS THE WEDDING FENCE (owner Q7 = A) — the
-       reveal's own answer, `resolveWeddingOnlyParts(p).save_the_date_film`,
-       asked only when a Pro theme is about to be written. The picker never
-       offers one where the fence is shut; a draft is a public POST, so it is
-       asked again here. An unreadable profile is not a wedding. */
-    const draftedTheme = plan.apply.find(
-      (i): i is Extract<HubDraftItem, { kind: 'event' }> => i.kind === 'event' && i.column === 'invite_theme',
-    );
-    const draftedThemeId = draftedTheme ? normalizeThemeId(draftedTheme.value) : null;
-    const themeFenceOpen =
-      draftedThemeId !== null && INVITE_THEMES[draftedThemeId].tier === 'pro'
-        ? await resolveProfile(String(ownRow.event_type ?? ''))
-            .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
-            .catch(() => false)
-        : true;
-
     /* 💎 THE LAST THREE PRO TOOLS (owner 2026-09-29, "yes to all 3"). A drafted
        song, hero video or gallery photo is a public POST like any other, so
        each NEW ref must be an upload into THIS event's own folder — the rule
@@ -286,18 +275,48 @@ export async function hubDraftAction(
       return refs.every((r) => liveRefs.has(r) || parseClientRef(r, eventMediaPolicy(eventId)) !== null);
     };
 
+    /* 🗓 A DRAFTED DATE ASKS `updateEventDate`'S OWN GATES (owner 2026-10-01,
+       "wait for apply": a date typed in the Maker is drafted, so the rules its
+       live writer asks are asked HERE, against live, at the moment it would go
+       live) — never a day gone by; a booked supplier's date never moves. ONE
+       rule (`eventDateRefusal`, lib/events.ts). A refused date STAYS in the
+       draft and is said by name. The supplier count is read fail-CLOSED: an
+       unread count is not "no suppliers". */
+    const isDateItem = (i: HubDraftItem) => i.kind === 'event' && (i.column === 'event_date' || i.column === 'event_date_precision');
+    let dateHeld: HubDraftRefusal | null = null;
+    if (plan.apply.some(isDateItem)) {
+      const priorDate = { date: (live.events.event_date as string | null | undefined) ?? null, precision: live.events.event_date_precision };
+      const nextDate = {
+        date: 'event_date' in current.events ? ((current.events.event_date as string | null) ?? null) : priorDate.date,
+        precision:
+          eventDatePrecisionOf('event_date_precision' in current.events ? current.events.event_date_precision : priorDate.precision) ?? 'day',
+      };
+      let confirmed = 0;
+      if (eventDateChangeIsGoverned(priorDate, nextDate)) {
+        const { count, error: countErr } = await supabase
+          .from('event_vendors')
+          .select('vendor_id', { count: 'exact', head: true })
+          .eq('event_id', eventId)
+          .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+        if (countErr) return { ok: false, intent, error: 'Could not check your booked suppliers. Nothing was applied.' };
+        confirmed = count ?? 0;
+      }
+      const refusal = eventDateRefusal(priorDate, nextDate, confirmed);
+      dateHeld = refusal === 'in_past' ? 'date_in_past' : refusal ? 'date_locked' : null;
+    }
+
     const toWrite: HubDraftItem[] = [];
     for (const item of plan.apply) {
+      if (dateHeld && isDateItem(item)) {
+        held.push({ item, reason: dateHeld });
+        continue;
+      }
       if (
         item.kind === 'event' &&
         (item.column === 'site_bg_music_r2_key' || item.column === 'landing_page_hero_video_r2_key' || item.column === 'our_photos') &&
         !newMediaIsOwn(item.column, item.value)
       ) {
         held.push({ item, reason: 'not_your_photo' });
-        continue;
-      }
-      if (item.kind === 'event' && item.column === 'invite_theme' && !themeFenceOpen) {
-        held.push({ item, reason: 'not_for_this_celebration' });
         continue;
       }
       if (item.kind === 'event' && item.column === 'landing_page_hero_image_url' && item.value !== null) {
@@ -613,6 +632,9 @@ export async function hubDraftAction(
     revalidateWebsiteEditor(eventId);
     revalidateGuestSite(typeof ownRow.slug === 'string' ? ownRow.slug : null);
     revalidatePath(`/dashboard/${eventId}/launch`);
+    /* ✍ The names and the date are read by every dashboard page's chrome (and
+       Home's countdown) — the same revalidation their live writers make. */
+    if (toWrite.some((i) => i.kind === 'event' && hubDraftFactOf(i.column))) revalidatePath(`/dashboard/${eventId}`, 'layout');
 
     /* 🎞 A held Post Event preset scene is named by its preset, where it lives —
        "Post Event · your scene “The Toast”" — so the Apply sheet can say what
@@ -623,12 +645,13 @@ export async function hubDraftAction(
       const preset = postEventPreset(presetSceneOf(drafted !== undefined ? (drafted ?? {}) : sanitizeHubCanvas(row?.config_json)));
       return preset ? `Post Event · your scene “${preset.name}”` : (WIDGET_CATALOG_BY_TYPE[t]?.label ?? 'A section');
     };
+    // A fact held across several columns (the date's day and precision) is said once.
+    const heldSaid = held
+      .map(({ item, reason }) => ({ label: hubDraftItemLabel(item, label), reason }))
+      .filter((h, i, all) => all.findIndex((o) => o.label === h.label && o.reason === h.reason) === i);
     return done(
       toWrite.length,
-      [
-        ...held.map(({ item, reason }) => ({ label: hubDraftItemLabel(item, label), reason })),
-        ...plan.orphans.map((t) => ({ label: label(t), reason: 'missing_section' as const })),
-      ],
+      [...heldSaid, ...plan.orphans.map((t) => ({ label: label(t), reason: 'missing_section' as const }))],
     );
   } catch (e) {
     console.error('[hub-draft] action failed:', intent, e instanceof Error ? e.message : e);

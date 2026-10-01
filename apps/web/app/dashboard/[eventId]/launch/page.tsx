@@ -1094,9 +1094,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          line of wording — each read from its one home. A PAGE in the Maker's
          body (owner 2026-09-25): what the details feed is the page, these
          fields its controls. */
-      /* 🎨 THE THEME PICKER (owner 2026-09-28) — the ten, fenced to what this
-         celebration may wear (weddings only for the Pro ones, owner Q7 = A: an
-         unreadable profile is NOT a wedding), Pro as `printPro` measured it,
+      /* 🎨 THE THEME PICKER (owner 2026-09-28) — the ten, for every
+         event type (Pro ones still Pro — DECISION_LOG 2026-10-01 "PRO THEMES
+         OPEN TO EVERY EVENT TYPE"), Pro as `printPro` measured it,
          and the one the couple is editing through the one theme rule. */
       const mayShowStdFilm = await resolveProfile(printEvent.event_type ?? '')
         .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
@@ -1104,12 +1104,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // 💎 On the web a drafted Pro theme is the one being edited even without
       // Pro — it is tried here and held at Apply (owner 2026-09-28, #6091). The
       // shell keeps the ownership half of the gate.
-      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell, mayShowStdFilm });
+      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell });
       /* 🎂 The celebration's type decides Details' items and switches (DECISION_LOG
          "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
          unreadable profile is the generic one — never a wedding. */
       const detailsProfile = await resolveProfile(printEvent.event_type ?? '').catch(() => GENERIC_PROFILE);
-      const themes = pickableInviteThemes({ mayShowStdFilm });
+      const themes = pickableInviteThemes();
       /* 🖨 THE COUPLE'S OWN PRINTS, folded in from Prints & Tickets (owner
          2026-09-28: "1 fold prints and tickets into details") — drawn in the
          theme being edited; the access is part of each picture's cache key. */
@@ -1167,6 +1167,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         parentCount: printParents.length,
         hostCount: rsvpHosts.length,
         helpFirst: one(search.date) === 'help',
+        // ✍ The names and the date as the couple is editing them (drafted until Apply).
+        drafted: draftedEvents,
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;
@@ -1422,7 +1424,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               current: themeCurrent,
               ownsPro: printPro,
               storeShell,
-              suggested: themeMatchingFeel(feelRes.data?.mood_feel_key, { mayShowStdFilm }),
+              suggested: themeMatchingFeel(feelRes.data?.mood_feel_key),
               sampleVersion,
               blurbs: Object.fromEntries(themes.map((t) => [t.id, INVITE_THEMES[t.id].blurb])),
               // Each theme's SAVED poster (already on R2) — the gallery's picture until a page is there.

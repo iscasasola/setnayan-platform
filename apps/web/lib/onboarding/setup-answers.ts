@@ -76,13 +76,23 @@ export type SetupView = {
   skin: 'wedding' | 'party' | 'quiet' | 'casual';
 };
 
+/**
+ * The look onboarding PRE-SELECTS: the first FREE look in the type's list,
+ * never a Pro one (owner 2026-10-01, DECISION_LOG "ONBOARDING PRE-SELECTS A
+ * FREE THEME"). A Pro look stays pickable (◆) — it is only never the default.
+ * Only if no free look is offered at all does the list's first stand.
+ */
+export function defaultLookId(view: Pick<SetupView, 'looks'>): string {
+  return (view.looks.find((l) => !l.pro) ?? view.looks[0])?.id ?? 'house';
+}
+
 /** Every answer pre-filled with the type's default — the default IS an answer. */
 export function setupDefaults(view: SetupView): SetupAnswers {
   return {
     where: null,
     whereText: '',
     photo: 'theme',
-    look: view.looks[0]?.id ?? 'house',
+    look: defaultLookId(view),
     reply: view.replyDefault,
     // The easiest door (owner answer #5, 2026-10-01): one QR for everyone.
     entry: 'one_qr',

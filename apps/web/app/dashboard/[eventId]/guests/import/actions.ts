@@ -118,8 +118,14 @@ export async function importGuestsCsv(
       .update(r.patch!)
       .eq('guest_id', r.guestId!)
       .eq('event_id', eventId);
-    if (error) failed += 1;
-    else {
+    if (error) {
+      failed += 1;
+      console.error(
+        '[supabase-error] app/dashboard/[eventId]/guests/import/actions.ts · from:guests.update (import re-upload patch)',
+        error,
+        { event_id: eventId, guest_id: r.guestId },
+      );
+    } else {
       updated += 1;
       if (r.patch!.plus_one_count !== undefined) reseat.push(r.guestId!);
     }

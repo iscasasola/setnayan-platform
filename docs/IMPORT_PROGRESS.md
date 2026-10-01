@@ -22,3 +22,6 @@ Guard: apps/web/lib/guest-import-file.test.ts (run from apps/web: `npx tsx --tes
 - All 4 steps + housekeeping are CODED and pushed. PR #6225 stays DRAFT + `do-not-auto-merge`.
 - CI on the commit before the last failed only on `role-names-reach-every-screen` — fixed in "import reads and shows the couple's own role words". CI for that head was still running at handoff: check `gh pr checks 6225`; if green → `gh pr ready 6225` (keep the label, never merge).
 - Not browser-checked yet (needs a signed-in event): open /dashboard/<eventId>/guests/import on a phone, download the file, upload the CSV, see the preview, Save.
+
+## CI fix (2026-10-01)
+- Required check "typecheck + lint" failed on one db test, `ugat-both-ends` ("result-dropped-silently": the re-upload `guests.update` in import/actions.ts counted the failure but kept no reason). Fixed by logging the Supabase error with `[supabase-error]` + event/guest ids; the user-facing "skipped" count is unchanged. No baseline touched.

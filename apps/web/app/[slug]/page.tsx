@@ -72,7 +72,6 @@ import {
   publishSaveTheDate,
 } from '@/lib/launch-save-the-date';
 import { publicTicketUrl } from '@/lib/ticket-url';
-import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -761,15 +760,15 @@ async function InvitationBody({
   // SCHEDULED launch (owner 2026-06-28): if the couple set a future go-live and
   // that moment has passed, the page reads as 'public' right now — visibility is
   // exact at the scheduled instant. Cron-free (no timer flips the row): we
-  // persist the flip + push Save-the-Date emails AFTER the response, on this
-  // first load past the schedule. Idempotent — once visibility is 'public' the
-  // branch never re-fires, and per-guest guests.std_sent_at guards the emails.
+  // persist the flip AFTER the response, on this first load past the schedule.
+  // Idempotent — once visibility is 'public' the branch never re-fires. No email
+  // goes to guests (owner 2026-09-29 / 2026-10-02): the page and link are the
+  // save-the-date.
   if (isScheduledLaunchDue(event)) {
     after(async () => {
       try {
         const published = await publishSaveTheDate(admin, event.event_id);
         if (published?.slug) revalidatePath(`/${published.slug}`);
-        await fanOutSaveTheDateEmails(event.event_id);
       } catch {
         /* best-effort — the page already renders public this request */
       }

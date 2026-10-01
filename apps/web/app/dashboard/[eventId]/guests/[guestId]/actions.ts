@@ -429,7 +429,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     // a host correcting a phone number, so an ordinary edit does not throw four
     // public caches away.
     .select(
-      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, photo_consent, face_recognition_excluded, email, first_name, display_name, passed_away',
+      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, photo_consent, face_recognition_excluded, passed_away',
     )
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
@@ -651,49 +651,15 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   }
 
   /**
-   * FaceBlock switched OFF by somebody who is not the guest — TELL THEM.
+   * FaceBlock switched OFF by somebody who is not the guest — NO EMAIL.
    *
-   * Owner ruling 4 of 2026-08-17. It exists because ruling 3 lets EITHER side
-   * move this switch: the couple can undo a guest's own choice. That was put to
-   * the owner as a risk and he took it deliberately — on the condition that the
-   * person it is about finds out from us, and not by seeing their own face on a
-   * screen at the reception.
-   *
-   * ⚖ ONLY on the ON → OFF transition, and only when the previous value was
-   * genuinely read. `prevGuest` is null on a failed read, and `?? false` would
-   * turn that into "it was off" and silently skip the notice on every save. The
-   * explicit `=== true` means an unreadable prior state sends nothing rather
-   * than sending something false — this is a message about somebody's face, and
-   * a wrong one is worse than none.
-   *
-   * Best-effort and after() — a mail failure must never block the couple's save.
+   * Owner ruling 4 of 2026-08-17 had the guest told by email on the ON → OFF
+   * transition. REMOVED 2026-10-02 (DECISION_LOG "FIVE AUDIT QUESTIONS
+   * ANSWERED" #1, on top of 2026-09-29 "No email. Either use the qr and link
+   * only"): the face-unblur notice to a guest is stopped, and the send code is
+   * deleted rather than left dormant. The guest's own switch ("Blur my face on
+   * the screens", on their invitation page) is unchanged and still reachable.
    */
-  const blurWasOn = (prevGuest as { faceblock_enabled?: boolean } | null)?.faceblock_enabled === true;
-  if (blurWasOn && !faceblock_enabled) {
-    const prev = prevGuest as { email?: string | null; first_name?: string | null; display_name?: string | null } | null;
-    const guestEmail = (prev?.email ?? '').trim();
-    if (guestEmail) {
-      after(async () => {
-        try {
-          const { sendEmail } = await import('@/lib/email');
-          const who = (prev?.display_name || prev?.first_name || 'there').trim();
-          await sendEmail({
-            to: guestEmail,
-            subject: 'Your face is no longer blurred on the event screens',
-            text:
-              `Hi ${who},\n\n` +
-              'Your face was set to be blurred on the screens at this event. ' +
-              'The organiser has switched that off, so your face can now appear on them.\n\n' +
-              'If you would rather stay blurred, you can turn it back on yourself ' +
-              'from your invitation page at any time — look for "Blur my face on the screens".\n\n' +
-              'Setnayan',
-          });
-        } catch {
-          /* best-effort: the couple's save must never fail on a mail hiccup */
-        }
-      });
-    }
-  }
 
   // Phase 2 (person-graph · flag-off in prod): naming a bride/groom may complete
   // the SPOUSE connection PROPOSAL (once both principals resolve to a person).

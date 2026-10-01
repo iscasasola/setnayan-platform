@@ -88,7 +88,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "public",
     area: "marketing-site-nav",
     route: "/blog",
-    label: "Journal",
+    label: "Articles",
     labelKind: "literal",
     iconKind: "none",
     lucideName: null,

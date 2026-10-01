@@ -23,7 +23,7 @@
  * Verified before choosing it: `app/[slug]/page.tsx` returns
  * `robots: { index: false, follow: false }` with name-free metadata for any
  * non-public visibility, `lib/public-profile.ts` gates the aggregate surfaces
- * on `=== 'public'`, and `lib/save-the-date-emails.ts` refuses to fan out
+ * on `=== 'public'`, and the (removed) save-the-date fan-out used to refuse to fan out
  * unless `public`. Defaulting to `public` would silently convert a paid reveal
  * into a mailing button.
  *

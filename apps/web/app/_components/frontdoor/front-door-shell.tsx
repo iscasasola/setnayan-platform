@@ -1897,7 +1897,7 @@ export function FrontDoorShell({
             <Link href="/download">Download</Link>
             <Link href="/blog">Articles</Link>
             <Link href="/creators">For storytellers</Link>
-            <Link href="/vendors">For suppliers</Link>
+            <Link href="/for-suppliers">For suppliers</Link>
             <div className="fd-copy">© 2026 Setnayan</div>
             <div className="fd-tag2">Set na &rsquo;yan — that&rsquo;s all set.</div>
           </div>

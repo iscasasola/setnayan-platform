@@ -85,6 +85,18 @@ test('it states the public-visibility rule itself, not trusting the caller’s R
   }
 });
 
+// 2026-09-30 · the two trial shops became `is_demo = true` (DECISION_LOG
+// 2026-09-29 "LANE 2 §2C" (1)). They are fully verified, so without these two
+// clauses the flag changes nothing on the marketplace body.
+// SABOTAGE: drop either `.eq(…is_demo…)` → RED.
+test('🧪 it never lists a demo card or a demo shop\'s card', async () => {
+  const { calls } = await run({});
+  const eqs = calls.filter((c) => c.fn === 'eq').map((c) => `${c.args[0]}=${c.args[1]}`);
+  for (const expected of ['is_demo=false', 'vendor_profiles.is_demo=false']) {
+    assert.ok(eqs.includes(expected), `missing demo clause: ${expected}\ngot: ${eqs.join(' · ')}`);
+  }
+});
+
 test('category is a FILTER, applied only when asked for', async () => {
   const without = await run({});
   assert.ok(

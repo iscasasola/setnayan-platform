@@ -66,6 +66,27 @@ export const PRICE_BAND_REFILL_GAP_MS = 12 * 60 * 60 * 1000;
 export const GUEST_REMINDER_GAP_MS = 6 * 60 * 60 * 1000;
 
 /**
+ * The face-tagging selfie is erased when the event's Papic closes — twelve hours
+ * after the event ends (owner 2026-09-30, DECISION_LOG "FACE DATA: THREE OWNER
+ * ANSWERS"). Half an hour: the close is an instant a guest was promised, so the
+ * erase must not trail it by a day, and when nothing is due the body is two
+ * indexed reads.
+ *
+ * 🔑 DECLARED HERE, IMPORTED BY `face-selfie-erase.ts` — same direction as
+ * `PRICE_BAND_REFILL_GAP_MS`, so this registry never drags `server-only` in.
+ */
+export const FACE_SELFIE_PAPIC_CLOSE_GAP_MS = 30 * 60 * 1000;
+
+/**
+ * The one end-of-event face rescan (owner 2026-09-30, "2. a") runs in slices —
+ * a photo cap and a time budget per run (lib/face-rescan.ts) — and must finish
+ * inside the 12 hours between the event ending and Papic closing. Five minutes
+ * between slices: ~120 photos a slice is ~1,400 an hour at full traffic, and
+ * when nothing is due the body is one indexed read.
+ */
+export const FACE_RESCAN_GAP_MS = 5 * 60 * 1000;
+
+/**
  * How long after a claim a run may still legitimately be in flight.
  *
  * A job body runs inside a Vercel `after()` budget, measured in seconds to a
@@ -144,6 +165,20 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'retention',
     gapMs: WEEKLY_GAP_MS,
     what: 'Face-recognition data deleted 3 months after the event ends',
+    reportsCount: true,
+  },
+  {
+    key: 'face-selfie-papic-close',
+    kind: 'retention',
+    gapMs: FACE_SELFIE_PAPIC_CLOSE_GAP_MS,
+    what: "A guest's face-tagging selfie erased when the event's Papic closes, 12 hours after the event ends (tags stay)",
+    reportsCount: true,
+  },
+  {
+    key: 'face-rescan-after-event',
+    kind: 'operational',
+    gapMs: FACE_RESCAN_GAP_MS,
+    what: "The one face rescan after an event ends: every photo checked against the guests who registered a selfie, before Papic closes",
     reportsCount: true,
   },
   {
@@ -314,7 +349,7 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     key: 'oauth-refresh',
     kind: 'operational',
     gapMs: 60 * 60 * 1000,
-    what: 'Renewal of the Google connections (YouTube, Drive, Live Studio)',
+    what: 'Renewal of the Google connections (YouTube, Drive, Live Watch)',
     reportsCount: true,
   },
   {

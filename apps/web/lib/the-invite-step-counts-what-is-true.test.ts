@@ -183,34 +183,37 @@ test('the column has EXACTLY ONE writer — zero froze the number, two would fak
   );
 });
 
-test('the Invite step reports the link, not a phantom count', () => {
-  const rel = 'app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx';
-  const code = strip(readFileSync(join(WEB, rel), 'utf8'));
+// ⤷ 2026-09-30 (the Fable rows): the phone's Build → Invite → … ribbon left the
+// list. Its two honesty rules carry over to what replaced it:
 
-  const step = code.match(/\{\s*key:\s*'invite'[\s\S]*?\},/);
-  assert.ok(step, `${rel} no longer defines an 'invite' step in the ribbon.`);
-
-  assert.ok(
-    /inviteLinkReady/.test(step![0]),
-    `The Invite step no longer reports whether the link works: ${step![0]}`,
-  );
-  assert.ok(
-    !/\bunsent\b/.test(step![0]),
-    `The Invite step is badging "unsent" again — the count that could never ` +
-      `fall: ${step![0]}`,
+test('"to invite" counts a column that has a writer — so it can fall', () => {
+  const page = strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/page.tsx'), 'utf8'));
+  const at = page.indexOf('const toInvite = guests.filter(');
+  assert.ok(at > 0, 'the counts line lost its "to invite"');
+  assert.match(page.slice(at, at + 400), /!g\.invitation_sent_at/, '"to invite" no longer reads the sent stamp');
+  // …and that stamp HAS its one writer (the per-guest Invite), pinned above.
+  assert.match(
+    strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/invitation/actions.ts'), 'utf8')),
+    /\.update\(\{ invitation_sent_at: sentAt \}\)/,
   );
 });
 
-test('an unmeasured link never paints a warning', () => {
-  const rel = 'app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx';
-  const code = strip(readFileSync(join(WEB, rel), 'utf8'));
-  assert.match(
-    code,
-    /inviteLinkReady\s*=\s*true\s*,/,
-    'inviteLinkReady must default TRUE. A caller that has not measured must ' +
-      'not paint "link not working" over a link that is probably fine — ' +
-      'absence of a measurement is not a fault. (The opposite direction is ' +
-      'chosen elsewhere on purpose, e.g. canOpenShop fails closed, because ' +
-      'there being wrong is permanent.)',
+test('the event link is offered only when it works — never a dead "Share the link"', () => {
+  /* ⤷ 2026-09-30 (Fix E): the phone's own "Share the link" button (and, before
+     it, the Invite step's "link not working" badge) left with the phone-only
+     head. One door remains at every width — the roster's "Share the link" tab —
+     and it opens the invite panel, which hands out the link ONLY when
+     `sharedJoinLinkState` says it is usable and otherwise names the real reason
+     (no address yet · private · switched off). Measured 2026-09-30 on the
+     owner's 2-guest event: the badge was TRUE — the event is private and never
+     launched, so the link answered "Link not found". */
+  const panel = strip(
+    readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx'), 'utf8'),
   );
+  assert.match(panel, /\{joinUrl && inviteLink\.usable \? \(/, 'the panel hands out a link without asking whether it works');
+  assert.match(panel, /inviteLink\.notice \?\?/, 'the panel stopped naming why the link does not work');
+  // The page's own copy of the link (the after-the-event Share menu) is null
+  // whenever the same rule says no.
+  const page = strip(readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/page.tsx'), 'utf8'));
+  assert.match(page, /!sharedJoinLinkState\(\{[\s\S]{0,600}?\}\)\.usable\s*\)\s*\{\s*return null;/, 'fetchJoinUrl hands out a link the rule refused');
 });

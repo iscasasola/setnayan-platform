@@ -183,6 +183,25 @@ const SOFT_DEFAULTS: SoftColumns = {
 export async function fetchPlatformSettings(
   supabase: SupabaseClient,
 ): Promise<PlatformSettingsRow> {
+  return (await fetchPlatformSettingsMeasured(supabase)).settings;
+}
+
+/**
+ * fetchPlatformSettings, plus WHETHER THE READ HAPPENED.
+ *
+ * FALLBACK is the right answer for a receipt or a checkout page — degrade, do
+ * not crash. It is the WRONG answer for an admin FORM seeded from it: a refused
+ * read fills the BDO / GCash / business-identity inputs with blanks, and one
+ * press of Save writes those blanks over the real account details that every
+ * order page reads. So the editing surfaces call this instead and, when
+ * `readFailed`, say so and disable Save (reads-are-honest, 2026-09-30).
+ *
+ * `readFailed` is true ONLY for a refused read. A missing row is not a failure:
+ * there is nothing real to overwrite, so saving is how the row gets made.
+ */
+export async function fetchPlatformSettingsMeasured(
+  supabase: SupabaseClient,
+): Promise<{ settings: PlatformSettingsRow; readFailed: boolean }> {
   const { data, error } = await supabase
     .from('platform_settings')
     .select(SELECT)
@@ -190,9 +209,9 @@ export async function fetchPlatformSettings(
     .maybeSingle();
   if (error) {
     logQueryError('platform-settings: fetchPlatformSettings', error);
-    return FALLBACK;
+    return { settings: FALLBACK, readFailed: true };
   }
-  if (!data) return FALLBACK;
+  if (!data) return { settings: FALLBACK, readFailed: false };
 
   // Soft probe — a failure here costs the amount-in-QR nicety and leaves both
   // rails OPEN. Never let it take the core payment details down with it, and
@@ -225,7 +244,10 @@ export async function fetchPlatformSettings(
     /* keep the defaults — static QR, both rails open */
   }
 
-  return { ...(data as object), ...soft } as PlatformSettingsRow;
+  return {
+    settings: { ...(data as object), ...soft } as PlatformSettingsRow,
+    readFailed: false,
+  };
 }
 
 // ---------------------------------------------------------------------------

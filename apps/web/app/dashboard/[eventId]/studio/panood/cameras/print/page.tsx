@@ -192,7 +192,7 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
         <main className="print-sheet">
           {cards.map((c) => (
             <article key={c.zoneId} className="print-card">
-              <p className="print-eyebrow">Live Studio · CH {c.channel}</p>
+              <p className="print-eyebrow">Live Watch · CH {c.channel}</p>
               <div className="print-qr" dangerouslySetInnerHTML={{ __html: c.svg }} />
               <p className="print-name">{c.title}</p>
               {c.venue ? <p className="print-venue">{c.venue}</p> : null}

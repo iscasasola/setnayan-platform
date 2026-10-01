@@ -320,8 +320,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   ]);
   // Adaptive Pax Pricing Phase 5 — recompute live pax FRESH on view (admin
   // client, gated by the thread-ownership check above).
-  // ⚠ `resolveLivePax` CAN WRITE (`ensureFinalized` takes the lazy guest-count
-  // lock once the deadline has passed) — it waits for the three reads above.
+  // `resolveLivePax` used to WRITE (a lazy date-based guest-count lock); since
+  // 2026-09-30 only the host's Finalize writes it, so this is a pure read. It
+  // still waits for the three reads above, as it always did.
   const livePaxRead = (async () => {
     await writesWaitFor;
     return resolveLivePax(paxAdmin, thread.event_id);

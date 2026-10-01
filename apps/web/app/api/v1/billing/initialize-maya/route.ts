@@ -89,7 +89,7 @@ const TITLE_BOOK: Record<string, string> = {
   PAPIC_GUEST_STORIES: 'Papic Guest AI Gallery with Stories',
   PAPIC_MEDIA_PACK:    'Papic Guest with Stories + Thank You Video',
   PAPIC_SEATS:         'Papic Professional 5 Seats Pass',
-  PANOOD_SYSTEM:       'Live Studio Multi-Cam Live Broadcast Engine',
+  PANOOD_SYSTEM:       'Live Watch Multi-Cam Live Broadcast Engine',
   CAMERA_BRIDGE:       'DSLR Mirrorless Camera Bridge Sync',
   LIVE_WALL:           'Live Venue Photo Wall Projection Socket',
   PAKANTA:             'Music Maker Custom Wedding Song Service',

@@ -10,46 +10,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // mode_a: a per-guest custom-QR opt-in roster exists; only then may the on-device
 //   embedder run and only consented faces are ever embedded.
 //
-// This module is intentionally ISOMORPHIC: the pure resolvers (`resolveFaceMode`,
-// `eventTypeForcesModeB`) and the type are imported by client capture components
+// This module is intentionally ISOMORPHIC: the pure resolvers (`resolveFaceMode`) and the type are imported by client capture components
 // to gate `embedFaces`, while the async DB resolver is used server-side. It must
 // NOT be marked `server-only` — do not import a server client at module scope;
 // `resolvePapicFaceMode` takes the client as a parameter.
 
 export type PapicFaceMode = 'mode_a' | 'mode_b';
 
-/**
- * Event types where MOST OF THE ROOM IS LIKELY TO BE CHILDREN.
- *
- * ── WHAT THIS PROTECTS, AND WHAT IT DOES NOT ────────────────────────────────
- * Not the honoree. At a christening the baby is not enrolling; at a debut the
- * eighteen-year-old is. It is the GUESTS. The only thing standing between a
- * child and a face enrolment is a checkbox reading "I am 18 or older" — a
- * self-attestation a child can tick. At a wedding that is an edge case. At a
- * debut it is most of the room.
- *
- * ── CHANGED 2026-08-05 — A DEFAULT, NO LONGER A BLOCK ───────────────────────
- * These used to be FORCED to mode_b regardless of the stored column: face
- * tagging could not run on them at all. Owner (who is also the DPO), asked
- * directly: *"i think face tagging applies to all events we offer."*
- *
- * So the list no longer overrides the column. What it does instead is make
- * these types **off by default and deliberately enabled** — an admin must turn
- * each one on individually, on the record, seeing a confirmation that names the
- * reason. Every other event type behaves exactly as before.
- *
- * ⚠ THE GUARDIAN-CONSENT WORKFLOW STILL DOES NOT EXIST (spec §3.5 / DPIA BV-8).
- * What changed is who decides, not what is built. Until it exists, the
- * per-guest protections are the whole of the protection on these events:
- * opt-in consent, the 18+ attestation, and the host's per-guest
- * `face_recognition_excluded` flag — which as of this change is the one worth
- * reaching for on a debut, and which nobody has used yet.
+/*
+ * ⚖ EVERY EVENT TYPE, CHRISTENING AND DEBUT INCLUDED (owner 2026-10-01,
+ * DECISION_LOG "ELEVEN OWNER ANSWERS" #8): *"Face Tagging is on by default but
+ * they can always turn it off."* The minor-heavy list that kept christening and
+ * debut OFF until an admin turned them on (2026-08-05 → 2026-10-01) is RETIRED,
+ * together with its helpers. What protects a guest is unchanged: per-guest
+ * opt-in consent, the 18+ attestation, the host's per-guest
+ * `face_recognition_excluded` flag, selfie erasure — and the host's own
+ * off-switch, `face_tagging_declined_by_couple`, which still wins.
  */
-export const MINOR_HEAVY_EVENT_TYPES = ['christening', 'debut'] as const;
-
-/** @deprecated Renamed to {@link MINOR_HEAVY_EVENT_TYPES}, which is what it
- *  now means: not a forced mode, a default that an admin may change. */
-export const FORCE_MODE_B_EVENT_TYPES = MINOR_HEAVY_EVENT_TYPES;
 
 /**
  * Per-event face-consent copy version. The account-face path already pins
@@ -61,55 +38,42 @@ export const FORCE_MODE_B_EVENT_TYPES = MINOR_HEAVY_EVENT_TYPES;
 export const FACE_CONSENT_COPY_VERSION = 'v1';
 
 /**
- * True when this event type is likely to be full of children, so face tagging
- * is OFF unless an admin has deliberately turned it on for this event.
- *
- * ⚠ Renamed in spirit, not just in name: it no longer FORCES anything. Callers
- * that used it as "this event can never have face tagging" are wrong as of
- * 2026-08-05 — ask `resolveFaceMode`, which is the only thing that knows.
- */
-export function eventTypeNeedsDeliberateFaceOptIn(
-  eventType: string | null | undefined,
-): boolean {
-  if (!eventType) return false;
-  return (MINOR_HEAVY_EVENT_TYPES as readonly string[]).includes(eventType);
-}
-
-/** @deprecated Misleading since 2026-08-05 — the type no longer forces the
- *  mode. Use {@link eventTypeNeedsDeliberateFaceOptIn}. */
-export function eventTypeForcesModeB(eventType: string | null | undefined): boolean {
-  return eventTypeNeedsDeliberateFaceOptIn(eventType);
-}
-
-/**
  * Pure resolver: given the stored `papic_face_mode` and the event type, decide
  * the EFFECTIVE mode. Fail-closed to mode_b (no embedding) on anything that
- * isn't an explicit, non-forced mode_a.
+ * isn't an explicit mode_a or an active Papic.
  */
 export function resolveFaceMode(
   storedMode: string | null | undefined,
-  eventType: string | null | undefined,
+  /** Kept for positional callers; no event type changes the answer since
+   *  2026-10-01 (#8). */
+  _eventType: string | null | undefined,
   /**
    * The couple declined face tagging on their own event.
    *
    * ⚠ NARROWS ONLY, and the parameter order says so: this is the LAST word and
-   * it can only ever say no. A couple cannot switch face tagging ON where an
-   * admin has not.
-   *
-   * Optional so every existing caller keeps its meaning — but a caller that
-   * omits it is asking "what did the ADMIN set", not "what runs on this event".
-   * Only `resolvePapicFaceMode` (which reads the column) should be trusted for
-   * the second question.
+   * it can only ever say no.
    */
   coupleDeclined?: boolean | null,
+  /**
+   * ⚖ THE EVENT'S PAPIC IS ACTIVE (owner 2026-09-30, answering PR #6195:
+   * *"automatic"*). Face tagging is ON by itself for any event whose Papic
+   * service is active — no admin step. Server callers pass
+   * `eventPapicGuestActive` (lib/face-tagging-gate.ts does it once for every
+   * server surface); omitted = `false`, i.e. "what did the ADMIN set".
+   *
+   * EVERY event type — christening and debut included (owner 2026-10-01,
+   * "ELEVEN OWNER ANSWERS" #8: on by default, the host can always turn it off).
+   */
+  papicActive?: boolean | null,
 ): PapicFaceMode {
   // The couple's decline is still the last word — it can only ever say no.
   if (coupleDeclined === true) return 'mode_b';
-  // Every event type now honours the stored column. A minor-heavy type differs
-  // only in that an admin had to choose it deliberately (the confirmation on
-  // the admin control names the reason), never in whether the choice is
-  // possible at all. Owner ruling 2026-08-05.
-  return storedMode === 'mode_a' ? 'mode_a' : 'mode_b';
+  // The admin's explicit mode_a — the override.
+  if (storedMode === 'mode_a') return 'mode_a';
+  // Automatic: Papic active turns it on for every event type (owner 2026-09-30
+  // "automatic"; 2026-10-01 #8 — christening and debut included).
+  if (papicActive === true) return 'mode_a';
+  return 'mode_b';
 }
 
 /** Convenience predicate for capture call sites: may this mode run the embedder? */
@@ -123,7 +87,7 @@ export function faceModeAllowsEmbedding(mode: PapicFaceMode): boolean {
  * may actually be persisted to `guest_face_enrollments`.
  *
  * mode_a: the descriptor is stored (model stamped only when a vector is present).
- * mode_b — including christening/debut FORCED mode_b — HARD-NULLS the vector AND
+ * mode_b HARD-NULLS the vector AND
  * the model: no biometric descriptor is ever written, even if the payload carried
  * one (a crafted/replayed POST cannot bypass). This is the write that makes the
  * migration's "no face descriptor … stored" guarantee literally TRUE at the DB
@@ -146,45 +110,30 @@ export function faceVectorForMode(
 
 /**
  * Server resolver: read `events.papic_face_mode` + `event_type` through an
- * admin/RLS client and return the EFFECTIVE mode (christening/debut forced to
- * mode_b). Fail-closed to mode_b on any error or missing row — no event ever
+ * admin/RLS client and return the admin-stored mode. Fail-closed to mode_b on any error or missing row — no event ever
  * embeds faces by accident. `client` is injected so this stays isomorphic-safe
  * and unit-testable (no `server-only` module-scope import).
+ */
+/**
+ * @deprecated SINCE 2026-09-30 THIS IS THE ADMIN-STORED MODE ONLY — it cannot
+ * see whether the event's Papic is active, and Papic-active now turns face
+ * tagging on by itself. Every server surface asks `resolveFaceTagging`
+ * (lib/face-tagging-gate.ts) for the EFFECTIVE mode; `face-tagging-rules.test.ts`
+ * fails if app code calls this again.
  */
 export async function resolvePapicFaceMode(
   client: Pick<SupabaseClient, 'from'>,
   eventId: string,
 ): Promise<PapicFaceMode> {
-  return (await resolveFaceTagging(client, eventId)).mode;
-}
-
-/**
- * The same ONE read, answering two questions: what runs on this event (`mode`),
- * and may a guest be ASKED "Want to be tagged in the photos?" at all
- * (`askable`, lib/face-tagging-wish.ts — owner 2026-09-29).
- *
- * `askable` is false when the couple declined face tagging for their event
- * (`face_tagging_declined_by_couple`) — their "no" is the last word, so the
- * question and the selfie behind it are not put to any guest. It is also false
- * on a failed read: of the two ways to be wrong about asking for a face, asking
- * is the worse one (the loaders' own rule: "a failed read must not ask for a
- * face scan"). A guest who misses the question on one render sees it on the next.
- *
- * ⚠ NOT a new couple switch — the couple's existing decline, read once more.
- */
-export async function resolveFaceTagging(
-  client: Pick<SupabaseClient, 'from'>,
-  eventId: string,
-): Promise<{ mode: PapicFaceMode; askable: boolean }> {
   try {
-    if (!eventId) return { mode: 'mode_b', askable: false };
+    if (!eventId) return 'mode_b';
     const { data, error } = await client
       .from('events')
       .select('papic_face_mode, event_type, face_tagging_declined_by_couple')
       .eq('event_id', eventId)
       .maybeSingle();
     if (error) console.error('[supabase-error] lib/papic-face-mode.ts · from:events.select', error);
-    if (error || !data) return { mode: 'mode_b', askable: false };
+    if (error || !data) return 'mode_b';
     const row = data as {
       papic_face_mode?: string | null;
       event_type?: string | null;
@@ -193,15 +142,15 @@ export async function resolveFaceTagging(
     // The couple's decline is passed here and NOWHERE ELSE derived — this is the
     // one function that answers "what actually runs on this event", so every
     // caller of it inherits the couple's choice without having to know about it.
-    return {
-      mode: resolveFaceMode(
-        row.papic_face_mode,
-        row.event_type,
-        row.face_tagging_declined_by_couple,
-      ),
-      askable: row.face_tagging_declined_by_couple !== true,
-    };
+    return resolveFaceMode(row.papic_face_mode, row.event_type, row.face_tagging_declined_by_couple);
   } catch {
-    return { mode: 'mode_b', askable: false };
+    return 'mode_b';
   }
 }
+
+/*
+ * ⚠ `resolveFaceTagging` — "may a guest be ASKED at all" — LIVES IN
+ * `lib/face-tagging-gate.ts` since 2026-09-30. It now asks whether the event's
+ * Papic is ACTIVE and whether Papic has CLOSED, which are server reads; this
+ * module is imported by browser capture components and must stay isomorphic.
+ */

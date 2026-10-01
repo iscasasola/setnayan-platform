@@ -186,8 +186,8 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
   // (2026-06-17): the bottom nav now keeps its LABELS and its full height
   // whether or not a sub-nav is docked. `compact` is hard-false so the per-cell
   // min-height + label stay constant; the SubNav re-tuned its dock offset to
-  // clear the (now taller) bar. The useSubNavDocked store in sub-nav.tsx is left
-  // in place but no longer read here — re-import + call it to restore the shrink.
+  // clear the (now taller) bar. Stage D (2026-09-29) retired the sub-nav and
+  // deleted sub-nav.tsx, so nothing docks above the bar any more.
   const compact = false;
 
   // Which tab is being physically pressed right now (pointerdown → up).
@@ -924,6 +924,16 @@ function BottomNavTab({
       <Link
         href={item.href}
         aria-current={active ? 'page' : undefined}
+        aria-haspopup={item.onSelect ? 'dialog' : undefined}
+        onClick={
+          item.onSelect
+            ? (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+                e.preventDefault();
+                item.onSelect!();
+              }
+            : undefined
+        }
         onPointerDown={onPressStart}
         onPointerUp={onPressEnd}
         onPointerLeave={onPressEnd}

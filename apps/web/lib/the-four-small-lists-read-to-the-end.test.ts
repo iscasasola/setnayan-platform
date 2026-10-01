@@ -348,9 +348,10 @@ test('screens: the Earned tile and the payouts totals never print a short or unr
   const lib = read('lib/vendor-overview.ts');
   assert.equal((lib.match(/fetchVendorLedgerEarnings\(admin, vendorProfileId\)\.catch\(\(\) => \[\]\)/g) ?? []).length, 0);
   assert.match(lib, /earningsMeasured: earnings !== null/);
-  const tiles = read('app/vendor-dashboard/_components/overview-sections.tsx');
-  assert.match(tiles, /measured=\{earnings\.earningsMeasured\}/);
-  assert.match(tiles, /if \(!measured\) \{\s*return \(/);
+  // The Earned tile became Today's money line on 2026-10-01 (DECISION_LOG "THE
+  // SUPPLIER PHONE APP — APPROVED"); it prints "—" when the ledger was not read.
+  const today = read('app/vendor-dashboard/page.tsx');
+  assert.match(today, /earnings\.earningsMeasured \? formatPhp\(earnings\.earnedThisYearPhp\) : '—'/);
 
   const earn = read('app/vendor-dashboard/earnings/surface.tsx');
   assert.doesNotMatch(earn, /\.from\('vendor_payouts'\)[\s\S]{0,900}?\.limit\(/);

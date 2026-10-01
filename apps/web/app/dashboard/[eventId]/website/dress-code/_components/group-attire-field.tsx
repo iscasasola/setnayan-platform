@@ -2,6 +2,7 @@
 
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, type RoleAttireMap } from '@/lib/role-dress-code';
 import { groupOverrides, type GroupAttireMap } from '@/lib/role-group-dress-code';
+import type { RoleNames } from '@/lib/role-names';
 import type { RoleGroup } from '@/lib/role-groups';
 import { formatCount } from '@/lib/format-number';
 
@@ -45,6 +46,7 @@ export function GroupAttireField({
   saved,
   roles,
   compact,
+  roleNames,
 }: {
   /** The groups this event's guest list actually produces, in reading order. */
   groups: { group: RoleGroup; label: string; roleCount: number; people: number }[];
@@ -52,6 +54,8 @@ export function GroupAttireField({
   /** The finer tier, read only — to name who will ignore what is typed here. */
   roles: RoleAttireMap;
   compact?: boolean;
+  /** The couple's own words for roles (owner 2026-09-30). */
+  roleNames?: RoleNames;
 }) {
   if (groups.length === 0) {
     return (
@@ -70,7 +74,7 @@ export function GroupAttireField({
     <div className="space-y-3">
       {groups.map(({ group, label, roleCount, people }) => {
         const current = saved[group];
-        const overridden = groupOverrides(group, roles);
+        const overridden = groupOverrides(group, roles, roleNames);
         return (
           <div key={group} className="sn-row space-y-2 p-3">
             <input type="hidden" name="group_key" value={group} />

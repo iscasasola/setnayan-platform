@@ -973,7 +973,7 @@ export default async function PricingPage() {
               Vendor? See the free business offering + your plans.
             </p>
             <Link
-              href="/vendors"
+              href="/for-suppliers"
               className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 text-sm"
             >
               For vendors

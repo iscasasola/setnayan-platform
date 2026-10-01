@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { renderSettled } from './render-settled.test-helper';
 import { makerProMark, makerProUsable, paidMarkLabel, paidMarkState } from './paid-mark';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -91,7 +92,6 @@ test('PaidMark draws a padlock when locked and a diamond when unlocked', async (
 });
 
 async function paintPrints(ownsPro: boolean, storeShell: boolean): Promise<string> {
-  const { renderToStaticMarkup } = await import('react-dom/server');
   // The whole-set downloads — the Details "Download the set" item since the
   // fold (2026-09-28) — carry the prints' Pro line.
   // …and the pass cards' zip, drawn in Details › Pass beside them (\`PassCardsPanel\`).
@@ -117,16 +117,10 @@ async function paintPrints(ownsPro: boolean, storeShell: boolean): Promise<strin
     React.createElement(PrintSetDownloads, { input }),
     React.createElement(PassCardsPanel, { input }),
   );
-  /* ⚡ The save buttons load lazily (`launch/_components/details-lazy.tsx`): the
-     first pass draws their loading slot (`data-lazy-slot`) and asks for their
-     code. Render again once they have arrived, so a mark a button draws is
-     counted — a bounded wait; a slot still there is left for the counts. */
-  let html = renderToStaticMarkup(el);
-  for (let i = 0; i < 50 && /data-lazy-slot=/.test(html); i++) {
-    await new Promise((r) => setTimeout(r, 10));
-    html = renderToStaticMarkup(el);
-  }
-  return html;
+  /* ⚡ The save buttons load lazily (`launch/_components/details-lazy.tsx`), so
+     a mark a button draws is only counted once its code has arrived.
+     `renderSettled` waits on the loads themselves, never a clock. */
+  return renderSettled(el);
 }
 
 test('the themed prints wear the mark their owner has earned — both directions', async () => {
@@ -153,7 +147,7 @@ async function paintEditorial(ownsPro: boolean): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { EditorialPanel } = await import('../app/dashboard/[eventId]/website/editor/_components/authoring-panels');
   return renderToStaticMarkup(
-    React.createElement(EditorialPanel, { eventId: 'E1', ownsPro, unlockHref: '/buy', priceLabel: null }),
+    React.createElement(EditorialPanel, { ownsPro }),
   );
 }
 

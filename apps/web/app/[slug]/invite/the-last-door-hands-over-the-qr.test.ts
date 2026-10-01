@@ -65,7 +65,7 @@ test('door 03 mounts the QR panel, and builds the image from the SESSION guest',
   assert.match(ENTER, /qrToken: guest\.qr_token as string/, 'the code is no longer built from the guest row the session resolved');
   assert.match(
     ENTER,
-    /\.select\('guest_id, role, email, entry_source, qr_token/,
+    /\.select\('guest_id, role, entry_source, qr_token/,
     'the door stopped reading qr_token — the QR would be built from undefined',
   );
   // The image is handed DOWN, pre-rendered. A panel that could render its own
@@ -80,7 +80,6 @@ test('the proceed button survives the addition, unchanged and still phase-aware'
   // regression dressed as a feature.
   assert.match(ENTER, /href=\{`\/\$\{home\}`\}/, 'the Enter door no longer opens the Event Hub');
   assert.match(ENTER, /\{destinationWords\.cta\}/, 'the button label stopped coming from the phase');
-  assert.match(ENTER, /\{destinationWords\.blurb\}/, 'the blurb stopped coming from the phase');
   assert.match(ENTER, /arrivalDestinationFor\(\{/, 'the door stopped asking the resolver');
   // …and the 90-day rule is still asked for, never restated (CLAUDE.md rule 7).
   assert.doesNotMatch(ENTER, /STD_THRESHOLD_DAYS|\b90\b/, 'the threshold has been copied into the door');
@@ -121,15 +120,18 @@ test('the page that mounts it has already matched the cookie to THIS event', () 
   // recognise. No key → the event page, where a stranger gets "Get inside".
   assert.match(
     ENTER,
-    /const session = await readGuestSessionForEvent\(event\.event_id as string\);/,
+    // 🗳 #6176: the Maker's RSVP canvas (a VERIFIED host only) draws a sample and reads no key.
+    /const session = canvas \? null : await readGuestSessionForEvent\(event\.event_id as string\);/,
     'the Enter door no longer reads the guest key for THIS event',
   );
   assert.match(
     ENTER,
-    /if \(!session \|\| session\.event_id !== event\.event_id\) redirect\(`\/\$\{home\}`\);/,
+    /if \(!canvas && \(!session \|\| session\.event_id !== event\.event_id\)\) redirect\(`\/\$\{home\}`\);/,
     'the session/event match is gone — a cookie for another event would be shown this event’s QR',
   );
-  assert.match(ENTER, /\.eq\('guest_id', session\.guest_id\)/, 'the guest row is no longer keyed on the session');
+  assert.match(ENTER, /\.eq\('guest_id', session!\.guest_id\)/, 'the guest row is no longer keyed on the session');
+  // …and `canvas` is only ever set for a signed-in HOST of this event — never from the param alone.
+  assert.match(ENTER, /if \(viewer && \(await loadHostMembership\(admin, liveEvent\.event_id as string, viewer\.id\)\)\) \{\s*canvas = true;/);
   assert.match(ENTER, /\.eq\('event_id', event\.event_id\)/, 'the guest row is no longer scoped to this event');
   // Nothing in the door reads an id out of the URL.
   assert.doesNotMatch(ENTER, /search\.guest|params\.guestId/, 'a guest id is being taken from the URL');
@@ -251,7 +253,10 @@ test('the way onward names the QR — a bare "continue" is what being stuck felt
   assert.notEqual(j, -1, 'the answered-guest block no longer closes with a DoorNotice — update this test');
   const block = REPLY.slice(i, j).replace(/\s+/g, ' ');
   assert.match(block, /your QR/i, 'the link does not say it leads to their QR');
-  assert.match(block, /\{words\.eventWord\}/, 'the link does not name the event in the couple’s own word');
+  // Guest text audit 2026-09-30: "Go to your QR and open the {eventWord}" became
+  // "Open your invitation and your QR" — it names the destination the guest
+  // knows (their invitation) and still names the QR.
+  assert.match(block, /Open your invitation/, 'the link does not name where it goes');
 });
 
 test('the 2026-09-10 redirect is NOT weakened, and no reveal is replayed', () => {

@@ -97,6 +97,10 @@ export default async function AdminPakantaPage() {
       .limit(500);
     if (orderErr) {
       logQueryError('AdminPakantaPage (orders)', orderErr, {}, 'graceful_degrade');
+      /* 🚨 THIS READ LOGGED AND CARRIED ON (admin audit 2026-09-30, row 7): a
+         refused orders read dropped every PAID order from the queue and the page
+         said "No Music Maker orders yet." A log line never changed a pixel. */
+      queryError = orderErr.message;
     }
     for (const o of (orderData ?? []) as Array<{ event_id: string | null }>) {
       if (o.event_id) orderEventIds.add(o.event_id);
@@ -142,6 +146,7 @@ export default async function AdminPakantaPage() {
       eventsData = fallback.data as typeof eventsData;
       if (fallback.error) {
         logQueryError('AdminPakantaPage (events)', fallback.error, {}, 'graceful_degrade');
+        queryError = fallback.error.message;
       }
     }
     for (const e of (eventsData ?? []) as Partial<EventLite>[]) {
@@ -244,13 +249,17 @@ export default async function AdminPakantaPage() {
       </p>
 
       {queryError ? (
-        <div className="mb-6 rounded-lg border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
-          Couldn’t load the Music Maker queue ({queryError}). The table may not be migrated on this
-          environment yet.
+        <div
+          role="alert"
+          className="mb-6 rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink"
+        >
+          Couldn’t load this — refresh to try again. This is not an empty queue.
         </div>
       ) : null}
 
-      {rows.length === 0 ? (
+      {/* Rows that DID load still show under the notice; only the "none yet"
+          claim is withheld, because a partial read cannot prove an absence. */}
+      {rows.length === 0 && queryError ? null : rows.length === 0 ? (
         <div className="sn-tile p-8 text-center">
           <Sparkles aria-hidden className="mx-auto mb-3 h-8 w-8 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm font-medium text-ink">No Music Maker orders yet.</p>

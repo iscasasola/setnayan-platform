@@ -29,36 +29,16 @@ const HERE = 'app/dashboard/[eventId]/guests/_components';
 const read = (f: string) =>
   stripComments(readFileSync(join(process.cwd(), HERE, f), 'utf8'));
 
-const PILL = read('lens-pill.tsx');
 const GROUPS = read('groups-sidebar.tsx');
 
-test('THE REGRESSION: the facet pill warms on both hover and focus', () => {
-  assert.match(PILL, /onMouseEnter=\{warm\}/, 'pointer users lose the warm-up');
-  assert.match(PILL, /onFocus=\{warm\}/, 'keyboard users lose the warm-up');
-  assert.match(PILL, /router\.prefetch\(href\)/, 'nothing is actually prefetched');
-});
-
-test('the pill does NOT viewport-prefetch', () => {
-  // `prefetch={false}` is load-bearing, not a default being restated.
-  assert.match(
-    PILL,
-    /prefetch=\{false\}/,
-    'viewport prefetching every pill fires ~25 renders per load and slows first paint',
-  );
-});
-
-test('the warm-up skips the pill that is already applied', () => {
-  // Its href is the page you are standing on; prefetching it is pure waste.
-  assert.match(PILL, /if \(!active\) router\.prefetch/, 'the active pill must not prefetch');
-});
+// ⤷ 2026-09-30 (the Fable rows, then Fix E): the facet PILLS became four
+// dropdowns (`roster-controls.tsx`) and `lens-pill.tsx` was deleted — it had no
+// importer left (ugat-both-ends caught it). The group chips below are the
+// surviving link facets, and they keep the same warm-up rule.
 
 test('group chips get the same treatment, and skip the active group', () => {
   assert.match(GROUPS, /onMouseEnter=\{warm\}/, 'group chips lose the warm-up');
   assert.match(GROUPS, /onFocus=\{warm\}/, 'keyboard users lose it on group chips');
   assert.match(GROUPS, /if \(!isCurrent\) router\.prefetch\(href\)/, 'the active group must not prefetch');
   assert.match(GROUPS, /prefetch=\{false\}/, 'group chips must not viewport-prefetch either');
-});
-
-test('the pill is a client component — a server one cannot prefetch at all', () => {
-  assert.match(PILL, /^'use client';/, "lens-pill.tsx must stay 'use client'");
 });

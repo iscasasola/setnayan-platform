@@ -176,6 +176,12 @@ export const PAPIC_ACCESS_PHASE_1_TYPES = [
   // surfaces it renders on speak the solemn register. If the owner wants
   // wakes excluded from the camera, this one line is the whole change.
   'wake',
+  // The three public, organizer-run kinds (owner 2026-09-29, DECISION_LOG
+  // "DISCOVER — UNPARKED") — added with the types themselves, under the same
+  // standing ruling: "offer Papic everywhere." Their profiles enable `rsvp`.
+  'concert',
+  'open_house',
+  'grand_opening',
 ] as const;
 
 /**

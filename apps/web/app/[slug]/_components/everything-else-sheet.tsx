@@ -21,7 +21,15 @@ import type { EverythingElseRow } from '../_lib/everything-else-rows';
  * retired for exactly that, covering the menu whole). This renders in the
  * document flow, same as `GuestDoorwayStrip` beside it.
  */
-export function EverythingElseSheet({ rows }: { rows: EverythingElseRow[] }) {
+export function EverythingElseSheet({
+  rows,
+  tabAttrs = {},
+}: {
+  rows: EverythingElseRow[];
+  /** 📱 Which tab of a tabbed page the row is on (`site-body.tsx`
+   *  `pageTabs.attrs`). Empty on a page that is one scroll. */
+  tabAttrs?: { 'data-hub-tab'?: string; hidden?: boolean };
+}) {
   const [open, setOpen] = useState(false);
   if (rows.length === 0) return null;
 
@@ -29,7 +37,7 @@ export function EverythingElseSheet({ rows }: { rows: EverythingElseRow[] }) {
   const anytime = rows.filter((r) => r.group === 'anytime');
 
   return (
-    <div className="mx-auto mt-3 w-full max-w-3xl px-4">
+    <div {...tabAttrs} className="mx-auto mt-3 w-full max-w-3xl px-4">
       <button
         type="button"
         onClick={() => setOpen(true)}

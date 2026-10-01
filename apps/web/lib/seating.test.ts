@@ -7,6 +7,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   groupTablesIntoUnits,
   computeAutoSeat,
@@ -36,8 +38,14 @@ import {
   rectEndsWorld,
   boothPresenceLabel,
   SETNAYAN_BOOTH_PROMO_LABEL,
+  autoSeatRoom,
+  tablesToAddForAutoSeat,
+  autoArrangeNewTableKey,
+  autoArrangeSummary,
 } from './seating';
 import { BOOKED_VENDOR_STATUSES } from './vendors';
+import { parseRoleSeating, roleSeatingChoice, roleSeatingSetsFor } from './role-seating';
+import { roleSeatingLabel, roleSeatingLabels } from './role-seating-labels';
 
 // Checked index access — the repo typechecks with noUncheckedIndexedAccess, so a
 // bare units[i] is T | undefined. Asserts presence and returns the element.
@@ -828,4 +836,366 @@ test('finalized gate — only committed statuses count as placeable vendors', ()
   );
   assert.ok(!(BOOKED_VENDOR_STATUSES as readonly string[]).includes('considering'));
   assert.ok(!(BOOKED_VENDOR_STATUSES as readonly string[]).includes('shortlisted'));
+});
+
+// ---------------------------------------------------------------------------
+// 🪑 AUTO-SEAT: SPONSORS TOGETHER, BOTH FAMILIES TOGETHER, THEN GROUPS — and the
+// couple's per-role "Sit together" / "Sit with their group" (owner 2026-09-30,
+// DECISION_LOG rows of that date). Load-bearing invariants:
+//   · a "together" role set sits at ONE table, or the FEWEST NEIGHBOURING
+//     tables when it outnumbers one — never scattered;
+//   · both sides' immediate family share one table;
+//   · switching a role set to "group" seats its members with their own group;
+//   · a group shares one table where it fits, else neighbouring tables;
+//   · a plus-one sits beside their bringer; hand-seated guests never move;
+//   · the couple and the sweetheart table are untouched.
+// ---------------------------------------------------------------------------
+
+// A row of five 10-seat tables across the room; stage top-centre. 'c' (x=50)
+// is stage-nearest; its physical neighbours are 'l' and 'r'.
+const ROW = [
+  tbl({ table_id: 'll', capacity: 10, x_pos: 10, y_pos: 40 }),
+  tbl({ table_id: 'l', capacity: 10, x_pos: 30, y_pos: 40 }),
+  tbl({ table_id: 'c', capacity: 10, x_pos: 50, y_pos: 40 }),
+  tbl({ table_id: 'r', capacity: 10, x_pos: 70, y_pos: 40 }),
+  tbl({ table_id: 'rr', capacity: 10, x_pos: 90, y_pos: 40 }),
+];
+const xOf = (id: string) => Number(ROW.find((t) => t.table_id === id)!.x_pos);
+const tablesOf = (rows: { guest_id: string; table_id: string }[], ids: string[]) =>
+  new Set(ids.map((id) => seatTableOf(rows, id)));
+
+test('auto-seat: every principal sponsor (and their pair) sits at ONE table, whatever their groups', () => {
+  const sponsors = [
+    guest({ guest_id: 'n1', role: 'principal_sponsor_ninong', group_id: 'office' }),
+    guest({ guest_id: 'n2', role: 'principal_sponsor_ninang', group_id: 'church' }),
+    guest({ guest_id: 'n3', role: 'principal_sponsor_ninong', group_id: null }),
+    guest({ guest_id: 'n4', role: 'principal_sponsor_ninang', group_id: 'office', pair_with_guest_id: 'sp' }),
+    // A sponsor's pair listed as a plain guest, in a different group — comes along.
+    guest({ guest_id: 'sp', role: 'guest', group_id: 'neighbours', pair_with_guest_id: 'n4' }),
+  ];
+  // Fill the room with groups so a scattered seater WOULD split the sponsors.
+  const others = Array.from({ length: 12 }, (_, i) =>
+    guest({ guest_id: `o${i}`, group_id: i % 2 ? 'office' : 'church' }),
+  );
+  const rows = computeAutoSeat(ROW, [...others, ...sponsors], [], STAGE, null);
+  const at = tablesOf(rows, ['n1', 'n2', 'n3', 'n4', 'sp']);
+  assert.equal(at.size, 1, `sponsors scattered across ${[...at].join(', ')}`);
+  assert.deepEqual([...at], ['c'], 'they take the stage-nearest table');
+});
+
+test('auto-seat: sponsors who outnumber a table take the FEWEST tables, side by side', () => {
+  const sponsors = Array.from({ length: 14 }, (_, i) =>
+    guest({ guest_id: `s${String(i).padStart(2, '0')}`, role: i % 2 ? 'principal_sponsor_ninang' : 'principal_sponsor_ninong' }),
+  );
+  const rows = computeAutoSeat(ROW, sponsors, [], STAGE, null);
+  const at = [...tablesOf(rows, sponsors.map((s) => s.guest_id))] as string[];
+  assert.equal(at.length, 2, 'fourteen at ten a table is two tables, not more');
+  assert.equal(Math.abs(xOf(at[0]!) - xOf(at[1]!)), 20, `the two tables are neighbours: ${at.join(', ')}`);
+});
+
+test('auto-seat: the immediate family of BOTH sides shares one table', () => {
+  const fam = [
+    guest({ guest_id: 'bp', role: 'bride_parents', group_category: 'family', group_id: 'bride-side' }),
+    guest({ guest_id: 'gp', role: 'groom_parents', group_category: 'family', group_id: 'groom-side' }),
+    guest({ guest_id: 'bf', role: 'bride_immediate_family', group_category: 'family', group_id: 'bride-side' }),
+    guest({ guest_id: 'gf', role: 'groom_immediate_family', group_category: 'family', group_id: 'groom-side' }),
+  ];
+  // A sponsor block that fills 'c' exactly, so the family must land together elsewhere.
+  const sponsors = Array.from({ length: 10 }, (_, i) =>
+    guest({ guest_id: `s${i}`, role: 'principal_sponsor_ninong' }),
+  );
+  const rows = computeAutoSeat(ROW, [...fam, ...sponsors], [], STAGE, null);
+  const at = tablesOf(rows, ['bp', 'gp', 'bf', 'gf']);
+  assert.equal(at.size, 1, `the two sides were split across ${[...at].join(', ')}`);
+  assert.ok(!at.has('c'), 'the sponsors hold the stage table');
+});
+
+test('auto-seat: the couple picks, per role — "Sit together" or "Sit with their group"', () => {
+  const crew = [
+    guest({ guest_id: 'bm1', role: 'bridesmaid', group_id: 'college' }),
+    guest({ guest_id: 'bm2', role: 'bridesmaid', group_id: 'work' }),
+    guest({ guest_id: 'gm1', role: 'groomsman', group_id: 'college' }),
+    guest({ guest_id: 'gm2', role: 'groomsman', group_id: 'work' }),
+  ];
+  const college = Array.from({ length: 6 }, (_, i) => guest({ guest_id: `col${i}`, group_id: 'college' }));
+  const work = Array.from({ length: 6 }, (_, i) => guest({ guest_id: `wrk${i}`, group_id: 'work' }));
+  const all = [...crew, ...college, ...work];
+
+  // Default = together: the whole crew at one table.
+  const together = computeAutoSeat(ROW, all, [], STAGE, null);
+  assert.equal(tablesOf(together, crew.map((c) => c.guest_id)).size, 1);
+
+  // Switched to "with their group": each sits with their own group instead.
+  const withGroup = computeAutoSeat(ROW, all, [], STAGE, null, undefined, true, { wedding_party: 'group' });
+  assert.equal(seatTableOf(withGroup, 'bm1'), seatTableOf(withGroup, 'col0'));
+  assert.equal(seatTableOf(withGroup, 'gm1'), seatTableOf(withGroup, 'col0'));
+  assert.equal(seatTableOf(withGroup, 'bm2'), seatTableOf(withGroup, 'wrk0'));
+  assert.equal(seatTableOf(withGroup, 'gm2'), seatTableOf(withGroup, 'wrk0'));
+  assert.notEqual(seatTableOf(withGroup, 'col0'), seatTableOf(withGroup, 'wrk0'));
+});
+
+test('auto-seat: a group shares ONE table where it fits, else neighbouring tables', () => {
+  const two = [tbl({ table_id: 'near', capacity: 4, x_pos: 50, y_pos: 20 }), tbl({ table_id: 'next', capacity: 10, x_pos: 50, y_pos: 40 })];
+  // One solo takes a seat at 'near', leaving 3 — the group of 4 must not be split into it.
+  const solo = guest({ guest_id: 'aaa', seating_priority: 1 });
+  const grp = Array.from({ length: 4 }, (_, i) => guest({ guest_id: `g${i}`, group_id: 'titas' }));
+  const rows = computeAutoSeat(two, [solo, ...grp], [], STAGE, null);
+  assert.deepEqual([...tablesOf(rows, grp.map((g) => g.guest_id))], ['next']);
+
+  // Twelve friends at ten a table: two tables, and they are neighbours.
+  const big = Array.from({ length: 12 }, (_, i) => guest({ guest_id: `b${String(i).padStart(2, '0')}`, group_id: 'barkada' }));
+  const bigRows = computeAutoSeat(ROW, big, [], STAGE, null);
+  const at = [...tablesOf(bigRows, big.map((g) => g.guest_id))] as string[];
+  assert.equal(at.length, 2);
+  assert.equal(Math.abs(xOf(at[0]!) - xOf(at[1]!)), 20);
+});
+
+test('auto-seat: a plus-one always sits beside their bringer', () => {
+  const two = [tbl({ table_id: 'near', capacity: 3, x_pos: 50, y_pos: 20 }), tbl({ table_id: 'next', capacity: 10, x_pos: 50, y_pos: 40 })];
+  const early = [guest({ guest_id: 'a1', seating_priority: 1 }), guest({ guest_id: 'a2', seating_priority: 1 })];
+  const bringer = guest({ guest_id: 'zed' });
+  const plus = guest({ guest_id: 'zed+1', plus_one_of_guest_id: 'zed' });
+  const rows = computeAutoSeat(two, [...early, bringer, plus], [], STAGE, null);
+  assert.equal(seatTableOf(rows, 'zed'), seatTableOf(rows, 'zed+1'), 'split from their plus-one');
+  const seatOf = (id: string) => rows.find((r) => r.guest_id === id)!.seat_number;
+  assert.equal(Math.abs(seatOf('zed') - seatOf('zed+1')), 1, 'in the next chair');
+
+  // A bringer already seated by hand: the plus-one goes to THEIR table.
+  const handSeated: SeatAssignmentRow[] = [{ guest_id: 'zed', table_id: 'next', seat_number: 5 } as SeatAssignmentRow];
+  const later = computeAutoSeat(two, [bringer, plus], handSeated, STAGE, null);
+  assert.equal(seatTableOf(later, 'zed+1'), 'next');
+});
+
+test('auto-seat: never moves a hand-seated guest — the rest of their role set joins them', () => {
+  const handSeated: SeatAssignmentRow[] = [{ guest_id: 'n1', table_id: 'rr', seat_number: 0 } as SeatAssignmentRow];
+  const sponsors = ['n1', 'n2', 'n3'].map((id) => guest({ guest_id: id, role: 'principal_sponsor_ninong' }));
+  const rows = computeAutoSeat(ROW, sponsors, handSeated, STAGE, null);
+  assert.ok(!rows.some((r) => r.guest_id === 'n1'), 'the hand-seated sponsor was re-seated');
+  assert.equal(seatTableOf(rows, 'n2'), 'rr');
+  assert.equal(seatTableOf(rows, 'n3'), 'rr');
+  assert.ok(!rows.some((r) => r.table_id === 'rr' && r.seat_number === 0), 'their chair was reused');
+});
+
+test('auto-seat: the couple and the sweetheart table are left alone', () => {
+  const sweet = tbl({ table_id: 'sweet', table_type: 'sweetheart_2', capacity: 2, x_pos: 50, y_pos: 12 });
+  const guests = [
+    guest({ guest_id: 'bride', role: 'bride' }),
+    guest({ guest_id: 'groom', role: 'groom' }),
+    guest({ guest_id: 'n1', role: 'principal_sponsor_ninong' }),
+    guest({ guest_id: 'bp', role: 'bride_parents', group_category: 'family' }),
+  ];
+  const rows = computeAutoSeat([sweet, ...ROW], guests, [], STAGE, null);
+  assert.ok(!rows.some((r) => r.guest_id === 'bride' || r.guest_id === 'groom'));
+  assert.ok(!rows.some((r) => r.table_id === 'sweet'));
+  assert.equal(rows.length, 2);
+});
+
+test('role seating: stored choices are read, never repaired; the default is "together"', () => {
+  assert.deepEqual(parseRoleSeating(null), {});
+  assert.deepEqual(parseRoleSeating([]), {});
+  assert.deepEqual(
+    parseRoleSeating({ wedding_party: 'group', principal_sponsors: 'nope', made_up: 'group', bearers_flower_girl: 'together' }),
+    { wedding_party: 'group', bearers_flower_girl: 'together' },
+  );
+  assert.equal(roleSeatingChoice({}, 'principal_sponsors'), 'together');
+  assert.equal(roleSeatingChoice(null, 'immediate_family'), 'together');
+  assert.equal(roleSeatingChoice({ wedding_party: 'group' }, 'wedding_party'), 'group');
+});
+
+test("role seating: each toggle is named in the couple's own role words", () => {
+  const crew = { bridesmaid: { one: "Bride's Crew" }, groomsman: { one: "Groom's Crew" }, flower_girl: { one: 'Little Angel', many: 'Little Angels' } };
+  assert.equal(roleSeatingLabel('wedding_party', crew), "Bride's Crew & Groom's Crew");
+  assert.equal(roleSeatingLabel('wedding_party', null), 'Bridesmaids & Groomsmen');
+  assert.equal(roleSeatingLabel('bearers_flower_girl', crew), 'Ring Bearers & Little Angels');
+  assert.equal(roleSeatingLabels(crew).wedding_party, "Bride's Crew & Groom's Crew");
+  // A Muslim wedding offers no principal sponsors — no toggle for them.
+  assert.ok(!roleSeatingSetsFor(['guest', 'wali', 'bridesmaid']).includes('principal_sponsors'));
+  assert.ok(roleSeatingSetsFor(['guest', 'wali', 'bridesmaid']).includes('wedding_party'));
+});
+
+// Stage order here is [c, far, nb] — 'far' is the NEXT table by stage distance
+// but across the room; 'nb' sits right behind 'c'. An overflowing role set must
+// take c + nb, never c + far.
+const SPREAD = [
+  tbl({ table_id: 'c', capacity: 10, x_pos: 25, y_pos: 28 }),
+  tbl({ table_id: 'far', capacity: 10, x_pos: 78, y_pos: 30 }),
+  tbl({ table_id: 'nb', capacity: 10, x_pos: 25, y_pos: 48 }),
+];
+
+test('auto-seat: an overflowing role set spills to the table BESIDE it, not the next one from the stage', () => {
+  const sponsors = Array.from({ length: 14 }, (_, i) =>
+    guest({ guest_id: `s${String(i).padStart(2, '0')}`, role: 'principal_sponsor_ninong' }),
+  );
+  const rows = computeAutoSeat(SPREAD, sponsors, [], STAGE, null);
+  assert.deepEqual([...tablesOf(rows, sponsors.map((s) => s.guest_id))].sort(), ['c', 'nb']);
+  // Even with the couple's group-adjacency switch OFF — sponsors are never scattered.
+  const off = computeAutoSeat(SPREAD, sponsors, [], STAGE, null, undefined, false);
+  assert.deepEqual([...tablesOf(off, sponsors.map((s) => s.guest_id))].sort(), ['c', 'nb']);
+});
+
+test('auto-seat: when a group spans two tables, a plus-one still lands beside their bringer', () => {
+  const two = [
+    tbl({ table_id: 'a', capacity: 10, x_pos: 40, y_pos: 30 }),
+    tbl({ table_id: 'b', capacity: 10, x_pos: 60, y_pos: 30 }),
+  ];
+  // Nine seat first (g0..g8), leaving one chair at the first table; 'gz' + their
+  // plus-one need two chairs together.
+  const grp = Array.from({ length: 9 }, (_, i) => guest({ guest_id: `g${i}`, group_id: 'titos' }));
+  const gz = guest({ guest_id: 'gz', group_id: 'titos' });
+  const plus = guest({ guest_id: 'gz+1', plus_one_of_guest_id: 'gz' });
+  const rows = computeAutoSeat(two, [...grp, gz, plus], [], STAGE, null);
+  assert.equal(rows.length, 11);
+  assert.equal(seatTableOf(rows, 'gz'), seatTableOf(rows, 'gz+1'), 'split from their plus-one');
+});
+
+// 🔒 SHARED-BUNDLE FENCE (2026-09-30). The seat-plan editor is a lazy client
+// chunk; when it (via lib/role-seating.ts) imported the role-word modules,
+// webpack re-shuffled its shared split chunks and the always-loaded runtime
+// went ~12 bytes over the 202KB shared budget. The labels are made on the
+// server (lib/role-seating-labels.ts) and passed in as strings instead.
+test('role seating stays import-free, and the seat-plan editor never imports the role-word modules', () => {
+  const src = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8');
+  assert.doesNotMatch(src('lib/role-seating.ts'), /^\s*import\b/m, 'lib/role-seating.ts must import nothing');
+  const editor = src('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  for (const mod of ['role-seating-labels', 'role-names', 'role-groups']) {
+    assert.doesNotMatch(editor, new RegExp(`from '@/lib/${mod}'`), `seating-editor imports lib/${mod}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// AUTO ARRANGE ADDS TABLES (owner 2026-09-30 · "it did not add tables").
+// The live room: two serpentine arcs (3 chairs each) and one Round (10 seats),
+// all 16 chairs taken, 82 guests who haven't declined. Auto Arrange seated no
+// one and said "Everyone who hasn't declined already has a seat."
+// ---------------------------------------------------------------------------
+
+function ownerRoom() {
+  const tables = [
+    tbl({ table_id: 't1', table_label: 'Table 1', table_type: 'serpentine', capacity: 3, x_pos: 30, y_pos: 30 }),
+    tbl({ table_id: 't2', table_label: 'Table 2', table_type: 'round_10', capacity: 10, x_pos: 50, y_pos: 30 }),
+    tbl({ table_id: 't3', table_label: 'Table 3', table_type: 'serpentine', capacity: 3, x_pos: 70, y_pos: 30 }),
+  ];
+  const guests: AutoSeatGuest[] = [
+    guest({ guest_id: 'bride', role: 'bride' }),
+    guest({ guest_id: 'groom', role: 'groom' }),
+    guest({ guest_id: 'no1', rsvp_status: 'declined' }),
+    guest({ guest_id: 'no2', rsvp_status: 'declined' }),
+  ];
+  for (let i = 0; i < 82; i++) {
+    guests.push(
+      guest({
+        guest_id: `g${String(i).padStart(2, '0')}`,
+        // A sponsor set, a family, and pending replies ride along — every kind
+        // auto-seat must still place once the room is big enough.
+        role: i < 8 ? 'principal_sponsor' : 'friend',
+        group_category: i >= 8 && i < 20 ? 'family' : 'friends',
+        rsvp_status: i % 5 === 0 ? 'pending' : 'attending',
+      }),
+    );
+  }
+  const assignments: SeatAssignmentRow[] = [];
+  const cap: Record<string, number> = { t1: 3, t2: 10, t3: 3 };
+  let gi = 0;
+  for (const [tid, n] of Object.entries(cap)) {
+    for (let s = 0; s < n; s++) {
+      assignments.push(asg({ guest_id: `g${String(gi).padStart(2, '0')}`, table_id: tid, seat_number: s }));
+      gi++;
+    }
+  }
+  return { tables, guests, assignments };
+}
+
+test('auto-arrange room: the owner\'s room is 66 chairs short and gets 7 Round (10 seats) tables', () => {
+  const { tables, guests, assignments } = ownerRoom();
+  const room = autoSeatRoom(tables, guests, assignments);
+  assert.deepEqual(room, { toSeat: 66, freeSeats: 0, shortfall: 66 });
+  const add = tablesToAddForAutoSeat(room.shortfall, tables.map((t) => t.table_label));
+  assert.equal(add.length, 7);
+  assert.deepEqual(
+    add.map((t) => t.label),
+    ['Table 4', 'Table 5', 'Table 6', 'Table 7', 'Table 8', 'Table 9', 'Table 10'],
+    'new tables continue the room\'s numbering',
+  );
+  assert.ok(add.every((t) => t.type === 'round_10' && t.capacity === 10));
+});
+
+test('auto-arrange room: with the added tables, every guest who has not declined gets a seat and nobody moves', () => {
+  const { tables, guests, assignments } = ownerRoom();
+  const add = tablesToAddForAutoSeat(
+    autoSeatRoom(tables, guests, assignments).shortfall,
+    tables.map((t) => t.table_label),
+  );
+  const grown = [
+    ...tables,
+    ...add.map((t, i) =>
+      tbl({ table_id: `n${i}`, table_label: t.label, table_type: t.type, capacity: t.capacity, x_pos: 20 + (i % 4) * 20, y_pos: 50 + Math.floor(i / 4) * 20 }),
+    ),
+  ];
+  const rows = computeAutoSeat(grown, guests, assignments, STAGE);
+  assert.equal(rows.length, 66, 'all 66 unseated, non-declined, non-couple guests are seated');
+  const seatedBefore = new Set(assignments.map((a) => a.guest_id));
+  assert.ok(rows.every((r) => !seatedBefore.has(r.guest_id)), 'a guest already seated is never moved');
+  assert.ok(rows.every((r) => r.guest_id !== 'no1' && r.guest_id !== 'no2'), 'declined stay out');
+  // The truth the toast reads: nobody left over.
+  assert.equal(autoSeatRoom(grown, guests, assignments).toSeat - rows.length, 0);
+  assert.equal(autoSeatRoom(grown, guests, [...assignments, ...rows.map((r) => asg(r))]).toSeat, 0);
+});
+
+test('auto-arrange room: a room that already holds everyone adds nothing', () => {
+  const tables = [tbl({ table_id: 'a', table_label: 'Table 1' }), tbl({ table_id: 'b', table_label: 'Table 2' })];
+  const guests = Array.from({ length: 20 }, (_, i) => guest({ guest_id: `x${i}` }));
+  const room = autoSeatRoom(tables, guests, []);
+  assert.deepEqual(room, { toSeat: 20, freeSeats: 20, shortfall: 0 });
+  assert.deepEqual(tablesToAddForAutoSeat(room.shortfall, ['Table 1', 'Table 2']), []);
+});
+
+test('auto-arrange room: the sweetheart and deleted chairs are not room; the couple and declined are not guests to seat', () => {
+  const tables = [
+    tbl({ table_id: 'sw', table_label: 'Sweetheart', table_type: 'sweetheart_2', capacity: 2 }),
+    tbl({ table_id: 'a', table_label: 'Table 1', capacity: 10, removed_seats: [8, 9] }),
+  ];
+  const guests = [
+    guest({ guest_id: 'bride', role: 'bride' }),
+    guest({ guest_id: 'groom', role: 'groom' }),
+    guest({ guest_id: 'd', rsvp_status: 'declined' }),
+    ...Array.from({ length: 11 }, (_, i) => guest({ guest_id: `y${i}` })),
+  ];
+  const room = autoSeatRoom(tables, guests, [asg({ guest_id: 'y0', table_id: 'a' })]);
+  assert.deepEqual(room, { toSeat: 10, freeSeats: 7, shortfall: 3 });
+  // And the count agrees with what the seater actually does.
+  const rows = computeAutoSeat(tables, guests, [asg({ guest_id: 'y0', table_id: 'a' })], STAGE);
+  assert.equal(rows.length, 7);
+  assert.ok(rows.every((r) => r.table_id !== 'sw'), 'the sweetheart is never filled by auto-seat');
+});
+
+test('auto-arrange room: new tables fill numbering gaps and skip 4 for a Chinese wedding', () => {
+  assert.deepEqual(
+    tablesToAddForAutoSeat(15, ['Table 1', 'Table 3', 'Sponsors']).map((t) => t.label),
+    ['Table 2', 'Table 4'],
+  );
+  assert.deepEqual(
+    tablesToAddForAutoSeat(25, ['Table 1', 'Table 2', 'Table 3'], { skipFour: true }).map((t) => t.label),
+    ['Table 5', 'Table 6', 'Table 7'],
+  );
+  assert.equal(tablesToAddForAutoSeat(10_000, []).length, 60, 'a runaway import is capped like a draft');
+  assert.equal(autoArrangeNewTableKey('Table 4'), 'new:Table 4');
+});
+
+test('auto-arrange toast: never says everyone has a seat while anyone is still without one', () => {
+  const still = autoArrangeSummary({ tables: 3, tablesAdded: 0, booths: 0, boothWhere: 'behind the tables', seated: 0, unseated: 66 });
+  assert.doesNotMatch(still, /Everyone/);
+  assert.match(still, /66 guests who haven't declined still have no seat/);
+  const one = autoArrangeSummary({ tables: 3, tablesAdded: 0, booths: 0, boothWhere: '', seated: 2, unseated: 1 });
+  assert.match(one, /1 guest who hasn't declined still has no seat/);
+
+  const grew = autoArrangeSummary({ tables: 10, tablesAdded: 7, booths: 0, boothWhere: 'behind the tables', seated: 66, unseated: 0 });
+  assert.equal(
+    grew,
+    "Auto-arranged: 10 tables in priority order (7 added so everyone fits), 66 guests seated. Everyone who hasn't declined now has a seat.",
+  );
+  const done = autoArrangeSummary({ tables: 3, tablesAdded: 0, booths: 2, boothWhere: 'on the perimeter', seated: 0, unseated: 0 });
+  assert.equal(
+    done,
+    "Auto-arranged: 3 tables in priority order and 2 booths on the perimeter. Everyone who hasn't declined already has a seat.",
+  );
 });

@@ -17,10 +17,10 @@
  * tab with no details, a Gallery nobody shared, Watch before a broadcast). A
  * slot missing from a stage's list is never drawn on that stage.
  *
- * ⏳ POST EVENT IS THE OWNER'S TO SET. Its list below is what the page drew on
- * 2026-09-26 (Recap · Camera · Gallery · Join/Me). Changing what the Post Event
- * bar offers is an edit to `STAGE_BAR.editorial.slots` and nothing else — the
- * header, the tab bar and the Maker's navigator all follow it.
+ * 📖 POST EVENT (owner 2026-09-25, answer 1 = yes — "POST EVENT — OWNER ANSWERS
+ * TO FABLE'S FIVE"): Recap · Film · Suppliers · Gallery · Me. The camera stays
+ * on the list only for the COUPLE — `resolveSiteNav` draws no guest or stranger
+ * camera after the day (answer 2, "no more camera since that event is done").
  */
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DayOfPhase } from '@/lib/day-of-mode';
@@ -44,21 +44,23 @@ export const STAGE_BAR: Readonly<Record<LifecyclePhase, StageBar>> = {
   },
   rsvp: {
     label: PUBLIC_STAGE_LABELS.rsvp,
-    // Get the reply: Home · Details · Story · RSVP — and RSVP becomes Me once
-    // the guest has answered (`resolveSiteNav`). A stranger's bar is cut
-    // further by the resolver's own rules (Home · Details · Story).
-    slots: ['home', 'details', 'story', 'rsvp', 'me'],
+    // Get the reply: Welcome · Details · Our Love Story · Me — four, always
+    // (owner 2026-09-30: "RSVP does not have 4 tabs under" — no RSVP tab). A
+    // stranger's bar is cut further by the resolver's own rules.
+    slots: ['home', 'details', 'story', 'me'],
   },
   event: {
     label: PUBLIC_STAGE_LABELS.event,
-    // Be here now: Now · Schedule · Camera · Gallery · Me (owner: "yes").
-    // Watch takes the Schedule's place while a broadcast is running, and
-    // `details` stays for a booked supplier's "Cues" tab on the day.
-    slots: ['home', 'schedule', 'watch', 'camera', 'gallery', 'details', 'me'],
+    // Be here now: Live · Welcome · Camera · Gallery · Me (owner 2026-09-30,
+    // verbatim: *"Live - Welcome - Camera - Gallery - Me"* — DECISION_LOG "THE
+    // DAY'S MENU HAS FIVE"). Live carries what was Now, Schedule and Watch;
+    // Welcome (`home`) is the guest's own page on the day. `details` stays for a
+    // booked supplier's "Cues" tab on the day.
+    slots: ['live', 'home', 'camera', 'gallery', 'details', 'me'],
   },
   editorial: {
     label: PUBLIC_STAGE_LABELS.editorial,
-    slots: ['home', 'camera', 'gallery', 'me'],
+    slots: ['home', 'film', 'suppliers', 'camera', 'gallery', 'me'],
   },
 };
 

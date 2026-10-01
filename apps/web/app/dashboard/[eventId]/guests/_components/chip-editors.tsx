@@ -23,15 +23,21 @@
  * `LockedChip`, which keeps the lock and answers for it in one line.
  */
 
-import { createContext, useContext, useRef, useState, useTransition, type ReactNode } from 'react';
+import { createContext, Fragment, useContext, useRef, useState, useTransition, type ReactNode } from 'react';
+import { InfoTip } from '@/app/_components/info-tip';
+import { pickItems } from '@/lib/role-alternatives';
+import { isRenamableRole, ROLE_NAME_MAX, type RoleNames } from '@/lib/role-names';
+import { sectionHeadingInTheirWords } from '@/lib/role-groups';
+import { useRoleNames, useSetRoleNames } from './role-names-context';
+import { renameRole, type RenameRoleResult } from '../role-name-actions';
 import { Plus, X } from 'lucide-react';
 import { Popover } from './overlay-primitives';
 import { guestOptimistic } from './guest-optimistic-store';
 import { pushUndo } from './undo-toast';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
+  guestRoleLabel,
   ROLE_LABELS,
-  RSVP_LABELS,
   SIDE_LABELS,
   PLUS_ONE_CHOICES,
   guestDisplayName,
@@ -319,6 +325,15 @@ export function SideChipEditor({
  */
 export const GuestListFinalizedContext = createContext(false);
 
+/**
+ * Does THIS event have sides at all? (owner 2026-09-30: "why is there groom and
+ * bride's side for a simple event"). Provided by GuestListMultiselect from the
+ * event-type profile (`eventHasSides`), read by every row, header, bulk form and
+ * arrange menu below it. Defaults to TRUE so a surface mounted outside the
+ * provider keeps the wedding behaviour it always had.
+ */
+export const GuestListHasSidesContext = createContext(true);
+
 export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: GuestRow }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -400,14 +415,16 @@ export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: 
 
 // ── RSVP ─────────────────────────────────────────────────────────────────────
 
-const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'declined', 'maybe'];
-// One-tap mobile cycle (prototype RSVP_NEXT, :283) — skips 'maybe' (reachable
-// via the desktop popover).
-const RSVP_CYCLE: Record<RsvpStatus, RsvpStatus> = {
-  attending: 'pending',
-  pending: 'declined',
-  declined: 'attending',
-  maybe: 'attending',
+// Attending · No reply · Not coming (owner 2026-09-30, the Fable rows: "Tap the
+// pill → one dropdown; no cycling"). Maybe is listed only for a guest who still
+// holds it, so opening the list never rewrites an answer by itself.
+const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'declined'];
+/** The row's words for an answer — the approved list says "No reply" / "Not coming". */
+export const ROW_RSVP_WORDS: Record<RsvpStatus, string> = {
+  attending: 'Attending',
+  pending: 'No reply',
+  declined: 'Not coming',
+  maybe: 'Maybe',
 };
 
 /** True when this guest's RSVP is locked to Attending (the couple). */
@@ -419,14 +436,11 @@ export function RsvpChipEditor({
   eventId,
   guest,
   children,
-  mobileCycle = false,
   seatedTableLabel = null,
 }: {
   eventId: string;
   guest: GuestRow;
   children: ReactNode;
-  /** Mobile one-tap: clicking advances attending→pending→declined→attending. */
-  mobileCycle?: boolean;
   /** The guest's current seated table label (Living Roster P3) — folded into
    *  the decline undo toast ("Seat T3 freed") when a decline frees a real seat. */
   seatedTableLabel?: string | null;
@@ -490,7 +504,7 @@ export function RsvpChipEditor({
       const freedLabel = freed ? (freed.table_label ?? seatedTableLabel) : null;
       const seatNote = freed && freedLabel ? ` · Seat ${freedLabel} freed` : '';
       pushUndo({
-        label: `${name} · Declined${seatNote}`,
+        label: `${name} · Not coming${seatNote}`,
         undo: async () => {
           const back = {
             kind: 'setField' as const,
@@ -519,7 +533,7 @@ export function RsvpChipEditor({
     commit({
       override: { rsvp_status: value },
       priorOverride: { rsvp_status: guest.rsvp_status },
-      label: `${name} · ${RSVP_LABELS[value]}`,
+      label: `${name} · ${ROW_RSVP_WORDS[value]}`,
       run: () => setGuestRsvp(eventId, guest.guest_id, value),
       undoRun: () => setGuestRsvp(eventId, guest.guest_id, guest.rsvp_status),
       settledOverride: (res) => {
@@ -529,19 +543,6 @@ export function RsvpChipEditor({
     });
   };
 
-  if (mobileCycle) {
-    return (
-      <button
-        type="button"
-        onClick={() => pick(RSVP_CYCLE[guest.rsvp_status])}
-        aria-label={`Advance ${name}’s RSVP`}
-        className="inline-flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-      >
-        {children}
-      </button>
-    );
-  }
-
   return (
     <>
       <ChipTrigger triggerRef={ref} onOpen={() => setOpen(true)} label={`Change ${name}’s RSVP`}>
@@ -549,9 +550,9 @@ export function RsvpChipEditor({
       </ChipTrigger>
       {open ? (
         <Popover anchorRef={ref} onClose={() => setOpen(false)} width={180}>
-          {RSVP_OPTIONS.map((s) => (
+          {[...RSVP_OPTIONS, ...(guest.rsvp_status === 'maybe' ? (['maybe'] as const) : [])].map((s) => (
             <OptionRow key={s} onClick={() => pick(s)} active={guest.rsvp_status === s}>
-              {RSVP_LABELS[s]}
+              {ROW_RSVP_WORDS[s]}
             </OptionRow>
           ))}
         </Popover>
@@ -577,6 +578,8 @@ export function RoleChipEditor({
   const [open, setOpen] = useState(false);
   const commit = useFieldEdit(guest.guest_id);
   const name = guestDisplayName(guest);
+  // The couple's own words for roles (owner 2026-09-30 — "Bride's Crew").
+  const roleNames = useRoleNames();
 
   // Bride/groom aren't a bulk-assignable role (owner 2026-06-03) — the lock
   // holds; the chip now explains it instead of swallowing the tap.
@@ -596,7 +599,7 @@ export function RoleChipEditor({
     commit({
       override: { role: value },
       priorOverride: { role: guest.role },
-      label: `${name} → ${ROLE_LABELS[value]}`,
+      label: `${name} → ${guestRoleLabel(value, roleNames)}`,
       run: () => setGuestRole(eventId, guest.guest_id, value),
       undoRun: () => setGuestRole(eventId, guest.guest_id, guest.role),
     });
@@ -608,24 +611,203 @@ export function RoleChipEditor({
         {children}
       </ChipTrigger>
       {open ? (
-        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={230}>
-          <div className="max-h-72 overflow-y-auto">
+        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={248}>
+          <div className="max-h-80 overflow-y-auto">
             {roleSections.map((sec) => (
               <div key={sec.label} className="mb-1 last:mb-0">
                 <p className="px-2.5 pb-0.5 pt-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/40">
-                  {sec.label}
+                  {sectionHeadingInTheirWords(sec.label, roleNames)}
                 </p>
-                {sec.roles.map((r) => (
-                  <OptionRow key={r} onClick={() => pick(r)} active={guest.role === r}>
-                    {ROLE_LABELS[r]}
-                  </OptionRow>
-                ))}
+                {/* ⚖ Owner 2026-09-30: "either best man or best woman and maid
+                    or matron of honor" — each pair is ONE line with two
+                    choices, so the alternative is obvious. Nothing stops a
+                    couple having both; this only decides how it reads. */}
+                {pickItems(sec.roles).map((it) =>
+                  it.kind === 'pair' ? (
+                    <EitherOrRow
+                      key={it.roles[0]}
+                      heading={it.heading}
+                      roles={it.roles}
+                      active={guest.role}
+                      names={roleNames}
+                      onPick={pick}
+                    />
+                  ) : (
+                    <OptionRow key={it.role} onClick={() => pick(it.role)} active={guest.role === it.role}>
+                      {guestRoleLabel(it.role, roleNames)}
+                    </OptionRow>
+                  ),
+                )}
               </div>
             ))}
           </div>
+          {isRenamableRole(guest.role) ? <RenameThisRole eventId={eventId} role={guest.role} /> : null}
         </Popover>
       ) : null}
     </>
+  );
+}
+
+/**
+ * One either-or pair — "Best Man  or  Best Woman" — as a single line with two
+ * choices (owner 2026-09-30). The one this guest holds is lit.
+ */
+function EitherOrRow({
+  heading,
+  roles,
+  active,
+  names,
+  onPick,
+}: {
+  heading: string;
+  roles: readonly [GuestRole, GuestRole];
+  active: GuestRole;
+  names: RoleNames;
+  onPick: (r: GuestRole) => void;
+}) {
+  return (
+    <div role="group" aria-label={heading} className="px-1 py-0.5" data-role-either-or={roles.join('|')}>
+      <div className="flex items-center gap-1 rounded-lg bg-ink/[0.04] p-0.5">
+        {roles.map((r, i) => (
+          <Fragment key={r}>
+            {i === 1 ? (
+              <span aria-hidden className="shrink-0 px-0.5 text-[10px] uppercase tracking-wide text-ink/40">
+                or
+              </span>
+            ) : null}
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={active === r}
+              onClick={() => onPick(r)}
+              className={`min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-sm transition-colors ${
+                active === r ? 'bg-white font-medium text-terracotta-700 shadow-sm' : 'text-ink/75 hover:bg-white/70'
+              }`}
+            >
+              {guestRoleLabel(r, names)}
+            </button>
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Rename this role" — owner 2026-09-30: *"Bride'smaid can be renamed as what -
+ * for us we picked Bride's Crew."* Changes the WORD for this role across the
+ * couple's event (`events.role_names`); nobody's role changes, so the march,
+ * the colours and the seat plan are untouched. Blank = the usual word.
+ */
+function RenameThisRole({ eventId, role }: { eventId: string; role: GuestRole }) {
+  const names = useRoleNames();
+  const setNames = useSetRoleNames();
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [one, setOne] = useState('');
+  const [many, setMany] = useState('');
+  const [pending, startTransition] = useTransition();
+  const usual = ROLE_LABELS[role];
+  const mine = names[role];
+
+  const begin = () => {
+    setOne(mine?.one ?? '');
+    setMany(mine?.many ?? '');
+    setEditing(true);
+  };
+  const save = (nextOne: string, nextMany: string) =>
+    startTransition(async () => {
+      let res: RenameRoleResult;
+      try {
+        res = await renameRole(eventId, role, nextOne, nextMany);
+      } catch {
+        toast.error('Could not save — check your connection and try again.');
+        return;
+      }
+      if (!res.ok) {
+        toast.error(res.reason);
+        return;
+      }
+      setNames(res.names);
+      setEditing(false);
+      const now = res.names[role]?.one;
+      toast.success(now ? `${usual} is now called “${now}” everywhere.` : `Back to “${usual}”.`);
+    });
+
+  if (!editing) {
+    return (
+      <div className="mt-1 flex items-center gap-1 border-t border-ink/10 px-1 pt-1">
+        <button
+          type="button"
+          onClick={begin}
+          className="flex-1 rounded-lg px-2 py-1.5 text-left text-sm text-ink/75 hover:bg-ink/[0.04]"
+          data-rename-role={role}
+        >
+          Rename this role
+        </button>
+        <InfoTip label="" ariaLabel="About renaming a role" align="end">
+          Changes how this role is called everywhere for your event.
+        </InfoTip>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="mt-1 space-y-2 border-t border-ink/10 px-2.5 pb-1 pt-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save(one, many);
+      }}
+    >
+      <label className="block space-y-1">
+        <span className="block text-xs text-ink/60">What do you call a {usual}?</span>
+        <input
+          autoFocus
+          value={one}
+          maxLength={ROLE_NAME_MAX}
+          onChange={(e) => setOne(e.target.value)}
+          placeholder={usual}
+          className="input-field h-10 w-full text-sm"
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="block text-xs text-ink/60">And more than one? (optional)</span>
+        <input
+          value={many}
+          maxLength={ROLE_NAME_MAX}
+          onChange={(e) => setMany(e.target.value)}
+          placeholder={one.trim() || usual}
+          className="input-field h-10 w-full text-sm"
+        />
+      </label>
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-terracotta-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+        >
+          {pending ? 'Saving…' : 'Save'}
+        </button>
+        {mine ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => save('', '')}
+            className="rounded-lg px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/[0.04]"
+          >
+            Use “{usual}”
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="ml-auto rounded-lg px-2 py-1.5 text-sm text-ink/55 hover:bg-ink/[0.04]"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 

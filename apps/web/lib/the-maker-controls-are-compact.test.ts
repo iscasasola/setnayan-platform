@@ -84,12 +84,15 @@ test('B · the canvas draws them as "Your guest", with no sample content, and on
 
 test('N · the tab row is ONE picker beside the palette — no wrapping pill row', () => {
   const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('</nav>'));
-  assert.match(nav, /<PickMenu\s+label="This stage's menu"\s+dataAttr="data-maker-tab-pick"/);
+  // Since 2026-09-30 the one picker is "Page ▾" — the guest's own pages on this
+  // stage (`page-pick.tsx`; `the-page-dropdown-is-the-guest-bar.test.ts` holds
+  // what it offers and that a pick is instant).
+  assert.match(nav, /<MakerPagePick pages=\{guestPages\} value=\{shownPage\.key\} onPick=\{jumpToPage\} \/>/);
   assert.doesNotMatch(nav, /role="tab"/, 'the old pill row is back');
   assert.doesNotMatch(nav, /lg:flex-wrap/, 'a wrapping row is what grew to 140px');
   // It jumps; it never filters and never changes stage.
-  const pick = nav.slice(nav.indexOf('onPick={(key) => {'), nav.indexOf('className="flex-1"'));
-  assert.match(pick, /scrollPreviewTo\(t\.key\)/);
+  const pick = SHELL.slice(SHELL.indexOf('const jumpToPage = (page: MakerGuestPage) => {'), SHELL.indexOf('const selectedTileKey = selectedTile?.key ?? null;'));
+  assert.match(pick, /scrollPreviewTo\(first\)/);
   assert.doesNotMatch(pick, /setStage|kind: 'tool'|return null/);
 });
 

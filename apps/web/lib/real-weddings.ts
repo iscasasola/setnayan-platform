@@ -97,7 +97,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     witnessQuote:
       'When Maria walked in, the whole garden went quiet. Even the birds.',
     witnessAttribution: 'Ate Celine, Maid of Honor',
-    services: ['Papic', 'Live Studio', 'Monogram', 'Setnayan AI'],
+    services: ['Papic', 'Live Watch', 'Monogram', 'Setnayan AI'],
     editionNumber: 1,
     story: [
       {
@@ -184,7 +184,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     witnessQuote:
       'They said their vows just as the last sun hit the water. We all just stopped.',
     witnessAttribution: 'Kuya Marco, Best Man',
-    services: ['Papic', 'Live Studio'],
+    services: ['Papic', 'Live Watch'],
     editionNumber: 2,
     story: [
       {
@@ -274,7 +274,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     witnessQuote:
       "Mary floated down that aisle like the florals were holding her up.",
     witnessAttribution: 'Father Romano, presiding priest',
-    services: ['Papic', 'Live Studio', 'Monogram', 'Setnayan AI'],
+    services: ['Papic', 'Live Watch', 'Monogram', 'Setnayan AI'],
     editionNumber: 4,
     story: [
       {
@@ -448,7 +448,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     witnessQuote:
       "They never stopped holding hands in the car. That's what fifty years looks like.",
     witnessAttribution: 'Carmela, eldest daughter',
-    services: ['Live Studio', 'Setnayan AI'],
+    services: ['Live Watch', 'Setnayan AI'],
     editionNumber: 7,
     story: [
       {
@@ -646,7 +646,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     heroQuote: 'I built this house for a family I did not have yet. Look at it now.',
     witnessQuote: 'He sang first. He always sings first. That is the whole point of him.',
     witnessAttribution: 'Tita Belen, eldest daughter',
-    services: ['Papic', 'Live Studio'],
+    services: ['Papic', 'Live Watch'],
     editionNumber: 11,
     story: [
       {
@@ -900,7 +900,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     heroQuote: 'Half this room had never been in the same room.',
     witnessQuote: 'I have managed her for two years. I met her at 6:40 this evening.',
     witnessAttribution: 'Paolo, engineering lead',
-    services: ['Papic', 'Live Studio', 'Monogram'],
+    services: ['Papic', 'Live Watch', 'Monogram'],
     editionNumber: 15,
     story: [
       {
@@ -969,7 +969,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     heroQuote: 'The whole barangay was in that court. I could hear my mother.',
     witnessQuote: 'I have called games here for eleven years. That was the loudest it has ever been.',
     witnessAttribution: 'Kuya Dodong, courtside announcer',
-    services: ['Live Studio', 'Papic'],
+    services: ['Live Watch', 'Papic'],
     editionNumber: 16,
     story: [
       {
@@ -1036,7 +1036,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     heroQuote: 'We do not auction the students. We let them speak.',
     witnessQuote: 'I have been to thirty of these. I have never seen a room go that quiet.',
     witnessAttribution: 'Mrs. Alvarez, donor since 2014',
-    services: ['Live Studio', 'Papic', 'Monogram'],
+    services: ['Live Watch', 'Papic', 'Monogram'],
     editionNumber: 17,
     story: [
       {
@@ -1256,7 +1256,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     witnessQuote:
       'I came on the second night and stayed until the fourth. That is what he was to this street.',
     witnessAttribution: 'Mang Ben, neighbor of forty years',
-    services: ['Papic', 'Live Studio'],
+    services: ['Papic', 'Live Watch'],
     editionNumber: 21,
     story: [
       {

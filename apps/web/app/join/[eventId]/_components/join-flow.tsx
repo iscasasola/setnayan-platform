@@ -5,8 +5,12 @@ import { createClient } from '@/lib/supabase/server';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction, selfJoinAction } from '../actions';
+import { findMeAction } from '../find-me-actions';
+import { readFindState } from '@/lib/find-me.server';
+import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
 import { JoinShell, type JoinShellEvent } from './join-shell';
 import { RequestForm } from './request-form';
+import { formalNameFromLine, isFormalNameEmpty, type FormalName } from '@/lib/formal-name';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
@@ -128,11 +132,35 @@ export async function JoinFlow({
         redirect(inviteReplyPath(slug));
       }
       const selfAction = selfJoinAction.bind(null, eventId, token);
+      // 🔎 THE GENERIC QR FINDS YOU (owner 2026-09-30, lib/find-me.ts): the
+      // name comes FIRST, alone. What the door answered lives in this
+      // browser's encrypted find state — never in the address.
+      const found = await readFindState(eventId);
+      const findMe = findMeAction.bind(null, eventId, token);
       return (
         <JoinShell event={shellEvent} skin={skin}>
           {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
-          <AskToJoinIntro organizer={w.theOrganizer} />
-          <RequestForm action={selfAction} ask={ask} organizer={w.theOrganizer} />
+          {!found ? (
+            <FindMeNameStep action={findMe} organizer={w.theOrganizer} />
+          ) : found.outcome === 'digits' ? (
+            <FindMeDigitsStep action={findMe} organizer={w.theOrganizer} />
+          ) : found.outcome === 'confirm' ? (
+            <div data-find-me="confirm">
+              <div className="mb-6 space-y-2">
+                <p className="font-serif text-3xl text-ink">We found you!</p>
+                <p className="text-base text-ink/75">
+                  {Organizer} will confirm it&rsquo;s you. Answer below — your invitation opens the moment they do.
+                </p>
+              </div>
+              <RequestForm action={selfAction} ask={ask} organizer={w.theOrganizer} fixedParts={found.parts} />
+              <StartOver action={findMe} />
+            </div>
+          ) : (
+            <div data-find-me="none">
+              <AskToJoinIntro organizer={w.theOrganizer} />
+              <RequestForm action={selfAction} ask={ask} organizer={w.theOrganizer} defaultParts={found.parts} />
+            </div>
+          )}
           <p className="mt-6 text-sm text-ink/70">
             Already have a Setnayan account?{' '}
             <Link className="font-medium text-link underline-offset-2 hover:underline" href={loginHref}>
@@ -214,7 +242,7 @@ export async function JoinFlow({
   // Google / Apple handed over.
   const { data: profile } = await admin
     .from('users')
-    .select('display_name')
+    .select('display_name, name_prefix, first_name, middle_name, last_name, name_suffix')
     .eq('user_id', user.id)
     .maybeSingle();
   const metaFirst = (user.user_metadata?.first_name as string | undefined) ?? '';
@@ -226,6 +254,18 @@ export async function JoinFlow({
     [metaFirst, metaLast].filter(Boolean).join(' ') ||
     ''
   ).trim();
+  // The five boxes open on the account's own formal name (profile → Full name),
+  // else the one name above split by the shared parser — never retyped.
+  const defaultParts: FormalName =
+    profile && !isFormalNameEmpty(profile)
+      ? {
+          name_prefix: profile.name_prefix ?? null,
+          first_name: profile.first_name ?? null,
+          middle_name: profile.middle_name ?? null,
+          last_name: profile.last_name ?? null,
+          name_suffix: profile.name_suffix ?? null,
+        }
+      : formalNameFromLine(defaultName);
 
   if (seeded) {
     return (
@@ -253,10 +293,108 @@ export async function JoinFlow({
         action={action}
         ask={ask}
         organizer={w.theOrganizer}
-        defaultName={defaultName}
+        defaultParts={defaultParts}
         accountEmail={accountEmail}
       />
     </JoinShell>
+  );
+}
+
+/**
+ * 🔎 STEP 1 of the generic QR (lib/find-me.ts) — the name, alone. Only the five
+ * boxes; the list is never shown and nothing is suggested.
+ */
+function FindMeNameStep({ action, organizer }: { action: (formData: FormData) => Promise<void>; organizer: string }) {
+  return (
+    <form action={action} className="space-y-6" data-find-me="name">
+      <input type="hidden" name="step" value="name" />
+      <div className="space-y-2">
+        <p className="font-serif text-2xl text-ink">Find your invitation</p>
+        <p className="text-sm text-ink/70">Type your name the way {organizer} would have it on their guest list.</p>
+      </div>
+      <fieldset className="space-y-2">
+        <legend className="mb-1 text-sm font-medium text-ink">Your name</legend>
+        <FormalNameInputs required forSelf idPrefix="find-" />
+      </fieldset>
+      <SubmitButton className="button-primary w-full" pendingLabel="Looking…">
+        Continue
+      </SubmitButton>
+    </form>
+  );
+}
+
+/**
+ * 🔎 STEP 2 — "We found you!" and the last 4 digits of the mobile on file.
+ * 🔒 NOTHING ELSE IS SHOWN FIRST: no digit of the number, no +N, no outfit —
+ * this screen is drawn from the find state's verdict alone, never the guest row.
+ */
+function FindMeDigitsStep({
+  action,
+  organizer,
+}: {
+  action: (formData: FormData) => Promise<void>;
+  organizer: string;
+}) {
+  return (
+    <div data-find-me="digits">
+      <form action={action} className="space-y-6">
+        <input type="hidden" name="step" value="digits" />
+        <div className="space-y-2">
+          <p className="font-serif text-3xl text-ink">We found you!</p>
+          <p className="text-base text-ink/75">
+            To make sure it&rsquo;s you, type the last 4 digits of the mobile number {organizer} has for you.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="find-last4" className="block text-sm font-medium text-ink">
+            Last 4 digits
+          </label>
+          <input
+            id="find-last4"
+            name="last4"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]{4}"
+            maxLength={4}
+            minLength={4}
+            autoComplete="off"
+            required
+            placeholder="••••"
+            className="input-field text-center font-mono text-2xl tracking-[0.5em]"
+          />
+        </div>
+        <SubmitButton className="button-primary w-full" pendingLabel="Checking…">
+          Open my invitation
+        </SubmitButton>
+      </form>
+      <form action={action} className="mt-3">
+        <input type="hidden" name="step" value="hosts" />
+        <SubmitButton
+          overlay={false}
+          pendingLabel="One moment…"
+          className="flex min-h-11 w-full items-center justify-center text-sm font-medium text-ink underline underline-offset-4"
+        >
+          I don&rsquo;t know that number
+        </SubmitButton>
+      </form>
+      <StartOver action={action} />
+    </div>
+  );
+}
+
+/** "Not you? Start over" — forgets what was typed. */
+function StartOver({ action }: { action: (formData: FormData) => Promise<void> }) {
+  return (
+    <form action={action} className="mt-2">
+      <input type="hidden" name="step" value="over" />
+      <SubmitButton
+        overlay={false}
+        pendingLabel="One moment…"
+        className="flex min-h-11 w-full items-center justify-center text-sm text-ink/60 underline underline-offset-4"
+      >
+        Not you? Start over
+      </SubmitButton>
+    </form>
   );
 }
 
@@ -267,7 +405,7 @@ function AskToJoinIntro({ organizer }: { organizer: string }) {
       <p className="font-serif text-2xl text-ink">You&rsquo;re not on the guest list for this event yet</p>
       <p className="text-sm text-ink/70">
         Ask to join. If {organizer} has you down under another name or on a family member&rsquo;s invite, they
-        will link you. You&rsquo;ll hear by email the moment you&rsquo;re in.
+        will link you. You get your own Digital ticket right away — it unlocks the moment they confirm you.
       </p>
     </div>
   );
@@ -294,7 +432,7 @@ export function RequestSentScreen({
       <div className="space-y-3" data-request-sent="">
         <p className="font-serif text-3xl text-ink">Request sent</p>
         <p className="text-base text-ink/75">
-          {organizer} will check their list. You&rsquo;ll get an email the moment you&rsquo;re in.
+          {organizer} will check their list. Open this invitation again once they confirm you — nothing is emailed.
         </p>
       </div>
       {slug ? (

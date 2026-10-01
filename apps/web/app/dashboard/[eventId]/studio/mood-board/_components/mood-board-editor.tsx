@@ -89,6 +89,9 @@ import { pickCeremonyScene, pickFiguresByRole } from '@/lib/moodboard-board-pick
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
+import { draftedEventColumn } from '@/lib/hub-draft-store';
+import { normalizeDressCodeConfig } from '../../../website/dress-code/_components/dress-code-fields';
+import { DressCodeListsForm } from '../../../website/dress-code/_components/dress-code-lists-form';
 
 /**
  * THE MOOD BOARD — the whole studio, as ONE component, drawn in two places
@@ -213,7 +216,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     supabase
       .from('events')
       .select(
-        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type, moodboard_theme_name, moodboard_theme_description, venue_setting, ceremony_venue_setting, moodboard_style_family',
+        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type, moodboard_theme_name, moodboard_theme_description, venue_setting, ceremony_venue_setting, moodboard_style_family, dress_code_config',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -343,6 +346,20 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
        whole Maker down with it. */
     if (inMaker) return { ok: false as const };
     notFound();
+  }
+
+  /* ✅ THE DO'S AND DON'TS (owner 2026-09-30). In the Maker they are read
+     through the couple's draft — the same place the Dress code scene saves —
+     so the two show one list. A refused draft read is said, never guessed. */
+  let dressLists: { dos: string[]; donts: string[] } | null = null;
+  try {
+    const drafted = inMaker ? await draftedEventColumn(eventId, 'dress_code_config') : { drafted: false as const };
+    const cfg = normalizeDressCodeConfig(
+      drafted.drafted ? drafted.value : (event as { dress_code_config?: unknown }).dress_code_config,
+    );
+    dressLists = { dos: cfg.dos, donts: cfg.donts };
+  } catch (err) {
+    console.error(`[moodBoard] dress-code draft unreadable for event_id=${eventId}:`, err);
   }
 
   const bookedVendorCount = new Set(
@@ -839,6 +856,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     { href: '#theme', label: 'Theme' },
     { href: '#inspiration', label: 'Inspiration' },
     { href: '#palette', label: 'Palette' },
+    { href: '#dos-and-donts', label: 'Do’s & don’ts' },
     { href: '#reception', label: 'Reception' },
     { href: '#colors', label: 'In your colors' },
     ...(storeShell ? [] : [{ href: '#make-it-real', label: 'Make it real' }]),
@@ -1020,6 +1038,14 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       </p>
     </header>
   );
+  const dressListsPart = dressLists ? (
+    <DressCodeListsForm eventId={eventId} dos={dressLists.dos} donts={dressLists.donts} inMaker={inMaker} />
+  ) : (
+    <p role="alert" className="text-sm text-terracotta-700" data-mood-board-unread="">
+      Your do&rsquo;s and don&rsquo;ts could not be loaded just now. Nothing was changed — please reopen this in a
+      moment.
+    </p>
+  );
   const shareButton = <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />;
   const pdfs = (
     <>
@@ -1033,7 +1059,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     storeShell,
     jumpLinks,
     provider,
-    parts: { lastSaved, theme, inspiration, paletteSection, peopleAgreed, reception, roomAgreed, colours, makeItReal, shareWords, shareButton, pdfs },
+    parts: { lastSaved, theme, inspiration, paletteSection, peopleAgreed, dressLists: dressListsPart, reception, roomAgreed, colours, makeItReal, shareWords, shareButton, pdfs },
   };
 });
 
@@ -1097,6 +1123,8 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
           </div>
         </PaletteBoardProvider>
 
+        <div className="border-t border-ink/10 pt-6">{parts.dressLists}</div>
+
         <div className="space-y-4 border-t border-ink/10 pt-6">
           {parts.reception}
           {parts.roomAgreed}
@@ -1141,6 +1169,8 @@ export async function MoodBoardMakerBody({ eventId }: { eventId: string }) {
         <MoodPart part="inspiration">{parts.inspiration}</MoodPart>
         <MoodPart part="palette">{parts.paletteSection}</MoodPart>
       </PaletteBoardProvider>
+      {/* ✅ Under the colours each role wears — where a couple dresses people. */}
+      <MoodPart part="palette">{parts.dressLists}</MoodPart>
       <MoodPart part="reception">{parts.reception}</MoodPart>
       <MoodPart part="colours">{parts.colours}</MoodPart>
       {parts.makeItReal ? <MoodPart part="make-it-real">{parts.makeItReal}</MoodPart> : null}

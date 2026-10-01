@@ -2,28 +2,30 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   resolveFaceMode,
-  eventTypeForcesModeB,
   faceModeAllowsEmbedding,
   faceVectorForMode,
   resolvePapicFaceMode,
-  FORCE_MODE_B_EVENT_TYPES,
   FACE_CONSENT_COPY_VERSION,
 } from './papic-face-mode';
 
-// ── eventTypeForcesModeB ────────────────────────────────────────────────────
-test('christening + debut are forced to mode_b', () => {
-  assert.equal(eventTypeForcesModeB('christening'), true);
-  assert.equal(eventTypeForcesModeB('debut'), true);
-  // The two are the documented minor-honoree set (spec §3.5).
-  assert.deepEqual([...FORCE_MODE_B_EVENT_TYPES].sort(), ['christening', 'debut']);
-});
-
-test('non-minor event types are not forced', () => {
-  for (const t of ['wedding', 'birthday', 'anniversary', 'corporate', '']) {
-    assert.equal(eventTypeForcesModeB(t), false);
+// ── the minor-heavy list is RETIRED ─────────────────────────────────────────
+test('no event type keeps face tagging off once Papic is active (owner 2026-10-01 #8)', async () => {
+  // DECISION_LOG "ELEVEN OWNER ANSWERS" #8: "Face Tagging is on by default but
+  // they can always turn it off." Christening and debut were held OFF until an
+  // admin acted (2026-08-05); that list and its helpers are gone, not uncalled.
+  const mod = (await import('./papic-face-mode')) as Record<string, unknown>;
+  for (const retired of [
+    'MINOR_HEAVY_EVENT_TYPES',
+    'FORCE_MODE_B_EVENT_TYPES',
+    'eventTypeNeedsDeliberateFaceOptIn',
+    'eventTypeForcesModeB',
+  ]) {
+    assert.equal(mod[retired], undefined, `${retired} was retired on 2026-10-01 (#8)`);
   }
-  assert.equal(eventTypeForcesModeB(null), false);
-  assert.equal(eventTypeForcesModeB(undefined), false);
+  for (const t of ['wedding', 'birthday', 'christening', 'debut', 'anniversary', 'corporate']) {
+    assert.equal(resolveFaceMode(null, t, false, true), 'mode_a', `${t}: on by default`);
+    assert.equal(resolveFaceMode(null, t, true, true), 'mode_b', `${t}: the host's off still wins`);
+  }
 });
 
 // ── resolveFaceMode (fail-closed) ───────────────────────────────────────────

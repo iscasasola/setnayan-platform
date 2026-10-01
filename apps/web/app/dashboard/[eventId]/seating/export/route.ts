@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import {
   fetchGuestsByEvent,
   guestDisplayName,
-  ROLE_LABELS,
+  guestRoleLabel,
 } from '@/lib/guests';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -29,6 +30,8 @@ export async function GET(
     new URL(req.url).searchParams.get('mode') === 'blueprint' ? 'blueprint' : 'moodboard';
 
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30) — the export prints them.
+  const roleNames = await loadRoleNames(supabase, eventId, 'seatingExport.roleNames');
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -58,7 +61,7 @@ export async function GET(
   const pdfGuests: SeatingPdfGuest[] = guests.map((g) => ({
     guest_id: g.guest_id,
     name: guestDisplayName(g),
-    role: ROLE_LABELS[g.role] ?? 'Guest',
+    role: g.role ? guestRoleLabel(g.role, roleNames) : 'Guest',
   }));
 
   // Mood-board palette → flat list of hex colours. Redirected 2026-09-02 from

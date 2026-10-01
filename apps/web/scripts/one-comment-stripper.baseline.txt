@@ -101,6 +101,7 @@ apps/web/app/dashboard/[eventId]/studio/papic/_lib/the-ladder-is-a-stepper.test.
 apps/web/app/dashboard/[eventId]/studio/papic/_lib/the-uploads-switch-is-real.test.ts
 apps/web/app/dashboard/[eventId]/vendors/marketplace-mini-tour.test.ts
 apps/web/app/dashboard/reads-are-honest.test.ts
+apps/web/app/for-suppliers/_components/vendor-tier-limits.test.ts
 apps/web/app/home-brand-name.test.ts
 apps/web/app/home-carries-the-cron-free-jobs.test.ts
 apps/web/app/join/[eventId]/check-email/the-way-back-is-one-tap.test.ts
@@ -128,7 +129,6 @@ apps/web/app/vendor-dashboard/_components/vendor-rail-context.test.ts
 apps/web/app/vendor-dashboard/a-shop-cannot-read-its-own-booking.test.ts
 apps/web/app/vendor-dashboard/kit-convergence.test.ts
 apps/web/app/vendor-dashboard/reads-are-honest.test.ts
-apps/web/app/vendors/_components/vendor-tier-limits.test.ts
 apps/web/lib/a-camera-refusal-never-blames-the-host.test.ts
 apps/web/lib/a-finished-event-reads-as-finished.test.ts
 apps/web/lib/a-finished-event-tells-the-truth.test.ts
@@ -247,7 +247,6 @@ apps/web/lib/stored-asset-render.test.ts
 apps/web/lib/studio-apps.test.ts
 apps/web/lib/suggested-never-applied.test.ts
 apps/web/lib/supabase/middleware-has-a-deadline.test.ts
-apps/web/lib/team-summary-chip.test.ts
 apps/web/lib/the-banner-does-not-promise-an-email.test.ts
 apps/web/lib/the-bill-has-somewhere-to-be-paid.test.ts
 apps/web/lib/the-chips-move-the-calendar.test.ts

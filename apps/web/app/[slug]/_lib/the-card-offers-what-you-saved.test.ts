@@ -140,7 +140,8 @@ test('🔴 a signed-in guest is offered the contact details their account alread
   // can also come from the app?" — yes; the account has stored both since long
   // before this, and the reply card simply never read them.
   const src = readFileSync(join(__dirname, '..', '_components', 'rsvp-widget.tsx'), 'utf8');
-  assert.match(src, /guest\.email \?\? profileDetails\?\.email/, 'the saved email is not offered back');
+  // 📵 No email box since 2026-09-29 (owner, "NO EMAIL TO GUESTS") — nothing to offer back.
+  assert.doesNotMatch(src, /id="contact_email"/, 'the reply asks for an email again');
   assert.match(src, /guest\.mobile \?\? profileDetails\?\.phone/, 'the saved number is not offered back');
   assert.match(
     src,
@@ -153,7 +154,7 @@ test("⚠ THIS EVENT'S own answer always wins over the account default", () => {
   // A guest who set a different number for THIS event must not have it
   // overwritten by whatever their profile happens to hold.
   const src = readFileSync(join(__dirname, '..', '_components', 'rsvp-widget.tsx'), 'utf8');
-  for (const pair of ['guest.email ?? profileDetails?.email', 'guest.mobile ?? profileDetails?.phone']) {
+  for (const pair of ['guest.mobile ?? profileDetails?.phone', 'guest.display_name ?? profileDetails?.displayName']) {
     assert.ok(src.includes(pair), `${pair} is reversed — the profile would overwrite this event's answer`);
   }
 });

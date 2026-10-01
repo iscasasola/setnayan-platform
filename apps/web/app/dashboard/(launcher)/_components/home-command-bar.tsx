@@ -22,6 +22,7 @@ import { commandKeyClaimed } from '@/lib/command-key-claim';
 import { marketplaceEscapeItem } from '@/app/_components/frontdoor/command-escape';
 import { KIND_LABEL, matchesCommandQuery } from '@/lib/command-match';
 import { itemInScope, resolveSearchScope } from '@/lib/search-scope';
+import { GuestsTopSearch } from './guests-top-search';
 
 /**
  * HomeCommandBar — the launcher's DETERMINISTIC "search or jump" bar
@@ -250,6 +251,14 @@ export function HomeCommandBar({
     }
     // Escape is handled by useModalA11y's capture-phase document listener.
   };
+
+  /*
+    🔎 ON THE GUEST LIST THE BAR IS THE GUEST SEARCH (owner 2026-09-30, "the
+    top bar searches guests"). Not the palette over your own things: a real box
+    that drives the roster's `?q=`, with the same escape row out. Every hook
+    above still runs, so the order never changes between places.
+  */
+  if (scope.key === 'guests') return <GuestsTopSearch scope={scope} />;
 
   return (
     <>

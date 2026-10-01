@@ -24,6 +24,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { inviteSendPath } from '@/lib/guest-invite-message';
 import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
+import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 
 const WEB = join(__dirname, '..', '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -31,6 +32,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const SEND = 'app/dashboard/[eventId]/guests/_components/send-invite.tsx';
 const WRITER = 'app/dashboard/[eventId]/invitation/actions.ts';
 const PRINT_ROUTE = 'app/api/hub-print/[piece]/route.ts';
+const CELL = 'app/dashboard/[eventId]/guests/_components/guest-invite-cell.tsx';
 
 /** The body of `function <name>(…) {…}` in `src`, brace-matched. */
 function body(src: string, name: string): string {
@@ -53,14 +55,19 @@ test('⓵ the three paths: files where the sheet takes a file, text where not, c
   assert.equal(inviteSendPath({ share: false, filesOk: true }), 'copy');
   assert.equal(inviteSendPath({ share: false, filesOk: false }), 'copy');
 
-  const send = body(read(SEND), 'send');
-  assert.match(send, /inviteSendPath\(/, 'Send invite no longer decides its path through inviteSendPath');
+  // The decision lives in `shareInvite` since 2026-09-30 — shared by the card's
+  // Send invite AND the Guest list's Invite column, so the two cannot drift.
+  const share = body(read(SEND), 'shareInvite');
+  assert.match(share, /inviteSendPath\(/, 'Send invite no longer decides its path through inviteSendPath');
   // "files" is only claimed after the browser says it can share THAT file.
-  assert.match(send, /canShare\?\.\(\{\s*files:\s*\[file\]\s*\}\)/, 'files are shared without asking canShare({ files })');
+  assert.match(share, /canShare\?\.\(\{\s*files:\s*\[file\]\s*\}\)/, 'files are shared without asking canShare({ files })');
   // The message that travels WITH the image says "(attached)"; the text-only one does not.
-  assert.match(send, /files:\s*\[file\],\s*text:\s*message\(true\)/);
-  assert.match(send, /\{\s*text:\s*message\(false\)\s*\}/);
-  // No share sheet, or a refused one → the copy (which offers Download QR + Mark as sent).
+  assert.match(share, /files:\s*\[file\],\s*text:\s*message\(true\)/);
+  assert.match(share, /\{\s*text:\s*message\(false\)\s*\}/);
+  // …and the card's Send invite goes through it. No share sheet, or a refused
+  // one → the copy (which offers Download ticket + Mark as sent).
+  const send = body(read(SEND), 'send');
+  assert.match(send, /shareInvite\(/, 'Send invite has its own share path again');
   assert.match(send, /copyText\('copied-desktop'\)/);
 });
 
@@ -82,12 +89,19 @@ test('⓷ a copy is not a send; a closed share sheet stamps nothing', () => {
   const src = read(SEND);
   const copy = body(src, 'copyText');
   assert.doesNotMatch(copy, /\bmark\(/, 'Copy message stamps Sent by itself — a copy is not a send');
-  const send = body(src, 'send');
-  // mark(true) comes AFTER the awaited share, and an AbortError returns first.
-  const shareAt = send.indexOf('await nav.share(');
-  const markAt = send.indexOf('mark(true)');
-  assert.ok(shareAt > 0 && markAt > shareAt, 'Sent ✓ is stamped before the phone handed the message over');
-  assert.match(send, /'AbortError'\)\s*return;/, 'closing the share sheet must return without stamping');
+  // The share reports 'shared' only AFTER the awaited sheet, and 'closed' on an
+  // AbortError — and every caller stamps on 'shared' alone.
+  const share = body(src, 'shareInvite');
+  const shareAt = share.indexOf('await nav.share(');
+  const sharedAt = share.indexOf("return 'shared'");
+  assert.ok(shareAt > 0 && sharedAt > shareAt, 'Sent ✓ is stamped before the phone handed the message over');
+  assert.match(share, /'AbortError'\)\s*return 'closed';/, 'closing the share sheet must not read as a send');
+  for (const [file, caller] of [[SEND, 'send'], [CELL, 'invite']] as const) {
+    const b = body(read(file), caller);
+    assert.match(b, /if \(out === 'shared'\) return mark\(true\);/, `${caller}() stamps on something other than a completed share`);
+    assert.match(b, /if \(out === 'closed'\) return;/, `${caller}() treats a closed sheet as something to act on`);
+    assert.equal((b.match(/\bmark\(true\)/g) ?? []).length, 1, `${caller}() stamps Sent ✓ on more than one path`);
+  }
   // The explicit "Mark as sent" exists where a copy happened.
   assert.match(src, /data-send-invite-mark[\s\S]{0,400}Mark as sent/);
 });
@@ -95,7 +109,22 @@ test('⓷ a copy is not a send; a closed share sheet stamps nothing', () => {
 test('⓸ the QR image is fetched before the tap, never between the tap and navigator.share', () => {
   const src = read(SEND);
   assert.doesNotMatch(body(src, 'send'), /\bfetch\(/, 'a fetch inside send() can spend iOS’s user activation');
-  assert.match(body(src, 'useQrFile'), /useEffect\([\s\S]*fetch\(`\/api\/website\/qr\/guest\/\$\{guestId\}`/);
+  assert.doesNotMatch(body(src, 'shareInvite'), /\bfetch\(/, 'a fetch inside shareInvite() can spend iOS’s user activation');
+  assert.doesNotMatch(body(read(CELL), 'invite'), /\bfetch\(/, 'a fetch inside the Invite column’s tap can spend iOS’s user activation');
+  assert.match(body(src, 'useTicketFile'), /useEffect\([\s\S]*fetch\(ticketUrl\(guestId\)/);
+});
+
+test('⓺ what travels is the Digital ticket, never the bare QR (owner 2026-09-30)', () => {
+  // "so what will show is not QR Code. it will be the Digital Ticket" ·
+  // "we do not copy the QR Code, we copy the Digital Ticket".
+  const src = read(SEND);
+  assert.match(body(src, 'ticketUrl'), /\$\{TICKET_ROUTE\}\?guest=/, 'the shared file is not the pass-card (ticket) route');
+  // Spelled in send-invite.tsx (bundle), held equal to the one source here.
+  assert.equal(/export const TICKET_ROUTE = '([^']+)'/.exec(src)?.[1], PASS_CARD_ROUTE, 'TICKET_ROUTE drifted from PASS_CARD_ROUTE');
+  assert.doesNotMatch(src, /\/api\/website\/qr\/guest\//, 'send-invite.tsx still fetches the bare QR PNG');
+  const cell = read(CELL);
+  assert.match(body(cell, 'copyTicketImage'), /ticketUrl\(guestId\)/);
+  assert.doesNotMatch(cell, /\/api\/website\/qr\/guest\//, 'the Invite column still copies the bare QR PNG');
 });
 
 test('⓹ the couple’s wording survives the Details and Menu saves that share its jsonb', () => {
@@ -103,7 +132,9 @@ test('⓹ the couple’s wording survives the Details and Menu saves that share 
   assert.equal(stored.inviteMessage, 'Hi {name}! {link}');
   assert.equal(parsePrintDetails(serializePrintDetails(stored)).inviteMessage, 'Hi {name}! {link}');
   const route = read(PRINT_ROUTE);
-  assert.match(route, /inviteMessage:\s*stored\.inviteMessage/,
+  // The words save starts from EVERYTHING stored and overwrites only its own
+  // keys (2026-09-30: a named key list had dropped the poster photo).
+  assert.match(route, /const details = \{\s*\.\.\.stored,/,
     'the Details (words) save rebuilds print_details without the invite message — it would erase it');
   assert.match(route, /serializePrintDetails\(\{\s*\.\.\.stored,\s*menu:/, 'the Menu save no longer carries the rest');
 });

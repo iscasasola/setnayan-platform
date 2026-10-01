@@ -1,5 +1,6 @@
 'use server';
 
+import { stripInviteFaceFields } from '@/lib/face-tagging-wish';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { INVITE_RETURN, inviteReplyPath } from '@/lib/invite-arrival';
@@ -72,5 +73,7 @@ export async function submitInviteReply(eventId: string, guestId: string, formDa
     });
   }
   formData.delete(TERMS_FIELD);
+  // 📵 No face is taken at the invitation — only the tagging answer (owner 2026-09-30).
+  stripInviteFaceFields(formData);
   return submitRsvp(eventId, guestId, formData);
 }

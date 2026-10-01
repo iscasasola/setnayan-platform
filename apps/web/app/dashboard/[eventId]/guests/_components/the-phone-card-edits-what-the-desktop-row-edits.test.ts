@@ -101,7 +101,12 @@ test('the extractor reads the BODY, not the destructured props', () => {
 });
 
 test('every chip the desktop row can edit, the phone row can edit', () => {
-  const desktop = bodyOf('DesktopRow');
+  // ⤷ 2026-09-30, the full-width list: the desktop row draws its columns
+  // through ONE switch, RosterCell — so the baseline is the row PLUS the cells
+  // it draws (only when it does draw them, or the baseline would be borrowed).
+  const desktopRow = bodyOf('DesktopRow');
+  assert.match(desktopRow, /<RosterCell\b/, 'DesktopRow no longer draws RosterCell — re-point this baseline');
+  const desktop = desktopRow + bodyOf('RosterCell');
   const row = bodyOf('MobileListRow');
   for (const editor of [
     'SideChipEditor',

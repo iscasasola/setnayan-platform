@@ -52,7 +52,7 @@ function canvasBar(stage: LifecyclePhase, facts: { hasDetails: boolean; hasStory
       hasStory: facts.hasStory,
       hasDetails: facts.hasDetails,
       liveBroadcast: false,
-      destinations: { camera: '/papic/guest?from=cale-ice', watch: '/cale-ice/hub', join: '/cale-ice/invite', rsvp: '/cale-ice/invite/reply' },
+      destinations: { camera: '/papic/guest?from=cale-ice', watch: '/cale-ice/hub', join: '/cale-ice/invite' },
       stageSlots: STAGE_BAR[stage].slots,
     }),
   );
@@ -103,15 +103,17 @@ test('1 · the header names the stage it shows — each stage its own label, nev
   assert.equal(pageStageFor({ phasesEnabled: false, lifecyclePhase: 'rsvp', dayOfPhase: 'pre' }), 'rsvp');
 });
 
-test('2 · the tab bar follows the stage’s one config — On the Day is Now · Schedule · Camera · Me, the Invitation is Home · Details · Story · RSVP', () => {
-  // Owner 2026-09-27, "EACH STAGE DOES ONE JOB": the day gains its Schedule
-  // (Gallery joins once a chapter is public — none is here).
+test('2 · the tab bar follows the stage’s one config — On the Day is Live · Welcome · Camera · Me, the Invitation is Welcome · Details · Our Love Story · Me', () => {
+  // Owner 2026-09-30, "THE DAY'S MENU HAS FIVE: LIVE · WELCOME · CAMERA ·
+  // GALLERY · ME" (it supersedes 2026-09-27's Now · Schedule). Gallery joins
+  // once a chapter is public — none is here.
   const day = canvasBar('event', { hasDetails: true, hasStory: false }).map((b) => b.label);
-  assert.deepEqual(day, ['Now', 'Schedule', 'Camera', 'Me']);
-  // …and the Invitation reads Home · Details · Story · RSVP — RSVP becomes Me
-  // once the guest has answered (held in each-stage-does-one-job.test.ts).
+  assert.deepEqual(day, ['Live', 'Welcome', 'Camera', 'Me']);
+  // …and the Invitation reads Welcome · Details · Our Love Story · Me (owner
+  // 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love Story
+  // - Me"*; *"RSVP does not have 4 tabs under"* — no RSVP tab, ever).
   const invite = canvasBar('rsvp', { hasDetails: true, hasStory: true }).map((b) => b.label);
-  assert.deepEqual(invite, ['Home', 'Details', 'Story', 'RSVP']);
+  assert.deepEqual(invite, ['Welcome', 'Details', 'Our Love Story', 'Me']);
   // the allow-list removes: a stage that does not list a slot never draws it
   const narrowed = resolveSiteNav({
     viewer: { kind: 'public' }, phase: 'after', hostAllowsCamera: true, anyChapterPublic: true, liveBroadcast: false,
@@ -143,13 +145,16 @@ test('3 · for EVERY stage the navigator’s tabs are exactly that stage’s Eve
       if (t.leaves) assert.equal(t.tiles.length, 0, `${stage}/${t.label} opens its own page — it lists no scenes`);
     }
   }
-  // On the Day has no Details tab: its Schedule tab lands on the details, so
-  // the day's sections sit under Schedule and the top of the page under Now.
+  // 📱 On the Day (owner 2026-09-30) the page opens on Live — the masthead,
+  // the day's sections (the programme first) and the entourage — and the
+  // guest's table is their Welcome's, their photos the Gallery's.
   assert.equal(anchorOfTile('w:venue_map'), 'details');
+  assert.equal(anchorOfTile('w:venue_map', true), 'live');
+  assert.equal(anchorOfTile('f:find_your_seat', true), 'home');
+  assert.equal(anchorOfTile('f:photos_of_you', true), 'gallery');
   const dayTiles = makerStageList({ ...PAGE, stage: 'event' }).shown.map((t) => t.key);
   const dayTabs = navigatorTabs(canvasBar('event', { hasDetails: true, hasStory: false }), dayTiles);
-  assert.deepEqual(dayTabs.find((t) => t.label === 'Now')?.tiles, ['f:hero', 'f:pass']);
-  assert.deepEqual(dayTabs.find((t) => t.label === 'Schedule')?.tiles, ['w:schedule', 'w:venue_map', 'w:photo_moments', 'f:entourage']);
+  assert.deepEqual(dayTabs.find((t) => t.label === 'Live')?.tiles, ['f:hero', 'f:pass', 'w:schedule', 'w:venue_map', 'w:photo_moments', 'f:entourage']);
 });
 
 test('4 · SOURCE: one value draws the bar and feeds the navigator; the navigator builds no menu of its own', () => {
@@ -157,6 +162,8 @@ test('4 · SOURCE: one value draws the bar and feeds the navigator; the navigato
   assert.match(BODY, /const anonBar = resolveSiteNav\(\{/);
   assert.match(BODY, /<span hidden data-maker-bar=\{JSON\.stringify\(makerBarItems\(anonBar\)\)\} \/>/);
   assert.match(BODY, /\{menuOn && showGuestBars \? \(\s*<SiteMenuBar\s+slots=\{anonBar\}/, 'the guest bar in the canvas is drawn from the same value');
+  // 📱 …and the tabbed page's shell reads the SAME value for its tabs.
+  assert.match(BODY, /<HubShell frame="page" slots=\{anonBar\} \/>/);
   const BRIDGE = read('../app/[slug]/_components/editor-bridge.tsx');
   assert.match(BRIDGE, /bar: readMakerBar\(document\)/);
   const SHELL = read('../app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');

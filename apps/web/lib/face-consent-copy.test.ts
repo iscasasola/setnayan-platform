@@ -18,8 +18,9 @@ const SRC = readFileSync(
   'utf8',
 );
 
-/** Only the JSX, so a docblock explaining the rule can't satisfy a rule. */
-const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+/** Only the JSX, so a docblock explaining the rule can't satisfy a rule —
+ *  whitespace folded, so a sentence wrapped across JSX lines still reads as one. */
+const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').replace(/\s+/g, ' ');
 
 test('the consent wording branches on the face mode', () => {
   assert.match(
@@ -46,15 +47,17 @@ test('mode_a keeps the full disclosure it was widened to carry', () => {
   assert.match(CODE, /so those photos can be delivered to me/);
 });
 
-test('the 18+ affirmation is still required in BOTH modes', () => {
-  // A guest photo on someone else's event list is adults-only whether or not a
-  // face is measured. Only the REASON changes.
-  const box = CODE.slice(CODE.indexOf('name="age_affirmation"'));
-  assert.match(box, /18 or older/);
-  assert.ok(
-    !/faceMode === 'mode_a' \? \(\s*<input/.test(box),
-    'the 18+ input itself must not be conditional — only its wording',
-  );
+test('the 18+ affirmation is still required in BOTH modes — carried by the one tick', () => {
+  // Owner 2026-09-30 (final face step): ONE tick, "I'm 18+ and agree to face
+  // tagging", posts BOTH attestations; neither input is conditional on the mode.
+  const { FACE_STEP_TICK } = require('./face-enroll-refusal') as typeof import('./face-enroll-refusal');
+  assert.match(FACE_STEP_TICK, /18\+/, 'the one tick no longer states the age');
+  const posted = CODE.slice(CODE.indexOf('{agreed ? ('), CODE.indexOf(') : null}', CODE.indexOf('{agreed ? (')));
+  assert.match(posted, /name="biometric_consent" value="1"/, 'the tick no longer posts the consent');
+  assert.match(posted, /name="age_affirmation" value="1"/, 'the tick no longer posts the 18+ attestation');
+  assert.doesNotMatch(posted, /faceMode/, 'an attestation became conditional on the mode');
+  // …and the Details say 18 or older in BOTH wordings.
+  assert.equal((CODE.match(/I confirm I am 18 or older/g) ?? []).length, 2, 'a Details wording lost the 18+ statement');
 });
 
 test('every claim about recognition sits inside a mode branch', () => {
@@ -71,45 +74,21 @@ test('every claim about recognition sits inside a mode branch', () => {
 });
 
 // ── The whole SCREEN must agree, not just the checkbox ──────────────────────
-// The consent box was fixed first, and the card wrapping it kept promising
-// "the candid shots of you get gathered for you automatically. No scanning, no
-// searching." Two contradictory claims, two inches apart, on the same screen.
-// A guest reads the headline, not the small print.
+// Since 2026-09-30 the face step is ONE screen that exists only where face
+// tagging runs: on a mode_b event it renders nothing at all, so it can promise
+// nothing there — the strongest form of "the words follow the processing".
 
-test('the enrolment card promises no automatic gathering on a switched-off event', () => {
+test('the face step renders nothing on a mode_b event — no promise, no collection', () => {
   const card = readFileSync(
     join(HERE, '..', 'app', '[slug]', '_components', 'day-of-face-enroll.tsx'),
     'utf8',
   );
   const code = card.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-  assert.match(code, /faceMode === 'mode_a'/, 'the card must branch on the mode too');
-  // The three unconditional promises that used to sit here.
-  for (const promise of [
-    'get gathered for you automatically',
-    'No scanning, no\n                searching',
-  ]) {
-    const idx = code.indexOf(promise.split('\n')[0]!);
-    if (idx === -1) continue;
-    const before = code.slice(Math.max(0, idx - 400), idx);
-    assert.match(
-      before,
-      /faceMode === 'mode_a'/,
-      `"${promise.split('\n')[0]}" must sit inside a mode_a branch`,
-    );
-  }
-});
-
-test('the success state does not tell a mode_b guest photos will find them', () => {
-  const card = readFileSync(
-    join(HERE, '..', 'app', '[slug]', '_components', 'day-of-face-enroll.tsx'),
-    'utf8',
-  );
-  const code = card.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-  const idx = code.indexOf('find their way to you');
-  assert.ok(idx > -1, 'the mode_a success copy should still exist');
-  assert.match(
-    code.slice(Math.max(0, idx - 300), idx),
-    /faceMode === 'mode_a'/,
-    'it must be gated — it is a promise of automatic delivery',
+  assert.match(code, /if \(faceMode !== 'mode_a' \|\| wish === false\) return null;/, 'the face step shows on an event where no face is matched');
+  // The saved toast — the only promise on the card — sits after that return.
+  assert.ok(code.indexOf('FACE_STEP_SAVED') > -1);
+  assert.ok(
+    code.indexOf("if (faceMode !== 'mode_a' || wish === false) return null;") < code.indexOf('if (done) {'),
+    'the success toast can render before the mode check',
   );
 });

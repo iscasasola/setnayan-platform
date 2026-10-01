@@ -20,6 +20,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   accountFaceProfileEnabled,
   ACCOUNT_FACE_CONSENT_VERSION,
+  setAccountFaceReuse,
 } from '@/lib/account-face-profile';
 
 const PROFILE_PATH = '/dashboard/profile';
@@ -36,6 +37,23 @@ const PROFILE_PATH = '/dashboard/profile';
  */
 export async function setAccountFaceProfileConsent(formData: FormData) {
   if (!accountFaceProfileEnabled()) redirect(PROFILE_PATH);
+
+  // 🙂 "EVENTS THAT CAN REUSE YOUR FACE" — one switch per event (owner
+  // 2026-09-30, design screen 5). Rides THIS action (server actions sit at
+  // their ceiling) as its own branch: `reuse_event_id` names ONE event and
+  // `reuse` its new state; nothing else about the profile changes. Written on
+  // the caller's own row through their own client — RLS keeps it theirs.
+  const reuseEventId = formData.get('reuse_event_id');
+  if (typeof reuseEventId === 'string' && reuseEventId) {
+    const supabaseReuse = await createClient();
+    const {
+      data: { user: owner },
+    } = await supabaseReuse.auth.getUser();
+    if (!owner) redirect('/login');
+    await setAccountFaceReuse(supabaseReuse, owner.id, reuseEventId, formData.get('reuse') === 'true');
+    revalidatePath(PROFILE_PATH);
+    redirect(`${PROFILE_PATH}?saved=1&tab=privacy`);
+  }
 
   const raw = formData.get('enabled');
   if (raw !== 'true' && raw !== 'false') {

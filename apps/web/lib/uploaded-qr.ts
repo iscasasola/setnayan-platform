@@ -21,6 +21,15 @@ import { parseGuestQrPayload } from '@/lib/checkin';
  */
 export const NOT_THIS_EVENTS_CODE = 'That code isn’t an invitation to this event.';
 
+/**
+ * No code could be READ in the picture at all — blurry, cropped, too dark, or
+ * not a QR. A different fault from a code that belongs elsewhere, with a
+ * different fix (guest text audit 2026-09-30: a blurry photo of the RIGHT QR
+ * was told it "isn't an invitation to this event", so the guest gave up on the
+ * one code that would have opened it).
+ */
+export const UNREADABLE_QR = 'We couldn’t read a QR code in that picture. Try a sharper photo, or a screenshot of the code.';
+
 export function uploadedQrTarget(raw: string, slug: string): string | null {
   const text = (raw ?? '').trim();
   const token = parseGuestQrPayload(text);

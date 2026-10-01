@@ -112,6 +112,18 @@ import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
 import { formatCount } from '@/lib/format-number';
 import { seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
+import { SetupCard } from '@/app/onboarding/_shared/setup-card';
+import {
+  setupCardAnswered,
+  setupDefaults,
+  setupLanding,
+  type SetupAnswers,
+  type SetupCardId,
+  type SetupView,
+} from '@/lib/onboarding/setup-answers';
+
+/** No setup cards — the stable default, so the sequence memo never churns. */
+const NO_SETUP_STEPS: readonly SetupCardId[] = [];
 
 /* ── string-id navigation model (replaces integer-step `step === N` addressing) ──
  * The 17 screens are addressed by a stable string id. The two forks that used to
@@ -157,7 +169,7 @@ import { seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/coupl
    it is the first time this funnel tells a couple that Papic exists at all. The
    2026-06-21 "no paywall in onboarding" lock is untouched; `plan`/`services`/
    `summary` stay filtered out exactly as before. */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','services_step','congrats','plan','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_entry','setup_guests','setup_more','services_step','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -222,7 +234,7 @@ const REMOVED_SCREENS: ReadonlySet<ScreenId> = new Set([
    resolves it server-side (`isStoreShellRequest`) and passes it down; every call site below
    passes the same prop, so resume and the progress bar count the same screens. */
 const STORE_SHELL_DROPPED_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'services', 'summary', 'services_step']);
-function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[], storeShell: boolean): ScreenId[] {
+function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[], setupSteps: readonly string[], storeShell: boolean): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
@@ -237,7 +249,8 @@ function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipp
     !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
     !(ai !== true && TEAM_AI_ONLY.has(id)) &&       // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
     !(id === 'songs' && !hasMusician) &&            // songs only when a Band / Orchestra / Wedding Singer is picked
-    !(id === 'mood' && !hasStylist)                 // mood (= the stylist refinement) only when Stylist/Decorator is picked
+    !(id === 'mood' && !hasStylist) &&              // mood (= the stylist refinement) only when Stylist/Decorator is picked
+    !(id.startsWith('setup_') && !setupSteps.includes(id)) // 🎟 the setup cards (G1) only as the profile resolves them — none until the seed admits weddings
   );
 }
 
@@ -272,6 +285,8 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // exp_effort leads into the reveal; exp_reveal continues on to reception_setting.
   exp_for_whom:'Continue', exp_feel:'Continue', exp_energy:'Continue', exp_roots:'Continue', exp_effort:'Continue',
   exp_help:'Continue', exp_source:'Continue', exp_reveal:'Continue',
+  // 🎟 The setup cards (G1) — the shared SetupCard, advanced by the chrome Continue.
+  setup_where:'Continue', setup_photo:'Continue', setup_look:'Continue', setup_entry:'Continue', setup_guests:'Continue', setup_more:'Continue',
 };
 /* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
    à-la-carte services review — they sort/refine, never gate. The love collection screens
@@ -853,7 +868,7 @@ function HeroImg({ src, alt = '' }: { src: string; alt?: string }) {
    onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
    only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  advanced_website: 'Advanced Website', papic_guest: 'Papic — add credits', guest_stories: 'Guest Stories', papic_seats: 'Papic — a camera with its own shots', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Music Maker · your song', panood: 'Live Studio livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic — add credits', guest_stories: 'Guest Stories', papic_seats: 'Papic — a camera with its own shots', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Music Maker · your song', panood: 'Live Watch livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {
@@ -1197,6 +1212,8 @@ export function OnboardingShell({
   servicesStepView = null,
   servicesStepAiValue = null,
   storeShell = false,
+  setupView = null,
+  setupSteps = NO_SETUP_STEPS,
 }: {
   authed: boolean;
   resume: boolean;
@@ -1276,8 +1293,22 @@ export function OnboardingShell({
    * STORE_SHELL_DROPPED_SCREENS. Defaults false: web, PWA and desktop unchanged.
    */
   storeShell?: boolean;
+  /**
+   * 🎟 THE SETUP ENGINE (G1). Server-resolved from the wedding profile
+   * (`setupViewForProfile`) — NULL until the seed admits weddings, and then
+   * the flow is exactly yesterday's.
+   */
+  setupView?: SetupView | null;
+  /** The engine's cards, after what this flow already asked (`resolveSetupSteps(view, CREATION_ASKS.wedding)`). */
+  setupSteps?: readonly SetupCardId[];
 }) {
   const router = useRouter();
+  // The setup cards' answers, pre-filled with the wedding's defaults (the
+  // default IS an answer). Kept out of `state` like the Papic picks: a draft
+  // resumed later starts from the defaults again, never a stale pick.
+  const [setupAnswers, setSetupAnswers] = useState<SetupAnswers | null>(
+    setupView ? setupDefaults(setupView) : null,
+  );
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [hydrated, setHydrated] = useState(false);
 
@@ -1486,7 +1517,7 @@ export function OnboardingShell({
             Math.max(0, saved.step ?? 0),
             // Pass saved.ai (PR-1 field; legacy drafts saved before PR-1 fall back to null
             // = AI not yet asked → picker/prefs filtered out until they tap Yes on aigate).
-            buildSequence(saved.kind, authed, saved.loveSkipped ?? false, saved.ai ?? null, saved.picks ?? [], storeShell).length - 1,
+            buildSequence(saved.kind, authed, saved.loveSkipped ?? false, saved.ai ?? null, saved.picks ?? [], setupSteps, storeShell).length - 1,
           );
           setState({ ...EMPTY_ONBOARDING_STATE, ...saved, step: clampedStep, startedAt });
         } else {
@@ -1527,12 +1558,12 @@ export function OnboardingShell({
   useEffect(() => {
     if (hydrated && resume && authed) {
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks, storeShell);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks, setupSteps, storeShell);
         const ci = sq.indexOf('congrats');
         return ci >= 0 && s.step < ci ? { ...s, step: ci } : s;
       });
     }
-  }, [hydrated, resume, authed, storeShell]);
+  }, [hydrated, resume, authed, storeShell, setupSteps]);
 
   /* Stamp the onboarding start once hydrated (a fresh draft has no startedAt yet) so the
      services summary can show "you did all this in X minutes" (owner 2026-06-05). */
@@ -1548,7 +1579,7 @@ export function OnboardingShell({
      sequence). buildSequence drops faith for Civil + account for signed-in users,
      so the same numeric step addresses a different screen depending on those forks —
      exactly the old skip behaviour, now via array membership. */
-  const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai, state.picks, storeShell), [state.kind, authed, state.loveSkipped, state.ai, state.picks, storeShell]);
+  const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai, state.picks, setupSteps, storeShell), [state.kind, authed, state.loveSkipped, state.ai, state.picks, storeShell, setupSteps]);
   const stepClamped = Math.min(Math.max(0, state.step), seq.length - 1);
   const activeId: ScreenId = seq[stepClamped] ?? 'welcome';
 
@@ -1622,7 +1653,7 @@ export function OnboardingShell({
     (d: number) => {
       if (d === 0) return;
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks, storeShell);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks, setupSteps, storeShell);
         const activeIdNow = sq[Math.min(Math.max(0, s.step), sq.length - 1)] ?? 'welcome';
         // ── refine re-entry: walk the queued leaves within the active pass before leaving ──
         if (REFINE_SCREENS.has(activeIdNow) && s.ai === true) {
@@ -1646,7 +1677,7 @@ export function OnboardingShell({
         return { ...s, step: n };
       });
     },
-    [authed, refineIdx, extrasOrder, refinementKeys, storeShell],
+    [authed, refineIdx, extrasOrder, refinementKeys, storeShell, setupSteps],
   );
 
   /* Absolute jump to a screen by id (resolves to its index in the filtered seq).
@@ -1654,12 +1685,12 @@ export function OnboardingShell({
   const goToId = useCallback(
     (id: ScreenId) => {
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks, storeShell);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks, setupSteps, storeShell);
         const i = sq.indexOf(id);
         return i >= 0 ? { ...s, step: i } : s;
       });
     },
-    [authed, storeShell],
+    [authed, storeShell, setupSteps],
   );
 
   /* ── Hardware / browser / swipe Back interception (owner bug 2026-06-15) ──────
@@ -1833,11 +1864,11 @@ export function OnboardingShell({
      excludes the love screens when we resolve 'region''s index. */
   const loveSkip = useCallback(() => {
     setState((s) => {
-      const sq = buildSequence(s.kind, authed, true, s.ai, s.picks, storeShell);
+      const sq = buildSequence(s.kind, authed, true, s.ai, s.picks, setupSteps, storeShell);
       const i = sq.indexOf('region');
       return { ...s, loveSkipped: true, step: i >= 0 ? i : s.step };
     });
-  }, [authed, storeShell]);
+  }, [authed, storeShell, setupSteps]);
 
   /* ════ DREAM TEAM · the AI gate (prototype aiAnswer) ════
      The two in-screen CTAs on `aigate`. Yes → state.ai=true reveals the AI-gated
@@ -2321,6 +2352,8 @@ export function OnboardingShell({
       case 'exp_reveal':
         return true;
       default:
+        // 🎟 A setup card waits for its answer (a quick answer counts).
+        if (activeId.startsWith('setup_') && setupAnswers) return setupCardAnswered(activeId as SetupCardId, setupAnswers);
         return true;
     }
   })();
@@ -2739,6 +2772,9 @@ export function OnboardingShell({
       papicPaymentPath: string | null = null,
     ) => {
       const base = `/dashboard/${eventId}`;
+      // The guests card picks where a free finish lands (`setupLanding`): a
+      // way to add them opens the Guest list; "later" (or no engine) is Home.
+      const home = setupLanding(eventId, setupView ? setupAnswers : null);
       // Purchase Now jumps straight to the in-app checkout card (InlineCheckoutDrawer · BDO/GCash QR
       // + reference) for the FIRST picked service that has a built checkout page (owner 2026-06-06)
       // — the couple pays there; the rest stay payable on the Services tab. Falls back to the
@@ -2759,7 +2795,7 @@ export function OnboardingShell({
             // something (see papicPaymentPath's doc above); else the
             // vendor-invite errand they were sent here mid-way through
             // (vendor-invite/[slug], to finish shortlisting); else Home.
-            : (papicPaymentPath ?? nextPath ?? base);
+            : (papicPaymentPath ?? nextPath ?? home);
       try {
         router.prefetch(base); // Home
         router.prefetch(`${base}/guests`); // Guests
@@ -2863,6 +2899,9 @@ export function OnboardingShell({
       // only: the commit re-parses it and re-prices every rung from the live
       // catalog, and no amount is sent from here.
       payload.servicesSelection = servicesSelection;
+      // The setup cards (G1) — a CLAIM only; the commit re-reads every key
+      // against the wedding's own view before writing anything.
+      if (setupView && setupAnswers) payload.setup = setupAnswers;
       const res = await commitOnboardingWedding(payload);
       committingRef.current = false;
       setCommitting(false);
@@ -2941,7 +2980,7 @@ export function OnboardingShell({
     // captured on its last render — in practice the empty one, so the couple's
     // choice silently evaporates and they are charged nothing. Nothing errors;
     // the order simply never exists. Caught by react-hooks/exhaustive-deps.
-  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection, weddingExists]);
+  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection, weddingExists, setupView, setupAnswers]);
 
   return (
     <div className="onbw">
@@ -4329,6 +4368,28 @@ export function OnboardingShell({
               screens keep an inert <section> in the tree, but this one is new, so
               rendering nothing at all is what makes flag-off emit byte-identical DOM
               rather than one extra hidden node. */}
+          {/* 🎟 THE SETUP CARDS (G1) — the same SetupCard every type draws, one per
+              screen, after everything this flow already asks and before the
+              services step. Rendered only when the profile resolves them, so a
+              wedding the seed has not admitted emits byte-identical DOM. */}
+          {setupView && setupAnswers
+            ? setupSteps.map((card, i) => (
+                <section key={card} className={`screen${activeId === card ? ' active' : ''}`} id={`screen-${card}`}>
+                  {activeId === card ? (
+                    <SetupCard
+                      card={card}
+                      view={setupView}
+                      answers={setupAnswers}
+                      onChange={(patch) => setSetupAnswers((a) => (a ? { ...a, ...patch } : a))}
+                      onNext={() => go(1)}
+                      n={i + 1}
+                      total={setupSteps.length}
+                    />
+                  ) : null}
+                </section>
+              ))
+            : null}
+
           {servicesStepView ? (
             <section className={`screen${activeId === 'services_step' ? ' active' : ''}`} id="screen-services_step">
               <div className="eyebrow">Your services</div>

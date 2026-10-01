@@ -36,7 +36,7 @@ const EDITOR = readFileSync(
   'app/vendor-dashboard/shop/_components/website-editor.tsx',
   'utf8',
 );
-const MATRIX = readFileSync('app/vendors/_components/vendor-tier-matrix.tsx', 'utf8');
+const MATRIX = readFileSync('app/for-suppliers/_components/vendor-tier-matrix.tsx', 'utf8');
 
 /** The literal entries of a named `new Set([...])`, comments stripped. */
 function setEntries(src: string, name: string): string[] {

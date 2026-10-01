@@ -93,7 +93,7 @@ const RESERVED_SUBDOMAINS = new Set([
 const APP_EXCLUDED_MARKETING_PATHS = new Set([
   '/',
   '/features',
-  '/vendors',
+  '/for-suppliers',
   '/creators',
   '/pricing',
   '/how-it-works',
@@ -277,11 +277,11 @@ async function middlewareCore(request: NextRequest) {
   // subdomain rewrite so slug.setnayan.com still resolves to /v/{slug}; the
   // /v/[slug] vendor PROFILE route is a different prefix and is untouched.
   //
-  // ⚠ EXACT `/vendors` is DELIBERATELY EXCLUDED (2026-07-05): the vendor
-  // BENEFITS page moved from /for-vendors → /vendors, so bare `/vendors` must
-  // render that page — only the legacy marketplace subpaths still redirect to
-  // /explore. `/for-vendors` → `/vendors` is a permanent redirect in
-  // next.config.ts redirects().
+  // ⚠ EXACT `/vendors` is DELIBERATELY EXCLUDED: it is the supplier page's OLD
+  // address, and next.config.ts redirects() sends it (and `/for-vendors`) to
+  // `/for-suppliers` with a 308 before this middleware runs (moved 2026-09-30,
+  // owner DECISION_LOG 2026-09-29 "LANE 2 §2C"). Only the legacy marketplace
+  // subpaths redirect to /explore here.
   if (pathname.startsWith('/vendors/')) {
     // /vendors/compare is still an un-wired orphan (its `ids` param was never
     // honored — Task #12), so it lands on /explore with the explanatory notice

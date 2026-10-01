@@ -1,7 +1,11 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
-import { renderBrandedEmail } from '@/lib/email-template';
+import {
+  ADMIN_EMAIL_FOOTER,
+  renderBrandedEmail,
+  type BrandedEmailSection,
+} from '@/lib/email-template';
 import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import type { NotificationType } from '@/lib/notifications';
@@ -360,6 +364,26 @@ export type EmitNotificationArgs = {
    * null anyway.
    */
   eventId?: string | null;
+  /**
+   * A richer EMAIL than the one-paragraph default — used by the admin payment
+   * alerts (owner 2026-09-30: *"identify also the name of the host, event type,
+   * event name, and the services availed"*). Everything here affects the email
+   * only; the in-app row still stores `title` / `body` / `relatedUrl`. The
+   * SUBJECT is still `title` (the-notice-follows-the-payer.test.ts holds that),
+   * so the alert puts the host and event into the title itself.
+   */
+  email?: NotificationEmailParts;
+};
+
+export type NotificationEmailParts = {
+  /** Replaces the single `body` paragraph in the HTML half. */
+  paragraphs?: string[];
+  /** Labelled facts under the paragraphs (host, event, lines, payment). */
+  sections?: BrandedEmailSection[];
+  /** Button label. Defaults to "Open Setnayan". */
+  ctaLabel?: string;
+  /** 'admin' = the admin brand line + "because you're a Setnayan admin". */
+  audience?: 'admin';
 };
 
 /**
@@ -463,16 +487,36 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
           process.env.NEXT_PUBLIC_APP_URL ??
           'https://setnayan-platform-web.vercel.app';
         const link = relatedUrl ? `${appUrl}${relatedUrl}` : appUrl;
+        const mail = args.email;
+        const isAdminMail = mail?.audience === 'admin';
+        const ctaLabel = mail?.ctaLabel ?? 'Open Setnayan';
+        const paragraphs = mail?.paragraphs ?? (body ? [body] : []);
+        // The plain-text half carries the SAME facts as the HTML half — a
+        // client that drops HTML must not lose the host, the event or the bill.
+        const sectionLines = (mail?.sections ?? []).flatMap((sec) =>
+          sec.rows.length === 0
+            ? []
+            : [
+                '',
+                ...(sec.title ? [sec.title.toUpperCase()] : []),
+                ...sec.rows.map((r) => `${r.label}: ${r.value}`),
+              ],
+        );
         const text = [
           title,
           '',
-          body ?? '',
+          ...(mail?.paragraphs ? mail.paragraphs : [body ?? '']),
+          ...sectionLines,
           '',
-          `Open Setnayan: ${link}`,
+          `${ctaLabel}: ${link}`,
           '',
           '—',
-          "You're receiving this because of activity on your Setnayan account.",
-          `Manage notifications: ${appUrl}/dashboard/profile`,
+          ...(isAdminMail
+            ? [ADMIN_EMAIL_FOOTER]
+            : [
+                "You're receiving this because of activity on your Setnayan account.",
+                `Manage notifications: ${appUrl}/dashboard/profile`,
+              ]),
         ]
           .filter((line) => line !== null && line !== undefined)
           .join('\n');
@@ -483,11 +527,18 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
         // shared layout, so no per-type renderer is needed.
         const html = renderBrandedEmail({
           heading: title,
-          paragraphs: body ? [body] : [],
-          ctaLabel: 'Open Setnayan',
+          paragraphs,
+          sections: mail?.sections,
+          ctaLabel,
           ctaHref: link,
-          footnote:
-            "You're receiving this because of activity on your Setnayan account.",
+          // An admin mail says why ONCE, in its footer; the account-activity
+          // footnote is the customer's sentence, not the team's.
+          ...(isAdminMail
+            ? { audience: 'admin' as const }
+            : {
+                footnote:
+                  "You're receiving this because of activity on your Setnayan account.",
+              }),
         });
 
         await sendEmail({

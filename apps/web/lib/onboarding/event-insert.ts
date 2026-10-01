@@ -10,6 +10,47 @@
 import type { GenericOnboardingPayload } from './types';
 import { anchorForType, isAnchorOrigin, resolveCadence } from '../event-anchor';
 import { initialLandingVisibility } from './initial-visibility';
+import { sanitizeRsvpAskConfig, type RsvpAskConfig } from '../rsvp-ask';
+import type { SetupAnswers } from './setup-answers';
+
+/**
+ * 🎟 THE SETUP CARDS' ANSWERS → the event's own columns (G1). Pure; the caller
+ * has already re-read the answers off the wire (`sanitizeSetupAnswers`, against
+ * the type's view — which is also where the theme fence was applied). Each
+ * answer lands in its REAL home, so the Maker, the Guest list and the guest
+ * side read it with no second setting:
+ *   · where  → `venue_name`
+ *   · look   → `invite_theme` (a Pro look is the couple's pick; guests see it
+ *              once Pro is applied — `resolveInviteTheme`, never blocked here)
+ *   · "How do guests get in?" → `rsvp_ask_config`: No → `guestsReply: false`
+ *              + who may come in (personal QR = their list; one QR / both =
+ *              anyone, through the shipped join link). Yes → nothing: the Guest
+ *              list's first visit asks "Who can reply?" (owner answer #6).
+ *   · everything → `style_preferences.setup`, the record Home's "Set up" line
+ *              reads.
+ * The photo and the guests are intents (the upload needs the event first; the
+ * guests card picks the landing — `setupLanding`).
+ */
+export function setupColumns(a: SetupAnswers): {
+  venue_name: string | null;
+  invite_theme: string;
+  rsvp_ask_config: RsvpAskConfig | null;
+  setup: SetupAnswers;
+} {
+  const rsvp =
+    a.reply === 'no'
+      ? sanitizeRsvpAskConfig({
+          guestsReply: false,
+          whoCanRsvp: a.entry === 'personal' ? 'guest_list' : 'anyone',
+        })
+      : null;
+  return {
+    venue_name: a.where === 'place' ? a.whereText.trim() || null : a.where === 'home' ? 'At home' : null,
+    invite_theme: a.look,
+    rsvp_ask_config: rsvp,
+    setup: a,
+  };
+}
 
 export type GenericInsertOpts = {
   slug: string;
@@ -23,12 +64,19 @@ export type GenericInsertOpts = {
    *  the per-type SPI signal (signature_details — e.g. a christening honoree's
    *  DOB/gender) is stripped to NULL. Fail-closed: the event is still created. */
   homeSignalsEnabled: boolean;
+  /**
+   * The setup cards' answers, already re-read by the caller
+   * (`sanitizeSetupAnswers`). Absent / null = the engine did not run for this
+   * type — the row is byte-identical to before.
+   */
+  setup?: SetupAnswers | null;
 };
 
 export function buildGenericEventInsert(
   payload: GenericOnboardingPayload,
   opts: GenericInsertOpts,
 ): Record<string, unknown> {
+  const setup = opts.setup ? setupColumns(opts.setup) : null;
   const dateMode = payload.dateMode === 'window' ? 'window' : 'specific';
   const candidates = dateMode === 'specific' ? (payload.dateCandidates ?? []).filter(Boolean) : [];
   const windowStart = dateMode === 'window' ? payload.windowStart : null;
@@ -88,8 +136,10 @@ export function buildGenericEventInsert(
     // the three-way disagreement that left birthdays invisible on the Year view.
     recur_cadence: resolveCadence(payload.eventType, payload.recurCadence ?? payload.recurs),
     event_date: null,
-    venue_name: null,
+    venue_name: setup?.venue_name ?? null,
     venue_address: null,
+    ...(setup ? { invite_theme: setup.invite_theme } : {}),
+    ...(setup?.rsvp_ask_config ? { rsvp_ask_config: setup.rsvp_ask_config } : {}),
     slug: opts.slug,
     // Visible by link from the moment it exists — unless this is still an
     // anonymous draft, which stays private until the account is secured.
@@ -161,6 +211,7 @@ export function buildGenericEventInsert(
       basic_moodboard: payload.basicMoodboard ?? null,
       refinements: payload.refinements ?? {},
       ...(pendingInquiryDispatch ? { pending_inquiry_dispatch: pendingInquiryDispatch } : {}),
+      ...(setup ? { setup: setup.setup } : {}),
     },
   };
 }

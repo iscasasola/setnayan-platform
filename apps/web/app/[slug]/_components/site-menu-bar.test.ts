@@ -44,14 +44,17 @@ test('menu bar · a home-indicator strip keeps labels off the home bar', () => {
   assert.match(BAR, /safe-area-inset-bottom/);
 });
 
-test('menu bar · Watch has its OWN slot and never takes the gallery\'s', () => {
+test('menu bar · the broadcast never takes the gallery\'s slot — on the day it is inside Live', () => {
   // Owner: "papic button as well" — on the day a guest needs the camera AND the
-  // gallery, so a broadcast may not displace either.
-  // The slot now comes from the resolver, so the decision is pinned in TWO
-  // places: the resolver emits a distinct `watch` key (never reusing gallery's),
-  // and the bar has an icon for it.
+  // gallery, so a broadcast may not displace either. 📱 Since 2026-09-30 ("THE
+  // DAY'S MENU HAS FIVE: LIVE · WELCOME · CAMERA · GALLERY · ME") the stream is
+  // part of the day's first tab, Live — so it takes no slot at all. Pinned in
+  // TWO places: the resolver emits `live` and no `watch`, and the bar has an
+  // icon for Live (and still one for Watch, whose key the hub keeps).
   const NAV = readFileSync(join(HERE, '..', '_lib', 'site-nav.ts'), 'utf8');
-  assert.match(NAV, /key: 'watch'/, 'the resolver no longer emits a watch slot');
+  assert.match(NAV, /key: 'live', label: 'Live'/, 'the day has no Live tab');
+  assert.doesNotMatch(NAV, /key: 'watch'/, 'a Watch tab is back — the day’s stream lives inside Live');
+  assert.match(BAR, /live: Activity/, 'the bar has no icon for Live');
   assert.ok(
     !/key: 'gallery'[^}]*Watch/.test(NAV),
     'the watch label has been attached to the gallery slot — it must have its own',

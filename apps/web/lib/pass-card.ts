@@ -31,29 +31,39 @@ export const PASS_CARD_ROUTE = '/api/guest/pass-card';
 export const PASS_CARDS_ZIP_ROUTE = '/api/guest/pass-card/all';
 
 /**
- * 🔤 EVERY USER-FACING WORD FOR THE CARD, IN ONE PLACE. The owner has floated
- * "Digital tickets" for it (controller 2026-09-29); a rename is a change to
- * this object and nothing else — the buttons, the lines, the filenames and the
+ * 🔤 EVERY USER-FACING WORD FOR THE CARD, IN ONE PLACE — a rename is a change to
+ * this object and nothing else: the buttons, the lines, the filenames and the
  * zip's name all read it.
+ *
+ * 🎫 IT IS A TICKET (owner 2026-09-29, DECISION_LOG "OWNER ANSWERS — TEN OPEN
+ * QUESTIONS" (4): *"Digital ticket"*): the saved PNG is a **Digital ticket**,
+ * the PDF a **Printed ticket**; the guest reads "Your ticket" / "Save my
+ * ticket"; the couple "Download all tickets (.zip)". Never "pass", "pass image"
+ * or "QR card" (prototype guest_ticket_flow_2026-09-29.html, rule 9).
  */
 export const PASS_CARD_WORDS = {
-  /** The thing, singular / plural ("pass" / "passes"). */
-  noun: 'pass',
-  plural: 'passes',
+  /** The thing, singular / plural ("ticket" / "tickets"). */
+  noun: 'ticket',
+  plural: 'tickets',
+  /** The saved PNG, and the printed PDF. */
+  digitalTicket: 'Digital ticket',
+  printedTicket: 'Printed ticket',
+  /** The guest's own heading. */
+  yours: 'Your ticket',
   /** The ticket design's corner label. */
-  kind: 'Guest pass',
-  saveOwn: 'Save to Photos',
-  saveAll: 'Save all passes',
-  saveOf: (first: string) => `Save ${first}’s pass`,
+  kind: 'Guest ticket',
+  saveOwn: 'Save my ticket',
+  saveAll: 'Save all tickets',
+  saveOf: (first: string) => `Save ${first}’s ticket`,
   /** The couple's per-guest download (free). */
-  downloadOne: 'Download pass (PNG)',
+  downloadOne: 'Download ticket (PNG)',
   /** The couple's zip of every card (Event Hub Pro). */
-  downloadAll: 'Download all passes (.zip)',
+  downloadAll: 'Download all tickets (.zip)',
   /** The Prints panel's block and its two outputs (owner: "print outs are PDF. digital versions are png"). */
-  section: 'The pass guests save',
-  style: 'Pass style',
-  digital: 'Digital (PNG)',
-  print: 'Print (PDF)',
+  section: 'The ticket guests save',
+  style: 'Ticket style',
+  digital: 'Digital ticket (PNG)',
+  print: 'Printed ticket (PDF)',
 } as const;
 
 /** The three looks, as the couple reads them in the one dropdown. */
@@ -194,7 +204,9 @@ export function seatLabelsFrom(
 // ─── Who may fetch one ──────────────────────────────────────────────────────
 
 export type PassCardVerdict =
-  | { allow: true; as: 'guest' | 'host' }
+  /** `pending: true` — the guest's OWN seat while it waits in the couple's
+   *  Requests: the "Request pending" ticket (never a host's, never anyone else's). */
+  | { allow: true; as: 'guest' | 'host'; pending?: true }
   | { allow: false; status: 401 | 404 | 503; message: string };
 
 /**
@@ -205,7 +217,9 @@ export type PassCardVerdict =
  *     one their own key") — nobody else's;
  *   · a host of the event may fetch any of its guests' cards (owner: "downloading
  *     them individually is free");
- *   · and in every case only a card that EXISTS (`passCardEligibility === 'pass'`).
+ *   · and in every case only a card that EXISTS (`passCardEligibility === 'pass'`)
+ *     — save one: a guest's own seat still waiting in the couple's Requests
+ *     draws its "Request pending" ticket (`pending: true`), to that guest only.
  *
  * ⚖ EVERY REFUSAL AFTER SIGN-IN IS THE SAME 404 WITH THE SAME WORDS — "not
  * yours", "pending", "can't come" and "no such guest" are indistinguishable, so
@@ -213,7 +227,7 @@ export type PassCardVerdict =
  * replied (the `/api/og` existence-oracle lesson). The page, which already
  * knows who is asking, says the plain line.
  */
-export const PASS_CARD_REFUSED = 'No pass here.';
+export const PASS_CARD_REFUSED = `No ${PASS_CARD_WORDS.noun} here.`;
 
 export function decidePassCardAccess(input: {
   session: { guest_id: string; event_id: string } | null;
@@ -238,7 +252,15 @@ export function decidePassCardAccess(input: {
     as = 'host';
   }
   if (!as) return { allow: false, status: 404, message: PASS_CARD_REFUSED };
-  if (passCardEligibility(target, bringer) !== 'pass') return { allow: false, status: 404, message: PASS_CARD_REFUSED };
+  const eligibility = passCardEligibility(target, bringer);
+  // 🔓 A WAITING GUEST'S OWN SEAT DRAWS THE "REQUEST PENDING" TICKET (owner
+  // 2026-09-29, DECISION_LOG "IT IS THEIR DIGITAL TICKET, IN A 'REQUEST PENDING'
+  // STATE"; 2026-09-30 on the Event Hub's pass: "i thought this will be the
+  // digital ticket"). Only the session that holds that seat (or brought it) —
+  // they already know they are waiting, so nothing is disclosed. A host still
+  // gets the one 404: there is no real ticket to download yet.
+  if (eligibility === 'awaiting' && as === 'guest') return { allow: true, as, pending: true };
+  if (eligibility !== 'pass') return { allow: false, status: 404, message: PASS_CARD_REFUSED };
   return { allow: true, as };
 }
 
@@ -268,7 +290,7 @@ function isoDay(d: string | null | undefined): string | null {
 }
 
 /**
- * `Maria-Santos-pass-Indalecio-Claire-2026-12-18.png` — the PERSON first, so a
+ * `Maria-Santos-ticket-Indalecio-Claire-2026-12-18.png` — the PERSON first, so a
  * camera roll holding six of them reads as six people. The couple's "&" is a
  * separator, not a word.
  */
@@ -283,7 +305,7 @@ export function passCardFileName(input: {
   return [who, fileSafe(PASS_CARD_WORDS.noun), couple || null, day].filter(Boolean).join('-') + '.png';
 }
 
-/** `Indalecio-Claire-2026-12-18-passes.zip` — the couple's own download of every card. */
+/** `Indalecio-Claire-2026-12-18-tickets.zip` — the couple's own download of every card. */
 export function passCardsZipFileName(eventName: string | null | undefined, eventDate: string | null | undefined): string {
   const couple = fileSafe((eventName ?? '').replace(/\s*(?:&|\+|\band\b)\s*/gi, ' ')) || 'Event';
   const day = isoDay(eventDate);

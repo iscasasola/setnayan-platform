@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
+import { CHECK_PX, NAME_PX, ROSTER_COLUMNS, SLOT_PX, rosterSlotCount } from '@/lib/roster-columns';
 
 /**
  * ⚖ Owner 2026-09-21, on the shipped header: *"text is improper. and it does
@@ -41,24 +42,19 @@ const DIR = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests');
 const ROSTER = stripComments(
   readFileSync(join(DIR, '_components', 'guest-list-multiselect.tsx'), 'utf8'),
 );
-const CONTROLS = stripComments(
-  readFileSync(join(DIR, '_components', 'arrange-controls.tsx'), 'utf8'),
-);
-
-/**
- * The ArrangeTh component's own source, as one window.
- *
- * 🪤 THESE TWO ASSERTIONS USED TO SLICE FROM `<th className={className}` — and
- * the very next fix changed that expression, so `indexOf` returned -1, the
- * slice became the file's last character, and both went red judging nothing.
- * Anchored on the COMPONENT now, which a styling change cannot rename, and the
- * window asserts it was found rather than slicing from -1.
+/*
+ * ⤷ 2026-09-30 (Fix E): `arrange-controls.tsx` (ArrangeTh — the old sortable,
+ * groupable header) was deleted: it had no importer left once every header
+ * became ONE column-slot dropdown (the Fable rows). Its two properties — a
+ * header may shrink, and no header cell can widen the table — are asserted on
+ * the slot headers that replaced it.
  */
-function arrangeThBody(): string {
-  const a = CONTROLS.indexOf('export function ArrangeTh(');
-  const b = CONTROLS.indexOf('export function ArrangeSheet(');
-  assert.ok(a !== -1 && b > a, 'cannot find ArrangeTh in arrange-controls.tsx — this guard is blind');
-  return CONTROLS.slice(a, b);
+function slotTh(): string {
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  const at = head.indexOf('desk.columns.map((column, slot) => (');
+  assert.notEqual(at, -1, 'cannot find the slot headers — this guard is blind');
+  const th = head.indexOf('<th', at);
+  return head.slice(th, head.indexOf('>', head.indexOf('className=', th)) + 1);
 }
 
 /** The header row's cells, in order, as their opening tags. */
@@ -67,29 +63,40 @@ function headerCells(): string[] {
   return [...head.matchAll(/<(?:ArrangeTh|th)\b[\s\S]*?\/?>/g)].map((m) => m[0]);
 }
 
-test('the declared column widths cannot exceed the table', () => {
-  // 🪤 A percentage total over 100 does not "just overflow a bit" — it makes
-  // the whole table wider than its scroller, so the LAST column is the one
-  // that disappears, and the page reads as not stretching to fit.
-  const pcts = [...ROSTER.matchAll(/w-\[(\d+)%\]/g)]
-    .map((m) => Number(m[1]))
-    .slice(0, 6); // the six fixed roster columns + Contact live together
+test('Name keeps the leftover — the slots are counted from the width, never declared past it', () => {
+  // ⤷ 2026-09-30, REWRITTEN FOR THE FULL-WIDTH LIST (owner: "number of columns
+  // to show depends on the width of the screen"). The property this file has
+  // always protected is that NAME KEEPS THE LEFTOVER. It used to be held by a
+  // ceiling on the declared percentages; now there are no percentages at all —
+  // every slot is SLOT_PX wide, and the NUMBER of slots is computed from the
+  // list's measured width so that the checkbox, Name's floor and the slots
+  // always fit. Executed here, not read: at every width a desktop can have,
+  // what the slots claim leaves Name at least NAME_PX.
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
-  const declared = [...head.matchAll(/w-\[(\d+)%\]/g)].map((m) => Number(m[1]));
-  assert.ok(declared.length >= 6, `found ${declared.length} declared widths — this guard is blind`);
-  const total = declared.reduce((a, b) => a + b, 0);
-  // 🪤 THE FIRST THRESHOLD HERE WAS 95% AND CAUGHT NOTHING. A sabotage that
-  // ballooned Role to 52% — leaving Name a tenth of the table — sailed
-  // through, because "under 100" is not the property that matters. The
-  // property is that NAME KEEPS THE LEFTOVER (see the width note in the
-  // roster), and 55% is the loosest ceiling that still enforces it: the six
-  // claim 50% today, so there is room to adjust one without a rewrite, and no
-  // room to quietly eat the column a couple actually reads.
-  assert.ok(
-    total <= 55,
-    `the fixed columns claim ${total}% (declared: ${declared.join(' + ')}), leaving Name ${100 - total}% minus a 40px checkbox — Name carries the longest value in the row and must keep the leftover`,
-  );
-  assert.ok(pcts.length > 0);
+  assert.doesNotMatch(head, /w-\[\d+%\]/, 'a header declares a percentage width again — the slots are counted, not declared');
+  assert.match(head, /style=\{\{ width: SLOT_PX \}\}/, 'a slot header is not SLOT_PX wide — the count and the layout would disagree');
+  for (let width = 1000; width <= 2800; width += 40) {
+    const slots = rosterSlotCount(width, ROSTER_COLUMNS.length);
+    const left = width - CHECK_PX - slots * SLOT_PX;
+    if (slots > 1) assert.ok(left >= NAME_PX, `at ${width}px, ${slots} slots leave Name ${left}px (< ${NAME_PX})`);
+  }
+  // The owner's own numbers: about 4 at a 1280px list, 6 at 1600, 8+ at 2000+.
+  assert.ok(rosterSlotCount(960, 11) >= 4 && rosterSlotCount(960, 11) <= 5, 'a 1280px screen (≈960px of list) should show about 4');
+  assert.ok(rosterSlotCount(1300, 11) >= 6, 'a 1600px screen (≈1300px of list) should show about 6');
+  assert.ok(rosterSlotCount(1700, 11) >= 8, 'a 2000px screen (≈1700px of list) should show 8+');
+});
+
+test('a fixed-pixel column has a budget too, so it cannot eat Name by another unit', () => {
+  // The checkbox is the one fixed width left in the header's classes; the slots
+  // are sized by SLOT_PX (above). Anything else fixed would come out of Name
+  // with nothing counting it.
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  const cellClasses = [...head.matchAll(/<(?:th|ArrangeTh)\b[^>]*?className="([^"]*)"/g)].map((m) => m[1]!).join(' ');
+  const px = [...cellClasses.matchAll(/\bw-\[(\d+)px\]/g)].map((m) => Number(m[1]));
+  const rem = [...cellClasses.matchAll(/\bw-(\d+)\b/g)].map((m) => Number(m[1]) * 4);
+  assert.ok(px.length + rem.length >= 1, `found ${px.length + rem.length} fixed widths — this guard is blind`);
+  const total = [...px, ...rem].reduce((a, b) => a + b, 0);
+  assert.ok(total <= CHECK_PX, `fixed-pixel columns claim ${total}px (${[...px, ...rem].join(' + ')}) — only the ${CHECK_PX}px checkbox is counted`);
 });
 
 test('the header and every body cell share ONE horizontal padding', () => {
@@ -104,35 +111,20 @@ test('the header and every body cell share ONE horizontal padding', () => {
   );
 });
 
-test('an arrangeable header may SHRINK, so it can never spill into its neighbour', () => {
-  // The two classes are a pair and neither works alone: a flex child will not
-  // go below its content width unless `min-w-0` says it may, and `truncate`
-  // is what then clips instead of overflowing.
-  const th = arrangeThBody();
-  assert.match(
-    th,
-    /<span className="flex min-w-0 items-center/,
-    'the header cell\'s flex row cannot shrink — a long label will spill over the column beside it',
-  );
-  assert.match(
-    th,
-    /<span className="truncate">\{label\}<\/span>/,
-    'the column label is not truncated — under table-fixed it overflows its own cell rather than clipping',
-  );
-});
-
-test('the checkbox and the sort arrow never shrink instead of the label', () => {
-  // If the CONTROL is what gives way, the header degrades into an unclickable
-  // sliver while the word stays whole — backwards. The word is recoverable
-  // (it is in `title` and in the column below); the control is not.
-  const th = arrangeThBody();
-  assert.match(th, /<label\s+className="inline-flex shrink-0/, 'the grouping checkbox can be squeezed away');
-  assert.match(th, /<ChevronDown className="h-3 w-3 shrink-0"/, 'the sort arrow can be squeezed away');
+test('a header may SHRINK, so it can never spill into its neighbour', () => {
+  // Name's word clips itself; every slot header clips its own cell (its
+  // dropdown's list is portalled, so clipping never clips the menu).
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  assert.match(head, /<span className="block truncate">Name<\/span>/, 'the Name label is not truncated');
+  assert.match(slotTh(), /\boverflow-hidden\b/, 'a slot header does not clip its own cell');
 });
 
 test('every header cell still declares a scope, so the table stays readable aloud', () => {
+  // ☐ · Name · and ONE slot header drawn per column (`desk.columns.map`).
   const cells = headerCells();
-  assert.ok(cells.length >= 7, `found ${cells.length} header cells — this guard is blind`);
+  assert.ok(cells.length >= 3, `found ${cells.length} header cells — this guard is blind`);
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  assert.match(head, /desk\.columns\.map\(\(column, slot\) => \(\s*<th\b/, 'the slot headers are no longer one <th> per column');
 });
 
 test('no header cell can widen the table — the floor under every width above', () => {
@@ -144,11 +136,7 @@ test('no header cell can widen the table — the floor under every width above',
   //   · a LABEL spilling into its neighbour   → min-w-0 + truncate (above)
   //   · a CELL widening the scroll area       → overflow-hidden on the cell
   // The second is what made the page "not stretch the whole screen".
-  assert.match(
-    CONTROLS,
-    /<th className=\{`\$\{className \?\? ''\} overflow-hidden`\}/,
-    'ArrangeTh no longer clips its own cell — any caller can widen the table again',
-  );
+  assert.match(slotTh(), /\boverflow-hidden\b/, 'a slot header no longer clips its own cell — it can widen the table again');
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
   const plain = [...head.matchAll(/<th className="([^"]*)"[^>]*>\s*(?:<span[^>]*>)?\s*([A-Za-z]+)/g)]
     .filter((m) => m[2] && m[2] !== 'label'); // the text-bearing plain cells

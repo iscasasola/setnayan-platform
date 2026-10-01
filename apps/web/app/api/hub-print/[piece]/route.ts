@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { loadGuestPasses, loadPrintSet, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
+import { loadGuestPasses, loadPrintSet, printInputsVersion, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
+import { PRINT_VERSION_HEADER } from '@/lib/printed-stamp';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages, type PrintSetData } from '@/lib/print-layout';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
@@ -31,16 +32,20 @@ import {
   storyHasMoments,
   printFileName,
   serializePrintDetails,
+  posterPhotoRefAllowed,
+  posterPhotoTooSmall,
   spotLayersFor,
   type PrintMode,
   type PrintPieceKey,
   type PrintSetKey,
 } from '@/lib/print-pieces';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { NAME_STYLES, nameStyleFrom } from '@/lib/name-style';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { formatCount } from '@/lib/format-number';
 import { previewCacheControl } from '@/lib/print-preview-cache';
 import { sampleView } from '@/lib/print-sample-door.server';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -75,6 +80,8 @@ import { sampleView } from '@/lib/print-sample-door.server';
  *   the "Kindly reply" CHOICE (a host / the coordinator, or manual words). The
  *   Maker's Words panel posts it and says "Saves immediately". Parents come from
  *   the Guest list and gifts from E-Gifts — never typed here.
+ * POST /api/hub-print/name-style — `style=full|middle-initial|surname-first`,
+ *   the event's Name style (`print_details.name_style`, lib/name-style.ts).
  *
  * 🔒 THE GATE IS HERE, NOT A HIDDEN BUTTON. A free event asking for a PRO-THEMED
  * `print` or `passes` gets 403, whatever the page did or did not render.
@@ -135,13 +142,18 @@ function withPassDesign(data: PrintSetData, url: URL): PrintSetData {
   return { ...data, details: { ...data.details, passDesign: passCardDesignFrom(asked) } };
 }
 
-function pdfResponse(bytes: Uint8Array, name: string, inline: boolean): NextResponse {
+function pdfResponse(bytes: Uint8Array, name: string, inline: boolean, version: string | null = null): NextResponse {
   return new NextResponse(Buffer.from(bytes), {
     status: 200,
     headers: {
       'content-type': 'application/pdf',
       'content-disposition': `${inline ? 'inline' : 'attachment'}; filename="${name}"`,
       'cache-control': 'private, no-store',
+      // 🖨 "CHANGED SINCE YOU PRINTED" (owner 2026-09-29, OWNER ANSWERS (5)):
+      // the hash of every input this paper was drawn from (`printInputsVersion`,
+      // the same one the Maker's previews carry as `v`). The Save button keeps
+      // it (lib/printed-stamp.ts); the piece says so once the inputs move on.
+      ...(version ? { [PRINT_VERSION_HEADER]: version } : {}),
     },
   });
 }
@@ -193,6 +205,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       docs = layoutQrCodes(
         event.display_name ?? 'Guest QR codes',
         loaded.passes.map((p) => ({ name: p.name, sub: p.seat, qrRef: p.qrRef! })),
+        set.qrLook.shape,
       );
       subject = `${formatCount(loaded.passes.length)} guests`;
     } else {
@@ -271,10 +284,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     const input = { look: set.look, data: withPassDesign(set.data, url), mode: drawMode, foil: spot.foil, whiteInk: spot.whiteInk };
 
     if (piece === 'passes') {
-      const { passes, images, measured } = await loadGuestPasses(set, { width: 600 });
+      // 🎟 Printed tickets only for who is coming (owner 2026-09-29, OWNER ANSWERS (9)).
+      const { passes, images, measured } = await loadGuestPasses(set, { width: 600, ticketsOnly: true });
       if (!measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
       const docs = layoutPasses({ ...input, format: formatParam('passes') }, passes);
-      if (!docs.length) return new NextResponse('Add guests first — every guest gets a pass.', { status: 409 });
+      if (!docs.length) return new NextResponse('No guest has a ticket yet — a ticket appears once a guest is on your list and coming.', { status: 409 });
       // Ganged on A4 with cut lines (owner: print at home or at a shop).
       const fmt = formatFor('passes', formatParam('passes'))!;
       const bytes = await renderImposedPdf(docs, { ...set.images, ...images }, {
@@ -282,7 +296,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         title: `${set.event.display_name ?? 'Event'} — guest passes`,
         subject: `${docs.length} passes · ${fmt.label} ${fmt.wMm} × ${fmt.hMm} mm · ${fmt.sheet!.cols * fmt.sheet!.rows} per A4`,
       });
-      return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false);
+      return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false, await printInputsVersion(eventId).catch(() => null));
     }
     if (mode === 'screen') {
       const view = layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) });
@@ -321,7 +335,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       title: `${set.event.display_name ?? 'Event'} — ${label}`,
       subject: 'Print-ready · 3 mm bleed · crop marks · layers: Foil, White ink, Die cut',
     });
-    return pdfResponse(bytes, fileName(set.event.slug, wantsSet ? 'set' : piece, set.theme), false);
+    return pdfResponse(bytes, fileName(set.event.slug, wantsSet ? 'set' : piece, set.theme), false, await printInputsVersion(eventId).catch(() => null));
   }
 
   // ══ THE SAMPLE PATH — everyone (owner 2026-09-25: "we can show them a sample.
@@ -366,7 +380,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
  */
 export async function POST(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece } = await ctx.params;
-  if (piece !== 'words' && piece !== 'menu' && piece !== 'pass-design') return new NextResponse('Not found.', { status: 404 });
+  if (piece !== 'words' && piece !== 'menu' && piece !== 'pass-design' && piece !== 'poster-photo' && piece !== 'name-style') return new NextResponse('Not found.', { status: 404 });
 
   // A form post from another site carries no Origin of ours.
   const origin = req.headers.get('origin');
@@ -404,6 +418,56 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
       .eq('event_id', eventId);
     if (error) logQueryError('hub-print.pass-design', error, { event_id: eventId }, 'graceful_degrade');
     return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
+  }
+
+  // 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE
+  // PICKS A NAME STYLE") — Full · Middle initial · Surname first, the Maker's
+  // Details › Names dropdown. Saved at once, like the pass card's look; live,
+  // never drafted (a ticket or a printed card is drawn from what is stored).
+  // Everything else in `print_details` is carried over untouched. Answers JSON.
+  if (piece === 'name-style') {
+    const asked = String(form.get('style') ?? '');
+    if (!(NAME_STYLES as readonly string[]).includes(asked)) return NextResponse.json({ ok: false }, { status: 400 });
+    const { error } = await admin
+      .from('events')
+      .update({ print_details: serializePrintDetails({ ...stored, nameStyle: nameStyleFrom(asked) }) })
+      .eq('event_id', eventId);
+    if (error) logQueryError('hub-print.name-style', error, { event_id: eventId }, 'graceful_degrade');
+    return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
+  }
+
+  // 🖼 THE OUR STORY POSTER'S OWN PHOTO (owner 2026-09-29, OWNER ANSWERS (1)) —
+  // optional; an empty `ref` goes back to the theme's picture. Only the
+  // couple's own upload for THIS event (`posterPhotoRefAllowed`), measured here
+  // so the panel can say when it is too small for A3. Answers JSON.
+  if (piece === 'poster-photo') {
+    const ref = String(form.get('ref') ?? '').trim();
+    if (!ref) {
+      const { error } = await admin.from('events').update({ print_details: serializePrintDetails({ ...stored, posterPhoto: null }) }).eq('event_id', eventId);
+      if (error) logQueryError('hub-print.poster-photo', error, { event_id: eventId }, 'graceful_degrade');
+      return NextResponse.json({ ok: !error, photo: null }, { status: error ? 500 : 200 });
+    }
+    if (!posterPhotoRefAllowed(ref, eventId)) return NextResponse.json({ ok: false }, { status: 400 });
+    let w: number | null = null;
+    let h: number | null = null;
+    try {
+      const url = await displayUrlForStoredAsset(ref);
+      const res = url ? await fetch(url, { signal: AbortSignal.timeout(10000) }) : null;
+      if (res?.ok) {
+        const sharp = (await import('sharp')).default;
+        const meta = await sharp(new Uint8Array(await res.arrayBuffer())).metadata();
+        // EXIF-rotated photos report their stored sides; either way round is fine (the check is by short/long side).
+        w = meta.width ?? null;
+        h = meta.height ?? null;
+      }
+    } catch (err) {
+      logQueryError('hub-print.poster-photo.measure', err, { event_id: eventId }, 'graceful_degrade');
+    }
+    if (!w || !h) return NextResponse.json({ ok: false, error: 'That photo could not be read — try another.' }, { status: 422 });
+    const photo = { ref, w, h };
+    const { error } = await admin.from('events').update({ print_details: serializePrintDetails({ ...stored, posterPhoto: photo }) }).eq('event_id', eventId);
+    if (error) logQueryError('hub-print.poster-photo', error, { event_id: eventId }, 'graceful_degrade');
+    return NextResponse.json({ ok: !error, photo, tooSmall: posterPhotoTooSmall(photo) }, { status: error ? 500 : 200 });
   }
 
   if (piece === 'menu') {
@@ -466,7 +530,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   // …and so is the invite message (`invite_message`, the guest list's Send
   // invite wording) and the pass card's look (the Prints panel's) — neither
   // is this form's.
-  const details = { ...parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include }), inviteMessage: stored.inviteMessage, passDesign: stored.passDesign, menu: stored.menu };
+  //
+  // 🔑 CARRY EVERYTHING THIS FORM DOES NOT OWN — by spreading what is stored
+  // FIRST, never by naming each key: the list of carried keys (menu, message,
+  // pass look) had already missed the poster's own photo, so a words save put
+  // the A3 poster back to the theme's picture, silently. The words form owns
+  // three things — the opening line, the reply line, the include toggles.
+  const words = parsePrintDetails({ opening_line: form.get('opening_line'), rsvp, include });
+  const details = { ...stored, openingLine: words.openingLine, rsvp: words.rsvp, include: words.include };
 
   const { error } = await admin
     .from('events')

@@ -362,8 +362,8 @@ test('the doorway facts come from the destinations own readers', () => {
       'stand there — the same function, client and filter /pabuya uses',
   );
   assert.ok(
-    LOADERS.includes('eventSeatingPublished(admin, eventId)'),
-    'the 3D door stopped asking whether the plan is published',
+    LOADERS.includes('guestsMaySeeSeatsFor(admin, eventId)'),
+    'the 3D door stopped asking the one seat rule (the day, or shown early)',
   );
   assert.ok(
     LOADERS.includes("surfaceEnabled(\n      await resolveProfile(eventType ?? 'wedding'),\n      'seating',\n    )"),

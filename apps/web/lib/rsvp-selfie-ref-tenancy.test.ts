@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { parseClientRef, guestSelfiePolicy } from './r2-client-ref';
+import { stripComments } from './strip-comments';
 
 const EVENT = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const OTHER_EVENT = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
@@ -69,23 +70,20 @@ test("another guest's selfie, and another event's, are both refused", () => {
   );
 });
 
-test('the WIRING: the RSVP path pins the ref, and treats a failure as absent', () => {
-  const src = readFileSync(
+test('the WIRING: the RSVP path takes NO selfie ref at all (owner 2026-09-30)', () => {
+  // The strongest pin is no ref: since the question moved to the RSVP and the
+  // selfie to the day, submitRsvp strips every selfie field before it reads the
+  // form and writes neither `asset_url` nor a selfie avatar. The day-of writer
+  // (face-enroll-actions.ts) keeps its own `guestSelfiePolicy` pin.
+  const src = stripComments(readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), '..', 'app', '[slug]', 'actions.ts'),
     'utf8',
+  ));
+  assert.match(src, /stripInviteFaceFields\(formData\);/, 'submitRsvp no longer strips the selfie fields');
+  assert.doesNotMatch(src, /asset_url: selfie|photo_url: selfie|photo_source: 'selfie'/, 'the RSVP path writes a selfie ref again');
+  const day = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'papic', 'face-enroll-actions.ts'),
+    'utf8',
   );
-  assert.match(
-    src,
-    /parseClientRef\(selfieRefRaw, guestSelfiePolicy\(eventId, guestId\)\)/,
-    'the RSVP selfie ref must go through the same policy the Papic enroll path uses',
-  );
-  // Absent, not fatal — this file's own rule is that a selfie problem must never
-  // roll back an RSVP that already succeeded.
-  assert.match(src, /\? selfieRefRaw\s*\n?\s*: null;/, 'a refused ref must degrade to null, not throw');
-  // Both consumers must read the PINNED value, never the raw form field.
-  assert.equal(
-    /photo_url: selfieRefRaw|asset_url: selfieRefRaw/.test(src),
-    false,
-    'photo_url and asset_url must store the pinned ref, not the raw field',
-  );
+  assert.match(day, /parseClientRef\(selfieRef, guestSelfiePolicy\(eventId, guestId\)\)/, 'the day-of writer lost its ref pin');
 });

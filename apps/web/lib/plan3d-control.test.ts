@@ -72,12 +72,14 @@ test('next step: one rung per state, in order', () => {
   // Owner 2026-09-06: "seating can always change in the last minute and even
   // during the event" — there is no wait step and no gate, ever.
   const pub = step(ev(), plan({ seated: 178 }), guests({ total: 178 }));
-  assert.equal(pub.headline, 'Publish — your guests can walk the room');
+  // 2026-09-30 (owner: "seatplan will show on the date of the event"): the
+  // walk opens by itself on the day; the switch only opens it EARLY.
+  assert.equal(pub.headline, 'Your guests walk the room on the day');
   assert.equal(pub.tone, 'act');
   assert.match(pub.blurb, /right up to and during the day/);
   assert.doesNotMatch(pub.blurb, /wait|settled/i);
   assert.equal(pub.href, null, 'the act is the switch on the page — not a door');
-  assert.equal(step(ev({ guestListLockedAt: '2026-09-01T00:00:00Z' }), plan({ seated: 178 }), guests({ total: 178 })).headline, 'Publish — your guests can walk the room');
+  assert.equal(step(ev({ guestListLockedAt: '2026-09-01T00:00:00Z' }), plan({ seated: 178 }), guests({ total: 178 })).headline, 'Your guests walk the room on the day');
   // live → print
   assert.equal(step(ev(), plan({ published: true, seated: 178 }), guests({ total: 178 })).headline, 'Print your table signs');
   // after → nothing to do, quietly
@@ -96,17 +98,19 @@ test('a delegate without the guest list is told so — a third state, not a zero
   assert.notEqual(step.href, `${BASE}/seating`);
 });
 
-test('guest-list finalize: closed / dated / undated / unread', () => {
+test('guest-list finalize: only the host Finalize closes it — never a date (owner 2026-09-30)', () => {
   assert.equal(resolveGuestListFinalize(ev({ guestListLockedAt: '2026-09-01T00:00:00Z' }), NOW).label, 'finalized');
-  assert.match(resolveGuestListFinalize(ev(), NOW).label, /^finalizes 28 Nov$/);
-  assert.equal(resolveGuestListFinalize(ev({ eventDate: null }), NOW).label, 'no finalize date');
+  assert.equal(resolveGuestListFinalize(ev(), NOW).label, 'open');
+  assert.equal(resolveGuestListFinalize(ev({ eventDate: null }), NOW).label, 'open');
+  // A reply-by date long past still does not close it.
+  assert.equal(resolveGuestListFinalize(ev({ guestListEditDeadline: '2020-01-01' }), NOW).label, 'open');
   assert.equal(resolveGuestListFinalize(ev({ measured: false }), NOW).label, 'Couldn’t read it just now');
 });
 
 test('sources: three doors, each carrying its state, unread rows say so', () => {
   const s = resolvePlan3dSources(ev(), plan(), guests(), BASE, NOW);
   assert.deepEqual(s.map((r) => r.key), ['guests', 'seatplan', 'moodboard']);
-  assert.equal(s[0]!.value, '178 guests · finalizes 28 Nov');
+  assert.equal(s[0]!.value, '178 guests · open');
   assert.equal(s[1]!.value, '22 tables · 4 with no seat · 3 supplier booths (1 branded) · auto-seating on');
   assert.match(resolvePlan3dSources(ev(), plan({ autoplace: false }), guests(), BASE, NOW)[1]!.value!, /auto-seating off$/);
   assert.deepEqual(s.map((r) => r.href), [`${BASE}/guests`, `${BASE}/seating`, `${BASE}/studio/mood-board`]);

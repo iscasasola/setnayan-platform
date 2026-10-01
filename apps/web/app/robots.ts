@@ -6,7 +6,7 @@ const ALLOWED_PATHS = [
   '/',
   '/v/',
   '/explore',
-  '/vendors',
+  '/for-suppliers',
   '/creators',
   '/help',
   '/realstories',

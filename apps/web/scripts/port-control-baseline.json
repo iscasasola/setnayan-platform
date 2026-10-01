@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8308518ec",
+  "generatedFromRef": "5374c6248",
   "routeCount": 444,
-  "destinations": 969,
-  "actions": 681,
-  "blocks": 5404,
+  "destinations": 970,
+  "actions": 683,
+  "blocks": 5406,
   "routes": {
     "/": {
       "files": [
@@ -5201,6 +5201,7 @@
         "dashboard/[eventId]/_components/customer-nav-config.ts",
         "dashboard/[eventId]/_components/customer-nav-slot-keys.ts",
         "dashboard/[eventId]/_components/customer-sidebar.tsx",
+        "dashboard/[eventId]/_components/date-change-doorway.tsx",
         "dashboard/[eventId]/_components/day-of-mode/banner.tsx",
         "dashboard/[eventId]/_components/day-of-mode/coordinator-broadcast-card.tsx",
         "dashboard/[eventId]/_components/day-of-mode/get-help-card.tsx",
@@ -5261,6 +5262,7 @@
         "/dashboard/[seg]/guests/tea-ceremony",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/launch",
+        "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=details&guide=1",
         "/dashboard/[seg]/live",
         "/dashboard/[seg]/messages",
@@ -5280,6 +5282,7 @@
         "/wall/[seg]"
       ],
       "actions": [
+        "action",
         "addLineItem",
         "deleteLineItem",
         "deletePayment",
@@ -5329,6 +5332,7 @@
         "CopyRow",
         "CountUp",
         "CustomerBottomNav",
+        "DateChangeDoorway",
         "DayOfModeBanner",
         "DayOfModeGrid",
         "DeleteResult",
@@ -11118,6 +11122,7 @@
         "acceptInquiry",
         "agreeDeletion",
         "agreeLock",
+        "answerDateChange",
         "cancelAction",
         "confirmLock",
         "declineDeletion",
@@ -11152,6 +11157,7 @@
         "ContractDraftBody",
         "CorrectionRequestResult",
         "CountUp",
+        "DateChangeBody",
         "DeleteRequestBody",
         "DisputeBody",
         "EmptyCard",

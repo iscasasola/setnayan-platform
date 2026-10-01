@@ -63,6 +63,16 @@ import {
   type ServicesStepSelection,
 } from '@/lib/onboarding-services-selection';
 import { SpecialtyFields } from './specialty-fields';
+import { genericFlowScreens } from '@/lib/onboarding/flow-config';
+import {
+  setupCardAnswered,
+  setupDefaults,
+  setupLanding,
+  type SetupAnswers,
+  type SetupCardId,
+  type SetupView,
+} from '@/lib/onboarding/setup-answers';
+import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 // Same reporter the wedding flow uses for a rejected commit — one failure, one
 // place to read it, rather than a silent console line on the customer's phone.
 import { trackFailure } from '@/lib/telemetry/track-error';
@@ -157,6 +167,14 @@ type Props = {
    * question with no possible answer, rather than asking it into a void.
    */
   vendorFree?: boolean;
+  /**
+   * 🎟 THE SETUP ENGINE (G1). Server-resolved from the profile
+   * (`setupViewForProfile`) — NULL when this type's seed has not admitted it
+   * to the engine, and then the flow is yesterday's, quiz and all.
+   */
+  setupView?: SetupView | null;
+  /** The engine's cards for this type, after what creation already asked (`resolveSetupSteps`). */
+  setupSteps?: SetupCardId[];
 };
 
 type Draft = {
@@ -181,6 +199,8 @@ type Draft = {
   details: Record<string, string>;
   /** Rich per-type specialty field answers (catalog signature_fields → values). */
   specialtyValues: Record<string, unknown>;
+  /** The setup cards' answers (G1). Optional so an older draft still parses. */
+  setup?: Partial<SetupAnswers>;
 };
 
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -210,7 +230,10 @@ export function GenericOnboarding(props: Props) {
     todayISO,
     entranceBlocking = null,
     vendorFree = false,
+    setupView = null,
+    setupSteps = [],
   } = props;
+  const engine = setupView !== null;
   const router = useRouter();
   const today = todayISO ?? new Date().toISOString().slice(0, 10);
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
@@ -309,6 +332,16 @@ export function GenericOnboarding(props: Props) {
   const [axes, setAxes] = useState<Record<string, string>>({});
   const [details, setDetails] = useState<Record<string, string>>({});
   const [specialtyValues, setSpecialtyValues] = useState<Record<string, unknown>>({});
+  // The setup cards' answers — every one pre-filled with the type's default,
+  // because the default IS an answer (DECISION_LOG "EVERY SETUP CARD NEEDS AN
+  // ANSWER"). Unused (and never sent) when the engine is off.
+  const [setupAnswers, setSetupAnswers] = useState<SetupAnswers | null>(
+    setupView ? setupDefaults(setupView) : null,
+  );
+  const patchSetup = useCallback(
+    (patch: Partial<SetupAnswers>) => setSetupAnswers((a) => (a ? { ...a, ...patch } : a)),
+    [],
+  );
   const [hydrated, setHydrated] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -367,31 +400,28 @@ export function GenericOnboarding(props: Props) {
   // Per-type signature-moment screens, injected into the sequence after 'region'.
   // A tq_ question the profile already answers is dropped (its answer is seeded
   // into `details`, so the derived plan still counts its adds).
+  //
+  // ONE source for the list — `genericFlowScreens` (flow-config.ts), which the
+  // per-type tests pin. With the engine on, the long quiz has left onboarding
+  // and the setup cards close the flow; with it off the list is yesterday's.
+  // The services step sits before congrats either way, and is absent entirely
+  // when its flag is off — the array is shorter, never a skipped index.
   const screens = useMemo<string[]>(
-    () => [
-      'welcome',
-      'name',
-      ...(asksHonoree ? ['honoree'] : []),
-      ...(isAnniversary ? ['anchor'] : []),
-      'date',
-      ...(showRecurToggle ? ['recurs'] : []),
-      'pax',
-      'region',
-      ...questions.filter((q) => !(q.id in prefillDetails)).map((q) => `tq_${q.id}`),
-      ...(specialtyFields.length > 0 ? ['specialty'] : []),
-      ...axisIds, // for_whom · feel · energy · roots · effort
-      'reveal',
-      // The services step sits AFTER the persona reveal (so `planServices` is
-      // already derived and can order the two Papic products) and BEFORE
-      // congrats. Absent entirely when the flag is off — not hidden, not
-      // skipped: the array is shorter, so the progress bar, the step indices
-      // and every draft key are identical to today.
-      ...(servicesStepView ? ['services'] : []),
-      'congrats',
-    ],
+    () =>
+      genericFlowScreens({
+        engine,
+        asksHonoree,
+        isAnniversary,
+        showRecurToggle,
+        typeQuestionIds: questions.filter((q) => !(q.id in prefillDetails)).map((q) => q.id),
+        hasSpecialty: specialtyFields.length > 0,
+        axisIds, // for_whom · feel · energy · roots · effort
+        services: Boolean(servicesStepView),
+        setupSteps,
+      }),
     [
-      questions, axisIds, specialtyFields, prefillDetails, servicesStepView,
-      asksHonoree, isAnniversary, showRecurToggle,
+      engine, questions, axisIds, specialtyFields, prefillDetails, servicesStepView,
+      asksHonoree, isAnniversary, showRecurToggle, setupSteps,
     ],
   );
 
@@ -422,6 +452,10 @@ export function GenericOnboarding(props: Props) {
           setAxes(d.axes ?? {});
           seededDetails = { ...prefillDetails, ...(d.details ?? {}) };
           seededSpecialty = { ...prefillSpecialty, ...(d.specialtyValues ?? {}) };
+          if (d.setup && setupView) {
+            const saved = d.setup;
+            setSetupAnswers({ ...setupDefaults(setupView), ...saved });
+          }
           if (resume) setStep(screens.indexOf('congrats'));
         } else {
           localStorage.removeItem(draftKey);
@@ -477,18 +511,18 @@ export function GenericOnboarding(props: Props) {
     setDetails(seededDetails);
     setSpecialtyValues(seededSpecialty);
     setHydrated(true);
-  }, [draftKey, resume, screens, prefillDetails, prefillSpecialty, asksHonoree]);
+  }, [draftKey, resume, screens, prefillDetails, prefillSpecialty, asksHonoree, setupView]);
 
   // -- Persist the draft on every change (after hydration). --
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues, ...(setupAnswers ? { setup: setupAnswers } : {}) };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues]);
+  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues, setupAnswers]);
 
   // ── ANCHOR ≠ CELEBRATION ────────────────────────────────────────────────────
   // `anchor_date` is what the event commemorates; `event_date` is when it is
@@ -691,6 +725,7 @@ export function GenericOnboarding(props: Props) {
 
   const canContinue = (() => {
     if (screen === 'name') return displayName.trim().length > 0;
+    if (screen.startsWith('setup_') && setupAnswers) return setupCardAnswered(screen as SetupCardId, setupAnswers);
     if (isAxis) return Boolean(axes[axisIds[axisIndex]!]);
     return true; // welcome / date / pax / region / reveal are skippable
   })();
@@ -901,7 +936,9 @@ export function GenericOnboarding(props: Props) {
       // (page.tsx) and `finalPlan` only ever keeps ids present in `tiles` —
       // zeroed again here so this stays true even if a future caller ever
       // hands this component non-empty tiles alongside vendorFree.
-      picks: vendorFree ? [] : finalPlan.picks,
+      // With the engine on, supplier picks have left onboarding for Setnayan
+      // AI's first session (approved concept, point 1) — none are guessed here.
+      picks: vendorFree || engine ? [] : finalPlan.picks,
       // Per-type/per-persona in-app services (effort-scaled) → interested_services.
       // NOT vendor-gated: these are Setnayan's OWN in-app services (Papic,
       // Setnayan AI, …), which is exactly what a Simple Event exists to sell.
@@ -922,6 +959,9 @@ export function GenericOnboarding(props: Props) {
       // The Papic picks. A CLAIM only — the commit re-parses this and re-prices
       // every rung from the live catalog; no amount is sent from here.
       servicesSelection,
+      // The setup cards (G1) — a CLAIM only; the commit re-reads every key
+      // against this type's own view before writing anything.
+      ...(engine && setupAnswers ? { setup: setupAnswers } : {}),
     };
     /*
       🔴 EVERY AWAIT BELOW IS INSIDE THIS TRY, AND THAT IS THE WHOLE POINT.
@@ -976,7 +1016,11 @@ export function GenericOnboarding(props: Props) {
       //
       // Absent ⇒ nothing was bought, or the order could not be minted ⇒ the
       // errand, then the ordinary landing.
-        router.replace(res.paymentPath ?? nextPath ?? `/dashboard/${res.eventId}`);
+        // The guests card picks the landing (`setupLanding`): a way to add
+        // them opens the Guest list; "later" lands on Home.
+        router.replace(
+          res.paymentPath ?? nextPath ?? setupLanding(res.eventId, engine ? setupAnswers : null),
+        );
         return;
       }
       setCommitting(false);
@@ -1040,6 +1084,20 @@ export function GenericOnboarding(props: Props) {
   );
 
   function renderScreen() {
+    if (screen.startsWith('setup_') && setupView && setupAnswers) {
+      const counted = screens.filter((s) => s !== 'welcome' && s !== 'congrats');
+      return (
+        <SetupCard
+          card={screen as SetupCardId}
+          view={setupView}
+          answers={setupAnswers}
+          onChange={patchSetup}
+          onNext={() => go(1)}
+          n={counted.indexOf(screen) + 1}
+          total={counted.length}
+        />
+      );
+    }
     if (screen === 'welcome') {
       return (
         <div className="text-center">
@@ -1640,6 +1698,14 @@ export function GenericOnboarding(props: Props) {
       </div>
 
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-5 py-10">
+        {/* "n of N" on every question once the engine runs (the approved phone
+            design); the setup cards print their own. */}
+        {engine && screen !== 'welcome' && screen !== 'congrats' && !screen.startsWith('setup_') ? (
+          <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
+            {screens.filter((s) => s !== 'welcome' && s !== 'congrats').indexOf(screen) + 1} of{' '}
+            {screens.filter((s) => s !== 'welcome' && s !== 'congrats').length}
+          </p>
+        ) : null}
         {renderScreen()}
       </div>
 

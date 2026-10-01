@@ -211,6 +211,32 @@ export type ProfileTerminology = {
   celebrantShape: CelebrantShape;
 };
 
+/**
+ * 🎟 THE SETUP FIVE (G1 · the event onboarding engine, owner 2026-09-30 —
+ * DECISION_LOG "APPROVED — THE EVENT ONBOARDING CONCEPT"): the type × feature
+ * matrix lives as five fields on THIS profile, never a second registry.
+ * Migration 20271258536791 adds the columns; every value below is a code
+ * fallback read per field (`toProfile`), the same degrade-to-yesterday contract
+ * as the rest of the row.
+ */
+export type GiftsMode = 'gifts' | 'donations' | 'abuloy' | 'ambag' | 'none';
+export type CameraDefault = 'on' | 'quiet' | 'off';
+export const GIFTS_MODES: readonly GiftsMode[] = ['gifts', 'donations', 'abuloy', 'ambag', 'none'];
+export const CAMERA_DEFAULTS: readonly CameraDefault[] = ['on', 'quiet', 'off'];
+
+export type ProfileSetup = {
+  /** What the type calls the people it invites ("guests" · "attendees" · "family & friends"). */
+  guestWord: string;
+  /** Whether — and in which words — the Event Hub takes gifts. 'none' = never asked. */
+  giftsMode: GiftsMode;
+  /** The ordered first supplier suggestions (service_categories ids). */
+  teamFirst: string[];
+  /** The type's Event Hub looks, its own first (invite_theme ids). */
+  lookSet: string[];
+  /** Papic's starting posture. 'quiet' = no party challenges, no confetti (a wake). */
+  cameraDefault: CameraDefault;
+};
+
 export type EventTypeProfile = {
   eventType: string;
   terminology: ProfileTerminology;
@@ -245,6 +271,21 @@ export type EventTypeProfile = {
   budgetTaxonomyKey: string | null;
   scheduleSeedKey: string | null;
   statutoryPackKey: string | null;
+  /**
+   * The setup five. OPTIONAL so a profile built by hand (tests, admin
+   * previews) stays valid — read it through `profileSetup(profile)`, which
+   * answers with the type's code fallback when it is absent.
+   */
+  setup?: ProfileSetup;
+  /**
+   * 🔑 Does this type's onboarding run the setup engine? TRUE only when the
+   * DATABASE row carries a `look_set` — the seed is what admits a type
+   * (migration 20271258536791 seeds wedding · birthday · hangout · date ·
+   * simple_event; G5 seeds the rest). Every code fallback says FALSE, so a
+   * profile read that fails degrades to yesterday's onboarding, never to a
+   * half-seeded engine. Absent = false.
+   */
+  onboardingEngine?: boolean;
 };
 
 const ALL_SURFACES: ProfileSurface[] = [
@@ -290,6 +331,14 @@ export const WEDDING_PROFILE: EventTypeProfile = {
   budgetTaxonomyKey: 'wedding',
   scheduleSeedKey: 'wedding',
   statutoryPackKey: 'ph_marriage',
+  setup: {
+    guestWord: 'guests',
+    giftsMode: 'gifts',
+    teamFirst: ['venue', 'catering', 'photo_video', 'coordinator', 'florist', 'stylist_decorator', 'hmua', 'cake'],
+    lookSet: ['velvet', 'vintage', 'regency', 'cinderella'],
+    cameraDefault: 'on',
+  },
+  onboardingEngine: false,
 };
 
 /**
@@ -348,7 +397,14 @@ export const GENERIC_PROFILE: EventTypeProfile = {
   revealPackKey: null,
   budgetTaxonomyKey: null,
   scheduleSeedKey: null,
-  statutoryPackKey: null,
+  statutoryPackKey: null,  setup: {
+    guestWord: 'guests',
+    giftsMode: 'gifts',
+    teamFirst: [],
+    lookSet: ['house', 'galeriya', 'cyber'],
+    cameraDefault: 'on',
+  },
+  onboardingEngine: false,
 };
 
 /**
@@ -404,7 +460,14 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
   revealPackKey: null,
   budgetTaxonomyKey: null,
   scheduleSeedKey: null,
-  statutoryPackKey: null,
+  statutoryPackKey: null,  setup: {
+    guestWord: 'guests',
+    giftsMode: 'none',
+    teamFirst: [],
+    lookSet: ['house', 'galeriya', 'cyber'],
+    cameraDefault: 'on',
+  },
+  onboardingEngine: false,
 };
 
 /**
@@ -415,6 +478,10 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
  * the row carries — the itinerary surface (lib/schedule-travel.ts) never
  * flips single-day on a read error. Surfaces/packs match GENERIC_PROFILE.
  */
+function genericSetupFallback(): ProfileSetup {
+  return { ...(GENERIC_PROFILE.setup as ProfileSetup) };
+}
+
 export const TRAVEL_PROFILE: EventTypeProfile = {
   ...GENERIC_PROFILE,
   eventType: 'travel',
@@ -449,7 +516,7 @@ export const TRAVEL_PROFILE: EventTypeProfile = {
   ),
   layerMode: 'roaming',
   multiDay: true,
-  onboardingFlowKey: 'travel',
+  onboardingFlowKey: 'travel',  setup: { ...genericSetupFallback(), guestWord: 'travellers', giftsMode: 'ambag', lookSet: ['house', 'galeriya'] },
 };
 
 /**
@@ -483,7 +550,15 @@ export const WAKE_PROFILE: EventTypeProfile = {
     celebrantNoun: 'family',
     celebrantShape: 'single',
   },
-  multiDay: true,
+  multiDay: true,  // 🕊 The quiet set (matrix M): family & friends, abuloy, a quiet camera,
+  // the muted looks only. Still NOT admitted to the engine (G5 seeds it).
+  setup: {
+    guestWord: 'family & friends',
+    giftsMode: 'abuloy',
+    teamFirst: [],
+    lookSet: ['vintage', 'galeriya', 'house'],
+    cameraDefault: 'quiet',
+  },
 };
 
 function fallbackFor(eventType: string): EventTypeProfile {
@@ -510,7 +585,40 @@ export type ProfileRow = {
   budget_taxonomy_key: string | null;
   schedule_seed_key: string | null;
   statutory_pack_key: string | null;
+  /** The setup five (migration 20271258536791). Optional: absent before it applies. */
+  guest_word?: string | null;
+  gifts_mode?: string | null;
+  team_first?: string[] | null;
+  look_set?: string[] | null;
+  camera_default?: string | null;
 };
+
+/**
+ * The setup five for a profile — its own when it carries them, else its
+ * type's code fallback. The one reader; never `profile.setup!`.
+ */
+export function profileSetup(profile: EventTypeProfile): ProfileSetup {
+  return profile.setup ?? (fallbackFor(profile.eventType).setup as ProfileSetup);
+}
+
+function toSetup(row: ProfileRow, fb: ProfileSetup): ProfileSetup {
+  const textArray = (v: unknown): string[] | null =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length > 0) : null;
+  const teamFirst = textArray(row.team_first);
+  const lookSet = textArray(row.look_set);
+  return {
+    guestWord:
+      typeof row.guest_word === 'string' && row.guest_word.trim() ? row.guest_word.trim() : fb.guestWord,
+    giftsMode: (GIFTS_MODES as readonly string[]).includes(row.gifts_mode ?? '')
+      ? (row.gifts_mode as GiftsMode)
+      : fb.giftsMode,
+    teamFirst: teamFirst ?? fb.teamFirst,
+    lookSet: lookSet && lookSet.length > 0 ? lookSet : fb.lookSet,
+    cameraDefault: (CAMERA_DEFAULTS as readonly string[]).includes(row.camera_default ?? '')
+      ? (row.camera_default as CameraDefault)
+      : fb.cameraDefault,
+  };
+}
 
 /**
  * Exported ONLY so the fallback chain can be exercised without a database.
@@ -591,6 +699,10 @@ export function toProfile(row: ProfileRow): EventTypeProfile {
     budgetTaxonomyKey: row.budget_taxonomy_key ?? fb.budgetTaxonomyKey,
     scheduleSeedKey: row.schedule_seed_key ?? fb.scheduleSeedKey,
     statutoryPackKey: row.statutory_pack_key ?? fb.statutoryPackKey,
+    setup: toSetup(row, fb.setup as ProfileSetup),
+    // The SEED admits a type to the engine — the row's own look set, never a
+    // code fallback (see the field's docblock).
+    onboardingEngine: Array.isArray(row.look_set) && row.look_set.length > 0,
   };
 }
 
@@ -606,7 +718,7 @@ export function toProfile(row: ProfileRow): EventTypeProfile {
 const PROFILE_BASE_COLUMNS =
   'event_type, terminology, enabled_surfaces, onboarding_flow_key, role_set_key, template_pack_key, monogram_set_key, reveal_pack_key, budget_taxonomy_key, schedule_seed_key, statutory_pack_key';
 const PROFILE_OPTIONAL_COLUMNS =
-  'marketplace_enabled, event_class, layer_mode, multi_day';
+  'marketplace_enabled, event_class, layer_mode, multi_day, guest_word, gifts_mode, team_first, look_set, camera_default';
 
 export const resolveProfile = cache(
   async (eventType: string): Promise<EventTypeProfile> => {
@@ -640,6 +752,11 @@ export const resolveProfile = cache(
         event_class: null,
         layer_mode: null,
         multi_day: null,
+        guest_word: null,
+        gifts_mode: null,
+        team_first: null,
+        look_set: null,
+        camera_default: null,
       } as ProfileRow);
     } catch {
       return fallbackFor(eventType);
@@ -894,3 +1011,4 @@ export const resolveRoleSetForEvent = cache(
     return resolveRoleSet(await resolveRoleSetKeyForEvent(eventId));
   },
 );
+

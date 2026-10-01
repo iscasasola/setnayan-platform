@@ -90,7 +90,7 @@ export function UnlockCategoriesList({
       <div className="rounded-2xl border border-ink/10 bg-cream px-5 py-8 text-center">
         <p className="font-serif text-xl text-ink">You&rsquo;ve added every category.</p>
         <p className="mt-1.5 text-sm text-ink/60">
-          Your plan already covers the whole wedding.
+          Your plan already covers every part of the day.
         </p>
       </div>
     );

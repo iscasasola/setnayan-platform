@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendVendorInviteEmail } from '@/lib/email';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { generateClaimToken, lookupExistingVendorByEmail } from '@/lib/vendor-invites';
@@ -195,6 +196,7 @@ async function sendVendorInvite(formData: FormData): Promise<SendInviteResult> {
     serviceCategory: parent.category as string,
     eventDate: await resolveEventDate(supabase, parent.event_id),
     claimUrl,
+    eventWord: (await eventWordsForEvent(parent.event_id).catch(() => null))?.eventWord,
   });
 
   if (eventId) revalidatePath(`/dashboard/${eventId}/vendors`);

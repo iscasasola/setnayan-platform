@@ -1897,7 +1897,7 @@ export async function SiteBody({
               </div>
             ) : null}
             <div id={storySceneShown ? undefined : SITE_MENU_ANCHORS.story} className="scroll-mt-6">
-              {storySceneShown ? null : event.love_story ? (
+              {storySceneShown || !weddingOnly.love_story ? null : event.love_story ? (
                 <OurStory loveStory={event.love_story} variant="full" />
               ) : plan.openBrowse ? (
                 <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />
@@ -2086,7 +2086,8 @@ export async function SiteBody({
       : null;
     const menuSections = {
       details: guestBodyRenders && detailsSceneList.length > 0,
-      story: guestBodyRenders && Boolean(event.love_story),
+      // A type with no two people has no love story (same gate as the public page).
+      story: weddingOnly.love_story && guestBodyRenders && Boolean(event.love_story),
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
       // you" strip is deliberately NOT a third answer: it closes with the

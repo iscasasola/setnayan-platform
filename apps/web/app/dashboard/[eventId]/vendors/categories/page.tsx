@@ -121,7 +121,7 @@ export default async function UnlockCategoriesPage({ params }: Props) {
         </h1>
         <p className="mt-2 max-w-prose text-[15px] leading-relaxed text-ink/65">
           Pick a category you&rsquo;re ready to shop and we&rsquo;ll line up the
-          best-fit vendor for your wedding &mdash; and send them a first inquiry,
+          best-fit supplier for your event &mdash; and send them a first inquiry,
           so you start with at least one option in every category you add.
         </p>
       </header>

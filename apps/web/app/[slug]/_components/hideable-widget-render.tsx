@@ -2,7 +2,8 @@ import type { EventWords } from '../_lib/event-words';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
-import { ROLE_LABELS } from '@/lib/guests';
+import { guestRoleLabel } from '@/lib/guests';
+import type { RoleNames } from '@/lib/role-names';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { renderCustomSection } from './custom-section-widget';
 import { sceneFactsFor } from '../_lib/scene-facts';
@@ -28,6 +29,9 @@ import { WhatToBringWidget } from './what-to-bring-widget';
 import { YourPhotosWidget } from './your-photos-widget';
 import { sceneCardClass } from '@/lib/scene-card-look';
 import type { MarchPlace } from '@/lib/march-place';
+import type { HubStage } from '@/lib/hub-canvas';
+import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
+import { DetailsBigDate, DetailsCard } from './event-details-styles';
 
 /**
  * Dispatch on widget_type to render the right widget. Owns the per-widget
@@ -47,11 +51,14 @@ type HideableWidgetProps = {
    *  than printed as "coming soon" (owner 2026-09-26). Default false = today. */
   guestView?: boolean;
   event: EventRow;
+  /** The couple's words for roles (`events.role_names`, owner 2026-09-30), read once by the body. */
+  roleNames?: RoleNames;
   /** The event type's own words, resolved ONCE by the body and threaded here
    *  rather than re-resolved per widget. */
   words: EventWords;
   guest: GuestRow;
-  sideLabel: string;
+  /** Null on an event type without sides — no side is rendered at all. */
+  sideLabel: string | null;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
   /** RSVP-season "Estimated program" label on the schedule widget (owner
@@ -74,6 +81,15 @@ type HideableWidgetProps = {
   hostPitch?: boolean;
   /** 🚶 Where this keyed guest walks in the march (`lib/march-place.ts`), or null. */
   marchPlace?: MarchPlace | null;
+  /**
+   * 🏠 The dress code as EVERYONE's (owner 2026-09-30): this guest's own look is
+   * on the Invitation's Welcome page (`lib/invitation-welcome.ts`), so Details
+   * draws the general view — our colours and every role — for them too.
+   */
+  dressCodeGeneral?: boolean;
+  /** 🎨 The stage this page draws — the scene's style (`canvas.style`) is
+   *  resolved for it. Absent → every widget keeps its shipped look. */
+  stage?: HubStage | null;
 };
 
 /**
@@ -97,6 +113,9 @@ function HideableWidgetBody({
   hostPitch = false,
   guestView = false,
   marchPlace = null,
+  roleNames = {},
+  dressCodeGeneral = false,
+  stage = null,
 }: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
@@ -106,9 +125,36 @@ function HideableWidgetBody({
   /* 🖼 The scene background owns the box — the widget then draws no card of
      its own (owner 2026-09-27, "no background means no box"). */
   const bare = sceneWidgetIsBare(widget, canvasMediaUrls, { ownClipPlays });
+  /* 🎨 The style this scene is drawn in on this stage (owner 2026-09-29) —
+     null draws the shipped look. */
+  const sceneStyle = sceneStyleOfRow(widget, stage, event.event_type);
 
   switch (widget.widget_type) {
     case 'event_details':
+      if (sceneStyle === 'big-date' || sceneStyle === 'card') {
+        // The same facts as the list below — the date, each place, and the
+        // guest's own role and side, kept as the line under them.
+        const places = event.venues?.length
+          ? event.venues
+          : event.venue_name || event.venue_address
+            ? [{ role: 'both' as const, name: event.venue_name ?? null, address: event.venue_address ?? null, latitude: null, longitude: null }]
+            : [];
+        // The list's own two labels, "Your role" and "Side", kept word for word.
+        const roleLabel = guestRoleLabel(guest.role, roleNames);
+        const footnote = [
+          roleLabel ? `Your role: ${roleLabel}` : null,
+          sideLabel ? `Side: ${sideLabel}` : null,
+        ].filter(Boolean).join(' · ');
+        const Styled = sceneStyle === 'card' ? DetailsCard : DetailsBigDate;
+        return (
+          <Styled
+            dateIso={event.event_date ?? null}
+            dateLabel={formatEventDate(event.event_date) || null}
+            places={places}
+            footnote={footnote || null}
+          />
+        );
+      }
       return (
         <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
@@ -135,8 +181,8 @@ function HideableWidgetBody({
                 ) : null}
               </>
             )}
-            <Detail label="Your role" value={ROLE_LABELS[guest.role]} />
-            <Detail label="Side" value={sideLabel} />
+            <Detail label="Your role" value={guestRoleLabel(guest.role, roleNames)} />
+            {sideLabel ? <Detail label="Side" value={sideLabel} /> : null}
           </dl>
         </section>
       );
@@ -152,6 +198,7 @@ function HideableWidgetBody({
           targetIso={event.event_date}
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
           bare={bare}
+          sceneStyle={sceneStyle}
         />
       ) : null;
 
@@ -176,11 +223,12 @@ function HideableWidgetBody({
           nowTrigger={isGuestNowTriggerEnabled()}
           estimated={scheduleEstimated}
           eventType={event.event_type}
+          sceneStyle={sceneStyle}
         />
       ) : null;
 
     case 'venue_map':
-      return <VenueWidget event={event} />;
+      return <VenueWidget event={event} sceneStyle={sceneStyle} />;
 
     case 'dress_code':
       /* 👗 WHO IS ASKING (owner 2026-09-28): a guest is answered for their own
@@ -189,10 +237,10 @@ function HideableWidgetBody({
          editing the hub — answering for the groom's own row showed the couple
          "You are in the entourage · #FAF7F2" instead of the dress code their
          guests will read. So the role is withheld on the canvas, not passed. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView ? (guest?.role ?? null) : null} march={guestView ? marchPlace : null} rolePalette={event.role_palette} hideWhenEmpty={guestView} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;
 
     case 'your_photos':
       return (
@@ -208,13 +256,13 @@ function HideableWidgetBody({
     case 'special_message':
       // 🔗 Bound to Details — this scene's own version where the couple chose
       // "Just this scene", else Details' message (`lib/details-bound.ts`).
-      return <SpecialMessageWidget text={sceneBoundTextOf('message', widget.config_json, event.special_message).text} />;
+      return <SpecialMessageWidget text={sceneBoundTextOf('message', widget.config_json, event.special_message).text} sceneStyle={sceneStyle} signedBy={event.display_name} />;
 
     case 'what_to_bring':
-      return <WhatToBringWidget text={event.what_to_bring ?? null} />;
+      return <WhatToBringWidget text={event.what_to_bring ?? null} sceneStyle={sceneStyle} />;
 
     case 'our_photos':
-      return <OurPhotosWidget urls={ourPhotoUrls} />;
+      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} />;
 
     // The couple's own sections. One case for all six: the words live in the
     // row's own `config_json`, so the slot number is only which SEAT it takes
@@ -235,7 +283,7 @@ function HideableWidgetBody({
       });
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} />;
+      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} sceneStyle={sceneStyle} />;
 
     case 'tier_comparison':
       return (

@@ -1,45 +1,35 @@
 /**
- * Customer NavGroup[] builder — THE EVENT MENU, BY MOMENT (owner 2026-09-24).
+ * Customer NavGroup[] builder — THE EVENT MENU, FIVE ROWS (Stage D, owner
+ * 2026-09-29: *"this is what an event needs. Guestlist · Your Team · Event Hub
+ * Maker · Our Services"*).
  *
- * 🔑 THIS IS NO LONGER A TREE OF ITS OWN. It is the desktop rail's (and the ☰
+ * 🔑 THIS IS NOT A TREE OF ITS OWN. It is the desktop rail's (and the ☰
  * drawer's) PROJECTION of `buildEventMenuSections` in `lib/customer-menu.ts` —
- * the one sectioned tree the phone's bottom bar and moment strip read too.
- * Rows, order, labels, routes and gating are decided THERE; this file only
- * turns icon NAMES into components, adds the Guests head-count badge, and
- * hands the sections over as `NavGroup[]`:
+ * the one tree the phone's bottom bar reads too. Rows, order, labels, routes,
+ * claims and gating are decided THERE; this file only turns icon NAMES into
+ * components, adds the Guest list head-count badge, and hands the sections
+ * over as `NavGroup[]`:
  *
- *   event   (no heading) → Details — drawn as the event's NAME row
- *   spine   (no heading) → Overview · Papic ✦ · Galleries · Editorial (after)
- *   book    "Book"       → Your Team · Budget
- *   look    "Look"       → Mood Board ✦ · Logo Maker ✦ · Pakanta ✦
- *   invite  "Invite"     → Guests · Hosts · Event Hub Controller
- *   day     "The day"    → Schedule · Check-in (day-of) · Seat plan ·
- *                          Live Studio ✦ · Patiktok ✦ (3D Plan ✦ is absorbed
- *                          into Seat plan, which claims its pages — 2026-09-24)
- *   end     (no heading) → Setnayan AI ✦ · Suite · Refer a couple
+ *   event    (no heading) → Details — drawn as the event's NAME row
+ *   pillars  (no heading) → Home · Guest list · Your Team · Event Hub Maker ·
+ *                           More Services (opens to its five — 2026-09-30)
  *
- * Binding drawing: `build-sessions/prototypes/event_menu_by_moment_2026-09-24.html`.
- * The acceptance test is the owner's sentence — *"finding the logo maker at
- * the bottom feels so far"*: Logo Maker moves from row 26 of 27 (+11 hidden)
- * to row 9 of 21, directly under Mood Board.
- *
- * WHAT WENT, AND WHERE (the per-row ledger lives in the drawing's foot):
- *   · "Plan" / "Go live" / "Also in this event" headings → the moments above.
- *   · Personalization → Details, on the event's name row (key unchanged).
- *   · The shell's "Browse by category" group → REMOVED inside an event (owner:
- *     *"we already have your team as where they search, negotiate and build
- *     their suppliers"*). It opened the date-blind public `/explore`.
- *   · The shell's Studio group → DISSOLVED: each product sits at its moment
- *     with ✦; its "Event Hub" row is the Event Hub Controller row (one door,
- *     2026-09-02); its "All services" row is the `studio` row, now "Suite".
+ * WHERE THE OLD ROWS WENT (each page still lights the row that holds it):
+ *   · Hosts · Check-in              → Guest list's parts
+ *   · Budget                        → Your Team's Budget part
+ *   · Schedule · Mood Board · Logo  → the Event Hub Maker (Details)
+ *   · Editorial                     → the Maker's Post Event (Gallery on Our
+ *                                     Services where there is no Maker)
+ *   · Setnayan AI · Papic · Live Studio · Music Maker · Patiktok
+ *                                   → More Services' five children
+ *   · Refer a couple                → the account menu (top bar)
  *
  * 🔒 EVERY ROW IS A PLAIN LEAF — "solid menu with no submenus" (owner-locked
- * 2026-07-15). 🔒 EVERY KEY IS UNCHANGED (`home` · `guests` · `explore` ·
- * `studio` · `launch` · `personalization` · `hosts` · `refer` · `schedule` ·
- * `seat` · `budget` · `editorial` · `galleries`): `SIDEBAR_SLOT_KEYS`, the
- * hideKeys gate (`refer` hides when the programme is off; `explore`/`budget`
- * for vendor-free kinds) and `eventRailMatchRows` all key off them, and none of
- * them throws when a key stops matching.
+ * 2026-07-15) — except More Services (`studio`), which the owner opened on
+ * 2026-09-30 to its five services. 🔒 EVERY KEY IS UNCHANGED (`home` · `guests` · `explore` ·
+ * `launch` · `studio` · `personalization` · `seat`): `SIDEBAR_SLOT_KEYS`, the
+ * hideKeys gate and `eventRailMatchRows` all key off them, and none of them
+ * throws when a key stops matching.
  *
  * Server-Component safety: neutral (non-'use client') module — the layout
  * calls it (through `eventRailMatchRows`) and the client rail calls it. Icons
@@ -55,6 +45,7 @@ import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import {
   buildEventMenuSections,
   EVENT_MENU_ICONS,
+  type EventMenuChild,
   type EventStudioRow,
 } from '@/lib/customer-menu';
 
@@ -74,17 +65,20 @@ export function buildCustomerNavGroups(
     /** Live guest count → the Guests item's badge (neutral tone). Resolved
      *  server-side in layout.tsx; omit/0 → no badge (never fabricated). */
     guestCount?: number | null;
-    /** plan · dayof · after. Omitted ⇒ 'plan'. Day-of adds Check-in to The
-     *  day; after adds Editorial to the spine. */
+    /** plan · dayof · after. Omitted ⇒ 'plan'. The five rows are the same in
+     *  every phase; it is passed through for the tree's own use. */
     phase?: MenuLifecyclePhase;
-    /** The event's Studio products, plain data from `railToolsSignedIn`. */
+    /** The event's Studio products, plain data from `railToolsSignedIn` —
+     *  no longer rows; their pages are claimed by the row that holds them. */
     studioRows?: ReadonlyArray<EventStudioRow>;
     /** The App Store / Play Store shell — refused rows are dropped by the one
      *  tree (`storeShellRefusesMenuRow`), on the rail and ☰ drawer too. */
     storeShell?: boolean;
+    /** The five under More Services (`EventMenuCtx.services`). */
+    services?: ReadonlyArray<EventMenuChild>;
   },
 ): NavGroup[] {
-  // The Guests head-count badge, built ONCE by the shared helper that the
+  // The Guest list head-count badge, built ONCE by the shared helper that the
   // phone's bottom bar also calls — see lib/nav-badges.ts for why the two must
   // not each derive it.
   const guestsBadge = customerGuestsBadge(opts?.guestCount);
@@ -96,6 +90,7 @@ export function buildCustomerNavGroups(
     seatingEnabled: opts?.seatingEnabled,
     studioRows: opts?.studioRows,
     storeShell: opts?.storeShell,
+    services: opts?.services,
   }).map((section) => ({
     key: section.key,
     label: section.label,
@@ -109,9 +104,19 @@ export function buildCustomerNavGroups(
           ? (SetnayanMark as unknown as LucideIcon)
           : EVENT_MENU_ICONS[r.icon],
       matchPrefix: r.matchPrefix ?? r.href,
-      ...(r.studio ? { studio: true } : {}),
       ...(r.alsoMatch?.length ? { alsoMatch: r.alsoMatch } : {}),
       ...(r.key === 'guests' && guestsBadge ? { badge: guestsBadge } : {}),
+      // 📂 Only More Services carries children (owner 2026-09-30).
+      ...(r.children?.length
+        ? {
+            children: r.children.map((c): NavItem => ({
+              key: c.key,
+              label: c.label,
+              href: c.href,
+              icon: EVENT_MENU_ICONS[c.icon],
+            })),
+          }
+        : {}),
     })),
   }));
 }

@@ -1,10 +1,8 @@
 'use client';
 
-import { makerSave } from '@/lib/maker-refresh';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
-import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useSceneCanvas } from './use-scene-canvas';
 import { ArrowDown, ArrowUp, Lock, PencilLine, Play } from 'lucide-react';
 import {
   HUB_ARRANGEMENTS,
@@ -24,7 +22,6 @@ import {
   hubInMoves,
   hubOutMoves,
   resolveHubMotion,
-  sanitizeHubCanvas,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
 import { canvasHasMotion, HUB_CANVAS_MOTION_KEYS } from '@/lib/hub-look-pro';
@@ -84,42 +81,12 @@ export const SCENE_TABS: ReadonlyArray<{ key: SceneTab; label: string }> = [
   { key: 'content', label: 'Content' },
 ];
 
-/** Save one scene's canvas into the draft, from the latest canvas (a ref). */
-export function useSceneCanvas(
-  eventId: string,
-  widgetType: string,
-  canvas: HubSectionCanvas,
-  draftAction: ElementDraftAction,
-) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const latest = useRef(canvas);
-  const [shown, setShown] = useState(canvas);
-  const json = JSON.stringify(canvas);
-  useEffect(() => {
-    latest.current = canvas;
-    setShown(canvas);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [json, widgetType]);
-  const save = (change: (c: Record<string, unknown>) => void) => {
-    const draft: Record<string, unknown> = { ...latest.current };
-    change(draft);
-    const next = sanitizeHubCanvas({ canvas: draft });
-    latest.current = next;
-    setShown(next);
-    setError(null);
-    start(async () => {
-      const fd = new FormData();
-      fd.set('intent', 'save');
-      fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas: next } } }));
-      // One refresh after the last save in flight (`lib/maker-refresh.ts`).
-      const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh());
-      if (!res.ok) setError(res.error);
-    });
-  };
-  return { shown, save, pending, error };
-}
+/* `useSceneCanvas` lives in its own small module so a lazy piece (the scene's
+   Style row, `maker-details`) can use it without pulling this whole inspector —
+   a first-screen module — into that chunk group (train n: that made the
+   inspector + the template picker one more async chunk in the runtime every
+   page loads, 5 B over the shared-bundle ceiling). */
+export { useSceneCanvas } from './use-scene-canvas';
 
 function ErrorLine({ error }: { error: string | null }) {
   return error ? (

@@ -71,6 +71,7 @@ export async function findSameDayVendors(
     // paid vendor is later demoted/rejected this keeps them out of the
     // couple-facing day-of "Get help" shortlist.
     .eq('verification_state', 'verified')
+    .eq('is_demo', false) // never suggest a demo shop (2026-09-30, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1))
     .eq('same_day_available', true)
     .neq('tier_state', 'free')
     .limit(CANDIDATE_LIMIT);

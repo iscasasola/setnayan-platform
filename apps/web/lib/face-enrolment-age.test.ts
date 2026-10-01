@@ -89,22 +89,27 @@ test('the minimum age is 18, not a softer number', () => {
   assert.equal(FACE_ENROLMENT_MIN_AGE, 18);
 });
 
-test('BOTH enrolment writers apply the refusal — a guard on one path is a guard on neither', () => {
-  const writers: Array<{ label: string; file: string[] }> = [
-    { label: 'RSVP', file: ['..', 'app', '[slug]', 'actions.ts'] },
-    { label: 'day-of / custom QR', file: ['..', 'app', 'papic', 'face-enroll-actions.ts'] },
-  ];
-  for (const { label, file } of writers) {
-    const code = strip(read(...file));
-    assert.match(code, /isKnownMinorGuest\(/, `${label} writer does not check`);
-  }
+test('THE enrolment writer applies the refusal — and the RSVP is no longer a writer at all', () => {
+  // Since 2026-09-30 (owner: the question at RSVP, the selfie on the day) the
+  // day-of catch is the ONLY path that stores a face. The RSVP writer is gone,
+  // so a guard on "both" would be a guard on a file that no longer enrols.
+  const code = strip(read('..', 'app', 'papic', 'face-enroll-actions.ts'));
+  assert.match(code, /isKnownMinorGuest\(/, 'day-of / custom QR writer does not check');
+  const rsvp = strip(read('..', 'app', '[slug]', 'actions.ts'));
+  assert.doesNotMatch(
+    rsvp,
+    /from\('guest_face_enrollments'\)\s*\.insert\(/,
+    'the RSVP enrols a face again — the minor refusal would have to follow it back',
+  );
 });
 
 test('the refusal is ANDed with the attestation, never instead of it', () => {
-  const code = strip(read('..', 'app', '[slug]', 'actions.ts'));
+  const code = strip(read('..', 'app', 'papic', 'face-enroll-actions.ts'));
   assert.match(
     code,
-    /biometricConsent && ageAffirmed && !faceExcluded && !knownMinor/,
-    'consent, the 18+ tick and the host exclusion must all still apply',
+    /if \(!selfieRef \|\| !consent \|\| !ageAffirmed\) return \{ ok: false, reason: 'consent' \};/,
+    'consent and the 18+ tick must both still apply',
   );
+  assert.match(code, /guestRow\.face_recognition_excluded === true/, 'the host exclusion must still apply');
+  assert.match(code, /if \(await isKnownMinorGuest\(admin, eventId, guestId\)\)/, 'the known-minor refusal must still apply');
 });

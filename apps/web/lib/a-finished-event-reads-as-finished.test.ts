@@ -422,7 +422,16 @@ test('the event Overview names the event, and reads it as the caller', () => {
   figure contradicting the list directly above it.
 */
 test('the finalized banner does not claim guests the list does not have', () => {
-  const g = src('app/dashboard/[eventId]/guests/page.tsx');
+  /*
+    The banner moved (2026-09-30, owner "i must click a finalize to finalize
+    it"): it is now the finalized face of the Finalize / Reopen control, which
+    the Guest list mounts. Both halves are checked: the page still mounts it,
+    and the banner's own words still say what the number is FOR.
+  */
+  const page = src('app/dashboard/[eventId]/guests/page.tsx');
+  assert.match(page, /<FinalizeGuestListControl[\s\S]*?finalPax=\{finalize\.finalPax\}/, 'the Guest list no longer mounts the finalize banner');
+  assert.ok(!/guests locked in/.test(page.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')), '"N guests locked in" must not return to the page');
+  const g = src('app/dashboard/[eventId]/guests/_components/finalize-guest-list-control.tsx');
   /*
     🪤 COMMENTS STRIPPED FIRST — this assertion failed on its own first run
     because the fix carries a comment QUOTING the string it removed. A raw

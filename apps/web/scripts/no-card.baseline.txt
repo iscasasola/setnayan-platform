@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 750 files · 2128 lines
+# 742 files · 2100 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -91,14 +91,12 @@
 1 apps/web/app/(shell)/realstories/page.tsx
 1 apps/web/app/[slug]/_components/day-of-announcement.tsx
 1 apps/web/app/[slug]/_components/day-of-banner.tsx
-2 apps/web/app/[slug]/_components/day-of-face-enroll.tsx
-2 apps/web/app/[slug]/_components/editorial/editorial-content.tsx
+1 apps/web/app/[slug]/_components/editorial/editorial-content.tsx
 2 apps/web/app/[slug]/_components/empty-states.tsx
 1 apps/web/app/[slug]/_components/face-receipt-card.tsx
 4 apps/web/app/[slug]/_components/guest-column-form.tsx
 2 apps/web/app/[slug]/_components/guest-doorway-strip.tsx
 3 apps/web/app/[slug]/_components/guest-hub-bar.tsx
-3 apps/web/app/[slug]/_components/guest-hub-card.tsx
 1 apps/web/app/[slug]/_components/hub/hub-shell.tsx
 1 apps/web/app/[slug]/_components/live-wall-block.tsx
 1 apps/web/app/[slug]/_components/pahina-masthead.tsx
@@ -106,7 +104,6 @@
 2 apps/web/app/[slug]/_components/photos-of-you-gallery.tsx
 1 apps/web/app/[slug]/_components/private-landing.tsx
 1 apps/web/app/[slug]/_components/public-event-day-bar.tsx
-4 apps/web/app/[slug]/_components/selfie-capture.tsx
 5 apps/web/app/[slug]/_components/site-body.tsx
 1 apps/web/app/[slug]/_components/site-menu-bar.tsx
 4 apps/web/app/[slug]/_components/song-request-card.tsx
@@ -196,7 +193,7 @@
 2 apps/web/app/admin/moodboard-renders/page.tsx
 1 apps/web/app/admin/operations-hiring/_components/smoke-test-panel.tsx
 1 apps/web/app/admin/page.tsx
-3 apps/web/app/admin/pakanta/page.tsx
+2 apps/web/app/admin/pakanta/page.tsx
 1 apps/web/app/admin/pakanta/pakanta-deliver.tsx
 2 apps/web/app/admin/papic-storage/backfill-tiles-button.tsx
 1 apps/web/app/admin/papic-storage/page.tsx
@@ -302,6 +299,7 @@
 1 apps/web/app/dashboard/[eventId]/_components/after/finished-event-summary.tsx
 3 apps/web/app/dashboard/[eventId]/_components/checklist/checklist-full.tsx
 2 apps/web/app/dashboard/[eventId]/_components/connect-supplier-modal.tsx
+1 apps/web/app/dashboard/[eventId]/_components/coordinator-colour-domains.tsx
 1 apps/web/app/dashboard/[eventId]/_components/day-of-mode/banner.tsx
 2 apps/web/app/dashboard/[eventId]/_components/day-of-mode/coordinator-broadcast-card.tsx
 3 apps/web/app/dashboard/[eventId]/_components/day-of-mode/get-help-card.tsx
@@ -344,15 +342,11 @@
 2 apps/web/app/dashboard/[eventId]/details/_components/pax-settings-card.tsx
 2 apps/web/app/dashboard/[eventId]/details/_components/put-away-card.tsx
 3 apps/web/app/dashboard/[eventId]/find-date/_components/find-your-date.tsx
-1 apps/web/app/dashboard/[eventId]/guests/_components/arrange-controls.tsx
 2 apps/web/app/dashboard/[eventId]/guests/_components/entourage-order-panel.tsx
-1 apps/web/app/dashboard/[eventId]/guests/_components/filter-popover.tsx
-5 apps/web/app/dashboard/[eventId]/guests/_components/guest-card-body.tsx
-2 apps/web/app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx
-4 apps/web/app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx
+4 apps/web/app/dashboard/[eventId]/guests/_components/guest-card-body.tsx
+2 apps/web/app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx
 4 apps/web/app/dashboard/[eventId]/guests/_components/guest-mind-map.tsx
 3 apps/web/app/dashboard/[eventId]/guests/_components/guest-name-fields.tsx
-5 apps/web/app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx
 1 apps/web/app/dashboard/[eventId]/guests/_components/overlay-primitives.tsx
 4 apps/web/app/dashboard/[eventId]/guests/_components/quick-add-sheet.tsx
 1 apps/web/app/dashboard/[eventId]/guests/_components/undo-toast.tsx
@@ -363,13 +357,10 @@
 1 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-link.tsx
 5 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx
 2 apps/web/app/dashboard/[eventId]/guests/new/page.tsx
-5 apps/web/app/dashboard/[eventId]/guests/page.tsx
+3 apps/web/app/dashboard/[eventId]/guests/page.tsx
 2 apps/web/app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx
 5 apps/web/app/dashboard/[eventId]/guests/souvenirs/_components/souvenir-desk.tsx
 3 apps/web/app/dashboard/[eventId]/guests/tea-ceremony/page.tsx
-3 apps/web/app/dashboard/[eventId]/hosts/_components/consent-gated-invite-form.tsx
-1 apps/web/app/dashboard/[eventId]/hosts/_components/coordinator-colour-domains.tsx
-3 apps/web/app/dashboard/[eventId]/hosts/page.tsx
 3 apps/web/app/dashboard/[eventId]/invitation/_components/guest-invite-modal.tsx
 1 apps/web/app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx
 2 apps/web/app/dashboard/[eventId]/invitation/page.tsx
@@ -514,6 +505,7 @@
 5 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/claim-link-share.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx
+3 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx
 9 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/host-service-details.tsx

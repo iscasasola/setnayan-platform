@@ -74,13 +74,35 @@ function pageColumns(): Array<{ file: string; line: number; width: string }> {
  * Each entry: how many page-level columns in that file are still off-measure.
  */
 const KNOWN_DRIFT: Record<string, { count: number; why: string }> = {
+  /* 🎨 Scene styles (2026-09-29, folded onto main): each is an OBJECT drawn inside
+     a scene — sized to the object in the approved prototype, not a page column.
+     Moving them to a page measure would redraw the approved style; decide while
+     looking at the page. */
+  '_components/dress-code-styles.tsx': {
+    count: 2,
+    why: 'The Palette style’s colour strip and its role table — objects inside the scene, sized as the prototype draws them.',
+  },
+  '_components/event-details-styles.tsx': {
+    count: 1,
+    why: 'The Card style’s card — one bordered object inside the scene, not the page’s column.',
+  },
+  '_components/schedule-styles.tsx': {
+    count: 2,
+    why: 'A moment’s notes under the One-per-screen and Clock face styles — a caption under a figure, not a column.',
+  },
+  '_components/your-seat-styles.tsx': {
+    count: 1,
+    why: 'The Place card style’s card — a drawn place card, sized like one.',
+  },
   'editorial/editorial-content.tsx': {
     // 4 → 3 on 2026-09-09: the story's spine replaced the centred masthead and
     // the lead, and the STANDFIRST went with them. The cover's sentence is set
     // on a ch-based measure, which is what this guard wanted all along — so the
     // bill shrank because the drift was fixed, not because the check was moved.
-    count: 3,
-    why: 'A pull-quote, a caption and a figure. TYPOGRAPHIC, not columns — the reading measure is ch-based. Decide while looking at the page.',
+    // 3 → 2 on 2026-09-29: the closing pull-quote became the Thank You scene
+    // (Post Event styles, `post-event-scene-views.tsx`), which draws no column.
+    count: 2,
+    why: 'A caption and a figure. TYPOGRAPHIC, not columns — the reading measure is ch-based. Decide while looking at the page.',
   },
   'recap/page.tsx': {
     count: 1,

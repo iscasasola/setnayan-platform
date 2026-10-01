@@ -420,7 +420,7 @@ export const routes = {
   },
   faviconIco: () => `/favicon.ico`,
   features: () => `/features`,
-  forVendors: () => `/vendors`,
+  forVendors: () => `/for-suppliers`,
   forgotPassword: () => `/forgot-password`,
   guest: {
     findMyTable: (slug: string) => `/${slug}/find-my-table`,

@@ -235,6 +235,8 @@ export const HUB_ELEMENT_FREE_FIELDS = [
   'tracking',
   'hidden',
   'word',
+  // 🗓 How the date and the time are written (Format ▾, tap-to-type) — words, free.
+  'format',
 ] as const;
 /** A run's own fields: only its font is Pro. */
 export const HUB_RUN_PRO_FIELDS = ['font'] as const;

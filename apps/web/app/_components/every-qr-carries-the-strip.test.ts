@@ -41,8 +41,9 @@ const STRIP_MOUNTS: Record<string, number> = {
   // guest list's Share tab render, so it is ONE mount, not two.
   'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx': 1,
   'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx': 1, // scan-to-view
-  // The guest's own card in the roster (inspector + drawer render the same body)
-  'app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx': 1,
+  // ⤷ 2026-09-30: the guest's own card NO LONGER draws a QR (owner, the Fable
+  // guest card: "QR look leaves the card"). It draws their Digital ticket — the
+  // QR is ON it — with Save ticket, and "Write to NFC" in the ⋯ menu (below).
 };
 
 /**
@@ -50,7 +51,11 @@ const STRIP_MOUNTS: Record<string, number> = {
  * guest's own code keepers used to carry it, and the owner removed it —
  * "remove the write to NFC on the event hub." See the guest-tree sweep below.
  */
-const NFC_ONLY_MOUNTS: Record<string, number> = {};
+const NFC_ONLY_MOUNTS: Record<string, number> = {
+  // The guest card's and every Invite row's ⋯ — Write to NFC · New QR · Unlink
+  // (owner 2026-09-30). ONE mount: the card and the rows share the component.
+  'app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx': 1,
+};
 
 /**
  * QRs that are NOT links: bank payment payloads (a phone tapping one would do

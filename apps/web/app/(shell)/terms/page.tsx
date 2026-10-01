@@ -151,9 +151,9 @@ export default function TermsPage() {
         </ul>
       </LegalSection>
 
-      <LegalSection title="Live Studio, YouTube & your broadcast">
+      <LegalSection title="Live Watch, YouTube & your broadcast">
         <p>
-          Live Studio uses YouTube API Services. By using Live Studio you agree
+          Live Watch uses YouTube API Services. By using Live Watch you agree
           to be bound by the{' '}
           <a
             href="https://www.youtube.com/t/terms"
@@ -199,7 +199,7 @@ export default function TermsPage() {
           <li>
             Broadcasts are created <strong>unlisted</strong>: they do not appear
             in YouTube search, but anyone with the link or your event page can
-            watch. Live Studio depends on YouTube, which we do not control — see{' '}
+            watch. Live Watch depends on YouTube, which we do not control — see{' '}
             <em>Service availability</em> below.
           </li>
           <li>

@@ -2,7 +2,7 @@
 
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Check, Monitor, MonitorSmartphone, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -34,6 +34,22 @@ import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
 import { prefetchDetailsWhenIdle } from './details-lazy';
+import dynamic from 'next/dynamic';
+
+/**
+ * ⚡ THE INSTANT LOVE STORY (`love-story-live.tsx`) — its scrapbook and its
+ * words, loaded the first time Love Story is opened, in a chunk of its own
+ * imported from HERE ONLY — unnamed on purpose: a chunk NAME is one more entry
+ * in the runtime's name map (measured: the named version was 9 bytes over). This file is the launch page's
+ * alone, so the chunk has one parent — and everything it builds on (the moment
+ * sheet, the chapter list, the Maker's save queue) is already on that page.
+ * Imported from anywhere else (Details' stand-ins are also the editor's and the
+ * dev lab's), it would need those pieces listed in the webpack runtime every
+ * page downloads — measured: +139 bytes over a shared bundle with none spare.
+ * The Love Story page and Details' editor reach them through the context.
+ */
+const LiveLoveStoryBook = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveLoveStoryBook));
+const LiveStoryPanel = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveStoryPanel));
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { makerAddShowsOn } from '@/lib/maker-selection';
@@ -97,6 +113,7 @@ export function MakerShell({
   more,
   applySlot = null,
   details = null,
+  rsvpStage = null,
   factEditors = NO_FACT_EDITORS,
   hasWork,
   viewAs = {},
@@ -138,6 +155,9 @@ export function MakerShell({
    *  the address and its QR, and the printed cards they fill — and `controls`
    *  the fields (what the prints include, and every line of wording). */
   details?: { page: ReactNode; controls: ReactNode } | null;
+  /** 🗳 The RSVP stage (bar item `rsvp-stage`) — its scenes, canvas and
+   *  controls, one lazy node built by the launch page; null = not offered. */
+  rsvpStage?: ReactNode;
   /** ✍ The Details items' own editors a fact tapped on a stage opens
    *  (`detailsFactEditors`) — the SAME nodes Details draws. RSVP and Love Story
    *  moved into Details whole (part 2b); their pages are Details items now. */
@@ -326,6 +346,8 @@ export function MakerShell({
       lookPages,
       setLookPages,
       factEditors,
+      liveLoveStoryBook: LiveLoveStoryBook as ComponentType<Record<string, unknown>>,
+      liveStoryPanel: LiveStoryPanel as ComponentType<Record<string, unknown>>,
     }),
     [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, lookPages, factEditors],
   );
@@ -571,6 +593,18 @@ export function MakerShell({
                 }
                 controls={details?.controls ?? null}
               />
+            </div>
+          ) : null}
+          {/* 🗳 THE RSVP STAGE — a stage of its own (owner 2026-09-30 re-plan),
+              drawn like Details: it covers the work area, the editor keeps its
+              state underneath. Picking another stage puts that stage back. */}
+          {hasWork && selection?.kind === 'tool' && selection.key === 'rsvp-stage' ? (
+            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-rsvp-layer="">
+              {rsvpStage ?? (
+                <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
+                  Your RSVP could not be loaded just now. Nothing was changed — please reopen this in a moment.
+                </p>
+              )}
             </div>
           ) : null}
         </div>

@@ -182,7 +182,7 @@ export default async function GalleriesHubPage({ params }: Props) {
     // The livestream recording lands on the broadcast archive after the event.
     sources.push({
       key: 'panood',
-      name: 'Live Studio — livestream',
+      name: 'Live Watch — livestream',
       blurb: 'Re-watch the day and share the recording with everyone who tuned in.',
       state: 'ready',
       count: null,

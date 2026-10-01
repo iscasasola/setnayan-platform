@@ -13,9 +13,12 @@ import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
 import { SeatingLockError } from './seating-lock-error';
+import { parseRoleSeating, type RoleSeating } from '@/lib/role-seating';
 import {
   BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
+  autoArrangeNewTableKey,
+  autoSeatRoom,
   chainableShapes,
   computeAutoLayout,
   computeAutoSeat,
@@ -34,6 +37,7 @@ import {
   shapeHintFor,
   solveSeatPlan,
   tableGeometry,
+  tablesToAddForAutoSeat,
   validateChainJointM,
   type AutoSeatGuest,
   type BoothType,
@@ -466,6 +470,7 @@ export async function autoSeatGuests(formData: FormData) {
     // guest, so auto-seat clusters the same groups the couple sees.
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
+    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
 
   // Anchor the role-tier rings on where the couple actually placed the stage,
@@ -481,6 +486,7 @@ export async function autoSeatGuests(formData: FormData) {
     floorPlan.priority_order,
     roleSet,
     groupAdjacency,
+    floorPlan.role_seating,
   );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -802,27 +808,61 @@ export async function saveVenuePhotoVisibility(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// Save the couple's draggable seating-priority tier order (smart seat-plan
-// Phase 2). Upserts just the priority_order column on the per-event floor-plan
-// singleton (other columns keep their DB defaults / existing values). The client
-// value is re-validated server-side via parsePriorityOrder — never trusted — and
-// stored as a clean PriorityOrder, or null when empty/malformed (→ the default
-// order). Lock-gated like every seating mutation.
+// Save the couple's Auto Arrange preferences on the per-event floor-plan
+// singleton — whichever of the two the form carries, and only those columns
+// (the others keep their DB defaults / existing values):
+//   · `priority_order` — the draggable seating-priority tier order (smart
+//     seat-plan Phase 2). Re-validated server-side via parsePriorityOrder —
+//     never trusted — and stored as a clean PriorityOrder, or null when
+//     empty/malformed (→ the default order).
+//   · `role_seating` — the per-role auto-seat choice (owner 2026-09-30 · "sit
+//     together" or "sit with their group"), beside priority_order. Re-read
+//     through parseRoleSeating — never trusted: unknown keys and values are
+//     dropped (and so read as "together").
+// ⚖ ONE action for both, not two: every exported server action is a Vercel
+// route and the budget sits at its ceiling (lint-server-action-budget.mjs).
+// Lock-gated like every seating mutation.
 export async function savePriorityOrder(formData: FormData) {
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
   }
-  const raw = formData.get('priority_order');
-  // Iteration 0053 P4 Unit 6: re-derive tier labels from the event's role set.
-  const roleSet = await resolveRoleSetForEvent(eventId);
-  let parsed: PriorityOrder | null = null;
-  if (typeof raw === 'string' && raw.length > 0) {
-    try {
-      parsed = parsePriorityOrder(JSON.parse(raw), roleSet);
-    } catch {
-      parsed = null;
+  const writesRoleSeating = formData.has('role_seating');
+  // A form without either field keeps the historical meaning: reset the order.
+  const writesPriority = formData.has('priority_order') || !writesRoleSeating;
+
+  const row: {
+    event_id: string;
+    updated_at: string;
+    priority_order?: PriorityOrder | null;
+    role_seating?: RoleSeating;
+  } = { event_id: eventId, updated_at: new Date().toISOString() };
+
+  if (writesPriority) {
+    const raw = formData.get('priority_order');
+    // Iteration 0053 P4 Unit 6: re-derive tier labels from the event's role set.
+    const roleSet = await resolveRoleSetForEvent(eventId);
+    let parsed: PriorityOrder | null = null;
+    if (typeof raw === 'string' && raw.length > 0) {
+      try {
+        parsed = parsePriorityOrder(JSON.parse(raw), roleSet);
+      } catch {
+        parsed = null;
+      }
     }
+    row.priority_order = parsed;
+  }
+  if (writesRoleSeating) {
+    const raw = formData.get('role_seating');
+    let parsed: RoleSeating = {};
+    if (typeof raw === 'string' && raw.length > 0) {
+      try {
+        parsed = parseRoleSeating(JSON.parse(raw));
+      } catch {
+        parsed = {};
+      }
+    }
+    row.role_seating = parsed;
   }
 
   const supabase = await createClient();
@@ -833,14 +873,7 @@ export async function savePriorityOrder(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  const { error } = await supabase.from('event_floor_plan').upsert(
-    {
-      event_id: eventId,
-      priority_order: parsed,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id' },
-  );
+  const { error } = await supabase.from('event_floor_plan').upsert(row, { onConflict: 'event_id' });
   if (error) throw new Error(error.message);
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
@@ -1008,6 +1041,7 @@ export async function lockAndFill(
     first_name: g.first_name,
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
+    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
 
   const solved = solveSeatPlan({
@@ -1021,6 +1055,7 @@ export async function lockAndFill(
     // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
     roleSet: await resolveRoleSetForEvent(eventId),
     groupAdjacency: await fetchGroupAdjacency(supabase, eventId),
+    roleSeating: floorPlan.role_seating,
   });
   if (solved.assignments.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -1320,6 +1355,35 @@ export async function setTableSeat(formData: FormData) {
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+// 🖨 Printing the table signs — stamps ONLY the tables' sign sheets
+// (`event_tables.qr_published_at`, "this sign was run off"), never the floor
+// plan's `published_at`. Owner 2026-09-30: "seatplan will show on the date of
+// the event" — guests' seats open by themselves on the day, and `published_at`
+// is now the couple's "Show guests their seats early" switch. Printing signs
+// weeks ahead is normal, so it must not quietly open seats to guests early.
+// Idempotent; qr_tokens are never re-rolled (publishSeating's own contract).
+export async function stampTableSigns(formData: FormData): Promise<{ stamped: number }> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const now = new Date().toISOString();
+  const { data: stamped, error } = await supabase
+    .from('event_tables')
+    .update({ qr_published_at: now, updated_at: now })
+    .eq('event_id', eventId)
+    .select('table_id');
+  if (error) throw new Error(error.message);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  revalidatePath(`/dashboard/${eventId}/seating/print`);
+  return { stamped: stamped?.length ?? 0 };
 }
 
 // Publish the seating pack: stamp every table + the floor plan as published so
@@ -1961,13 +2025,22 @@ export async function setGuestSeatingPriority(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// One-click Auto Arrange: persist the client-computed table layout + booth
-// anchors, then run the deterministic role-tier auto-seat against the NEW
-// positions so "nearest the stage" means the layout that was just made.
-// Seating stays idempotent (already-seated guests never move).
+// One-click Auto Arrange: ADD tables when the guests who haven't declined need
+// more chairs than the room holds (owner 2026-09-30 · "it did not add tables"),
+// persist the client-computed table layout + booth anchors, then run the
+// deterministic role-tier auto-seat against the NEW positions so "nearest the
+// stage" means the layout that was just made. Seating stays idempotent
+// (already-seated guests never move) and existing tables are never removed.
 export async function autoArrange(
   formData: FormData,
-): Promise<{ seated: number; totalRules: number; satisfiedRules: number; unsatisfiedRules: number }> {
+): Promise<{
+  seated: number;
+  tablesAdded: number;
+  unseated: number;
+  totalRules: number;
+  satisfiedRules: number;
+  unsatisfiedRules: number;
+}> {
   const eventId = formData.get('event_id');
   const positionsRaw = formData.get('positions');
   if (typeof eventId !== 'string' || eventId.length === 0 || typeof positionsRaw !== 'string') {
@@ -2004,18 +2077,60 @@ export async function autoArrange(
   const lockId = lockIdFrom(formData);
   await assertSeatingLockHeld(supabase, eventId, lockId);
 
-  const [tables, assignments, guests, floorPlan, memberships, constraints] = await Promise.all([
-    fetchTables(supabase, eventId),
-    fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
-    fetchSeatingConstraints(supabase, eventId),
-  ]);
+  const [existingTables, assignments, guests, floorPlan, memberships, constraints, roleSet, eventRow] =
+    await Promise.all([
+      fetchTables(supabase, eventId),
+      fetchAssignments(supabase, eventId),
+      fetchGuestsByEvent(supabase, eventId),
+      fetchFloorPlan(supabase, eventId),
+      fetchGroupMembershipsByEvent(supabase, eventId),
+      fetchSeatingConstraints(supabase, eventId),
+      // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
+      resolveRoleSetForEvent(eventId),
+      supabase
+        .from('events')
+        .select('ceremony_type, secondary_ceremony_type')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+
+  // Room first: when the guests who haven't declined outnumber the open chairs,
+  // add the room's default table until they fit — decided HERE from fresh data
+  // (the editor's count only lays the new tables out). Each new table takes the
+  // position the editor laid out for it under autoArrangeNewTableKey(label); a
+  // table the editor didn't foresee lands unplaced (null), never stacked.
+  const toAdd = tablesToAddForAutoSeat(
+    autoSeatRoom(existingTables, guests, assignments, roleSet).shortfall,
+    existingTables.map((t) => t.table_label),
+    { skipFour: isChineseWedding(eventRow.data ?? null) },
+  );
+  let tables = existingTables;
+  if (toAdd.length > 0) {
+    const maxSort = existingTables.reduce((m, t) => Math.max(m, t.sort_order), -1);
+    const { error: addErr } = await supabase.from('event_tables').insert(
+      toAdd.map((t, i) => {
+        const p = positions[autoArrangeNewTableKey(t.label)] as { x?: unknown; y?: unknown } | undefined;
+        const x = Number(p?.x);
+        const y = Number(p?.y);
+        const placed = p !== undefined && Number.isFinite(x) && Number.isFinite(y);
+        return {
+          event_id: eventId,
+          table_label: t.label,
+          table_type: t.type,
+          capacity: t.capacity,
+          sort_order: maxSort + 1 + i,
+          x_pos: placed ? Math.max(0, Math.min(100, x)) : null,
+          y_pos: placed ? Math.max(0, Math.min(100, y)) : null,
+        };
+      }),
+    );
+    if (addErr) throw new Error(addErr.message);
+    tables = await fetchTables(supabase, eventId);
+  }
 
   // Persist positions — only for tables that really belong to this event, with
   // clamped finite coordinates. Unknown ids in the payload are ignored.
-  const tableIds = new Set(tables.map((t) => t.table_id));
+  const tableIds = new Set(existingTables.map((t) => t.table_id));
   const cleanPos: Record<string, { x: number; y: number }> = {};
   for (const [id, p] of Object.entries(positions)) {
     if (!tableIds.has(id)) continue;
@@ -2059,14 +2174,13 @@ export async function autoArrange(
     first_name: g.first_name,
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
+    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
   // Honour the couple's saved priority order (Phase 2) and, when keep-apart
   // rules exist, run the constraint-aware solver (Phase 3) instead of the plain
   // seater. Both consume the same stage + priority; the solver adds graceful
   // keep-apart separation. No rules → identical to the priority-only path.
   const stage = { x: floorPlan.stage_x, y: floorPlan.stage_y };
-  // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
-  const roleSet = await resolveRoleSetForEvent(eventId);
   const groupAdjacency = await fetchGroupAdjacency(supabase, eventId);
   const solved =
     constraints.length > 0
@@ -2080,11 +2194,12 @@ export async function autoArrange(
           groupMembers: memberships,
           roleSet,
           groupAdjacency,
+          roleSeating: floorPlan.role_seating,
         })
       : null;
   const rows =
     solved?.assignments ??
-    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency);
+    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency, floorPlan.role_seating);
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({
@@ -2099,9 +2214,13 @@ export async function autoArrange(
 
   await refreshSeatingLock(supabase, lockId);
   revalidatePath(`/dashboard/${eventId}/seating`);
-  // Surface keep-apart outcome so the editor can show "honored X/Y rules".
+  // Surface keep-apart outcome so the editor can show "honored X/Y rules", and
+  // the TRUE count still without a chair — the toast may only say "everyone
+  // has a seat" when this is 0.
   return {
     seated: rows.length,
+    tablesAdded: toAdd.length,
+    unseated: Math.max(0, autoSeatRoom(tables, guests, assignments, roleSet).toSeat - rows.length),
     totalRules: solved?.totalRules ?? 0,
     satisfiedRules: solved?.satisfiedCount ?? 0,
     unsatisfiedRules: solved?.violations.length ?? 0,
@@ -2211,6 +2330,7 @@ export async function buildSeatingDraft(
     first_name: g.first_name,
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
+    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
   // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
   // priorityOrder passed as null (this call's current effective default) so the
@@ -2223,6 +2343,8 @@ export async function buildSeatingDraft(
     { x: floorPlan.stage_x, y: floorPlan.stage_y },
     null,
     roleSet,
+    undefined,
+    floorPlan.role_seating,
   );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(

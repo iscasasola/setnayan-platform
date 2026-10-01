@@ -1248,7 +1248,7 @@ export const CLAIM_TOKEN_ROTATIONS: ReadonlyArray<{
     subjectColumn: 'claimer_user_id',
     clear: { claimer_user_id: null, claimed_at: null },
     reason:
-      'A Live Studio camera slot. Identical shape and identical cameraClaimability() gate, and reissuePanoodCameraToken() already paired the unclaim with a rotation \u2014 erasure simply never called it.',
+      'A Live Watch camera slot. Identical shape and identical cameraClaimability() gate, and reissuePanoodCameraToken() already paired the unclaim with a rotation \u2014 erasure simply never called it.',
   },
 ] as const;
 
@@ -1370,7 +1370,7 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
   {
     table: 'live_studio_channel_oauth_state',
     column: 'initiated_by',
-    why: 'Transient OAuth handshake token (Live Studio channel).',
+    why: 'Transient OAuth handshake token (Live Watch channel).',
   },
   {
     table: 'event_access_requests',

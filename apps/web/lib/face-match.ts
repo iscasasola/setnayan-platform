@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { planAutoTags, type EnrollmentVec } from '@/lib/face-match-core';
 import { accountSeedsForEvent } from '@/lib/account-face-profile';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 
 // Papic face auto-tagging — server-side MATCHER ("match-on-our-server").
 //
@@ -50,7 +50,9 @@ export async function autoTagCapture(params: {
     //       now this control had ZERO runtime callers, so it was a paper record;
     //   (2) the event resolves to mode_a (christening/debut are forced mode_b).
     if (!(await isDataPrivacyControlActive('face_enrollment'))) return { autoTagged: 0 };
-    if ((await resolvePapicFaceMode(admin, eventId)) !== 'mode_a') return { autoTagged: 0 };
+    // The EFFECTIVE mode — automatic when the event's Papic is active (owner
+    // 2026-09-30), the couple's "off" still wins (lib/face-tagging-gate.ts).
+    if ((await resolveFaceTagging(admin, eventId)).mode !== 'mode_a') return { autoTagged: 0 };
 
     // This event's consented, non-revoked enrollments that actually have a vector.
     const { data: enr, error } = await admin
@@ -85,6 +87,24 @@ export async function autoTagCapture(params: {
 
     if (enrollments.length === 0) return { autoTagged: 0 };
 
+    // ⚖ ONLY A GUEST WHO SAID "YES, TAG ME" IS EVER SEARCHED FOR (owner
+    // 2026-09-30, "A LATE SELFIE LOOKS BACK…": *"Only guests with a registered
+    // selfie are matched; No / never-answered guests are never searched for."*).
+    // An enrollment written before the question existed, or by a path that did
+    // not ask it, carries no Yes — it is left out. A failed read matches nobody.
+    const candidateIds = Array.from(new Set(enrollments.map((e) => e.guestId)));
+    const { data: wanting, error: wantErr } = await admin
+      .from('guests')
+      .select('guest_id')
+      .eq('event_id', eventId)
+      .in('guest_id', candidateIds)
+      .eq('face_tagging_wanted', true);
+    if (wantErr) console.error('[supabase-error] lib/face-match.ts · from:guests.select(face_tagging_wanted)', wantErr);
+    if (wantErr || !wanting) return { autoTagged: 0 };
+    const wants = new Set((wanting as Array<{ guest_id: string }>).map((g) => g.guest_id));
+    const searched = enrollments.filter((e) => wants.has(e.guestId));
+    if (searched.length === 0) return { autoTagged: 0 };
+
     // Existing tags on this photo (QR/manual/auto) INCLUDING tombstoned removals:
     // a removed guest is never re-tagged (gravestone rule, 20270131081062) but
     // only LIVE tags fill the cap (owner 2026-07-23 — ghosts don't burn slots).
@@ -97,7 +117,7 @@ export async function autoTagCapture(params: {
     const alreadyTaggedGuestIds = existingRows.map((r) => r.guest_id as string);
     const liveTagCount = existingRows.filter((r) => r.removed_at == null).length;
 
-    const plan = planAutoTags({ faceVectors, enrollments, alreadyTaggedGuestIds, liveTagCount });
+    const plan = planAutoTags({ faceVectors, enrollments: searched, alreadyTaggedGuestIds, liveTagCount });
     if (plan.autoTags.length === 0) return { autoTagged: 0 };
 
     // Write auto_face tags. The (source_table, source_id, guest_id) unique

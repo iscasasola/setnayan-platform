@@ -6,8 +6,6 @@ import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
 import { stampLastLogin } from '@/lib/login-activity';
-import { linkGuestSessionToUser } from '@/lib/link-guest-account';
-import { captureEvent } from '@/lib/analytics';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { CREDENTIALS_REFUSAL, explainFailedSignIn, type KnownProvider } from '@/lib/sign-in-door';
 import { lookupSignInDoor } from '@/lib/sign-in-door.server';
@@ -98,7 +96,7 @@ async function exchangeCredentials(formData: FormData): Promise<
   // Turnstile token (present only once captcha is configured + enabled). Empty
   // → captchaOptions() yields {} → identical to the pre-captcha call.
   const captchaToken = captchaTokenFromForm(formData);
-  const { error, data } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
     options: captchaOptions(captchaToken),
@@ -125,22 +123,13 @@ async function exchangeCredentials(formData: FormData): Promise<
   // check (lib/ghosting.ts). Fail-soft inside; never blocks the redirect.
   await stampLastLogin(supabase);
 
-  // Persistent guest accounts (PR-E): a returning user who just attended a new
-  // wedding as a guest (on this browser) gets that event linked so the photos
-  // surface in their Account hub. Best-effort — the helper never throws.
-  // Awaited so the DB write lands before the redirect tears down the request.
-  if (data.user?.id) {
-    const guestLink = await linkGuestSessionToUser(data.user.id);
-    if (guestLink.linked) {
-      void captureEvent({
-        distinctId: data.user.id,
-        event: 'guest_account_linked',
-        properties: { ref: 'guest' },
-      }).catch(() => {
-        // Telemetry failure never blocks. Silent.
-      });
-    }
-  }
+  // 🔒 SIGNING IN BINDS NO SEAT (2026-09-30 — the owner's own wedding). This
+  // used to run `linkGuestSessionToUser` here, which bound whatever guest pass
+  // this browser held: on a shared phone, the last invitation opened became the
+  // next person's seat — that is how a test account became the owner's GROOM.
+  // A seat is now kept only by an act on its own page ("Save to my account",
+  // or the `/join/{id}/connect` return, which first asks "This invitation is for
+  // <name>. Save it to <email>?"). seat-links-only-on-purpose.test.ts holds it.
 
   /*
     WHERE YOU LAND — and why this stopped calling accountHomePath().

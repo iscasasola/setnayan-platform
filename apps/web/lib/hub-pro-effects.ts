@@ -50,6 +50,12 @@ import {
   type HubDraftState,
   type HubLiveState,
 } from '@/lib/hub-draft';
+import { HUB_ELEMENT_PRO_FIELDS } from '@/lib/hub-look-pro';
+import { postEventArrangementOf, sceneLooksFreePart, type PostEventSceneLooks } from '@/lib/post-event-draft';
+import { POST_EVENT_SCENE_TYPE_LABEL, postEventSceneTypeOf } from '@/lib/post-event-styles';
+import { postEventPreset } from '@/lib/post-event-presets';
+import { STORY_PRO_EXTRA_LABEL, storyProExtrasOf } from '@/lib/story-pro-extras';
+import { hubProEffectLine, UNLOCK_AND_APPLY_PARAM, unlockAndApplyHref, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 
 /** Where "Go to" takes the couple in the Maker (a `MakerSelection`, plus a part). */
 export type HubProEffectJump =
@@ -185,6 +191,25 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
   };
 
   for (const item of refused) {
+    if (item.kind === 'editorial') {
+      const f = item.item.field;
+      if (f === 'chapterOverrides' || f === 'customColumns' || f === 'reviews') {
+        /* 💎 A story extra tried free in the story workroom — named by what the
+           couple wrote; "Remove" puts back what guests read today. */
+        push({
+          id: `story:${f}`,
+          what: STORY_PRO_EXTRA_LABEL[f],
+          where: 'Post Event · your story',
+          jump: null,
+          remove: { editorial: { [f]: storyProExtrasOf(live.editorial ?? null)[f] } as HubDraftPatch['editorial'] },
+        });
+        continue;
+      }
+      for (const effect of postEventEffects(f === 'sceneLooks' ? item.item.value : null, live)) push(effect);
+      continue;
+    }
+    // 🎨 A fixed part's Style pick is free — never refused, so never listed.
+    if (item.kind === 'fixed-style') continue;
     if (item.kind === 'event') {
       const named = eventEffect(item.column, item.value);
       push({
@@ -217,11 +242,17 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
          the couple picked it by in the 25-template sheet. */
       const template =
         draft.widgets[item.widgetType]?.canvas?.template ?? sanitizeHubCanvas(row?.config_json).template ?? null;
+      /* 🎞 A Post Event preset is named by the preset the couple picked it by
+         ("Post Event scene · The Toast"), not by the template under it. */
+      const preset = postEventPreset(
+        draft.widgets[item.widgetType]?.canvas?.postEventPreset ?? sanitizeHubCanvas(row?.config_json).postEventPreset,
+      );
       push({
         id: `show:${item.widgetType}`,
-        what: 'Added scene',
-        where: template ? SCENE_TEMPLATES[template].name : scene,
-        jump: { kind: 'scene', widgetId: item.widgetId, widgetType: item.widgetType, tab: 'content', stages, ...fixedOf(item.widgetType) },
+        what: preset ? 'Post Event scene' : 'Added scene',
+        where: preset ? preset.name : template ? SCENE_TEMPLATES[template].name : scene,
+        // A preset lives on Post Event only (`widgetsGuestsMeet`) — Go to lands there.
+        jump: { kind: 'scene', widgetId: item.widgetId, widgetType: item.widgetType, tab: 'content', stages: preset ? ['editorial'] : stages, ...fixedOf(item.widgetType) },
         remove: {
           widgets: {
             [item.widgetType]: { mode: row?.mode ?? 'auto', is_visible: row?.is_visible ?? true },
@@ -249,6 +280,47 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
     }
     if (item.field === 'canvas') {
       for (const effect of canvasEffects(item, row?.config_json, scene, stages)) push(effect);
+    }
+  }
+  return out;
+}
+
+/**
+ * 📖 A refused Post Event look (`sceneLooks`) → one effect per scene part whose
+ * OWN font or animation is new — the only Pro in a Post Event scene (show/hide,
+ * order, styles and words are free). Asked the same way the plan asks it:
+ * `sceneLooksFreePart` is what Apply writes for a couple without Pro, so a part
+ * whose free write differs from its drafted one is exactly what the plan holds.
+ * "Remove" puts that one field back to what guests see today, for that part
+ * only; "Go to" opens the scene's tile (`p:<scene>`) in the navigator.
+ */
+function postEventEffects(drafted: PostEventSceneLooks | null, live: HubLiveState): HubProEffect[] {
+  if (!drafted) return [];
+  const liveLooks = postEventArrangementOf(live.editorial ?? null).sceneLooks;
+  const out: HubProEffect[] = [];
+  for (const [key, look] of Object.entries(drafted)) {
+    const freeLook = sceneLooksFreePart(liveLooks, { [key]: look })[key];
+    const type = postEventSceneTypeOf(key);
+    const where = (type && POST_EVENT_SCENE_TYPE_LABEL[type]) || 'Post Event';
+    for (const [part, style] of Object.entries(look.elements ?? {}) as Array<[HubElementKey, Record<string, unknown>]>) {
+      const free = (freeLook?.elements?.[part] ?? {}) as Record<string, unknown>;
+      for (const field of HUB_ELEMENT_PRO_FIELDS) {
+        if (JSON.stringify(style[field]) === JSON.stringify(free[field])) continue;
+        const backed: Record<string, unknown> = { ...style };
+        if (free[field] === undefined) delete backed[field];
+        else backed[field] = free[field];
+        out.push({
+          id: `pe:${key}:${part}:${field}`,
+          what: field === 'font' ? 'Font' : 'Animation',
+          where: `${HUB_ELEMENT_LABEL[part]} on ${where}`,
+          jump: { kind: 'row', key: `p:${key === 'chapters' ? 'ch-1' : key}` },
+          remove: {
+            editorial: {
+              sceneLooks: { ...drafted, [key]: { ...look, elements: { ...look.elements, [part]: backed } } } as PostEventSceneLooks,
+            },
+          },
+        });
+      }
     }
   }
   return out;
@@ -306,49 +378,11 @@ function fixedOf(t: WidgetType): { fixed?: string } {
   return f ? { fixed: f } : {};
 }
 
-/** One line per effect — "Font · Names on the Hero". */
-export function hubProEffectLine(e: Pick<HubProEffect, 'what' | 'where'>): string {
-  return `${e.what} · ${e.where}`;
-}
-
-/** What crosses to the client: the effect without its patch (the server recomputes that). */
-export type HubProEffectView = Omit<HubProEffect, 'remove'> & { removable: boolean };
-
 export function hubProEffectView(e: HubProEffect): HubProEffectView {
   const { remove, ...rest } = e;
   return { ...rest, removable: remove !== null };
 }
 
-/* ── "UNLOCK PRO AND APPLY" — THE RETURN FROM THE PURCHASE ─────────────────
-   Owner 2026-09-28, verbatim, naming the Apply sheet's first button: "Unlock
-   Pro and Apply". It goes through the ONE purchase page and asks it to come
-   back to the Maker with `?apply=1` (`UNLOCK_AND_APPLY_PARAM`). Back in the
-   Maker, this decides — once — what happens: */
-
-/** The purchase page's way back asks the Maker to finish the Apply. */
-export const UNLOCK_AND_APPLY_PARAM = 'apply';
-
-/**
- * Back from the purchase:
- *   · 'apply' — Pro is now active (the bar names no Pro effect) and the draft
- *     has changes → press Apply for them, no second tap;
- *   · 'sheet' — still no Pro (cancelled, or the payment is under review) → the
- *     sheet again, the draft untouched, NOTHING applied;
- *   · 'none'  — not a return, or nothing left to apply.
- * The server's Apply is still the gate either way (`lookProAllows`): even a
- * wrong 'apply' here could never publish a Pro effect for a couple without Pro.
- */
-export function unlockAndApplyOnReturn(input: {
-  asked: boolean;
-  proEffects: number;
-  hasChanges: boolean;
-  storeShell: boolean;
-}): 'apply' | 'sheet' | 'none' {
-  if (!input.asked || input.storeShell || !input.hasChanges) return 'none';
-  return input.proEffects > 0 ? 'sheet' : 'apply';
-}
-
-/** The purchase page's address from the Apply sheet: it returns to the Maker to finish the Apply. */
-export function unlockAndApplyHref(proHref: string): string {
-  return `${proHref}${proHref.includes('?') ? '&' : '?'}then=apply`;
-}
+/* The client's half (the effect's line, the view type, the Unlock-and-Apply
+   return) lives in `lib/hub-pro-effect-view.ts` — see its docblock. */
+export { hubProEffectLine, UNLOCK_AND_APPLY_PARAM, unlockAndApplyHref, unlockAndApplyOnReturn, type HubProEffectView };

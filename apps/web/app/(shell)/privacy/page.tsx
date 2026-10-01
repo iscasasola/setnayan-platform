@@ -1200,7 +1200,7 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        {/* ── Google / YouTube data (Live Studio) ───────────────────────────
+        {/* ── Google / YouTube data (Live Watch) ───────────────────────────
             Rewritten 2026-07-27. Five rules produced every sentence below.
             Re-read them before editing:
               1. TRUE IN BOTH ARRANGEMENTS, AND TRUE TODAY. goLivePanood
@@ -1229,11 +1229,11 @@ export default function PrivacyPage() {
               5. THE SCOPE LIST MUST BYTE-MATCH YOUTUBE_OAUTH_SCOPES *AND* THE
                  OAUTH CONSENT SCREEN. A policy that discloses a scope we do
                  not request is as wrong as one that hides a scope we do. */}
-        <Section title="Google / YouTube data (Live Studio)">
+        <Section title="Google / YouTube data (Live Watch)">
           <p>
-            Live Studio is Setnayan&rsquo;s live-broadcast feature. It is
+            Live Watch is Setnayan&rsquo;s live-broadcast feature. It is
             optional and off by default. When a host turns it on for an event,{' '}
-            <strong>Live Studio uses YouTube API Services</strong> to set up and
+            <strong>Live Watch uses YouTube API Services</strong> to set up and
             run that event&rsquo;s live broadcast, and embeds the player on the
             event page. Single-camera streaming is free for any host; the
             multi-camera control room is a paid upgrade. Your use of YouTube is
@@ -1386,7 +1386,7 @@ export default function PrivacyPage() {
               <strong>How to disconnect.</strong> Two ways, either works:
               <ul className="ml-5 mt-1 list-disc space-y-1">
                 <li>
-                  In Setnayan, open the Live Studio page and click{' '}
+                  In Setnayan, open the Live Watch page and click{' '}
                   <em>Disconnect YouTube</em>. We mark the connection revoked so
                   Setnayan stops using it, and we ask Google to cancel our
                   access. That second step is best-effort &mdash; if the call to
@@ -1693,7 +1693,7 @@ export default function PrivacyPage() {
             <li>Suno (AI music generation for Music Maker and rendered videos · United States · no guest or personal data is sent)</li>
             <li>
               Google (YouTube Data API — used for any event broadcast through
-              Live Studio, under either the couple&rsquo;s own connected channel
+              Live Watch, under either the couple&rsquo;s own connected channel
               or a Setnayan-held connection where Setnayan supplies the channel; Google
               Drive API — only for couples who use Photo Delivery or Papic
               and explicitly connect a Drive account via OAuth; Google&rsquo;s

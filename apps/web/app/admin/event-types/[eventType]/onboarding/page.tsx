@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveOnboardingSpec, type OnboardingOverrideRow } from '@/lib/onboarding/onboarding-spec';
 import { getOnboardingTiles } from '@/lib/onboarding-refinements';
@@ -65,11 +66,16 @@ export default async function EventTypeOnboardingPage({
   const sp = await searchParams;
   const admin = createAdminClient();
 
-  const { data: vocab } = await admin
+  const { data: vocab, error: vocabError } = await admin
     .from('event_type_vocab')
     .select('event_type, label_en, emoji, onboarding_href')
     .eq('event_type', eventType)
     .maybeSingle();
+  // A refused read is not "no such event type" — say so instead of a 404.
+  if (vocabError) {
+    logQueryError('EventTypeOnboardingPage (vocab)', vocabError, { eventType }, 'graceful_degrade');
+    return <OnboardingReadFailed />;
+  }
   if (!vocab) notFound();
 
   const okMsg = sp.ok ? decodeURIComponent(sp.ok) : null;
@@ -97,7 +103,7 @@ export default async function EventTypeOnboardingPage({
   const profile = await resolveProfile(eventType);
   const packKey = profile.onboardingFlowKey ?? eventType;
 
-  const [{ data: rowData }, tiles] = await Promise.all([
+  const [{ data: rowData, error: rowError }, tiles] = await Promise.all([
     admin
       .from('event_type_onboarding')
       .select('intro, questions, persona_pack, reveal_overrides, axis_overrides')
@@ -105,6 +111,15 @@ export default async function EventTypeOnboardingPage({
       .maybeSingle<OnboardingOverrideRow>(),
     getOnboardingTiles(eventType),
   ]);
+
+  /* 🚨 A REFUSED OVERRIDE READ SHOWED THE BUILT-IN DEFAULTS IN AN ARMED EDITOR
+     (admin audit 2026-09-30, row 34), captioned "Showing the built-in
+     defaults." — and one Save wrote them over the custom content. The editor
+     is not mounted on a refusal; the notice is the page. */
+  if (rowError) {
+    logQueryError('EventTypeOnboardingPage (override)', rowError, { eventType }, 'graceful_degrade');
+    return <OnboardingReadFailed />;
+  }
 
   const hasOverride = !!rowData;
   // The register rides along so HQ edits a wake against the copy a bereaved
@@ -187,6 +202,20 @@ export default async function EventTypeOnboardingPage({
         categoryOptions={categoryOptions}
         serviceOptions={serviceOptions}
       />
+    </main>
+  );
+}
+
+function OnboardingReadFailed() {
+  return (
+    <main className="mx-auto max-w-3xl px-5 py-8">
+      <Link href="/admin/taxonomy?view=vocab-event" className="text-sm text-ink/55 hover:text-mulberry">
+        ← Event types
+      </Link>
+      <div role="alert" className="mt-6 rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink">
+        Couldn&rsquo;t load this — refresh to try again. Editing is off until the saved
+        content loads, so the defaults can&rsquo;t overwrite it.
+      </div>
     </main>
   );
 }

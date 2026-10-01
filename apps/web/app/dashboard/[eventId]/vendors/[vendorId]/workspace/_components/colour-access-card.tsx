@@ -50,9 +50,6 @@ export type ColourAccessCardProps = {
   isOn: boolean;
   /** This booking's own changes, newest first. */
   changes: readonly ColourChangeRow[];
-  /** TRUE for a booked planner/coordinator — their grants live on /hosts. */
-  isCoordinatorBooking: boolean;
-  hostsHref: string;
   setAccessAction: (vendorId: string, active: boolean) => Promise<Result>;
   rejectAction: (changeId: string) => Promise<Result>;
 };
@@ -65,8 +62,6 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
     lane,
     isOn,
     changes,
-    isCoordinatorBooking,
-    hostsHref,
     setAccessAction,
     rejectAction,
   } = props;
@@ -179,26 +174,14 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
         </div>
 
         {/* ── the scope, or why there is no switch ────────────────────────── */}
+        {/* A booked planner never reaches this card: their colour domains are
+            keyed to the PERSON, and the workspace draws the Promote-your-
+            coordinator card for them instead (Hosts fold, 2026-09-30). */}
         {lane.length === 0 ? (
-          isCoordinatorBooking ? (
-            <p className="pt-4 text-xs text-ink/60">
-              A coordinator isn’t tied to one craft the way a vendor is — they can hold
-              access across several parts of your design at once, so their colour domains
-              live with your hosts rather than on this page.{' '}
-              <a
-                href={hostsHref}
-                className="font-medium text-terracotta-700 underline underline-offset-2"
-              >
-                Set them on the hosts page
-              </a>
-              .
-            </p>
-          ) : (
-            <p className="pt-4 text-xs italic text-ink/55">
-              This trade doesn’t shape any colour on your board, so there’s nothing here to
-              hand over. Florists, stylists and attire makers are the ones who can.
-            </p>
-          )
+          <p className="pt-4 text-xs italic text-ink/55">
+            This trade doesn’t shape any colour on your board, so there’s nothing here to
+            hand over. Florists, stylists and attire makers are the ones who can.
+          </p>
         ) : isOn ? (
           <>
             <p className="pt-4 text-[13px] leading-relaxed text-ink/70">

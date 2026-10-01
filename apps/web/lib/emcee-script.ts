@@ -18,6 +18,7 @@
  *      their parts, each with a light emcee cue.
  */
 
+import { roleNameMany, type RoleNames } from '@/lib/role-names';
 import {
   groupScheduleBlocksByParent,
   formatBlockTimeRange,
@@ -25,6 +26,7 @@ import {
 } from '@/lib/schedule';
 import {
   guestDisplayName,
+  guestRoleLabel,
   ROLE_LABELS,
   type GuestRole,
   type GuestRow,
@@ -49,6 +51,10 @@ export type EmceeScriptInput = {
   blocks: ReadonlyArray<ScheduleBlockRow>;
   guests: ReadonlyArray<GuestRow>;
   options?: EmceeScriptOptions;
+  /** The couple's own words for roles (`events.role_names`, owner 2026-09-30).
+   *  The roster says "Bride's Crew:" where they renamed Bridesmaid; the ORDER
+   *  still comes from the role (`ROLE_ORDER`), never from the word. */
+  roleNames?: RoleNames | null;
 };
 
 /**
@@ -73,6 +79,7 @@ const ROLE_ORDER: GuestRole[] = [
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
+  'best_woman',
   'bridesmaid',
   'groomsman',
   'bride_immediate_family',
@@ -114,7 +121,7 @@ export const BLOCK_CUE: Partial<Record<ScheduleBlockRow['block_type'], string>> 
   after_party: 'The party continues — keep the energy up.',
 };
 
-function partyRoster(guests: ReadonlyArray<GuestRow>): string[] {
+function partyRoster(guests: ReadonlyArray<GuestRow>, roleNames?: RoleNames | null): string[] {
   // Bucket party members by role, preserving first/last-name sort from the
   // already-sorted guest list (fetchGuestsByEvent orders by last,first).
   const byRole = new Map<GuestRole, string[]>();
@@ -130,8 +137,12 @@ function partyRoster(guests: ReadonlyArray<GuestRow>): string[] {
   for (const role of ROLE_ORDER) {
     const names = byRole.get(role);
     if (!names || names.length === 0) continue;
-    const label = ROLE_LABELS[role];
-    // Singular roles read "Bride: Maria"; plural roles list "Bridesmaids:".
+    // Singular roles read "Bride: Maria"; several list under the couple's word
+    // for several when they gave one ("Little Angels:").
+    const label =
+      names.length === 1
+        ? guestRoleLabel(role, roleNames)
+        : (roleNameMany(role, roleNames) ?? ROLE_LABELS[role]);
     if (names.length === 1) {
       lines.push(`  ${label}: ${names[0]}`);
     } else {
@@ -208,7 +219,7 @@ export function buildEmceeScript(input: EmceeScriptInput): string {
 
   const lines: string[] = [
     ...header(input.event),
-    ...partyRoster(input.guests),
+    ...partyRoster(input.guests, input.roleNames),
     ...programSection(input.blocks, options),
     '— End of script —',
   ];

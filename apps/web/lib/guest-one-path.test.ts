@@ -7,8 +7,8 @@
  * (`audits/GUEST_SIGNUP_FLOW_MAP_2026-09-25.md`):
  *
  *   1. ONE ACCOUNT PROMPT on a guest's page — it counted up to five.
- *   2. THE EMAIL IS ASKED ONCE — the reply sheet saved it and sent nothing, and a
- *      second box asked for it again.
+ *   2. NO EMAIL TO GUESTS (owner 2026-09-29, superseding "the email is asked
+ *      once"): the reply asks for none, and nothing on the path mails a link.
  *   3. A SIGNED-IN GUEST ON A NEW DEVICE SEES THEIR OWN PAGE — they met the
  *      anonymous one, and a second event read as `wrong_event`.
  *   4. A SIGN-UP FROM AN EVENT RETURNS TO THE EVENT — it went to the You card
@@ -30,9 +30,7 @@ import { stripComments } from '@/lib/strip-comments';
 import {
   guestAccountState,
   hostPitchShows,
-  replyOffersKeep,
   resolveGuestViewer,
-  shouldSendKeepLink,
 } from '@/lib/guest-one-path';
 import {
   eventConnectPath,
@@ -119,11 +117,9 @@ test('1 · the account state names exactly one prompt for every viewer', () => {
       viewerUserId: null,
       viewerEmail: null,
       seatHolderUserId: null,
-      linkSentForThisEvent: false,
       ...o,
     }).kind;
   assert.equal(s({}), 'offer');
-  assert.equal(s({ linkSentForThisEvent: true }), 'link_sent');
   assert.equal(s({ seatHolderUserId: 'u-1' }), 'sign_in');
   assert.equal(s({ viewerUserId: 'u-1' }), 'link_this_seat');
   assert.equal(s({ viewerUserId: 'u-1', seatHolderUserId: 'u-1' }), 'linked');
@@ -131,7 +127,7 @@ test('1 · the account state names exactly one prompt for every viewer', () => {
 });
 
 test('1 · the host pitch shows only AFTER linking', () => {
-  for (const kind of ['offer', 'link_sent', 'sign_in', 'link_this_seat', 'held_elsewhere'] as const) {
+  for (const kind of ['offer', 'sign_in', 'link_this_seat', 'held_elsewhere'] as const) {
     assert.equal(hostPitchShows({ kind } as never), false, `${kind} shows the host pitch`);
   }
   assert.equal(hostPitchShows({ kind: 'linked', accountEmail: 'a@b.co' }), true);
@@ -155,53 +151,46 @@ test('1 · the guest page mounts ONE account prompt, and the old four are gone',
   assert.match(body, /hostPitch=\{account \? hostPitchShows\(account\) : false\}/);
 });
 
-// ── 2 · the email is asked once ──────────────────────────────────────────────
+// ── 2 · no email to guests (owner 2026-09-29) ────────────────────────────────
+// DECISION_LOG "NO EMAIL TO GUESTS — THE QR AND THE LINK DO EVERYTHING":
+// *"No email. Either use the qr and link only"*. Each assertion below is a door
+// that USED to mail a guest a sign-in link.
 
-test('2 · the keep-link goes only with an address AND an affirmative tick', () => {
-  const base = { email: 'guest@example.com', termsAgreed: true, signedIn: false, seatHeld: false, alreadySent: false };
-  assert.equal(shouldSendKeepLink(base), true);
-  assert.equal(shouldSendKeepLink({ ...base, termsAgreed: false }), false, 'an unticked Save created an account');
-  assert.equal(shouldSendKeepLink({ ...base, email: '' }), false);
-  assert.equal(shouldSendKeepLink({ ...base, email: 'not-an-address' }), false);
-  assert.equal(shouldSendKeepLink({ ...base, signedIn: true }), false);
-  assert.equal(shouldSendKeepLink({ ...base, seatHeld: true }), false);
-  assert.equal(shouldSendKeepLink({ ...base, alreadySent: true }), false, 'a second Save sent a second email');
-  assert.equal(replyOffersKeep({ kind: 'offer' }), true);
-  assert.equal(replyOffersKeep({ kind: 'link_sent' }), false);
+test('2 · 📵 the keep-link sender is GONE, not merely uncalled', () => {
+  const server = read('lib/guest-one-path.server.ts');
+  assert.doesNotMatch(server, /export async function (sendKeepLinkOnce|keepLinkSentFor)\b/, 'the keep-link sender is back');
+  assert.doesNotMatch(server, /sendEventAccountMagicLink/, 'the guest path imports the magic-link mailer again');
+  const pure = read('lib/guest-one-path.ts');
+  assert.doesNotMatch(pure, /export function (shouldSendKeepLink|replyOffersKeep)\b/);
+  assert.doesNotMatch(pure, /kind: 'link_sent'/, '"Check your email" is a state again');
 });
 
-test('2 · the ONE account card asks for no address — the reply holds it', () => {
-  const card = read('app/[slug]/_components/guest-account-card.tsx');
-  assert.equal(count(card, /type="email"/), 0, 'the card asks for the email a second time');
-  assert.equal(count(card, /name="email"/), 0);
-  assert.match(card, /href="#your-details"/, 'with no address on file the card must open the reply');
+test('2 · 📵 no guest surface posts to an emailing action, and the reply carries no email', () => {
   const actions = read('app/[slug]/actions.ts');
-  const claim = actions.slice(actions.indexOf('export async function claimAccountAction'));
-  const claimBody = claim.slice(0, claim.indexOf('\n}\n'));
-  assert.doesNotMatch(claimBody, /formData\.get\('email'\)/, 'the card action reads a posted address again');
-  assert.match(claimBody, /\.select\('email'\)/, 'the card no longer uses the address the reply holds');
-});
-
-test('2 · BOTH reply surfaces send the link from the one Save (submitRsvp)', () => {
-  const actions = read('app/[slug]/actions.ts');
+  assert.doesNotMatch(actions, /export async function claimAccountAction\b/, 'the emailing claim action is back');
+  assert.doesNotMatch(actions, /sendKeepLinkOnce|sendEventAccountMagicLink|sendEmail\(/, 'a guest action mails again');
   const submit = actions.slice(actions.indexOf('export async function submitRsvp'));
   const body = submit.slice(0, submit.indexOf('\nexport async function '));
-  assert.equal(count(body, /await sendKeepLinkOnce\(\{/), 1, 'the reply Save does not send the link');
-  // After the write, before the redirect.
-  const write = body.indexOf(".from('guests')\n    .update(");
-  assert.ok(write > -1, 'the reply write moved — re-point this guard');
-  assert.ok(body.indexOf('await sendKeepLinkOnce(') > write, 'the link is sent before the reply is written');
-  assert.ok(body.indexOf('await sendKeepLinkOnce(') < body.lastIndexOf('redirect('));
-  assert.match(body, /termsAgreed: hasAgreedToTerms\(formData\.get\(TERMS_FIELD\)\)/);
-  // The Reply door no longer sends its own copy.
-  const door = read('app/[slug]/invite/actions.ts');
-  assert.doesNotMatch(door, /sendEventAccountMagicLink|sendKeepLinkOnce/, 'the door sends a second link');
-  // The keep box is a real, UNTICKED checkbox — never a hidden consent.
+  assert.doesNotMatch(body, /formData\.get\('contact_email'\)/, 'the reply reads an email again');
+  const card = read('app/[slug]/_components/guest-account-card.tsx');
+  assert.equal(count(card, /type="email"/), 0, 'the account card asks for an email');
+  assert.doesNotMatch(card, /Check your email|sign-in link/i);
+  const save = read('app/[slug]/_components/save-to-account.tsx');
+  assert.equal(count(save, /type="email"/), 0, 'Save to my account asks for an email');
+  assert.doesNotMatch(save, /Check your email|Sending your link/);
+  // Both reply surfaces: no email box, no keep tick.
   const widget = read('app/[slug]/_components/rsvp-widget.tsx');
-  const tag = widget.match(/<input\s+id="keep_invitation"[^>]*>/)?.[0] ?? '';
-  assert.match(tag, /type="checkbox"/);
-  assert.match(tag, /name=\{TERMS_FIELD\}/);
-  assert.doesNotMatch(tag, /\b(defaultChecked|checked)\b/, 'the keep box arrives pre-ticked');
+  assert.doesNotMatch(widget, /id="contact_email"|name="contact_email"/, 'the reply asks for an email again');
+  assert.doesNotMatch(widget, /keep_invitation|keepOffer/, 'the "keep this invitation" tick is back');
+  const door = read('app/[slug]/invite/actions.ts');
+  assert.doesNotMatch(door, /sendEventAccountMagicLink|sendKeepLinkOnce/, 'the Reply door sends a link');
+  const welcome = read('app/[slug]/welcome/actions.ts');
+  assert.doesNotMatch(welcome, /claimAccountAction|sendEventAccountMagicLink/, 'the plus-one door mails a link');
+});
+
+test('2 · 📵 accepting a request mails nothing — the key they hold opens their invitation', () => {
+  const key = read('lib/guest-request-key.ts');
+  assert.doesNotMatch(key, /sendEmail|from '@\/lib\/email'/, 'Keep / Link email the requester again');
 });
 
 // ── 4 · a sign-up from an event returns to the event ─────────────────────────
@@ -242,9 +231,11 @@ test('4 · the callback and signUp ask the event question, not the 120-second cl
   // The connect route lands an unanswered guest AT the reply.
   const connect = read('app/join/[eventId]/connect/route.ts');
   assert.match(connect, /dest = `\/\$\{slug\}\$\{REPLY_SHEET_HASH\}`/);
-  // The card's Google / Apple return through the connect route.
-  const card = read('app/[slug]/_components/guest-account-card.tsx');
-  assert.match(card, /<OAuthButtonRow next=\{eventConnectPath\(eventId\)\} \/>/);
+  // The one Save's Google / Apple return through the connect route.
+  const actions = read('app/[slug]/actions.ts');
+  const save = actions.slice(actions.indexOf('export async function startAccountSaveAction'));
+  assert.match(save.slice(0, save.indexOf('\n}\n')), /next\.set\('next', eventConnectPath\(eventId\)\)/);
+  assert.match(read('app/[slug]/_components/guest-account-card.tsx'), /<SaveToAccount\b/, 'the card no longer uses the one Save');
 });
 
 // ── 5 · no couple welcome email for a guest ──────────────────────────────────

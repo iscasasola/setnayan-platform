@@ -1,9 +1,6 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendEmail } from '@/lib/email';
-import { buildInvitationUrl } from '@/lib/qr';
-import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 
 /**
  * KEEP OR LINK ISSUES THE KEY (guest pathway, owner 2026-09-26: *"then they get
@@ -13,22 +10,22 @@ import { resolveEventOwnerSlug } from '@/lib/public-event-url';
  * `requestGuestId` is the request row the person created; `seatGuestId` is the
  * row they now hold (the same row on Keep, the existing guest on Link).
  *
- * Two halves, both best-effort AFTER the couple's decision is already saved (a
- * failed email must never undo a Keep):
+ * Best-effort AFTER the couple's decision is already saved (a failed bind must
+ * never undo a Keep):
  *
  *   1. A SIGNED-IN asker (remembered in `guest_claims`, status
  *      `pending_review`, `target_guest_id` = the request row) is bound to the
  *      seat now — this `event_members` row is what makes the event appear in
  *      their account. Never over a seat another account already holds, and
  *      never a second membership for an account that already has one.
- *   2. The person is emailed THEIR invitation link — the key itself
- *      (`?invite=<qr_token>`, the same link a QR opens) — where "Save to my
- *      account" waits. No SMS in V1: a request with only a mobile gets no
- *      email, and the couple shares the link from the guest list.
+ *   2. 📵 NOTHING IS EMAILED (owner 2026-09-29, "NO EMAIL TO GUESTS"). The
+ *      requester was handed their own key the moment they sent the request
+ *      (the pending ticket + "Copy my link"); Keep or Link makes that same
+ *      key open their invitation. The couple nudges them from the Accept row.
  *
  * Returns what actually happened so the screen can say so.
  */
-export type IssuedKey = { bound: boolean; emailed: boolean; noEmail: boolean };
+export type IssuedKey = { bound: boolean };
 
 export async function issueRequestKey(input: {
   eventId: string;
@@ -84,42 +81,11 @@ export async function issueRequestKey(input: {
     if (claimErr) console.error('[supabase-error] lib/guest-request-key.ts · from:guest_claims.update', claimErr);
   }
 
-  // The key, by email — to the address the person gave on their request.
-  const [{ data: request }, { data: seatRow }, { data: event }] = await Promise.all([
-    admin.from('guests').select('email').eq('guest_id', requestGuestId).maybeSingle(),
-    admin.from('guests').select('qr_token, email').eq('guest_id', seatGuestId).eq('event_id', eventId).maybeSingle(),
-    admin.from('events').select('slug, display_name').eq('event_id', eventId).maybeSingle(),
-  ]);
-  const to =
-    ((request?.email as string | null) ?? '').trim() ||
-    ((claim?.claimer_email as string | null) ?? '').trim() ||
-    ((seatRow?.email as string | null) ?? '').trim();
-  const slug = ((event?.slug as string | null) ?? '').trim();
-  const qr = (seatRow?.qr_token as string | null) ?? '';
-  if (!to) return { bound, emailed: false, noEmail: true };
-  if (!slug || !qr) return { bound, emailed: false, noEmail: false };
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-  const ownerSlug = await resolveEventOwnerSlug(admin, eventId);
-  const link = buildInvitationUrl({ appUrl, slug, qrToken: qr, ownerSlug });
-  const name = ((event?.display_name as string | null) ?? '').trim() || 'the celebration';
-  const result = await sendEmail({
-    to,
-    subject: `You're on the guest list — ${name}`,
-    text: [
-      `Good news — your request was accepted. You're on the guest list for ${name}.`,
-      ``,
-      `This is your personal invitation. Open it on your phone, and tap "Save to my account" to keep it:`,
-      ``,
-      link,
-      ``,
-      `It is yours alone — please don't forward it.`,
-      ``,
-      `—`,
-      `Set na 'yan.`,
-    ].join('\n'),
-  });
-  return { bound, emailed: result.ok, noEmail: false };
+  // 📵 NO EMAIL (owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS — THE QR AND
+  // THE LINK DO EVERYTHING"). The person already holds their key — the request
+  // handed it to them on Send — and reopening it now opens their invitation.
+  // The couple can nudge them with Send invite / Copy message on the Accept row.
+  return { bound };
 }
 
 /** Remove: the request is closed with nothing sent (owner: Remove tells them nothing). */

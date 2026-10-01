@@ -252,10 +252,10 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
       id="panood-demo"
       current={current}
       onClose={onClose}
-      label="Live Studio live demo"
+      label="Live Watch live demo"
       cardStyle={{ maxWidth: anyLive ? 680 : 460 }}
     >
-      <div className="hr-ov-eyebrow">Live Studio · live demo</div>
+      <div className="hr-ov-eyebrow">Live Watch · live demo</div>
       <h2 className="hr-ov-title">Two phones. One control room.</h2>
       <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, color: '#6c675e' }}>
         Scan the code with two phones, each becomes a live camera. Then cut
@@ -492,7 +492,7 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
           */}
           <p style={{ marginTop: 7, fontSize: 11, color: '#a8a4a0', textAlign: 'center' }}>
             This is the real control panel. In the demo nothing is broadcast or
-            recorded — going live happens in your own Live Studio.
+            recorded — going live happens in your own Live Watch.
           </p>
 
           <div style={{ display: 'flex', gap: 12, marginTop: 12, alignItems: 'stretch' }}>

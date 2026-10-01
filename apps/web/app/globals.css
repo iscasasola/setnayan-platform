@@ -622,8 +622,8 @@
  * the strip, the labels and the device cannot be one number. The fallback is
  * the bar's design height, for the first paint before the dock is measured.
  *
- * A pill that still floats ABOVE the dock — <TeamSummaryChip> on the Your Team
- * root, which flags `teamchip-docked` — adds its own room on top. The strip no
+ * (The floating team chip that flagged `teamchip-docked` was retired 2026-10-01:
+ * nothing floats at the bottom of the phone any more.) The strip no
  * longer needs a class of its own (`subnav-docked` used to add 8.5rem): it is
  * inside the dock, so the dock's height already counts it. Mobile-only — the
  * dock is lg:hidden, so desktop cancels all of it below.
@@ -631,8 +631,7 @@
 [data-shell-main] {
   padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 1.5rem);
 }
-html.guests-subnav-docked [data-shell-main],
-html.teamchip-docked [data-shell-main] {
+html.guests-subnav-docked [data-shell-main] {
   padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 5.5rem);
 }
 
@@ -669,8 +668,7 @@ html.teamchip-docked [data-shell-main] {
 }
 @media (min-width: 1024px) {
   [data-shell-main],
-  html.guests-subnav-docked [data-shell-main],
-  html.teamchip-docked [data-shell-main] {
+  html.guests-subnav-docked [data-shell-main] {
     padding-bottom: 0;
   }
 }
@@ -979,6 +977,23 @@ html.teamchip-docked [data-shell-main] {
   }
   50% {
     transform: translate3d(-3%, 5%, 0) scale(1.04);
+  }
+}
+
+/*
+ * ⭕ .qr-slot — THE SLOT FOLLOWS THE CODE. Owner 2026-09-30, verbatim: "Custom
+ * QR when shape is changed the slot for the QR should also be round on the
+ * prints if the QR is round and not have a square frame with round QR".
+ * Every on-screen plate that holds a guest QR carries this class. The code's
+ * own root says what it is (lib/qr-style-svg.ts stamps `data-qr-shape`), so a
+ * round code makes its plate round — border, ring and shadow with it — and a
+ * square code keeps the plate's own corners. Nothing is threaded: the plate
+ * reads the code it holds. The prints do the same in lib/print-layout.ts
+ * (`qrPlate`); lib/a-round-code-sits-in-a-round-slot.test.ts holds both.
+ */
+@layer utilities {
+  .qr-slot:has(> svg[data-qr-shape='circle']) {
+    border-radius: 9999px;
   }
 }
 
@@ -2696,13 +2711,20 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     transform: none;
   }
 }
+/* 🪤 `backwards`, NEVER `both`/`forwards` (Fix E, 2026-09-30). A transform
+ * animated to `none` and FILLED forwards ends as translateY(0) — an identity
+ * matrix, which still makes this element the containing block of every
+ * `position: fixed` inside it. The roster's bulk bar is fixed to the screen
+ * bottom; held by a filled wrapper it sat at the bottom of the whole LIST
+ * instead, off-screen on a phone. `backwards` shows the same motion and leaves
+ * no transform behind. (`the-bulk-bar-is-pinned-to-the-screen.test.ts`) */
 .gl-settle {
-  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 /* A hair of stagger so the roster settles just after the facet bar,
  * reading as one connected motion rather than two independent pops. */
 .gl-settle-delayed {
-  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
   animation-delay: 0.05s;
 }
 
@@ -3286,6 +3308,274 @@ html.dark {
     transform: none;
     will-change: auto;
   }
+}
+
+/* ── 🎨 THE FIVE PALETTE LOOKS (owner 2026-09-29, DECISION_LOG "APPROVED — FIVE
+   PALETTE STYLES, PICKED ON THE TOOLBAR"; prototype `palette_styles_2026-09-29
+   .html`) ─────────────────────────────────────────────────────────────────────
+   How the Dress code scene draws "Our colours": A · Tags (the shipped
+   `.pahina-swatch`, the default, untouched above) · B · Fabric swatches ·
+   C · Paint chips · D · Circles · E · Ribbon. ONE markup for B–E
+   (`dress-code-palette-looks.tsx`): `<ul class="sn-pal sn-pal-<look>">`, one
+   `<li style="--c;--k">` per colour holding `<i>` (the swatch) then its words.
+   `--c` is the colour; `--k` the ink that reads on it, chosen by contrast
+   (`lib/palette-ink.ts`). `.sn-pal-row` is the same look shrunk for a role's row.
+
+   ✂ NO MOTION. The approved design gave each look an entrance; the owner cut
+   palette animation on 2026-09-30 (DECISION_LOG "THE MAKER RE-PLAN IS CUT TO
+   ITS CORE"). Every look is drawn still, like the shipped tags.
+   `palette-looks.test.ts` holds that nothing here animates. UNLAYERED. */
+.sn-editorial .sn-pal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.sn-editorial .sn-pal > li {
+  position: relative;
+}
+.sn-editorial .sn-pal > li > i {
+  display: block;
+  position: relative;
+  background-color: var(--c);
+}
+
+/* B · FABRIC SWATCHES — cloth squares cut with pinking shears, a weave from two
+   repeating gradients, a stitch inside in the colour's own ink. */
+.sn-editorial .sn-pal-fabric > li {
+  width: 3.875rem;
+}
+.sn-editorial .sn-pal-fabric > li > i {
+  width: 3.875rem;
+  height: 3.875rem;
+  background-image:
+    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.09) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.1) 0 1px, transparent 1px 3px);
+  clip-path: polygon(0% 4%, 5.6% 0%, 11.1% 4%, 16.7% 0%, 22.2% 4%, 27.8% 0%, 33.3% 4%, 38.9% 0%, 44.4% 4%, 50% 0%, 55.6% 4%, 61.1% 0%, 66.7% 4%, 72.2% 0%, 77.8% 4%, 83.3% 0%, 88.9% 4%, 94.4% 0%, 100% 0%, 96% 5.6%, 100% 11.1%, 96% 16.7%, 100% 22.2%, 96% 27.8%, 100% 33.3%, 96% 38.9%, 100% 44.4%, 96% 50%, 100% 55.6%, 96% 61.1%, 100% 66.7%, 96% 72.2%, 100% 77.8%, 96% 83.3%, 100% 88.9%, 96% 94.4%, 100% 100%, 94.4% 100%, 88.9% 96%, 83.3% 100%, 77.8% 96%, 72.2% 100%, 66.7% 96%, 61.1% 100%, 55.6% 96%, 50% 100%, 44.4% 96%, 38.9% 100%, 33.3% 96%, 27.8% 100%, 22.2% 96%, 16.7% 100%, 11.1% 96%, 5.6% 100%, 0% 96%, 4% 94.4%, 0% 88.9%, 4% 83.3%, 0% 77.8%, 4% 72.2%, 0% 66.7%, 4% 61.1%, 0% 55.6%, 4% 50%, 0% 44.4%, 4% 38.9%, 0% 33.3%, 4% 27.8%, 0% 22.2%, 4% 16.7%, 0% 11.1%, 4% 5.6%);
+  transform-origin: 50% 0;
+}
+.sn-editorial .sn-pal-fabric > li > i::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 1px dashed var(--k);
+  opacity: 0.55;
+}
+.sn-editorial .sn-pal-fabric > li > i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.14), transparent 45%, rgb(0 0 0 / 0.1));
+}
+
+/* C · PAINT CHIPS — one strip in a card, the name big ON the colour in its own
+   ink, the hex small at the right. A column, so it never wraps: six or more
+   colours make shorter chips, not a second column. */
+.sn-editorial .sn-pal-chips {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  padding: 5px;
+  border-radius: 6px;
+  background: rgb(var(--color-paper));
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 10px 24px -14px rgb(0 0 0 / 0.35),
+    0 0 0 1px rgb(var(--color-ink) / 0.08);
+}
+.sn-editorial .sn-pal-chips > li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 0.625rem;
+  min-height: 50px;
+  padding: 9px 12px 8px;
+  background: var(--c);
+  color: var(--k);
+}
+.sn-editorial .sn-pal-chips > li:first-child {
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+.sn-editorial .sn-pal-chips > li:last-child {
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+.sn-editorial .sn-pal-chips > li + li {
+  border-top: 1px solid rgb(var(--color-paper) / 0.55);
+}
+.sn-editorial .sn-pal-chips > li > i {
+  display: none;
+}
+.sn-editorial .sn-pal-chips > li > small {
+  text-align: right;
+}
+/* six or more: a quantity query (the first chip counts the rest) */
+.sn-editorial .sn-pal-chips > li:first-child:nth-last-child(n + 6),
+.sn-editorial .sn-pal-chips > li:first-child:nth-last-child(n + 6) ~ li {
+  min-height: 42px;
+  padding: 6px 12px;
+}
+
+/* D · CIRCLES — buttons on a card, overlapping: a rim and four thread holes in
+   the colour's ink, a page-coloured ring between neighbours. The names follow
+   in one line under the row (`.sn-pal-legend`). Every button steps 14px back
+   into the list's own padding, so a wrapped eighth never hangs off the left. */
+.sn-editorial .sn-pal-circles {
+  gap: 0.5rem 0;
+  padding: 3px 0 0 17px;
+}
+.sn-editorial .sn-pal-circles > li {
+  margin-left: -14px;
+}
+.sn-editorial .sn-pal-circles > li > i {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 3px rgb(var(--color-paper)),
+    0 8px 16px -9px rgb(0 0 0 / 0.55),
+    inset 0 -6px 10px -6px rgb(0 0 0 / 0.28),
+    inset 0 4px 8px -5px rgb(255 255 255 / 0.4);
+}
+.sn-editorial .sn-pal-circles > li > i::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--k);
+  opacity: 0.35;
+}
+.sn-editorial .sn-pal-circles > li > i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  opacity: 0.55;
+  background:
+    radial-gradient(circle at 42% 42%, var(--k) 0 2.6px, transparent 3px),
+    radial-gradient(circle at 58% 42%, var(--k) 0 2.6px, transparent 3px),
+    radial-gradient(circle at 42% 58%, var(--k) 0 2.6px, transparent 3px),
+    radial-gradient(circle at 58% 58%, var(--k) 0 2.6px, transparent 3px);
+}
+.sn-editorial .sn-pal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 10px;
+}
+.sn-editorial .sn-pal-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sn-editorial .sn-pal-legend > span::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.2);
+}
+
+/* E · RIBBON — one band, notched at both ends like a cut length of ribbon,
+   splitting into the colours; each colour's name under its own length. Every
+   colour gets an equal share, so the band is always one line. */
+.sn-editorial .sn-pal-ribbon {
+  flex-wrap: nowrap;
+  gap: 0;
+  width: 100%;
+}
+.sn-editorial .sn-pal-ribbon > li {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.sn-editorial .sn-pal-ribbon > li > i {
+  height: 34px;
+  margin: 0 2px;
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.22), transparent 38%, rgb(0 0 0 / 0.16));
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.12);
+}
+.sn-editorial .sn-pal-ribbon > li:first-child > i {
+  margin-left: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 9px 50%);
+}
+.sn-editorial .sn-pal-ribbon > li:last-child > i {
+  margin-right: 0;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 9px) 50%, 100% 100%, 0 100%);
+}
+.sn-editorial .sn-pal-ribbon > li:only-child > i {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 9px) 50%, 100% 100%, 0 100%, 9px 50%);
+}
+
+/* ROW SIZE — the same look beside a role's figure. No words, no entrance. */
+.sn-editorial .sn-pal-row {
+  gap: 6px;
+}
+.sn-editorial .sn-pal-row.sn-pal-fabric > li {
+  width: auto;
+}
+.sn-editorial .sn-pal-row.sn-pal-fabric > li > i {
+  width: 22px;
+  height: 22px;
+}
+.sn-editorial .sn-pal-row.sn-pal-fabric > li > i::before {
+  inset: 4px;
+  opacity: 0.5;
+}
+.sn-editorial .sn-pal-row.sn-pal-chips {
+  flex-direction: row;
+  gap: 3px;
+  width: auto;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+.sn-editorial .sn-pal-row.sn-pal-chips > li {
+  display: block;
+  min-height: 0;
+  width: 26px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.15);
+}
+.sn-editorial .sn-pal-row.sn-pal-circles {
+  gap: 6px 0;
+  padding: 0 0 0 6px;
+}
+.sn-editorial .sn-pal-row.sn-pal-circles > li {
+  margin-left: -6px;
+}
+.sn-editorial .sn-pal-row.sn-pal-circles > li > i {
+  width: 20px;
+  height: 20px;
+  box-shadow:
+    0 0 0 2px rgb(var(--color-paper)),
+    inset 0 0 0 1px rgb(var(--color-ink) / 0.15);
+}
+.sn-editorial .sn-pal-row.sn-pal-circles > li > i::before,
+.sn-editorial .sn-pal-row.sn-pal-circles > li > i::after {
+  display: none;
+}
+.sn-editorial .sn-pal-row.sn-pal-ribbon {
+  width: 64px;
+  gap: 0;
+}
+.sn-editorial .sn-pal-row.sn-pal-ribbon > li > i {
+  height: 12px;
+  margin: 0 1px;
+}
+.sn-editorial .sn-pal-row.sn-pal-ribbon > li:first-child > i {
+  margin-left: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 4px 50%);
+}
+.sn-editorial .sn-pal-row.sn-pal-ribbon > li:last-child > i {
+  margin-right: 0;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 50%, 100% 100%, 0 100%);
 }
 
 .sn-editorial {
@@ -4626,7 +4916,9 @@ html.dark {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
-.sn-lens-swap { animation: sn-lens-swap var(--sn-dur-elem) var(--sn-ease-out) both; }
+/* `backwards`, not `both`: a filled end transform traps `position: fixed`
+ * descendants (see `.gl-settle`). */
+.sn-lens-swap { animation: sn-lens-swap var(--sn-dur-elem) var(--sn-ease-out) backwards; }
 
 /* Selected-row affordance — the master row that owns the open inspector. */
 [data-inspector-selected='true'] {
@@ -6993,4 +7285,43 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   .fd.fd {
     --fd-rail: env(viewport-segment-left 1 0);
   }
+}
+
+/* ── .sn-switch — a yes/no answer drawn as a switch (owner 2026-09-30, the
+   Fable guest card: "Yes/No = toggles"). A real checkbox underneath, so it posts
+   `on` like any box, works with the keyboard and a screen reader, and the
+   autosave's undo can click it back. */
+.sn-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.625rem;
+  border-radius: 9999px;
+  background: rgb(26 26 26 / 0.18);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.sn-switch::after {
+  content: '';
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: #fffdf8;
+  box-shadow: 0 1px 3px rgb(26 26 26 / 0.3);
+  transition: transform 0.2s ease;
+}
+.sn-switch:checked {
+  background: #4f6b4a;
+}
+.sn-switch:checked::after {
+  transform: translateX(1.125rem);
+}
+.sn-switch:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }

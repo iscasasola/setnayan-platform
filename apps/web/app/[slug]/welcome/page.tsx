@@ -1,18 +1,20 @@
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { composeFormalName } from '@/lib/formal-name';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { formatEventDate } from '@/lib/events';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { guestAccountState } from '@/lib/guest-one-path';
-import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
+import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { plusOneFilled, plusOneGate, plusOneMissing, type PlusOneRow } from '@/lib/plus-one-welcome';
-import { renderInvitationQrSvg } from '@/lib/qr';
+import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
 import { abandonPlusOneInvite, confirmPlusOneName } from './actions';
 import { eventWordsFor } from '../_lib/event-words';
@@ -42,7 +44,7 @@ type Props = {
  * Hub's key gate when a required one of their four is missing
  * (`plusOneGate`). What it shows, in order:
  *
- *   · "Welcome, Ben" — and "Maria Santos is bringing you as their guest";
+ *   · their name (formal, never "Welcome, Ben") — and "Maria Santos is bringing you as their guest";
  *   · YOUR DETAILS — what the bringer already filled, shown and marked
  *     "from Maria", never asked again (a quiet "Something wrong? Change it"
  *     opens those same boxes in place);
@@ -82,8 +84,9 @@ export default async function WelcomePage({ params, searchParams }: Props) {
 
   const { data: guest } = await admin
     .from('guests')
+    // The shared guest-name columns (the five parts among them), not a hand-picked few.
     .select(
-      'guest_id, first_name, last_name, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions',
+      `${ENTOURAGE_COLUMNS}, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions`,
     )
     .eq('guest_id', session.guest_id)
     .eq('event_id', event.event_id)
@@ -110,6 +113,9 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const row: PlusOneRow = {
     first_name: (guest.first_name as string | null) ?? null,
     last_name: (guest.last_name as string | null) ?? null,
+    name_prefix: (guest.name_prefix as string | null) ?? null,
+    middle_name: (guest.middle_name as string | null) ?? null,
+    name_suffix: (guest.name_suffix as string | null) ?? null,
     plus_one_name_confirmed_at: (guest.plus_one_name_confirmed_at as string | null) ?? null,
     meal_preference: (guest.meal_preference as string | null) ?? null,
     dietary_restrictions: (guest.dietary_restrictions as string | null) ?? null,
@@ -118,8 +124,6 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const filled = plusOneFilled(row, ask);
   const locked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at as string | null,
-    editDeadline: event.guest_list_edit_deadline as string | null,
-    eventDate: event.event_date as string | null,
   });
   const inside = plusOneGate(row, ask, locked) === 'inside';
 
@@ -132,7 +136,6 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
     seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
-    linkSentForThisEvent: search.keep === 'sent' || (await keepLinkSentFor(event.event_id as string)),
   });
   const showPass = search.pass === '1';
   // Kept in their account and nothing required missing — nothing to welcome.
@@ -144,13 +147,19 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   // ── "JUST SHOW MY PASS" — their own QR, the same renderer and url as every
   // other guest pass, wearing the event's look.
   let passSvg: string | null = null;
-  if (showPass && guest.qr_token) {
-    const params = {
-      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
-      slug: home,
-      qrToken: guest.qr_token as string,
-      ownerSlug: await resolveEventOwnerSlug(admin, event.event_id as string),
-    };
+  // Their OWN link — "Open in your browser" hands it over inside Messenger,
+  // where no provider can sign in and nothing is emailed (owner 2026-09-29).
+  const linkParams = guest.qr_token
+    ? {
+        appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+        slug: home,
+        qrToken: guest.qr_token as string,
+        ownerSlug: await resolveEventOwnerSlug(admin, event.event_id as string),
+      }
+    : null;
+  const personalLink = linkParams ? buildInvitationUrl(linkParams) : null;
+  if (showPass && linkParams) {
+    const params = linkParams;
     passSvg = await renderInvitationQrSvg({
       ...params,
       look: await resolveEventQrLook(admin, event.event_id as string, event as unknown as QrLookRow),
@@ -163,12 +172,14 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const confirmAction = confirmPlusOneName.bind(null, home);
   const abandonAction = abandonPlusOneInvite.bind(null, home);
 
-  const firstName = missing.name ? null : (row.first_name ?? '').trim() || null;
+  // 🎩 No "Welcome, <first name>" (owner, DECISION_LOG 2026-09-30 — no casual
+  // greetings). Once their name is in, the heading is their FORMAL name.
+  const formalName = missing.name ? null : composeFormalName(row);
 
   return (
     <DoorShell
-      eyebrow="You're invited!"
-      title={firstName ? `Welcome, ${firstName}` : `You are the +1 of ${primaryName}`}
+      eyebrow="You’re invited"
+      title={formalName ?? `You are the +1 of ${primaryName}`}
       sub={<>{primaryName} is bringing you as their guest.</>}
       meta={`${event.display_name} · ${formatEventDate(event.event_date as string | null)}`}
     >
@@ -183,7 +194,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
         filled={filled}
         inside={inside}
         account={account}
-        hasEmail={Boolean((guest.email as string | null)?.trim())}
+        personalLink={personalLink}
         userAgent={userAgent}
         termsCarried={termsCarried}
         passSvg={passSvg}

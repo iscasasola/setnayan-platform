@@ -267,6 +267,20 @@ function peopleWords(profile: EventTypeProfile) {
   };
 }
 
+/**
+ * 💃 IS THIS GUEST'S GIFT THE DIGITAL MONEY DANCE? (2026-09-30)
+ *
+ * The money dance — pinning cash on the couple — is a WEDDING tradition, and
+ * the gift door, the hub's gift link and `/[slug]/pabuya` said it to the guests
+ * of every celebratory type. ONE decision for all three, resolved here from the
+ * event type so no guest-facing file compares against a wedding word itself
+ * (`s13-is-finished.test.ts`). A solemn event is never the dance — it has its
+ * own "A gift of sympathy" arm.
+ */
+export function giftIsMoneyDance(w: Pick<EventWords, 'eventWord' | 'solemn'>): boolean {
+  return !w.solemn && w.eventWord === 'wedding';
+}
+
 /** Resolve the words for an event type. `null` → wedding, matching every other
  *  guest-tree call site (`resolveProfile(event.event_type ?? 'wedding')`). */
 export async function eventWordsFor(

@@ -4,7 +4,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { encryptionKeyStatus } from '@/lib/encryption';
-import { getSecretPresenceMap } from '@/lib/integration-config';
+import { getSecretPresenceMapMeasured } from '@/lib/integration-config';
 import {
   SECRET_REGISTRY,
   GROUP_ORDER,
@@ -76,7 +76,7 @@ export default async function AdminSecretsPage({
   const vercelWritable = vercelEnvConfigured();
 
   const admin = createAdminClient();
-  const [rotationRes, envRes, registryPresence, resendRes] = await Promise.all([
+  const [rotationRes, envRes, presence, resendRes] = await Promise.all([
     admin.from('platform_secret_rotations').select('secret_id, last_rotated_at, note'),
     // Metadata only — listProjectEnvMeta() strips every value before returning.
     vercelWritable
@@ -84,7 +84,7 @@ export default async function AdminSecretsPage({
       : Promise.resolve({ ok: false as const, status: 0, error: 'vercel_not_configured' }),
     // { [column]: boolean } — presence only; the ciphertext never enters this
     // render tree (same defence the Integrations console uses).
-    getSecretPresenceMap(),
+    getSecretPresenceMapMeasured(),
     // Resend predates the integrations registry (bespoke PR1 card), so its
     // column is absent from ALL_SECRET_COLUMNS and therefore from the map
     // above. Read it explicitly — otherwise the single most-used secret on the
@@ -96,10 +96,20 @@ export default async function AdminSecretsPage({
       .maybeSingle(),
   ]);
 
-  const consolePresence: Record<string, boolean> = {
-    ...registryPresence,
-    resend_api_key_enc: Boolean(resendRes.data?.resend_api_key_enc),
-  };
+  /* 🚨 A REFUSED READ SAID EVERY SECRET WAS UNSET AND NEVER ROTATED (admin
+     audit 2026-09-30, row 35). Presence that couldn't be read now answers
+     "Unknown from here" (an empty map ⇒ isConfigured → null) instead of a
+     confident "Not configured"; rotation dates that couldn't be read replace
+     the alarm/all-clear banner with a notice, because "never recorded" is a
+     claim about the log and the log was never seen. */
+  const presenceUnread = presence.readFailed || Boolean(resendRes.error);
+  const rotationsUnread = Boolean(rotationRes.error);
+  const consolePresence: Record<string, boolean> = presenceUnread
+    ? {}
+    : {
+        ...presence.map,
+        resend_api_key_enc: Boolean(resendRes.data?.resend_api_key_enc),
+      };
 
   const rotationBySecretId = new Map<string, { at: Date; note: string | null }>();
   for (const row of (rotationRes.data ?? []) as {
@@ -186,7 +196,12 @@ export default async function AdminSecretsPage({
       </p>
 
       {/* ── Alarm banner ─────────────────────────────────────────────────── */}
-      {alarming.length > 0 ? (
+      {rotationsUnread ? (
+        <div role="alert" className="rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink">
+          Couldn&rsquo;t load this — refresh to try again. The rotation dates below are not
+          known, so no secret is shown as overdue or as fine.
+        </div>
+      ) : alarming.length > 0 ? (
         <div
           role="alert"
           className="space-y-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
@@ -217,7 +232,7 @@ export default async function AdminSecretsPage({
         </p>
       )}
 
-      {dueSoon.length > 0 ? (
+      {dueSoon.length > 0 && !rotationsUnread ? (
         <p className="rounded-2xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 text-xs text-amber-900/90">
           Coming up: {dueSoon.map((r) => r.def.label).join(' · ')}.
         </p>

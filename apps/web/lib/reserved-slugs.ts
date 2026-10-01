@@ -136,6 +136,14 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // breaks its drift test. Already reserved in the database mint.
   'pabati',
 
+  // --- ⬇ ADDED 2026-09-30 -------------------------------------------------
+  // The supplier page's new address (moved from /vendors, owner DECISION_LOG
+  // 2026-09-29 "LANE 2 §2C" (3)). It is a route folder, so the GENERATED half
+  // below carries it too; it is here as well because the database mirrors THIS
+  // half (migration 20271256815247), the same reason `live` is. `vendors` and
+  // `for-vendors` above stay: both still resolve, as 308s to it.
+  'for-suppliers',
+
 
   // --- Next.js internals / special files (defense-in-depth; can't be slugs
   //     anyway per the ^[a-z0-9-]{3,32}$ format, but reserved for safety) -----
@@ -175,6 +183,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'download',
   'explore',
   'features',
+  'for-suppliers',
   'forgot-password',
   'guest-list',
   'health',
@@ -220,7 +229,6 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'vendor',
   'vendor-dashboard',
   'vendor-invite',
-  'vendors',
   'waitlist',
   'wall',
   'web-only',

@@ -1,6 +1,9 @@
 /**
  * /suppliers/[event]/[category]/[city] — one event type, one category, one
- * city, e.g. /suppliers/debut/coordinator/quezon-city. All rules and the
+ * city, e.g. /suppliers/debut/coordinator/quezon-city — OR one region, e.g.
+ * /suppliers/wedding/catering/metro-manila (owner 2026-09-29: region pages,
+ * "under the city pages' rule"). The segment keeps its name `[city]` because
+ * renaming a dynamic segment moves nothing a person sees. All rules and the
  * render live in `../../../_landing.tsx`; this file only hands over the slugs.
  */
 import { notFound } from 'next/navigation';

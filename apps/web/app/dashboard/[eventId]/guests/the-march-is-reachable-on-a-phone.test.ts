@@ -29,8 +29,9 @@ test('the Wedding March has one home — Details — and the Guest list hands ol
   assert.ok(!doors.tabs.some((d) => /walk|march/i.test(d.key)), 'the Guest list offers the march again');
   const page = read(GUESTS, 'page.tsx');
   assert.match(page, /redirect\(detailsItemHref\(eventId, 'march'\)\)/, 'an old ?gview=walk link no longer lands on Details');
-  const carousel = read(GUESTS, '_components', 'mobile-guest-carousel.tsx');
-  assert.doesNotMatch(carousel, /gview:\s*'walk'|gview=walk/, 'the phone carousel links to a march view that no longer exists');
+  // ⤷ 2026-09-30 (Fix E): the phone carousel was deleted; the phone draws the
+  // same head as the computer, so no phone-only link to a march view can exist.
+  assert.doesNotMatch(page, /gview:\s*'walk'|gview=walk/, 'the roster links to a march view that no longer exists');
 });
 
 test('on a phone, the Details navigator — and the march’s own lines in it — is not hidden', () => {

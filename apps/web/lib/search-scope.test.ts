@@ -63,7 +63,8 @@ test('🛑 a place with NO index does not narrow — it keeps the wider scope', 
   */
   for (const path of [
     '/dashboard/S89E-ABCDEFGHJK',            // inside one event
-    '/dashboard/S89E-ABCDEFGHJK/guests',     // that event's guests
+    '/dashboard/S89E-ABCDEFGHJK/guests/checkin', // the door crew's desk has its own search
+    '/dashboard/S89E-ABCDEFGHJK/guests/8b1f2c3d-0000-4000-8000-000000000000', // one guest's card
     '/vendor-dashboard',                      // the shop
     '/vendor-dashboard/services',
   ]) {
@@ -73,6 +74,23 @@ test('🛑 a place with NO index does not narrow — it keeps the wider scope', 
       `${path} narrowed with nothing behind it — add the source before the row`,
     );
   }
+});
+
+test('🔴 one event\'s Guest list narrows to its guests — its source is the roster\'s ?q=', () => {
+  /*
+    Owner 2026-09-30: "the search on the top to do the search? so the text box
+    on people will only be add?" → "ok". The source existed all along (the
+    roster's server-side ?q= filter); the row joined with it, never alone.
+  */
+  const scope = resolveSearchScope('/dashboard/S89E-ABCDEFGHJK/guests');
+  assert.equal(scope.key, 'guests');
+  assert.equal(scope.placeholder, 'Search guests');
+  // The way out climbs to the next place that answers — your events.
+  assert.equal(scope.widerKey, 'events');
+  // The events board is still the events board, and a lookalike path is nothing.
+  assert.equal(resolveSearchScope('/dashboard').key, 'events');
+  assert.equal(resolveSearchScope('/dashboard/guests').key, 'discover');
+  assert.equal(resolveSearchScope('/guests').key, 'discover');
 });
 
 test('⚠ /admin is deliberately absent — it hands the shell its own searchSlot', () => {
@@ -119,4 +137,8 @@ test('🔑 scope decides WHICH ROWS EXIST before any matching runs', () => {
   assert.ok(itemInScope('event', 'events'));
   assert.ok(!itemInScope('space', 'events'), 'the events scope admitted a space');
   assert.ok(!itemInScope('action', 'events'), 'the events scope admitted a jump link');
+  // On the Guest list the bar IS the roster filter — no palette row belongs there.
+  for (const kind of ['event', 'space', 'action'] as const) {
+    assert.ok(!itemInScope(kind, 'guests'), `the guests scope admitted a palette ${kind}`);
+  }
 });

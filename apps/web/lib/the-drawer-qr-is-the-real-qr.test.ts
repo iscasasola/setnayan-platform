@@ -29,7 +29,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
-const DRAWER = 'app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx';
+/*
+ * ⤷ 2026-09-30 (owner, the Fable guest card): the card no longer draws a QR at
+ * all — it draws the guest's DIGITAL TICKET (the QR is on it), small, and full
+ * size on a tap with ONE button, Save ticket. The same rule carries over to the
+ * ticket: the picture IS the file that is saved and sent, from ONE variable.
+ */
+const DRAWER = 'app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx';
 const ROUTE = 'app/api/website/qr/guest/[guestId]/route.ts';
 
 test('the decorative pattern is gone — no hash-seeded stand-in QR remains', () => {
@@ -37,24 +43,27 @@ test('the decorative pattern is gone — no hash-seeded stand-in QR remains', ()
   for (const banned of ['DecorativeQr', 'hashToken']) {
     assert.ok(!src.includes(banned), `${DRAWER} still defines/uses ${banned} — the fake QR is back`);
   }
+  const card = stripComments(read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'));
+  assert.ok(!card.includes('DecorativeQr'), 'the card draws a stand-in code');
 });
 
-test('the drawer preview and its Download control point at the SAME route, from ONE variable', () => {
+test('the thumbnail, the full view and Save ticket point at the SAME route, from ONE variable', () => {
   const src = stripComments(read(DRAWER));
-  // Built once, used by both the <img> and every download href below it — so
-  // the two cannot independently drift the way two hand-spelled strings could.
-  assert.match(src, /const qrImageSrc = `\/api\/website\/qr\/guest\/\$\{guest\.guest_id\}`/);
-  const uses = [...src.matchAll(/\bqrImageSrc\b/g)].length;
-  // 1 for the declaration + at least 2 consumers (the <img> src and the
-  // Download control(s) below it).
-  assert.ok(uses >= 3, `qrImageSrc is referenced ${uses}× — expected the declaration plus 2+ consumers`);
-  assert.ok(src.includes('src={qrImageSrc}'), 'the preview <img> does not read qrImageSrc');
+  assert.match(src, /const src = ticketUrl\(guestId\);/);
+  // The thumbnail <img>, the full-view <img> and Save ticket's href all read it.
+  const uses = [...src.matchAll(/(?:src|href)=\{src\}/g)].length;
+  assert.ok(uses >= 3, `the ticket route is read ${uses}× — expected the thumb, the full view and Save ticket`);
+  // …and it is the route Invite shares (send-invite.tsx), so what the couple sees is what the guest gets.
+  const send = stripComments(read('app/dashboard/[eventId]/guests/_components/send-invite.tsx'));
+  assert.match(send, /export function ticketUrl\(guestId: string\): string \{\s*return `\$\{TICKET_ROUTE\}\?guest=/);
 });
 
-test('the drawer never draws a fake code when a guest has a real token — it says so instead', () => {
+test('the card never draws a ticket a guest does not have — it says so instead', () => {
   const src = stripComments(read(DRAWER));
-  assert.match(src, /guest\.qr_token \? \(/, 'no guard on qr_token before rendering the QR');
-  assert.match(src, /No QR code yet/, 'no honest fallback for a guest without a code yet');
+  assert.match(src, /if \(!available \|\| broken\) \{/, 'no guard before the ticket is drawn');
+  assert.match(src, /No ticket/, 'no honest fallback for a guest without a ticket');
+  const card = stripComments(read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'));
+  assert.match(card, /const hasTicket =\s*Boolean\(guest\.qr_token\)/, 'the card offers a ticket to a guest with no code');
 });
 
 test('the download route now names the file on the wire (Content-Disposition)', () => {

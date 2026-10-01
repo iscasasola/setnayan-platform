@@ -83,6 +83,10 @@ export type RosterPerson = {
   connectionId: string | null;
   /** alaga rows only. */
   dependentId: string | null;
+  /** alaga rows only: `dependents.dependent_kind` ('person' · 'pet' · 'business'
+   *  · 'item' · 'other'). What the guest-list picker filters on: only a person
+   *  may be invited (owner 2026-09-30). Absent on connection rows. */
+  dependentKind?: string | null;
   name: string;
   /** The label. NULL means "on your list, not yet said" — the whole point. */
   relation: ConnectionRelation | null;
@@ -379,6 +383,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
         kind: 'alaga',
         connectionId: null,
         dependentId: d.dependent_id,
+        dependentKind: d.dependent_kind,
         name: d.name,
         relation: null,
         careLabel: careLabelFor(d.relationship, d.dependent_kind),

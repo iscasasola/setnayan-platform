@@ -769,7 +769,7 @@ export async function provisionRoamBroadcasts(
 ): Promise<ProvisionResult> {
   if (!eventId) return failure('no_zones', 'No event id.');
   if (!liveStudioRoamEnabled()) {
-    return failure('flag_off', 'Live Studio is not enabled (NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED).');
+    return failure('flag_off', 'Live Watch is not enabled (NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED).');
   }
 
   // ── 2. zones ──────────────────────────────────────────────────────────────
@@ -795,7 +795,7 @@ export async function provisionRoamBroadcasts(
   if (!channel) {
     return failure(
       'no_channel_available',
-      'No verified Setnayan channel is free right now. Connect or release one in Admin → Live Studio channels.',
+      'No verified Setnayan channel is free right now. Connect or release one in Admin → Live Watch channels.',
       null,
       zones.length,
     );

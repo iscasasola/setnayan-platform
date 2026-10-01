@@ -15,7 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { fetchPlatformSettingsMeasured } from '@/lib/platform-settings';
 import { updateOnboardingMusic } from '@/app/admin/onboarding/actions';
 import { ONBOARDING_MUSIC_MAX_TRACKS } from '@/lib/onboarding-music-limits';
 
@@ -28,7 +28,11 @@ export async function OnboardingSurface({ searchParams }: Props) {
   await requireAdmin();
   const sp = await searchParams;
   const admin = createAdminClient();
-  const settings = await fetchPlatformSettings(admin);
+  /* 🚨 A REFUSED SETTINGS READ SHOWED AN EMPTY UPLOADER OVER LIVE MUSIC
+     (admin audit 2026-09-30, row 34): FALLBACK has no tracks, and one Save
+     wrote "no tracks, music off" over the real playlist. The measured read
+     (#6212) says when that happened; Save is disabled on it. */
+  const { settings, readFailed: settingsReadFailed } = await fetchPlatformSettingsMeasured(admin);
 
   // Wedding onboarding background music — resolve the stored r2:// ref so the
   // uploader shows the current track. Same columns the /onboarding/wedding read
@@ -105,6 +109,12 @@ export async function OnboardingSurface({ searchParams }: Props) {
             the rights to. Leave empty for no music.
           </p>
 
+          {settingsReadFailed ? (
+            <div role="alert" className="mb-3 rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink">
+              Couldn&rsquo;t load this — refresh to try again. Saving is off until the saved
+              tracks load, so an empty list can&rsquo;t overwrite them.
+            </div>
+          ) : null}
           <form action={updateOnboardingMusic} className="space-y-3">
             <FileUpload
               bucket="media"
@@ -130,7 +140,11 @@ export async function OnboardingSurface({ searchParams }: Props) {
               />
               Play background music during onboarding
             </label>
-            <SubmitButton className="button-primary inline-flex items-center gap-2" pendingLabel="Saving…">
+            <SubmitButton
+              className="button-primary inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+              pendingLabel="Saving…"
+              disabled={settingsReadFailed}
+            >
               Save background music
             </SubmitButton>
           </form>

@@ -360,6 +360,11 @@ const MUST_SAY_PARTIAL: Array<{ file: string; gate: RegExp }> = [
   { file: '[eventId]/guests/checkin/page.tsx', gate: /\{somethingRefused \? \(/ },
   { file: '[eventId]/guests/souvenirs/page.tsx', gate: /\{somethingRefused \? \(/ },
   { file: '[eventId]/hosts/page.tsx', gate: /\{hostsPartlyRefused \? \(/ },
+  // The Hosts fold (2026-09-30): "Promote your coordinator" moved here with its reads.
+  {
+    file: '[eventId]/vendors/[vendorId]/workspace/_components/promote-coordinator-card.tsx',
+    gate: /\{promotePartlyRefused \? \(/,
+  },
   { file: '[eventId]/seating/walkthrough/page.tsx', gate: /\{walkthroughPartlyRefused \? \(/ },
   {
     file: '[eventId]/studio/papic/moderation/page.tsx',

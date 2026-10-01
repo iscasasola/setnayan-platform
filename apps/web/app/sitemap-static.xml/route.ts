@@ -64,7 +64,7 @@ const STATIC_ROUTES: ReadonlyArray<{
 
   // /vendors — v2.1 publisher posture cutover (CLAUDE.md fifth
   // 2026-05-28 row PR #574).
-  { path: '/vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
+  { path: '/for-suppliers', lastmod: '2026-09-30', changefreq: 'monthly', priority: '0.8' },
 
   // /open-shop — the supplier funnel. A short history, because it moved twice
   // in one day and the reasoning matters more than the line.

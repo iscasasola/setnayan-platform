@@ -223,6 +223,8 @@ export type EventRow = {
     dos?: string[];
     donts?: string[];
     palette?: { name: string; hex: string }[];
+    /** 👗 The outfit figure — shown unless `false` (owner 2026-09-30). */
+    show_figure?: boolean;
   } | null;
   // Landing page visibility lever from PR #381 — ‹public, unlisted, private›.
   // Private renders <PrivateLanding> for non-guest visitors.
@@ -241,6 +243,10 @@ export type EventRow = {
   // Unknown + sanitised at use via lib/rsvp-ask.ts; an absent key means "still
   // asked", so an event that never opens the panel is unchanged.
   rsvp_ask_config?: unknown;
+  // "Where to get tickets" — the organizer's own ticket page (events.ticket_url,
+  // owner 2026-09-29). Drawn only while the event is Public, and only through
+  // `publicTicketUrl` (lib/ticket-url.ts), which re-reads it through the parser.
+  ticket_url?: string | null;
   // Host-curated gift / registry note (Increment A.3). TEXT column shipped
   // 20260918000000; edited at /dashboard/[eventId]/website/what-to-bring.
   // Blank → WhatToBringWidget renders nothing (section hides).
@@ -394,6 +400,9 @@ export type GuestContext =
       /** May this guest be asked "Want to be tagged in the photos?" at all —
        *  false when the couple declined face tagging (`resolveFaceTagging`). */
       faceTaggingAskable: boolean;
+      /** The face screen may open now: askable AND the guest capture window is
+       *  open (the selfie is taken on the day — owner 2026-09-30). */
+      faceStepOpen: boolean;
       eventVendorCredits: VendorCard[];
     };
 
@@ -401,6 +410,10 @@ export type GuestRow = {
   guest_id: string;
   first_name: string;
   last_name: string;
+  /** The other formal name parts (`lib/formal-name.ts`) — the place card prints them. */
+  name_prefix?: string | null;
+  middle_name?: string | null;
+  name_suffix?: string | null;
   display_name: string | null;
   role: GuestRole;
   side: 'bride' | 'groom' | 'both';
@@ -423,8 +436,15 @@ export type GuestRow = {
      *  is stored (owner 2026-09-29: name · meal · dietary per plus-one). */
     first?: string | null;
     last?: string | null;
+    /** The seat's other name parts — five boxes, like every name (owner 2026-09-30). */
+    prefix?: string | null;
+    middle?: string | null;
+    suffix?: string | null;
     meal?: string | null;
     dietary?: string | null;
+    /** 🔒 This seat's person linked their own account — their name is theirs
+     *  (owner 2026-09-29, OWNER ANSWERS (10)); the reply shows it read-only. */
+    linked?: boolean;
   }[];
   /** The name the host recorded for the +1, mirrored here so the host's own
    *  list chips stop reading "+ TBA" once the guest names them. */

@@ -64,7 +64,7 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
   // is looking at while they pick.
   {
     label: ROLE_GROUP_LABELS.groomsmen,
-    roles: ['best_man', 'groomsman'],
+    roles: ['best_man', 'best_woman', 'groomsman'],
   },
   {
     label: ROLE_GROUP_LABELS.bridesmaids,

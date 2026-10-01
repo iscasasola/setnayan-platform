@@ -2,7 +2,8 @@
  * ONE QR ON THE INVITATION (owner, 2026-09-21: "they serve the same purpose").
  *
  * The pass card on the page and the Me section's "My QR" pop-up showed the
- * SAME code. The card is the one; the button now appears only when the card
+ * SAME code. The card is the one (since 2026-09-30: the Digital ticket, on Me
+ * — `guest-ticket.tsx`); the button now appears only when the card
  * is not on the page — because the couple can hide the card, and then the
  * button is the guest's only QR. Both halves are pinned: the duplicate must
  * not return, and the fallback must not disappear.
@@ -27,9 +28,15 @@ function meSection(): string {
 
 test('the Me section offers My QR only when the pass card is missing', () => {
   const me = meSection();
-  const opens = me.split('setQrOpen(true)').length - 1;
+  // 📱 The section is its own component now (`GuestMeSection`, owner
+  // 2026-09-30: on a tabbed page it is the Me TAB, drawn by the page body), so
+  // its one opener is the `onOpenQr` it is handed — GuestHubBar's own sheet,
+  // directly or, from the page body, by event.
+  const opens = me.split('onClick={onOpenQr}').length - 1;
   assert.equal(opens, 1, `exactly one My QR opener in the Me section (found ${opens})`);
-  const before = me.slice(0, me.indexOf('setQrOpen(true)'));
+  assert.match(hub, /onOpenQr=\{\(\) => setQrOpen\(true\)\}/, 'GuestHubBar hands the section its own sheet');
+  assert.match(hub, /window\.addEventListener\(OPEN_MY_QR_EVENT, open\)/, 'the page-drawn section can still open the sheet');
+  const before = me.slice(0, me.indexOf('onClick={onOpenQr}'));
   assert.match(
     before,
     /\{passOnPage \? null : \(\s*<button/,
@@ -44,8 +51,14 @@ test('"is the card on the page" is asked of the page, by the pass anchor', () =>
   assert.match(hub, /useState\(true\)/);
 });
 
-test('the pass card carries the anchor the check looks for', () => {
-  const card = body.slice(body.indexOf('const passCard'));
-  assert.ok(card.length > 0, 'precondition: the pass card exists');
-  assert.match(card.slice(0, 400), /id=\{PASS_ANCHOR\}/, 'the card must carry #site-pass');
+test('the ticket carries the anchor the check looks for — and Home carries none', () => {
+  // 2026-09-30: the pass left Home; the Digital ticket on Me (`GuestTicket`)
+  // is the one QR a guest shows, so IT carries `#site-pass`. Every section it
+  // can render carries the id — a state without it would make the check above
+  // see "no ticket" and offer the duplicate My QR beside a ticket.
+  const ticket = stripComments(readFileSync(join(HERE, 'guest-ticket.tsx'), 'utf8'));
+  const sections = ticket.split('<section').length - 1;
+  assert.ok(sections >= 2, 'precondition: the ticket and the declined line both render a section');
+  assert.equal(ticket.split('id={PASS_ANCHOR}').length - 1, sections, 'a ticket state renders without #site-pass');
+  assert.doesNotMatch(body, /PASS_ANCHOR/, 'Home carries a pass anchor again — two elements with one id');
 });

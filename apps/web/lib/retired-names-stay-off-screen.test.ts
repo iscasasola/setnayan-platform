@@ -3,7 +3,7 @@
  *
  * Owner, 2026-09-29: *"Change pakanta to Music Maker."* · *"Only Papic is
  * customized and all other namings should be generic"* · *"Samahan - Group"* ·
- * *"Ala ala - Memories"* · Alaga → *"Loved ones"* · Panood → *"Watch Live"* ·
+ * *"Ala ala - Memories"* · Alaga → *"Loved ones"* · Panood → *"Live Watch"* (owner 2026-09-30: *"Live Watch seem better"*; its one-day name "Live Studio" is retired too; "Watch Live" still fine on the guest's watch page) ·
  * Kwento → *"Photo Notes"*. Papic and Patiktok keep their names (DECISION_LOG
  * "PATIKTOK KEEPS ITS NAME", "OWNER ANSWERS — NINE PENDING DECISIONS").
  *
@@ -42,7 +42,14 @@ const ROOTS = ['app', 'lib', 'components'];
  *  - `*.generated.ts` is derived from identifiers (`deliverPakantaSong` →
  *    "deliver pakanta song") by its own generator and drift guard.
  */
-const EXEMPT = new Set(['lib/retired-names-scan.ts']);
+const EXEMPT = new Set([
+  'lib/retired-names-scan.ts',
+  // The hand-typed MIRROR of production's `platform_retail_catalog_v2` titles
+  // (its own docblock: it must equal prod, row for row). Prod's titles still
+  // read "Live Studio…" until the catalogue itself is renamed (an admin
+  // catalogue edit, not code); the mirror follows the database, never ahead.
+  'lib/llms-txt-guard-input.ts',
+]);
 const isExempt = (rel: string) => EXEMPT.has(rel) || rel.endsWith('.generated.ts');
 
 /**
@@ -57,6 +64,9 @@ const isExempt = (rel: string) => EXEMPT.has(rel) || rel.endsWith('.generated.ts
 const IN_FLIGHT: ReadonlyArray<{ file: string; was: string }> = [
   { file: 'app/[slug]/_components/story/story-spine.tsx', was: 'Kwento' },
   { file: 'app/dashboard/[eventId]/story/_components/editorial-editor.tsx', was: 'Kwento' },
+  // #6202 (Our Services five) rewrites this file; the controller's train sweeps
+  // its "Live Studio" → "Live Watch" (owner 2026-09-30). Delete once it lands.
+  { file: 'lib/our-services.ts', was: 'Live Studio' },
 ];
 const inFlight = (rel: string, was: string) => IN_FLIGHT.some((x) => x.file === rel && x.was === was);
 
@@ -111,7 +121,7 @@ test('the scanner leaves identifiers, routes, keys and SKU codes alone', () => {
 
 test('the retired list is the owner-named set, and keeps Papic + Patiktok', () => {
   const was = RETIRED_NAMES.map((n) => n.was).sort();
-  assert.deepEqual(was, ['Alaala', 'Alaga', 'Kwento', 'Pakanta', 'Panood', 'Samahan']);
+  assert.deepEqual(was, ['Alaala', 'Alaga', 'Kwento', 'Live Studio', 'Pakanta', 'Panood', 'Samahan']);
   for (const kept of ['Papic', 'Patiktok']) {
     assert.deepEqual(
       scanRetiredNames('k.tsx', `export const K = () => <p>${kept}</p>;`),
@@ -121,7 +131,9 @@ test('the retired list is the owner-named set, and keeps Papic + Patiktok', () =
   }
   const now = Object.fromEntries(RETIRED_NAMES.map((n) => [n.was, n.now]));
   assert.equal(now.Pakanta, 'Music Maker', 'brand: "Music Maker", two capitalised words');
-  assert.equal(now.Panood, 'Watch Live');
+  // Owner 2026-09-30, verbatim: "Live Watch seem better" — Panood, and its one-day name Live Studio, read Live Watch.
+  assert.equal(now.Panood, 'Live Watch');
+  assert.equal(now['Live Studio'], 'Live Watch');
   assert.equal(now.Kwento, 'Photo Notes');
 });
 

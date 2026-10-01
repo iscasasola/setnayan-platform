@@ -13,10 +13,15 @@ import {
   type InvitedToBlock,
 } from '@/lib/guests';
 import { formatRecordedAt } from '@/lib/recorded-at';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
 import type { GuestAccessState } from '@/lib/guest-access';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { readSeatAccount } from '@/lib/seat-unlink';
+import { accountNamesByGuest } from '@/lib/linked-profile-names';
+import { withProfileName } from '@/lib/formal-name';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -81,6 +86,38 @@ export type GuestCardData = {
   access: GuestAccessState | null;
   /** The viewer is a co-host, so the Access dropdown is theirs to change. */
   canManageAccess: boolean;
+  /** 🔒 A plus-one who linked their OWN account — their name is shown read-only,
+   *  "Linked to their account" (owner 2026-09-29, OWNER ANSWERS (10)). */
+  nameLinked: boolean;
+  /**
+   * The account this row is bound to (`event_members.guest_id`), shown to the
+   * couple with an Unlink (lib/seat-unlink.ts). Null when nobody holds it, or
+   * when the viewer is not a couple member — the read is another account's.
+   */
+  linkedAccount: { email: string | null; memberType: string } | null;
+  /**
+   * 👤 The row is linked to an account whose PROFILE holds a formal name (owner
+   * 2026-09-30): `guest` already wears that name, read-only, and `isYou` says the
+   * viewer is that person (so the card says "Edit on your profile ›"). Null → the
+   * row's own name, as the couple typed it.
+   */
+  profileName: { isYou: boolean } | null;
+  /** The couple's own words for roles (`events.role_names`, owner 2026-09-30). `{}` = the usual words. */
+  roleNames: RoleNames;
+  /**
+   * The Table dropdown, in place (owner 2026-09-30: "Table a dropdown right on
+   * the card"). Null when the tables could not be read — the card then shows the
+   * seat as text and posts nothing, never a "Not seated" it did not measure.
+   */
+  tables: { tableId: string; label: string }[] | null;
+  /** The table this guest sits at now, or null when unseated. */
+  seatTableId: string | null;
+  /**
+   * Every group of this event and the ones this guest is in — the Groups
+   * checkmark dropdown. Null when either read was refused: the card then shows
+   * the groups read-only and posts nothing, so a refusal can never unTick them.
+   */
+  groupChoices: { options: { groupId: string; label: string }[]; memberIds: string[] } | null;
 };
 
 export async function loadGuestCard(
@@ -88,8 +125,16 @@ export async function loadGuestCard(
   eventId: string,
   guestId: string,
 ): Promise<GuestCardData | null> {
-  const guest = await fetchGuestById(supabase, eventId, guestId);
-  if (!guest) return null;
+  const stored = await fetchGuestById(supabase, eventId, guestId);
+  if (!stored) return null;
+  // 👤 Linked to an account with a formal name → the card wears the profile's
+  // name, exactly as the list does (lib/linked-profile-names.ts).
+  const [profileNames, viewerId] = await Promise.all([
+    accountNamesByGuest(supabase, eventId),
+    supabase.auth.getUser().then((r) => r.data.user?.id ?? null),
+  ]);
+  const guest = withProfileName(stored, profileNames);
+  const linkedProfile = profileNames[guestId];
 
   // Hide bride/groom from the role dropdown if someone else already has
   // them — DB partial unique indexes enforce this regardless, but the UI
@@ -171,7 +216,7 @@ export async function loadGuestCard(
 
   const { data: groupRows, error: groupRowsError } = await supabase
     .from('guest_group_memberships')
-    .select('guest_groups(label, team_side)')
+    .select('group_id, guest_groups(label, team_side)')
     .eq('guest_id', guestId);
   // ⚠ the guest's group memberships. Refused, they read as belonging to no group,
   // ⚠ which is how a couple loses track of who is with whom.
@@ -191,19 +236,49 @@ export async function loadGuestCard(
     })
     .filter((g): g is GroupChip => g !== null && g.label !== '');
 
+  // The Table and Groups dropdowns' choices — this event's tables and groups.
+  const [{ data: tableRows, error: tableRowsError }, { data: eventGroupRows, error: eventGroupRowsError }] =
+    await Promise.all([
+      supabase.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
+      supabase.from('guest_groups').select('group_id, label').eq('event_id', eventId),
+    ]);
+  // ⚠ Refused → the Table dropdown is not drawn (the seat shows as text), so a
+  // ⚠ refusal can never offer "Not seated" as if it were the truth.
+  if (tableRowsError) {
+    logQueryError('loadGuestCard.tableRows', tableRowsError, { eventId, guestId }, 'graceful_degrade');
+  }
+  // ⚠ Refused → Groups show read-only, and the form posts no groups at all.
+  if (eventGroupRowsError) {
+    logQueryError('loadGuestCard.eventGroupRows', eventGroupRowsError, { eventId, guestId }, 'graceful_degrade');
+  }
+  const tables =
+    tableRowsError || seatRowError
+      ? null
+      : ((tableRows ?? []) as { table_id: string; table_label: string | null }[])
+          .map((t) => ({ tableId: t.table_id, label: t.table_label?.trim() || 'Table' }))
+          .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  const groupChoices =
+    eventGroupRowsError || groupRowsError
+      ? null
+      : {
+          options: ((eventGroupRows ?? []) as { group_id: string; label: string | null }[])
+            .map((g) => ({ groupId: g.group_id, label: g.label?.trim() || 'Group' }))
+            .sort((a, b) => a.label.localeCompare(b.label)),
+          memberIds: ((groupRows ?? []) as { group_id?: string }[])
+            .map((r) => r.group_id)
+            .filter((id): id is string => typeof id === 'string'),
+        };
+
   // Access (co-host / limited helper) and whether the viewer may change it.
   const [accessMap, canManageAccess] = await Promise.all([
     loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return false;
+      if (!viewerId) return false;
       const { data: me, error: meError } = await supabase
         .from('event_members')
         .select('member_type')
         .eq('event_id', eventId)
-        .eq('user_id', user.id)
+        .eq('user_id', viewerId)
         .eq('member_type', 'couple')
         .maybeSingle();
       // Refused → no dropdown (fail closed: showing a control the action would
@@ -215,7 +290,16 @@ export async function loadGuestCard(
     })(),
   ]);
 
+  // Who holds this row — read only for the couple (another account's email).
+  const linkedAccount = canManageAccess ? await readSeatAccount(eventId, guest.guest_id) : null;
+  // The couple's words for roles — its own read, graceful (usual words on a refusal).
+  const roleNames = await loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames');
+
   return {
+    roleNames,
+    tables,
+    seatTableId: (seatRow?.table_id as string | null | undefined) ?? null,
+    groupChoices,
     guest,
     isCouple,
     hasSides,
@@ -230,5 +314,20 @@ export async function loadGuestCard(
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),
     access: accessMap?.get(guest.guest_id) ?? null,
     canManageAccess,
+    nameLinked: guest.plus_one_of_guest_id
+      ? await (async () => {
+          const { data, error } = await createAdminClient()
+            .from('event_members')
+            .select('id')
+            .eq('event_id', eventId)
+            .eq('guest_id', guest.guest_id)
+            .limit(1)
+            .maybeSingle();
+          if (error) logQueryError('loadGuestCard.nameLinked', error, { eventId, guestId }, 'graceful_degrade');
+          return Boolean(data);
+        })()
+      : false,
+    linkedAccount,
+    profileName: linkedProfile ? { isYou: linkedProfile.userId === viewerId } : null,
   };
 }

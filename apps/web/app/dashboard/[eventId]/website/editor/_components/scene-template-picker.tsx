@@ -7,10 +7,26 @@ import {
   SCENE_FAMILY_LABEL,
   sceneTemplatesIn,
   type SceneTemplate,
-  type SceneThumbBox,
 } from '@/lib/scene-templates';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
+import dynamic from 'next/dynamic';
 import { PickMenu } from './pick-menu';
+import { SlotRows } from '../../../launch/_components/lazy-slot';
+import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+
+/* `Thumb` and `MAX_OWN_SCENES` live in `scene-thumb.tsx` so the lazy preset
+   tiles (`maker-details`) can draw a tile without importing this picker — a
+   first-screen module (train n: the shared-bundle runtime, see that file). */
+export { MAX_OWN_SCENES, Thumb } from './scene-thumb';
+import { Thumb } from './scene-thumb';
+/* ⚡ Post Event's twelve preset tiles load with its sheet (the EXISTING
+   `maker-details` chunk), never in the Maker's first load
+   (`scripts/check-maker-js-budget.mjs`). */
+const PresetTiles = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './post-event-preset-tiles').then((m) => m.PresetTiles),
+  { loading: SlotRows },
+);
+import type { PostEventPresetsProp } from './post-event-preset-tiles';
 
 /** Desktop · Phone · Both — one dropdown (owner: a set of choices is one PickMenu, never a pill row). */
 const SCENE_VIEW_OPTIONS = [
@@ -53,7 +69,17 @@ export function SceneTemplatePicker({
   onOpenChange,
   onPick,
   tour = null,
+  presets = null,
 }: {
+  /**
+   * 🎞 POST EVENT'S OWN "+" (owner 2026-09-25: *"scene creation will have
+   * different preset scenes as well"*) — the twelve presets instead of the 25
+   * templates. Each tile posts the SAME form, plus `post_event_preset`; every
+   * one is ◆ Pro (E3) and a tap still places it in the draft (try-then-pay —
+   * Apply is where Pro is asked). `used` = the couple's own scenes across every
+   * stage (six, shared — E5).
+   */
+  presets?: PostEventPresetsProp | null;
   /**
    * Controlled open state, for a sheet with a second door (the Maker's toolbar
    * ＋ opens the same "Add a scene" sheet as the navigator's button). Absent →
@@ -187,6 +213,18 @@ export function SceneTemplatePicker({
             ) : null}
           </div>
           {tour}
+          {presets ? (
+            <PresetTiles
+              presets={presets}
+              action={action}
+              hidden={hidden}
+              draft={draft}
+              view={view}
+              onPick={onPick}
+            />
+          ) : null}
+          {presets ? null : (
+          <>
           <p className="mt-1 text-[0.62rem] text-ink/50">
             ★ the four approved arrangements · shown{' '}
             {view === 'desktop' ? 'as on a desktop' : view === 'phone' ? 'as on a phone' : 'desktop · phone'} · each
@@ -242,6 +280,8 @@ export function SceneTemplatePicker({
               </div>
             </div>
           ))}
+          </>
+          )}
         </div>
       ) : null}
     </div>
@@ -261,65 +301,4 @@ function realWord(
 
 function label(t: SceneTemplate): string {
   return `${t.approved ? '★ ' : ''}${t.id} · ${t.name}`;
-}
-
-/**
- * One tile's drawing. Every box is a percentage of the tile, so the same data
- * draws at any size; a fixed frame (16:10 desktop, 9:16 phone) keeps every
- * thumbnail the same shape, content inside it.
- */
-function Thumb({
-  boxes,
-  shape,
-  hideMedia,
-  word,
-}: {
-  boxes: readonly SceneThumbBox[];
-  shape: 'desk' | 'phone';
-  hideMedia: boolean;
-  word: string;
-}) {
-  return (
-    <span
-      aria-hidden
-      className={`relative block overflow-hidden rounded-sm border border-ink/10 bg-white ${
-        shape === 'desk' ? 'aspect-[16/10] w-full' : 'aspect-[9/16] w-[46%] min-w-[2.5rem]'
-      }`}
-    >
-      {boxes.map(([kind, x, y, w, h, tone], i) => {
-        if (hideMedia && (kind === 'photo' || kind === 'play')) return null;
-        const pos = { left: `${x}%`, top: `${y}%` } as React.CSSProperties;
-        if (kind === 'play') {
-          return <i key={i} className="absolute text-[0.5rem] not-italic leading-none text-white" style={pos}>▶</i>;
-        }
-        if (kind === 'dot') {
-          return <i key={i} className="absolute h-[8%] w-[5%] rounded-full bg-terracotta/70" style={pos} />;
-        }
-        if (kind === 'txt') {
-          return (
-            <i key={i} className="absolute truncate px-0.5 text-center font-serif text-[0.85rem] not-italic leading-none text-ink/85" style={{ ...pos, width: `${w}%` }}>
-              {word}
-            </i>
-          );
-        }
-        const fill =
-          kind === 'photo'
-            ? 'bg-gradient-to-br from-terracotta/35 to-ink/35'
-            : kind === 'col'
-              ? 'bg-paper-deep'
-              : tone === 'a'
-                ? 'bg-terracotta/55'
-                : tone === 'l'
-                  ? 'bg-white/85'
-                  : 'bg-ink/25';
-        return (
-          <i
-            key={i}
-            className={`absolute ${kind === 'line' ? 'rounded-full' : 'rounded-sm'} ${fill}`}
-            style={{ ...pos, width: `${w}%`, height: `${h}%` }}
-          />
-        );
-      })}
-    </span>
-  );
 }

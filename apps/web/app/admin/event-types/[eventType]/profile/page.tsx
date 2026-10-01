@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { upsertEventTypeProfile } from '../../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -77,18 +78,32 @@ export default async function EventTypeProfilePage({
   const sp = await searchParams;
   const admin = createAdminClient();
 
-  const { data: vocab } = await admin
+  const { data: vocab, error: vocabError } = await admin
     .from('event_type_vocab')
     .select('event_type, label_en, emoji, enabled, status')
     .eq('event_type', eventType)
     .maybeSingle();
+  // A refused read is not "no such event type" — say so instead of a 404.
+  if (vocabError) {
+    logQueryError('EventTypeProfilePage (vocab)', vocabError, { eventType }, 'graceful_degrade');
+    return <ProfileReadFailed />;
+  }
   if (!vocab) notFound();
 
-  const { data: profileData } = await admin
+  /* 🚨 A REFUSED PROFILE READ PREFILLED THE BUILT-IN DEFAULTS AND ARMED SAVE
+     (admin audit 2026-09-30, row 34). The page then said "No profile row yet —
+     saving creates one", and one Save wrote the defaults over the real
+     terminology and surfaces. `profileReadFailed` withholds that sentence and
+     disables Save; a genuinely MISSING row (error null) still prefills. */
+  const { data: profileData, error: profileError } = await admin
     .from('event_type_profiles')
     .select('terminology, enabled_surfaces, onboarding_flow_key, role_set_key')
     .eq('event_type', eventType)
     .maybeSingle<ProfileRow>();
+  const profileReadFailed = Boolean(profileError);
+  if (profileError) {
+    logQueryError('EventTypeProfilePage (profile)', profileError, { eventType }, 'graceful_degrade');
+  }
 
   const t = (profileData?.terminology ?? {}) as Record<string, unknown>;
   const isWedding = eventType === 'wedding';
@@ -135,8 +150,15 @@ export default async function EventTypeProfilePage({
       <p className="mt-1 text-sm text-ink/55">
         Per-type terminology + which surfaces apply. Drives the dashboard copy and the
         generic onboarding flow.{' '}
-        {!profileData ? 'No profile row yet — saving creates one.' : null}
+        {!profileData && !profileReadFailed ? 'No profile row yet — saving creates one.' : null}
       </p>
+
+      {profileReadFailed ? (
+        <div role="alert" className="mt-4 rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink">
+          Couldn&rsquo;t load this — refresh to try again. Saving is off until the saved
+          profile loads, so the defaults below can&rsquo;t overwrite it.
+        </div>
+      ) : null}
 
       {sp.ok ? (
         <div role="status" className="mt-4 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
@@ -243,10 +265,26 @@ export default async function EventTypeProfilePage({
           </p>
         </section>
 
-        <SubmitButton className="rounded-full bg-mulberry px-6 py-2.5 text-sm font-semibold text-paper hover:opacity-90">
+        <SubmitButton
+          disabled={profileReadFailed}
+          className="rounded-full bg-mulberry px-6 py-2.5 text-sm font-semibold text-paper hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
           Save profile
         </SubmitButton>
       </form>
+    </main>
+  );
+}
+
+function ProfileReadFailed() {
+  return (
+    <main className="mx-auto max-w-2xl px-5 py-8">
+      <Link href="/admin/taxonomy?view=vocab-event" className="text-sm text-ink/55 hover:text-mulberry">
+        ← Event types
+      </Link>
+      <div role="alert" className="mt-6 rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink">
+        Couldn&rsquo;t load this — refresh to try again.
+      </div>
     </main>
   );
 }

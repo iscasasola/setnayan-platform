@@ -11,7 +11,8 @@ import { MakerPageFrame, MakerPageSwitch } from './maker-page';
 import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { useMaker } from './maker-context';
 import { DetailsGoTo, DetailsPieceButton, useDetailsPiece } from './details-go';
-import { ElementSheet } from '../../website/editor/_components/element-sheet';
+// ⚡ The sheet opens on a tap — it loads with the Details pieces (`details-lazy.tsx`).
+import { ElementSheet } from './details-lazy';
 import { HUB_ELEMENT_LABEL, isHubElementKey, type HubElementKey } from '@/lib/element-style';
 
 /**
@@ -245,8 +246,23 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
           options={REVEAL_STAGE_CHOICES.filter((s) => stages.includes(s)).map((s) => [s, PUBLIC_STAGE_LABELS[s]] as const)}
         />
       ) : null}
-      {/* 🖥📱 A page frame is ONE frame: View ▾ Both (the stage's side-by-side) draws it as Desktop. */}
-      <MakerPageFrame src={src} title={title} device={maker.device === 'both' ? 'desktop' : maker.device} frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
+      {/* 🖥📱 BOTH, INSIDE THE PIECE TOO (owner 2026-09-29, DECISION_LOG "OWNER
+          ANSWERS — TEN OPEN QUESTIONS" (8): YES) — View ▾ Both draws the Hero and
+          the Reveal as the stage does: the desktop and the phone side by side.
+          The desktop frame keeps the ref (play, the stay-on-the-page guard); the
+          phone beside it is the same page at phone width. */}
+      {maker.device === 'both' ? (
+        <div className="flex min-h-0 flex-1 flex-row gap-2" data-details-look-both="">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <MakerPageFrame src={src} title={`${title} — desktop`} device="desktop" frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
+          </div>
+          <div className="flex min-h-0 w-[min(460px,40%)] shrink-0 flex-col">
+            <MakerPageFrame src={src} title={`${title} — phone`} device="phone" frameKey={`${frameKey}:phone`} />
+          </div>
+        </div>
+      ) : (
+        <MakerPageFrame src={src} title={title} device={maker.device} frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
+      )}
       <CanvasStaysOnThePage
         frameRef={frameRef}
         pagePath={look.publicLandingUrl}

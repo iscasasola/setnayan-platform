@@ -22,9 +22,9 @@
  * See `WithheldCard` in program-surface.tsx for the full reasoning.
  */
 export const WITHHELD_CARD = {
-  kicker: 'Live Studio',
+  kicker: 'Live Watch',
   title: 'Unlock to broadcast all your cameras',
-  body: 'Your free broadcast carries one camera — the channel marked ★ default in the controller. Switching between cameras on air is what the Live Studio unlock buys.',
+  body: 'Your free broadcast carries one camera — the channel marked ★ default in the controller. Switching between cameras on air is what the Live Watch unlock buys.',
   hint: 'Just changed your default channel? Close this window and open it again from the controller.',
 } as const;
 
@@ -33,5 +33,5 @@ export const WITHHELD_CARD = {
  * differs from it. See `PinnedChannelNotice` in program-surface.tsx.
  */
 export function pinnedChannelNotice(label: string): string {
-  return `On air: ${label} · switching cameras needs the Live Studio unlock`;
+  return `On air: ${label} · switching cameras needs the Live Watch unlock`;
 }

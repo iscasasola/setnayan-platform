@@ -330,7 +330,7 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
       'The client ID and redirect URI are not secrets; change those under "Advanced settings" below.',
     ],
     impact:
-      'Live Studio YouTube pairing. Reset the secret on the SAME OAuth client — a new client would also change the client ID.',
+      'Live Watch YouTube pairing. Reset the secret on the SAME OAuth client — a new client would also change the client ID.',
   },
   {
     id: 'gdrive_oauth',

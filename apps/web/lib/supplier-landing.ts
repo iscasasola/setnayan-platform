@@ -27,6 +27,17 @@
  * Why 2 shops and not only 3 cards: three cards from ONE shop is that shop's
  * page, not a comparison, and it already has one at /{slug}.
  *
+ * ── REGIONS (owner 2026-09-29, DECISION_LOG "LANE 2 §2C" (5)) ─────────────
+ * "Region-level supplier pages: yes, under the city pages' rule — a page exists
+ * only with ≥3 cards from ≥2 shops." A region page sits in the SAME URL slot as
+ * a city page, e.g. /suppliers/wedding/catering/metro-manila, and is the SAME
+ * page: same renderer, same loader, same gate, same sitemap. A card counts
+ * toward a region when any city it is offered in belongs to that region (the
+ * onboarding city list's own `rk`, resolved through `lib/region-source.ts`).
+ * Region page slugs are typed below and can never equal a city key — `davao`
+ * and `zamboanga` are cities, so their regions are `davao-region` and
+ * `zamboanga-peninsula`. `supplier-landing.test.ts` holds that apart.
+ *
  * ── PRICES ────────────────────────────────────────────────────────────────
  * ⚠ The three pricing bases are NOT one number line. A per-guest ₱650 and a
  * fixed ₱180,000 package in one "₱650–₱180,000" range would be true of the rows
@@ -35,6 +46,7 @@
  * list) — the same rule the card itself follows.
  */
 import { CITIES, normPlace } from '@/app/onboarding/wedding/_data/wedding-cities';
+import { regionBySlug, resolveRegion } from '@/lib/region-source';
 
 /** Tunable, and deliberately here rather than scattered through the pages. */
 export const SUPPLIER_PAGE_MIN_CARDS = 3;
@@ -65,7 +77,12 @@ export type LandingCard = {
   pricePhp: number | null;
 };
 
-export type PageKey = { event: string; tile: string; city: string | null };
+/**
+ * One landing page. `city` and `region` are never both set: neither is the
+ * nationwide page, `city` is a city page, `region` (a canonical region slug from
+ * `lib/region-source.ts`, e.g. `ncr`) is a region page.
+ */
+export type PageKey = { event: string; tile: string; city: string | null; region?: string | null };
 
 // ── slugs ────────────────────────────────────────────────────────────────
 
@@ -123,6 +140,79 @@ export function cityName(key: string): string {
   return c ? plainCityName(c.n) : key;
 }
 
+// ── regions ──────────────────────────────────────────────────────────────
+
+/**
+ * Canonical region slug → the words in its page URL. Typed, not derived from
+ * the region's label: a label can be re-worded by an admin (`public.regions`),
+ * and a URL that moves with it loses everything search engines learned about
+ * it. `abroad` has no page — it is not a place a supplier is.
+ */
+export const REGION_PAGE_SLUG: Readonly<Record<string, string>> = {
+  ncr: 'metro-manila',
+  car: 'cordillera',
+  ilocos: 'ilocos-region',
+  cagayan: 'cagayan-valley',
+  'c-luzon': 'central-luzon',
+  calabarzon: 'calabarzon',
+  mimaropa: 'mimaropa',
+  bicol: 'bicol-region',
+  'w-visayas': 'western-visayas',
+  'c-visayas': 'central-visayas',
+  'e-visayas': 'eastern-visayas',
+  zamboanga: 'zamboanga-peninsula',
+  'n-mindanao': 'northern-mindanao',
+  davao: 'davao-region',
+  soccsksargen: 'soccsksargen',
+  caraga: 'caraga',
+  barmm: 'bangsamoro',
+  nir: 'negros-island-region',
+};
+
+const REGION_BY_PAGE_SLUG: ReadonlyMap<string, string> = new Map(
+  Object.entries(REGION_PAGE_SLUG).map(([region, slug]) => [slug, region]),
+);
+
+/** A URL segment → the canonical region slug it names, or null. */
+export function regionFromPageSlug(slug: string): string | null {
+  return REGION_BY_PAGE_SLUG.get(slug) ?? null;
+}
+
+const REGION_OF_CITY: ReadonlyMap<string, string> = (() => {
+  const m = new Map<string, string>();
+  for (const c of CITIES) {
+    const region = resolveRegion(c.rk)?.slug;
+    if (region && REGION_PAGE_SLUG[region]) m.set(c.k, region);
+  }
+  return m;
+})();
+
+/** A canonical city key → its canonical region slug, or null. */
+export function regionOfCity(cityKey: string): string | null {
+  return REGION_OF_CITY.get(cityKey) ?? null;
+}
+
+/** Every region a card is offered in, through its cities. */
+export function regionsForCard(card: Pick<LandingCard, 'cityKeys'>): string[] {
+  return [...new Set(card.cityKeys.map(regionOfCity).filter((r): r is string => r !== null))];
+}
+
+export function regionName(region: string): string {
+  return regionBySlug(region)?.display_label ?? region;
+}
+
+/** The place a page is about, in words: a city, a region, or the country. */
+export function placeName(page: PageKey): string {
+  if (page.city) return cityName(page.city);
+  if (page.region) return regionName(page.region);
+  return 'the Philippines';
+}
+
+/** True when two pages are about the same place (both nationwide counts). */
+export function samePlace(a: PageKey, b: PageKey): boolean {
+  return (a.city ?? null) === (b.city ?? null) && (a.region ?? null) === (b.region ?? null);
+}
+
 // ── filtering + the gate ─────────────────────────────────────────────────
 
 export function cardsForPage(cards: readonly LandingCard[], page: PageKey): LandingCard[] {
@@ -130,7 +220,8 @@ export function cardsForPage(cards: readonly LandingCard[], page: PageKey): Land
     (c) =>
       c.tile === page.tile &&
       c.eventTypes.includes(page.event) &&
-      (page.city === null || c.cityKeys.includes(page.city)),
+      (page.city ? c.cityKeys.includes(page.city) : true) &&
+      (page.region ? regionsForCard(c).includes(page.region) : true),
   );
 }
 
@@ -169,8 +260,9 @@ export function priceSummaries(cards: readonly LandingCard[]): BasisSummary[] {
 export type QualifyingPage = PageKey & { cards: number; shops: number };
 
 /**
- * Every (event × tile × city) and nationwide (event × tile) page that passes
- * the gate — what the sitemap lists and what the index links to.
+ * Every (event × tile × city), (event × tile × region) and nationwide
+ * (event × tile) page that passes the gate — what the sitemap lists and what
+ * the index links to.
  *
  * `tileServesEvent` is the taxonomy's own answer (`tileEventTypes`), so a
  * funeral-home card that a shop mis-tagged "wedding" still never mints a
@@ -182,7 +274,7 @@ export function qualifyingPages(
 ): QualifyingPage[] {
   const groups = new Map<string, { key: PageKey; cards: LandingCard[] }>();
   const add = (key: PageKey, c: LandingCard) => {
-    const id = `${key.event}|${key.tile}|${key.city ?? ''}`;
+    const id = `${key.event}|${key.tile}|${key.city ?? ''}|${key.region ?? ''}`;
     const g = groups.get(id) ?? { key, cards: [] };
     g.cards.push(c);
     groups.set(id, g);
@@ -193,6 +285,7 @@ export function qualifyingPages(
       if (!tileServesEvent(c.tile, event)) continue;
       add({ event, tile: c.tile, city: null }, c);
       for (const city of new Set(c.cityKeys)) add({ event, tile: c.tile, city }, c);
+      for (const region of regionsForCard(c)) add({ event, tile: c.tile, city: null, region }, c);
     }
   }
   const out: QualifyingPage[] = [];
@@ -204,11 +297,14 @@ export function qualifyingPages(
       b.cards - a.cards ||
       a.event.localeCompare(b.event) ||
       a.tile.localeCompare(b.tile) ||
+      (a.region ?? '').localeCompare(b.region ?? '') ||
       (a.city ?? '').localeCompare(b.city ?? ''),
   );
 }
 
 export function pagePath(p: PageKey, tileSlug: Readonly<Record<string, string>>): string {
   const base = `/suppliers/${eventSlug(p.event)}/${tileSlug[p.tile] ?? p.tile}`;
-  return p.city ? `${base}/${p.city}` : base;
+  if (p.city) return `${base}/${p.city}`;
+  if (p.region) return `${base}/${REGION_PAGE_SLUG[p.region] ?? p.region}`;
+  return base;
 }

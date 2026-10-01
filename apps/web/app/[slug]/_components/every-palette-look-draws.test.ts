@@ -187,3 +187,55 @@ test('6 · nothing moves: no look draws a scroll hook or an animation class', as
     }
   }
 });
+
+test('7 · the person in the role\'s colours wears the SAME colours in every look', async () => {
+  /* #6137 "the palette wears a person": the figure is drawn from the role's
+     hexes, never from the look — so a look can change the chips, never the person. */
+  const figures = (out: string) => [...out.matchAll(/<img [^>]*data-role-figure="[^"]*"[^>]*>/g)].map((m) => m[0]);
+  for (const extra of [{}, { guestRole: 'principal_sponsor_ninang' }]) {
+    const base = figures(await render(extra));
+    assert.ok(base.length > 0, 'the fixture draws the person');
+    for (const look of LOOKS) {
+      assert.deepEqual(figures(await render({ ...extra, paletteLook: look })), base, `${look}: the same person, the same colours`);
+    }
+  }
+});
+
+test('8 · the Welcome page\'s "You are …" follows the Dress code scene\'s look', async () => {
+  const { GuestWelcome } = await import('./guest-welcome');
+  const welcome = (paletteLook?: string) =>
+    html(
+      h(GuestWelcome, {
+        parts: ['look'],
+        words: WORDS,
+        look: {
+          config: DRESS,
+          ceremonyType: null,
+          genderSeparation: null,
+          guestRole: 'principal_sponsor_ninang',
+          march: null,
+          rolePalette: BOARD,
+          ...(paletteLook ? { paletteLook } : {}),
+        },
+        reminders: null,
+        giftHref: null,
+      } as never),
+    );
+  const absent = welcome();
+  assert.doesNotMatch(absent, /sn-pal/, 'no pick → today\'s tags');
+  assert.equal(welcome('tags'), absent);
+  const want = drawn(block(absent, 'you'));
+  assert.ok(want.length > 0, 'the ninang is shown her colours on Welcome');
+  for (const look of LOOKS.filter((l) => l !== 'tags')) {
+    const you = block(welcome(look), 'you');
+    assert.match(you, new RegExp(`class="sn-pal sn-pal-${look}"`), `${look}: Welcome draws her colours in the look`);
+    assert.deepEqual(drawn(you), look === 'circles' ? [...want, ...want] : want);
+  }
+  // And the guest page hands Welcome the Dress code row's own pick (one resolver).
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { stripComments } = await import('@/lib/strip-comments');
+  const body = stripComments(readFileSync(join(__dirname, 'site-body.tsx'), 'utf8'));
+  const wired = body.match(/paletteLook:\s*paletteLookOfRow\(widgetByType\(widgets,\s*'dress_code'\)\)/g) ?? [];
+  assert.equal(wired.length, 1, 'site-body passes the Dress code row\'s look into the guest\'s Welcome');
+});

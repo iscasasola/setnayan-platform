@@ -18,7 +18,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { findSeatToConnect } from '@/lib/event-account-link';
+import { findSeatToConnect, seatHeldElsewhere } from '@/lib/event-account-link';
+import { HeldElsewhereDoor } from './held-elsewhere-door';
 import { CONNECT_THEN_REPLY, connectQuery } from '@/lib/invite-arrival';
 import { COUPLE_SEAT_REFUSED, seatConfirmLine } from '@/lib/seat-binding';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
@@ -50,9 +51,17 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
   if (!user) redirect(`/login?next=${encodeURIComponent(`/join/${eventId}/connect${carry}`)}`);
 
   const seat = await findSeatToConnect(eventId, user.id, user.email ?? null, approved);
-  // Nothing to ask about (already inside, or no seat here) → the connect route
-  // decides where they land, exactly as it did before this page existed.
-  if (!seat) redirect(`/join/${eventId}/connect${carry}`);
+  if (!seat) {
+    // 🔒 ONE INVITATION, ONE ACCOUNT (owner 2026-10-01): the seat this account
+    // reached for is already another account's. Said, exactly, and nothing to
+    // press — the first account keeps it; only the hosts' Unlink releases it.
+    if (await seatHeldElsewhere(eventId, user.id, user.email ?? null, approved)) {
+      return <HeldElsewhereDoor />;
+    }
+    // Nothing to ask about (already inside, or no seat here) → the connect route
+    // decides where they land, exactly as it did before this page existed.
+    redirect(`/join/${eventId}/connect${carry}`);
+  }
 
   const admin = createAdminClient();
   const [{ data: event }, faceTagging, reuse] = await Promise.all([

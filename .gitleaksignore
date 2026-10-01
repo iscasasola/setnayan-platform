@@ -74,3 +74,15 @@ ee7f86117c3154443592c975fa0cdc9e1feea3ac:apps/web/tests/db/papic-rungs-are-funda
 561e8614c97f2cbdbf90d03a258adbc4bd245b41:.gitleaksignore:generic-api-key:58
 
 196989cb55b885203e569654d442ab4d6faea828:apps/web/lib/papic-seat-capture-policy.test.ts:generic-api-key:26
+
+# 6175 (first-visit tours): the `generic-api-key` rule fires on a TOUR NAME. The
+# lines are the new tour ids in the tour registry and its guard test, plus the two
+# places the guest Papic pages hand a tour id to the guest tour component. Each is
+# a stable string id like the dozens already in that file (kebab/snake case, a
+# version suffix) — there is no credential on any of them. Pinned by the
+# introducing commit's fingerprint, as gitleaks-action scans every PR commit.
+8023bb096ed42e2682206d50e8c6bbbd32668ab3:apps/web/app/papic/me/[token]/page.tsx:generic-api-key:299
+8023bb096ed42e2682206d50e8c6bbbd32668ab3:apps/web/app/papic/me/[token]/page.tsx:generic-api-key:394
+8023bb096ed42e2682206d50e8c6bbbd32668ab3:apps/web/lib/choices-are-one-dropdown.test.ts:generic-api-key:140
+8023bb096ed42e2682206d50e8c6bbbd32668ab3:apps/web/lib/tours.ts:generic-api-key:131
+8023bb096ed42e2682206d50e8c6bbbd32668ab3:apps/web/lib/tours.ts:generic-api-key:416

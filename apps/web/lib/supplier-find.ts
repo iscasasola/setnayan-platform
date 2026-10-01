@@ -29,6 +29,7 @@
  * `more` rather than vanishing.)
  */
 import type { WeddingTile } from '@/lib/taxonomy';
+import { formatCount } from '@/lib/format-number';
 import type { ShortlistFolder } from '@/lib/shortlist-taxonomy';
 
 export type FindGroupId =
@@ -312,7 +313,7 @@ export function buildFindList(args: {
 export function supplierCountLabel(n: number | null): string | null {
   if (n == null) return null;
   if (n <= 0) return 'Joining soon';
-  return n === 1 ? '1 supplier' : `${n} suppliers`;
+  return n === 1 ? '1 supplier' : `${formatCount(n)} suppliers`;
 }
 
 // ── A category → its suppliers: the ONE Filter ▾ ────────────────────────────

@@ -32,6 +32,7 @@ import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import { coupleUnreadCount, isActiveInboxThread, readCoupleUnread } from '@/lib/couple-inbox';
 import { startThreadByVendorEmail } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Chats' };
 
@@ -216,7 +217,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         </h2>
         {unreadCount ? (
           <p className="mt-1 text-[13px] text-ink/60" data-inbox-unread={unreadCount}>
-            {unreadCount} unread
+            {formatCount(unreadCount)} unread
           </p>
         ) : null}
       </header>

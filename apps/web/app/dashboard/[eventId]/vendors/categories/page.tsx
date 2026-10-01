@@ -47,6 +47,7 @@ import {
 } from '@/lib/vendor-counts';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { formatPhpRounded } from '@/lib/php';
+import { formatCount } from '@/lib/format-number';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   applyFindFilter,
@@ -224,7 +225,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
         </form>
 
         <p className="mt-3 text-[13px] text-ink/55">
-          {rows.length === 1 ? '1 supplier' : `${rows.length} suppliers`}
+          {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
           {res.hasReceptionCoords ? ' · nearest first' : ''}
         </p>
 
@@ -273,7 +274,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
                         <p className="mt-0.5 inline-flex items-center gap-1 text-[12.5px] text-ink/60">
                           <Star className="h-3 w-3" aria-hidden />
                           {r.rating.toFixed(1)}
-                          {r.reviewCount ? ` · ${r.reviewCount}` : ''}
+                          {r.reviewCount ? ` · ${formatCount(r.reviewCount)}` : ''}
                         </p>
                       ) : null}
                     </div>
@@ -390,7 +391,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
               <h3 className="flex items-baseline justify-between text-[12px] font-medium uppercase tracking-wide text-ink/50">
                 <span>{g.label}</span>
                 {g.bookedCount ? (
-                  <span className="normal-case tracking-normal">{g.bookedCount} booked</span>
+                  <span className="normal-case tracking-normal">{formatCount(g.bookedCount)} booked</span>
                 ) : null}
               </h3>
               <ul className="mt-1">{g.categories.map(row)}</ul>

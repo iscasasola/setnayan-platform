@@ -48,8 +48,8 @@
  *
  * ── WHY AN ALLOW-LIST AND NOT A DENY-LIST ───────────────────────────────────
  * `WizardState` (lib/wizard.ts) declares two named fields plus an OPEN index
- * signature (`[key: string]: unknown`), and `markTaskInFlight` /
- * `markTaskComplete` (app/dashboard/[eventId]/wizard-actions.ts) copy ANY
+ * signature (`[key: string]: unknown`), and the wizard task helpers (`markTaskDone` and the
+ * since-removed `markTaskInFlight`; app/dashboard/[eventId]/wizard-actions.ts) copy ANY
  * `meta_*` form field straight into a nested `meta` object. The key set is
  * therefore unbounded and grows every time a card is added. A deny-list would
  * fail OPEN for every key someone adds after it is written — which is exactly

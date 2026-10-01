@@ -107,8 +107,8 @@ const ROSTER: Record<string, { count: number; why: string }> = {
     why: 'select + row type; "Paid so far" via paidToVendorPhp, Cancel-vs-Dispute via bookingMoneyMoved(ev)',
   },
   'app/dashboard/[eventId]/vendors/actions.ts': {
-    count: 4,
-    why: 'the vendors-list form WRITES the typed figure (key + form field); cancelBookingAsHost selects it for bookingMoneyMoved',
+    count: 2,
+    why: 'cancelBookingAsHost selects it for bookingMoneyMoved (select + row type); the vendors-list form that WROTE the typed figure was removed 2026-10-02 with createVendor',
   },
   'app/dashboard/[eventId]/delete-actions.ts': {
     count: 2,

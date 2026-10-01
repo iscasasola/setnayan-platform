@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4645759f5",
+  "generatedFromRef": "76c6ed108",
   "routeCount": 443,
   "destinations": 968,
   "actions": 681,
-  "blocks": 5368,
+  "blocks": 5367,
   "routes": {
     "/": {
       "files": [
@@ -202,7 +202,6 @@
       ],
       "blocks": [
         "ActivityBadges",
-        "AddVenueToPlanResult",
         "CatalogView",
         "CategoryTile",
         "CeremonyVenuePanel",

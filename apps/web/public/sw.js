@@ -514,6 +514,7 @@ async function enforceImmutableLimits() {
 // — a hashed name is never re-fetched once cached).
 function isKeepableBuildFile(response) {
   if (!response || response.status !== 200 || response.type !== 'basic') return false;
+  if (response.redirected) return false;
   const type = (response.headers.get('Content-Type') || '').toLowerCase();
   return !type.includes('text/html');
 }
@@ -522,8 +523,16 @@ function isKeepableBuildFile(response) {
 // work (store, touch, evict, index flush) for the caller's event.waitUntil.
 async function immutableCacheFirst(request, url, after) {
   const key = immutableKey(url);
-  const cache = await caches.open(IMMUTABLE_CACHE);
-  const cached = await cache.match(key);
+  let cache;
+  let cached;
+  try {
+    cache = await caches.open(IMMUTABLE_CACHE);
+    cached = await cache.match(key);
+  } catch {
+    // Storage unavailable (private mode, quota, a closing context): behave as
+    // if there were no worker at all rather than failing the script load.
+    return fetch(request);
+  }
   if (cached) {
     after.push(
       withImmutableLock(async () => {

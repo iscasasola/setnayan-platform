@@ -23,7 +23,8 @@
  *   - clearAllCaches skipping the immutable cache      → "CACHE_BUST drops every cache"
  *   - `?dpl=` kept in the cache key                    → "a content-hashed chunk survives a deploy"
  *   - the text/html refusal removed                    → "an HTML answer is never pinned"
- *   - the 30-day prune / LRU budget disabled           → "evicts by last request"
+ *   - the 30-day prune / LRU budget disabled           → "evicts by last request" / "evicts by size"
+ *   - the try/catch around opening the cache removed   → "when storage is unavailable…"
  */
 
 import { test } from 'node:test';
@@ -386,4 +387,15 @@ test('the immutable cache name never carries the per-deploy VERSION', () => {
   assert.ok(line, 'sw.js declares `const IMMUTABLE_CACHE = …;`');
   assert.doesNotMatch(line[1] ?? '', /VERSION/, 'IMMUTABLE_CACHE must not be derived from VERSION');
   assert.match(src, /KNOWN_CACHES = \[[^\]]*IMMUTABLE_CACHE/, 'activate must keep it');
+});
+
+test('when storage is unavailable the chunk still loads from the network', async () => {
+  const world = newWorld();
+  const a = await deploy(world, 'deployA');
+  world.caches.open = async () => {
+    throw new Error('QuotaExceededError');
+  };
+  const { responded, response } = await a.fetch(CHUNK);
+  assert.ok(responded);
+  assert.equal(await response?.text(), `// ${CHUNK}`, 'a broken cache never breaks the page');
 });

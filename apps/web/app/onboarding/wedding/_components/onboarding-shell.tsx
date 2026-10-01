@@ -111,6 +111,7 @@ import { resolvePick } from '../_data/wedding-cities';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
 import { formatCount } from '@/lib/format-number';
+import { seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import {
   setupCardAnswered,
@@ -2031,7 +2032,28 @@ export function OnboardingShell({
     });
   }, []);
 
-  const selectRole = (r: OnboardingRole) => patch({ role: r });
+  /*
+   * "PLAN AN EVENT TOGETHER" (owner 2026-09-29: "add partner (to become a
+   * couple)"). A couple who confirmed each other on People arrive here with
+   * both first names carried in sessionStorage (lib/onboarding/couple-handoff —
+   * never the URL). Taken ONCE on mount; each name is seated only when the
+   * person says whether they are the bride or the groom, and never over a name
+   * they already typed. We do not guess who walks down the aisle.
+   */
+  const coupleCarry = useRef<CoupleCarry | null>(null);
+  useEffect(() => {
+    coupleCarry.current = takeCouple();
+  }, []);
+  const selectRole = (r: OnboardingRole) =>
+    setState((s) => {
+      const seated = seatCouple(r, coupleCarry.current, s);
+      return {
+        ...s,
+        role: r,
+        ...(seated.brideFirstName !== undefined ? { brideFirstName: sanitizeName(seated.brideFirstName) } : {}),
+        ...(seated.groomFirstName !== undefined ? { groomFirstName: sanitizeName(seated.groomFirstName) } : {}),
+      };
+    });
 
   // No faith is pre-selected — the couple picks their tradition on the faith screen
   // (owner 2026-06-05: no prefilled onboarding values).

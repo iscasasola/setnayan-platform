@@ -16,7 +16,52 @@ export type ConnectionRelation =
   | 'sibling'
   | 'godparent'
   | 'godchild'
-  | 'friend';
+  | 'friend'
+  | 'partner';
+
+/**
+ * EVERY stored relation, in one list — the database's
+ * `person_connections_relation_check` holds exactly these (migration
+ * 20271254271392). `partner` is the owner's 2026-09-29 addition: *"add partner
+ * (to become a couple)"*. `vocabulary-is-one-list.test.ts` pins this list to the
+ * CHECK, to the kinship reader and to the derivation, so a word added in one
+ * place and forgotten in another goes red instead of silently deriving nothing.
+ */
+export const CONNECTION_RELATIONS: readonly ConnectionRelation[] = [
+  'spouse',
+  'parent',
+  'child',
+  'sibling',
+  'godparent',
+  'godchild',
+  'friend',
+  'partner',
+];
+
+/**
+ * The same edge, read from the OTHER side. `relation` is what to_person IS to
+ * from_person, so if Ana says Ben is her Parent, Ben is asked to confirm Ana as
+ * his Child — never shown "Parent" about somebody who is his daughter.
+ */
+export const INVERSE_RELATION: Record<ConnectionRelation, ConnectionRelation> = {
+  spouse: 'spouse',
+  parent: 'child',
+  child: 'parent',
+  sibling: 'sibling',
+  godparent: 'godchild',
+  godchild: 'godparent',
+  friend: 'friend',
+  partner: 'partner',
+};
+
+/** What the other person is to ME, given the row and which side I am on. */
+export function relationForViewer(
+  relation: ConnectionRelation | null,
+  viewerIsDeclarer: boolean,
+): ConnectionRelation | null {
+  if (!relation) return null;
+  return viewerIsDeclarer ? relation : INVERSE_RELATION[relation];
+}
 
 export type ConnectionLayer = 'family' | 'ritual' | 'friend';
 
@@ -29,7 +74,7 @@ export function layerForRelation(relation: ConnectionRelation): ConnectionLayer 
     case 'friend':
       return 'friend';
     default:
-      // spouse · parent · child · sibling
+      // spouse · parent · child · sibling · partner
       return 'family';
   }
 }
@@ -44,6 +89,7 @@ export const DECLARABLE_RELATIONS: ConnectionRelation[] = [
   'child',
   'godparent',
   'friend',
+  'partner',
 ];
 
 /**

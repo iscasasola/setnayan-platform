@@ -150,9 +150,6 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/subscription',
       // ⚠ `/more` and `/notifications` moved to the More tab (2026-10-01, the
       // supplier phone app): there IS a More tab again, and they are its rows.
-      // Tax docs RETIRED 2026-05-29 (page redirects to /vendor-dashboard) —
-      // kept for bookmark continuity so a stale hit still lights a tab.
-      '/vendor-dashboard/tax-documents',
       // My Services was folded into My Shop (2026-07-02) — the retired services
       // routes light this tab so bookmarks/deep-links never go unlit.
       '/vendor-dashboard/services',

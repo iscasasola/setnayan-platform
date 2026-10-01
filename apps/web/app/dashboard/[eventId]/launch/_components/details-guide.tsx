@@ -9,7 +9,6 @@ import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { PreviewStageLink } from './maker-play-menu';
 import { useMaker } from './maker-context';
 import {
-  GUIDED_ROUNDS,
   type GuidedPlan,
   type GuidedRound,
   type GuidedScreen,
@@ -60,7 +59,7 @@ export type DetailsGuide = {
 
 /** A step's heading: its round, its name, where it shows. */
 export function GuideHead({ step, itemLabel, compact }: { step: GuidedStep; itemLabel: string | null; compact: boolean }) {
-  const eyebrow = `Round ${step.round} · ${GUIDED_ROUNDS[step.round].title}${step.optional ? ' · optional' : ''}${
+  const eyebrow = `Round ${step.round} · ${step.roundTitle}${step.optional ? ' · optional' : ''}${
     itemLabel && step.items.length > 1 ? ` · ${itemLabel}` : ''
   }`;
   return (
@@ -117,7 +116,7 @@ export function GuideReady({
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
         <header className="flex flex-col gap-0.5">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Round {round} · {GUIDED_ROUNDS[round].title}
+            Round {round} · {plan.roundWords[round].title}
           </p>
           <h2 className="font-serif text-2xl text-ink">{left ? 'Almost ready' : 'Ready'}</h2>
           <p className="text-[14px] text-ink/75" data-details-guide-ready-line="">
@@ -127,7 +126,7 @@ export function GuideReady({
               </>
             ) : (
               <>
-                <b className="font-semibold text-ink">{GUIDED_ROUNDS[round].ready}.</b> Apply puts it live.
+                <b className="font-semibold text-ink">{plan.roundWords[round].ready}.</b> Apply puts it live.
               </>
             )}
           </p>
@@ -290,7 +289,7 @@ export function GuideFoot({
             data-details-guide-next=""
             className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full border border-ink/15 bg-white px-4 text-[14px] font-semibold text-ink"
           >
-            Next round: {GUIDED_ROUNDS[nextRound].title}
+            Next round: {plan.roundWords[nextRound].title}
             <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         ) : null}

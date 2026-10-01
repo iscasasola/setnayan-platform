@@ -106,7 +106,7 @@ export type BuildStatus = 'live' | 'partial' | 'not_built';
 
 /**
  * The couple-facing period suffix for a recurring SKU. Verbose "/ 28 days"
- * matches the vendor pricing house style (`/vendors` renders "/ 28 days"
+ * matches the vendor pricing house style (`/for-suppliers` renders "/ 28 days"
  * for the prepaid-block subs). `one_time` renders NOTHING, so flat SKUs are
  * byte-identical to the pre-subscription path. The suffix is data-driven off
  * the catalog `billing_period`, never hardcoded per surface.

@@ -29,6 +29,7 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 import { DEFAULT_PASS_CARD_DESIGN, passCardDesignFrom, type PassCardDesign } from '@/lib/pass-card';
+import { DEFAULT_NAME_STYLE, nameStyleFrom, type NameStyle } from '@/lib/name-style';
 
 /** 72 PDF points to the inch. */
 export const PT_PER_IN = 72;
@@ -90,7 +91,7 @@ export const PRINT_PIECES: Record<PrintPieceKey, PrintPieceSpec> = {
   'story-poster': { key: 'story-poster', label: 'Our Story poster', size: 'A3 · 297 × 420 mm', widthPt: mm(297), heightPt: mm(420), kind: 'set' },
   // Laid out at 3 : 4 and fitted to its FORMAT (A5 by default, or an index card).
   card: { key: 'card', label: 'Event card', size: 'A5 · index card', widthPt: inch(4.5), heightPt: inch(6), kind: 'set' },
-  passes: { key: 'passes', label: 'Every guest’s pass', size: 'ganged on A4 with cut lines', widthPt: 90 * (72 / 25.4), heightPt: 54 * (72 / 25.4), kind: 'batch' },
+  passes: { key: 'passes', label: 'Every guest’s ticket', size: 'ganged on A4 with cut lines', widthPt: 90 * (72 / 25.4), heightPt: 54 * (72 / 25.4), kind: 'batch' },
   'qr-codes': { key: 'qr-codes', label: 'QR codes', size: 'A4 · every guest', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
   // The FREE group's documents (owner 2026-09-25, "PRINTS & TICKETS HOLDS EVERY
   // PRINT"). Each is an A4 PDF laid out in the same op vocabulary
@@ -644,7 +645,53 @@ export type StoredPrintDetails = {
   inviteMessage: string | null;
   /** The pass card's look (owner 2026-09-29) — absent reads as the default, Classic. */
   passDesign?: PassCardDesign;
+  /**
+   * 🖼 THE A3 OUR STORY POSTER'S OWN PHOTO (owner 2026-09-29, DECISION_LOG
+   * "OWNER ANSWERS — TEN OPEN QUESTIONS" (1): *"Poster: can add media
+   * background"*). Optional: absent, the theme's picture stays the default.
+   * `w`/`h` are the photo's pixels, measured by the server when it was chosen —
+   * the panel warns when they are too few for A3 paper (`posterPhotoTooSmall`).
+   */
+  posterPhoto?: PosterPhoto | null;
+  /**
+   * 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE PICKS
+   * A NAME STYLE") — Full · Middle initial · Surname first, stored as
+   * `name_style`. Event-wide words with no other home, like the invite message:
+   * the entourage, the tickets, the printed cards, the name lists and `{name}`
+   * all print through it (`lib/name-style.ts`). Absent reads as Full = today.
+   * Saved by the Maker's Details › Names dropdown (`POST /api/hub-print/name-style`).
+   */
+  nameStyle?: NameStyle;
 };
+
+export type PosterPhoto = { ref: string; w: number | null; h: number | null };
+
+/**
+ * The fewest pixels an A3 poster photo may have before the panel warns: A3 at
+ * 150 dpi (297 × 420 mm → 1754 × 2480). Below it the print looks soft; 300 dpi
+ * (3508 × 4961) is ideal. Either orientation counts — the photo is cropped to fill.
+ */
+export const POSTER_PHOTO_MIN_PX = { short: 1754, long: 2480 } as const;
+
+export function posterPhotoTooSmall(p: PosterPhoto | null | undefined): boolean {
+  if (!p || !p.w || !p.h) return false;
+  const short = Math.min(p.w, p.h);
+  const long = Math.max(p.w, p.h);
+  return short < POSTER_PHOTO_MIN_PX.short || long < POSTER_PHOTO_MIN_PX.long;
+}
+
+/** Only the couple's own uploads for THIS event may sit behind the poster. */
+export function posterPhotoRefAllowed(ref: string, eventId: string): boolean {
+  return /^r2:\/\/[a-z0-9-]+\/events\//.test(ref) && ref.includes(`/events/${eventId}/`) && ref.length <= 600 && !ref.includes('..');
+}
+
+function parsePosterPhoto(raw: unknown): PosterPhoto | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.ref !== 'string' || !r.ref.startsWith('r2://') || r.ref.length > 600) return null;
+  const px = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 && v < 100_000 ? Math.round(v) : null);
+  return { ref: r.ref, w: px(r.w), h: px(r.h) };
+}
 
 // ─── The Menu ───────────────────────────────────────────────────────────────
 
@@ -745,7 +792,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * absent or broken value is nothing — never an invented opening line.
  */
 export function parsePrintDetails(raw: unknown): StoredPrintDetails {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [], inviteMessage: null, passDesign: DEFAULT_PASS_CARD_DESIGN };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [], inviteMessage: null, passDesign: DEFAULT_PASS_CARD_DESIGN, nameStyle: DEFAULT_NAME_STYLE };
   const r = raw as Record<string, unknown>;
   let rsvp: RsvpChoice | null = null;
   const c = r.rsvp && typeof r.rsvp === 'object' ? (r.rsvp as Record<string, unknown>) : null;
@@ -762,6 +809,8 @@ export function parsePrintDetails(raw: unknown): StoredPrintDetails {
     menu: parseMenu(r.menu),
     inviteMessage: sanitizeInviteTemplate(r.invite_message),
     passDesign: passCardDesignFrom(r.pass_design),
+    posterPhoto: parsePosterPhoto(r.poster_photo),
+    nameStyle: nameStyleFrom(r.name_style),
   };
 }
 
@@ -774,24 +823,14 @@ export function serializePrintDetails(d: StoredPrintDetails): Record<string, unk
     menu: d.menu,
     invite_message: d.inviteMessage,
     pass_design: d.passDesign ?? DEFAULT_PASS_CARD_DESIGN,
+    poster_photo: d.posterPhoto ? { ref: d.posterPhoto.ref, w: d.posterPhoto.w, h: d.posterPhoto.h } : null,
+    name_style: d.nameStyle ?? DEFAULT_NAME_STYLE,
   };
 }
 
-/**
- * OPENING-LINE TEMPLATES — owner 2026-09-25: *"Opening line, yes you can place it
- * there but provide a template as well"*, on the pattern the E-Gifts page already
- * uses for its message (`PABUYA_TEMPLATES`): a template FILLS THE BOX; what is
- * saved is always the couple's text, so improving a template's wording later
- * never rewrites anybody's card.
- */
-export type OpeningLineTemplate = { key: string; name: string; body: string };
-export const OPENING_LINE_TEMPLATES: readonly OpeningLineTemplate[] = [
-  { key: 'faith', name: 'Faith', body: 'With thanksgiving to God and with the blessing of our parents,' },
-  { key: 'formal', name: 'Formal', body: 'Together with their families, request the honour of your presence at their marriage' },
-  { key: 'warm', name: 'Warm', body: 'With joyful hearts, we invite you to celebrate the beginning of our forever' },
-  { key: 'filipino', name: 'Filipino', body: 'Sa biyaya ng Diyos at sa basbas ng aming mga magulang, kami ay nag-aanyaya' },
-  { key: 'simple', name: 'Simple', body: 'Please join us as we begin our life together' },
-];
+/* The opening-line templates live in `lib/opening-lines.ts` (tap-to-type's
+   Wording ▾ offers them too, without loading this file) — re-exported here. */
+export { OPENING_LINE_TEMPLATES, type OpeningLineTemplate } from './opening-lines';
 
 /**
  * A parent's printed name. 🕯 A parent the couple marked "Passed away" on the

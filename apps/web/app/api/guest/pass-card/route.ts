@@ -3,10 +3,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getHostUserId } from '@/lib/host-gate';
 import { readGuestSession } from '@/lib/guest-session';
-import { decidePassCardAccess, passCardDesignFrom } from '@/lib/pass-card';
+import { PASS_CARD_REFUSED, PASS_CARD_WORDS, decidePassCardAccess } from '@/lib/pass-card';
+import { REQUEST_WORDS } from '@/lib/request-key';
 import {
   asPassCardRow,
   loadPassCardKit,
+  passCardDesignFor,
   passCardFileNameFor,
   passCardVersion,
   readPassCardGuest,
@@ -16,7 +18,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * GET /api/guest/pass-card[?guest=<uuid>][&design=classic] — ONE guest's pass
- * card, the 1080 × 1440 PNG "Save to Photos" keeps (lib/pass-card.ts).
+ * card, the 1080 × 1440 PNG "Save to Photos" keeps (lib/pass-card.ts). It is
+ * ALSO the picture the guest's Event Hub shows (`GuestTicketCard`, 2026-09-30),
+ * so what they see and what they save are one file. The look is the couple's
+ * pick unless `design` asks for another (`passCardDesignFor`).
  *
  * 🔒 WHO — `decidePassCardAccess`, pure and tested:
  *   · the signed guest session (`setnayan_guest_session`, httpOnly — the same
@@ -59,8 +64,7 @@ async function callerIsHost(eventId: string): Promise<boolean> {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const asked = url.searchParams.get('guest');
-  if (asked !== null && !UUID.test(asked)) return new NextResponse('No pass here.', { status: 404 });
-  const design = passCardDesignFrom(url.searchParams.get('design'));
+  if (asked !== null && !UUID.test(asked)) return new NextResponse(PASS_CARD_REFUSED, { status: 404 });
 
   const session = await readGuestSession();
   const guestId = asked ?? session?.guest_id ?? null;
@@ -84,10 +88,34 @@ export async function GET(req: Request) {
     readFailed: failed,
   });
   if (!verdict.allow) return new NextResponse(verdict.message, { status: verdict.status });
-  if (!target) return new NextResponse('No pass here.', { status: 404 });
+  if (!target) return new NextResponse(PASS_CARD_REFUSED, { status: 404 });
 
   const kit = await loadPassCardKit(admin, target.event_id, { seatsFor: [target.guest_id] });
-  if (!kit?.set.event.slug) return new NextResponse('No pass here.', { status: 404 });
+  if (!kit?.set.event.slug) return new NextResponse(PASS_CARD_REFUSED, { status: 404 });
+
+  const design = passCardDesignFor(kit, url.searchParams.get('design'));
+
+  // 🔓 A waiting guest's own seat: the "Request pending" ticket — the SAME
+  // drawing `/api/guest/request-ticket` hands a requester on Send, so the Event
+  // Hub and the file never disagree. Never cached: it 404s or turns into the
+  // real ticket the moment the couple decides.
+  if (verdict.pending) {
+    const couple = (kit.set.event.display_name ?? '').trim() || 'the couple';
+    try {
+      const png = await renderPassCardFor(kit, target, 'classic', { pending: REQUEST_WORDS.bandSub(couple) });
+      return new NextResponse(Buffer.from(png), {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/png',
+          'Content-Disposition': `attachment; filename="${passCardFileNameFor(kit, target)}"`,
+          'Cache-Control': 'private, no-store',
+        },
+      });
+    } catch (err) {
+      logQueryError('pass-card.render-pending', err, { guest_id: target.guest_id }, 'graceful_degrade');
+      return new NextResponse(`Could not draw your ${PASS_CARD_WORDS.noun} just now. Try again.`, { status: 503 });
+    }
+  }
 
   const etag = `"${passCardVersion(kit, target, design)}"`;
   const headers = {
@@ -103,6 +131,6 @@ export async function GET(req: Request) {
     return new NextResponse(Buffer.from(png), { status: 200, headers });
   } catch (err) {
     logQueryError('pass-card.render', err, { guest_id: target.guest_id }, 'graceful_degrade');
-    return new NextResponse('Could not draw your pass just now. Try again.', { status: 503 });
+    return new NextResponse(`Could not draw your ${PASS_CARD_WORDS.noun} just now. Try again.`, { status: 503 });
   }
 }

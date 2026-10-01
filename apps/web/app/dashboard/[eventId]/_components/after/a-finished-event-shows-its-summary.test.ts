@@ -60,9 +60,17 @@ test('after the event, the rail carries the editorial maker and the galleries', 
     JSON.stringify(maker ?? {}).includes('/dashboard/EVT123/story'),
     'the Maker row must claim /story so the workroom is never unlit',
   );
+  /* 🔄 Stage D (2026-09-29): Galleries is the Gallery card on Our Services, no
+     longer a row of its own — so the After rail must carry Our Services, and
+     that row must claim /galleries (a person on the galleries sees where they
+     are). The card's href is held by `lib/our-services.test.ts`. */
+  const services = buildCustomerNavGroups('EVT123', { websiteEnabled: true, phase: 'after' })
+    .flatMap((g) => g.items)
+    .find((i) => i.key === 'studio');
+  assert.ok(services, 'the After rail must carry Our Services — the galleries have no other door');
   assert.ok(
-    after.includes('/dashboard/EVT123/galleries'),
-    'the After rail must carry a row for the galleries',
+    services!.alsoMatch?.includes('/dashboard/EVT123/galleries'),
+    'Our Services must claim /galleries so the galleries are never unlit',
   );
 });
 
@@ -85,7 +93,7 @@ test('after the event, every planning row the person already had is still there'
   /* ✏️ 2026-09-25: Editorial's door moved into the Event Hub Maker (its own
      row left the tree), so After now adds no row and removes none. */
   assert.equal(after.length, plan.length, 'After removes no row (Editorial is a door in the Maker)');
-  assert.ok(plan.includes('/dashboard/EVT123/galleries'), 'Galleries must be a row before the day too');
+  // Stage D: the rail is the same five (+ Seat plan) in every phase.
 });
 
 /*
@@ -115,7 +123,8 @@ test('the rail and the phone agree on the After destinations', () => {
      unchanged and still holds that door open, which is the whole 2026-08-21
      lesson. The Hub itself is compared here too, so the two rosters cannot
      start disagreeing about where the after-phase leads. */
-  for (const key of ['launch', 'galleries']) {
+  // Stage D: the galleries are reached through Our Services (key 'studio').
+  for (const key of ['launch', 'studio']) {
     const row = phone.find((m) => m.key === key);
     assert.ok(row, `the phone's After roster lost its ${key} tab`);
     assert.ok(

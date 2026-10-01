@@ -39,7 +39,8 @@ export async function ConnectionLogsSurface() {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const [{ data: activeData }, { data: resolvedData }] = await Promise.all([
+  const [{ data: activeData, error: activeError }, { data: resolvedData, error: resolvedError }] =
+    await Promise.all([
     admin
       .from('app_telemetry_logs')
       .select(SELECT_COLS)
@@ -54,6 +55,22 @@ export async function ConnectionLogsSurface() {
       .order('created_at', { ascending: false })
       .limit(ROW_LIMIT),
   ]);
+
+  /* 🚨 A REFUSED READ SAID "All clear — No active faults right now." (admin
+     audit 2026-09-30, row 9). Both errors were dropped, `?? []` handed the
+     island two empty lists, and a fault tracker that could not read its faults
+     announced there were none. The island is not mounted on a refusal — an
+     empty island IS the all-clear — so the notice is the whole surface. */
+  if (activeError || resolvedError) {
+    return (
+      <div
+        role="alert"
+        className="rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink"
+      >
+        Couldn&rsquo;t load this — refresh to try again. This is not an all-clear.
+      </div>
+    );
+  }
 
   return (
     <ConnectionLogsClient

@@ -27,7 +27,7 @@
  * persistent reskin footer mounted after {children}) so nav + footer always
  * agree on where the marketing shell applies.
  *
- * Canonical post-redirect paths: `/vendors`→`/explore` (middleware) and
+ * Canonical post-redirect paths: `/vendors/*`→`/explore` (middleware), `/vendors`→`/for-suppliers` and
  * `/weddings`→`/realstories` (next.config) — so the marketplace + showcase are
  * keyed by their real landed pathnames.
  */
@@ -77,7 +77,7 @@ const NAV_ROUTES = new Set<string>([
   // renders its OWN nav instance (HomeReskin), which carries the cinematic
   // gate state (white glass on the closed gate → ink glass once opened).
   // Mounting this chrome on top of it would double the nav.
-  '/vendors',
+  '/for-suppliers',
   // /creators — the public storyteller marketing page (2026-07-16); joins the
   // marketing shell alongside its /vendors sibling.
   '/creators',

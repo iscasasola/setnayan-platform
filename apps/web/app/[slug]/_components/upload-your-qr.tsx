@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { NOT_THIS_EVENTS_CODE, uploadedQrTarget } from '@/lib/uploaded-qr';
+import { NOT_THIS_EVENTS_CODE, UNREADABLE_QR, uploadedQrTarget } from '@/lib/uploaded-qr';
 
 /**
  * "UPLOAD YOUR QR" (owner 2026-09-27: *"sign in to enter or upload your qr to
@@ -37,14 +37,19 @@ export function UploadYourQr({ slug }: { slug: string }) {
       ctx.drawImage(bitmap, 0, 0, w, h);
       const pixels = ctx.getImageData(0, 0, w, h);
       const found = jsQR(pixels.data, w, h, { inversionAttempts: 'attemptBoth' });
-      const target = found ? uploadedQrTarget(found.data, slug) : null;
+      // Nothing read at all is not "the wrong code" — it says how to fix it.
+      if (!found) {
+        setSaid(UNREADABLE_QR);
+        return;
+      }
+      const target = uploadedQrTarget(found.data, slug);
       if (target) {
         window.location.assign(target);
         return;
       }
       setSaid(NOT_THIS_EVENTS_CODE);
     } catch {
-      setSaid(NOT_THIS_EVENTS_CODE);
+      setSaid(UNREADABLE_QR);
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = '';

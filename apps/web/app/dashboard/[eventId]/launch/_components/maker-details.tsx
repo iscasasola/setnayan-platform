@@ -64,11 +64,13 @@ import {
   type WordsItemKey,
 } from '@/lib/maker-details-items';
 import { LOVE_STORY_CHAPTERS, LOVE_STORY_CHAPTER_LABEL } from '@/lib/love-story-moments';
-import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
+import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import { updateOurStory } from '../../website/our-story/actions';
+import { InMakerLiveStoryPanel } from '../../website/our-story/_components/in-maker-return-to';
 
-import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-look-pages';
+// ⚡ Opened on a tap — the Look editors load with the Details pieces (`details-lazy.tsx`).
+import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-lazy';
 /* ⚡ Each piece's editor and picture load when Details is opened — never with the
    Maker (`details-lazy.tsx`; held by `details-pieces-are-lazy.test.ts`). */
 import {
@@ -335,16 +337,22 @@ export function detailsFactEditors(input: {
       </div>
     ),
     /* ── The Love Story's words — the Story row's own panel (its chapters, their
-       moments and their questions), `updateOurStory`, drafted. ── */
+       moments and their questions), drafted as they are typed. ── */
     ...(input.loveStory
       ? {
           'love-story': (
-            <StoryPanel
-              action={updateOurStory.bind(null, eventId)}
-              eventId={eventId}
-              story={input.loveStory.story}
-              ownsPro={input.loveStory.ownsPro}
-            />
+            /* ⚡ In the Maker every answer saves as it is typed and is on the
+               scrapbook at once (`love-story-live.tsx`, handed down by the
+               Maker) — no Save button, no render. Without the Maker around it
+               (the dev lab) the Story row's own form, as it was. */
+            <InMakerLiveStoryPanel panel={{ eventId, story: input.loveStory.story, ownsPro: input.loveStory.ownsPro }}>
+              <StoryPanel
+                action={updateOurStory.bind(null, eventId)}
+                eventId={eventId}
+                story={input.loveStory.story}
+                ownsPro={input.loveStory.ownsPro}
+              />
+            </InMakerLiveStoryPanel>
           ),
         }
       : {}),
@@ -367,6 +375,9 @@ export function MakerDetails(props: MakerDetailsProps) {
   // `v=` the render stamp, so a changed look shows at once.
   const qrSrc = slug ? `/api/website/qr/${encodeURIComponent(slug)}?draft=1&v=${encodeURIComponent(stamp)}` : null;
   const qrMark = makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell });
+  // ⭕ The plate follows the code (owner 2026-09-30): a round code sits on a round plate.
+  // The plate WRAPS the picture rather than clipping it, so a code drawn square still shows whole.
+  const qrPlate = qr.style.shape === 'circle' ? ' rounded-full' : '';
   const free = freePrintParts(eventId, slug);
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
@@ -491,8 +502,10 @@ export function MakerDetails(props: MakerDetailsProps) {
         className="flex flex-col items-center gap-3 rounded-md bg-white/80 p-4 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)] sm:flex-row sm:text-left"
       >
         {qrSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG
-          <img src={qrSrc} alt="QR code for your Event Hub address" width={176} height={176} className="h-40 w-40 shrink-0 bg-white p-1 sm:h-44 sm:w-44" />
+          <span className={`shrink-0 bg-white p-1${qrPlate}`} data-qr-plate="">
+            {/* eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG */}
+            <img src={qrSrc} alt="QR code for your Event Hub address" width={176} height={176} className="block h-[152px] w-[152px] sm:h-[168px] sm:w-[168px]" />
+          </span>
         ) : null}
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink">Your Event Hub address</p>
@@ -515,8 +528,10 @@ export function MakerDetails(props: MakerDetailsProps) {
     qr: (
       <section data-details-qr="" className="flex flex-col items-center gap-4">
         {qrSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG; `v` is the render stamp so a new look shows at once
-          <img src={qrSrc} alt="Your Event Hub QR code" width={240} height={240} className="h-56 w-56 bg-white p-2 shadow-[0_1px_2px_rgba(40,34,24,.08)]" />
+          <span className={`bg-white p-2 shadow-[0_1px_2px_rgba(40,34,24,.08)]${qrPlate}`} data-qr-plate="">
+            {/* eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG; `v` is the render stamp so a new look shows at once */}
+            <img src={qrSrc} alt="Your Event Hub QR code" width={240} height={240} className="block h-52 w-52" />
+          </span>
         ) : (
           <p className="text-sm text-ink/70">Set your Event Hub address first — the QR opens it.</p>
         )}
@@ -534,7 +549,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     download: <PrintSetBody input={prints} />,
     /* ── Words: how each one reads. The print-only two show the card they
        print on — tap the words on it to edit them on the right. ── */
-    'special-message': <WordsCard text={specialMessage} note="How it reads on your Event Hub." />,
+    'special-message': <WordsCard text={specialMessage} note="How it reads on your Event Hub." live="special_message" />,
     'thank-you': <WordsCard text={pabuyaMessage} note="Your guests read this on your E-Gifts page." />,
     'opening-line': <PrintPieceBody input={prints} piece="invitation" priority={initialItem === 'opening-line'} menu={menu} tappable />,
     'kindly-reply': <PrintPieceBody input={prints} piece="details" priority={initialItem === 'kindly-reply'} menu={menu} tappable />,
@@ -1032,8 +1047,23 @@ function KindlyReplyField({
 }
 
 /** A Words item's picture: the words as guests read them, or an honest empty line. */
-function WordsCard({ text, note }: { text: string | null; note: string }) {
+function WordsCard({ text, note, live }: { text: string | null; note: string; live?: string }) {
   const words = text?.trim() ?? '';
+  if (live) {
+    /* ⚡ Its editor types INTO this card as it saves (`special-message-field.tsx`):
+       both lines are always drawn, one hidden, so the words can arrive. */
+    return (
+      <section data-details-words-card="" data-live-words={live} className="flex flex-col items-center gap-3 rounded-md bg-white/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
+        <p data-live-words-text="" hidden={!words} className="max-w-prose whitespace-pre-line font-serif text-xl leading-relaxed text-ink">
+          {words}
+        </p>
+        <p data-live-words-empty="" hidden={Boolean(words)} className="text-sm text-ink/60">
+          Not written yet — type it on the right.
+        </p>
+        <p className="text-xs text-ink/55">{note}</p>
+      </section>
+    );
+  }
   return (
     <section data-details-words-card="" className="flex flex-col items-center gap-3 rounded-md bg-white/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
       {words ? (
@@ -1048,8 +1078,10 @@ function WordsCard({ text, note }: { text: string | null; note: string }) {
 
 /**
  * 🪑 The Seat plan as the navigator draws it — how many tables, how many are
- * seated, and whether guests see it (its "done": the door is open). Plain
- * words for every kind of event; a count that could not be read is SAID.
+ * seated, and whether guests see it yet. Its "done" is ARRANGED (a guest is
+ * seated), never visibility: seats open by themselves on the event's day, so a
+ * visibility "done" could never be finished before it. Plain words for every
+ * kind of event; a count that could not be read is SAID.
  */
 function seatPlanRow(
   seatPlan: { tables: number | null; seated: number | null; open: boolean | null } | null,
@@ -1061,11 +1093,11 @@ function seatPlanRow(
       ? 'Could not be read just now'
       : t === 0
         ? 'No tables yet'
-        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : ''}`;
+        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : seatPlan?.open === false ? ' · guests see it on the day' : ''}`;
   return {
     label: 'Seat plan',
     sub,
-    done: seatPlan?.open ?? undefined,
+    done: n === null ? undefined : n > 0,
     usedOn: [PUBLIC_STAGE_LABELS.event, 'Table signs', 'Passes', 'Find your seat'],
     icon: <Armchair aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
     panelLabel: 'Guests',

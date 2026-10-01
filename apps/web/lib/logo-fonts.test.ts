@@ -4,8 +4,8 @@
  * sliders snap to the centre (*"allow snap to center here"*).
  *
  *   1. ONE LIST: the Logo text layer's Typeface dropdown offers exactly the
- *      stage Font list (`HUB_ELEMENT_FONTS`), in the stages' own dropdown
- *      (PickMenu, each name in its own face) — never a second list;
+ *      stage Font list (`HUB_FONTS`), in the stages' own dropdown (`FontPick`,
+ *      the one font dropdown, 2026-09-29) — never a second list;
  *   2. every face on that list can actually be DRAWN in a logo: it has an
  *      outline file, the file is in public/, and it outlines "AM";
  *   3. a saved layer keeps any stage face; a studio-era layer keeps the face it
@@ -19,8 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseFont } from 'opentype.js';
 import { stripComments } from './strip-comments';
-import { HUB_ELEMENT_FONTS } from './element-style';
-import { HUB_FONT_KEYS } from './hub-fonts';
+import { HUB_FONT_KEYS, HUB_FONTS } from './hub-fonts';
 import { LOGO_FONT_OUTLINE, LOGO_FONT_OUTLINE_ITALIC, logoFontOutlineUrl, outlineWords, type OtFace } from './logo-fonts';
 import { LOGO_FRAME, LOGO_SLIDER_SNAP, sanitizeLogoLayers, snapSliderToCentre } from './logo-layers';
 
@@ -29,16 +28,14 @@ const EDITOR = 'app/dashboard/[eventId]/launch/_components/maker-logo.tsx';
 const editor = stripComments(readFileSync(join(ROOT, EDITOR), 'utf8'));
 
 test('1 · the Logo offers exactly the stage font list, in the stage dropdown', () => {
-  const stage = HUB_ELEMENT_FONTS.map((f) => f.key).sort();
+  const stage = HUB_FONTS.map((f) => f.key).sort();
   assert.ok(stage.length >= 30, `the stage list is the full catalogue (${stage.length})`);
   assert.deepEqual(Object.keys(LOGO_FONT_OUTLINE).sort(), stage, 'the logo knows every stage font, and no other');
   assert.deepEqual([...HUB_FONT_KEYS].sort(), stage);
   // The editor's Typeface control IS the stage dropdown, fed by the stage list.
-  const picker = /<PickMenu\s[^>]*?label="Typeface"[\s\S]*?\/>/.exec(editor)?.[0] ?? '';
-  assert.ok(picker, 'the Typeface control is a PickMenu');
-  assert.match(picker, /options=\{HUB_ELEMENT_FONTS\.map\(/, 'its options are HUB_ELEMENT_FONTS');
-  assert.match(picker, /fontFamily: hubFontPreviewStack\(f\.key\)/, 'each name is drawn in its own face');
-  assert.match(picker, /group: f\.pickGroup/, 'on the stage list’s shelves');
+  const picker = /<FontPick\s[^>]*?label="Typeface"[\s\S]*?\/>/.exec(editor)?.[0] ?? '';
+  assert.ok(picker, 'the Typeface control is the one font dropdown (FontPick)');
+  assert.doesNotMatch(picker, /\boptions=/, 'fed by the one shelf list, never a list of its own');
   assert.match(editor, /outlineWords\(face, words, 0, 0, S\)/, 'the editor sets words through outlineWords (never a bare face.getPath)');
   assert.doesNotMatch(editor, /face\.getPath\(/);
   assert.doesNotMatch(editor, /STUDIO_FONTS|<select\b/, 'no second font list, no native select');
@@ -46,7 +43,7 @@ test('1 · the Logo offers exactly the stage font list, in the stage dropdown', 
 
 test('2 · every stage font can be outlined into a logo', () => {
   const missing: string[] = [];
-  for (const f of HUB_ELEMENT_FONTS) {
+  for (const f of HUB_FONTS) {
     for (const url of [logoFontOutlineUrl(f.key, false), logoFontOutlineUrl(f.key, true)]) {
       const file = join(ROOT, 'public', url);
       if (!existsSync(file)) {
@@ -63,13 +60,13 @@ test('2 · every stage font can be outlined into a logo', () => {
     }
   }
   assert.deepEqual(missing, [], 'a stage font with no outline file cannot be drawn in a logo');
-  console.log(`# outlined ${HUB_ELEMENT_FONTS.length} stage fonts (+${Object.keys(LOGO_FONT_OUTLINE_ITALIC).length} italic)`);
+  console.log(`# outlined ${HUB_FONTS.length} stage fonts (+${Object.keys(LOGO_FONT_OUTLINE_ITALIC).length} italic)`);
 });
 
 test('3 · a saved layer keeps any stage face; a studio-era layer keeps the face it was drawn in', () => {
   const text = (o: Record<string, unknown>) =>
     sanitizeLogoLayers([{ id: 't1', kind: 'text', text: 'AM', x: 500, y: 500, scale: 1, motion: {}, ...o }])[0]!;
-  for (const f of HUB_ELEMENT_FONTS) {
+  for (const f of HUB_FONTS) {
     const l = text({ font: f.key, italic: false });
     assert.equal(l.font, f.key, `${f.key} survives the save`);
     assert.equal(l.italic, false);

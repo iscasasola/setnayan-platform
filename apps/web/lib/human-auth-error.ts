@@ -26,6 +26,8 @@
  * are left staring at a form that appears to have done nothing at all.
  */
 
+import { SIGN_IN_DOOR_MESSAGES } from '@/lib/sign-in-door';
+
 /**
  * What we say when the underlying message cannot be shown to a person.
  * Deliberately actionable rather than apologetic: it names the two things
@@ -136,4 +138,65 @@ export function humanAuthError(raw: string | null | undefined): string | null {
     if (pattern.test(s)) return message;
   }
   return isHumanReadable(s) ? s : GENERIC_SIGN_IN_ERROR;
+}
+
+/**
+ * Sentences OUR OWN code puts in `/login?error=` (sign-in actions, the auth
+ * callbacks, the desktop helper, the account-deleted bounce). Matched EXACTLY —
+ * these, and the `KNOWN` provider mappings above, are the only words a URL can
+ * make the sign-in card say.
+ */
+const OWN_LOGIN_ERRORS: ReadonlyMap<string, string> = new Map<string, string>([
+  ['missing', 'Enter your email and password.'],
+  ['Account deleted', 'This account has been deleted.'],
+  [
+    'That link is incomplete. Request a new one and open it directly from the email.',
+    'That link is incomplete. Request a new one and open it directly from the email.',
+  ],
+  ['Desktop sign-in is unavailable here. Please use email sign-in.', 'Desktop sign-in is unavailable here. Please use email sign-in.'],
+  [
+    'Could not start the desktop sign-in helper. Please use email sign-in.',
+    'Could not start the desktop sign-in helper. Please use email sign-in.',
+  ],
+  ['Sign-in timed out. Please try again.', 'Sign-in timed out. Please try again.'],
+  [
+    'Could not open your browser for sign-in. Please use email sign-in.',
+    'Could not open your browser for sign-in. Please use email sign-in.',
+  ],
+  ['Sign-in failed. Please try again.', GENERIC_SIGN_IN_ERROR],
+  // lib/sign-in-door.ts — the door a failed password names, each as itself.
+  ...Object.values(SIGN_IN_DOOR_MESSAGES).map((m) => [m, m] as [string, string]),
+]);
+
+/**
+ * 🔒 THE `/login?error=` PARAM → A FIXED SENTENCE, or null for no error.
+ *
+ * Guest text audit 2026-09-30 (security): `humanAuthError` prints any string
+ * that READS like a sentence, and `?error=` is a query param anyone can type —
+ * so `/login?error=Your account is locked. Call 0917 000 0000 to restore it.`
+ * rendered that line inside our own sign-in card, a phishing kit's dream.
+ * Shape tests cannot tell our sentence from an attacker's; only a closed list
+ * can. So the URL chooses AMONG our sentences and never supplies one:
+ *   · one of our own exact sentences → itself;
+ *   · a provider message we know (`KNOWN`) → its mapping;
+ *   · anything else → the generic sentence (never silence — see above).
+ */
+export function loginErrorFromParam(raw: string | null | undefined): string | null {
+  if (raw === null || raw === undefined) return null;
+  let s: string;
+  try {
+    s = decodeURIComponent(String(raw)).trim();
+  } catch {
+    s = String(raw).trim();
+  }
+  if (s === '') return null;
+  const own = OWN_LOGIN_ERRORS.get(s);
+  if (own) return own;
+  if (/sign-in is not configured|sign-in could not start/i.test(s)) {
+    return 'That sign-in option is not available right now. Use your email and password below.';
+  }
+  for (const [pattern, message] of KNOWN) {
+    if (pattern.test(s)) return message;
+  }
+  return GENERIC_SIGN_IN_ERROR;
 }

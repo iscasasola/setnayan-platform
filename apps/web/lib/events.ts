@@ -778,7 +778,8 @@ export async function recomputeReceptionAnchor(
 
 // Role subtypes that grant "primary host" status — equivalent to the
 // legacy member_type='couple' for plan-ownership purposes. Excludes
-// viewer / family_helper / ninong / ninang / maid_of_honor / best_man —
+// viewer / family_helper / ninong / ninang / maid_of_honor / best_man /
+// best_woman —
 // those roles can co-plan but aren't the canonical event-owner host.
 // Per iteration 0048 spec § Permission templates, only these subtypes
 // default to full edit+checkout permissions.

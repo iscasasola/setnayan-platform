@@ -33,6 +33,7 @@ import 'server-only';
  * else's.
  */
 
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { PUBLIC_SAFE_MODERATION_STATE } from '@/lib/public-media-visibility';
@@ -229,6 +230,9 @@ async function loadTable(
   eventId: string,
   guestId: string,
 ): Promise<string | null> {
+  // 🪑 The one seat rule (`guestsMaySeeSeatsFor`) — no table before the day
+  // unless the couple opened it early.
+  if (!(await guestsMaySeeSeatsFor(admin, eventId))) return null;
   try {
     const { data, error } = await admin
       .from('event_seat_assignments')

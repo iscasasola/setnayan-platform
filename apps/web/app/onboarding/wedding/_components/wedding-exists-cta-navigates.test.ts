@@ -125,7 +125,8 @@ test('wedding onboarding: handleFinish checks weddingExists and returns BEFORE r
   // above can run against a stale closure that never sees the update.
   assert.match(
     src,
-    /\}, \[committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection, weddingExists\]\);/,
+    // Later deps may follow it (the setup engine's view + answers, G1).
+    /\}, \[committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection, weddingExists(?:, [\w, ]+)?\]\);/,
     'weddingExists must be in the handleFinish dependency array',
   );
 });

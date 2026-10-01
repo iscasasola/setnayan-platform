@@ -132,6 +132,7 @@ import {
 import {
   TABLE_TYPE_CATALOG,
   ROLE_TIER_LABELS,
+  autoArrangeSummary,
   computeAutoLayout,
   // The ONE placement oracle (lib/seating.ts · council verdict 2026-07-16). The
   // 3D move/rotate paths validate through these SAME pure helpers as the 2D
@@ -1861,7 +1862,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       const res = await publishSeating(fd);
       setFloor((f) => ({ ...f, published: true }));
       setNotice(
-        `Live — guests can walk your reception, and ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ${res.published === 1 ? 'is' : 'are'} ready to print.`,
+        `Shown early — guests can walk your reception now, and ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ${res.published === 1 ? 'is' : 'are'} ready to print.`,
       );
     });
   }, [canEdit, eventId, lock.lockId, persist]);
@@ -1878,7 +1879,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       setFloor((f) => ({ ...f, published: false }));
       setNotice(
         res.wasPublished
-          ? 'Taken down — the 3D walk is private again. Printed table signs still work.'
+          ? 'Hidden until the day — the 3D walk opens by itself on the day. Printed table signs still work.'
           : 'That plan wasn’t published.',
       );
     });
@@ -2049,10 +2050,21 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     fd.set('positions', JSON.stringify(layout));
     fd.set('booths', '[]');
     void persist(async () => {
-      await autoArrange(fd);
+      const res = await autoArrange(fd);
       seatResyncRef.current = true;
       router.refresh();
-      setNotice('Tidied every table and seated your guests.');
+      // The server's counts, not a fixed line: it may have ADDED tables (owner
+      // 2026-09-30) and must never claim everyone is seated when someone isn't.
+      setNotice(
+        autoArrangeSummary({
+          tables: tables.length + res.tablesAdded,
+          tablesAdded: res.tablesAdded,
+          booths: 0,
+          boothWhere: '',
+          seated: res.seated,
+          unseated: res.unseated,
+        }),
+      );
     });
   }, [canEdit, tables, floor, room, tablesById, eventId, lock.lockId, persist, router]);
 
@@ -5820,7 +5832,7 @@ function Hud({
                 className={`inline-block h-1.5 w-1.5 rounded-full ${published ? 'bg-emerald-400' : 'bg-white/40'}`}
               />
               <span className={published ? 'text-emerald-300' : 'text-white/50'}>
-                {published ? 'Live — guests can walk your reception' : 'Draft — only you can see this'}
+                {published ? 'Shown early — guests can walk your reception' : 'Guests can walk your reception on the day'}
               </span>
             </p>
             <div className="mt-2 flex gap-1.5">
@@ -5830,7 +5842,7 @@ function Hud({
                 onClick={published ? onUnpublish : onPublish}
                 className="flex-1 rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium text-white transition hover:bg-white/20 disabled:opacity-40"
               >
-                {published ? 'Take it down' : 'Publish'}
+                {published ? 'Hide until the day' : 'Show early'}
               </button>
               <a
                 href={printHref}
@@ -5843,7 +5855,7 @@ function Hud({
             </div>
             {published ? (
               <p className="mt-1.5 text-[10px] leading-snug text-white/45">
-                Taking it down hides the 3D walk. Printed table signs keep working.
+                Hiding it before the day hides the 3D walk until the day. Printed table signs keep working.
               </p>
             ) : null}
             {/* The door to the control centre — the couple's room as their

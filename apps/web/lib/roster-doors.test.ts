@@ -67,9 +67,8 @@ test('each door goes where it always went', () => {
   // list 185ms after the click, measured on the live page. It is a tab on this
   // page now; the invite page keeps its own doors (sidebar, journey).
   assert.equal(href('share'), '/dashboard/E/guests?gview=share');
-  // Check-in became a PART of the guest list (owner 2026-09-29): the desk
-  // renders in this page's body; /guests/checkin still stands on its own.
-  assert.equal(href('checkin'), '/dashboard/E/guests?gview=checkin');
+  // ⤷ F2: arrivals are a column; this door is the scanner — the desk itself.
+  assert.equal(href('checkin'), '/dashboard/E/guests/checkin');
 });
 
 test('exactly one tab is current, and the mind map keeps Roster lit', () => {

@@ -60,6 +60,13 @@
  *           both live in `config_json` and both are free (`lib/stage-scenes.ts`).
  */
 import {
+  sanitizeFixedSceneStylesDraft,
+  stylePreferencesWithDraftedStyles,
+  type FixedSceneStyles,
+  type FixedSceneStylesDraft,
+  type FixedStyleScene,
+} from '@/lib/fixed-scene-styles';
+import {
   WIDGET_PHASES,
   WIDGET_TYPES,
   isWidgetType,
@@ -107,6 +114,16 @@ import {
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle } from '@/lib/qr-look';
+import {
+  classifyPostEventDraft,
+  postEventItemLabel,
+  sanitizePostEventDraft,
+  sceneLooksChange,
+  sceneLooksFreePart,
+  postEventArrangementOf,
+  type PostEventApplyItem,
+  type PostEventDraft,
+} from '@/lib/post-event-draft';
 import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config-pure';
 import { REVEAL_NONE, revealTemplateWriteAllowed } from '@/lib/reveal-access';
 import { sanitizeStudioConfig, sanitizeStudioSvg } from '@/lib/monogram-studio-shared';
@@ -118,6 +135,7 @@ import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground }
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { resolveReturnTo } from '@/lib/editor-return';
+import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
@@ -425,6 +443,24 @@ export type HubDraftWidget = {
 export type HubDraftState = {
   events: HubDraftEvents;
   widgets: Partial<Record<WidgetType, HubDraftWidget>>;
+  /**
+   * 📖 POST EVENT'S SCENES (owner 2026-09-25 "POST EVENT IS MANY SMALL SCENES",
+   * 2026-09-29 "EVERY STYLE OF EVERY SCENE SHIPS") — a drafted copy of the
+   * story's own keys on `event_editorial.draft_json` (`sections`,
+   * `sectionOrder`, `sceneLooks`), each present only when the couple changed
+   * it in the Maker. Not a second source: Apply writes them back into the
+   * story's row (`lib/post-event-draft.ts`). Absent = nothing drafted.
+   */
+  editorial?: PostEventDraft;
+  /**
+   * 🎨 THE FIVE FIXED PARTS' STYLE PICKS (owner 2026-09-29, "EVERY SCENE … AT
+   * LEAST THREE PREMADE STYLES") — the entourage, Find your seat, each guest's
+   * own photos, the announcements and the live hub have no section row, so
+   * their pick is drafted here and Apply writes it into
+   * `events.style_preferences.scene_styles` (`lib/fixed-scene-styles.ts`).
+   * `null` = back to the default. Never Pro. Absent = nothing drafted.
+   */
+  fixedStyles?: FixedSceneStylesDraft;
 };
 
 export type HubDraft = HubDraftState & {
@@ -635,7 +671,16 @@ function sanitizeState(raw: unknown): HubDraftState {
     const w = sanitizeWidget(value, type);
     if (w) widgets[type] = w;
   }
-  return { events, widgets };
+  // 📖 Post Event's scenes — through the story's own readers (`post-event-draft.ts`).
+  const editorial = sanitizePostEventDraft(src.editorial);
+  // 🎨 The fixed parts' style picks — through their own reader.
+  const fixedStyles = sanitizeFixedSceneStylesDraft(src.fixedStyles);
+  return {
+    events,
+    widgets,
+    ...(editorial ? { editorial } : {}),
+    ...(fixedStyles ? { fixedStyles } : {}),
+  };
 }
 
 /** Anything → a well-formed draft. Unknown keys and unusable values are dropped. */
@@ -650,7 +695,12 @@ export function sanitizeHubDraft(raw: unknown): HubDraft {
 
 /** Does the draft differ from nothing? (Whether it differs from LIVE is `planHubDraftApply`.) */
 export function hubDraftHasChanges(d: HubDraftState): boolean {
-  return Object.keys(d.events).length > 0 || Object.keys(d.widgets).length > 0;
+  return (
+    Object.keys(d.events).length > 0 ||
+    Object.keys(d.widgets).length > 0 ||
+    Object.keys(d.editorial ?? {}).length > 0 ||
+    Object.keys(d.fixedStyles ?? {}).length > 0
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -661,6 +711,10 @@ export function hubDraftHasChanges(d: HubDraftState): boolean {
 export type HubDraftPatch = {
   events?: HubDraftEvents;
   widgets?: Partial<Record<WidgetType, HubDraftWidget>>;
+  /** 📖 Post Event: the story keys this save changes, each replaced whole. */
+  editorial?: PostEventDraft;
+  /** 🎨 The fixed parts' style picks this save changes, part by part. */
+  fixedStyles?: FixedSceneStylesDraft;
 };
 
 const stateOf = (d: HubDraftState): HubDraftState => ({
@@ -668,6 +722,8 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
   widgets: Object.fromEntries(
     Object.entries(d.widgets).map(([k, v]) => [k, { ...v }]),
   ) as HubDraftState['widgets'],
+  ...(d.editorial ? { editorial: { ...d.editorial } } : {}),
+  ...(d.fixedStyles ? { fixedStyles: { ...d.fixedStyles } } : {}),
 });
 
 /**
@@ -689,6 +745,11 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
       ...(w.stage_order ? { stage_order: { ...(prev.stage_order ?? {}), ...w.stage_order } } : {}),
     };
   }
+  // 📖 Post Event: each story key the save carries replaces the drafted one whole
+  // (the Maker computes it from live-with-the-draft, so it already holds the rest).
+  if (clean.editorial) next.editorial = { ...(next.editorial ?? {}), ...clean.editorial };
+  // 🎨 A pick for one fixed part never forgets another's.
+  if (clean.fixedStyles) next.fixedStyles = { ...(next.fixedStyles ?? {}), ...clean.fixedStyles };
   const history = [...current.history, stateOf(current)].slice(-HUB_DRAFT_HISTORY_LIMIT);
   return fitHubDraftHistory({ v: 1, ...next, history });
 }
@@ -714,7 +775,9 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
   row: T,
   draft: HubDraftState | null,
 ): T {
-  if (!draft || Object.keys(draft.events).length === 0) return row;
+  if (!draft) return row;
+  const picks = draft.fixedStyles && Object.keys(draft.fixedStyles).length > 0 ? draft.fixedStyles : null;
+  if (Object.keys(draft.events).length === 0 && !picks) return row;
   const out: Record<string, unknown> = { ...row, ...draft.events };
   /* 🔳 The drafted QR look is laid INTO the live blob — the blob's other keys
      (onboarding answers the page may read) are never overlaid away. */
@@ -722,6 +785,9 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
     const live = row.style_preferences && typeof row.style_preferences === 'object' ? (row.style_preferences as Record<string, unknown>) : {};
     out.style_preferences = { ...live, ...(draft.events.style_preferences as Record<string, unknown>) };
   }
+  // 🎨 The fixed parts' drafted picks ride on `style_preferences` too, every
+  // other key of it kept — the host's canvas then draws the part in the picked style.
+  if (picks) out.style_preferences = stylePreferencesWithDraftedStyles(out.style_preferences, picks);
   return out as T;
 }
 
@@ -795,6 +861,14 @@ export type HubLiveState = {
       // absent reads as visible, the column's own default.
       Partial<Pick<InvitationWidgetRow, 'is_visible'>>
   >;
+  /**
+   * 📖 The live story's `event_editorial.draft_json` — what Post Event's drafted
+   * keys are compared against. Absent reads as a story with the default
+   * arrangement (every scene shown, the default order, every style recommended).
+   */
+  editorial?: unknown;
+  /** 🎨 The fixed parts' live picks (`events.style_preferences.scene_styles`). Absent reads as none. */
+  fixedStyles?: FixedSceneStyles;
 };
 
 export type HubDraftItem =
@@ -821,6 +895,32 @@ export type HubDraftItem =
        * held item already says so and keeps everything.
        */
       freePart?: true;
+    }
+  | {
+      /** 📖 One of Post Event's drafted story keys (`lib/post-event-draft.ts`). */
+      kind: 'editorial';
+      item: PostEventApplyItem;
+      /**
+       * `item.value`, carried at the top too — every item in a plan has a
+       * `value`, so a reader that only filters (`.find(i => i.kind === … && …)`,
+       * which does not narrow the union) still reads one shape.
+       */
+      value: unknown;
+      change: LookChange;
+      /** Only a part's own font or animation — show/hide, order, styles and words are free. */
+      pro: boolean;
+      /** The free part of a held look — reported and kept by its refused twin. */
+      freePart?: true;
+    }
+  | {
+      /** 🎨 One fixed part's style pick (`lib/fixed-scene-styles.ts`). Free. */
+      kind: 'fixed-style';
+      scene: FixedStyleScene;
+      /** The id to store, or null = back to the default. */
+      value: string | null;
+      change: LookChange;
+      pro: false;
+      freePart?: undefined;
     };
 
 const asText = (v: unknown): string | null =>
@@ -1212,6 +1312,11 @@ export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas): 
 
 const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(config);
 
+/** The Post Event preset a scene was seeded from, or null (`lib/post-event-presets.ts`). */
+export function presetSceneOf(canvas: HubSectionCanvas): string | null {
+  return canvas.postEventPreset ?? null;
+}
+
 /**
  * The Main background, live → drafted (Maker Phase 10). All of it is LOOK — the
  * owner's "making media a background is pro", and "Adaptive theme is for PRO":
@@ -1399,6 +1504,18 @@ export function classifyHubDraft(
       }
     }
   }
+  // 📖 Post Event's scenes, last — after every section, in the story's own
+  // order: which show, their order, then their looks.
+  if (draft.editorial) {
+    for (const item of classifyPostEventDraft(draft.editorial, live.editorial ?? null)) {
+      items.push({ kind: 'editorial', item, value: item.value, change: item.change, pro: item.pro });
+    }
+  }
+  // 🎨 The fixed parts' style picks, last — each compared with what is live.
+  for (const [scene, value] of Object.entries(draft.fixedStyles ?? {}) as Array<[FixedStyleScene, string | null]>) {
+    const liveId = live.fixedStyles?.[scene] ?? null;
+    if ((value ?? null) !== liveId) items.push({ kind: 'fixed-style', scene, value: value ?? null, change: 'change', pro: false });
+  }
   return { items, orphans };
 }
 
@@ -1440,11 +1557,39 @@ export function planHubDraftApply(
         apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free), pro: false, freePart: true });
       }
     }
+    /* 💎 …and a held Post Event look gets its free edits the same way — its
+       style, its words, a colour beside a Pro font (`sceneLooksFreePart`). */
+    if (!allowed && item.kind === 'editorial' && item.item.field === 'sceneLooks') {
+      const liveLooks = postEventArrangementOf(live.editorial ?? null).sceneLooks;
+      const free = sceneLooksFreePart(liveLooks, item.item.value);
+      if (JSON.stringify(free) !== JSON.stringify(liveLooks)) {
+        const change = sceneLooksChange(liveLooks, free);
+        apply.push({
+          kind: 'editorial',
+          item: { field: 'sceneLooks', value: free, change, pro: false, freePart: true },
+          value: free,
+          change,
+          pro: false,
+          freePart: true,
+        });
+      }
+    }
   }
   const remaining: HubDraftState = { events: {}, widgets: {} };
   for (const item of refused) {
     if (item.kind === 'event') remaining.events[item.column] = item.value;
-    else {
+    else if (item.kind === 'editorial') {
+      // A held look keeps the WHOLE drafted map, so the next Apply (after Pro)
+      // finds it — and finds its free part already live.
+      if (item.item.field === 'sceneLooks') remaining.editorial = { ...(remaining.editorial ?? {}), sceneLooks: item.item.value };
+      // 💎 A held story extra (moments, columns, wishes) stays drafted whole.
+      else if (item.item.field === 'chapterOverrides' || item.item.field === 'customColumns' || item.item.field === 'reviews') {
+        remaining.editorial = { ...(remaining.editorial ?? {}), [item.item.field]: item.item.value };
+      }
+    } else if (item.kind === 'fixed-style') {
+      // Never refused (a style pick is free) — kept for completeness.
+      remaining.fixedStyles = { ...(remaining.fixedStyles ?? {}), [item.scene]: item.value };
+    } else {
       const w = (remaining.widgets[item.widgetType] ??= {});
       if (item.field === 'canvas') w.canvas = item.value as HubSectionCanvas | null;
       else if (item.field === 'main') w.main = item.value as HubMainGround | null;
@@ -1457,10 +1602,17 @@ export function planHubDraftApply(
   return { apply, refused, remaining, orphans };
 }
 
-/** The tables an Apply of these items writes. Only ever these two. */
-export function hubDraftWriteTables(items: readonly HubDraftItem[]): Array<'events' | 'invitation_widgets'> {
-  const out = new Set<'events' | 'invitation_widgets'>();
-  for (const i of items) out.add(i.kind === 'event' ? 'events' : 'invitation_widgets');
+/**
+ * The tables an Apply of these items writes. `event_editorial` only for Post
+ * Event's own drafted keys — Reset never produces one (`hubResetPatch` names
+ * no story key, and `HUB_RESET_NEVER_TOUCHES` promises "your Post Event story").
+ */
+export function hubDraftWriteTables(
+  items: readonly HubDraftItem[],
+): Array<'events' | 'invitation_widgets' | 'event_editorial'> {
+  const out = new Set<'events' | 'invitation_widgets' | 'event_editorial'>();
+  // 🎨 A fixed part's style pick is a key of `events.style_preferences`.
+  for (const i of items) out.add(i.kind === 'event' || i.kind === 'fixed-style' ? 'events' : i.kind === 'editorial' ? 'event_editorial' : 'invitation_widgets');
   return [...out];
 }
 
@@ -1554,7 +1706,7 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
   if (!draft) return { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   const plan = planHubDraftApply(draft, live, ownsPro);
   // A held scene's free part is the same scene as its refused twin — one change.
-  const changeCount = plan.apply.filter((i) => !(i.kind === 'widget' && i.freePart)).length + plan.refused.length;
+  const changeCount = plan.apply.filter((i) => !(i.kind !== 'event' && i.freePart)).length + plan.refused.length;
   return {
     hasChanges: changeCount > 0,
     changeCount,
@@ -1598,8 +1750,28 @@ export type HubDraftActionResult =
       applied: number;
       /** Keys held back, each with a sentence-ready label and a reason (apply only). */
       held: Array<{ label: string; reason: HubDraftRefusal }>;
+      /**
+       * ⚡ The Apply bar as it stands after this save — only when the save asked
+       * for it (`HUB_DRAFT_BAR_FIELD`, `lib/maker-refresh.ts`). A pick the bridge drew owes the Maker no
+       * render (`lib/maker-refresh.ts`), so the toolbar's count comes from here.
+       */
+      bar?: HubDraftBarLive;
     }
   | { ok: false; intent: HubDraftIntent | null; error: string };
+
+/**
+ * What the toolbar re-reads after a save (`hubDraftBarAfterSave`): the count for
+ * a couple WITHOUT Pro and for one WITH it — the save never asks which this
+ * viewer is (the view switch must never reach a server action), the toolbar
+ * picks with the render's own answer — plus the Pro effects and their price
+ * for the couple without it.
+ */
+export type HubDraftBarLive = {
+  free: HubDraftSummary;
+  owned: HubDraftSummary;
+  proEffects: HubProEffectView[];
+  priceLabel: string | null;
+};
 
 /**
  * Does the Maker toolbar's ⋯ panel stay OPEN once an action reports back? Only
@@ -1635,7 +1807,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   our_photos: 'Your photos',
   style_preferences: 'Your QR code',
   special_message: 'Your special message',
-  what_to_bring: 'What to bring',
+  what_to_bring: 'Your reminders',
   love_story: 'Your Love Story',
   together_since: 'Together since',
   dress_code_config: 'Your dress code',
@@ -1643,9 +1815,20 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   rsvp_ask_config: 'What you ask your guests',
 };
 
+/** A sentence-ready name for each fixed part whose style is drafted. */
+export const FIXED_STYLE_LABEL: Record<FixedStyleScene, string> = {
+  entourage: 'The entourage',
+  find_your_seat: 'Find your seat',
+  photos_of_you: "Each guest's own photos",
+  announcements: 'Announcements',
+  live_hub: 'The live hub',
+};
+
 /** A sentence-ready name for one draft key. */
 export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetType) => string): string {
   if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
+  if (item.kind === 'editorial') return postEventItemLabel(item.item);
+  if (item.kind === 'fixed-style') return `${FIXED_STYLE_LABEL[item.scene]} · its style`;
   if (item.field === 'main') return 'Behind every scene';
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
   if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;

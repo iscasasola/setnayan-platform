@@ -84,7 +84,7 @@ export default function WaitlistPage() {
             <li>· A receipt on every software purchase, archived in your dashboard</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">
-            Vendor? <Link href="/vendors" className="font-semibold text-terracotta underline-offset-4 hover:underline">Pre-register your business today</Link>.
+            Supplier? <Link href="/for-suppliers" className="font-semibold text-terracotta underline-offset-4 hover:underline">Pre-register your business today</Link>.
           </p>
         </div>
       </section>

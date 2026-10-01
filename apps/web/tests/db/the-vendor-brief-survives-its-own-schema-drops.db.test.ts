@@ -209,7 +209,7 @@ async function asVendor(uid: string): Promise<void> {
 }
 
 /**
- * Stamp `guest_count_locked_at` the way `ensureFinalized()` (apps/web/lib/
+ * Stamp `guest_count_locked_at` the way `finalizeGuestList()` (apps/web/lib/
  * pax.ts) actually does it in production: through the service role.
  * `guard_pax_finalize_columns_trg` (20261214000000) silently REVERTS this
  * column to its old value on any non-service-role UPDATE — a couple's own
@@ -351,12 +351,12 @@ test('the vendor roster names OTHER locked vendors only, name + category, and no
 
 /**
  * WIDENING (20271213732174) — pax.finalized. Mirrors `guestListIsClosed()`
- * (apps/web/lib/guest-list-closed.ts) exactly: stamped, OR the deadline
- * (explicit `guest_list_edit_deadline`, else event_date minus
- * FINALIZE_LEAD_DAYS) has passed. Both paths are asserted so the two can
- * never quietly drift into disagreement.
+ * (apps/web/lib/guest-list-closed.ts) exactly: finalized means the HOST pressed
+ * Finalize (the stamp). ⚖ Owner 2026-09-30, "i must click a finalize to
+ * finalize it" (20271256824468): a passed reply-by date finalizes NOTHING. Case
+ * 3 below is the sabotage for the date leg: it used to assert `true`.
  */
-test('pax.finalized is true once stamped, and true once the deadline has passed — false otherwise', async () => {
+test('pax.finalized is true only once the host stamped it — a passed deadline does not finalize', async () => {
   const { eventId: eventUnfinalized } = await newFullEvent('unfinalized');
   const { eventId: eventStamped } = await newFullEvent('stamped');
   const { eventId: eventDeadlinePassed } = await newFullEvent('deadline-passed');
@@ -372,9 +372,8 @@ test('pax.finalized is true once stamped, and true once the deadline has passed 
   await stampGuestCountLocked(eventStamped, 1);
   await newBooking(eventStamped, vpid, { status: 'contracted' });
 
-  // Case 3: an explicit guest_list_edit_deadline in the past — finalized via
-  // the deadline arm, with no stamp at all (the lazy-write path never ran;
-  // this function must never write it either).
+  // Case 3: an explicit guest_list_edit_deadline in the past, and no stamp.
+  // The host never pressed Finalize, so the list is OPEN (owner 2026-09-30).
   await db.query(
     `UPDATE public.events SET guest_list_edit_deadline = '2020-01-01'::date WHERE event_id = $1`,
     [eventDeadlinePassed],
@@ -385,7 +384,11 @@ test('pax.finalized is true once stamped, and true once the deadline has passed 
 
   assert.equal(((await brief(eventUnfinalized)).pax as Row).finalized, false);
   assert.equal(((await brief(eventStamped)).pax as Row).finalized, true);
-  assert.equal(((await brief(eventDeadlinePassed)).pax as Row).finalized, true);
+  assert.equal(
+    ((await brief(eventDeadlinePassed)).pax as Row).finalized,
+    false,
+    'a date finalized the list — only the host pressing Finalize may (owner 2026-09-30)',
+  );
 
   // The read must never itself stamp the lazy lock — this is a STABLE
   // function and must not have written guest_count_locked_at as a side

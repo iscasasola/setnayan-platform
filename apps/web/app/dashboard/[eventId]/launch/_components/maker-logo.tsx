@@ -19,8 +19,8 @@ import {
 import { createLogoSaveGate } from '@/lib/maker-logo-save-gate';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import type { MakerLogoOpening } from '@/lib/maker-logo-opening';
-import { HUB_ELEMENT_FONTS } from '@/lib/element-style';
-import { hubFontPreviewStack, type HubFontKey } from '@/lib/hub-fonts';
+import type { HubFontKey } from '@/lib/hub-fonts';
+import { FontPick } from '../../website/editor/_components/font-pick';
 import { logoFontOutlineUrl, outlineWords, type OtFace } from '@/lib/logo-fonts';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
@@ -77,7 +77,6 @@ import { logoParts, partCovers } from '@/lib/logo-parts-dom';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
 import { hubDraftAction } from '../../website/hub-draft-actions';
-import { PickMenu } from '../../website/editor/_components/pick-menu';
 
 /**
  * 🅻 THE LOGO PAGE — A FULL-SCREEN LAYERED EDITOR, LIKE THE MAKER ITSELF (owner
@@ -820,6 +819,7 @@ export function MakerLogoDoor({
             <p className="text-[13px] text-ink/60">Pick a layer on the left, or tap one on the logo.</p>
           ) : (
             <LayerTools
+              eventId={eventId}
               layer={selected}
               motionMark={motionMark}
               onWrite={() => startWriting(selected.id)}
@@ -836,12 +836,14 @@ export function MakerLogoDoor({
 /* ── the tools for one layer ─────────────────────────────────────────────── */
 
 function LayerTools({
+  eventId,
   layer,
   motionMark,
   onWrite,
   onChange,
   onRemove,
 }: {
+  eventId: string;
   layer: LogoLayer;
   motionMark: PaidMarkState | null;
   onWrite: () => void;
@@ -882,20 +884,17 @@ function LayerTools({
           />
           {/* 🅻 EVERY STAGE FONT, IN THE STAGES' OWN DROPDOWN (owner 2026-09-28:
               "on the logo. we need to show all fonts as well like in stages").
-              ONE list — `HUB_ELEMENT_FONTS`, what a part's Font row shows —
-              each name drawn in its own face; `lib/logo-fonts.ts` says where
-              each face's outlines are. A pick sets the upright face. */}
-          <PickMenu
+              ONE dropdown — `FontPick`, what a part's Font row is (owner
+              2026-09-29: "the font across all event hub editor. can be one
+              style") — each name drawn in its own face; `lib/logo-fonts.ts`
+              says where each face's outlines are. A pick sets the upright
+              face. No lead option: a text layer always has a face. */}
+          <FontPick
+            eventId={eventId}
             label="Typeface"
             dataAttr="data-logo-font"
             value={layer.font ?? 'cardo'}
-            options={HUB_ELEMENT_FONTS.map((f) => ({
-              key: f.key,
-              label: f.label,
-              fontFamily: hubFontPreviewStack(f.key),
-              group: f.pickGroup,
-            }))}
-            onPick={(key) => onChange({ font: key as HubFontKey, italic: false })}
+            onPick={(key) => key && onChange({ font: key, italic: false })}
             className="mt-2 min-h-11 w-full justify-between border border-ink/15"
           />
         </Field>

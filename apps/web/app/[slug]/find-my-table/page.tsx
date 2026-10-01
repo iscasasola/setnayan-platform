@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
@@ -109,6 +110,20 @@ export default async function FindMyTablePage({ params }: Props) {
   // Indoor Blueprint is free (owner 2026-07-23) — no paid-order gate. The
   // tables-empty branch below is the graceful "floor plan on its way" state when
   // the couple hasn't built a seating chart yet.
+
+  // 🪑 The seat gate — ONE rule (`guestsMaySeeSeatsFor`, owner 2026-09-30:
+  // "seatplan will show on the date of the event"). Before the day, and unless
+  // the couple turned on "Show guests their seats early", no table is read.
+  if (!(await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true }))) {
+    return (
+      <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
+        <PromptCard
+          title="Your table shows on the day"
+          body="Come back to this page on the day and your table and a map to it will be right here."
+        />
+      </Shell>
+    );
+  }
 
   // Resolve this guest's table assignment.
   const { data: assignment, error: assignmentErr } = await admin

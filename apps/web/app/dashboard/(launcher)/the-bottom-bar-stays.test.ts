@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -103,11 +103,14 @@ test('the doors those rows carried are still on the account switcher', () => {
   assert.match(switcher, /href="\/dashboard\/creator"/);
 });
 
-test('the FAB action is settled, not "provisional"', () => {
-  const raw = readFileSync(join(WEB, 'app/dashboard/[eventId]/_components/customer-nav-fab.tsx'), 'utf8');
+test('the couple has no floating button over the bar (owner 2026-10-01)', () => {
+  /* Owner, pointing at the round "Add guest" button in the live bar: "this will
+     be gone, correct? we only have our simple bottom nav?". The component is
+     deleted, not hidden, and the event layout mounts nothing beside the dock. */
   assert.ok(
-    !/PROVISIONAL \(owner to confirm\)/.test(raw),
-    'a settled choice labelled provisional gets re-opened by the next reader',
+    !existsSync(join(WEB, 'app/dashboard/[eventId]/_components/customer-nav-fab.tsx')),
+    'customer-nav-fab.tsx is back — a round button floats over the couple\'s bar again',
   );
-  assert.match(code('app/dashboard/[eventId]/_components/customer-nav-fab.tsx'), /label="Add guest"/);
+  const layout = code('app/dashboard/[eventId]/layout.tsx');
+  assert.ok(!/<NavFab\b|NavFab\s/.test(layout), 'the event layout mounts a floating button again');
 });

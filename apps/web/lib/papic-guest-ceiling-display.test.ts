@@ -255,7 +255,8 @@ test('the exhausted congratulation still reads the dynamic total, not a hardcode
   const src = web(...CAMERA); // rendered copy, comments fine here
   assert.match(
     src,
-    /That&rsquo;s all \{formatCount\(total\)\} photos, \{guestName\}!/,
+    // No first name — no casual greetings on a guest's screen (owner, DECISION_LOG 2026-09-30).
+    /That&rsquo;s all \{formatCount\(total\)\} photos!/,
     'the per-guest congratulation must keep reading the `total` PROP — that is what makes it ' +
       'honest once fetchGuestQuota starts returning the couple’s own ceiling instead of 150',
   );

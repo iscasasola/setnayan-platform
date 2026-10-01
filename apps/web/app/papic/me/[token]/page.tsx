@@ -243,7 +243,6 @@ export default async function PapicMyCameraPage({ params }: Props) {
     </Link>
   ) : null;
 
-  const greetName = (guest.first_name ?? '').trim();
 
   // Resolve THIS guest's Limited roll camera. sync:true self-heals a late "yes"
   // RSVP whose camera hasn't been materialized yet (provision-on-scan).
@@ -275,7 +274,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
               Your camera
             </>
           }
-          title={greetName ? `${greetName}, your camera’s ready` : 'Your camera’s ready'}
+          title="Your camera’s ready"
           sub="Tap below and your phone turns into a candid camera. Every photo you shoot lands straight in the host's gallery — no app to install."
         >
           <a
@@ -372,7 +371,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           Your camera
         </>
       }
-      title={greetName ? `${greetName}, your camera’s ready` : 'Your camera’s ready'}
+      title="Your camera’s ready"
       sub="Tap below and your phone turns into a candid camera for the day. Every photo you shoot lands straight in the host's gallery — no app to install."
     >
       <Link

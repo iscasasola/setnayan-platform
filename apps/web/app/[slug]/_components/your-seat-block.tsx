@@ -3,6 +3,7 @@ import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { ArrivalGreeting } from './arrival-greeting';
 import type { EventTableRow } from '@/lib/seating';
 import type { EntrancePos } from '@/lib/indoor-blueprint';
+import { SeatPlaceCard, SeatTableNumber } from './your-seat-styles';
 
 type Props = {
   tableLabel: string;
@@ -10,11 +11,15 @@ type Props = {
   tables: EventTableRow[];
   entrance: EntrancePos;
   targetTableId: string;
-  /** Guest's first name — drives the personal arrival greeting on check-in. */
-  firstName: string;
   /** True once this guest has scanned in at the door (a guest_checkins row).
    *  Flips the neutral "here's your table" header to a warm arrival bloom. */
   arrived: boolean;
+  /** 🎨 `map` (this, the default) · `table-number` · `place-card` — `your-seat-styles.tsx`. */
+  sceneStyle?: string | null;
+  /** 🪪 The Place card's name — `placeCardName` ("Mr. Manuel C. Casasola"), null = none. */
+  formalName?: string | null;
+  /** 🪪 …drawn in the hero's Names look (`hubElementInlineStyle`), resolved on the server. */
+  nameStyle?: Record<string, string>;
 };
 
 /**
@@ -32,9 +37,14 @@ export function YourSeatBlock({
   tables,
   entrance,
   targetTableId,
-  firstName,
   arrived,
+  sceneStyle = null,
+  formalName = null,
+  nameStyle,
 }: Props) {
+  const same = { tableLabel, venueName, tables, entrance, targetTableId, arrived };
+  if (sceneStyle === 'table-number') return <SeatTableNumber {...same} />;
+  if (sceneStyle === 'place-card') return <SeatPlaceCard {...same} formalName={formalName} nameStyle={nameStyle} />;
   // Pahina (design 2026-07-25 §11a): the guest-personal layer is STARRED, not
   // numbered — a gild ✦ marks "this belongs to you". (Editorial chapters used
   // to keep their own №; owner 2026-09-25 "drop the numbers" removed those, so
@@ -52,7 +62,7 @@ export function YourSeatBlock({
           Before check-in it's the normal seat pass. */}
       {arrived ? (
         <header className="text-center">
-          <ArrivalGreeting firstName={firstName} tableLabel={tableLabel} />
+          <ArrivalGreeting tableLabel={tableLabel} />
           {venueName ? (
             <p className="mt-1.5 inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

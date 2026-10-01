@@ -1,6 +1,6 @@
 'use client';
 
-import { makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { RotateCcw } from 'lucide-react';
@@ -132,8 +132,11 @@ export function DetailsBoundField({
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify(patch));
+      /* ⚡ Words the bridge drew bring no Maker render — the Apply count comes back with the save. */
+      fd.set(HUB_DRAFT_BAR_FIELD, '1');
       /* `held`: the shell decides in `onSaving` (above) — it holds the canvas
-         for words the bridge drew, and releases it for what it could not. */
+         for words the bridge drew, and releases it (one render for the burst,
+         `makerNeedsRender`) for what it could not. */
       const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true });
       if (!res.ok) {
         setError(res.error);

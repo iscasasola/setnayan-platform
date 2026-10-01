@@ -824,9 +824,13 @@ const PASSES_THROUGH: Record<string, string> = {
 /** entry function → its callers: the ones that FOLD first, and the ones that read no price. */
 const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }> = {
   fetchEventVendors: {
-    folds: ['app/dashboard/[eventId]/vendors/page.tsx', 'app/dashboard/[eventId]/date-selection/page.tsx'],
-    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/event-preload.ts'],
+    folds: ['app/dashboard/[eventId]/date-selection/page.tsx'],
+    // `lib/event-vendors-read.ts` reads no price itself: it only wraps the read
+    // so a refusal is MEASURED (2026-10-01, the phone Your Team). The rows it
+    // hands on are checked through its own entry below, `readEventVendorsMeasured`.
+    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/event-preload.ts', 'lib/event-vendors-read.ts'],
   },
+  readEventVendorsMeasured: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   buildShortlistFolders: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   bucketVendorsByGroup: {

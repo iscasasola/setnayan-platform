@@ -25,7 +25,7 @@ import {
   SOCIAL_INTEGRATIONS,
   MAYA_INTEGRATION,
 } from '@/lib/integrations/registry';
-import { getSecretPresenceMap } from '@/lib/integration-config';
+import { getSecretPresenceMapMeasured } from '@/lib/integration-config';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { envFlagEnabled } from '@/lib/env-flag';
@@ -63,7 +63,7 @@ export default async function AdminIntegrationsPage({
   }
 
   const admin = createAdminClient();
-  const [secretRes, settingsRes, secretPresence, knownHashStatus] = await Promise.all([
+  const [secretRes, settingsRes, presence, knownHashStatus] = await Promise.all([
     admin
       .from('platform_integration_secrets')
       .select('resend_api_key_enc, last_verified_at')
@@ -76,11 +76,36 @@ export default async function AdminIntegrationsPage({
     // Registry secret presence as a { [column]: boolean } map — the ciphertext
     // never enters this component's render tree (defense-in-depth: a future edit
     // can't accidentally pass a secrets object to a client prop / log).
-    getSecretPresenceMap(),
+    getSecretPresenceMapMeasured(),
     // Read-only, never-throwing. Surfaces the CSAM known-hash matcher's honest
     // state — which is "not enrolled" and will stay so until the owner enrols.
     getKnownHashIntegrationStatus(),
   ]);
+
+  const secretPresence = presence.map;
+
+  /* 🚨 A REFUSED READ SAID "Not configured" AND KEPT EVERY SAVE ARMED (admin
+     audit 2026-09-30, row 35). Every card here pre-fills from these three
+     reads, and saving from blanks wipes the from-address and the sign-in
+     fields. On any refusal the page renders the notice INSTEAD of the forms —
+     there is no Save to press over values nobody could read. */
+  if (secretRes.error || settingsRes.error || presence.readFailed) {
+    return (
+      <section className="space-y-6">
+        <Link
+          href="/admin/more"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to admin
+        </Link>
+        <PageMasthead title="Integrations" />
+        <div role="alert" className="rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink">
+          Couldn&rsquo;t load this — refresh to try again. Saving is off until the saved keys
+          and settings load, so nothing here can overwrite them.
+        </div>
+      </section>
+    );
+  }
 
   const dbHasKey = Boolean(secretRes.data?.resend_api_key_enc);
   const envHasKey = Boolean(process.env.RESEND_API_KEY);

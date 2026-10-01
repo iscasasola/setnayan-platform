@@ -72,8 +72,8 @@ export type ImpactVendorRow = {
 /** The plan-group label a casualty is filed under ("Photo & Video"). */
 export function planGroupLabelForCategory(category: string | null): string {
   const groupId = category ? planGroupForCategory(category as VendorCategory) : null;
-  if (!groupId) return 'Your team';
-  return PLAN_GROUPS.find((g) => g.id === groupId)?.label ?? 'Your team';
+  if (!groupId) return 'Your suppliers';
+  return PLAN_GROUPS.find((g) => g.id === groupId)?.label ?? 'Your suppliers';
 }
 
 /**

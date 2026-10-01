@@ -118,10 +118,20 @@ test('the couple has a CONTROL that grants it — a permission needs a handle', 
     'The grant is not couple-gated — a coordinator could widen their own access.',
   );
 
-  const page = readFileSync(join(WEB, 'app/dashboard/[eventId]/hosts/page.tsx'), 'utf8');
+  // ⚖ The Hosts fold (2026-09-30) moved the control, whole, into the shared
+  // seat controls — drawn on the hired planner's workspace card.
+  const controls = readFileSync(join(WEB, 'app/dashboard/[eventId]/_components/coordinator-seat-controls.tsx'), 'utf8');
   assert.ok(
-    /action=\{setDelegatePhotos\}/.test(page),
+    /action=\{setDelegatePhotos\}/.test(controls),
     'The action exists but no screen calls it — a handle nobody can reach.',
+  );
+  const card = readFileSync(
+    join(WEB, 'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/promote-coordinator-card.tsx'),
+    'utf8',
+  );
+  assert.ok(
+    /<CoordinatorSeatControls\b/.test(card),
+    'The seat controls exist but no screen mounts them — a handle nobody can reach.',
   );
 });
 

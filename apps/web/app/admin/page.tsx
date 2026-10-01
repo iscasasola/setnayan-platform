@@ -9,6 +9,7 @@ import { WhatYouChange, EditingIsOnTheComputer } from './_components/what-you-ch
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
@@ -256,6 +257,14 @@ export default async function AdminOverview() {
   // `support` lane so ongoing help-desk volume doesn't inflate the count next
   // to real gating decisions, sum the digest counts. Same source, same number
   // as the launcher card by construction.
+  /* 🚨 A THROWN DIGEST PRINTED "0 items need you" (admin audit 2026-09-30,
+     row 33). `?? 0` folded every unread queue into the headline as an empty
+     one, with only a grey "some counts unavailable" beside it. The headline
+     now says "—" whenever ANY actionable queue went uncounted: a partial sum
+     under a confident number is still a false number. */
+  const actionableUnread = Object.entries(ADMIN_QUEUE_META).some(
+    ([key, meta]) => meta.lane !== 'support' && typeof digest[key]?.count !== 'number',
+  );
   const actionableOpen = Object.entries(ADMIN_QUEUE_META).reduce(
     (sum, [key, meta]) =>
       meta.lane === 'support' ? sum : sum + Math.max(0, digest[key]?.count ?? 0),
@@ -294,11 +303,14 @@ export default async function AdminOverview() {
   // not a fake feed) so an admin lands and sees what teammates just did, which
   // avoids two admins working the same row. Actor names resolved in one extra
   // round trip; degrades to an empty state if the log query fails.
-  const { data: auditRows } = await admin
+  const { data: auditRows, error: auditError } = await admin
     .from('admin_audit_log')
     .select('audit_log_id, action, target_id, reason, actor_user_id, created_at')
     .order('created_at', { ascending: false })
     .limit(8);
+  if (auditError) {
+    logQueryError('AdminOverview (admin_audit_log)', auditError, {}, 'graceful_degrade');
+  }
   const activity = (auditRows ?? []) as Array<{
     audit_log_id: string;
     action: string;
@@ -394,10 +406,14 @@ export default async function AdminOverview() {
             <p className="sn-eye sn-eye-on-dark">Exception desk</p>
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="font-mono text-5xl font-semibold leading-none tabular-nums text-[color:var(--sn-gold-100)]">
-                <CountUp value={actionableOpen} />
+                {actionableUnread ? '—' : <CountUp value={actionableOpen} />}
               </span>
               <span className="text-sm text-[color:var(--sn-gold-300)]">
-                {actionableOpen === 1 ? 'item needs you' : 'items need you'}
+                {actionableUnread
+                  ? 'Couldn’t count every queue — refresh to try again'
+                  : actionableOpen === 1
+                    ? 'item needs you'
+                    : 'items need you'}
               </span>
             </div>
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs">
@@ -425,9 +441,13 @@ export default async function AdminOverview() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <ProgressRing pct={clearedPct} size={72} stroke={6} sweep={{ delayMs: 200 }}>
+            <ProgressRing pct={anyUnavailable ? 0 : clearedPct} size={72} stroke={6} sweep={{ delayMs: 200 }}>
               <span className="font-mono text-sm font-semibold tabular-nums text-[color:var(--sn-gold-100)]">
-                <CountUp value={Math.round(clearedPct)} suffix="%" delayMs={200} />
+                {anyUnavailable ? (
+                  '—'
+                ) : (
+                  <CountUp value={Math.round(clearedPct)} suffix="%" delayMs={200} />
+                )}
               </span>
             </ProgressRing>
             <span className="hidden text-[11px] leading-tight text-white/55 sm:block">
@@ -643,7 +663,11 @@ export default async function AdminOverview() {
           budget); the audit rows stay opaque (divide-y, no per-row blur). */}
       <section className="sn-tile mb-8">
         <h2 className="sn-sec mb-3">Recent admin activity</h2>
-        {activity.length === 0 ? (
+        {auditError ? (
+          <p role="alert" className="text-sm text-[color:var(--sn-ink-500)]">
+            Couldn&rsquo;t load this — refresh to try again.
+          </p>
+        ) : activity.length === 0 ? (
           <p className="text-sm text-[color:var(--sn-ink-500)]">No admin actions logged yet.</p>
         ) : (
           <ul className="divide-y divide-ink/5">

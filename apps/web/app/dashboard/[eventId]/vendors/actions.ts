@@ -5765,7 +5765,7 @@ export async function updateSelfAddedSupplier(
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .is('marketplace_vendor_id', null);
-    if (error) warnings.push('the name on your team');
+    if (error) warnings.push('the name on your suppliers list');
   }
 
   // 3 · Price — price-only, so nothing else on the row moves.

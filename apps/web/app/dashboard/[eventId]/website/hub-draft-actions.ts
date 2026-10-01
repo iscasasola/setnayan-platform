@@ -20,6 +20,9 @@
  *             2026-09-25). Nothing unpaid reaches a live column even when this
  *             action is called by hand.
  *   restore — throw the draft away. The live page is not touched.
+ *           📖 Post Event's drafted story keys (show/hide, order, each scene's
+ *           look — `lib/post-event-draft.ts`) are written into the story's
+ *           own row, `event_editorial.draft_json`, and nothing else of it.
  *   reset   — write the page we wrote for one stage (`stage`) INTO THE DRAFT, so
  *             it can be undone until Apply. Its plan names `invitation_widgets`
  *             and one `events` look column only — never guests, replies,
@@ -69,6 +72,7 @@ import {
   isHubResetScope,
   mergeHubDraft,
   planHubDraftApply,
+  presetSceneOf,
   undoHubDraft,
   type HubDraftActionResult,
   type HubDraftItem,
@@ -76,9 +80,10 @@ import {
   type HubDraftRefusal,
   type HubDraftState,
 } from '@/lib/hub-draft';
-import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
-import { HUB_MAIN_GROUND_KEY, isHubMainOwn, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -86,6 +91,11 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import type { CustomSectionContent } from '@/lib/custom-sections';
+import { applyPostEventItems, postEventArrangementOf } from '@/lib/post-event-draft';
+import { storyProExtrasOf } from '@/lib/story-pro-extras';
+import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraft } from '@/lib/fixed-scene-styles';
+import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
+import { postEventPreset } from '@/lib/post-event-presets';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -123,7 +133,13 @@ export async function hubDraftAction(
       } catch {
         return { ok: false, intent, error: 'That change could not be read.' };
       }
-      await writeHubDraft(supabase, eventId, mergeHubDraft(current, patch));
+      /* ⚡ The bar is read BESIDE the write (from the same merge, which is pure),
+         so asking for it adds no round trip after the save. */
+      const wantsBar = formData.get(HUB_DRAFT_BAR_FIELD) === '1';
+      const [, bar] = await Promise.all([
+        writeHubDraft(supabase, eventId, mergeHubDraft(current, patch)),
+        wantsBar ? hubDraftBarAfterSave(supabase, eventId, mergeHubDraft(current, patch)) : Promise.resolve(null),
+      ]);
       /* ⚡ ONE RENDER PER SAVE, AND NOT THE WHOLE MAKER (owner 2026-09-28:
          *"picking something takes a lot of time before the website reacts"*).
          A draft write changes nothing a guest can see — guests meet the draft
@@ -136,7 +152,14 @@ export async function hubDraftAction(
          bridge already drew (`element-preview.ts`). The client router cache is
          cleared by that refresh, so nothing stale is served on a revisit.
          Held by `a-maker-pick-never-reloads-what-it-drew.test.ts`. */
-      return done();
+      /* ⚡ A MAKER PICK ASKS FOR THE BAR (owner 2026-09-30, SPEED FIRST): a pick
+         the bridge drew is followed by NO render of the Maker
+         (`lib/maker-refresh.ts`), so the Apply · Undo · Restore count comes back
+         in this same answer — the SAME summary the render counts with, for both
+         answers to "owns Pro" (this action never asks — the view switch must
+         not reach a save; the toolbar picks). */
+      if (!bar) return done();
+      return { ...done(), bar };
     }
     if (intent === 'reset') {
       const scope = formData.get('stage');
@@ -239,7 +262,9 @@ export async function hubDraftAction(
        asked only when a Pro theme is about to be written. The picker never
        offers one where the fence is shut; a draft is a public POST, so it is
        asked again here. An unreadable profile is not a wedding. */
-    const draftedTheme = plan.apply.find((i) => i.kind === 'event' && i.column === 'invite_theme');
+    const draftedTheme = plan.apply.find(
+      (i): i is Extract<HubDraftItem, { kind: 'event' }> => i.kind === 'event' && i.column === 'invite_theme',
+    );
     const draftedThemeId = draftedTheme ? normalizeThemeId(draftedTheme.value) : null;
     const themeFenceOpen =
       draftedThemeId !== null && INVITE_THEMES[draftedThemeId].tier === 'pro'
@@ -304,6 +329,8 @@ export async function hubDraftAction(
           continue;
         }
       }
+      // A held Post Event look's free part is reported, and kept whole, by its
+      // refused twin — it is written below like any other applied item.
       // "Shown" must never manufacture a blank section — `setSectionMode`'s rule.
       if (item.kind === 'widget' && item.field === 'mode' && item.value === 'shown' && !hasContent(item.widgetType, contentMap)) {
         held.push({ item, reason: 'empty_section' });
@@ -509,11 +536,65 @@ export async function hubDraftAction(
       }
     }
 
-    // 3 · The draft keeps only what was held back (and a record of this apply).
+    // 3 · 📖 Post Event's scenes — the story's OWN row, its `draft_json` and
+    //     nothing else (`applyPostEventItems` touches three keys). Re-read right
+    //     before the write so a save the story workroom or the lazy compile made
+    //     a moment ago is built on, not reverted. Who may read the story is not
+    //     in `draft_json` and is never named here: Apply changes WHAT the story
+    //     shows, never WHO reads it.
+    const storyItems = toWrite.flatMap((i) => (i.kind === 'editorial' ? [i.item] : []));
+    if (storyItems.length > 0) {
+      const { data: storyRow, error: storyErr } = await supabase
+        .from('event_editorial')
+        .select('draft_json')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (storyErr || !storyRow) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      const liveStory = (storyRow as { draft_json?: unknown }).draft_json ?? {};
+      snapshot.editorial = { ...postEventArrangementOf(liveStory), ...storyProExtrasOf(liveStory) };
+      const { data: sRows, error: sErr } = await supabase
+        .from('event_editorial')
+        .update({ draft_json: applyPostEventItems(liveStory, storyItems) })
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (sErr || !Array.isArray(sRows) || sRows.length === 0) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+
+    // 4 · 🎨 The fixed parts' style picks — ONE key of `events.style_preferences`,
+    //     read-merge-written (every other key kept: the QR look, onboarding…)
+    //     through the one writer the QR look uses. Admin client because
+    //     `authenticated` holds no UPDATE grant on that column; the host check
+    //     at the top of this action has already run. A pick is free — no Pro.
+    const picks: FixedSceneStylesDraft = {};
+    for (const item of toWrite) if (item.kind === 'fixed-style') picks[item.scene] = item.value;
+    if (Object.keys(picks).length > 0) {
+      const res = await writeStylePreferenceKey(createAdminClient(), eventId, SCENE_STYLES_PREF_KEY, (current) =>
+        sceneStylesValueAfter(current, picks),
+      );
+      if (!res.ok) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      snapshot.sceneStyles = res.before ?? null;
+    }
+
+    // 5 · The draft keeps only what was held back (and a record of this apply).
     const remaining: HubDraftState = { events: {}, widgets: {} };
     for (const { item } of held) {
       if (item.kind === 'event') remaining.events[item.column] = item.value;
-      else if (item.field === 'canvas') {
+      else if (item.kind === 'editorial') {
+        // A held look keeps the WHOLE drafted map — its free part is now live.
+        if (item.item.field === 'sceneLooks') remaining.editorial = { ...(remaining.editorial ?? {}), sceneLooks: item.item.value };
+        // 💎 A story extra held for Pro stays drafted whole, for the Apply after Pro.
+        else if (item.item.field === 'chapterOverrides' || item.item.field === 'customColumns' || item.item.field === 'reviews') {
+          remaining.editorial = { ...(remaining.editorial ?? {}), [item.item.field]: item.item.value };
+        }
+      } else if (item.kind === 'fixed-style') {
+        // A style pick is free and never held; nothing to keep.
+      } else if (item.field === 'canvas') {
         (remaining.widgets[item.widgetType] ??= {}).canvas = item.value as HubSectionCanvas | null;
       } else if (item.field === 'main') {
         (remaining.widgets[item.widgetType] ??= {}).main = item.value as HubMainGround | null;
@@ -533,7 +614,15 @@ export async function hubDraftAction(
     revalidateGuestSite(typeof ownRow.slug === 'string' ? ownRow.slug : null);
     revalidatePath(`/dashboard/${eventId}/launch`);
 
-    const label = (t: WidgetType) => WIDGET_CATALOG_BY_TYPE[t]?.label ?? 'A section';
+    /* 🎞 A held Post Event preset scene is named by its preset, where it lives —
+       "Post Event · your scene “The Toast”" — so the Apply sheet can say what
+       Pro unlocks, by name and place. */
+    const label = (t: WidgetType) => {
+      const row = live.widgets.find((r) => r.widget_type === t);
+      const drafted = current.widgets[t]?.canvas;
+      const preset = postEventPreset(presetSceneOf(drafted !== undefined ? (drafted ?? {}) : sanitizeHubCanvas(row?.config_json)));
+      return preset ? `Post Event · your scene “${preset.name}”` : (WIDGET_CATALOG_BY_TYPE[t]?.label ?? 'A section');
+    };
     return done(
       toWrite.length,
       [

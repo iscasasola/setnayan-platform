@@ -13,11 +13,16 @@ import type { EventWords } from './event-words';
 import { formatBlockTimeRange } from '@/lib/schedule';
 import { SITE_MENU_ANCHORS } from './site-menu';
 import { HUB_LINK_DEFAULT_WORDS } from '@/lib/element-style';
+import { HUB_CARD_EYEBROWS } from '@/lib/hub-part-words';
 
 export type InvitationCard = {
   eyebrow: string;
   line: string | null;
   timeLabel: string | null;
+  /** 🗓 The first moment's start as stored and its own title — what Format ▾
+   *  writes the time from (`formatHubTime`); `timeLabel` is today's words. */
+  timeAt: string | null;
+  timeTitle: string | null;
   hubHref: string;
   hubLabel: string;
 };
@@ -42,26 +47,45 @@ export type InvitationCard = {
  * the masthead has always rendered.
  */
 export function mastheadEyebrow(words: Pick<EventWords, 'solemn'>): string | null {
-  return words.solemn ? null : 'You are invited';
+  return words.solemn ? null : HUB_CARD_EYEBROWS.one;
 }
 
 export function invitationCard(input: {
   words: Pick<EventWords, 'solemn' | 'twoPeople' | 'eventWord'>;
   /** The programme's first moment, as stored (the event's own wall-clock). */
   firstStartAt: string | null | undefined;
+  /** That moment's own title ("Guests arrive") — the time never stands alone. */
+  firstLabel?: string | null;
 }): InvitationCard | null {
   const { words } = input;
   if (words.solemn) return null;
   return {
-    eyebrow: words.twoPeople ? 'Together with their families' : 'You are invited',
+    eyebrow: words.twoPeople ? HUB_CARD_EYEBROWS.twoPeople : HUB_CARD_EYEBROWS.one,
     line: words.twoPeople
       ? `invite you to celebrate their ${words.eventWord}`
       : 'invites you to celebrate',
     // The programme's own formatter, so the card, the pass and the run of show
     // read one clock (the pass once added eight hours by converting twice).
-    timeLabel: input.firstStartAt ? formatBlockTimeRange(input.firstStartAt, null) || null : null,
+    // 🏷 NEVER AN UNLABELED TIME (guest text audit 2026-09-30): a bare "2:30 PM"
+    // under the date reads as the ceremony. It is the programme's FIRST moment,
+    // so it wears that moment's own title — "Guests arrive 2:30 PM" — from the
+    // data, never a word we invent. No title → "Starts 2:30 PM".
+    timeLabel: firstMomentLine(input.firstStartAt, input.firstLabel),
+    timeAt: input.firstStartAt ?? null,
+    timeTitle: input.firstLabel ?? null,
     hubHref: `#${SITE_MENU_ANCHORS.details}`,
     // The couple may put their own words in its place (the `link` part).
     hubLabel: HUB_LINK_DEFAULT_WORDS,
   };
+}
+
+/** "Guests arrive 2:30 PM" — the first moment's title and its time; null with no time. */
+export function firstMomentLine(
+  startAt: string | null | undefined,
+  label: string | null | undefined,
+): string | null {
+  const time = startAt ? formatBlockTimeRange(startAt, null) : '';
+  if (!time) return null;
+  const title = (label ?? '').trim();
+  return `${title || 'Starts'} ${time}`;
 }

@@ -10,7 +10,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
-import { makerProMark } from '@/lib/paid-mark';
+import { makerProMark, makerProUsable } from '@/lib/paid-mark';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
@@ -28,7 +28,7 @@ import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
 /* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
-import { HeroFrameSync, MainBackgroundPanel } from '../../launch/_components/details-lazy';
+import { ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
@@ -42,7 +42,6 @@ import {
   invitationWordsDraft,
   INVITATION_WORDS_HINT,
 } from '@/lib/invitation-words-draft';
-import { ColorsPanel, ProLockPanel } from './_components/pro-panels';
 import {
   HeroPhotoPanel,
   GalleryPanel,
@@ -55,8 +54,10 @@ import {
   MakerHeroPanel,
   MakerLogoPanel,
   MakerRevealPanel,
+  readMakerLogoFonts,
   readMakerRevealStages,
 } from '../../launch/_components/maker-made-once';
+import { hubFontsInUse } from '@/lib/hub-font-shelves';
 import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
@@ -84,7 +85,8 @@ import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
-import { normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { foldEventRoles, normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
 import { eventNoun } from '@/lib/event-noun';
@@ -112,6 +114,7 @@ import { updateSpecialMessage } from '../special-message/actions';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { sceneUploadRefs, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { hubDraftAction } from '../hub-draft-actions';
+import { fixedSceneStylesAfter, fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
 import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
@@ -119,6 +122,7 @@ import { buildMakerNavigatorData } from './_components/maker-navigator-data';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { resolveHubPhase } from '@/lib/event-hub-control';
 import { readPostEventForMaker } from '@/lib/post-event-compile.server';
+import { postEventElementScope } from '@/lib/post-event-styles';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { ourStoryRenders } from '@/app/[slug]/_components/our-story';
@@ -182,7 +186,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -433,6 +437,21 @@ export default async function WebsiteEditorPage({
       : [],
   );
 
+  /* 🎨 THE FIVE FIXED PARTS' STYLE PICKS — live (`events.style_preferences
+     .scene_styles`, read through `events_host`, the couple-scoped read) with the
+     draft laid on, so the Style row shows what the canvas draws. A failed read
+     shows the defaults, which is what the page draws without a pick. */
+  const { data: prefsRow, error: prefsErr } = await supabase
+    .from('events_host')
+    .select('style_preferences')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (prefsErr) logQueryError('WebsiteEditorPage.fixedStyles', prefsErr, { eventId }, 'graceful_degrade');
+  const fixedStyles = fixedSceneStylesAfter(
+    fixedSceneStylesFromPreferences((prefsRow as { style_preferences?: unknown } | null)?.style_preferences),
+    hubDraft?.fixedStyles,
+  );
+
   /* 🎞 THE MAIN BACKGROUND (Maker Phase 10) — BY DEFAULT THE HERO (owner,
      2026-09-25 item 6: "whatever they make on the hero scene will be their
      cover and the main background"), with the adaptive theme riding on it; an
@@ -530,6 +549,23 @@ export default async function WebsiteEditorPage({
   const dressCodeConfig = normalizeDressCodeConfig(
     (drafted as { dress_code_config?: unknown }).dress_code_config,
   );
+  /* 👗 THE ROLES ON THIS GUEST LIST, for the Dress code scene's "What each role
+     wears" (owner 2026-09-30: a host sets each role's outfit right here). The
+     panel was handed none, so it said the guest list had no ninongs to a couple
+     who had them. An unread list offers no rows — and the saved outfits still
+     ride along unchanged (`CarriedAttire`), so a Save cannot wipe them. */
+  const { data: roleRows, error: roleRowsError } = await supabase
+    .from('guests')
+    .select('role')
+    .eq('event_id', eventId)
+    .is('deleted_at', null);
+  if (roleRowsError) {
+    logQueryError('WebsiteEditorPage.dressCodeRoles', roleRowsError, { eventId }, 'graceful_degrade');
+  }
+  const dressCodeRoles = foldEventRoles(
+    (roleRows ?? []) as { role: string | null }[],
+    await loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'),
+  );
   // Dress code starts from the Mood Board (owner 2026-07-25): when the couple
   // hasn't set a palette yet, seed the panel's swatches from role_palette so
   // "edit" begins from their own colours, not a blank. Saving persists the
@@ -617,6 +653,7 @@ export default async function WebsiteEditorPage({
               action={updateLandingPageVisibility}
               eventId={eventId}
               visibility={visibility}
+              ticketUrl={(event as { ticket_url?: string | null }).ticket_url ?? null}
             />
           ),
         },
@@ -873,6 +910,7 @@ export default async function WebsiteEditorPage({
               action={updateDressCode.bind(null, eventId)}
               eventId={eventId}
               config={dressCodeConfig}
+              eventRoles={dressCodeRoles}
               eventNoun={eventNoun((event.event_type as string | null) ?? 'wedding')}
             />
           ),
@@ -923,10 +961,12 @@ export default async function WebsiteEditorPage({
         },
         {
           key: 'what-to-bring',
-          label: 'What to bring',
-          blurb: 'Gifts, registry, or a kind no-gift note.',
+          /* 🏠 "Reminders" to guests, on the Invitation's Welcome page (owner
+             2026-09-30 — `lib/invitation-welcome.ts`); the same store as ever. */
+          label: 'Reminders',
+          blurb: 'Arrive by, what to bring, what to wear on your feet.',
           href: `${w}/what-to-bring`,
-          anchor: 'details',
+          anchor: 'w:what_to_bring',
           status: drafted.what_to_bring ? done('Written') : todo('Not set'),
           panel: (
             <TextPanel
@@ -934,9 +974,9 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="what-to-bring"
               name="note"
-              label="What to bring"
+              label="Reminders"
               maxLength={600}
-              placeholder="Gifts, registry, or a kind no-gift note…"
+              placeholder="Arrive by 2:30 · Bring your ticket · Wear flat shoes for the garden…"
               defaultValue={(drafted.what_to_bring as string | null) ?? ''}
               /* ✍ Typed here, seen on the scene at once (`canvas-words.tsx`). */
               previewKey="w:what_to_bring"
@@ -1023,16 +1063,12 @@ export default async function WebsiteEditorPage({
           blurb: 'The story page guests revisit after the day.',
           href: `${w}/editorial`,
           pro: true,
-          locked: !ownsPro,
+          /* 💎 Like every row whose Pro is asked at Apply: open on the web, hidden
+             only in the app-store shell. The story's ◆ touches are kept in the
+             Event Hub draft (`saveEditorial`) and named on the Apply sheet. */
+          locked: draftedRowLockedIf(false),
           // Free-vs-Pro split, honest in BOTH states (owner 2026-07-25).
-          panel: (
-            <EditorialPanel
-              eventId={eventId}
-              ownsPro={ownsPro}
-              unlockHref={proUnlockHref}
-              priceLabel={proPriceLabel}
-            />
-          ),
+          panel: <EditorialPanel ownsPro={ownsPro} />,
         },
       ],
     },
@@ -1116,15 +1152,25 @@ export default async function WebsiteEditorPage({
     the moment it is written (`lib/post-event-compile.server.ts`). This page is
     couple-only (the membership gate above), so this open may write.
   */
-  const postEvent =
-    resolveHubPhase({
-      measured: true,
-      eventDate: (event.event_date as string | null) ?? null,
-      eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
-      timezone: (event as { timezone?: string | null }).timezone ?? null,
-    }) === 'after'
-      ? await readPostEventForMaker({ eventId, eventEnded: true, isCouple: true })
-      : null;
+  /*
+    🎞 AND BEFORE THE DAY TOO (owner 2026-09-25, "POST EVENT IS MANY SMALL
+    SCENES"): Post Event is always its separate scenes. Before the day the SAME
+    scenes are listed, each saying what will fill it — from a light read, and
+    nothing is written (`eventEnded: false` never compiles). The couple's drafted
+    arrangement and looks ride in, so the navigator lists what the canvas shows.
+  */
+  const postEvent = await readPostEventForMaker({
+    eventId,
+    eventEnded:
+      resolveHubPhase({
+        measured: true,
+        eventDate: (event.event_date as string | null) ?? null,
+        eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
+        timezone: (event as { timezone?: string | null }).timezone ?? null,
+      }) === 'after',
+    isCouple: true,
+    draftEditorial: hubDraft?.editorial ?? null,
+  });
 
   const navigator = buildMakerNavigatorData({
     postEvent,
@@ -1136,6 +1182,9 @@ export default async function WebsiteEditorPage({
       solemn: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn,
       hasHeroMedia: Boolean(heroRef || videoRef),
       hasEntourage: entourageCount === null ? true : entourageCount > 0,
+      // 🎨 The day's own parts (find your seat, photos, announcements, live hub):
+      // the canvas draws their stand-ins, so the navigator lists them.
+      dayParts: true,
       storyRenders: ourStoryRenders(event.love_story),
       countdownPast: countdownMs !== null && countdownMs <= Date.now(),
     },
@@ -1218,6 +1267,24 @@ export default async function WebsiteEditorPage({
     current: t.id === currentTheme,
   }));
 
+  /* Every scene's canvas as the canvas draws it (the draft over live) — what
+     per-element editing edits, and what the font dropdowns' "In use" reads. */
+  const elementCanvases = {
+    ...Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
+    /* 🎞 Post Event's scenes, as the part sheet sees them: each scene's part
+       looks (`sceneLooks[<scene>].elements`) under its own scope, drafted
+       over live — so a part edited there is held on the canvas like any
+       section's (`element-preview.ts`). */
+    ...(postEvent.ok
+      ? Object.fromEntries(
+          Object.entries(postEvent.arrangement.sceneLooks).map(([key, look]) => [
+            postEventElementScope(key),
+            look.elements ? { elements: look.elements } : {},
+          ]),
+        )
+      : {}),
+  };
+
   return (
     <MakerWork
       eventId={eventId}
@@ -1281,12 +1348,22 @@ export default async function WebsiteEditorPage({
         startingHint: INVITATION_WORDS_HINT,
       }}
       elementEditing={{
-        canvases: Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
+        canvases: elementCanvases,
         palette: (() => {
           const pal = INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES]?.palette ?? INVITE_THEMES.house.palette;
           return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };
         })(),
         draftAction: hubDraftAction,
+        /* 🔤 "In use" on every font dropdown (owner 2026-09-29: "actively
+           used") — from the SAME draft over live the canvas draws: the theme's
+           faces, the couple's typeface, every part and letter run above, and
+           the logo's text layers. */
+        fontsInUse: hubFontsInUse({
+          themeFaces: (INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES] ?? INVITE_THEMES.house).fonts,
+          siteFontKey: (drafted as { site_font_key?: string | null }).site_font_key ?? null,
+          canvases: elementCanvases,
+          logoFonts: await readMakerLogoFonts(eventId),
+        }),
       }}
       scenes={scenes}
       navigator={navigator}
@@ -1305,6 +1382,7 @@ export default async function WebsiteEditorPage({
         openBrowse,
         hideLocked: storeShell,
         twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
+        eventType: (event.event_type as string | null) ?? null,
         /* The hero is the invitation card unless there is a hero photo/video or
            the page is solemn — the same two facts the navigator's hero tile
            reads (`hasHeroMedia`, `solemn` above), and the ones the guest page
@@ -1312,6 +1390,7 @@ export default async function WebsiteEditorPage({
         heroCard:
           !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
         heroPhoto: Boolean(heroRef || videoRef),
+        fixedStyles,
       }}
       rows={rows}
       themes={themes}
@@ -1348,6 +1427,22 @@ export default async function WebsiteEditorPage({
           return d !== null && d >= 0 ? d : null;
         })(),
       }}
+      /* 🎞 Post Event's twelve presets — every couple may try one in the draft
+         (Pro is asked for at Apply, E3); six of their own, shared across stages
+         (E5). #6091's Maker rule, `makerProUsable` (owns || !storeShell): in the
+         store shell a couple WITHOUT Pro is shown no tile, diamond or note — a
+         Pro hint there is a purchase hint; a couple who owns Pro keeps them. */
+      postEventPresets={
+        !makerProUsable({ owns: ownsPro, storeShell })
+          ? null
+          : {
+              action: addCustomSection,
+              returnTo: `/dashboard/${eventId}/launch`,
+              used: allWidgets.filter((w) => isCustomSectionType(w.widget_type)).length,
+              ownsPro,
+              storeShell,
+            }
+      }
       addScene={
         storeShell
           ? null

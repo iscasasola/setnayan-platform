@@ -729,7 +729,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
      */
     id: 'TYPE-LIVESTUDIO',
     type: 'livestudio',
-    name: 'Live Studio',
+    name: 'Live Watch',
     blurb: 'the control room — cameras, cuts, the wall, the broadcast',
     countKey: 'livestudio',
     icon: 'camera',
@@ -1082,7 +1082,7 @@ export const UGAT_TYPE_VOCAB: Record<
     colorBg: 'var(--ug-e-dayof-bg)',
   },
   livestudio: {
-    label: 'Live Studio',
+    label: 'Live Watch',
     icon: 'camera',
     color: 'var(--ug-e-studio)',
     colorBg: 'var(--ug-e-studio-bg)',

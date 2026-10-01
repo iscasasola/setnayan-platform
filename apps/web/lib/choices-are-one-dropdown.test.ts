@@ -49,12 +49,6 @@ const SURFACES: Surface[] = [
     to: 'function TemplateCard(',
   },
   {
-    name: 'Guest list phone filter (Side, RSVP)',
-    file: 'app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx',
-    from: 'Filter bottom sheet',
-    to: 'Sort bottom sheet',
-  },
-  {
     name: 'Your Team — Sort by',
     file: 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx',
     from: '<div className="sortbar">',

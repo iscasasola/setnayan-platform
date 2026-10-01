@@ -100,8 +100,12 @@ test('the Reply door no longer offers a sign-in choice — its one button is Sen
 test('the promise it does make is one the provider flow keeps', () => {
   // Both providers return through the connect route, which binds the seat; the
   // RSVP page still reads the account's own details as defaults.
-  assert.match(SAVE, /name="next" value=\{connect\}/, 'the Save button no longer returns through connect');
-  assert.match(SAVE, /const connect = `\/join\/\$\{eventId\}\/connect`;/, 'the Save button no longer returns to THIS event');
+  // The one Save posts to `startAccountSaveAction`, which hands the provider
+  // THIS event's connect route (📵 never an emailed link — owner 2026-09-29).
+  assert.match(SAVE, /action=\{startAccountSaveAction\.bind\(null, eventId, slug\)\}/, 'the Save button no longer posts to the one save');
+  const actions = read('[slug]/actions.ts');
+  const save = actions.slice(actions.indexOf('export async function startAccountSaveAction'));
+  assert.match(save.slice(0, save.indexOf('\n}\n')), /next\.set\('next', eventConnectPath\(eventId\)\)/, 'the Save no longer returns through THIS event’s connect route');
   assert.match(
     REPLY,
     /\.select\('meal_preference, dietary_restrictions, email, phone, display_name'\)/,
@@ -139,24 +143,21 @@ test('the photos sentence does not outrun the feature', () => {
 
 // ═══ 4 · no face tagging on the invite — and none taken from the Event Hub ══
 
-test('the Reply door asks this card NOT to offer the selfie', () => {
+test('the Reply door asks the tagging QUESTION only — no reply card draws a camera', () => {
   const mount = between(REPLY, '<RsvpWidget', '/>', 'the RsvpWidget mount on the Reply door');
-  assert.match(
-    mount,
-    /offerSelfie=\{false\}/,
-    'the invite arrival is asking for a face again — owner: face tagging happens on the day, not on the invite',
-  );
+  // 🏷 Owner 2026-09-30 ("go"): the QUESTION is asked there — never the camera.
+  // Rendered, and the crafted-post strip executed, in the-selfie-waits-for-a-yes.
+  assert.match(mount, /askTagging=\{faceTagging\.askable\}/, 'the invitation no longer asks the tagging question, or ignores the gate');
+  assert.doesNotMatch(mount, /offerSelfie/, 'a selfie prop is back on the Reply door');
 });
 
-test('the Event Hub card keeps its selfie — the prop defaults ON, and no hub mount turns it off', () => {
+test('the Event Hub card asks the question too, and takes no selfie (owner 2026-09-30)', () => {
   const body = readWeb('app/[slug]/_components/site-body.tsx');
   assert.ok(body.split('<RsvpWidget').length - 1 > 0, 'the body renders no reply card at all — read this file');
-  assert.doesNotMatch(
-    body,
-    /offerSelfie=\{false\}/,
-    'a removal scoped to the invite arrival has leaked onto the Event Hub card',
-  );
-  assert.match(WIDGET, /offerSelfie = true,/, 'the prop no longer defaults on — every other surface would lose the selfie silently');
+  const mount = between(body, '<RsvpWidget', '/>', 'the RsvpWidget mount on the Event Hub');
+  assert.match(mount, /askTagging=\{faceTaggingAskable\}/, 'the Event Hub card no longer asks the tagging question');
+  assert.doesNotMatch(mount, /offerSelfie/, 'the Event Hub card offers a selfie again — it enrolled faces weeks before the day');
+  assert.doesNotMatch(WIDGET, /<SelfieCapture/, 'the reply card draws a camera again');
 });
 
 test('the day-of catch the removal relies on is still mounted', () => {
@@ -290,7 +291,8 @@ test('what survives a decline: the contact boxes and the note stay', async () =>
   // still needs a way to reach them, the email is also their sign-in, and a
   // declining guest most often wants to leave a message.
   const locked = await render({ replyLocked: true }, { rsvp_status: 'declined' });
-  for (const field of ['contact_email', 'contact_mobile', 'contact_display_name', 'guest_note']) {
+  // 📵 There is no email box to keep (owner 2026-09-29, "NO EMAIL TO GUESTS").
+  for (const field of ['contact_mobile', 'contact_display_name', 'guest_note']) {
     assert.match(locked, new RegExp(`name="${field}"`), `${field} was taken away from a declining guest`);
   }
 });
@@ -303,25 +305,18 @@ test('a guest who IS coming still gets the meal boxes when the list is final', a
   assert.match(locked, /name="dietary_restrictions"/, 'a coming guest lost the allergy box once the list was frozen');
 });
 
-test('the door renders no selfie, the site card still does', async () => {
+test('no reply card renders a selfie — the door or the site card', async () => {
   // 🪤 ANCHORED ON THE CONTROLS, NOT ON THE WORD. `.selfie-reveal` is named in
   // the card's one CSS rule — which must STAY, because the same rule drives the
-  // meal reveal above. A `doesNotMatch(/selfie/)` would therefore be red for a
-  // reason that has nothing to do with whether a face is being asked for.
-  const onDoor = await render({ offerSelfie: false });
-  for (const control of ['selfie_ref', 'biometric_consent', 'selfie_quality']) {
-    assert.doesNotMatch(
-      onDoor,
-      new RegExp(`name="${control}"`),
-      `the invite arrival still posts ${control} — it is asking for a face again`,
-    );
+  // meal reveal above.
+  for (const [label, html] of [
+    ['door', await render({ askTagging: true })],
+    ['site card', await render({ askTagging: true }, { rsvp_status: 'attending' })],
+  ] as const) {
+    for (const control of ['selfie_ref', 'biometric_consent', 'selfie_quality']) {
+      assert.doesNotMatch(html, new RegExp(`name="${control}"`), `the ${label} still posts ${control} — it is asking for a face again`);
+    }
   }
-  const onSite = await render({}, { rsvp_status: 'attending' });
-  assert.match(
-    onSite,
-    /name="biometric_consent"/,
-    'the Event Hub card lost its selfie — the removal was meant to be scoped to the invite arrival',
-  );
 });
 
 // ═══ 5 · the last door names the face it is about to open ══════════════════
@@ -363,24 +358,27 @@ test('a FAR-FUTURE event is not promised an invitation', () => {
     'a couple 200 days out is still told their invitation is ready, over a page that opens the save the date',
   );
   assert.doesNotMatch(farWords.blurb, /your QR/, 'the QR is promised in a phase where qr_card is gated out of the page');
-  assert.doesNotMatch(farWords.cta, /Open your invitation/, 'the button still says invitation');
+  assert.doesNotMatch(farWords.cta, /Open (your|the) invitation/, 'the button still says invitation');
   assert.match(farWords.cta, /save the date/i, 'the button does not name what it opens');
 
-  // …and the near case is untouched: the shipped sentence, byte for byte.
+  // …and the near case: the shipped sentence, minus "your seat" (owner
+  // 2026-09-30: "seat plan is only on the day" — seats open on the day itself).
   const near = getLifecyclePhase(iso(NOW + 30 * day), MNL, null, NOW);
   assert.equal(near, 'rsvp', 'fixture drifted: 30 days out is no longer the invitation phase');
   const nearWords = arrivalDestinationWords(arrivalDestination({ phasesEnabled: true, lifecyclePhase: near }));
   assert.equal(
     nearWords.blurb,
-    'Your invitation is ready — your seat, your QR and everything shared with guests are waiting on it.',
-    'the sentence that was never wrong has been rewritten',
+    'Your invitation is ready — your QR and everything shared with guests are waiting on it.',
+    'the invitation-phase sentence must not promise a seat before the day',
   );
-  assert.equal(nearWords.cta, 'Open your invitation');
+  // The Fable landing page's own words (frames 1 · 3): "Open the invitation".
+  assert.equal(nearWords.cta, 'Open the invitation');
 });
 
 test('the door ASKS the resolver — it does not restate the rule, and does not repoint the link', () => {
   assert.match(ENTER, /arrivalDestinationFor\(\{/, 'the Enter door no longer resolves the face it is opening');
-  assert.match(ENTER, /\{destinationWords\.blurb\}/, 'the blurb is hard-coded again');
+  // 2026-09-30: the Fable landing page carries no blurb under the button (frames 1 · 3 · 4 · 6).
+  assert.doesNotMatch(ENTER, /\{destinationWords\.blurb\}/, 'a blurb came back under the Fable button');
   assert.match(ENTER, /\{destinationWords\.cta\}/, 'the button label is hard-coded again');
   assert.doesNotMatch(
     flat(ENTER),

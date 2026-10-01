@@ -109,12 +109,14 @@ test('E · the in-place boxes are the reply’s four, posted through the reply�
   assert.match(src, /<PlusOneSeatPanels/, 'the in-place form is not the reply’s own four boxes');
   assert.match(src, /name="seat_names_only" value="1"/, 'the in-place save is not the seat-only branch');
   assert.match(src, /await submitRsvp\(eventId, guestId, fd\)/, 'the in-place save is not the guest’s own save');
+  // The REAL reason is shown — never a stock "check your connection" (audit 2026-09-30).
+  assert.match(src, /catch \(err\) \{[\s\S]{0,200}setFailed\(seatNameFailure\(err\)\)/, 'the reason a name did not save never reaches the guest');
   assert.match(src, /idPrefix=\{`me-\$\{seatId\}-`\}/, 'the boxes would share ids with the reply on the same page');
   for (const extra of ['song_title', 'guest_note', 'rsvp_status', 'selfie']) {
     assert.ok(!src.includes(extra), `the in-place naming asks for ${extra}`);
   }
   // A failure is SAID, never a closed form that looks saved.
-  assert.match(src, /catch \{\s*setFailed\(true\);/);
+
   assert.match(src, /role="alert"/);
 });
 
@@ -154,7 +156,8 @@ test('E · the seat-only branch: same key check, the ONE seat rule, returns befo
   assert.match(seg, /return;/);
   // The reply path uses the SAME rule — one mechanism, never two.
   assert.match(submit, /await nameTheSeats\(admin, eventId, guestId, formData, ask\);/);
-  assert.equal((actions.match(/const ops = planSeatNames\(/g) ?? []).length, 1, 'a second seat writer appeared');
+  // One rule, wrapped since 2026-09-29 by the linked-name lock (a-linked-plus-one-keeps-their-name.test.ts).
+  assert.equal((actions.match(/planSeatNames\(seatNames,/g) ?? []).length, 1, 'a second seat writer appeared');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -215,6 +218,8 @@ const DOOR = () => read(...SLUG, 'welcome', '_components', 'plus-one-door.tsx');
 
 async function renderDoor(row: PlusOneRow, extra: Record<string, unknown> = {}) {
   const { renderToStaticMarkup } = await import('react-dom/server');
+  // A provider is on, as in production — without one the Save is the guest's own link.
+  process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED = 'true';
   const { PlusOneDoor } = await import('../welcome/_components/plus-one-door');
   return renderToStaticMarkup(
     React.createElement(PlusOneDoor as never, {
@@ -227,7 +232,7 @@ async function renderDoor(row: PlusOneRow, extra: Record<string, unknown> = {}) 
       filled: plusOneFilled(row, ASK_ALL),
       inside: plusOneGate(row, ASK_ALL, false) === 'inside',
       account: { kind: 'offer' },
-      hasEmail: true,
+      personalLink: 'https://www.setnayan.com/ic?invite=0123456789abcdef0123456789abcdef',
       userAgent: null,
       termsCarried: false,
       passSvg: null,
@@ -252,7 +257,7 @@ test('F · Ben’s door: his name and meal shown "from Maria", ONLY dietary aske
   assert.ok(!/name="meal_preference"/.test(missing), 'the meal Maria gave is asked again');
   assert.match(html, /name="terms_agreed"/);
   assert.equal((html.match(/Save to my account/g) ?? []).length, 1, 'not ONE save button');
-  assert.match(html, /just show my pass/);
+  assert.match(html, /just show my ticket/);
 });
 
 test('F · an unnamed seat’s door asks the name (required) — and "Not now" still skips it', async () => {
@@ -298,7 +303,8 @@ test('F · the save writes only their own four, then takes the device’s method
   assert.match(save, /session\.guest_id/, 'the guest is not the one the pass names');
   assert.match(save, /saveMethodFor\(/, 'the method is not the device’s');
   assert.match(save, /signInWithApple\(next\)/);
-  assert.match(save, /claimAccountAction\(/);
+  // 📵 No emailed link any more (owner 2026-09-29, "NO EMAIL TO GUESTS").
+  assert.doesNotMatch(save, /claimAccountAction|sendEmail|sendEventAccountMagicLink/, 'the plus-one door mails a sign-in link again');
   assert.match(save, /PLUS_ONE_WELCOMED_COOKIE/);
   // "Not now" never demands a name.
   assert.match(save, /if \(then !== 'pass' && unnamed && \(!first_name \|\| !last_name\)\)/);
@@ -313,7 +319,7 @@ test('F · SaveToAccount’s through-mode is ONE form: the fields, the tick, the
       state: { kind: 'offer' },
       eventId: 'e-1',
       slug: 'ic',
-      hasEmail: false,
+      personalLink: 'https://www.setnayan.com/ic?invite=0123456789abcdef0123456789abcdef',
       userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1',
       termsCarried: false,
       through: {
@@ -329,6 +335,17 @@ test('F · SaveToAccount’s through-mode is ONE form: the fields, the tick, the
   assert.match(html, /data-save-method="apple"/, 'an iPhone is not given Apple — the tick rides the same form');
   assert.match(html, /just show my pass/);
   delete process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED;
+});
+
+test('F · 📵 inside Messenger the door saves the answers and hands over "Open in your browser" — never an email', async () => {
+  const html = await renderDoor(BEN, {
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/430.0]',
+  });
+  assert.equal((html.match(/Save to my account/g) ?? []).length, 1, 'the sheet eyebrow aside, no provider button may show');
+  assert.match(html, /data-save-open-in-browser=""/, 'Messenger is not handed "Open in your browser"');
+  assert.match(html, />Open in your browser</);
+  assert.match(html, /<button[^>]*value="done"[^>]*>Save<\/button>|>Save<\/button>/, 'the answers have no plain Save');
+  assert.doesNotMatch(html, /type="email"|Check your email/);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -408,7 +425,12 @@ test('G · Remove is the host’s own remove-a-guest, behind its own two taps �
 test('G · both roster rows draw the summary and the warning, from the FULL roster', () => {
   const list = read(...G, '_components', 'guest-list-multiselect.tsx');
   for (const row of ['function DesktopRow(', 'function MobileListRow(']) {
-    const body = bodyOf(list, row);
+    // ⤷ 2026-09-30, the full-width list: the desktop row draws its +N column
+    // through RosterCell, so its baseline is the row plus the cells it draws.
+    const body =
+      row === 'function DesktopRow(' && /<RosterCell\b/.test(bodyOf(list, row))
+        ? bodyOf(list, row) + bodyOf(list, 'function RosterCell(')
+        : bodyOf(list, row);
     assert.match(body, /<PlusOneSeatsSummary count=\{plusOneSeats\(guest\)\} seats=\{extraSeats\} \/>/, `${row} lacks "+N (k named)"`);
     assert.match(body, /<PlusOneOverNote/, `${row} lacks the "named · allowed" warning`);
     assert.match(body, /const shownName = seatLabel \?\? /, `${row} does not label an unnamed seat "+N · TBA"`);

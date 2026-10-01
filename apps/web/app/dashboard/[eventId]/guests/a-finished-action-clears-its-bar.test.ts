@@ -44,12 +44,15 @@ const FLAGS = redirectFlagsIn(pairActions);
 
 test('the pair action still redirects with success flags at all', () => {
   console.log(`pair-actions.ts success flags: ${FLAGS.join(', ') || '(none)'}`);
+  /* ⚖ 2026-09-30: the Guest list's "Pair these 2" (and its `paired` flag) left
+     with "walks with" — it lives only in the Maker's Wedding March now
+     (DECISION_LOG "WALKING TOGETHER IS NOT BEING A COUPLE"). `unpaired` stays:
+     `unpairGuestAction` keeps its redirect for a form-bound caller. */
   assert.ok(
-    FLAGS.length >= 2,
-    `expected at least 2 success flags, found ${FLAGS.length} — the regex has ` +
+    FLAGS.length >= 1,
+    `expected at least 1 success flag, found ${FLAGS.length} — the regex has ` +
       'stopped matching, or the action stopped signalling success',
   );
-  assert.ok(FLAGS.includes('paired'), 'the `paired` flag is gone');
   assert.ok(FLAGS.includes('unpaired'), 'the `unpaired` flag is gone');
 });
 

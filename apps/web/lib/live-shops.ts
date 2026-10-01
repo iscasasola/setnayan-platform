@@ -30,10 +30,20 @@
 /**
  * Both halves, always together. Either one alone has meant a hidden shop on a
  * public shelf before.
+ *
+ * 🧪 AND NEVER A DEMO SHOP (2026-09-30). Owner, DECISION_LOG 2026-09-29 "LANE 2
+ * §2C" (1): the two trial shops (SetnaProd, Saysay) become `is_demo = true` so
+ * they "stop reading as real verified suppliers". Both are fully verified, so
+ * without this third half the flag would have changed nothing on this shelf —
+ * the front door and the /explore count would still have shown them. The
+ * column is `NOT NULL DEFAULT false`, so an equality is exact (`.match()` only
+ * does equalities). The accepted cost, in the owner's words: the shelf shows
+ * nothing until a real supplier joins — the shelf then invites one.
  */
 export const LIVE_SHOP_GATE = {
   public_visibility: 'verified',
   verification_state: 'verified',
+  is_demo: false,
 } as const;
 
 /**
@@ -49,7 +59,7 @@ export async function countLiveShops(admin: {
     select: (
       c: string,
       o: { count: 'exact'; head: true },
-    ) => { match: (m: Record<string, string>) => PromiseLike<{ count: number | null; error: unknown }> };
+    ) => { match: (m: Record<string, string | boolean>) => PromiseLike<{ count: number | null; error: unknown }> };
   };
 }): Promise<number | null> {
   try {
